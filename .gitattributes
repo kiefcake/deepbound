@@ -1,0 +1,77 @@
+# Normalise line endings to LF in the repo; Git checks them out as CRLF on Windows
+# via core.autocrlf. Without this, every commit warns about LF/CRLF conversion.
+* text=auto eol=lf
+
+# ---------------------------------------------------------------------------
+# Unity's YAML-based assets. Keep them as text so they diff and merge sensibly
+# rather than being treated as opaque binary blobs, and force LF regardless of
+# platform -- mixed line endings inside one YAML document can make Unity's own
+# merge tooling misbehave.
+# ---------------------------------------------------------------------------
+*.unity            text eol=lf merge=unityyamlmerge
+*.prefab           text eol=lf merge=unityyamlmerge
+*.asset            text eol=lf merge=unityyamlmerge
+*.meta             text eol=lf
+*.mat              text eol=lf
+*.anim             text eol=lf
+*.controller       text eol=lf
+*.overrideController text eol=lf
+*.physicMaterial   text eol=lf
+*.physicsMaterial2D text eol=lf
+*.playable         text eol=lf
+*.mask             text eol=lf
+*.brush            text eol=lf
+*.flare            text eol=lf
+*.fontsettings     text eol=lf
+*.guiskin          text eol=lf
+*.giparams         text eol=lf
+*.renderTexture    text eol=lf
+*.spriteatlas      text eol=lf
+*.terrainlayer     text eol=lf
+*.mixer            text eol=lf
+*.shadervariants   text eol=lf
+*.preset           text eol=lf
+*.lighting         text eol=lf
+*.signal           text eol=lf
+
+# ---------------------------------------------------------------------------
+# Real binary assets. Never diff or line-ending-normalise these.
+# ---------------------------------------------------------------------------
+*.fbx      binary
+*.obj      binary
+*.glb      binary
+*.gltf     binary
+*.blend    binary
+*.dae      binary
+*.3ds      binary
+*.png      binary
+*.jpg      binary
+*.jpeg     binary
+*.gif      binary
+*.psd      binary
+*.tga      binary
+*.tif      binary
+*.tiff     binary
+*.exr      binary
+*.hdr      binary
+*.bmp      binary
+*.wav      binary
+*.mp3      binary
+*.ogg      binary
+*.aif      binary
+*.aiff     binary
+*.mp4      binary
+*.mov      binary
+*.ttf      binary
+*.otf      binary
+*.dll      binary
+*.so       binary
+*.dylib    binary
+*.pdf      binary
+*.zip      binary
+*.unitypackage binary
+
+# ---------------------------------------------------------------------------
+# Linguist: keep third-party asset packs out of the repo language statistics.
+# ---------------------------------------------------------------------------
+Assets/Art/** linguist-vendored
