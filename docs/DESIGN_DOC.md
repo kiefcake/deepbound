@@ -135,7 +135,47 @@ Older Quaternius packs are plain **CC0**. Both are clear for our use.
 
 **Self-authored assets:** Blender is free and scriptable headlessly (`blender --background --python`), so anything the packs do not cover — custom boss silhouettes, bespoke props, recolours, modular part mixes — I can generate or modify directly. Blender is not currently installed; `winget` can install it.
 
-**UNVERIFIED:** Quaternius free ("Standard") downloads reportedly contain 60–70% of each pack, with the remainder in a $20 "Source" edition. For *Modular Character Outfits – Fantasy* that would be roughly 8 of 12 outfits — enough for 8 classes, but I will confirm by actually downloading before relying on it.
+**UNVERIFIED:** Quaternius free ("Standard") downloads reportedly contain 60–70% of each pack, with the remainder in a $20 "Source" edition. For *Modular Character Outfits – Fantasy* the free zip is 280 MB (the Source one is 724 MB). Enough for 8 classes on the face of it, but I will confirm by actually downloading before relying on it.
+
+#### 2.1.1 Art direction finding: the packs are not all the same fidelity
+
+I pulled the official renders rather than trusting the "low poly" label, and the label is
+wrong in a way that matters.
+
+**Higher fidelity than expected, and mutually consistent:**
+
+- **Modular Character Outfits – Fantasy** — textured, hand-painted, semi-realistic
+  proportions. Knight in full plate, mage with fire in hand, hooded rogue, noble, king.
+  Closer to *Torchlight* or *Fable* than to Kenney-style low-poly. Genuinely shippable.
+- **Bestiary – Dungeon Monsters** — same treatment. Werewolf, imp, goblin, skeleton,
+  stone golem, flaming skeletal warriors, a demon knight with a burning greatsword.
+- **Medieval Village MegaKit** — fully hand-painted timber-frame buildings, stonework,
+  foliage. This is the lobby, and it is the best-looking pack of the set.
+
+**Lower fidelity, and the odd one out:**
+
+- **Modular Dungeon** — flat-shaded, *untextured* grey stone with solid-colour props.
+  A different art language entirely. Dropping the textured characters above into this
+  room would read as two games spliced together.
+- **Ultimate Modular Ruins** — in between. Real stonework detail, vines, statues, doors,
+  bookshelves, but still flatter and less painted than the characters.
+
+**So the only weak link is the dungeon interior kit** — which is unfortunate, because
+that is where most of the game takes place. Three ways out, in the order I would try them:
+
+1. **Ruins + lighting.** Use *Ultimate Modular Ruins* as the dungeon kit and let URP close
+   the gap: torch point lights, fog, colour grading and a dark palette flatten perceived
+   fidelity differences hard. Most dungeon crawlers already look like this. Cheapest, and
+   it reuses the decision to go URP.
+2. **Re-texture the kit.** Apply painted materials (Poly Haven / ambientCG CC0 textures,
+   or hand-authored ones) to the modular dungeon meshes. Moderate work, fully controllable,
+   and it is the kind of job Blender scripting can batch.
+3. **Source a different dungeon kit** in the painted style. Nothing free found yet that
+   matches the character fidelity; this is the option that most likely costs money.
+
+Recommendation: **(1), and fall back to (2) if the levels still look cheap next to the
+characters once lighting is in.** This is a decision worth making with a real screenshot
+rather than on paper, so it should be re-checked at M1.
 
 **This supersedes the parked Meshy plan.** AI 3D generation was blocked on a login wall and would produce worse, unrigged, unanimated results at a cost. These packs are free, already rigged, already animated, share one rig, and carry no licensing risk on Steam.
 
