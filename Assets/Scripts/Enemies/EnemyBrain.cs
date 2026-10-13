@@ -110,6 +110,9 @@ namespace Deepbound.Enemies
             if (!IsServer || IsDead || !agent.enabled || !agent.isOnNavMesh) return;
 
             ApplyKnockback();
+            // Chill slows the walk, not the attack timing: you get time to reposition, not
+            // a free win.
+            agent.speed = health.Chilled.Value ? moveSpeed * 0.5f : moveSpeed;
 
             if (Time.time < stunnedUntil)
             {

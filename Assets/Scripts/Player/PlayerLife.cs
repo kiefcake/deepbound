@@ -1,8 +1,11 @@
 using System.Collections.Generic;
 using Deepbound.Art;
 using Deepbound.Combat;
+using Deepbound.Core;
+using Deepbound.Progression;
 using Unity.Netcode;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Deepbound.Player
 {
@@ -36,16 +39,25 @@ namespace Deepbound.Player
 
         private PlayerLife reviver; // server: who is currently holding F on us
         private float lastReviverPing;
+        private float reviveSendAt;
+        private float lastDamagedAt;
+        private float regenCarry;
+        private PlayerProgress progress;
 
         private void Awake()
         {
             Health = GetComponent<Health>();
+            progress = GetComponent<PlayerProgress>();
         }
 
         public override void OnNetworkSpawn()
         {
             All.Add(this);
-            if (IsServer) Health.Died += HandleDied;
+            if (IsServer)
+            {
+                Health.Died += HandleDied;
+                Health.DamagedServer += (_, __) => lastDamagedAt = Time.time;
+            }
             Downed.OnValueChanged += HandleDownedChanged;
         }
 
@@ -98,7 +110,13 @@ namespace Deepbound.Player
 
         private void Update()
         {
-            if (!IsServer || !Downed.Value) return;
+            if (IsOwner) OwnerReviveInput();
+            if (!IsServer) return;
+            if (!Downed.Value)
+            {
+                ServerRegen();
+                return;
+            }
 
             bool beingRevived = reviver != null && Time.time - lastReviverPing < 0.35f && !reviver.Downed.Value &&
                                 Vector3.Distance(reviver.transform.position, transform.position) <= ReviveRange + 0.5f;
@@ -113,6 +131,35 @@ namespace Deepbound.Player
             }
 
             if (Mathf.Abs(progress - ReviveProgress.Value) > 0.01f || progress == 0f) ReviveProgress.Value = progress;
+        }
+
+        /// <summary>Owner: hold F next to a downed teammate. Every class can revive.</summary>
+        private void OwnerReviveInput()
+        {
+            var keyboard = Keyboard.current;
+            if (Downed.Value || keyboard == null || !keyboard.fKey.isPressed || Time.time < reviveSendAt) return;
+            var target = DownedNear(transform.position, this);
+            if (target == null) return;
+            reviveSendAt = Time.time + 0.2f;
+            target.ReviveHoldRpc(NetworkObject);
+        }
+
+        /// <summary>
+        /// Out-of-combat regeneration, scaled by VIT. Off for a few seconds after taking
+        /// damage, so it heals you between fights, not during them.
+        /// </summary>
+        private void ServerRegen()
+        {
+            if (progress == null || progress.Stats == null || !Health.IsAlive) return;
+            if (Time.time - lastDamagedAt < 5f || Health.Current.Value >= Health.Max.Value) return;
+
+            regenCarry += (2f + progress.Value(StatType.VIT) * 0.12f) * Time.deltaTime;
+            if (regenCarry >= 1f)
+            {
+                float whole = Mathf.Floor(regenCarry);
+                regenCarry -= whole;
+                Health.ServerHeal(whole);
+            }
         }
 
         public void ServerRevive(float healthFraction)

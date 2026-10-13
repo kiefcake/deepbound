@@ -21,7 +21,10 @@ namespace Deepbound.Combat
         private float lineLength, lineWidth;
 
         /// <param name="source">Owner for cancelling. Null = an independent telegraph (several can exist at once).</param>
-        public static void Show(Vector3 center, float radius, float duration, Object source)
+        /// <summary>Friendly area effects (a Mage's Meteor) are blue, so players do not dodge their own team's spells.</summary>
+        public static readonly Color Friendly = new Color(0.25f, 0.6f, 1f, 0.4f);
+
+        public static void Show(Vector3 center, float radius, float duration, Object source, Color? tint = null)
         {
             Cancel(source);
 
@@ -39,9 +42,15 @@ namespace Deepbound.Combat
             {
                 new Vector2(0.97f, 0f), new Vector2(1f, 0.02f), new Vector2(0.97f, 0.03f),
             }, 40, false), Mat.Glow, Vector3.zero, Vector3.zero, new Vector3(radius, 1f, radius));
-            ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), new Color(1f, 0.15f, 0.05f) * 3f);
+            var edgeColor = tint.HasValue ? new Color(tint.Value.r, tint.Value.g, tint.Value.b) : new Color(1f, 0.15f, 0.05f);
+            ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), edgeColor * 3f);
 
             t.fill = MeshKit.Part(go.transform, "Fill", disc, Mat.Telegraph, Vector3.up * 0.01f, Vector3.zero, Vector3.zero).transform;
+            if (tint.HasValue)
+            {
+                ArtLibrary.Tint(go.transform.Find("Zone").GetComponent<Renderer>(), tint.Value);
+                ArtLibrary.Tint(t.fill.GetComponent<Renderer>(), tint.Value);
+            }
 
             foreach (var r in go.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             if (source != null) BySource[source] = t;

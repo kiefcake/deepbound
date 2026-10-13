@@ -16,6 +16,7 @@ GameObject:
   - component: {fileID: 3973284125460520811}
   - component: {fileID: 2456544387707103407}
   - component: {fileID: 1213986218560098150}
+  - component: {fileID: 2423411484194795684}
   - component: {fileID: 1113284408795371079}
   - component: {fileID: 6646583751451298640}
   - component: {fileID: 3883377760670736657}
@@ -193,6 +194,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: dbf7d2ffcebd3fd4da2eda067a7654ec, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.KnightKit
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &2423411484194795684
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 539545562963582333}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 2687842594a51634c9398b29bcb9b1e8, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.MageKit
   ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &1113284408795371079
 MonoBehaviour:

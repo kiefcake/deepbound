@@ -121,8 +121,13 @@ namespace Deepbound.Art
         /// <summary>What the local Knight sees of themselves: sword in the right hand, shield in the left.</summary>
         public class ViewModel
         {
+            public Transform Root;
+            /// <summary>Main hand: the Knight's sword, the Mage's staff.</summary>
             public Transform SwordPivot;
+            /// <summary>Off hand: the Knight's shield, the Mage's casting hand.</summary>
             public Transform ShieldPivot;
+            /// <summary>Glowing spell light in the off hand (Mage only).</summary>
+            public Renderer SpellGlow;
         }
 
         public static ViewModel BuildKnightViewModel(Transform camera, Color teamColor)
@@ -146,7 +151,121 @@ namespace Deepbound.Art
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
 
-            return new ViewModel { SwordPivot = swordPivot, ShieldPivot = shieldPivot };
+            return new ViewModel { Root = root, SwordPivot = swordPivot, ShieldPivot = shieldPivot };
+        }
+
+        // ------------------------------------------------------------------
+        // Mage
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// The Mage: robe and sleeves in the party colour, a hood shadowing a faceless face
+        /// with two faint arcane eyes, and a tall wide-brimmed hat — the silhouette that
+        /// says "caster" from across any room.
+        /// </summary>
+        public static HumanoidRig BuildMage(Transform root, Color teamColor)
+        {
+            var visual = MeshKit.Pivot(root, "MageVisual", Vector3.zero);
+            var rig = visual.gameObject.AddComponent<HumanoidRig>();
+            var robe = teamColor * 0.75f;
+            robe.a = 1f;
+
+            rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.95f, 0f));
+            BuildLegs(rig, 0.11f, 0.95f, Mat.Leather, Mat.Cloth, 0.16f);
+            var skirt = MeshKit.Part(rig.Hips, "Skirt", MeshKit.Lathe("mageSkirt", new[]
+            {
+                new Vector2(0.36f, -0.85f), new Vector2(0.3f, -0.45f), new Vector2(0.22f, 0f), new Vector2(0.2f, 0.06f),
+            }, 9), Mat.Cloth, Vector3.zero);
+            ArtLibrary.Tint(skirt.GetComponent<Renderer>(), robe);
+
+            rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", Vector3.zero);
+            var body = MeshKit.Part(rig.Torso, "Robe", MeshKit.Lathe("mageRobe", new[]
+            {
+                new Vector2(0.21f, 0f), new Vector2(0.23f, 0.2f), new Vector2(0.24f, 0.42f), new Vector2(0.2f, 0.56f), new Vector2(0.09f, 0.62f),
+            }, 9), Mat.Cloth, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.82f));
+            ArtLibrary.Tint(body.GetComponent<Renderer>(), robe);
+            MeshKit.Part(rig.Torso, "Sash", MeshKit.Cylinder(0.215f, 0.215f, 0.08f, 9), Mat.Leather, new Vector3(0f, 0.08f, 0f), Vector3.zero, new Vector3(1f, 1f, 0.82f));
+            MeshKit.Part(rig.Torso, "Clasp", MeshKit.Ball(0.04f, 6, 4), Mat.Gold, new Vector3(0f, 0.52f, 0.17f));
+
+            rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.62f, 0f));
+            MeshKit.Part(rig.Head, "Face", MeshKit.Ball(0.13f, 8, 6), Mat.Dark, new Vector3(0f, 0.14f, 0.01f));
+            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.016f, 6, 4), Mat.Glow, new Vector3(-0.045f, 0.15f, 0.12f));
+            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.016f, 6, 4), Mat.Glow, new Vector3(0.045f, 0.15f, 0.12f));
+            var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("mageHood", new[]
+            {
+                new Vector2(0.17f, -0.02f), new Vector2(0.18f, 0.12f), new Vector2(0.14f, 0.24f), new Vector2(0.05f, 0.28f), new Vector2(0f, 0.29f),
+            }, 9, true, 280f), Mat.Cloth, new Vector3(0f, 0.03f, -0.02f), new Vector3(0f, 220f, 0f));
+            ArtLibrary.Tint(hood.GetComponent<Renderer>(), robe * 0.8f);
+
+            // The hat: a wide brim and a tall cone with a tired bend at the tip.
+            var hatColor = new Color(0.16f, 0.14f, 0.2f);
+            var brim = MeshKit.Part(rig.Head, "Brim", MeshKit.Cylinder(0.36f, 0.34f, 0.025f, 14), Mat.Cloth, new Vector3(0f, 0.27f, 0f));
+            ArtLibrary.Tint(brim.GetComponent<Renderer>(), hatColor);
+            var cone = MeshKit.Part(rig.Head, "Cone", MeshKit.Lathe("hatCone", new[]
+            {
+                new Vector2(0.17f, 0f), new Vector2(0.13f, 0.18f), new Vector2(0.07f, 0.36f), new Vector2(0f, 0.48f),
+            }, 10), Mat.Cloth, new Vector3(0f, 0.29f, 0f), new Vector3(-6f, 0f, 0f));
+            ArtLibrary.Tint(cone.GetComponent<Renderer>(), hatColor);
+            var band = MeshKit.Part(rig.Head, "Band", MeshKit.Cylinder(0.172f, 0.168f, 0.05f, 10), Mat.Cloth, new Vector3(0f, 0.3f, 0f));
+            ArtLibrary.Tint(band.GetComponent<Renderer>(), teamColor);
+
+            rig.ArmR = BuildSleeveArm(rig.Torso, "ArmR", 1f, robe);
+            rig.ArmL = BuildSleeveArm(rig.Torso, "ArmL", -1f, robe);
+
+            var grip = MeshKit.Pivot(rig.ArmR, "Grip", new Vector3(0f, -0.6f, 0.02f), new Vector3(80f, 0f, 0f));
+            MeshKit.Part(grip, "Staff", MeshKit.Cylinder(0.025f, 0.03f, 1.6f, 6), Mat.Wood, new Vector3(0f, -0.7f, 0f));
+            var orb = MeshKit.Part(grip, "Orb", MeshKit.Ball(0.07f, 8, 6), Mat.Glow, new Vector3(0f, 0.95f, 0f));
+            for (int i = 0; i < 3; i++)
+            {
+                MeshKit.Part(grip, "Prong" + i, MeshKit.Box(new Vector3(0.018f, 0.14f, 0.018f)), Mat.Gold,
+                    new Vector3(0f, 0.88f, 0f) + Quaternion.Euler(0f, i * 120f, 0f) * new Vector3(0f, 0f, 0.06f), new Vector3(-18f, i * 120f, 0f));
+            }
+
+            rig.GlowColor = new Color(0.55f, 0.75f, 1f);
+            rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), orb.GetComponent<Renderer>() };
+            rig.StrideLength = 1.4f;
+            return rig;
+        }
+
+        private static Transform BuildSleeveArm(Transform torso, string name, float side, Color robe)
+        {
+            var shoulder = MeshKit.Pivot(torso, name, new Vector3(0.25f * side, 0.5f, 0f));
+            var upper = MeshKit.Part(shoulder, "Sleeve", MeshKit.Cylinder(0.075f, 0.1f, 0.5f, 7), Mat.Cloth, new Vector3(0f, -0.5f, 0f));
+            ArtLibrary.Tint(upper.GetComponent<Renderer>(), robe);
+            MeshKit.Part(shoulder, "Hand", MeshKit.Ball(0.06f, 6, 4), Mat.Leather, new Vector3(0f, -0.6f, 0.01f));
+            return shoulder;
+        }
+
+        /// <summary>First-person Mage: the staff in the right hand, a spell-lit left palm.</summary>
+        public static ViewModel BuildMageViewModel(Transform camera, Color teamColor)
+        {
+            var root = MeshKit.Pivot(camera, "ViewModel", Vector3.zero);
+            var robe = teamColor * 0.75f;
+            robe.a = 1f;
+
+            var staffHand = MeshKit.Pivot(root, "StaffHand", new Vector3(0.34f, -0.36f, 0.6f), new Vector3(22f, -8f, -14f));
+            var sleeveR = MeshKit.Part(staffHand, "Sleeve", MeshKit.Cylinder(0.08f, 0.1f, 0.4f, 7), Mat.Cloth, new Vector3(0f, -0.05f, -0.22f), new Vector3(-100f, 0f, 0f));
+            ArtLibrary.Tint(sleeveR.GetComponent<Renderer>(), robe);
+            MeshKit.Part(staffHand, "Glove", MeshKit.Ball(0.06f, 6, 4), Mat.Leather, Vector3.zero, Vector3.zero, new Vector3(1f, 0.9f, 1.2f));
+            // Short in view: only the top of the staff should be on screen, leaning away.
+            MeshKit.Part(staffHand, "Staff", MeshKit.Cylinder(0.018f, 0.022f, 0.85f, 6), Mat.Wood, new Vector3(0f, -0.4f, 0f));
+            var orb = MeshKit.Part(staffHand, "Orb", MeshKit.Ball(0.035f, 8, 6), Mat.Glow, new Vector3(0f, 0.5f, 0f));
+            ArtLibrary.SetGlow(orb.GetComponent<Renderer>(), new Color(0.55f, 0.75f, 1f) * 1.3f);
+            for (int i = 0; i < 3; i++)
+            {
+                MeshKit.Part(staffHand, "Prong" + i, MeshKit.Box(new Vector3(0.01f, 0.08f, 0.01f)), Mat.Gold,
+                    new Vector3(0f, 0.46f, 0f) + Quaternion.Euler(0f, i * 120f, 0f) * new Vector3(0f, 0f, 0.035f), new Vector3(-18f, i * 120f, 0f));
+            }
+
+            var castHand = MeshKit.Pivot(root, "CastHand", new Vector3(-0.3f, -0.36f, 0.55f), new Vector3(-30f, 20f, 10f));
+            var sleeveL = MeshKit.Part(castHand, "Sleeve", MeshKit.Cylinder(0.08f, 0.1f, 0.4f, 7), Mat.Cloth, new Vector3(0f, -0.05f, -0.22f), new Vector3(-100f, 0f, 0f));
+            ArtLibrary.Tint(sleeveL.GetComponent<Renderer>(), robe);
+            MeshKit.Part(castHand, "Glove", MeshKit.Box(new Vector3(0.09f, 0.03f, 0.11f)), Mat.Leather, Vector3.zero);
+            var spell = MeshKit.Part(castHand, "Spell", MeshKit.Ball(0.025f, 8, 6), Mat.Glow, new Vector3(0f, 0.05f, 0.02f));
+            ArtLibrary.SetGlow(spell.GetComponent<Renderer>(), new Color(1f, 0.5f, 0.15f) * 1.2f);
+
+            foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return new ViewModel { Root = root, SwordPivot = staffHand, ShieldPivot = castHand, SpellGlow = spell.GetComponent<Renderer>() };
         }
 
         // ------------------------------------------------------------------

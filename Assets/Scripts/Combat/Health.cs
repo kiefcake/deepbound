@@ -28,6 +28,14 @@ namespace Deepbound.Combat
         public readonly NetworkVariable<float> Current = new NetworkVariable<float>(100f);
         public readonly NetworkVariable<float> Max = new NetworkVariable<float>(100f);
 
+        /// <summary>
+        /// Chilled by frost: slowed, and the setup for a Mage's Shatter (fire on a chilled
+        /// target hits harder and consumes the chill). Synced so everyone sees the frost.
+        /// </summary>
+        public readonly NetworkVariable<bool> Chilled = new NetworkVariable<bool>();
+        private float chilledUntil;
+        private GameObject chillAura;
+
         /// <summary>Flat damage reduction. Server-side only; set from the DEF stat.</summary>
         public float Defense { get; set; }
 
@@ -120,6 +128,53 @@ namespace Deepbound.Combat
 
             if (Current.Value <= 0f) Died?.Invoke(this);
             return dealt;
+        }
+
+        public void ServerChill(float seconds)
+        {
+            if (!IsServer || !IsAlive) return;
+            chilledUntil = Mathf.Max(chilledUntil, Time.time + seconds);
+            Chilled.Value = true;
+        }
+
+        /// <returns>True if the target was chilled (and no longer is).</returns>
+        public bool ServerConsumeChill()
+        {
+            if (!IsServer || !Chilled.Value) return false;
+            Chilled.Value = false;
+            chilledUntil = 0f;
+            return true;
+        }
+
+        private void Update()
+        {
+            if (IsServer && Chilled.Value && (Time.time >= chilledUntil || !IsAlive)) Chilled.Value = false;
+
+            bool show = Chilled.Value && IsAlive;
+            if (show && chillAura == null) chillAura = BuildChillAura();
+            if (chillAura != null && chillAura.activeSelf != show) chillAura.SetActive(show);
+        }
+
+        /// <summary>A ring of frost at the feet and ice shards orbiting the body.</summary>
+        private GameObject BuildChillAura()
+        {
+            var root = new GameObject("ChillAura");
+            root.transform.SetParent(transform, false);
+            var ice = new Color(0.55f, 0.85f, 1f) * 1.6f;
+            var ring = Art.MeshKit.Part(root.transform, "Frost", Art.MeshKit.Lathe("chillRing", new[]
+            {
+                new Vector2(0.45f, 0f), new Vector2(0.55f, 0.02f), new Vector2(0.45f, 0.04f),
+            }, 16, false), Art.Mat.Glow, Vector3.up * 0.03f);
+            Art.ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), ice);
+            for (int i = 0; i < 5; i++)
+            {
+                float a = i * 72f;
+                var shard = Art.MeshKit.Part(root.transform, "Shard" + i, Art.MeshKit.Lathe("iceShard", new[] { new Vector2(0.05f, 0f), new Vector2(0f, 0.25f) }, 4),
+                    Art.Mat.Glow, Quaternion.Euler(0f, a, 0f) * new Vector3(0f, centerHeight * 0.9f, 0.45f), new Vector3(15f, a, 0f));
+                Art.ArtLibrary.SetGlow(shard.GetComponent<Renderer>(), ice);
+            }
+            foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return root;
         }
 
         public void ServerHeal(float amount)

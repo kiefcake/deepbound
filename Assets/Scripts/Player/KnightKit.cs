@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using Deepbound.Art;
+using Deepbound.Classes;
 using Deepbound.Combat;
 using Deepbound.Core;
 using Deepbound.Progression;
@@ -30,7 +32,7 @@ namespace Deepbound.Player
     /// </para>
     /// </summary>
     [RequireComponent(typeof(Health))]
-    public class KnightKit : NetworkBehaviour
+    public class KnightKit : NetworkBehaviour, IClassKit
     {
         // Timings in seconds. Wind-ups are short — the Knight is meant to feel responsive.
         public const float SwingWindup = 0.16f, SwingStrike = 0.14f, SwingRecovery = 0.3f;
@@ -57,14 +59,11 @@ namespace Deepbound.Player
         private float swingBusyUntil, staminaRegenAt;
         private bool swingPending;
         private float swingStrikeAt;
-        private float reviveSendAt;
         private float side = 1f;
 
         // Server-side state.
         private float warCryUntil;
         private float lastServerSwing;
-        private float lastDamagedAt;
-        private float regenCarry;
 
         /// <summary>Time the War Cry buff ends, for the HUD. Synced as a timestamp on the server clock.</summary>
         public readonly NetworkVariable<double> WarCryEnds = new NetworkVariable<double>();
@@ -83,11 +82,30 @@ namespace Deepbound.Player
             if (IsServer)
             {
                 health.IncomingModifiers.Add(ModifyIncoming);
-                health.DamagedServer += (amount, attacker) => lastDamagedAt = Time.time;
             }
         }
 
         private float AttackMultiplier => progress.AttackMultiplier;
+
+        /// <summary>True when the player's chosen class is the Knight. Otherwise this kit sleeps.</summary>
+        private bool Active => progress.ClassId.Value == ClassId.Knight;
+
+        // ---- IClassKit ----
+
+        public ClassId Class => ClassId.Knight;
+        public string ResourceName => "Stamina";
+        public Color ResourceColor => new Color(0.9f, 0.68f, 0.18f);
+        public float Resource => Stamina;
+        public float ResourceMax => StaminaMax;
+
+        public void FillAbilities(List<AbilityView> into)
+        {
+            double warCryLeft = WarCryEnds.Value - NetworkManager.ServerTime.Time;
+            into.Add(new AbilityView { Key = "LMB", Name = "Swing", Unaffordable = Stamina < SwingStamina });
+            into.Add(new AbilityView { Key = "RMB", Name = "Block", Active = Blocking.Value });
+            into.Add(new AbilityView { Key = "Q", Name = "Bash", Remaining = BashReadyAt - Time.time, Cooldown = BashCooldown });
+            into.Add(new AbilityView { Key = "E", Name = "War Cry", Remaining = WarCryReadyAt - Time.time, Cooldown = WarCryCooldown, Active = warCryLeft > 0 });
+        }
 
         // ==================================================================
         // Owner: input, timers, local animation
@@ -95,8 +113,12 @@ namespace Deepbound.Player
 
         private void Update()
         {
-            if (IsServer) ServerTick();
             if (!IsOwner) return;
+            if (!Active)
+            {
+                if (Blocking.Value) Blocking.Value = false;
+                return;
+            }
 
             bool canAct = life.CanAct && motor.HasControl;
             var mouse = Mouse.current;
@@ -159,16 +181,6 @@ namespace Deepbound.Player
                 WarCryRpc();
             }
 
-            // --- F: Revive ---
-            if (canAct && keyboard != null && keyboard.fKey.isPressed && Time.time >= reviveSendAt)
-            {
-                var target = PlayerLife.DownedNear(transform.position, life);
-                if (target != null)
-                {
-                    reviveSendAt = Time.time + 0.2f;
-                    target.ReviveHoldRpc(NetworkObject);
-                }
-            }
         }
 
         /// <summary>Called on the owner when the server reports a blocked hit.</summary>
@@ -276,6 +288,7 @@ namespace Deepbound.Player
         /// <summary>Bulwark and War Cry. Runs inside Health.ServerDamage, after DEF.</summary>
         private float ModifyIncoming(float damage, Vector3 attackerPosition)
         {
+            if (!Active) return damage;
             if (Time.time < warCryUntil) damage *= 0.5f;
 
             if (Blocking.Value)
@@ -297,24 +310,6 @@ namespace Deepbound.Player
         {
             Sfx.Play(Sound.Block, transform.position + transform.forward * 0.6f + Vector3.up * 1.2f);
             if (IsOwner) player.ViewModelBlockImpact();
-        }
-
-        /// <summary>
-        /// Out-of-combat regeneration, scaled by VIT. Off while downed and for a few
-        /// seconds after taking damage, so it heals you between fights, not during them.
-        /// </summary>
-        private void ServerTick()
-        {
-            if (progress.Stats == null || life.Downed.Value || !health.IsAlive) return;
-            if (Time.time - lastDamagedAt < 5f || health.Current.Value >= health.Max.Value) return;
-
-            regenCarry += (2f + progress.Value(StatType.VIT) * 0.12f) * Time.deltaTime;
-            if (regenCarry >= 1f)
-            {
-                float whole = Mathf.Floor(regenCarry);
-                regenCarry -= whole;
-                health.ServerHeal(whole);
-            }
         }
     }
 }

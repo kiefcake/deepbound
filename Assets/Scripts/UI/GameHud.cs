@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using Deepbound.Classes;
 using Deepbound.Combat;
 using Deepbound.Core;
 using Deepbound.Loot;
@@ -29,7 +30,7 @@ namespace Deepbound.UI
         private NetworkPlayer player;
         private Health health;
         private PlayerLife life;
-        private KnightKit kit;
+        private readonly List<AbilityView> abilities = new List<AbilityView>();
         private PlayerProgress progress;
 
         /// <summary>True while a menu wants the cursor (the merchant's shop). The motor reads this.</summary>
@@ -57,7 +58,6 @@ namespace Deepbound.UI
         private static readonly Color Panel = new Color(0.03f, 0.03f, 0.04f, 0.72f);
         private static readonly Color Gold = new Color(0.92f, 0.74f, 0.36f);
         private static readonly Color HealthRed = new Color(0.78f, 0.12f, 0.1f);
-        private static readonly Color StaminaAmber = new Color(0.9f, 0.68f, 0.18f);
 
         private static readonly string[] FloorNames = { "The Ossuary", "The Drowned Vaults", "The Hollow Throne" };
 
@@ -66,7 +66,6 @@ namespace Deepbound.UI
             player = owner;
             health = owner.GetComponent<Health>();
             life = owner.GetComponent<PlayerLife>();
-            kit = owner.GetComponent<KnightKit>();
             progress = owner.GetComponent<PlayerProgress>();
             health.Hurt += amount => hurtFlash = Mathf.Min(1f, hurtFlash + amount / 30f);
             spawnTime = Time.time;
@@ -155,6 +154,19 @@ namespace Deepbound.UI
 
             Rect(w / 2f - 230, y - 6, 460, counting ? 62 : 44, Panel);
             GUI.Label(new Rect(0, y, w, 24), "Stand in the golden circle by the carriage to descend   (" + aboard + " / " + total + " aboard)", center);
+
+            // Class picker: number keys, lobby only.
+            float cy = y - 64;
+            Rect(w / 2f - 230, cy - 6, 460, 52, Panel);
+            var current = progress.ClassId.Value;
+            string row = "";
+            for (int i = 0; i < ClassDefinition.ById.Length; i++)
+            {
+                var name = ClassDefinition.ById[i].Name;
+                row += (i > 0 ? "      " : "") + "[" + (i + 1) + "] " + ((ClassId)i == current ? "> " + name.ToUpperInvariant() + " <" : name);
+            }
+            GUI.Label(new Rect(0, cy, w, 22), row, new GUIStyle(center) { normal = { textColor = Gold } });
+            GUI.Label(new Rect(0, cy + 22, w, 20), ClassDefinition.Pitch(current), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
             if (counting)
             {
                 int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
@@ -191,6 +203,20 @@ namespace Deepbound.UI
             if (!near) shopOpen = false;
             MenuOpen = shopOpen;
             statsHeld = keyboard != null && keyboard.tabKey.isPressed;
+
+            // Class choice is a camp decision: number keys pick one, only in the lobby.
+            if (keyboard != null && DungeonDirector.InLobby)
+            {
+                for (int i = 0; i < ClassDefinition.ById.Length && i < 9; i++)
+                {
+                    var key = keyboard[(Key)((int)Key.Digit1 + i)];
+                    if (key.wasPressedThisFrame && progress.ClassId.Value != (ClassId)i)
+                    {
+                        progress.ClassId.Value = (ClassId)i;
+                        Art.Sfx.Play2D(Art.Sound.Purchase, 0.6f);
+                    }
+                }
+            }
 
         }
 
@@ -252,8 +278,10 @@ namespace Deepbound.UI
             Bar(x, y, bw, 22, hp / max, HealthRed);
             GUI.Label(new Rect(x + 8, y + 1, bw, 22), Mathf.CeilToInt(hp) + " / " + Mathf.CeilToInt(max), label);
 
-            Bar(x, y + 32, bw, 12, kit.Stamina / KnightKit.StaminaMax, StaminaAmber);
-            GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? "KNIGHT  ·  At camp" : "KNIGHT  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun) + "  ·  Tab: stats", small);
+            var kit = player.ActiveKit;
+            Bar(x, y + 32, bw, 12, kit.ResourceMax > 0f ? kit.Resource / kit.ResourceMax : 0f, kit.ResourceColor);
+            string cls = progress.Class.Name.ToUpperInvariant();
+            GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun) + "  ·  Tab: stats", small);
             GUI.Label(new Rect(x + bw - 90, y + 46, 90, 20), progress.Gold.Value + " gold", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
         }
 
@@ -263,18 +291,20 @@ namespace Deepbound.UI
             float total = size * 4 + gap * 3;
             float x = w / 2f - total / 2f, y = h - size - 26;
 
-            Ability(x, y, size, "LMB", "Swing", 0f, 0f);
-            Ability(x + (size + gap), y, size, "RMB", "Block", 0f, 0f, kit.Blocking.Value);
-            Ability(x + (size + gap) * 2, y, size, "Q", "Bash", kit.BashReadyAt - Time.time, KnightKit.BashCooldown);
-
-            float warCryActive = (float)(kit.WarCryEnds.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time);
-            Ability(x + (size + gap) * 3, y, size, "E", "War Cry", kit.WarCryReadyAt - Time.time, KnightKit.WarCryCooldown, warCryActive > 0f);
+            abilities.Clear();
+            player.ActiveKit.FillAbilities(abilities);
+            for (int i = 0; i < abilities.Count; i++)
+            {
+                var a = abilities[i];
+                Ability(x + (size + gap) * i, y, size, a.Key, a.Name, a.Remaining, a.Cooldown, a.Active, a.Unaffordable);
+            }
         }
 
-        private void Ability(float x, float y, float size, string key, string name, float remaining, float cooldown, bool active = false)
+        private void Ability(float x, float y, float size, string key, string name, float remaining, float cooldown, bool active = false, bool unaffordable = false)
         {
             Rect(x - 2, y - 2, size + 4, size + 4, active ? Gold : new Color(0.35f, 0.3f, 0.22f, 0.9f));
             Rect(x, y, size, size, Panel);
+            if (unaffordable) Rect(x, y, size, size, new Color(0.1f, 0.15f, 0.4f, 0.45f));
             GUI.Label(new Rect(x, y + 6, size, 20), key, center);
             GUI.Label(new Rect(x, y + size - 22, size, 18), name, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
 
@@ -360,9 +390,13 @@ namespace Deepbound.UI
             var style = new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 1f, 1f, a * 0.85f) } };
             GUI.Label(new Rect(w - 330, 16, 310, 140),
                 "WASD move  ·  Shift sprint  ·  Space jump\n" +
-                "LMB swing  ·  RMB block (front)\n" +
-                "Q  Shield Bash — stuns, cancels wind-ups\n" +
-                "E  War Cry — taunt + half damage\n" +
+                (progress.ClassId.Value == ClassId.Mage
+                    ? "LMB Firebolt  ·  RMB Frostbolt (chills)\n" +
+                      "Fire on a chilled enemy SHATTERS (+75%)\n" +
+                      "Q  Blink  ·  E  Meteor at the crosshair\n"
+                    : "LMB swing  ·  RMB block (front)\n" +
+                      "Q  Shield Bash — stuns, cancels wind-ups\n" +
+                      "E  War Cry — taunt + half damage\n") +
                 "F  revive a downed ally  ·  G  trade  ·  Tab  stats\n" +
                 "Walk over potions to drink them  ·  Esc free mouse", style);
         }
@@ -423,7 +457,7 @@ namespace Deepbound.UI
             float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH;
             float x = w - pw - 24, y = h / 2f - ph / 2f;
             Rect(x, y, pw, ph, Panel);
-            GUI.Label(new Rect(x + 12, y + 10, pw, 22), "KNIGHT  -  potions this run", new GUIStyle(label) { normal = { textColor = Gold } });
+            GUI.Label(new Rect(x + 12, y + 10, pw, 22), progress.Class.Name.ToUpperInvariant() + "  -  potions this run", new GUIStyle(label) { normal = { textColor = Gold } });
 
             for (int i = 0; i < Stats.Count; i++)
             {

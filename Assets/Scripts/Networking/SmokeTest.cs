@@ -49,6 +49,30 @@ namespace Deepbound.Networking
                 // Sessions start at camp. Check it, then board the carriage.
                 int dummies = FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None).Length;
                 Log("lobby", "in lobby " + DungeonDirector.InLobby + ", " + dummies + " dummies", DungeonDirector.InLobby && dummies == Lobby.DummySpots.Length);
+
+                // Switch to Mage at camp, then chill a dummy and shatter it.
+                var me = NetworkPlayer.Local;
+                var progressMe = me.GetComponent<PlayerProgress>();
+                progressMe.ClassId.Value = Classes.ClassId.Mage;
+                yield return new WaitForSeconds(0.5f);
+                Log("class switch", progressMe.Class.Name + ", max hp " + me.GetComponent<Health>().Max.Value + ", rig " + me.Rig.name,
+                    progressMe.Class.Name == "Mage" && me.Rig.name == "MageVisual" && me.ActiveKit is MageKit);
+
+                var dummy = FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None)[0].GetComponent<Health>();
+                var mage = me.GetComponent<MageKit>();
+                // Fire from where the player really stands: the server clamps bolt origins
+                // to the caster, so a bolt "from" anywhere else would be moved.
+                me.GetComponent<FirstPersonMotor>().Teleport(dummy.transform.position + Vector3.right * 5f, Quaternion.LookRotation(Vector3.left));
+                yield return new WaitForSeconds(0.2f);
+                var from = me.transform.position + Vector3.up * 1.6f;
+                mage.ServerBolt(from, dummy.Center - from, true);
+                yield return new WaitForSeconds(0.6f);
+                Log("frostbolt chills", "chilled " + dummy.Chilled.Value, dummy.Chilled.Value);
+                float before = dummy.Current.Value;
+                mage.ServerBolt(from, dummy.Center - from, false);
+                yield return new WaitForSeconds(0.5f);
+                Log("firebolt shatters", "chill consumed " + !dummy.Chilled.Value + ", dealt " + (before - dummy.Current.Value).ToString("F0"),
+                    !dummy.Chilled.Value && before - dummy.Current.Value > MageKit.FireboltDamage);
                 DungeonDirector.Instance.ServerStartRun();
             }
 
@@ -162,6 +186,24 @@ namespace Deepbound.Networking
             lobbyMotor.Teleport(dummyFrom, Quaternion.LookRotation(Lobby.DummySpots[0] - dummyFrom));
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "0c_lobby_dummies");
+
+            // The Mage: switch class, frost the dummy, catch the bolt and the chill.
+            var prog = local.GetComponent<PlayerProgress>();
+            prog.ClassId.Value = Classes.ClassId.Mage;
+            yield return new WaitForSeconds(0.5f);
+            var mage = local.GetComponent<MageKit>();
+            var dummyHp = FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None)[0].GetComponent<Health>();
+            lobbyMotor.Teleport(dummyHp.transform.position + new Vector3(4.5f, 0.1f, -0.5f), Quaternion.LookRotation(new Vector3(-4.5f, 0f, 0.5f)));
+            yield return new WaitForSeconds(0.3f);
+            var origin = local.transform.position + Vector3.up * 1.6f;
+            local.ViewModelCast(true);
+            mage.ServerBolt(origin + local.transform.forward * 0.6f, dummyHp.Center - origin, true);
+            yield return new WaitForSeconds(0.08f);
+            yield return Shot(dir, "0d_mage_frostbolt");
+            yield return new WaitForSeconds(0.5f);
+            yield return Shot(dir, "0e_mage_chilled_dummy");
+            prog.ClassId.Value = Classes.ClassId.Knight;
+            yield return new WaitForSeconds(0.3f);
 
             DungeonDirector.Instance.ServerStartRun();
             yield return new WaitForSeconds(2.5f);

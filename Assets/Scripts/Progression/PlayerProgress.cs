@@ -22,13 +22,20 @@ namespace Deepbound.Progression
     public class PlayerProgress : NetworkBehaviour
     {
         public readonly NetworkVariable<int> Gold = new NetworkVariable<int>();
+
+        /// <summary>
+        /// The player's class. Owner-written, but only honoured in the lobby: the HUD only
+        /// offers the choice there, and the server re-checks.
+        /// </summary>
+        public readonly NetworkVariable<ClassId> ClassId = new NetworkVariable<ClassId>(Classes.ClassId.Knight,
+            NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         private NetworkList<byte> potions;
         private NetworkList<float> bonuses;
 
         /// <summary>Server only.</summary>
         public StatBlock Stats { get; private set; }
 
-        public ClassDefinition Class => ClassDefinition.Knight;
+        public ClassDefinition Class => ClassDefinition.For(ClassId.Value);
 
         /// <summary>Raised on every peer when any stat input changes. Owner-side systems re-read stats on this.</summary>
         public event Action StatsChanged;
@@ -48,6 +55,16 @@ namespace Deepbound.Progression
         {
             potions.OnListChanged += _ => StatsChanged?.Invoke();
             bonuses.OnListChanged += _ => StatsChanged?.Invoke();
+            ClassId.OnValueChanged += (_, __) =>
+            {
+                // A new class is a new character: fresh stat block, nothing carried over.
+                if (IsServer && Stats != null)
+                {
+                    Stats = Class.Build();
+                    ServerResetRun();
+                }
+                StatsChanged?.Invoke();
+            };
 
             if (!IsServer) return;
 

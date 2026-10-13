@@ -18,6 +18,9 @@ namespace Deepbound.Combat
     /// Arrows are slow enough to sidestep, and they count as coming from where they are,
     /// so a Knight's block stops them from the front.
     /// </summary>
+    /// <summary>What a projectile looks like. APPEND ONLY: sent in RPCs.</summary>
+    public enum ProjectileKind : byte { Arrow = 0, Firebolt = 1, Frostbolt = 2 }
+
     public class Arrows : MonoBehaviour
     {
         public const float Speed = 21f;
@@ -32,6 +35,8 @@ namespace Deepbound.Combat
             public Team Targets;
             public Transform Visual;
             public bool ServerSide;
+            /// <summary>Server: replaces the default damage on hit (for chill, shatter and the like).</summary>
+            public System.Action<Health> OnHit;
         }
 
         private static Arrows instance;
@@ -47,21 +52,23 @@ namespace Deepbound.Combat
         }
 
         /// <summary>Server: fire an arrow that deals damage. Call the shooter's visual RPC alongside.</summary>
-        public static void ServerFire(Vector3 origin, Vector3 direction, float damage, Team targets, ulong shooter)
+        public static void ServerFire(Vector3 origin, Vector3 direction, float damage, Team targets, ulong shooter,
+            float speed = Speed, System.Action<Health> onHit = null)
         {
             Instance.live.Add(new Arrow
             {
-                Position = origin, Velocity = direction.normalized * Speed, Damage = damage,
-                Targets = targets, Shooter = shooter, ServerSide = true,
+                Position = origin, Velocity = direction.normalized * speed, Damage = damage,
+                Targets = targets, Shooter = shooter, ServerSide = true, OnHit = onHit,
             });
         }
 
         /// <summary>Any peer: fly a harmless visual copy.</summary>
-        public static void SpawnVisual(Vector3 origin, Vector3 direction)
+        public static void SpawnVisual(Vector3 origin, Vector3 direction, ProjectileKind kind = ProjectileKind.Arrow, float speed = Speed)
         {
             Instance.live.Add(new Arrow
             {
-                Position = origin, Velocity = direction.normalized * Speed, Visual = BuildVisual(origin, direction),
+                Position = origin, Velocity = direction.normalized * speed,
+                Visual = kind == ProjectileKind.Arrow ? BuildVisual(origin, direction) : BuildBolt(origin, direction, kind),
             });
         }
 
@@ -123,9 +130,16 @@ namespace Deepbound.Combat
                 if (h == null || h.Team != a.Targets || !h.IsAlive) continue;
                 if (DistanceToSegment(h.Center, from, to) > HitRadius) continue;
 
-                // "From" for blocking purposes is a point back along the flight path.
-                h.ServerDamage(a.Damage, h.Center - a.Velocity.normalized * 3f, a.Shooter);
-                Sfx.Play(Sound.Hit, h.Center, 0.6f, 1.3f);
+                if (a.OnHit != null)
+                {
+                    a.OnHit(h);
+                }
+                else
+                {
+                    // "From" for blocking purposes is a point back along the flight path.
+                    h.ServerDamage(a.Damage, h.Center - a.Velocity.normalized * 3f, a.Shooter);
+                    Sfx.Play(Sound.Hit, h.Center, 0.6f, 1.3f);
+                }
                 return true;
             }
             return false;
@@ -136,6 +150,33 @@ namespace Deepbound.Combat
             var ab = b - a;
             float t = ab.sqrMagnitude > 0f ? Mathf.Clamp01(Vector3.Dot(p - a, ab) / ab.sqrMagnitude) : 0f;
             return Vector3.Distance(p, a + ab * t);
+        }
+
+        /// <summary>A spell bolt: a glowing core, a lit halo and a trailing tail.</summary>
+        private static Transform BuildBolt(Vector3 origin, Vector3 direction, ProjectileKind kind)
+        {
+            bool fire = kind == ProjectileKind.Firebolt;
+            var color = fire ? new Color(1f, 0.45f, 0.12f) : new Color(0.45f, 0.8f, 1f);
+
+            var root = new GameObject(fire ? "Firebolt" : "Frostbolt").transform;
+            root.SetPositionAndRotation(origin, Quaternion.LookRotation(direction));
+            var core = MeshKit.Part(root, "Core", fire ? MeshKit.Ball(0.12f, 8, 6) : MeshKit.Lathe("frostShard", new[]
+            {
+                new Vector2(0f, -0.25f), new Vector2(0.08f, 0f), new Vector2(0f, 0.12f),
+            }, 5), Mat.Glow, Vector3.zero, fire ? Vector3.zero : new Vector3(90f, 0f, 0f));
+            ArtLibrary.SetGlow(core.GetComponent<Renderer>(), color * 3f);
+            var tail = MeshKit.Part(root, "Tail", MeshKit.Lathe("boltTail", new[] { new Vector2(0f, 0f), new Vector2(0.07f, 0.1f), new Vector2(0f, 0.6f) }, 6, false),
+                Mat.Glow, new Vector3(0f, 0f, -0.05f), new Vector3(-90f, 0f, 0f));
+            ArtLibrary.SetGlow(tail.GetComponent<Renderer>(), color * 1.5f);
+            foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+
+            var light = new GameObject("Light").AddComponent<Light>();
+            light.transform.SetParent(root, false);
+            light.type = LightType.Point;
+            light.color = color;
+            light.range = 5f;
+            light.intensity = 3f;
+            return root;
         }
 
         private static Transform BuildVisual(Vector3 origin, Vector3 direction)

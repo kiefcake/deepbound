@@ -1,5 +1,7 @@
 using Deepbound.Art;
+using Deepbound.Classes;
 using Deepbound.Combat;
+using Deepbound.Progression;
 using Deepbound.UI;
 using Deepbound.World;
 using Unity.Netcode;
@@ -13,9 +15,10 @@ namespace Deepbound.Player
     /// or someone else's avatar you only see. Also owns the player's visuals.
     ///
     /// <para>
-    /// Every peer builds the full Knight model for every player. On the owner the model
-    /// only casts shadows (you see your shadow, not the inside of your own helmet) and a
-    /// separate first-person view model of sword and shield is attached to the camera.
+    /// Every peer builds the full model of every player's chosen class, and rebuilds it if
+    /// they switch class in the lobby. On the owner the model only casts shadows (you see
+    /// your shadow, not the inside of your own helmet) and a separate first-person view
+    /// model — sword and shield, or staff and casting hand — is attached to the camera.
     /// </para>
     ///
     /// <para>
@@ -51,9 +54,11 @@ namespace Deepbound.Player
 
         private Health health;
         private PlayerLife life;
-        private KnightKit kit;
+        private KnightKit knight;
+        private PlayerProgress progress;
+        private IClassKit[] kits;
         private CharacterArt.ViewModel viewModel;
-        private ViewModelAnimator viewAnim;
+        private IViewAnim viewAnim;
         private float shake;
         private int teleportedForArena = -1;
 
@@ -61,13 +66,26 @@ namespace Deepbound.Player
         {
             health = GetComponent<Health>();
             life = GetComponent<PlayerLife>();
-            kit = GetComponent<KnightKit>();
+            knight = GetComponent<KnightKit>();
+            progress = GetComponent<PlayerProgress>();
+            kits = GetComponents<IClassKit>();
+        }
+
+        /// <summary>The kit for the player's current class.</summary>
+        public IClassKit ActiveKit
+        {
+            get
+            {
+                foreach (var k in kits) if (k.Class == progress.ClassId.Value) return k;
+                return kits[0];
+            }
         }
 
         public override void OnNetworkSpawn()
         {
-            Rig = CharacterArt.BuildKnight(transform, SlotColor);
             name = "Player " + OwnerClientId;
+            BuildVisuals();
+            progress.ClassId.OnValueChanged += (_, __) => BuildVisuals();
 
             bool isLocal = IsOwner;
             playerCamera.enabled = isLocal;
@@ -75,11 +93,6 @@ namespace Deepbound.Player
 
             if (isLocal)
             {
-                foreach (var r in Rig.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
-
-                viewModel = CharacterArt.BuildKnightViewModel(playerCamera.transform, SlotColor);
-                viewAnim = new ViewModelAnimator(viewModel);
-
                 Local = this;
                 motor.enabled = true;
                 gameObject.AddComponent<GameHud>().Init(this);
@@ -91,6 +104,32 @@ namespace Deepbound.Player
             else
             {
                 health.Hurt += _ => Rig.Play(Rig.Current == RigAction.None ? RigAction.Stagger : Rig.Current, 0.25f);
+            }
+        }
+
+        /// <summary>(Re)builds the body and, on the owner, the view model for the current class.</summary>
+        private void BuildVisuals()
+        {
+            if (Rig != null) Destroy(Rig.gameObject);
+            if (viewModel != null) Destroy(viewModel.Root.gameObject);
+            viewModel = null;
+            viewAnim = null;
+
+            bool mage = progress.ClassId.Value == ClassId.Mage;
+            Rig = mage ? CharacterArt.BuildMage(transform, SlotColor) : CharacterArt.BuildKnight(transform, SlotColor);
+
+            if (!IsOwner) return;
+            foreach (var r in Rig.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
+
+            if (mage)
+            {
+                viewModel = CharacterArt.BuildMageViewModel(playerCamera.transform, SlotColor);
+                viewAnim = new MageViewAnimator(viewModel);
+            }
+            else
+            {
+                viewModel = CharacterArt.BuildKnightViewModel(playerCamera.transform, SlotColor);
+                viewAnim = new ViewModelAnimator(viewModel);
             }
         }
 
@@ -127,7 +166,7 @@ namespace Deepbound.Player
         {
             if (Rig != null)
             {
-                Rig.Blocking = kit != null && kit.Blocking.Value;
+                Rig.Blocking = knight != null && knight.Blocking.Value;
                 Rig.Downed = life != null && life.Downed.Value;
             }
 
@@ -136,7 +175,7 @@ namespace Deepbound.Player
             motor.Frozen = life.Downed.Value;
             motor.CameraDrop = life.Downed.Value ? 0.9f : 0f;
 
-            viewAnim?.Update(kit.Blocking.Value, life.Downed.Value, motor.IsSprinting);
+            viewAnim?.Update(knight.Blocking.Value, life.Downed.Value, motor.IsSprinting);
 
             // Damage shake: a brief, decaying jitter on the camera — felt more than seen.
             shake = Mathf.MoveTowards(shake, 0f, Time.deltaTime * 2.5f);
@@ -151,12 +190,84 @@ namespace Deepbound.Player
         public void ViewModelSwing(float windup, float rest, float side) => viewAnim?.Swing(windup, rest, side);
         public void ViewModelBash() => viewAnim?.Bash();
         public void ViewModelBlockImpact() { viewAnim?.BlockImpact(); shake = Mathf.Min(1f, shake + 0.3f); }
+        public void ViewModelCast(bool frost) => viewAnim?.Cast(frost);
+
+        /// <summary>One first-person animator per class; the kit calls whichever hooks apply.</summary>
+        private interface IViewAnim
+        {
+            void Update(bool blocking, bool downed, bool sprinting);
+            void Swing(float windup, float rest, float side);
+            void Bash();
+            void BlockImpact();
+            void Cast(bool frost);
+        }
+
+        /// <summary>
+        /// The Mage's hands: the staff sways and dips; the casting hand thrusts forward on
+        /// each spell, its palm flaring orange for fire or blue for frost.
+        /// </summary>
+        private class MageViewAnimator : IViewAnim
+        {
+            private readonly CharacterArt.ViewModel vm;
+            private readonly Vector3 staffRest, handRest;
+            private readonly Quaternion staffRot, handRot;
+            private float castStart = -10f, impactStart = -10f, bob, idle;
+            private bool lastFrost;
+
+            private static readonly Color Fire = new Color(1f, 0.5f, 0.15f), Frost = new Color(0.45f, 0.8f, 1f);
+
+            public MageViewAnimator(CharacterArt.ViewModel vm)
+            {
+                this.vm = vm;
+                staffRest = vm.SwordPivot.localPosition;
+                staffRot = vm.SwordPivot.localRotation;
+                handRest = vm.ShieldPivot.localPosition;
+                handRot = vm.ShieldPivot.localRotation;
+            }
+
+            public void Swing(float windup, float rest, float side) { }
+            public void Bash() { }
+            public void BlockImpact() => impactStart = Time.time;
+
+            public void Cast(bool frost)
+            {
+                castStart = Time.time;
+                lastFrost = frost;
+            }
+
+            public void Update(bool blocking, bool downed, bool sprinting)
+            {
+                bob += Time.deltaTime * (sprinting ? 11f : 0f);
+                idle += Time.deltaTime;
+
+                float c = Time.time - castStart;
+                float thrust = c < 0.25f ? Mathf.Sin(c / 0.25f * Mathf.PI) : 0f;
+                float hit = Time.time - impactStart < 0.2f ? 1f - (Time.time - impactStart) / 0.2f : 0f;
+
+                var sway = new Vector3(Mathf.Sin(idle * 1.3f) * 0.008f, Mathf.Sin(idle * 2.1f) * 0.006f, 0f);
+                var run = sprinting ? new Vector3(Mathf.Sin(bob) * 0.02f, Mathf.Abs(Mathf.Cos(bob)) * 0.025f, 0f) : Vector3.zero;
+                var down = downed ? new Vector3(0f, -0.4f, -0.1f) : Vector3.zero;
+
+                vm.SwordPivot.localPosition = staffRest + sway + run + down + new Vector3(0f, 0f, -0.06f) * hit + new Vector3(-0.02f, 0.02f, 0.05f) * thrust;
+                vm.SwordPivot.localRotation = staffRot * Quaternion.Euler(-10f * thrust, 0f, 0f);
+
+                vm.ShieldPivot.localPosition = handRest + run + down + new Vector3(0.12f, 0.06f, 0.22f) * thrust - sway;
+                vm.ShieldPivot.localRotation = handRot * Quaternion.Euler(-35f * thrust, 0f, 0f);
+
+                if (vm.SpellGlow != null)
+                {
+                    var color = lastFrost ? Frost : Fire;
+                    ArtLibrary.SetGlow(vm.SpellGlow, color * (0.9f + 2.2f * thrust + Mathf.Sin(idle * 6f) * 0.15f));
+                    vm.SpellGlow.transform.localScale = Vector3.one * (1f + thrust * 0.8f);
+                }
+            }
+        }
 
         /// <summary>
         /// Procedural animation for the first-person sword and shield. Plain class driven
         /// from <see cref="Update"/>; it only exists on the owner.
         /// </summary>
-        private class ViewModelAnimator
+        private class ViewModelAnimator : IViewAnim
         {
             private readonly CharacterArt.ViewModel vm;
             private readonly Vector3 swordRestPos, shieldRestPos;
@@ -182,6 +293,7 @@ namespace Deepbound.Player
 
             public void Bash() => bashStart = Time.time;
             public void BlockImpact() => impactStart = Time.time;
+            public void Cast(bool frost) { }
 
             public void Update(bool blocking, bool downed, bool sprinting)
             {
