@@ -166,7 +166,7 @@ namespace Deepbound.UI
                 row += (i > 0 ? "      " : "") + "[" + (i + 1) + "] " + ((ClassId)i == current ? "> " + name.ToUpperInvariant() + " <" : name);
             }
             GUI.Label(new Rect(0, cy, w, 22), row, new GUIStyle(center) { normal = { textColor = Gold } });
-            GUI.Label(new Rect(0, cy + 22, w, 20), ClassDefinition.Pitch(current), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(0, cy + 22, w, 20), ClassDefinition.Pitch(current) + "   (B: class screen)", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
             if (counting)
             {
                 int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
@@ -201,7 +201,7 @@ namespace Deepbound.UI
             if (keyboard != null && keyboard.gKey.wasPressedThisFrame && near) shopOpen = !shopOpen;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = false;
             if (!near) shopOpen = false;
-            MenuOpen = shopOpen;
+            MenuOpen = shopOpen || CharacterSelect.Open;
             statsHeld = keyboard != null && keyboard.tabKey.isPressed;
 
             // Class choice is a camp decision: number keys pick one, only in the lobby.
@@ -235,6 +235,7 @@ namespace Deepbound.UI
         {
             if (player == null) return;
             EnsureStyles();
+            if (CharacterSelect.Open) return;
 
             float w = Screen.width, h = Screen.height;
 
@@ -390,7 +391,7 @@ namespace Deepbound.UI
             if (age > 25f) return;
             float a = Mathf.Clamp01((25f - age) / 3f);
             var style = new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 1f, 1f, a * 0.85f) } };
-            GUI.Label(new Rect(w - 330, 16, 310, 140),
+            GUI.Label(new Rect(w - 330, 262, 310, 150),
                 "WASD move  ·  Shift sprint  ·  Space jump\n" +
                 (progress.ClassId.Value == ClassId.Mage
                     ? "LMB Firebolt  ·  RMB Frostbolt (chills)\n" +
@@ -400,7 +401,8 @@ namespace Deepbound.UI
                       "Q  Shield Bash — stuns, cancels wind-ups\n" +
                       "E  War Cry — taunt + half damage\n") +
                 "F  revive a downed ally  ·  G  trade  ·  Tab  stats\n" +
-                "Walk over potions to drink them  ·  Esc free mouse", style);
+                "CTRL dodge  ·  M map  ·  Walk over loot to take it\n" +
+                "Hit enemies from behind for +35%  ·  Esc free mouse", style);
         }
 
         private void DrawFeed(float h)

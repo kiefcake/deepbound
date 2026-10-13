@@ -61,6 +61,28 @@ namespace Deepbound.Classes
 
         public static readonly ClassDefinition[] ById = { Knight, Mage };
 
+        /// <summary>One line per kit slot, for the character select screen.</summary>
+        public static (string key, string name, string desc)[] Kit(ClassId id) => id == ClassId.Mage
+            ? new[]
+            {
+                ("PASSIVE", "Shatter", "Fire on a chilled enemy deals +75% and consumes the chill."),
+                ("LMB", "Firebolt", "Hold to hurl fast, cheap bolts of fire."),
+                ("RMB", "Frostbolt", "A slower bolt that chills: the target is slowed and primed to shatter."),
+                ("Q", "Blink", "Teleport a few metres the way you are looking."),
+                ("E", "Meteor", "Call down a meteor at your crosshair. Shatters everything chilled beneath it."),
+            }
+            : new[]
+            {
+                ("PASSIVE", "Bulwark", "Blocking stops 80% of damage from the front, at a stamina cost."),
+                ("LMB", "Sword Swing", "A quick wind-up, then a wide arc. Alternates sides."),
+                ("RMB", "Block", "Hold to raise your shield. Slows you while held."),
+                ("Q", "Shield Bash", "Lunge and stun. Cancels enemy wind-ups — even a boss's."),
+                ("E", "War Cry", "Taunt every enemy nearby onto you and halve the damage you take."),
+            };
+
+        /// <summary>Difficulty hint for the class picker.</summary>
+        public static string Difficulty(ClassId id) => id == ClassId.Mage ? "Hard - fragile, rewards combos and positioning" : "Easy - forgiving, holds the line";
+
         public static ClassDefinition For(ClassId id) => ById[Mathf.Clamp((int)id, 0, ById.Length - 1)];
 
         /// <summary>One line for the class picker.</summary>

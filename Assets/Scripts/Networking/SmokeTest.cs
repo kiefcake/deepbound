@@ -71,6 +71,20 @@ namespace Deepbound.Networking
                 float before = dummy.Current.Value;
                 mage.ServerBolt(from, dummy.Center - from, false);
                 yield return new WaitForSeconds(0.5f);
+                // Relics: Thunder Sigil procs on the 6th hit; Vampiric Fang heals the attacker.
+                progressMe.ServerAddRelic(Relic.ThunderSigil);
+                progressMe.ServerAddRelic(Relic.VampiricFang);
+                var meHp = me.GetComponent<Health>();
+                meHp.ServerSetFraction(0.5f);
+                float hpBefore = meHp.Current.Value;
+                dummy.ServerSetFraction(1f);
+                float dummyBefore = dummy.Current.Value;
+                for (int i = 0; i < 6; i++) dummy.ServerDamage(10f, me.transform.position, me.NetworkObjectId);
+                float dealt = dummyBefore - dummy.Current.Value;
+                Log("relics", "6 hits of 10 dealt " + dealt.ToString("F0") + " (lightning adds more), hp " + hpBefore.ToString("F0") + " -> " + meHp.Current.Value.ToString("F0"),
+                    dealt > 60f && meHp.Current.Value > hpBefore && progressMe.RelicCount == 2);
+                meHp.ServerSetFraction(1f);
+
                 Log("firebolt shatters", "chill consumed " + !dummy.Chilled.Value + ", dealt " + (before - dummy.Current.Value).ToString("F0"),
                     !dummy.Chilled.Value && before - dummy.Current.Value > MageKit.FireboltDamage);
                 DungeonDirector.Instance.ServerStartRun();
@@ -175,6 +189,11 @@ namespace Deepbound.Networking
                 yield break;
             }
 
+            yield return new WaitForSeconds(1.5f);
+            yield return Shot(dir, "0a_character_select");
+            local.GetComponent<UI.CharacterSelect>().Close();
+            yield return new WaitForSeconds(0.2f);
+
             var lobbyMotor = local.GetComponent<FirstPersonMotor>();
             lobbyMotor.enabled = false;
             var lobbyFrom = Lobby.BoardingCenter + new Vector3(-6f, 0.1f, -6f);
@@ -220,6 +239,11 @@ namespace Deepbound.Networking
             motor.enabled = false; // stop input and gravity fighting the staged camera
 
             yield return Shot(dir, "1_start_room");
+            var map = local.GetComponent<UI.Minimap>();
+            map.Large = true;
+            yield return null;
+            yield return Shot(dir, "1a_large_map");
+            map.Large = false;
 
             var m = layout.MerchantPosition;
             var mFrom = m + (layout.StartRoom.Center - m).normalized * 3.2f + Vector3.up * 0.1f;
@@ -269,6 +293,18 @@ namespace Deepbound.Networking
                     motor.Teleport(from, Quaternion.LookRotation(room.Center - from));
                     yield return new WaitForSeconds(1.2f);
                     yield return Shot(dir, "5_floor" + (depth + 1));
+
+                    // Line up one of each newer enemy type for a close look.
+                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain) })
+                    {
+                        var e = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(b => b.GetType() == type && !b.IsDead);
+                        if (e == null) continue;
+                        e.ServerStun(30f);
+                        var ep = e.transform.position + e.transform.forward * 3.2f + Vector3.up * 0.1f;
+                        motor.Teleport(ep, Quaternion.LookRotation(e.transform.position - ep));
+                        yield return new WaitForSeconds(0.5f);
+                        yield return Shot(dir, "7_" + type.Name + "_floor" + (depth + 1));
+                    }
 
                     var archer = FindObjectsByType<ArcherBrain>(FindObjectsSortMode.None).FirstOrDefault();
                     if (archer != null)

@@ -143,9 +143,10 @@ namespace Deepbound.Player
         {
             // Yaw turns the whole body, so the networked transform carries facing to other
             // players. Pitch only tilts the local camera — nobody else needs it yet.
-            transform.Rotate(0f, delta.x * mouseSensitivity, 0f);
+            float sens = mouseSensitivity * UI.Settings.MouseSensitivity;
+            transform.Rotate(0f, delta.x * sens, 0f);
 
-            pitch = Mathf.Clamp(pitch - delta.y * mouseSensitivity, -maxPitch, maxPitch);
+            pitch = Mathf.Clamp(pitch - delta.y * sens, -maxPitch, maxPitch);
             if (cameraPivot != null) cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
 

@@ -1,0 +1,89 @@
+using UnityEngine;
+
+namespace Deepbound.UI
+{
+    /// <summary>
+    /// Shared IMGUI look for the menus: dark iron panels, gold accents, bold type.
+    /// Built once from generated 1-pixel textures — no assets, like everything else.
+    /// </summary>
+    public static class UiSkin
+    {
+        public static readonly Color Gold = new Color(0.92f, 0.74f, 0.36f);
+        public static readonly Color Ink = new Color(0.03f, 0.03f, 0.04f, 0.88f);
+        public static readonly Color Ember = new Color(0.85f, 0.35f, 0.12f);
+
+        private static GUIStyle button, buttonBig, title, heading, body, small, field;
+
+        public static GUIStyle Button => button ??= MakeButton(18);
+        public static GUIStyle ButtonBig => buttonBig ??= MakeButton(24);
+        public static GUIStyle Title => title ??= MakeLabel(72, TextAnchor.MiddleCenter, Gold, FontStyle.Bold);
+        public static GUIStyle Heading => heading ??= MakeLabel(22, TextAnchor.MiddleLeft, Gold, FontStyle.Bold);
+        public static GUIStyle Body => body ??= MakeLabel(15, TextAnchor.UpperLeft, new Color(0.9f, 0.88f, 0.84f), FontStyle.Normal, wrap: true);
+        public static GUIStyle Small => small ??= MakeLabel(12, TextAnchor.UpperLeft, new Color(0.75f, 0.72f, 0.68f), FontStyle.Normal, wrap: true);
+
+        public static GUIStyle Field
+        {
+            get
+            {
+                if (field != null) return field;
+                field = new GUIStyle(GUI.skin.textField) { fontSize = 18, alignment = TextAnchor.MiddleCenter };
+                field.normal.background = Tex(new Color(0.08f, 0.07f, 0.06f, 0.95f));
+                field.focused.background = Tex(new Color(0.14f, 0.12f, 0.09f, 0.95f));
+                field.normal.textColor = field.focused.textColor = Color.white;
+                return field;
+            }
+        }
+
+        public static void Rect(Rect r, Color c)
+        {
+            var old = GUI.color;
+            GUI.color = c;
+            GUI.DrawTexture(r, Texture2D.whiteTexture);
+            GUI.color = old;
+        }
+
+        /// <summary>A panel with a thin gold frame.</summary>
+        public static void Panel(Rect r, float alpha = 0.88f)
+        {
+            Rect(new Rect(r.x - 2, r.y - 2, r.width + 4, r.height + 4), new Color(Gold.r, Gold.g, Gold.b, 0.55f * alpha));
+            Rect(r, new Color(Ink.r, Ink.g, Ink.b, alpha));
+        }
+
+        /// <summary>Text with a soft dark drop shadow, for titles over 3D scenes.</summary>
+        public static void Shadowed(Rect r, string text, GUIStyle style, float alpha = 1f)
+        {
+            var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, 0.75f * alpha) } };
+            for (int i = 1; i <= 3; i++) GUI.Label(new Rect(r.x + i, r.y + i, r.width, r.height), text, shadow);
+            var main = new GUIStyle(style);
+            main.normal.textColor = new Color(style.normal.textColor.r, style.normal.textColor.g, style.normal.textColor.b, alpha);
+            GUI.Label(r, text, main);
+        }
+
+        private static GUIStyle MakeButton(int size)
+        {
+            var s = new GUIStyle(GUI.skin.button) { fontSize = size, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            s.normal.background = Tex(new Color(0.1f, 0.085f, 0.07f, 0.92f));
+            s.hover.background = Tex(new Color(0.32f, 0.22f, 0.1f, 0.95f));
+            s.active.background = Tex(new Color(0.55f, 0.36f, 0.14f, 1f));
+            s.normal.textColor = new Color(0.9f, 0.85f, 0.75f);
+            s.hover.textColor = s.active.textColor = Color.white;
+            s.border = new RectOffset(0, 0, 0, 0);
+            return s;
+        }
+
+        private static GUIStyle MakeLabel(int size, TextAnchor anchor, Color color, FontStyle fs, bool wrap = false)
+        {
+            var s = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = anchor, fontStyle = fs, wordWrap = wrap, richText = true };
+            s.normal.textColor = color;
+            return s;
+        }
+
+        private static Texture2D Tex(Color c)
+        {
+            var t = new Texture2D(1, 1) { hideFlags = HideFlags.HideAndDontSave };
+            t.SetPixel(0, 0, c);
+            t.Apply();
+            return t;
+        }
+    }
+}

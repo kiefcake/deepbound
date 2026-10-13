@@ -42,8 +42,12 @@ namespace Deepbound.Networking
 
         private NetworkManager Net => NetworkManager.Singleton;
 
+        /// <summary>The last connection message ("Connecting...", "Disconnected: ..."), for the title screen.</summary>
+        public string Status => status;
+
         private void Start()
         {
+            gameObject.AddComponent<UI.TitleScreen>().Init(this);
             Net.OnClientDisconnectCallback += HandleDisconnect;
             Net.OnTransportFailure += HandleTransportFailure;
 
@@ -101,6 +105,12 @@ namespace Deepbound.Networking
             Instantiate(directorPrefab).Spawn();
         }
 
+        public void StartClient(string joinAddress)
+        {
+            address = string.IsNullOrWhiteSpace(joinAddress) ? address : joinAddress.Trim();
+            StartClient();
+        }
+
         private void StartClient()
         {
             Transport.SetConnectionData(address, port);
@@ -129,6 +139,13 @@ namespace Deepbound.Networking
         {
             bool connected = Net.IsClient || Net.IsServer;
 
+            // Not connected: the title screen owns the screen.
+            if (!connected)
+            {
+                PanelRect = Rect.zero;
+                return;
+            }
+
             // While playing with the mouse captured the session panel is just clutter;
             // Esc frees the mouse and brings it back.
             if (connected && Cursor.lockState == CursorLockMode.Locked)
@@ -137,39 +154,10 @@ namespace Deepbound.Networking
                 return;
             }
 
-            PanelRect = connected
-                ? new Rect(10, 10, 220, 70)
-                : new Rect(Mathf.Max(20f, Screen.width * 0.06f), Screen.height / 2f - 120, 300, 240);
-
+            PanelRect = new Rect(10, 10, 220, 70);
             GUILayout.BeginArea(PanelRect, GUI.skin.box);
-
-            if (connected) DrawSessionPanel();
-            else DrawConnectPanel();
-
+            DrawSessionPanel();
             GUILayout.EndArea();
-        }
-
-        private void DrawConnectPanel()
-        {
-            GUILayout.Label("DEEPBOUND");
-            GUILayout.Label("1-4 player co-op dungeon descent");
-            GUILayout.Space(6);
-
-            if (GUILayout.Button("Host", GUILayout.Height(32))) StartHost();
-
-            GUILayout.Space(10);
-            GUILayout.BeginHorizontal();
-            GUILayout.Label("Address", GUILayout.Width(60));
-            address = GUILayout.TextField(address);
-            GUILayout.EndHorizontal();
-
-            if (GUILayout.Button("Join", GUILayout.Height(32))) StartClient();
-
-            if (!string.IsNullOrEmpty(status))
-            {
-                GUILayout.Space(6);
-                GUILayout.Label(status);
-            }
         }
 
         private void DrawSessionPanel()

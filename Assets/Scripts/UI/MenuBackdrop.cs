@@ -53,12 +53,14 @@ namespace Deepbound.UI
 
         private void Update()
         {
-            if (NetworkPlayer.Local != null)
+            // Hidden while playing, back when you leave a session.
+            bool show = NetworkPlayer.Local == null;
+            if (set.activeSelf != show)
             {
-                Destroy(set);
-                Destroy(this);
-                return;
+                set.SetActive(show);
+                if (show) DungeonBuilder.ApplyAtmosphere();
             }
+            if (!show) return;
 
             // The King occasionally winds up, as if about to strike. Pure set dressing.
             if (Time.time >= nextKingAction)

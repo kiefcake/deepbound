@@ -432,3 +432,4 @@ Three? Five? Eight? This sets the content budget for everything else. I would su
 |---|---|
 | 2026-09-13 | Created. Audited the existing project, researched art / netcode / Steam sourcing, drafted proposals and the question list. |
 | 2026-10-13 | M0 done (two players connect over UnityTransport). Open design questions decided by Claude (table at the top). M1 started: procedural art, a generated 3-floor dungeon, the Knight kit, skeletons, the Skeleton King boss, downed/revive, HUD, and headless smoke tests. |
+| 2026-10-14 | Gameplay pass: dodge, backstab, poise, surround AI; Ghoul, Bone Brute, Necromancer and elites; per-player scaling in Difficulty.cs; twelve relics (boss/elite drops and merchant stock); title screen, character select with live 3D previews, and a minimap. |

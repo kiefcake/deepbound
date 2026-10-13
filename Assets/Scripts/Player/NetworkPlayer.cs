@@ -89,6 +89,7 @@ namespace Deepbound.Player
 
             bool isLocal = IsOwner;
             playerCamera.enabled = isLocal;
+            if (isLocal) playerCamera.fieldOfView = Settings.FieldOfView;
             audioListener.enabled = isLocal;
 
             if (isLocal)
@@ -96,6 +97,8 @@ namespace Deepbound.Player
                 Local = this;
                 motor.enabled = true;
                 gameObject.AddComponent<GameHud>().Init(this);
+                gameObject.AddComponent<CharacterSelect>().Init(this);
+                gameObject.AddComponent<Minimap>().Init(this);
                 health.Hurt += OnLocalHurt;
 
                 DungeonDirector.ArenaBuilt += HandleArenaBuilt;
