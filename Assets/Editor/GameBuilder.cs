@@ -49,9 +49,10 @@ namespace Deepbound.EditorTools
             var player = BuildPlayerPrefab();
             var skeleton = BuildEnemyPrefab("Skeleton", boss: false, loot);
             var king = BuildEnemyPrefab("SkeletonKing", boss: true, loot);
-            var director = BuildDirectorPrefab(skeleton, king);
+            var dummy = BuildDummyPrefab();
+            var director = BuildDirectorPrefab(skeleton, king, dummy);
 
-            RegisterNetworkPrefabs(player, skeleton, king, director, loot);
+            RegisterNetworkPrefabs(player, skeleton, king, director, loot, dummy);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -188,7 +189,20 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "LootDrop");
         }
 
-        private static GameObject BuildDirectorPrefab(GameObject skeleton, GameObject king)
+        private static GameObject BuildDummyPrefab()
+        {
+            var root = new GameObject("TrainingDummy");
+            root.AddComponent<NetworkObject>();
+            var capsule = root.AddComponent<CapsuleCollider>();
+            capsule.height = 1.9f;
+            capsule.radius = 0.3f;
+            capsule.center = new Vector3(0f, 0.95f, 0f);
+            SetTeam(root.AddComponent<Health>(), Team.Enemies, 1.2f);
+            root.AddComponent<TrainingDummy>();
+            return SavePrefab(root, "TrainingDummy");
+        }
+
+        private static GameObject BuildDirectorPrefab(GameObject skeleton, GameObject king, GameObject dummy)
         {
             var root = new GameObject("DungeonDirector");
             root.AddComponent<NetworkObject>();
@@ -196,6 +210,7 @@ namespace Deepbound.EditorTools
             var so = new SerializedObject(director);
             so.FindProperty("skeletonPrefab").objectReferenceValue = skeleton.GetComponent<NetworkObject>();
             so.FindProperty("bossPrefab").objectReferenceValue = king.GetComponent<NetworkObject>();
+            so.FindProperty("dummyPrefab").objectReferenceValue = dummy.GetComponent<NetworkObject>();
             so.ApplyModifiedPropertiesWithoutUndo();
             return SavePrefab(root, "DungeonDirector");
         }

@@ -52,7 +52,6 @@ namespace Deepbound.UI
         private GUIStyle label, big, small, center;
         private float hurtFlash;
         private float spawnTime;
-        private int bannerFloor = -1;
         private float bannerUntil;
 
         private static readonly Color Panel = new Color(0.03f, 0.03f, 0.04f, 0.72f);
@@ -71,9 +70,108 @@ namespace Deepbound.UI
             progress = owner.GetComponent<PlayerProgress>();
             health.Hurt += amount => hurtFlash = Mathf.Min(1f, hurtFlash + amount / 30f);
             spawnTime = Time.time;
+            Health.AnyHurt += OnAnyHurt;
+            DungeonDirector.ArenaBuilt += OnArenaBuilt;
+            if (DungeonDirector.ArenaId > 0) OnArenaBuilt(DungeonDirector.ArenaId);
         }
 
-        private void OnDestroy() => MenuOpen = false;
+        private void OnDestroy()
+        {
+            MenuOpen = false;
+            Health.AnyHurt -= OnAnyHurt;
+            DungeonDirector.ArenaBuilt -= OnArenaBuilt;
+        }
+
+        // ---- Arena transitions: fade through black, then a title banner ----
+
+        private float fade;
+        private string bannerTitle, bannerSub;
+
+        private void OnArenaBuilt(int _)
+        {
+            fade = 1f;
+            bannerUntil = Time.time + 5f;
+            if (DungeonDirector.InLobby || DungeonDirector.Layout == null)
+            {
+                bannerTitle = "THE LAST LANTERN";
+                bannerSub = "Gather at the carriage when your party is ready";
+            }
+            else
+            {
+                int depth = DungeonDirector.Layout.Depth;
+                bannerTitle = "FLOOR " + (depth + 1);
+                bannerSub = depth < FloorNames.Length ? FloorNames[depth] : "The Deep";
+            }
+        }
+
+        // ---- Floating damage numbers ----
+
+        private struct DamageNumber { public Vector3 World; public float Amount; public float Time; public bool Player; }
+        private readonly List<DamageNumber> numbers = new List<DamageNumber>();
+
+        private void OnAnyHurt(Health target, float amount)
+        {
+            if (target == null || amount < 0.5f) return;
+            bool mine = target == health;
+            // Your own damage shows on your vitals; teammates' and enemies' float.
+            if (mine) return;
+            var jitter = new Vector3(Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f));
+            numbers.Add(new DamageNumber { World = target.Center + Vector3.up * (target.CenterHeight + 0.2f) + jitter, Amount = amount, Time = Time.time, Player = target.Team == Team.Players });
+            if (numbers.Count > 40) numbers.RemoveAt(0);
+        }
+
+        private void DrawDamageNumbers()
+        {
+            var cam = player.Camera;
+            for (int i = numbers.Count - 1; i >= 0; i--)
+            {
+                var n = numbers[i];
+                float age = Time.time - n.Time;
+                if (age > 1f) { numbers.RemoveAt(i); continue; }
+
+                var screen = cam.WorldToScreenPoint(n.World + Vector3.up * age * 0.8f);
+                if (screen.z <= 0f || screen.z > 30f) continue;
+
+                bool heavy = n.Amount >= 35f;
+                float a = 1f - age * age;
+                var color = n.Player ? new Color(1f, 0.35f, 0.3f, a) : heavy ? new Color(1f, 0.82f, 0.35f, a) : new Color(1f, 1f, 1f, a);
+                var style = new GUIStyle(big) { fontSize = heavy ? 24 : 18, normal = { textColor = color } };
+                var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, a * 0.8f) } };
+                var rect = new Rect(screen.x - 50, Screen.height - screen.y - 15, 100, 30);
+                string text = Mathf.RoundToInt(n.Amount).ToString();
+                GUI.Label(new Rect(rect.x + 1.5f, rect.y + 1.5f, rect.width, rect.height), text, shadow);
+                GUI.Label(rect, text, style);
+            }
+        }
+
+        private void DrawLobby(float w, float h)
+        {
+            var director = DungeonDirector.Instance;
+            if (director == null || !DungeonDirector.InLobby) return;
+
+            int total = PlayerLife.All.Count, aboard = DungeonDirector.PlayersAboard();
+            bool counting = director.PhaseEndsAt.Value > 0;
+            float y = h - 170;
+
+            Rect(w / 2f - 230, y - 6, 460, counting ? 62 : 44, Panel);
+            GUI.Label(new Rect(0, y, w, 24), "Stand in the golden circle by the carriage to descend   (" + aboard + " / " + total + " aboard)", center);
+            if (counting)
+            {
+                int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
+                GUI.Label(new Rect(0, y + 24, w, 26), "The carriage departs in " + seconds + "...", new GUIStyle(center) { fontSize = 18, normal = { textColor = Gold } });
+            }
+            else
+            {
+                GUI.Label(new Rect(0, y + 20, w, 20), "Test your kit on the training dummies to the west", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+            }
+        }
+
+        private void DrawFade(float w, float h)
+        {
+            fade = Mathf.MoveTowards(fade, 0f, Time.deltaTime * 0.8f);
+            if (fade <= 0f) return;
+            Rect(0, 0, w, h, new Color(0f, 0f, 0f, Mathf.SmoothStep(0f, 1f, fade)));
+        }
 
         private bool NearMerchant()
         {
@@ -94,12 +192,6 @@ namespace Deepbound.UI
             MenuOpen = shopOpen;
             statsHeld = keyboard != null && keyboard.tabKey.isPressed;
 
-            var director = DungeonDirector.Instance;
-            if (director != null && director.Floor.Value.y != bannerFloor && DungeonDirector.Layout != null)
-            {
-                bannerFloor = director.Floor.Value.y;
-                bannerUntil = Time.time + 5f;
-            }
         }
 
         private void EnsureStyles()
@@ -121,6 +213,7 @@ namespace Deepbound.UI
             float w = Screen.width, h = Screen.height;
 
             DrawEnemyBars();
+            DrawDamageNumbers();
             DrawVignette(w, h);
             DrawCrosshair(w, h);
             DrawVitals(w, h);
@@ -132,7 +225,9 @@ namespace Deepbound.UI
             DrawControlsHint(w, h);
             DrawFeed(h);
             DrawMerchant(w, h);
+            DrawLobby(w, h);
             if (statsHeld) DrawStatSheet(w, h);
+            DrawFade(w, h);
         }
 
         // ------------------------------------------------------------------
@@ -158,7 +253,7 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x + 8, y + 1, bw, 22), Mathf.CeilToInt(hp) + " / " + Mathf.CeilToInt(max), label);
 
             Bar(x, y + 32, bw, 12, kit.Stamina / KnightKit.StaminaMax, StaminaAmber);
-            GUI.Label(new Rect(x, y + 46, bw, 20), "KNIGHT  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun + "  ·  Tab: stats", small);
+            GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? "KNIGHT  ·  At camp" : "KNIGHT  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun) + "  ·  Tab: stats", small);
             GUI.Label(new Rect(x + bw - 90, y + 46, 90, 20), progress.Gold.Value + " gold", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
         }
 
@@ -232,15 +327,15 @@ namespace Deepbound.UI
         private void DrawPhase(float w, float h)
         {
             var director = DungeonDirector.Instance;
-            if (director == null || director.Phase.Value == RunPhase.Exploring) return;
+            if (director == null || director.Phase.Value == RunPhase.Exploring || director.Phase.Value == RunPhase.Lobby) return;
 
             int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
             string title, sub;
             switch (director.Phase.Value)
             {
                 case RunPhase.FloorCleared: title = "THE KING FALLS"; sub = "Descending deeper in " + seconds + "..."; break;
-                case RunPhase.Wiped: title = "YOUR PARTY HAS FALLEN"; sub = "The run is over. A new descent begins in " + seconds + "..."; break;
-                default: title = "THE DEPTHS ARE CLEARED"; sub = "Run complete. A new descent begins in " + seconds + "..."; break;
+                case RunPhase.Wiped: title = "YOUR PARTY HAS FALLEN"; sub = "The run is over. Returning to camp in " + seconds + "..."; break;
+                default: title = "THE DEPTHS ARE CLEARED"; sub = "Run complete! Returning to camp in " + seconds + "..."; break;
             }
 
             Rect(0, h * 0.28f - 10, w, 90, new Color(0f, 0f, 0f, 0.55f));
@@ -250,12 +345,11 @@ namespace Deepbound.UI
 
         private void DrawBanner(float w, float h)
         {
-            if (Time.time > bannerUntil || bannerFloor < 0) return;
-            float a = Mathf.Clamp01((bannerUntil - Time.time) / 1.5f);
+            if (Time.time > bannerUntil || bannerTitle == null) return;
+            float a = Mathf.Clamp01((bannerUntil - Time.time) / 1.5f) * Mathf.Clamp01(1f - fade * 1.5f);
             var gold = new Color(Gold.r, Gold.g, Gold.b, a);
-            GUI.Label(new Rect(0, h * 0.18f, w, 44), "FLOOR " + (bannerFloor + 1), new GUIStyle(big) { normal = { textColor = gold } });
-            string name = bannerFloor < FloorNames.Length ? FloorNames[bannerFloor] : "The Deep";
-            GUI.Label(new Rect(0, h * 0.18f + 44, w, 26), name, new GUIStyle(center) { fontSize = 18, normal = { textColor = new Color(1f, 1f, 1f, a) } });
+            GUI.Label(new Rect(0, h * 0.18f, w, 44), bannerTitle, new GUIStyle(big) { normal = { textColor = gold } });
+            GUI.Label(new Rect(0, h * 0.18f + 44, w, 26), bannerSub, new GUIStyle(center) { fontSize = 18, normal = { textColor = new Color(1f, 1f, 1f, a) } });
         }
 
         private void DrawControlsHint(float w, float h)

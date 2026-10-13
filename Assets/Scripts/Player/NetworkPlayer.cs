@@ -55,7 +55,7 @@ namespace Deepbound.Player
         private CharacterArt.ViewModel viewModel;
         private ViewModelAnimator viewAnim;
         private float shake;
-        private int teleportedForFloor = -1;
+        private int teleportedForArena = -1;
 
         private void Awake()
         {
@@ -85,8 +85,8 @@ namespace Deepbound.Player
                 gameObject.AddComponent<GameHud>().Init(this);
                 health.Hurt += OnLocalHurt;
 
-                DungeonDirector.FloorBuilt += HandleFloorBuilt;
-                if (DungeonDirector.Layout != null) HandleFloorBuilt(DungeonDirector.Layout);
+                DungeonDirector.ArenaBuilt += HandleArenaBuilt;
+                if (DungeonDirector.ArenaId > 0) HandleArenaBuilt(DungeonDirector.ArenaId);
             }
             else
             {
@@ -98,21 +98,23 @@ namespace Deepbound.Player
         {
             if (Local == this) Local = null;
             motor.enabled = false;
-            DungeonDirector.FloorBuilt -= HandleFloorBuilt;
+            DungeonDirector.ArenaBuilt -= HandleArenaBuilt;
         }
 
-        private void HandleFloorBuilt(DungeonLayout layout)
+        private void HandleArenaBuilt(int arenaId)
         {
-            // Rebuilt floors (new depth, wipe restart) move everyone back to the start
-            // room. The owner places itself; NetworkTransform carries that to everyone.
-            int floorKey = layout.Seed ^ (layout.Depth * 7919);
-            if (teleportedForFloor == floorKey) return;
-            teleportedForFloor = floorKey;
+            // Every new arena — a floor, or the lobby — moves everyone to its spawn. The
+            // owner places itself; NetworkTransform carries that to everyone else.
+            if (teleportedForArena == arenaId) return;
+            teleportedForArena = arenaId;
 
-            var spawn = layout.PlayerSpawnFor(OwnerClientId);
-            var look = layout.StartRoom.Center - spawn;
-            look.y = 0f;
-            motor.Teleport(spawn, look.sqrMagnitude > 0.01f ? Quaternion.LookRotation(-look) : Quaternion.identity);
+            var spawn = DungeonDirector.SpawnFor(OwnerClientId);
+            var away = spawn - DungeonDirector.SpawnLookTarget;
+            away.y = 0f;
+            // Face outward from the start room's centre (toward the doors), but toward the
+            // fire in the lobby.
+            var facing = DungeonDirector.InLobby ? -away : away;
+            motor.Teleport(spawn, facing.sqrMagnitude > 0.01f ? Quaternion.LookRotation(facing) : Quaternion.identity);
         }
 
         private void OnLocalHurt(float amount)

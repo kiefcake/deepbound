@@ -11,52 +11,72 @@ using UnityEngine.AI;
 
 namespace Deepbound.World
 {
+    /// <summary>APPEND ONLY: synced as a byte.</summary>
     public enum RunPhase : byte
     {
         Exploring = 0,
         FloorCleared = 1,  // boss dead, descending soon
         Wiped = 2,         // everyone downed, run over
         RunComplete = 3,   // final boss dead
+        Lobby = 4,         // at the Last Lantern, between runs
     }
 
     /// <summary>
-    /// Runs the dungeon: which floor you are on, when it is cleared, when the party has
-    /// wiped. One per session, spawned by the server when hosting starts.
+    /// Runs the session: the lobby, which floor you are on, when it is cleared, when the
+    /// party has wiped. One per session, spawned by the server when hosting starts.
     ///
     /// <para>
-    /// Floors are synced as a single (seed, depth) pair. Each peer rebuilds the geometry
-    /// locally from it (see <see cref="DungeonLayout"/>); only the server bakes a navmesh
-    /// and spawns enemies, which reach clients as ordinary networked objects.
+    /// Where the party is gets synced as one (nonce, depth) pair. Depth -1 is the lobby;
+    /// 0 and up are floors, and for floors the nonce is the generation seed. Each peer
+    /// rebuilds the geometry locally from it (see <see cref="DungeonLayout"/> and
+    /// <see cref="Lobby"/>); only the server bakes a navmesh and spawns enemies, which
+    /// reach clients as ordinary networked objects.
     /// </para>
     ///
-    /// The run is three floors (design doc Q6, decided 2026-10-13: three, then extend).
-    /// Clearing a floor's boss descends to the next; clearing the third ends the run. A
-    /// wipe restarts from floor one — nothing earned inside a run survives it.
+    /// The loop (design doc section 6): lobby → board the carriage → three floors, each
+    /// ended by a boss → back to the lobby. A wipe also returns to the lobby. Nothing
+    /// earned inside a run survives it.
     /// </summary>
     public class DungeonDirector : NetworkBehaviour
     {
         public const int FloorsPerRun = 3;
-        private const float DescendDelay = 8f, WipeDelay = 6f, CompleteDelay = 14f;
+        private const float DescendDelay = 8f, WipeDelay = 6f, CompleteDelay = 12f, BoardingDelay = 3f;
+        private const int LobbyDepth = -1;
 
         [SerializeField] private NetworkObject skeletonPrefab;
         [SerializeField] private NetworkObject bossPrefab;
+        [SerializeField] private NetworkObject dummyPrefab;
 
-        /// <summary>x = seed, y = depth (0-based floor index).</summary>
-        public readonly NetworkVariable<Vector2Int> Floor = new NetworkVariable<Vector2Int>(new Vector2Int(0, -1));
-        public readonly NetworkVariable<RunPhase> Phase = new NetworkVariable<RunPhase>(RunPhase.Exploring);
-        /// <summary>Server time the current phase transition fires, for HUD countdowns.</summary>
+        /// <summary>x = nonce (the seed, for floors), y = depth; -1 is the lobby.</summary>
+        public readonly NetworkVariable<Vector2Int> Floor = new NetworkVariable<Vector2Int>(new Vector2Int(0, int.MinValue));
+        public readonly NetworkVariable<RunPhase> Phase = new NetworkVariable<RunPhase>(RunPhase.Lobby);
+        /// <summary>Server time the pending transition fires (descend, return, depart); 0 if none.</summary>
         public readonly NetworkVariable<double> PhaseEndsAt = new NetworkVariable<double>();
 
         public static DungeonDirector Instance { get; private set; }
 
-        /// <summary>The floor currently built on this peer.</summary>
+        /// <summary>The floor currently built on this peer, or null in the lobby.</summary>
         public static DungeonLayout Layout { get; private set; }
 
-        /// <summary>Raised on every peer after the local geometry for a new floor exists.</summary>
-        public static event Action<DungeonLayout> FloorBuilt;
+        public static bool InLobby => Instance != null && Instance.Floor.Value.y == LobbyDepth;
+
+        /// <summary>
+        /// Raised on every peer after new local geometry — a floor or the lobby — exists.
+        /// The argument changes every time, so listeners can tell builds apart.
+        /// </summary>
+        public static event Action<int> ArenaBuilt;
+        private static int arenaCounter;
+
+        /// <summary>Where a given player should stand right now.</summary>
+        public static Vector3 SpawnFor(ulong clientId) => Layout != null ? Layout.PlayerSpawnFor(clientId) : Lobby.SpawnFor(clientId);
+
+        /// <summary>A point to face when spawning: the lobby fire, or the floor's start room centre.</summary>
+        public static Vector3 SpawnLookTarget => Layout != null ? Layout.StartRoom.Center : Lobby.Origin;
+
+        public static int ArenaId => arenaCounter;
 
         private GameObject built;
-        private Vector2Int builtFloor = new Vector2Int(0, -1);
+        private Vector2Int builtFloor = new Vector2Int(int.MinValue, int.MinValue);
         private readonly List<NetworkObject> spawned = new List<NetworkObject>();
         private BossBrain boss;
         private double phaseTimer;
@@ -67,14 +87,8 @@ namespace Deepbound.World
             Instance = this;
             Floor.OnValueChanged += (_, now) => BuildLocal(now);
 
-            if (IsServer)
-            {
-                StartFloor(0);
-            }
-            else if (Floor.Value.y >= 0)
-            {
-                BuildLocal(Floor.Value);
-            }
+            if (IsServer) EnterLobby();
+            else BuildLocal(Floor.Value);
         }
 
         public override void OnNetworkDespawn()
@@ -85,16 +99,73 @@ namespace Deepbound.World
         }
 
         // ------------------------------------------------------------------
-        // Floors
+        // Transitions (server)
         // ------------------------------------------------------------------
 
+        private void EnterLobby()
+        {
+            ClearSpawned();
+            Phase.Value = RunPhase.Lobby;
+            PhaseEndsAt.Value = 0;
+            Floor.Value = new Vector2Int(UnityEngine.Random.Range(1, int.MaxValue), LobbyDepth);
+            BuildLocal(Floor.Value);
+
+            if (dummyPrefab != null)
+            {
+                foreach (var spot in Lobby.DummySpots)
+                {
+                    var dummy = Instantiate(dummyPrefab, spot, Quaternion.Euler(0f, 90f, 0f));
+                    dummy.Spawn(destroyWithScene: true);
+                    spawned.Add(dummy);
+                }
+            }
+
+            // Back at camp, the run is over: wipe its power and pick everyone up.
+            foreach (var p in PlayerLife.All)
+            {
+                if (p.TryGetComponent<PlayerProgress>(out var progress) && progress.Stats != null) progress.ServerResetRun();
+                p.ServerRevive(1f);
+            }
+            Debug.Log("[Director] Lobby");
+        }
+
+        /// <summary>Server: board the carriage and start floor one. Also used by the smoke test.</summary>
+        public void ServerStartRun()
+        {
+            if (IsServer) StartFloor(0);
+        }
+
         private void StartFloor(int depth)
+        {
+            ClearSpawned();
+
+            int seed = UnityEngine.Random.Range(1, int.MaxValue);
+            Phase.Value = RunPhase.Exploring;
+            PhaseEndsAt.Value = 0;
+            Floor.Value = new Vector2Int(seed, depth);
+
+            // NetworkVariable callbacks do not fire for the writer's own change on every
+            // NGO version, so build explicitly; BuildLocal ignores a repeat.
+            BuildLocal(Floor.Value);
+
+            BakeNavMesh();
+            SpawnEnemies(Layout);
+
+            foreach (var p in PlayerLife.All) p.ServerRevive(1f);
+
+            Debug.Log("[Director] Floor " + (depth + 1) + " started, seed " + seed + ", " + spawned.Count + " enemies.");
+        }
+
+        private void ClearSpawned()
         {
             foreach (var obj in spawned)
             {
                 if (obj != null && obj.IsSpawned) obj.Despawn();
             }
             spawned.Clear();
+            boss = null;
+            bossSeen = false;
+
             // Boss minions are not tracked individually; sweep up anything left.
             foreach (var brain in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
             {
@@ -105,41 +176,35 @@ namespace Deepbound.World
             {
                 if (drop.NetworkObject.IsSpawned) drop.NetworkObject.Despawn();
             }
-
-            int seed = UnityEngine.Random.Range(1, int.MaxValue);
-            Phase.Value = RunPhase.Exploring;
-            Floor.Value = new Vector2Int(seed, depth);
-
-            // NetworkVariable callbacks do not fire for the writer's own change on every
-            // NGO version, so build explicitly; BuildLocal ignores a repeat.
-            BuildLocal(Floor.Value);
-
-            BakeNavMesh();
-            SpawnEnemies(Layout);
-
-            foreach (var p in PlayerLife.All)
-            {
-                // A new run (floor 1) wipes everything the last one granted.
-                if (depth == 0 && p.TryGetComponent<PlayerProgress>(out var progress) && progress.Stats != null) progress.ServerResetRun();
-                p.ServerRevive(1f);
-            }
-
-            Debug.Log("[Director] Floor " + (depth + 1) + " started, seed " + seed + ", " + spawned.Count + " enemies.");
         }
+
+        // ------------------------------------------------------------------
+        // Local build (every peer)
+        // ------------------------------------------------------------------
 
         private void BuildLocal(Vector2Int floor)
         {
-            if (floor.y < 0 || floor == builtFloor) return;
+            if (floor.y == int.MinValue || floor == builtFloor) return;
             builtFloor = floor;
 
             if (built != null) Destroy(built);
-            Layout = DungeonLayout.Generate(floor.x, floor.y);
-            built = DungeonBuilder.Build(Layout);
 
-            // The floor geometry must exist in the physics scene before anyone is placed
-            // on it, or a teleported player falls through the not-yet-registered collider.
+            if (floor.y == LobbyDepth)
+            {
+                Layout = null;
+                built = Lobby.Build();
+            }
+            else
+            {
+                Layout = DungeonLayout.Generate(floor.x, floor.y);
+                built = DungeonBuilder.Build(Layout);
+            }
+
+            // The geometry must exist in the physics scene before anyone is placed on it,
+            // or a teleported player falls through the not-yet-registered collider.
             Physics.SyncTransforms();
-            FloorBuilt?.Invoke(Layout);
+            arenaCounter++;
+            ArenaBuilt?.Invoke(arenaCounter);
         }
 
         private void BakeNavMesh()
@@ -178,17 +243,32 @@ namespace Deepbound.World
         }
 
         // ------------------------------------------------------------------
-        // Run state
+        // Run state (server)
         // ------------------------------------------------------------------
 
         private void Update()
         {
-            if (!IsServer || Layout == null) return;
+            if (!IsServer || Instance != this) return;
             double now = NetworkManager.ServerTime.Time;
 
             switch (Phase.Value)
             {
+                case RunPhase.Lobby:
+                    // Everyone in the boarding circle starts a short countdown; anyone
+                    // stepping out cancels it. One player can start a solo run.
+                    if (EveryoneAboard())
+                    {
+                        if (PhaseEndsAt.Value <= 0) PhaseEndsAt.Value = now + BoardingDelay;
+                        else if (now >= PhaseEndsAt.Value) StartFloor(0);
+                    }
+                    else if (PhaseEndsAt.Value > 0)
+                    {
+                        PhaseEndsAt.Value = 0;
+                    }
+                    break;
+
                 case RunPhase.Exploring:
+                    if (Layout == null) break;
                     if (PartyWiped())
                     {
                         EnterPhase(RunPhase.Wiped, WipeDelay);
@@ -208,9 +288,8 @@ namespace Deepbound.World
                 default:
                     if (now >= phaseTimer)
                     {
-                        int next = Phase.Value == RunPhase.FloorCleared ? Floor.Value.y + 1 : 0;
-                        bossSeen = false;
-                        StartFloor(next);
+                        if (Phase.Value == RunPhase.FloorCleared) StartFloor(Floor.Value.y + 1);
+                        else EnterLobby();
                     }
                     break;
             }
@@ -223,6 +302,18 @@ namespace Deepbound.World
             PhaseEndsAt.Value = phaseTimer;
             Debug.Log("[Director] " + phase);
         }
+
+        public static int PlayersAboard()
+        {
+            int n = 0;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p != null && Lobby.InBoardingCircle(p.transform.position)) n++;
+            }
+            return n;
+        }
+
+        private static bool EveryoneAboard() => PlayerLife.All.Count > 0 && PlayersAboard() == PlayerLife.All.Count;
 
         private static bool PartyWiped()
         {

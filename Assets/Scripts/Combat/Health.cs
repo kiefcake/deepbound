@@ -40,6 +40,9 @@ namespace Deepbound.Combat
         /// <summary>Raised on every peer when the value drops. Argument is the amount lost.</summary>
         public event Action<float> Hurt;
 
+        /// <summary>Raised on every peer for any Health losing value. Drives floating damage numbers.</summary>
+        public static event Action<Health, float> AnyHurt;
+
         /// <summary>Raised on the server when the value reaches zero.</summary>
         public event Action<Health> Died;
 
@@ -88,6 +91,7 @@ namespace Deepbound.Combat
             {
                 LastHurtTime = Time.time;
                 Hurt?.Invoke(previous - current);
+                AnyHurt?.Invoke(this, previous - current);
             }
         }
 

@@ -29,9 +29,19 @@ namespace Deepbound.Networking
 
         private IEnumerator Sequence(float seconds)
         {
-            yield return new WaitForSeconds(seconds * 0.4f);
+            yield return new WaitForSeconds(seconds * 0.25f);
 
             var net = NetworkManager.Singleton;
+            if (net.IsServer)
+            {
+                // Sessions start at camp. Check it, then board the carriage.
+                int dummies = FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None).Length;
+                Log("lobby", "in lobby " + DungeonDirector.InLobby + ", " + dummies + " dummies", DungeonDirector.InLobby && dummies == Lobby.DummySpots.Length);
+                DungeonDirector.Instance.ServerStartRun();
+            }
+
+            yield return new WaitForSeconds(seconds * 0.15f);
+
             var layout = DungeonDirector.Layout;
             Log("role", net.IsHost ? "host" : net.IsClient ? "client" : "none", net.IsHost || net.IsConnectedClient);
             Log("dungeon", layout != null ? layout.Rooms.Count + " rooms, depth " + layout.Depth : "missing", layout != null);
@@ -120,8 +130,30 @@ namespace Deepbound.Networking
             yield return new WaitForSeconds(3f);
 
             var local = NetworkPlayer.Local;
+            if (local == null)
+            {
+                Debug.Log("[Smoke] FAIL screenshots: no local player");
+                Application.Quit(1);
+                yield break;
+            }
+
+            var lobbyMotor = local.GetComponent<FirstPersonMotor>();
+            lobbyMotor.enabled = false;
+            var lobbyFrom = Lobby.BoardingCenter + new Vector3(-6f, 0.1f, -6f);
+            lobbyMotor.Teleport(lobbyFrom, Quaternion.LookRotation(Lobby.BoardingCenter + new Vector3(4f, 0f, 0f) - lobbyFrom));
+            yield return new WaitForSeconds(1f);
+            yield return Shot(dir, "0b_lobby_carriage");
+
+            var dummyFrom = Lobby.DummySpots[0] + new Vector3(4f, 0.1f, 1f);
+            lobbyMotor.Teleport(dummyFrom, Quaternion.LookRotation(Lobby.DummySpots[0] - dummyFrom));
+            yield return new WaitForSeconds(0.5f);
+            yield return Shot(dir, "0c_lobby_dummies");
+
+            DungeonDirector.Instance.ServerStartRun();
+            yield return new WaitForSeconds(2.5f);
+
             var layout = DungeonDirector.Layout;
-            if (local == null || layout == null)
+            if (layout == null)
             {
                 Debug.Log("[Smoke] FAIL screenshots: no local player or layout");
                 Application.Quit(1);
