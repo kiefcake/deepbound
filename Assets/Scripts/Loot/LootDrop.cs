@@ -24,6 +24,17 @@ namespace Deepbound.Loot
     {
         private const float PickupRadius = 1.3f;
 
+        /// <summary>Every drop on this peer, so the minimap need not search the scene each frame.</summary>
+        public static readonly List<LootDrop> All = new List<LootDrop>();
+
+        public override void OnNetworkDespawn() => All.Remove(this);
+
+        public override void OnDestroy()
+        {
+            All.Remove(this);
+            base.OnDestroy();
+        }
+
         public readonly NetworkVariable<LootKind> Kind = new NetworkVariable<LootKind>();
         public readonly NetworkVariable<int> Amount = new NetworkVariable<int>(1);
 
@@ -50,6 +61,7 @@ namespace Deepbound.Loot
 
         public override void OnNetworkSpawn()
         {
+            All.Add(this);
             BuildVisual();
             phase = Random.value * 10f;
             // A short delay so loot visibly lands before it vanishes into whoever was

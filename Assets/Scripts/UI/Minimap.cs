@@ -113,7 +113,7 @@ namespace Deepbound.UI
             Icon(ToMap(layout.MerchantPosition), "$", UiSkin.Gold, large ? 18 : 13);
 
             // Loot worth walking to: relics.
-            foreach (var drop in FindObjectsByType<LootDrop>(FindObjectsSortMode.None))
+            foreach (var drop in LootDrop.All)
             {
                 if (drop.Kind.Value != LootKind.Relic) continue;
                 Dot(ToMap(drop.transform.position), Relics.GemColor((Relic)drop.Amount.Value), 7f);

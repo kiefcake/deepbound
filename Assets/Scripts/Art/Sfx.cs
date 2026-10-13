@@ -40,9 +40,11 @@ namespace Deepbound.Art
         }
 
         /// <summary>Non-spatial, for the local player's own actions and UI.</summary>
+        private static AudioListener listener;
+
         public static void Play2D(Sound sound, float volume = 1f)
         {
-            var listener = Object.FindFirstObjectByType<AudioListener>();
+            if (listener == null || !listener.isActiveAndEnabled) listener = Object.FindFirstObjectByType<AudioListener>();
             Play(sound, listener != null ? listener.transform.position : Vector3.zero, volume);
         }
 

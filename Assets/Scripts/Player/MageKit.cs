@@ -200,13 +200,15 @@ namespace Deepbound.Player
 
             float att = progress.AttackMultiplier;
             ulong me = NetworkObjectId;
+            // Captured by value: the bolt may land after the caster has left the session.
+            var casterPos = transform.position;
             if (frost)
             {
                 Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, FrostboltSpeed, h =>
                 {
-                    h.ServerDamage(FrostboltDamage * att, transform.position, me);
+                    h.ServerDamage(FrostboltDamage * att, casterPos, me);
                     h.ServerChill(ChillSeconds);
-                    ImpactFxRpc(h.Center, true, false);
+                    if (this != null) ImpactFxRpc(h.Center, true, false);
                 });
             }
             else
@@ -214,8 +216,8 @@ namespace Deepbound.Player
                 Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, FireboltSpeed, h =>
                 {
                     bool shatter = h.ServerConsumeChill();
-                    h.ServerDamage(FireboltDamage * att * (shatter ? ShatterMultiplier : 1f), transform.position, me);
-                    ImpactFxRpc(h.Center, false, shatter);
+                    h.ServerDamage(FireboltDamage * att * (shatter ? ShatterMultiplier : 1f), casterPos, me);
+                    if (this != null) ImpactFxRpc(h.Center, false, shatter);
                 });
             }
             BoltFxRpc(origin, direction, frost);

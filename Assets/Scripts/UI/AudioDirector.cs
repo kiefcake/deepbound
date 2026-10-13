@@ -68,6 +68,10 @@ namespace Deepbound.UI
                     if (h == null || h.Team != Team.Enemies || !h.IsAlive || h.GetComponent<TrainingDummy>() != null) continue;
                     if (Vector3.Distance(h.transform.position, local.transform.position) < 16f && Time.time - h.LastHurtTime < 8f) threats++;
                 }
+                // Being hit counts too: an archer you have not touched is still a fight.
+                var myHealth = local.GetComponent<Health>();
+                if (myHealth != null && Time.time - myHealth.LastHurtTime < 6f) threats++;
+
                 // Heat builds while you fight and lingers a little after, so the drums do
                 // not stutter between swings.
                 combatHeat = Mathf.MoveTowards(combatHeat, threats > 0 ? 1f : 0f, Time.deltaTime * (threats > 0 ? 0.8f : 0.15f));

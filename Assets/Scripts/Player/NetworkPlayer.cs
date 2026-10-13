@@ -42,6 +42,9 @@ namespace Deepbound.Player
             new Color(0.85f, 0.65f, 0.1f),  // gold
         };
 
+        /// <summary>Display names by slot, matching the slot colours.</summary>
+        public static readonly string[] SlotNames = { "Crimson", "Azure", "Verdant", "Gilded" };
+
         /// <summary>The player this machine controls, or null before spawning.</summary>
         public static NetworkPlayer Local { get; private set; }
 
@@ -83,7 +86,8 @@ namespace Deepbound.Player
 
         public override void OnNetworkSpawn()
         {
-            name = "Player " + OwnerClientId;
+            int slot = (int)(OwnerClientId % (ulong)SlotNames.Length);
+            name = SlotNames[slot] + (OwnerClientId >= (ulong)SlotNames.Length ? " " + (OwnerClientId / (ulong)SlotNames.Length + 1) : "");
             BuildVisuals();
             progress.ClassId.OnValueChanged += (_, __) => BuildVisuals();
 
