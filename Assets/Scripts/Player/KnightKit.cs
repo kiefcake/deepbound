@@ -234,7 +234,11 @@ namespace Deepbound.Player
                 player.Rig?.Play(RigAction.Swing, SwingStrike + 0.15f);
                 Sfx.Play(Sound.Swing, transform.position, 0.6f);
             }
-            if (hit) Sfx.Play(Sound.Hit, transform.position + transform.forward * 1.5f + Vector3.up);
+            if (hit)
+            {
+                Sfx.Play(Sound.Hit, transform.position + transform.forward * 1.5f + Vector3.up);
+                if (IsOwner) player.ConfirmHit(1f);
+            }
         }
 
         [Rpc(SendTo.Server)]

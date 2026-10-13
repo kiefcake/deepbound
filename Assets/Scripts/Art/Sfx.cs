@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic }
+    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash }
 
     /// <summary>
     /// Every sound in the game, synthesised at startup. Like the art, nothing is
@@ -72,6 +72,8 @@ namespace Deepbound.Art
                 case Sound.Whisper: data = Mix(Whoosh(0.45f, 600f, 2400f), Horn(0.45f, 90f)); break;
                 case Sound.Dodge: data = Whoosh(0.22f, 500f, 2200f); break;
                 case Sound.Relic: data = Mix(Chime(1.2f, new[] { 523f, 659f, 784f, 1046f }), Clang(0.8f, new[] { 1318f, 1975f })); break;
+                case Sound.Step: data = Mix(Thump(0.09f, 110f, 70f), Burst(0.05f, 0.25f)); break;
+                case Sound.Splash: data = Mix(Whoosh(0.25f, 700f, 2600f), Burst(0.12f, 0.35f), Thump(0.1f, 160f, 90f)); break;
                 case Sound.Bow: data = Mix(Thump(0.12f, 320f, 180f), Whoosh(0.22f, 1500f, 3200f)); break;
                 case Sound.Purchase: data = Mix(Chime(0.5f, new[] { 659f, 988f }), Clang(0.3f, new[] { 2600f, 3900f })); break;
                 default: data = new float[Rate / 10]; break;

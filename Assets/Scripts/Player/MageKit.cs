@@ -265,6 +265,7 @@ namespace Deepbound.Player
         {
             if (shatter) Sfx.Play(Sound.Shatter, at, 1f);
             else Sfx.Play(frost ? Sound.Frost : Sound.Hit, at, 0.6f, frost ? 1.4f : 1.1f);
+            if (IsOwner) player.ConfirmHit(shatter ? 1.5f : 0.5f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

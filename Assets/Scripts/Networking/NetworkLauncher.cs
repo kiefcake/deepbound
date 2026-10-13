@@ -48,6 +48,8 @@ namespace Deepbound.Networking
         private void Start()
         {
             gameObject.AddComponent<UI.TitleScreen>().Init(this);
+            // No music in headless runs (smoke tests): there is no one to hear it.
+            if (!Application.isBatchMode) gameObject.AddComponent<UI.AudioDirector>();
             Net.OnClientDisconnectCallback += HandleDisconnect;
             Net.OnTransportFailure += HandleTransportFailure;
 

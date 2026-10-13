@@ -148,6 +148,7 @@ namespace Deepbound.Enemies
         {
             if (!elite || Rig == null) return;
             Rig.transform.localScale *= 1.18f;
+            if (flash != null) flash.Invalidate();
             Rig.GlowColor = new Color(1f, 0.78f, 0.25f);
             var ring = MeshKit.Part(transform, "EliteAura", MeshKit.Lathe("eliteRing", new[]
             {
@@ -426,6 +427,7 @@ namespace Deepbound.Enemies
                 case RigAction.Swing: Sfx.Play(Sound.Swing, transform.position + Vector3.up, 0.7f, 0.8f); break;
                 case RigAction.Death:
                     Sfx.Play(Sound.BoneBreak, transform.position + Vector3.up);
+                    BoneBurst.Spawn(transform.position, Rig != null ? Rig.transform.lossyScale.y : 1f, Elite.Value);
                     foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
                     break;
             }
@@ -444,8 +446,12 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void RattleRpc() => Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 0.5f);
 
+        private HitFlash flash;
+
         private void OnHurtVisual(float amount)
         {
+            if (flash == null) flash = gameObject.AddComponent<HitFlash>();
+            flash.Flash(Mathf.Clamp01(0.5f + amount / Mathf.Max(1f, health.Max.Value) * 4f));
             Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 0.8f, 1.2f);
             if (Rig != null && Rig.Current == RigAction.None) Rig.Play(RigAction.Stagger, 0.2f);
         }

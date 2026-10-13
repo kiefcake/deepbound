@@ -159,6 +159,25 @@ namespace Deepbound.Player
             motor.Teleport(spawn, facing.sqrMagnitude > 0.01f ? Quaternion.LookRotation(facing) : Quaternion.identity);
         }
 
+        private Vector3 lastStepPos;
+        private float stepDistance;
+
+        /// <summary>Your own footsteps: a step every ~1.6m walking, splashing on flooded floors.</summary>
+        private void Footsteps()
+        {
+            var p = transform.position;
+            var d = p - lastStepPos;
+            lastStepPos = p;
+            d.y = 0f;
+            if (d.magnitude > 2f || life.Downed.Value) return; // teleport
+            stepDistance += d.magnitude;
+            float stride = motor.IsSprinting ? 2.1f : 1.6f;
+            if (stepDistance < stride) return;
+            stepDistance = 0f;
+            bool wet = DungeonDirector.Layout != null && DungeonTheme.ForDepth(DungeonDirector.Layout.Depth).WaterDepth > 0f;
+            Sfx.Play(wet ? Sound.Splash : Sound.Step, p, wet ? 0.35f : 0.25f);
+        }
+
         private void OnLocalHurt(float amount)
         {
             shake = Mathf.Min(1f, shake + amount / 40f);
@@ -174,6 +193,7 @@ namespace Deepbound.Player
             }
 
             if (!IsOwner) return;
+            Footsteps();
 
             motor.Frozen = life.Downed.Value;
             motor.CameraDrop = life.Downed.Value ? 0.9f : 0f;
@@ -194,6 +214,15 @@ namespace Deepbound.Player
         public void ViewModelBash() => viewAnim?.Bash();
         public void ViewModelBlockImpact() { viewAnim?.BlockImpact(); shake = Mathf.Min(1f, shake + 0.3f); }
         public void ViewModelCast(bool frost) => viewAnim?.Cast(frost);
+
+        /// <summary>
+        /// Owner: your hit connected. A tiny camera kick sells the impact without
+        /// touching time scale (which, on a host, would slow the whole server).
+        /// </summary>
+        public void ConfirmHit(float strength)
+        {
+            shake = Mathf.Min(1f, shake + 0.12f * strength);
+        }
 
         /// <summary>One first-person animator per class; the kit calls whichever hooks apply.</summary>
         private interface IViewAnim
