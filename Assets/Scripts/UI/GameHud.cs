@@ -74,6 +74,12 @@ namespace Deepbound.UI
             if (DungeonDirector.ArenaId > 0) OnArenaBuilt(DungeonDirector.ArenaId);
         }
 
+        private void LateUpdate()
+        {
+            // Esc closes the shop or class screen first; only a second Esc pauses.
+            PauseMenu.OtherMenuOpenLastFrame = shopOpen || CharacterSelect.Open;
+        }
+
         private void OnDestroy()
         {
             MenuOpen = false;
@@ -201,7 +207,7 @@ namespace Deepbound.UI
             if (keyboard != null && keyboard.gKey.wasPressedThisFrame && near) shopOpen = !shopOpen;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = false;
             if (!near) shopOpen = false;
-            MenuOpen = shopOpen || CharacterSelect.Open;
+            MenuOpen = shopOpen || CharacterSelect.Open || PauseMenu.Open;
             statsHeld = keyboard != null && keyboard.tabKey.isPressed;
 
             // Class choice is a camp decision: number keys pick one, only in the lobby.
@@ -365,7 +371,8 @@ namespace Deepbound.UI
         private void DrawPhase(float w, float h)
         {
             var director = DungeonDirector.Instance;
-            if (director == null || director.Phase.Value == RunPhase.Exploring || director.Phase.Value == RunPhase.Lobby) return;
+            // Wipes and victories get the full run summary instead.
+            if (director == null || director.Phase.Value != RunPhase.FloorCleared) return;
 
             int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
             string title, sub;

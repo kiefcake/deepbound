@@ -99,6 +99,8 @@ namespace Deepbound.Player
                 gameObject.AddComponent<GameHud>().Init(this);
                 gameObject.AddComponent<CharacterSelect>().Init(this);
                 gameObject.AddComponent<Minimap>().Init(this);
+                gameObject.AddComponent<RunSummary>();
+                gameObject.AddComponent<PauseMenu>();
                 health.Hurt += OnLocalHurt;
 
                 DungeonDirector.ArenaBuilt += HandleArenaBuilt;

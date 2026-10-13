@@ -115,11 +115,19 @@ namespace Deepbound.Loot
 
         private static void OnServerAnyDamaged(Health target, float dealt, ulong attackerId)
         {
-            // Relic procs deal damage too; do not let lightning trigger more lightning.
-            if (resolvingProc || target.Team != Team.Enemies) return;
+            if (target.Team != Team.Enemies) return;
+            // Relic procs deal damage too: they count for stats, but must not trigger more procs.
+            if (resolvingProc)
+            {
+                var n = NetworkManager.Singleton;
+                if (n != null && n.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var o) && o.TryGetComponent<PlayerProgress>(out var pp))
+                    pp.ServerCreditDamage(dealt, !target.IsAlive);
+                return;
+            }
             var net = NetworkManager.Singleton;
             if (net == null || !net.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj)) return;
             if (!obj.TryGetComponent<PlayerProgress>(out var p)) return;
+            p.ServerCreditDamage(dealt, !target.IsAlive);
 
             if (p.HasRelic(Relic.VampiricFang)) obj.GetComponent<Health>().ServerHeal(dealt * 0.06f);
 

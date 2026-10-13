@@ -93,6 +93,7 @@ namespace Deepbound.Player
                 Health.ServerSetFraction(0.5f);
                 return;
             }
+            if (progress != null) progress.Downs.Value++;
             Downed.Value = true;
             ReviveProgress.Value = 0f;
         }
@@ -145,6 +146,7 @@ namespace Deepbound.Player
 
             if (progress >= ReviveSeconds)
             {
+                if (reviver != null && reviver.progress != null) reviver.progress.Revives.Value++;
                 ServerRevive(ReviveHealthFraction);
                 return;
             }

@@ -24,6 +24,27 @@ namespace Deepbound.Progression
     {
         public readonly NetworkVariable<int> Gold = new NetworkVariable<int>();
 
+        // ---- Run statistics, for the end-of-run summary. Server-written, reset with the run. ----
+        public readonly NetworkVariable<int> Kills = new NetworkVariable<int>();
+        public readonly NetworkVariable<int> DamageDealt = new NetworkVariable<int>();
+        public readonly NetworkVariable<int> GoldEarned = new NetworkVariable<int>();
+        public readonly NetworkVariable<int> Downs = new NetworkVariable<int>();
+        public readonly NetworkVariable<int> Revives = new NetworkVariable<int>();
+        private float damageCarry;
+
+        /// <summary>Server: credit damage this player dealt, and a kill if it was the final blow.</summary>
+        public void ServerCreditDamage(float dealt, bool killed)
+        {
+            damageCarry += dealt;
+            int whole = Mathf.FloorToInt(damageCarry);
+            if (whole > 0)
+            {
+                damageCarry -= whole;
+                DamageDealt.Value += whole;
+            }
+            if (killed) Kills.Value++;
+        }
+
         /// <summary>
         /// The player's class. Owner-written, but only honoured in the lobby: the HUD only
         /// offers the choice there, and the server re-checks.
@@ -257,7 +278,9 @@ namespace Deepbound.Progression
 
         public void ServerAddGold(int amount)
         {
-            if (IsServer) Gold.Value = Mathf.Max(0, Gold.Value + amount);
+            if (!IsServer) return;
+            Gold.Value = Mathf.Max(0, Gold.Value + amount);
+            if (amount > 0) GoldEarned.Value += amount;
         }
 
         public bool ServerSpendGold(int amount)
@@ -334,6 +357,8 @@ namespace Deepbound.Progression
                 bonuses[i] = 0f;
             }
             Gold.Value = 0;
+            Kills.Value = DamageDealt.Value = GoldEarned.Value = Downs.Value = Revives.Value = 0;
+            damageCarry = 0f;
             relics.Clear();
             ServerNewFloor();
             ApplyToHealth(refill: true);

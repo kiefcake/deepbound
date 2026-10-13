@@ -152,7 +152,7 @@ namespace Deepbound.Networking
 
                 // Kill a handful of skeletons and confirm they drop loot that a player can take.
                 var victims = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain)).Take(6).ToList();
-                foreach (var v in victims) v.GetComponent<Health>().ServerDamage(1e6f, v.transform.position);
+                foreach (var v in victims) v.GetComponent<Health>().ServerDamage(1e6f, v.transform.position, local.NetworkObjectId);
                 yield return new WaitForSeconds(0.3f);
 
                 var drops = FindObjectsByType<LootDrop>(FindObjectsSortMode.None);
@@ -185,7 +185,21 @@ namespace Deepbound.Networking
                 Log("boss kill -> phase", phase.ToString(), phase == RunPhase.FloorCleared);
             }
 
-            yield return new WaitForSeconds(seconds * 0.5f - 1f);
+            yield return new WaitForSeconds(seconds * 0.25f);
+
+            // Wipe the party and check the run summary has something to show.
+            if (net.IsServer && local != null)
+            {
+                foreach (var p in PlayerLife.All) p.Health.ServerDamage(1e6f, p.transform.position);
+                yield return new WaitForSeconds(0.6f);
+                var d = DungeonDirector.Instance;
+                var prog = local.GetComponent<PlayerProgress>();
+                Log("run summary", "phase " + d.Phase.Value + ", run " + (d.RunEndedAt.Value - d.RunStartedAt.Value).ToString("F0") + "s, kills " + prog.Kills.Value +
+                    ", damage " + prog.DamageDealt.Value + ", downs " + prog.Downs.Value,
+                    d.Phase.Value == RunPhase.Wiped && prog.Kills.Value >= 6 && prog.Downs.Value >= 1 && d.RunEndedAt.Value > d.RunStartedAt.Value);
+            }
+
+            yield return new WaitForSeconds(seconds * 0.25f - 1f);
             Log("final phase", DungeonDirector.Instance != null ? DungeonDirector.Instance.Phase.Value.ToString() : "no director", true);
             Debug.Log("[Smoke] done");
             Application.Quit(0);
@@ -344,6 +358,36 @@ namespace Deepbound.Networking
                     break;
                 }
             }
+
+            // A chest, the pause menu, and the end-of-run summary.
+            var someChest = FindObjectsByType<Chest>(FindObjectsSortMode.None).FirstOrDefault();
+            if (someChest != null)
+            {
+                var cp = someChest.transform.position + someChest.transform.forward * 2.6f + Vector3.up * 0.1f;
+                motor.Teleport(cp, Quaternion.LookRotation(someChest.transform.position - cp));
+                yield return new WaitForSeconds(0.6f);
+                yield return Shot(dir, "8_chest");
+                someChest.UseRpc(local.NetworkObject);
+                yield return new WaitForSeconds(1f);
+                yield return Shot(dir, "8b_chest_open");
+            }
+            var someUrn = FindObjectsByType<Breakable>(FindObjectsSortMode.None).FirstOrDefault();
+            if (someUrn != null)
+            {
+                var up = someUrn.transform.position + (DungeonDirector.Layout.RoomAt(someUrn.transform.position, 2f)?.Center - someUrn.transform.position ?? Vector3.forward).normalized * 2.4f + Vector3.up * 0.1f;
+                motor.Teleport(up, Quaternion.LookRotation(someUrn.transform.position - up));
+                yield return new WaitForSeconds(0.6f);
+                yield return Shot(dir, "8c_urns_barrels");
+            }
+
+            UI.PauseMenu.SetOpen(true);
+            yield return null;
+            yield return Shot(dir, "9_pause");
+            UI.PauseMenu.SetOpen(false);
+
+            foreach (var p in PlayerLife.All) p.Health.ServerDamage(1e6f, p.transform.position);
+            yield return new WaitForSeconds(1f);
+            yield return Shot(dir, "9b_run_summary");
 
             Debug.Log("[Smoke] screenshots done");
             Application.Quit(0);

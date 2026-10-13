@@ -109,7 +109,7 @@ namespace Deepbound.World
                     new Vector2(0f, 0f), new Vector2(0.16f, 0f), new Vector2(0.26f, 0.22f), new Vector2(0.24f, 0.45f),
                     new Vector2(0.12f, 0.6f), new Vector2(0.15f, 0.68f), new Vector2(0f, 0.68f),
                 }, 10, false), Mat.Rubble, Vector3.zero);
-                ArtLibrary.Tint(urn.GetComponent<Renderer>(), new Color(0.85f, 0.5f, 0.32f));
+                ArtLibrary.Tint(urn.GetComponent<Renderer>(), new Color(1.25f, 0.75f, 0.48f));
             }
             else
             {

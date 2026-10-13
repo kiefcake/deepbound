@@ -40,7 +40,8 @@ namespace Deepbound.World
     public class DungeonDirector : NetworkBehaviour
     {
         public const int FloorsPerRun = 3;
-        private const float DescendDelay = 8f, WipeDelay = 6f, CompleteDelay = 12f, BoardingDelay = 3f;
+        // Long enough to read the run summary before returning to camp.
+        private const float DescendDelay = 8f, WipeDelay = 14f, CompleteDelay = 18f, BoardingDelay = 3f;
         private const int LobbyDepth = -1;
 
         [SerializeField] private NetworkObject skeletonPrefab;
@@ -64,6 +65,12 @@ namespace Deepbound.World
         public readonly NetworkVariable<RunPhase> Phase = new NetworkVariable<RunPhase>(RunPhase.Lobby);
         /// <summary>Server time the pending transition fires (descend, return, depart); 0 if none.</summary>
         public readonly NetworkVariable<double> PhaseEndsAt = new NetworkVariable<double>();
+
+        /// <summary>Server time the current run began (boarding the carriage), for the summary.</summary>
+        public readonly NetworkVariable<double> RunStartedAt = new NetworkVariable<double>();
+
+        /// <summary>Server time the run ended (wipe or victory), frozen for the summary screen.</summary>
+        public readonly NetworkVariable<double> RunEndedAt = new NetworkVariable<double>();
 
         public static DungeonDirector Instance { get; private set; }
 
@@ -144,7 +151,9 @@ namespace Deepbound.World
         /// <summary>Server: board the carriage and start floor one. Also used by the smoke test.</summary>
         public void ServerStartRun()
         {
-            if (IsServer) StartFloor(0);
+            if (!IsServer) return;
+            RunStartedAt.Value = NetworkManager.ServerTime.Time;
+            StartFloor(0);
         }
 
         /// <summary>Server, debugging and screenshots only: jump straight to a floor.</summary>
@@ -426,7 +435,7 @@ namespace Deepbound.World
                     if (EveryoneAboard())
                     {
                         if (PhaseEndsAt.Value <= 0) PhaseEndsAt.Value = now + BoardingDelay;
-                        else if (now >= PhaseEndsAt.Value) StartFloor(0);
+                        else if (now >= PhaseEndsAt.Value) ServerStartRun();
                     }
                     else if (PhaseEndsAt.Value > 0)
                     {
@@ -464,6 +473,7 @@ namespace Deepbound.World
 
         private void EnterPhase(RunPhase phase, float delay)
         {
+            if (phase == RunPhase.Wiped || phase == RunPhase.RunComplete) RunEndedAt.Value = NetworkManager.ServerTime.Time;
             Phase.Value = phase;
             phaseTimer = NetworkManager.ServerTime.Time + delay;
             PhaseEndsAt.Value = phaseTimer;

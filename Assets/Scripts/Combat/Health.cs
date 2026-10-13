@@ -130,9 +130,11 @@ namespace Deepbound.Combat
             foreach (var modifier in IncomingModifiers) dealt = modifier(dealt, attackerPosition);
             if (dealt <= 0f) return 0f;
 
+            // Overkill is not damage: stats and lifesteal see only the health actually lost.
+            float lost = Mathf.Min(dealt, Current.Value);
             Current.Value = Mathf.Max(0f, Current.Value - dealt);
-            DamagedServer?.Invoke(dealt, attackerId);
-            ServerAnyDamaged?.Invoke(this, dealt, attackerId);
+            DamagedServer?.Invoke(lost, attackerId);
+            ServerAnyDamaged?.Invoke(this, lost, attackerId);
 
             if (Current.Value <= 0f) Died?.Invoke(this);
             return dealt;
