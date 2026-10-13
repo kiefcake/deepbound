@@ -70,6 +70,7 @@ namespace Deepbound.UI
             health.Hurt += amount => hurtFlash = Mathf.Min(1f, hurtFlash + amount / 30f);
             spawnTime = Time.time;
             Health.AnyHurt += OnAnyHurt;
+            Health.AnyHealed += OnAnyHealed;
             DungeonDirector.ArenaBuilt += OnArenaBuilt;
             if (DungeonDirector.ArenaId > 0) OnArenaBuilt(DungeonDirector.ArenaId);
         }
@@ -84,6 +85,7 @@ namespace Deepbound.UI
         {
             MenuOpen = false;
             Health.AnyHurt -= OnAnyHurt;
+            Health.AnyHealed -= OnAnyHealed;
             DungeonDirector.ArenaBuilt -= OnArenaBuilt;
         }
 
@@ -111,7 +113,16 @@ namespace Deepbound.UI
 
         // ---- Floating damage numbers ----
 
-        private struct DamageNumber { public Vector3 World; public float Amount; public float Time; public bool Player; }
+        private struct DamageNumber { public Vector3 World; public float Amount; public float Time; public bool Player; public bool Heal; }
+
+        private void OnAnyHealed(Health target, float amount)
+        {
+            // Only meaningful heals (not regen ticks), and only on the party.
+            if (target == null || amount < 4f || target.Team != Team.Players) return;
+            var jitter = new Vector3(Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f));
+            numbers.Add(new DamageNumber { World = target.Center + Vector3.up * (target.CenterHeight + 0.3f) + jitter, Amount = amount, Time = Time.time, Heal = true });
+            if (numbers.Count > 40) numbers.RemoveAt(0);
+        }
         private readonly List<DamageNumber> numbers = new List<DamageNumber>();
 
         private void OnAnyHurt(Health target, float amount)
@@ -139,11 +150,11 @@ namespace Deepbound.UI
 
                 bool heavy = n.Amount >= 35f;
                 float a = 1f - age * age;
-                var color = n.Player ? new Color(1f, 0.35f, 0.3f, a) : heavy ? new Color(1f, 0.82f, 0.35f, a) : new Color(1f, 1f, 1f, a);
+                var color = n.Heal ? new Color(0.45f, 1f, 0.5f, a) : n.Player ? new Color(1f, 0.35f, 0.3f, a) : heavy ? new Color(1f, 0.82f, 0.35f, a) : new Color(1f, 1f, 1f, a);
                 var style = new GUIStyle(big) { fontSize = heavy ? 24 : 18, normal = { textColor = color } };
                 var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, a * 0.8f) } };
                 var rect = new Rect(screen.x - 50, Screen.height - screen.y - 15, 100, 30);
-                string text = Mathf.RoundToInt(n.Amount).ToString();
+                string text = (n.Heal ? "+" : "") + Mathf.RoundToInt(n.Amount);
                 GUI.Label(new Rect(rect.x + 1.5f, rect.y + 1.5f, rect.width, rect.height), text, shadow);
                 GUI.Label(rect, text, style);
             }
@@ -284,6 +295,11 @@ namespace Deepbound.UI
 
             float hp = health.Current.Value, max = Mathf.Max(1f, health.Max.Value);
             Bar(x, y, bw, 22, hp / max, HealthRed);
+            // Aegis shield, drawn as a gold band over the health bar.
+            if (health.Shield.Value > 0f)
+            {
+                Rect(x, y, bw * Mathf.Clamp01(health.Shield.Value / max), 7, new Color(1f, 0.85f, 0.4f, 0.95f));
+            }
             GUI.Label(new Rect(x + 8, y + 1, bw, 22), Mathf.CeilToInt(hp) + " / " + Mathf.CeilToInt(max), label);
 
             var kit = player.ActiveKit;
@@ -405,7 +421,11 @@ namespace Deepbound.UI
             var style = new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 1f, 1f, a * 0.85f) } };
             GUI.Label(new Rect(w - 330, 262, 310, 150),
                 "WASD move  ·  Shift sprint  ·  Space jump\n" +
-                (progress.ClassId.Value == ClassId.Mage
+                (progress.ClassId.Value == ClassId.Cleric
+                    ? "LMB Smite  ·  RMB hold Mending Beam on an ally\n" +
+                      "Q  Consecrate (heal allies, burn foes)\n" +
+                      "E  Divine Aegis shields everyone nearby\n"
+                    : progress.ClassId.Value == ClassId.Mage
                     ? "LMB Firebolt  ·  RMB Frostbolt (chills)\n" +
                       "Fire on a chilled enemy SHATTERS (+75%)\n" +
                       "Q  Blink  ·  E  Meteor at the crosshair\n"

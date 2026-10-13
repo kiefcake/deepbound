@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Deepbound.Classes
 {
     /// <summary>APPEND ONLY: synced as a byte and will be saved with cosmetics.</summary>
-    public enum ClassId : byte { Knight = 0, Mage = 1 }
+    public enum ClassId : byte { Knight = 0, Mage = 1, Cleric = 2 }
 
     /// <summary>
     /// A class's base stats and potion pools. Plain data; <see cref="Build"/> turns it into
@@ -59,10 +59,27 @@ namespace Deepbound.Classes
             hp: 160, mp: 120, att: 26, def: 0, spd: 52, dex: 50, vit: 25, wis: 45,
             hpPool: 100, mpPool: 80, attPool: 25, defPool: 10, spdPool: 20, dexPool: 25, vitPool: 20, wisPool: 30);
 
-        public static readonly ClassDefinition[] ById = { Knight, Mage };
+        /// <summary>
+        /// The Cleric: the healer. Middling everything, the deepest mana and WIS pools; it
+        /// keeps the party standing rather than ending fights.
+        /// </summary>
+        public static readonly ClassDefinition Cleric = Make("Cleric", "Healer / Support",
+            hp: 195, mp: 140, att: 16, def: 3, spd: 48, dex: 45, vit: 35, wis: 50,
+            hpPool: 120, mpPool: 70, attPool: 20, defPool: 12, spdPool: 20, dexPool: 20, vitPool: 25, wisPool: 35);
+
+        public static readonly ClassDefinition[] ById = { Knight, Mage, Cleric };
 
         /// <summary>One line per kit slot, for the character select screen.</summary>
-        public static (string key, string name, string desc)[] Kit(ClassId id) => id == ClassId.Mage
+        public static (string key, string name, string desc)[] Kit(ClassId id) => id == ClassId.Cleric
+            ? new[]
+            {
+                ("PASSIVE", "Grace", "You revive fallen allies twice as fast."),
+                ("LMB", "Smite", "Hurl bolts of holy light."),
+                ("RMB", "Mending Beam", "Hold on an ally to heal them. Aim at nothing to heal yourself, slowly."),
+                ("Q", "Consecrate", "Bless the ground: allies inside heal, enemies inside burn."),
+                ("E", "Divine Aegis", "Shield every ally nearby against the next 60 damage."),
+            }
+            : id == ClassId.Mage
             ? new[]
             {
                 ("PASSIVE", "Shatter", "Fire on a chilled enemy deals +75% and consumes the chill."),
@@ -81,12 +98,15 @@ namespace Deepbound.Classes
             };
 
         /// <summary>Difficulty hint for the class picker.</summary>
-        public static string Difficulty(ClassId id) => id == ClassId.Mage ? "Hard - fragile, rewards combos and positioning" : "Easy - forgiving, holds the line";
+        public static string Difficulty(ClassId id) => id == ClassId.Mage ? "Hard - fragile, rewards combos and positioning"
+            : id == ClassId.Cleric ? "Medium - watch your party, not just the enemy" : "Easy - forgiving, holds the line";
 
         public static ClassDefinition For(ClassId id) => ById[Mathf.Clamp((int)id, 0, ById.Length - 1)];
 
         /// <summary>One line for the class picker.</summary>
-        public static string Pitch(ClassId id) => id == ClassId.Mage
+        public static string Pitch(ClassId id) => id == ClassId.Cleric
+            ? "Cleric: heal, shield and raise the fallen. The reason the party lives."
+            : id == ClassId.Mage
             ? "Mage: chill with frost, shatter with fire. Fragile, deadly at range."
             : "Knight: block, bash and taunt. Holds the line so others can kill.";
     }

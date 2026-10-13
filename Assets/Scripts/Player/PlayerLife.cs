@@ -141,7 +141,9 @@ namespace Deepbound.Player
             bool beingRevived = reviver != null && Time.time - lastReviverPing < 0.35f && !reviver.Downed.Value &&
                                 Vector3.Distance(reviver.transform.position, transform.position) <= ReviveRange + 0.5f;
 
-            float progress = ReviveProgress.Value + (beingRevived ? Time.deltaTime : -Time.deltaTime * 0.5f);
+            // The Cleric's passive, Grace: revives twice as fast.
+            float rate = beingRevived && reviver.progress != null && reviver.progress.ClassId.Value == Classes.ClassId.Cleric ? 2f : 1f;
+            float progress = ReviveProgress.Value + (beingRevived ? Time.deltaTime * rate : -Time.deltaTime * 0.5f);
             progress = Mathf.Clamp(progress, 0f, ReviveSeconds);
 
             if (progress >= ReviveSeconds)

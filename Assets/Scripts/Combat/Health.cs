@@ -37,6 +37,17 @@ namespace Deepbound.Combat
         /// target hits harder and consumes the chill). Synced so everyone sees the frost.
         /// </summary>
         public readonly NetworkVariable<bool> Chilled = new NetworkVariable<bool>();
+
+        /// <summary>
+        /// A damage shield (the Cleric's Divine Aegis): absorbs hits before health, then
+        /// fades when its time runs out. Synced so the bubble and the HUD bar show it.
+        /// </summary>
+        public readonly NetworkVariable<float> Shield = new NetworkVariable<float>();
+        private float shieldUntil;
+        private GameObject shieldBubble;
+
+        /// <summary>Raised on every peer when the value rises (healing). Drives green numbers.</summary>
+        public static event Action<Health, float> AnyHealed;
         private float chilledUntil;
         private GameObject chillAura;
 
@@ -108,6 +119,10 @@ namespace Deepbound.Combat
                 Hurt?.Invoke(previous - current);
                 AnyHurt?.Invoke(this, previous - current);
             }
+            else if (current > previous && previous > 0f && Time.time - spawnedAt > 0.5f)
+            {
+                AnyHealed?.Invoke(this, current - previous);
+            }
         }
 
         // ------------------------------------------------------------------
@@ -129,6 +144,15 @@ namespace Deepbound.Combat
             float dealt = Mathf.Max(amount - Defense, amount * 0.15f);
             foreach (var modifier in IncomingModifiers) dealt = modifier(dealt, attackerPosition);
             if (dealt <= 0f) return 0f;
+
+            // Shields soak what is left before health does.
+            if (Shield.Value > 0f)
+            {
+                float absorbed = Mathf.Min(Shield.Value, dealt);
+                Shield.Value -= absorbed;
+                dealt -= absorbed;
+                if (dealt <= 0f) return 0f;
+            }
 
             // Overkill is not damage: stats and lifesteal see only the health actually lost.
             float lost = Mathf.Min(dealt, Current.Value);
@@ -156,13 +180,45 @@ namespace Deepbound.Combat
             return true;
         }
 
+        /// <summary>Server: grant a shield. Re-casting refreshes it to the larger of the two.</summary>
+        public void ServerShield(float amount, float seconds)
+        {
+            if (!IsServer || !IsAlive) return;
+            Shield.Value = Mathf.Max(Shield.Value, amount);
+            shieldUntil = Time.time + seconds;
+        }
+
         private void Update()
         {
             if (IsServer && Chilled.Value && (Time.time >= chilledUntil || !IsAlive)) Chilled.Value = false;
+            if (IsServer && Shield.Value > 0f && (Time.time >= shieldUntil || !IsAlive)) Shield.Value = 0f;
+
+            bool shielded = Shield.Value > 0f && IsAlive;
+            if (shielded && shieldBubble == null) shieldBubble = BuildShieldBubble();
+            if (shieldBubble != null && shieldBubble.activeSelf != shielded) shieldBubble.SetActive(shielded);
 
             bool show = Chilled.Value && IsAlive;
             if (show && chillAura == null) chillAura = BuildChillAura();
             if (chillAura != null && chillAura.activeSelf != show) chillAura.SetActive(show);
+        }
+
+        /// <summary>A faint golden sphere around the body: visible to the party, not in the owner's face.</summary>
+        private GameObject BuildShieldBubble()
+        {
+            var root = new GameObject("AegisBubble");
+            root.transform.SetParent(transform, false);
+            var ring = Art.MeshKit.Part(root.transform, "Halo", Art.MeshKit.Lathe("aegisRing", new[]
+            {
+                new Vector2(0.62f, 0f), new Vector2(0.68f, 0.02f), new Vector2(0.62f, 0.04f),
+            }, 20, false), Art.Mat.Glow, Vector3.up * (centerHeight + 0.1f));
+            Art.ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), new Color(1f, 0.85f, 0.4f) * 1.8f);
+            var foot = Art.MeshKit.Part(root.transform, "Ward", Art.MeshKit.Lathe("aegisFoot", new[]
+            {
+                new Vector2(0.55f, 0f), new Vector2(0.62f, 0.02f), new Vector2(0.55f, 0.04f),
+            }, 20, false), Art.Mat.Glow, Vector3.up * 0.04f);
+            Art.ArtLibrary.SetGlow(foot.GetComponent<Renderer>(), new Color(1f, 0.85f, 0.4f) * 1.4f);
+            foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return root;
         }
 
         /// <summary>A ring of frost at the feet and ice shards orbiting the body.</summary>

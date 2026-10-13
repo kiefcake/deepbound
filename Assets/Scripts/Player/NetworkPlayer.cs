@@ -124,8 +124,11 @@ namespace Deepbound.Player
             viewModel = null;
             viewAnim = null;
 
-            bool mage = progress.ClassId.Value == ClassId.Mage;
-            Rig = mage ? CharacterArt.BuildMage(transform, SlotColor) : CharacterArt.BuildKnight(transform, SlotColor);
+            var cls = progress.ClassId.Value;
+            bool mage = cls == ClassId.Mage, cleric = cls == ClassId.Cleric;
+            Rig = mage ? CharacterArt.BuildMage(transform, SlotColor)
+                : cleric ? CharacterArt.BuildCleric(transform, SlotColor)
+                : CharacterArt.BuildKnight(transform, SlotColor);
 
             if (!IsOwner) return;
             foreach (var r in Rig.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
@@ -133,7 +136,12 @@ namespace Deepbound.Player
             if (mage)
             {
                 viewModel = CharacterArt.BuildMageViewModel(playerCamera.transform, SlotColor);
-                viewAnim = new MageViewAnimator(viewModel);
+                viewAnim = new MageViewAnimator(viewModel, new Color(1f, 0.5f, 0.15f), new Color(0.45f, 0.8f, 1f));
+            }
+            else if (cleric)
+            {
+                viewModel = CharacterArt.BuildClericViewModel(playerCamera.transform, SlotColor);
+                viewAnim = new MageViewAnimator(viewModel, new Color(1f, 0.85f, 0.45f), new Color(1f, 0.95f, 0.75f));
             }
             else
             {
@@ -252,11 +260,14 @@ namespace Deepbound.Player
             private float castStart = -10f, impactStart = -10f, bob, idle;
             private bool lastFrost;
 
-            private static readonly Color Fire = new Color(1f, 0.5f, 0.15f), Frost = new Color(0.45f, 0.8f, 1f);
+            // Primary and secondary spell colours: fire and frost for the Mage, gold and white for the Cleric.
+            private readonly Color Fire, Frost;
 
-            public MageViewAnimator(CharacterArt.ViewModel vm)
+            public MageViewAnimator(CharacterArt.ViewModel vm, Color primary, Color secondary)
             {
                 this.vm = vm;
+                Fire = primary;
+                Frost = secondary;
                 staffRest = vm.SwordPivot.localPosition;
                 staffRot = vm.SwordPivot.localRotation;
                 handRest = vm.ShieldPivot.localPosition;

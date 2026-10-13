@@ -87,6 +87,28 @@ namespace Deepbound.Networking
 
                 Log("firebolt shatters", "chill consumed " + !dummy.Chilled.Value + ", dealt " + (before - dummy.Current.Value).ToString("F0"),
                     !dummy.Chilled.Value && before - dummy.Current.Value > MageKit.FireboltDamage);
+
+                // Cleric: Aegis absorbs a hit completely; Consecrate burns a dummy standing in it.
+                progressMe.ClassId.Value = Classes.ClassId.Cleric;
+                yield return new WaitForSeconds(0.5f);
+                var cleric = me.GetComponent<ClericKit>();
+                var hpCleric = me.GetComponent<Health>();
+                hpCleric.ServerSetFraction(1f);
+                cleric.ServerAegis();
+                float shield = hpCleric.Shield.Value, beforeHit = hpCleric.Current.Value;
+                hpCleric.ServerDamage(30f, me.transform.position + me.transform.forward);
+                Log("cleric aegis", "shield " + shield.ToString("F0") + ", hp " + beforeHit.ToString("F0") + " -> " + hpCleric.Current.Value.ToString("F0") + ", shield left " + hpCleric.Shield.Value.ToString("F0"),
+                    shield > 0f && Mathf.Approximately(hpCleric.Current.Value, beforeHit) && hpCleric.Shield.Value < shield);
+
+                dummy.ServerSetFraction(1f);
+                me.GetComponent<FirstPersonMotor>().Teleport(dummy.transform.position + Vector3.right * 1.5f, me.transform.rotation);
+                yield return new WaitForSeconds(0.2f);
+                float dummyFull = dummy.Current.Value;
+                cleric.ServerConsecrate();
+                yield return new WaitForSeconds(1.6f);
+                Log("cleric consecrate", "dummy " + dummyFull.ToString("F0") + " -> " + dummy.Current.Value.ToString("F0"), dummy.Current.Value < dummyFull);
+                progressMe.ClassId.Value = Classes.ClassId.Mage;
+                yield return new WaitForSeconds(0.3f);
                 DungeonDirector.Instance.ServerStartRun();
             }
 

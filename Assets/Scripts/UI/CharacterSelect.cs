@@ -102,7 +102,9 @@ namespace Deepbound.UI
                 table.position = spot + Vector3.up * 0.25f;
                 table.rotation = Quaternion.Euler(0f, 200f, 0f);
                 var color = player.SlotColor;
-                var rig = (ClassId)i == ClassId.Mage ? CharacterArt.BuildMage(table, color) : CharacterArt.BuildKnight(table, color);
+                var rig = (ClassId)i == ClassId.Mage ? CharacterArt.BuildMage(table, color)
+                    : (ClassId)i == ClassId.Cleric ? CharacterArt.BuildCleric(table, color)
+                    : CharacterArt.BuildKnight(table, color);
                 rig.Blocking = (ClassId)i == ClassId.Knight;
                 turntables[i] = table;
 
@@ -113,7 +115,7 @@ namespace Deepbound.UI
                 previews[i] = new RenderTexture(1024, 400, 24) { name = "ClassPreview" + i };
                 var cam = new GameObject("PreviewCam" + i).AddComponent<Camera>();
                 cam.transform.SetParent(stage.transform, false);
-                cam.transform.SetPositionAndRotation(spot + new Vector3(0f, 1.1f, -3.3f), Quaternion.Euler(3f, 0f, 0f));
+                cam.transform.SetPositionAndRotation(spot + new Vector3(0f, 1.2f, -3.8f), Quaternion.Euler(2f, 0f, 0f));
                 cam.fieldOfView = 36f;
                 cam.targetTexture = previews[i];
                 cam.clearFlags = CameraClearFlags.SolidColor;
@@ -171,8 +173,9 @@ namespace Deepbound.UI
 
             float y = previewRect.yMax + 8;
             GUI.Label(new Rect(r.x + 16, y, r.width - 32, 30), def.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Heading) { fontSize = 26 });
-            GUI.Label(new Rect(r.x + 16, y + 30, r.width - 32, 20), def.Role + "   ·   " + ClassDefinition.Difficulty(id), UiSkin.Small);
-            y += 56;
+            GUI.Label(new Rect(r.x + 16, y + 30, r.width - 32, 18), def.Role, UiSkin.Small);
+            GUI.Label(new Rect(r.x + 16, y + 46, r.width - 32, 18), ClassDefinition.Difficulty(id), new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Italic });
+            y += 76;
 
             // Base stats as bars, on a common scale so classes compare at a glance.
             for (int s = 0; s < Stats.Count; s++)

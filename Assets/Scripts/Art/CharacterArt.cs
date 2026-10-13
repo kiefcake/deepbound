@@ -227,6 +227,98 @@ namespace Deepbound.Art
             return rig;
         }
 
+        /// <summary>
+        /// The Cleric: white-and-gold vestments with a party-coloured stole, a tall mitre (its
+        /// silhouette), a sun-disc sceptre and a book of rites on the hip.
+        /// </summary>
+        public static HumanoidRig BuildCleric(Transform root, Color teamColor)
+        {
+            var visual = MeshKit.Pivot(root, "ClericVisual", Vector3.zero);
+            var rig = visual.gameObject.AddComponent<HumanoidRig>();
+            var white = new Color(0.88f, 0.85f, 0.78f);
+
+            rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.95f, 0f));
+            BuildLegs(rig, 0.11f, 0.95f, Mat.Leather, Mat.Cloth, 0.16f);
+            var skirt = MeshKit.Part(rig.Hips, "Vestment", MeshKit.Lathe("clericSkirt", new[]
+            {
+                new Vector2(0.34f, -0.85f), new Vector2(0.29f, -0.45f), new Vector2(0.22f, 0f), new Vector2(0.2f, 0.06f),
+            }, 10), Mat.Cloth, Vector3.zero);
+            ArtLibrary.Tint(skirt.GetComponent<Renderer>(), white);
+
+            rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", Vector3.zero);
+            var body = MeshKit.Part(rig.Torso, "Robe", MeshKit.Lathe("mageRobe", new[]
+            {
+                new Vector2(0.21f, 0f), new Vector2(0.23f, 0.2f), new Vector2(0.24f, 0.42f), new Vector2(0.2f, 0.56f), new Vector2(0.09f, 0.62f),
+            }, 9), Mat.Cloth, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.82f));
+            ArtLibrary.Tint(body.GetComponent<Renderer>(), white);
+            var stole = MeshKit.Part(rig.Torso, "Stole", MeshKit.Box(new Vector3(0.12f, 0.9f, 0.03f)), Mat.Cloth, new Vector3(0f, 0.12f, 0.19f));
+            ArtLibrary.Tint(stole.GetComponent<Renderer>(), teamColor);
+            MeshKit.Part(rig.Torso, "Mantle", MeshKit.Cylinder(0.26f, 0.2f, 0.12f, 10), Mat.Gold, new Vector3(0f, 0.5f, 0f), Vector3.zero, new Vector3(1f, 1f, 0.85f));
+            MeshKit.Part(rig.Torso, "Sun", MeshKit.Cylinder(0.07f, 0.07f, 0.02f, 12), Mat.Gold, new Vector3(0f, 0.36f, 0.2f), new Vector3(90f, 0f, 0f));
+            MeshKit.Part(rig.Hips, "Book", MeshKit.Box(new Vector3(0.18f, 0.22f, 0.07f)), Mat.Leather, new Vector3(-0.24f, -0.05f, 0.05f), new Vector3(0f, 0f, 8f));
+
+            rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.62f, 0f));
+            MeshKit.Part(rig.Head, "Face", MeshKit.Ball(0.13f, 8, 6), Mat.Dark, new Vector3(0f, 0.14f, 0.01f));
+            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.016f, 6, 4), Mat.Glow, new Vector3(-0.045f, 0.15f, 0.12f));
+            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.016f, 6, 4), Mat.Glow, new Vector3(0.045f, 0.15f, 0.12f));
+            var cowl = MeshKit.Part(rig.Head, "Cowl", MeshKit.Lathe("mageHood", new[]
+            {
+                new Vector2(0.17f, -0.02f), new Vector2(0.18f, 0.12f), new Vector2(0.14f, 0.24f), new Vector2(0.05f, 0.28f), new Vector2(0f, 0.29f),
+            }, 9, true, 280f), Mat.Cloth, new Vector3(0f, 0.03f, -0.02f), new Vector3(0f, 220f, 0f));
+            ArtLibrary.Tint(cowl.GetComponent<Renderer>(), white * 0.9f);
+            // Mitre: a tall, slightly flattened cone, gold-trimmed.
+            var mitre = MeshKit.Part(rig.Head, "Mitre", MeshKit.Lathe("mitre", new[]
+            {
+                new Vector2(0.15f, 0f), new Vector2(0.16f, 0.15f), new Vector2(0.12f, 0.32f), new Vector2(0f, 0.42f),
+            }, 10), Mat.Cloth, new Vector3(0f, 0.25f, 0f), Vector3.zero, new Vector3(1f, 1f, 0.6f));
+            ArtLibrary.Tint(mitre.GetComponent<Renderer>(), white);
+            MeshKit.Part(rig.Head, "MitreBand", MeshKit.Cylinder(0.155f, 0.155f, 0.05f, 10), Mat.Gold, new Vector3(0f, 0.26f, 0f), Vector3.zero, new Vector3(1f, 1f, 0.62f));
+            MeshKit.Part(rig.Head, "MitreCross", MeshKit.Box(new Vector3(0.03f, 0.16f, 0.02f)), Mat.Gold, new Vector3(0f, 0.42f, 0.08f));
+
+            var robeSleeve = white * 0.95f;
+            robeSleeve.a = 1f;
+            rig.ArmR = BuildSleeveArm(rig.Torso, "ArmR", 1f, robeSleeve);
+            rig.ArmL = BuildSleeveArm(rig.Torso, "ArmL", -1f, robeSleeve);
+
+            var grip = MeshKit.Pivot(rig.ArmR, "Grip", new Vector3(0f, -0.6f, 0.02f), new Vector3(80f, 0f, 0f));
+            MeshKit.Part(grip, "Sceptre", MeshKit.Cylinder(0.022f, 0.026f, 0.9f, 6), Mat.Gold, new Vector3(0f, -0.25f, 0f));
+            var sun = MeshKit.Part(grip, "SunDisc", MeshKit.Cylinder(0.11f, 0.11f, 0.03f, 14), Mat.Glow, new Vector3(0f, 0.7f, 0f), new Vector3(90f, 0f, 0f));
+            for (int i = 0; i < 8; i++)
+            {
+                MeshKit.Part(grip, "Ray" + i, MeshKit.Box(new Vector3(0.02f, 0.08f, 0.02f)), Mat.Gold,
+                    new Vector3(0f, 0.7f, 0f) + Quaternion.Euler(0f, 0f, i * 45f) * new Vector3(0f, 0.15f, 0f), new Vector3(0f, 0f, i * 45f));
+            }
+
+            rig.GlowColor = new Color(1f, 0.85f, 0.45f);
+            rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), sun.GetComponent<Renderer>() };
+            rig.StrideLength = 1.4f;
+            return rig;
+        }
+
+        /// <summary>First-person Cleric: the sun sceptre in the right hand, a light-filled left palm.</summary>
+        public static ViewModel BuildClericViewModel(Transform camera, Color teamColor)
+        {
+            var root = MeshKit.Pivot(camera, "ViewModel", Vector3.zero);
+            var white = new Color(0.88f, 0.85f, 0.78f);
+
+            var hand = MeshKit.Pivot(root, "SceptreHand", new Vector3(0.34f, -0.36f, 0.6f), new Vector3(22f, -8f, -14f));
+            var sleeveR = MeshKit.Part(hand, "Sleeve", MeshKit.Cylinder(0.08f, 0.1f, 0.4f, 7), Mat.Cloth, new Vector3(0f, -0.05f, -0.22f), new Vector3(-100f, 0f, 0f));
+            ArtLibrary.Tint(sleeveR.GetComponent<Renderer>(), white);
+            MeshKit.Part(hand, "Glove", MeshKit.Ball(0.06f, 6, 4), Mat.Leather, Vector3.zero, Vector3.zero, new Vector3(1f, 0.9f, 1.2f));
+            MeshKit.Part(hand, "Sceptre", MeshKit.Cylinder(0.016f, 0.02f, 0.6f, 6), Mat.Gold, new Vector3(0f, -0.2f, 0f));
+            var sun = MeshKit.Part(hand, "SunDisc", MeshKit.Cylinder(0.06f, 0.06f, 0.02f, 14), Mat.Glow, new Vector3(0f, 0.42f, 0f), new Vector3(90f, 0f, 0f));
+            ArtLibrary.SetGlow(sun.GetComponent<Renderer>(), new Color(1f, 0.85f, 0.45f) * 1.3f);
+
+            var castHand = MeshKit.Pivot(root, "CastHand", new Vector3(-0.3f, -0.36f, 0.55f), new Vector3(-30f, 20f, 10f));
+            var sleeveL = MeshKit.Part(castHand, "Sleeve", MeshKit.Cylinder(0.08f, 0.1f, 0.4f, 7), Mat.Cloth, new Vector3(0f, -0.05f, -0.22f), new Vector3(-100f, 0f, 0f));
+            ArtLibrary.Tint(sleeveL.GetComponent<Renderer>(), white);
+            MeshKit.Part(castHand, "Glove", MeshKit.Box(new Vector3(0.09f, 0.03f, 0.11f)), Mat.Leather, Vector3.zero);
+            var light = MeshKit.Part(castHand, "Light", MeshKit.Ball(0.025f, 8, 6), Mat.Glow, new Vector3(0f, 0.05f, 0.02f));
+
+            foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return new ViewModel { Root = root, SwordPivot = hand, ShieldPivot = castHand, SpellGlow = light.GetComponent<Renderer>() };
+        }
+
         private static Transform BuildSleeveArm(Transform torso, string name, float side, Color robe)
         {
             var shoulder = MeshKit.Pivot(torso, name, new Vector3(0.25f * side, 0.5f, 0f));

@@ -93,8 +93,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 ## Content (as of 2026-10-14)
 
-- Classes: Knight (tank), Mage (frost-then-fire burst). Roster planned: Barbarian, Rogue, Ranger, Druid, Engineer,
-  Cleric (design doc section 5).
+- Classes: Knight (tank), Mage (frost-then-fire burst), Cleric (beam heals, consecrate, aegis shields, fast revives). Planned: Barbarian, Rogue, Ranger, Druid, Engineer
+  (design doc section 5).
 - Enemies: Skeleton, Archer, Ghoul (pairs, pounce), Bone Brute, Necromancer (heals/raises); any can be Elite.
 - Bosses: Gravewarden (shield, charge into walls → dazed), Tide Lich (volleys, pools under everyone, blink),
   Hollow King (cleave, slam, summons, enrage).
@@ -104,6 +104,6 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 ## Backlog / ideas not yet built
 
-Cleric (healer) and the other classes; Steam transport + lobbies/invites; cosmetics as the meta-progression and
+The remaining five classes; Steam transport + lobbies/invites; cosmetics as the meta-progression and
 announcements on the run summary; proximity voice; UI Toolkit HUD replacing IMGUI; controller support / rebinding;
 balance pass driven by the user's play feedback; GitHub remote (needs the user).
