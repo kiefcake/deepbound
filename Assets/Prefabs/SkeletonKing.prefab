@@ -14,7 +14,7 @@ GameObject:
   - component: {fileID: 4185882954653166886}
   - component: {fileID: 7793970951104201630}
   - component: {fileID: 2999869343126153865}
-  - component: {fileID: 2948818737817547508}
+  - component: {fileID: 404751242971212360}
   m_Layer: 0
   m_Name: SkeletonKing
   m_TagString: Untagged
@@ -170,7 +170,7 @@ MonoBehaviour:
   ShowTopMostFoldoutHeaderGroup: 1
   team: 1
   centerHeight: 1.6625
---- !u!114 &2948818737817547508
+--- !u!114 &404751242971212360
 MonoBehaviour:
   m_ObjectHideFlags: 0
   m_CorrespondingSourceObject: {fileID: 0}
@@ -179,9 +179,9 @@ MonoBehaviour:
   m_GameObject: {fileID: 3111477819761602170}
   m_Enabled: 1
   m_EditorHideFlags: 0
-  m_Script: {fileID: 11500000, guid: 081ad71eea4cca34682627d3b5a22579, type: 3}
+  m_Script: {fileID: 11500000, guid: 830ebc28fb0ef6549800f56c9de64852, type: 3}
   m_Name: 
-  m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.BossBrain
+  m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.HollowKingBrain
   ShowTopMostFoldoutHeaderGroup: 1
   maxHealth: 1300
   damage: 30
@@ -195,9 +195,9 @@ MonoBehaviour:
   leashRange: 60
   visualKind: 1
   lootPrefab: {fileID: 8565890832741848749, guid: bba2f0e37d1afa54ab4ecc279f414bc7, type: 3}
+  minionPrefab: {fileID: 0}
   slamRadius: 6.5
   slamWindup: 1.5
   slamDamage: 48
   slamCooldown: 9
   cleaveWindup: 0.85
-  minionPrefab: {fileID: 0}

@@ -154,7 +154,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -164,12 +164,15 @@ namespace Deepbound.Art
         public static HumanoidRig BuildSkeleton(Transform root, SkeletonKind kind)
         {
             bool king = kind == SkeletonKind.King;
-            float s = king ? 1.75f : 1f;
+            float s = king ? 1.75f : kind == SkeletonKind.Gravewarden ? 2.0f : kind == SkeletonKind.Lich ? 1.45f : 1f;
 
             var visual = MeshKit.Pivot(root, "SkeletonVisual", Vector3.zero);
             visual.localScale = Vector3.one * s;
             var rig = visual.gameObject.AddComponent<HumanoidRig>();
-            rig.GlowColor = king ? new Color(0.4f, 0.75f, 1f) : new Color(1f, 0.25f, 0.1f);
+            rig.GlowColor = king ? new Color(0.4f, 0.75f, 1f)
+                : kind == SkeletonKind.Gravewarden ? new Color(1f, 0.55f, 0.15f)
+                : kind == SkeletonKind.Lich ? new Color(0.3f, 1f, 0.7f)
+                : new Color(1f, 0.25f, 0.1f);
 
             rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.92f, 0f));
             MeshKit.Part(rig.Hips, "Pelvis", MeshKit.Lathe("pelvis", new[]
@@ -239,6 +242,14 @@ namespace Deepbound.Art
                 rig.GlowRenderers = glow.ToArray();
                 rig.StrideLength = 1.4f;
             }
+            else if (kind == SkeletonKind.Gravewarden)
+            {
+                BuildGravewarden(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>());
+            }
+            else if (kind == SkeletonKind.Lich)
+            {
+                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>());
+            }
             else if (kind == CharacterArt.SkeletonKind.Archer)
             {
                 rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
@@ -287,6 +298,125 @@ namespace Deepbound.Art
             }
 
             return rig;
+        }
+
+        /// <summary>
+        /// The Gravewarden: a skeleton in a gaoler's plate, behind a tower shield, with a
+        /// flanged mace. The shield is the silhouette — it reads "you cannot hit me from
+        /// the front" before the player has been told anything.
+        /// </summary>
+        private static void BuildGravewarden(HumanoidRig rig, Transform grip, Renderer eyeL, Renderer eyeR)
+        {
+            var rust = new Color(0.62f, 0.52f, 0.45f);
+
+            var chest = MeshKit.Part(rig.Torso, "Breastplate", MeshKit.Lathe("wardenChest", new[]
+            {
+                new Vector2(0.17f, 0.15f), new Vector2(0.22f, 0.3f), new Vector2(0.24f, 0.5f), new Vector2(0.2f, 0.62f), new Vector2(0.08f, 0.66f),
+            }, 8), Mat.Steel, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.8f));
+            ArtLibrary.Tint(chest.GetComponent<Renderer>(), rust);
+            var tasset = MeshKit.Part(rig.Hips, "Tassets", MeshKit.Lathe("wardenSkirt", new[]
+            {
+                new Vector2(0.24f, -0.3f), new Vector2(0.2f, 0f), new Vector2(0.17f, 0.08f),
+            }, 8), Mat.Steel, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.8f));
+            ArtLibrary.Tint(tasset.GetComponent<Renderer>(), rust);
+
+            var helm = MeshKit.Part(rig.Head, "Helm", MeshKit.Lathe("wardenHelm", new[]
+            {
+                new Vector2(0.15f, 0f), new Vector2(0.155f, 0.14f), new Vector2(0.12f, 0.24f), new Vector2(0.03f, 0.29f), new Vector2(0f, 0.3f),
+            }, 8), Mat.Steel, new Vector3(0f, 0.02f, 0f));
+            ArtLibrary.Tint(helm.GetComponent<Renderer>(), rust);
+            MeshKit.Part(rig.Head, "Slit", MeshKit.Box(new Vector3(0.18f, 0.03f, 0.05f)), Mat.Dark, new Vector3(0f, 0.13f, 0.135f));
+            // Eyes sit behind the visor slit: just the glow showing through.
+            eyeL.transform.localPosition = new Vector3(-0.04f, 0.13f, 0.15f);
+            eyeR.transform.localPosition = new Vector3(0.04f, 0.13f, 0.15f);
+
+            for (int i = 0; i < 2; i++)
+            {
+                var arm = i == 0 ? rig.ArmL : rig.ArmR;
+                var pauldron = MeshKit.Part(arm, "Pauldron", MeshKit.Lathe("pauldron", new[]
+                {
+                    new Vector2(0.17f, -0.10f), new Vector2(0.16f, 0.0f), new Vector2(0.12f, 0.08f), new Vector2(0.0f, 0.11f),
+                }, 8), Mat.Steel, Vector3.zero, new Vector3(0f, 0f, i == 0 ? 18f : -18f), Vector3.one * 0.85f);
+                ArtLibrary.Tint(pauldron.GetComponent<Renderer>(), rust);
+            }
+
+            // Tower shield on the left forearm.
+            var mount = MeshKit.Pivot(rig.ArmL, "ShieldMount", new Vector3(-0.06f, -0.4f, 0.12f), new Vector3(0f, -90f, 0f));
+            MeshKit.Part(mount, "Board", MeshKit.Box(new Vector3(0.55f, 1.0f, 0.06f)), Mat.Wood, Vector3.zero);
+            var face = MeshKit.Part(mount, "Face", MeshKit.Box(new Vector3(0.5f, 0.95f, 0.03f)), Mat.Steel, new Vector3(0f, 0f, 0.04f));
+            ArtLibrary.Tint(face.GetComponent<Renderer>(), rust);
+            MeshKit.Part(mount, "Boss", MeshKit.Ball(0.08f, 8, 4), Mat.Steel, new Vector3(0f, 0.05f, 0.07f), Vector3.zero, new Vector3(1f, 1f, 0.6f));
+            for (int i = 0; i < 3; i++)
+            {
+                MeshKit.Part(mount, "Band" + i, MeshKit.Box(new Vector3(0.56f, 0.05f, 0.04f)), Mat.Steel, new Vector3(0f, -0.4f + i * 0.4f, 0.06f));
+            }
+            MeshKit.Part(mount, "Emblem", MeshKit.Ball(0.07f, 8, 6), Mat.Bone, new Vector3(0f, 0.28f, 0.08f), Vector3.zero, new Vector3(1f, 1f, 0.5f));
+
+            // Flanged mace.
+            MeshKit.Part(grip, "Haft", MeshKit.Cylinder(0.025f, 0.025f, 0.6f, 6), Mat.Wood, new Vector3(0f, -0.1f, 0f));
+            MeshKit.Part(grip, "Head", MeshKit.Ball(0.09f, 8, 6), Mat.Steel, new Vector3(0f, 0.55f, 0f));
+            for (int i = 0; i < 6; i++)
+            {
+                MeshKit.Part(grip, "Flange" + i, MeshKit.Box(new Vector3(0.02f, 0.16f, 0.07f)), Mat.Steel,
+                    new Vector3(0f, 0.55f, 0f) + Quaternion.Euler(0f, i * 60f, 0f) * new Vector3(0f, 0f, 0.09f), new Vector3(0f, i * 60f, 0f));
+            }
+
+            rig.GlowRenderers = new[] { eyeL, eyeR };
+            rig.StrideLength = 2.6f;
+        }
+
+        /// <summary>
+        /// The Tide Lich: a drowned sorcerer in a waterlogged robe, crowned with coral, with
+        /// a staff whose orb glows the colour of its spells. Robed so it reads as a caster
+        /// — not a fighter — at any distance.
+        /// </summary>
+        private static void BuildLich(HumanoidRig rig, Transform grip, Renderer eyeL, Renderer eyeR)
+        {
+            var robeColor = new Color(0.2f, 0.36f, 0.34f);
+            var robe = MeshKit.Part(rig.Hips, "Robe", MeshKit.Lathe("lichRobe", new[]
+            {
+                new Vector2(0.38f, -0.92f), new Vector2(0.3f, -0.5f), new Vector2(0.22f, -0.05f), new Vector2(0.2f, 0.1f),
+            }, 9), Mat.Cloth, Vector3.zero);
+            ArtLibrary.Tint(robe.GetComponent<Renderer>(), robeColor);
+            var mantle = MeshKit.Part(rig.Torso, "Mantle", MeshKit.Lathe("lichMantle", new[]
+            {
+                new Vector2(0.3f, 0.35f), new Vector2(0.27f, 0.5f), new Vector2(0.16f, 0.62f), new Vector2(0.08f, 0.66f),
+            }, 9), Mat.Cloth, Vector3.zero);
+            ArtLibrary.Tint(mantle.GetComponent<Renderer>(), robeColor * 0.8f);
+            var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("lichHood", new[]
+            {
+                new Vector2(0.17f, -0.03f), new Vector2(0.18f, 0.12f), new Vector2(0.13f, 0.24f), new Vector2(0.04f, 0.31f), new Vector2(0f, 0.32f),
+            }, 9, true, 270f), Mat.Cloth, new Vector3(0f, 0.04f, -0.02f), new Vector3(0f, 225f, 0f));
+            ArtLibrary.Tint(hood.GetComponent<Renderer>(), robeColor * 0.7f);
+
+            // Coral crown: branching red-pink spikes.
+            var glow = new System.Collections.Generic.List<Renderer> { eyeL, eyeR };
+            for (int i = 0; i < 5; i++)
+            {
+                float a = -60f + i * 30f;
+                var c = MeshKit.Part(rig.Head, "Coral" + i, MeshKit.Lathe("coral", new[] { new Vector2(0.018f, 0f), new Vector2(0f, 0.12f) }, 5), Mat.Bone,
+                    new Vector3(0f, 0.27f, 0.02f) + Quaternion.Euler(0f, a, 0f) * new Vector3(0f, 0f, 0.1f), new Vector3(20f, a, 0f));
+                ArtLibrary.Tint(c.GetComponent<Renderer>(), new Color(0.95f, 0.45f, 0.45f));
+            }
+
+            // Staff with a glowing orb, held upright.
+            MeshKit.Part(grip, "Staff", MeshKit.Cylinder(0.025f, 0.03f, 1.5f, 6), Mat.Wood, new Vector3(0f, -0.6f, 0f));
+            var orb = MeshKit.Part(grip, "Orb", MeshKit.Ball(0.08f, 8, 6), Mat.Glow, new Vector3(0f, 0.95f, 0f));
+            glow.Add(orb.GetComponent<Renderer>());
+            for (int i = 0; i < 3; i++)
+            {
+                MeshKit.Part(grip, "Claw" + i, MeshKit.Box(new Vector3(0.02f, 0.14f, 0.02f)), Mat.Bone,
+                    new Vector3(0f, 0.88f, 0f) + Quaternion.Euler(0f, i * 120f, 0f) * new Vector3(0f, 0f, 0.07f), new Vector3(-20f, i * 120f, 0f));
+            }
+            var light = new GameObject("OrbLight").AddComponent<Light>();
+            light.transform.SetParent(orb.transform, false);
+            light.type = LightType.Point;
+            light.color = new Color(0.3f, 1f, 0.7f);
+            light.range = 9f;
+            light.intensity = 5f;
+
+            rig.GlowRenderers = glow.ToArray();
+            rig.StrideLength = 1.6f;
         }
 
         private static Transform BuildBoneArm(Transform torso, string name, float side)

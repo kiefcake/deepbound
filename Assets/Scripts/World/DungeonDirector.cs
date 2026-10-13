@@ -45,7 +45,8 @@ namespace Deepbound.World
 
         [SerializeField] private NetworkObject skeletonPrefab;
         [SerializeField] private NetworkObject archerPrefab;
-        [SerializeField] private NetworkObject bossPrefab;
+        /// <summary>One boss per floor, by depth: the Gravewarden, the Tide Lich, the Hollow King.</summary>
+        [SerializeField] private NetworkObject[] bossPrefabs;
         [SerializeField] private NetworkObject dummyPrefab;
 
         /// <summary>x = nonce (the seed, for floors), y = depth; -1 is the lobby.</summary>
@@ -242,10 +243,12 @@ namespace Deepbound.World
             }
 
             var spawn = layout.BossSpawn;
+            var bossPrefab = bossPrefabs[Mathf.Clamp(layout.Depth, 0, bossPrefabs.Length - 1)];
             var bossObj = Instantiate(bossPrefab, spawn, Quaternion.LookRotation(layout.BossRoom.Center - spawn + Vector3.back * 0.01f));
             bossObj.Spawn(destroyWithScene: true);
             boss = bossObj.GetComponent<BossBrain>();
-            boss.SetMinionPrefab(skeletonPrefab);
+            // The Lich raises archers from the water; everyone else raises swordsmen.
+            boss.SetMinionPrefab(boss is TideLichBrain && archerPrefab != null ? archerPrefab : skeletonPrefab);
             boss.ServerScaleBoss(players, layout.Depth);
             spawned.Add(bossObj);
             bossSeen = true;

@@ -245,6 +245,55 @@ namespace Deepbound.Networking
             Application.Quit(0);
         }
 
+        /// <summary>
+        /// Boss mechanics check: for each floor boss, drop the host into the arena, keep it
+        /// alive, and let the fight run while logging every mechanic ([Boss] lines) and
+        /// capturing frames. Run windowed: <c>-bosstest C:\\temp\\boss</c>.
+        /// </summary>
+        public void BossTest(string dir, NetworkLauncher launcher) => StartCoroutine(BossSequence(dir, launcher));
+
+        private IEnumerator BossSequence(string dir, NetworkLauncher launcher)
+        {
+            System.IO.Directory.CreateDirectory(dir);
+            launcher.StartHost();
+            yield return new WaitForSeconds(2f);
+
+            var local = NetworkPlayer.Local;
+            var motor = local.GetComponent<FirstPersonMotor>();
+            var hp = local.GetComponent<Health>();
+
+            for (int depth = 0; depth < DungeonDirector.FloorsPerRun - 1; depth++)
+            {
+                DungeonDirector.Instance.ServerDebugStartFloor(depth);
+                yield return new WaitForSeconds(2f);
+                motor.enabled = false;
+
+                var layout = DungeonDirector.Layout;
+                var boss = BossBrain.Active;
+                Debug.Log("[Smoke] boss test floor " + (depth + 1) + ": " + (boss != null ? boss.DisplayName : "NO BOSS"));
+                if (boss == null) continue;
+
+                // Stand across the room, in its line of sight, so it has to come — or shoot.
+                var at = layout.BossRoom.Center - (layout.BossSpawn - layout.BossRoom.Center).normalized * 8f + Vector3.up * 0.1f;
+                motor.Teleport(at, Quaternion.LookRotation(boss.transform.position - at));
+
+                for (int i = 0; i < 14; i++)
+                {
+                    yield return new WaitForSeconds(1.2f);
+                    hp.ServerSetFraction(1f);
+                    var look = boss.transform.position - local.transform.position;
+                    look.y = 0f;
+                    if (look.sqrMagnitude > 0.1f) local.transform.rotation = Quaternion.LookRotation(look);
+                    if (i % 3 == 1) yield return Shot(dir, "boss" + (depth + 1) + "_" + i);
+                    // Walk toward the Lich mid-test, to provoke the blink.
+                    if (depth == 1 && i == 6) motor.Teleport(boss.transform.position + boss.transform.forward * 2f, local.transform.rotation);
+                }
+            }
+
+            Debug.Log("[Smoke] boss test done");
+            Application.Quit(0);
+        }
+
         private static IEnumerator Shot(string dir, string name)
         {
             yield return new WaitForEndOfFrame();

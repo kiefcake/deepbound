@@ -47,13 +47,15 @@ namespace Deepbound.EditorTools
 
             var loot = BuildLootPrefab();
             var player = BuildPlayerPrefab();
-            var skeleton = BuildEnemyPrefab("Skeleton", boss: false, loot);
-            var king = BuildEnemyPrefab("SkeletonKing", boss: true, loot);
-            var archer = BuildEnemyPrefab("SkeletonArcher", boss: false, loot, archer: true);
+            var skeleton = BuildEnemyPrefab("Skeleton", EnemyType.Skeleton, loot);
+            var archer = BuildEnemyPrefab("SkeletonArcher", EnemyType.Archer, loot);
+            var warden = BuildEnemyPrefab("Gravewarden", EnemyType.Gravewarden, loot);
+            var lich = BuildEnemyPrefab("TideLich", EnemyType.TideLich, loot);
+            var king = BuildEnemyPrefab("SkeletonKing", EnemyType.HollowKing, loot);
             var dummy = BuildDummyPrefab();
-            var director = BuildDirectorPrefab(skeleton, king, dummy, archer);
+            var director = BuildDirectorPrefab(skeleton, archer, dummy, new[] { warden, lich, king });
 
-            RegisterNetworkPrefabs(player, skeleton, king, director, loot, dummy, archer);
+            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -139,9 +141,11 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private static GameObject BuildEnemyPrefab(string name, bool boss, GameObject loot, bool archer = false)
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing }
+
+        private static GameObject BuildEnemyPrefab(string name, EnemyType type, GameObject loot)
         {
-            float scale = boss ? 1.75f : 1f;
+            float scale = type == EnemyType.HollowKing ? 1.75f : type == EnemyType.Gravewarden ? 2.0f : type == EnemyType.TideLich ? 1.45f : 1f;
             var root = new GameObject(name);
 
             root.AddComponent<NetworkObject>();
@@ -161,32 +165,45 @@ namespace Deepbound.EditorTools
 
             SetTeam(root.AddComponent<Health>(), Team.Enemies, 0.95f * scale);
 
-            EnemyBrain brain = boss ? root.AddComponent<BossBrain>() : archer ? root.AddComponent<ArcherBrain>() : root.AddComponent<EnemyBrain>();
+            EnemyBrain brain;
+            switch (type)
+            {
+                case EnemyType.Archer: brain = root.AddComponent<ArcherBrain>(); break;
+                case EnemyType.Gravewarden: brain = root.AddComponent<GravewardenBrain>(); break;
+                case EnemyType.TideLich: brain = root.AddComponent<TideLichBrain>(); break;
+                case EnemyType.HollowKing: brain = root.AddComponent<HollowKingBrain>(); break;
+                default: brain = root.AddComponent<EnemyBrain>(); break;
+            }
+
             var so = new SerializedObject(brain);
             so.FindProperty("lootPrefab").objectReferenceValue = loot.GetComponent<NetworkObject>();
-            if (archer)
+            void Set(string field, float value) => so.FindProperty(field).floatValue = value;
+            void Kind(Art.CharacterArt.SkeletonKind k) => so.FindProperty("visualKind").intValue = (int)k;
+
+            switch (type)
             {
-                // Fragile and slow to fire, but it hurts from range: kill it first.
-                so.FindProperty("visualKind").intValue = (int)Art.CharacterArt.SkeletonKind.Archer;
-                so.FindProperty("maxHealth").floatValue = 50f;
-                so.FindProperty("damage").floatValue = 14f;
-                so.FindProperty("attackRange").floatValue = 15f;
-                so.FindProperty("windup").floatValue = 1.0f;
-                so.FindProperty("recovery").floatValue = 1.5f;
-                so.FindProperty("aggroRange").floatValue = 17f;
-                so.FindProperty("moveSpeed").floatValue = 3.2f;
-            }
-            if (boss)
-            {
-                so.FindProperty("visualKind").intValue = (int)Art.CharacterArt.SkeletonKind.King;
-                so.FindProperty("maxHealth").floatValue = 1300f;
-                so.FindProperty("damage").floatValue = 30f;
-                so.FindProperty("defense").floatValue = 6f;
-                so.FindProperty("moveSpeed").floatValue = 3.1f;
-                so.FindProperty("attackRange").floatValue = 3.5f;
-                so.FindProperty("recovery").floatValue = 1.1f;
-                so.FindProperty("aggroRange").floatValue = 20f;
-                so.FindProperty("leashRange").floatValue = 60f;
+                case EnemyType.Archer:
+                    // Fragile and slow to fire, but it hurts from range: kill it first.
+                    Kind(Art.CharacterArt.SkeletonKind.Archer);
+                    Set("maxHealth", 50f); Set("damage", 14f); Set("attackRange", 15f); Set("windup", 1.0f);
+                    Set("recovery", 1.5f); Set("aggroRange", 17f); Set("moveSpeed", 3.2f);
+                    break;
+                case EnemyType.Gravewarden:
+                    Kind(Art.CharacterArt.SkeletonKind.Gravewarden);
+                    Set("maxHealth", 1100f); Set("damage", 26f); Set("defense", 4f); Set("moveSpeed", 2.9f);
+                    Set("attackRange", 3.6f); Set("recovery", 1.2f); Set("aggroRange", 20f); Set("leashRange", 60f);
+                    break;
+                case EnemyType.TideLich:
+                    // Squishier than the others; the difficulty is catching it.
+                    Kind(Art.CharacterArt.SkeletonKind.Lich);
+                    Set("maxHealth", 950f); Set("damage", 18f); Set("defense", 2f); Set("moveSpeed", 3.4f);
+                    Set("attackRange", 2.8f); Set("recovery", 1.0f); Set("aggroRange", 22f); Set("leashRange", 60f);
+                    break;
+                case EnemyType.HollowKing:
+                    Kind(Art.CharacterArt.SkeletonKind.King);
+                    Set("maxHealth", 1300f); Set("damage", 30f); Set("defense", 6f); Set("moveSpeed", 3.1f);
+                    Set("attackRange", 3.5f); Set("recovery", 1.1f); Set("aggroRange", 20f); Set("leashRange", 60f);
+                    break;
             }
             so.ApplyModifiedPropertiesWithoutUndo();
 
@@ -215,14 +232,16 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "TrainingDummy");
         }
 
-        private static GameObject BuildDirectorPrefab(GameObject skeleton, GameObject king, GameObject dummy, GameObject archer)
+        private static GameObject BuildDirectorPrefab(GameObject skeleton, GameObject archer, GameObject dummy, GameObject[] bossesByDepth)
         {
             var root = new GameObject("DungeonDirector");
             root.AddComponent<NetworkObject>();
             var director = root.AddComponent<DungeonDirector>();
             var so = new SerializedObject(director);
             so.FindProperty("skeletonPrefab").objectReferenceValue = skeleton.GetComponent<NetworkObject>();
-            so.FindProperty("bossPrefab").objectReferenceValue = king.GetComponent<NetworkObject>();
+            var bosses = so.FindProperty("bossPrefabs");
+            bosses.arraySize = bossesByDepth.Length;
+            for (int i = 0; i < bossesByDepth.Length; i++) bosses.GetArrayElementAtIndex(i).objectReferenceValue = bossesByDepth[i].GetComponent<NetworkObject>();
             so.FindProperty("dummyPrefab").objectReferenceValue = dummy.GetComponent<NetworkObject>();
             so.FindProperty("archerPrefab").objectReferenceValue = archer.GetComponent<NetworkObject>();
             so.ApplyModifiedPropertiesWithoutUndo();

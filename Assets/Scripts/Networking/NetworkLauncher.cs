@@ -79,6 +79,9 @@ namespace Deepbound.Networking
                 gameObject.AddComponent<SmokeTest>().Run(seconds);
             }
 
+            int bossTest = Array.IndexOf(args, "-bosstest");
+            if (bossTest >= 0 && bossTest + 1 < args.Length) gameObject.AddComponent<SmokeTest>().BossTest(args[bossTest + 1], this);
+
             int shots = Array.IndexOf(args, "-shots");
             if (shots >= 0 && shots + 1 < args.Length) gameObject.AddComponent<SmokeTest>().Screenshots(args[shots + 1], this);
         }

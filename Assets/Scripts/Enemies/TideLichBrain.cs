@@ -1,0 +1,223 @@
+using System.Collections.Generic;
+using Deepbound.Art;
+using Deepbound.Combat;
+using Deepbound.Player;
+using Deepbound.World;
+using Unity.Netcode;
+using Unity.Netcode.Components;
+using UnityEngine;
+using UnityEngine.AI;
+
+namespace Deepbound.Enemies
+{
+    /// <summary>
+    /// The Tide Lich: floor 2's boss, and the fight that teaches movement.
+    ///
+    /// <list type="bullet">
+    /// <item><b>Bone Volley</b> — the staff glows, then a fan of five shards flies at its
+    ///   target. Answer: sidestep, or block it with a shield.</item>
+    /// <item><b>Drowning Pools</b> — a red circle fills under every player at once; anyone
+    ///   still standing in theirs when it fills is dragged under. Answer: keep moving —
+    ///   and do not stack, or one player's pool catches their friend.</item>
+    /// <item><b>Undertow Blink</b> — crowd it for too long and it vanishes and reappears
+    ///   across the room. Answer: the party has to chase, so whoever has the mobility
+    ///   should commit first.</item>
+    /// <item><b>Call of the Deep</b> — at half health it raises archers from the water.</item>
+    /// </list>
+    /// </summary>
+    public class TideLichBrain : BossBrain
+    {
+        [SerializeField] private float preferredRange = 9f;
+        [SerializeField] private float volleyCooldown = 3.6f, volleyWindup = 1.0f, boltDamage = 15f, volleySpread = 40f;
+        [SerializeField] private int volleyCount = 5;
+        [SerializeField] private float poolCooldown = 9f, poolWindup = 1.8f, poolRadius = 2.6f, poolDamage = 34f;
+        [SerializeField] private float blinkCooldown = 7f, crowdRange = 3.5f, crowdTolerance = 1.2f;
+
+        public override string DisplayName => "The Tide Lich";
+
+        private float nextVolley, nextPool, nextBlink;
+        private float volleyAt = -1f;
+        private float crowdedFor;
+        private bool summoned;
+
+        private struct Pool { public Vector3 Center; public float At; }
+        private readonly List<Pool> pools = new List<Pool>();
+
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+            nextVolley = Time.time + 2.5f;
+            nextPool = Time.time + 7f;
+        }
+
+        protected override void Update()
+        {
+            if (IsServer && !IsDead)
+            {
+                ResolvePools();
+
+                // Measured every frame, not only when choosing an attack: the Lich's own
+                // swings and casts would otherwise pause the clock while it is crowded.
+                bool crowded = target != null && target.IsAlive && FlatDistance(target.transform.position) < crowdRange;
+                crowdedFor = crowded ? crowdedFor + Time.deltaTime : 0f;
+
+                if (volleyAt > 0f)
+                {
+                    agent.isStopped = true;
+                    FaceTarget(0.25f);
+                    if (Time.time >= volleyAt) FireVolley();
+                    return;
+                }
+            }
+            base.Update();
+        }
+
+        protected override bool ChooseSpecialAttack(float distanceToTarget)
+        {
+            agent.stoppingDistance = preferredRange;
+
+            if (!summoned && health.Fraction < 0.5f)
+            {
+                summoned = true;
+                Summon(1 + scaledPlayers, 5f, 1.8f);
+                return true;
+            }
+
+            // Crowded: tolerate it briefly, then blink away.
+            if (crowdedFor > crowdTolerance && Time.time >= nextBlink)
+            {
+                Blink();
+                return true;
+            }
+
+            if (Time.time >= nextPool)
+            {
+                CastPools();
+                return true;
+            }
+
+            if (Time.time >= nextVolley && CombatQuery.ClearLine(transform.position + Vector3.up * 1.8f, target))
+            {
+                volleyAt = Time.time + volleyWindup;
+                nextVolley = Time.time + volleyCooldown;
+                busyUntil = volleyAt + 0.5f;
+                PlayActionRpc(RigAction.Cast, volleyWindup + 0.2f);
+                return true;
+            }
+
+            return false;
+        }
+
+        private void FireVolley()
+        {
+            volleyAt = -1f;
+            if (target == null) return;
+
+            var origin = transform.position + Vector3.up * 2.2f + transform.forward * 0.6f;
+            var aim = target.Center - origin;
+            for (int i = 0; i < volleyCount; i++)
+            {
+                float a = Mathf.Lerp(-volleySpread / 2f, volleySpread / 2f, volleyCount > 1 ? i / (float)(volleyCount - 1) : 0.5f);
+                Arrows.ServerFire(origin, Quaternion.Euler(0f, a, 0f) * aim, boltDamage, Team.Players, NetworkObjectId);
+            }
+            VolleyRpc(origin, aim, volleyCount, volleySpread);
+            Debug.Log("[Boss] Tide Lich volley");
+        }
+
+        private void CastPools()
+        {
+            nextPool = Time.time + poolCooldown;
+            castUntil = Time.time + 0.9f;
+            busyUntil = castUntil;
+            PlayActionRpc(RigAction.Cast, 0.9f);
+
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || p.Downed.Value) continue;
+                var c = p.transform.position;
+                pools.Add(new Pool { Center = c, At = Time.time + poolWindup });
+                Debug.Log("[Boss] Tide Lich pool under " + p.name);
+                CircleTelegraphRpc(c, poolRadius, poolWindup, false);
+            }
+        }
+
+        private void ResolvePools()
+        {
+            for (int i = pools.Count - 1; i >= 0; i--)
+            {
+                if (Time.time < pools[i].At) continue;
+                var c = pools[i].Center;
+                foreach (var victim in CombatQuery.Circle(c, poolRadius, Team.Players))
+                {
+                    victim.ServerDamage(poolDamage, c + Vector3.up, NetworkObjectId);
+                }
+                PoolFxRpc(c);
+                pools.RemoveAt(i);
+            }
+        }
+
+        private void Blink()
+        {
+            nextBlink = Time.time + blinkCooldown;
+            crowdedFor = 0f;
+
+            var room = DungeonDirector.Layout?.BossRoom;
+            if (room == null) return;
+
+            // Of a handful of candidate spots in the room, take the one farthest from every player.
+            var rng = new System.Random((int)(Time.time * 1000f));
+            Vector3 best = transform.position;
+            float bestScore = -1f;
+            for (int i = 0; i < 10; i++)
+            {
+                var p = room.Center + new Vector3((float)(rng.NextDouble() - 0.5) * (room.Size.x - 6f), 0f, (float)(rng.NextDouble() - 0.5) * (room.Size.y - 6f));
+                if (!NavMesh.SamplePosition(p, out var hit, 2f, NavMesh.AllAreas)) continue;
+                float nearest = float.MaxValue;
+                foreach (var pl in PlayerLife.All) nearest = Mathf.Min(nearest, Vector3.Distance(pl.transform.position, hit.position));
+                if (nearest > bestScore) { bestScore = nearest; best = hit.position; }
+            }
+
+            var from = transform.position;
+            agent.Warp(best);
+            // Teleport, not interpolate: clients should see it vanish and reappear.
+            GetComponent<NetworkTransform>().Teleport(best, transform.rotation, transform.localScale);
+            BlinkFxRpc(from, best);
+            Debug.Log("[Boss] Tide Lich blinked " + Vector3.Distance(from, best).ToString("F1") + "m");
+            busyUntil = Time.time + 0.6f;
+        }
+
+        public override void ServerStun(float seconds)
+        {
+            // A bash interrupts the volley.
+            volleyAt = -1f;
+            base.ServerStun(Mathf.Min(seconds, 0.6f));
+        }
+
+        // ------------------------------------------------------------------
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void VolleyRpc(Vector3 origin, Vector3 aim, int count, float spread)
+        {
+            for (int i = 0; i < count; i++)
+            {
+                float a = Mathf.Lerp(-spread / 2f, spread / 2f, count > 1 ? i / (float)(count - 1) : 0.5f);
+                Arrows.SpawnVisual(origin, Quaternion.Euler(0f, a, 0f) * aim);
+            }
+            Sfx.Play(Sound.Bow, origin, 1f, 0.7f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PoolFxRpc(Vector3 at)
+        {
+            Sfx.Play(Sound.Slam, at, 0.7f, 1.4f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BlinkFxRpc(Vector3 from, Vector3 to)
+        {
+            Sfx.Play(Sound.Summon, from + Vector3.up, 0.6f, 1.6f);
+            Sfx.Play(Sound.Summon, to + Vector3.up, 0.6f, 1.6f);
+            Telegraph.Show(from, 1.2f, 0.35f, null);
+        }
+    }
+}
