@@ -32,6 +32,9 @@ namespace Deepbound.Networking
         /// </summary>
         [SerializeField] private Camera menuCamera;
 
+        /// <summary>Spawned once by the server when a session starts. Runs floors and the run.</summary>
+        [SerializeField] private NetworkObject directorPrefab;
+
         private string status = "";
 
         /// <summary>Screen area the panel occupies, in IMGUI coordinates (origin top-left).</summary>
@@ -68,14 +71,31 @@ namespace Deepbound.Networking
 
             if (Array.IndexOf(args, "-host") >= 0) StartHost();
             else if (Array.IndexOf(args, "-client") >= 0) StartClient();
+
+            int smoke = Array.IndexOf(args, "-smoketest");
+            if (smoke >= 0)
+            {
+                float seconds = smoke + 1 < args.Length && float.TryParse(args[smoke + 1], out var s) ? s : 15f;
+                gameObject.AddComponent<SmokeTest>().Run(seconds);
+            }
+
+            int shots = Array.IndexOf(args, "-shots");
+            if (shots >= 0 && shots + 1 < args.Length) gameObject.AddComponent<SmokeTest>().Screenshots(args[shots + 1], this);
         }
 
-        private void StartHost()
+        public void StartHost()
         {
             // Listen on every interface, not just loopback, so someone on the same LAN can
             // join too. The address field is only used when joining.
             Transport.SetConnectionData(address, port, "0.0.0.0");
-            status = Net.StartHost() ? "" : "Could not host - is port " + port + " already in use?";
+            if (!Net.StartHost())
+            {
+                status = "Could not host - is port " + port + " already in use?";
+                return;
+            }
+
+            status = "";
+            Instantiate(directorPrefab).Spawn();
         }
 
         private void StartClient()
@@ -106,9 +126,17 @@ namespace Deepbound.Networking
         {
             bool connected = Net.IsClient || Net.IsServer;
 
+            // While playing with the mouse captured the session panel is just clutter;
+            // Esc frees the mouse and brings it back.
+            if (connected && Cursor.lockState == CursorLockMode.Locked)
+            {
+                PanelRect = Rect.zero;
+                return;
+            }
+
             PanelRect = connected
                 ? new Rect(10, 10, 220, 70)
-                : new Rect(Screen.width / 2f - 150, Screen.height / 2f - 110, 300, 220);
+                : new Rect(Mathf.Max(20f, Screen.width * 0.06f), Screen.height / 2f - 120, 300, 240);
 
             GUILayout.BeginArea(PanelRect, GUI.skin.box);
 
@@ -120,7 +148,8 @@ namespace Deepbound.Networking
 
         private void DrawConnectPanel()
         {
-            GUILayout.Label("DEEPBOUND - M0 network test");
+            GUILayout.Label("DEEPBOUND");
+            GUILayout.Label("1-4 player co-op dungeon descent");
             GUILayout.Space(6);
 
             if (GUILayout.Button("Host", GUILayout.Height(32))) StartHost();
@@ -142,6 +171,7 @@ namespace Deepbound.Networking
 
         private void DrawSessionPanel()
         {
+
             string role = Net.IsHost ? "Host" : Net.IsServer ? "Server" : "Client";
             string players = Net.IsServer ? "  |  Players: " + Net.ConnectedClientsIds.Count : "";
             GUILayout.Label(role + players);
