@@ -24,7 +24,7 @@ namespace Deepbound.Combat
 
             foreach (var h in Health.All)
             {
-                if (h == null || h.Team != team || !h.IsAlive) continue;
+                if (h == null || !Matches(h, team) || !h.IsAlive) continue;
 
                 Vector3 to = h.Center - origin;
                 float vertical = to.y;
@@ -49,7 +49,7 @@ namespace Deepbound.Combat
             Results.Clear();
             foreach (var h in Health.All)
             {
-                if (h == null || h.Team != team || !h.IsAlive) continue;
+                if (h == null || !Matches(h, team) || !h.IsAlive) continue;
                 Vector3 to = h.transform.position - center;
                 if (Mathf.Abs(to.y) > 3f) continue;
                 to.y = 0f;
@@ -57,6 +57,9 @@ namespace Deepbound.Combat
             }
             return Results;
         }
+
+        /// <summary>Attacks aimed at enemies also break props in the way.</summary>
+        public static bool Matches(Health h, Team team) => h.Team == team || (team == Team.Enemies && h.Team == Team.Props);
 
         /// <summary>
         /// True if nothing static stands between the attacker and the target. Hitting any

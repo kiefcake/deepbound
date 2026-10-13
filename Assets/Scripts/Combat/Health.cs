@@ -5,7 +5,11 @@ using UnityEngine;
 
 namespace Deepbound.Combat
 {
-    public enum Team : byte { Players, Enemies }
+    /// <summary>
+    /// Who can hurt whom. Props (urns, barrels) are hit by anything aimed at enemies but
+    /// are invisible to enemy AI, the radar and relic procs. APPEND ONLY: synced.
+    /// </summary>
+    public enum Team : byte { Players, Enemies, Props }
 
     /// <summary>
     /// Hit points for anything that can be hurt. Server-authoritative: only the server

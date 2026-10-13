@@ -127,7 +127,7 @@ namespace Deepbound.Combat
         {
             foreach (var h in Health.All)
             {
-                if (h == null || h.Team != a.Targets || !h.IsAlive) continue;
+                if (h == null || !CombatQuery.Matches(h, a.Targets) || !h.IsAlive) continue;
                 if (DistanceToSegment(h.Center, from, to) > HitRadius) continue;
 
                 if (a.OnHit != null)

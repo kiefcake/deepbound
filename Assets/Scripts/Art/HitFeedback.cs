@@ -67,10 +67,10 @@ namespace Deepbound.Art
     /// </summary>
     public static class BoneBurst
     {
-        public static void Spawn(Vector3 at, float scale, bool gilded)
+        public static void Spawn(Vector3 at, float scale, bool gilded, string materialOverride = null)
         {
             int count = Mathf.RoundToInt(9 * Mathf.Clamp(scale, 0.8f, 2f));
-            var material = gilded ? Mat.Gold : Mat.Bone;
+            var material = materialOverride ?? (gilded ? Mat.Gold : Mat.Bone);
             for (int i = 0; i < count; i++)
             {
                 var size = new Vector3(Random.Range(0.04f, 0.08f), Random.Range(0.04f, 0.07f), Random.Range(0.12f, 0.28f)) * scale;

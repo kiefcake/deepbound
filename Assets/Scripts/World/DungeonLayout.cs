@@ -93,6 +93,19 @@ namespace Deepbound.World
             return PlayerSpawn + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 2f + Vector3.up * 0.1f;
         }
 
+        /// <summary>The midpoint of a corridor, on the floor.</summary>
+        public Vector3 CorridorMidpoint(Link link)
+        {
+            var a = Rooms[link.A];
+            var b = Rooms[link.B];
+            var d = Dir[link.Dir];
+            bool alongX = d.x != 0;
+            var axis = new Vector3(d.x, 0f, d.y);
+            var start = a.Center + axis * ((alongX ? a.Size.x : a.Size.y) / 2f + 0.8f);
+            var end = b.Center - axis * ((alongX ? b.Size.x : b.Size.y) / 2f + 0.8f);
+            return (start + end) / 2f;
+        }
+
         public Room RoomAt(Vector3 position, float margin = 0.5f)
         {
             foreach (var room in Rooms)

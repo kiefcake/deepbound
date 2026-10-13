@@ -48,6 +48,13 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject ghoulPrefab;
         [SerializeField] private NetworkObject brutePrefab;
         [SerializeField] private NetworkObject necromancerPrefab;
+
+        [Header("Dungeon objects")]
+        [SerializeField] private NetworkObject chestPrefab;
+        [SerializeField] private NetworkObject altarPrefab;
+        [SerializeField] private NetworkObject breakablePrefab;
+        [SerializeField] private NetworkObject trapPrefab;
+        [SerializeField] private NetworkObject lootPrefab;
         /// <summary>One boss per floor, by depth: the Gravewarden, the Tide Lich, the Hollow King.</summary>
         [SerializeField] private NetworkObject[] bossPrefabs;
         [SerializeField] private NetworkObject dummyPrefab;
@@ -160,6 +167,7 @@ namespace Deepbound.World
             BuildLocal(Floor.Value);
 
             BakeNavMesh();
+            SpawnObjects(Layout);
             SpawnEnemies(Layout);
 
             foreach (var p in PlayerLife.All)
@@ -185,6 +193,18 @@ namespace Deepbound.World
             foreach (var brain in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
             {
                 if (brain.NetworkObject.IsSpawned) brain.NetworkObject.Despawn();
+            }
+            foreach (var i in FindObjectsByType<Interactable>(FindObjectsSortMode.None))
+            {
+                if (i.NetworkObject.IsSpawned) i.NetworkObject.Despawn();
+            }
+            foreach (var b in FindObjectsByType<Breakable>(FindObjectsSortMode.None))
+            {
+                if (b.NetworkObject.IsSpawned) b.NetworkObject.Despawn();
+            }
+            foreach (var t in FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None))
+            {
+                if (t.NetworkObject.IsSpawned) t.NetworkObject.Despawn();
             }
             // Unclaimed loot does not follow you down: pick it up or lose it.
             foreach (var drop in FindObjectsByType<LootDrop>(FindObjectsSortMode.None))
@@ -278,6 +298,94 @@ namespace Deepbound.World
             boss.ServerScaleBoss(players, layout.Depth);
             spawned.Add(bossObj);
             bossSeen = true;
+        }
+
+        /// <summary>
+        /// The things in a floor that are not monsters: a chest in every side room, urns and
+        /// powder barrels along room walls, spike traps in some corridors, and sometimes a
+        /// blood altar. Placed after the navmesh bake so they never cut holes in it.
+        /// </summary>
+        private void SpawnObjects(DungeonLayout layout)
+        {
+            if (breakablePrefab == null) return;
+            var rng = new System.Random(layout.Seed ^ 0x5eed);
+            DungeonLayout.Room altarRoom = null;
+            if (altarPrefab != null && rng.NextDouble() < 0.5)
+            {
+                var combat = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat);
+                if (combat.Count > 0) altarRoom = combat[rng.Next(combat.Count)];
+            }
+
+            foreach (var room in layout.Rooms)
+            {
+                if (room.Kind == RoomKind.Side && chestPrefab != null)
+                {
+                    int entry = 0;
+                    for (int s = 0; s < 4; s++) if (room.Doors[s]) entry = s;
+                    var back = -new Vector3(DungeonLayout.Dir[entry].x, 0f, DungeonLayout.Dir[entry].y);
+                    var chest = Spawn(chestPrefab, room.Center + back * (room.Size.y / 2f - 1.5f), Quaternion.LookRotation(-back));
+                    chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
+                }
+
+                if (room == altarRoom)
+                {
+                    Spawn(altarPrefab, room.Center + new Vector3(0f, 0f, room.Size.y / 2f - 1.8f), Quaternion.Euler(0f, 180f, 0f));
+                }
+
+                if (room.Kind == RoomKind.Boss || room.Kind == RoomKind.Start) continue;
+
+                int urns = 2 + rng.Next(3);
+                for (int i = 0; i < urns; i++) SpawnBreakable(Breakable.Kind.Urn, WallSpot(room, rng));
+                if (room.Kind == RoomKind.Combat && rng.NextDouble() < 0.6)
+                {
+                    int barrels = 1 + rng.Next(2);
+                    for (int i = 0; i < barrels; i++) SpawnBreakable(Breakable.Kind.PowderBarrel, WallSpot(room, rng));
+                }
+            }
+
+            if (trapPrefab != null)
+            {
+                foreach (var link in layout.Links)
+                {
+                    var a = layout.Rooms[link.A];
+                    var b = layout.Rooms[link.B];
+                    if (a.Kind == RoomKind.Boss || b.Kind == RoomKind.Boss || a.Kind == RoomKind.Start) continue;
+                    if (rng.NextDouble() < 0.4) Spawn(trapPrefab, layout.CorridorMidpoint(link) + Vector3.up * 0.005f, Quaternion.identity);
+                }
+            }
+        }
+
+        private NetworkObject Spawn(NetworkObject prefab, Vector3 at, Quaternion rot)
+        {
+            var obj = Instantiate(prefab, at, rot);
+            obj.Spawn(destroyWithScene: true);
+            return obj;
+        }
+
+        private void SpawnBreakable(Breakable.Kind kind, Vector3 at)
+        {
+            var obj = Instantiate(breakablePrefab, at, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
+            var b = obj.GetComponent<Breakable>();
+            b.Type.Value = kind;
+            b.SetLootPrefab(lootPrefab);
+            obj.Spawn(destroyWithScene: true);
+        }
+
+        /// <summary>A spot about a metre in from a random wall, clear of the doorway.</summary>
+        private static Vector3 WallSpot(DungeonLayout.Room room, System.Random rng)
+        {
+            for (int tries = 0; tries < 8; tries++)
+            {
+                int side = rng.Next(4);
+                var d = DungeonLayout.Dir[side];
+                bool alongX = side == 0 || side == 2;
+                float half = (alongX ? room.Size.x : room.Size.y) / 2f - 1.2f;
+                float t = (float)(rng.NextDouble() * 2.0 - 1.0) * half;
+                if (room.Doors[side] && Mathf.Abs(t) < DungeonLayout.CorridorWidth) continue;
+                float off = (alongX ? room.Size.y : room.Size.x) / 2f - 1.0f;
+                return room.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t));
+            }
+            return room.Center + new Vector3(room.Size.x / 2f - 1.2f, 0f, room.Size.y / 2f - 1.2f);
         }
 
         /// <summary>

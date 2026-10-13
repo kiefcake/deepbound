@@ -107,7 +107,7 @@ namespace Deepbound.Enemies
         {
             foreach (var h in CombatQuery.Circle(transform.position, mendRadius, Team.Enemies))
             {
-                if (h != health && h.Fraction < 0.75f) return true;
+                if (h != health && h.Team == Team.Enemies && h.Fraction < 0.75f) return true;
             }
             return false;
         }
@@ -117,7 +117,7 @@ namespace Deepbound.Enemies
             mendAt = -1f;
             foreach (var h in CombatQuery.Circle(transform.position, mendRadius, Team.Enemies))
             {
-                if (h.GetComponent<TrainingDummy>() != null) continue;
+                if (h.Team != Team.Enemies || h.GetComponent<TrainingDummy>() != null) continue;
                 h.ServerHeal(h.Max.Value * mendFraction);
             }
             MendFxRpc();

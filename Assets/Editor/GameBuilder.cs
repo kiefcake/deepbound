@@ -56,9 +56,14 @@ namespace Deepbound.EditorTools
             var brute = BuildEnemyPrefab("BoneBrute", EnemyType.Brute, loot);
             var necro = BuildEnemyPrefab("Necromancer", EnemyType.Necromancer, loot);
             var dummy = BuildDummyPrefab();
+            var chest = BuildObjectPrefab<Chest>("Chest", new Vector3(1.1f, 0.8f, 0.7f));
+            var altar = BuildObjectPrefab<BloodAltar>("BloodAltar", new Vector3(1.4f, 0.9f, 1.0f));
+            var trap = BuildObjectPrefab<SpikeTrap>("SpikeTrap", Vector3.zero);
+            var breakable = BuildBreakablePrefab();
             var director = BuildDirectorPrefab(skeleton, archer, dummy, new[] { warden, lich, king }, ghoul, brute, necro);
+            WireDirectorObjects(director, chest, altar, breakable, trap, loot);
 
-            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro);
+            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -256,6 +261,47 @@ namespace Deepbound.EditorTools
             root.AddComponent<NetworkObject>();
             root.AddComponent<LootDrop>();
             return SavePrefab(root, "LootDrop");
+        }
+
+        /// <summary>A static networked object; a box collider when it should block movement.</summary>
+        private static GameObject BuildObjectPrefab<T>(string name, Vector3 collider) where T : Component
+        {
+            var root = new GameObject(name);
+            root.AddComponent<NetworkObject>();
+            if (collider != Vector3.zero)
+            {
+                var box = root.AddComponent<BoxCollider>();
+                box.size = collider;
+                box.center = new Vector3(0f, collider.y / 2f, 0f);
+            }
+            root.AddComponent<T>();
+            return SavePrefab(root, name);
+        }
+
+        private static GameObject BuildBreakablePrefab()
+        {
+            var root = new GameObject("Breakable");
+            root.AddComponent<NetworkObject>();
+            var capsule = root.AddComponent<CapsuleCollider>();
+            capsule.radius = 0.35f;
+            capsule.height = 0.9f;
+            capsule.center = new Vector3(0f, 0.45f, 0f);
+            SetTeam(root.AddComponent<Health>(), Team.Props, 0.45f);
+            root.AddComponent<Breakable>();
+            return SavePrefab(root, "Breakable");
+        }
+
+        private static void WireDirectorObjects(GameObject director, GameObject chest, GameObject altar, GameObject breakable, GameObject trap, GameObject loot)
+        {
+            var so = new SerializedObject(director.GetComponent<DungeonDirector>());
+            so.FindProperty("chestPrefab").objectReferenceValue = chest.GetComponent<NetworkObject>();
+            so.FindProperty("altarPrefab").objectReferenceValue = altar.GetComponent<NetworkObject>();
+            so.FindProperty("breakablePrefab").objectReferenceValue = breakable.GetComponent<NetworkObject>();
+            so.FindProperty("trapPrefab").objectReferenceValue = trap.GetComponent<NetworkObject>();
+            so.FindProperty("lootPrefab").objectReferenceValue = loot.GetComponent<NetworkObject>();
+            so.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(director);
+            AssetDatabase.SaveAssets();
         }
 
         private static GameObject BuildDummyPrefab()

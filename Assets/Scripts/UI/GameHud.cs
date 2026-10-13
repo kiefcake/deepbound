@@ -351,7 +351,12 @@ namespace Deepbound.UI
             }
 
             var target = PlayerLife.DownedNear(player.transform.position, life);
-            if (target == null) return;
+            if (target == null)
+            {
+                var use = Interactable.Nearest(player.AimOrigin, player.AimForward, progress);
+                if (use != null) GUI.Label(new Rect(0, h / 2f + 40, w, 24), "F   " + use.Prompt(progress), center);
+                return;
+            }
 
             GUI.Label(new Rect(0, h / 2f + 40, w, 24), "Hold F to revive " + target.name, center);
             ProgressBar(w, h / 2f + 68, target.ReviveProgress.Value / PlayerLife.ReviveSeconds, new Color(0.6f, 0.9f, 1f));

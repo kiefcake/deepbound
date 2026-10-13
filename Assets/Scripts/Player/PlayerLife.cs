@@ -185,9 +185,22 @@ namespace Deepbound.Player
         private void OwnerReviveInput()
         {
             var keyboard = Keyboard.current;
-            if (Downed.Value || keyboard == null || !keyboard.fKey.isPressed || Time.time < reviveSendAt) return;
+            if (Downed.Value || keyboard == null) return;
             var target = DownedNear(transform.position, this);
-            if (target == null) return;
+
+            // F is contextual: a downed teammate takes priority over a chest or altar.
+            if (target == null)
+            {
+                if (keyboard.fKey.wasPressedThisFrame && motor != null && motor.HasControl)
+                {
+                    var cam = GetComponent<NetworkPlayer>();
+                    var use = World.Interactable.Nearest(cam.AimOrigin, cam.AimForward, progress);
+                    if (use != null) use.UseRpc(NetworkObject);
+                }
+                return;
+            }
+
+            if (!keyboard.fKey.isPressed || Time.time < reviveSendAt) return;
             reviveSendAt = Time.time + 0.2f;
             target.ReviveHoldRpc(NetworkObject);
         }

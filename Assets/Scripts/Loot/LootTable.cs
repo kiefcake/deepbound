@@ -71,6 +71,18 @@ namespace Deepbound.Loot
             .AddRandomPotion(0.6f)
             .Add(0.3f, LootKind.Relic);
 
+        /// <summary>Side-room chests: worth the detour.</summary>
+        public static readonly LootTable Chest = new LootTable()
+            .Add(1f, LootKind.Gold, 25, 40)
+            .AddRandomPotion(1f)
+            .AddRandomPotion(0.5f)
+            .Add(0.3f, LootKind.Relic);
+
+        /// <summary>Clay urns: pocket change, now and then a potion.</summary>
+        public static readonly LootTable Urn = new LootTable()
+            .Add(0.6f, LootKind.Gold, 2, 6)
+            .AddRandomPotion(0.05f);
+
         /// <summary>Every boss always pays out — a boss kill should never feel wasted.</summary>
         public static readonly LootTable SkeletonKing = new LootTable()
             .Add(1f, LootKind.Gold, 40, 60)

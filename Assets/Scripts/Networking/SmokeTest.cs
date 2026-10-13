@@ -124,6 +124,32 @@ namespace Deepbound.Networking
 
             if (net.IsServer && local != null)
             {
+                // Dungeon objects: a chest per side room; open one; blow up a barrel.
+                int sideRooms = layout.Rooms.Count(r => r.Kind == RoomKind.Side);
+                var chests = FindObjectsByType<Chest>(FindObjectsSortMode.None);
+                int urns = FindObjectsByType<Breakable>(FindObjectsSortMode.None).Count(b => b.Type.Value == Breakable.Kind.Urn);
+                Log("dungeon objects", chests.Length + " chests for " + sideRooms + " side rooms, " + urns + " urns, " +
+                    FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Length + " traps", chests.Length == sideRooms && urns > 0);
+                if (chests.Length > 0)
+                {
+                    int dropsBefore = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
+                    var cmotor = local.GetComponent<FirstPersonMotor>();
+                    cmotor.Teleport(chests[0].transform.position + chests[0].transform.forward * 2f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.3f);
+                    chests[0].UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.3f);
+                    int dropsAfter = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
+                    Log("open chest", "opened " + chests[0].Opened.Value + ", drops " + dropsBefore + " -> " + dropsAfter, chests[0].Opened.Value && dropsAfter > dropsBefore);
+                    cmotor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                }
+                var barrel = FindObjectsByType<Breakable>(FindObjectsSortMode.None).FirstOrDefault(b => b.Type.Value == Breakable.Kind.PowderBarrel);
+                if (barrel != null)
+                {
+                    barrel.GetComponent<Health>().ServerDamage(100f, barrel.transform.position);
+                    yield return new WaitForSeconds(1.2f);
+                    Log("powder barrel", "exploded and gone: " + (barrel == null), barrel == null);
+                }
+
                 // Kill a handful of skeletons and confirm they drop loot that a player can take.
                 var victims = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain)).Take(6).ToList();
                 foreach (var v in victims) v.GetComponent<Health>().ServerDamage(1e6f, v.transform.position);
