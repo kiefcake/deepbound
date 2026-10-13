@@ -103,8 +103,8 @@ namespace Deepbound.Player
             double warCryLeft = WarCryEnds.Value - NetworkManager.ServerTime.Time;
             into.Add(new AbilityView { Key = "LMB", Name = "Swing", Unaffordable = Stamina < SwingStamina });
             into.Add(new AbilityView { Key = "RMB", Name = "Block", Active = Blocking.Value });
-            into.Add(new AbilityView { Key = "Q", Name = "Bash", Remaining = BashReadyAt - Time.time, Cooldown = BashCooldown });
-            into.Add(new AbilityView { Key = "E", Name = "War Cry", Remaining = WarCryReadyAt - Time.time, Cooldown = WarCryCooldown, Active = warCryLeft > 0 });
+            into.Add(new AbilityView { Key = "Q", Name = "Bash", Remaining = BashReadyAt - Time.time, Cooldown = BashCooldown * progress.CooldownMultiplier });
+            into.Add(new AbilityView { Key = "E", Name = "War Cry", Remaining = WarCryReadyAt - Time.time, Cooldown = WarCryCooldown * progress.CooldownMultiplier, Active = warCryLeft > 0 });
         }
 
         // ==================================================================
@@ -167,7 +167,7 @@ namespace Deepbound.Player
             // --- Q: Shield Bash ---
             if (canAct && keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= BashReadyAt)
             {
-                BashReadyAt = Time.time + BashCooldown;
+                BashReadyAt = Time.time + BashCooldown * progress.CooldownMultiplier;
                 var forward = transform.forward;
                 motor.AddImpulse(forward * 13f);
                 player.ViewModelBash();
@@ -177,7 +177,7 @@ namespace Deepbound.Player
             // --- E: War Cry ---
             if (canAct && keyboard != null && keyboard.eKey.wasPressedThisFrame && Time.time >= WarCryReadyAt)
             {
-                WarCryReadyAt = Time.time + WarCryCooldown;
+                WarCryReadyAt = Time.time + WarCryCooldown * progress.CooldownMultiplier;
                 WarCryRpc();
             }
 

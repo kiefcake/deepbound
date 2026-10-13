@@ -43,6 +43,7 @@ namespace Deepbound.Loot
                 if (Random.value > e.Chance) continue;
                 var kind = e.Kind ?? RandomStatPotion();
                 int amount = Random.Range(e.MinAmount, e.MaxAmount + 1);
+                if (kind == LootKind.Relic) amount = (int)Relics.Random();
                 if (kind == LootKind.Gold) amount = Mathf.Max(1, Mathf.RoundToInt(amount * goldScale));
                 results.Add((kind, amount));
             }
@@ -64,9 +65,16 @@ namespace Deepbound.Loot
             .Add(0.75f, LootKind.Gold, 3, 8)
             .AddRandomPotion(0.12f);
 
-        /// <summary>The King always pays out — a boss kill should never feel wasted.</summary>
+        /// <summary>Elites: worth hunting. A real chance at a relic.</summary>
+        public static readonly LootTable Elite = new LootTable()
+            .Add(1f, LootKind.Gold, 15, 25)
+            .AddRandomPotion(0.6f)
+            .Add(0.3f, LootKind.Relic);
+
+        /// <summary>Every boss always pays out — a boss kill should never feel wasted.</summary>
         public static readonly LootTable SkeletonKing = new LootTable()
             .Add(1f, LootKind.Gold, 40, 60)
+            .Add(1f, LootKind.Relic)
             .Add(1f, LootKind.PotionAll)
             .AddRandomPotion(1f)
             .AddRandomPotion(1f)

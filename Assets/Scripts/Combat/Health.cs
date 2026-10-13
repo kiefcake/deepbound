@@ -54,6 +54,9 @@ namespace Deepbound.Combat
         /// <summary>Raised on the server when the value reaches zero.</summary>
         public event Action<Health> Died;
 
+        /// <summary>Raised on the server for every Health that takes damage: (target, dealt, attacker id). Relics hook this.</summary>
+        public static event Action<Health, float, ulong> ServerAnyDamaged;
+
         /// <summary>Raised on the server after any damage is applied, with the attacker's object id.</summary>
         public event Action<float, ulong> DamagedServer;
 
@@ -125,6 +128,7 @@ namespace Deepbound.Combat
 
             Current.Value = Mathf.Max(0f, Current.Value - dealt);
             DamagedServer?.Invoke(dealt, attackerId);
+            ServerAnyDamaged?.Invoke(this, dealt, attackerId);
 
             if (Current.Value <= 0f) Died?.Invoke(this);
             return dealt;

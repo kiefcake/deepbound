@@ -273,7 +273,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -283,7 +283,8 @@ namespace Deepbound.Art
         public static HumanoidRig BuildSkeleton(Transform root, SkeletonKind kind)
         {
             bool king = kind == SkeletonKind.King;
-            float s = king ? 1.75f : kind == SkeletonKind.Gravewarden ? 2.0f : kind == SkeletonKind.Lich ? 1.45f : 1f;
+            float s = king ? 1.75f : kind == SkeletonKind.Gravewarden ? 2.0f : kind == SkeletonKind.Lich ? 1.45f
+                : kind == SkeletonKind.Brute ? 1.45f : kind == SkeletonKind.Ghoul ? 0.92f : kind == SkeletonKind.Necromancer ? 1.05f : 1f;
 
             var visual = MeshKit.Pivot(root, "SkeletonVisual", Vector3.zero);
             visual.localScale = Vector3.one * s;
@@ -291,6 +292,9 @@ namespace Deepbound.Art
             rig.GlowColor = king ? new Color(0.4f, 0.75f, 1f)
                 : kind == SkeletonKind.Gravewarden ? new Color(1f, 0.55f, 0.15f)
                 : kind == SkeletonKind.Lich ? new Color(0.3f, 1f, 0.7f)
+                : kind == SkeletonKind.Ghoul ? new Color(0.6f, 1f, 0.2f)
+                : kind == SkeletonKind.Necromancer ? new Color(0.75f, 0.35f, 1f)
+                : kind == SkeletonKind.Brute ? new Color(1f, 0.4f, 0.1f)
                 : new Color(1f, 0.25f, 0.1f);
 
             rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.92f, 0f));
@@ -367,7 +371,19 @@ namespace Deepbound.Art
             }
             else if (kind == SkeletonKind.Lich)
             {
-                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>());
+                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.2f, 0.36f, 0.34f), new Color(0.3f, 1f, 0.7f), true);
+            }
+            else if (kind == SkeletonKind.Necromancer)
+            {
+                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.24f, 0.12f, 0.3f), new Color(0.75f, 0.35f, 1f), false);
+            }
+            else if (kind == SkeletonKind.Ghoul)
+            {
+                BuildGhoul(rig, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>());
+            }
+            else if (kind == SkeletonKind.Brute)
+            {
+                BuildBrute(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>());
             }
             else if (kind == CharacterArt.SkeletonKind.Archer)
             {
@@ -489,9 +505,8 @@ namespace Deepbound.Art
         /// a staff whose orb glows the colour of its spells. Robed so it reads as a caster
         /// — not a fighter — at any distance.
         /// </summary>
-        private static void BuildLich(HumanoidRig rig, Transform grip, Renderer eyeL, Renderer eyeR)
+        private static void BuildLich(HumanoidRig rig, Transform grip, Renderer eyeL, Renderer eyeR, Color robeColor, Color orbColor, bool coralCrown)
         {
-            var robeColor = new Color(0.2f, 0.36f, 0.34f);
             var robe = MeshKit.Part(rig.Hips, "Robe", MeshKit.Lathe("lichRobe", new[]
             {
                 new Vector2(0.38f, -0.92f), new Vector2(0.3f, -0.5f), new Vector2(0.22f, -0.05f), new Vector2(0.2f, 0.1f),
@@ -510,7 +525,7 @@ namespace Deepbound.Art
 
             // Coral crown: branching red-pink spikes.
             var glow = new System.Collections.Generic.List<Renderer> { eyeL, eyeR };
-            for (int i = 0; i < 5; i++)
+            for (int i = 0; i < (coralCrown ? 5 : 0); i++)
             {
                 float a = -60f + i * 30f;
                 var c = MeshKit.Part(rig.Head, "Coral" + i, MeshKit.Lathe("coral", new[] { new Vector2(0.018f, 0f), new Vector2(0f, 0.12f) }, 5), Mat.Bone,
@@ -530,12 +545,72 @@ namespace Deepbound.Art
             var light = new GameObject("OrbLight").AddComponent<Light>();
             light.transform.SetParent(orb.transform, false);
             light.type = LightType.Point;
-            light.color = new Color(0.3f, 1f, 0.7f);
-            light.range = 9f;
-            light.intensity = 5f;
+            light.color = orbColor;
+            light.range = coralCrown ? 9f : 5f;
+            light.intensity = coralCrown ? 5f : 2.5f;
 
             rig.GlowRenderers = glow.ToArray();
             rig.StrideLength = 1.6f;
+        }
+
+        /// <summary>
+        /// Ghoul: not clean bone but grey-green dried flesh over it, long hooked claws, no
+        /// weapon. Slightly smaller than a skeleton, so a pack reads as a swarm.
+        /// </summary>
+        private static void BuildGhoul(HumanoidRig rig, Renderer eyeL, Renderer eyeR)
+        {
+            var flesh = new Color(0.55f, 0.62f, 0.5f);
+            foreach (var r in rig.GetComponentsInChildren<Renderer>())
+            {
+                if (r.sharedMaterial == ArtLibrary.Get(Mat.Bone)) ArtLibrary.Tint(r, flesh);
+            }
+            for (int i = 0; i < 2; i++)
+            {
+                var arm = i == 0 ? rig.ArmL : rig.ArmR;
+                for (int c = 0; c < 3; c++)
+                {
+                    var claw = MeshKit.Part(arm, "Claw" + c, MeshKit.Lathe("claw", new[] { new Vector2(0.012f, 0f), new Vector2(0f, 0.16f) }, 4), Mat.Bone,
+                        new Vector3(-0.025f + c * 0.025f, -0.66f, 0.02f), new Vector3(160f, 0f, 0f));
+                    ArtLibrary.Tint(claw.GetComponent<Renderer>(), new Color(0.3f, 0.28f, 0.22f));
+                }
+            }
+            var rags = MeshKit.Part(rig.Hips, "Rags", MeshKit.Lathe("ghoulRags", new[]
+            {
+                new Vector2(0.18f, -0.35f), new Vector2(0.17f, 0f), new Vector2(0.15f, 0.06f),
+            }, 7), Mat.Cloth, Vector3.zero);
+            ArtLibrary.Tint(rags.GetComponent<Renderer>(), new Color(0.25f, 0.22f, 0.18f));
+            rig.GlowRenderers = new[] { eyeL, eyeR };
+            rig.StrideLength = 1.0f;
+        }
+
+        /// <summary>Bone Brute: a hulking skeleton with spiked pauldrons and a stone maul.</summary>
+        private static void BuildBrute(HumanoidRig rig, Transform grip, Renderer eyeL, Renderer eyeR)
+        {
+            var old = new Color(0.62f, 0.55f, 0.45f);
+            foreach (var r in rig.GetComponentsInChildren<Renderer>())
+            {
+                if (r.sharedMaterial == ArtLibrary.Get(Mat.Bone)) ArtLibrary.Tint(r, old);
+            }
+            for (int i = 0; i < 2; i++)
+            {
+                var arm = i == 0 ? rig.ArmL : rig.ArmR;
+                MeshKit.Part(arm, "Pad", MeshKit.Lathe("pauldron", new[]
+                {
+                    new Vector2(0.17f, -0.10f), new Vector2(0.16f, 0.0f), new Vector2(0.12f, 0.08f), new Vector2(0.0f, 0.11f),
+                }, 8), Mat.Rubble, Vector3.zero, new Vector3(0f, 0f, i == 0 ? 18f : -18f));
+                for (int k = 0; k < 3; k++)
+                {
+                    MeshKit.Part(arm, "Spike" + k, MeshKit.Lathe("spike", new[] { new Vector2(0.03f, 0f), new Vector2(0f, 0.14f) }, 4), Mat.Bone,
+                        new Vector3((i == 0 ? -0.06f : 0.06f), 0.06f, -0.06f + k * 0.06f), new Vector3(0f, 0f, i == 0 ? 35f : -35f));
+                }
+            }
+            MeshKit.Part(rig.Torso, "Belt", MeshKit.Cylinder(0.2f, 0.2f, 0.09f, 8), Mat.Leather, new Vector3(0f, 0.05f, 0f), Vector3.zero, new Vector3(1f, 1f, 0.7f));
+            // Maul: a thick haft and a rough stone block.
+            MeshKit.Part(grip, "Haft", MeshKit.Cylinder(0.035f, 0.035f, 0.95f, 6), Mat.Wood, new Vector3(0f, -0.15f, 0f));
+            MeshKit.Part(grip, "Head", MeshKit.Box(new Vector3(0.38f, 0.26f, 0.26f)), Mat.Rubble, new Vector3(0f, 0.85f, 0f), new Vector3(0f, 12f, 4f));
+            MeshKit.Part(grip, "Band", MeshKit.Box(new Vector3(0.4f, 0.06f, 0.28f)), Mat.Steel, new Vector3(0f, 0.85f, 0f), new Vector3(0f, 12f, 4f));
+            rig.GlowRenderers = new[] { eyeL, eyeR };
+            rig.StrideLength = 1.9f;
         }
 
         private static Transform BuildBoneArm(Transform torso, string name, float side)

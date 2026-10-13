@@ -52,10 +52,13 @@ namespace Deepbound.EditorTools
             var warden = BuildEnemyPrefab("Gravewarden", EnemyType.Gravewarden, loot);
             var lich = BuildEnemyPrefab("TideLich", EnemyType.TideLich, loot);
             var king = BuildEnemyPrefab("SkeletonKing", EnemyType.HollowKing, loot);
+            var ghoul = BuildEnemyPrefab("Ghoul", EnemyType.Ghoul, loot);
+            var brute = BuildEnemyPrefab("BoneBrute", EnemyType.Brute, loot);
+            var necro = BuildEnemyPrefab("Necromancer", EnemyType.Necromancer, loot);
             var dummy = BuildDummyPrefab();
-            var director = BuildDirectorPrefab(skeleton, archer, dummy, new[] { warden, lich, king });
+            var director = BuildDirectorPrefab(skeleton, archer, dummy, new[] { warden, lich, king }, ghoul, brute, necro);
 
-            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy);
+            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -142,11 +145,12 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer }
 
         private static GameObject BuildEnemyPrefab(string name, EnemyType type, GameObject loot)
         {
-            float scale = type == EnemyType.HollowKing ? 1.75f : type == EnemyType.Gravewarden ? 2.0f : type == EnemyType.TideLich ? 1.45f : 1f;
+            float scale = type == EnemyType.HollowKing ? 1.75f : type == EnemyType.Gravewarden ? 2.0f : type == EnemyType.TideLich ? 1.45f
+                : type == EnemyType.Brute ? 1.45f : type == EnemyType.Ghoul ? 0.92f : 1f;
             var root = new GameObject(name);
 
             root.AddComponent<NetworkObject>();
@@ -173,6 +177,9 @@ namespace Deepbound.EditorTools
                 case EnemyType.Gravewarden: brain = root.AddComponent<GravewardenBrain>(); break;
                 case EnemyType.TideLich: brain = root.AddComponent<TideLichBrain>(); break;
                 case EnemyType.HollowKing: brain = root.AddComponent<HollowKingBrain>(); break;
+                case EnemyType.Ghoul: brain = root.AddComponent<GhoulBrain>(); break;
+                case EnemyType.Brute: brain = root.AddComponent<BruteBrain>(); break;
+                case EnemyType.Necromancer: brain = root.AddComponent<NecromancerBrain>(); break;
                 default: brain = root.AddComponent<EnemyBrain>(); break;
             }
 
@@ -188,6 +195,22 @@ namespace Deepbound.EditorTools
                     Kind(Art.CharacterArt.SkeletonKind.Archer);
                     Set("maxHealth", 50f); Set("damage", 14f); Set("attackRange", 15f); Set("windup", 1.0f);
                     Set("recovery", 1.5f); Set("aggroRange", 17f); Set("moveSpeed", 3.2f);
+                    break;
+                case EnemyType.Ghoul:
+                    // Fast and fragile, in pairs. Dies to anything; dangerous in numbers.
+                    Kind(Art.CharacterArt.SkeletonKind.Ghoul);
+                    Set("maxHealth", 42f); Set("damage", 11f); Set("defense", 0f); Set("moveSpeed", 5.4f);
+                    Set("attackRange", 1.8f); Set("windup", 0.35f); Set("recovery", 0.6f); Set("aggroRange", 15f);
+                    break;
+                case EnemyType.Brute:
+                    Kind(Art.CharacterArt.SkeletonKind.Brute);
+                    Set("maxHealth", 280f); Set("damage", 30f); Set("defense", 5f); Set("moveSpeed", 2.4f);
+                    Set("attackRange", 2.6f); Set("windup", 1.1f); Set("recovery", 1.4f); Set("aggroRange", 14f);
+                    break;
+                case EnemyType.Necromancer:
+                    Kind(Art.CharacterArt.SkeletonKind.Necromancer);
+                    Set("maxHealth", 75f); Set("damage", 12f); Set("defense", 0f); Set("moveSpeed", 3.0f);
+                    Set("attackRange", 14f); Set("windup", 0.7f); Set("recovery", 1.6f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Gravewarden:
                     Kind(Art.CharacterArt.SkeletonKind.Gravewarden);
@@ -233,7 +256,8 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "TrainingDummy");
         }
 
-        private static GameObject BuildDirectorPrefab(GameObject skeleton, GameObject archer, GameObject dummy, GameObject[] bossesByDepth)
+        private static GameObject BuildDirectorPrefab(GameObject skeleton, GameObject archer, GameObject dummy, GameObject[] bossesByDepth,
+            GameObject ghoul, GameObject brute, GameObject necro)
         {
             var root = new GameObject("DungeonDirector");
             root.AddComponent<NetworkObject>();
@@ -245,6 +269,9 @@ namespace Deepbound.EditorTools
             for (int i = 0; i < bossesByDepth.Length; i++) bosses.GetArrayElementAtIndex(i).objectReferenceValue = bossesByDepth[i].GetComponent<NetworkObject>();
             so.FindProperty("dummyPrefab").objectReferenceValue = dummy.GetComponent<NetworkObject>();
             so.FindProperty("archerPrefab").objectReferenceValue = archer.GetComponent<NetworkObject>();
+            so.FindProperty("ghoulPrefab").objectReferenceValue = ghoul.GetComponent<NetworkObject>();
+            so.FindProperty("brutePrefab").objectReferenceValue = brute.GetComponent<NetworkObject>();
+            so.FindProperty("necromancerPrefab").objectReferenceValue = necro.GetComponent<NetworkObject>();
             so.ApplyModifiedPropertiesWithoutUndo();
             return SavePrefab(root, "DungeonDirector");
         }

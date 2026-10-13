@@ -78,8 +78,8 @@ namespace Deepbound.Player
         {
             into.Add(new AbilityView { Key = "LMB", Name = "Firebolt", Unaffordable = Mana < FireboltMana });
             into.Add(new AbilityView { Key = "RMB", Name = "Frostbolt", Unaffordable = Mana < FrostboltMana });
-            into.Add(new AbilityView { Key = "Q", Name = "Blink", Remaining = blinkReadyAt - Time.time, Cooldown = BlinkCooldown });
-            into.Add(new AbilityView { Key = "E", Name = "Meteor", Remaining = meteorReadyAt - Time.time, Cooldown = MeteorCooldown, Unaffordable = Mana < MeteorMana });
+            into.Add(new AbilityView { Key = "Q", Name = "Blink", Remaining = blinkReadyAt - Time.time, Cooldown = BlinkCooldown * progress.CooldownMultiplier });
+            into.Add(new AbilityView { Key = "E", Name = "Meteor", Remaining = meteorReadyAt - Time.time, Cooldown = MeteorCooldown * progress.CooldownMultiplier, Unaffordable = Mana < MeteorMana });
         }
 
         // ==================================================================
@@ -122,7 +122,7 @@ namespace Deepbound.Player
             // --- Q: Blink ---
             if (keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= blinkReadyAt && TryBlink())
             {
-                blinkReadyAt = Time.time + BlinkCooldown;
+                blinkReadyAt = Time.time + BlinkCooldown * progress.CooldownMultiplier;
             }
 
             // --- E: Meteor at the crosshair ---
@@ -130,7 +130,7 @@ namespace Deepbound.Player
                 TryAimGround(out var spot))
             {
                 Mana -= MeteorMana;
-                meteorReadyAt = Time.time + MeteorCooldown;
+                meteorReadyAt = Time.time + MeteorCooldown * progress.CooldownMultiplier;
                 player.ViewModelCast(false);
                 MeteorRpc(spot);
             }

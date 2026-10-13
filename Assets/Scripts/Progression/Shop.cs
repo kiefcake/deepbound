@@ -1,4 +1,6 @@
+using System.Collections.Generic;
 using Deepbound.Core;
+using Deepbound.Loot;
 
 namespace Deepbound.Progression
 {
@@ -11,7 +13,7 @@ namespace Deepbound.Progression
     /// </summary>
     public static class Shop
     {
-        public enum ItemKind : byte { Heal, Potion, Bonus }
+        public enum ItemKind : byte { Heal, Potion, Bonus, Relic }
 
         public struct Item
         {
@@ -26,6 +28,37 @@ namespace Deepbound.Progression
         }
 
         public const float MerchantRange = 3.2f;
+
+        /// <summary>
+        /// Today's stock: the fixed catalogue plus two relics, chosen from the floor's seed so
+        /// every peer sees the same two (and they change each floor). Relic id rides in Amount.
+        /// </summary>
+        public static Item[] Current
+        {
+            get
+            {
+                var director = World.DungeonDirector.Instance;
+                int seed = director != null ? director.Floor.Value.x : 0;
+                int depth = director != null ? UnityEngine.Mathf.Max(0, director.Floor.Value.y) : 0;
+                if (seed == cachedSeed && cached != null) return cached;
+
+                var rng = new System.Random(seed);
+                var list = new List<Item>(Items);
+                int a = rng.Next(Relics.Count), b = rng.Next(Relics.Count - 1);
+                if (b >= a) b++;
+                foreach (int r in new[] { a, b })
+                {
+                    var relic = (Relic)r;
+                    list.Add(new Item { Name = Relics.Name(relic), Description = Relics.Describe(relic), Price = 110 + 30 * depth, Kind = ItemKind.Relic, Amount = r });
+                }
+                cached = list.ToArray();
+                cachedSeed = seed;
+                return cached;
+            }
+        }
+
+        private static Item[] cached;
+        private static int cachedSeed = int.MinValue;
 
         public static readonly Item[] Items =
         {

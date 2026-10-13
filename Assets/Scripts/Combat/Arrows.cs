@@ -19,7 +19,7 @@ namespace Deepbound.Combat
     /// so a Knight's block stops them from the front.
     /// </summary>
     /// <summary>What a projectile looks like. APPEND ONLY: sent in RPCs.</summary>
-    public enum ProjectileKind : byte { Arrow = 0, Firebolt = 1, Frostbolt = 2 }
+    public enum ProjectileKind : byte { Arrow = 0, Firebolt = 1, Frostbolt = 2, ShadowBolt = 3 }
 
     public class Arrows : MonoBehaviour
     {
@@ -155,10 +155,11 @@ namespace Deepbound.Combat
         /// <summary>A spell bolt: a glowing core, a lit halo and a trailing tail.</summary>
         private static Transform BuildBolt(Vector3 origin, Vector3 direction, ProjectileKind kind)
         {
-            bool fire = kind == ProjectileKind.Firebolt;
-            var color = fire ? new Color(1f, 0.45f, 0.12f) : new Color(0.45f, 0.8f, 1f);
+            bool fire = kind == ProjectileKind.Firebolt || kind == ProjectileKind.ShadowBolt;
+            var color = kind == ProjectileKind.ShadowBolt ? new Color(0.7f, 0.3f, 1f)
+                : fire ? new Color(1f, 0.45f, 0.12f) : new Color(0.45f, 0.8f, 1f);
 
-            var root = new GameObject(fire ? "Firebolt" : "Frostbolt").transform;
+            var root = new GameObject(kind.ToString()).transform;
             root.SetPositionAndRotation(origin, Quaternion.LookRotation(direction));
             var core = MeshKit.Part(root, "Core", fire ? MeshKit.Ball(0.12f, 8, 6) : MeshKit.Lathe("frostShard", new[]
             {

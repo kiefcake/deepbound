@@ -91,9 +91,10 @@ namespace Deepbound.Loot
 
             if (kind == LootKind.Gold)
             {
-                progress.ServerAddGold(Amount.Value);
+                progress.ServerAddGold(Mathf.RoundToInt(Amount.Value * progress.GoldMultiplier));
                 return true;
             }
+            if (kind == LootKind.Relic) return progress.ServerAddRelic((Relic)Amount.Value);
             if (kind == LootKind.PotionAll) return progress.ServerDrinkAllPotion() > 0;
             if (LootInfo.IsStatPotion(kind)) return progress.ServerDrinkPotion((StatType)kind);
             return false;
@@ -105,7 +106,7 @@ namespace Deepbound.Loot
             bool gold = Kind.Value == LootKind.Gold;
             Sfx.Play(gold ? Sound.Coins : Sound.Potion, transform.position + Vector3.up * 0.4f, gold ? 0.6f : 0.8f);
 
-            if (gold) return;
+            if (gold || Kind.Value == LootKind.Relic) return; // relics announce themselves
             string who = NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(playerObjectId, out var obj) ? obj.name : "Someone";
             GameHud.Feed(who + " drank a " + LootInfo.Name(Kind.Value), PotionColor());
         }
@@ -118,6 +119,12 @@ namespace Deepbound.Loot
         private void BuildVisual()
         {
             visual = MeshKit.Pivot(transform, "Visual", Vector3.up * 0.35f);
+
+            if (Kind.Value == LootKind.Relic)
+            {
+                BuildRelicVisual((Relic)Amount.Value);
+                return;
+            }
 
             if (Kind.Value == LootKind.Gold)
             {
@@ -146,6 +153,31 @@ namespace Deepbound.Loot
             MeshKit.Part(visual, "Cork", MeshKit.Cylinder(0.03f, 0.035f, 0.06f, 6), Mat.Leather, new Vector3(0f, -0.15f + 0.28f * s, 0f), Vector3.zero, Vector3.one * s);
 
             AddLight(color, big ? 3f : 2f);
+        }
+
+        /// <summary>
+        /// A relic: a gem in a gold cage, with a tall shaft of its colour so it can be seen
+        /// from across a room. Picking one up is the run's best moment; it should look it.
+        /// </summary>
+        private void BuildRelicVisual(Relic relic)
+        {
+            var color = Relics.GemColor(relic);
+            var gem = MeshKit.Part(visual, "Gem", MeshKit.Lathe("relicGem", new[]
+            {
+                new Vector2(0f, -0.14f), new Vector2(0.1f, 0f), new Vector2(0f, 0.16f),
+            }, 6), Mat.Glow, Vector3.zero);
+            ArtLibrary.SetGlow(gem.GetComponent<Renderer>(), color * 2.2f);
+            for (int i = 0; i < 4; i++)
+            {
+                MeshKit.Part(visual, "Cage" + i, MeshKit.Box(new Vector3(0.02f, 0.34f, 0.02f)), Mat.Gold,
+                    Quaternion.Euler(0f, i * 90f, 0f) * new Vector3(0f, 0f, 0.12f), new Vector3(0f, i * 90f, 0f));
+            }
+            MeshKit.Part(visual, "Ring", MeshKit.Cylinder(0.14f, 0.14f, 0.025f, 12), Mat.Gold, new Vector3(0f, -0.17f, 0f));
+
+            var beam = MeshKit.Part(transform, "Beam", MeshKit.Cylinder(0.05f, 0.02f, 6f, 8), Mat.Glow, Vector3.zero);
+            ArtLibrary.SetGlow(beam.GetComponent<Renderer>(), color * 1.2f);
+            beam.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            AddLight(color, 4f);
         }
 
         private void AddLight(Color color, float intensity)

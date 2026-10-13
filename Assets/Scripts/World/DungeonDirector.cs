@@ -45,6 +45,9 @@ namespace Deepbound.World
 
         [SerializeField] private NetworkObject skeletonPrefab;
         [SerializeField] private NetworkObject archerPrefab;
+        [SerializeField] private NetworkObject ghoulPrefab;
+        [SerializeField] private NetworkObject brutePrefab;
+        [SerializeField] private NetworkObject necromancerPrefab;
         /// <summary>One boss per floor, by depth: the Gravewarden, the Tide Lich, the Hollow King.</summary>
         [SerializeField] private NetworkObject[] bossPrefabs;
         [SerializeField] private NetworkObject dummyPrefab;
@@ -159,7 +162,11 @@ namespace Deepbound.World
             BakeNavMesh();
             SpawnEnemies(Layout);
 
-            foreach (var p in PlayerLife.All) p.ServerRevive(1f);
+            foreach (var p in PlayerLife.All)
+            {
+                p.ServerRevive(1f);
+                if (p.TryGetComponent<PlayerProgress>(out var prog)) prog.ServerNewFloor();
+            }
 
             Debug.Log("[Director] Floor " + (depth + 1) + " started, seed " + seed + ", " + spawned.Count + " enemies.");
         }
@@ -228,17 +235,36 @@ namespace Deepbound.World
         {
             int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
 
+            float eliteChance = Difficulty.EliteChance(layout.Depth, players);
+            var theme = DungeonTheme.ForDepth(layout.Depth);
+
             foreach (var room in layout.Rooms)
             {
-                foreach (var point in room.EnemySpawns)
+                if (room.EnemySpawns.Count == 0) continue;
+
+                // More players, more bodies: scale the room's head count, cycling through its
+                // spawn points with a little jitter for the extras.
+                int count = Mathf.RoundToInt(room.EnemySpawns.Count * Difficulty.SpawnCount(players));
+                bool hasBrute = false, hasNecro = false;
+
+                for (int i = 0; i < count; i++)
                 {
-                    var p = point;
-                    if (NavMesh.SamplePosition(point, out var hit, 3f, NavMesh.AllAreas)) p = hit.position;
-                    bool archer = archerPrefab != null && UnityEngine.Random.value < DungeonTheme.ForDepth(layout.Depth).ArcherChance;
-                    var obj = Instantiate(archer ? archerPrefab : skeletonPrefab, p, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
-                    obj.Spawn(destroyWithScene: true);
-                    obj.GetComponent<EnemyBrain>().ServerScale(players, layout.Depth);
-                    spawned.Add(obj);
+                    var p = room.EnemySpawns[i % room.EnemySpawns.Count];
+                    if (i >= room.EnemySpawns.Count) p += new Vector3(UnityEngine.Random.Range(-1.5f, 1.5f), 0f, UnityEngine.Random.Range(-1.5f, 1.5f));
+
+                    var prefab = PickEnemy(layout.Depth, theme, ref hasBrute, ref hasNecro, out int pack);
+                    for (int k = 0; k < pack; k++)
+                    {
+                        var at = p + (k > 0 ? new Vector3(UnityEngine.Random.Range(-1f, 1f), 0f, UnityEngine.Random.Range(-1f, 1f)) : Vector3.zero);
+                        if (NavMesh.SamplePosition(at, out var hit, 3f, NavMesh.AllAreas)) at = hit.position;
+                        var obj = Instantiate(prefab, at, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
+                        obj.Spawn(destroyWithScene: true);
+                        var brain = obj.GetComponent<EnemyBrain>();
+                        brain.ServerScale(players, layout.Depth);
+                        if (brain is NecromancerBrain necro) necro.SetMinionPrefab(skeletonPrefab);
+                        if (UnityEngine.Random.value < eliteChance) brain.ServerMakeElite();
+                        spawned.Add(obj);
+                    }
                 }
             }
 
@@ -252,6 +278,27 @@ namespace Deepbound.World
             boss.ServerScaleBoss(players, layout.Depth);
             spawned.Add(bossObj);
             bossSeen = true;
+        }
+
+        /// <summary>
+        /// The roster, by depth. Floor 1 is mostly swordsmen and ghouls to teach the basics;
+        /// deeper floors bring archers, brutes and necromancers. At most one brute and one
+        /// necromancer per room — they are the room's centrepiece, not its wallpaper.
+        /// </summary>
+        private NetworkObject PickEnemy(int depth, DungeonTheme theme, ref bool hasBrute, ref bool hasNecro, out int pack)
+        {
+            pack = 1;
+            float brute = brutePrefab != null && !hasBrute ? 0.06f + 0.03f * depth : 0f;
+            float necro = necromancerPrefab != null && !hasNecro && depth >= 1 ? 0.06f + 0.03f * depth : 0f;
+            float ghoul = ghoulPrefab != null ? 0.22f : 0f;
+            float archer = archerPrefab != null ? theme.ArcherChance : 0f;
+
+            float roll = UnityEngine.Random.value;
+            if ((roll -= brute) < 0f) { hasBrute = true; return brutePrefab; }
+            if ((roll -= necro) < 0f) { hasNecro = true; return necromancerPrefab; }
+            if ((roll -= ghoul) < 0f) { pack = 2; return ghoulPrefab; }
+            if ((roll -= archer) < 0f) return archerPrefab;
+            return skeletonPrefab;
         }
 
         // ------------------------------------------------------------------

@@ -43,11 +43,19 @@ namespace Deepbound.Player
         private float lastDamagedAt;
         private float regenCarry;
         private PlayerProgress progress;
+        private FirstPersonMotor motor;
+
+        // Dodge: owner-side cooldown, server-side invulnerability window.
+        public const float DodgeCooldown = 1.2f, DodgeInvulnerable = 0.35f, DodgeSpeed = 15f;
+        public float DodgeReadyAt { get; private set; }
+        public float DodgeCooldownNow => progress != null && progress.HasRelic(Loot.Relic.GhostLantern) ? DodgeCooldown * 0.5f : DodgeCooldown;
+        private float invulnerableUntil;
 
         private void Awake()
         {
             Health = GetComponent<Health>();
             progress = GetComponent<PlayerProgress>();
+            motor = GetComponent<FirstPersonMotor>();
         }
 
         public override void OnNetworkSpawn()
@@ -57,6 +65,8 @@ namespace Deepbound.Player
             {
                 Health.Died += HandleDied;
                 Health.DamagedServer += (_, __) => lastDamagedAt = Time.time;
+                // Registered first, so a dodged hit is gone before blocks or relics see it.
+                Health.IncomingModifiers.Insert(0, (dmg, from) => Time.time < invulnerableUntil ? 0f : dmg);
             }
             Downed.OnValueChanged += HandleDownedChanged;
         }
@@ -78,6 +88,11 @@ namespace Deepbound.Player
 
         private void HandleDied(Health _)
         {
+            if (progress != null && progress.ServerTryPhoenix())
+            {
+                Health.ServerSetFraction(0.5f);
+                return;
+            }
             Downed.Value = true;
             ReviveProgress.Value = 0f;
         }
@@ -110,7 +125,11 @@ namespace Deepbound.Player
 
         private void Update()
         {
-            if (IsOwner) OwnerReviveInput();
+            if (IsOwner)
+            {
+                OwnerReviveInput();
+                OwnerDodgeInput();
+            }
             if (!IsServer) return;
             if (!Downed.Value)
             {
@@ -132,6 +151,35 @@ namespace Deepbound.Player
 
             if (Mathf.Abs(progress - ReviveProgress.Value) > 0.01f || progress == 0f) ReviveProgress.Value = progress;
         }
+
+        /// <summary>
+        /// Owner: Left Ctrl (or C) dashes in the direction you are moving — backwards if you
+        /// are not — with a brief window in which nothing can hurt you. Every class has it;
+        /// it is the universal answer to a telegraph you read too late.
+        /// </summary>
+        private void OwnerDodgeInput()
+        {
+            var keyboard = Keyboard.current;
+            if (Downed.Value || keyboard == null || motor == null || !motor.HasControl || Time.time < DodgeReadyAt) return;
+            if (!keyboard.leftCtrlKey.wasPressedThisFrame && !keyboard.cKey.wasPressedThisFrame) return;
+
+            var input = motor.MoveInput;
+            var dir = input.sqrMagnitude > 0.01f ? transform.right * input.x + transform.forward * input.y : -transform.forward;
+            dir.y = 0f;
+            motor.AddImpulse(dir.normalized * DodgeSpeed);
+            DodgeReadyAt = Time.time + DodgeCooldownNow;
+            DodgeRpc();
+        }
+
+        [Rpc(SendTo.Server)]
+        private void DodgeRpc()
+        {
+            invulnerableUntil = Time.time + DodgeInvulnerable;
+            DodgeFxRpc();
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void DodgeFxRpc() => Sfx.Play(Sound.Dodge, transform.position + Vector3.up, 0.7f);
 
         /// <summary>Owner: hold F next to a downed teammate. Every class can revive.</summary>
         private void OwnerReviveInput()

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter }
+    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic }
 
     /// <summary>
     /// Every sound in the game, synthesised at startup. Like the art, nothing is
@@ -69,6 +69,9 @@ namespace Deepbound.Art
                 case Sound.Fire: data = Mix(Whoosh(0.32f, 350f, 1700f), Burst(0.18f, 0.35f), Thump(0.2f, 120f, 70f)); break;
                 case Sound.Frost: data = Mix(Chime(0.35f, new[] { 1568f, 2093f }), Whoosh(0.25f, 2200f, 5200f)); break;
                 case Sound.Shatter: data = Mix(Clang(0.55f, new[] { 2200f, 3300f, 4700f, 6100f }), Rattle(0.35f, 22), Burst(0.05f, 0.8f)); break;
+                case Sound.Whisper: data = Mix(Whoosh(0.45f, 600f, 2400f), Horn(0.45f, 90f)); break;
+                case Sound.Dodge: data = Whoosh(0.22f, 500f, 2200f); break;
+                case Sound.Relic: data = Mix(Chime(1.2f, new[] { 523f, 659f, 784f, 1046f }), Clang(0.8f, new[] { 1318f, 1975f })); break;
                 case Sound.Bow: data = Mix(Thump(0.12f, 320f, 180f), Whoosh(0.22f, 1500f, 3200f)); break;
                 case Sound.Purchase: data = Mix(Chime(0.5f, new[] { 659f, 988f }), Clang(0.3f, new[] { 2600f, 3900f })); break;
                 default: data = new float[Rate / 10]; break;

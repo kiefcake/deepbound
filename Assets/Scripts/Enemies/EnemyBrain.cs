@@ -64,6 +64,21 @@ namespace Deepbound.Enemies
 
         public bool IsDead { get; private set; }
 
+        /// <summary>
+        /// Elite: tougher, harder-hitting, bigger, gilded — and with a real chance at a
+        /// relic. Synced so every peer draws the gold.
+        /// </summary>
+        public readonly NetworkVariable<bool> Elite = new NetworkVariable<bool>();
+
+        /// <summary>Bosses opt out of poise breaks and backstabs; they have their own answers.</summary>
+        protected virtual bool IsBoss => false;
+
+        /// <summary>Heavy enemies cannot be shoved around by a bash.</summary>
+        protected virtual bool Heavy => false;
+
+        protected int scaledPlayersBase = 1;
+        private float surroundAngle;
+
         protected virtual void Awake()
         {
             health = GetComponent<Health>();
@@ -75,6 +90,8 @@ namespace Deepbound.Enemies
         {
             Rig = CharacterArt.BuildSkeleton(transform, visualKind);
             health.Hurt += OnHurtVisual;
+            Elite.OnValueChanged += (_, now) => ApplyEliteVisual(now);
+            if (Elite.Value) ApplyEliteVisual(true);
 
             if (!IsServer) return;
 
@@ -82,6 +99,10 @@ namespace Deepbound.Enemies
             health.Defense = defense;
             health.Died += OnDied;
             health.DamagedServer += OnDamagedServer;
+            if (!IsBoss) health.IncomingModifiers.Add(BackstabModifier);
+            // Each enemy takes its own place around whoever it is fighting, so a pack
+            // surrounds you instead of queueing in a line.
+            surroundAngle = (NetworkObjectId * 137.508f) % 360f;
 
             agent.enabled = true;
             agent.speed = moveSpeed;
@@ -95,10 +116,52 @@ namespace Deepbound.Enemies
         /// <summary>Server: scale for party size and dungeon depth, then fill health. Call right after Spawn.</summary>
         public void ServerScale(int players, int depth)
         {
-            float hpScale = (1f + 0.6f * Mathf.Max(0, players - 1)) * (1f + 0.25f * depth);
-            damage *= 1f + 0.15f * depth;
+            scaledPlayersBase = players;
+            float hpScale = (IsBoss ? Difficulty.BossHealth(players) : Difficulty.EnemyHealth(players)) * Difficulty.DepthHealth(depth);
+            damage *= Difficulty.Damage(players) * Difficulty.DepthDamage(depth);
             depthForLoot = depth;
             health.ServerSetMax(maxHealth * hpScale, refill: true);
+        }
+
+        /// <summary>Server: promote to elite. Call after <see cref="ServerScale"/>.</summary>
+        public void ServerMakeElite()
+        {
+            if (IsBoss) return;
+            Elite.Value = true;
+            damage *= 1.3f;
+            moveSpeed *= 1.1f;
+            health.ServerSetMax(health.Max.Value * 2.2f, refill: true);
+            health.Defense += 3f;
+        }
+
+        private float BackstabModifier(float dealt, Vector3 attackerPosition)
+        {
+            var to = attackerPosition - transform.position;
+            to.y = 0f;
+            if (to.sqrMagnitude < 0.01f || Vector3.Angle(transform.forward, to) < 115f) return dealt;
+            BackstabRpc();
+            return dealt * Difficulty.BackstabMultiplier;
+        }
+
+        /// <summary>A gilded enemy: bigger, gold-eyed, wreathed in a slow gold ring.</summary>
+        private void ApplyEliteVisual(bool elite)
+        {
+            if (!elite || Rig == null) return;
+            Rig.transform.localScale *= 1.18f;
+            Rig.GlowColor = new Color(1f, 0.78f, 0.25f);
+            var ring = MeshKit.Part(transform, "EliteAura", MeshKit.Lathe("eliteRing", new[]
+            {
+                new Vector2(0.6f, 0f), new Vector2(0.7f, 0.02f), new Vector2(0.6f, 0.04f),
+            }, 20, false), Mat.Glow, Vector3.up * 0.04f);
+            ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), new Color(1f, 0.75f, 0.25f) * 1.8f);
+            ring.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var light = new GameObject("EliteLight").AddComponent<Light>();
+            light.transform.SetParent(transform, false);
+            light.transform.localPosition = Vector3.up * 1.2f;
+            light.type = LightType.Point;
+            light.color = new Color(1f, 0.75f, 0.3f);
+            light.range = 4f;
+            light.intensity = 2f;
         }
 
         // ------------------------------------------------------------------
@@ -157,7 +220,7 @@ namespace Deepbound.Enemies
             if (Time.time >= repathAt)
             {
                 repathAt = Time.time + 0.25f;
-                agent.SetDestination(target.transform.position);
+                agent.SetDestination(ChaseDestination(dist));
             }
 
             if (Time.time >= nextRattle)
@@ -167,8 +230,32 @@ namespace Deepbound.Enemies
             }
         }
 
+        /// <summary>
+        /// Where to run while chasing. Far away: straight at the target. Close in: to this
+        /// enemy's own slot on a ring around the target, so packs fan out and flank.
+        /// </summary>
+        protected virtual Vector3 ChaseDestination(float distanceToTarget)
+        {
+            var t = target.transform.position;
+            if (distanceToTarget > 6f) return t;
+            var slot = Quaternion.Euler(0f, surroundAngle, 0f) * Vector3.forward * (attackRange * 0.8f);
+            var p = t + slot;
+            return NavMesh.SamplePosition(p, out var hit, 1.5f, NavMesh.AllAreas) ? hit.position : t;
+        }
+
         /// <summary>Bosses override this to use abilities. Return true if an action was started.</summary>
         protected virtual bool ChooseSpecialAttack(float distanceToTarget) => false;
+
+        /// <summary>True during a telegraphed wind-up: the window a heavy hit can break.</summary>
+        protected bool WindingUp => attacking;
+
+        /// <summary>Interrupt whatever is being wound up, with a stagger. Subclasses cancel their own telegraphs too.</summary>
+        protected virtual void InterruptWindup(float stagger)
+        {
+            attacking = false;
+            busyUntil = Time.time + stagger;
+            PlayActionRpc(RigAction.Stagger, stagger);
+        }
 
         protected virtual void BeginAttack()
         {
@@ -283,10 +370,20 @@ namespace Deepbound.Enemies
             target = taunterHealth;
         }
 
-        public virtual void ServerKnockback(Vector3 velocity) => knockback += velocity;
+        public virtual void ServerKnockback(Vector3 velocity)
+        {
+            if (!Heavy) knockback += velocity;
+        }
 
         private void OnDamagedServer(float amount, ulong attackerId)
         {
+            // Poise: a big enough single hit breaks a wind-up.
+            if (!IsBoss && WindingUp && amount >= health.Max.Value * Difficulty.PoiseBreakFraction)
+            {
+                InterruptWindup(0.6f);
+                PoiseBreakRpc();
+            }
+
             // Getting hit from out of view still pulls aggro onto the attacker.
             if (target == null && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj) &&
                 obj.TryGetComponent<Health>(out var attacker) && attacker.Team == Team.Players)
@@ -306,7 +403,7 @@ namespace Deepbound.Enemies
             PlayActionRpc(RigAction.Death, 1.1f);
             if (!NoLoot && lootPrefab != null)
             {
-                LootDrop.ServerSpawnFromTable(lootPrefab, Loot, transform.position, 1f + 0.5f * depthForLoot);
+                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, 1f + 0.5f * depthForLoot);
             }
             Invoke(nameof(Despawn), 4f);
         }
@@ -332,6 +429,16 @@ namespace Deepbound.Enemies
                     foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
                     break;
             }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BackstabRpc() => Sfx.Play(Sound.Hit, transform.position + Vector3.up * 1.2f, 0.8f, 0.75f);
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PoiseBreakRpc()
+        {
+            Sfx.Play(Sound.Bash, transform.position + Vector3.up * 1.2f, 0.9f, 1.2f);
+            UI.GameHud.Feed("Wind-up broken!", new Color(1f, 0.85f, 0.4f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

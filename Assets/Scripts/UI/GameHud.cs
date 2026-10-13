@@ -272,6 +272,7 @@ namespace Deepbound.UI
         private void DrawVitals(float w, float h)
         {
             float x = 24, y = h - 92, bw = 300;
+            DrawRelicRow(x, y - 44);
             Rect(x - 8, y - 10, bw + 16, 78, Panel);
 
             float hp = health.Current.Value, max = Mathf.Max(1f, health.Max.Value);
@@ -288,11 +289,12 @@ namespace Deepbound.UI
         private void DrawAbilities(float w, float h)
         {
             float size = 58, gap = 10;
-            float total = size * 4 + gap * 3;
+            float total = size * 5 + gap * 4;
             float x = w / 2f - total / 2f, y = h - size - 26;
 
             abilities.Clear();
             player.ActiveKit.FillAbilities(abilities);
+            abilities.Add(new AbilityView { Key = "CTRL", Name = "Dodge", Remaining = life.DodgeReadyAt - Time.time, Cooldown = life.DodgeCooldownNow });
             for (int i = 0; i < abilities.Count; i++)
             {
                 var a = abilities[i];
@@ -426,7 +428,8 @@ namespace Deepbound.UI
             }
 
             float pw = 440, rowH = 38;
-            float ph = 70 + Shop.Items.Length * rowH;
+            var stock = Shop.Current;
+            float ph = 70 + stock.Length * rowH;
             float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(Gold.r, Gold.g, Gold.b, 0.5f));
             Rect(x, y, pw, ph, new Color(0.04f, 0.035f, 0.03f, 0.94f));
@@ -434,14 +437,17 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x + 14, y + 30, pw - 28, 20), "\"Coin for courage, friend. It all spends the same down here.\"", small);
             GUI.Label(new Rect(x + pw - 120, y + 10, 106, 24), progress.Gold.Value + " gold", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
 
-            for (int i = 0; i < Shop.Items.Length; i++)
+            for (int i = 0; i < stock.Length; i++)
             {
-                var item = Shop.Items[i];
+                var item = stock[i];
                 float ry = y + 60 + i * rowH;
                 string reason = progress.CannotBuyReason(i);
 
-                GUI.Label(new Rect(x + 14, ry, 200, 20), item.Name, label);
-                GUI.Label(new Rect(x + 14, ry + 17, 260, 18), item.Description, small);
+                var nameStyle = item.Kind == Shop.ItemKind.Relic
+                    ? new GUIStyle(label) { normal = { textColor = Relics.GemColor((Relic)(int)item.Amount) } }
+                    : label;
+                GUI.Label(new Rect(x + 14, ry, 260, 20), item.Kind == Shop.ItemKind.Relic ? "RELIC: " + item.Name : item.Name, nameStyle);
+                GUI.Label(new Rect(x + 14, ry + 17, 300, 18), item.Description, small);
 
                 GUI.enabled = reason == null;
                 if (GUI.Button(new Rect(x + pw - 124, ry + 3, 110, 28), reason ?? (item.Price + " gold")))
@@ -452,8 +458,38 @@ namespace Deepbound.UI
             }
         }
 
+        /// <summary>Owned relics as gem-coloured chips above the health bar.</summary>
+        private void DrawRelicRow(float x, float y)
+        {
+            for (int i = 0; i < progress.RelicCount; i++)
+            {
+                var r = progress.RelicAt(i);
+                var c = Relics.GemColor(r);
+                float cx = x + i * 30;
+                Rect(cx - 1, y - 1, 26, 26, new Color(Gold.r, Gold.g, Gold.b, 0.8f));
+                Rect(cx, y, 24, 24, new Color(0.04f, 0.035f, 0.03f, 0.9f));
+                Rect(cx + 5, y + 5, 14, 14, c);
+                GUI.Label(new Rect(cx, y + 3, 24, 20), Relics.Name(r).Substring(0, 1), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold });
+            }
+        }
+
         private void DrawStatSheet(float w, float h)
         {
+            // Relics, with what they do, to the left of the stat sheet.
+            if (progress.RelicCount > 0)
+            {
+                float rw = 380, rh = 40 + progress.RelicCount * 34;
+                float rx = w - 300 - 24 - rw - 12, ry = h / 2f - rh / 2f;
+                Rect(rx, ry, rw, rh, Panel);
+                GUI.Label(new Rect(rx + 12, ry + 10, rw, 22), "RELICS", new GUIStyle(label) { normal = { textColor = Gold } });
+                for (int i = 0; i < progress.RelicCount; i++)
+                {
+                    var r = progress.RelicAt(i);
+                    GUI.Label(new Rect(rx + 12, ry + 36 + i * 34, rw, 20), Relics.Name(r), new GUIStyle(label) { normal = { textColor = Relics.GemColor(r) } });
+                    GUI.Label(new Rect(rx + 12, ry + 53 + i * 34, rw - 20, 18), Relics.Describe(r), small);
+                }
+            }
+
             float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH;
             float x = w - pw - 24, y = h / 2f - ph / 2f;
             Rect(x, y, pw, ph, Panel);

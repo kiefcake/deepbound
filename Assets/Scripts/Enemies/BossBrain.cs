@@ -54,6 +54,9 @@ namespace Deepbound.Enemies
 
         protected bool Casting => Time.time < castUntil;
 
+        protected override bool IsBoss => true;
+        protected override bool Heavy => true;
+
         protected override void Update()
         {
             if (IsServer && !IsDead && Casting)
@@ -63,9 +66,6 @@ namespace Deepbound.Enemies
             }
             base.Update();
         }
-
-        /// <summary>Bosses are too heavy to shove.</summary>
-        public override void ServerKnockback(Vector3 velocity) { }
 
         /// <summary>A cast-time summon of the minion prefab in a ring around the boss.</summary>
         protected void Summon(int count, float radius, float castTime = 1.6f)

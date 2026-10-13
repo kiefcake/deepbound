@@ -2,6 +2,7 @@ using System;
 using Deepbound.Classes;
 using Deepbound.Combat;
 using Deepbound.Core;
+using Deepbound.Loot;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -31,6 +32,11 @@ namespace Deepbound.Progression
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         private NetworkList<byte> potions;
         private NetworkList<float> bonuses;
+        private NetworkList<byte> relics;
+
+        // Server-side relic state.
+        private float boneWardReadyAt;
+        private bool phoenixSpent;
 
         /// <summary>Server only.</summary>
         public StatBlock Stats { get; private set; }
@@ -49,12 +55,14 @@ namespace Deepbound.Progression
             // Awake or at declaration so they are registered with the behaviour.
             potions = new NetworkList<byte>();
             bonuses = new NetworkList<float>();
+            relics = new NetworkList<byte>();
         }
 
         public override void OnNetworkSpawn()
         {
             potions.OnListChanged += _ => StatsChanged?.Invoke();
             bonuses.OnListChanged += _ => StatsChanged?.Invoke();
+            relics.OnListChanged += _ => StatsChanged?.Invoke();
             ClassId.OnValueChanged += (_, __) =>
             {
                 // A new class is a new character: fresh stat block, nothing carried over.
@@ -67,6 +75,9 @@ namespace Deepbound.Progression
             };
 
             if (!IsServer) return;
+
+            Relics.EnsureServerHooks();
+            health.IncomingModifiers.Add(RelicDefense);
 
             Stats = Class.Build();
             for (int i = 0; i < Core.Stats.Count; i++)
@@ -97,11 +108,117 @@ namespace Deepbound.Progression
 
         public bool IsMaxed(StatType stat) => PotionsApplied(stat) >= StatBlock.PotionsToMaxStat;
 
-        /// <summary>RotMG ATT scaling: 0 ATT is half damage, 50 ATT is double base.</summary>
-        public float AttackMultiplier => 0.5f + Value(StatType.ATT) / 50f;
+        /// <summary>
+        /// RotMG ATT scaling (0 ATT is half damage, 50 ATT is double base), then damage
+        /// relics. Every kit multiplies by this, so relics apply to every class for free.
+        /// </summary>
+        public float AttackMultiplier
+        {
+            get
+            {
+                float m = 0.5f + Value(StatType.ATT) / 50f;
+                if (HasRelic(Relic.BerserkersBrand) && health.Fraction < 0.5f) m *= 1.4f;
+                if (HasRelic(Relic.BloodPact)) m *= 1.3f;
+                return m;
+            }
+        }
 
         /// <summary>SPD 50 is the reference speed; each point either side is ±1%.</summary>
-        public float SpeedMultiplier => 1f + (Value(StatType.SPD) - 50f) / 100f;
+        public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1.15f : 1f);
+
+        /// <summary>Q and E cooldowns scale by this (Echo Stone).</summary>
+        public float CooldownMultiplier => HasRelic(Relic.EchoStone) ? 0.7f : 1f;
+
+        public float GoldMultiplier => HasRelic(Relic.GildedSkull) ? 1.6f : 1f;
+
+        // ---- Relics ----
+
+        public bool HasRelic(Relic r)
+        {
+            foreach (var b in relics) if (b == (byte)r) return true;
+            return false;
+        }
+
+        public int RelicCount => relics.Count;
+        public Relic RelicAt(int i) => (Relic)relics[i];
+
+        /// <returns>False if already owned (the drop stays for a teammate).</returns>
+        public bool ServerAddRelic(Relic r)
+        {
+            if (!IsServer || HasRelic(r)) return false;
+            relics.Add((byte)r);
+            if (r == Relic.HeartOfTheDeep || r == Relic.BloodPact) OnStatsChangedServer(StatType.HP);
+            RelicGainedRpc((byte)r);
+            return true;
+        }
+
+        /// <summary>Server, each floor: once-per-floor relics recharge.</summary>
+        public void ServerNewFloor()
+        {
+            phoenixSpent = false;
+            boneWardReadyAt = 0f;
+        }
+
+        /// <summary>Server: Phoenix Feather. True if it fires (and is used up for this floor).</summary>
+        public bool ServerTryPhoenix()
+        {
+            if (!HasRelic(Relic.PhoenixFeather) || phoenixSpent) return false;
+            phoenixSpent = true;
+            PhoenixFxRpc();
+            return true;
+        }
+
+        private float RelicDefense(float damage, Vector3 attackerPosition)
+        {
+            if (HasRelic(Relic.BoneWard) && Time.time >= boneWardReadyAt)
+            {
+                boneWardReadyAt = Time.time + 12f;
+                BoneWardFxRpc();
+                return 0f;
+            }
+
+            if (HasRelic(Relic.ThornedMail) && Vector3.Distance(attackerPosition, transform.position) < 4f)
+            {
+                // Melee range: the attacker is whatever enemy stands nearest the hit's origin.
+                Health nearest = null;
+                float best = 2.5f;
+                foreach (var h in Health.All)
+                {
+                    if (h == null || h.Team != Team.Enemies || !h.IsAlive) continue;
+                    float d = Vector3.Distance(h.transform.position, attackerPosition);
+                    if (d < best) { best = d; nearest = h; }
+                }
+                if (nearest != null) nearest.ServerDamage(damage * 0.4f, transform.position, NetworkObjectId);
+            }
+            return damage;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RelicGainedRpc(byte r)
+        {
+            var relic = (Relic)r;
+            Art.Sfx.Play(Art.Sound.Relic, transform.position + Vector3.up, 0.9f);
+            UI.GameHud.Feed(name + " found " + Relics.Name(relic) + ": " + Relics.Describe(relic), Relics.GemColor(relic));
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BoneWardFxRpc() => Art.Sfx.Play(Art.Sound.Block, transform.position + Vector3.up, 0.8f, 0.6f);
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PhoenixFxRpc()
+        {
+            Art.Sfx.Play(Art.Sound.Revive, transform.position + Vector3.up, 1f, 0.8f);
+            Telegraph.Show(transform.position, 2.5f, 0.6f, null, new Color(1f, 0.6f, 0.15f, 0.4f));
+            UI.GameHud.Feed(name + " rises from the ashes!", Relics.GemColor(Relic.PhoenixFeather));
+        }
+
+        /// <summary>Thunder Sigil: draws a jagged bolt through each struck enemy.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        public void LightningFxRpc(Vector3[] points)
+        {
+            Art.LightningBolt.Spawn(transform.position + Vector3.up * 6f, points);
+            Art.Sfx.Play(Art.Sound.Shatter, points[0], 1f, 0.6f);
+        }
 
         /// <summary>DEX 50 is the reference rate; higher DEX shortens swing recovery, floored at 50%.</summary>
         public float AttackTimeMultiplier => Mathf.Max(0.5f, 1.5f - Value(StatType.DEX) / 50f * 0.5f);
@@ -155,13 +272,15 @@ namespace Deepbound.Progression
         /// <summary>Why an item cannot be bought right now, or null if it can. Any peer; the server re-checks.</summary>
         public string CannotBuyReason(int index)
         {
-            if (index < 0 || index >= Shop.Items.Length) return "Unknown item";
-            var item = Shop.Items[index];
+            var items = Shop.Current;
+            if (index < 0 || index >= items.Length) return "Unknown item";
+            var item = items[index];
             if (Gold.Value < item.Price) return "Not enough gold";
             switch (item.Kind)
             {
                 case Shop.ItemKind.Heal: return health.Current.Value >= health.Max.Value ? "Already at full health" : null;
                 case Shop.ItemKind.Potion: return IsMaxed(item.Stat) ? "Stat maxed" : null;
+                case Shop.ItemKind.Relic: return HasRelic((Relic)(int)item.Amount) ? "Owned" : null;
                 default: return Bonus(item.Stat) + item.Amount > item.Cap + 0.01f ? "Sold out" : null;
             }
         }
@@ -174,7 +293,7 @@ namespace Deepbound.Progression
             if (layout == null || Vector3.Distance(transform.position, layout.MerchantPosition) > Shop.MerchantRange + 1f) return;
             if (CannotBuyReason(index) != null) return;
 
-            var item = Shop.Items[index];
+            var item = Shop.Current[index];
             bool bought;
             switch (item.Kind)
             {
@@ -184,6 +303,9 @@ namespace Deepbound.Progression
                     break;
                 case Shop.ItemKind.Potion:
                     bought = ServerDrinkPotion(item.Stat);
+                    break;
+                case Shop.ItemKind.Relic:
+                    bought = ServerAddRelic((Relic)(int)item.Amount);
                     break;
                 default:
                     ServerAddBonus(item.Stat, item.Amount);
@@ -212,6 +334,8 @@ namespace Deepbound.Progression
                 bonuses[i] = 0f;
             }
             Gold.Value = 0;
+            relics.Clear();
+            ServerNewFloor();
             ApplyToHealth(refill: true);
         }
 
@@ -226,7 +350,10 @@ namespace Deepbound.Progression
 
         private void ApplyToHealth(bool refill)
         {
-            health.ServerSetMax(Stats.GetValue(StatType.HP), refill);
+            float hp = Stats.GetValue(StatType.HP);
+            if (HasRelic(Relic.HeartOfTheDeep)) hp += 70f;
+            if (HasRelic(Relic.BloodPact)) hp *= 0.75f;
+            health.ServerSetMax(hp, refill);
             health.Defense = Stats.GetValue(StatType.DEF);
         }
     }

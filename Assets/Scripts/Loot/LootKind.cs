@@ -13,6 +13,7 @@ namespace Deepbound.Loot
         PotionSPD = 4, PotionDEX = 5, PotionVIT = 6, PotionWIS = 7,
         Gold = 8,
         PotionAll = 9, // one potion's worth of every stat; boss-only
+        Relic = 10,    // Amount carries the Relic id
     }
 
     public static class LootInfo
@@ -43,6 +44,7 @@ namespace Deepbound.Loot
         {
             if (kind == LootKind.Gold) return "Gold";
             if (kind == LootKind.PotionAll) return "Potion of the Deep";
+            if (kind == LootKind.Relic) return "a relic";
             return "Potion of " + Stats.ShortName((StatType)kind);
         }
     }

@@ -49,6 +49,9 @@ namespace Deepbound.Player
         /// <summary>Sprint is refused while false, so the combat kit can gate it on stamina.</summary>
         public bool CanSprint { get; set; } = true;
 
+        /// <summary>The last frame's movement input (x = strafe, y = forward), for directional dodges.</summary>
+        public Vector2 MoveInput { get; private set; }
+
         /// <summary>True on frames where sprint is held and actually applied.</summary>
         public bool IsSprinting { get; private set; }
 
@@ -105,7 +108,8 @@ namespace Deepbound.Player
             bool canMove = hasControl && !Frozen;
 
             if (hasControl) ApplyLook(ReadLookInput());
-            ApplyMovement(canMove ? ReadMoveInput() : Vector2.zero,
+            MoveInput = canMove ? ReadMoveInput() : Vector2.zero;
+            ApplyMovement(MoveInput,
                           canMove && CanSprint && keyboard != null && keyboard.leftShiftKey.isPressed,
                           canMove && keyboard != null && keyboard.spaceKey.wasPressedThisFrame);
 
