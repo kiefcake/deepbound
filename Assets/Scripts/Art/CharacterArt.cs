@@ -153,7 +153,8 @@ namespace Deepbound.Art
         // Skeletons
         // ------------------------------------------------------------------
 
-        public enum SkeletonKind { Warrior, King }
+        /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
+        public enum SkeletonKind { Warrior, King, Archer }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -237,6 +238,36 @@ namespace Deepbound.Art
                 glow.Add(rune.GetComponent<Renderer>());
                 rig.GlowRenderers = glow.ToArray();
                 rig.StrideLength = 1.4f;
+            }
+            else if (kind == CharacterArt.SkeletonKind.Archer)
+            {
+                rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
+
+                // Bow in the left hand, upright at the archer's side: limbs along Y, tips
+                // curving back (-Z). HumanoidRig swings it level into firing position
+                // during the draw (OffhandItem).
+                var bowGrip = MeshKit.Pivot(rig.ArmL, "BowGrip", new Vector3(0f, -0.6f, 0.02f));
+                for (int i = -3; i <= 3; i++)
+                {
+                    float a = i * 13f * Mathf.Deg2Rad;
+                    var p = new Vector3(0f, Mathf.Sin(a) * 0.5f, -(1f - Mathf.Cos(a)) * 0.5f);
+                    MeshKit.Part(bowGrip, "Limb" + i, MeshKit.Box(new Vector3(0.03f, 0.13f, 0.035f)), Mat.Wood, p, new Vector3(-i * 13f, 0f, 0f));
+                }
+                MeshKit.Part(bowGrip, "Grip", MeshKit.Box(new Vector3(0.04f, 0.1f, 0.045f)), Mat.Leather, Vector3.zero);
+                MeshKit.Part(bowGrip, "String", MeshKit.Box(new Vector3(0.006f, 0.64f, 0.006f)), Mat.Bone, new Vector3(0f, 0f, -0.111f));
+                rig.OffhandItem = bowGrip;
+                MeshKit.Part(rig.Torso, "Quiver", MeshKit.Cylinder(0.06f, 0.07f, 0.5f, 6), Mat.Leather, new Vector3(0.1f, 0.25f, -0.16f), new Vector3(-15f, 0f, 20f));
+                for (int i = 0; i < 3; i++)
+                {
+                    MeshKit.Part(rig.Torso, "Fletch" + i, MeshKit.Box(new Vector3(0.015f, 0.12f, 0.04f)), Mat.Cloth,
+                        new Vector3(0.14f + i * 0.02f, 0.76f, -0.25f + i * 0.02f), new Vector3(-15f, 0f, 20f));
+                }
+                var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("archerHood", new[]
+                {
+                    new Vector2(0.15f, -0.02f), new Vector2(0.16f, 0.1f), new Vector2(0.12f, 0.2f), new Vector2(0.03f, 0.26f), new Vector2(0f, 0.27f),
+                }, 8, true, 280f), Mat.Cloth, new Vector3(0f, 0.05f, -0.01f), new Vector3(0f, 220f, 0f));
+                ArtLibrary.Tint(hood.GetComponent<Renderer>(), new Color(0.22f, 0.2f, 0.16f));
+                rig.StrideLength = 1.2f;
             }
             else
             {

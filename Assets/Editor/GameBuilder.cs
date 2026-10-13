@@ -49,10 +49,11 @@ namespace Deepbound.EditorTools
             var player = BuildPlayerPrefab();
             var skeleton = BuildEnemyPrefab("Skeleton", boss: false, loot);
             var king = BuildEnemyPrefab("SkeletonKing", boss: true, loot);
+            var archer = BuildEnemyPrefab("SkeletonArcher", boss: false, loot, archer: true);
             var dummy = BuildDummyPrefab();
-            var director = BuildDirectorPrefab(skeleton, king, dummy);
+            var director = BuildDirectorPrefab(skeleton, king, dummy, archer);
 
-            RegisterNetworkPrefabs(player, skeleton, king, director, loot, dummy);
+            RegisterNetworkPrefabs(player, skeleton, king, director, loot, dummy, archer);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -138,7 +139,7 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private static GameObject BuildEnemyPrefab(string name, bool boss, GameObject loot)
+        private static GameObject BuildEnemyPrefab(string name, bool boss, GameObject loot, bool archer = false)
         {
             float scale = boss ? 1.75f : 1f;
             var root = new GameObject(name);
@@ -160,9 +161,21 @@ namespace Deepbound.EditorTools
 
             SetTeam(root.AddComponent<Health>(), Team.Enemies, 0.95f * scale);
 
-            EnemyBrain brain = boss ? root.AddComponent<BossBrain>() : root.AddComponent<EnemyBrain>();
+            EnemyBrain brain = boss ? root.AddComponent<BossBrain>() : archer ? root.AddComponent<ArcherBrain>() : root.AddComponent<EnemyBrain>();
             var so = new SerializedObject(brain);
             so.FindProperty("lootPrefab").objectReferenceValue = loot.GetComponent<NetworkObject>();
+            if (archer)
+            {
+                // Fragile and slow to fire, but it hurts from range: kill it first.
+                so.FindProperty("visualKind").intValue = (int)Art.CharacterArt.SkeletonKind.Archer;
+                so.FindProperty("maxHealth").floatValue = 50f;
+                so.FindProperty("damage").floatValue = 14f;
+                so.FindProperty("attackRange").floatValue = 15f;
+                so.FindProperty("windup").floatValue = 1.0f;
+                so.FindProperty("recovery").floatValue = 1.5f;
+                so.FindProperty("aggroRange").floatValue = 17f;
+                so.FindProperty("moveSpeed").floatValue = 3.2f;
+            }
             if (boss)
             {
                 so.FindProperty("visualKind").intValue = (int)Art.CharacterArt.SkeletonKind.King;
@@ -202,7 +215,7 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "TrainingDummy");
         }
 
-        private static GameObject BuildDirectorPrefab(GameObject skeleton, GameObject king, GameObject dummy)
+        private static GameObject BuildDirectorPrefab(GameObject skeleton, GameObject king, GameObject dummy, GameObject archer)
         {
             var root = new GameObject("DungeonDirector");
             root.AddComponent<NetworkObject>();
@@ -211,6 +224,7 @@ namespace Deepbound.EditorTools
             so.FindProperty("skeletonPrefab").objectReferenceValue = skeleton.GetComponent<NetworkObject>();
             so.FindProperty("bossPrefab").objectReferenceValue = king.GetComponent<NetworkObject>();
             so.FindProperty("dummyPrefab").objectReferenceValue = dummy.GetComponent<NetworkObject>();
+            so.FindProperty("archerPrefab").objectReferenceValue = archer.GetComponent<NetworkObject>();
             so.ApplyModifiedPropertiesWithoutUndo();
             return SavePrefab(root, "DungeonDirector");
         }

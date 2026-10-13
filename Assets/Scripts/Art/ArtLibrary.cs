@@ -19,6 +19,7 @@ namespace Deepbound.Art
         public const string Glow = "Glow";
         public const string Flame = "Flame";
         public const string Telegraph = "Telegraph";
+        public const string Water = "Water";
     }
 
     /// <summary>

@@ -15,8 +15,12 @@ namespace Deepbound.World
         private const float WallThickness = 0.8f;
         private const float FloorThickness = 0.4f;
 
+        /// <summary>The theme of the floor being built. Set at the top of <see cref="Build"/>.</summary>
+        private static DungeonTheme theme = DungeonTheme.ByDepth[0];
+
         public static GameObject Build(DungeonLayout layout)
         {
+            theme = DungeonTheme.ForDepth(layout.Depth);
             var root = new GameObject("Dungeon (seed " + layout.Seed + ", depth " + layout.Depth + ")");
             var structure = new MeshKit.Batcher();
             var dressing = new MeshKit.Batcher();
@@ -27,11 +31,37 @@ namespace Deepbound.World
             Props.Merchant(lights, layout.MerchantPosition, layout.StartRoom.Center, dressing);
             foreach (var link in layout.Links) BuildCorridor(layout.Rooms[link.A], layout.Rooms[link.B], link.Dir, structure, dressing, lights);
 
-            structure.Build(root.transform, "Structure", collide: true);
-            dressing.Build(root.transform, "Dressing", collide: true);
+            System.Func<string, Color> tint = mat => mat == Mat.StoneWall ? theme.StoneTint : mat == Mat.Flagstone ? theme.FloorTint : Color.white;
+            structure.Build(root.transform, "Structure", collide: true, tint);
+            dressing.Build(root.transform, "Dressing", collide: true, tint);
 
-            ApplyAtmosphere();
+            if (theme.WaterDepth > 0f) BuildWater(layout, root.transform);
+
+            ApplyAtmosphere(theme);
             return root;
+        }
+
+        /// <summary>
+        /// Standing water: one sheet across the whole floor's footprint at the water line.
+        /// Walls hide it outside the rooms, so it needs no per-room fitting. No collider —
+        /// you wade through it.
+        /// </summary>
+        private static void BuildWater(DungeonLayout layout, Transform parent)
+        {
+            var min = new Vector2(float.MaxValue, float.MaxValue);
+            var max = new Vector2(float.MinValue, float.MinValue);
+            foreach (var room in layout.Rooms)
+            {
+                min = Vector2.Min(min, new Vector2(room.Center.x - room.Size.x, room.Center.z - room.Size.y));
+                max = Vector2.Max(max, new Vector2(room.Center.x + room.Size.x, room.Center.z + room.Size.y));
+            }
+
+            var size = max - min;
+            var center = new Vector3((min.x + max.x) / 2f, theme.WaterDepth, (min.y + max.y) / 2f);
+            var water = MeshKit.Part(parent, "Water", MeshKit.Box(new Vector3(size.x, 0.01f, size.y)), Mat.Water, center);
+            var r = water.GetComponent<Renderer>();
+            ArtLibrary.Tint(r, theme.WaterColor);
+            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
         /// <summary>
@@ -39,16 +69,25 @@ namespace Deepbound.World
         /// something. Shadows read as cool blue-grey (see the post-processing split tone),
         /// firelight as warm — that contrast does most of the mood work.
         /// </summary>
-        public static void ApplyAtmosphere()
+        public static void ApplyAtmosphere(DungeonTheme t = null)
         {
+            t ??= DungeonTheme.ByDepth[0];
             RenderSettings.ambientMode = UnityEngine.Rendering.AmbientMode.Trilight;
-            RenderSettings.ambientSkyColor = new Color(0.07f, 0.075f, 0.095f);
-            RenderSettings.ambientEquatorColor = new Color(0.05f, 0.05f, 0.06f);
-            RenderSettings.ambientGroundColor = new Color(0.03f, 0.028f, 0.026f);
+            RenderSettings.ambientSkyColor = t.AmbientSky;
+            RenderSettings.ambientEquatorColor = t.AmbientEquator;
+            RenderSettings.ambientGroundColor = t.AmbientGround;
             RenderSettings.fog = true;
             RenderSettings.fogMode = FogMode.ExponentialSquared;
-            RenderSettings.fogColor = new Color(0.018f, 0.02f, 0.028f);
-            RenderSettings.fogDensity = 0.042f;
+            RenderSettings.fogColor = t.Fog;
+            RenderSettings.fogDensity = t.FogDensity;
+
+            // There is no sky underground. Unity's default reflections come from a bright
+            // procedural sky, which makes wet floors look like ice and steel look like
+            // chrome; keep only a trace of it so torch highlights still glint.
+            RenderSettings.reflectionIntensity = 0.12f;
+
+            // The camera clears to the fog colour, so the far darkness matches the murk.
+            foreach (var cam in Camera.allCameras) cam.backgroundColor = t.Fog;
         }
 
         // ------------------------------------------------------------------
@@ -151,7 +190,7 @@ namespace Deepbound.World
                     if (Mathf.Abs(t) > len / 2f - 0.8f) continue;
 
                     var p = room.Center + new Vector3(dir.x, 0f, dir.y) * offset + (alongX ? new Vector3(t, y, 0f) : new Vector3(0f, y, t));
-                    Props.WallTorch(lights, p, outward, shadowBudget-- > 0);
+                    Props.WallTorch(lights, p, outward, shadowBudget-- > 0, theme.TorchColor);
                 }
             }
         }
@@ -200,7 +239,7 @@ namespace Deepbound.World
             }
 
             if (rng.NextDouble() < 0.5) Props.BonePile(b, c + new Vector3((float)rng.NextDouble() * 4f - 2f, 0f, (float)rng.NextDouble() * 4f - 2f), rng);
-            if (room.Kind == RoomKind.Combat && rng.NextDouble() < 0.4) Props.Brazier(lights, c, new Color(1f, 0.55f, 0.25f), true);
+            if (room.Kind == RoomKind.Combat && rng.NextDouble() < 0.4) Props.Brazier(lights, c, theme.BrazierColor, true);
         }
 
         private static void DressStartRoom(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights)
@@ -277,7 +316,7 @@ namespace Deepbound.World
             {
                 float s = (i % 2 == 0) ? 1f : -1f;
                 var p = start + axis * ((i + 0.5f) * length / torches + 1.7f) + side * s * (w / 2f) + Vector3.up * 2.3f;
-                Props.WallTorch(lights, p, -side * s, false);
+                Props.WallTorch(lights, p, -side * s, false, theme.TorchColor);
             }
         }
     }

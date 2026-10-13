@@ -293,7 +293,7 @@ namespace Deepbound.World
         /// <summary>
         /// A wall torch. <paramref name="outward"/> points away from the wall, into the room.
         /// </summary>
-        public static Torch WallTorch(Transform parent, Vector3 wallPoint, Vector3 outward, bool shadows)
+        public static Torch WallTorch(Transform parent, Vector3 wallPoint, Vector3 outward, bool shadows, Color? fire = null)
         {
             var root = new GameObject("Torch").transform;
             root.SetParent(parent, false);
@@ -305,7 +305,7 @@ namespace Deepbound.World
             MeshKit.Part(root, "Shaft", MeshKit.Cylinder(0.03f, 0.04f, 0.45f, 6), Mat.Wood, new Vector3(0f, -0.15f, 0.27f), new Vector3(15f, 0f, 0f));
             MeshKit.Part(root, "Cup", MeshKit.Cylinder(0.05f, 0.08f, 0.1f, 6), Mat.Steel, new Vector3(0f, 0.25f, 0.33f), new Vector3(15f, 0f, 0f));
 
-            return AddFlame(root, new Vector3(0f, 0.36f, 0.36f), 0.7f, new Color(1f, 0.62f, 0.32f), 7f, 10f, shadows);
+            return AddFlame(root, new Vector3(0f, 0.36f, 0.36f), 0.7f, fire ?? new Color(1f, 0.62f, 0.32f), 7f, 10f, shadows);
         }
 
         /// <summary>A free-standing iron brazier. Boss rooms use cold blue fire.</summary>

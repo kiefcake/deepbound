@@ -62,6 +62,7 @@ namespace Deepbound.EditorTools
 
             BakeUnlit("Flame", unlit, new Color(1f, 0.55f, 0.15f), transparent: false);
             BakeUnlit("Telegraph", unlit, new Color(1f, 0.15f, 0.1f, 0.45f), transparent: true);
+            BakeWater("Water", lit);
 
             BakeVolumeProfile();
             ConfigureRenderer();
@@ -148,6 +149,34 @@ namespace Deepbound.EditorTools
                 mat.renderQueue = (int)RenderQueue.Transparent;
             }
 
+            EditorUtility.SetDirty(mat);
+        }
+
+        /// <summary>
+        /// Lit, transparent and almost mirror-smooth, with the flagstone normal map stretched
+        /// over it for a gentle ripple: torchlight glints across it, which is most of what
+        /// makes standing water read as water.
+        /// </summary>
+        private static void BakeWater(string name, Shader shader)
+        {
+            var mat = GetOrCreateMaterial(name, shader);
+            mat.SetColor("_BaseColor", new Color(0.06f, 0.16f, 0.14f, 0.72f));
+            mat.SetFloat("_Smoothness", 0.88f);
+            mat.SetFloat("_Metallic", 0f);
+            mat.SetTexture("_BumpMap", AssetDatabase.LoadAssetAtPath<Texture2D>(TextureDir + "/Flagstone_Normal.png"));
+            mat.SetTextureScale("_BumpMap", new Vector2(0.3f, 0.3f));
+            mat.SetFloat("_BumpScale", 0.25f);
+            mat.EnableKeyword("_NORMALMAP");
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 0f);
+            mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_SrcBlendAlpha", (float)BlendMode.One);
+            mat.SetFloat("_DstBlendAlpha", (float)BlendMode.OneMinusSrcAlpha);
+            mat.SetFloat("_ZWrite", 0f);
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.renderQueue = (int)RenderQueue.Transparent;
             EditorUtility.SetDirty(mat);
         }
 

@@ -252,7 +252,8 @@ namespace Deepbound.Art
 
             /// <summary>Builds the combined meshes under <paramref name="parent"/>.</summary>
             /// <param name="collide">Add MeshColliders, so the geometry is walkable and navmesh-bakeable.</param>
-            public void Build(Transform parent, string name, bool collide)
+            /// <param name="tint">Optional per-material tint (a theme recolouring stone, say). Null or white = none.</param>
+            public void Build(Transform parent, string name, bool collide, System.Func<string, Color> tint = null)
             {
                 foreach (var pair in parts)
                 {
@@ -264,7 +265,13 @@ namespace Deepbound.Art
                     go.transform.SetParent(parent, false);
                     go.isStatic = true;
                     go.AddComponent<MeshFilter>().sharedMesh = mesh;
-                    go.AddComponent<MeshRenderer>().sharedMaterial = ArtLibrary.Get(pair.Key);
+                    var renderer = go.AddComponent<MeshRenderer>();
+                    renderer.sharedMaterial = ArtLibrary.Get(pair.Key);
+                    if (tint != null)
+                    {
+                        var c = tint(pair.Key);
+                        if (c != Color.white) ArtLibrary.Tint(renderer, c);
+                    }
                     if (collide) go.AddComponent<MeshCollider>().sharedMesh = mesh;
                 }
 

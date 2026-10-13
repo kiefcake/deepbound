@@ -44,6 +44,7 @@ namespace Deepbound.World
         private const int LobbyDepth = -1;
 
         [SerializeField] private NetworkObject skeletonPrefab;
+        [SerializeField] private NetworkObject archerPrefab;
         [SerializeField] private NetworkObject bossPrefab;
         [SerializeField] private NetworkObject dummyPrefab;
 
@@ -135,6 +136,12 @@ namespace Deepbound.World
             if (IsServer) StartFloor(0);
         }
 
+        /// <summary>Server, debugging and screenshots only: jump straight to a floor.</summary>
+        public void ServerDebugStartFloor(int depth)
+        {
+            if (IsServer) StartFloor(depth);
+        }
+
         private void StartFloor(int depth)
         {
             ClearSpawned();
@@ -188,6 +195,7 @@ namespace Deepbound.World
             builtFloor = floor;
 
             if (built != null) Destroy(built);
+            Combat.Arrows.Clear();
 
             if (floor.y == LobbyDepth)
             {
@@ -225,7 +233,8 @@ namespace Deepbound.World
                 {
                     var p = point;
                     if (NavMesh.SamplePosition(point, out var hit, 3f, NavMesh.AllAreas)) p = hit.position;
-                    var obj = Instantiate(skeletonPrefab, p, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
+                    bool archer = archerPrefab != null && UnityEngine.Random.value < DungeonTheme.ForDepth(layout.Depth).ArcherChance;
+                    var obj = Instantiate(archer ? archerPrefab : skeletonPrefab, p, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
                     obj.Spawn(destroyWithScene: true);
                     obj.GetComponent<EnemyBrain>().ServerScale(players, layout.Depth);
                     spawned.Add(obj);

@@ -13,6 +13,7 @@ namespace Deepbound.Art
         Bash = 5,     // shield thrust
         Death = 6,
         Cast = 7,     // arms raised (boss summon, war cry)
+        Draw = 8,     // bow raised and drawn — the archer's telegraph
     }
 
     /// <summary>
@@ -36,6 +37,9 @@ namespace Deepbound.Art
     public class HumanoidRig : MonoBehaviour
     {
         public Transform Hips, Torso, Head, ArmL, ArmR, LegL, LegR;
+
+        /// <summary>Something held in the off hand that re-orients for an action (the archer's bow).</summary>
+        public Transform OffhandItem;
 
         /// <summary>Renderers that glow (eyes, gems). Brightened during wind-ups.</summary>
         public Renderer[] GlowRenderers;
@@ -159,6 +163,16 @@ namespace Deepbound.Art
                     glow = 1f + 4f * c;
                     break;
 
+                case RigAction.Draw:
+                    // Bow arm straight out at the target; string hand hauled back to the jaw.
+                    float dr = Ease(t * 2f);
+                    armL = Vector3.Lerp(armL, new Vector3(-88f, 0f, 0f), dr);
+                    armR = Vector3.Lerp(armR, new Vector3(-95f, -60f, 0f), Ease(t * 1.3f));
+                    torso += new Vector3(0f, -25f, 0f) * dr;
+                    head += new Vector3(0f, 20f, 0f) * dr;
+                    glow = 1f + 3f * t;
+                    break;
+
                 case RigAction.Death:
                     // Crumple: knees go, torso folds forward, then the body sinks.
                     float d = Ease(t);
@@ -186,6 +200,10 @@ namespace Deepbound.Art
                 armR = armL = new Vector3(-10f, 0f, 0f);
                 hipsOffset = new Vector3(0f, -0.4f, 0f);
             }
+
+            // The bow hangs upright at rest; while drawing it turns level with the
+            // raised arm so it faces the target.
+            if (OffhandItem != null) OffhandItem.localRotation = Quaternion.Euler(action == RigAction.Draw ? 90f * Ease(t * 2f) : 0f, 0f, 0f);
 
             Set(ArmR, armR); Set(ArmL, armL); Set(Torso, torso); Set(Head, head);
             Set(LegL, legL); Set(LegR, legR);

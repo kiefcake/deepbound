@@ -25,7 +25,19 @@ namespace Deepbound.Networking
     /// </summary>
     public class SmokeTest : MonoBehaviour
     {
-        public void Run(float seconds) => StartCoroutine(Sequence(seconds));
+        public void Run(float seconds)
+        {
+            StartCoroutine(Sequence(seconds));
+            // Watchdog: if the sequence throws, the coroutine dies silently and the
+            // process would idle forever. Fail loudly instead.
+            Invoke(nameof(Timeout), seconds * 2.5f);
+        }
+
+        private void Timeout()
+        {
+            Debug.Log("[Smoke] FAIL watchdog: sequence did not finish (see exceptions above)");
+            Application.Quit(1);
+        }
 
         private IEnumerator Sequence(float seconds)
         {
@@ -87,6 +99,8 @@ namespace Deepbound.Networking
                 var motor = local.GetComponent<FirstPersonMotor>();
                 foreach (var drop in drops)
                 {
+                    // Standing on one drop can collect a neighbour too, despawning it.
+                    if (drop == null) continue;
                     motor.Teleport(drop.transform.position, local.transform.rotation);
                     yield return new WaitForSeconds(0.9f);
                 }
@@ -199,6 +213,33 @@ namespace Deepbound.Networking
             motor.Teleport(bp, Quaternion.LookRotation(bp - layout.BossSpawn));
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "4_boss_room_back");
+
+            // One look at each later floor's theme.
+            for (int depth = 1; depth < DungeonDirector.FloorsPerRun; depth++)
+            {
+                DungeonDirector.Instance.ServerDebugStartFloor(depth);
+                yield return new WaitForSeconds(2.5f);
+                var l = DungeonDirector.Layout;
+                foreach (var room in l.Rooms)
+                {
+                    if (room.Kind != RoomKind.Combat) continue;
+                    var from = room.Center + new Vector3(-room.Size.x * 0.4f, 0.1f, -room.Size.y * 0.4f);
+                    motor.Teleport(from, Quaternion.LookRotation(room.Center - from));
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Shot(dir, "5_floor" + (depth + 1));
+
+                    var archer = FindObjectsByType<ArcherBrain>(FindObjectsSortMode.None).FirstOrDefault();
+                    if (archer != null)
+                    {
+                        archer.ServerStun(30f);
+                        var ap = archer.transform.position + archer.transform.forward * 2.2f + Vector3.up * 0.1f;
+                        motor.Teleport(ap, Quaternion.LookRotation(archer.transform.position - ap));
+                        yield return new WaitForSeconds(0.6f);
+                        yield return Shot(dir, "6_archer_closeup" + (depth + 1));
+                    }
+                    break;
+                }
+            }
 
             Debug.Log("[Smoke] screenshots done");
             Application.Quit(0);
