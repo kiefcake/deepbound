@@ -88,7 +88,13 @@ namespace Deepbound.Player
             // Escape frees the cursor so the connection panel (and the rest of the desktop)
             // stays reachable; clicking back into the window recaptures it.
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) SetCursorLocked(false);
-            if (Cursor.lockState != CursorLockMode.Locked &&
+
+            // A menu (the merchant's shop) owns the cursor while it is open.
+            if (UI.GameHud.MenuOpen)
+            {
+                if (Cursor.lockState == CursorLockMode.Locked) SetCursorLocked(false);
+            }
+            else if (Cursor.lockState != CursorLockMode.Locked &&
                 Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame &&
                 !NetworkLauncherHasFocus())
             {

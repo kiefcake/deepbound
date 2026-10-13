@@ -70,6 +70,22 @@ namespace Deepbound.World
         public Vector3 PlayerSpawn => StartRoom.Center;
         public Vector3 BossSpawn => BossRoom.Center + new Vector3(0f, 0f, BossRoom.Size.y * 0.2f);
 
+        /// <summary>Where the merchant stands: against the start room's back wall, facing the centre.</summary>
+        public Vector3 MerchantPosition
+        {
+            get
+            {
+                // Put him on a side of the start room with no door, so he never blocks the way out.
+                for (int side = 0; side < 4; side++)
+                {
+                    if (StartRoom.Doors[side]) continue;
+                    var d = Dir[side];
+                    return StartRoom.Center + new Vector3(d.x, 0f, d.y) * (StartRoom.Size.y / 2f - 1.6f);
+                }
+                return StartRoom.Center + Vector3.forward * 4f;
+            }
+        }
+
         /// <summary>Player spawn points around the start room centre, one per slot.</summary>
         public Vector3 PlayerSpawnFor(ulong clientId)
         {

@@ -194,3 +194,4 @@ MonoBehaviour:
   aggroRange: 13
   leashRange: 40
   visualKind: 0
+  lootPrefab: {fileID: 8565890832741848749, guid: bba2f0e37d1afa54ab4ecc279f414bc7, type: 3}

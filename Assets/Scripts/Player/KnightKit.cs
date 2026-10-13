@@ -1,7 +1,7 @@
 using Deepbound.Art;
-using Deepbound.Classes;
 using Deepbound.Combat;
 using Deepbound.Core;
+using Deepbound.Progression;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -48,6 +48,7 @@ namespace Deepbound.Player
         private PlayerLife life;
         private FirstPersonMotor motor;
         private NetworkPlayer player;
+        private PlayerProgress progress;
 
         // Owner-side state.
         public float Stamina { get; private set; } = StaminaMax;
@@ -60,7 +61,6 @@ namespace Deepbound.Player
         private float side = 1f;
 
         // Server-side state.
-        public StatBlock Stats { get; private set; }
         private float warCryUntil;
         private float lastServerSwing;
         private float lastDamagedAt;
@@ -75,29 +75,19 @@ namespace Deepbound.Player
             life = GetComponent<PlayerLife>();
             motor = GetComponent<FirstPersonMotor>();
             player = GetComponent<NetworkPlayer>();
+            progress = GetComponent<PlayerProgress>();
         }
 
         public override void OnNetworkSpawn()
         {
             if (IsServer)
             {
-                Stats = ClassDefinition.Knight.Build();
-                ApplyStats(refill: true);
                 health.IncomingModifiers.Add(ModifyIncoming);
                 health.DamagedServer += (amount, attacker) => lastDamagedAt = Time.time;
             }
         }
 
-        /// <summary>Pushes the stat block into Health. Server only; call after potions or gear change.</summary>
-        public void ApplyStats(bool refill)
-        {
-            if (!IsServer) return;
-            health.ServerSetMax(Stats.GetValue(StatType.HP), refill);
-            health.Defense = Stats.GetValue(StatType.DEF);
-        }
-
-        /// <summary>RotMG-style ATT scaling: ATT 50 doubles the base ATT 0 damage.</summary>
-        private float AttackMultiplier => 0.5f + (Stats != null ? Stats.GetValue(StatType.ATT) : 20f) / 50f;
+        private float AttackMultiplier => progress.AttackMultiplier;
 
         // ==================================================================
         // Owner: input, timers, local animation
@@ -128,7 +118,7 @@ namespace Deepbound.Player
                 Stamina = Mathf.Min(StaminaMax, Stamina + StaminaRegen * Time.deltaTime);
             }
             motor.CanSprint = Stamina > 5f && !wantBlock;
-            motor.SpeedMultiplier = (wantBlock ? 0.5f : 1f) * SpeedFromStat();
+            motor.SpeedMultiplier = (wantBlock ? 0.5f : 1f) * progress.SpeedMultiplier;
 
             // --- Swing (LMB) ---
             if (canAct && !wantBlock && mouse != null && mouse.leftButton.wasPressedThisFrame &&
@@ -139,8 +129,10 @@ namespace Deepbound.Player
                 side = -side;
                 swingPending = true;
                 swingStrikeAt = Time.time + SwingWindup;
-                swingBusyUntil = Time.time + SwingWindup + SwingStrike + SwingRecovery;
-                player.ViewModelSwing(SwingWindup, SwingStrike + SwingRecovery, side);
+                // DEX shortens the recovery, not the wind-up: faster follow-ups, same tell.
+                float recovery = SwingRecovery * progress.AttackTimeMultiplier;
+                swingBusyUntil = Time.time + SwingWindup + SwingStrike + recovery;
+                player.ViewModelSwing(SwingWindup, SwingStrike + recovery, side);
                 Sfx.Play(Sound.Swing, transform.position, 0.6f);
             }
 
@@ -179,16 +171,6 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>SPD 50 is the reference speed; each point either side is ±1%.</summary>
-        private float SpeedFromStat()
-        {
-            // The owner does not hold the authoritative StatBlock (only the server does), but
-            // base SPD is class data, so it can be read locally. Potion-boosted SPD will need
-            // syncing when potions land.
-            float spd = ClassDefinition.Knight.BaseStats[(int)StatType.SPD];
-            return 1f + (spd - 50f) / 100f;
-        }
-
         /// <summary>Called on the owner when the server reports a blocked hit.</summary>
         [Rpc(SendTo.Owner)]
         private void BlockedHitRpc()
@@ -214,7 +196,7 @@ namespace Deepbound.Player
 
             // Loose rate limit: refuse swings faster than the animation allows. Generous,
             // because latency jitter can bunch two legitimate swings together.
-            float minInterval = (SwingWindup + SwingStrike + SwingRecovery) * 0.7f;
+            float minInterval = (SwingWindup + SwingStrike + SwingRecovery * progress.AttackTimeMultiplier) * 0.7f;
             if (Time.time - lastServerSwing < minInterval) return;
             lastServerSwing = Time.time;
 
@@ -323,10 +305,10 @@ namespace Deepbound.Player
         /// </summary>
         private void ServerTick()
         {
-            if (Stats == null || life.Downed.Value || !health.IsAlive) return;
+            if (progress.Stats == null || life.Downed.Value || !health.IsAlive) return;
             if (Time.time - lastDamagedAt < 5f || health.Current.Value >= health.Max.Value) return;
 
-            regenCarry += (2f + Stats.GetValue(StatType.VIT) * 0.12f) * Time.deltaTime;
+            regenCarry += (2f + progress.Value(StatType.VIT) * 0.12f) * Time.deltaTime;
             if (regenCarry >= 1f)
             {
                 float whole = Mathf.Floor(regenCarry);

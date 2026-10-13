@@ -1,5 +1,6 @@
 using Deepbound.Art;
 using Deepbound.Combat;
+using Deepbound.Loot;
 using Deepbound.Player;
 using Unity.Netcode;
 using UnityEngine;
@@ -38,6 +39,12 @@ namespace Deepbound.Enemies
         [SerializeField] protected float aggroRange = 13f;
         [SerializeField] protected float leashRange = 40f;
         [SerializeField] protected CharacterArt.SkeletonKind visualKind = CharacterArt.SkeletonKind.Warrior;
+        [SerializeField] private NetworkObject lootPrefab;
+
+        /// <summary>Server: boss summons drop nothing, or the boss becomes a gold farm.</summary>
+        public bool NoLoot { get; set; }
+        protected virtual LootTable Loot => LootTable.Skeleton;
+        private int depthForLoot;
 
         protected Health health;
         protected NavMeshAgent agent;
@@ -90,6 +97,7 @@ namespace Deepbound.Enemies
         {
             float hpScale = (1f + 0.6f * Mathf.Max(0, players - 1)) * (1f + 0.25f * depth);
             damage *= 1f + 0.15f * depth;
+            depthForLoot = depth;
             health.ServerSetMax(maxHealth * hpScale, refill: true);
         }
 
@@ -293,6 +301,10 @@ namespace Deepbound.Enemies
             agent.enabled = false;
             foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
             PlayActionRpc(RigAction.Death, 1.1f);
+            if (!NoLoot && lootPrefab != null)
+            {
+                LootDrop.ServerSpawnFromTable(lootPrefab, Loot, transform.position, 1f + 0.5f * depthForLoot);
+            }
             Invoke(nameof(Despawn), 4f);
         }
 

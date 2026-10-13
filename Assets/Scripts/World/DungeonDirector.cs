@@ -1,7 +1,9 @@
 using System;
 using System.Collections.Generic;
 using Deepbound.Enemies;
+using Deepbound.Loot;
 using Deepbound.Player;
+using Deepbound.Progression;
 using Unity.AI.Navigation;
 using Unity.Netcode;
 using UnityEngine;
@@ -98,6 +100,11 @@ namespace Deepbound.World
             {
                 if (brain.NetworkObject.IsSpawned) brain.NetworkObject.Despawn();
             }
+            // Unclaimed loot does not follow you down: pick it up or lose it.
+            foreach (var drop in FindObjectsByType<LootDrop>(FindObjectsSortMode.None))
+            {
+                if (drop.NetworkObject.IsSpawned) drop.NetworkObject.Despawn();
+            }
 
             int seed = UnityEngine.Random.Range(1, int.MaxValue);
             Phase.Value = RunPhase.Exploring;
@@ -112,13 +119,9 @@ namespace Deepbound.World
 
             foreach (var p in PlayerLife.All)
             {
+                // A new run (floor 1) wipes everything the last one granted.
+                if (depth == 0 && p.TryGetComponent<PlayerProgress>(out var progress) && progress.Stats != null) progress.ServerResetRun();
                 p.ServerRevive(1f);
-                var kit = p.GetComponent<KnightKit>();
-                if (depth == 0 && kit != null && kit.Stats != null)
-                {
-                    kit.Stats.ResetRunProgress();
-                    kit.ApplyStats(refill: true);
-                }
             }
 
             Debug.Log("[Director] Floor " + (depth + 1) + " started, seed " + seed + ", " + spawned.Count + " enemies.");

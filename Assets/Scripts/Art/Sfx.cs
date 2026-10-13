@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon }
+    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase }
 
     /// <summary>
     /// Every sound in the game, synthesised at startup. Like the art, nothing is
@@ -64,6 +64,9 @@ namespace Deepbound.Art
                 case Sound.Hurt: data = Mix(Thump(0.15f, 180f, 90f), Burst(0.05f, 0.3f)); break;
                 case Sound.Revive: data = Chime(0.8f, new[] { 523f, 659f, 784f }); break;
                 case Sound.Summon: data = Mix(Horn(1.2f, 55f), Whoosh(1.2f, 200f, 900f)); break;
+                case Sound.Coins: data = Mix(Clang(0.25f, new[] { 2600f, 3900f }), Delay(Clang(0.25f, new[] { 3100f, 4400f }), 0.06f), Delay(Clang(0.2f, new[] { 2900f }), 0.11f)); break;
+                case Sound.Potion: data = Mix(Chime(0.5f, new[] { 784f, 1046f }), Whoosh(0.3f, 300f, 1200f)); break;
+                case Sound.Purchase: data = Mix(Chime(0.5f, new[] { 659f, 988f }), Clang(0.3f, new[] { 2600f, 3900f })); break;
                 default: data = new float[Rate / 10]; break;
             }
 
@@ -189,6 +192,14 @@ namespace Deepbound.Art
                     d[i] += Mathf.Sin(2f * Mathf.PI * notes[n] * time) * Mathf.Exp(-time * 4f) * 0.5f;
                 }
             }
+            return d;
+        }
+
+        private static float[] Delay(float[] src, float seconds)
+        {
+            int offset = (int)(seconds * Rate);
+            var d = new float[src.Length + offset];
+            System.Array.Copy(src, 0, d, offset, src.Length);
             return d;
         }
 

@@ -14,6 +14,7 @@ GameObject:
   - component: {fileID: 3358862442076450332}
   - component: {fileID: 6955029150442829339}
   - component: {fileID: 3973284125460520811}
+  - component: {fileID: 2456544387707103407}
   - component: {fileID: 1213986218560098150}
   - component: {fileID: 1113284408795371079}
   - component: {fileID: 6646583751451298640}
@@ -166,6 +167,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: f338d020ef7562e4c9c053024fcf3e92, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.PlayerLife
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &2456544387707103407
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 539545562963582333}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: fcea1a716743f2740b103eb4fa22748c, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Progression.PlayerProgress
   ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &1213986218560098150
 MonoBehaviour:

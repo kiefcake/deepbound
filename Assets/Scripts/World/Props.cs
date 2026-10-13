@@ -88,6 +88,62 @@ namespace Deepbound.World
             b.AddBox(floor + facing * new Vector3(-1.2f, 2.2f, -0.6f), new Vector3(0.3f, 0.9f, 1.6f), Mat.Gold, facing);
         }
 
+        /// <summary>
+        /// The wandering merchant: a hooded, stooped figure with a lantern behind a trestle
+        /// table of wares. Purely visual; trading is handled by PlayerProgress and the HUD.
+        /// </summary>
+        public static void Merchant(Transform parent, Vector3 floor, Vector3 lookAt, MeshKit.Batcher b)
+        {
+            var root = new GameObject("Merchant").transform;
+            root.SetParent(parent, false);
+            root.position = floor;
+            var facing = lookAt - floor;
+            facing.y = 0f;
+            root.rotation = Quaternion.LookRotation(facing);
+
+            var robe = MeshKit.Part(root, "Robe", MeshKit.Lathe("merchantRobe", new[]
+            {
+                new Vector2(0.42f, 0f), new Vector2(0.36f, 0.5f), new Vector2(0.3f, 1.05f), new Vector2(0.26f, 1.3f), new Vector2(0.12f, 1.42f), new Vector2(0f, 1.44f),
+            }, 9), Mat.Cloth, Vector3.zero);
+            ArtLibrary.Tint(robe.GetComponent<Renderer>(), new Color(0.2f, 0.3f, 0.18f));
+
+            var hood = MeshKit.Part(root, "Hood", MeshKit.Lathe("merchantHood", new[]
+            {
+                new Vector2(0.2f, 0f), new Vector2(0.22f, 0.12f), new Vector2(0.18f, 0.26f), new Vector2(0.08f, 0.34f), new Vector2(0f, 0.38f),
+            }, 9, true, 300f), Mat.Cloth, new Vector3(0f, 1.32f, 0.04f), new Vector3(16f, 210f, 0f));
+            ArtLibrary.Tint(hood.GetComponent<Renderer>(), new Color(0.16f, 0.24f, 0.14f));
+            MeshKit.Part(root, "Face", MeshKit.Ball(0.14f, 8, 6), Mat.Dark, new Vector3(0f, 1.46f, 0.08f));
+            var eyeL = MeshKit.Part(root, "EyeL", MeshKit.Ball(0.015f, 6, 4), Mat.Glow, new Vector3(-0.045f, 1.48f, 0.2f));
+            var eyeR = MeshKit.Part(root, "EyeR", MeshKit.Ball(0.015f, 6, 4), Mat.Glow, new Vector3(0.045f, 1.48f, 0.2f));
+            ArtLibrary.SetGlow(eyeL.GetComponent<Renderer>(), new Color(1f, 0.85f, 0.3f) * 2f);
+            ArtLibrary.SetGlow(eyeR.GetComponent<Renderer>(), new Color(1f, 0.85f, 0.3f) * 2f);
+            MeshKit.Part(root, "Pack", MeshKit.Box(new Vector3(0.5f, 0.6f, 0.35f)), Mat.Leather, new Vector3(0f, 1.05f, -0.35f), new Vector3(-8f, 0f, 0f));
+            MeshKit.Part(root, "Bedroll", MeshKit.Cylinder(0.12f, 0.12f, 0.6f, 8), Mat.Cloth, new Vector3(-0.3f, 1.4f, -0.38f), new Vector3(0f, 0f, 90f));
+
+            // Lantern on a crook staff.
+            MeshKit.Part(root, "Staff", MeshKit.Cylinder(0.025f, 0.03f, 2.1f, 6), Mat.Wood, new Vector3(0.48f, 0f, 0.15f));
+            MeshKit.Part(root, "Crook", MeshKit.Box(new Vector3(0.3f, 0.04f, 0.04f)), Mat.Wood, new Vector3(0.6f, 2.05f, 0.15f));
+            var lantern = MeshKit.Pivot(root, "Lantern", new Vector3(0.72f, 1.78f, 0.15f));
+            MeshKit.Part(lantern, "Cage", MeshKit.Cylinder(0.09f, 0.08f, 0.22f, 6), Mat.Steel, Vector3.zero);
+            AddFlame(lantern, new Vector3(0f, 0.04f, 0f), 0.45f, new Color(1f, 0.75f, 0.35f), 5f, 9f, true);
+
+            // Trestle table of wares between him and the party.
+            var table = root.position + root.forward * 0.9f;
+            b.AddBox(table + Vector3.up * 0.85f, new Vector3(1.8f, 0.08f, 0.7f), Mat.Wood, root.rotation);
+            b.AddBox(table + root.right * 0.75f + Vector3.up * 0.42f, new Vector3(0.08f, 0.84f, 0.6f), Mat.Wood, root.rotation);
+            b.AddBox(table - root.right * 0.75f + Vector3.up * 0.42f, new Vector3(0.08f, 0.84f, 0.6f), Mat.Wood, root.rotation);
+            for (int i = 0; i < 5; i++)
+            {
+                var p = table + root.right * (-0.6f + i * 0.3f) + Vector3.up * 0.89f;
+                var flask = MeshKit.Part(root, "Ware" + i, MeshKit.Lathe("flask", new[]
+                {
+                    new Vector2(0f, 0f), new Vector2(0.08f, 0.02f), new Vector2(0.11f, 0.08f), new Vector2(0.1f, 0.15f),
+                    new Vector2(0.04f, 0.2f), new Vector2(0.035f, 0.28f), new Vector2(0f, 0.28f),
+                }, 10), Mat.Glow, root.InverseTransformPoint(p));
+                ArtLibrary.SetGlow(flask.GetComponent<Renderer>(), Loot.LootInfo.PotionColor((Core.StatType)(new[] { 0, 2, 3, 4, 5 }[i])) * 1.4f);
+            }
+        }
+
         // ------------------------------------------------------------------
         // Live props
         // ------------------------------------------------------------------

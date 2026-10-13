@@ -1,5 +1,6 @@
 using Deepbound.Art;
 using Deepbound.Combat;
+using Deepbound.Loot;
 using Deepbound.Player;
 using Unity.Netcode;
 using UnityEngine;
@@ -45,6 +46,8 @@ namespace Deepbound.Enemies
         private int scaledPlayers = 1, scaledDepth;
 
         public void SetMinionPrefab(NetworkObject prefab) => minionPrefab = prefab;
+
+        protected override LootTable Loot => LootTable.SkeletonKing;
 
         public override void OnNetworkSpawn()
         {
@@ -163,7 +166,9 @@ namespace Deepbound.Enemies
                 var pos = transform.position + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 4f;
                 var minion = Instantiate(minionPrefab, pos, Quaternion.LookRotation(transform.position - pos));
                 minion.Spawn(destroyWithScene: true);
-                minion.GetComponent<EnemyBrain>().ServerScale(scaledPlayers, scaledDepth);
+                var brain = minion.GetComponent<EnemyBrain>();
+                brain.NoLoot = true;
+                brain.ServerScale(scaledPlayers, scaledDepth);
             }
         }
 

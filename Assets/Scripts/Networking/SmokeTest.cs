@@ -2,6 +2,8 @@ using System.Collections;
 using System.Linq;
 using Deepbound.Combat;
 using Deepbound.Enemies;
+using Deepbound.Loot;
+using Deepbound.Progression;
 using Deepbound.Player;
 using Deepbound.World;
 using Unity.Netcode;
@@ -60,6 +62,31 @@ namespace Deepbound.Networking
                 Log("navmesh agents", agentsOnMesh + " / " + enemies, agentsOnMesh == enemies);
             }
 
+            if (net.IsServer && local != null)
+            {
+                // Kill a handful of skeletons and confirm they drop loot that a player can take.
+                var victims = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain)).Take(6).ToList();
+                foreach (var v in victims) v.GetComponent<Health>().ServerDamage(1e6f, v.transform.position);
+                yield return new WaitForSeconds(0.3f);
+
+                var drops = FindObjectsByType<LootDrop>(FindObjectsSortMode.None);
+                Log("loot drops", drops.Length + " from " + victims.Count + " kills", drops.Length > 0);
+
+                var progress = local.GetComponent<PlayerProgress>();
+                int goldBefore = progress.Gold.Value;
+                var motor = local.GetComponent<FirstPersonMotor>();
+                foreach (var drop in drops)
+                {
+                    motor.Teleport(drop.transform.position, local.transform.rotation);
+                    yield return new WaitForSeconds(0.9f);
+                }
+                int potions = 0;
+                for (int i = 0; i < Core.Stats.Count; i++) potions += progress.PotionsApplied((Core.StatType)i);
+                Log("pickup", "gold " + goldBefore + " -> " + progress.Gold.Value + ", potions " + potions,
+                    progress.Gold.Value > goldBefore || potions > 0);
+                motor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+            }
+
             yield return new WaitForSeconds(seconds * 0.1f);
 
             if (net.IsServer && boss != null)
@@ -106,6 +133,12 @@ namespace Deepbound.Networking
 
             yield return Shot(dir, "1_start_room");
 
+            var m = layout.MerchantPosition;
+            var mFrom = m + (layout.StartRoom.Center - m).normalized * 3.2f + Vector3.up * 0.1f;
+            motor.Teleport(mFrom, Quaternion.LookRotation(m - mFrom));
+            yield return new WaitForSeconds(0.5f);
+            yield return Shot(dir, "1b_merchant");
+
             foreach (var room in layout.Rooms)
             {
                 if (room.Kind != RoomKind.Combat) continue;
@@ -113,6 +146,14 @@ namespace Deepbound.Networking
                 motor.Teleport(p, Quaternion.LookRotation(room.Center - p));
                 yield return new WaitForSeconds(1.5f);
                 yield return Shot(dir, "2_combat_room");
+
+                // Kill everything in the room so the loot it leaves is visible.
+                foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                {
+                    if (!(e is BossBrain) && room.Contains(e.transform.position, 1f)) e.GetComponent<Health>().ServerDamage(1e6f, p);
+                }
+                yield return new WaitForSeconds(1.8f);
+                yield return Shot(dir, "2b_loot");
                 break;
             }
 

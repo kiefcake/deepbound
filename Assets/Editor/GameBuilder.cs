@@ -1,8 +1,10 @@
 using System.IO;
 using Deepbound.Combat;
 using Deepbound.Enemies;
+using Deepbound.Loot;
 using Deepbound.Networking;
 using Deepbound.Player;
+using Deepbound.Progression;
 using Deepbound.UI;
 using Deepbound.World;
 using Unity.Netcode;
@@ -43,12 +45,13 @@ namespace Deepbound.EditorTools
             EnsureFolder("Assets/Scenes");
             EnsureFolder(PrefabDir);
 
+            var loot = BuildLootPrefab();
             var player = BuildPlayerPrefab();
-            var skeleton = BuildEnemyPrefab("Skeleton", boss: false);
-            var king = BuildEnemyPrefab("SkeletonKing", boss: true);
+            var skeleton = BuildEnemyPrefab("Skeleton", boss: false, loot);
+            var king = BuildEnemyPrefab("SkeletonKing", boss: true, loot);
             var director = BuildDirectorPrefab(skeleton, king);
 
-            RegisterNetworkPrefabs(player, skeleton, king, director);
+            RegisterNetworkPrefabs(player, skeleton, king, director, loot);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -97,6 +100,7 @@ namespace Deepbound.EditorTools
 
             SetTeam(root.AddComponent<Health>(), Team.Players, 1f);
             root.AddComponent<PlayerLife>();
+            root.AddComponent<PlayerProgress>();
             root.AddComponent<KnightKit>();
             root.AddComponent<KnockbackReceiver>();
 
@@ -133,7 +137,7 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private static GameObject BuildEnemyPrefab(string name, bool boss)
+        private static GameObject BuildEnemyPrefab(string name, bool boss, GameObject loot)
         {
             float scale = boss ? 1.75f : 1f;
             var root = new GameObject(name);
@@ -157,6 +161,7 @@ namespace Deepbound.EditorTools
 
             EnemyBrain brain = boss ? root.AddComponent<BossBrain>() : root.AddComponent<EnemyBrain>();
             var so = new SerializedObject(brain);
+            so.FindProperty("lootPrefab").objectReferenceValue = loot.GetComponent<NetworkObject>();
             if (boss)
             {
                 so.FindProperty("visualKind").intValue = (int)Art.CharacterArt.SkeletonKind.King;
@@ -172,6 +177,15 @@ namespace Deepbound.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
 
             return SavePrefab(root, name);
+        }
+
+        /// <summary>Loot never moves once dropped, so it needs no NetworkTransform — just an identity.</summary>
+        private static GameObject BuildLootPrefab()
+        {
+            var root = new GameObject("LootDrop");
+            root.AddComponent<NetworkObject>();
+            root.AddComponent<LootDrop>();
+            return SavePrefab(root, "LootDrop");
         }
 
         private static GameObject BuildDirectorPrefab(GameObject skeleton, GameObject king)

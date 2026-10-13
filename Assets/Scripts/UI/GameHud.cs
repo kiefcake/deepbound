@@ -1,8 +1,13 @@
+using System.Collections.Generic;
 using Deepbound.Combat;
+using Deepbound.Core;
+using Deepbound.Loot;
+using Deepbound.Progression;
 using Deepbound.Enemies;
 using Deepbound.Player;
 using Deepbound.World;
 using UnityEngine;
+using UnityEngine.InputSystem;
 
 namespace Deepbound.UI
 {
@@ -25,6 +30,23 @@ namespace Deepbound.UI
         private Health health;
         private PlayerLife life;
         private KnightKit kit;
+        private PlayerProgress progress;
+
+        /// <summary>True while a menu wants the cursor (the merchant's shop). The motor reads this.</summary>
+        public static bool MenuOpen { get; private set; }
+
+        private bool shopOpen;
+        private bool statsHeld;
+
+        private struct FeedLine { public string Text; public Color Color; public float Time; }
+        private static readonly List<FeedLine> FeedLines = new List<FeedLine>();
+
+        /// <summary>Adds a line to the event feed (potions drunk, and so on). Any peer.</summary>
+        public static void Feed(string text, Color color)
+        {
+            FeedLines.Add(new FeedLine { Text = text, Color = color, Time = UnityEngine.Time.time });
+            if (FeedLines.Count > 6) FeedLines.RemoveAt(0);
+        }
 
         private static Texture2D white;
         private GUIStyle label, big, small, center;
@@ -46,13 +68,31 @@ namespace Deepbound.UI
             health = owner.GetComponent<Health>();
             life = owner.GetComponent<PlayerLife>();
             kit = owner.GetComponent<KnightKit>();
+            progress = owner.GetComponent<PlayerProgress>();
             health.Hurt += amount => hurtFlash = Mathf.Min(1f, hurtFlash + amount / 30f);
             spawnTime = Time.time;
+        }
+
+        private void OnDestroy() => MenuOpen = false;
+
+        private bool NearMerchant()
+        {
+            var layout = DungeonDirector.Layout;
+            return layout != null && !life.Downed.Value &&
+                   Vector3.Distance(player.transform.position, layout.MerchantPosition) <= Shop.MerchantRange;
         }
 
         private void Update()
         {
             hurtFlash = Mathf.MoveTowards(hurtFlash, 0f, Time.deltaTime * 1.5f);
+
+            var keyboard = Keyboard.current;
+            bool near = NearMerchant();
+            if (keyboard != null && keyboard.gKey.wasPressedThisFrame && near) shopOpen = !shopOpen;
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = false;
+            if (!near) shopOpen = false;
+            MenuOpen = shopOpen;
+            statsHeld = keyboard != null && keyboard.tabKey.isPressed;
 
             var director = DungeonDirector.Instance;
             if (director != null && director.Floor.Value.y != bannerFloor && DungeonDirector.Layout != null)
@@ -90,6 +130,9 @@ namespace Deepbound.UI
             DrawPhase(w, h);
             DrawBanner(w, h);
             DrawControlsHint(w, h);
+            DrawFeed(h);
+            DrawMerchant(w, h);
+            if (statsHeld) DrawStatSheet(w, h);
         }
 
         // ------------------------------------------------------------------
@@ -115,7 +158,8 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x + 8, y + 1, bw, 22), Mathf.CeilToInt(hp) + " / " + Mathf.CeilToInt(max), label);
 
             Bar(x, y + 32, bw, 12, kit.Stamina / KnightKit.StaminaMax, StaminaAmber);
-            GUI.Label(new Rect(x, y + 46, bw, 20), "KNIGHT  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun, small);
+            GUI.Label(new Rect(x, y + 46, bw, 20), "KNIGHT  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun + "  ·  Tab: stats", small);
+            GUI.Label(new Rect(x + bw - 90, y + 46, 90, 20), progress.Gold.Value + " gold", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
         }
 
         private void DrawAbilities(float w, float h)
@@ -225,7 +269,83 @@ namespace Deepbound.UI
                 "LMB swing  ·  RMB block (front)\n" +
                 "Q  Shield Bash — stuns, cancels wind-ups\n" +
                 "E  War Cry — taunt + half damage\n" +
-                "F  revive a downed ally  ·  Esc free mouse", style);
+                "F  revive a downed ally  ·  G  trade  ·  Tab  stats\n" +
+                "Walk over potions to drink them  ·  Esc free mouse", style);
+        }
+
+        private void DrawFeed(float h)
+        {
+            float y = h * 0.55f;
+            for (int i = FeedLines.Count - 1; i >= 0; i--)
+            {
+                var line = FeedLines[i];
+                float age = Time.time - line.Time;
+                if (age > 6f) continue;
+                float a = Mathf.Clamp01((6f - age) / 1f);
+                GUI.Label(new Rect(24, y, 500, 22), line.Text, new GUIStyle(label) { normal = { textColor = new Color(line.Color.r, line.Color.g, line.Color.b, a) } });
+                y -= 22;
+            }
+        }
+
+        private void DrawMerchant(float w, float h)
+        {
+            if (!NearMerchant()) return;
+
+            if (!shopOpen)
+            {
+                GUI.Label(new Rect(0, h / 2f + 40, w, 24), "Press G to trade with the merchant", center);
+                return;
+            }
+
+            float pw = 440, rowH = 38;
+            float ph = 70 + Shop.Items.Length * rowH;
+            float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
+            Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(Gold.r, Gold.g, Gold.b, 0.5f));
+            Rect(x, y, pw, ph, new Color(0.04f, 0.035f, 0.03f, 0.94f));
+            GUI.Label(new Rect(x + 14, y + 10, pw, 24), "THE MERCHANT", new GUIStyle(label) { normal = { textColor = Gold } });
+            GUI.Label(new Rect(x + 14, y + 30, pw - 28, 20), "\"Coin for courage, friend. It all spends the same down here.\"", small);
+            GUI.Label(new Rect(x + pw - 120, y + 10, 106, 24), progress.Gold.Value + " gold", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
+
+            for (int i = 0; i < Shop.Items.Length; i++)
+            {
+                var item = Shop.Items[i];
+                float ry = y + 60 + i * rowH;
+                string reason = progress.CannotBuyReason(i);
+
+                GUI.Label(new Rect(x + 14, ry, 200, 20), item.Name, label);
+                GUI.Label(new Rect(x + 14, ry + 17, 260, 18), item.Description, small);
+
+                GUI.enabled = reason == null;
+                if (GUI.Button(new Rect(x + pw - 124, ry + 3, 110, 28), reason ?? (item.Price + " gold")))
+                {
+                    progress.BuyRpc(i);
+                }
+                GUI.enabled = true;
+            }
+        }
+
+        private void DrawStatSheet(float w, float h)
+        {
+            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH;
+            float x = w - pw - 24, y = h / 2f - ph / 2f;
+            Rect(x, y, pw, ph, Panel);
+            GUI.Label(new Rect(x + 12, y + 10, pw, 22), "KNIGHT  -  potions this run", new GUIStyle(label) { normal = { textColor = Gold } });
+
+            for (int i = 0; i < Stats.Count; i++)
+            {
+                var stat = (StatType)i;
+                float ry = y + 40 + i * rowH;
+                GUI.Label(new Rect(x + 12, ry, 50, 22), Stats.ShortName(stat), label);
+                GUI.Label(new Rect(x + 60, ry, 60, 22), Mathf.RoundToInt(progress.Value(stat)).ToString(), label);
+
+                var c = LootInfo.PotionColor(stat);
+                int have = progress.PotionsApplied(stat);
+                for (int p = 0; p < StatBlock.PotionsToMaxStat; p++)
+                {
+                    Rect(x + 120 + p * 22, ry + 4, 16, 14, p < have ? c : new Color(c.r, c.g, c.b, 0.18f));
+                }
+                if (progress.IsMaxed(stat)) GUI.Label(new Rect(x + 236, ry, 60, 22), "MAX", new GUIStyle(small) { normal = { textColor = Gold } });
+            }
         }
 
         private void DrawEnemyBars()
