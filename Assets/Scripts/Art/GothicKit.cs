@@ -9,12 +9,20 @@ namespace Deepbound.Art
     /// </summary>
     public static class GothicKit
     {
+        /// <summary>A cosmetic dye in effect while a player's body is being built (null = the class's own).</summary>
+        public static Color? CloakOverride, TrimOverride;
+
         /// <summary>
         /// A cloak hung from the shoulders: a curved sheet behind the body that flares toward
         /// the hem, with gold clasps and (optionally) a trim band or a ragged, tattered hem.
         /// </summary>
         public static void Cloak(Transform torso, Color color, float length, float flare, Color? trim = null, bool tattered = false)
         {
+            if (CloakOverride.HasValue)
+            {
+                color = CloakOverride.Value;
+                trim = TrimOverride ?? trim;
+            }
             float top = 0.56f, bottom = top - length;
             var sheet = MeshKit.Part(torso, "Cloak", MeshKit.Lathe("cloak" + length.ToString("F2") + flare.ToString("F2"), new[]
             {

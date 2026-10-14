@@ -22,7 +22,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 - **If the user has the game open**, Windows locks the exe: set `DEEPBOUND_BUILD_PATH=Builds/DeepboundNext/Deepbound.exe`
   for the build, then `cp -rf Builds/DeepboundNext/. Builds/Deepbound/` once they close it. Check with
   `tasklist | grep -i deepbound`. Never kill their game to rebuild.
-- **Smoke test** (headless, the main regression check; it waits on events, so it is robust to new checks; ~54 PASS lines on host, 8 on client, zero FAIL):
+- **Smoke test** (headless, the main regression check; it waits on events, so it is robust to new checks; ~57 PASS lines on host, 8 on client, zero FAIL):
   ```
   cd Builds/Deepbound && L=$(cygpath -w "$PWD")
   ./Deepbound.exe -batchmode -nographics -host -smoketest 40 -logFile "$L\\host.log" & sleep 4
@@ -43,7 +43,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 |---|---|
 | `Art/` | `ArtLibrary` (materials by name), `MeshKit` (box/lathe/batcher), `CharacterArt` (every humanoid), `HumanoidRig` (procedural animation, `RigAction`), `Sfx` + `MusicSynth` (all audio synthesised), `HitFeedback`, `LightningBolt` |
 | `Combat/` | `Health` (server-authoritative HP, chill, damage modifiers, `ServerAnyDamaged`), `CombatQuery` (arc/circle/line-of-sight), `Arrows` (server-simulated projectiles + local visuals), `Telegraph`, `TrainingDummy`, `ICrowdControl` |
-| `Enemies/` | `EnemyBrain` base (chase, surround, wind-up, poise, backstab, elites), `Archer/Ghoul/Brute/Necromancer`, `BossBrain` base + `Gravewarden` (f1), `TideLich` (f2), `HollowKing` (f3), `Difficulty` (all scaling numbers) |
+| `Enemies/` | `EnemyBrain` base (chase, surround, wind-up, poise, backstab, elites), `Archer/Ghoul/Brute/Necromancer`, `BossBrain` base (shared jumpable shockwave: `TryShockwave`/`ShockwaveCooldown`) + `Gravewarden` (f1), `TideLich` (f2), `HollowKing` (f3), `Cardinal` (f4), `Difficulty` (all scaling numbers) |
 | `Player/` | `NetworkPlayer` (visuals, view models, spawn placement), `FirstPersonMotor`, `PlayerLife` (downed/revive, dodge, F-use, regen), `KnightKit`, `MageKit`, `IClassKit` |
 | `Progression/` | `PlayerProgress` (class, stats, weapon level/path, gear, sigils/ranks, relics, gold, embers, run stats), `Shop` (per-player stock via `Shop.For`) |
 | `Loot/` | `LootKind`, `LootTable`, `LootDrop` (shared pickups), `Relics`, `Gear`/`GearItem`/`GearDrop`/`GearEffects` (per-player armour + charm) |
@@ -114,9 +114,12 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
   marked/consecrated); any can be Elite, and every
   elite rolls an `EliteAffix` (Warded: -65% until stunned/chilled; Vampiric: heals from hits unless Marked; Volatile:
   bursts after death; Swift). Status tags (CHILL/MARK/STUN/TAUNT + affix) float over enemies (`EnemyBrain.Status`).
-- Bosses: Gravewarden (shield, charge into walls → dazed), Tide Lich (volleys, pools under everyone, blink),
-  Hollow King (cleave, slam, summons, enrage).
-- Dungeon: 3 themed floors, chests (side rooms), urns, powder barrels, spike traps, blood altars, merchant per
+- Bosses: Gravewarden (shield, charge into walls → dazed, Shield Quake), Tide Lich (volleys, pools under everyone, blink,
+  Tidal Surge below 60%), Hollow King (cleave, slam, summons, enrage, Crown's Fall), Pale Cardinal (floor 4, Black
+  Cathedral: Toll of the Bell shockwave, Judgement fire pillars under/around players, Wraith choir at 66/33%, Last Rites
+  below a third). Shockwaves (`BossBrain` waves + `Art/ShockwaveRing`) hit grounded players as the ring passes: jump them.
+  Bosses' visuals must never read as a pointed hood over a face (the Cardinal has a bare skull + two-peaked mitre).
+- Dungeon: 4 themed floors (`FloorsPerRun = 4`; Ossuary, Drowned Vaults, Hollow Throne, Black Cathedral), chests (side rooms), urns, powder barrels, spike traps, blood altars, merchant per
   start room. Encounters (`DungeonDirector.Encounters.cs`): sealed boss arenas (boss dormant until the party is
   in; `Portcullis` gates) and one ambush room per floor (two waves, then a chest). Feature rooms (`RoomFeature` in `DungeonLayout`, dressed in `DungeonBuilder`, run in `SetupFeatures`/`TickVault`/`TickFalls`): Great Hall (30x30 colonnade, chandeliers, banners), Chasm (pit with two railed bridges; falling below y=-3 costs 20% HP and `NetworkPlayer.RescueRpc` puts you at a doorway), Crypt (`Sarcophagus` wakes its occupant when you come within 4.5 m), Vault (side room behind a portcullis; three `Lever`s in the linked room must all be down within 15 s; 2 extra chests), Fountain (`Fountain`: one party-wide full heal/revive per floor). Rooms are bigger now: `CellSize` 40, combat 16-28 m. Difficulty Normal/Hard/Nightmare
   (`Difficulty.Settings`, host picks with [ ] at camp). Pings (`PlayerPings`, Z / middle mouse). Lobby "The Last Lantern" with dummies and carriage boarding.
@@ -134,11 +137,16 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
   rose window, moonlit sky, road of braziers and stalls (merchant, blacksmith/anvil), gambling tent (`DiceTable`
   bones game, `MysteryCoffer`), `Gong` Test of Might (session record), training yard with a DPS readout, `Shrine` (one-floor `Blessings`, cleared on return to camp), archery range
   (`RangeTarget`, motion is a function of server time, session tally).
+- **Cosmetics** (`Progression/Cosmetics.cs`, `UI/Wardrobe.cs`): Renown is banked once per run on the run summary
+  (`Cosmetics.AwardRun`, keyed by RunStartedAt; bosses/kills/combos/clear x difficulty) and spent at the camp tailor
+  (`Lobby.TailorSpot`, G) on cloak dyes, some gated on a boss felled. Saved in PlayerPrefs on each machine; the worn
+  dye syncs via `NetworkPlayer.CloakDye` (owner-write) and is applied by `GothicKit.CloakOverride` inside
+  `NetworkPlayer.BuildBody`. A turning mannequin wears the hovered dye. Tests set `Cosmetics.TestMode` so they never
+  touch the real save. `Dyes` indices are append-only.
 - 12 relics; 6 runes (`Loot/Runes.cs`, sockets at weapon +1/+3, set at the anvil); 12 gear pieces (6 armour, 6 charms) in 3 qualities + 3 boss Legendaries (35% per player per boss, `Gear.LegendaryOf`); 10 weapon paths; 10 rank-3 ability twists; run stats and summary (with COMBOS and a build line); pause-menu Guide page.
 
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes
-(Barbarian, Druid, Engineer) only if asked; Steam transport + lobbies/invites; cosmetics as the meta-progression and
-announcements on the run summary; proximity voice; UI Toolkit HUD replacing IMGUI; controller support / rebinding;
+(Barbarian, Druid, Engineer) only if asked; Steam transport + lobbies/invites; more cosmetic kinds (only cloak dyes so far); proximity voice; UI Toolkit HUD replacing IMGUI; controller support / rebinding;
 balance pass driven by the user's play feedback; GitHub remote (needs the user).

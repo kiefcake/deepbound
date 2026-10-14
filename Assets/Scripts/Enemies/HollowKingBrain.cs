@@ -53,8 +53,13 @@ namespace Deepbound.Enemies
             base.Update();
         }
 
+        // Crown's Fall: the King hammers the dais and a shockwave rolls out; faster when enraged.
+        protected override float ShockwaveCooldown => health.Fraction < 0.25f ? 7f : 11f;
+        protected override Color ShockwaveColor => new Color(0.45f, 0.75f, 1f);
+
         protected override bool ChooseSpecialAttack(float distanceToTarget)
         {
+            if (TryShockwave()) return true;
             if (!summoned66 && health.Fraction < 0.66f) { summoned66 = true; Summon(2 + scaledPlayers, 4f); return true; }
             if (!summoned33 && health.Fraction < 0.33f) { summoned33 = true; Summon(2 + scaledPlayers, 4f); return true; }
 

@@ -57,6 +57,16 @@ namespace Deepbound.World
                 StoneTint = new Color(0.78f, 0.76f, 0.92f), FloorTint = new Color(0.75f, 0.72f, 0.85f),
                 ArcherChance = 0.35f,
             },
+            new DungeonTheme
+            {
+                // The Black Cathedral: blood-red candlelight, black stone, a wine-dark murk.
+                Name = "The Black Cathedral",
+                Fog = new Color(0.03f, 0.012f, 0.016f), FogDensity = 0.036f,
+                AmbientSky = new Color(0.1f, 0.05f, 0.06f), AmbientEquator = new Color(0.07f, 0.035f, 0.04f), AmbientGround = new Color(0.04f, 0.02f, 0.02f),
+                TorchColor = new Color(1f, 0.45f, 0.3f), BrazierColor = new Color(0.95f, 0.3f, 0.2f),
+                StoneTint = new Color(0.62f, 0.55f, 0.58f), FloorTint = new Color(0.6f, 0.5f, 0.52f),
+                ArcherChance = 0.3f,
+            },
         };
 
         public static DungeonTheme ForDepth(int depth) => ByDepth[Mathf.Clamp(depth, 0, ByDepth.Length - 1)];

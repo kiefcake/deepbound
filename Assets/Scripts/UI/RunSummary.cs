@@ -10,10 +10,12 @@ namespace Deepbound.UI
     /// The end-of-run screen, shown to the whole party after a wipe or a victory, while the
     /// carriage waits to take them back to camp: how far you got, how long it took, and
     /// each player's kills, damage, gold, relics, revives and times downed. It is the
-    /// "one more run" moment — and, later, where cosmetic unlocks will be announced.
+    /// "one more run" moment, and where the Renown it earned is banked for the tailor.
     /// </summary>
     public class RunSummary : MonoBehaviour
     {
+        private int renownEarned;
+
         private void OnGUI()
         {
             UiSkin.Apply();
@@ -29,7 +31,7 @@ namespace Deepbound.UI
             int left = Mathf.Max(0, Mathf.CeilToInt((float)(d.PhaseEndsAt.Value - NetworkManager.Singleton.ServerTime.Time)));
 
             UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.6f));
-            float pw = Mathf.Min(900f, w - 60f), ph = 200f + PlayerLife.All.Count * 62f;
+            float pw = Mathf.Min(900f, w - 60f), ph = 236f + PlayerLife.All.Count * 62f;
             var panel = new Rect(w / 2f - pw / 2f, h / 2f - ph / 2f, pw, ph);
             UiSkin.Panel(panel, 0.95f);
 
@@ -73,6 +75,18 @@ namespace Deepbound.UI
                     GUI.Label(new Rect(panel.x + pw * cols[c], ty + 4, 160, 24), values[c], new GUIStyle(UiSkin.Body) { fontStyle = c == 0 ? FontStyle.Bold : FontStyle.Normal });
                 GUI.Label(new Rect(panel.x + pw * cols[0], ty + 28, pw - 48, 20), BuildLine(prog), new GUIStyle(UiSkin.Small) { fontSize = 12 });
                 ty += 62;
+            }
+
+            // Renown: this machine's share of the run, banked once, spent at the camp tailor.
+            var me = NetworkPlayer.Local != null ? NetworkPlayer.Local.GetComponent<PlayerProgress>() : null;
+            if (me != null)
+            {
+                int bosses = won ? DungeonDirector.FloorsPerRun : Mathf.Max(0, d.Floor.Value.y);
+                int got = Cosmetics.AwardRun(d.RunStartedAt.Value, bosses, me.Kills.Value, me.CombosTriggered.Value, won, d.DifficultyIndex.Value);
+                if (got >= 0) renownEarned = got;
+                GUI.Label(new Rect(panel.x, panel.yMax - 72, pw, 26),
+                    "RENOWN  +" + renownEarned + "      (" + Cosmetics.Renown + " to spend at the tailor in camp)",
+                    new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Gold } });
             }
 
             GUI.Label(new Rect(panel.x, panel.yMax - 40, pw, 24), "Returning to camp in " + left + "...",

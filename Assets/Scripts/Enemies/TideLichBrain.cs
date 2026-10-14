@@ -35,6 +35,10 @@ namespace Deepbound.Enemies
 
         public override string DisplayName => "The Tide Lich";
 
+        // Tidal Surge, once it is wounded: a wall of black water rolls out from it.
+        protected override float ShockwaveCooldown => health.Fraction < 0.6f ? 14f : 0f;
+        protected override Color ShockwaveColor => new Color(0.3f, 0.9f, 0.75f);
+
         private float nextVolley, nextPool, nextBlink;
         private float volleyAt = -1f;
         private float crowdedFor;
@@ -75,6 +79,7 @@ namespace Deepbound.Enemies
         protected override bool ChooseSpecialAttack(float distanceToTarget)
         {
             agent.stoppingDistance = preferredRange;
+            if (TryShockwave()) return true;
 
             if (!summoned && health.Fraction < 0.5f)
             {

@@ -37,6 +37,11 @@ namespace Deepbound.World
 
         public static readonly Vector3 ShrineSpot = Origin + new Vector3(15.5f, 0f, -4f);
 
+        /// <summary>The tailor, west of the merchant: cloak dyes for Renown (local, see <c>UI.Wardrobe</c>).</summary>
+        public static readonly Vector3 TailorSpot = Origin + new Vector3(-14.6f, 0f, -4f);
+        public static readonly Vector3 TailorFacing = Vector3.right;
+        public static readonly Vector3 MannequinSpot = Origin + new Vector3(-11.4f, 0f, -0.9f);
+
         /// <summary>The archery range in the north-east: three targets on rails, a shooting line at x = 10.</summary>
         public static readonly Vector3[] TargetSpots =
         {
@@ -288,6 +293,21 @@ namespace Deepbound.World
             forgeLight.intensity = 3f;
             Props.Barrel(d, o + new Vector3(6.8f, 0f, -3.2f));
             Props.WeaponRack(d, o + new Vector3(8.6f, 0f, -3.4f), Quaternion.Euler(0f, -90f, 0f));
+
+            // The tailor (far west): bolts of dyed cloth on the counter, more on a rack behind.
+            Stall(lights, d, TailorSpot + TailorFacing * 2.4f, TailorFacing, new Color(0.3f, 0.08f, 0.32f), new Color(0.8f, 0.72f, 0.55f));
+            var bolts = new[] { new Color(0.42f, 0.04f, 0.05f), new Color(0.05f, 0.07f, 0.18f), new Color(0.26f, 0.07f, 0.36f), new Color(0.82f, 0.79f, 0.7f), new Color(0.04f, 0.2f, 0.2f) };
+            for (int i = 0; i < bolts.Length; i++)
+            {
+                var bolt = MeshKit.Part(lights, "ClothBolt" + i, MeshKit.Cylinder(0.12f, 0.12f, 0.7f, 8), Mat.Cloth,
+                    TailorSpot + TailorFacing * 1.5f + new Vector3(0f, 1.02f, -1.1f + i * 0.5f), new Vector3(0f, 0f, 90f));
+                ArtLibrary.Tint(bolt.GetComponent<Renderer>(), bolts[i]);
+                var hung = MeshKit.Part(lights, "HungCloth" + i, MeshKit.Box(new Vector3(0.05f, 1.3f, 0.42f)), Mat.Cloth,
+                    TailorSpot - TailorFacing * 0.9f + new Vector3(0f, 1.25f, -1.1f + i * 0.5f));
+                ArtLibrary.Tint(hung.GetComponent<Renderer>(), bolts[(i + 2) % bolts.Length]);
+            }
+            d.AddBox(TailorSpot - TailorFacing * 0.9f + new Vector3(0f, 2f, 0f), new Vector3(0.06f, 0.06f, 2.8f), Mat.Wood);
+            d.AddBox(MannequinSpot + new Vector3(0f, 0.05f, 0f), new Vector3(0.9f, 0.1f, 0.9f), Mat.Wood);
 
             // The Test of Might's frame (the gong itself is a networked object).
             var g = GongSpot;

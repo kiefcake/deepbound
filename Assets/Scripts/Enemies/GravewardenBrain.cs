@@ -97,8 +97,13 @@ namespace Deepbound.Enemies
             base.Update();
         }
 
+        // Shield Quake: the Warden slams its shield and the floor ripples out.
+        protected override float ShockwaveCooldown => 13f;
+        protected override Color ShockwaveColor => new Color(1f, 0.55f, 0.2f);
+
         protected override bool ChooseSpecialAttack(float distanceToTarget)
         {
+            if (TryShockwave()) return true;
             if (Time.time < nextCharge || distanceToTarget < 4.5f) return false;
             if (!CombatQuery.ClearLine(transform.position + Vector3.up * 1.2f, target)) return false;
 

@@ -79,6 +79,7 @@ namespace Deepbound.Loot
         /// <summary>The legendary a boss can drop, by its type.</summary>
         public static GearId LegendaryOf(Enemies.BossBrain boss) => boss is Enemies.GravewardenBrain ? GearId.WardensBulwark
             : boss is Enemies.TideLichBrain ? GearId.LichPhylactery
+            : boss is Enemies.CardinalBrain ? (Random.value < 0.5f ? GearId.WardensBulwark : GearId.HollowCrown)
             : GearId.HollowCrown;
 
         public static readonly string[] QualityNames = { "Worn", "Fine", "Masterwork", "Legendary" };

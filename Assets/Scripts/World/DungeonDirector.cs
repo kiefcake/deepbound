@@ -39,7 +39,7 @@ namespace Deepbound.World
     /// </summary>
     public partial class DungeonDirector : NetworkBehaviour
     {
-        public const int FloorsPerRun = 3;
+        public const int FloorsPerRun = 4;
         // Long enough to read the run summary before returning to camp.
         private const float DescendDelay = 8f, WipeDelay = 14f, CompleteDelay = 18f, BoardingDelay = 3f;
         private const int LobbyDepth = -1;
@@ -107,7 +107,7 @@ namespace Deepbound.World
         }
         [SerializeField] private NetworkObject trapPrefab;
         [SerializeField] private NetworkObject lootPrefab;
-        /// <summary>One boss per floor, by depth: the Gravewarden, the Tide Lich, the Hollow King.</summary>
+        /// <summary>One boss per floor, by depth: the Gravewarden, the Tide Lich, the Hollow King, the Pale Cardinal.</summary>
         [SerializeField] private NetworkObject[] bossPrefabs;
         [SerializeField] private NetworkObject dummyPrefab;
 
@@ -440,7 +440,8 @@ namespace Deepbound.World
             bossObj.Spawn(destroyWithScene: true);
             boss = bossObj.GetComponent<BossBrain>();
             // The Lich raises archers from the water; everyone else raises swordsmen.
-            boss.SetMinionPrefab(boss is TideLichBrain && archerPrefab != null ? archerPrefab : skeletonPrefab);
+            boss.SetMinionPrefab(boss is TideLichBrain && archerPrefab != null ? archerPrefab
+                : boss is CardinalBrain && wraithPrefab != null ? wraithPrefab : skeletonPrefab);
             boss.ServerScaleBoss(players, layout.Depth);
             boss.Dormant = portcullisPrefab != null; // waits on its throne until the party arrives
             spawned.Add(bossObj);

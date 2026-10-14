@@ -25,6 +25,9 @@ namespace Deepbound.Networking
     /// </summary>
     public class SmokeTest : MonoBehaviour
     {
+        // Tests never touch the player's real wardrobe or Renown.
+        private void Awake() => Progression.Cosmetics.TestMode = true;
+
         public void Run(float seconds)
         {
             StartCoroutine(Sequence(seconds));
@@ -606,6 +609,16 @@ namespace Deepbound.Networking
                     }
                 }
 
+                // The tailor: wearing a dye rebuilds the body with it.
+                var npT = local.GetComponent<NetworkPlayer>();
+                var rigBefore = npT.Rig;
+                npT.CloakDye.Value = 3;
+                yield return new WaitForSeconds(0.3f);
+                var cloakR = npT.Rig != null ? npT.Rig.GetComponentsInChildren<Renderer>().FirstOrDefault(r => r.name == "Cloak") : null;
+                Log("tailor dye", "dye " + npT.CloakDye.Value + ", rebuilt " + (npT.Rig != rigBefore) + ", cloak " + (cloakR != null) + ", renown for a clear " +
+                    Progression.Cosmetics.RenownFor(4, 120, 30, true, 1), npT.Rig != rigBefore && cloakR != null && Progression.Cosmetics.RenownFor(4, 120, 30, true, 1) > 0);
+                npT.CloakDye.Value = 0;
+
                 // Board: floor two, same run.
                 dc.ServerBoard();
                 float boardBy = Time.time + 10f;
@@ -767,6 +780,23 @@ namespace Deepbound.Networking
             yield return null;
             yield return Shot(dir, "1b_merchant_panel");
             local.GetComponent<PlayerProgress>().ServerResetRun();
+
+            // The tailor: the stall, the mannequin in a dye, and the wardrobe panel.
+            var tFrom = Lobby.MannequinSpot + new Vector3(3.1f, 0.1f, -0.3f);
+            var tLook = Lobby.MannequinSpot + new Vector3(-1.5f, 0f, -1.5f) - tFrom;
+            tLook.y = 0f;
+            lobbyMotor.Teleport(tFrom, Quaternion.LookRotation(tLook));
+            local.GetComponent<NetworkPlayer>().CloakDye.Value = 2;
+            yield return new WaitForSeconds(0.6f);
+            yield return Shot(dir, "1c_tailor");
+            var tClose = Lobby.TailorSpot + Lobby.TailorFacing * 1.8f + Vector3.up * 0.1f;
+            lobbyMotor.Teleport(tClose, Quaternion.LookRotation(Lobby.MannequinSpot - tClose));
+            yield return new WaitForSeconds(0.3f);
+            local.GetComponent<UI.Wardrobe>().DebugOpen(true);
+            yield return null;
+            yield return Shot(dir, "1c_tailor_panel");
+            local.GetComponent<UI.Wardrobe>().DebugOpen(false);
+            local.GetComponent<NetworkPlayer>().CloakDye.Value = 0;
 
             var anvilObj = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
             if (anvilObj != null)
@@ -1027,7 +1057,7 @@ namespace Deepbound.Networking
             var motor = local.GetComponent<FirstPersonMotor>();
             var hp = local.GetComponent<Health>();
 
-            for (int depth = 0; depth < DungeonDirector.FloorsPerRun - 1; depth++)
+            for (int depth = 0; depth < DungeonDirector.FloorsPerRun; depth++)
             {
                 DungeonDirector.Instance.ServerDebugStartFloor(depth);
                 yield return new WaitForSeconds(2f);
@@ -1051,6 +1081,8 @@ namespace Deepbound.Networking
                     if (look.sqrMagnitude > 0.1f) local.transform.rotation = Quaternion.LookRotation(look);
                     if (i % 3 == 1) yield return Shot(dir, "boss" + (depth + 1) + "_" + i);
                     // Walk toward the Lich mid-test, to provoke the blink.
+                    // Wound it halfway through, to see the late-fight phases (summons, surges, enrage).
+                    if (i == 7) boss.GetComponent<Health>().ServerSetFraction(0.3f);
                     if (depth == 1 && i == 6) motor.Teleport(boss.transform.position + boss.transform.forward * 2f, local.transform.rotation);
                 }
             }

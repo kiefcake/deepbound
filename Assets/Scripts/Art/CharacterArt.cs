@@ -584,7 +584,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -595,7 +595,7 @@ namespace Deepbound.Art
         {
             if (kind == SkeletonKind.Wraith) return BuildWraith(root);
             bool king = kind == SkeletonKind.King;
-            float s = king ? 1.75f : kind == SkeletonKind.Gravewarden ? 2.0f : kind == SkeletonKind.Lich ? 1.45f
+            float s = king ? 1.75f : kind == SkeletonKind.Gravewarden ? 2.0f : kind == SkeletonKind.Lich ? 1.45f : kind == SkeletonKind.Cardinal ? 1.7f
                 : kind == SkeletonKind.Brute ? 1.45f : kind == SkeletonKind.Ghoul ? 0.92f : kind == SkeletonKind.Necromancer ? 1.05f : 1f;
 
             var visual = MeshKit.Pivot(root, "SkeletonVisual", Vector3.zero);
@@ -604,6 +604,7 @@ namespace Deepbound.Art
             rig.GlowColor = king ? new Color(0.4f, 0.75f, 1f)
                 : kind == SkeletonKind.Gravewarden ? new Color(1f, 0.55f, 0.15f)
                 : kind == SkeletonKind.Lich ? new Color(0.3f, 1f, 0.7f)
+                : kind == SkeletonKind.Cardinal ? new Color(0.8f, 0.55f, 0.22f)
                 : kind == SkeletonKind.Ghoul ? new Color(0.6f, 1f, 0.2f)
                 : kind == SkeletonKind.Necromancer ? new Color(0.75f, 0.35f, 1f)
                 : kind == SkeletonKind.Brute ? new Color(1f, 0.4f, 0.1f)
@@ -680,6 +681,42 @@ namespace Deepbound.Art
             else if (kind == SkeletonKind.Gravewarden)
             {
                 BuildGravewarden(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>());
+            }
+            else if (kind == SkeletonKind.Cardinal)
+            {
+                // Crimson vestments, a gold-rayed orb, a bare skull face under a broad two-peaked
+                // mitre: flat front and back plates with a gold cross, never a pointed hood.
+                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.42f, 0.05f, 0.08f), new Color(1f, 0.8f, 0.35f), false);
+                var hood = rig.Head.Find("Hood");
+                if (hood != null) Object.DestroyImmediate(hood.gameObject);
+                var ivory = new Color(0.88f, 0.84f, 0.74f);
+                MeshKit.Part(rig.Head, "MitreBand", MeshKit.Cylinder(0.15f, 0.14f, 0.07f, 12), Mat.Gold, new Vector3(0f, 0.2f, 0.01f));
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var plate = MeshKit.Pivot(rig.Head, side > 0 ? "MitreFront" : "MitreBack", new Vector3(0f, 0.26f, 0.01f + side * 0.05f));
+                    plate.localRotation = Quaternion.Euler(-side * 7f, 0f, 0f);
+                    var body = MeshKit.Part(plate, "Plate", MeshKit.Box(new Vector3(0.26f, 0.16f, 0.02f)), Mat.Cloth, new Vector3(0f, 0.08f, 0f));
+                    ArtLibrary.Tint(body.GetComponent<Renderer>(), ivory);
+                    var peak = MeshKit.Part(plate, "Peak", MeshKit.Box(new Vector3(0.13f, 0.13f, 0.02f)), Mat.Cloth, new Vector3(0f, 0.16f, 0f), new Vector3(0f, 0f, 45f));
+                    ArtLibrary.Tint(peak.GetComponent<Renderer>(), ivory);
+                    MeshKit.Part(plate, "Trim", MeshKit.Box(new Vector3(0.27f, 0.025f, 0.025f)), Mat.Gold, new Vector3(0f, 0.01f, 0f));
+                    if (side > 0)
+                    {
+                        MeshKit.Part(plate, "CrossV", MeshKit.Box(new Vector3(0.03f, 0.16f, 0.025f)), Mat.Gold, new Vector3(0f, 0.11f, 0.005f));
+                        MeshKit.Part(plate, "CrossH", MeshKit.Box(new Vector3(0.11f, 0.03f, 0.025f)), Mat.Gold, new Vector3(0f, 0.13f, 0.005f));
+                    }
+                }
+                for (int side = -1; side <= 1; side += 2)
+                {
+                    var lappet = MeshKit.Part(rig.Head, "Lappet", MeshKit.Box(new Vector3(0.05f, 0.26f, 0.015f)), Mat.Cloth, new Vector3(side * 0.07f, 0.06f, -0.15f), new Vector3(10f, 0f, 0f));
+                    ArtLibrary.Tint(lappet.GetComponent<Renderer>(), new Color(0.5f, 0.06f, 0.08f));
+                }
+                MeshKit.Part(rig.Torso, "PectoralV", MeshKit.Box(new Vector3(0.035f, 0.14f, 0.02f)), Mat.Gold, new Vector3(0f, 0.42f, 0.23f));
+                MeshKit.Part(rig.Torso, "PectoralH", MeshKit.Box(new Vector3(0.09f, 0.03f, 0.02f)), Mat.Gold, new Vector3(0f, 0.45f, 0.23f));
+                var stoleCol = new Color(0.85f, 0.65f, 0.25f);
+                var stole = MeshKit.Part(rig.Torso, "CardinalStole", MeshKit.Box(new Vector3(0.12f, 0.95f, 0.03f)), Mat.Cloth, new Vector3(0f, 0.12f, 0.2f));
+                ArtLibrary.Tint(stole.GetComponent<Renderer>(), stoleCol);
+                GothicKit.Cloak(rig.Torso, new Color(0.3f, 0.03f, 0.05f), 1.3f, 0.3f, stoleCol);
             }
             else if (kind == SkeletonKind.Lich)
             {

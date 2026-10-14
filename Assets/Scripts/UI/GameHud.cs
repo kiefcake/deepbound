@@ -88,7 +88,7 @@ namespace Deepbound.UI
         private static readonly Color Gold = new Color(0.92f, 0.74f, 0.36f);
         private static readonly Color HealthRed = new Color(0.78f, 0.12f, 0.1f);
 
-        private static readonly string[] FloorNames = { "The Ossuary", "The Drowned Vaults", "The Hollow Throne" };
+        private static readonly string[] FloorNames = { "The Ossuary", "The Drowned Vaults", "The Hollow Throne", "The Black Cathedral" };
 
         public void Init(NetworkPlayer owner)
         {
@@ -107,7 +107,7 @@ namespace Deepbound.UI
         private void LateUpdate()
         {
             // Esc closes the shop or class screen first; only a second Esc pauses.
-            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || CharacterSelect.Open;
+            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || CharacterSelect.Open || Wardrobe.Open;
         }
 
         private void OnDestroy()
@@ -343,7 +343,7 @@ namespace Deepbound.UI
                 scrap.ScrapRpc(player.NetworkObject);
             if (!near) shopOpen = false;
             if (anvil == null) forgeOpen = false;
-            MenuOpen = shopOpen || forgeOpen || CharacterSelect.Open || PauseMenu.Open;
+            MenuOpen = shopOpen || forgeOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
             statsHeld = DebugShowStats || (keyboard != null && keyboard.tabKey.isPressed);
 
             // The host sets difficulty at camp.

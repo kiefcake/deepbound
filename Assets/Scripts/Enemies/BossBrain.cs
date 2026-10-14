@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Deepbound.Art;
 using Deepbound.Combat;
 using Deepbound.Loot;
@@ -55,6 +56,75 @@ namespace Deepbound.Enemies
 
         protected bool Casting => Time.time < castUntil;
 
+        // ---- Shockwave: an expanding ring that hits grounded players as it passes. ----
+        protected virtual float ShockwaveCooldown => 0f;   // 0 = this boss has none
+        protected virtual Color ShockwaveColor => new Color(1f, 0.6f, 0.3f);
+        protected virtual float ShockwaveDamage => damage * 0.9f;
+        private float nextShockwave = -1f, shockwaveAt = -1f;
+
+        private class Wave { public Vector3 Origin; public float Start, Speed, Max, Damage; public readonly HashSet<ulong> Hit = new HashSet<ulong>(); }
+        private readonly List<Wave> waves = new List<Wave>();
+
+        /// <summary>Server: start a shockwave wind-up if one is due. Call from ChooseSpecialAttack.</summary>
+        protected bool TryShockwave()
+        {
+            if (ShockwaveCooldown <= 0f) return false;
+            if (nextShockwave < 0f) nextShockwave = Time.time + ShockwaveCooldown * 0.6f;
+            if (Time.time < nextShockwave) return false;
+            nextShockwave = Time.time + ShockwaveCooldown;
+            shockwaveAt = Time.time + 1.1f;
+            castUntil = shockwaveAt + 0.3f;
+            busyUntil = castUntil;
+            PlayActionRpc(RigAction.Slam, 1.3f);
+            CircleTelegraphRpc(transform.position, 2.5f, 1.1f, false);
+            return true;
+        }
+
+        /// <summary>Server: launch a wave now (bosses may also call this from their own attacks).</summary>
+        protected void LaunchShockwave(Vector3 origin, float speed, float max, float dmg)
+        {
+            waves.Add(new Wave { Origin = origin, Start = Time.time, Speed = speed, Max = max, Damage = dmg });
+            Debug.Log("[Boss] " + DisplayName + " shockwave");
+            ShockwaveFxRpc(origin, speed, max, ShockwaveColor);
+        }
+
+        private void TickShockwaves()
+        {
+            if (shockwaveAt > 0f && Time.time >= shockwaveAt)
+            {
+                shockwaveAt = -1f;
+                LaunchShockwave(transform.position, 9f, 16f, ShockwaveDamage);
+            }
+            for (int i = waves.Count - 1; i >= 0; i--)
+            {
+                var w = waves[i];
+                float r = (Time.time - w.Start) * w.Speed;
+                if (r > w.Max + 1f) { waves.RemoveAt(i); continue; }
+                foreach (var p in PlayerLife.All)
+                {
+                    if (p == null || !p.Targetable || w.Hit.Contains(p.NetworkObjectId)) continue;
+                    var d = p.transform.position - w.Origin;
+                    // Airborne players clear the wave: jump it.
+                    if (d.y > 0.45f) continue;
+                    d.y = 0f;
+                    if (Mathf.Abs(d.magnitude - r) > 0.8f) continue;
+                    w.Hit.Add(p.NetworkObjectId);
+                    Debug.Log("[Boss] shockwave hit " + p.name);
+                    p.Health.ServerDamage(w.Damage, w.Origin + Vector3.up, NetworkObjectId);
+                    KnockPlayer(p.Health, d.normalized * 7f + Vector3.up * 3f);
+                }
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ShockwaveFxRpc(Vector3 origin, float speed, float max, Color color)
+        {
+            ShockwaveRing.Spawn(origin, speed, max, color);
+            Sfx.Play(Sound.Slam, origin + Vector3.up, 1f, 0.6f);
+            var local = NetworkPlayer.Local;
+            if (local != null && Vector3.Distance(local.transform.position, origin) < 18f) local.AddShake(0.35f);
+        }
+
         /// <summary>
         /// Server: asleep on the throne until the arena seals (or it is hit). The director
         /// wakes it; damage wakes it too, so a party cannot plink it from the doorway.
@@ -66,6 +136,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (IsServer && !IsDead) TickShockwaves();
             if (IsServer && !IsDead && Dormant)
             {
                 if (agent.enabled && agent.isOnNavMesh) agent.isStopped = true;

@@ -49,6 +49,9 @@ namespace Deepbound.Player
         public static NetworkPlayer Local { get; private set; }
 
         public HumanoidRig Rig { get; private set; }
+
+        /// <summary>The cloak dye this player wears (<see cref="Cosmetics.Dyes"/>); the owner sets it from its saved wardrobe.</summary>
+        public readonly NetworkVariable<byte> CloakDye = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         public Color SlotColor => SlotColors[(int)(OwnerClientId % (ulong)SlotColors.Length)];
         public Camera Camera => playerCamera;
 
@@ -90,6 +93,8 @@ namespace Deepbound.Player
             name = SlotNames[slot] + (OwnerClientId >= (ulong)SlotNames.Length ? " " + (OwnerClientId / (ulong)SlotNames.Length + 1) : "");
             BuildVisuals();
             progress.ClassId.OnValueChanged += (_, __) => BuildVisuals();
+            CloakDye.OnValueChanged += (_, __) => BuildVisuals();
+            if (IsOwner) CloakDye.Value = (byte)Cosmetics.Equipped;
             progress.WeaponLevel.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket0.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket1.OnValueChanged += (_, __) => RefreshWeaponGlow();
@@ -107,6 +112,7 @@ namespace Deepbound.Player
                 gameObject.AddComponent<CharacterSelect>().Init(this);
                 gameObject.AddComponent<Minimap>().Init(this);
                 gameObject.AddComponent<RunSummary>();
+                gameObject.AddComponent<Wardrobe>().Init(this);
                 gameObject.AddComponent<PauseMenu>();
                 health.Hurt += OnLocalHurt;
 
@@ -129,11 +135,7 @@ namespace Deepbound.Player
 
             var cls = progress.ClassId.Value;
             bool mage = cls == ClassId.Mage, cleric = cls == ClassId.Cleric, rogue = cls == ClassId.Rogue, ranger = cls == ClassId.Ranger;
-            Rig = mage ? CharacterArt.BuildMage(transform, SlotColor)
-                : cleric ? CharacterArt.BuildCleric(transform, SlotColor)
-                : rogue ? CharacterArt.BuildRogue(transform, SlotColor)
-                : ranger ? CharacterArt.BuildRanger(transform, SlotColor)
-                : CharacterArt.BuildKnight(transform, SlotColor);
+            Rig = BuildBody(cls, transform, SlotColor, CloakDye.Value);
 
             if (!IsOwner)
             {
@@ -168,6 +170,27 @@ namespace Deepbound.Player
                 viewAnim = new ViewModelAnimator(viewModel);
             }
             RefreshWeaponGlow();
+        }
+
+        /// <summary>A class's third-person body, in a cloak dye (also used by the tailor's mannequin).</summary>
+        public static HumanoidRig BuildBody(ClassId cls, Transform root, Color slot, int dye)
+        {
+            var d = Cosmetics.Get(dye);
+            GothicKit.CloakOverride = d?.Cloak;
+            GothicKit.TrimOverride = d?.Trim;
+            try
+            {
+                return cls == ClassId.Mage ? CharacterArt.BuildMage(root, slot)
+                    : cls == ClassId.Cleric ? CharacterArt.BuildCleric(root, slot)
+                    : cls == ClassId.Rogue ? CharacterArt.BuildRogue(root, slot)
+                    : cls == ClassId.Ranger ? CharacterArt.BuildRanger(root, slot)
+                    : CharacterArt.BuildKnight(root, slot);
+            }
+            finally
+            {
+                GothicKit.CloakOverride = null;
+                GothicKit.TrimOverride = null;
+            }
         }
 
         /// <summary>

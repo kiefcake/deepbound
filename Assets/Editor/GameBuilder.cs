@@ -53,6 +53,7 @@ namespace Deepbound.EditorTools
             var warden = BuildEnemyPrefab("Gravewarden", EnemyType.Gravewarden, loot);
             var lich = BuildEnemyPrefab("TideLich", EnemyType.TideLich, loot);
             var king = BuildEnemyPrefab("SkeletonKing", EnemyType.HollowKing, loot);
+            var cardinal = BuildEnemyPrefab("PaleCardinal", EnemyType.Cardinal, loot);
             var ghoul = BuildEnemyPrefab("Ghoul", EnemyType.Ghoul, loot);
             var brute = BuildEnemyPrefab("BoneBrute", EnemyType.Brute, loot);
             var necro = BuildEnemyPrefab("Necromancer", EnemyType.Necromancer, loot);
@@ -62,7 +63,7 @@ namespace Deepbound.EditorTools
             var altar = BuildObjectPrefab<BloodAltar>("BloodAltar", new Vector3(1.4f, 0.9f, 1.0f));
             var trap = BuildObjectPrefab<SpikeTrap>("SpikeTrap", Vector3.zero);
             var breakable = BuildBreakablePrefab();
-            var director = BuildDirectorPrefab(skeleton, archer, dummy, new[] { warden, lich, king }, ghoul, brute, necro);
+            var director = BuildDirectorPrefab(skeleton, archer, dummy, new[] { warden, lich, king, cardinal }, ghoul, brute, necro);
             WireDirectorObjects(director, chest, altar, breakable, trap, loot);
             var gate = BuildPortcullisPrefab();
             var lever = BuildObjectPrefab<Lever>("Lever", new Vector3(0.5f, 1.8f, 0.3f));
@@ -94,7 +95,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -200,11 +201,11 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal }
 
         private static GameObject BuildEnemyPrefab(string name, EnemyType type, GameObject loot)
         {
-            float scale = type == EnemyType.HollowKing ? 1.75f : type == EnemyType.Gravewarden ? 2.0f : type == EnemyType.TideLich ? 1.45f
+            float scale = type == EnemyType.HollowKing ? 1.75f : type == EnemyType.Gravewarden ? 2.0f : type == EnemyType.TideLich ? 1.45f : type == EnemyType.Cardinal ? 1.7f
                 : type == EnemyType.Brute ? 1.45f : type == EnemyType.Ghoul ? 0.92f : 1f;
             var root = new GameObject(name);
 
@@ -236,6 +237,7 @@ namespace Deepbound.EditorTools
                 case EnemyType.Brute: brain = root.AddComponent<BruteBrain>(); break;
                 case EnemyType.Necromancer: brain = root.AddComponent<NecromancerBrain>(); break;
                 case EnemyType.Wraith: brain = root.AddComponent<WraithBrain>(); break;
+                case EnemyType.Cardinal: brain = root.AddComponent<CardinalBrain>(); break;
                 default: brain = root.AddComponent<EnemyBrain>(); break;
             }
 
@@ -284,6 +286,11 @@ namespace Deepbound.EditorTools
                     Kind(Art.CharacterArt.SkeletonKind.Lich);
                     Set("maxHealth", 950f); Set("damage", 18f); Set("defense", 2f); Set("moveSpeed", 3.4f);
                     Set("attackRange", 2.8f); Set("recovery", 1.0f); Set("aggroRange", 22f); Set("leashRange", 60f);
+                    break;
+                case EnemyType.Cardinal:
+                    Kind(Art.CharacterArt.SkeletonKind.Cardinal);
+                    Set("maxHealth", 1550f); Set("damage", 32f); Set("defense", 6f); Set("moveSpeed", 2.9f);
+                    Set("attackRange", 3.4f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 60f);
                     break;
                 case EnemyType.HollowKing:
                     Kind(Art.CharacterArt.SkeletonKind.King);
