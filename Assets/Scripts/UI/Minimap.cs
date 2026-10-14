@@ -112,12 +112,18 @@ namespace Deepbound.UI
 
             Icon(ToMap(layout.MerchantPosition), "$", UiSkin.Gold, large ? 18 : 13);
 
-            // Loot worth walking to: relics.
+            // Loot worth walking to: relics, sigils, runes, and your own gear.
             foreach (var drop in LootDrop.All)
             {
-                if (drop.Kind.Value != LootKind.Relic) continue;
-                Dot(ToMap(drop.transform.position), Relics.GemColor((Relic)drop.Amount.Value), 7f);
+                var k = drop.Kind.Value;
+                if (k == LootKind.Relic) Dot(ToMap(drop.transform.position), Relics.GemColor((Relic)drop.Amount.Value), 7f);
+                else if (k == LootKind.Sigil) Dot(ToMap(drop.transform.position), LootInfo.SigilColor, 6f);
+                else if (k == LootKind.Rune) Dot(ToMap(drop.transform.position), Runes.Color((Rune)drop.Amount.Value), 6f);
             }
+            var me = player.GetComponent<Progression.PlayerProgress>();
+            foreach (var i in World.Interactable.All)
+                if (i is GearDrop g && g.For.Value == me.OwnerClientId && !g.Item.Value.IsEmpty)
+                    Dot(ToMap(g.transform.position), Gear.QualityColor(g.Item.Value.Quality), 6f);
 
             // Enemies within radar range of you.
             foreach (var hp in Health.All)
