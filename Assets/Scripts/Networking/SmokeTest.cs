@@ -41,7 +41,7 @@ namespace Deepbound.Networking
 
         private IEnumerator Sequence(float seconds)
         {
-            yield return new WaitForSeconds(seconds * 0.25f);
+            yield return new WaitForSeconds(4f);
 
             var net = NetworkManager.Singleton;
             if (net.IsServer)
@@ -123,12 +123,34 @@ namespace Deepbound.Networking
                 Log("rogue ambush", "hidden " + wasHidden + " -> " + me.GetComponent<PlayerLife>().Hidden.Value + ", opener stab dealt " + opener.ToString("F0") + " (plain ~13)",
                     wasHidden && !me.GetComponent<PlayerLife>().Hidden.Value && opener > 30f);
 
+                // Ranger: three full draws mark the dummy; a trap set on it springs.
+                progressMe.ClassId.Value = Classes.ClassId.Ranger;
+                yield return new WaitForSeconds(0.5f);
+                var ranger = me.GetComponent<RangerKit>();
+                dummy.ServerSetFraction(1f);
+                me.GetComponent<FirstPersonMotor>().Teleport(dummy.transform.position + Vector3.right * 6f, Quaternion.LookRotation(Vector3.left));
+                yield return new WaitForSeconds(0.2f);
+                for (int i = 0; i < 3; i++)
+                {
+                    var o = me.transform.position + Vector3.up * 1.6f;
+                    ranger.ServerShoot(o, dummy.Center - o, 1f);
+                    yield return new WaitForSeconds(0.4f);
+                }
+                Log("ranger mark", "marked " + dummy.Marked.Value + ", dummy " + dummy.Current.Value.ToString("F0") + " / " + dummy.Max.Value.ToString("F0"), dummy.Marked.Value);
+                ranger.ServerPlaceTrap(dummy.transform.position);
+                yield return new WaitForSeconds(0.3f);
+                var trap = FindObjectsByType<BearTrap>(FindObjectsSortMode.None).FirstOrDefault();
+                Log("ranger trap", "trap " + (trap != null) + ", sprung " + (trap != null && trap.Sprung.Value), trap != null && trap.Sprung.Value);
+
                 progressMe.ClassId.Value = Classes.ClassId.Mage;
                 yield return new WaitForSeconds(0.3f);
                 DungeonDirector.Instance.ServerStartRun();
             }
 
-            yield return new WaitForSeconds(seconds * 0.15f);
+            // Wait for the dungeon itself, not a guess at how long the lobby checks take.
+            float waitUntil = Time.time + 30f;
+            while ((DungeonDirector.Layout == null || NetworkPlayer.Local == null) && Time.time < waitUntil) yield return null;
+            yield return new WaitForSeconds(2f);
 
             var layout = DungeonDirector.Layout;
             Log("role", net.IsHost ? "host" : net.IsClient ? "client" : "none", net.IsHost || net.IsConnectedClient);
@@ -213,7 +235,7 @@ namespace Deepbound.Networking
                 motor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
             }
 
-            yield return new WaitForSeconds(seconds * 0.1f);
+            yield return new WaitForSeconds(1f);
 
             if (net.IsServer && boss != null)
             {
@@ -223,7 +245,11 @@ namespace Deepbound.Networking
                 Log("boss kill -> phase", phase.ToString(), phase == RunPhase.FloorCleared);
             }
 
-            yield return new WaitForSeconds(seconds * 0.25f);
+            // Wait until the party has descended to the next floor, so the wipe is not
+            // undone by the descent reviving everyone.
+            float descendBy = Time.time + 20f;
+            while (net.IsServer && DungeonDirector.Instance.Phase.Value != RunPhase.Exploring && Time.time < descendBy) yield return null;
+            yield return new WaitForSeconds(1f);
 
             // Wipe the party and check the run summary has something to show.
             if (net.IsServer && local != null)
@@ -237,7 +263,7 @@ namespace Deepbound.Networking
                     d.Phase.Value == RunPhase.Wiped && prog.Kills.Value >= 6 && prog.Downs.Value >= 1 && d.RunEndedAt.Value > d.RunStartedAt.Value);
             }
 
-            yield return new WaitForSeconds(seconds * 0.25f - 1f);
+            yield return new WaitForSeconds(2f);
             Log("final phase", DungeonDirector.Instance != null ? DungeonDirector.Instance.Phase.Value.ToString() : "no director", true);
             Debug.Log("[Smoke] done");
             Application.Quit(0);
@@ -299,6 +325,11 @@ namespace Deepbound.Networking
             yield return Shot(dir, "0d_mage_frostbolt");
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "0e_mage_chilled_dummy");
+            // The Ranger at full draw.
+            prog.ClassId.Value = Classes.ClassId.Ranger;
+            yield return new WaitForSeconds(0.5f);
+            yield return Shot(dir, "0f_ranger_bow");
+
             prog.ClassId.Value = Classes.ClassId.Knight;
             yield return new WaitForSeconds(0.3f);
 

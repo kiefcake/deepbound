@@ -46,7 +46,8 @@ namespace Deepbound.EditorTools
             EnsureFolder(PrefabDir);
 
             var loot = BuildLootPrefab();
-            var player = BuildPlayerPrefab();
+            var bearTrap = BuildObjectPrefab<BearTrap>("BearTrap", Vector3.zero);
+            var player = BuildPlayerPrefab(bearTrap);
             var skeleton = BuildEnemyPrefab("Skeleton", EnemyType.Skeleton, loot);
             var archer = BuildEnemyPrefab("SkeletonArcher", EnemyType.Archer, loot);
             var warden = BuildEnemyPrefab("Gravewarden", EnemyType.Gravewarden, loot);
@@ -63,7 +64,7 @@ namespace Deepbound.EditorTools
             var director = BuildDirectorPrefab(skeleton, archer, dummy, new[] { warden, lich, king }, ghoul, brute, necro);
             WireDirectorObjects(director, chest, altar, breakable, trap, loot);
 
-            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -110,7 +111,7 @@ namespace Deepbound.EditorTools
         // Prefabs
         // ------------------------------------------------------------------
 
-        private static GameObject BuildPlayerPrefab()
+        private static GameObject BuildPlayerPrefab(GameObject bearTrap)
         {
             // Origin at the feet: spawn points and teleports mean "stand here".
             var root = new GameObject("Player");
@@ -132,6 +133,7 @@ namespace Deepbound.EditorTools
             root.AddComponent<MageKit>();
             root.AddComponent<ClericKit>();
             root.AddComponent<RogueKit>();
+            root.AddComponent<RangerKit>().SetTrapPrefab(bearTrap.GetComponent<NetworkObject>());
             root.AddComponent<KnockbackReceiver>();
 
             var pivot = new GameObject("CameraPivot").transform;

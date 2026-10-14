@@ -125,10 +125,11 @@ namespace Deepbound.Player
             viewAnim = null;
 
             var cls = progress.ClassId.Value;
-            bool mage = cls == ClassId.Mage, cleric = cls == ClassId.Cleric, rogue = cls == ClassId.Rogue;
+            bool mage = cls == ClassId.Mage, cleric = cls == ClassId.Cleric, rogue = cls == ClassId.Rogue, ranger = cls == ClassId.Ranger;
             Rig = mage ? CharacterArt.BuildMage(transform, SlotColor)
                 : cleric ? CharacterArt.BuildCleric(transform, SlotColor)
                 : rogue ? CharacterArt.BuildRogue(transform, SlotColor)
+                : ranger ? CharacterArt.BuildRanger(transform, SlotColor)
                 : CharacterArt.BuildKnight(transform, SlotColor);
 
             if (!IsOwner) return;
@@ -138,6 +139,11 @@ namespace Deepbound.Player
             {
                 viewModel = CharacterArt.BuildMageViewModel(playerCamera.transform, SlotColor);
                 viewAnim = new MageViewAnimator(viewModel, new Color(1f, 0.5f, 0.15f), new Color(0.45f, 0.8f, 1f));
+            }
+            else if (ranger)
+            {
+                viewModel = CharacterArt.BuildRangerViewModel(playerCamera.transform, SlotColor);
+                viewAnim = new BowViewAnimator(viewModel);
             }
             else if (rogue)
             {
@@ -218,6 +224,7 @@ namespace Deepbound.Player
             motor.Frozen = life.Downed.Value;
             motor.CameraDrop = life.Downed.Value ? 0.9f : 0f;
 
+            viewAnim?.SetCharge(ActiveKit.Charge);
             viewAnim?.Update(knight.Blocking.Value, life.Downed.Value, motor.IsSprinting);
 
             // Damage shake: a brief, decaying jitter on the camera — felt more than seen.
@@ -252,6 +259,48 @@ namespace Deepbound.Player
             void Bash();
             void BlockImpact();
             void Cast(bool frost);
+            void SetCharge(float charge);
+        }
+
+        /// <summary>
+        /// The Ranger's hands: the draw hand pulls back to the cheek as the bow charges,
+        /// snapping forward on release; a full draw makes the bow tremble.
+        /// </summary>
+        private class BowViewAnimator : IViewAnim
+        {
+            private readonly CharacterArt.ViewModel vm;
+            private readonly Vector3 drawRest, bowRest;
+            private readonly Quaternion bowRot;
+            private float charge, release = -10f, bob;
+
+            public BowViewAnimator(CharacterArt.ViewModel vm)
+            {
+                this.vm = vm;
+                drawRest = vm.SwordPivot.localPosition;
+                bowRest = vm.ShieldPivot.localPosition;
+                bowRot = vm.ShieldPivot.localRotation;
+            }
+
+            public void SetCharge(float c) => charge = c;
+            public void Swing(float windup, float rest, float side) { }
+            public void Bash() { }
+            public void BlockImpact() { }
+            public void Cast(bool full) => release = Time.time;
+
+            public void Update(bool blocking, bool downed, bool sprinting)
+            {
+                bob += Time.deltaTime * (sprinting ? 11f : 0f);
+                var run = sprinting ? new Vector3(Mathf.Sin(bob) * 0.02f, Mathf.Abs(Mathf.Cos(bob)) * 0.025f, 0f) : Vector3.zero;
+                var down = downed ? new Vector3(0f, -0.4f, -0.1f) : Vector3.zero;
+                float snap = Time.time - release < 0.15f ? 1f - (Time.time - release) / 0.15f : 0f;
+                float tremble = charge >= 1f ? Mathf.Sin(Time.time * 60f) * 0.003f : 0f;
+
+                // Raised to aim while drawing, lowered at rest.
+                var aimLift = new Vector3(0.12f, 0.1f, 0f) * Mathf.Clamp01(charge * 3f);
+                vm.ShieldPivot.localPosition = bowRest + run + down + aimLift + new Vector3(tremble, tremble, -0.03f * snap);
+                vm.ShieldPivot.localRotation = bowRot;
+                vm.SwordPivot.localPosition = drawRest + run + down + aimLift + new Vector3(0f, 0f, -0.22f * charge + 0.08f * snap);
+            }
         }
 
         /// <summary>
@@ -279,6 +328,7 @@ namespace Deepbound.Player
             public void Bash() { }
             public void BlockImpact() { }
             public void Cast(bool frost) => throwAt = Time.time;
+            public void SetCharge(float charge) { }
 
             public void Update(bool blocking, bool downed, bool sprinting)
             {
@@ -331,6 +381,7 @@ namespace Deepbound.Player
 
             public void Swing(float windup, float rest, float side) { }
             public void Bash() { }
+            public void SetCharge(float charge) { }
             public void BlockImpact() => impactStart = Time.time;
 
             public void Cast(bool frost)
@@ -398,6 +449,7 @@ namespace Deepbound.Player
             public void Bash() => bashStart = Time.time;
             public void BlockImpact() => impactStart = Time.time;
             public void Cast(bool frost) { }
+            public void SetCharge(float charge) { }
 
             public void Update(bool blocking, bool downed, bool sprinting)
             {

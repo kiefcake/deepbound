@@ -43,6 +43,12 @@ namespace Deepbound.Combat
         /// fades when its time runs out. Synced so the bubble and the HUD bar show it.
         /// </summary>
         public readonly NetworkVariable<float> Shield = new NetworkVariable<float>();
+
+        /// <summary>Hunter's Mark (the Ranger): takes +25% damage from everyone. Synced for the marker icon.</summary>
+        public readonly NetworkVariable<bool> Marked = new NetworkVariable<bool>();
+        public const float MarkedMultiplier = 1.25f;
+        private float markedUntil;
+        private Transform markIcon;
         private float shieldUntil;
         private GameObject shieldBubble;
 
@@ -142,6 +148,7 @@ namespace Deepbound.Combat
             if (!IsServer || !IsAlive || amount <= 0f) return 0f;
 
             float dealt = Mathf.Max(amount - Defense, amount * 0.15f);
+            if (Marked.Value) dealt *= MarkedMultiplier;
             foreach (var modifier in IncomingModifiers) dealt = modifier(dealt, attackerPosition);
             if (dealt <= 0f) return 0f;
 
@@ -171,6 +178,13 @@ namespace Deepbound.Combat
             Chilled.Value = true;
         }
 
+        public void ServerMark(float seconds)
+        {
+            if (!IsServer || !IsAlive) return;
+            markedUntil = Mathf.Max(markedUntil, Time.time + seconds);
+            Marked.Value = true;
+        }
+
         /// <returns>True if the target was chilled (and no longer is).</returns>
         public bool ServerConsumeChill()
         {
@@ -192,6 +206,15 @@ namespace Deepbound.Combat
         {
             if (IsServer && Chilled.Value && (Time.time >= chilledUntil || !IsAlive)) Chilled.Value = false;
             if (IsServer && Shield.Value > 0f && (Time.time >= shieldUntil || !IsAlive)) Shield.Value = 0f;
+            if (IsServer && Marked.Value && (Time.time >= markedUntil || !IsAlive)) Marked.Value = false;
+
+            bool marked = Marked.Value && IsAlive;
+            if (marked && markIcon == null) markIcon = BuildMarkIcon();
+            if (markIcon != null)
+            {
+                if (markIcon.gameObject.activeSelf != marked) markIcon.gameObject.SetActive(marked);
+                if (marked) markIcon.Rotate(0f, 120f * Time.deltaTime, 0f, Space.World);
+            }
 
             bool shielded = Shield.Value > 0f && IsAlive;
             if (shielded && shieldBubble == null) shieldBubble = BuildShieldBubble();
@@ -200,6 +223,18 @@ namespace Deepbound.Combat
             bool show = Chilled.Value && IsAlive;
             if (show && chillAura == null) chillAura = BuildChillAura();
             if (chillAura != null && chillAura.activeSelf != show) chillAura.SetActive(show);
+        }
+
+        /// <summary>A spinning red diamond over the head: "everyone hit this one".</summary>
+        private Transform BuildMarkIcon()
+        {
+            var icon = Art.MeshKit.Part(transform, "HuntersMark", Art.MeshKit.Lathe("markGem", new[]
+            {
+                new Vector2(0f, -0.16f), new Vector2(0.12f, 0f), new Vector2(0f, 0.16f),
+            }, 4, true), Art.Mat.Glow, Vector3.up * (centerHeight * 2f + 0.55f));
+            Art.ArtLibrary.SetGlow(icon.GetComponent<Renderer>(), new Color(1f, 0.15f, 0.1f) * 2.2f);
+            icon.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return icon.transform;
         }
 
         /// <summary>A faint golden sphere around the body: visible to the party, not in the owner's face.</summary>

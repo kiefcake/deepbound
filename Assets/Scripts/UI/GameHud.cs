@@ -172,18 +172,14 @@ namespace Deepbound.UI
             Rect(w / 2f - 230, y - 6, 460, counting ? 62 : 44, Panel);
             GUI.Label(new Rect(0, y, w, 24), "Stand in the golden circle by the carriage to descend   (" + aboard + " / " + total + " aboard)", center);
 
-            // Class picker: number keys, lobby only.
+            // Current class and how to change it (the class screen scales to any roster;
+            // number keys still work as a shortcut).
             float cy = y - 64;
             Rect(w / 2f - 230, cy - 6, 460, 52, Panel);
             var current = progress.ClassId.Value;
-            string row = "";
-            for (int i = 0; i < ClassDefinition.ById.Length; i++)
-            {
-                var name = ClassDefinition.ById[i].Name;
-                row += (i > 0 ? "      " : "") + "[" + (i + 1) + "] " + ((ClassId)i == current ? "> " + name.ToUpperInvariant() + " <" : name);
-            }
-            GUI.Label(new Rect(0, cy, w, 22), row, new GUIStyle(center) { normal = { textColor = Gold } });
-            GUI.Label(new Rect(0, cy + 22, w, 20), ClassDefinition.Pitch(current) + "   (B: class screen)", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(0, cy, w, 22), "You are the " + ClassDefinition.For(current).Name.ToUpperInvariant() + "   ·   press B to change class",
+                new GUIStyle(center) { normal = { textColor = Gold } });
+            GUI.Label(new Rect(0, cy + 22, w, 20), ClassDefinition.Pitch(current), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
             if (counting)
             {
                 int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
@@ -280,6 +276,14 @@ namespace Deepbound.UI
         {
             if (life.Downed.Value) return;
             var c = new Vector2(w / 2f, h / 2f);
+
+            // Charge meter (bow draw) under the crosshair; gold when full.
+            float charge = player.ActiveKit.Charge;
+            if (charge > 0f)
+            {
+                Rect(c.x - 31, c.y + 17, 62, 6, new Color(0f, 0f, 0f, 0.7f));
+                Rect(c.x - 30, c.y + 18, 60 * charge, 4, charge >= 1f ? Gold : new Color(0.8f, 0.85f, 0.7f));
+            }
             Rect(c.x - 1.5f, c.y - 1.5f, 3, 3, new Color(1f, 1f, 1f, 0.9f));
             var tick = new Color(1f, 1f, 1f, 0.45f);
             Rect(c.x - 11, c.y - 0.5f, 6, 1, tick);
@@ -421,7 +425,11 @@ namespace Deepbound.UI
             var style = new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 1f, 1f, a * 0.85f) } };
             GUI.Label(new Rect(w - 330, 262, 310, 150),
                 "WASD move  ·  Shift sprint  ·  Space jump\n" +
-                (progress.ClassId.Value == ClassId.Rogue
+                (progress.ClassId.Value == ClassId.Ranger
+                    ? "LMB hold to draw, release to shoot\n" +
+                      "3 hits mark a target (+25% for all)  ·  RMB leap back\n" +
+                      "Q  Bear Trap  ·  E  Volley at the crosshair\n"
+                    : progress.ClassId.Value == ClassId.Rogue
                     ? "LMB Twin Daggers  ·  RMB Fan of Knives\n" +
                       "Hit from BEHIND: +50% more (Ambush)\n" +
                       "Q  Shadowstep  ·  E  Smoke Bomb (vanish)\n"

@@ -380,6 +380,97 @@ namespace Deepbound.Art
                 new Vector3(0f, 0.33f * scale, 0f), new Vector3(0f, 45f, 0f), new Vector3(scale, scale, scale * 0.3f));
         }
 
+        /// <summary>
+        /// The Ranger: a forest-green hooded cloak over leathers, a quiver on the back and a
+        /// recurve bow in the left hand (the same bow the skeleton archers carry, kept bright).
+        /// </summary>
+        public static HumanoidRig BuildRanger(Transform root, Color teamColor)
+        {
+            var visual = MeshKit.Pivot(root, "RangerVisual", Vector3.zero);
+            var rig = visual.gameObject.AddComponent<HumanoidRig>();
+            var green = new Color(0.25f, 0.38f, 0.22f);
+            var leather = new Color(0.42f, 0.32f, 0.22f);
+
+            rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.94f, 0f));
+            BuildLegs(rig, 0.11f, 0.94f, Mat.Leather, Mat.Leather, 0.15f);
+            rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", Vector3.zero);
+            var jerkin = MeshKit.Part(rig.Torso, "Jerkin", MeshKit.Lathe("rogueChest", new[]
+            {
+                new Vector2(0.18f, 0f), new Vector2(0.2f, 0.18f), new Vector2(0.22f, 0.4f), new Vector2(0.19f, 0.55f), new Vector2(0.08f, 0.6f),
+            }, 8), Mat.Leather, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.78f));
+            ArtLibrary.Tint(jerkin.GetComponent<Renderer>(), leather);
+            var cloak = MeshKit.Part(rig.Torso, "Cloak", MeshKit.Box(new Vector3(0.5f, 0.85f, 0.02f)), Mat.Cloth, new Vector3(0f, 0.15f, -0.16f), new Vector3(8f, 0f, 0f));
+            ArtLibrary.Tint(cloak.GetComponent<Renderer>(), green);
+            var sash = MeshKit.Part(rig.Torso, "Sash", MeshKit.Box(new Vector3(0.08f, 0.6f, 0.36f)), Mat.Cloth, new Vector3(0f, 0.3f, 0f), new Vector3(0f, 0f, 32f));
+            ArtLibrary.Tint(sash.GetComponent<Renderer>(), teamColor);
+            MeshKit.Part(rig.Torso, "Quiver", MeshKit.Cylinder(0.07f, 0.08f, 0.55f, 6), Mat.Leather, new Vector3(0.12f, 0.25f, -0.18f), new Vector3(-15f, 0f, 20f));
+            for (int i = 0; i < 4; i++)
+            {
+                var f = MeshKit.Part(rig.Torso, "Fletch" + i, MeshKit.Box(new Vector3(0.015f, 0.12f, 0.04f)), Mat.Cloth,
+                    new Vector3(0.14f + i * 0.02f, 0.8f, -0.27f + i * 0.015f), new Vector3(-15f, 0f, 20f));
+                ArtLibrary.Tint(f.GetComponent<Renderer>(), teamColor);
+            }
+
+            rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.6f, 0f));
+            MeshKit.Part(rig.Head, "Face", MeshKit.Ball(0.12f, 8, 6), Mat.Dark, new Vector3(0f, 0.13f, 0.01f));
+            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.014f, 6, 4), Mat.Glow, new Vector3(-0.04f, 0.15f, 0.11f));
+            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.014f, 6, 4), Mat.Glow, new Vector3(0.04f, 0.15f, 0.11f));
+            var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("rangerHood", new[]
+            {
+                new Vector2(0.16f, -0.04f), new Vector2(0.18f, 0.1f), new Vector2(0.15f, 0.24f), new Vector2(0.06f, 0.36f), new Vector2(0f, 0.42f),
+            }, 9, true, 270f), Mat.Cloth, new Vector3(0f, 0.04f, -0.03f), new Vector3(14f, 225f, 0f));
+            ArtLibrary.Tint(hood.GetComponent<Renderer>(), green);
+
+            rig.ArmR = BuildSleeveArm(rig.Torso, "ArmR", 1f, leather);
+            rig.ArmL = BuildSleeveArm(rig.Torso, "ArmL", -1f, leather);
+
+            var bowGrip = MeshKit.Pivot(rig.ArmL, "BowGrip", new Vector3(0f, -0.6f, 0.02f));
+            for (int i = -3; i <= 3; i++)
+            {
+                float a = i * 13f * Mathf.Deg2Rad;
+                var p = new Vector3(0f, Mathf.Sin(a) * 0.55f, -(1f - Mathf.Cos(a)) * 0.55f);
+                MeshKit.Part(bowGrip, "Limb" + i, MeshKit.Box(new Vector3(0.03f, 0.14f, 0.035f)), Mat.Wood, p, new Vector3(-i * 13f, 0f, 0f));
+            }
+            MeshKit.Part(bowGrip, "Grip", MeshKit.Box(new Vector3(0.04f, 0.1f, 0.045f)), Mat.Leather, Vector3.zero);
+            MeshKit.Part(bowGrip, "String", MeshKit.Box(new Vector3(0.006f, 0.7f, 0.006f)), Mat.Bone, new Vector3(0f, 0f, -0.122f));
+            rig.OffhandItem = bowGrip;
+
+            rig.GlowColor = new Color(0.5f, 1f, 0.5f);
+            rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
+            rig.StrideLength = 1.35f;
+            return rig;
+        }
+
+        /// <summary>First-person Ranger: the bow held out in the left hand, an arrow nocked on it.</summary>
+        public static ViewModel BuildRangerViewModel(Transform camera, Color teamColor)
+        {
+            var root = MeshKit.Pivot(camera, "ViewModel", Vector3.zero);
+            var leather = new Color(0.42f, 0.32f, 0.22f);
+
+            var bowHand = MeshKit.Pivot(root, "BowHand", new Vector3(-0.22f, -0.22f, 0.62f), new Vector3(0f, 8f, -12f));
+            var sleeve = MeshKit.Part(bowHand, "Sleeve", MeshKit.Cylinder(0.065f, 0.08f, 0.4f, 7), Mat.Leather, new Vector3(0f, -0.04f, -0.24f), new Vector3(-100f, 0f, 0f));
+            ArtLibrary.Tint(sleeve.GetComponent<Renderer>(), leather);
+            MeshKit.Part(bowHand, "Glove", MeshKit.Ball(0.055f, 6, 4), Mat.Leather, Vector3.zero);
+            // Bow upright in view: limbs along Y, curving away from you (+Z).
+            for (int i = -3; i <= 3; i++)
+            {
+                float a = i * 14f * Mathf.Deg2Rad;
+                var p = new Vector3(0f, Mathf.Sin(a) * 0.42f, (1f - Mathf.Cos(a)) * 0.42f);
+                MeshKit.Part(bowHand, "Limb" + i, MeshKit.Box(new Vector3(0.022f, 0.11f, 0.028f)), Mat.Wood, p, new Vector3(i * 14f, 0f, 0f));
+            }
+            var arrow = MeshKit.Pivot(bowHand, "NockedArrow", Vector3.zero);
+            MeshKit.Part(arrow, "Shaft", MeshKit.Box(new Vector3(0.012f, 0.012f, 0.6f)), Mat.Wood, new Vector3(0.02f, 0f, -0.2f));
+            MeshKit.Part(arrow, "Head", MeshKit.Lathe("arrowHead", new[] { new Vector2(0.02f, 0f), new Vector2(0f, 0.06f) }, 4), Mat.Steel, new Vector3(0.02f, 0f, 0.1f), new Vector3(90f, 0f, 0f));
+
+            var drawHand = MeshKit.Pivot(root, "DrawHand", new Vector3(-0.18f, -0.24f, 0.42f), new Vector3(0f, -10f, 0f));
+            var sleeveR = MeshKit.Part(drawHand, "Sleeve", MeshKit.Cylinder(0.065f, 0.08f, 0.38f, 7), Mat.Leather, new Vector3(0.05f, -0.04f, -0.22f), new Vector3(-100f, 0f, 0f));
+            ArtLibrary.Tint(sleeveR.GetComponent<Renderer>(), leather);
+            MeshKit.Part(drawHand, "Glove", MeshKit.Ball(0.05f, 6, 4), Mat.Leather, Vector3.zero);
+
+            foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return new ViewModel { Root = root, SwordPivot = drawHand, ShieldPivot = bowHand };
+        }
+
         /// <summary>First-person Rogue: a reversed-grip dagger in each hand.</summary>
         public static ViewModel BuildRogueViewModel(Transform camera, Color teamColor)
         {

@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Deepbound.Classes
 {
     /// <summary>APPEND ONLY: synced as a byte and will be saved with cosmetics.</summary>
-    public enum ClassId : byte { Knight = 0, Mage = 1, Cleric = 2, Rogue = 3 }
+    public enum ClassId : byte { Knight = 0, Mage = 1, Cleric = 2, Rogue = 3, Ranger = 4 }
 
     /// <summary>
     /// A class's base stats and potion pools. Plain data; <see cref="Build"/> turns it into
@@ -75,10 +75,27 @@ namespace Deepbound.Classes
             hp: 175, mp: 80, att: 24, def: 2, spd: 58, dex: 60, vit: 30, wis: 20,
             hpPool: 110, mpPool: 40, attPool: 25, defPool: 10, spdPool: 15, dexPool: 25, vitPool: 20, wisPool: 15);
 
-        public static readonly ClassDefinition[] ById = { Knight, Mage, Cleric, Rogue };
+        /// <summary>
+        /// The Ranger: marksman and controller. Long range, good DEX, light armour; it makes
+        /// the party's damage better (Hunter's Mark) and keeps enemies where it wants them.
+        /// </summary>
+        public static readonly ClassDefinition Ranger = Make("Ranger", "Marksman / Control",
+            hp: 180, mp: 90, att: 24, def: 2, spd: 52, dex: 55, vit: 30, wis: 25,
+            hpPool: 110, mpPool: 40, attPool: 25, defPool: 10, spdPool: 20, dexPool: 25, vitPool: 20, wisPool: 15);
+
+        public static readonly ClassDefinition[] ById = { Knight, Mage, Cleric, Rogue, Ranger };
 
         /// <summary>One line per kit slot, for the character select screen.</summary>
-        public static (string key, string name, string desc)[] Kit(ClassId id) => id == ClassId.Rogue
+        public static (string key, string name, string desc)[] Kit(ClassId id) => id == ClassId.Ranger
+            ? new[]
+            {
+                ("PASSIVE", "Hunter's Mark", "Three hits on one enemy mark it: +25% damage from everyone."),
+                ("LMB", "Longbow", "Hold to draw, release to loose. A full draw pierces."),
+                ("RMB", "Disengage", "Leap backwards out of reach."),
+                ("Q", "Bear Trap", "Set a trap at your crosshair that snaps and holds an enemy."),
+                ("E", "Volley", "Rain arrows on the circle at your crosshair."),
+            }
+            : id == ClassId.Rogue
             ? new[]
             {
                 ("PASSIVE", "Ambush", "Hits from behind deal a further +50%."),
@@ -118,12 +135,15 @@ namespace Deepbound.Classes
         public static string Difficulty(ClassId id) => id == ClassId.Mage ? "Hard - fragile, rewards combos and positioning"
             : id == ClassId.Cleric ? "Medium - watch your party, not just the enemy"
             : id == ClassId.Rogue ? "Hard - all about getting behind things"
+            : id == ClassId.Ranger ? "Medium - keep your distance, aim your draws"
             : "Easy - forgiving, holds the line";
 
         public static ClassDefinition For(ClassId id) => ById[Mathf.Clamp((int)id, 0, ById.Length - 1)];
 
         /// <summary>One line for the class picker.</summary>
-        public static string Pitch(ClassId id) => id == ClassId.Rogue
+        public static string Pitch(ClassId id) => id == ClassId.Ranger
+            ? "Ranger: mark the target, trap the path, rain arrows. The party hits harder with you."
+            : id == ClassId.Rogue
             ? "Rogue: vanish, step behind them, strike. Deadly from behind, fragile in front."
             : id == ClassId.Cleric
             ? "Cleric: heal, shield and raise the fallen. The reason the party lives."

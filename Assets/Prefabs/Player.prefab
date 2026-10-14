@@ -19,6 +19,7 @@ GameObject:
   - component: {fileID: 2423411484194795684}
   - component: {fileID: 6161924381247032627}
   - component: {fileID: 345429375793335220}
+  - component: {fileID: 5009049371056740726}
   - component: {fileID: 1113284408795371079}
   - component: {fileID: 6646583751451298640}
   - component: {fileID: 3883377760670736657}
@@ -236,6 +237,20 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.RogueKit
   ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &5009049371056740726
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 539545562963582333}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: f970dbce4385c4d4c8e04bb5e98f46c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.RangerKit
+  ShowTopMostFoldoutHeaderGroup: 1
+  trapPrefab: {fileID: 1901387081852984573, guid: 320c118f5f5d79b4aa56a965223261ad, type: 3}
 --- !u!114 &1113284408795371079
 MonoBehaviour:
   m_ObjectHideFlags: 0

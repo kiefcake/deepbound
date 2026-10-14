@@ -32,5 +32,8 @@ namespace Deepbound.Player
         float Resource { get; }
         float ResourceMax { get; }
         void FillAbilities(List<AbilityView> into);
+
+        /// <summary>0-1 while charging something (the Ranger's bow draw); the HUD shows a meter.</summary>
+        float Charge => 0f;
     }
 }

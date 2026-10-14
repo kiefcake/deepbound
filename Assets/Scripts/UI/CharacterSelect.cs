@@ -85,6 +85,7 @@ namespace Deepbound.UI
             int n = ClassDefinition.ById.Length;
             stage = new GameObject("CharacterSelectStage");
             previews = new RenderTexture[n];
+            previewCams = new Camera[n];
             turntables = new Transform[n];
 
             for (int i = 0; i < n; i++)
@@ -105,6 +106,7 @@ namespace Deepbound.UI
                 var rig = (ClassId)i == ClassId.Mage ? CharacterArt.BuildMage(table, color)
                     : (ClassId)i == ClassId.Cleric ? CharacterArt.BuildCleric(table, color)
                     : (ClassId)i == ClassId.Rogue ? CharacterArt.BuildRogue(table, color)
+                    : (ClassId)i == ClassId.Ranger ? CharacterArt.BuildRanger(table, color)
                     : CharacterArt.BuildKnight(table, color);
                 rig.Blocking = (ClassId)i == ClassId.Knight;
                 turntables[i] = table;
@@ -113,12 +115,13 @@ namespace Deepbound.UI
                 AddLight(spot + new Vector3(-2f, 3f, -2.5f), new Color(1f, 0.7f, 0.45f), 6f);
                 AddLight(spot + new Vector3(2.2f, 2.5f, 1.5f), new Color(0.45f, 0.6f, 1f), 4f);
 
-                previews[i] = new RenderTexture(1024, 400, 24) { name = "ClassPreview" + i };
+                previews[i] = new RenderTexture(480, 600, 24) { name = "ClassPreview" + i };
                 var cam = new GameObject("PreviewCam" + i).AddComponent<Camera>();
                 cam.transform.SetParent(stage.transform, false);
-                cam.transform.SetPositionAndRotation(spot + new Vector3(0f, 1.2f, -3.8f), Quaternion.Euler(2f, 0f, 0f));
+                cam.transform.SetPositionAndRotation(spot + new Vector3(0f, 1.05f, -5.2f), Quaternion.Euler(1f, 0f, 0f));
                 cam.fieldOfView = 36f;
                 cam.targetTexture = previews[i];
+                previewCams[i] = cam;
                 cam.clearFlags = CameraClearFlags.SolidColor;
                 cam.backgroundColor = new Color(0.03f, 0.03f, 0.04f);
                 cam.gameObject.AddComponent<UniversalAdditionalCameraData>().renderPostProcessing = true;
@@ -140,81 +143,108 @@ namespace Deepbound.UI
         // Drawing
         // ------------------------------------------------------------------
 
+        private int viewing = -1;
+        private Camera[] previewCams;
+
         private void OnGUI()
         {
             if (!Open || progress == null) return;
             float w = Screen.width, h = Screen.height;
             GUI.depth = -10;
+            int n = ClassDefinition.ById.Length;
+            if (viewing < 0 || viewing >= n) viewing = (int)progress.ClassId.Value;
+
+            // Only the class being looked at renders its preview.
+            if (previewCams != null)
+                for (int i = 0; i < previewCams.Length; i++) previewCams[i].enabled = i == viewing;
 
             UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.82f));
-            UiSkin.Shadowed(new Rect(0, h * 0.04f, w, 50), "CHOOSE YOUR CLASS", new GUIStyle(UiSkin.Title) { fontSize = 40 });
-            GUI.Label(new Rect(0, h * 0.04f + 48, w, 24), "Your choice lasts the run. You can change it at camp with B.",
+            UiSkin.Shadowed(new Rect(0, h * 0.03f, w, 50), "CHOOSE YOUR CLASS", new GUIStyle(UiSkin.Title) { fontSize = 40 });
+            GUI.Label(new Rect(0, h * 0.03f + 48, w, 24), "Your choice lasts the run. You can change it at camp with B.",
                 new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14 });
 
-            int n = ClassDefinition.ById.Length;
-            float cardW = Mathf.Min(460f, (w - 60f - (n - 1) * 20f) / n), cardH = Mathf.Min(h * 0.8f, 740f);
-            float total = n * cardW + (n - 1) * 20f;
-            float x0 = w / 2f - total / 2f, y0 = h * 0.15f;
+            float top = h * 0.14f, bottom = h * 0.95f;
+            float listW = Mathf.Min(300f, w * 0.26f);
+            float total = Mathf.Min(1180f, w - 60f);
+            float left = w / 2f - total / 2f;
 
-            for (int i = 0; i < n; i++) DrawCard(new Rect(x0 + i * (cardW + 20f), y0, cardW, cardH), (ClassId)i);
+            // --- Class list (scales to any number of classes) ---
+            float rowH = Mathf.Min(64f, (bottom - top - (n - 1) * 8f) / n);
+            for (int i = 0; i < n; i++)
+            {
+                var id = (ClassId)i;
+                var def = ClassDefinition.For(id);
+                var r = new Rect(left, top + i * (rowH + 8f), listW, rowH);
+                bool selected = progress.ClassId.Value == id;
+                bool view = viewing == i;
+                if (selected) UiSkin.Rect(new Rect(r.x - 3, r.y - 3, r.width + 6, r.height + 6), new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, 0.9f));
+                UiSkin.Rect(r, view ? new Color(0.22f, 0.17f, 0.1f, 0.95f) : new Color(0.06f, 0.055f, 0.05f, 0.92f));
+                GUI.Label(new Rect(r.x + 14, r.y + 6, r.width - 20, 28), def.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Heading) { fontSize = 20 });
+                GUI.Label(new Rect(r.x + 14, r.y + 32, r.width - 20, 20), def.Role + (selected ? "   — chosen" : ""), UiSkin.Small);
+                if (r.Contains(Event.current.mousePosition)) viewing = i;
+                if (GUI.Button(r, GUIContent.none, GUIStyle.none)) Choose(id);
+            }
+
+            // --- Detail panel for the class being viewed ---
+            var panel = new Rect(left + listW + 24f, top, total - listW - 24f, bottom - top);
+            DrawDetail(panel, (ClassId)viewing);
         }
 
-        private void DrawCard(Rect r, ClassId id)
+        private void Choose(ClassId id)
+        {
+            if (progress.ClassId.Value == id)
+            {
+                SetOpen(false);
+                return;
+            }
+            progress.ClassId.Value = id;
+            Sfx.Play2D(Sound.Purchase, 0.6f);
+        }
+
+        private void DrawDetail(Rect r, ClassId id)
         {
             var def = ClassDefinition.For(id);
             bool selected = progress.ClassId.Value == id;
-
-            if (selected) UiSkin.Rect(new Rect(r.x - 5, r.y - 5, r.width + 10, r.height + 10), new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, 0.85f));
             UiSkin.Panel(r, 0.95f);
 
-            // 3D preview.
-            // With many classes the cards narrow; give the text the height instead.
-            float previewH = r.height * (ClassDefinition.ById.Length >= 4 ? 0.2f : 0.3f);
-            var previewRect = new Rect(r.x + 12, r.y + 12, r.width - 24, previewH);
-            if (previews != null && previews[(int)id] != null) GUI.DrawTexture(previewRect, previews[(int)id], ScaleMode.ScaleToFit);
+            // Preview on the left of the panel, details on the right.
+            float previewW = r.width * 0.42f;
+            var previewRect = new Rect(r.x + 14, r.y + 14, previewW, r.height - 28 - 60);
+            if (previews != null && previews[(int)id] != null) GUI.DrawTexture(previewRect, previews[(int)id], ScaleMode.ScaleAndCrop);
 
-            float y = previewRect.yMax + 8;
-            GUI.Label(new Rect(r.x + 16, y, r.width - 32, 30), def.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Heading) { fontSize = 26 });
-            GUI.Label(new Rect(r.x + 16, y + 30, r.width - 32, 18), def.Role, UiSkin.Small);
-            GUI.Label(new Rect(r.x + 16, y + 46, r.width - 32, 32), ClassDefinition.Difficulty(id), new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Italic, fontSize = 11 });
-            y += 82;
+            float x = previewRect.xMax + 22, cw = r.xMax - x - 18, y = r.y + 16;
+            GUI.Label(new Rect(x, y, cw, 40), def.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Heading) { fontSize = 34 });
+            GUI.Label(new Rect(x, y + 42, cw, 20), def.Role, UiSkin.Body);
+            GUI.Label(new Rect(x, y + 64, cw, 20), ClassDefinition.Difficulty(id), new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Italic });
+            GUI.Label(new Rect(x, y + 86, cw, 40), ClassDefinition.Pitch(id), UiSkin.Small);
+            y += 130;
 
-            // Base stats as bars, on a common scale so classes compare at a glance.
             for (int s = 0; s < Stats.Count; s++)
             {
                 var stat = (StatType)s;
                 float v = def.BaseStats[s];
                 float max = stat == StatType.HP ? 300f : stat == StatType.MP ? 150f : 60f;
-                float col = r.x + 16 + (s % 2) * (r.width - 32) / 2f;
-                float row = y + (s / 2) * 18;
-                GUI.Label(new Rect(col, row, 40, 18), Stats.ShortName(stat), UiSkin.Small);
-                float bw = (r.width - 32) / 2f - 90;
-                UiSkin.Rect(new Rect(col + 38, row + 5, bw, 8), new Color(0.15f, 0.13f, 0.12f));
-                UiSkin.Rect(new Rect(col + 38, row + 5, bw * Mathf.Clamp01(v / max), 8), Loot.LootInfo.PotionColor(stat));
-                GUI.Label(new Rect(col + 42 + bw, row, 40, 18), Mathf.RoundToInt(v).ToString(), UiSkin.Small);
+                float col = x + (s % 2) * cw / 2f;
+                float row = y + (s / 2) * 22;
+                float bw = cw / 2f - 90;
+                GUI.Label(new Rect(col, row, 40, 20), Stats.ShortName(stat), UiSkin.Small);
+                UiSkin.Rect(new Rect(col + 40, row + 6, bw, 9), new Color(0.15f, 0.13f, 0.12f));
+                UiSkin.Rect(new Rect(col + 40, row + 6, bw * Mathf.Clamp01(v / max), 9), Loot.LootInfo.PotionColor(stat));
+                GUI.Label(new Rect(col + 46 + bw, row, 40, 20), Mathf.RoundToInt(v).ToString(), UiSkin.Small);
             }
-            y += 4 * 18 + 8;
+            y += 4 * 22 + 14;
 
-            // Two lines per ability: the name and key, then what it does (wrapped).
-            float room = (r.yMax - 66) - y;
-            float rowH = Mathf.Min(48f, room / 5f);
-            foreach (var (key, name, desc) in ClassDefinition.Kit(id))
+            var kit = ClassDefinition.Kit(id);
+            float kitRow = Mathf.Min(52f, (r.yMax - 76 - y) / kit.Length);
+            foreach (var (key, name, desc) in kit)
             {
-                GUI.Label(new Rect(r.x + 16, y, 64, 18), key, new GUIStyle(UiSkin.Small) { normal = { textColor = UiSkin.Gold }, fontStyle = FontStyle.Bold });
-                GUI.Label(new Rect(r.x + 78, y, r.width - 94, rowH), "<b>" + name + "</b>  " + desc, new GUIStyle(UiSkin.Small) { fontSize = 11 });
-                y += rowH;
+                GUI.Label(new Rect(x, y, 70, 20), key, new GUIStyle(UiSkin.Small) { normal = { textColor = UiSkin.Gold }, fontStyle = FontStyle.Bold, fontSize = 13 });
+                GUI.Label(new Rect(x + 74, y, cw - 74, kitRow), "<b>" + name + "</b>  " + desc, new GUIStyle(UiSkin.Body) { fontSize = 14 });
+                y += kitRow;
             }
 
-            var button = new Rect(r.x + 16, r.yMax - 58, r.width - 32, 44);
-            if (selected)
-            {
-                if (GUI.Button(button, "READY", UiSkin.ButtonBig)) SetOpen(false);
-            }
-            else if (GUI.Button(button, "PLAY " + def.Name.ToUpperInvariant(), UiSkin.ButtonBig))
-            {
-                progress.ClassId.Value = id;
-                Sfx.Play2D(Sound.Purchase, 0.6f);
-            }
+            var button = new Rect(r.x + 14, r.yMax - 60, r.width - 28, 46);
+            if (GUI.Button(button, selected ? "READY" : "PLAY " + def.Name.ToUpperInvariant(), UiSkin.ButtonBig)) Choose(id);
         }
     }
 }

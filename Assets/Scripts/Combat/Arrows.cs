@@ -37,6 +37,9 @@ namespace Deepbound.Combat
             public bool ServerSide;
             /// <summary>Server: replaces the default damage on hit (for chill, shatter and the like).</summary>
             public System.Action<Health> OnHit;
+            /// <summary>Passes through what it hits, hitting each target at most once.</summary>
+            public bool Pierce;
+            public HashSet<Health> AlreadyHit;
         }
 
         private static Arrows instance;
@@ -53,12 +56,13 @@ namespace Deepbound.Combat
 
         /// <summary>Server: fire an arrow that deals damage. Call the shooter's visual RPC alongside.</summary>
         public static void ServerFire(Vector3 origin, Vector3 direction, float damage, Team targets, ulong shooter,
-            float speed = Speed, System.Action<Health> onHit = null)
+            float speed = Speed, System.Action<Health> onHit = null, bool pierce = false)
         {
             Instance.live.Add(new Arrow
             {
                 Position = origin, Velocity = direction.normalized * speed, Damage = damage,
                 Targets = targets, Shooter = shooter, ServerSide = true, OnHit = onHit,
+                Pierce = pierce, AlreadyHit = pierce ? new HashSet<Health>() : null,
             });
         }
 
@@ -131,6 +135,7 @@ namespace Deepbound.Combat
             {
                 if (h == null || !CombatQuery.Matches(h, a.Targets) || !h.IsAlive) continue;
                 if (DistanceToSegment(h.Center, from, to) > HitRadius) continue;
+                if (a.Pierce && !a.AlreadyHit.Add(h)) continue;
 
                 if (a.OnHit != null)
                 {
@@ -142,7 +147,8 @@ namespace Deepbound.Combat
                     h.ServerDamage(a.Damage, h.Center - a.Velocity.normalized * 3f, a.Shooter);
                     Sfx.Play(Sound.Hit, h.Center, 0.6f, 1.3f);
                 }
-                return true;
+                // One hit per step either way: damage can despawn things in Health.All.
+                return !a.Pierce;
             }
             return false;
         }
