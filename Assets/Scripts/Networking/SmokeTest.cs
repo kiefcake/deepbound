@@ -338,6 +338,22 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.2f);
                 Log("gear equip", "armor " + Gear.Name(progress.Armor.Value) + ", DEF " + ddef + " -> " + local.GetComponent<Health>().Defense,
                     progress.Armor.Value.Kind == GearId.OssuaryPlate && local.GetComponent<Health>().Defense > ddef);
+                // Refine it at the anvil: Fine -> Masterwork, DEF rises.
+                var anvilR = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
+                if (anvilR != null)
+                {
+                    var keep = local.transform.position;
+                    motor.Teleport(anvilR.transform.position + anvilR.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
+                    float defR = local.GetComponent<Health>().Defense;
+                    progress.ServerAddEmbers(Gear.RefineCost(progress.Armor.Value));
+                    progress.ReforgeRpc(0, 0);
+                    yield return new WaitForSeconds(0.2f);
+                    Log("gear refine", Gear.Name(progress.Armor.Value) + ", DEF " + defR + " -> " + local.GetComponent<Health>().Defense,
+                        progress.Armor.Value.Quality == 2 && local.GetComponent<Health>().Defense > defR);
+                    motor.Teleport(keep, local.transform.rotation);
+                    yield return new WaitForSeconds(0.1f);
+                }
                 int embersBefore = progress.Embers.Value;
                 var junk = GearDrop.ServerSpawn(new GearItem(GearId.Bloodstone, 0, 0), local.OwnerClientId, local.transform.position + local.transform.forward * 1.2f);
                 yield return new WaitForSeconds(0.2f);
@@ -596,6 +612,8 @@ namespace Deepbound.Networking
                 ap.ServerAddRune(Rune.Holy);
                 ap.ServerAddRune(Rune.Ember);
                 ap.ServerAddSigil();
+                ap.ServerEquip(new GearItem(GearId.ThornhideJerkin, 0, 0));
+                ap.ServerEquip(new GearItem(GearId.LichPhylactery, 3, 0));
                 yield return new WaitForSeconds(0.3f);
                 ap.SocketRuneRpc((byte)Rune.Storm);
                 yield return new WaitForSeconds(0.2f);

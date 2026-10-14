@@ -115,6 +115,25 @@ namespace Deepbound.Progression
         private void EquippedRpc(GearItem item) =>
             UI.GameHud.Feed(name + " equipped " + Gear.Name(item), Gear.QualityColor(item.Quality));
 
+        /// <summary>
+        /// Owner → server, at the anvil: improve a worn piece. Mode 0 refines its quality,
+        /// mode 1 attunes it to the current floor's depth. Paid in embers.
+        /// </summary>
+        [Rpc(SendTo.Server)]
+        public void ReforgeRpc(byte slot, byte mode)
+        {
+            var anvil = World.Anvil.Near(transform.position);
+            if (anvil == null || slot > 1) return;
+            var item = Equipped((GearSlot)slot);
+            int depth = Mathf.Max(0, World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.Floor.Value.y : 0);
+            int cost = mode == 0 ? Gear.RefineCost(item) : Gear.AttuneCost(item, depth);
+            if (cost <= 0 || Embers.Value < cost) return;
+            Embers.Value -= cost;
+            var better = mode == 0 ? new GearItem(item.Kind, item.Quality + 1, item.Depth) : new GearItem(item.Kind, item.Quality, depth);
+            ServerEquip(better);
+            anvil.ForgeFxRpc(3);
+        }
+
         /// <summary>Server: a dodge readies the Gravecloth Mantle's strike.</summary>
         public void ServerOnDodge()
         {

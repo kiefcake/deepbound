@@ -30,7 +30,7 @@ namespace Deepbound.UI
         };
         private static readonly (string title, string body)[] GuideRight =
         {
-            ("GEAR", "Armour and a charm, rolled for each player - only you see your drops. F equips (your old piece is left in its place), X scraps it for embers. Deeper and finer pieces are stronger. Each boss may drop its own Legendary piece: the Warden's Bulwark, the Lich's Phylactery, the Crown of the Hollow King."),
+            ("GEAR", "Armour and a charm, rolled for each player - only you see your drops. F equips (your old piece is left in its place), X scraps it for embers. Deeper and finer pieces are stronger. At the anvil you can refine a piece's quality or attune it to a deeper floor, so a favourite keeps up. Each boss may drop its own Legendary piece: the Warden's Bulwark, the Lich's Phylactery, the Crown of the Hollow King."),
             ("RELICS", "Rare powers, one of each per player. Found on elites, in chests, from bosses, and sold by the merchant."),
             ("COMBOS", "Classes set each other up. Chill + a heavy hit = SHATTER. Stunned enemies are EXPOSED (+25% for all). Taunted enemies are DISTRACTED (+15%). Allies in Consecrate are BLESSED (+20%); the Cleric's beam target is INSPIRED (+15%). Allies in a Rogue's smoke are hidden (SMOKE SCREEN). A broken Aegis shield BURSTS. A marked enemy's mark SPREADS when it dies. Tags over enemies show what is ready to cash in."),
             ("ELITES", "Gold-ringed elites carry an affix. WARDED: barely hurt until stunned or chilled. VAMPIRIC: heals from its hits - a Mark stops it. VOLATILE: bursts after death, get clear. SWIFT: fast; chill slows it."),

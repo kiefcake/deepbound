@@ -680,9 +680,23 @@ namespace Deepbound.UI
                 }
             }
 
-            // Under the paths: how this class feeds the others.
-            GUI.Label(new Rect(x + 16, y + 330, leftW - 32, 20), "YOUR COMBOS", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
-            GUI.Label(new Rect(x + 16, y + 350, leftW - 32, 60), ClassDefinition.ComboLine(id), new GUIStyle(small) { wordWrap = true });
+            // Under the paths: refine or attune the gear you are wearing, so a favourite keeps up.
+            GUI.Label(new Rect(x + 16, y + 328, leftW - 32, 20), "GEAR  -  refine quality, or attune it to this floor", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            int floorDepth = CurrentDepth();
+            foreach (var gslot in new[] { GearSlot.Armor, GearSlot.Charm })
+            {
+                float gy = y + 350 + (int)gslot * 34;
+                var g = progress.Equipped(gslot);
+                GUI.Label(new Rect(x + 16, gy + 4, 250, 20), g.IsEmpty ? gslot + ": nothing worn" : Gear.Name(g) + "  (floor " + (g.Depth + 1) + ")",
+                    new GUIStyle(small) { normal = { textColor = g.IsEmpty ? new Color(1f, 1f, 1f, 0.4f) : Gear.QualityColor(g.Quality) } });
+                if (g.IsEmpty) continue;
+                int refine = Gear.RefineCost(g), attune = Gear.AttuneCost(g, floorDepth);
+                GUI.enabled = refine > 0 && progress.Embers.Value >= refine;
+                if (GUI.Button(new Rect(x + 270, gy, 160, 26), refine > 0 ? "Refine  (" + refine + ")" : "Fully refined")) progress.ReforgeRpc((byte)gslot, 0);
+                GUI.enabled = attune > 0 && progress.Embers.Value >= attune;
+                if (GUI.Button(new Rect(x + 440, gy, 160, 26), attune > 0 ? "Attune  (" + attune + ")" : "Attuned")) progress.ReforgeRpc((byte)gslot, 1);
+                GUI.enabled = true;
+            }
 
             // Right column: abilities (Sigils), then runes.
             float rx = x + leftW + 4, rw = pw - leftW - 20;

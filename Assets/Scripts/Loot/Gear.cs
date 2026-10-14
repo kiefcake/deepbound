@@ -127,6 +127,12 @@ namespace Deepbound.Loot
             return string.Join(", ", parts);
         }
 
+        /// <summary>Embers to refine a piece one quality step (Worn→Fine→Masterwork). 0 if it cannot be.</summary>
+        public static int RefineCost(GearItem item) => item.IsEmpty || item.Quality >= 2 ? 0 : 30 + 30 * item.Quality;
+
+        /// <summary>Embers to attune a piece to a deeper floor, so a favourite keeps up.</summary>
+        public static int AttuneCost(GearItem item, int depth) => item.IsEmpty || depth <= item.Depth ? 0 : 20 * (depth - item.Depth);
+
         /// <summary>Embers you get for breaking an unwanted piece down.</summary>
         public static int ScrapValue(GearItem item) => item.IsEmpty ? 0 : 5 + 4 * item.Quality + 3 * item.Depth;
 
