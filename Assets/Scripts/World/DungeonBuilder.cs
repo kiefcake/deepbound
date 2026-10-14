@@ -135,6 +135,30 @@ namespace Deepbound.World
             }
         }
 
+        /// <summary>Timber door frame and the pointed stone arch over a doorway.</summary>
+        private static void DoorTrim(Vector3 wallCenter, Vector2 dir, bool alongX, MeshKit.Batcher b)
+        {
+            float door = DungeonLayout.CorridorWidth;
+            Vector3 Size(float len, float height) => alongX ? new Vector3(len, height, WallThickness) : new Vector3(WallThickness, height, len);
+            Vector3 Along(float t) => alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t);
+            // Door frame: two jambs and a header in heavy timber.
+            var inward = -new Vector3(dir.x, 0f, dir.y) * (WallThickness / 2f + 0.1f);
+            b.AddBox(wallCenter + inward + Along(-door / 2f - 0.15f) + Vector3.up * DungeonLayout.CorridorHeight / 2f, Size(0.3f, DungeonLayout.CorridorHeight) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.Wood);
+            b.AddBox(wallCenter + inward + Along(door / 2f + 0.15f) + Vector3.up * DungeonLayout.CorridorHeight / 2f, Size(0.3f, DungeonLayout.CorridorHeight) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.Wood);
+            b.AddBox(wallCenter + inward + Vector3.up * (DungeonLayout.CorridorHeight + 0.15f), Size(door + 0.9f, 0.3f) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.Wood);
+            // A pointed gothic arch of dressed stone over the lintel, with a keystone.
+            var normal = new Vector3(dir.x, 0f, dir.y);
+            float archY = DungeonLayout.CorridorHeight + 0.3f;
+            float leg = door * 0.62f;
+            foreach (float sgn in new[] { -1f, 1f })
+            {
+                var rot = Quaternion.AngleAxis(sgn * (alongX ? -32f : 32f), normal);
+                b.AddBox(wallCenter + inward * 1.15f + Along(sgn * door * 0.25f) + Vector3.up * (archY + leg * 0.27f),
+                    Size(leg, 0.32f) + (alongX ? new Vector3(0, 0, -0.55f) : new Vector3(-0.55f, 0, 0)), Mat.StoneWall, rot);
+            }
+            b.AddBox(wallCenter + inward * 1.2f + Vector3.up * (archY + leg * 0.55f), Size(0.32f, 0.42f) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.StoneWall);
+        }
+
         private static void BuildWall(DungeonLayout.Room room, int side, MeshKit.Batcher b)
         {
             var c = room.Center;
@@ -149,7 +173,25 @@ namespace Deepbound.World
             Vector3 Along(float t) => alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t);
 
             var hole = room.HoleOn(side);
-            if (hole != null && !room.Doors[side])
+            if (hole != null && room.Doors[side])
+            {
+                // A doorway and a hollow on the same wall: three solid stretches around two gaps.
+                float door = DungeonLayout.CorridorWidth, hw = WallHole.Width, a = hole.Along;
+                var gaps = new[] { (c: 0f, w: door, top: DungeonLayout.CorridorHeight), (c: a, w: hw, top: WallHole.Height) };
+                System.Array.Sort(gaps, (p, q) => p.c.CompareTo(q.c));
+                float cursor = -length / 2f;
+                foreach (var g in gaps)
+                {
+                    float left = g.c - g.w / 2f;
+                    if (left - cursor > 0.01f) b.AddBox(wallCenter + Along((cursor + left) / 2f) + Vector3.up * h / 2f, Size(left - cursor, h), Mat.StoneWall);
+                    b.AddBox(wallCenter + Along(g.c) + Vector3.up * (g.top + (h - g.top) / 2f), Size(g.w, h - g.top), Mat.StoneWall);
+                    cursor = g.c + g.w / 2f;
+                }
+                if (length / 2f - cursor > 0.01f) b.AddBox(wallCenter + Along((cursor + length / 2f) / 2f) + Vector3.up * h / 2f, Size(length / 2f - cursor, h), Mat.StoneWall);
+                BuildNiche(wallCenter + Along(a), new Vector3(dir.x, 0f, dir.y), alongX, hole.Breach, b);
+                DoorTrim(wallCenter, dir, alongX, b);
+            }
+            else if (hole != null && !room.Doors[side])
             {
                 // Wall split around the hole, a lintel over it, and the niche beyond.
                 float hw = WallHole.Width, a = hole.Along;
@@ -172,22 +214,7 @@ namespace Deepbound.World
                 float lintel = h - DungeonLayout.CorridorHeight;
                 b.AddBox(wallCenter + Vector3.up * (DungeonLayout.CorridorHeight + lintel / 2f) + Along(0f), Size(door, lintel), Mat.StoneWall);
 
-                // Door frame: two jambs and a header in heavy timber.
-                var inward = -new Vector3(dir.x, 0f, dir.y) * (WallThickness / 2f + 0.1f);
-                b.AddBox(wallCenter + inward + Along(-door / 2f - 0.15f) + Vector3.up * DungeonLayout.CorridorHeight / 2f, Size(0.3f, DungeonLayout.CorridorHeight) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.Wood);
-                b.AddBox(wallCenter + inward + Along(door / 2f + 0.15f) + Vector3.up * DungeonLayout.CorridorHeight / 2f, Size(0.3f, DungeonLayout.CorridorHeight) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.Wood);
-                b.AddBox(wallCenter + inward + Vector3.up * (DungeonLayout.CorridorHeight + 0.15f), Size(door + 0.9f, 0.3f) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.Wood);
-                // A pointed gothic arch of dressed stone over the lintel, with a keystone.
-                var normal = new Vector3(dir.x, 0f, dir.y);
-                float archY = DungeonLayout.CorridorHeight + 0.3f;
-                float leg = door * 0.62f;
-                foreach (float sgn in new[] { -1f, 1f })
-                {
-                    var rot = Quaternion.AngleAxis(sgn * (alongX ? -32f : 32f), normal);
-                    b.AddBox(wallCenter + inward * 1.15f + Along(sgn * door * 0.25f) + Vector3.up * (archY + leg * 0.27f),
-                        Size(leg, 0.32f) + (alongX ? new Vector3(0, 0, -0.55f) : new Vector3(-0.55f, 0, 0)), Mat.StoneWall, rot);
-                }
-                b.AddBox(wallCenter + inward * 1.2f + Vector3.up * (archY + leg * 0.55f), Size(0.32f, 0.42f) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.StoneWall);
+                DoorTrim(wallCenter, dir, alongX, b);
             }
 
             // Plinth along the base of the wall, so walls meet the floor with a line

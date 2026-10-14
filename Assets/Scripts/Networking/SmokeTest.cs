@@ -245,7 +245,7 @@ namespace Deepbound.Networking
                 }
                 bool secretGone = hadSecret && (secret == null || !secret.IsSpawned);
                 Log("secret wall", walls.Length + " hollow walls (" + breachWalls + " breaches), secret broken: " + secretGone,
-                    walls.Length >= 1 && secretGone);
+                    walls.Length >= 2 && breachWalls >= 1 && secretGone);
                 if (DungeonDirector.Instance.BreachCount > 0)
                 {
                     int enemiesBefore = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead);

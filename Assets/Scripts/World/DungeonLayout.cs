@@ -298,16 +298,26 @@ namespace Deepbound.World
                 {
                     var room = pool[rng.Next(pool.Count)];
                     pool.Remove(room);
+                    // Doorless walls first; a long wall with a doorway can take one off to the side.
+                    float doorClear = CorridorWidth / 2f + WallHole.Width / 2f + 2.4f;
                     var sides = new List<int>();
                     for (int s = 0; s < 4; s++)
                     {
                         float len = (s == 0 || s == 2) ? room.Size.x : room.Size.y;
                         if (!room.Doors[s] && len >= 10f) sides.Add(s);
                     }
+                    if (sides.Count == 0)
+                        for (int s = 0; s < 4; s++)
+                        {
+                            float len = (s == 0 || s == 2) ? room.Size.x : room.Size.y;
+                            if (room.Doors[s] && len / 2f - 2.5f > doorClear) sides.Add(s);
+                        }
                     if (sides.Count == 0) continue;
                     int side = sides[rng.Next(sides.Count)];
                     float wallLen = (side == 0 || side == 2) ? room.Size.x : room.Size.y;
-                    float along = ((float)rng.NextDouble() * 2f - 1f) * (wallLen / 2f - 3f);
+                    float along = room.Doors[side]
+                        ? (rng.Next(2) == 0 ? -1f : 1f) * Mathf.Lerp(doorClear, wallLen / 2f - 2.5f, (float)rng.NextDouble())
+                        : ((float)rng.NextDouble() * 2f - 1f) * (wallLen / 2f - 3f);
                     room.Holes.Add(new WallHole { Side = side, Along = along, Breach = breach });
                     n++;
                 }
