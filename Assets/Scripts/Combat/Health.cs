@@ -78,6 +78,15 @@ namespace Deepbound.Combat
         /// <summary>Raised on the server for every Health that takes damage: (target, dealt, attacker id). Relics hook this.</summary>
         public static event Action<Health, float, ulong> ServerAnyDamaged;
 
+        /// <summary>Server: scales damage by who dealt it (gear). Applied before DEF.</summary>
+        public static Func<Health, ulong, float> ServerOutgoingMultiplier;
+
+        /// <summary>Server: a shield on this was broken by damage (the Aegis burst).</summary>
+        public static event Action<Health> ServerShieldBroken;
+
+        /// <summary>Server: scales healing this receives (Tidewoven Robe).</summary>
+        public float HealMultiplier { get; set; } = 1f;
+
         /// <summary>Raised on the server after any damage is applied, with the attacker's object id.</summary>
         public event Action<float, ulong> DamagedServer;
 
@@ -146,6 +155,7 @@ namespace Deepbound.Combat
         public float ServerDamage(float amount, Vector3 attackerPosition, ulong attackerId = ulong.MaxValue)
         {
             if (!IsServer || !IsAlive || amount <= 0f) return 0f;
+            if (ServerOutgoingMultiplier != null && attackerId != ulong.MaxValue) amount *= ServerOutgoingMultiplier(this, attackerId);
 
             float dealt = Mathf.Max(amount - Defense, amount * 0.15f);
             if (Marked.Value) dealt *= MarkedMultiplier;
@@ -158,6 +168,11 @@ namespace Deepbound.Combat
                 float absorbed = Mathf.Min(Shield.Value, dealt);
                 Shield.Value -= absorbed;
                 dealt -= absorbed;
+                if (Shield.Value <= 0.01f)
+                {
+                    Shield.Value = 0f;
+                    ServerShieldBroken?.Invoke(this);
+                }
                 if (dealt <= 0f) return 0f;
             }
 
@@ -281,7 +296,7 @@ namespace Deepbound.Combat
         public void ServerHeal(float amount)
         {
             if (!IsServer || amount <= 0f) return;
-            Current.Value = Mathf.Min(Max.Value, Current.Value + amount);
+            Current.Value = Mathf.Min(Max.Value, Current.Value + amount * HealMultiplier);
         }
 
         public void ServerSetFraction(float fraction)

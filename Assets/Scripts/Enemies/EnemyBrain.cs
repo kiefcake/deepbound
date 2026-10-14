@@ -376,6 +376,11 @@ namespace Deepbound.Enemies
             }
         }
 
+        public bool IsStunned => Time.time < stunnedUntil;
+
+        /// <summary>Who has this enemy taunted right now, or null.</summary>
+        public Health Taunter => taunter != null && Time.time < tauntUntil ? taunter : null;
+
         public void ServerTaunt(Health taunterHealth, float seconds)
         {
             taunter = taunterHealth;
@@ -417,6 +422,9 @@ namespace Deepbound.Enemies
             if (!NoLoot && lootPrefab != null)
             {
                 LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.5f * depthForLoot) * Difficulty.Level.Gold);
+                // Gear, rolled for each player: always from a boss, sometimes from an elite.
+                if (this is BossBrain) GearDrop.ServerSpawnForParty(transform.position, 1f, 1);
+                else if (Elite.Value) GearDrop.ServerSpawnForParty(transform.position, 0.3f, 0);
             }
             Invoke(nameof(Despawn), 4f);
         }

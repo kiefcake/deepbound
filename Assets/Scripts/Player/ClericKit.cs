@@ -54,6 +54,26 @@ namespace Deepbound.Player
         private readonly List<Zone> zones = new List<Zone>();
         private float zoneTick;
 
+        private static readonly List<ClericKit> AllClerics = new List<ClericKit>();
+
+        /// <summary>Is this point inside anyone's consecrated ground? (Blessed: +20% damage.)</summary>
+        public static bool InConsecration(Vector3 at)
+        {
+            foreach (var c in AllClerics)
+            {
+                if (c == null) continue;
+                foreach (var z in c.zones)
+                    if (Time.time <= z.Until && Vector3.Distance(z.At, at) <= c.ZoneRadius) return true;
+            }
+            return false;
+        }
+
+        private void OnEnable() => AllClerics.Add(this);
+        private void OnDisable() => AllClerics.Remove(this);
+
+        /// <summary>Consecrate's radius (grows with its rank).</summary>
+        public float ZoneRadius => ConsecrateRadius;
+
         private void Awake()
         {
             health = GetComponent<Health>();
@@ -245,9 +265,9 @@ namespace Deepbound.Player
             {
                 var z = zones[i];
                 if (Time.time > z.Until) { zones.RemoveAt(i); continue; }
-                foreach (var ally in CombatQuery.Circle(z.At, ConsecrateRadius, Team.Players).ToArray())
+                foreach (var ally in CombatQuery.Circle(z.At, ZoneRadius, Team.Players).ToArray())
                     ally.ServerHeal(ConsecrateHealPerSec * Potency * dt);
-                foreach (var foe in CombatQuery.Circle(z.At, ConsecrateRadius, Team.Enemies).ToArray())
+                foreach (var foe in CombatQuery.Circle(z.At, ZoneRadius, Team.Enemies).ToArray())
                     foe.ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * dt * (progress.Mastered(1) ? 2f : 1f), z.At, NetworkObjectId);
             }
         }

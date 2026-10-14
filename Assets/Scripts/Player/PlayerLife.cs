@@ -191,6 +191,7 @@ namespace Deepbound.Player
         private void DodgeRpc()
         {
             invulnerableUntil = Time.time + DodgeInvulnerable;
+            if (progress != null) progress.ServerOnDodge();
             DodgeFxRpc();
         }
 
@@ -228,9 +229,10 @@ namespace Deepbound.Player
         private void ServerRegen()
         {
             if (progress == null || progress.Stats == null || !Health.IsAlive) return;
-            if (Time.time - lastDamagedAt < 5f || Health.Current.Value >= Health.Max.Value) return;
+            bool desperate = progress.DesperateRegen;
+            if ((!desperate && Time.time - lastDamagedAt < 5f) || Health.Current.Value >= Health.Max.Value) return;
 
-            regenCarry += (2f + progress.Value(StatType.VIT) * 0.12f) * Time.deltaTime;
+            regenCarry += (2f + progress.Value(StatType.VIT) * 0.12f) * (desperate ? 3f : 1f) * Time.deltaTime;
             if (regenCarry >= 1f)
             {
                 float whole = Mathf.Floor(regenCarry);

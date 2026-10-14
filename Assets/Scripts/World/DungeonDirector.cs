@@ -55,6 +55,34 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject altarPrefab;
         [SerializeField] private NetworkObject breakablePrefab;
         [SerializeField] private NetworkObject anvilPrefab;
+        [SerializeField] private NetworkObject gearDropPrefab;
+
+        /// <summary>A class combo fired: float its name over the spot for everyone.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        public void ComboFxRpc(Vector3 at, byte kind)
+        {
+            var k = (Classes.ComboKind)kind;
+            UI.GameHud.ShowCombo(at + Vector3.up * 0.6f, Classes.Combos.Label(k), Classes.Combos.Color(k));
+            if (k == Classes.ComboKind.Shatter) Art.Sfx.Play(Art.Sound.Shatter, at, 0.9f, 1.15f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        public void AegisBurstFxRpc(Vector3 at)
+        {
+            Art.Sfx.Play(Art.Sound.Revive, at + Vector3.up, 0.8f, 1.6f);
+            Combat.Telegraph.Show(at, Classes.Combos.AegisBurstRadius, 0.45f, null, new Color(1f, 0.85f, 0.4f, 0.4f));
+        }
+
+        /// <summary>Server: a small pile of embers (Ember Locket).</summary>
+        public void ServerDropEmbers(Vector3 at, int amount)
+        {
+            if (lootPrefab == null) return;
+            var obj = Instantiate(lootPrefab, at + Vector3.up * 0.05f, Quaternion.identity);
+            var drop = obj.GetComponent<LootDrop>();
+            drop.Kind.Value = LootKind.Embers;
+            drop.Amount.Value = amount;
+            obj.Spawn(destroyWithScene: true);
+        }
         [SerializeField] private NetworkObject trapPrefab;
         [SerializeField] private NetworkObject lootPrefab;
         /// <summary>One boss per floor, by depth: the Gravewarden, the Tide Lich, the Hollow King.</summary>
@@ -115,6 +143,7 @@ namespace Deepbound.World
 
         public override void OnNetworkSpawn()
         {
+            if (IsServer) GearDrop.Prefab = gearDropPrefab;
             Instance = this;
             Floor.OnValueChanged += (_, now) => BuildLocal(now);
 

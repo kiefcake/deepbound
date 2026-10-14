@@ -330,7 +330,36 @@ namespace Deepbound.Networking
                     Log("anvil", "weapon +" + progress.WeaponLevel.Value + ", ATT " + attBefore + " -> " + progress.Value(Core.StatType.ATT) + ", embers left " + progress.Embers.Value,
                         progress.WeaponLevel.Value == 2 && progress.Value(Core.StatType.ATT) > attBefore);
 
-                    // +3 needs a path; choose Cleave and check the swing now reaches wider.
+                    // Gear: a drop meant for this player, equip it, then scrap a second.
+                var ddef = local.GetComponent<Health>().Defense;
+                var gearDrop = GearDrop.ServerSpawn(new GearItem(GearId.OssuaryPlate, 1, 0), local.OwnerClientId, local.transform.position + local.transform.forward * 1.2f);
+                yield return new WaitForSeconds(0.2f);
+                gearDrop.UseRpc(local.NetworkObject);
+                yield return new WaitForSeconds(0.2f);
+                Log("gear equip", "armor " + Gear.Name(progress.Armor.Value) + ", DEF " + ddef + " -> " + local.GetComponent<Health>().Defense,
+                    progress.Armor.Value.Kind == GearId.OssuaryPlate && local.GetComponent<Health>().Defense > ddef);
+                int embersBefore = progress.Embers.Value;
+                var junk = GearDrop.ServerSpawn(new GearItem(GearId.Bloodstone, 0, 0), local.OwnerClientId, local.transform.position + local.transform.forward * 1.2f);
+                yield return new WaitForSeconds(0.2f);
+                junk.ScrapRpc(local.NetworkObject);
+                yield return new WaitForSeconds(0.2f);
+                Log("gear scrap", "embers " + embersBefore + " -> " + progress.Embers.Value, progress.Embers.Value > embersBefore);
+
+                // Class combos: a stunned enemy is Exposed; a heavy hit Shatters chill.
+                var foe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead);
+                if (foe != null)
+                {
+                    var fh = foe.GetComponent<Health>();
+                    float plain = Classes.Combos.ServerMultiplier(fh, progress);
+                    foe.ServerStun(2f);
+                    float exposed = Classes.Combos.ServerMultiplier(fh, progress);
+                    fh.ServerChill(3f);
+                    float shatter = Classes.Combos.TryShatter(fh);
+                    Log("combos", "plain x" + plain.ToString("F2") + ", stunned x" + exposed.ToString("F2") + ", shatter x" + shatter + ", chill left " + fh.Chilled.Value,
+                        exposed > plain * 1.2f && shatter > 1.4f && !fh.Chilled.Value);
+                }
+
+                // +3 needs a path; choose Cleave and check the swing now reaches wider.
                     progress.ServerAddEmbers(Anvil.Cost(2));
                     progress.TemperRpc();
                     yield return new WaitForSeconds(0.2f);
@@ -493,6 +522,24 @@ namespace Deepbound.Networking
                 local.GetComponent<UI.GameHud>().DebugOpenForge();
                 yield return null;
                 yield return Shot(dir, "1b_forge_panel");
+                ap.ServerResetRun();
+                UI.PauseMenu.SetOpen(false);
+
+                // Gear: a drop on the floor with its comparison card, then the Tab sheet.
+                var gFrom = layout.StartRoom.Center + Vector3.up * 0.1f;
+                motor.Teleport(gFrom, Quaternion.LookRotation(Vector3.forward));
+                ap.ServerEquip(new GearItem(GearId.OssuaryPlate, 0, 0));
+                ap.ServerEquip(new GearItem(GearId.HuntersTooth, 1, 0));
+                GearDrop.ServerSpawn(new GearItem(GearId.KingsguardHauberk, 2, 1), local.OwnerClientId, gFrom + Vector3.forward * 1.6f + Vector3.down * 0.1f);
+                GearDrop.ServerSpawn(new GearItem(GearId.LuckyKnucklebone, 0, 0), local.OwnerClientId, gFrom + new Vector3(1.4f, -0.1f, 2.6f));
+                motor.SetPitch(25f);
+                yield return new WaitForSeconds(0.8f);
+                yield return Shot(dir, "1d_gear_drop");
+                motor.SetPitch(0f);
+                UI.GameHud.DebugShowStats = true;
+                yield return null;
+                yield return Shot(dir, "1e_stat_sheet");
+                UI.GameHud.DebugShowStats = false;
                 ap.ServerResetRun();
             }
 

@@ -190,7 +190,7 @@ namespace Deepbound.Player
             var from = transform.position;
             Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, ArrowSpeed * (0.7f + 0.3f * charge), h =>
             {
-                h.ServerDamage(dmg, from, me);
+                h.ServerDamage(dmg * (pierce && h.Team == Team.Enemies ? Combos.TryShatter(h) : 1f), from, me);
                 if (this == null) return;
                 if (instantMark && h.Team == Team.Enemies)
                 {

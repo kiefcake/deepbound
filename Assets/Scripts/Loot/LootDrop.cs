@@ -106,7 +106,7 @@ namespace Deepbound.Loot
             if (kind == LootKind.Relic) return progress.ServerAddRelic((Relic)Amount.Value);
             if (kind == LootKind.Embers)
             {
-                progress.ServerAddEmbers(Amount.Value);
+                progress.ServerAddEmbers(Mathf.RoundToInt(Amount.Value * (progress.Wears(GearId.LanternOfTheLost) ? 1.4f : 1f)));
                 return true;
             }
             return false;

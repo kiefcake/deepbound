@@ -1,4 +1,5 @@
 using System;
+using System.Linq;
 using Deepbound.Classes;
 using Deepbound.Combat;
 using Deepbound.Core;
@@ -34,6 +35,51 @@ namespace Deepbound.Progression
         public readonly NetworkVariable<byte> WeaponPath = new NetworkVariable<byte>();
 
         public bool OnPath(int path) => WeaponPath.Value == path;
+
+        // ---- Gear: one armour, one charm. Stats derive from the item on every peer. ----
+        public readonly NetworkVariable<GearItem> Armor = new NetworkVariable<GearItem>();
+        public readonly NetworkVariable<GearItem> Charm = new NetworkVariable<GearItem>();
+
+        public GearItem Equipped(GearSlot slot) => slot == GearSlot.Armor ? Armor.Value : Charm.Value;
+        public bool Wears(GearId id) => Armor.Value.Kind == id || Charm.Value.Kind == id;
+
+        private float dodgeStrikeUntil, shroudReadyAt;
+
+        /// <summary>Server: put a piece on. Returns what was in its slot (maybe empty).</summary>
+        public GearItem ServerEquip(GearItem item)
+        {
+            if (!IsServer || item.IsEmpty) return default;
+            var slot = Gear.SlotOf(item.Kind) == GearSlot.Armor ? Armor : Charm;
+            var old = slot.Value;
+            foreach (var s in Gear.StatsOf(old)) Stats.AddEquipmentBonus(s, -Gear.StatValue(old, s));
+            slot.Value = item;
+            foreach (var s in Gear.StatsOf(item)) Stats.AddEquipmentBonus(s, Gear.StatValue(item, s));
+            health.HealMultiplier = Wears(GearId.TidewovenRobe) ? 1.3f : 1f;
+            OnStatsChangedServer(null);
+            EquippedRpc(item);
+            return old;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void EquippedRpc(GearItem item) =>
+            UI.GameHud.Feed(name + " equipped " + Gear.Name(item), Gear.QualityColor(item.Quality));
+
+        /// <summary>Server: a dodge readies the Gravecloth Mantle's strike.</summary>
+        public void ServerOnDodge()
+        {
+            if (Wears(GearId.GraveclothMantle)) dodgeStrikeUntil = Time.time + 2f;
+        }
+
+        /// <summary>Server: true once, if a Mantle strike is ready.</summary>
+        public bool ServerConsumeDodgeStrike()
+        {
+            if (Time.time > dodgeStrikeUntil) return false;
+            dodgeStrikeUntil = 0f;
+            return true;
+        }
+
+        /// <summary>Thornhide Jerkin: regeneration while badly hurt, even mid-fight.</summary>
+        public bool DesperateRegen => Wears(GearId.ThornhideJerkin) && health.Fraction < 0.4f;
         public bool Mastered(int path) => WeaponPath.Value == path && WeaponLevel.Value >= WeaponPaths.MasteryLevel;
 
         // ---- Run statistics, for the end-of-run summary. Server-written, reset with the run. ----
@@ -94,6 +140,8 @@ namespace Deepbound.Progression
             WeaponLevel.OnValueChanged += (_, __) => StatsChanged?.Invoke();
             bonuses.OnListChanged += _ => StatsChanged?.Invoke();
             relics.OnListChanged += _ => StatsChanged?.Invoke();
+            Armor.OnValueChanged += (_, __) => StatsChanged?.Invoke();
+            Charm.OnValueChanged += (_, __) => StatsChanged?.Invoke();
             ClassId.OnValueChanged += (_, __) =>
             {
                 // A new class is a new character: fresh stat block, nothing carried over.
@@ -108,7 +156,10 @@ namespace Deepbound.Progression
             if (!IsServer) return;
 
             Relics.EnsureServerHooks();
+            GearEffects.EnsureServerHooks();
+            Combos.EnsureServerHooks();
             health.IncomingModifiers.Add(RelicDefense);
+            health.IncomingModifiers.Add(GearDefense);
 
             Stats = Class.Build();
             for (int i = 0; i < Core.Stats.Count; i++) bonuses.Add(0f);
@@ -128,7 +179,7 @@ namespace Deepbound.Progression
         {
             int i = (int)stat;
             float bonus = i < bonuses.Count ? bonuses[i] : 0f;
-            return Mathf.Max(0f, Class.BaseStats[i] + bonus);
+            return Mathf.Max(0f, Class.BaseStats[i] + bonus + Gear.StatValue(Armor.Value, stat) + Gear.StatValue(Charm.Value, stat));
         }
 
         /// <summary>
@@ -150,7 +201,7 @@ namespace Deepbound.Progression
         public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1.15f : 1f);
 
         /// <summary>Q and E cooldowns scale by this (Echo Stone).</summary>
-        public float CooldownMultiplier => HasRelic(Relic.EchoStone) ? 0.7f : 1f;
+        public float CooldownMultiplier => (HasRelic(Relic.EchoStone) ? 0.7f : 1f) * (Wears(GearId.CrackedHourglass) ? 0.82f : 1f);
 
         public float GoldMultiplier => HasRelic(Relic.GildedSkull) ? 1.6f : 1f;
 
@@ -214,6 +265,35 @@ namespace Deepbound.Progression
                 if (nearest != null) nearest.ServerDamage(damage * 0.4f, transform.position, NetworkObjectId);
             }
             return damage;
+        }
+
+        private float GearDefense(float damage, Vector3 attackerPosition)
+        {
+            if (damage <= 0f) return damage;
+            if (Wears(GearId.LuckyKnucklebone) && UnityEngine.Random.value < 0.1f)
+            {
+                MissedRpc();
+                return 0f;
+            }
+            if (Wears(GearId.OssuaryPlate) && health.Fraction > 0.5f) damage *= 0.85f;
+            if (Wears(GearId.AshenShroud) && Time.time >= shroudReadyAt && (health.Current.Value - damage) / Mathf.Max(1f, health.Max.Value) < 0.3f)
+            {
+                shroudReadyAt = Time.time + 15f;
+                foreach (var foe in CombatQuery.Circle(transform.position, 4.5f, Team.Enemies).ToArray())
+                    foe.ServerDamage(40f * AttackMultiplier, transform.position, NetworkObjectId);
+                ShroudFxRpc();
+            }
+            return damage;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void MissedRpc() => Art.Sfx.Play(Art.Sound.Dodge, transform.position + Vector3.up, 0.5f, 1.4f);
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ShroudFxRpc()
+        {
+            Art.Sfx.Play(Art.Sound.Fire, transform.position + Vector3.up, 1f, 0.8f);
+            Telegraph.Show(transform.position, 4.5f, 0.5f, null, new Color(1f, 0.4f, 0.1f, 0.45f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -403,6 +483,9 @@ namespace Deepbound.Progression
             Embers.Value = 0;
             WeaponLevel.Value = 0;
             WeaponPath.Value = 0;
+            Armor.Value = default;
+            Charm.Value = default;
+            health.HealMultiplier = 1f;
             Kills.Value = DamageDealt.Value = GoldEarned.Value = Downs.Value = Revives.Value = 0;
             damageCarry = 0f;
             relics.Clear();

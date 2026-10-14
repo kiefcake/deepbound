@@ -35,6 +35,7 @@ namespace Deepbound.World
             Opened.Value = true;
             int depth = Mathf.Max(0, DungeonDirector.Instance != null ? DungeonDirector.Instance.Floor.Value.y : 0);
             LootDrop.ServerSpawnFromTable(lootPrefab, LootTable.Chest, transform.position + transform.forward * 1.1f, 1f + 0.5f * depth);
+            GearDrop.ServerSpawnForParty(transform.position + transform.forward * 1.6f, 0.6f, 0);
             OpenFxRpc();
         }
 

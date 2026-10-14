@@ -260,7 +260,7 @@ namespace Deepbound.Player
             // the shield itself.
             foreach (var target in CombatQuery.Arc(origin, forward, BashRange + 1.5f, 100f, Team.Enemies))
             {
-                target.ServerDamage(BashDamage * AttackMultiplier, transform.position, NetworkObjectId);
+                target.ServerDamage(BashDamage * AttackMultiplier * Combos.TryShatter(target), transform.position, NetworkObjectId);
                 if (target.TryGetComponent<ICrowdControl>(out var cc))
                 {
                     cc.ServerStun(BashStun);

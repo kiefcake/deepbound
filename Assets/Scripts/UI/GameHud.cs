@@ -40,6 +40,9 @@ namespace Deepbound.UI
 
         /// <summary>Screenshots only: stage the forge panel open.</summary>
         public void DebugOpenForge() => forgeOpen = true;
+
+        /// <summary>Screenshots only: hold the stat sheet open.</summary>
+        public static bool DebugShowStats;
         private bool statsHeld;
 
         private struct FeedLine { public string Text; public Color Color; public float Time; }
@@ -159,6 +162,38 @@ namespace Deepbound.UI
             if (numbers.Count > 40) numbers.RemoveAt(0);
         }
 
+        private struct ComboText { public Vector3 World; public string Text; public Color Color; public float Time; }
+        private static readonly List<ComboText> combos = new List<ComboText>();
+
+        /// <summary>Float a combo's name over a point (any peer).</summary>
+        public static void ShowCombo(Vector3 at, string text, Color color) =>
+            combos.Add(new ComboText { World = at, Text = text, Color = color, Time = UnityEngine.Time.time });
+
+        private void DrawCombos()
+        {
+            var cam = player.Camera;
+            for (int i = combos.Count - 1; i >= 0; i--)
+            {
+                var c = combos[i];
+                float age = Time.time - c.Time;
+                if (age > 1.3f) { combos.RemoveAt(i); continue; }
+                var screen = cam.WorldToScreenPoint(c.World + Vector3.up * (0.4f + age * 0.5f));
+                if (screen.z <= 0f || screen.z > 35f) continue;
+                float a = Mathf.Clamp01(1.3f - age) * Mathf.Clamp01(age * 8f);
+                float scale = 1f + Mathf.Max(0f, 0.15f - age) * 3f;
+                var style = new GUIStyle(big) { fontSize = Mathf.RoundToInt(20 * scale), fontStyle = FontStyle.Bold, normal = { textColor = new Color(c.Color.r, c.Color.g, c.Color.b, a) } };
+                var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, a * 0.85f) } };
+                var rect = new Rect(screen.x - 120, Screen.height - screen.y - 16, 240, 32);
+                GUI.Label(new Rect(rect.x + 2, rect.y + 2, rect.width, rect.height), c.Text, shadow);
+                GUI.Label(rect, c.Text, style);
+            }
+
+            // Standing in consecrated ground: say so, under the crosshair.
+            if (ClericKit.InConsecration(player.transform.position))
+                GUI.Label(new Rect(0, Screen.height / 2f + 18, Screen.width, 20), "BLESSED  +20% damage",
+                    new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = Combos.Color(ComboKind.Blessed) } });
+        }
+
         private void DrawDamageNumbers()
         {
             var cam = player.Camera;
@@ -253,10 +288,13 @@ namespace Deepbound.UI
                 else if (near) { shopOpen = !shopOpen; forgeOpen = false; }
             }
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = forgeOpen = false;
+            if (keyboard != null && keyboard.xKey.wasPressedThisFrame && !MenuOpen &&
+                Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is GearDrop scrap)
+                scrap.ScrapRpc(player.NetworkObject);
             if (!near) shopOpen = false;
             if (anvil == null) forgeOpen = false;
             MenuOpen = shopOpen || forgeOpen || CharacterSelect.Open || PauseMenu.Open;
-            statsHeld = keyboard != null && keyboard.tabKey.isPressed;
+            statsHeld = DebugShowStats || (keyboard != null && keyboard.tabKey.isPressed);
 
             // The host sets difficulty at camp.
             var dir = DungeonDirector.Instance;
@@ -304,6 +342,7 @@ namespace Deepbound.UI
 
             DrawEnemyBars();
             DrawDamageNumbers();
+            DrawCombos();
             DrawPings(w, h);
             DrawVignette(w, h);
             DrawCrosshair(w, h);
@@ -314,7 +353,7 @@ namespace Deepbound.UI
             DrawPhase(w, h);
             DrawBanner(w, h);
             DrawTitleCard(w, h);
-            DrawControlsHint(w, h);
+            if (!statsHeld) DrawControlsHint(w, h);
             DrawFeed(h);
             DrawForge(w, h);
                 DrawMerchant(w, h);
@@ -420,6 +459,41 @@ namespace Deepbound.UI
             }
         }
 
+        /// <summary>
+        /// A gear piece: name in its quality colour, each stat with the change against what
+        /// you wear now, and its effect. Used for floor drops and the Tab sheet.
+        /// </summary>
+        private void DrawGearCard(GearItem item, float x, float y, bool compare)
+        {
+            const float cw = 360;
+            var slot = Gear.SlotOf(item.Kind);
+            var current = progress.Equipped(slot);
+            var stats = new List<StatType>(Gear.StatsOf(item));
+            if (compare) foreach (var s in Gear.StatsOf(current)) if (!stats.Contains(s)) stats.Add(s);
+            float ch = 66 + stats.Count * 18 + (compare ? 40 : 0);
+            var qc = Gear.QualityColor(item.Quality);
+            Rect(x - 2, y - 2, cw + 4, ch + 4, new Color(qc.r, qc.g, qc.b, 0.55f));
+            Rect(x, y, cw, ch, new Color(0.04f, 0.035f, 0.03f, 0.93f));
+            GUI.Label(new Rect(x + 10, y + 6, cw - 20, 22), Gear.Name(item), new GUIStyle(label) { normal = { textColor = qc } });
+            GUI.Label(new Rect(x + 10, y + 6, cw - 20, 22), slot.ToString().ToUpperInvariant(), new GUIStyle(small) { alignment = TextAnchor.UpperRight });
+
+            float ry = y + 30;
+            foreach (var s in stats)
+            {
+                float v = Gear.StatValue(item, s), diff = v - Gear.StatValue(current, s);
+                GUI.Label(new Rect(x + 10, ry, 120, 18), (v >= 0 ? "+" : "") + v + " " + Stats.ShortName(s), small);
+                if (compare && !current.IsEmpty && Mathf.Abs(diff) > 0.01f)
+                    GUI.Label(new Rect(x + 130, ry, 80, 18), (diff > 0 ? "(+" : "(-") + Mathf.Abs(diff) + ")", new GUIStyle(small) { normal = { textColor = diff > 0 ? new Color(0.5f, 1f, 0.5f) : new Color(1f, 0.45f, 0.4f) } });
+                ry += 18;
+            }
+            GUI.Label(new Rect(x + 10, ry + 2, cw - 20, 34), Gear.Effect(item.Kind), new GUIStyle(small) { wordWrap = true, normal = { textColor = Gold } });
+            if (compare)
+            {
+                GUI.Label(new Rect(x + 10, ry + 34, cw - 20, 18), "Wearing: " + (current.IsEmpty ? "nothing" : Gear.Name(current)), small);
+                GUI.Label(new Rect(x + 10, ry + 52, cw - 20, 18), "X   scrap for " + Gear.ScrapValue(item) + " embers", new GUIStyle(small) { normal = { textColor = LootInfo.EmberColor } });
+            }
+        }
+
         private void DrawRevive(float w, float h)
         {
             if (life.Downed.Value)
@@ -436,6 +510,7 @@ namespace Deepbound.UI
             {
                 var use = Interactable.Nearest(player.AimOrigin, player.AimForward, progress);
                 if (use != null) GUI.Label(new Rect(0, h / 2f + 40, w, 24), "F   " + use.Prompt(progress), center);
+                if (use is GearDrop gear && !statsHeld) DrawGearCard(gear.Item.Value, w / 2f - 180, h / 2f + 70, true);
                 return;
             }
 
@@ -648,6 +723,15 @@ namespace Deepbound.UI
 
         private void DrawStatSheet(float w, float h)
         {
+            // Worn gear as full cards, bottom-left of the sheet.
+            float cardY = h - 150;
+            foreach (var slot in new[] { GearSlot.Charm, GearSlot.Armor })
+            {
+                var g = progress.Equipped(slot);
+                if (g.IsEmpty) continue;
+                cardY -= 66 + new List<StatType>(Gear.StatsOf(g)).Count * 18 + 12;
+                DrawGearCard(g, w - 300 - 24 - 360 - 12, cardY, false);
+            }
             // Relics, with what they do, to the left of the stat sheet.
             if (progress.RelicCount > 0)
             {
@@ -663,8 +747,18 @@ namespace Deepbound.UI
                 }
             }
 
-            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH;
+            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70;
             float x = w - pw - 24, y = h / 2f - ph / 2f;
+            // The two gear slots, at the foot of the sheet; hover-free: full cards sit left of it.
+            float gy = y + 46 + Stats.Count * rowH;
+            foreach (var slot in new[] { GearSlot.Armor, GearSlot.Charm })
+            {
+                var g = progress.Equipped(slot);
+                var gc = g.IsEmpty ? new Color(1f, 1f, 1f, 0.4f) : Gear.QualityColor(g.Quality);
+                GUI.Label(new Rect(x + 12, gy, 70, 20), slot.ToString().ToUpperInvariant(), small);
+                GUI.Label(new Rect(x + 80, gy, pw - 90, 20), g.IsEmpty ? "-" : Gear.Name(g), new GUIStyle(small) { normal = { textColor = gc } });
+                gy += 22;
+            }
             Rect(x, y, pw, ph, Panel);
             GUI.Label(new Rect(x + 12, y + 10, pw, 22), progress.Class.Name.ToUpperInvariant() + "  -  " + ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value,
                 new GUIStyle(label) { normal = { textColor = Gold } });
