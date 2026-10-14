@@ -88,6 +88,22 @@ namespace Deepbound.Networking
                 Log("firebolt shatters", "chill consumed " + !dummy.Chilled.Value + ", dealt " + (before - dummy.Current.Value).ToString("F0"),
                     !dummy.Chilled.Value && before - dummy.Current.Value > MageKit.FireboltDamage);
 
+                // Cryomancer path: one frostbolt pierces both dummies, which stand in a line.
+                var dummiesAll = FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None).Select(d => d.GetComponent<Health>()).OrderBy(d => d.transform.position.z).ToArray();
+                if (dummiesAll.Length >= 2)
+                {
+                    foreach (var d in dummiesAll) d.ServerConsumeChill();
+                    progressMe.WeaponPath.Value = 2;
+                    var near = dummiesAll[0].transform.position;
+                    me.GetComponent<FirstPersonMotor>().Teleport(near + Vector3.back * 5f, Quaternion.LookRotation(Vector3.forward));
+                    yield return new WaitForSeconds(0.2f);
+                    var cfrom = me.transform.position + Vector3.up * 1.6f;
+                    mage.ServerBolt(cfrom, dummiesAll[1].Center - cfrom, true);
+                    yield return new WaitForSeconds(0.8f);
+                    Log("cryomancer pierce", "chilled " + dummiesAll[0].Chilled.Value + " and " + dummiesAll[1].Chilled.Value, dummiesAll[0].Chilled.Value && dummiesAll[1].Chilled.Value);
+                    progressMe.WeaponPath.Value = 0;
+                }
+
                 // Cleric: Aegis absorbs a hit completely; Consecrate burns a dummy standing in it.
                 progressMe.ClassId.Value = Classes.ClassId.Cleric;
                 yield return new WaitForSeconds(0.5f);

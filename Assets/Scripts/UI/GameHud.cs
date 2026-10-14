@@ -632,7 +632,7 @@ namespace Deepbound.UI
             int level = progress.WeaponLevel.Value, path = progress.WeaponPath.Value;
             string weapon = ClassDefinition.WeaponName(id);
             const float leftW = 620f;
-            float pw = leftW + 340, ph = 440;
+            float pw = leftW + 340, ph = 470;
             float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
             var ember = LootInfo.EmberColor;
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(ember.r, ember.g, ember.b, 0.5f));
@@ -719,7 +719,12 @@ namespace Deepbound.UI
                 GUI.enabled = true;
             }
 
-            float uy = ay + 22 + 2 * 88 + 6;
+            if (progress.Rank(AbilitySlot.Q) >= AbilityRanks.MaxRank && progress.Rank(AbilitySlot.E) >= AbilityRanks.MaxRank && progress.Sigils.Value > 0)
+            {
+                // Both abilities maxed: a spare Sigil is still worth something.
+                if (GUI.Button(new Rect(rx, ay + 22 + 2 * 88 - 6, rw, 22), "Melt a spare Sigil into 30 embers")) progress.MeltSigilRpc();
+            }
+            float uy = ay + 22 + 2 * 88 + 18;
             int sockets = Runes.SocketsAt(level);
             GUI.Label(new Rect(rx, uy, rw, 20), "RUNES  -  sockets open at +1 and +3", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
             for (int sIdx = 0; sIdx < 2; sIdx++)

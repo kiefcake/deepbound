@@ -75,6 +75,17 @@ namespace Deepbound.Progression
             EmpoweredRpc(slot, rank.Value);
         }
 
+        /// <summary>Owner → server: with both abilities at rank 3, a spare Sigil melts into 30 embers.</summary>
+        [Rpc(SendTo.Server)]
+        public void MeltSigilRpc()
+        {
+            var anvil = World.Anvil.Near(transform.position);
+            if (anvil == null || Sigils.Value < 1 || Rank(AbilitySlot.Q) < AbilityRanks.MaxRank || Rank(AbilitySlot.E) < AbilityRanks.MaxRank) return;
+            Sigils.Value--;
+            Embers.Value += 30;
+            anvil.ForgeFxRpc(1);
+        }
+
         [Rpc(SendTo.ClientsAndHost)]
         private void EmpoweredRpc(byte slot, byte rank)
         {
