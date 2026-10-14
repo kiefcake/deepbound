@@ -292,6 +292,7 @@ namespace Deepbound.UI
 
             DrawEnemyBars();
             DrawDamageNumbers();
+            DrawPings(w, h);
             DrawVignette(w, h);
             DrawCrosshair(w, h);
             DrawVitals(w, h);
@@ -484,7 +485,7 @@ namespace Deepbound.UI
                       "Q  Shield Bash — stuns, cancels wind-ups\n" +
                       "E  War Cry — taunt + half damage\n") +
                 "F  revive a downed ally  ·  G  trade  ·  Tab  stats\n" +
-                "CTRL dodge  ·  M map  ·  Walk over loot to take it\n" +
+                "CTRL dodge  ·  M map  ·  Z / middle mouse: ping\n" +
                 "Hit enemies from behind for +35%  ·  Esc free mouse", style);
         }
 
@@ -594,6 +595,44 @@ namespace Deepbound.UI
                     Rect(x + 120 + p * 22, ry + 4, 16, 14, p < have ? c : new Color(c.r, c.g, c.b, 0.18f));
                 }
                 if (progress.IsMaxed(stat)) GUI.Label(new Rect(x + 236, ry, 60, 22), "MAX", new GUIStyle(small) { normal = { textColor = Gold } });
+            }
+        }
+
+        /// <summary>
+        /// Ping markers: a diamond in the pinger's colour with a label and distance, pinned to
+        /// the screen edge when the ping is off-screen or behind you.
+        /// </summary>
+        private void DrawPings(float w, float h)
+        {
+            var cam = player.Camera;
+            foreach (var p in PlayerPings.Active.Values)
+            {
+                var world = p.Position + Vector3.up * (p.Kind == PlayerPings.Kind.Enemy ? 2.6f : 1.2f);
+                var sp = cam.WorldToScreenPoint(world);
+                bool behind = sp.z < 0f;
+                var pos = new Vector2(sp.x, h - sp.y);
+                if (behind) pos = new Vector2(w - pos.x, h - pos.y);
+                bool off = behind || pos.x < 30 || pos.x > w - 30 || pos.y < 30 || pos.y > h - 30;
+                if (off)
+                {
+                    // Push to the screen edge along the direction from centre.
+                    var c = new Vector2(w / 2f, h / 2f);
+                    var d = pos - c;
+                    if (behind && d.sqrMagnitude < 1f) d = Vector2.down;
+                    float k = Mathf.Min((w / 2f - 40f) / Mathf.Max(1f, Mathf.Abs(d.x)), (h / 2f - 40f) / Mathf.Max(1f, Mathf.Abs(d.y)));
+                    pos = c + d * k;
+                }
+                float dist = Vector3.Distance(player.transform.position, p.Position);
+                float fade = Mathf.Clamp01((p.Until - Time.time) / 1f);
+                var col = new Color(p.Color.r, p.Color.g, p.Color.b, fade);
+
+                var old = GUI.matrix;
+                GUIUtility.RotateAroundPivot(45f, pos);
+                Rect(pos.x - 9, pos.y - 9, 18, 18, new Color(0f, 0f, 0f, 0.7f * fade));
+                Rect(pos.x - 7, pos.y - 7, 14, 14, col);
+                GUI.matrix = old;
+                var style = new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 1f, 1f, fade) } };
+                GUI.Label(new Rect(pos.x - 80, pos.y + 12, 160, 18), p.Label + "  " + Mathf.RoundToInt(dist) + "m", style);
             }
         }
 

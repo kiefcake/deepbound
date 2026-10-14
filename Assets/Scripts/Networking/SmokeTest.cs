@@ -172,6 +172,13 @@ namespace Deepbound.Networking
                 Log("local player", "missing", false);
             }
 
+            if (local != null)
+            {
+                local.GetComponent<PlayerPings>().PingSpot(local.transform.position + local.transform.forward * 5f);
+                yield return new WaitForSeconds(0.5f);
+                Log("ping round trip", "own ping visible: " + PlayerPings.Active.ContainsKey(local.NetworkObjectId), PlayerPings.Active.ContainsKey(local.NetworkObjectId));
+            }
+
             var boss = BossBrain.Active;
             Log("boss", boss != null ? boss.Health.Current.Value + " hp" : "missing", boss != null);
 

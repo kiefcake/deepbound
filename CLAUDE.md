@@ -22,7 +22,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 - **If the user has the game open**, Windows locks the exe: set `DEEPBOUND_BUILD_PATH=Builds/DeepboundNext/Deepbound.exe`
   for the build, then `cp -rf Builds/DeepboundNext/. Builds/Deepbound/` once they close it. Check with
   `tasklist | grep -i deepbound`. Never kill their game to rebuild.
-- **Smoke test** (headless, the main regression check; it waits on events, so it is robust to new checks; ~25 PASS lines on host, 7 on client, zero FAIL):
+- **Smoke test** (headless, the main regression check; it waits on events, so it is robust to new checks; ~28 PASS lines on host, 8 on client, zero FAIL):
   ```
   cd Builds/Deepbound && L=$(cygpath -w "$PWD")
   ./Deepbound.exe -batchmode -nographics -host -smoketest 40 -logFile "$L\\host.log" & sleep 4
@@ -99,11 +99,14 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 - Bosses: Gravewarden (shield, charge into walls → dazed), Tide Lich (volleys, pools under everyone, blink),
   Hollow King (cleave, slam, summons, enrage).
 - Dungeon: 3 themed floors, chests (side rooms), urns, powder barrels, spike traps, blood altars, merchant per
-  start room. Lobby "The Last Lantern" with dummies and carriage boarding.
+  start room. Encounters (`DungeonDirector.Encounters.cs`): sealed boss arenas (boss dormant until the party is
+  in; `Portcullis` gates) and one ambush room per floor (two waves, then a chest). Difficulty Normal/Hard/Nightmare
+  (`Difficulty.Settings`, host picks with [ ] at camp). Pings (`PlayerPings`, Z / middle mouse). Lobby "The Last Lantern" with dummies and carriage boarding.
 - 12 relics; potions RotMG-style; run stats and summary.
 
 ## Backlog / ideas not yet built
 
-The remaining three classes; Steam transport + lobbies/invites; cosmetics as the meta-progression and
+The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes
+(Barbarian, Druid, Engineer) only if asked; Steam transport + lobbies/invites; cosmetics as the meta-progression and
 announcements on the run summary; proximity voice; UI Toolkit HUD replacing IMGUI; controller support / rebinding;
 balance pass driven by the user's play feedback; GitHub remote (needs the user).
