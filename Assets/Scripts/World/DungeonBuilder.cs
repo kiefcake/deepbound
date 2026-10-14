@@ -28,7 +28,6 @@ namespace Deepbound.World
             lights.SetParent(root.transform, false);
 
             foreach (var room in layout.Rooms) BuildRoom(room, structure, dressing, lights);
-            Props.Merchant(lights, layout.MerchantPosition, layout.StartRoom.Center, dressing);
             foreach (var link in layout.Links) BuildCorridor(layout.Rooms[link.A], layout.Rooms[link.B], link.Dir, structure, dressing, lights);
 
             System.Func<string, Color> tint = mat => mat == Mat.StoneWall ? theme.StoneTint : mat == Mat.Flagstone ? theme.FloorTint : Color.white;

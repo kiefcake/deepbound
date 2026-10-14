@@ -57,7 +57,9 @@ namespace Deepbound.UI
             }
 
             var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.bKey.wasPressedThisFrame && inLobby) SetOpen(!Open);
+            // Class is chosen for a whole run: only at camp, and not between floors.
+            bool midRun = World.DungeonDirector.Instance != null && World.DungeonDirector.Instance.RunInProgress;
+            if (keyboard != null && keyboard.bKey.wasPressedThisFrame && inLobby && !midRun) SetOpen(!Open);
             if (Open && (!inLobby || (keyboard != null && keyboard.escapeKey.wasPressedThisFrame))) SetOpen(false);
 
             if (Open && turntables != null)

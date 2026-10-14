@@ -70,6 +70,9 @@ namespace Deepbound.EditorTools
             var anvil = BuildObjectPrefab<Anvil>("Anvil", new Vector3(0.8f, 0.9f, 0.6f));
             var gearDrop = BuildObjectPrefab<GearDrop>("GearDrop", Vector3.zero);
             var crackedWall = BuildCrackedWallPrefab();
+            var diceTable = BuildObjectPrefab<DiceTable>("DiceTable", new Vector3(1.5f, 0.95f, 1.5f));
+            var coffer = BuildObjectPrefab<MysteryCoffer>("MysteryCoffer", new Vector3(1.2f, 1f, 0.8f));
+            var gong = BuildGongPrefab();
             var dso = new SerializedObject(director.GetComponent<DungeonDirector>());
             dso.FindProperty("portcullisPrefab").objectReferenceValue = gate.GetComponent<NetworkObject>();
             dso.FindProperty("leverPrefab").objectReferenceValue = lever.GetComponent<NetworkObject>();
@@ -78,11 +81,14 @@ namespace Deepbound.EditorTools
             dso.FindProperty("anvilPrefab").objectReferenceValue = anvil.GetComponent<NetworkObject>();
             dso.FindProperty("gearDropPrefab").objectReferenceValue = gearDrop.GetComponent<NetworkObject>();
             dso.FindProperty("crackedWallPrefab").objectReferenceValue = crackedWall.GetComponent<NetworkObject>();
+            dso.FindProperty("diceTablePrefab").objectReferenceValue = diceTable.GetComponent<NetworkObject>();
+            dso.FindProperty("cofferPrefab").objectReferenceValue = coffer.GetComponent<NetworkObject>();
+            dso.FindProperty("gongPrefab").objectReferenceValue = gong.GetComponent<NetworkObject>();
             dso.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -338,6 +344,19 @@ namespace Deepbound.EditorTools
             SetTeam(root.AddComponent<Health>(), Team.Props, 1.4f);
             root.AddComponent<CrackedWall>();
             return SavePrefab(root, "CrackedWall");
+        }
+
+        /// <summary>The Test of Might: a hittable (Props team) gong that never breaks.</summary>
+        private static GameObject BuildGongPrefab()
+        {
+            var root = new GameObject("Gong");
+            root.AddComponent<NetworkObject>();
+            var box = root.AddComponent<BoxCollider>();
+            box.size = new Vector3(2.4f, 2.4f, 0.3f);
+            box.center = new Vector3(0f, 1.9f, 0f);
+            SetTeam(root.AddComponent<Health>(), Team.Props, 1.9f);
+            root.AddComponent<Gong>();
+            return SavePrefab(root, "Gong");
         }
 
         private static GameObject BuildBreakablePrefab()

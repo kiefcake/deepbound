@@ -95,3 +95,6 @@ MonoBehaviour:
   - {fileID: 80050251579762826, guid: e50c8f43e8b20974081dcef8d7335902, type: 3}
   - {fileID: 3877447612689356978, guid: d66e1663c1ead4a4e928da4c1bf57c4d, type: 3}
   dummyPrefab: {fileID: 1671632005222932136, guid: 8ae0bd93a6b1b75429f4fc585838b6b7, type: 3}
+  diceTablePrefab: {fileID: 4048924686839327431, guid: 35d4a5a729e53884eb500810e6f40042, type: 3}
+  cofferPrefab: {fileID: 277748187989132094, guid: 56f6ca87434608e45987518743f36e9a, type: 3}
+  gongPrefab: {fileID: 6238532070434734018, guid: ae46c97d3df5ee047bf2b963aee60bcb, type: 3}

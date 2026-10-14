@@ -136,7 +136,7 @@ namespace Deepbound.Progression
             var anvil = World.Anvil.Near(transform.position);
             if (anvil == null || slot > 1) return;
             var item = Equipped((GearSlot)slot);
-            int depth = Mathf.Max(0, World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.Floor.Value.y : 0);
+            int depth = World.DungeonDirector.GearDepth;
             int cost = mode == 0 ? Gear.RefineCost(item) : Gear.AttuneCost(item, depth);
             if (cost <= 0 || Embers.Value < cost) return;
             Embers.Value -= cost;
@@ -583,8 +583,8 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void BuyRpc(int index)
         {
-            var layout = World.DungeonDirector.Layout;
-            if (layout == null || Vector3.Distance(transform.position, layout.MerchantPosition) > Shop.MerchantRange + 1f) return;
+            var merchant = World.DungeonDirector.MerchantPosition;
+            if (merchant == null || Vector3.Distance(transform.position, merchant.Value) > Shop.MerchantRange + 1f) return;
             if (CannotBuyReason(index) != null) return;
 
             var item = Shop.For(OwnerClientId)[index];

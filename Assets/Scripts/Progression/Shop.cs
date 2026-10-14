@@ -42,7 +42,7 @@ namespace Deepbound.Progression
             {
                 var director = World.DungeonDirector.Instance;
                 int seed = director != null ? director.Floor.Value.x : 0;
-                int depth = director != null ? UnityEngine.Mathf.Max(0, director.Floor.Value.y) : 0;
+                int depth = World.DungeonDirector.GearDepth;
                 if (seed == cachedSeed && cached != null) return cached;
 
                 var rng = new System.Random(seed);
@@ -70,7 +70,7 @@ namespace Deepbound.Progression
             var common = Current;
             var director = World.DungeonDirector.Instance;
             int seed = director != null ? director.Floor.Value.x : 0;
-            int depth = director != null ? UnityEngine.Mathf.Max(0, director.Floor.Value.y) : 0;
+            int depth = World.DungeonDirector.GearDepth;
             var rng = new System.Random(seed * 31 + (int)clientId * 7919 + 5);
             int id = rng.Next(1, 13);
             double r = rng.NextDouble();

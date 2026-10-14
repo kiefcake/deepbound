@@ -15,7 +15,7 @@ namespace Deepbound.World
     public enum RunPhase : byte
     {
         Exploring = 0,
-        FloorCleared = 1,  // boss dead, descending soon
+        FloorCleared = 1,  // boss dead, returning to camp soon
         Wiped = 2,         // everyone downed, run over
         RunComplete = 3,   // final boss dead
         Lobby = 4,         // at the Last Lantern, between runs
@@ -119,11 +119,26 @@ namespace Deepbound.World
         /// <summary>Index into <see cref="Difficulty.Settings"/>. The host picks it at camp.</summary>
         public readonly NetworkVariable<byte> DifficultyIndex = new NetworkVariable<byte>();
 
+        /// <summary>
+        /// The floor the carriage takes the party to next. 0 means no run is under way (a
+        /// fresh start); after each boss the party comes back to camp with this advanced.
+        /// </summary>
+        public readonly NetworkVariable<int> NextDepth = new NetworkVariable<int>();
+
+        /// <summary>A run is in progress (the party is at camp between floors).</summary>
+        public bool RunInProgress => NextDepth.Value > 0;
+
+        /// <summary>The depth gear, prices and attunement use: the floor you are on, or the next one from camp.</summary>
+        public static int GearDepth => Instance == null ? 0 : InLobby ? Instance.NextDepth.Value : Mathf.Max(0, Instance.Floor.Value.y);
+
+        /// <summary>The merchant's stall, only at camp.</summary>
+        public static Vector3? MerchantPosition => InLobby ? Lobby.MerchantSpot : (Vector3?)null;
+
         /// <summary>Host → server: change difficulty. Only honoured in the lobby.</summary>
         [Rpc(SendTo.Server)]
         public void SetDifficultyRpc(byte index)
         {
-            if (Phase.Value != RunPhase.Lobby) return;
+            if (Phase.Value != RunPhase.Lobby || RunInProgress) return;
             DifficultyIndex.Value = (byte)Mathf.Clamp(index, 0, Difficulty.Settings.Length - 1);
         }
 
@@ -183,12 +198,15 @@ namespace Deepbound.World
         // Transitions (server)
         // ------------------------------------------------------------------
 
-        private void EnterLobby()
+        /// <param name="keepRun">True between floors: the party keeps everything and heals up.</param>
+        private void EnterLobby(bool keepRun = false)
         {
             ClearSpawned();
+            if (!keepRun) NextDepth.Value = 0;
             Phase.Value = RunPhase.Lobby;
             PhaseEndsAt.Value = 0;
             Floor.Value = new Vector2Int(UnityEngine.Random.Range(1, int.MaxValue), LobbyDepth);
+            Debug.Log("[Director] Camp" + (keepRun ? " (between floors, next " + (NextDepth.Value + 1) + ")" : ""));
             BuildLocal(Floor.Value);
 
             if (dummyPrefab != null)
@@ -201,13 +219,43 @@ namespace Deepbound.World
                 }
             }
 
-            // Back at camp, the run is over: wipe its power and pick everyone up.
+            SpawnCampStations();
+
+            // Between floors the party keeps its run and rests; after a run, everything goes.
             foreach (var p in PlayerLife.All)
             {
-                if (p.TryGetComponent<PlayerProgress>(out var progress) && progress.Stats != null) progress.ServerResetRun();
+                if (!keepRun && p.TryGetComponent<PlayerProgress>(out var progress) && progress.Stats != null) progress.ServerResetRun();
                 p.ServerRevive(1f);
+                p.Health.ServerSetFraction(1f);
             }
             Debug.Log("[Director] Lobby");
+        }
+
+        [SerializeField] private NetworkObject diceTablePrefab;
+        [SerializeField] private NetworkObject cofferPrefab;
+        [SerializeField] private NetworkObject gongPrefab;
+
+        private void SpawnCampStations()
+        {
+            void Put(NetworkObject prefab, Vector3 at, Vector3 face)
+            {
+                if (prefab == null) return;
+                var obj = Instantiate(prefab, at, Quaternion.LookRotation(face));
+                obj.Spawn(destroyWithScene: true);
+                spawned.Add(obj);
+            }
+            Put(anvilPrefab, Lobby.AnvilSpot, Lobby.AnvilFacing);
+            Put(diceTablePrefab, Lobby.DiceSpot, Lobby.TentFacing);
+            Put(cofferPrefab, Lobby.CofferSpot, Lobby.TentFacing);
+            Put(gongPrefab, Lobby.GongSpot, Lobby.GongFacing);
+        }
+
+        /// <summary>Server: the carriage leaves — for the next floor of this run, or a new run.</summary>
+        public void ServerBoard()
+        {
+            if (!IsServer) return;
+            if (RunInProgress) StartFloor(NextDepth.Value);
+            else ServerStartRun();
         }
 
         /// <summary>Server: board the carriage and start floor one. Also used by the smoke test.</summary>
@@ -388,14 +436,6 @@ namespace Deepbound.World
         /// </summary>
         private void SpawnObjects(DungeonLayout layout)
         {
-            if (anvilPrefab != null)
-            {
-                // Beside the merchant, along the same wall, facing into the room.
-                var m = layout.MerchantPosition;
-                var into = (layout.StartRoom.Center - m).normalized;
-                var along = Vector3.Cross(Vector3.up, into);
-                Spawn(anvilPrefab, m + along * 3.2f + into * 0.3f, Quaternion.LookRotation(into));
-            }
             if (breakablePrefab == null) return;
             var rng = new System.Random(layout.Seed ^ 0x5eed);
             DungeonLayout.Room altarRoom = null;
@@ -515,7 +555,7 @@ namespace Deepbound.World
                     if (EveryoneAboard())
                     {
                         if (PhaseEndsAt.Value <= 0) PhaseEndsAt.Value = now + BoardingDelay;
-                        else if (now >= PhaseEndsAt.Value) ServerStartRun();
+                        else if (now >= PhaseEndsAt.Value) ServerBoard();
                     }
                     else if (PhaseEndsAt.Value > 0)
                     {
@@ -545,7 +585,11 @@ namespace Deepbound.World
                 default:
                     if (now >= phaseTimer)
                     {
-                        if (Phase.Value == RunPhase.FloorCleared) StartFloor(Floor.Value.y + 1);
+                        if (Phase.Value == RunPhase.FloorCleared)
+                        {
+                            NextDepth.Value = Floor.Value.y + 1;
+                            EnterLobby(keepRun: true);
+                        }
                         else EnterLobby();
                     }
                     break;

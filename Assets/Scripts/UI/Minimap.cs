@@ -110,7 +110,6 @@ namespace Deepbound.UI
                 if (boss) Icon(c, "BOSS", new Color(1f, 0.35f, 0.3f), large ? 16 : 11);
             }
 
-            Icon(ToMap(layout.MerchantPosition), "$", UiSkin.Gold, large ? 18 : 13);
 
             // Loot worth walking to: relics, sigils, runes, and your own gear.
             foreach (var drop in LootDrop.All)

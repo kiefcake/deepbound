@@ -157,12 +157,39 @@ namespace Deepbound.UI
         private void OnAnyHurt(Health target, float amount)
         {
             if (target == null || amount < 0.5f) return;
+            if (target.GetComponent<TrainingDummy>() != null) dummyHits.Add((Time.time, amount));
             bool mine = target == health;
             // Your own damage shows on your vitals; teammates' and enemies' float.
             if (mine) return;
             var jitter = new Vector3(Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f));
             numbers.Add(new DamageNumber { World = target.Center + Vector3.up * (target.CenterHeight + 0.2f) + jitter, Amount = amount, Time = Time.time, Player = target.Team == Team.Players });
             if (numbers.Count > 40) numbers.RemoveAt(0);
+        }
+
+        // Damage landed on the training dummies, for the yard's DPS readout.
+        private readonly List<(float time, float amount)> dummyHits = new List<(float, float)>();
+
+        /// <summary>At camp: DPS on the dummies, and the Test of Might's record when you are near the gong.</summary>
+        private void DrawCampReadouts(float w, float h)
+        {
+            if (!DungeonDirector.InLobby) return;
+            dummyHits.RemoveAll(x => Time.time - x.time > 4f);
+            if (dummyHits.Count > 0)
+            {
+                float sum = 0f, first = Time.time;
+                foreach (var (t, a) in dummyHits) { sum += a; first = Mathf.Min(first, t); }
+                float span = Mathf.Max(1f, Time.time - first);
+                GUI.Label(new Rect(0, h / 2f + 64, w, 24), "TRAINING:  " + Mathf.RoundToInt(sum / span) + " damage per second",
+                    new GUIStyle(center) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            }
+            var gong = Gong.Instance;
+            if (gong != null && Vector3.Distance(player.transform.position, gong.transform.position) < 9f)
+            {
+                string rec = gong.Record.Value > 0f ? Mathf.RoundToInt(gong.Record.Value) + "  by " + gong.RecordHolder.Value : "nobody yet";
+                Rect(w / 2f - 190, 100, 380, 46, Panel);
+                GUI.Label(new Rect(0, 104, w, 22), "THE TEST OF MIGHT", new GUIStyle(center) { normal = { textColor = Gold } });
+                GUI.Label(new Rect(0, 124, w, 20), "Strike the gong as hard as you can.   Record: " + rec, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+            }
         }
 
         private struct ComboText { public Vector3 World; public string Text; public Color Color; public float Time; }
@@ -234,6 +261,10 @@ namespace Deepbound.UI
             }
         }
 
+        /// <summary>
+        /// Camp banner, top of the screen and out of the way: where you are, what is next,
+        /// your class and the difficulty (both only changeable before a run), and boarding.
+        /// </summary>
         private void DrawLobby(float w, float h)
         {
             var director = DungeonDirector.Instance;
@@ -241,36 +272,26 @@ namespace Deepbound.UI
 
             int total = PlayerLife.All.Count, aboard = DungeonDirector.PlayersAboard();
             bool counting = director.PhaseEndsAt.Value > 0;
-            float y = h - 170;
+            bool midRun = director.RunInProgress;
+            float pw = 560, x = w / 2f - pw / 2f, y = 10;
+            Rect(x, y, pw, counting ? 84 : 62, Panel);
 
-            Rect(w / 2f - 230, y - 6, 460, counting ? 62 : 44, Panel);
-            GUI.Label(new Rect(0, y, w, 24), "Stand in the golden circle by the carriage to descend   (" + aboard + " / " + total + " aboard)", center);
+            string title = midRun ? "CASTLE RAVENHOLD   ·   FLOOR " + director.NextDepth.Value + " CLEARED" : "CASTLE RAVENHOLD";
+            GUI.Label(new Rect(x, y + 4, pw, 22), title, new GUIStyle(center) { normal = { textColor = Gold } });
 
-            // Current class and how to change it (the class screen scales to any roster;
-            // number keys still work as a shortcut).
-            float cy = y - 64;
-            Rect(w / 2f - 230, cy - 6, 460, 52, Panel);
-            var current = progress.ClassId.Value;
-            GUI.Label(new Rect(0, cy, w, 22), "You are the " + ClassDefinition.For(current).Name.ToUpperInvariant() + "   ·   press B to change class",
-                new GUIStyle(center) { normal = { textColor = Gold } });
-            GUI.Label(new Rect(0, cy + 22, w, 20), ClassDefinition.Pitch(current), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
-
-            // Difficulty: the host chooses with [ and ]; everyone sees it.
             var diff = Enemies.Difficulty.Level;
-            float dy = cy - 50;
-            Rect(w / 2f - 230, dy - 6, 460, 40, Panel);
             bool host = Unity.Netcode.NetworkManager.Singleton.IsHost;
-            GUI.Label(new Rect(0, dy - 2, w, 20), "DIFFICULTY:  " + diff.Name.ToUpperInvariant() + (host ? "      ( [  /  ]  to change )" : ""),
-                new GUIStyle(center) { normal = { textColor = diff.Name == "Normal" ? Color.white : new Color(1f, 0.45f, 0.3f) } });
-            GUI.Label(new Rect(0, dy + 16, w, 18), diff.Blurb, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+            string cls = ClassDefinition.For(progress.ClassId.Value).Name;
+            string line2 = midRun
+                ? "Rest, trade and gamble.   The carriage goes down to floor " + (director.NextDepth.Value + 1) + "."
+                : cls + " (B to change)   ·   " + diff.Name + (host ? " difficulty ( [ / ] )" : " difficulty");
+            GUI.Label(new Rect(x, y + 24, pw, 18), line2, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(x, y + 41, pw, 18), "Gather in the golden circle at the gate   (" + aboard + " / " + total + " aboard)",
+                new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = aboard > 0 ? Gold : new Color(0.85f, 0.82f, 0.78f) } });
             if (counting)
             {
                 int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
-                GUI.Label(new Rect(0, y + 24, w, 26), "The carriage departs in " + seconds + "...", new GUIStyle(center) { fontSize = 18, normal = { textColor = Gold } });
-            }
-            else
-            {
-                GUI.Label(new Rect(0, y + 20, w, 20), "Test your kit on the training dummies to the west", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+                GUI.Label(new Rect(x, y + 58, pw, 24), "The carriage departs in " + seconds + "...", new GUIStyle(center) { fontSize = 17, normal = { textColor = Gold } });
             }
         }
 
@@ -283,9 +304,9 @@ namespace Deepbound.UI
 
         private bool NearMerchant()
         {
-            var layout = DungeonDirector.Layout;
-            return layout != null && !life.Downed.Value &&
-                   Vector3.Distance(player.transform.position, layout.MerchantPosition) <= Shop.MerchantRange;
+            var merchant = DungeonDirector.MerchantPosition;
+            return merchant != null && !life.Downed.Value &&
+                   Vector3.Distance(player.transform.position, merchant.Value) <= Shop.MerchantRange;
         }
 
         private void Update()
@@ -297,7 +318,7 @@ namespace Deepbound.UI
             var anvil = NearAnvil();
             // G uses whichever station is closer: the merchant or the anvil beside him.
             bool anvilFirst = anvil != null && (!near || Vector3.Distance(player.transform.position, anvil.transform.position) <
-                Vector3.Distance(player.transform.position, DungeonDirector.Layout.MerchantPosition));
+                Vector3.Distance(player.transform.position, DungeonDirector.MerchantPosition.Value));
             if (keyboard != null && keyboard.gKey.wasPressedThisFrame)
             {
                 if (anvilFirst) { forgeOpen = !forgeOpen; shopOpen = false; }
@@ -359,6 +380,7 @@ namespace Deepbound.UI
             DrawEnemyBars();
             DrawDamageNumbers();
             DrawCombos();
+            DrawCampReadouts(w, h);
             DrawPings(w, h);
             DrawVignette(w, h);
             DrawCrosshair(w, h);
@@ -546,7 +568,7 @@ namespace Deepbound.UI
             string title, sub;
             switch (director.Phase.Value)
             {
-                case RunPhase.FloorCleared: title = "THE KING FALLS"; sub = "Descending deeper in " + seconds + "..."; break;
+                case RunPhase.FloorCleared: title = "THE FLOOR IS CLEARED"; sub = "Back to the castle in " + seconds + "... rest, trade, then ride deeper."; break;
                 case RunPhase.Wiped: title = "YOUR PARTY HAS FALLEN"; sub = "The run is over. Returning to camp in " + seconds + "..."; break;
                 default: title = "THE DEPTHS ARE CLEARED"; sub = "Run complete! Returning to camp in " + seconds + "..."; break;
             }
@@ -623,7 +645,7 @@ namespace Deepbound.UI
             if (!forgeOpen)
             {
                 if (!NearMerchant() || Vector3.Distance(player.transform.position, NearAnvil().transform.position) <
-                    Vector3.Distance(player.transform.position, DungeonDirector.Layout.MerchantPosition))
+                    Vector3.Distance(player.transform.position, DungeonDirector.MerchantPosition.Value))
                     GUI.Label(new Rect(0, h / 2f + 40, w, 24), "Press G to use the anvil", center);
                 return;
             }
@@ -682,7 +704,7 @@ namespace Deepbound.UI
 
             // Under the paths: refine or attune the gear you are wearing, so a favourite keeps up.
             GUI.Label(new Rect(x + 16, y + 328, leftW - 32, 20), "GEAR  -  refine quality, or attune it to this floor", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
-            int floorDepth = CurrentDepth();
+            int floorDepth = DungeonDirector.GearDepth;
             foreach (var gslot in new[] { GearSlot.Armor, GearSlot.Charm })
             {
                 float gy = y + 350 + (int)gslot * 34;
@@ -757,7 +779,7 @@ namespace Deepbound.UI
             if (!NearMerchant() || forgeOpen) return;
             var nearAnvil = NearAnvil();
             if (!shopOpen && nearAnvil != null && Vector3.Distance(player.transform.position, nearAnvil.transform.position) <
-                Vector3.Distance(player.transform.position, DungeonDirector.Layout.MerchantPosition)) return;
+                Vector3.Distance(player.transform.position, DungeonDirector.MerchantPosition.Value)) return;
 
             if (!shopOpen)
             {

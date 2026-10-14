@@ -373,98 +373,6 @@ namespace Deepbound.Networking
                 Log("pickup", "gold " + goldBefore + " -> " + progress.Gold.Value + ", embers " + progress.Embers.Value,
                     progress.Gold.Value > goldBefore || progress.Embers.Value > 0);
 
-                // The anvil: hand the player embers, temper twice, check ATT rose.
-                var anvil = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
-                if (anvil != null)
-                {
-                    float attBefore = progress.Value(Core.StatType.ATT);
-                    progress.ServerAddEmbers(Anvil.Cost(0) + Anvil.Cost(1));
-                    var ap = anvil.transform.position + anvil.transform.forward * 1.6f + Vector3.up * 0.1f;
-                    motor.Teleport(ap, Quaternion.LookRotation(-anvil.transform.forward));
-                    yield return new WaitForSeconds(0.2f);
-                    progress.TemperRpc();
-                    yield return new WaitForSeconds(0.2f);
-                    progress.TemperRpc();
-                    yield return new WaitForSeconds(0.3f);
-                    Log("anvil", "weapon +" + progress.WeaponLevel.Value + ", ATT " + attBefore + " -> " + progress.Value(Core.StatType.ATT) + ", embers left " + progress.Embers.Value,
-                        progress.WeaponLevel.Value == 2 && progress.Value(Core.StatType.ATT) > attBefore);
-
-                    // Gear: a drop meant for this player, equip it, then scrap a second.
-                var ddef = local.GetComponent<Health>().Defense;
-                var gearDrop = GearDrop.ServerSpawn(new GearItem(GearId.OssuaryPlate, 1, 0), local.OwnerClientId, local.transform.position + local.transform.forward * 1.2f);
-                yield return new WaitForSeconds(0.2f);
-                gearDrop.UseRpc(local.NetworkObject);
-                yield return new WaitForSeconds(0.2f);
-                Log("gear equip", "armor " + Gear.Name(progress.Armor.Value) + ", DEF " + ddef + " -> " + local.GetComponent<Health>().Defense,
-                    progress.Armor.Value.Kind == GearId.OssuaryPlate && local.GetComponent<Health>().Defense > ddef);
-                // Refine it at the anvil: Fine -> Masterwork, DEF rises.
-                var anvilR = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
-                if (anvilR != null)
-                {
-                    var keep = local.transform.position;
-                    motor.Teleport(anvilR.transform.position + anvilR.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
-                    yield return new WaitForSeconds(0.2f);
-                    float defR = local.GetComponent<Health>().Defense;
-                    progress.ServerAddEmbers(Gear.RefineCost(progress.Armor.Value));
-                    progress.ReforgeRpc(0, 0);
-                    yield return new WaitForSeconds(0.2f);
-                    Log("gear refine", Gear.Name(progress.Armor.Value) + ", DEF " + defR + " -> " + local.GetComponent<Health>().Defense,
-                        progress.Armor.Value.Quality == 2 && local.GetComponent<Health>().Defense > defR);
-                    motor.Teleport(keep, local.transform.rotation);
-                    yield return new WaitForSeconds(0.1f);
-                }
-                int embersBefore = progress.Embers.Value;
-                var junk = GearDrop.ServerSpawn(new GearItem(GearId.Bloodstone, 0, 0), local.OwnerClientId, local.transform.position + local.transform.forward * 1.2f);
-                yield return new WaitForSeconds(0.2f);
-                junk.ScrapRpc(local.NetworkObject);
-                yield return new WaitForSeconds(0.2f);
-                Log("gear scrap", "embers " + embersBefore + " -> " + progress.Embers.Value, progress.Embers.Value > embersBefore);
-
-                // The merchant: this player's own gear offer lands at their feet.
-                var mpos = layout.MerchantPosition;
-                motor.Teleport(mpos + (layout.StartRoom.Center - mpos).normalized * 2f + Vector3.up * 0.1f, local.transform.rotation);
-                yield return new WaitForSeconds(0.2f);
-                progress.ServerAddGold(500);
-                int goldNow = progress.Gold.Value;
-                var stock = Shop.For(local.OwnerClientId);
-                int gearIndex = System.Array.FindIndex(stock, it => it.Kind == Shop.ItemKind.Gear);
-                int dropsBeforeBuy = FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
-                progress.BuyRpc(gearIndex);
-                yield return new WaitForSeconds(0.3f);
-                Log("shop gear", "bought " + stock[gearIndex].Name + " for " + stock[gearIndex].Price + ", gold " + goldNow + " -> " + progress.Gold.Value + ", sold-out: " + progress.CannotBuyReason(gearIndex),
-                    progress.Gold.Value == goldNow - stock[gearIndex].Price && FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length == dropsBeforeBuy + 1 && progress.CannotBuyReason(gearIndex) == "Sold");
-                var anvilAgain = FindObjectsByType<Anvil>(FindObjectsSortMode.None).First();
-                motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
-                yield return new WaitForSeconds(0.2f);
-
-                // Runes: one in the bag, set it into the weapon's first socket.
-                int bagBefore = progress.RuneBagCount;
-                progress.ServerAddRune(Rune.Frost);
-                yield return new WaitForSeconds(0.1f);
-                progress.SocketRuneRpc((byte)Rune.Frost);
-                yield return new WaitForSeconds(0.2f);
-                Log("rune socket", "socket 1: " + Runes.Name(progress.Socketed(0)) + ", bag " + progress.RuneBagCount,
-                    progress.Socketed(0) == Rune.Frost && progress.RuneBagCount == bagBefore);
-
-                // Sigils: rank Q twice at the anvil; the cooldown scale drops at rank 3.
-                float cdBefore = progress.CooldownFor(Classes.AbilitySlot.Q);
-                int sigilsBefore = progress.Sigils.Value;
-                progress.ServerAddSigil();
-                progress.ServerAddSigil();
-                progress.EmpowerRpc(0);
-                yield return new WaitForSeconds(0.2f);
-                progress.EmpowerRpc(0);
-                yield return new WaitForSeconds(0.2f);
-                Log("ability rank", "Q rank " + progress.RankQ.Value + ", sigils left " + progress.Sigils.Value + ", Q cooldown x" + cdBefore + " -> x" + progress.CooldownFor(Classes.AbilitySlot.Q),
-                    progress.RankQ.Value == 3 && progress.Sigils.Value == sigilsBefore && progress.CooldownFor(Classes.AbilitySlot.Q) < cdBefore);
-
-                // Boss legendary: the Hollow Crown lifts both abilities a rank.
-                int qBefore = progress.Rank(Classes.AbilitySlot.Q), eBefore = progress.Rank(Classes.AbilitySlot.E);
-                var oldCharm = progress.ServerEquip(new GearItem(GearId.HollowCrown, 3, 2));
-                Log("legendary crown", "Q " + qBefore + " -> " + progress.Rank(Classes.AbilitySlot.Q) + ", E " + eBefore + " -> " + progress.Rank(Classes.AbilitySlot.E),
-                    progress.Rank(Classes.AbilitySlot.E) == Mathf.Min(3, eBefore + 1));
-                if (!oldCharm.IsEmpty) progress.ServerEquip(oldCharm);
-
                 // Class combos: a stunned enemy is Exposed; a heavy hit Shatters chill.
                 var foe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead);
                 if (foe != null)
@@ -500,19 +408,6 @@ namespace Deepbound.Networking
                     else Log("elite ward", "rolled " + eliteTest.AffixKind + " (no ward to test)", true);
                 }
 
-                // +3 needs a path; choose Cleave and check the swing now reaches wider.
-                    progress.ServerAddEmbers(Anvil.Cost(2));
-                    progress.TemperRpc();
-                    yield return new WaitForSeconds(0.2f);
-                    bool gated = progress.WeaponLevel.Value == 2;
-                    progress.ChoosePathRpc(1);
-                    yield return new WaitForSeconds(0.2f);
-                    progress.TemperRpc();
-                    yield return new WaitForSeconds(0.2f);
-                    Log("weapon path", "gated before choosing: " + gated + ", path " + progress.WeaponPath.Value + ", weapon +" + progress.WeaponLevel.Value,
-                        gated && progress.WeaponPath.Value == 1 && progress.WeaponLevel.Value == 3);
-                }
-                else Log("anvil", "none in the start room", false);
                 motor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
             }
 
@@ -527,11 +422,176 @@ namespace Deepbound.Networking
                 Log("boss arena", "sealed when hit: " + DungeonDirector.Instance.BossSealed, DungeonDirector.Instance.BossSealed);
             }
 
-            // Wait until the party has descended to the next floor, so the wipe is not
-            // undone by the descent reviving everyone.
-            float descendBy = Time.time + 20f;
-            while (net.IsServer && DungeonDirector.Instance.Phase.Value != RunPhase.Exploring && Time.time < descendBy) yield return null;
+            // After the boss the party goes home to camp, run intact; spend there, then ride down.
+            float campBy = Time.time + 20f;
+            while (net.IsServer && DungeonDirector.Instance.Phase.Value != RunPhase.Lobby && Time.time < campBy) yield return null;
             yield return new WaitForSeconds(1f);
+            if (net.IsServer && local != null)
+            {
+                var dc = DungeonDirector.Instance;
+                var pc = local.GetComponent<PlayerProgress>();
+                Log("camp between floors", "in camp " + DungeonDirector.InLobby + ", next floor " + (dc.NextDepth.Value + 1) + ", kills kept " + pc.Kills.Value + ", gold " + pc.Gold.Value,
+                    DungeonDirector.InLobby && dc.RunInProgress && dc.NextDepth.Value == 1 && pc.Kills.Value > 0);
+                Log("camp stations", FindObjectsByType<Anvil>(FindObjectsSortMode.None).Length + " anvil, " + FindObjectsByType<DiceTable>(FindObjectsSortMode.None).Length + " dice, " +
+                    FindObjectsByType<MysteryCoffer>(FindObjectsSortMode.None).Length + " coffer, " + FindObjectsByType<Gong>(FindObjectsSortMode.None).Length + " gong",
+                    FindObjectsByType<Anvil>(FindObjectsSortMode.None).Length == 1 && FindObjectsByType<DiceTable>(FindObjectsSortMode.None).Length == 1 && FindObjectsByType<Gong>(FindObjectsSortMode.None).Length == 1);
+
+                {
+                    var progress = pc;
+                    var motor = local.GetComponent<FirstPersonMotor>();
+                    // The anvil: hand the player embers, temper twice, check ATT rose.
+                    var anvil = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
+                    if (anvil != null)
+                    {
+                        float attBefore = progress.Value(Core.StatType.ATT);
+                        progress.ServerAddEmbers(Anvil.Cost(0) + Anvil.Cost(1));
+                        var ap = anvil.transform.position + anvil.transform.forward * 1.6f + Vector3.up * 0.1f;
+                        motor.Teleport(ap, Quaternion.LookRotation(-anvil.transform.forward));
+                        yield return new WaitForSeconds(0.2f);
+                        progress.TemperRpc();
+                        yield return new WaitForSeconds(0.2f);
+                        progress.TemperRpc();
+                        yield return new WaitForSeconds(0.3f);
+                        Log("anvil", "weapon +" + progress.WeaponLevel.Value + ", ATT " + attBefore + " -> " + progress.Value(Core.StatType.ATT) + ", embers left " + progress.Embers.Value,
+                            progress.WeaponLevel.Value == 2 && progress.Value(Core.StatType.ATT) > attBefore);
+
+                        // Gear: a drop meant for this player, equip it, then scrap a second.
+                    var ddef = local.GetComponent<Health>().Defense;
+                    var gearDrop = GearDrop.ServerSpawn(new GearItem(GearId.OssuaryPlate, 1, 0), local.OwnerClientId, local.transform.position + local.transform.forward * 1.2f);
+                    yield return new WaitForSeconds(0.2f);
+                    gearDrop.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.2f);
+                    Log("gear equip", "armor " + Gear.Name(progress.Armor.Value) + ", DEF " + ddef + " -> " + local.GetComponent<Health>().Defense,
+                        progress.Armor.Value.Kind == GearId.OssuaryPlate && local.GetComponent<Health>().Defense > ddef);
+                    // Refine it at the anvil: Fine -> Masterwork, DEF rises.
+                    var anvilR = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
+                    if (anvilR != null)
+                    {
+                        var keep = local.transform.position;
+                        motor.Teleport(anvilR.transform.position + anvilR.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return new WaitForSeconds(0.2f);
+                        float defR = local.GetComponent<Health>().Defense;
+                        progress.ServerAddEmbers(Gear.RefineCost(progress.Armor.Value));
+                        progress.ReforgeRpc(0, 0);
+                        yield return new WaitForSeconds(0.2f);
+                        Log("gear refine", Gear.Name(progress.Armor.Value) + ", DEF " + defR + " -> " + local.GetComponent<Health>().Defense,
+                            progress.Armor.Value.Quality == 2 && local.GetComponent<Health>().Defense > defR);
+                        motor.Teleport(keep, local.transform.rotation);
+                        yield return new WaitForSeconds(0.1f);
+                    }
+                    int embersBefore = progress.Embers.Value;
+                    var junk = GearDrop.ServerSpawn(new GearItem(GearId.Bloodstone, 0, 0), local.OwnerClientId, local.transform.position + local.transform.forward * 1.2f);
+                    yield return new WaitForSeconds(0.2f);
+                    junk.ScrapRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.2f);
+                    Log("gear scrap", "embers " + embersBefore + " -> " + progress.Embers.Value, progress.Embers.Value > embersBefore);
+
+                    // The merchant: this player's own gear offer lands at their feet.
+                    var mpos = Lobby.MerchantSpot;
+                    motor.Teleport(mpos + Vector3.right * 2.4f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
+                    progress.ServerAddGold(500);
+                    int goldNow = progress.Gold.Value;
+                    var stock = Shop.For(local.OwnerClientId);
+                    int gearIndex = System.Array.FindIndex(stock, it => it.Kind == Shop.ItemKind.Gear);
+                    int dropsBeforeBuy = FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
+                    progress.BuyRpc(gearIndex);
+                    yield return new WaitForSeconds(0.3f);
+                    Log("shop gear", "bought " + stock[gearIndex].Name + " for " + stock[gearIndex].Price + ", gold " + goldNow + " -> " + progress.Gold.Value + ", sold-out: " + progress.CannotBuyReason(gearIndex),
+                        progress.Gold.Value == goldNow - stock[gearIndex].Price && FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length == dropsBeforeBuy + 1 && progress.CannotBuyReason(gearIndex) == "Sold");
+                    var anvilAgain = FindObjectsByType<Anvil>(FindObjectsSortMode.None).First();
+                    motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
+
+                    // Runes: one in the bag, set it into the weapon's first socket.
+                    int bagBefore = progress.RuneBagCount;
+                    progress.ServerAddRune(Rune.Frost);
+                    yield return new WaitForSeconds(0.1f);
+                    progress.SocketRuneRpc((byte)Rune.Frost);
+                    yield return new WaitForSeconds(0.2f);
+                    Log("rune socket", "socket 1: " + Runes.Name(progress.Socketed(0)) + ", bag " + progress.RuneBagCount,
+                        progress.Socketed(0) == Rune.Frost && progress.RuneBagCount == bagBefore);
+
+                    // Sigils: rank Q twice at the anvil; the cooldown scale drops at rank 3.
+                    float cdBefore = progress.CooldownFor(Classes.AbilitySlot.Q);
+                    int sigilsBefore = progress.Sigils.Value;
+                    progress.ServerAddSigil();
+                    progress.ServerAddSigil();
+                    progress.EmpowerRpc(0);
+                    yield return new WaitForSeconds(0.2f);
+                    progress.EmpowerRpc(0);
+                    yield return new WaitForSeconds(0.2f);
+                    Log("ability rank", "Q rank " + progress.RankQ.Value + ", sigils left " + progress.Sigils.Value + ", Q cooldown x" + cdBefore + " -> x" + progress.CooldownFor(Classes.AbilitySlot.Q),
+                        progress.RankQ.Value == 3 && progress.Sigils.Value == sigilsBefore && progress.CooldownFor(Classes.AbilitySlot.Q) < cdBefore);
+
+                    // Boss legendary: the Hollow Crown lifts both abilities a rank.
+                    int qBefore = progress.Rank(Classes.AbilitySlot.Q), eBefore = progress.Rank(Classes.AbilitySlot.E);
+                    var oldCharm = progress.ServerEquip(new GearItem(GearId.HollowCrown, 3, 2));
+                    Log("legendary crown", "Q " + qBefore + " -> " + progress.Rank(Classes.AbilitySlot.Q) + ", E " + eBefore + " -> " + progress.Rank(Classes.AbilitySlot.E),
+                        progress.Rank(Classes.AbilitySlot.E) == Mathf.Min(3, eBefore + 1));
+                    if (!oldCharm.IsEmpty) progress.ServerEquip(oldCharm);
+
+                    // +3 needs a path; choose Cleave and check the swing now reaches wider.
+                        progress.ServerAddEmbers(Anvil.Cost(2));
+                        progress.TemperRpc();
+                        yield return new WaitForSeconds(0.2f);
+                        bool gated = progress.WeaponLevel.Value == 2;
+                        progress.ChoosePathRpc(1);
+                        yield return new WaitForSeconds(0.2f);
+                        progress.TemperRpc();
+                        yield return new WaitForSeconds(0.2f);
+                        Log("weapon path", "gated before choosing: " + gated + ", path " + progress.WeaponPath.Value + ", weapon +" + progress.WeaponLevel.Value,
+                            gated && progress.WeaponPath.Value == 1 && progress.WeaponLevel.Value == 3);
+                    }
+                    else Log("anvil", "none at camp", false);
+
+                    // The gambling tent: a roll of the bones moves gold one way or the other (or not).
+                    var dice = FindObjectsByType<DiceTable>(FindObjectsSortMode.None).FirstOrDefault();
+                    if (dice != null)
+                    {
+                        progress.ServerAddGold(200);
+                        motor.Teleport(dice.transform.position + dice.transform.forward * 1.4f + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return new WaitForSeconds(0.2f);
+                        int g0 = progress.Gold.Value;
+                        dice.UseRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.3f);
+                        int stake = DiceTable.Stake(g0);
+                        int delta = progress.Gold.Value - g0;
+                        Log("dice", "gold " + g0 + " -> " + progress.Gold.Value + " (stake " + stake + ")", delta == stake || delta == 0 || delta == -stake);
+                    }
+                    // The coffer: pay and something appears.
+                    var coffer = FindObjectsByType<MysteryCoffer>(FindObjectsSortMode.None).FirstOrDefault();
+                    if (coffer != null)
+                    {
+                        progress.ServerAddGold(MysteryCoffer.Price);
+                        motor.Teleport(coffer.transform.position + coffer.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return new WaitForSeconds(0.2f);
+                        int g1 = progress.Gold.Value;
+                        int things = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length + FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
+                        coffer.UseRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.3f);
+                        int after = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length + FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
+                        Log("mystery coffer", "gold " + g1 + " -> " + progress.Gold.Value + ", prizes " + things + " -> " + after, progress.Gold.Value == g1 - MysteryCoffer.Price && after > things);
+                    }
+                    // The Test of Might: a hit sets the record and the gong takes no damage.
+                    var gongT = Gong.Instance;
+                    if (gongT != null)
+                    {
+                        float hpG = gongT.GetComponent<Health>().Current.Value;
+                        gongT.GetComponent<Health>().ServerDamage(77f, gongT.transform.position - gongT.transform.forward, local.NetworkObjectId);
+                        yield return new WaitForSeconds(0.2f);
+                        Log("test of might", "record " + gongT.Record.Value + " by " + gongT.RecordHolder.Value + ", hp unchanged " + (gongT.GetComponent<Health>().Current.Value == hpG),
+                            gongT.Record.Value >= 77f && gongT.GetComponent<Health>().Current.Value == hpG);
+                    }
+                }
+
+                // Board: floor two, same run.
+                dc.ServerBoard();
+                float boardBy = Time.time + 10f;
+                while (dc.Phase.Value != RunPhase.Exploring && Time.time < boardBy) yield return null;
+                yield return new WaitForSeconds(1.5f);
+                Log("next floor", "depth " + dc.Floor.Value.y + ", weapon kept +" + pc.WeaponLevel.Value, dc.Floor.Value.y == 1 && pc.WeaponLevel.Value >= 2);
+            }
 
             // Wipe the party and check the run summary has something to show.
             if (net.IsServer && local != null)
@@ -595,6 +655,26 @@ namespace Deepbound.Networking
             lobbyMotor.Teleport(dummyFrom, Quaternion.LookRotation(Lobby.DummySpots[0] - dummyFrom));
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "0c_lobby_dummies");
+
+            // A tour of the castle: the road from the bonfire, the stalls, the tent, the gong, the gate.
+            var tour = new (string name, Vector3 at, Vector3 look, float pitch)[]
+            {
+                ("0j_castle_road", Lobby.Origin + new Vector3(0f, 0.1f, -17f), Lobby.Origin + new Vector3(0f, 2f, 10f), -8f),
+                ("0k_castle_stalls", Lobby.Origin + new Vector3(0f, 0.1f, -10f), Lobby.Origin + new Vector3(-5f, 1.5f, -5f), 0f),
+                ("0l_castle_tent", Lobby.Origin + new Vector3(-2f, 0.1f, 6f), Lobby.TentCenter + Vector3.up * 1.5f, 0f),
+                ("0m_castle_gong", Lobby.Origin + new Vector3(3f, 0.1f, 6f), Lobby.GongSpot + Vector3.up * 2f, 0f),
+                ("0n_castle_gate", Lobby.Origin + new Vector3(-4f, 0.1f, 8f), Lobby.BoardingCenter + new Vector3(2f, 3f, 6f), -10f),
+                ("0o_castle_keep", Lobby.Origin + new Vector3(3f, 0.1f, 2f), Lobby.Origin + new Vector3(0f, 9f, -24f), -18f),
+            };
+            foreach (var (tname, tat, tlook, tpitch) in tour)
+            {
+                var flat = tlook - tat; flat.y = 0f;
+                lobbyMotor.Teleport(tat, Quaternion.LookRotation(flat));
+                lobbyMotor.SetPitch(tpitch);
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, tname);
+            }
+            lobbyMotor.SetPitch(0f);
 
             // The Mage: switch class, frost the dummy, catch the bolt and the chill.
             var prog = local.GetComponent<PlayerProgress>();
