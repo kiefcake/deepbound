@@ -362,8 +362,17 @@ namespace Deepbound.Networking
                 motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                 yield return new WaitForSeconds(0.2f);
 
+                // Runes: one in the bag, set it into the weapon's first socket.
+                progress.ServerAddRune(Rune.Frost);
+                yield return new WaitForSeconds(0.1f);
+                progress.SocketRuneRpc((byte)Rune.Frost);
+                yield return new WaitForSeconds(0.2f);
+                Log("rune socket", "socket 1: " + Runes.Name(progress.Socketed(0)) + ", bag " + progress.RuneBagCount,
+                    progress.Socketed(0) == Rune.Frost && progress.RuneBagCount == 0);
+
                 // Sigils: rank Q twice at the anvil; the cooldown scale drops at rank 3.
                 float cdBefore = progress.CooldownFor(Classes.AbilitySlot.Q);
+                int sigilsBefore = progress.Sigils.Value;
                 progress.ServerAddSigil();
                 progress.ServerAddSigil();
                 progress.EmpowerRpc(0);
@@ -371,7 +380,7 @@ namespace Deepbound.Networking
                 progress.EmpowerRpc(0);
                 yield return new WaitForSeconds(0.2f);
                 Log("ability rank", "Q rank " + progress.RankQ.Value + ", sigils left " + progress.Sigils.Value + ", Q cooldown x" + cdBefore + " -> x" + progress.CooldownFor(Classes.AbilitySlot.Q),
-                    progress.RankQ.Value == 3 && progress.Sigils.Value == 0 && progress.CooldownFor(Classes.AbilitySlot.Q) < cdBefore);
+                    progress.RankQ.Value == 3 && progress.Sigils.Value == sigilsBefore && progress.CooldownFor(Classes.AbilitySlot.Q) < cdBefore);
 
                 // Class combos: a stunned enemy is Exposed; a heavy hit Shatters chill.
                 var foe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead);
@@ -554,7 +563,13 @@ namespace Deepbound.Networking
                 ap.ServerAddEmbers(60);
                 ap.TemperRpc();
                 ap.TemperRpc();
+                ap.ServerAddRune(Rune.Storm);
+                ap.ServerAddRune(Rune.Holy);
+                ap.ServerAddRune(Rune.Ember);
+                ap.ServerAddSigil();
                 yield return new WaitForSeconds(0.3f);
+                ap.SocketRuneRpc((byte)Rune.Storm);
+                yield return new WaitForSeconds(0.2f);
                 local.GetComponent<UI.GameHud>().DebugOpenForge();
                 yield return null;
                 yield return Shot(dir, "1b_forge_panel");

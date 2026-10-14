@@ -68,6 +68,13 @@ namespace Deepbound.World
         }
 
         [Rpc(SendTo.ClientsAndHost)]
+        public void EmberBurstFxRpc(Vector3 at)
+        {
+            Art.Sfx.Play(Art.Sound.Fire, at + Vector3.up, 0.8f, 1.2f);
+            Combat.Telegraph.Show(at, 2.5f, 0.35f, null, new Color(1f, 0.45f, 0.1f, 0.45f));
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
         public void AegisBurstFxRpc(Vector3 at)
         {
             Art.Sfx.Play(Art.Sound.Revive, at + Vector3.up, 0.8f, 1.6f);

@@ -17,6 +17,7 @@ namespace Deepbound.Loot
         Relic = 10,    // Amount carries the Relic id
         Embers = 11,   // weapon upgrade material
         Sigil = 12,    // ability rank-up, spent at the anvil
+        Rune = 13,     // weapon enchantment; Amount carries the Rune id
     }
 
     public static class LootInfo
@@ -46,6 +47,7 @@ namespace Deepbound.Loot
             if (kind == LootKind.Gold) return "Gold";
             if (kind == LootKind.Embers) return "Embers";
             if (kind == LootKind.Sigil) return "a Sigil";
+            if (kind == LootKind.Rune) return "a rune";
             if (kind == LootKind.Relic) return "a relic";
             return kind.ToString();
         }

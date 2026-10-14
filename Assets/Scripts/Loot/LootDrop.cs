@@ -109,6 +109,11 @@ namespace Deepbound.Loot
                 progress.ServerAddSigil();
                 return true;
             }
+            if (kind == LootKind.Rune)
+            {
+                progress.ServerAddRune((Rune)Amount.Value);
+                return true;
+            }
             if (kind == LootKind.Embers)
             {
                 progress.ServerAddEmbers(Mathf.RoundToInt(Amount.Value * (progress.Wears(GearId.LanternOfTheLost) ? 1.4f : 1f)));
@@ -124,7 +129,7 @@ namespace Deepbound.Loot
             var at = transform.position + Vector3.up * 0.4f;
             if (Kind.Value == LootKind.Gold) Sfx.Play(Sound.Coins, at, 0.6f);
             else if (Kind.Value == LootKind.Embers) Sfx.Play(Sound.Fire, at, 0.45f, 1.6f);
-            else if (Kind.Value == LootKind.Sigil) Sfx.Play(Sound.Relic, at, 0.8f, 1.3f);
+            else if (Kind.Value == LootKind.Sigil || Kind.Value == LootKind.Rune) Sfx.Play(Sound.Relic, at, 0.8f, 1.3f);
         }
 
         // ------------------------------------------------------------------
@@ -148,6 +153,17 @@ namespace Deepbound.Loot
                     MeshKit.Part(visual, "Coin" + i, MeshKit.Cylinder(0.07f, 0.07f, 0.02f, 10), Mat.Gold, off, new Vector3(0f, i * 37f, i % 2 == 0 ? 6f : -4f));
                 }
                 AddLight(new Color(1f, 0.75f, 0.3f), 1.2f);
+                return;
+            }
+
+            if (Kind.Value == LootKind.Rune)
+            {
+                // A small rounded rune-stone with a glowing band in the rune's colour.
+                var rc = Runes.Color((Rune)Amount.Value);
+                MeshKit.Part(visual, "Stone", MeshKit.Ball(0.12f, 8, 6), Mat.StoneWall, Vector3.zero, Vector3.zero, new Vector3(1f, 0.7f, 1f));
+                var band = MeshKit.Part(visual, "Band", MeshKit.Cylinder(0.125f, 0.125f, 0.03f, 10), Mat.Glow, Vector3.zero);
+                ArtLibrary.SetGlow(band.GetComponent<Renderer>(), rc * 1.8f);
+                AddLight(rc, 2f);
                 return;
             }
 

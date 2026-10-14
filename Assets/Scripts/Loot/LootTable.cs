@@ -38,6 +38,7 @@ namespace Deepbound.Loot
                 if (Random.value > e.Chance) continue;
                 int amount = Random.Range(e.MinAmount, e.MaxAmount + 1);
                 if (e.Kind == LootKind.Relic) amount = (int)Relics.Random();
+                if (e.Kind == LootKind.Rune) amount = (int)Runes.Random();
                 if (e.Kind == LootKind.Gold) amount = Mathf.Max(1, Mathf.RoundToInt(amount * goldScale));
                 if (e.Kind == LootKind.Embers) amount = Mathf.Max(1, Mathf.RoundToInt(amount * (1f + (goldScale - 1f) * 0.5f)));
                 results.Add((e.Kind, amount));
@@ -57,14 +58,16 @@ namespace Deepbound.Loot
             .Add(1f, LootKind.Gold, 15, 25)
             .Add(1f, LootKind.Embers, 6, 10)
             .Add(0.3f, LootKind.Relic)
-            .Add(0.15f, LootKind.Sigil);
+            .Add(0.15f, LootKind.Sigil)
+            .Add(0.2f, LootKind.Rune);
 
         /// <summary>Side-room chests: worth the detour.</summary>
         public static readonly LootTable Chest = new LootTable()
             .Add(1f, LootKind.Gold, 25, 40)
             .Add(1f, LootKind.Embers, 8, 14)
             .Add(0.3f, LootKind.Relic)
-            .Add(0.25f, LootKind.Sigil);
+            .Add(0.25f, LootKind.Sigil)
+            .Add(0.3f, LootKind.Rune);
 
         /// <summary>Clay urns: pocket change, now and then an ember.</summary>
         public static readonly LootTable Urn = new LootTable()

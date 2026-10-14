@@ -161,6 +161,44 @@ namespace Deepbound.Progression
         public readonly NetworkVariable<ClassId> ClassId = new NetworkVariable<ClassId>(Classes.ClassId.Knight,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         private NetworkList<float> bonuses;
+        private NetworkList<byte> runeBag;
+        public readonly NetworkVariable<byte> Socket0 = new NetworkVariable<byte>();
+        public readonly NetworkVariable<byte> Socket1 = new NetworkVariable<byte>();
+
+        public Rune Socketed(int socket) => (Rune)(socket == 0 ? Socket0.Value : Socket1.Value);
+        public bool HasRune(Rune r) => Socketed(0) == r || Socketed(1) == r;
+        public int RuneBagCount => runeBag.Count;
+        public Rune RuneInBag(int i) => (Rune)runeBag[i];
+
+        public void ServerAddRune(Rune r)
+        {
+            if (!IsServer || r == Rune.None) return;
+            runeBag.Add((byte)r);
+            RuneFoundRpc((byte)r);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RuneFoundRpc(byte r) => UI.GameHud.Feed(name + " found a " + Runes.Name((Rune)r) + "  -  set it at the anvil", Runes.Color((Rune)r));
+
+        /// <summary>
+        /// Owner → server: set a rune from the bag into the first open empty socket, or, if
+        /// both are full, into the first socket (its old rune goes back into the bag).
+        /// </summary>
+        [Rpc(SendTo.Server)]
+        public void SocketRuneRpc(byte rune)
+        {
+            var anvil = World.Anvil.Near(transform.position);
+            int sockets = Runes.SocketsAt(WeaponLevel.Value);
+            int bagIndex = runeBag.IndexOf(rune);
+            if (anvil == null || sockets == 0 || bagIndex < 0) return;
+            int target = 0;
+            for (int s = 0; s < sockets; s++) if (Socketed(s) == Rune.None) { target = s; break; }
+            var socket = target == 0 ? Socket0 : Socket1;
+            runeBag.RemoveAt(bagIndex);
+            if (socket.Value != 0) runeBag.Add(socket.Value);
+            socket.Value = rune;
+            anvil.ForgeFxRpc(2);
+        }
         private NetworkList<byte> relics;
 
         // Server-side relic state.
@@ -184,6 +222,7 @@ namespace Deepbound.Progression
             // Awake or at declaration so they are registered with the behaviour.
             bonuses = new NetworkList<float>();
             relics = new NetworkList<byte>();
+            runeBag = new NetworkList<byte>();
         }
 
         public override void OnNetworkSpawn()
@@ -208,6 +247,7 @@ namespace Deepbound.Progression
 
             Relics.EnsureServerHooks();
             GearEffects.EnsureServerHooks();
+            Runes.EnsureServerHooks();
             Combos.EnsureServerHooks();
             health.IncomingModifiers.Add(RelicDefense);
             health.IncomingModifiers.Add(GearDefense);
@@ -556,6 +596,8 @@ namespace Deepbound.Progression
             Sigils.Value = 0;
             RankQ.Value = RankE.Value = 1;
             Armor.Value = default;
+            runeBag.Clear();
+            Socket0.Value = Socket1.Value = 0;
             Charm.Value = default;
             health.HealMultiplier = 1f;
             Kills.Value = DamageDealt.Value = GoldEarned.Value = Downs.Value = Revives.Value = CombosTriggered.Value = 0;

@@ -618,7 +618,8 @@ namespace Deepbound.UI
             var id = progress.ClassId.Value;
             int level = progress.WeaponLevel.Value, path = progress.WeaponPath.Value;
             string weapon = ClassDefinition.WeaponName(id);
-            float pw = 620, ph = 330 + 150;
+            const float leftW = 620f;
+            float pw = leftW + 340, ph = 440;
             float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
             var ember = LootInfo.EmberColor;
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(ember.r, ember.g, ember.b, 0.5f));
@@ -634,9 +635,9 @@ namespace Deepbound.UI
             string next = level >= Anvil.MaxLevel ? "Fully tempered"
                 : "Temper to +" + (level + 1) + ":  +" + ClassDefinition.WeaponAttPerLevel + " ATT, +" + ClassDefinition.WeaponDexPerLevel + " DEX" +
                   (level + 1 == WeaponPaths.MasteryLevel && path != 0 ? ", path mastery" : "");
-            GUI.Label(new Rect(x + 16, y + 76, pw - 200, 20), next, small);
+            GUI.Label(new Rect(x + 16, y + 76, leftW - 200, 20), next, small);
             GUI.enabled = reason == null;
-            if (GUI.Button(new Rect(x + pw - 186, y + 46, 170, 30), reason ?? ("Temper  (" + Anvil.Cost(level) + " embers)"))) progress.TemperRpc();
+            if (GUI.Button(new Rect(x + leftW - 186, y + 46, 170, 30), reason ?? ("Temper  (" + Anvil.Cost(level) + " embers)"))) progress.TemperRpc();
             GUI.enabled = true;
 
             // The two paths.
@@ -644,7 +645,7 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x + 16, y + 108, pw, 20), head, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
             for (int p = 1; p <= 2; p++)
             {
-                float cx = x + 16 + (p - 1) * ((pw - 44) / 2f + 12), cw = (pw - 44) / 2f, cy = y + 132, chh = 182;
+                float cx = x + 16 + (p - 1) * ((leftW - 44) / 2f + 12), cw = (leftW - 44) / 2f, cy = y + 132, chh = 182;
                 bool chosen = path == p, locked = path != 0 && !chosen;
                 var border = chosen ? ember : new Color(1f, 1f, 1f, locked ? 0.06f : 0.18f);
                 Rect(cx - 2, cy - 2, cw + 4, chh + 4, border);
@@ -666,24 +667,57 @@ namespace Deepbound.UI
                 }
             }
 
-            // Abilities: Sigils rank up Q and E.
-            float ay = y + 330;
-            GUI.Label(new Rect(x + 16, ay, pw, 20), "ABILITIES  -  a Sigil empowers one rank", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = LootInfo.SigilColor } });
+            // Under the paths: how this class feeds the others.
+            GUI.Label(new Rect(x + 16, y + 330, leftW - 32, 20), "YOUR COMBOS", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            GUI.Label(new Rect(x + 16, y + 350, leftW - 32, 60), ClassDefinition.ComboLine(id), new GUIStyle(small) { wordWrap = true });
+
+            // Right column: abilities (Sigils), then runes.
+            float rx = x + leftW + 4, rw = pw - leftW - 20;
+            Rect(rx - 10, y + 40, 1, ph - 56, new Color(1f, 1f, 1f, 0.08f));
+            float ay = y + 44;
+            GUI.Label(new Rect(rx, ay, rw, 20), "ABILITIES  -  a Sigil empowers one rank", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = LootInfo.SigilColor } });
             foreach (var slot in new[] { AbilitySlot.Q, AbilitySlot.E })
             {
-                float ry = ay + 24 + (int)slot * 62;
+                float ry = ay + 22 + (int)slot * 88;
                 int rank = progress.Rank(slot);
-                GUI.Label(new Rect(x + 16, ry, 200, 22), slot + "  " + ClassDefinition.AbilityName(id, slot), label);
+                GUI.Label(new Rect(rx, ry, rw - 80, 22), slot + "  " + ClassDefinition.AbilityName(id, slot), label);
                 for (int r = 0; r < AbilityRanks.MaxRank; r++)
-                    Rect(x + 210 + r * 22, ry + 6, 16, 12, r < rank ? LootInfo.SigilColor : new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.2f));
+                    Rect(rx + rw - 70 + r * 22, ry + 6, 16, 12, r < rank ? LootInfo.SigilColor : new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.2f));
                 string nextText = rank >= AbilityRanks.MaxRank ? "Rank 3: " + AbilityRanks.Twist(id, slot)
                     : rank == 1 ? "Rank 2: " + AbilityRanks.Rank2(id, slot) : "Rank 3: 25% shorter cooldown. " + AbilityRanks.Twist(id, slot);
-                GUI.Label(new Rect(x + 16, ry + 22, pw - 210, 36), nextText, new GUIStyle(small) { wordWrap = true });
+                GUI.Label(new Rect(rx, ry + 21, rw, 34), nextText, new GUIStyle(small) { wordWrap = true });
                 GUI.enabled = rank < AbilityRanks.MaxRank && progress.Sigils.Value > 0;
-                if (GUI.Button(new Rect(x + pw - 186, ry + 2, 170, 28), rank >= AbilityRanks.MaxRank ? "Max rank" : progress.Sigils.Value > 0 ? "Empower  (1 sigil)" : "Needs a Sigil"))
+                if (GUI.Button(new Rect(rx, ry + 56, rw, 24), rank >= AbilityRanks.MaxRank ? "Max rank" : progress.Sigils.Value > 0 ? "Empower  (1 sigil)" : "Needs a Sigil"))
                     progress.EmpowerRpc((byte)slot);
                 GUI.enabled = true;
             }
+
+            float uy = ay + 22 + 2 * 88 + 6;
+            int sockets = Runes.SocketsAt(level);
+            GUI.Label(new Rect(rx, uy, rw, 20), "RUNES  -  sockets open at +1 and +3", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            for (int sIdx = 0; sIdx < 2; sIdx++)
+            {
+                float sy = uy + 22 + sIdx * 38;
+                var r = progress.Socketed(sIdx);
+                bool open = sIdx < sockets;
+                Rect(rx, sy + 3, 10, 10, open ? (r == Rune.None ? new Color(1f, 1f, 1f, 0.25f) : Runes.Color(r)) : new Color(1f, 1f, 1f, 0.06f));
+                GUI.Label(new Rect(rx + 16, sy - 2, rw - 16, 18), open ? Runes.Name(r) : "Locked  (weapon +" + (sIdx == 0 ? 1 : 3) + ")",
+                    new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.5f) } });
+                if (open && r != Rune.None) GUI.Label(new Rect(rx + 16, sy + 14, rw - 16, 18), Runes.Describe(r), small);
+            }
+            float by = uy + 22 + 2 * 38 + 2;
+            int bag = progress.RuneBagCount;
+            if (bag == 0) GUI.Label(new Rect(rx, by, rw, 18), "No unset runes. Elites and chests drop them.", small);
+            for (int i = 0; i < bag; i++)
+            {
+                var r = progress.RuneInBag(i);
+                var bx = rx + (i % 2) * (rw / 2f + 2);
+                var bRect = new Rect(bx, by + (i / 2) * 28, rw / 2f - 2, 24);
+                GUI.enabled = sockets > 0;
+                if (GUI.Button(bRect, new GUIContent("Set " + Runes.Name(r).Replace(" Rune", ""), Runes.Describe(r)))) progress.SocketRuneRpc((byte)r);
+                GUI.enabled = true;
+            }
+            if (!string.IsNullOrEmpty(GUI.tooltip)) GUI.Label(new Rect(x + 16, y + ph - 26, pw - 32, 20), GUI.tooltip, new GUIStyle(small) { normal = { textColor = Gold } });
         }
 
         private void DrawMerchant(float w, float h)
