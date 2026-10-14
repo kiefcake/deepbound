@@ -52,6 +52,7 @@ namespace Deepbound.World
         /// <summary>Server, smoke test: the floor's breaches, for forcing one.</summary>
         public int BreachCount => breaches.Count;
         public void ServerDebugTriggerBreach(int i) { if (i < breaches.Count) breaches[i].Occupied = 999f; }
+        public CrackedWall BreachWall(int i) => i < breaches.Count ? breaches[i].Wall : null;
 
         /// <summary>Plugs for every hollow wall; caches behind the secret ones.</summary>
         private void SetupHoles(DungeonLayout layout)
@@ -74,6 +75,8 @@ namespace Deepbound.World
 
                     if (hole.Breach)
                     {
+                        // The ambush room has its own waves; its hollow wall stays quiet.
+                        if (IsAmbushRoom(room)) continue;
                         breaches.Add(new Breach { Wall = wall, Room = room, Hole = hole, TriggerAfter = 3f + (float)rng.NextDouble() * 5f });
                         continue;
                     }

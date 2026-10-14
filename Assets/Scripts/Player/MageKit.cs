@@ -242,13 +242,17 @@ namespace Deepbound.Player
         }
 
         [Rpc(SendTo.Server)]
-        private void MeteorRpc(Vector3 spot)
+        private void MeteorRpc(Vector3 spot) => ServerMeteor(spot);
+
+        /// <summary>Server: call down a meteor. Public for the screenshot run.</summary>
+        public void ServerMeteor(Vector3 spot)
         {
             if (!life.CanAct || Vector3.Distance(spot, transform.position) > MeteorRange + 3f) return;
             meteors.Add(new PendingMeteor { At = spot, When = Time.time + MeteorDelay });
             // Rank 3: a second stone follows the first.
-            if (progress.Twist(AbilitySlot.E)) meteors.Add(new PendingMeteor { At = spot, When = Time.time + MeteorDelay + 0.7f });
-            MeteorWarnRpc(spot);
+            bool twin = progress.Twist(AbilitySlot.E);
+            if (twin) meteors.Add(new PendingMeteor { At = spot, When = Time.time + MeteorDelay + 0.7f });
+            MeteorWarnRpc(spot, twin);
         }
 
         /// <summary>Rank 3 Blink: the air you left freezes.</summary>
@@ -264,7 +268,8 @@ namespace Deepbound.Player
         private void FrostNovaFxRpc(Vector3 at)
         {
             Sfx.Play(Sound.Frost, at + Vector3.up, 1f, 0.8f);
-            Telegraph.Show(at, 3.5f, 0.5f, null, new Color(0.5f, 0.8f, 1f, 0.45f));
+            Vfx.IceSpikes(at, 3.5f);
+            Vfx.Ring(at, 3.5f, new Color(0.5f, 0.85f, 1f), 0.4f);
         }
 
         private void ResolveMeteors()
@@ -320,6 +325,11 @@ namespace Deepbound.Player
         {
             if (shatter) Sfx.Play(Sound.Shatter, at, 1f);
             else Sfx.Play(frost ? Sound.Frost : Sound.Hit, at, 0.6f, frost ? 1.4f : 1.1f);
+            var fire = new Color(1f, 0.5f, 0.15f);
+            var ice = new Color(0.55f, 0.85f, 1f);
+            Vfx.Embers(at, frost ? 6 : 8, frost ? ice : fire, 4f, 0.05f, 0.5f);
+            if (!frost) Vfx.Fireball(at, shatter ? 1.4f : 0.8f, fire);
+            if (shatter) Vfx.Embers(at, 14, ice, 7f, 0.08f, 0.8f);
             if (IsOwner) player.ConfirmHit(shatter ? 1.5f : 0.5f);
         }
 
@@ -327,16 +337,24 @@ namespace Deepbound.Player
         private void BlinkFxRpc(Vector3 from, Vector3 to)
         {
             Sfx.Play(Sound.Summon, from + Vector3.up, 0.5f, 2f);
-            Telegraph.Show(from, 0.8f, 0.3f, null, Telegraph.Friendly);
-            Telegraph.Show(to, 0.8f, 0.3f, null, Telegraph.Friendly);
+            var arcane = new Color(0.6f, 0.55f, 1f);
+            Vfx.Ring(from, 1.4f, arcane, 0.3f);
+            Vfx.Ring(to, 1.4f, arcane, 0.3f);
+            Vfx.Embers(from + Vector3.up, 10, arcane, 3f, 0.06f, 0.6f);
+            Vfx.Embers(to + Vector3.up, 10, arcane, 3f, 0.06f, 0.6f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void MeteorWarnRpc(Vector3 at)
+        private void MeteorWarnRpc(Vector3 at, bool twin)
         {
             Telegraph.Show(at, MeteorRadius, MeteorDelay, null, Telegraph.Friendly);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.6f);
             Sfx.Play(Sound.Fire, at + Vector3.up * 8f, 0.9f, 0.5f);
+            int seed = (int)(at.x * 13f + at.z * 7f + Time.time * 100f);
+            MeteorFall.Spawn(at, MeteorDelay, seed);
+            if (twin) MeteorFall.Spawn(at, MeteorDelay, seed + 1, 0.7f);
+            // The caster's hand flares as the sky answers.
+            if (IsOwner) Vfx.Flash(player.AimOrigin + player.AimForward * 0.6f, new Color(1f, 0.5f, 0.15f), 4f, 4f, 0.5f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -345,46 +363,13 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Slam, at, 1f, 0.8f);
             if (shattered) Sfx.Play(Sound.Shatter, at + Vector3.up, 1f);
             var local = NetworkPlayer.Local;
-            if (local != null && Vector3.Distance(local.transform.position, at) < 12f) local.ViewModelBlockImpact();
-            MeteorFlash.Spawn(at);
-        }
-    }
-
-    /// <summary>A brief burst of firelight and a falling-rock streak where a meteor lands.</summary>
-    public class MeteorFlash : MonoBehaviour
-    {
-        private Light flash;
-        private Transform rock;
-        private float t;
-
-        public static void Spawn(Vector3 at)
-        {
-            var go = new GameObject("MeteorFlash");
-            go.transform.position = at;
-            var m = go.AddComponent<MeteorFlash>();
-            m.flash = new GameObject("Light").AddComponent<Light>();
-            m.flash.transform.SetParent(go.transform, false);
-            m.flash.transform.localPosition = Vector3.up * 1.5f;
-            m.flash.type = LightType.Point;
-            m.flash.color = new Color(1f, 0.55f, 0.2f);
-            m.flash.range = 14f;
-            m.flash.intensity = 14f;
-
-            var ring = MeshKit.Part(go.transform, "Scorch", MeshKit.Lathe("scorchRing", new[]
+            if (local != null)
             {
-                new Vector2(0.2f, 0f), new Vector2(MageKit.MeteorRadius, 0.02f), new Vector2(0f, 0.04f),
-            }, 24, false), Mat.Glow, Vector3.up * 0.02f);
-            ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), new Color(1f, 0.4f, 0.1f) * 2f);
-            m.rock = ring.transform;
-            Destroy(go, 1.2f);
-        }
-
-        private void Update()
-        {
-            t += Time.deltaTime;
-            float k = Mathf.Clamp01(1f - t / 1.1f);
-            flash.intensity = 14f * k * k;
-            if (rock != null) rock.localScale = new Vector3(1f, 1f, 1f) * (0.6f + t * 0.5f);
+                float d = Vector3.Distance(local.transform.position, at);
+                if (d < 20f) local.AddShake(Mathf.Lerp(0.6f, 0.1f, d / 20f));
+            }
+            MeteorImpact.Spawn(at, MeteorRadius, shattered);
         }
     }
+
 }

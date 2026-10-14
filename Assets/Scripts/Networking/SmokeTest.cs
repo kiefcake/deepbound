@@ -249,16 +249,22 @@ namespace Deepbound.Networking
                 if (DungeonDirector.Instance.BreachCount > 0)
                 {
                     int enemiesBefore = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead);
-                    var bw = walls.First(w => w.Breach.Value);
+                    var bw = DungeonDirector.Instance.BreachWall(0);
                     var bwFrom = bw.transform.position - bw.transform.forward * 5f + Vector3.up * 0.1f;
                     local.GetComponent<FirstPersonMotor>().Teleport(bwFrom, Quaternion.LookRotation(bw.transform.forward));
                     DungeonDirector.Instance.ServerDebugTriggerBreach(0);
                     yield return new WaitForSeconds(2.4f);
                     int enemiesAfter = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead);
-                    Log("wall breach", "enemies " + enemiesBefore + " -> " + enemiesAfter + ", wall gone " + (bw == null || !bw.IsSpawned), enemiesAfter > enemiesBefore);
+                    Log("wall breach", "enemies " + enemiesBefore + " -> " + enemiesAfter, enemiesAfter > enemiesBefore);
+                    // Clear the fight and stand everyone back up, so later checks start clean.
                     foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
-                        if (!(e is BossBrain) && Vector3.Distance(e.transform.position, bwFrom) < 12f) e.GetComponent<Health>().ServerDamage(1e6f, bwFrom);
-                    local.GetComponent<Health>().ServerSetFraction(1f);
+                        if (!(e is BossBrain) && Vector3.Distance(e.transform.position, bwFrom) < 30f) e.GetComponent<Health>().ServerDamage(1e6f, bwFrom);
+                    foreach (var pl in PlayerLife.All)
+                    {
+                        if (pl.Downed.Value) pl.ServerRevive(1f);
+                        pl.Health.ServerSetFraction(1f);
+                    }
+                    yield return new WaitForSeconds(0.2f);
                 }
 
                 // Feature rooms.
@@ -266,12 +272,13 @@ namespace Deepbound.Networking
                 string features = string.Join(", ", layout.Rooms.Where(r => r.Feature != RoomFeature.None).Select(r => r.Feature.ToString()));
                 Log("feature rooms", features, layout.Rooms.Any(r => r.Feature == RoomFeature.GreatHall) && layout.Rooms.Any(r => r.Feature == RoomFeature.Chasm));
 
-                var sarc = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None).FirstOrDefault();
+                var sarc = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None).FirstOrDefault(x => !x.Opened.Value && !x.Scheduled);
                 if (sarc != null)
                 {
                     fm.Teleport(sarc.transform.position + sarc.transform.forward * 3f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.5f);
-                    Log("crypt", "sarcophagus opened on approach: " + sarc.Opened.Value, sarc.Opened.Value);
+                    Log("crypt", "sarcophagus opened on approach: " + sarc.Opened.Value + " (occupant " + sarc.HasOccupant + ", targetable " + local.GetComponent<PlayerLife>().Targetable +
+                        ", downed " + local.GetComponent<PlayerLife>().Downed.Value + ", dist " + Vector3.Distance(local.transform.position, sarc.transform.position).ToString("F1") + ")", sarc.Opened.Value);
                     // The rest of the crypt follows, two at a time.
                     yield return new WaitForSeconds(5.2f);
                     var all = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None);
@@ -604,6 +611,22 @@ namespace Deepbound.Networking
             yield return Shot(dir, "0d_mage_frostbolt");
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "0e_mage_chilled_dummy");
+
+            // Meteor: falling through the ceiling, the impact, the crater left behind.
+            var meteorSpot = dummyHp.transform.position + new Vector3(-1.5f, 0f, 2f);
+            var mFrom2 = meteorSpot + new Vector3(8f, 0.1f, -4f);
+            lobbyMotor.Teleport(mFrom2, Quaternion.LookRotation(meteorSpot - mFrom2));
+            lobbyMotor.SetPitch(-12f);
+            yield return new WaitForSeconds(0.2f);
+            mage.ServerMeteor(meteorSpot);
+            yield return new WaitForSeconds(0.85f);
+            yield return Shot(dir, "0g_meteor_falling");
+            yield return new WaitForSeconds(0.5f);
+            yield return Shot(dir, "0h_meteor_impact");
+            lobbyMotor.SetPitch(8f);
+            yield return new WaitForSeconds(1.4f);
+            yield return Shot(dir, "0i_meteor_crater");
+            lobbyMotor.SetPitch(0f);
             // The Ranger at full draw.
             prog.ClassId.Value = Classes.ClassId.Ranger;
             yield return new WaitForSeconds(0.5f);

@@ -320,7 +320,10 @@ namespace Deepbound.Player
         private void AegisFxRpc()
         {
             Sfx.Play(Sound.Relic, transform.position + Vector3.up, 0.9f, 1.2f);
-            Telegraph.Show(transform.position, AegisRadius, 0.4f, null, new Color(1f, 0.85f, 0.4f, 0.25f));
+            var gold = new Color(1f, 0.85f, 0.45f);
+            Vfx.Ring(transform.position, AegisRadius, gold, 0.5f);
+            Vfx.Flash(transform.position + Vector3.up * 1.5f, gold, 4f, 10f, 0.5f);
+            Vfx.Embers(transform.position + Vector3.up * 0.5f, 16, gold, 3.5f, 0.06f, 0.9f);
             player.Rig?.Play(RigAction.Cast, 0.6f);
         }
 

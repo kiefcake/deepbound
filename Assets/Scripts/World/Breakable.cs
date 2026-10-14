@@ -94,10 +94,15 @@ namespace Deepbound.World
         private void ExplodeFxRpc(Vector3 at)
         {
             Sfx.Play(Sound.Slam, at, 1f, 0.9f);
-            MeteorFlash.Spawn(at - Vector3.up * 0.5f);
+            var fire = new Color(1f, 0.55f, 0.2f);
+            Vfx.Flash(at + Vector3.up, fire, 12f, 12f, 0.7f);
+            Vfx.Fireball(at, BlastRadius * 0.7f, fire);
+            Vfx.Ring(at - Vector3.up * 0.5f, BlastRadius, fire, 0.4f);
+            Vfx.Embers(at, 18, fire, 7f, 0.08f, 0.9f);
+            Vfx.Smoke(at - Vector3.up * 0.4f, 5, 0.8f, 2.2f);
+            var local = Player.NetworkPlayer.Local;
+            if (local != null && Vector3.Distance(local.transform.position, at) < 14f) local.AddShake(0.4f);
             BoneBurst.Spawn(at, 1.2f, false, Mat.Wood);
-            var local = NetworkPlayer.Local;
-            if (local != null && Vector3.Distance(local.transform.position, at) < 14f) local.ViewModelBlockImpact();
         }
 
         private void BuildVisual()

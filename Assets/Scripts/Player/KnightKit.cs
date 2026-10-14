@@ -284,6 +284,12 @@ namespace Deepbound.Player
         {
             if (!IsOwner) player.Rig?.Play(RigAction.Bash, 0.4f);
             Sfx.Play(Sound.Bash, transform.position + transform.forward + Vector3.up);
+            // A shove of force off the shield face: ring and grit, wider when ranked.
+            bool wave = progress.Twist(AbilitySlot.Q);
+            var front = transform.position + transform.forward * 1.6f;
+            Vfx.Ring(front, wave ? 3.5f : 2.2f, new Color(1f, 0.9f, 0.7f), 0.3f);
+            Vfx.Smoke(front, 2, 0.6f, 1f);
+            Vfx.Embers(front + Vector3.up, 6, new Color(1f, 0.8f, 0.5f), 4f, 0.05f, 0.5f);
         }
 
         [Rpc(SendTo.Server)]
@@ -311,6 +317,11 @@ namespace Deepbound.Player
         {
             player.Rig?.Play(RigAction.Cast, 0.7f);
             Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.6f);
+            // The cry as a pressure wave: two rings racing out to the taunt radius.
+            float r = WarCryRadius * progress.Potency(AbilitySlot.E);
+            Vfx.Ring(transform.position, r, new Color(1f, 0.45f, 0.2f), 0.55f);
+            Vfx.Ring(transform.position, r * 0.6f, new Color(1f, 0.8f, 0.4f), 0.35f);
+            Vfx.Flash(transform.position + Vector3.up * 1.6f, new Color(1f, 0.55f, 0.25f), 5f, 8f, 0.4f);
         }
 
         /// <summary>Bulwark and War Cry. Runs inside Health.ServerDamage, after DEF.</summary>

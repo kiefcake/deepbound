@@ -521,6 +521,12 @@ namespace Deepbound.Enemies
         {
             Sfx.Play(Sound.Fire, at + Vector3.up, 1f, 0.7f);
             BoneBurst.Spawn(at + Vector3.up * 0.5f, 1.2f, false, Mat.Flame);
+            var fire = new Color(1f, 0.5f, 0.15f);
+            Vfx.Fireball(at + Vector3.up * 0.6f, 3f, fire);
+            Vfx.Ring(at, 3.2f, fire, 0.4f);
+            Vfx.Flash(at + Vector3.up, fire, 10f, 10f, 0.6f);
+            var local = Player.NetworkPlayer.Local;
+            if (local != null && Vector3.Distance(local.transform.position, at) < 12f) local.AddShake(0.35f);
         }
 
         private void Despawn()

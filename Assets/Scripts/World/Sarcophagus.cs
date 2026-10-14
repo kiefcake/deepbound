@@ -26,6 +26,11 @@ namespace Deepbound.World
         private Transform lid;
         private float open;
 
+        public bool HasOccupant => occupantPrefab != null;
+
+        /// <summary>Server: already queued to open (its crypt has woken).</summary>
+        public bool Scheduled => wakeAt >= 0f;
+
         public void ServerLoad(NetworkObject prefab, int playerCount, int floorDepth, int room)
         {
             occupantPrefab = prefab;

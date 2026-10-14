@@ -64,21 +64,31 @@ namespace Deepbound.World
             var k = (Classes.ComboKind)kind;
             UI.GameHud.ShowCombo(at + Vector3.up * 0.6f, Classes.Combos.Label(k), Classes.Combos.Color(k));
             if (first) UI.GameHud.Feed("COMBO  " + Classes.Combos.Explain(k), Classes.Combos.Color(k));
-            if (k == Classes.ComboKind.Shatter) Art.Sfx.Play(Art.Sound.Shatter, at, 0.9f, 1.15f);
+            if (k == Classes.ComboKind.Shatter)
+            {
+                Art.Sfx.Play(Art.Sound.Shatter, at, 0.9f, 1.15f);
+                Art.Vfx.Embers(at, 16, new Color(0.6f, 0.9f, 1f), 6f, 0.07f, 0.7f);
+                Art.Vfx.IceSpikes(Art.Vfx.Ground(at), 1.2f, 6);
+            }
+            else if (k == Classes.ComboKind.Exposed || k == Classes.ComboKind.WardBroken)
+                Art.Vfx.Embers(at, 8, Classes.Combos.Color(k), 3f, 0.05f, 0.5f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
         public void EmberBurstFxRpc(Vector3 at)
         {
             Art.Sfx.Play(Art.Sound.Fire, at + Vector3.up, 0.8f, 1.2f);
-            Combat.Telegraph.Show(at, 2.5f, 0.35f, null, new Color(1f, 0.45f, 0.1f, 0.45f));
+            Art.Vfx.Fireball(at + Vector3.up * 0.5f, 2f, new Color(1f, 0.5f, 0.15f));
+            Art.Vfx.Embers(at, 10, new Color(1f, 0.5f, 0.15f), 5f, 0.06f, 0.6f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
         public void AegisBurstFxRpc(Vector3 at)
         {
             Art.Sfx.Play(Art.Sound.Revive, at + Vector3.up, 0.8f, 1.6f);
-            Combat.Telegraph.Show(at, Classes.Combos.AegisBurstRadius, 0.45f, null, new Color(1f, 0.85f, 0.4f, 0.4f));
+            Art.Vfx.Ring(at, Classes.Combos.AegisBurstRadius, new Color(1f, 0.85f, 0.45f), 0.35f);
+            Art.Vfx.Embers(at + Vector3.up, 14, new Color(1f, 0.85f, 0.45f), 5f, 0.06f, 0.6f);
+            Art.Vfx.Flash(at + Vector3.up, new Color(1f, 0.85f, 0.45f), 5f, 6f, 0.3f);
         }
 
         /// <summary>Server: a small pile of embers (Ember Locket).</summary>

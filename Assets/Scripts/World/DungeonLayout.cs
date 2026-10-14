@@ -294,7 +294,7 @@ namespace Deepbound.World
             void Place(bool breach, int count)
             {
                 var pool = layout.Rooms.FindAll(r => Eligible(r, breach));
-                for (int n = 0; n < count && pool.Count > 0; n++)
+                for (int n = 0; n < count && pool.Count > 0;)
                 {
                     var room = pool[rng.Next(pool.Count)];
                     pool.Remove(room);
@@ -309,6 +309,7 @@ namespace Deepbound.World
                     float wallLen = (side == 0 || side == 2) ? room.Size.x : room.Size.y;
                     float along = ((float)rng.NextDouble() * 2f - 1f) * (wallLen / 2f - 3f);
                     room.Holes.Add(new WallHole { Side = side, Along = along, Breach = breach });
+                    n++;
                 }
             }
 

@@ -357,6 +357,9 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Dodge, to + Vector3.up, 0.8f, 0.8f);
             SmokePuff.Spawn(from, 0.8f);
             SmokePuff.Spawn(to, 0.6f);
+            var shadow = new Color(0.55f, 0.35f, 0.9f);
+            Vfx.Embers(from + Vector3.up, 10, shadow, 3f, 0.05f, 0.6f);
+            Vfx.Embers(to + Vector3.up, 10, shadow, 3f, 0.05f, 0.6f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -364,6 +367,8 @@ namespace Deepbound.Player
         {
             Sfx.Play(Sound.Slam, at, 0.5f, 1.8f);
             SmokePuff.Spawn(at, 2.2f);
+            Vfx.Ring(at, RogueKit.SmokeCloudRadius, new Color(0.5f, 0.45f, 0.6f), 0.4f);
+            Vfx.Smoke(at, 6, 1.6f, 2.4f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -371,6 +376,8 @@ namespace Deepbound.Player
         {
             Sfx.Play(Sound.Shatter, at, 0.9f, 0.8f);
             UI.GameHud.Feed("Ambush!", new Color(0.75f, 0.55f, 1f));
+            Vfx.Flash(at, new Color(0.7f, 0.4f, 1f), 5f, 5f, 0.3f);
+            Vfx.Embers(at, 14, new Color(0.75f, 0.45f, 1f), 5f, 0.06f, 0.6f);
         }
     }
 }

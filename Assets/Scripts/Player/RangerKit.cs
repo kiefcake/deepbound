@@ -288,6 +288,9 @@ namespace Deepbound.Player
         private void MarkFxRpc(Vector3 at)
         {
             Sfx.Play(Sound.Relic, at, 0.6f, 1.6f);
+            var red = new Color(1f, 0.3f, 0.25f);
+            Vfx.Ring(Vfx.Ground(at), 1.2f, red, 0.35f);
+            Vfx.Embers(at, 8, red, 2.5f, 0.05f, 0.5f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
