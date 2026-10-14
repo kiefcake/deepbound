@@ -152,9 +152,15 @@ namespace Deepbound.Combat
         }
 
         /// <returns>Damage actually dealt after defence and modifiers.</returns>
+        /// <summary>Server: who hit this last, and from where (for diagnosing deaths).</summary>
+        public ulong LastHitFrom { get; private set; } = ulong.MaxValue;
+        public Vector3 LastHitAt { get; private set; }
+
         public float ServerDamage(float amount, Vector3 attackerPosition, ulong attackerId = ulong.MaxValue)
         {
             if (!IsServer || !IsAlive || amount <= 0f) return 0f;
+            LastHitFrom = attackerId;
+            LastHitAt = attackerPosition;
             if (ServerOutgoingMultiplier != null && attackerId != ulong.MaxValue) amount *= ServerOutgoingMultiplier(this, attackerId);
 
             float dealt = Mathf.Max(amount - Defense, amount * 0.15f);

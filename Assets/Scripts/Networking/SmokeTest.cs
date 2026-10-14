@@ -26,7 +26,11 @@ namespace Deepbound.Networking
     public class SmokeTest : MonoBehaviour
     {
         // Tests never touch the player's real wardrobe or Renown.
-        private void Awake() => Progression.Cosmetics.TestMode = true;
+        private void Awake()
+        {
+            Progression.Cosmetics.TestMode = true;
+            DungeonDirector.TestMode = true;
+        }
 
         public void Run(float seconds)
         {
@@ -273,6 +277,26 @@ namespace Deepbound.Networking
                 // Feature rooms.
                 var fm = local.GetComponent<FirstPersonMotor>();
                 string features = string.Join(", ", layout.Rooms.Where(r => r.Feature != RoomFeature.None).Select(r => r.Feature.ToString()));
+                // Restless Bones: a plain skeleton killed on the Ossuary leaves a pile.
+                var plainSk = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => e.GetType() == typeof(EnemyBrain) && !e.IsDead && !e.Elite.Value &&
+                    !layout.BossRoom.Contains(e.transform.position, 1f));
+                if (plainSk != null)
+                {
+                    int pilesBefore = DungeonDirector.Instance.DebugPileCount;
+                    plainSk.GetComponent<Health>().ServerDamage(1e6f, plainSk.transform.position + Vector3.forward, local.NetworkObjectId);
+                    yield return new WaitForSeconds(0.2f);
+                    Log("restless bones", "piles " + pilesBefore + " -> " + DungeonDirector.Instance.DebugPileCount, DungeonDirector.Instance.DebugPileCount > pilesBefore);
+                }
+                // Ritual: braziers burn until smashed, then the ward lifts.
+                var ritual = layout.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Ritual);
+                if (ritual != null)
+                {
+                    bool wardOn = DungeonDirector.InRitualWard(ritual.Center);
+                    foreach (var br in FindObjectsByType<Breakable>(FindObjectsSortMode.None).Where(x => x.Type.Value == Breakable.Kind.RitualBrazier).ToArray())
+                        br.GetComponent<Health>().ServerDamage(1e6f, br.transform.position + Vector3.up, local.NetworkObjectId);
+                    yield return new WaitForSeconds(0.4f);
+                    Log("ritual", "ward " + wardOn + " -> " + DungeonDirector.InRitualWard(ritual.Center), wardOn && !DungeonDirector.InRitualWard(ritual.Center));
+                }
                 Log("feature rooms", features, layout.Rooms.Any(r => r.Feature == RoomFeature.GreatHall) && layout.Rooms.Any(r => r.Feature == RoomFeature.Chasm));
 
                 var sarc = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None).FirstOrDefault(x => x.IsSpawned && x.HasOccupant && !x.Opened.Value && !x.Scheduled);
@@ -638,6 +662,11 @@ namespace Deepbound.Networking
                 while (dc.Phase.Value != RunPhase.Exploring && Time.time < boardBy) yield return null;
                 yield return new WaitForSeconds(1.5f);
                 Log("next floor", "depth " + dc.Floor.Value.y + ", weapon kept +" + pc.WeaponLevel.Value, dc.Floor.Value.y == 1 && pc.WeaponLevel.Value >= 2);
+                // The Drowned Vaults' tide: low ground slows while it is up.
+                dc.ServerDebugTide();
+                yield return new WaitForSeconds(0.3f);
+                var floorSpot = DungeonDirector.Layout.StartRoom.Center + Vector3.up * 0.05f;
+                Log("tide", "level " + DungeonDirector.TideLevel.ToString("F2") + ", slow " + DungeonDirector.WaterSlow(floorSpot).ToString("F2"), DungeonDirector.WaterSlow(floorSpot) < 1f);
             }
 
             // Wipe the party and check the run summary has something to show.

@@ -121,7 +121,7 @@ namespace Deepbound.UI
         // ---- Arena transitions: fade through black, then a title banner ----
 
         private float fade;
-        private string bannerTitle, bannerSub;
+        private string bannerTitle, bannerSub, bannerHint;
 
         private void OnArenaBuilt(int _)
         {
@@ -131,12 +131,14 @@ namespace Deepbound.UI
             {
                 bannerTitle = "THE LAST LANTERN";
                 bannerSub = "Gather at the carriage when your party is ready";
+                bannerHint = "";
             }
             else
             {
                 int depth = DungeonDirector.Layout.Depth;
                 bannerTitle = "FLOOR " + (depth + 1);
                 bannerSub = depth < FloorNames.Length ? FloorNames[depth] : "The Deep";
+                bannerHint = DungeonDirector.GimmickHint(depth);
             }
         }
 
@@ -631,6 +633,8 @@ namespace Deepbound.UI
             var gold = new Color(Gold.r, Gold.g, Gold.b, a);
             GUI.Label(new Rect(0, h * 0.18f, w, 44), bannerTitle, new GUIStyle(big) { normal = { textColor = gold } });
             GUI.Label(new Rect(0, h * 0.18f + 44, w, 26), bannerSub, new GUIStyle(center) { fontSize = 18, normal = { textColor = new Color(1f, 1f, 1f, a) } });
+            if (!string.IsNullOrEmpty(bannerHint))
+                GUI.Label(new Rect(0, h * 0.18f + 72, w, 22), bannerHint, new GUIStyle(center) { fontSize = 15, fontStyle = FontStyle.Italic, normal = { textColor = new Color(gold.r, gold.g, gold.b, a * 0.9f) } });
         }
 
         private void DrawControlsHint(float w, float h)

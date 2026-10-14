@@ -163,6 +163,7 @@ namespace Deepbound.World
 
         private void ResetEncounters()
         {
+            ResetGimmicks();
             ritualRoom = null;
             ritualBraziers.Clear();
             if (IsServer) RitualActive.Value = false;
@@ -342,6 +343,7 @@ namespace Deepbound.World
             TickBreaches();
             TickPendulums();
             TickRitual();
+            TickGimmicks();
         }
 
         // ------------------------------------------------------------------
@@ -449,6 +451,8 @@ namespace Deepbound.World
         public static float WaterSlow(Vector3 at)
         {
             if (Layout == null) return 1f;
+            float tide = TideLevel;
+            if (tide > 0.4f && at.y < tide - 0.25f) return 0.72f;
             var room = Layout.RoomAt(at, 0f);
             return room != null && DungeonLayout.InCisternWater(room, at) ? 0.68f : 1f;
         }

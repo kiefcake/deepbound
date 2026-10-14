@@ -101,12 +101,16 @@ namespace Deepbound.World
 
             // Haze: one unit cone scaled to the shaft (meshes are cached by key), very faint —
             // the fog and the pool of light on the floor do the rest.
-            var haze = MeshKit.Part(root, "Haze", MeshKit.Lathe("shaftUnit", new[]
+            // Three nested layers, so the haze thickens toward the middle and has no hard rim.
+            foreach (float k in new[] { 1f, 0.72f, 0.45f })
             {
-                new Vector2(1f, 0f), new Vector2(0.92f, 0.5f), new Vector2(0.6f, 1f),
-            }, 16, false), Mat.Smoke, Vector3.zero, Vector3.zero, new Vector3(radius, height, radius)).GetComponent<Renderer>();
-            ArtLibrary.Tint(haze, new Color(color.r, color.g, color.b, 0.028f));
-            haze.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                var haze = MeshKit.Part(root, "Haze", MeshKit.Lathe("shaftUnit", new[]
+                {
+                    new Vector2(1f, 0f), new Vector2(0.92f, 0.5f), new Vector2(0.6f, 1f),
+                }, 16, false), Mat.Smoke, Vector3.zero, Vector3.zero, new Vector3(radius * k, height, radius * k)).GetComponent<Renderer>();
+                ArtLibrary.Tint(haze, new Color(color.r, color.g, color.b, 0.011f));
+                haze.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
 
             // The crack itself: a ragged bright gap in the ceiling, with fallen stone beneath.
             var crack = MeshKit.Part(root, "Crack", MeshKit.Box(new Vector3(radius * 1.2f, 0.05f, radius * 0.7f)), Mat.Glow, Vector3.up * (height - 0.02f), new Vector3(0f, 25f, 0f));

@@ -393,6 +393,18 @@ namespace Deepbound.World
         private void BakeNavMesh()
         {
             Combat.Health.FreezesWhenChilled = h => InWater(h.transform.position);
+            if (!bonesHooked)
+            {
+                bonesHooked = true;
+                Combat.Health.ServerAnyDamaged += (t, dealt, from) =>
+                {
+                    if (t != null && !t.IsAlive && t.Team == Combat.Team.Enemies && Instance == this && !pileFor.Contains(t.NetworkObjectId))
+                    {
+                        pileFor.Add(t.NetworkObjectId);
+                        OnKillForBones(t);
+                    }
+                };
+            }
             Combat.Health.FrozenFx = h => FrozenFxRpc(h.Center);
             var surface = built.AddComponent<NavMeshSurface>();
             surface.collectObjects = CollectObjects.Children;
@@ -487,6 +499,8 @@ namespace Deepbound.World
 
                 int urns = 2 + rng.Next(3);
                 for (int i = 0; i < urns; i++) SpawnBreakable(Breakable.Kind.Urn, WallSpot(room, rng));
+                if (layout.Depth == 2 && room.Kind == RoomKind.Combat)
+                    for (int i = 0; i < 2; i++) SpawnBreakable(Breakable.Kind.SoulLantern, WallSpot(room, rng));
                 if (room.Kind == RoomKind.Combat && rng.NextDouble() < 0.6)
                 {
                     int barrels = 1 + rng.Next(2);
@@ -505,6 +519,9 @@ namespace Deepbound.World
                 }
             }
         }
+
+        private bool bonesHooked;
+        private readonly System.Collections.Generic.HashSet<ulong> pileFor = new System.Collections.Generic.HashSet<ulong>();
 
         [Rpc(SendTo.ClientsAndHost)]
         private void FrozenFxRpc(Vector3 at)
@@ -579,6 +596,7 @@ namespace Deepbound.World
 
         private void Update()
         {
+            UpdateTideVisual();
             if (!IsServer || Instance != this) return;
             double now = NetworkManager.ServerTime.Time;
 

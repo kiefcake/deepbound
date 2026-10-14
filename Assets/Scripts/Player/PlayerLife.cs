@@ -109,6 +109,9 @@ namespace Deepbound.Player
                 return;
             }
             if (progress != null) progress.Downs.Value++;
+            string by = Health.LastHitFrom == ulong.MaxValue ? "no attacker"
+                : NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(Health.LastHitFrom, out var killer) ? killer.name : "#" + Health.LastHitFrom;
+            Debug.Log("[Down] " + name + " went down at " + transform.position.ToString("F1") + ", last hit by " + by + " from " + Health.LastHitAt.ToString("F1"));
             Downed.Value = true;
             ReviveProgress.Value = 0f;
         }

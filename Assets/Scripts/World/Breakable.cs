@@ -16,7 +16,7 @@ namespace Deepbound.World
     [RequireComponent(typeof(Health))]
     public class Breakable : NetworkBehaviour
     {
-        public enum Kind : byte { Urn, PowderBarrel, RitualBrazier }
+        public enum Kind : byte { Urn, PowderBarrel, RitualBrazier, SoulLantern }
 
         public readonly NetworkVariable<Kind> Type = new NetworkVariable<Kind>();
         [SerializeField] private NetworkObject lootPrefab;
@@ -44,6 +44,17 @@ namespace Deepbound.World
             if (Type.Value == Kind.RitualBrazier)
             {
                 RitualFxRpc();
+                NetworkObject.Despawn();
+                return;
+            }
+            if (Type.Value == Kind.SoulLantern)
+            {
+                // The souls go free: the party is mended, the dead nearby reel.
+                var at = transform.position + Vector3.up;
+                foreach (var ally in CombatQuery.Circle(at, 6f, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.25f);
+                foreach (var foe in CombatQuery.Circle(at, 6f, Team.Enemies).ToArray())
+                    if (foe.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(2.5f);
+                SoulFxRpc();
                 NetworkObject.Despawn();
                 return;
             }
@@ -94,6 +105,20 @@ namespace Deepbound.World
         }
 
         [Rpc(SendTo.ClientsAndHost)]
+        private void SoulFxRpc()
+        {
+            var soul = new Color(0.7f, 0.9f, 1f);
+            var at = transform.position + Vector3.up * 1.5f;
+            Sfx.Play(Sound.Revive, at, 1f, 1.2f);
+            Sfx.Play(Sound.Shatter, at, 0.7f, 1.4f);
+            Vfx.Flash(at, soul, 8f, 10f, 0.6f);
+            Vfx.Ring(transform.position, 6f, soul, 0.5f);
+            for (int i = 0; i < 18; i++) Vfx.Mote(transform.position + Random.insideUnitSphere * 1.5f, soul);
+            Vfx.Embers(at, 16, soul, 4f, 0.05f, 1f);
+            UI.GameHud.ShowCombo(at + Vector3.up * 0.5f, "SOULS FREED", soul);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
         private void RitualFxRpc()
         {
             var violet = new Color(0.7f, 0.3f, 1f);
@@ -124,6 +149,29 @@ namespace Deepbound.World
 
         private void BuildVisual()
         {
+            if (Type.Value == Kind.SoulLantern)
+            {
+                // An iron post with a cage at the top, a pale soul-light trapped inside.
+                var soul = new Color(0.7f, 0.9f, 1f);
+                MeshKit.Part(transform, "Post", MeshKit.Cylinder(0.04f, 0.05f, 1.7f, 6), Mat.Steel, Vector3.zero);
+                MeshKit.Part(transform, "Foot", MeshKit.Cylinder(0.22f, 0.25f, 0.08f, 8), Mat.Steel, Vector3.zero);
+                MeshKit.Part(transform, "CageTop", MeshKit.Lathe("lanternTop", new[] { new Vector2(0.2f, 0f), new Vector2(0f, 0.18f) }, 6), Mat.Steel, Vector3.up * 2.15f);
+                MeshKit.Part(transform, "CageBase", MeshKit.Cylinder(0.2f, 0.2f, 0.04f, 6), Mat.Steel, Vector3.up * 1.7f);
+                for (int i = 0; i < 6; i++)
+                    MeshKit.Part(transform, "Bar" + i, MeshKit.Box(new Vector3(0.02f, 0.45f, 0.02f)), Mat.Steel,
+                        Quaternion.Euler(0f, i * 60f, 0f) * new Vector3(0f, 1.93f, 0.19f));
+                var orb = MeshKit.Part(transform, "Soul", MeshKit.Ball(0.11f, 8, 6), Mat.Glow, Vector3.up * 1.93f);
+                ArtLibrary.SetGlow(orb.GetComponent<Renderer>(), new Color(0.35f, 0.6f, 0.9f) * 0.9f);
+                var sl = new GameObject("SoulLight").AddComponent<Light>();
+                sl.transform.SetParent(transform, false);
+                sl.transform.localPosition = Vector3.up * 1.95f;
+                sl.type = LightType.Point;
+                sl.color = soul;
+                sl.range = 6f;
+                sl.intensity = 1.8f;
+                sl.shadows = LightShadows.None;
+                return;
+            }
             if (Type.Value == Kind.RitualBrazier)
             {
                 // A black iron brazier on a bone tripod, burning violet: smash it.
