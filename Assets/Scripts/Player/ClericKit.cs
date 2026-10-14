@@ -153,7 +153,7 @@ namespace Deepbound.Player
             if (keyboard != null && keyboard.eKey.wasPressedThisFrame && Time.time >= aegisReadyAt && Mana >= AegisMana)
             {
                 Mana -= AegisMana;
-                aegisReadyAt = Time.time + AegisCooldown * progress.CooldownMultiplier;
+                aegisReadyAt = Time.time + AegisCooldown * progress.CooldownMultiplier * (progress.Mastered(2) ? 0.7f : 1f);
                 player.ViewModelCast(true);
                 AegisRpc();
             }
@@ -190,7 +190,10 @@ namespace Deepbound.Player
             if (target == null || target.Team != Team.Players || !target.IsAlive) return;
             if (target != health && Vector3.Distance(target.transform.position, transform.position) > BeamRange + 2f) return;
 
-            float rate = BeamHealPerSec * Potency * (target == health ? 0.33f : 1f);
+            // Shepherd: stronger beam, and healing past full becomes a shield.
+            float rate = BeamHealPerSec * Potency * (target == health ? 0.33f : 1f) * (progress.OnPath(2) ? 1.4f : 1f);
+            if (progress.OnPath(2) && target.Current.Value >= target.Max.Value - 0.01f)
+                target.ServerShield(Mathf.Min(40f, target.Shield.Value + rate * Time.deltaTime), 4f);
             target.ServerHeal(rate * Time.deltaTime);
         }
 
@@ -200,7 +203,22 @@ namespace Deepbound.Player
             if (!life.CanAct || Time.time - lastServerSmite < SmiteInterval * 0.5f) return;
             lastServerSmite = Time.time;
             if (Vector3.Distance(origin, transform.position + Vector3.up * 1.6f) > 2.5f) origin = transform.position + Vector3.up * 1.6f;
-            Arrows.ServerFire(origin, direction, SmiteDamage * progress.AttackMultiplier, Team.Enemies, NetworkObjectId, SmiteSpeed);
+            if (progress.OnPath(1))
+            {
+                // Zealot: harder smites that mend the most wounded ally in reach.
+                float dmg = SmiteDamage * progress.AttackMultiplier * 1.35f;
+                ulong me = NetworkObjectId;
+                Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, SmiteSpeed, h =>
+                {
+                    h.ServerDamage(dmg, origin, me);
+                    if (this == null) return;
+                    Health worst = null;
+                    foreach (var ally in CombatQuery.Circle(transform.position, 12f, Team.Players))
+                        if (ally.IsAlive && (worst == null || ally.Fraction < worst.Fraction)) worst = ally;
+                    if (worst != null) worst.ServerHeal(dmg * 0.4f * Potency);
+                });
+            }
+            else Arrows.ServerFire(origin, direction, SmiteDamage * progress.AttackMultiplier, Team.Enemies, NetworkObjectId, SmiteSpeed);
             SmiteFxRpc(origin, direction);
         }
 
@@ -230,7 +248,7 @@ namespace Deepbound.Player
                 foreach (var ally in CombatQuery.Circle(z.At, ConsecrateRadius, Team.Players).ToArray())
                     ally.ServerHeal(ConsecrateHealPerSec * Potency * dt);
                 foreach (var foe in CombatQuery.Circle(z.At, ConsecrateRadius, Team.Enemies).ToArray())
-                    foe.ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * dt, z.At, NetworkObjectId);
+                    foe.ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * dt * (progress.Mastered(1) ? 2f : 1f), z.At, NetworkObjectId);
             }
         }
 
@@ -242,7 +260,7 @@ namespace Deepbound.Player
         {
             if (!life.CanAct) return;
             foreach (var ally in CombatQuery.Circle(transform.position, AegisRadius, Team.Players))
-                ally.ServerShield(AegisAmount * Potency, AegisSeconds);
+                ally.ServerShield(AegisAmount * Potency * (progress.Mastered(2) ? 1.6f : 1f), AegisSeconds);
             AegisFxRpc();
         }
 

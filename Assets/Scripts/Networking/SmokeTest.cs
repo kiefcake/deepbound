@@ -323,12 +323,24 @@ namespace Deepbound.Networking
                     var ap = anvil.transform.position + anvil.transform.forward * 1.6f + Vector3.up * 0.1f;
                     motor.Teleport(ap, Quaternion.LookRotation(-anvil.transform.forward));
                     yield return new WaitForSeconds(0.2f);
-                    anvil.UseRpc(local.NetworkObject);
+                    progress.TemperRpc();
                     yield return new WaitForSeconds(0.2f);
-                    anvil.UseRpc(local.NetworkObject);
+                    progress.TemperRpc();
                     yield return new WaitForSeconds(0.3f);
                     Log("anvil", "weapon +" + progress.WeaponLevel.Value + ", ATT " + attBefore + " -> " + progress.Value(Core.StatType.ATT) + ", embers left " + progress.Embers.Value,
                         progress.WeaponLevel.Value == 2 && progress.Value(Core.StatType.ATT) > attBefore);
+
+                    // +3 needs a path; choose Cleave and check the swing now reaches wider.
+                    progress.ServerAddEmbers(Anvil.Cost(2));
+                    progress.TemperRpc();
+                    yield return new WaitForSeconds(0.2f);
+                    bool gated = progress.WeaponLevel.Value == 2;
+                    progress.ChoosePathRpc(1);
+                    yield return new WaitForSeconds(0.2f);
+                    progress.TemperRpc();
+                    yield return new WaitForSeconds(0.2f);
+                    Log("weapon path", "gated before choosing: " + gated + ", path " + progress.WeaponPath.Value + ", weapon +" + progress.WeaponLevel.Value,
+                        gated && progress.WeaponPath.Value == 1 && progress.WeaponLevel.Value == 3);
                 }
                 else Log("anvil", "none in the start room", false);
                 motor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
@@ -463,6 +475,26 @@ namespace Deepbound.Networking
             motor.Teleport(mFrom, Quaternion.LookRotation(m - mFrom));
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "1b_merchant");
+
+            var anvilObj = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
+            if (anvilObj != null)
+            {
+                var af = anvilObj.transform.position + anvilObj.transform.forward * 2.2f + Vector3.up * 0.1f;
+                motor.Teleport(af, Quaternion.LookRotation(anvilObj.transform.position - af));
+                motor.SetPitch(20f);
+                yield return new WaitForSeconds(0.5f);
+                yield return Shot(dir, "1b_anvil");
+                motor.SetPitch(0f);
+                var ap = local.GetComponent<PlayerProgress>();
+                ap.ServerAddEmbers(60);
+                ap.TemperRpc();
+                ap.TemperRpc();
+                yield return new WaitForSeconds(0.3f);
+                local.GetComponent<UI.GameHud>().DebugOpenForge();
+                yield return null;
+                yield return Shot(dir, "1b_forge_panel");
+                ap.ServerResetRun();
+            }
 
             // Every feature room on the floor, from a high corner looking across it.
             foreach (var room in layout.Rooms)

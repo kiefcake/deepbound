@@ -1,3 +1,4 @@
+using System.Linq;
 using System.Collections.Generic;
 using Deepbound.Art;
 using Deepbound.Classes;
@@ -36,6 +37,9 @@ namespace Deepbound.Player
         public const float BlinkCooldown = 8f, BlinkDistance = 7f;
         public const float MeteorCooldown = 14f, MeteorMana = 35f, MeteorDelay = 1.3f, MeteorRadius = 3.6f, MeteorDamage = 70f, MeteorRange = 30f;
         public const float ShatterMultiplier = 1.75f;
+
+        /// <summary>Cryomancer mastery deepens the Shatter.</summary>
+        private float Shatter => progress.Mastered(2) ? 2.5f : ShatterMultiplier;
 
         private Health health;
         private PlayerLife life;
@@ -204,20 +208,31 @@ namespace Deepbound.Player
             var casterPos = transform.position;
             if (frost)
             {
+                // Cryomancer: the bolt pierces and chills longer.
+                bool cryo = progress.OnPath(2);
                 Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, FrostboltSpeed, h =>
                 {
                     h.ServerDamage(FrostboltDamage * att, casterPos, me);
-                    h.ServerChill(ChillSeconds);
+                    h.ServerChill(cryo ? 6f : ChillSeconds);
                     if (this != null) ImpactFxRpc(h.Center, true, false);
-                });
+                }, cryo);
             }
             else
             {
+                // Pyromancer: the bolt bursts, singeing everything around the target.
+                bool pyro = progress.OnPath(1);
+                float burstRadius = progress.Mastered(1) ? 3f : 2f, burstShare = progress.Mastered(1) ? 0.75f : 0.5f;
+                float shatterMul = Shatter;
                 Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, FireboltSpeed, h =>
                 {
                     bool shatter = h.ServerConsumeChill();
-                    h.ServerDamage(FireboltDamage * att * (shatter ? ShatterMultiplier : 1f), casterPos, me);
-                    if (this != null) ImpactFxRpc(h.Center, false, shatter);
+                    h.ServerDamage(FireboltDamage * att * (shatter ? shatterMul : 1f), casterPos, me);
+                    if (pyro)
+                    {
+                        foreach (var other in CombatQuery.Circle(h.Center, burstRadius, Team.Enemies).ToArray())
+                            if (other != h) other.ServerDamage(FireboltDamage * att * burstShare, h.Center, me);
+                    }
+                    if (this != null) ImpactFxRpc(h.Center, false, shatter || pyro);
                 });
             }
             BoltFxRpc(origin, direction, frost);
@@ -244,7 +259,7 @@ namespace Deepbound.Player
                 {
                     bool shatter = h.ServerConsumeChill();
                     if (shatter) shattered++;
-                    h.ServerDamage(MeteorDamage * progress.AttackMultiplier * (shatter ? ShatterMultiplier : 1f), at + Vector3.up, NetworkObjectId);
+                    h.ServerDamage(MeteorDamage * progress.AttackMultiplier * (shatter ? Shatter : 1f), at + Vector3.up, NetworkObjectId);
                 }
                 MeteorImpactRpc(at, shattered > 0);
             }

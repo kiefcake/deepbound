@@ -142,7 +142,7 @@ namespace Deepbound.Player
             // --- Q: Bear Trap at the crosshair ---
             if (keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= trapReadyAt && TryAimFloor(TrapRange, out var trapAt))
             {
-                trapReadyAt = Time.time + TrapCooldown * progress.CooldownMultiplier;
+                trapReadyAt = Time.time + TrapCooldown * progress.CooldownMultiplier * (progress.OnPath(2) ? 0.6f : 1f);
                 TrapRpc(trapAt);
             }
 
@@ -184,12 +184,20 @@ namespace Deepbound.Player
             charge = Mathf.Clamp01(charge);
             float dmg = Mathf.Lerp(ArrowMinDamage, ArrowMaxDamage, charge) * progress.AttackMultiplier;
             bool pierce = charge >= 1f;
+            if (pierce && progress.OnPath(1)) dmg *= 1.4f; // Sharpshooter
+            bool instantMark = pierce && progress.Mastered(1);
             ulong me = NetworkObjectId;
             var from = transform.position;
             Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, ArrowSpeed * (0.7f + 0.3f * charge), h =>
             {
                 h.ServerDamage(dmg, from, me);
-                if (this != null) CountMark(h);
+                if (this == null) return;
+                if (instantMark && h.Team == Team.Enemies)
+                {
+                    h.ServerMark(MarkSeconds);
+                    MarkFxRpc(h.Center);
+                }
+                else CountMark(h);
             }, pierce);
             ShotFxRpc(origin, direction, charge);
         }
@@ -219,7 +227,7 @@ namespace Deepbound.Player
         {
             if (!life.CanAct || trapPrefab == null || Vector3.Distance(at, transform.position) > TrapRange + 2f) return;
             traps.RemoveAll(t => t == null || !t.IsSpawned);
-            if (traps.Count >= 2)
+            if (traps.Count >= (progress.OnPath(2) ? 3 : 2))
             {
                 traps[0].Despawn();
                 traps.RemoveAt(0);
@@ -234,7 +242,7 @@ namespace Deepbound.Player
         private void VolleyRpc(Vector3 at)
         {
             if (!life.CanAct) return;
-            volleys.Add(new Volley { At = at, Next = Time.time + VolleyDelay, Left = VolleyWaves });
+            volleys.Add(new Volley { At = at, Next = Time.time + VolleyDelay, Left = progress.Mastered(2) ? 9 : VolleyWaves });
             VolleyWarnRpc(at);
         }
 
@@ -244,7 +252,7 @@ namespace Deepbound.Player
             {
                 var v = volleys[i];
                 if (Time.time < v.Next) continue;
-                foreach (var h in CombatQuery.Circle(v.At, VolleyRadius, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Circle(v.At, progress.Mastered(2) ? 5f : VolleyRadius, Team.Enemies).ToArray())
                 {
                     h.ServerDamage(VolleyDamage * progress.AttackMultiplier, v.At + Vector3.up * 6f, NetworkObjectId);
                     CountMark(h);

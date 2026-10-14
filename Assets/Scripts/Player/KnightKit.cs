@@ -86,6 +86,7 @@ namespace Deepbound.Player
         }
 
         private float AttackMultiplier => progress.AttackMultiplier;
+        private bool riposteReady;
 
         /// <summary>True when the player's chosen class is the Knight. Otherwise this kit sleeps.</summary>
         private bool Active => progress.ClassId.Value == ClassId.Knight;
@@ -216,12 +217,22 @@ namespace Deepbound.Player
             // player is — otherwise someone could swing from across the room.
             if (Vector3.Distance(origin, transform.position + Vector3.up * 1.5f) > 2f) origin = transform.position + Vector3.up * 1.5f;
 
+            // Cleave: a wider, longer arc (mastery chills). Riposte: a blocked hit empowers this swing.
+            bool cleave = progress.OnPath(1);
+            bool riposte = riposteReady && progress.OnPath(2);
+            riposteReady = false;
+            float range = cleave ? SwingRange + 0.6f : SwingRange, arc = cleave ? 160f : SwingArc;
+            float damage = SwingDamage * AttackMultiplier * (riposte ? 2.2f : 1f);
+
             bool hitAny = false;
-            foreach (var target in CombatQuery.Arc(origin, forward, SwingRange, SwingArc, Team.Enemies))
+            foreach (var target in CombatQuery.Arc(origin, forward, range, arc, Team.Enemies))
             {
-                target.ServerDamage(SwingDamage * AttackMultiplier, transform.position, NetworkObjectId);
+                target.ServerDamage(damage, transform.position, NetworkObjectId);
+                if (progress.Mastered(1)) target.ServerChill(1.5f);
+                if (riposte && progress.Mastered(2) && target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.2f);
                 hitAny = true;
             }
+            if (riposte) Sfx2Rpc();
 
             SwingFxRpc(swingSide, hitAny);
         }
@@ -260,6 +271,10 @@ namespace Deepbound.Player
             }
             BashFxRpc();
         }
+
+        /// <summary>The riposte's ring of steel.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        private void Sfx2Rpc() => Sfx.Play(Sound.Block, transform.position + transform.forward + Vector3.up * 1.3f, 1f, 1.6f);
 
         [Rpc(SendTo.ClientsAndHost)]
         private void BashFxRpc()
@@ -302,6 +317,7 @@ namespace Deepbound.Player
                 if (Vector3.Angle(transform.forward, to) < 75f)
                 {
                     damage *= 0.2f;
+                    riposteReady = true;
                     BlockedHitRpc();
                     BlockFxRpc();
                 }

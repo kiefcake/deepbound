@@ -36,7 +36,10 @@ namespace Deepbound.UI
         /// <summary>True while a menu wants the cursor (the merchant's shop). The motor reads this.</summary>
         public static bool MenuOpen { get; private set; }
 
-        private bool shopOpen;
+        private bool shopOpen, forgeOpen;
+
+        /// <summary>Screenshots only: stage the forge panel open.</summary>
+        public void DebugOpenForge() => forgeOpen = true;
         private bool statsHeld;
 
         private struct FeedLine { public string Text; public Color Color; public float Time; }
@@ -98,7 +101,7 @@ namespace Deepbound.UI
         private void LateUpdate()
         {
             // Esc closes the shop or class screen first; only a second Esc pauses.
-            PauseMenu.OtherMenuOpenLastFrame = shopOpen || CharacterSelect.Open;
+            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || CharacterSelect.Open;
         }
 
         private void OnDestroy()
@@ -240,10 +243,19 @@ namespace Deepbound.UI
 
             var keyboard = Keyboard.current;
             bool near = NearMerchant();
-            if (keyboard != null && keyboard.gKey.wasPressedThisFrame && near) shopOpen = !shopOpen;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = false;
+            var anvil = NearAnvil();
+            // G uses whichever station is closer: the merchant or the anvil beside him.
+            bool anvilFirst = anvil != null && (!near || Vector3.Distance(player.transform.position, anvil.transform.position) <
+                Vector3.Distance(player.transform.position, DungeonDirector.Layout.MerchantPosition));
+            if (keyboard != null && keyboard.gKey.wasPressedThisFrame)
+            {
+                if (anvilFirst) { forgeOpen = !forgeOpen; shopOpen = false; }
+                else if (near) { shopOpen = !shopOpen; forgeOpen = false; }
+            }
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = forgeOpen = false;
             if (!near) shopOpen = false;
-            MenuOpen = shopOpen || CharacterSelect.Open || PauseMenu.Open;
+            if (anvil == null) forgeOpen = false;
+            MenuOpen = shopOpen || forgeOpen || CharacterSelect.Open || PauseMenu.Open;
             statsHeld = keyboard != null && keyboard.tabKey.isPressed;
 
             // The host sets difficulty at camp.
@@ -304,7 +316,8 @@ namespace Deepbound.UI
             DrawTitleCard(w, h);
             DrawControlsHint(w, h);
             DrawFeed(h);
-            DrawMerchant(w, h);
+            DrawForge(w, h);
+                DrawMerchant(w, h);
             DrawLobby(w, h);
             if (statsHeld) DrawStatSheet(w, h);
             DrawFade(w, h);
@@ -333,9 +346,9 @@ namespace Deepbound.UI
 
         private void DrawVitals(float w, float h)
         {
-            float x = 24, y = h - 92, bw = 300;
+            float x = 24, y = h - 110, bw = 300;
             DrawRelicRow(x, y - 44);
-            Rect(x - 8, y - 10, bw + 16, 78, Panel);
+            Rect(x - 8, y - 10, bw + 16, 96, Panel);
 
             float hp = health.Current.Value, max = Mathf.Max(1f, health.Max.Value);
             Bar(x, y, bw, 22, hp / max, HealthRed);
@@ -351,7 +364,8 @@ namespace Deepbound.UI
             string cls = progress.Class.Name.ToUpperInvariant();
             string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
             GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun) + "  ·  " + weapon, small);
-            GUI.Label(new Rect(x + bw - 150, y + 46, 150, 20), progress.Embers.Value + " embers   " + progress.Gold.Value + " gold", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
+            GUI.Label(new Rect(x, y + 64, bw, 20), progress.Embers.Value + " embers", new GUIStyle(small) { normal = { textColor = LootInfo.EmberColor } });
+            GUI.Label(new Rect(x, y + 64, bw, 20), progress.Gold.Value + " gold", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
         }
 
         private void DrawAbilities(float w, float h)
@@ -504,9 +518,81 @@ namespace Deepbound.UI
             }
         }
 
+        private Anvil NearAnvil() => life.Downed.Value ? null : Anvil.Near(player.transform.position);
+
+        /// <summary>
+        /// The forge: temper the class weapon with embers, and at +2 choose its path. Both
+        /// paths are always shown, so the choice can be planned from the first floor.
+        /// </summary>
+        private void DrawForge(float w, float h)
+        {
+            if (NearAnvil() == null || shopOpen) return;
+            if (!forgeOpen)
+            {
+                if (!NearMerchant() || Vector3.Distance(player.transform.position, NearAnvil().transform.position) <
+                    Vector3.Distance(player.transform.position, DungeonDirector.Layout.MerchantPosition))
+                    GUI.Label(new Rect(0, h / 2f + 40, w, 24), "Press G to use the anvil", center);
+                return;
+            }
+
+            var id = progress.ClassId.Value;
+            int level = progress.WeaponLevel.Value, path = progress.WeaponPath.Value;
+            string weapon = ClassDefinition.WeaponName(id);
+            float pw = 620, ph = 330;
+            float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
+            var ember = LootInfo.EmberColor;
+            Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(ember.r, ember.g, ember.b, 0.5f));
+            Rect(x, y, pw, ph, new Color(0.05f, 0.03f, 0.02f, 0.95f));
+            GUI.Label(new Rect(x + 16, y + 12, pw, 24), "THE ANVIL", new GUIStyle(label) { normal = { textColor = ember } });
+            GUI.Label(new Rect(x + pw - 160, y + 12, 144, 24), progress.Embers.Value + " embers", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = ember } });
+
+            // Level pips and the temper button.
+            GUI.Label(new Rect(x + 16, y + 44, 200, 24), weapon + " +" + level, new GUIStyle(label) { fontSize = 20 });
+            for (int i = 0; i < Anvil.MaxLevel; i++)
+                Rect(x + 180 + i * 26, y + 50, 20, 14, i < level ? ember : new Color(ember.r, ember.g, ember.b, 0.18f));
+            string reason = progress.CannotTemperReason();
+            string next = level >= Anvil.MaxLevel ? "Fully tempered"
+                : "Temper to +" + (level + 1) + ":  +" + ClassDefinition.WeaponAttPerLevel + " ATT, +" + ClassDefinition.WeaponDexPerLevel + " DEX" +
+                  (level + 1 == WeaponPaths.MasteryLevel && path != 0 ? ", path mastery" : "");
+            GUI.Label(new Rect(x + 16, y + 76, pw - 200, 20), next, small);
+            GUI.enabled = reason == null;
+            if (GUI.Button(new Rect(x + pw - 186, y + 46, 170, 30), reason ?? ("Temper  (" + Anvil.Cost(level) + " embers)"))) progress.TemperRpc();
+            GUI.enabled = true;
+
+            // The two paths.
+            string head = path != 0 ? "PATH" : level >= WeaponPaths.PathLevel ? "CHOOSE A PATH (once per run)" : "PATHS  -  choose one at +" + WeaponPaths.PathLevel;
+            GUI.Label(new Rect(x + 16, y + 108, pw, 20), head, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            for (int p = 1; p <= 2; p++)
+            {
+                float cx = x + 16 + (p - 1) * ((pw - 44) / 2f + 12), cw = (pw - 44) / 2f, cy = y + 132, chh = 182;
+                bool chosen = path == p, locked = path != 0 && !chosen;
+                var border = chosen ? ember : new Color(1f, 1f, 1f, locked ? 0.06f : 0.18f);
+                Rect(cx - 2, cy - 2, cw + 4, chh + 4, border);
+                Rect(cx, cy, cw, chh, new Color(0.08f, 0.06f, 0.05f, 0.95f));
+                float alpha = locked ? 0.4f : 1f;
+                GUI.Label(new Rect(cx + 10, cy + 8, cw - 20, 22), WeaponPaths.Name(id, p).ToUpperInvariant(), new GUIStyle(label) { normal = { textColor = new Color(ember.r, ember.g, ember.b, alpha) } });
+                var wrap = new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.9f, 0.88f, 0.85f, alpha) } };
+                GUI.Label(new Rect(cx + 10, cy + 32, cw - 20, 60), WeaponPaths.Describe(id, p), wrap);
+                bool mastered = chosen && level >= WeaponPaths.MasteryLevel;
+                GUI.Label(new Rect(cx + 10, cy + 92, cw - 20, 18), mastered ? "MASTERED" : "Mastery at +" + WeaponPaths.MasteryLevel,
+                    new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(Gold.r, Gold.g, Gold.b, alpha) } });
+                GUI.Label(new Rect(cx + 10, cy + 110, cw - 20, 40), WeaponPaths.Mastery(id, p), wrap);
+                if (path == 0)
+                {
+                    GUI.enabled = level >= WeaponPaths.PathLevel;
+                    if (GUI.Button(new Rect(cx + 10, cy + chh - 34, cw - 20, 26), level >= WeaponPaths.PathLevel ? "Choose " + WeaponPaths.Name(id, p) : "Unlocks at +" + WeaponPaths.PathLevel))
+                        progress.ChoosePathRpc((byte)p);
+                    GUI.enabled = true;
+                }
+            }
+        }
+
         private void DrawMerchant(float w, float h)
         {
-            if (!NearMerchant()) return;
+            if (!NearMerchant() || forgeOpen) return;
+            var nearAnvil = NearAnvil();
+            if (!shopOpen && nearAnvil != null && Vector3.Distance(player.transform.position, nearAnvil.transform.position) <
+                Vector3.Distance(player.transform.position, DungeonDirector.Layout.MerchantPosition)) return;
 
             if (!shopOpen)
             {

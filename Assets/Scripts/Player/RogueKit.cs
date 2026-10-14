@@ -42,6 +42,7 @@ namespace Deepbound.Player
 
         public float Energy { get; private set; } = EnergyMax;
         private float nextStab, fanReadyAt, stepReadyAt, smokeReadyAt;
+        private bool lastHitFromBehind;
         private float side = 1f;
         private float lastServerStab;
 
@@ -183,7 +184,11 @@ namespace Deepbound.Player
             float m = progress.AttackMultiplier;
             var toMe = transform.position - target.transform.position;
             toMe.y = 0f;
-            if (toMe.sqrMagnitude > 0.01f && Vector3.Angle(target.transform.forward, toMe) > 115f) m *= AmbushMultiplier;
+            bool behind = toMe.sqrMagnitude > 0.01f && Vector3.Angle(target.transform.forward, toMe) > 115f;
+            lastHitFromBehind = behind;
+            // Assassin: deadlier from behind. Duelist: better face to face.
+            if (behind) m *= progress.OnPath(1) ? 2f : AmbushMultiplier;
+            else if (progress.OnPath(2)) m *= 1.25f;
             if (openerArmed && (life.Hidden.Value || Time.time < openerExpires))
             {
                 m *= OpenerMultiplier;
@@ -194,11 +199,16 @@ namespace Deepbound.Player
 
         private void AfterHit(Health target, bool opener)
         {
+            // Assassin mastery: a kill from behind resets Shadowstep.
+            if (lastHitFromBehind && !target.IsAlive && progress.Mastered(1)) ResetStepRpc();
             if (!opener) return;
             openerArmed = false;
             if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(OpenerStun);
             OpenerFxRpc(target.Center);
         }
+
+        [Rpc(SendTo.Owner)]
+        private void ResetStepRpc() => stepReadyAt = 0f;
 
         [Rpc(SendTo.Server)]
         private void StabRpc(Vector3 origin, Vector3 forward, float handSide)
@@ -213,15 +223,16 @@ namespace Deepbound.Player
         {
             if (Vector3.Distance(origin, transform.position + Vector3.up * 1.5f) > 2f) origin = transform.position + Vector3.up * 1.5f;
 
-            bool hitAny = false;
+            // One target per stab — daggers are precise, not sweeping — or two for the Duelist.
+            int hits = 0, maxHits = progress.OnPath(2) ? 2 : 1;
             foreach (var target in CombatQuery.Arc(origin, forward, StabRange, StabArc, Team.Enemies).ToArray())
             {
                 float m = Multiplier(target, out bool opener);
                 target.ServerDamage(StabDamage * m, transform.position, NetworkObjectId);
                 AfterHit(target, opener);
-                hitAny = true;
-                break; // one target per stab: daggers are precise, not sweeping
+                if (++hits >= maxHits) break;
             }
+            bool hitAny = hits > 0;
             if (life.Hidden.Value) EndHidden();
             StabFxRpc(hitAny);
         }
@@ -232,7 +243,8 @@ namespace Deepbound.Player
             if (!life.CanAct) return;
             if (Vector3.Distance(origin, transform.position + Vector3.up * 1.6f) > 2.5f) origin = transform.position + Vector3.up * 1.6f;
             ulong me = NetworkObjectId;
-            for (int i = -1; i <= 1; i++)
+            int spread = progress.Mastered(2) ? 2 : 1; // Duelist mastery: five knives
+            for (int i = -spread; i <= spread; i++)
             {
                 var dir = Quaternion.Euler(0f, i * 7f, 0f) * direction;
                 Arrows.ServerFire(origin, dir, 0f, Team.Enemies, me, FanSpeed, h =>

@@ -30,6 +30,12 @@ namespace Deepbound.Progression
         /// <summary>The class weapon's anvil level, 0 to <see cref="World.Anvil.MaxLevel"/>.</summary>
         public readonly NetworkVariable<int> WeaponLevel = new NetworkVariable<int>();
 
+        /// <summary>The weapon's chosen path: 0 = not yet, 1 or 2. See <see cref="WeaponPaths"/>.</summary>
+        public readonly NetworkVariable<byte> WeaponPath = new NetworkVariable<byte>();
+
+        public bool OnPath(int path) => WeaponPath.Value == path;
+        public bool Mastered(int path) => WeaponPath.Value == path && WeaponLevel.Value >= WeaponPaths.MasteryLevel;
+
         // ---- Run statistics, for the end-of-run summary. Server-written, reset with the run. ----
         public readonly NetworkVariable<int> Kills = new NetworkVariable<int>();
         public readonly NetworkVariable<int> DamageDealt = new NetworkVariable<int>();
@@ -250,10 +256,44 @@ namespace Deepbound.Progression
             Embers.Value = Mathf.Max(0, Embers.Value + amount);
         }
 
-        /// <summary>Server: spend embers on the next anvil level. False if maxed or short.</summary>
+        /// <summary>Why the weapon cannot be tempered right now, or null. Any peer; the server re-checks.</summary>
+        public string CannotTemperReason()
+        {
+            if (WeaponLevel.Value >= World.Anvil.MaxLevel) return "Fully tempered";
+            if (WeaponLevel.Value >= WeaponPaths.PathLevel && WeaponPath.Value == 0) return "Choose a path first";
+            if (Embers.Value < World.Anvil.Cost(WeaponLevel.Value)) return "Not enough embers";
+            return null;
+        }
+
+        /// <summary>Owner → server: temper at the anvil you are standing by.</summary>
+        [Rpc(SendTo.Server)]
+        public void TemperRpc()
+        {
+            var anvil = World.Anvil.Near(transform.position);
+            if (anvil != null && ServerUpgradeWeapon()) anvil.ForgeFxRpc(WeaponLevel.Value);
+        }
+
+        /// <summary>Owner → server: pick the weapon's path (once, at the anvil, from +2).</summary>
+        [Rpc(SendTo.Server)]
+        public void ChoosePathRpc(byte path)
+        {
+            if (World.Anvil.Near(transform.position) == null) return;
+            if (WeaponPath.Value != 0 || WeaponLevel.Value < WeaponPaths.PathLevel || path < 1 || path > 2) return;
+            WeaponPath.Value = path;
+            PathChosenRpc(path);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PathChosenRpc(byte path)
+        {
+            Art.Sfx.Play(Art.Sound.Relic, transform.position + Vector3.up, 0.7f, 1.2f);
+            UI.GameHud.Feed(name + "'s " + ClassDefinition.WeaponName(ClassId.Value) + " takes the path of the " + WeaponPaths.Name(ClassId.Value, path), LootInfo.EmberColor);
+        }
+
+        /// <summary>Server: spend embers on the next anvil level. False if it cannot.</summary>
         public bool ServerUpgradeWeapon()
         {
-            if (!IsServer || WeaponLevel.Value >= World.Anvil.MaxLevel) return false;
+            if (!IsServer || CannotTemperReason() != null) return false;
             int cost = World.Anvil.Cost(WeaponLevel.Value);
             if (Embers.Value < cost) return false;
             Embers.Value -= cost;
@@ -265,8 +305,13 @@ namespace Deepbound.Progression
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void WeaponUpgradedRpc(int level) =>
-            UI.GameHud.Feed(name + " tempered their " + ClassDefinition.WeaponName(ClassId.Value) + " to +" + level, LootInfo.EmberColor);
+        private void WeaponUpgradedRpc(int level)
+        {
+            string weapon = ClassDefinition.WeaponName(ClassId.Value);
+            UI.GameHud.Feed(name + " tempered their " + weapon + " to +" + level, LootInfo.EmberColor);
+            if (level == WeaponPaths.MasteryLevel && WeaponPath.Value != 0)
+                UI.GameHud.Feed(WeaponPaths.Name(ClassId.Value, WeaponPath.Value) + " mastery: " + WeaponPaths.Mastery(ClassId.Value, WeaponPath.Value), LootInfo.EmberColor);
+        }
 
         /// <summary>A run-scoped flat bonus, e.g. a whetstone bought from the merchant.</summary>
         public void ServerAddBonus(StatType stat, float amount)
@@ -357,6 +402,7 @@ namespace Deepbound.Progression
             Gold.Value = 0;
             Embers.Value = 0;
             WeaponLevel.Value = 0;
+            WeaponPath.Value = 0;
             Kills.Value = DamageDealt.Value = GoldEarned.Value = Downs.Value = Revives.Value = 0;
             damageCarry = 0f;
             relics.Clear();

@@ -222,6 +222,10 @@ namespace Deepbound.World
             {
                 if (i.NetworkObject.IsSpawned) i.NetworkObject.Despawn();
             }
+            foreach (var a in FindObjectsByType<Anvil>(FindObjectsSortMode.None))
+            {
+                if (a.NetworkObject.IsSpawned) a.NetworkObject.Despawn();
+            }
             foreach (var b in FindObjectsByType<Breakable>(FindObjectsSortMode.None))
             {
                 if (b.NetworkObject.IsSpawned) b.NetworkObject.Despawn();
