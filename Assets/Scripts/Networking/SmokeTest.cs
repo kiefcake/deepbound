@@ -241,7 +241,7 @@ namespace Deepbound.Networking
                 }
                 yield return new WaitForSeconds(0.3f);
                 var gatesAfter = FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Count(g => g.Closed.Value);
-                Log("vault", levers.Length + " levers pulled, closed gates " + gatesBefore + " -> " + gatesAfter, levers.Length == 3 && gatesAfter < gatesBefore);
+                Log("vault", levers.Length + " levers pulled, closed gates " + gatesBefore + " -> " + gatesAfter + ", open " + DungeonDirector.Instance.VaultOpen, levers.Length == 3 && DungeonDirector.Instance.VaultOpen);
 
                 var fountain = FindObjectsByType<Fountain>(FindObjectsSortMode.None).FirstOrDefault();
                 if (fountain != null)

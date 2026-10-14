@@ -36,6 +36,9 @@ namespace Deepbound.World
             public bool Open;
         }
         private Vault vault;
+
+        /// <summary>Server: has this floor's vault been opened? (Smoke test.)</summary>
+        public bool VaultOpen => vault != null && vault.Open;
         private readonly Dictionary<PlayerLife, float> rescuedAt = new Dictionary<PlayerLife, float>();
 
         private readonly List<Portcullis> bossGates = new List<Portcullis>();

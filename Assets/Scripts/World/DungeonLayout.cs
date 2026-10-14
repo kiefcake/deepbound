@@ -298,15 +298,22 @@ namespace Deepbound.World
             }
 
             var sides = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side);
-            if (sides.Count > 0)
+            Room HostOf(Room side)
             {
-                var vault = sides[0];
-                vault.Feature = RoomFeature.Vault;
                 foreach (var link in layout.Links)
                 {
-                    if (link.B == vault.Id) vault.VaultHost = layout.Rooms[link.A];
-                    if (link.A == vault.Id) vault.VaultHost = layout.Rooms[link.B];
+                    if (link.B == side.Id) return layout.Rooms[link.A];
+                    if (link.A == side.Id) return layout.Rooms[link.B];
                 }
+                return null;
+            }
+            // The vault's levers sit in the room its door opens onto — never the boss arena,
+            // where pulling them would seal you in with the boss.
+            var vault = sides.Find(r => HostOf(r) != null && HostOf(r).Kind != RoomKind.Boss);
+            if (vault != null)
+            {
+                vault.Feature = RoomFeature.Vault;
+                vault.VaultHost = HostOf(vault);
                 // Three levers spread around the host room's walls.
                 var host = vault.VaultHost;
                 if (host != null)
@@ -323,10 +330,11 @@ namespace Deepbound.World
                     }
                 }
             }
-            if (sides.Count > 1)
+            var fountain = sides.Find(r => r != vault);
+            if (fountain != null)
             {
-                sides[1].Feature = RoomFeature.Fountain;
-                sides[1].FeatureSpots.Add(sides[1].Center);
+                fountain.Feature = RoomFeature.Fountain;
+                fountain.FeatureSpots.Add(fountain.Center);
             }
         }
 
