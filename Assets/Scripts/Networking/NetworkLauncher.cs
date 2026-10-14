@@ -171,10 +171,8 @@ namespace Deepbound.Networking
                 return;
             }
 
-            PanelRect = new Rect(10, 10, 220, 70);
-            GUILayout.BeginArea(PanelRect, GUI.skin.box);
-            DrawSessionPanel();
-            GUILayout.EndArea();
+            // The party panel lives in the pause menu now; nothing in the corner.
+            PanelRect = Rect.zero;
         }
 
         private void DrawSessionPanel()

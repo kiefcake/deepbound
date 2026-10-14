@@ -73,6 +73,8 @@ namespace Deepbound.EditorTools
             var diceTable = BuildObjectPrefab<DiceTable>("DiceTable", new Vector3(1.5f, 0.95f, 1.5f));
             var coffer = BuildObjectPrefab<MysteryCoffer>("MysteryCoffer", new Vector3(1.2f, 1f, 0.8f));
             var gong = BuildGongPrefab();
+            var shrine = BuildObjectPrefab<Shrine>("Shrine", new Vector3(1.75f, 1f, 0.9f));
+            var rangeTarget = BuildRangeTargetPrefab();
             var dso = new SerializedObject(director.GetComponent<DungeonDirector>());
             dso.FindProperty("portcullisPrefab").objectReferenceValue = gate.GetComponent<NetworkObject>();
             dso.FindProperty("leverPrefab").objectReferenceValue = lever.GetComponent<NetworkObject>();
@@ -84,11 +86,13 @@ namespace Deepbound.EditorTools
             dso.FindProperty("diceTablePrefab").objectReferenceValue = diceTable.GetComponent<NetworkObject>();
             dso.FindProperty("cofferPrefab").objectReferenceValue = coffer.GetComponent<NetworkObject>();
             dso.FindProperty("gongPrefab").objectReferenceValue = gong.GetComponent<NetworkObject>();
+            dso.FindProperty("shrinePrefab").objectReferenceValue = shrine.GetComponent<NetworkObject>();
+            dso.FindProperty("rangeTargetPrefab").objectReferenceValue = rangeTarget.GetComponent<NetworkObject>();
             dso.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -357,6 +361,19 @@ namespace Deepbound.EditorTools
             SetTeam(root.AddComponent<Health>(), Team.Props, 1.9f);
             root.AddComponent<Gong>();
             return SavePrefab(root, "Gong");
+        }
+
+        /// <summary>An archery target: a hittable (Props team) straw butt that never breaks.</summary>
+        private static GameObject BuildRangeTargetPrefab()
+        {
+            var root = new GameObject("RangeTarget");
+            root.AddComponent<NetworkObject>();
+            var box = root.AddComponent<BoxCollider>();
+            box.size = new Vector3(1.1f, 1.1f, 0.3f);
+            box.center = new Vector3(0f, 1.45f, 0.1f);
+            SetTeam(root.AddComponent<Health>(), Team.Props, 1.45f);
+            root.AddComponent<RangeTarget>();
+            return SavePrefab(root, "RangeTarget");
         }
 
         private static GameObject BuildBreakablePrefab()

@@ -98,3 +98,5 @@ MonoBehaviour:
   diceTablePrefab: {fileID: 4048924686839327431, guid: 35d4a5a729e53884eb500810e6f40042, type: 3}
   cofferPrefab: {fileID: 277748187989132094, guid: 56f6ca87434608e45987518743f36e9a, type: 3}
   gongPrefab: {fileID: 6238532070434734018, guid: ae46c97d3df5ee047bf2b963aee60bcb, type: 3}
+  shrinePrefab: {fileID: 5345076545849612048, guid: b16fdcc5136720548a4199ece49251e0, type: 3}
+  rangeTargetPrefab: {fileID: 1712247798310700591, guid: 7306da333a010254eae1214ae856c551, type: 3}

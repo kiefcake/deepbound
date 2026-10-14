@@ -38,6 +38,7 @@ namespace Deepbound.Loot
             float m = Classes.Combos.ServerMultiplier(target, p) * Runes.OutgoingMultiplier(target, p);
             if (p.Wears(GearId.HuntersTooth) && target.TryGetComponent<EnemyBrain>(out var brain) && (brain.Elite.Value || brain is BossBrain)) m *= 1.25f;
             if (p.ServerConsumeDodgeStrike()) m *= 1.6f;
+            if (p.Blessed(Blessing.Wrath)) m *= 1.15f;
             return m;
         }
 

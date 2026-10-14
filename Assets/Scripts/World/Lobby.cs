@@ -35,6 +35,17 @@ namespace Deepbound.World
         public static readonly Vector3 GongSpot = Origin + new Vector3(8.5f, 0f, 6f);
         public static readonly Vector3 GongFacing = Vector3.left;
 
+        public static readonly Vector3 ShrineSpot = Origin + new Vector3(15.5f, 0f, -4f);
+
+        /// <summary>The archery range in the north-east: three targets on rails, a shooting line at x = 10.</summary>
+        public static readonly Vector3[] TargetSpots =
+        {
+            Origin + new Vector3(15.5f, 0f, 11f),
+            Origin + new Vector3(17.5f, 0f, 11.5f),
+            Origin + new Vector3(19.5f, 0f, 10.5f),
+        };
+        public static readonly Vector3 RangeCenter = Origin + new Vector3(15f, 0f, 11f);
+
         /// <summary>The training yard, west of the bonfire plaza.</summary>
         public static readonly Vector3[] DummySpots =
         {
@@ -72,6 +83,8 @@ namespace Deepbound.World
             BuildStalls(o, dressing, lights);
             BuildTent(lights, dressing);
             BuildYard(o, dressing, lights);
+            BuildShrineNook(dressing, lights);
+            BuildRange(dressing, lights);
             BuildSky(lights);
 
             // The bonfire on the plaza where everyone arrives.
@@ -334,6 +347,40 @@ namespace Deepbound.World
             Props.Crate(d, o + new Vector3(14f, 0f, -14f), 1.2f, 12f);
             Props.Crate(d, o + new Vector3(15.2f, 0f, -12.8f), 0.9f, -8f);
             Props.Barrel(d, o + new Vector3(13.8f, 0f, -12.2f));
+        }
+
+        /// <summary>Steps, flanking braziers and a backing wall for the shrine.</summary>
+        private static void BuildShrineNook(MeshKit.Batcher d, Transform lights)
+        {
+            var s = ShrineSpot;
+            d.AddBox(s + new Vector3(0.2f, 0.06f, 0f), new Vector3(3.4f, 0.12f, 3.2f), Mat.StoneWall);
+            d.AddBox(s + new Vector3(-1.4f, 0.03f, 0f), new Vector3(0.6f, 0.06f, 3.2f), Mat.StoneWall);
+            d.AddBox(s + new Vector3(2.2f, 2f, 0f), new Vector3(0.5f, 4f, 3.6f), Mat.StoneWall);
+            d.AddBox(s + new Vector3(2.2f, 4.2f, 0f), new Vector3(0.7f, 0.4f, 4f), Mat.StoneWall);
+            Props.Brazier(lights, s + new Vector3(-0.8f, 0f, 1.9f), Fire, false);
+            Props.Brazier(lights, s + new Vector3(-0.8f, 0f, -1.9f), Fire, false);
+            Props.Banner(lights, s + new Vector3(1.95f, 3.2f, 1.2f), Vector3.left, new Color(0.45f, 0.08f, 0.1f));
+            Props.Banner(lights, s + new Vector3(1.95f, 3.2f, -1.2f), Vector3.left, new Color(0.45f, 0.08f, 0.1f));
+        }
+
+        /// <summary>The butts: rails for the targets, a shooting line, hay bales behind.</summary>
+        private static void BuildRange(MeshKit.Batcher d, Transform lights)
+        {
+            foreach (var t in TargetSpots)
+            {
+                d.AddBox(t + new Vector3(0f, 0.03f, 0f), new Vector3(0.12f, 0.06f, 7.6f), Mat.Wood);
+                d.AddBox(t + new Vector3(0.5f, 0.03f, 0f), new Vector3(0.12f, 0.06f, 7.6f), Mat.Wood);
+            }
+            // The shooting line: a low rail at x = 10, with a sign post.
+            var line = Origin + new Vector3(10f, 0f, 11f);
+            d.AddBox(line + new Vector3(0f, 0.55f, 0f), new Vector3(0.1f, 0.1f, 6f), Mat.Wood);
+            for (int i = -1; i <= 1; i++) d.AddBox(line + new Vector3(0f, 0.3f, i * 2.9f), new Vector3(0.12f, 0.6f, 0.12f), Mat.Wood);
+            d.AddBox(line + new Vector3(0f, 1.2f, -3.4f), new Vector3(0.1f, 2.4f, 0.1f), Mat.Wood);
+            d.AddBox(line + new Vector3(0f, 2.2f, -3.4f), new Vector3(0.08f, 0.5f, 1f), Mat.Wood);
+            // Hay bales stacked behind the targets to catch the misses.
+            for (int i = 0; i < 5; i++)
+                d.AddBox(Origin + new Vector3(21.2f, 0.45f + (i % 2) * 0.9f, 7.5f + i * 1.6f), new Vector3(1f, 0.9f, 1.5f), Mat.Wood, Quaternion.Euler(0f, 12f * (i % 3), 0f));
+            Props.Brazier(lights, line + new Vector3(-0.8f, 0f, 3.6f), Fire, false);
         }
 
         /// <summary>No roof: a pale moon and a scatter of stars over the walls.</summary>

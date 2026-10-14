@@ -182,8 +182,21 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(0, h / 2f + 64, w, 24), "TRAINING:  " + Mathf.RoundToInt(sum / span) + " damage per second",
                     new GUIStyle(center) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
             }
+            // The range's tally, when you are near the butts.
+            var gongNear = Gong.Instance;
+            float dRange = Vector3.Distance(player.transform.position, Lobby.RangeCenter);
+            float dGong = gongNear != null ? Vector3.Distance(player.transform.position, gongNear.transform.position) : 999f;
+            if (dRange < 11f && dRange < dGong)
+            {
+                var parts = new List<string>();
+                foreach (var kv in RangeTarget.Tally) parts.Add(kv.Key + " " + kv.Value);
+                Rect(w / 2f - 210, 100, 420, 46, Panel);
+                GUI.Label(new Rect(0, 104, w, 22), "THE BUTTS", new GUIStyle(center) { normal = { textColor = Gold } });
+                GUI.Label(new Rect(0, 124, w, 20), parts.Count > 0 ? "Targets hit:   " + string.Join("   ·   ", parts) : "Hit the moving targets with anything you have.",
+                    new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+            }
             var gong = Gong.Instance;
-            if (gong != null && Vector3.Distance(player.transform.position, gong.transform.position) < 9f)
+            if (gong != null && dGong < 9f && dGong <= dRange)
             {
                 string rec = gong.Record.Value > 0f ? Mathf.RoundToInt(gong.Record.Value) + "  by " + gong.RecordHolder.Value : "nobody yet";
                 Rect(w / 2f - 190, 100, 380, 46, Panel);
@@ -428,6 +441,11 @@ namespace Deepbound.UI
         {
             float x = 24, y = h - 110, bw = 300;
             DrawRelicRow(x, y - 44);
+            if (progress.ActiveBlessing.Value != 0)
+            {
+                var b = (Blessing)progress.ActiveBlessing.Value;
+                GUI.Label(new Rect(x, y - 66, bw, 20), Blessings.Name(b) + "  -  " + Blessings.Describe(b), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Blessings.Color(b) } });
+            }
             Rect(x - 8, y - 10, bw + 16, 96, Panel);
 
             float hp = health.Current.Value, max = Mathf.Max(1f, health.Max.Value);

@@ -98,6 +98,25 @@ namespace Deepbound.Progression
 
         public bool OnPath(int path) => WeaponPath.Value == path;
 
+        /// <summary>The shrine's blessing for the current floor (see <see cref="Blessings"/>).</summary>
+        public readonly NetworkVariable<byte> ActiveBlessing = new NetworkVariable<byte>();
+        public bool Blessed(Blessing b) => ActiveBlessing.Value == (byte)b;
+
+        public void ServerBless(Blessing b)
+        {
+            if (!IsServer) return;
+            ActiveBlessing.Value = (byte)b;
+            OnStatsChangedServer(StatType.HP);
+        }
+
+        /// <summary>Server: the floor is over (or the run): the blessing fades.</summary>
+        public void ServerClearBlessing()
+        {
+            if (!IsServer || ActiveBlessing.Value == 0) return;
+            ActiveBlessing.Value = 0;
+            ApplyToHealth(refill: false);
+        }
+
         // ---- Gear: one armour, one charm. Stats derive from the item on every peer. ----
         public readonly NetworkVariable<GearItem> Armor = new NetworkVariable<GearItem>();
         public readonly NetworkVariable<GearItem> Charm = new NetworkVariable<GearItem>();
@@ -323,12 +342,12 @@ namespace Deepbound.Progression
         }
 
         /// <summary>SPD 50 is the reference speed; each point either side is ±1%.</summary>
-        public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1.15f : 1f);
+        public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1.15f : 1f) * (Blessed(Blessing.Swiftness) ? 1.12f : 1f);
 
         /// <summary>Q and E cooldowns scale by this (Echo Stone).</summary>
-        public float CooldownMultiplier => (HasRelic(Relic.EchoStone) ? 0.7f : 1f) * (Wears(GearId.CrackedHourglass) ? 0.82f : 1f);
+        public float CooldownMultiplier => (HasRelic(Relic.EchoStone) ? 0.7f : 1f) * (Wears(GearId.CrackedHourglass) ? 0.82f : 1f) * (Blessed(Blessing.Swiftness) ? 0.85f : 1f);
 
-        public float GoldMultiplier => HasRelic(Relic.GildedSkull) ? 1.6f : 1f;
+        public float GoldMultiplier => (HasRelic(Relic.GildedSkull) ? 1.6f : 1f) * (Blessed(Blessing.Fortune) ? 1.5f : 1f);
 
         // ---- Relics ----
 
@@ -401,6 +420,7 @@ namespace Deepbound.Progression
                 return 0f;
             }
             if (Wears(GearId.OssuaryPlate) && health.Fraction > 0.5f) damage *= 0.85f;
+            if (Blessed(Blessing.Bulwark)) damage *= 0.85f;
             if (Wears(GearId.WardensBulwark) && Time.time >= bulwarkReadyAt)
             {
                 bulwarkReadyAt = Time.time + 8f;
@@ -645,6 +665,7 @@ namespace Deepbound.Progression
             Embers.Value = 0;
             WeaponLevel.Value = 0;
             WeaponPath.Value = 0;
+            ActiveBlessing.Value = 0;
             Sigils.Value = 0;
             RankQ.Value = RankE.Value = 1;
             Armor.Value = default;
@@ -672,6 +693,7 @@ namespace Deepbound.Progression
             float hp = Stats.GetValue(StatType.HP);
             if (HasRelic(Relic.HeartOfTheDeep)) hp += 70f;
             if (HasRelic(Relic.BloodPact)) hp *= 0.75f;
+            if (Blessed(Blessing.Vigor)) hp *= 1.25f;
             health.ServerSetMax(hp, refill);
             health.Defense = Stats.GetValue(StatType.DEF);
         }

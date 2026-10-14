@@ -224,6 +224,7 @@ namespace Deepbound.World
             // Between floors the party keeps its run and rests; after a run, everything goes.
             foreach (var p in PlayerLife.All)
             {
+                if (p.TryGetComponent<PlayerProgress>(out var blessed)) blessed.ServerClearBlessing();
                 if (!keepRun && p.TryGetComponent<PlayerProgress>(out var progress) && progress.Stats != null) progress.ServerResetRun();
                 p.ServerRevive(1f);
                 p.Health.ServerSetFraction(1f);
@@ -234,6 +235,8 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject diceTablePrefab;
         [SerializeField] private NetworkObject cofferPrefab;
         [SerializeField] private NetworkObject gongPrefab;
+        [SerializeField] private NetworkObject shrinePrefab;
+        [SerializeField] private NetworkObject rangeTargetPrefab;
 
         private void SpawnCampStations()
         {
@@ -248,6 +251,20 @@ namespace Deepbound.World
             Put(diceTablePrefab, Lobby.DiceSpot, Lobby.TentFacing);
             Put(cofferPrefab, Lobby.CofferSpot, Lobby.TentFacing);
             Put(gongPrefab, Lobby.GongSpot, Lobby.GongFacing);
+            Put(shrinePrefab, Lobby.ShrineSpot, Vector3.left);
+            if (rangeTargetPrefab != null)
+            {
+                for (int i = 0; i < Lobby.TargetSpots.Length; i++)
+                {
+                    // Targets face the shooting line (west); they slide along their rails (north-south).
+                    var obj = Instantiate(rangeTargetPrefab, Lobby.TargetSpots[i], Quaternion.LookRotation(Vector3.left));
+                    var t = obj.GetComponent<RangeTarget>();
+                    t.Phase.Value = i * 2.1f;
+                    t.Speed.Value = 0.6f + i * 0.35f;
+                    obj.Spawn(destroyWithScene: true);
+                    spawned.Add(obj);
+                }
+            }
         }
 
         /// <summary>Server: the carriage leaves — for the next floor of this run, or a new run.</summary>

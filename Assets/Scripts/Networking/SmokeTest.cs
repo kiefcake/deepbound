@@ -573,6 +573,27 @@ namespace Deepbound.Networking
                         int after = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length + FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
                         Log("mystery coffer", "gold " + g1 + " -> " + progress.Gold.Value + ", prizes " + things + " -> " + after, progress.Gold.Value == g1 - MysteryCoffer.Price && after > things);
                     }
+                    // The shrine: pay, and the blessing is on you.
+                    var shrineT = FindObjectsByType<Shrine>(FindObjectsSortMode.None).FirstOrDefault();
+                    if (shrineT != null)
+                    {
+                        progress.ServerAddGold(Blessings.Price(DungeonDirector.GearDepth));
+                        motor.Teleport(shrineT.transform.position + shrineT.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return new WaitForSeconds(0.2f);
+                        shrineT.UseRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.2f);
+                        Log("shrine", "blessing " + Blessings.Name((Blessing)progress.ActiveBlessing.Value), progress.ActiveBlessing.Value != 0);
+                    }
+                    // The range: a hit on a target counts for the shooter.
+                    var targetT = FindObjectsByType<RangeTarget>(FindObjectsSortMode.None).FirstOrDefault();
+                    if (targetT != null)
+                    {
+                        RangeTarget.Tally.TryGetValue(local.name, out int before);
+                        targetT.GetComponent<Health>().ServerDamage(10f, local.transform.position, local.NetworkObjectId);
+                        yield return new WaitForSeconds(0.1f);
+                        RangeTarget.Tally.TryGetValue(local.name, out int after);
+                        Log("archery range", "hits " + before + " -> " + after, after == before + 1);
+                    }
                     // The Test of Might: a hit sets the record and the gong takes no damage.
                     var gongT = Gong.Instance;
                     if (gongT != null)
@@ -681,6 +702,8 @@ namespace Deepbound.Networking
                 ("0m_castle_gong", Lobby.Origin + new Vector3(3f, 0.1f, 6f), Lobby.GongSpot + Vector3.up * 2f, 0f),
                 ("0n_castle_gate", Lobby.Origin + new Vector3(-4f, 0.1f, 8f), Lobby.BoardingCenter + new Vector3(2f, 3f, 6f), -10f),
                 ("0o_castle_keep", Lobby.Origin + new Vector3(3f, 0.1f, 2f), Lobby.Origin + new Vector3(0f, 9f, -24f), -18f),
+                ("0q_castle_shrine", Lobby.Origin + new Vector3(10.5f, 0.1f, -4f), Lobby.ShrineSpot + Vector3.up * 1.5f, 0f),
+                ("0r_castle_range", Lobby.Origin + new Vector3(8.5f, 0.1f, 11f), Lobby.RangeCenter + Vector3.up * 1.2f, 0f),
             };
             foreach (var (tname, tat, tlook, tpitch) in tour)
             {
@@ -731,34 +754,13 @@ namespace Deepbound.Networking
             prog.ClassId.Value = Classes.ClassId.Knight;
             yield return new WaitForSeconds(0.3f);
 
-            DungeonDirector.Instance.ServerStartRun();
-            yield return new WaitForSeconds(2.5f);
-
-            var layout = DungeonDirector.Layout;
-            if (layout == null)
-            {
-                Debug.Log("[Smoke] FAIL screenshots: no local player or layout");
-                Application.Quit(1);
-                yield break;
-            }
-
-            var motor = local.GetComponent<FirstPersonMotor>();
-            motor.enabled = false; // stop input and gravity fighting the staged camera
-
-            yield return Shot(dir, "1_start_room");
-            var map = local.GetComponent<UI.Minimap>();
-            map.Large = true;
-            yield return null;
-            yield return Shot(dir, "1a_large_map");
-            map.Large = false;
-
-            var m = layout.MerchantPosition;
-            var mFrom = m + (layout.StartRoom.Center - m).normalized * 3.2f + Vector3.up * 0.1f;
-            motor.Teleport(mFrom, Quaternion.LookRotation(m - mFrom));
+            var m = Lobby.MerchantSpot;
+            var mFrom = m + Vector3.right * 3.4f + Vector3.up * 0.1f;
+            lobbyMotor.Teleport(mFrom, Quaternion.LookRotation(m - mFrom));
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "1b_merchant");
-            var mClose = m + (layout.StartRoom.Center - m).normalized * 2.2f + Vector3.up * 0.1f;
-            motor.Teleport(mClose, Quaternion.LookRotation(m - mClose));
+            var mClose = m + Vector3.right * 2.4f + Vector3.up * 0.1f;
+            lobbyMotor.Teleport(mClose, Quaternion.LookRotation(m - mClose));
             yield return new WaitForSeconds(0.2f);
             local.GetComponent<PlayerProgress>().ServerAddGold(400);
             local.GetComponent<UI.GameHud>().DebugOpenShop();
@@ -770,11 +772,11 @@ namespace Deepbound.Networking
             if (anvilObj != null)
             {
                 var af = anvilObj.transform.position + anvilObj.transform.forward * 2.2f + Vector3.up * 0.1f;
-                motor.Teleport(af, Quaternion.LookRotation(anvilObj.transform.position - af));
-                motor.SetPitch(20f);
+                lobbyMotor.Teleport(af, Quaternion.LookRotation(anvilObj.transform.position - af));
+                lobbyMotor.SetPitch(20f);
                 yield return new WaitForSeconds(0.5f);
                 yield return Shot(dir, "1b_anvil");
-                motor.SetPitch(0f);
+                lobbyMotor.SetPitch(0f);
                 var ap = local.GetComponent<PlayerProgress>();
                 ap.ServerAddEmbers(60);
                 ap.TemperRpc();
@@ -795,22 +797,43 @@ namespace Deepbound.Networking
                 UI.PauseMenu.SetOpen(false);
 
                 // Gear: a drop on the floor with its comparison card, then the Tab sheet.
-                var gFrom = layout.StartRoom.Center + Vector3.up * 0.1f;
-                motor.Teleport(gFrom, Quaternion.LookRotation(Vector3.forward));
+                var gFrom = Lobby.Origin + new Vector3(0f, 0.1f, -8f);
+                lobbyMotor.Teleport(gFrom, Quaternion.LookRotation(Vector3.forward));
                 ap.ServerEquip(new GearItem(GearId.OssuaryPlate, 0, 0));
                 ap.ServerEquip(new GearItem(GearId.HuntersTooth, 1, 0));
                 GearDrop.ServerSpawn(new GearItem(GearId.KingsguardHauberk, 2, 1), local.OwnerClientId, gFrom + Vector3.forward * 1.6f + Vector3.down * 0.1f);
                 GearDrop.ServerSpawn(new GearItem(GearId.LuckyKnucklebone, 0, 0), local.OwnerClientId, gFrom + new Vector3(1.4f, -0.1f, 2.6f));
-                motor.SetPitch(25f);
+                lobbyMotor.SetPitch(25f);
                 yield return new WaitForSeconds(0.8f);
                 yield return Shot(dir, "1d_gear_drop");
-                motor.SetPitch(0f);
+                lobbyMotor.SetPitch(0f);
                 UI.GameHud.DebugShowStats = true;
                 yield return null;
                 yield return Shot(dir, "1e_stat_sheet");
                 UI.GameHud.DebugShowStats = false;
                 ap.ServerResetRun();
             }
+
+            DungeonDirector.Instance.ServerStartRun();
+            yield return new WaitForSeconds(2.5f);
+
+            var layout = DungeonDirector.Layout;
+            if (layout == null)
+            {
+                Debug.Log("[Smoke] FAIL screenshots: no local player or layout");
+                Application.Quit(1);
+                yield break;
+            }
+
+            var motor = local.GetComponent<FirstPersonMotor>();
+            motor.enabled = false; // stop input and gravity fighting the staged camera
+
+            yield return Shot(dir, "1_start_room");
+            var map = local.GetComponent<UI.Minimap>();
+            map.Large = true;
+            yield return null;
+            yield return Shot(dir, "1a_large_map");
+            map.Large = false;
 
             // Hollow walls: a secret one up close, then smash it to see the alcove; a breach as it bursts.
             foreach (var hw in FindObjectsByType<CrackedWall>(FindObjectsSortMode.None).OrderBy(x => x.Breach.Value).ToArray())

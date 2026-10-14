@@ -116,7 +116,7 @@ namespace Deepbound.Loot
             }
             if (kind == LootKind.Embers)
             {
-                progress.ServerAddEmbers(Mathf.RoundToInt(Amount.Value * (progress.Wears(GearId.LanternOfTheLost) ? 1.4f : 1f)));
+                progress.ServerAddEmbers(Mathf.RoundToInt(Amount.Value * (progress.Wears(GearId.LanternOfTheLost) ? 1.4f : 1f) * (progress.Blessed(Blessing.Fortune) ? 1.5f : 1f)));
                 return true;
             }
             return false;
