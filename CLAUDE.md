@@ -22,7 +22,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 - **If the user has the game open**, Windows locks the exe: set `DEEPBOUND_BUILD_PATH=Builds/DeepboundNext/Deepbound.exe`
   for the build, then `cp -rf Builds/DeepboundNext/. Builds/Deepbound/` once they close it. Check with
   `tasklist | grep -i deepbound`. Never kill their game to rebuild.
-- **Smoke test** (headless, the main regression check; ~20 PASS lines on host, 7 on client, zero FAIL):
+- **Smoke test** (headless, the main regression check; ~23 PASS lines on host, 7 on client, zero FAIL):
   ```
   cd Builds/Deepbound && L=$(cygpath -w "$PWD")
   ./Deepbound.exe -batchmode -nographics -host -smoketest 40 -logFile "$L\\host.log" & sleep 4
@@ -93,7 +93,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 ## Content (as of 2026-10-14)
 
-- Classes: Knight (tank), Mage (frost-then-fire burst), Cleric (beam heals, consecrate, aegis shields, fast revives). Planned: Barbarian, Rogue, Ranger, Druid, Engineer
+- Classes: Knight (tank), Mage (frost-then-fire burst), Cleric (beam heals, consecrate, aegis shields, fast revives), Rogue (backstab ambush, shadowstep, smoke-bomb stealth via PlayerLife.Hidden). Planned: Barbarian, Ranger, Druid, Engineer
   (design doc section 5).
 - Enemies: Skeleton, Archer, Ghoul (pairs, pounce), Bone Brute, Necromancer (heals/raises); any can be Elite.
 - Bosses: Gravewarden (shield, charge into walls → dazed), Tide Lich (volleys, pools under everyone, blink),
@@ -104,6 +104,6 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 ## Backlog / ideas not yet built
 
-The remaining five classes; Steam transport + lobbies/invites; cosmetics as the meta-progression and
+The remaining four classes; Steam transport + lobbies/invites; cosmetics as the meta-progression and
 announcements on the run summary; proximity voice; UI Toolkit HUD replacing IMGUI; controller support / rebinding;
 balance pass driven by the user's play feedback; GitHub remote (needs the user).

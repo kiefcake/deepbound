@@ -125,9 +125,10 @@ namespace Deepbound.Player
             viewAnim = null;
 
             var cls = progress.ClassId.Value;
-            bool mage = cls == ClassId.Mage, cleric = cls == ClassId.Cleric;
+            bool mage = cls == ClassId.Mage, cleric = cls == ClassId.Cleric, rogue = cls == ClassId.Rogue;
             Rig = mage ? CharacterArt.BuildMage(transform, SlotColor)
                 : cleric ? CharacterArt.BuildCleric(transform, SlotColor)
+                : rogue ? CharacterArt.BuildRogue(transform, SlotColor)
                 : CharacterArt.BuildKnight(transform, SlotColor);
 
             if (!IsOwner) return;
@@ -137,6 +138,11 @@ namespace Deepbound.Player
             {
                 viewModel = CharacterArt.BuildMageViewModel(playerCamera.transform, SlotColor);
                 viewAnim = new MageViewAnimator(viewModel, new Color(1f, 0.5f, 0.15f), new Color(0.45f, 0.8f, 1f));
+            }
+            else if (rogue)
+            {
+                viewModel = CharacterArt.BuildRogueViewModel(playerCamera.transform, SlotColor);
+                viewAnim = new DaggerViewAnimator(viewModel);
             }
             else if (cleric)
             {
@@ -246,6 +252,55 @@ namespace Deepbound.Player
             void Bash();
             void BlockImpact();
             void Cast(bool frost);
+        }
+
+        /// <summary>
+        /// The Rogue's hands: alternate quick forward stabs, a flick for thrown knives.
+        /// </summary>
+        private class DaggerViewAnimator : IViewAnim
+        {
+            private readonly CharacterArt.ViewModel vm;
+            private readonly Vector3 rRest, lRest;
+            private readonly Quaternion rRot, lRot;
+            private float rStab = -10f, lStab = -10f, throwAt = -10f, bob;
+
+            public DaggerViewAnimator(CharacterArt.ViewModel vm)
+            {
+                this.vm = vm;
+                rRest = vm.SwordPivot.localPosition; rRot = vm.SwordPivot.localRotation;
+                lRest = vm.ShieldPivot.localPosition; lRot = vm.ShieldPivot.localRotation;
+            }
+
+            public void Swing(float windup, float rest, float side)
+            {
+                if (side > 0f) rStab = Time.time; else lStab = Time.time;
+            }
+
+            public void Bash() { }
+            public void BlockImpact() { }
+            public void Cast(bool frost) => throwAt = Time.time;
+
+            public void Update(bool blocking, bool downed, bool sprinting)
+            {
+                bob += Time.deltaTime * (sprinting ? 12f : 0f);
+                var run = sprinting ? new Vector3(Mathf.Sin(bob) * 0.02f, Mathf.Abs(Mathf.Cos(bob)) * 0.025f, 0f) : Vector3.zero;
+                var down = downed ? new Vector3(0f, -0.4f, -0.1f) : Vector3.zero;
+
+                float r = Stab(rStab), l = Stab(lStab);
+                float t = Time.time - throwAt;
+                float flick = t < 0.25f ? Mathf.Sin(t / 0.25f * Mathf.PI) : 0f;
+
+                vm.SwordPivot.localPosition = rRest + run + down + new Vector3(-0.08f, 0.04f, 0.28f) * r + new Vector3(0f, 0.12f, 0.1f) * flick;
+                vm.SwordPivot.localRotation = rRot * Quaternion.Euler(-45f * r - 60f * flick, 0f, 0f);
+                vm.ShieldPivot.localPosition = lRest + run + down + new Vector3(0.08f, 0.04f, 0.28f) * l;
+                vm.ShieldPivot.localRotation = lRot * Quaternion.Euler(-45f * l, 0f, 0f);
+            }
+
+            private static float Stab(float start)
+            {
+                float t = Time.time - start;
+                return t < 0.2f ? Mathf.Sin(t / 0.2f * Mathf.PI) : 0f;
+            }
         }
 
         /// <summary>

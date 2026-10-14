@@ -133,7 +133,7 @@ namespace Deepbound.Enemies
 
             foreach (var p in PlayerLife.All)
             {
-                if (p == null || p.Downed.Value) continue;
+                if (p == null || !p.Targetable) continue;
                 var c = p.transform.position;
                 pools.Add(new Pool { Center = c, At = Time.time + poolWindup });
                 Debug.Log("[Boss] Tide Lich pool under " + p.name);

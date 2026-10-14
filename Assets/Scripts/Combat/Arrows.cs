@@ -19,7 +19,7 @@ namespace Deepbound.Combat
     /// so a Knight's block stops them from the front.
     /// </summary>
     /// <summary>What a projectile looks like. APPEND ONLY: sent in RPCs.</summary>
-    public enum ProjectileKind : byte { Arrow = 0, Firebolt = 1, Frostbolt = 2, ShadowBolt = 3, Smite = 4 }
+    public enum ProjectileKind : byte { Arrow = 0, Firebolt = 1, Frostbolt = 2, ShadowBolt = 3, Smite = 4, Knife = 5 }
 
     public class Arrows : MonoBehaviour
     {
@@ -68,7 +68,9 @@ namespace Deepbound.Combat
             Instance.live.Add(new Arrow
             {
                 Position = origin, Velocity = direction.normalized * speed,
-                Visual = kind == ProjectileKind.Arrow ? BuildVisual(origin, direction) : BuildBolt(origin, direction, kind),
+                Visual = kind == ProjectileKind.Arrow ? BuildVisual(origin, direction)
+                    : kind == ProjectileKind.Knife ? BuildKnife(origin, direction)
+                    : BuildBolt(origin, direction, kind),
             });
         }
 
@@ -178,6 +180,19 @@ namespace Deepbound.Combat
             light.color = color;
             light.range = 5f;
             light.intensity = 3f;
+            return root;
+        }
+
+        /// <summary>A thrown knife: a steel blade and a leather grip, with a pale glint.</summary>
+        private static Transform BuildKnife(Vector3 origin, Vector3 direction)
+        {
+            var root = new GameObject("Knife").transform;
+            root.SetPositionAndRotation(origin, Quaternion.LookRotation(direction));
+            MeshKit.Part(root, "Blade", MeshKit.Box(new Vector3(0.03f, 0.008f, 0.2f)), Mat.Steel, new Vector3(0f, 0f, 0.05f));
+            MeshKit.Part(root, "Grip", MeshKit.Box(new Vector3(0.025f, 0.02f, 0.1f)), Mat.Leather, new Vector3(0f, 0f, -0.1f));
+            var glint = MeshKit.Part(root, "Glint", MeshKit.Ball(0.02f, 6, 4), Mat.Glow, new Vector3(0f, 0f, 0.14f));
+            ArtLibrary.SetGlow(glint.GetComponent<Renderer>(), new Color(0.8f, 0.85f, 1f) * 2f);
+            foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             return root;
         }
 

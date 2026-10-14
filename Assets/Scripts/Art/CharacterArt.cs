@@ -319,6 +319,88 @@ namespace Deepbound.Art
             return new ViewModel { Root = root, SwordPivot = hand, ShieldPivot = castHand, SpellGlow = light.GetComponent<Renderer>() };
         }
 
+        /// <summary>
+        /// The Rogue: dark leathers, a deep hood and a mask, a short cloak in the party colour,
+        /// and a dagger in each hand. Lean and low — the least armoured silhouette in the game.
+        /// </summary>
+        public static HumanoidRig BuildRogue(Transform root, Color teamColor)
+        {
+            var visual = MeshKit.Pivot(root, "RogueVisual", Vector3.zero);
+            var rig = visual.gameObject.AddComponent<HumanoidRig>();
+            var leather = new Color(0.32f, 0.27f, 0.24f);
+
+            rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.93f, 0f));
+            BuildLegs(rig, 0.11f, 0.93f, Mat.Leather, Mat.Leather, 0.15f);
+
+            rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", Vector3.zero);
+            var jerkin = MeshKit.Part(rig.Torso, "Jerkin", MeshKit.Lathe("rogueChest", new[]
+            {
+                new Vector2(0.18f, 0f), new Vector2(0.2f, 0.18f), new Vector2(0.22f, 0.4f), new Vector2(0.19f, 0.55f), new Vector2(0.08f, 0.6f),
+            }, 8), Mat.Leather, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.78f));
+            ArtLibrary.Tint(jerkin.GetComponent<Renderer>(), leather);
+            for (int i = 0; i < 3; i++)
+                MeshKit.Part(rig.Torso, "Strap" + i, MeshKit.Box(new Vector3(0.36f, 0.03f, 0.3f)), Mat.Leather, new Vector3(0f, 0.15f + i * 0.14f, 0f), new Vector3(0f, 0f, i == 1 ? 25f : 0f));
+            var cloak = MeshKit.Part(rig.Torso, "Cloak", MeshKit.Box(new Vector3(0.46f, 0.75f, 0.02f)), Mat.Cloth, new Vector3(0f, 0.2f, -0.15f), new Vector3(8f, 0f, 0f));
+            ArtLibrary.Tint(cloak.GetComponent<Renderer>(), teamColor * 0.7f);
+            MeshKit.Part(rig.Hips, "Belt", MeshKit.Cylinder(0.19f, 0.19f, 0.06f, 8), Mat.Leather, new Vector3(0f, 0.02f, 0f), Vector3.zero, new Vector3(1f, 1f, 0.8f));
+            MeshKit.Part(rig.Hips, "Pouch", MeshKit.Box(new Vector3(0.1f, 0.1f, 0.06f)), Mat.Leather, new Vector3(0.17f, -0.03f, 0.1f));
+
+            rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.6f, 0f));
+            MeshKit.Part(rig.Head, "Face", MeshKit.Ball(0.12f, 8, 6), Mat.Dark, new Vector3(0f, 0.13f, 0.01f));
+            var mask = MeshKit.Part(rig.Head, "Mask", MeshKit.Box(new Vector3(0.2f, 0.08f, 0.04f)), Mat.Cloth, new Vector3(0f, 0.08f, 0.1f));
+            ArtLibrary.Tint(mask.GetComponent<Renderer>(), new Color(0.12f, 0.1f, 0.1f));
+            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.014f, 6, 4), Mat.Glow, new Vector3(-0.04f, 0.15f, 0.11f));
+            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.014f, 6, 4), Mat.Glow, new Vector3(0.04f, 0.15f, 0.11f));
+            var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("rogueHood", new[]
+            {
+                new Vector2(0.16f, -0.04f), new Vector2(0.18f, 0.1f), new Vector2(0.15f, 0.24f), new Vector2(0.06f, 0.33f), new Vector2(0f, 0.36f),
+            }, 9, true, 260f), Mat.Cloth, new Vector3(0f, 0.04f, -0.03f), new Vector3(10f, 230f, 0f));
+            ArtLibrary.Tint(hood.GetComponent<Renderer>(), teamColor * 0.55f);
+
+            rig.ArmR = BuildSleeveArm(rig.Torso, "ArmR", 1f, leather);
+            rig.ArmL = BuildSleeveArm(rig.Torso, "ArmL", -1f, leather);
+            foreach (var arm in new[] { rig.ArmR, rig.ArmL })
+            {
+                var grip = MeshKit.Pivot(arm, "Grip", new Vector3(0f, -0.6f, 0.02f), new Vector3(80f, 0f, 0f));
+                BuildDagger(grip, 1f);
+            }
+
+            rig.GlowColor = new Color(0.75f, 0.55f, 1f);
+            rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
+            rig.StrideLength = 1.3f;
+            return rig;
+        }
+
+        private static void BuildDagger(Transform grip, float scale)
+        {
+            MeshKit.Part(grip, "Handle", MeshKit.Cylinder(0.016f * scale, 0.016f * scale, 0.1f * scale, 6), Mat.Leather, new Vector3(0f, -0.04f * scale, 0f));
+            MeshKit.Part(grip, "Guard", MeshKit.Box(new Vector3(0.08f, 0.015f, 0.025f) * scale), Mat.Steel, new Vector3(0f, 0.065f * scale, 0f));
+            MeshKit.Part(grip, "Blade", MeshKit.Box(new Vector3(0.035f, 0.26f, 0.008f) * scale), Mat.Steel, new Vector3(0f, 0.2f * scale, 0f));
+            MeshKit.Part(grip, "Tip", MeshKit.Lathe("daggerTip", new[] { new Vector2(0.025f, 0f), new Vector2(0f, 0.06f) }, 4), Mat.Steel,
+                new Vector3(0f, 0.33f * scale, 0f), new Vector3(0f, 45f, 0f), new Vector3(scale, scale, scale * 0.3f));
+        }
+
+        /// <summary>First-person Rogue: a reversed-grip dagger in each hand.</summary>
+        public static ViewModel BuildRogueViewModel(Transform camera, Color teamColor)
+        {
+            var root = MeshKit.Pivot(camera, "ViewModel", Vector3.zero);
+            var leather = new Color(0.32f, 0.27f, 0.24f);
+            Transform Hand(string name, Vector3 pos, Vector3 euler)
+            {
+                var hand = MeshKit.Pivot(root, name, pos, euler);
+                var sleeve = MeshKit.Part(hand, "Sleeve", MeshKit.Cylinder(0.065f, 0.08f, 0.38f, 7), Mat.Leather, new Vector3(0f, -0.04f, -0.22f), new Vector3(-100f, 0f, 0f));
+                ArtLibrary.Tint(sleeve.GetComponent<Renderer>(), leather);
+                MeshKit.Part(hand, "Glove", MeshKit.Ball(0.055f, 6, 4), Mat.Leather, Vector3.zero, Vector3.zero, new Vector3(1f, 0.9f, 1.2f));
+                var grip = MeshKit.Pivot(hand, "Grip", new Vector3(0f, 0.01f, 0.02f), new Vector3(-10f, 0f, 0f));
+                BuildDagger(grip, 0.85f);
+                return hand;
+            }
+            var right = Hand("RightHand", new Vector3(0.3f, -0.36f, 0.5f), new Vector3(-25f, -10f, -15f));
+            var left = Hand("LeftHand", new Vector3(-0.3f, -0.36f, 0.5f), new Vector3(-25f, 10f, 15f));
+            foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return new ViewModel { Root = root, SwordPivot = right, ShieldPivot = left };
+        }
+
         private static Transform BuildSleeveArm(Transform torso, string name, float side, Color robe)
         {
             var shoulder = MeshKit.Pivot(torso, name, new Vector3(0.25f * side, 0.5f, 0f));

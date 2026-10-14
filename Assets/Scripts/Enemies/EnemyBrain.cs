@@ -279,10 +279,10 @@ namespace Deepbound.Enemies
 
         protected Health PickTarget()
         {
-            if (taunter != null && Time.time < tauntUntil && taunter.IsAlive) return taunter;
+            if (taunter != null && Time.time < tauntUntil && PlayerLife.CanTarget(taunter)) return taunter;
 
-            // Stay on the current target while it is alive and within leash.
-            if (target != null && target.IsAlive && FlatDistance(target.transform.position) < leashRange &&
+            // Stay on the current target while it is alive, visible and within leash.
+            if (target != null && PlayerLife.CanTarget(target) && FlatDistance(target.transform.position) < leashRange &&
                 FlatDistance(home) < leashRange)
             {
                 return target;
@@ -292,7 +292,7 @@ namespace Deepbound.Enemies
             float bestDist = aggroRange;
             foreach (var p in PlayerLife.All)
             {
-                if (p == null || p.Downed.Value || !p.Health.IsAlive) continue;
+                if (p == null || !p.Targetable) continue;
                 float d = FlatDistance(p.transform.position);
                 if (d < bestDist && CombatQuery.ClearLine(transform.position + Vector3.up * 1.5f, p.Health))
                 {
@@ -387,7 +387,7 @@ namespace Deepbound.Enemies
 
             // Getting hit from out of view still pulls aggro onto the attacker.
             if (target == null && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj) &&
-                obj.TryGetComponent<Health>(out var attacker) && attacker.Team == Team.Players)
+                obj.TryGetComponent<Health>(out var attacker) && attacker.Team == Team.Players && PlayerLife.CanTarget(attacker))
             {
                 target = attacker;
                 AlertPack(attacker);

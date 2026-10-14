@@ -107,6 +107,22 @@ namespace Deepbound.Networking
                 cleric.ServerConsecrate();
                 yield return new WaitForSeconds(1.6f);
                 Log("cleric consecrate", "dummy " + dummyFull.ToString("F0") + " -> " + dummy.Current.Value.ToString("F0"), dummy.Current.Value < dummyFull);
+                // Rogue: from the smoke, a stab in the back is an Ambush opener (x1.5, x2).
+                progressMe.ClassId.Value = Classes.ClassId.Rogue;
+                yield return new WaitForSeconds(0.5f);
+                var rogue = me.GetComponent<RogueKit>();
+                dummy.ServerSetFraction(1f);
+                var behind = dummy.transform.position - dummy.transform.forward * 1.4f;
+                me.GetComponent<FirstPersonMotor>().Teleport(behind, Quaternion.LookRotation(dummy.transform.forward));
+                yield return new WaitForSeconds(0.2f);
+                rogue.ServerSmoke();
+                bool wasHidden = me.GetComponent<PlayerLife>().Hidden.Value;
+                float dBefore = dummy.Current.Value;
+                rogue.ServerStab(me.transform.position + Vector3.up * 1.5f, dummy.transform.forward);
+                float opener = dBefore - dummy.Current.Value;
+                Log("rogue ambush", "hidden " + wasHidden + " -> " + me.GetComponent<PlayerLife>().Hidden.Value + ", opener stab dealt " + opener.ToString("F0") + " (plain ~13)",
+                    wasHidden && !me.GetComponent<PlayerLife>().Hidden.Value && opener > 30f);
+
                 progressMe.ClassId.Value = Classes.ClassId.Mage;
                 yield return new WaitForSeconds(0.3f);
                 DungeonDirector.Instance.ServerStartRun();

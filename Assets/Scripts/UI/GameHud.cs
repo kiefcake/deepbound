@@ -421,7 +421,11 @@ namespace Deepbound.UI
             var style = new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 1f, 1f, a * 0.85f) } };
             GUI.Label(new Rect(w - 330, 262, 310, 150),
                 "WASD move  ·  Shift sprint  ·  Space jump\n" +
-                (progress.ClassId.Value == ClassId.Cleric
+                (progress.ClassId.Value == ClassId.Rogue
+                    ? "LMB Twin Daggers  ·  RMB Fan of Knives\n" +
+                      "Hit from BEHIND: +50% more (Ambush)\n" +
+                      "Q  Shadowstep  ·  E  Smoke Bomb (vanish)\n"
+                    : progress.ClassId.Value == ClassId.Cleric
                     ? "LMB Smite  ·  RMB hold Mending Beam on an ally\n" +
                       "Q  Consecrate (heal allies, burn foes)\n" +
                       "E  Divine Aegis shields everyone nearby\n"

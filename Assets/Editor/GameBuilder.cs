@@ -131,6 +131,7 @@ namespace Deepbound.EditorTools
             root.AddComponent<KnightKit>();
             root.AddComponent<MageKit>();
             root.AddComponent<ClericKit>();
+            root.AddComponent<RogueKit>();
             root.AddComponent<KnockbackReceiver>();
 
             var pivot = new GameObject("CameraPivot").transform;

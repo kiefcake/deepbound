@@ -18,6 +18,7 @@ GameObject:
   - component: {fileID: 1213986218560098150}
   - component: {fileID: 2423411484194795684}
   - component: {fileID: 6161924381247032627}
+  - component: {fileID: 345429375793335220}
   - component: {fileID: 1113284408795371079}
   - component: {fileID: 6646583751451298640}
   - component: {fileID: 3883377760670736657}
@@ -221,6 +222,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: b86c3844e23c480409d8cad455ea3457, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.ClericKit
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &345429375793335220
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 539545562963582333}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 278cf79bae6843e429f278b707f809c2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.RogueKit
   ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &1113284408795371079
 MonoBehaviour:

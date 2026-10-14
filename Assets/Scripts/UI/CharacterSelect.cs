@@ -104,6 +104,7 @@ namespace Deepbound.UI
                 var color = player.SlotColor;
                 var rig = (ClassId)i == ClassId.Mage ? CharacterArt.BuildMage(table, color)
                     : (ClassId)i == ClassId.Cleric ? CharacterArt.BuildCleric(table, color)
+                    : (ClassId)i == ClassId.Rogue ? CharacterArt.BuildRogue(table, color)
                     : CharacterArt.BuildKnight(table, color);
                 rig.Blocking = (ClassId)i == ClassId.Knight;
                 turntables[i] = table;
@@ -151,11 +152,11 @@ namespace Deepbound.UI
                 new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14 });
 
             int n = ClassDefinition.ById.Length;
-            float cardW = Mathf.Min(460f, (w - 80f - (n - 1) * 30f) / n), cardH = Mathf.Min(h * 0.78f, 720f);
-            float total = n * cardW + (n - 1) * 30f;
+            float cardW = Mathf.Min(460f, (w - 60f - (n - 1) * 20f) / n), cardH = Mathf.Min(h * 0.8f, 740f);
+            float total = n * cardW + (n - 1) * 20f;
             float x0 = w / 2f - total / 2f, y0 = h * 0.15f;
 
-            for (int i = 0; i < n; i++) DrawCard(new Rect(x0 + i * (cardW + 30f), y0, cardW, cardH), (ClassId)i);
+            for (int i = 0; i < n; i++) DrawCard(new Rect(x0 + i * (cardW + 20f), y0, cardW, cardH), (ClassId)i);
         }
 
         private void DrawCard(Rect r, ClassId id)
@@ -167,15 +168,16 @@ namespace Deepbound.UI
             UiSkin.Panel(r, 0.95f);
 
             // 3D preview.
-            float previewH = r.height * 0.3f;
+            // With many classes the cards narrow; give the text the height instead.
+            float previewH = r.height * (ClassDefinition.ById.Length >= 4 ? 0.2f : 0.3f);
             var previewRect = new Rect(r.x + 12, r.y + 12, r.width - 24, previewH);
             if (previews != null && previews[(int)id] != null) GUI.DrawTexture(previewRect, previews[(int)id], ScaleMode.ScaleToFit);
 
             float y = previewRect.yMax + 8;
             GUI.Label(new Rect(r.x + 16, y, r.width - 32, 30), def.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Heading) { fontSize = 26 });
             GUI.Label(new Rect(r.x + 16, y + 30, r.width - 32, 18), def.Role, UiSkin.Small);
-            GUI.Label(new Rect(r.x + 16, y + 46, r.width - 32, 18), ClassDefinition.Difficulty(id), new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Italic });
-            y += 76;
+            GUI.Label(new Rect(r.x + 16, y + 46, r.width - 32, 32), ClassDefinition.Difficulty(id), new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Italic, fontSize = 11 });
+            y += 82;
 
             // Base stats as bars, on a common scale so classes compare at a glance.
             for (int s = 0; s < Stats.Count; s++)
@@ -195,7 +197,7 @@ namespace Deepbound.UI
 
             // Two lines per ability: the name and key, then what it does (wrapped).
             float room = (r.yMax - 66) - y;
-            float rowH = Mathf.Min(40f, room / 5f);
+            float rowH = Mathf.Min(48f, room / 5f);
             foreach (var (key, name, desc) in ClassDefinition.Kit(id))
             {
                 GUI.Label(new Rect(r.x + 16, y, 64, 18), key, new GUIStyle(UiSkin.Small) { normal = { textColor = UiSkin.Gold }, fontStyle = FontStyle.Bold });
