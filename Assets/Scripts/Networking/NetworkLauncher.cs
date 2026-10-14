@@ -54,6 +54,21 @@ namespace Deepbound.Networking
             Net.OnTransportFailure += HandleTransportFailure;
 
             ApplyCommandLine(Environment.GetCommandLineArgs());
+            ApplyWindowMode(Environment.GetCommandLineArgs());
+        }
+
+        /// <summary>
+        /// Start fullscreen (or windowed, if the player chose that in Options) — unless the
+        /// command line set the window explicitly, as the screenshot runs do. Unity would
+        /// otherwise remember whatever the last run used, test runs included.
+        /// </summary>
+        private static void ApplyWindowMode(string[] args)
+        {
+            if (Application.isBatchMode || Array.IndexOf(args, "-screen-fullscreen") >= 0) return;
+            if (PlayerPrefs.GetInt(UI.Settings.FullscreenKey, 1) == 1)
+                Screen.SetResolution(Display.main.systemWidth, Display.main.systemHeight, FullScreenMode.FullScreenWindow);
+            else if (Screen.fullScreen)
+                Screen.fullScreen = false;
         }
 
         private void OnDestroy()

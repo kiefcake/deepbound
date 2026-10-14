@@ -9,6 +9,7 @@ namespace Deepbound.UI
     public static class Settings
     {
         private const string SensKey = "deepbound.sensitivity", VolumeKey = "deepbound.volume", FovKey = "deepbound.fov";
+        public const string FullscreenKey = "deepbound.fullscreen";
 
         private static float? sensitivity, volume, fov;
 

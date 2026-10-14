@@ -108,7 +108,12 @@ namespace Deepbound.UI
 
             bool full = Screen.fullScreen;
             bool want = GUILayout.Toggle(full, "  Fullscreen", new GUIStyle(GUI.skin.toggle) { fontSize = 15 });
-            if (want != full) Screen.fullScreen = want;
+            if (want != full)
+            {
+                Screen.fullScreen = want;
+                PlayerPrefs.SetInt(Settings.FullscreenKey, want ? 1 : 0);
+                PlayerPrefs.Save();
+            }
 
             GUILayout.Space(14);
             if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(38))) page = Page.Main;
