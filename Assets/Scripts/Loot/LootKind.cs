@@ -16,6 +16,7 @@ namespace Deepbound.Loot
         PotionAll = 9, // one potion's worth of every stat; boss-only
         Relic = 10,    // Amount carries the Relic id
         Embers = 11,   // weapon upgrade material
+        Sigil = 12,    // ability rank-up, spent at the anvil
     }
 
     public static class LootInfo
@@ -38,11 +39,13 @@ namespace Deepbound.Loot
         }
 
         public static readonly Color EmberColor = new Color(1f, 0.42f, 0.12f);
+        public static readonly Color SigilColor = new Color(0.7f, 0.5f, 1f);
 
         public static string Name(LootKind kind)
         {
             if (kind == LootKind.Gold) return "Gold";
             if (kind == LootKind.Embers) return "Embers";
+            if (kind == LootKind.Sigil) return "a Sigil";
             if (kind == LootKind.Relic) return "a relic";
             return kind.ToString();
         }

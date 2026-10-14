@@ -83,8 +83,8 @@ namespace Deepbound.Player
             float cd = progress.CooldownMultiplier;
             into.Add(new AbilityView { Key = "LMB", Name = "Longbow", Active = drawStart >= 0f });
             into.Add(new AbilityView { Key = "RMB", Name = "Disengage", Remaining = disengageReadyAt - Time.time, Cooldown = DisengageCooldown * cd, Unaffordable = Focus < DisengageFocus });
-            into.Add(new AbilityView { Key = "Q", Name = "Bear Trap", Remaining = trapReadyAt - Time.time, Cooldown = TrapCooldown * cd });
-            into.Add(new AbilityView { Key = "E", Name = "Volley", Remaining = volleyReadyAt - Time.time, Cooldown = VolleyCooldown * cd, Unaffordable = Focus < VolleyFocus });
+            into.Add(new AbilityView { Key = "Q", Name = "Bear Trap", Remaining = trapReadyAt - Time.time, Cooldown = TrapCooldown * progress.CooldownFor(AbilitySlot.Q) });
+            into.Add(new AbilityView { Key = "E", Name = "Volley", Remaining = volleyReadyAt - Time.time, Cooldown = VolleyCooldown * progress.CooldownFor(AbilitySlot.E), Unaffordable = Focus < VolleyFocus });
         }
 
         // ==================================================================
@@ -142,7 +142,7 @@ namespace Deepbound.Player
             // --- Q: Bear Trap at the crosshair ---
             if (keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= trapReadyAt && TryAimFloor(TrapRange, out var trapAt))
             {
-                trapReadyAt = Time.time + TrapCooldown * progress.CooldownMultiplier * (progress.OnPath(2) ? 0.6f : 1f);
+                trapReadyAt = Time.time + TrapCooldown * progress.CooldownFor(AbilitySlot.Q) * (progress.OnPath(2) ? 0.6f : 1f);
                 TrapRpc(trapAt);
             }
 
@@ -150,7 +150,7 @@ namespace Deepbound.Player
             if (keyboard != null && keyboard.eKey.wasPressedThisFrame && Time.time >= volleyReadyAt && Focus >= VolleyFocus && TryAimFloor(30f, out var volleyAt))
             {
                 Focus -= VolleyFocus;
-                volleyReadyAt = Time.time + VolleyCooldown * progress.CooldownMultiplier;
+                volleyReadyAt = Time.time + VolleyCooldown * progress.CooldownFor(AbilitySlot.E);
                 player.ViewModelCast(true);
                 VolleyRpc(volleyAt);
             }
@@ -234,7 +234,7 @@ namespace Deepbound.Player
             }
             var trap = Instantiate(trapPrefab, at, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
             trap.Spawn(destroyWithScene: true);
-            trap.GetComponent<World.BearTrap>().ServerArm(progress.AttackMultiplier, NetworkObjectId);
+            trap.GetComponent<World.BearTrap>().ServerArm(progress.AttackMultiplier * progress.Potency(AbilitySlot.Q), NetworkObjectId, progress.Twist(AbilitySlot.Q));
             traps.Add(trap);
         }
 
@@ -254,7 +254,8 @@ namespace Deepbound.Player
                 if (Time.time < v.Next) continue;
                 foreach (var h in CombatQuery.Circle(v.At, progress.Mastered(2) ? 5f : VolleyRadius, Team.Enemies).ToArray())
                 {
-                    h.ServerDamage(VolleyDamage * progress.AttackMultiplier, v.At + Vector3.up * 6f, NetworkObjectId);
+                    h.ServerDamage(VolleyDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.E), v.At + Vector3.up * 6f, NetworkObjectId);
+                    if (progress.Twist(AbilitySlot.E)) h.ServerChill(2f);
                     CountMark(h);
                 }
                 VolleyWaveRpc(v.At);

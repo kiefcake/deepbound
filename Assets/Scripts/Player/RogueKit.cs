@@ -78,8 +78,8 @@ namespace Deepbound.Player
             float cd = progress.CooldownMultiplier;
             into.Add(new AbilityView { Key = "LMB", Name = "Daggers", Unaffordable = Energy < StabEnergy });
             into.Add(new AbilityView { Key = "RMB", Name = "Knives", Remaining = fanReadyAt - Time.time, Cooldown = FanCooldown, Unaffordable = Energy < FanEnergy });
-            into.Add(new AbilityView { Key = "Q", Name = "Shadowstep", Remaining = stepReadyAt - Time.time, Cooldown = StepCooldown * cd });
-            into.Add(new AbilityView { Key = "E", Name = "Smoke", Remaining = smokeReadyAt - Time.time, Cooldown = SmokeCooldown * cd, Active = life.Hidden.Value });
+            into.Add(new AbilityView { Key = "Q", Name = "Shadowstep", Remaining = stepReadyAt - Time.time, Cooldown = StepCooldown * progress.CooldownFor(AbilitySlot.Q) });
+            into.Add(new AbilityView { Key = "E", Name = "Smoke", Remaining = smokeReadyAt - Time.time, Cooldown = SmokeCooldown * progress.CooldownFor(AbilitySlot.E), Active = life.Hidden.Value });
         }
 
         public override void OnNetworkSpawn()
@@ -128,13 +128,13 @@ namespace Deepbound.Player
             // --- Q: Shadowstep ---
             if (keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= stepReadyAt && TryShadowstep())
             {
-                stepReadyAt = Time.time + StepCooldown * progress.CooldownMultiplier;
+                stepReadyAt = Time.time + StepCooldown * progress.CooldownFor(AbilitySlot.Q);
             }
 
             // --- E: Smoke Bomb ---
             if (keyboard != null && keyboard.eKey.wasPressedThisFrame && Time.time >= smokeReadyAt)
             {
-                smokeReadyAt = Time.time + SmokeCooldown * progress.CooldownMultiplier;
+                smokeReadyAt = Time.time + SmokeCooldown * progress.CooldownFor(AbilitySlot.E);
                 SmokeRpc();
             }
         }
@@ -148,7 +148,7 @@ namespace Deepbound.Player
             {
                 if (h == null || h.Team != Team.Enemies || !h.IsAlive) continue;
                 var to = h.Center - player.AimOrigin;
-                if (to.magnitude > StepRange) continue;
+                if (to.magnitude > StepRange * progress.Potency(AbilitySlot.Q)) continue;
                 float angle = Vector3.Angle(player.AimForward, to);
                 if (angle < bestAngle && CombatQuery.ClearLine(player.AimOrigin, h)) { bestAngle = angle; best = h; }
             }
@@ -170,6 +170,7 @@ namespace Deepbound.Player
             face.y = 0f;
             motor.Teleport(floor.point + Vector3.up * 0.05f, Quaternion.LookRotation(face));
             StepFxRpc(from, transform.position);
+            if (progress.Twist(AbilitySlot.Q)) ArmStepOpenerRpc();
             return true;
         }
 
@@ -259,6 +260,14 @@ namespace Deepbound.Player
             FanFxRpc(origin, direction);
         }
 
+        /// <summary>Rank 3 Shadowstep: the first strike from the shadows is an opener.</summary>
+        [Rpc(SendTo.Server)]
+        private void ArmStepOpenerRpc()
+        {
+            openerArmed = true;
+            openerExpires = Time.time + 2f;
+        }
+
         [Rpc(SendTo.Server)]
         private void SmokeRpc() => ServerSmoke();
 
@@ -266,9 +275,13 @@ namespace Deepbound.Player
         public void ServerSmoke()
         {
             if (!life.CanAct) return;
-            hiddenUntil = Time.time + SmokeSeconds;
+            hiddenUntil = Time.time + SmokeSeconds * progress.Potency(AbilitySlot.E);
             openerArmed = true;
             life.Hidden.Value = true;
+            // Rank 3: the burst of smoke staggers everything close — Exposed for the party.
+            if (progress.Twist(AbilitySlot.E))
+                foreach (var h in CombatQuery.Circle(transform.position, 5f, Team.Enemies).ToArray())
+                    if (h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.5f);
             SmokeFxRpc(transform.position);
         }
 

@@ -129,6 +129,14 @@ namespace Deepbound.Classes
             : id == ClassId.Ranger ? "Medium - keep your distance, aim your draws"
             : "Easy - forgiving, holds the line";
 
+        /// <summary>The name of the class's Q or E, from its kit list.</summary>
+        public static string AbilityName(ClassId id, AbilitySlot slot)
+        {
+            string key = slot == AbilitySlot.Q ? "Q" : "E";
+            foreach (var (k, name, _) in Kit(id)) if (k == key) return name;
+            return key;
+        }
+
         /// <summary>The class's own weapon: never found, only tempered at the anvil.</summary>
         public static string WeaponName(ClassId id) => id == ClassId.Mage ? "Staff"
             : id == ClassId.Cleric ? "Mace"

@@ -345,6 +345,17 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.2f);
                 Log("gear scrap", "embers " + embersBefore + " -> " + progress.Embers.Value, progress.Embers.Value > embersBefore);
 
+                // Sigils: rank Q twice at the anvil; the cooldown scale drops at rank 3.
+                float cdBefore = progress.CooldownFor(Classes.AbilitySlot.Q);
+                progress.ServerAddSigil();
+                progress.ServerAddSigil();
+                progress.EmpowerRpc(0);
+                yield return new WaitForSeconds(0.2f);
+                progress.EmpowerRpc(0);
+                yield return new WaitForSeconds(0.2f);
+                Log("ability rank", "Q rank " + progress.RankQ.Value + ", sigils left " + progress.Sigils.Value + ", Q cooldown x" + cdBefore + " -> x" + progress.CooldownFor(Classes.AbilitySlot.Q),
+                    progress.RankQ.Value == 3 && progress.Sigils.Value == 0 && progress.CooldownFor(Classes.AbilitySlot.Q) < cdBefore);
+
                 // Class combos: a stunned enemy is Exposed; a heavy hit Shatters chill.
                 var foe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead);
                 if (foe != null)

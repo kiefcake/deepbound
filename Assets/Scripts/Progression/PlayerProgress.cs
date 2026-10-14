@@ -31,6 +31,53 @@ namespace Deepbound.Progression
         /// <summary>The class weapon's anvil level, 0 to <see cref="World.Anvil.MaxLevel"/>.</summary>
         public readonly NetworkVariable<int> WeaponLevel = new NetworkVariable<int>();
 
+        /// <summary>Ability rank-ups, spent at the anvil.</summary>
+        public readonly NetworkVariable<int> Sigils = new NetworkVariable<int>();
+        public readonly NetworkVariable<byte> RankQ = new NetworkVariable<byte>(1);
+        public readonly NetworkVariable<byte> RankE = new NetworkVariable<byte>(1);
+
+        public int Rank(AbilitySlot slot) => slot == AbilitySlot.Q ? RankQ.Value : RankE.Value;
+
+        /// <summary>Rank 2 and up: 30% stronger.</summary>
+        public float Potency(AbilitySlot slot) => Rank(slot) >= 2 ? AbilityRanks.Rank2Potency : 1f;
+
+        /// <summary>Rank 3: the twist.</summary>
+        public bool Twist(AbilitySlot slot) => Rank(slot) >= 3;
+
+        /// <summary>Q/E cooldown scale: relics and gear, and a quarter off at rank 3.</summary>
+        public float CooldownFor(AbilitySlot slot) => CooldownMultiplier * (Twist(slot) ? AbilityRanks.Rank3Cooldown : 1f);
+
+        public void ServerAddSigil()
+        {
+            if (!IsServer) return;
+            Sigils.Value++;
+            SigilRpc();
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SigilRpc() => UI.GameHud.Feed(name + " found a Sigil  -  empower an ability at the anvil", LootInfo.SigilColor);
+
+        /// <summary>Owner → server: spend a Sigil on Q or E, at the anvil.</summary>
+        [Rpc(SendTo.Server)]
+        public void EmpowerRpc(byte slot)
+        {
+            var anvil = World.Anvil.Near(transform.position);
+            if (anvil == null || Sigils.Value < 1 || slot > 1) return;
+            var rank = slot == 0 ? RankQ : RankE;
+            if (rank.Value >= AbilityRanks.MaxRank) return;
+            Sigils.Value--;
+            rank.Value++;
+            anvil.ForgeFxRpc(rank.Value + 2);
+            EmpoweredRpc(slot, rank.Value);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void EmpoweredRpc(byte slot, byte rank)
+        {
+            string ability = ClassDefinition.AbilityName(ClassId.Value, (AbilitySlot)slot);
+            UI.GameHud.Feed(name + "'s " + ability + " reaches rank " + rank, LootInfo.SigilColor);
+        }
+
         /// <summary>The weapon's chosen path: 0 = not yet, 1 or 2. See <see cref="WeaponPaths"/>.</summary>
         public readonly NetworkVariable<byte> WeaponPath = new NetworkVariable<byte>();
 
@@ -483,6 +530,8 @@ namespace Deepbound.Progression
             Embers.Value = 0;
             WeaponLevel.Value = 0;
             WeaponPath.Value = 0;
+            Sigils.Value = 0;
+            RankQ.Value = RankE.Value = 1;
             Armor.Value = default;
             Charm.Value = default;
             health.HealMultiplier = 1f;

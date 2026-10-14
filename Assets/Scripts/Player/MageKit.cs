@@ -82,8 +82,8 @@ namespace Deepbound.Player
         {
             into.Add(new AbilityView { Key = "LMB", Name = "Firebolt", Unaffordable = Mana < FireboltMana });
             into.Add(new AbilityView { Key = "RMB", Name = "Frostbolt", Unaffordable = Mana < FrostboltMana });
-            into.Add(new AbilityView { Key = "Q", Name = "Blink", Remaining = blinkReadyAt - Time.time, Cooldown = BlinkCooldown * progress.CooldownMultiplier });
-            into.Add(new AbilityView { Key = "E", Name = "Meteor", Remaining = meteorReadyAt - Time.time, Cooldown = MeteorCooldown * progress.CooldownMultiplier, Unaffordable = Mana < MeteorMana });
+            into.Add(new AbilityView { Key = "Q", Name = "Blink", Remaining = blinkReadyAt - Time.time, Cooldown = BlinkCooldown * progress.CooldownFor(AbilitySlot.Q) });
+            into.Add(new AbilityView { Key = "E", Name = "Meteor", Remaining = meteorReadyAt - Time.time, Cooldown = MeteorCooldown * progress.CooldownFor(AbilitySlot.E), Unaffordable = Mana < MeteorMana });
         }
 
         // ==================================================================
@@ -126,7 +126,7 @@ namespace Deepbound.Player
             // --- Q: Blink ---
             if (keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= blinkReadyAt && TryBlink())
             {
-                blinkReadyAt = Time.time + BlinkCooldown * progress.CooldownMultiplier;
+                blinkReadyAt = Time.time + BlinkCooldown * progress.CooldownFor(AbilitySlot.Q);
             }
 
             // --- E: Meteor at the crosshair ---
@@ -134,7 +134,7 @@ namespace Deepbound.Player
                 TryAimGround(out var spot))
             {
                 Mana -= MeteorMana;
-                meteorReadyAt = Time.time + MeteorCooldown * progress.CooldownMultiplier;
+                meteorReadyAt = Time.time + MeteorCooldown * progress.CooldownFor(AbilitySlot.E);
                 player.ViewModelCast(false);
                 MeteorRpc(spot);
             }
@@ -152,8 +152,9 @@ namespace Deepbound.Player
             dir.Normalize();
 
             var chest = transform.position + Vector3.up * 1.2f;
-            float distance = BlinkDistance;
-            if (Physics.SphereCast(chest, 0.35f, dir, out var wall, BlinkDistance, ~0, QueryTriggerInteraction.Ignore) &&
+            float reach = BlinkDistance * progress.Potency(AbilitySlot.Q);
+            float distance = reach;
+            if (Physics.SphereCast(chest, 0.35f, dir, out var wall, reach, ~0, QueryTriggerInteraction.Ignore) &&
                 wall.collider.GetComponentInParent<Health>() == null)
             {
                 distance = Mathf.Max(0f, wall.distance - 0.4f);
@@ -166,6 +167,7 @@ namespace Deepbound.Player
             var from = transform.position;
             motor.Teleport(floor.point + Vector3.up * 0.05f, transform.rotation);
             BlinkFxRpc(from, transform.position);
+            if (progress.Twist(AbilitySlot.Q)) FrostNovaRpc(from);
             return true;
         }
 
@@ -243,7 +245,25 @@ namespace Deepbound.Player
         {
             if (!life.CanAct || Vector3.Distance(spot, transform.position) > MeteorRange + 3f) return;
             meteors.Add(new PendingMeteor { At = spot, When = Time.time + MeteorDelay });
+            // Rank 3: a second stone follows the first.
+            if (progress.Twist(AbilitySlot.E)) meteors.Add(new PendingMeteor { At = spot, When = Time.time + MeteorDelay + 0.7f });
             MeteorWarnRpc(spot);
+        }
+
+        /// <summary>Rank 3 Blink: the air you left freezes.</summary>
+        [Rpc(SendTo.Server)]
+        private void FrostNovaRpc(Vector3 at)
+        {
+            if (!life.CanAct || Vector3.Distance(at, transform.position) > BlinkDistance * 1.5f + 2f) return;
+            foreach (var h in CombatQuery.Circle(at, 3.5f, Team.Enemies).ToArray()) h.ServerChill(ChillSeconds);
+            FrostNovaFxRpc(at);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void FrostNovaFxRpc(Vector3 at)
+        {
+            Sfx.Play(Sound.Frost, at + Vector3.up, 1f, 0.8f);
+            Telegraph.Show(at, 3.5f, 0.5f, null, new Color(0.5f, 0.8f, 1f, 0.45f));
         }
 
         private void ResolveMeteors()
@@ -255,11 +275,12 @@ namespace Deepbound.Player
                 meteors.RemoveAt(i);
 
                 int shattered = 0;
-                foreach (var h in CombatQuery.Circle(at, MeteorRadius, Team.Enemies))
+                float potency = progress.Potency(AbilitySlot.E);
+                foreach (var h in CombatQuery.Circle(at, MeteorRadius * (potency > 1f ? 1.15f : 1f), Team.Enemies).ToArray())
                 {
                     bool shatter = h.ServerConsumeChill();
                     if (shatter) shattered++;
-                    h.ServerDamage(MeteorDamage * progress.AttackMultiplier * (shatter ? Shatter : 1f), at + Vector3.up, NetworkObjectId);
+                    h.ServerDamage(MeteorDamage * progress.AttackMultiplier * potency * (shatter ? Shatter : 1f), at + Vector3.up, NetworkObjectId);
                 }
                 MeteorImpactRpc(at, shattered > 0);
             }

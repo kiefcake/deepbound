@@ -56,13 +56,15 @@ namespace Deepbound.Loot
         public static readonly LootTable Elite = new LootTable()
             .Add(1f, LootKind.Gold, 15, 25)
             .Add(1f, LootKind.Embers, 6, 10)
-            .Add(0.3f, LootKind.Relic);
+            .Add(0.3f, LootKind.Relic)
+            .Add(0.15f, LootKind.Sigil);
 
         /// <summary>Side-room chests: worth the detour.</summary>
         public static readonly LootTable Chest = new LootTable()
             .Add(1f, LootKind.Gold, 25, 40)
             .Add(1f, LootKind.Embers, 8, 14)
-            .Add(0.3f, LootKind.Relic);
+            .Add(0.3f, LootKind.Relic)
+            .Add(0.25f, LootKind.Sigil);
 
         /// <summary>Clay urns: pocket change, now and then an ember.</summary>
         public static readonly LootTable Urn = new LootTable()

@@ -104,6 +104,11 @@ namespace Deepbound.Loot
                 return true;
             }
             if (kind == LootKind.Relic) return progress.ServerAddRelic((Relic)Amount.Value);
+            if (kind == LootKind.Sigil)
+            {
+                progress.ServerAddSigil();
+                return true;
+            }
             if (kind == LootKind.Embers)
             {
                 progress.ServerAddEmbers(Mathf.RoundToInt(Amount.Value * (progress.Wears(GearId.LanternOfTheLost) ? 1.4f : 1f)));
@@ -119,6 +124,7 @@ namespace Deepbound.Loot
             var at = transform.position + Vector3.up * 0.4f;
             if (Kind.Value == LootKind.Gold) Sfx.Play(Sound.Coins, at, 0.6f);
             else if (Kind.Value == LootKind.Embers) Sfx.Play(Sound.Fire, at, 0.45f, 1.6f);
+            else if (Kind.Value == LootKind.Sigil) Sfx.Play(Sound.Relic, at, 0.8f, 1.3f);
         }
 
         // ------------------------------------------------------------------
@@ -142,6 +148,18 @@ namespace Deepbound.Loot
                     MeshKit.Part(visual, "Coin" + i, MeshKit.Cylinder(0.07f, 0.07f, 0.02f, 10), Mat.Gold, off, new Vector3(0f, i * 37f, i % 2 == 0 ? 6f : -4f));
                 }
                 AddLight(new Color(1f, 0.75f, 0.3f), 1.2f);
+                return;
+            }
+
+            if (Kind.Value == LootKind.Sigil)
+            {
+                // A violet rune-stone: a flat tablet with a glowing glyph, turning slowly.
+                MeshKit.Part(visual, "Tablet", MeshKit.Box(new Vector3(0.22f, 0.3f, 0.06f)), Mat.StoneWall, Vector3.zero);
+                var glyph = MeshKit.Part(visual, "Glyph", MeshKit.Box(new Vector3(0.05f, 0.2f, 0.07f)), Mat.Glow, Vector3.zero);
+                ArtLibrary.SetGlow(glyph.GetComponent<Renderer>(), LootInfo.SigilColor * 1.8f);
+                var bar = MeshKit.Part(visual, "GlyphBar", MeshKit.Box(new Vector3(0.14f, 0.04f, 0.07f)), Mat.Glow, new Vector3(0f, 0.04f, 0f));
+                ArtLibrary.SetGlow(bar.GetComponent<Renderer>(), LootInfo.SigilColor * 1.8f);
+                AddLight(LootInfo.SigilColor, 2.2f);
                 return;
             }
 

@@ -404,6 +404,8 @@ namespace Deepbound.UI
             string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
             GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun) + "  ·  " + weapon, small);
             GUI.Label(new Rect(x, y + 64, bw, 20), progress.Embers.Value + " embers", new GUIStyle(small) { normal = { textColor = LootInfo.EmberColor } });
+            if (progress.Sigils.Value > 0)
+                GUI.Label(new Rect(x + 90, y + 64, bw, 20), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil" : " sigils"), new GUIStyle(small) { normal = { textColor = LootInfo.SigilColor } });
             GUI.Label(new Rect(x, y + 64, bw, 20), progress.Gold.Value + " gold", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
         }
 
@@ -613,13 +615,13 @@ namespace Deepbound.UI
             var id = progress.ClassId.Value;
             int level = progress.WeaponLevel.Value, path = progress.WeaponPath.Value;
             string weapon = ClassDefinition.WeaponName(id);
-            float pw = 620, ph = 330;
+            float pw = 620, ph = 330 + 150;
             float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
             var ember = LootInfo.EmberColor;
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(ember.r, ember.g, ember.b, 0.5f));
             Rect(x, y, pw, ph, new Color(0.05f, 0.03f, 0.02f, 0.95f));
             GUI.Label(new Rect(x + 16, y + 12, pw, 24), "THE ANVIL", new GUIStyle(label) { normal = { textColor = ember } });
-            GUI.Label(new Rect(x + pw - 160, y + 12, 144, 24), progress.Embers.Value + " embers", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = ember } });
+            GUI.Label(new Rect(x + pw - 300, y + 12, 284, 24), progress.Sigils.Value + " sigils    " + progress.Embers.Value + " embers", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = ember } });
 
             // Level pips and the temper button.
             GUI.Label(new Rect(x + 16, y + 44, 200, 24), weapon + " +" + level, new GUIStyle(label) { fontSize = 20 });
@@ -659,6 +661,25 @@ namespace Deepbound.UI
                         progress.ChoosePathRpc((byte)p);
                     GUI.enabled = true;
                 }
+            }
+
+            // Abilities: Sigils rank up Q and E.
+            float ay = y + 330;
+            GUI.Label(new Rect(x + 16, ay, pw, 20), "ABILITIES  -  a Sigil empowers one rank", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = LootInfo.SigilColor } });
+            foreach (var slot in new[] { AbilitySlot.Q, AbilitySlot.E })
+            {
+                float ry = ay + 24 + (int)slot * 62;
+                int rank = progress.Rank(slot);
+                GUI.Label(new Rect(x + 16, ry, 200, 22), slot + "  " + ClassDefinition.AbilityName(id, slot), label);
+                for (int r = 0; r < AbilityRanks.MaxRank; r++)
+                    Rect(x + 210 + r * 22, ry + 6, 16, 12, r < rank ? LootInfo.SigilColor : new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.2f));
+                string nextText = rank >= AbilityRanks.MaxRank ? "Rank 3: " + AbilityRanks.Twist(id, slot)
+                    : rank == 1 ? "Rank 2: " + AbilityRanks.Rank2(id, slot) : "Rank 3: 25% shorter cooldown. " + AbilityRanks.Twist(id, slot);
+                GUI.Label(new Rect(x + 16, ry + 22, pw - 210, 36), nextText, new GUIStyle(small) { wordWrap = true });
+                GUI.enabled = rank < AbilityRanks.MaxRank && progress.Sigils.Value > 0;
+                if (GUI.Button(new Rect(x + pw - 186, ry + 2, 170, 28), rank >= AbilityRanks.MaxRank ? "Max rank" : progress.Sigils.Value > 0 ? "Empower  (1 sigil)" : "Needs a Sigil"))
+                    progress.EmpowerRpc((byte)slot);
+                GUI.enabled = true;
             }
         }
 

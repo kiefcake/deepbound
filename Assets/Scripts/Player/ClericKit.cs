@@ -72,7 +72,7 @@ namespace Deepbound.Player
         private void OnDisable() => AllClerics.Remove(this);
 
         /// <summary>Consecrate's radius (grows with its rank).</summary>
-        public float ZoneRadius => ConsecrateRadius;
+        public float ZoneRadius => ConsecrateRadius * (progress != null && progress.Twist(AbilitySlot.Q) ? 1.5f : 1f);
 
         private void Awake()
         {
@@ -102,9 +102,9 @@ namespace Deepbound.Player
             into.Add(new AbilityView { Key = "LMB", Name = "Smite", Unaffordable = Mana < SmiteMana });
             into.Add(new AbilityView { Key = "RMB", Name = "Mend", Active = BeamTarget.Value != 0, Unaffordable = Mana < 2f });
             into.Add(new AbilityView { Key = "Q", Name = "Consecrate", Remaining = consecrateReadyAt - Time.time,
-                Cooldown = ConsecrateCooldown * progress.CooldownMultiplier, Unaffordable = Mana < ConsecrateMana });
+                Cooldown = ConsecrateCooldown * progress.CooldownFor(AbilitySlot.Q), Unaffordable = Mana < ConsecrateMana });
             into.Add(new AbilityView { Key = "E", Name = "Aegis", Remaining = aegisReadyAt - Time.time,
-                Cooldown = AegisCooldown * progress.CooldownMultiplier, Unaffordable = Mana < AegisMana });
+                Cooldown = AegisCooldown * progress.CooldownFor(AbilitySlot.E), Unaffordable = Mana < AegisMana });
         }
 
         // ==================================================================
@@ -164,7 +164,7 @@ namespace Deepbound.Player
             if (keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= consecrateReadyAt && Mana >= ConsecrateMana)
             {
                 Mana -= ConsecrateMana;
-                consecrateReadyAt = Time.time + ConsecrateCooldown * progress.CooldownMultiplier;
+                consecrateReadyAt = Time.time + ConsecrateCooldown * progress.CooldownFor(AbilitySlot.Q);
                 player.ViewModelCast(true);
                 ConsecrateRpc();
             }
@@ -173,7 +173,7 @@ namespace Deepbound.Player
             if (keyboard != null && keyboard.eKey.wasPressedThisFrame && Time.time >= aegisReadyAt && Mana >= AegisMana)
             {
                 Mana -= AegisMana;
-                aegisReadyAt = Time.time + AegisCooldown * progress.CooldownMultiplier * (progress.Mastered(2) ? 0.7f : 1f);
+                aegisReadyAt = Time.time + AegisCooldown * progress.CooldownFor(AbilitySlot.E) * (progress.Mastered(2) ? 0.7f : 1f);
                 player.ViewModelCast(true);
                 AegisRpc();
             }
@@ -249,7 +249,7 @@ namespace Deepbound.Player
         public void ServerConsecrate()
         {
             if (!life.CanAct) return;
-            zones.Add(new Zone { At = transform.position, Until = Time.time + ConsecrateSeconds });
+            zones.Add(new Zone { At = transform.position, Until = Time.time + (progress.Twist(AbilitySlot.Q) ? 9f : ConsecrateSeconds) });
             ConsecrateFxRpc(transform.position);
         }
 
@@ -266,9 +266,9 @@ namespace Deepbound.Player
                 var z = zones[i];
                 if (Time.time > z.Until) { zones.RemoveAt(i); continue; }
                 foreach (var ally in CombatQuery.Circle(z.At, ZoneRadius, Team.Players).ToArray())
-                    ally.ServerHeal(ConsecrateHealPerSec * Potency * dt);
+                    ally.ServerHeal(ConsecrateHealPerSec * Potency * progress.Potency(AbilitySlot.Q) * dt);
                 foreach (var foe in CombatQuery.Circle(z.At, ZoneRadius, Team.Enemies).ToArray())
-                    foe.ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * dt * (progress.Mastered(1) ? 2f : 1f), z.At, NetworkObjectId);
+                    foe.ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q) * dt * (progress.Mastered(1) ? 2f : 1f), z.At, NetworkObjectId);
             }
         }
 
@@ -280,7 +280,10 @@ namespace Deepbound.Player
         {
             if (!life.CanAct) return;
             foreach (var ally in CombatQuery.Circle(transform.position, AegisRadius, Team.Players))
-                ally.ServerShield(AegisAmount * Potency * (progress.Mastered(2) ? 1.6f : 1f), AegisSeconds);
+            {
+                ally.ServerShield(AegisAmount * Potency * progress.Potency(AbilitySlot.E) * (progress.Mastered(2) ? 1.6f : 1f), AegisSeconds);
+                if (progress.Twist(AbilitySlot.E)) ally.ServerHeal(ally.Max.Value * 0.25f);
+            }
             AegisFxRpc();
         }
 

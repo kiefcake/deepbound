@@ -21,8 +21,12 @@ namespace Deepbound.World
         private Transform jawA, jawB;
         private float close;
 
-        public void ServerArm(float multiplier, ulong ownerId)
+        private bool marks;
+
+        /// <param name="marksVictim">Rank 3: the catch is also Hunter's-Marked.</param>
+        public void ServerArm(float multiplier, ulong ownerId, bool marksVictim = false)
         {
+            marks = marksVictim;
             attackMultiplier = multiplier;
             owner = ownerId;
             expiresAt = Time.time + Lifetime;
@@ -63,6 +67,7 @@ namespace Deepbound.World
             Sprung.Value = true;
             victim.ServerDamage(Damage * attackMultiplier, transform.position, owner);
             if (victim.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(Hold);
+            if (marks) victim.ServerMark(6f);
             SnapFxRpc();
             Invoke(nameof(Remove), 3f);
         }

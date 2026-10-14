@@ -74,12 +74,15 @@ namespace Deepbound.World
         }
 
         /// <summary>Server: a small pile of embers (Ember Locket).</summary>
-        public void ServerDropEmbers(Vector3 at, int amount)
+        public void ServerDropEmbers(Vector3 at, int amount) => ServerDropLoot(at, LootKind.Embers, amount);
+
+        /// <summary>Server: one loot drop of a given kind at a point.</summary>
+        public void ServerDropLoot(Vector3 at, LootKind kind, int amount)
         {
             if (lootPrefab == null) return;
             var obj = Instantiate(lootPrefab, at + Vector3.up * 0.05f, Quaternion.identity);
             var drop = obj.GetComponent<LootDrop>();
-            drop.Kind.Value = LootKind.Embers;
+            drop.Kind.Value = kind;
             drop.Amount.Value = amount;
             obj.Spawn(destroyWithScene: true);
         }

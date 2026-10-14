@@ -104,8 +104,8 @@ namespace Deepbound.Player
             double warCryLeft = WarCryEnds.Value - NetworkManager.ServerTime.Time;
             into.Add(new AbilityView { Key = "LMB", Name = "Swing", Unaffordable = Stamina < SwingStamina });
             into.Add(new AbilityView { Key = "RMB", Name = "Block", Active = Blocking.Value });
-            into.Add(new AbilityView { Key = "Q", Name = "Bash", Remaining = BashReadyAt - Time.time, Cooldown = BashCooldown * progress.CooldownMultiplier });
-            into.Add(new AbilityView { Key = "E", Name = "War Cry", Remaining = WarCryReadyAt - Time.time, Cooldown = WarCryCooldown * progress.CooldownMultiplier, Active = warCryLeft > 0 });
+            into.Add(new AbilityView { Key = "Q", Name = "Bash", Remaining = BashReadyAt - Time.time, Cooldown = BashCooldown * progress.CooldownFor(AbilitySlot.Q) });
+            into.Add(new AbilityView { Key = "E", Name = "War Cry", Remaining = WarCryReadyAt - Time.time, Cooldown = WarCryCooldown * progress.CooldownFor(AbilitySlot.E), Active = warCryLeft > 0 });
         }
 
         // ==================================================================
@@ -168,7 +168,7 @@ namespace Deepbound.Player
             // --- Q: Shield Bash ---
             if (canAct && keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= BashReadyAt)
             {
-                BashReadyAt = Time.time + BashCooldown * progress.CooldownMultiplier;
+                BashReadyAt = Time.time + BashCooldown * progress.CooldownFor(AbilitySlot.Q);
                 var forward = transform.forward;
                 motor.AddImpulse(forward * 13f);
                 player.ViewModelBash();
@@ -178,7 +178,7 @@ namespace Deepbound.Player
             // --- E: War Cry ---
             if (canAct && keyboard != null && keyboard.eKey.wasPressedThisFrame && Time.time >= WarCryReadyAt)
             {
-                WarCryReadyAt = Time.time + WarCryCooldown * progress.CooldownMultiplier;
+                WarCryReadyAt = Time.time + WarCryCooldown * progress.CooldownFor(AbilitySlot.E);
                 WarCryRpc();
             }
 
@@ -258,12 +258,15 @@ namespace Deepbound.Player
             if (!life.CanAct) return;
             // The lunge carries the Knight ~1.5m, so the hit reaches a little further than
             // the shield itself.
-            foreach (var target in CombatQuery.Arc(origin, forward, BashRange + 1.5f, 100f, Team.Enemies))
+            // Rank 2: harder and longer; rank 3: a shockwave half-circle, a metre further.
+            float potency = progress.Potency(AbilitySlot.Q);
+            bool wave = progress.Twist(AbilitySlot.Q);
+            foreach (var target in CombatQuery.Arc(origin, forward, BashRange + 1.5f + (wave ? 1f : 0f), wave ? 180f : 100f, Team.Enemies))
             {
-                target.ServerDamage(BashDamage * AttackMultiplier * Combos.TryShatter(target), transform.position, NetworkObjectId);
+                target.ServerDamage(BashDamage * AttackMultiplier * potency * Combos.TryShatter(target), transform.position, NetworkObjectId);
                 if (target.TryGetComponent<ICrowdControl>(out var cc))
                 {
-                    cc.ServerStun(BashStun);
+                    cc.ServerStun(BashStun * potency);
                     var push = target.transform.position - transform.position;
                     push.y = 0f;
                     cc.ServerKnockback(push.normalized * 8f);
@@ -287,13 +290,19 @@ namespace Deepbound.Player
         private void WarCryRpc()
         {
             if (!life.CanAct) return;
-            warCryUntil = Time.time + WarCryDuration;
-            WarCryEnds.Value = NetworkManager.ServerTime.Time + WarCryDuration;
+            float potency = progress.Potency(AbilitySlot.E);
+            float duration = WarCryDuration * potency;
+            warCryUntil = Time.time + duration;
+            WarCryEnds.Value = NetworkManager.ServerTime.Time + duration;
 
-            foreach (var target in CombatQuery.Circle(transform.position, WarCryRadius, Team.Enemies))
+            foreach (var target in CombatQuery.Circle(transform.position, WarCryRadius * potency, Team.Enemies))
             {
-                if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerTaunt(health, WarCryDuration);
+                if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerTaunt(health, duration);
             }
+            // Rank 3: the cry steels the party — a shield each (which can Aegis-burst).
+            if (progress.Twist(AbilitySlot.E))
+                foreach (var ally in CombatQuery.Circle(transform.position, WarCryRadius, Team.Players))
+                    ally.ServerShield(40f, duration);
             WarCryFxRpc();
         }
 
