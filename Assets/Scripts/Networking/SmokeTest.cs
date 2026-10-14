@@ -363,12 +363,13 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.2f);
 
                 // Runes: one in the bag, set it into the weapon's first socket.
+                int bagBefore = progress.RuneBagCount;
                 progress.ServerAddRune(Rune.Frost);
                 yield return new WaitForSeconds(0.1f);
                 progress.SocketRuneRpc((byte)Rune.Frost);
                 yield return new WaitForSeconds(0.2f);
                 Log("rune socket", "socket 1: " + Runes.Name(progress.Socketed(0)) + ", bag " + progress.RuneBagCount,
-                    progress.Socketed(0) == Rune.Frost && progress.RuneBagCount == 0);
+                    progress.Socketed(0) == Rune.Frost && progress.RuneBagCount == bagBefore);
 
                 // Sigils: rank Q twice at the anvil; the cooldown scale drops at rank 3.
                 float cdBefore = progress.CooldownFor(Classes.AbilitySlot.Q);
@@ -725,6 +726,9 @@ namespace Deepbound.Networking
             UI.PauseMenu.SetOpen(true);
             yield return null;
             yield return Shot(dir, "9_pause");
+            UI.PauseMenu.DebugShowGuide(local.GetComponent<UI.PauseMenu>() ?? FindFirstObjectByType<UI.PauseMenu>());
+            yield return null;
+            yield return Shot(dir, "9a_guide");
             UI.PauseMenu.SetOpen(false);
 
             foreach (var p in PlayerLife.All) p.Health.ServerDamage(1e6f, p.transform.position);

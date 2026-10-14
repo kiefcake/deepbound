@@ -514,7 +514,7 @@ namespace Deepbound.UI
             if (target == null)
             {
                 var use = Interactable.Nearest(player.AimOrigin, player.AimForward, progress);
-                if (use != null) GUI.Label(new Rect(0, h / 2f + 40, w, 24), "F   " + use.Prompt(progress), center);
+                if (use != null && !statsHeld) GUI.Label(new Rect(0, h / 2f + 40, w, 24), "F   " + use.Prompt(progress), center);
                 if (use is GearDrop gear && !statsHeld) DrawGearCard(gear.Item.Value, w / 2f - 180, h / 2f + 70, true);
                 return;
             }
@@ -807,8 +807,9 @@ namespace Deepbound.UI
                 }
             }
 
-            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70;
+            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70 + 88;
             float x = w - pw - 24, y = h / 2f - ph / 2f;
+            Rect(x, y, pw, ph, Panel);
             // The two gear slots, at the foot of the sheet; hover-free: full cards sit left of it.
             float gy = y + 46 + Stats.Count * rowH;
             foreach (var slot in new[] { GearSlot.Armor, GearSlot.Charm })
@@ -819,7 +820,22 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(x + 80, gy, pw - 90, 20), g.IsEmpty ? "-" : Gear.Name(g), new GUIStyle(small) { normal = { textColor = gc } });
                 gy += 22;
             }
-            Rect(x, y, pw, ph, Panel);
+            for (int sIdx = 0; sIdx < 2; sIdx++)
+            {
+                var r = progress.Socketed(sIdx);
+                bool open = sIdx < Runes.SocketsAt(progress.WeaponLevel.Value);
+                GUI.Label(new Rect(x + 12, gy, 70, 20), "RUNE " + (sIdx + 1), small);
+                GUI.Label(new Rect(x + 80, gy, pw - 90, 20), !open ? "locked" : r == Rune.None ? "-" : Runes.Name(r),
+                    new GUIStyle(small) { normal = { textColor = open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.4f) } });
+                gy += 22;
+            }
+            foreach (var slot in new[] { AbilitySlot.Q, AbilitySlot.E })
+            {
+                GUI.Label(new Rect(x + 12, gy, 70, 20), slot.ToString(), small);
+                GUI.Label(new Rect(x + 80, gy, pw - 90, 20), ClassDefinition.AbilityName(progress.ClassId.Value, slot) + "  rank " + progress.Rank(slot),
+                    new GUIStyle(small) { normal = { textColor = progress.Rank(slot) > 1 ? LootInfo.SigilColor : new Color(1f, 1f, 1f, 0.6f) } });
+                gy += 22;
+            }
             GUI.Label(new Rect(x + 12, y + 10, pw, 22), progress.Class.Name.ToUpperInvariant() + "  -  " + ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value,
                 new GUIStyle(label) { normal = { textColor = Gold } });
 

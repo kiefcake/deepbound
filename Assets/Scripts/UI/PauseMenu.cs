@@ -15,7 +15,26 @@ namespace Deepbound.UI
 
         /// <summary>For the screenshot run.</summary>
         public static void SetOpen(bool open) => Open = open;
-        private bool options;
+        private bool options, guide;
+
+        /// <summary>For the screenshot run.</summary>
+        public static void DebugShowGuide(PauseMenu menu) { Open = true; menu.guide = true; }
+
+        // The Guide: every progression system and combo on one page, in plain words.
+        private static readonly (string title, string body)[] GuideLeft =
+        {
+            ("EMBERS & THE ANVIL", "Embers drop from enemies, chests and urns, and come from scrapping gear. Spend them at the anvil beside the merchant (G) to temper your class weapon from +0 to +5: each level adds ATT and DEX."),
+            ("WEAPON PATHS", "At +2 your weapon chooses one of two paths, which changes how your class plays (a wider Cleave or a Riposte, Pyromancer or Cryomancer...). At +4 the path is mastered and gains a second effect."),
+            ("SIGILS & ABILITY RANKS", "Sigils drop from elites and chests, and every boss drops one for each player. At the anvil, a Sigil ranks up Q or E: rank 2 is 30% stronger, rank 3 recharges a quarter faster and adds a twist."),
+            ("RUNES", "Runes are weapon enchantments: chill, stun, mark, holy healing, burning kills, keen edges. Sockets open at +1 and +3; set them at the anvil."),
+        };
+        private static readonly (string title, string body)[] GuideRight =
+        {
+            ("GEAR", "Armour and a charm, rolled for each player - only you see your drops. F equips (your old piece is left in its place), X scraps it for embers. Deeper and finer pieces are stronger."),
+            ("RELICS", "Rare powers, one of each per player. Found on elites, in chests, from bosses, and sold by the merchant."),
+            ("COMBOS", "Classes set each other up. Chill + a heavy hit = SHATTER. Stunned enemies are EXPOSED (+25% for all). Taunted enemies are DISTRACTED (+15%). Allies in Consecrate are BLESSED (+20%). A broken Aegis shield BURSTS. A marked enemy's mark SPREADS when it dies. Tags over enemies show what is ready to cash in."),
+            ("NOTHING CARRIES OVER", "Everything above lasts one run. The camp is where you start again."),
+        };
 
         /// <summary>Set by other menus each frame; Esc closes them rather than opening this.</summary>
         public static bool OtherMenuOpenLastFrame;
@@ -28,7 +47,7 @@ namespace Deepbound.UI
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OtherMenuOpenLastFrame)
             {
                 Open = !Open;
-                options = false;
+                options = guide = false;
             }
         }
 
@@ -39,7 +58,12 @@ namespace Deepbound.UI
             GUI.depth = -20;
 
             UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.6f));
-            var area = new Rect(w / 2f - 180, h / 2f - 170, 360, 360);
+            if (guide)
+            {
+                DrawGuide(w, h);
+                return;
+            }
+            var area = new Rect(w / 2f - 180, h / 2f - 200, 360, 410);
             UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
             GUILayout.BeginArea(area);
             GUILayout.Label(options ? "OPTIONS" : "PAUSED", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
@@ -69,6 +93,8 @@ namespace Deepbound.UI
                     Cursor.visible = false;
                 }
                 GUILayout.Space(8);
+                if (GUILayout.Button("GUIDE", UiSkin.Button, GUILayout.Height(44))) guide = true;
+                GUILayout.Space(8);
                 if (GUILayout.Button("OPTIONS", UiSkin.Button, GUILayout.Height(44))) options = true;
                 GUILayout.Space(8);
                 if (GUILayout.Button("LEAVE PARTY", UiSkin.Button, GUILayout.Height(44)))
@@ -82,6 +108,29 @@ namespace Deepbound.UI
                 GUILayout.Label("The dungeon does not pause for you.", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
             }
             GUILayout.EndArea();
+        }
+
+        private void DrawGuide(float w, float h)
+        {
+            float pw = Mathf.Min(980f, w - 60f), ph = Mathf.Min(600f, h - 60f);
+            var panel = new Rect(w / 2f - pw / 2f, h / 2f - ph / 2f, pw, ph);
+            UiSkin.Panel(panel, 0.96f);
+            GUI.Label(new Rect(panel.x, panel.y + 12, pw, 40), "GUIDE", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
+            float colW = (pw - 72f) / 2f;
+            var titleStyle = new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, fontSize = 14, normal = { textColor = UiSkin.Gold } };
+            var bodyStyle = new GUIStyle(UiSkin.Body) { fontSize = 14, wordWrap = true };
+            for (int c = 0; c < 2; c++)
+            {
+                float x = panel.x + 24 + c * (colW + 24), y = panel.y + 64;
+                foreach (var (title, body) in c == 0 ? GuideLeft : GuideRight)
+                {
+                    GUI.Label(new Rect(x, y, colW, 20), title, titleStyle);
+                    float bh = bodyStyle.CalcHeight(new GUIContent(body), colW);
+                    GUI.Label(new Rect(x, y + 20, colW, bh), body, bodyStyle);
+                    y += 20 + bh + 14;
+                }
+            }
+            if (GUI.Button(new Rect(panel.x + pw / 2f - 90, panel.yMax - 56, 180, 40), "BACK", UiSkin.Button)) guide = false;
         }
     }
 }
