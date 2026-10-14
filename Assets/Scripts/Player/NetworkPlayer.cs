@@ -135,7 +135,11 @@ namespace Deepbound.Player
                 : ranger ? CharacterArt.BuildRanger(transform, SlotColor)
                 : CharacterArt.BuildKnight(transform, SlotColor);
 
-            if (!IsOwner) return;
+            if (!IsOwner)
+            {
+                RefreshWeaponGlow();
+                return;
+            }
             foreach (var r in Rig.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = ShadowCastingMode.ShadowsOnly;
 
             if (mage)
@@ -172,20 +176,23 @@ namespace Deepbound.Player
         /// </summary>
         private void RefreshWeaponGlow()
         {
-            if (viewModel == null || viewModel.SwordPivot == null) return;
-            var old = viewModel.SwordPivot.Find("WeaponGlow");
+            // The owner sees it on the view model; everyone else on the body's weapon hand.
+            var hand = viewModel != null && viewModel.SwordPivot != null ? viewModel.SwordPivot : Rig != null ? Rig.ArmR : null;
+            if (hand == null) return;
+            var old = hand.Find("WeaponGlow");
             if (old != null) Destroy(old.gameObject);
             int level = progress.WeaponLevel.Value;
             var rune = progress.Socketed(0) != Loot.Rune.None ? progress.Socketed(0) : progress.Socketed(1);
             if (level == 0 && rune == Loot.Rune.None) return;
 
             var color = rune != Loot.Rune.None ? Loot.Runes.Color(rune) : Loot.LootInfo.EmberColor;
+            bool firstPerson = hand != (Rig != null ? Rig.ArmR : null);
             var glow = new GameObject("WeaponGlow").AddComponent<Light>();
-            glow.transform.SetParent(viewModel.SwordPivot, false);
-            glow.transform.localPosition = new Vector3(0f, 0.35f, 0.15f);
+            glow.transform.SetParent(hand, false);
+            glow.transform.localPosition = firstPerson ? new Vector3(0f, 0.35f, 0.15f) : new Vector3(0f, -0.7f, 0.2f);
             glow.type = LightType.Point;
             glow.color = color;
-            glow.range = 1.1f;
+            glow.range = firstPerson ? 1.1f : 1.8f;
             glow.intensity = 0.4f + 0.3f * level;
             glow.shadows = LightShadows.None;
         }

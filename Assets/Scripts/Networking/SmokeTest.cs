@@ -829,6 +829,13 @@ namespace Deepbound.Networking
             motor.enabled = false; // stop input and gravity fighting the staged camera
 
             yield return Shot(dir, "1_start_room");
+            var sr = layout.StartRoom;
+            var srFrom = sr.Center + new Vector3(-sr.Size.x * 0.42f, 0.1f, -sr.Size.y * 0.42f);
+            motor.Teleport(srFrom, Quaternion.LookRotation(sr.Center - srFrom));
+            motor.SetPitch(12f);
+            yield return new WaitForSeconds(0.4f);
+            yield return Shot(dir, "1_start_room_wide");
+            motor.SetPitch(0f);
             var map = local.GetComponent<UI.Minimap>();
             map.Large = true;
             yield return null;

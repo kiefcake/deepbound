@@ -22,7 +22,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 - **If the user has the game open**, Windows locks the exe: set `DEEPBOUND_BUILD_PATH=Builds/DeepboundNext/Deepbound.exe`
   for the build, then `cp -rf Builds/DeepboundNext/. Builds/Deepbound/` once they close it. Check with
   `tasklist | grep -i deepbound`. Never kill their game to rebuild.
-- **Smoke test** (headless, the main regression check; it waits on events, so it is robust to new checks; ~52 PASS lines on host, 8 on client, zero FAIL):
+- **Smoke test** (headless, the main regression check; it waits on events, so it is robust to new checks; ~54 PASS lines on host, 8 on client, zero FAIL):
   ```
   cd Builds/Deepbound && L=$(cygpath -w "$PWD")
   ./Deepbound.exe -batchmode -nographics -host -smoketest 40 -logFile "$L\\host.log" & sleep 4
@@ -109,7 +109,9 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - Classes: Knight (tank), Mage (frost-then-fire burst), Cleric (beam heals, consecrate, aegis shields, fast revives), Rogue (backstab ambush, shadowstep, smoke-bomb stealth via PlayerLife.Hidden), Ranger (charged longbow that pierces at full draw, Hunter's Mark via Health.Marked, bear traps, volley). Planned: Barbarian, Druid, Engineer
   (design doc section 5).
-- Enemies: Skeleton, Archer, Ghoul (pairs, pounce), Bone Brute, Necromancer (heals/raises); any can be Elite, and every
+- Enemies: Skeleton, Archer (sidesteps after each shot), Ghoul (pairs, pounce), Bone Brute, Necromancer (heals/raises),
+  Wraith (`WraithBrain`: hovers, shadow bolts, telegraphed Wail, slips away; Ethereal -60% unless chilled/stunned/
+  marked/consecrated); any can be Elite, and every
   elite rolls an `EliteAffix` (Warded: -65% until stunned/chilled; Vampiric: heals from hits unless Marked; Volatile:
   bursts after death; Swift). Status tags (CHILL/MARK/STUN/TAUNT + affix) float over enemies (`EnemyBrain.Status`).
 - Bosses: Gravewarden (shield, charge into walls → dazed), Tide Lich (volleys, pools under everyone, blink),
@@ -130,7 +132,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
   = next floor at camp); class/difficulty only change before a run.
 - Camp = Castle Ravenhold (`World/Lobby.cs`): round curtain wall, 6 towers, gatehouse + carriage, gothic keep with
   rose window, moonlit sky, road of braziers and stalls (merchant, blacksmith/anvil), gambling tent (`DiceTable`
-  bones game, `MysteryCoffer`), `Gong` Test of Might (session record), training yard with a DPS readout.
+  bones game, `MysteryCoffer`), `Gong` Test of Might (session record), training yard with a DPS readout, `Shrine` (one-floor `Blessings`, cleared on return to camp), archery range
+  (`RangeTarget`, motion is a function of server time, session tally).
 - 12 relics; 6 runes (`Loot/Runes.cs`, sockets at weapon +1/+3, set at the anvil); 12 gear pieces (6 armour, 6 charms) in 3 qualities + 3 boss Legendaries (35% per player per boss, `Gear.LegendaryOf`); 10 weapon paths; 10 rank-3 ability twists; run stats and summary (with COMBOS and a build line); pause-menu Guide page.
 
 ## Backlog / ideas not yet built

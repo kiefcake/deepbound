@@ -513,6 +513,53 @@ namespace Deepbound.World
             Props.Brazier(lights, room.Center + new Vector3(0f, 0f, 0f), new Color(1f, 0.6f, 0.3f), true);
             Props.Crate(b, room.Center + new Vector3(-4.5f, 0f, -4.5f), 1f, 10f);
             Props.Barrel(b, room.Center + new Vector3(4.5f, 0f, -4.5f));
+
+            // The expedition's landing: bedrolls round the fire, packs, a supply stack,
+            // and a waystone glowing where the carriage set you down.
+            var c = room.Center;
+            for (int i = 0; i < 4; i++)
+            {
+                float a = (i * 90f + 20f) * Mathf.Deg2Rad;
+                var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                var roll = MeshKit.Part(lights, "Bedroll" + i, MeshKit.Box(new Vector3(0.8f, 0.12f, 1.9f)), Mat.Cloth, c + dir * 4f + Vector3.up * 0.06f,
+                    Quaternion.LookRotation(dir).eulerAngles);
+                ArtLibrary.Tint(roll.GetComponent<Renderer>(), i % 2 == 0 ? new Color(0.4f, 0.12f, 0.1f) : new Color(0.25f, 0.3f, 0.22f));
+                b.Add(MeshKit.Cylinder(0.14f, 0.14f, 0.8f, 8), Mat.Cloth, Matrix4x4.TRS(c + dir * 4.85f + Vector3.up * 0.14f, Quaternion.LookRotation(dir) * Quaternion.Euler(0f, 90f, 90f) * Quaternion.Euler(0f, 0f, 0f), Vector3.one));
+                b.AddBox(c + dir * 3.1f + Quaternion.Euler(0f, 90f, 0f) * dir * 0.9f + Vector3.up * 0.25f, new Vector3(0.45f, 0.5f, 0.3f), Mat.Leather, Quaternion.LookRotation(dir));
+            }
+            // Supply stack in a corner.
+            float hx = room.Size.x / 2f, hz = room.Size.y / 2f;
+            Props.Crate(b, c + new Vector3(hx - 1.4f, 0f, hz - 1.4f), 1.1f, 15f);
+            Props.Crate(b, c + new Vector3(hx - 2.6f, 0f, hz - 1.3f), 0.9f, -10f);
+            Props.Crate(b, c + new Vector3(hx - 1.5f, 1.1f, hz - 1.4f), 0.7f, 40f);
+            Props.Barrel(b, c + new Vector3(-hx + 1.3f, 0f, hz - 1.3f));
+            Props.Barrel(b, c + new Vector3(-hx + 2.2f, 0f, hz - 1.4f));
+            // The waystone: on a wall with no door, a tall carved stone with a glowing rune.
+            for (int side = 0; side < 4; side++)
+            {
+                if (room.Doors[side]) continue;
+                var d = DungeonLayout.Dir[side];
+                var outward = new Vector3(d.x, 0f, d.y);
+                var at = c + outward * ((side == 0 || side == 2 ? hz : hx) - 1.2f);
+                b.AddBox(at + Vector3.up * 0.15f, new Vector3(1.6f, 0.3f, 1.6f), Mat.StoneWall);
+                b.Add(MeshKit.Lathe("waystone", new[] { new Vector2(0.45f, 0f), new Vector2(0.4f, 1.6f), new Vector2(0.28f, 2.4f), new Vector2(0f, 2.7f) }, 6),
+                    Mat.StoneWall, Matrix4x4.TRS(at + Vector3.up * 0.3f, Quaternion.LookRotation(-outward), new Vector3(1f, 1f, 0.55f)));
+                var rune = MeshKit.Part(lights, "WaystoneRune", MeshKit.Box(new Vector3(0.12f, 0.7f, 0.04f)), Mat.Glow, at - outward * 0.25f + Vector3.up * 1.5f, Quaternion.LookRotation(-outward).eulerAngles);
+                ArtLibrary.SetGlow(rune.GetComponent<Renderer>(), new Color(0.5f, 0.8f, 1f) * 1.5f);
+                var bar = MeshKit.Part(lights, "WaystoneRuneBar", MeshKit.Box(new Vector3(0.4f, 0.1f, 0.04f)), Mat.Glow, at - outward * 0.25f + Vector3.up * 1.65f, Quaternion.LookRotation(-outward).eulerAngles);
+                ArtLibrary.SetGlow(bar.GetComponent<Renderer>(), new Color(0.5f, 0.8f, 1f) * 1.5f);
+                var l = new GameObject("WaystoneLight").AddComponent<Light>();
+                l.transform.SetParent(lights, false);
+                l.transform.position = at - outward * 1f + Vector3.up * 1.6f;
+                l.type = LightType.Point;
+                l.color = new Color(0.5f, 0.75f, 1f);
+                l.range = 5f;
+                l.intensity = 1.5f;
+                l.shadows = LightShadows.None;
+                Props.Banner(lights, at + outward * 1.05f + Vector3.up * 3f + Quaternion.Euler(0f, 90f, 0f) * outward * 1.6f, -outward, theme.BrazierColor * 0.6f);
+                Props.Banner(lights, at + outward * 1.05f + Vector3.up * 3f - Quaternion.Euler(0f, 90f, 0f) * outward * 1.6f, -outward, theme.BrazierColor * 0.6f);
+                break;
+            }
         }
 
         private static void DressBossRoom(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights)
