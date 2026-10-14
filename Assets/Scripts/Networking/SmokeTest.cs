@@ -345,6 +345,23 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.2f);
                 Log("gear scrap", "embers " + embersBefore + " -> " + progress.Embers.Value, progress.Embers.Value > embersBefore);
 
+                // The merchant: this player's own gear offer lands at their feet.
+                var mpos = layout.MerchantPosition;
+                motor.Teleport(mpos + (layout.StartRoom.Center - mpos).normalized * 2f + Vector3.up * 0.1f, local.transform.rotation);
+                yield return new WaitForSeconds(0.2f);
+                progress.ServerAddGold(500);
+                int goldNow = progress.Gold.Value;
+                var stock = Shop.For(local.OwnerClientId);
+                int gearIndex = System.Array.FindIndex(stock, it => it.Kind == Shop.ItemKind.Gear);
+                int dropsBeforeBuy = FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
+                progress.BuyRpc(gearIndex);
+                yield return new WaitForSeconds(0.3f);
+                Log("shop gear", "bought " + stock[gearIndex].Name + " for " + stock[gearIndex].Price + ", gold " + goldNow + " -> " + progress.Gold.Value + ", sold-out: " + progress.CannotBuyReason(gearIndex),
+                    progress.Gold.Value == goldNow - stock[gearIndex].Price && FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length == dropsBeforeBuy + 1 && progress.CannotBuyReason(gearIndex) == "Sold");
+                var anvilAgain = FindObjectsByType<Anvil>(FindObjectsSortMode.None).First();
+                motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                yield return new WaitForSeconds(0.2f);
+
                 // Sigils: rank Q twice at the anvil; the cooldown scale drops at rank 3.
                 float cdBefore = progress.CooldownFor(Classes.AbilitySlot.Q);
                 progress.ServerAddSigil();
@@ -515,6 +532,14 @@ namespace Deepbound.Networking
             motor.Teleport(mFrom, Quaternion.LookRotation(m - mFrom));
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "1b_merchant");
+            var mClose = m + (layout.StartRoom.Center - m).normalized * 2.2f + Vector3.up * 0.1f;
+            motor.Teleport(mClose, Quaternion.LookRotation(m - mClose));
+            yield return new WaitForSeconds(0.2f);
+            local.GetComponent<PlayerProgress>().ServerAddGold(400);
+            local.GetComponent<UI.GameHud>().DebugOpenShop();
+            yield return null;
+            yield return Shot(dir, "1b_merchant_panel");
+            local.GetComponent<PlayerProgress>().ServerResetRun();
 
             var anvilObj = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
             if (anvilObj != null)

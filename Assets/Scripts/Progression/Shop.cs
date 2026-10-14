@@ -14,7 +14,7 @@ namespace Deepbound.Progression
     public static class Shop
     {
         /// <summary>Value 1 was the retired stat potion.</summary>
-        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3 }
+        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5 }
 
         public struct Item
         {
@@ -26,6 +26,8 @@ namespace Deepbound.Progression
             public float Amount;
             /// <summary>For bonuses: the most this stat can be raised by purchases.</summary>
             public float Cap;
+            /// <summary>For gear: the piece on offer.</summary>
+            public Loot.GearItem Gear;
         }
 
         public const float MerchantRange = 3.2f;
@@ -52,10 +54,33 @@ namespace Deepbound.Progression
                     var relic = (Relic)r;
                     list.Add(new Item { Name = Relics.Name(relic), Description = Relics.Describe(relic), Price = 110 + 30 * depth, Kind = ItemKind.Relic, Amount = r });
                 }
+                list.Add(new Item { Name = "Sigil", Description = "Empower an ability one rank, at the anvil", Price = 150 + 50 * depth, Kind = ItemKind.Sigil });
                 cached = list.ToArray();
                 cachedSeed = seed;
                 return cached;
             }
+        }
+
+        /// <summary>
+        /// One player's stock: today's catalogue plus a gear piece picked for them alone
+        /// (seeded by floor and player, so it is stable and differs between players).
+        /// </summary>
+        public static Item[] For(ulong clientId)
+        {
+            var common = Current;
+            var director = World.DungeonDirector.Instance;
+            int seed = director != null ? director.Floor.Value.x : 0;
+            int depth = director != null ? UnityEngine.Mathf.Max(0, director.Floor.Value.y) : 0;
+            var rng = new System.Random(seed * 31 + (int)clientId * 7919 + 5);
+            int id = rng.Next(1, 13);
+            double r = rng.NextDouble();
+            int quality = r < 0.2 ? 2 : r < 0.7 ? 1 : 0;
+            var gear = new Loot.GearItem((Loot.GearId)id, quality, depth);
+            var list = new List<Item>(common)
+            {
+                new Item { Name = Loot.Gear.Name(gear), Description = Loot.Gear.StatLine(gear) + ". " + Loot.Gear.Effect(gear.Kind), Price = 60 + 40 * quality + 25 * depth, Kind = ItemKind.Gear, Gear = gear },
+            };
+            return list.ToArray();
         }
 
         private static Item[] cached;

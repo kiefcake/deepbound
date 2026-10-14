@@ -22,7 +22,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 - **If the user has the game open**, Windows locks the exe: set `DEEPBOUND_BUILD_PATH=Builds/DeepboundNext/Deepbound.exe`
   for the build, then `cp -rf Builds/DeepboundNext/. Builds/Deepbound/` once they close it. Check with
   `tasklist | grep -i deepbound`. Never kill their game to rebuild.
-- **Smoke test** (headless, the main regression check; it waits on events, so it is robust to new checks; ~33 PASS lines on host, 8 on client, zero FAIL):
+- **Smoke test** (headless, the main regression check; it waits on events, so it is robust to new checks; ~40 PASS lines on host, 8 on client, zero FAIL):
   ```
   cd Builds/Deepbound && L=$(cygpath -w "$PWD")
   ./Deepbound.exe -batchmode -nographics -host -smoketest 40 -logFile "$L\\host.log" & sleep 4
@@ -45,8 +45,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 | `Combat/` | `Health` (server-authoritative HP, chill, damage modifiers, `ServerAnyDamaged`), `CombatQuery` (arc/circle/line-of-sight), `Arrows` (server-simulated projectiles + local visuals), `Telegraph`, `TrainingDummy`, `ICrowdControl` |
 | `Enemies/` | `EnemyBrain` base (chase, surround, wind-up, poise, backstab, elites), `Archer/Ghoul/Brute/Necromancer`, `BossBrain` base + `Gravewarden` (f1), `TideLich` (f2), `HollowKing` (f3), `Difficulty` (all scaling numbers) |
 | `Player/` | `NetworkPlayer` (visuals, view models, spawn placement), `FirstPersonMotor`, `PlayerLife` (downed/revive, dodge, F-use, regen), `KnightKit`, `MageKit`, `IClassKit` |
-| `Progression/` | `PlayerProgress` (class, stats, potions, relics, gold, run stats), `Shop` |
-| `Loot/` | `LootKind`, `LootTable`, `LootDrop`, `Relics` (12 relics + their damage hooks) |
+| `Progression/` | `PlayerProgress` (class, stats, weapon level/path, gear, sigils/ranks, relics, gold, embers, run stats), `Shop` (per-player stock via `Shop.For`) |
+| `Loot/` | `LootKind`, `LootTable`, `LootDrop` (shared pickups), `Relics`, `Gear`/`GearItem`/`GearDrop`/`GearEffects` (per-player armour + charm) |
 | `World/` | `DungeonLayout` (seeded room graph), `DungeonBuilder`, `DungeonTheme`, `Props`, `Lobby`, `DungeonDirector` (run state machine), `Interactable`, `Chest`, `BloodAltar`, `Breakable`, `SpikeTrap`, `Torch` |
 | `UI/` | `GameHud` (IMGUI), `TitleScreen`, `CharacterSelect`, `Minimap`, `PauseMenu`, `RunSummary`, `AudioDirector`, `MenuBackdrop`, `Settings`, `UiSkin` |
 | `Networking/` | `NetworkLauncher` (host/join, CLI flags), `SmokeTest` |
@@ -67,6 +67,15 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 - **Classes**: every kit is on the prefab; only the kit matching `PlayerProgress.ClassId` acts (`Active` check).
   Add a class = new kit implementing `IClassKit` + `ClassDefinition` entry + `CharacterArt` rig + view model +
   `ClassId` value (append only) + prefab component in `GameBuilder`.
+- **Progression (no stat potions any more)**: the class weapon is never found; Embers temper it at the `Anvil`
+  (start room, G opens the forge) +0..+5, each level +4 ATT +2 DEX. At +2 you pick one of two `WeaponPaths` per
+  class (effects gated in kits by `progress.OnPath(n)` / `Mastered(n)` at +4). Sigils rank Q/E 1..3 at the anvil
+  (`AbilityRanks`: `progress.Potency(slot)` x1.3 at rank 2, `CooldownFor(slot)` and `Twist(slot)` at rank 3).
+  Gear (`GearDrop`) is rolled per player and only visible to its owner (`CheckObjectVisibility` + visual gate);
+  F equips (old piece takes its place), X scraps for embers. Gear stats are derived from (id, quality, depth).
+- **Combos** (`Classes/Combos.cs`): Shatter (heavy hits consume chill x1.5), Exposed (stunned +25%), Distracted
+  (taunted, +15% from non-taunters), Blessed (in Consecrate +20%), Aegis Burst (shield broken), Mark spreads on
+  kill. All player->enemy damage goes through `Health.ServerOutgoingMultiplier` (GearEffects -> Combos).
 - **Relics**: one of each per player; effects live in `Relics` (damage-dealt hook), `PlayerProgress`
   (multipliers, incoming defence, Phoenix) and kits (cooldowns via `CooldownMultiplier`).
 
@@ -102,7 +111,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
   start room. Encounters (`DungeonDirector.Encounters.cs`): sealed boss arenas (boss dormant until the party is
   in; `Portcullis` gates) and one ambush room per floor (two waves, then a chest). Feature rooms (`RoomFeature` in `DungeonLayout`, dressed in `DungeonBuilder`, run in `SetupFeatures`/`TickVault`/`TickFalls`): Great Hall (30x30 colonnade, chandeliers, banners), Chasm (pit with two railed bridges; falling below y=-3 costs 20% HP and `NetworkPlayer.RescueRpc` puts you at a doorway), Crypt (`Sarcophagus` wakes its occupant when you come within 4.5 m), Vault (side room behind a portcullis; three `Lever`s in the linked room must all be down within 15 s; 2 extra chests), Fountain (`Fountain`: one party-wide full heal/revive per floor). Rooms are bigger now: `CellSize` 40, combat 16-28 m. Difficulty Normal/Hard/Nightmare
   (`Difficulty.Settings`, host picks with [ ] at camp). Pings (`PlayerPings`, Z / middle mouse). Lobby "The Last Lantern" with dummies and carriage boarding.
-- 12 relics; potions RotMG-style; run stats and summary.
+- 12 relics; 12 gear pieces (6 armour, 6 charms) in 3 qualities; 10 weapon paths; 10 rank-3 ability twists; run stats and summary.
 
 ## Backlog / ideas not yet built
 

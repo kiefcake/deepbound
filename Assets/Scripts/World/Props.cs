@@ -132,16 +132,32 @@ namespace Deepbound.World
             b.AddBox(table + Vector3.up * 0.85f, new Vector3(1.8f, 0.08f, 0.7f), Mat.Wood, root.rotation);
             b.AddBox(table + root.right * 0.75f + Vector3.up * 0.42f, new Vector3(0.08f, 0.84f, 0.6f), Mat.Wood, root.rotation);
             b.AddBox(table - root.right * 0.75f + Vector3.up * 0.42f, new Vector3(0.08f, 0.84f, 0.6f), Mat.Wood, root.rotation);
-            for (int i = 0; i < 5; i++)
+            // His wares: two healing draughts, a bowl of embers, a sigil tablet and a charm.
+            Vector3 Local(float along) => root.InverseTransformPoint(table + root.right * along + Vector3.up * 0.89f);
+            foreach (float along in new[] { -0.65f, -0.4f })
             {
-                var p = table + root.right * (-0.6f + i * 0.3f) + Vector3.up * 0.89f;
-                var flask = MeshKit.Part(root, "Ware" + i, MeshKit.Lathe("flask", new[]
+                var flask = MeshKit.Part(root, "Draught" + along, MeshKit.Lathe("flask", new[]
                 {
                     new Vector2(0f, 0f), new Vector2(0.08f, 0.02f), new Vector2(0.11f, 0.08f), new Vector2(0.1f, 0.15f),
                     new Vector2(0.04f, 0.2f), new Vector2(0.035f, 0.28f), new Vector2(0f, 0.28f),
-                }, 10), Mat.Glow, root.InverseTransformPoint(p));
-                ArtLibrary.SetGlow(flask.GetComponent<Renderer>(), Loot.LootInfo.StatColor((Core.StatType)(new[] { 0, 2, 3, 4, 5 }[i])) * 1.4f);
+                }, 10), Mat.Glow, Local(along));
+                ArtLibrary.SetGlow(flask.GetComponent<Renderer>(), new Color(0.95f, 0.15f, 0.15f) * 1.4f);
             }
+            MeshKit.Part(root, "EmberBowl", MeshKit.Lathe("emberBowl", new[]
+            {
+                new Vector2(0f, 0f), new Vector2(0.14f, 0.01f), new Vector2(0.18f, 0.09f), new Vector2(0f, 0.06f),
+            }, 10), Mat.Wood, Local(-0.05f));
+            for (int i = 0; i < 4; i++)
+            {
+                var ember = MeshKit.Part(root, "BowlEmber" + i, MeshKit.Ball(0.04f, 5, 4), Mat.Glow, Local(-0.05f) + new Vector3(Mathf.Cos(i * 1.6f) * 0.07f, 0.08f, Mathf.Sin(i * 1.6f) * 0.07f));
+                ArtLibrary.SetGlow(ember.GetComponent<Renderer>(), Loot.LootInfo.EmberColor * 1.6f);
+            }
+            MeshKit.Part(root, "SigilTablet", MeshKit.Box(new Vector3(0.18f, 0.24f, 0.05f)), Mat.StoneWall, Local(0.3f) + new Vector3(0f, 0.12f, 0f), new Vector3(-12f, 0f, 0f));
+            var glyph = MeshKit.Part(root, "SigilGlyph", MeshKit.Box(new Vector3(0.04f, 0.16f, 0.06f)), Mat.Glow, Local(0.3f) + new Vector3(0f, 0.12f, 0.005f), new Vector3(-12f, 0f, 0f));
+            ArtLibrary.SetGlow(glyph.GetComponent<Renderer>(), Loot.LootInfo.SigilColor * 1.6f);
+            MeshKit.Part(root, "Charm", MeshKit.Cylinder(0.08f, 0.08f, 0.03f, 12), Mat.Gold, Local(0.6f) + new Vector3(0f, 0.02f, 0f));
+            var stone = MeshKit.Part(root, "CharmStone", MeshKit.Ball(0.05f, 8, 6), Mat.Glow, Local(0.6f) + new Vector3(0f, 0.05f, 0f));
+            ArtLibrary.SetGlow(stone.GetComponent<Renderer>(), new Color(0.45f, 0.7f, 1f) * 1.6f);
         }
 
         /// <summary>A rack of spare arms against a wall: swords and a spear.</summary>

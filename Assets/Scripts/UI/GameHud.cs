@@ -41,6 +41,9 @@ namespace Deepbound.UI
         /// <summary>Screenshots only: stage the forge panel open.</summary>
         public void DebugOpenForge() => forgeOpen = true;
 
+        /// <summary>Screenshots only: stage the merchant's panel open.</summary>
+        public void DebugOpenShop() { shopOpen = true; forgeOpen = false; }
+
         /// <summary>Screenshots only: hold the stat sheet open.</summary>
         public static bool DebugShowStats;
         private bool statsHeld;
@@ -696,8 +699,8 @@ namespace Deepbound.UI
                 return;
             }
 
-            float pw = 440, rowH = 38;
-            var stock = Shop.Current;
+            float pw = 600, rowH = 38;
+            var stock = Shop.For(progress.OwnerClientId);
             float ph = 70 + stock.Length * rowH;
             float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(Gold.r, Gold.g, Gold.b, 0.5f));
@@ -712,14 +715,16 @@ namespace Deepbound.UI
                 float ry = y + 60 + i * rowH;
                 string reason = progress.CannotBuyReason(i);
 
-                var nameStyle = item.Kind == Shop.ItemKind.Relic
-                    ? new GUIStyle(label) { normal = { textColor = Relics.GemColor((Relic)(int)item.Amount) } }
+                var nameStyle = item.Kind == Shop.ItemKind.Relic ? new GUIStyle(label) { normal = { textColor = Relics.GemColor((Relic)(int)item.Amount) } }
+                    : item.Kind == Shop.ItemKind.Gear ? new GUIStyle(label) { normal = { textColor = Gear.QualityColor(item.Gear.Quality) } }
+                    : item.Kind == Shop.ItemKind.Sigil ? new GUIStyle(label) { normal = { textColor = LootInfo.SigilColor } }
                     : label;
-                GUI.Label(new Rect(x + 14, ry, 260, 20), item.Kind == Shop.ItemKind.Relic ? "RELIC: " + item.Name : item.Name, nameStyle);
-                GUI.Label(new Rect(x + 14, ry + 17, 300, 18), item.Description, small);
+                string title = item.Kind == Shop.ItemKind.Relic ? "RELIC: " + item.Name : item.Kind == Shop.ItemKind.Gear ? "FOR YOU: " + item.Name : item.Name;
+                GUI.Label(new Rect(x + 14, ry, 300, 20), title, nameStyle);
+                GUI.Label(new Rect(x + 14, ry + 17, pw - 200, 18), item.Description, small);
 
                 GUI.enabled = reason == null;
-                if (GUI.Button(new Rect(x + pw - 124, ry + 3, 110, 28), reason ?? (item.Price + " gold")))
+                if (GUI.Button(new Rect(x + pw - 174, ry + 3, 160, 28), reason ?? (item.Price + " gold")))
                 {
                     progress.BuyRpc(i);
                 }

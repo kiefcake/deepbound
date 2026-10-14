@@ -234,12 +234,12 @@ namespace Deepbound.UI
             }
             y += 4 * 22 + 14;
 
-            var kit = ClassDefinition.Kit(id);
-            float kitRow = Mathf.Min(52f, (r.yMax - 76 - y) / kit.Length);
+            var kit = new System.Collections.Generic.List<(string, string, string)>(ClassDefinition.Kit(id)) { ("COMBOS", "", ClassDefinition.ComboLine(id)) };
+            float kitRow = Mathf.Min(52f, (r.yMax - 76 - y) / kit.Count);
             foreach (var (key, name, desc) in kit)
             {
                 GUI.Label(new Rect(x, y, 70, 20), key, new GUIStyle(UiSkin.Small) { normal = { textColor = UiSkin.Gold }, fontStyle = FontStyle.Bold, fontSize = 13 });
-                GUI.Label(new Rect(x + 74, y, cw - 74, kitRow), "<b>" + name + "</b>  " + desc, new GUIStyle(UiSkin.Body) { fontSize = 14 });
+                GUI.Label(new Rect(x + 74, y, cw - 74, kitRow), (name.Length > 0 ? "<b>" + name + "</b>  " : "") + desc, new GUIStyle(UiSkin.Body) { fontSize = 14, wordWrap = true });
                 y += kitRow;
             }
 

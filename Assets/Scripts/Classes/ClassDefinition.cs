@@ -122,6 +122,17 @@ namespace Deepbound.Classes
                 ("E", "War Cry", "Taunt every enemy nearby onto you and halve the damage you take."),
             };
 
+        /// <summary>How the class plays with the others (see <see cref="Combos"/>).</summary>
+        public static string ComboLine(ClassId id) => id == ClassId.Mage
+            ? "Frost chills for everyone's heavy hits to Shatter. Your fire Shatters for x1.75; Meteor feasts on stunned crowds."
+            : id == ClassId.Cleric
+            ? "Consecrate Blesses allies inside (+20% damage). A broken Aegis shield bursts, hurting enemies around its wearer."
+            : id == ClassId.Rogue
+            ? "Openers stun (Exposed: +25% for all). Ambush hits Shatter chill, and enemies Distracted by a taunt turn their backs."
+            : id == ClassId.Ranger
+            ? "Marks give everyone +25% and spread when the target dies. Traps stun (Exposed); full draws Shatter chill."
+            : "Bash stuns (Exposed: +25% for all) and Shatters chill. War Cry Distracts enemies: +15% damage from everyone else.";
+
         /// <summary>Difficulty hint for the class picker.</summary>
         public static string Difficulty(ClassId id) => id == ClassId.Mage ? "Hard - fragile, rewards combos and positioning"
             : id == ClassId.Cleric ? "Medium - watch your party, not just the enemy"

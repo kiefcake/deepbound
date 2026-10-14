@@ -468,7 +468,7 @@ namespace Deepbound.Progression
         /// <summary>Why an item cannot be bought right now, or null if it can. Any peer; the server re-checks.</summary>
         public string CannotBuyReason(int index)
         {
-            var items = Shop.Current;
+            var items = Shop.For(OwnerClientId);
             if (index < 0 || index >= items.Length) return "Unknown item";
             var item = items[index];
             if (Gold.Value < item.Price) return "Not enough gold";
@@ -476,6 +476,8 @@ namespace Deepbound.Progression
             {
                 case Shop.ItemKind.Heal: return health.Current.Value >= health.Max.Value ? "Already at full health" : null;
                 case Shop.ItemKind.Embers: return null;
+                case Shop.ItemKind.Sigil: return null;
+                case Shop.ItemKind.Gear: return gearBoughtSeed == World.DungeonDirector.Instance?.Floor.Value.x ? "Sold" : null;
                 case Shop.ItemKind.Relic: return HasRelic((Relic)(int)item.Amount) ? "Owned" : null;
                 default: return Bonus(item.Stat) + item.Amount > item.Cap + 0.01f ? "Sold out" : null;
             }
@@ -489,7 +491,7 @@ namespace Deepbound.Progression
             if (layout == null || Vector3.Distance(transform.position, layout.MerchantPosition) > Shop.MerchantRange + 1f) return;
             if (CannotBuyReason(index) != null) return;
 
-            var item = Shop.Current[index];
+            var item = Shop.For(OwnerClientId)[index];
             bool bought;
             switch (item.Kind)
             {
@@ -499,6 +501,17 @@ namespace Deepbound.Progression
                     break;
                 case Shop.ItemKind.Embers:
                     ServerAddEmbers((int)item.Amount);
+                    bought = true;
+                    break;
+                case Shop.ItemKind.Sigil:
+                    ServerAddSigil();
+                    bought = true;
+                    break;
+                case Shop.ItemKind.Gear:
+                    // Laid at your feet, so you can compare it before putting it on.
+                    GearDrop.ServerSpawn(item.Gear, OwnerClientId, transform.position + transform.forward * 1.2f + Vector3.up * 0.05f);
+                    gearBoughtSeed = World.DungeonDirector.Instance.Floor.Value.x;
+                    GearBoughtRpc(gearBoughtSeed);
                     bought = true;
                     break;
                 case Shop.ItemKind.Relic:
@@ -516,6 +529,12 @@ namespace Deepbound.Progression
                 PurchasedRpc();
             }
         }
+
+        // The merchant's gear piece is one per floor: the seed of the floor it was bought on.
+        private int gearBoughtSeed = int.MinValue;
+
+        [Rpc(SendTo.Owner)]
+        private void GearBoughtRpc(int seed) => gearBoughtSeed = seed;
 
         [Rpc(SendTo.Owner)]
         private void PurchasedRpc() => Art.Sfx.Play2D(Art.Sound.Purchase, 0.8f);

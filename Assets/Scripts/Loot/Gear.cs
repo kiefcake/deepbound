@@ -97,6 +97,18 @@ namespace Deepbound.Loot
             foreach (var (s, _) in d.Stats) yield return s;
         }
 
+        /// <summary>"+4 DEF, +20 HP" — the stat line in one string.</summary>
+        public static string StatLine(GearItem item)
+        {
+            var parts = new List<string>();
+            foreach (var s in StatsOf(item))
+            {
+                float v = StatValue(item, s);
+                parts.Add((v >= 0 ? "+" : "") + v + " " + Core.Stats.ShortName(s));
+            }
+            return string.Join(", ", parts);
+        }
+
         /// <summary>Embers you get for breaking an unwanted piece down.</summary>
         public static int ScrapValue(GearItem item) => item.IsEmpty ? 0 : 5 + 4 * item.Quality + 3 * item.Depth;
 
