@@ -113,7 +113,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
   start room. Encounters (`DungeonDirector.Encounters.cs`): sealed boss arenas (boss dormant until the party is
   in; `Portcullis` gates) and one ambush room per floor (two waves, then a chest). Feature rooms (`RoomFeature` in `DungeonLayout`, dressed in `DungeonBuilder`, run in `SetupFeatures`/`TickVault`/`TickFalls`): Great Hall (30x30 colonnade, chandeliers, banners), Chasm (pit with two railed bridges; falling below y=-3 costs 20% HP and `NetworkPlayer.RescueRpc` puts you at a doorway), Crypt (`Sarcophagus` wakes its occupant when you come within 4.5 m), Vault (side room behind a portcullis; three `Lever`s in the linked room must all be down within 15 s; 2 extra chests), Fountain (`Fountain`: one party-wide full heal/revive per floor). Rooms are bigger now: `CellSize` 40, combat 16-28 m. Difficulty Normal/Hard/Nightmare
   (`Difficulty.Settings`, host picks with [ ] at camp). Pings (`PlayerPings`, Z / middle mouse). Lobby "The Last Lantern" with dummies and carriage boarding.
-- 12 relics; 6 runes (`Loot/Runes.cs`, sockets at weapon +1/+3, set at the anvil); 12 gear pieces (6 armour, 6 charms) in 3 qualities; 10 weapon paths; 10 rank-3 ability twists; run stats and summary (with COMBOS and a build line); pause-menu Guide page.
+- 12 relics; 6 runes (`Loot/Runes.cs`, sockets at weapon +1/+3, set at the anvil); 12 gear pieces (6 armour, 6 charms) in 3 qualities + 3 boss Legendaries (35% per player per boss, `Gear.LegendaryOf`); 10 weapon paths; 10 rank-3 ability twists; run stats and summary (with COMBOS and a build line); pause-menu Guide page.
 
 ## Backlog / ideas not yet built
 

@@ -16,6 +16,8 @@ namespace Deepbound.Loot
         None = 0,
         OssuaryPlate = 1, GraveclothMantle = 2, TidewovenRobe = 3, ThornhideJerkin = 4, KingsguardHauberk = 5, AshenShroud = 6,
         LanternOfTheLost = 7, HuntersTooth = 8, CrackedHourglass = 9, Bloodstone = 10, EmberLocket = 11, LuckyKnucklebone = 12,
+        // Boss legendaries: each boss's own piece, never rolled at random.
+        WardensBulwark = 13, LichPhylactery = 14, HollowCrown = 15,
     }
 
     /// <summary>
@@ -62,12 +64,28 @@ namespace Deepbound.Loot
                 Effect = "Kills have a 30% chance to leave an ember behind.", Stats = new[] { (StatType.ATT, 1.5f), (StatType.HP, 1.5f) } } },
             { GearId.LuckyKnucklebone, new Def { Slot = GearSlot.Charm, Name = "Lucky Knucklebone",
                 Effect = "One hit in ten simply misses you.", Stats = new[] { (StatType.SPD, 1.5f), (StatType.DEX, 1.5f) } } },
+
+            { GearId.WardensBulwark, new Def { Slot = GearSlot.Armor, Name = "Warden's Bulwark",
+                Effect = "Every 8 s, the next hit you take is halved and stuns its attacker (Exposed).", Stats = new[] { (StatType.DEF, 3f), (StatType.HP, 3f) } } },
+            { GearId.LichPhylactery, new Def { Slot = GearSlot.Charm, Name = "Lich's Phylactery",
+                Effect = "Every fourth hit you land chills its target (sets up Shatter).", Stats = new[] { (StatType.ATT, 2f), (StatType.WIS, 2f) } } },
+            { GearId.HollowCrown, new Def { Slot = GearSlot.Charm, Name = "Crown of the Hollow King",
+                Effect = "Your Q and E count as one rank higher (up to rank 3).", Stats = new[] { (StatType.ATT, 2f), (StatType.HP, 2f) } } },
         };
 
-        public static readonly string[] QualityNames = { "Worn", "Fine", "Masterwork" };
-        private static readonly float[] QualityPower = { 1f, 1.3f, 1.65f };
+        /// <summary>Random rolls draw from the first twelve; the boss pieces only come from their boss.</summary>
+        private const int RollablePieces = 12;
 
-        public static Color QualityColor(int quality) => quality >= 2 ? new Color(1f, 0.62f, 0.2f)
+        /// <summary>The legendary a boss can drop, by its type.</summary>
+        public static GearId LegendaryOf(Enemies.BossBrain boss) => boss is Enemies.GravewardenBrain ? GearId.WardensBulwark
+            : boss is Enemies.TideLichBrain ? GearId.LichPhylactery
+            : GearId.HollowCrown;
+
+        public static readonly string[] QualityNames = { "Worn", "Fine", "Masterwork", "Legendary" };
+        private static readonly float[] QualityPower = { 1f, 1.3f, 1.65f, 1.85f };
+
+        public static Color QualityColor(int quality) => quality >= 3 ? new Color(0.85f, 0.45f, 1f)
+            : quality >= 2 ? new Color(1f, 0.62f, 0.2f)
             : quality == 1 ? new Color(0.45f, 0.7f, 1f) : new Color(0.82f, 0.8f, 0.76f);
 
         public static GearSlot SlotOf(GearId id) => Defs[id].Slot;
@@ -115,7 +133,7 @@ namespace Deepbound.Loot
         /// <summary>A random piece for the given depth. <paramref name="luck"/> 0 = normal, 1 = boss/vault.</summary>
         public static GearItem Roll(int depth, int luck)
         {
-            int id = Random.Range(1, Defs.Count + 1);
+            int id = Random.Range(1, RollablePieces + 1);
             float r = Random.value;
             int quality = luck > 0 ? (r < 0.45f ? 2 : 1) : (r < 0.1f ? 2 : r < 0.42f ? 1 : 0);
             return new GearItem((GearId)id, quality, depth);

@@ -41,11 +41,24 @@ namespace Deepbound.Loot
             return m;
         }
 
+        private static readonly System.Collections.Generic.Dictionary<ulong, int> phylacteryHits = new System.Collections.Generic.Dictionary<ulong, int>();
+
         private static void OnServerAnyDamaged(Health target, float dealt, ulong attackerId)
         {
-            if (target.Team != Team.Enemies || target.IsAlive) return;
+            if (target.Team != Team.Enemies) return;
             var p = Attacker(attackerId);
             if (p == null) return;
+            if (target.IsAlive)
+            {
+                // Lich's Phylactery: every fourth hit chills.
+                if (p.Wears(GearId.LichPhylactery))
+                {
+                    phylacteryHits.TryGetValue(attackerId, out int n);
+                    if (++n >= 4) { n = 0; target.ServerChill(3f); }
+                    phylacteryHits[attackerId] = n;
+                }
+                return;
+            }
             if (p.Wears(GearId.Bloodstone)) p.GetComponent<Health>().ServerHeal(p.GetComponent<Health>().Max.Value * 0.04f);
             if (p.Wears(GearId.EmberLocket) && Random.value < 0.3f && World.DungeonDirector.Instance != null)
                 World.DungeonDirector.Instance.ServerDropEmbers(target.transform.position, 2);

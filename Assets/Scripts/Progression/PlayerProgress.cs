@@ -36,7 +36,11 @@ namespace Deepbound.Progression
         public readonly NetworkVariable<byte> RankQ = new NetworkVariable<byte>(1);
         public readonly NetworkVariable<byte> RankE = new NetworkVariable<byte>(1);
 
-        public int Rank(AbilitySlot slot) => slot == AbilitySlot.Q ? RankQ.Value : RankE.Value;
+        /// <summary>Effective rank: bought ranks, plus one for the Hollow Crown (max 3).</summary>
+        public int Rank(AbilitySlot slot) => Mathf.Min(AbilityRanks.MaxRank, (slot == AbilitySlot.Q ? RankQ.Value : RankE.Value) + (Wears(GearId.HollowCrown) ? 1 : 0));
+
+        /// <summary>Ranks actually bought with Sigils (what the anvil can still raise).</summary>
+        public int BoughtRank(AbilitySlot slot) => slot == AbilitySlot.Q ? RankQ.Value : RankE.Value;
 
         /// <summary>Rank 2 and up: 30% stronger.</summary>
         public float Potency(AbilitySlot slot) => Rank(slot) >= 2 ? AbilityRanks.Rank2Potency : 1f;
@@ -64,7 +68,7 @@ namespace Deepbound.Progression
             var anvil = World.Anvil.Near(transform.position);
             if (anvil == null || Sigils.Value < 1 || slot > 1) return;
             var rank = slot == 0 ? RankQ : RankE;
-            if (rank.Value >= AbilityRanks.MaxRank) return;
+            if (rank.Value >= AbilityRanks.MaxRank || Rank((AbilitySlot)slot) >= AbilityRanks.MaxRank) return;
             Sigils.Value--;
             rank.Value++;
             anvil.ForgeFxRpc(rank.Value + 2);
@@ -90,7 +94,7 @@ namespace Deepbound.Progression
         public GearItem Equipped(GearSlot slot) => slot == GearSlot.Armor ? Armor.Value : Charm.Value;
         public bool Wears(GearId id) => Armor.Value.Kind == id || Charm.Value.Kind == id;
 
-        private float dodgeStrikeUntil, shroudReadyAt;
+        private float dodgeStrikeUntil, shroudReadyAt, bulwarkReadyAt;
 
         /// <summary>Server: put a piece on. Returns what was in its slot (maybe empty).</summary>
         public GearItem ServerEquip(GearItem item)
@@ -367,6 +371,21 @@ namespace Deepbound.Progression
                 return 0f;
             }
             if (Wears(GearId.OssuaryPlate) && health.Fraction > 0.5f) damage *= 0.85f;
+            if (Wears(GearId.WardensBulwark) && Time.time >= bulwarkReadyAt)
+            {
+                bulwarkReadyAt = Time.time + 8f;
+                damage *= 0.5f;
+                Enemies.EnemyBrain nearest = null;
+                float best = 4f;
+                foreach (var h in Health.All)
+                {
+                    if (h == null || h.Team != Team.Enemies || !h.IsAlive || !h.TryGetComponent<Enemies.EnemyBrain>(out var b)) continue;
+                    float d = Vector3.Distance(h.transform.position, attackerPosition);
+                    if (d < best) { best = d; nearest = b; }
+                }
+                if (nearest != null) nearest.ServerStun(1.5f);
+                BulwarkFxRpc();
+            }
             if (Wears(GearId.AshenShroud) && Time.time >= shroudReadyAt && (health.Current.Value - damage) / Mathf.Max(1f, health.Max.Value) < 0.3f)
             {
                 shroudReadyAt = Time.time + 15f;
@@ -376,6 +395,9 @@ namespace Deepbound.Progression
             }
             return damage;
         }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BulwarkFxRpc() => Art.Sfx.Play(Art.Sound.Block, transform.position + Vector3.up, 1f, 0.7f);
 
         [Rpc(SendTo.ClientsAndHost)]
         private void MissedRpc() => Art.Sfx.Play(Art.Sound.Dodge, transform.position + Vector3.up, 0.5f, 1.4f);

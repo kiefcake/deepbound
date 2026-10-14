@@ -66,7 +66,7 @@ namespace Deepbound.Loot
         /// Server: roll gear for each player in the session independently, scattered around
         /// a point. <paramref name="chance"/> is per player; luck 1 for bosses and vaults.
         /// </summary>
-        public static void ServerSpawnForParty(Vector3 at, float chance, int luck)
+        public static void ServerSpawnForParty(Vector3 at, float chance, int luck, Enemies.BossBrain boss = null)
         {
             if (Prefab == null) return;
             var net = NetworkManager.Singleton;
@@ -77,7 +77,8 @@ namespace Deepbound.Loot
                 if (Random.value > chance) continue;
                 float a = i++ * 2.1f + Random.value;
                 var pos = at + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 1.1f + Vector3.up * 0.05f;
-                ServerSpawn(Gear.Roll(depth, luck), client, pos);
+                var item = boss != null && Random.value < 0.35f ? new GearItem(Gear.LegendaryOf(boss), 3, depth) : Gear.Roll(depth, luck);
+                ServerSpawn(item, client, pos);
             }
         }
 

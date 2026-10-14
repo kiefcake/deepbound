@@ -11,7 +11,7 @@ namespace Deepbound.Loot
     public struct GearItem : INetworkSerializable, IEquatable<GearItem>
     {
         public byte Id;       // GearId; 0 = empty slot
-        public byte Quality;  // 0 Worn, 1 Fine, 2 Masterwork
+        public byte Quality;  // 0 Worn, 1 Fine, 2 Masterwork, 3 Legendary (boss pieces)
         public byte Depth;    // floor index it dropped on (0-2)
 
         public bool IsEmpty => Id == 0;
@@ -20,7 +20,7 @@ namespace Deepbound.Loot
         public GearItem(GearId id, int quality, int depth)
         {
             Id = (byte)id;
-            Quality = (byte)Math.Max(0, Math.Min(2, quality));
+            Quality = (byte)Math.Max(0, Math.Min(3, quality));
             Depth = (byte)Math.Max(0, depth);
         }
 

@@ -383,6 +383,13 @@ namespace Deepbound.Networking
                 Log("ability rank", "Q rank " + progress.RankQ.Value + ", sigils left " + progress.Sigils.Value + ", Q cooldown x" + cdBefore + " -> x" + progress.CooldownFor(Classes.AbilitySlot.Q),
                     progress.RankQ.Value == 3 && progress.Sigils.Value == sigilsBefore && progress.CooldownFor(Classes.AbilitySlot.Q) < cdBefore);
 
+                // Boss legendary: the Hollow Crown lifts both abilities a rank.
+                int qBefore = progress.Rank(Classes.AbilitySlot.Q), eBefore = progress.Rank(Classes.AbilitySlot.E);
+                var oldCharm = progress.ServerEquip(new GearItem(GearId.HollowCrown, 3, 2));
+                Log("legendary crown", "Q " + qBefore + " -> " + progress.Rank(Classes.AbilitySlot.Q) + ", E " + eBefore + " -> " + progress.Rank(Classes.AbilitySlot.E),
+                    progress.Rank(Classes.AbilitySlot.E) == Mathf.Min(3, eBefore + 1));
+                if (!oldCharm.IsEmpty) progress.ServerEquip(oldCharm);
+
                 // Class combos: a stunned enemy is Exposed; a heavy hit Shatters chill.
                 var foe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead);
                 if (foe != null)
