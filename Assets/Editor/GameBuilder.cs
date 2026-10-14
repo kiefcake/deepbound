@@ -56,6 +56,7 @@ namespace Deepbound.EditorTools
             var ghoul = BuildEnemyPrefab("Ghoul", EnemyType.Ghoul, loot);
             var brute = BuildEnemyPrefab("BoneBrute", EnemyType.Brute, loot);
             var necro = BuildEnemyPrefab("Necromancer", EnemyType.Necromancer, loot);
+            var wraith = BuildEnemyPrefab("Wraith", EnemyType.Wraith, loot);
             var dummy = BuildDummyPrefab();
             var chest = BuildObjectPrefab<Chest>("Chest", new Vector3(1.1f, 0.8f, 0.7f));
             var altar = BuildObjectPrefab<BloodAltar>("BloodAltar", new Vector3(1.4f, 0.9f, 1.0f));
@@ -82,6 +83,7 @@ namespace Deepbound.EditorTools
             dso.FindProperty("sarcophagusPrefab").objectReferenceValue = sarcophagus.GetComponent<NetworkObject>();
             dso.FindProperty("anvilPrefab").objectReferenceValue = anvil.GetComponent<NetworkObject>();
             dso.FindProperty("gearDropPrefab").objectReferenceValue = gearDrop.GetComponent<NetworkObject>();
+            dso.FindProperty("wraithPrefab").objectReferenceValue = wraith.GetComponent<NetworkObject>();
             dso.FindProperty("crackedWallPrefab").objectReferenceValue = crackedWall.GetComponent<NetworkObject>();
             dso.FindProperty("diceTablePrefab").objectReferenceValue = diceTable.GetComponent<NetworkObject>();
             dso.FindProperty("cofferPrefab").objectReferenceValue = coffer.GetComponent<NetworkObject>();
@@ -92,7 +94,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -198,7 +200,7 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith }
 
         private static GameObject BuildEnemyPrefab(string name, EnemyType type, GameObject loot)
         {
@@ -233,6 +235,7 @@ namespace Deepbound.EditorTools
                 case EnemyType.Ghoul: brain = root.AddComponent<GhoulBrain>(); break;
                 case EnemyType.Brute: brain = root.AddComponent<BruteBrain>(); break;
                 case EnemyType.Necromancer: brain = root.AddComponent<NecromancerBrain>(); break;
+                case EnemyType.Wraith: brain = root.AddComponent<WraithBrain>(); break;
                 default: brain = root.AddComponent<EnemyBrain>(); break;
             }
 
@@ -264,6 +267,12 @@ namespace Deepbound.EditorTools
                     Kind(Art.CharacterArt.SkeletonKind.Necromancer);
                     Set("maxHealth", 75f); Set("damage", 12f); Set("defense", 0f); Set("moveSpeed", 3.0f);
                     Set("attackRange", 14f); Set("windup", 0.7f); Set("recovery", 1.6f); Set("aggroRange", 18f);
+                    break;
+                case EnemyType.Wraith:
+                    // Fragile on paper, but Ethereal: needs pinning down to kill quickly.
+                    Kind(Art.CharacterArt.SkeletonKind.Wraith);
+                    Set("maxHealth", 70f); Set("damage", 12f); Set("defense", 0f); Set("moveSpeed", 3.4f);
+                    Set("attackRange", 12f); Set("windup", 0.8f); Set("recovery", 1.7f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Gravewarden:
                     Kind(Art.CharacterArt.SkeletonKind.Gravewarden);

@@ -584,7 +584,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -593,6 +593,7 @@ namespace Deepbound.Art
         /// </summary>
         public static HumanoidRig BuildSkeleton(Transform root, SkeletonKind kind)
         {
+            if (kind == SkeletonKind.Wraith) return BuildWraith(root);
             bool king = kind == SkeletonKind.King;
             float s = king ? 1.75f : kind == SkeletonKind.Gravewarden ? 2.0f : kind == SkeletonKind.Lich ? 1.45f
                 : kind == SkeletonKind.Brute ? 1.45f : kind == SkeletonKind.Ghoul ? 0.92f : kind == SkeletonKind.Necromancer ? 1.05f : 1f;
@@ -948,6 +949,79 @@ namespace Deepbound.Art
                 MeshKit.Part(hip, "Foot", MeshKit.Box(new Vector3(0.07f, 0.04f, 0.16f)), Mat.Bone, new Vector3(0f, -0.86f, 0.04f));
                 if (i == 0) rig.LegL = hip; else rig.LegR = hip;
             }
+        }
+
+        /// <summary>
+        /// The Wraith: no legs, just a tattered translucent shroud trailing into nothing, a
+        /// pale skull under a deep hood with cold blue eyes, and long bony claws.
+        /// </summary>
+        private static HumanoidRig BuildWraith(Transform root)
+        {
+            var visual = MeshKit.Pivot(root, "WraithVisual", Vector3.zero);
+            var rig = visual.gameObject.AddComponent<HumanoidRig>();
+            rig.GlowColor = new Color(0.45f, 0.75f, 1f);
+            var shroud = new Color(0.16f, 0.2f, 0.3f, 0.55f);
+
+            rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.95f, 0f));
+            // Legs exist for the animator but carry nothing: the shroud is the lower body.
+            rig.LegL = MeshKit.Pivot(rig.Hips, "LegL", new Vector3(-0.1f, 0f, 0f));
+            rig.LegR = MeshKit.Pivot(rig.Hips, "LegR", new Vector3(0.1f, 0f, 0f));
+            var skirt = MeshKit.Part(rig.Hips, "Shroud", MeshKit.Lathe("wraithShroud", new[]
+            {
+                new Vector2(0.05f, -0.85f), new Vector2(0.3f, -0.7f), new Vector2(0.34f, -0.35f), new Vector2(0.24f, 0f), new Vector2(0.2f, 0.08f),
+            }, 10), Mat.Smoke, Vector3.zero);
+            ArtLibrary.Tint(skirt.GetComponent<Renderer>(), shroud);
+            for (int i = 0; i < 8; i++)
+            {
+                float a = i * 45f * Mathf.Deg2Rad;
+                var rag = MeshKit.Part(rig.Hips, "Tatter" + i, MeshKit.Box(new Vector3(0.1f, 0.35f + (i % 3) * 0.1f, 0.015f)), Mat.Smoke,
+                    new Vector3(Mathf.Cos(a) * 0.24f, -0.85f, Mathf.Sin(a) * 0.24f), new Vector3(10f, -i * 45f + 90f, (i % 2 == 0 ? 8f : -8f)));
+                ArtLibrary.Tint(rag.GetComponent<Renderer>(), shroud * 0.9f);
+            }
+
+            rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", Vector3.zero);
+            var robe = MeshKit.Part(rig.Torso, "Robe", MeshKit.Lathe("wraithRobe", new[]
+            {
+                new Vector2(0.2f, 0f), new Vector2(0.24f, 0.25f), new Vector2(0.25f, 0.45f), new Vector2(0.18f, 0.6f), new Vector2(0.08f, 0.66f),
+            }, 10), Mat.Smoke, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.8f));
+            ArtLibrary.Tint(robe.GetComponent<Renderer>(), shroud);
+            MeshKit.Part(rig.Torso, "Spine", MeshKit.Box(new Vector3(0.05f, 0.5f, 0.05f)), Mat.Bone, new Vector3(0f, 0.27f, -0.04f));
+            for (int i = 0; i < 4; i++)
+                MeshKit.Part(rig.Torso, "Rib" + i, MeshKit.Lathe("rib" + i, new[] { new Vector2(0.12f + i * 0.012f, 0f), new Vector2(0.135f + i * 0.012f, 0.015f), new Vector2(0.12f + i * 0.012f, 0.03f) }, 8, true, 300f),
+                    Mat.Bone, new Vector3(0f, 0.3f + i * 0.07f, 0f), new Vector3(0f, 210f, 0f), new Vector3(1f, 1f, 0.75f));
+
+            rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.68f, 0f));
+            var skull = MeshKit.Part(rig.Head, "Skull", MeshKit.Ball(0.12f, 8, 6), Mat.Bone, new Vector3(0f, 0.13f, 0.02f), Vector3.zero, new Vector3(0.9f, 1f, 1.05f));
+            ArtLibrary.Tint(skull.GetComponent<Renderer>(), new Color(0.75f, 0.85f, 0.95f));
+            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.022f, 6, 4), Mat.Glow, new Vector3(-0.042f, 0.14f, 0.12f));
+            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.022f, 6, 4), Mat.Glow, new Vector3(0.042f, 0.14f, 0.12f));
+            var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("mageHood", new[]
+            {
+                new Vector2(0.17f, -0.02f), new Vector2(0.18f, 0.12f), new Vector2(0.14f, 0.24f), new Vector2(0.05f, 0.28f), new Vector2(0f, 0.29f),
+            }, 9, true, 280f), Mat.Smoke, new Vector3(0f, 0.03f, -0.04f), new Vector3(0f, 220f, 0f), new Vector3(1.25f, 1.25f, 1.3f));
+            ArtLibrary.Tint(hood.GetComponent<Renderer>(), new Color(0.1f, 0.12f, 0.18f, 0.75f));
+
+            rig.ArmR = BuildBoneArm(rig.Torso, "ArmR", 1f);
+            rig.ArmL = BuildBoneArm(rig.Torso, "ArmL", -1f);
+            foreach (var arm in new[] { rig.ArmR, rig.ArmL })
+            {
+                var sleeve = MeshKit.Part(arm, "Sleeve", MeshKit.Cylinder(0.12f, 0.08f, 0.45f, 8), Mat.Smoke, new Vector3(0f, -0.45f, 0f));
+                ArtLibrary.Tint(sleeve.GetComponent<Renderer>(), shroud);
+                for (int f = 0; f < 3; f++)
+                    MeshKit.Part(arm, "Claw" + f, MeshKit.Box(new Vector3(0.015f, 0.16f, 0.015f)), Mat.Bone, new Vector3((f - 1) * 0.03f, -0.7f, 0.02f), new Vector3(15f, 0f, (f - 1) * 8f));
+            }
+            var glow = new GameObject("WraithGlow").AddComponent<Light>();
+            glow.transform.SetParent(visual, false);
+            glow.transform.localPosition = new Vector3(0f, 1.6f, 0.3f);
+            glow.type = LightType.Point;
+            glow.color = new Color(0.45f, 0.7f, 1f);
+            glow.range = 3.5f;
+            glow.intensity = 1.2f;
+            glow.shadows = LightShadows.None;
+
+            rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
+            rig.StrideLength = 1.4f;
+            return rig;
         }
 
         private static void BuildLegs(HumanoidRig rig, float spacing, float hipHeight, string armour, string under, float width)

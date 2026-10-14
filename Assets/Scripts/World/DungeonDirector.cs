@@ -49,6 +49,7 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject ghoulPrefab;
         [SerializeField] private NetworkObject brutePrefab;
         [SerializeField] private NetworkObject necromancerPrefab;
+        [SerializeField] private NetworkObject wraithPrefab;
 
         [Header("Dungeon objects")]
         [SerializeField] private NetworkObject chestPrefab;
@@ -546,6 +547,9 @@ namespace Deepbound.World
             float necro = necromancerPrefab != null && !hasNecro && depth >= 1 ? 0.06f + 0.03f * depth : 0f;
             float ghoul = ghoulPrefab != null ? 0.22f : 0f;
             float archer = archerPrefab != null ? theme.ArcherChance : 0f;
+            float wraith = wraithPrefab != null ? 0.05f + 0.05f * depth : 0f;
+            float r0 = UnityEngine.Random.value;
+            if (r0 < wraith) return wraithPrefab;
 
             float roll = UnityEngine.Random.value;
             if ((roll -= brute) < 0f) { hasBrute = true; return brutePrefab; }

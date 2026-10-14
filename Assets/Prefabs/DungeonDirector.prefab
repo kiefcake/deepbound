@@ -83,6 +83,7 @@ MonoBehaviour:
   ghoulPrefab: {fileID: 7136521967555521536, guid: 5972763f0fdc1cb41a1279040eaf44d5, type: 3}
   brutePrefab: {fileID: 8053091072363266696, guid: 746f849d5bced1a4fad5629f294d7db0, type: 3}
   necromancerPrefab: {fileID: 8041632183493773884, guid: 6054c828120ee4c4aa840e55e00c4d05, type: 3}
+  wraithPrefab: {fileID: 5317749395350274390, guid: 8986d499b153711468cfe0bb0fd051c1, type: 3}
   chestPrefab: {fileID: 5389848433996289612, guid: 1b8f0e82fafab894fa40501de576fd99, type: 3}
   altarPrefab: {fileID: 7031684641988543945, guid: b2bdb4bd0518b0943b77591220049a62, type: 3}
   breakablePrefab: {fileID: 6486612486930930439, guid: e03bc3e5b20ced241be0b40e9ec5205d, type: 3}

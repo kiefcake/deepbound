@@ -1015,6 +1015,7 @@ namespace Deepbound.UI
             var sb = new System.Text.StringBuilder();
             void Tag(string text, string hex) { if (sb.Length > 0) sb.Append(' '); sb.Append("<color=#").Append(hex).Append('>').Append(text).Append("</color>"); }
             if (brain != null && brain.AffixKind != EliteAffix.None) Tag(EliteAffixes.Tag(brain.AffixKind), EliteAffixes.Hex(brain.AffixKind));
+            if (brain is WraithBrain wr && !wr.Pinned) Tag("ETHEREAL", "8FA8D0");
             if (hp.Chilled.Value) Tag("CHILL", "8CD9FF");
             if (hp.Marked.Value) Tag("MARK", "FF5A4D");
             if (brain != null && (brain.Status.Value & 1) != 0) Tag("STUN", "FFD94D");
