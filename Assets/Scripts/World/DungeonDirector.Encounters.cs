@@ -1,3 +1,4 @@
+using Deepbound.Loot;
 using System.Collections.Generic;
 using Deepbound.Combat;
 using Deepbound.Enemies;
@@ -37,6 +38,101 @@ namespace Deepbound.World
         }
         private Vault vault;
 
+        [SerializeField] private NetworkObject crackedWallPrefab;
+
+        private class Breach
+        {
+            public CrackedWall Wall;
+            public DungeonLayout.Room Room;
+            public WallHole Hole;
+            public float Occupied, TriggerAfter;
+        }
+        private readonly List<Breach> breaches = new List<Breach>();
+
+        /// <summary>Server, smoke test: the floor's breaches, for forcing one.</summary>
+        public int BreachCount => breaches.Count;
+        public void ServerDebugTriggerBreach(int i) { if (i < breaches.Count) breaches[i].Occupied = 999f; }
+
+        /// <summary>Plugs for every hollow wall; caches behind the secret ones.</summary>
+        private void SetupHoles(DungeonLayout layout)
+        {
+            breaches.Clear();
+            if (crackedWallPrefab == null) return;
+            var theme = DungeonTheme.ForDepth(layout.Depth);
+            var rng = new System.Random(layout.Seed ^ 0x601e);
+            foreach (var room in layout.Rooms)
+            {
+                foreach (var hole in room.Holes)
+                {
+                    var face = room.HoleFace(hole);
+                    var outward = DungeonLayout.Room.HoleOutward(hole);
+                    var obj = Instantiate(crackedWallPrefab, face, Quaternion.LookRotation(outward));
+                    var wall = obj.GetComponent<CrackedWall>();
+                    wall.Breach.Value = hole.Breach;
+                    wall.StoneTint.Value = theme.StoneTint;
+                    obj.Spawn(destroyWithScene: true);
+
+                    if (hole.Breach)
+                    {
+                        breaches.Add(new Breach { Wall = wall, Room = room, Hole = hole, TriggerAfter = 3f + (float)rng.NextDouble() * 5f });
+                        continue;
+                    }
+                    // The cache: a chest at the back of the alcove, and a rune or a Sigil on the plinth.
+                    var back = face + outward * (0.8f + WallHole.NicheDepth - 1.4f);
+                    if (chestPrefab != null)
+                    {
+                        var chest = Spawn(chestPrefab, back - outward * 0.6f, Quaternion.LookRotation(-outward));
+                        chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
+                    }
+                    ServerDropLoot(back + outward * 0.75f + Vector3.up * 0.6f, rng.NextDouble() < 0.5 ? LootKind.Sigil : LootKind.Rune, (int)Runes.Random());
+                }
+            }
+        }
+
+        /// <summary>Breaches go once the party has been fighting in their room for a few seconds.</summary>
+        private void TickBreaches()
+        {
+            foreach (var b in breaches)
+            {
+                if (b.Wall == null || b.Wall.Triggered) continue;
+                bool inRoom = false;
+                foreach (var p in PlayerLife.All)
+                    if (p != null && p.Targetable && b.Room.Contains(p.transform.position, -1f)) { inRoom = true; break; }
+                if (!inRoom) continue;
+                b.Occupied += Time.deltaTime;
+                if (b.Occupied < b.TriggerAfter) continue;
+                var breach = b;
+                b.Wall.ServerTriggerBreach(() => SpawnBreachers(breach));
+            }
+        }
+
+        private void SpawnBreachers(Breach b)
+        {
+            var layout = Layout;
+            if (layout == null) return;
+            int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
+            var theme = DungeonTheme.ForDepth(layout.Depth);
+            var face = b.Room.HoleFace(b.Hole);
+            var outward = DungeonLayout.Room.HoleOutward(b.Hole);
+            var across = Vector3.Cross(Vector3.up, outward);
+            int count = Mathf.RoundToInt((2 + layout.Depth) * Difficulty.SpawnCount(players));
+            bool brute = false, necro = true;
+            for (int i = 0; i < count; i++)
+            {
+                var prefab = PickEnemy(layout.Depth, theme, ref brute, ref necro, out int _);
+                // Inside the tunnel, staggered so they come out in a rush rather than a stack.
+                var at = face + outward * (1.6f + (i / 2) * 1.1f) + across * ((i % 2) - 0.5f) * 1.1f;
+                if (UnityEngine.AI.NavMesh.SamplePosition(at, out var hit, 2f, UnityEngine.AI.NavMesh.AllAreas)) at = hit.position;
+                var obj = Instantiate(prefab, at, Quaternion.LookRotation(-outward));
+                obj.Spawn(destroyWithScene: true);
+                var brain = obj.GetComponent<EnemyBrain>();
+                brain.ServerScale(players, layout.Depth);
+                brain.ServerAggroNearest();
+                spawned.Add(obj);
+            }
+            TitleCardRpc("BREACH", "The dead break through the walls");
+        }
+
         /// <summary>Server: has this floor's vault been opened? (Smoke test.)</summary>
         public bool VaultOpen => vault != null && vault.Open;
         private readonly Dictionary<PlayerLife, float> rescuedAt = new Dictionary<PlayerLife, float>();
@@ -68,6 +164,9 @@ namespace Deepbound.World
             bossSealed = false;
             ambush = null;
             vault = null;
+            breaches.Clear();
+            foreach (var w in FindObjectsByType<CrackedWall>(FindObjectsSortMode.None))
+                if (w.NetworkObject.IsSpawned) w.NetworkObject.Despawn();
             foreach (var l in FindObjectsByType<Lever>(FindObjectsSortMode.None))
                 if (l.NetworkObject.IsSpawned) l.NetworkObject.Despawn();
             foreach (var f in FindObjectsByType<Fountain>(FindObjectsSortMode.None))
@@ -114,7 +213,7 @@ namespace Deepbound.World
                             var obj = Spawn(sarcophagusPrefab, spot, Quaternion.LookRotation(face));
                             bool brute = true, necro = true; // crypts hold the rank and file
                             var occupant = PickEnemy(layout.Depth, theme, ref brute, ref necro, out int _);
-                            obj.GetComponent<Sarcophagus>().ServerLoad(occupant, players, layout.Depth);
+                            obj.GetComponent<Sarcophagus>().ServerLoad(occupant, players, layout.Depth, room.Id);
                         }
                         break;
 
@@ -216,6 +315,7 @@ namespace Deepbound.World
             TickAmbush();
             TickVault();
             TickFalls();
+            TickBreaches();
         }
 
         private void TickBossArena()

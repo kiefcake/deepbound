@@ -149,7 +149,18 @@ namespace Deepbound.World
             Vector3 Size(float len, float height) => alongX ? new Vector3(len, height, WallThickness) : new Vector3(WallThickness, height, len);
             Vector3 Along(float t) => alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t);
 
-            if (!room.Doors[side])
+            var hole = room.HoleOn(side);
+            if (hole != null && !room.Doors[side])
+            {
+                // Wall split around the hole, a lintel over it, and the niche beyond.
+                float hw = WallHole.Width, a = hole.Along;
+                float leftLen = (a - hw / 2f) + length / 2f, rightLen = length / 2f - (a + hw / 2f);
+                b.AddBox(wallCenter + Along(-length / 2f + leftLen / 2f) + Vector3.up * h / 2f, Size(leftLen, h), Mat.StoneWall);
+                b.AddBox(wallCenter + Along(length / 2f - rightLen / 2f) + Vector3.up * h / 2f, Size(rightLen, h), Mat.StoneWall);
+                b.AddBox(wallCenter + Along(a) + Vector3.up * (WallHole.Height + (h - WallHole.Height) / 2f), Size(hw, h - WallHole.Height), Mat.StoneWall);
+                BuildNiche(wallCenter + Along(a), new Vector3(dir.x, 0f, dir.y), alongX, hole.Breach, b);
+            }
+            else if (!room.Doors[side])
             {
                 b.AddBox(wallCenter + Vector3.up * h / 2f, Size(length, h), Mat.StoneWall);
             }
@@ -172,9 +183,40 @@ namespace Deepbound.World
             // Plinth along the base of the wall, so walls meet the floor with a line
             // rather than a seam.
             var plinthIn = -new Vector3(dir.x, 0f, dir.y) * (WallThickness / 2f + 0.1f);
-            if (!room.Doors[side])
+            if (!room.Doors[side] && hole == null)
             {
                 b.AddBox(wallCenter + plinthIn + Vector3.up * 0.15f, Size(length - WallThickness * 2f, 0.3f) + (alongX ? new Vector3(0, 0, -0.6f) : new Vector3(-0.6f, 0, 0)), Mat.StoneWall);
+            }
+        }
+
+        /// <summary>
+        /// The space behind a hollow wall: floor, ceiling, back and sides. A secret cache is
+        /// a little shrine-alcove; a breach is a rough tunnel the dead dug to reach you.
+        /// </summary>
+        private static void BuildNiche(Vector3 wallMid, Vector3 outward, bool alongX, bool breach, MeshKit.Batcher b)
+        {
+            float w = WallHole.Width + 1.2f, depth = WallHole.NicheDepth, hh = WallHole.Height + 0.2f;
+            var start = wallMid + outward * (WallThickness / 2f);
+            var mid = start + outward * (depth / 2f);
+            Vector3 S(float across, float height, float deep) => alongX ? new Vector3(across, height, deep) : new Vector3(deep, height, across);
+            var across = alongX ? Vector3.right : Vector3.forward;
+
+            b.AddBox(mid + Vector3.down * FloorThickness / 2f, S(w, FloorThickness, depth), breach ? Mat.Rubble : Mat.Flagstone);
+            b.AddBox(mid + Vector3.up * (hh + 0.2f), S(w, 0.4f, depth), Mat.StoneWall);
+            b.AddBox(start + outward * (depth + 0.4f) + Vector3.up * hh / 2f, S(w + 0.8f, hh + 0.4f, 0.8f), Mat.StoneWall);
+            b.AddBox(mid + across * (w / 2f + 0.4f) + Vector3.up * hh / 2f, S(0.8f, hh + 0.4f, depth), Mat.StoneWall);
+            b.AddBox(mid - across * (w / 2f + 0.4f) + Vector3.up * hh / 2f, S(0.8f, hh + 0.4f, depth), Mat.StoneWall);
+
+            if (breach)
+            {
+                // Spoil heaps and gouges: something dug through here.
+                b.AddBox(mid + outward * 0.9f + across * 0.9f + Vector3.up * 0.25f, S(0.9f, 0.5f, 1.1f), Mat.Rubble, Quaternion.Euler(0f, 23f, 8f));
+                b.AddBox(mid - outward * 0.2f - across * 1.1f + Vector3.up * 0.2f, S(0.7f, 0.4f, 0.8f), Mat.Rubble, Quaternion.Euler(0f, -31f, -6f));
+            }
+            else
+            {
+                // A little plinth at the back for whatever was hidden here.
+                b.AddBox(start + outward * (depth - 0.5f) + Vector3.up * 0.3f, S(1.6f, 0.6f, 0.6f), Mat.StoneWall);
             }
         }
 
@@ -197,6 +239,8 @@ namespace Deepbound.World
                 {
                     float t = -len / 2f + (i + 0.5f) * len / count;
                     if (room.Doors[side] && Mathf.Abs(t) < DungeonLayout.CorridorWidth) t += t >= 0f ? DungeonLayout.CorridorWidth : -DungeonLayout.CorridorWidth;
+                    var holeHere = room.HoleOn(side);
+                    if (holeHere != null && Mathf.Abs(t - holeHere.Along) < WallHole.Width) continue;
                     if (Mathf.Abs(t) > len / 2f - 0.8f) continue;
 
                     var p = room.Center + new Vector3(dir.x, 0f, dir.y) * offset + (alongX ? new Vector3(t, y, 0f) : new Vector3(0f, y, t));

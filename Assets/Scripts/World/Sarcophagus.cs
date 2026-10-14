@@ -18,19 +18,46 @@ namespace Deepbound.World
 
         public readonly NetworkVariable<bool> Opened = new NetworkVariable<bool>();
 
+        private static readonly System.Collections.Generic.List<Sarcophagus> All = new System.Collections.Generic.List<Sarcophagus>();
+
         private NetworkObject occupantPrefab;
-        private int players = 1, depth;
+        private int players = 1, depth, roomId = -1;
+        private float wakeAt = -1f, rattleUntil;
         private Transform lid;
         private float open;
 
-        public void ServerLoad(NetworkObject prefab, int playerCount, int floorDepth)
+        public void ServerLoad(NetworkObject prefab, int playerCount, int floorDepth, int room)
         {
             occupantPrefab = prefab;
             players = playerCount;
             depth = floorDepth;
+            roomId = room;
         }
 
-        public override void OnNetworkSpawn() => BuildVisual();
+        public override void OnNetworkSpawn()
+        {
+            All.Add(this);
+            BuildVisual();
+        }
+
+        public override void OnNetworkDespawn() => All.Remove(this);
+
+        public override void OnDestroy()
+        {
+            All.Remove(this);
+            base.OnDestroy();
+        }
+
+        /// <summary>
+        /// Server: the first coffin to open wakes the crypt. The rest follow two at a time,
+        /// nearest first, lids rattling a moment before they go — a rising tide, not a wall.
+        /// </summary>
+        private void WakeTheCrypt()
+        {
+            var rest = All.FindAll(s => s != null && s != this && s.roomId == roomId && !s.Opened.Value && s.wakeAt < 0f);
+            rest.Sort((a, b) => Vector3.Distance(a.transform.position, transform.position).CompareTo(Vector3.Distance(b.transform.position, transform.position)));
+            for (int i = 0; i < rest.Count; i++) rest[i].wakeAt = Time.time + 2.2f + (i / 2) * 2.6f;
+        }
 
         private void Update()
         {
@@ -41,14 +68,31 @@ namespace Deepbound.World
                 lid.localRotation = Quaternion.Euler(0f, 0f, -35f * open);
             }
 
+            if (lid != null && Time.time < rattleUntil)
+                lid.localPosition += new Vector3(Random.Range(-0.02f, 0.02f), Random.Range(0f, 0.03f), Random.Range(-0.02f, 0.02f));
+
             if (!IsServer || Opened.Value || occupantPrefab == null) return;
+            if (wakeAt >= 0f)
+            {
+                if (Time.time >= wakeAt - 0.9f && rattleUntil < Time.time) { rattleUntil = wakeAt; RattleRpc(wakeAt - Time.time); }
+                if (Time.time >= wakeAt) Wake();
+                return;
+            }
             foreach (var p in PlayerLife.All)
             {
                 if (p == null || !p.Targetable) continue;
                 if (Vector3.Distance(p.transform.position, transform.position) > WakeRange) continue;
                 Wake();
+                WakeTheCrypt();
                 return;
             }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RattleRpc(float seconds)
+        {
+            rattleUntil = Time.time + seconds;
+            Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 0.8f, 0.7f);
         }
 
         private void Wake()

@@ -69,6 +69,7 @@ namespace Deepbound.EditorTools
             var sarcophagus = BuildObjectPrefab<Sarcophagus>("Sarcophagus", new Vector3(2.2f, 1.0f, 0.95f));
             var anvil = BuildObjectPrefab<Anvil>("Anvil", new Vector3(0.8f, 0.9f, 0.6f));
             var gearDrop = BuildObjectPrefab<GearDrop>("GearDrop", Vector3.zero);
+            var crackedWall = BuildCrackedWallPrefab();
             var dso = new SerializedObject(director.GetComponent<DungeonDirector>());
             dso.FindProperty("portcullisPrefab").objectReferenceValue = gate.GetComponent<NetworkObject>();
             dso.FindProperty("leverPrefab").objectReferenceValue = lever.GetComponent<NetworkObject>();
@@ -76,11 +77,12 @@ namespace Deepbound.EditorTools
             dso.FindProperty("sarcophagusPrefab").objectReferenceValue = sarcophagus.GetComponent<NetworkObject>();
             dso.FindProperty("anvilPrefab").objectReferenceValue = anvil.GetComponent<NetworkObject>();
             dso.FindProperty("gearDropPrefab").objectReferenceValue = gearDrop.GetComponent<NetworkObject>();
+            dso.FindProperty("crackedWallPrefab").objectReferenceValue = crackedWall.GetComponent<NetworkObject>();
             dso.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -317,6 +319,25 @@ namespace Deepbound.EditorTools
             obstacle.enabled = false;
             root.AddComponent<Portcullis>();
             return SavePrefab(root, "Portcullis");
+        }
+
+        /// <summary>The plug in a hollow wall: solid, carves the navmesh, and has health (Props team) to smash.</summary>
+        private static GameObject BuildCrackedWallPrefab()
+        {
+            var root = new GameObject("CrackedWall");
+            root.AddComponent<NetworkObject>();
+            var size = new Vector3(WallHole.Width, WallHole.Height, 0.8f);
+            var box = root.AddComponent<BoxCollider>();
+            box.size = size;
+            box.center = new Vector3(0f, size.y / 2f, 0.4f);
+            var obstacle = root.AddComponent<NavMeshObstacle>();
+            obstacle.shape = NavMeshObstacleShape.Box;
+            obstacle.size = size + new Vector3(0f, 0f, 0.4f);
+            obstacle.center = box.center;
+            obstacle.carving = true;
+            SetTeam(root.AddComponent<Health>(), Team.Props, 1.4f);
+            root.AddComponent<CrackedWall>();
+            return SavePrefab(root, "CrackedWall");
         }
 
         private static GameObject BuildBreakablePrefab()

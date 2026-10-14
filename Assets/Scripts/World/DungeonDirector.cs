@@ -232,6 +232,7 @@ namespace Deepbound.World
             SpawnObjects(Layout);
             SetupEncounters(Layout);
             SetupFeatures(Layout);
+            SetupHoles(Layout);
             SpawnEnemies(Layout);
 
             foreach (var p in PlayerLife.All)

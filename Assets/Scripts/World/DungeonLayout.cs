@@ -12,6 +12,17 @@ namespace Deepbound.World
     /// </summary>
     public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain }
 
+    /// <summary>A hollow section of wall with a niche behind it.</summary>
+    public class WallHole
+    {
+        public const float Width = 2.4f, Height = 2.8f, NicheDepth = 3.6f;
+        public int Side;
+        /// <summary>Offset along the wall from the room's centre line.</summary>
+        public float Along;
+        /// <summary>True: enemies burst out of it. False: a secret cache, broken by players.</summary>
+        public bool Breach;
+    }
+
     /// <summary>
     /// The abstract shape of one dungeon floor: which rooms exist, where, how big, and how
     /// they connect. No geometry — <see cref="DungeonBuilder"/> turns this into meshes.
@@ -58,6 +69,23 @@ namespace Deepbound.World
             public Rect Pit;
             /// <summary>For a vault: the room its levers are in (the one its door opens onto).</summary>
             public Room VaultHost;
+
+            /// <summary>Hollow wall sections: secret caches to smash open, or breaches enemies burst out of.</summary>
+            public readonly List<WallHole> Holes = new List<WallHole>();
+
+            public WallHole HoleOn(int side) => Holes.Find(h => h.Side == side);
+
+            /// <summary>The hole's centre on the room's inner wall face, at floor level.</summary>
+            public Vector3 HoleFace(WallHole h)
+            {
+                var d = Dir[h.Side];
+                bool alongX = h.Side == 0 || h.Side == 2;
+                float half = (alongX ? Size.y : Size.x) / 2f;
+                return Center + new Vector3(d.x, 0f, d.y) * half + (alongX ? new Vector3(h.Along, 0f, 0f) : new Vector3(0f, 0f, h.Along));
+            }
+
+            /// <summary>Unit vector from the room out through the hole.</summary>
+            public static Vector3 HoleOutward(WallHole h) => new Vector3(Dir[h.Side].x, 0f, Dir[h.Side].y);
 
             public Rect Bounds => new Rect(Center.x - Size.x / 2f, Center.z - Size.y / 2f, Size.x, Size.y);
 
@@ -247,6 +275,48 @@ namespace Deepbound.World
         }
 
         private static void AssignFeatures(DungeonLayout layout, System.Random rng)
+        {
+            AssignOtherFeatures(layout, rng);
+            AssignHoles(layout, rng);
+        }
+
+        /// <summary>
+        /// Secret caches (one or two a floor) and wall breaches (one, two from floor two on),
+        /// each on a side of a room with no door. Rooms sit in 40 m cells, so there is always
+        /// room for a niche behind the wall.
+        /// </summary>
+        private static void AssignHoles(DungeonLayout layout, System.Random rng)
+        {
+            bool Eligible(Room r, bool breach) =>
+                r.Kind != RoomKind.Start && r.Kind != RoomKind.Boss && (!breach || r.Kind == RoomKind.Combat) &&
+                r.Feature != RoomFeature.Chasm && r.Feature != RoomFeature.Vault && r.Feature != RoomFeature.Fountain && r.Holes.Count == 0;
+
+            void Place(bool breach, int count)
+            {
+                var pool = layout.Rooms.FindAll(r => Eligible(r, breach));
+                for (int n = 0; n < count && pool.Count > 0; n++)
+                {
+                    var room = pool[rng.Next(pool.Count)];
+                    pool.Remove(room);
+                    var sides = new List<int>();
+                    for (int s = 0; s < 4; s++)
+                    {
+                        float len = (s == 0 || s == 2) ? room.Size.x : room.Size.y;
+                        if (!room.Doors[s] && len >= 10f) sides.Add(s);
+                    }
+                    if (sides.Count == 0) continue;
+                    int side = sides[rng.Next(sides.Count)];
+                    float wallLen = (side == 0 || side == 2) ? room.Size.x : room.Size.y;
+                    float along = ((float)rng.NextDouble() * 2f - 1f) * (wallLen / 2f - 3f);
+                    room.Holes.Add(new WallHole { Side = side, Along = along, Breach = breach });
+                }
+            }
+
+            Place(false, 1 + (rng.NextDouble() < 0.5 ? 1 : 0));
+            Place(true, layout.Depth >= 1 ? 2 : 1);
+        }
+
+        private static void AssignOtherFeatures(DungeonLayout layout, System.Random rng)
         {
             var combat = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat);
             // Shuffle so which room gets which feature varies by seed.

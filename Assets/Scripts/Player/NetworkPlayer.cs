@@ -275,6 +275,9 @@ namespace Deepbound.Player
 
         public void ViewModelSwing(float windup, float rest, float side) => viewAnim?.Swing(windup, rest, side);
         public void ViewModelBash() => viewAnim?.Bash();
+
+        /// <summary>Owner: shake the camera (explosions, breaking walls, meteor strikes).</summary>
+        public void AddShake(float amount) => shake = Mathf.Min(1f, shake + amount);
         public void ViewModelBlockImpact() { viewAnim?.BlockImpact(); shake = Mathf.Min(1f, shake + 0.3f); }
         public void ViewModelCast(bool frost) => viewAnim?.Cast(frost);
 

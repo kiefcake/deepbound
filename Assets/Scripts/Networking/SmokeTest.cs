@@ -212,7 +212,7 @@ namespace Deepbound.Networking
                 var chests = FindObjectsByType<Chest>(FindObjectsSortMode.None);
                 int urns = FindObjectsByType<Breakable>(FindObjectsSortMode.None).Count(b => b.Type.Value == Breakable.Kind.Urn);
                 Log("dungeon objects", chests.Length + " chests for " + sideRooms + " side rooms, " + urns + " urns, " +
-                    FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Length + " traps", chests.Length == sideRooms + (layout.Rooms.Any(r => r.Feature == RoomFeature.Vault) ? 2 : 0) && urns > 0);
+                    FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Length + " traps", chests.Length == sideRooms + (layout.Rooms.Any(r => r.Feature == RoomFeature.Vault) ? 2 : 0) + layout.Rooms.Sum(r => r.Holes.Count(hh => !hh.Breach)) && urns > 0);
                 if (chests.Length > 0)
                 {
                     int dropsBefore = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
@@ -233,6 +233,34 @@ namespace Deepbound.Networking
                     Log("powder barrel", "exploded and gone: " + (barrel == null), barrel == null);
                 }
 
+                // Hollow walls: smash a secret one open; force a breach and count who comes out.
+                var walls = FindObjectsByType<CrackedWall>(FindObjectsSortMode.None);
+                var secret = walls.FirstOrDefault(w => !w.Breach.Value);
+                int breachWalls = walls.Count(w => w.Breach.Value);
+                bool hadSecret = secret != null;
+                if (secret != null)
+                {
+                    secret.GetComponent<Health>().ServerDamage(1000f, secret.transform.position - secret.transform.forward, local.NetworkObjectId);
+                    yield return new WaitForSeconds(0.3f);
+                }
+                bool secretGone = hadSecret && (secret == null || !secret.IsSpawned);
+                Log("secret wall", walls.Length + " hollow walls (" + breachWalls + " breaches), secret broken: " + secretGone,
+                    walls.Length >= 2 && breachWalls >= 1 && secretGone);
+                if (DungeonDirector.Instance.BreachCount > 0)
+                {
+                    int enemiesBefore = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead);
+                    var bw = walls.First(w => w.Breach.Value);
+                    var bwFrom = bw.transform.position - bw.transform.forward * 5f + Vector3.up * 0.1f;
+                    local.GetComponent<FirstPersonMotor>().Teleport(bwFrom, Quaternion.LookRotation(bw.transform.forward));
+                    DungeonDirector.Instance.ServerDebugTriggerBreach(0);
+                    yield return new WaitForSeconds(2.4f);
+                    int enemiesAfter = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead);
+                    Log("wall breach", "enemies " + enemiesBefore + " -> " + enemiesAfter + ", wall gone " + (bw == null || !bw.IsSpawned), enemiesAfter > enemiesBefore);
+                    foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                        if (!(e is BossBrain) && Vector3.Distance(e.transform.position, bwFrom) < 12f) e.GetComponent<Health>().ServerDamage(1e6f, bwFrom);
+                    local.GetComponent<Health>().ServerSetFraction(1f);
+                }
+
                 // Feature rooms.
                 var fm = local.GetComponent<FirstPersonMotor>();
                 string features = string.Join(", ", layout.Rooms.Where(r => r.Feature != RoomFeature.None).Select(r => r.Feature.ToString()));
@@ -244,6 +272,14 @@ namespace Deepbound.Networking
                     fm.Teleport(sarc.transform.position + sarc.transform.forward * 3f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.5f);
                     Log("crypt", "sarcophagus opened on approach: " + sarc.Opened.Value, sarc.Opened.Value);
+                    // The rest of the crypt follows, two at a time.
+                    yield return new WaitForSeconds(5.2f);
+                    var all = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None);
+                    int open = all.Count(x => x.Opened.Value);
+                    Log("crypt wakes", open + " of " + all.Length + " open 5 s later", open >= Mathf.Min(all.Length, 3));
+                    foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                        if (!(e is BossBrain) && Vector3.Distance(e.transform.position, sarc.transform.position) < 20f) e.GetComponent<Health>().ServerDamage(1e6f, sarc.transform.position);
+                    local.GetComponent<Health>().ServerSetFraction(1f);
                 }
 
                 var levers = FindObjectsByType<Lever>(FindObjectsSortMode.None);
@@ -655,6 +691,30 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "1e_stat_sheet");
                 UI.GameHud.DebugShowStats = false;
                 ap.ServerResetRun();
+            }
+
+            // Hollow walls: a secret one up close, then smash it to see the alcove; a breach as it bursts.
+            foreach (var hw in FindObjectsByType<CrackedWall>(FindObjectsSortMode.None).OrderBy(x => x.Breach.Value).ToArray())
+            {
+                var hf = hw.transform.position - hw.transform.forward * 3.2f + Vector3.up * 0.1f;
+                motor.Teleport(hf, Quaternion.LookRotation(hw.transform.forward));
+                yield return new WaitForSeconds(0.6f);
+                if (!hw.Breach.Value)
+                {
+                    yield return Shot(dir, "1f_secret_wall");
+                    hw.GetComponent<Health>().ServerDamage(1000f, hf, local.NetworkObjectId);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Shot(dir, "1g_secret_alcove");
+                }
+                else
+                {
+                    hw.ServerTriggerBreach(null);
+                    yield return new WaitForSeconds(1.0f);
+                    yield return Shot(dir, "1h_breach_rumble");
+                    yield return new WaitForSeconds(0.75f);
+                    yield return Shot(dir, "1i_breach_open");
+                    break;
+                }
             }
 
             // Every feature room on the floor, from a high corner looking across it.
