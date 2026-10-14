@@ -90,6 +90,9 @@ namespace Deepbound.Player
             name = SlotNames[slot] + (OwnerClientId >= (ulong)SlotNames.Length ? " " + (OwnerClientId / (ulong)SlotNames.Length + 1) : "");
             BuildVisuals();
             progress.ClassId.OnValueChanged += (_, __) => BuildVisuals();
+            progress.WeaponLevel.OnValueChanged += (_, __) => RefreshWeaponGlow();
+            progress.Socket0.OnValueChanged += (_, __) => RefreshWeaponGlow();
+            progress.Socket1.OnValueChanged += (_, __) => RefreshWeaponGlow();
 
             bool isLocal = IsOwner;
             playerCamera.enabled = isLocal;
@@ -160,6 +163,31 @@ namespace Deepbound.Player
                 viewModel = CharacterArt.BuildKnightViewModel(playerCamera.transform, SlotColor);
                 viewAnim = new ViewModelAnimator(viewModel);
             }
+            RefreshWeaponGlow();
+        }
+
+        /// <summary>
+        /// The tempered weapon shows it: a light on the main hand that brightens with each
+        /// anvil level and takes the colour of the first socketed rune (ember-orange without).
+        /// </summary>
+        private void RefreshWeaponGlow()
+        {
+            if (viewModel == null || viewModel.SwordPivot == null) return;
+            var old = viewModel.SwordPivot.Find("WeaponGlow");
+            if (old != null) Destroy(old.gameObject);
+            int level = progress.WeaponLevel.Value;
+            var rune = progress.Socketed(0) != Loot.Rune.None ? progress.Socketed(0) : progress.Socketed(1);
+            if (level == 0 && rune == Loot.Rune.None) return;
+
+            var color = rune != Loot.Rune.None ? Loot.Runes.Color(rune) : Loot.LootInfo.EmberColor;
+            var glow = new GameObject("WeaponGlow").AddComponent<Light>();
+            glow.transform.SetParent(viewModel.SwordPivot, false);
+            glow.transform.localPosition = new Vector3(0f, 0.35f, 0.15f);
+            glow.type = LightType.Point;
+            glow.color = color;
+            glow.range = 1.1f;
+            glow.intensity = 0.4f + 0.3f * level;
+            glow.shadows = LightShadows.None;
         }
 
         public override void OnNetworkDespawn()
