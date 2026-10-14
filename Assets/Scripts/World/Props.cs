@@ -286,6 +286,66 @@ namespace Deepbound.World
             light.intensity = 2f;
         }
 
+        /// <summary>An iron ring chandelier on a chain, with candle flames around its rim.</summary>
+        public static void Chandelier(Transform parent, MeshKit.Batcher b, Vector3 at, float chainLength, Color fire)
+        {
+            b.Add(MeshKit.Cylinder(0.03f, 0.03f, chainLength, 4), Mat.Steel, Matrix4x4.Translate(at));
+            b.Add(MeshKit.Lathe("chandelierRing", new[] { new Vector2(1.1f, 0f), new Vector2(1.2f, 0.06f), new Vector2(1.1f, 0.12f) }, 16), Mat.Steel, Matrix4x4.Translate(at));
+            var root = new GameObject("Chandelier").transform;
+            root.SetParent(parent, false);
+            root.position = at;
+            for (int i = 0; i < 6; i++)
+            {
+                var p = Quaternion.Euler(0f, i * 60f, 0f) * new Vector3(0f, 0.12f, 1.15f);
+                MeshKit.Part(root, "Candle" + i, MeshKit.Cylinder(0.04f, 0.04f, 0.18f, 6), Mat.Bone, p);
+            }
+            for (int i = 0; i < 6; i++)
+            {
+                var wick = MeshKit.Part(root, "Wick" + i, MeshKit.Ball(0.03f, 6, 4), Mat.Glow, Quaternion.Euler(0f, i * 60f, 0f) * new Vector3(0f, 0.33f, 1.15f));
+                ArtLibrary.SetGlow(wick.GetComponent<Renderer>(), fire * 1.8f);
+            }
+            // One light for the whole ring, at its centre (an invisible flame drives the flicker).
+            AddFlame(root, new Vector3(0f, 0.2f, 0f), 0.01f, fire, 9f, 16f, false);
+        }
+
+        /// <summary>A long cloth banner hanging from a wall rod.</summary>
+        public static void Banner(Transform parent, Vector3 at, Vector3 outward, Color color)
+        {
+            var root = new GameObject("Banner").transform;
+            root.SetParent(parent, false);
+            root.SetPositionAndRotation(at, Quaternion.LookRotation(outward));
+            MeshKit.Part(root, "Rod", MeshKit.Box(new Vector3(1.4f, 0.06f, 0.06f)), Mat.Wood, new Vector3(0f, 0f, 0.1f));
+            var cloth = MeshKit.Part(root, "Cloth", MeshKit.Box(new Vector3(1.2f, 2.6f, 0.03f)), Mat.Cloth, new Vector3(0f, -1.3f, 0.1f));
+            ArtLibrary.Tint(cloth.GetComponent<Renderer>(), color);
+            MeshKit.Part(root, "Trim", MeshKit.Box(new Vector3(1.2f, 0.12f, 0.035f)), Mat.Gold, new Vector3(0f, -2.55f, 0.1f));
+        }
+
+        /// <summary>A cluster of melted candles with one shared light.</summary>
+        public static void Candles(Transform parent, Vector3 floor, Color fire)
+        {
+            var root = new GameObject("Candles").transform;
+            root.SetParent(parent, false);
+            root.position = floor;
+            var rng = new System.Random(Mathf.RoundToInt(floor.x * 31f + floor.z * 17f));
+            for (int i = 0; i < 5; i++)
+            {
+                var p = new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * 0.6f;
+                float hgt = 0.12f + (float)rng.NextDouble() * 0.2f;
+                MeshKit.Part(root, "Candle" + i, MeshKit.Cylinder(0.035f, 0.035f, hgt, 6), Mat.Bone, p);
+                var f = MeshKit.Part(root, "Wick" + i, MeshKit.Ball(0.025f, 6, 4), Mat.Glow, p + Vector3.up * (hgt + 0.03f));
+                ArtLibrary.SetGlow(f.GetComponent<Renderer>(), fire * 1.6f);
+            }
+            var light = new GameObject("Light").AddComponent<Light>();
+            light.transform.SetParent(root, false);
+            light.transform.localPosition = Vector3.up * 0.5f;
+            light.type = LightType.Point;
+            light.color = fire;
+            light.range = 6f;
+            light.intensity = 2.2f;
+            root.gameObject.AddComponent<Torch>().Light = light;
+            root.GetComponent<Torch>().BaseIntensity = 2.2f;
+        }
+
         // ------------------------------------------------------------------
         // Live props
         // ------------------------------------------------------------------

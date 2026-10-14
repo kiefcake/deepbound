@@ -24,6 +24,19 @@ namespace Deepbound.World
     {
         [Header("Encounters")]
         [SerializeField] private NetworkObject portcullisPrefab;
+        [SerializeField] private NetworkObject leverPrefab;
+        [SerializeField] private NetworkObject fountainPrefab;
+        [SerializeField] private NetworkObject sarcophagusPrefab;
+
+        private class Vault
+        {
+            public DungeonLayout.Room Room;
+            public readonly List<Portcullis> Gates = new List<Portcullis>();
+            public readonly List<Lever> Levers = new List<Lever>();
+            public bool Open;
+        }
+        private Vault vault;
+        private readonly Dictionary<PlayerLife, float> rescuedAt = new Dictionary<PlayerLife, float>();
 
         private readonly List<Portcullis> bossGates = new List<Portcullis>();
         private bool bossSealed;
@@ -51,6 +64,13 @@ namespace Deepbound.World
             bossGates.Clear();
             bossSealed = false;
             ambush = null;
+            vault = null;
+            foreach (var l in FindObjectsByType<Lever>(FindObjectsSortMode.None))
+                if (l.NetworkObject.IsSpawned) l.NetworkObject.Despawn();
+            foreach (var f in FindObjectsByType<Fountain>(FindObjectsSortMode.None))
+                if (f.NetworkObject.IsSpawned) f.NetworkObject.Despawn();
+            foreach (var s in FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None))
+                if (s.NetworkObject.IsSpawned) s.NetworkObject.Despawn();
             foreach (var g in FindObjectsByType<Portcullis>(FindObjectsSortMode.None))
             {
                 if (g.NetworkObject.IsSpawned) g.NetworkObject.Despawn();
@@ -65,13 +85,101 @@ namespace Deepbound.World
 
             // A combat room at least two steps from the start, so the first fight is not an ambush.
             var rng = new System.Random(layout.Seed ^ 0xA3B);
-            var candidates = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && r.Id >= 2);
+            var candidates = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && r.Id >= 2 &&
+                (r.Feature == RoomFeature.None || r.Feature == RoomFeature.GreatHall));
             if (candidates.Count == 0) return;
             ambush = new Ambush { Room = candidates[rng.Next(candidates.Count)] };
             ambush.Gates.AddRange(SpawnGates(ambush.Room));
         }
 
         private bool IsAmbushRoom(DungeonLayout.Room room) => ambush != null && ambush.Room == room;
+
+        /// <summary>Sarcophagi in crypts, the vault's gate, levers and treasure, and the fountain.</summary>
+        private void SetupFeatures(DungeonLayout layout)
+        {
+            int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
+            var theme = DungeonTheme.ForDepth(layout.Depth);
+            foreach (var room in layout.Rooms)
+            {
+                switch (room.Feature)
+                {
+                    case RoomFeature.Crypt when sarcophagusPrefab != null:
+                        foreach (var spot in room.FeatureSpots)
+                        {
+                            var face = room.Center - spot;
+                            face.y = 0f;
+                            var obj = Spawn(sarcophagusPrefab, spot, Quaternion.LookRotation(face));
+                            bool brute = true, necro = true; // crypts hold the rank and file
+                            var occupant = PickEnemy(layout.Depth, theme, ref brute, ref necro, out int _);
+                            obj.GetComponent<Sarcophagus>().ServerLoad(occupant, players, layout.Depth);
+                        }
+                        break;
+
+                    case RoomFeature.Vault when leverPrefab != null && portcullisPrefab != null:
+                        vault = new Vault { Room = room };
+                        vault.Gates.AddRange(SpawnGates(room));
+                        SetGates(vault.Gates, true);
+                        var host = room.VaultHost ?? room;
+                        foreach (var spot in room.FeatureSpots)
+                        {
+                            var face = host.Center - spot;
+                            face.y = 0f;
+                            vault.Levers.Add(Spawn(leverPrefab, spot, Quaternion.LookRotation(face)).GetComponent<Lever>());
+                        }
+                        if (chestPrefab != null)
+                        {
+                            foreach (float s in new[] { -1f, 1f })
+                            {
+                                var chest = Spawn(chestPrefab, room.Center + new Vector3(s * 2f, 0f, 0f), Quaternion.Euler(0f, s > 0 ? -90f : 90f, 0f));
+                                chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
+                            }
+                        }
+                        break;
+
+                    case RoomFeature.Fountain when fountainPrefab != null && room.FeatureSpots.Count > 0:
+                        Spawn(fountainPrefab, room.FeatureSpots[0], Quaternion.identity);
+                        break;
+                }
+            }
+        }
+
+        private void TickVault()
+        {
+            if (vault == null || vault.Open || vault.Levers.Count == 0) return;
+            foreach (var l in vault.Levers) if (l == null || !l.Pulled.Value) return;
+            vault.Open = true;
+            foreach (var l in vault.Levers) l.ServerLock();
+            SetGates(vault.Gates, false);
+            TitleCardRpc("THE VAULT OPENS", "Treasure lies within");
+        }
+
+        /// <summary>
+        /// Anyone who falls (into a chasm, or through the world) climbs back out at the
+        /// nearest doorway of the room they fell in, a fifth of their health the poorer.
+        /// </summary>
+        private void TickFalls()
+        {
+            if (Layout == null) return;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || p.transform.position.y > -3f) continue;
+                if (rescuedAt.TryGetValue(p, out var t) && Time.time - t < 2f) continue;
+                rescuedAt[p] = Time.time;
+
+                var room = Layout.RoomAt(p.transform.position, 2f) ?? Layout.StartRoom;
+                var safe = room.Center;
+                for (int side = 0; side < 4; side++)
+                {
+                    if (!room.Doors[side]) continue;
+                    var d = DungeonLayout.Dir[side];
+                    bool alongX = side == 0 || side == 2;
+                    safe = room.Center + new Vector3(d.x, 0f, d.y) * ((alongX ? room.Size.y : room.Size.x) / 2f - 1.5f);
+                    break;
+                }
+                p.Health.ServerDamage(p.Health.Max.Value * 0.2f, p.transform.position);
+                p.GetComponent<NetworkPlayer>().RescueRpc(safe + Vector3.up * 0.1f);
+            }
+        }
 
         private List<Portcullis> SpawnGates(DungeonLayout.Room room)
         {
@@ -103,6 +211,8 @@ namespace Deepbound.World
         {
             TickBossArena();
             TickAmbush();
+            TickVault();
+            TickFalls();
         }
 
         private void TickBossArena()

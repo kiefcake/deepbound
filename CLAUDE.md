@@ -22,7 +22,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 - **If the user has the game open**, Windows locks the exe: set `DEEPBOUND_BUILD_PATH=Builds/DeepboundNext/Deepbound.exe`
   for the build, then `cp -rf Builds/DeepboundNext/. Builds/Deepbound/` once they close it. Check with
   `tasklist | grep -i deepbound`. Never kill their game to rebuild.
-- **Smoke test** (headless, the main regression check; it waits on events, so it is robust to new checks; ~28 PASS lines on host, 8 on client, zero FAIL):
+- **Smoke test** (headless, the main regression check; it waits on events, so it is robust to new checks; ~33 PASS lines on host, 8 on client, zero FAIL):
   ```
   cd Builds/Deepbound && L=$(cygpath -w "$PWD")
   ./Deepbound.exe -batchmode -nographics -host -smoketest 40 -logFile "$L\\host.log" & sleep 4
@@ -100,7 +100,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
   Hollow King (cleave, slam, summons, enrage).
 - Dungeon: 3 themed floors, chests (side rooms), urns, powder barrels, spike traps, blood altars, merchant per
   start room. Encounters (`DungeonDirector.Encounters.cs`): sealed boss arenas (boss dormant until the party is
-  in; `Portcullis` gates) and one ambush room per floor (two waves, then a chest). Difficulty Normal/Hard/Nightmare
+  in; `Portcullis` gates) and one ambush room per floor (two waves, then a chest). Feature rooms (`RoomFeature` in `DungeonLayout`, dressed in `DungeonBuilder`, run in `SetupFeatures`/`TickVault`/`TickFalls`): Great Hall (30x30 colonnade, chandeliers, banners), Chasm (pit with two railed bridges; falling below y=-3 costs 20% HP and `NetworkPlayer.RescueRpc` puts you at a doorway), Crypt (`Sarcophagus` wakes its occupant when you come within 4.5 m), Vault (side room behind a portcullis; three `Lever`s in the linked room must all be down within 15 s; 2 extra chests), Fountain (`Fountain`: one party-wide full heal/revive per floor). Rooms are bigger now: `CellSize` 40, combat 16-28 m. Difficulty Normal/Hard/Nightmare
   (`Difficulty.Settings`, host picks with [ ] at camp). Pings (`PlayerPings`, Z / middle mouse). Lobby "The Last Lantern" with dummies and carriage boarding.
 - 12 relics; potions RotMG-style; run stats and summary.
 

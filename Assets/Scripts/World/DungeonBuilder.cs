@@ -100,7 +100,8 @@ namespace Deepbound.World
             float w = room.Size.x, d = room.Size.y, h = room.Height;
             string floorMat = Mat.Flagstone;
 
-            structure.AddBox(c + Vector3.down * FloorThickness / 2f, new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), floorMat);
+            if (room.Feature == RoomFeature.Chasm) BuildChasmFloor(room, structure, dressing, lights);
+            else structure.AddBox(c + Vector3.down * FloorThickness / 2f, new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), floorMat);
             structure.AddBox(c + Vector3.up * (h + FloorThickness / 2f), new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), Mat.StoneWall);
 
             for (int side = 0; side < 4; side++) BuildWall(room, side, structure);
@@ -117,6 +118,15 @@ namespace Deepbound.World
             }
 
             PlaceWallTorches(room, lights, rng);
+
+            switch (room.Feature)
+            {
+                case RoomFeature.GreatHall: DressGreatHall(room, dressing, lights); return;
+                case RoomFeature.Chasm: return; // the pit is the dressing
+                case RoomFeature.Crypt: DressCrypt(room, dressing, lights, rng); return;
+                case RoomFeature.Vault: DressVault(room, dressing, lights, rng); return;
+                case RoomFeature.Fountain: return; // the fountain is a networked object
+            }
 
             switch (room.Kind)
             {
@@ -240,6 +250,160 @@ namespace Deepbound.World
 
             if (rng.NextDouble() < 0.5) Props.BonePile(b, c + new Vector3((float)rng.NextDouble() * 4f - 2f, 0f, (float)rng.NextDouble() * 4f - 2f), rng);
             if (room.Kind == RoomKind.Combat && rng.NextDouble() < 0.4) Props.Brazier(lights, c, theme.BrazierColor, true);
+        }
+
+        // ------------------------------------------------------------------
+        // Feature rooms
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// A chasm: the floor is a ring around a pit, crossed by two narrow bridges. Far
+        /// below, a dim red glow — you can see how far it is to fall.
+        /// </summary>
+        private static void BuildChasmFloor(DungeonLayout.Room room, MeshKit.Batcher b, MeshKit.Batcher dressing, Transform lights)
+        {
+            var c = room.Center;
+            var pit = room.Pit;
+            float fullW = room.Size.x + WallThickness * 2f, fullD = room.Size.y + WallThickness * 2f;
+            float minX = c.x - fullW / 2f, maxX = c.x + fullW / 2f, minZ = c.z - fullD / 2f, maxZ = c.z + fullD / 2f;
+            float y = -FloorThickness / 2f;
+
+            void Slab(float x0, float x1, float z0, float z1)
+            {
+                if (x1 - x0 < 0.05f || z1 - z0 < 0.05f) return;
+                b.AddBox(new Vector3((x0 + x1) / 2f, y, (z0 + z1) / 2f), new Vector3(x1 - x0, FloorThickness, z1 - z0), Mat.Flagstone);
+            }
+
+            // Ring around the pit.
+            Slab(minX, maxX, minZ, pit.yMin);
+            Slab(minX, maxX, pit.yMax, maxZ);
+            Slab(minX, pit.xMin, pit.yMin, pit.yMax);
+            Slab(pit.xMax, maxX, pit.yMin, pit.yMax);
+
+            // Two bridges: one along X, one along Z, with low stone rails.
+            const float bridge = 2.2f;
+            Slab(pit.xMin, pit.xMax, c.z - bridge / 2f, c.z + bridge / 2f);
+            Slab(c.x - bridge / 2f, c.x + bridge / 2f, pit.yMin, pit.yMax);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                dressing.AddBox(new Vector3(c.x - pit.width / 4f - bridge / 4f, 0.25f, c.z + s * (bridge / 2f + 0.1f)), new Vector3(pit.width / 2f - bridge / 2f, 0.5f, 0.2f), Mat.StoneWall);
+                dressing.AddBox(new Vector3(c.x + pit.width / 4f + bridge / 4f, 0.25f, c.z + s * (bridge / 2f + 0.1f)), new Vector3(pit.width / 2f - bridge / 2f, 0.5f, 0.2f), Mat.StoneWall);
+                dressing.AddBox(new Vector3(c.x + s * (bridge / 2f + 0.1f), 0.25f, c.z - pit.height / 4f - bridge / 4f), new Vector3(0.2f, 0.5f, pit.height / 2f - bridge / 2f), Mat.StoneWall);
+                dressing.AddBox(new Vector3(c.x + s * (bridge / 2f + 0.1f), 0.25f, c.z + pit.height / 4f + bridge / 4f), new Vector3(0.2f, 0.5f, pit.height / 2f - bridge / 2f), Mat.StoneWall);
+            }
+
+            // Pit walls going down, and the glowing bottom.
+            const float depth = 10f;
+            b.AddBox(new Vector3(pit.center.x, -depth / 2f, pit.yMin - 0.3f), new Vector3(pit.width, depth, 0.6f), Mat.Rubble);
+            b.AddBox(new Vector3(pit.center.x, -depth / 2f, pit.yMax + 0.3f), new Vector3(pit.width, depth, 0.6f), Mat.Rubble);
+            b.AddBox(new Vector3(pit.xMin - 0.3f, -depth / 2f, pit.center.y), new Vector3(0.6f, depth, pit.height), Mat.Rubble);
+            b.AddBox(new Vector3(pit.xMax + 0.3f, -depth / 2f, pit.center.y), new Vector3(0.6f, depth, pit.height), Mat.Rubble);
+            b.AddBox(new Vector3(pit.center.x, -depth - 0.2f, pit.center.y), new Vector3(pit.width, 0.4f, pit.height), Mat.Rubble);
+
+            // Kerb stones mark the lip, broken where the bridges cross.
+            void Kerb(Vector3 from, Vector3 to)
+            {
+                var mid = (from + to) / 2f;
+                var size = new Vector3(Mathf.Abs(to.x - from.x) + 0.35f, 0.14f, Mathf.Abs(to.z - from.z) + 0.35f);
+                if (size.x < 0.6f && size.z < 0.6f) return;
+                dressing.AddBox(mid + Vector3.up * 0.07f, size, Mat.StoneWall);
+            }
+            float gap = bridge / 2f + 0.3f;
+            foreach (float z in new[] { pit.yMin, pit.yMax })
+            {
+                Kerb(new Vector3(pit.xMin, 0f, z), new Vector3(c.x - gap, 0f, z));
+                Kerb(new Vector3(c.x + gap, 0f, z), new Vector3(pit.xMax, 0f, z));
+            }
+            foreach (float x in new[] { pit.xMin, pit.xMax })
+            {
+                Kerb(new Vector3(x, 0f, pit.yMin), new Vector3(x, 0f, c.z - gap));
+                Kerb(new Vector3(x, 0f, c.z + gap), new Vector3(x, 0f, pit.yMax));
+            }
+
+            // Embers glowing in the cracks far below: the only way to judge the drop.
+            var rng = new System.Random(room.Id * 7919 + 17);
+            for (int i = 0; i < 18; i++)
+            {
+                float ex = Mathf.Lerp(pit.xMin + 0.6f, pit.xMax - 0.6f, (float)rng.NextDouble());
+                float ez = Mathf.Lerp(pit.yMin + 0.6f, pit.yMax - 0.6f, (float)rng.NextDouble());
+                float len = 0.6f + (float)rng.NextDouble() * 1.8f;
+                bool alongX = rng.Next(2) == 0;
+                dressing.AddBox(new Vector3(ex, -depth + 0.02f, ez), alongX ? new Vector3(len, 0.06f, 0.18f) : new Vector3(0.18f, 0.06f, len), Mat.Flame);
+            }
+
+            foreach (var (height, range, intensity) in new[] { (-depth + 1.5f, 14f, 5f), (-depth * 0.45f, 9f, 1.4f) })
+            {
+                var glow = new GameObject("AbyssGlow").AddComponent<Light>();
+                glow.transform.SetParent(lights, false);
+                glow.transform.position = new Vector3(pit.center.x, height, pit.center.y);
+                glow.type = LightType.Point;
+                glow.color = new Color(0.95f, 0.3f, 0.1f);
+                glow.range = range;
+                glow.intensity = intensity;
+            }
+        }
+
+        /// <summary>A great hall: a colonnade down both sides, chandeliers, and banners in the floor's colours.</summary>
+        private static void DressGreatHall(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights)
+        {
+            var c = room.Center;
+            for (int i = 0; i < 4; i++)
+            {
+                float z = -room.Size.y / 2f + room.Size.y * (i + 0.5f) / 4f;
+                Props.Pillar(b, c + new Vector3(-room.Size.x * 0.28f, 0f, z), room.Height);
+                Props.Pillar(b, c + new Vector3(room.Size.x * 0.28f, 0f, z), room.Height);
+            }
+            for (int i = 0; i < 2; i++)
+            {
+                var at = c + new Vector3(0f, room.Height - 2.2f, (i == 0 ? -1f : 1f) * room.Size.y * 0.22f);
+                Props.Chandelier(lights, b, at, room.Height - at.y, theme.TorchColor);
+            }
+            var bannerColor = theme.BrazierColor * 0.6f;
+            for (int side = 1; side < 4; side += 2)
+            {
+                var d = DungeonLayout.Dir[side];
+                for (float z = -room.Size.y / 2f + 5f; z < room.Size.y / 2f - 4f; z += 6f)
+                {
+                    if (room.Doors[side] && Mathf.Abs(z) < DungeonLayout.CorridorWidth + 1f) continue;
+                    var p = c + new Vector3(d.x * (room.Size.x / 2f - 0.15f), room.Height - 3.2f, z);
+                    Props.Banner(lights, p, -new Vector3(d.x, 0f, 0f), bannerColor);
+                }
+            }
+        }
+
+        /// <summary>A crypt: candles, bones and a stone altar. The sarcophagi themselves are networked.</summary>
+        private static void DressCrypt(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
+        {
+            var c = room.Center;
+            b.AddBox(c + Vector3.up * 0.45f, new Vector3(2.4f, 0.9f, 1.2f), Mat.StoneWall);
+            for (int i = 0; i < 6; i++)
+            {
+                var p = c + new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * (room.Size.x - 6f);
+                Props.BonePile(b, p, rng);
+            }
+            Props.Candles(lights, c + Vector3.up * 0.9f, new Color(0.9f, 0.75f, 0.5f));
+            Props.Candles(lights, c + new Vector3(-room.Size.x * 0.3f, 0f, room.Size.y * 0.3f), new Color(0.9f, 0.75f, 0.5f));
+            Props.Candles(lights, c + new Vector3(room.Size.x * 0.3f, 0f, -room.Size.y * 0.3f), new Color(0.9f, 0.75f, 0.5f));
+        }
+
+        /// <summary>A treasure vault: heaped gold and a pedestal. The chests inside are networked.</summary>
+        private static void DressVault(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
+        {
+            var c = room.Center;
+            for (int i = 0; i < 7; i++)
+            {
+                var p = c + new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * (room.Size.x - 4f);
+                float s = 0.5f + (float)rng.NextDouble() * 0.6f;
+                b.Add(MeshKit.Lathe("goldHeap", new[] { new Vector2(0f, 0f), new Vector2(0.6f, 0f), new Vector2(0.3f, 0.3f), new Vector2(0f, 0.38f) }, 9),
+                    Mat.Gold, Matrix4x4.TRS(p, Quaternion.Euler(0f, rng.Next(360), 0f), Vector3.one * s));
+            }
+            var glow = new GameObject("GoldGlow").AddComponent<Light>();
+            glow.transform.SetParent(lights, false);
+            glow.transform.position = c + Vector3.up * 2.5f;
+            glow.type = LightType.Point;
+            glow.color = new Color(1f, 0.8f, 0.4f);
+            glow.range = 10f;
+            glow.intensity = 3f;
         }
 
         private static void DressStartRoom(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights)

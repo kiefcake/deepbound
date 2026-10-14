@@ -6,6 +6,13 @@ namespace Deepbound.World
     public enum RoomKind { Start, Combat, Side, Boss }
 
     /// <summary>
+    /// What makes a room more than four walls. Assigned per floor from the seed, so every
+    /// peer agrees. Combat rooms can be a Great Hall, a Chasm or a Crypt; side rooms can be
+    /// a Vault or a Fountain.
+    /// </summary>
+    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain }
+
+    /// <summary>
     /// The abstract shape of one dungeon floor: which rooms exist, where, how big, and how
     /// they connect. No geometry — <see cref="DungeonBuilder"/> turns this into meshes.
     ///
@@ -24,7 +31,8 @@ namespace Deepbound.World
     public class DungeonLayout
     {
         /// <summary>Distance between room centres. Bounds the largest room plus a corridor.</summary>
-        public const float CellSize = 30f;
+        /// <remarks>Raised from 30m so rooms can be bigger: a 30m Great Hall still leaves a corridor.</remarks>
+        public const float CellSize = 40f;
         public const float CorridorWidth = 3.2f;
         public const float CorridorHeight = 3.8f;
 
@@ -42,6 +50,14 @@ namespace Deepbound.World
             public readonly List<Vector3> EnemySpawns = new List<Vector3>();
             /// <summary>Per-room seed for decoration, so props are stable but varied.</summary>
             public int DecorSeed;
+
+            public RoomFeature Feature;
+            /// <summary>Feature positions: sarcophagi in a crypt, levers for a vault (in the room next door), the fountain.</summary>
+            public readonly List<Vector3> FeatureSpots = new List<Vector3>();
+            /// <summary>For a chasm: the pit, as a rect in world XZ.</summary>
+            public Rect Pit;
+            /// <summary>For a vault: the room its levers are in (the one its door opens onto).</summary>
+            public Room VaultHost;
 
             public Rect Bounds => new Rect(Center.x - Size.x / 2f, Center.z - Size.y / 2f, Size.x, Size.y);
 
@@ -190,6 +206,7 @@ namespace Deepbound.World
                 s++;
             }
 
+            AssignFeatures(layout, rng);
             PlaceEnemySpawns(layout, rng, depth);
             return layout;
         }
@@ -201,9 +218,9 @@ namespace Deepbound.World
             switch (kind)
             {
                 case RoomKind.Start: size = new Vector2(12f, 12f); height = 5f; break;
-                case RoomKind.Boss: size = new Vector2(26f, 26f); height = 11f; break;
-                case RoomKind.Side: size = new Vector2(Even(rng, 10, 14), Even(rng, 10, 14)); height = 4.5f; break;
-                default: size = new Vector2(Even(rng, 13, 22), Even(rng, 13, 22)); height = 5f + rng.Next(3); break;
+                case RoomKind.Boss: size = new Vector2(30f, 30f); height = 12f; break;
+                case RoomKind.Side: size = new Vector2(Even(rng, 12, 16), Even(rng, 12, 16)); height = 5f; break;
+                default: size = new Vector2(Even(rng, 16, 28), Even(rng, 16, 28)); height = 5.5f + rng.Next(3); break;
             }
 
             var room = new Room
@@ -229,18 +246,109 @@ namespace Deepbound.World
             layout.Links.Add(new Link { A = a.Id, B = b.Id, Dir = dir });
         }
 
+        private static void AssignFeatures(DungeonLayout layout, System.Random rng)
+        {
+            var combat = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat);
+            // Shuffle so which room gets which feature varies by seed.
+            for (int i = combat.Count - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (combat[i], combat[j]) = (combat[j], combat[i]);
+            }
+
+            int next = 0;
+            Room Take() => next < combat.Count ? combat[next++] : null;
+
+            var hall = Take();
+            if (hall != null)
+            {
+                hall.Feature = RoomFeature.GreatHall;
+                hall.Size = new Vector2(30f, 30f);
+                hall.Height = 9f;
+            }
+
+            var chasm = Take();
+            if (chasm != null)
+            {
+                chasm.Feature = RoomFeature.Chasm;
+                chasm.Size = new Vector2(Mathf.Max(chasm.Size.x, 24f), Mathf.Max(chasm.Size.y, 24f));
+                chasm.Height = 8f;
+                // The pit runs across the middle; bridges cross it on both axes.
+                float pw = chasm.Size.x * 0.55f, pd = chasm.Size.y * 0.5f;
+                chasm.Pit = new Rect(chasm.Center.x - pw / 2f, chasm.Center.z - pd / 2f, pw, pd);
+            }
+
+            var crypt = Take();
+            if (crypt != null)
+            {
+                crypt.Feature = RoomFeature.Crypt;
+                // Sarcophagi along the walls, clear of the doorways.
+                for (int side = 0; side < 4; side++)
+                {
+                    bool alongX = side == 0 || side == 2;
+                    float len = alongX ? crypt.Size.x : crypt.Size.y;
+                    var d = Dir[side];
+                    float off = (alongX ? crypt.Size.y : crypt.Size.x) / 2f - 1.6f;
+                    for (float t = -len / 2f + 3f; t <= len / 2f - 3f; t += 5f)
+                    {
+                        if (crypt.Doors[side] && Mathf.Abs(t) < CorridorWidth + 1f) continue;
+                        crypt.FeatureSpots.Add(crypt.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)));
+                    }
+                }
+            }
+
+            var sides = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side);
+            if (sides.Count > 0)
+            {
+                var vault = sides[0];
+                vault.Feature = RoomFeature.Vault;
+                foreach (var link in layout.Links)
+                {
+                    if (link.B == vault.Id) vault.VaultHost = layout.Rooms[link.A];
+                    if (link.A == vault.Id) vault.VaultHost = layout.Rooms[link.B];
+                }
+                // Three levers spread around the host room's walls.
+                var host = vault.VaultHost;
+                if (host != null)
+                {
+                    for (int side = 0, placed = 0; side < 4 && placed < 3; side++)
+                    {
+                        // Mid-wall, or off to one side of a doorway.
+                        var d = Dir[side];
+                        bool alongX = side == 0 || side == 2;
+                        float off = (alongX ? host.Size.y : host.Size.x) / 2f - 0.6f;
+                        float t = (alongX ? host.Size.x : host.Size.y) * (host.Doors[side] ? 0.32f : 0f);
+                        vault.FeatureSpots.Add(host.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)));
+                        placed++;
+                    }
+                }
+            }
+            if (sides.Count > 1)
+            {
+                sides[1].Feature = RoomFeature.Fountain;
+                sides[1].FeatureSpots.Add(sides[1].Center);
+            }
+        }
+
         private static void PlaceEnemySpawns(DungeonLayout layout, System.Random rng, int depth)
         {
             foreach (var room in layout.Rooms)
             {
                 if (room.Kind == RoomKind.Start || room.Kind == RoomKind.Boss) continue;
+                // Crypt dead come out of the sarcophagi; vaults and fountains are rewards.
+                if (room.Feature == RoomFeature.Crypt || room.Feature == RoomFeature.Vault || room.Feature == RoomFeature.Fountain) continue;
 
                 int count = room.Kind == RoomKind.Side ? 2 : 3 + rng.Next(2) + Mathf.Min(depth, 3);
-                for (int i = 0; i < count; i++)
+                if (room.Feature == RoomFeature.GreatHall) count += 3;
+                for (int i = 0, tries = 0; i < count && tries < 60; tries++)
                 {
                     float x = (float)(rng.NextDouble() - 0.5) * (room.Size.x - 4f);
                     float z = (float)(rng.NextDouble() - 0.5) * (room.Size.y - 4f);
-                    room.EnemySpawns.Add(room.Center + new Vector3(x, 0.1f, z));
+                    var p = room.Center + new Vector3(x, 0.1f, z);
+                    // Never inside the pit.
+                    if (room.Feature == RoomFeature.Chasm && room.Pit.Contains(new Vector2(p.x, p.z), true)) continue;
+                    room.EnemySpawns.Add(p);
+                    i++;
                 }
             }
         }

@@ -189,6 +189,7 @@ namespace Deepbound.World
             BakeNavMesh();
             SpawnObjects(Layout);
             SetupEncounters(Layout);
+            SetupFeatures(Layout);
             SpawnEnemies(Layout);
 
             foreach (var p in PlayerLife.All)

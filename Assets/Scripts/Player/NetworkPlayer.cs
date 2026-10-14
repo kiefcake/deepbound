@@ -204,6 +204,14 @@ namespace Deepbound.Player
             Sfx.Play(wet ? Sound.Splash : Sound.Step, p, wet ? 0.35f : 0.25f);
         }
 
+        /// <summary>Server → owner: you fell; climb out here.</summary>
+        [Rpc(SendTo.Owner)]
+        public void RescueRpc(Vector3 at)
+        {
+            motor.Teleport(at, transform.rotation);
+            UI.GameHud.Feed("You climb out of the depths, battered.", new Color(1f, 0.5f, 0.4f));
+        }
+
         private void OnLocalHurt(float amount)
         {
             shake = Mathf.Min(1f, shake + amount / 40f);

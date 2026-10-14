@@ -196,7 +196,7 @@ namespace Deepbound.Networking
                 var chests = FindObjectsByType<Chest>(FindObjectsSortMode.None);
                 int urns = FindObjectsByType<Breakable>(FindObjectsSortMode.None).Count(b => b.Type.Value == Breakable.Kind.Urn);
                 Log("dungeon objects", chests.Length + " chests for " + sideRooms + " side rooms, " + urns + " urns, " +
-                    FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Length + " traps", chests.Length == sideRooms && urns > 0);
+                    FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Length + " traps", chests.Length == sideRooms + (layout.Rooms.Any(r => r.Feature == RoomFeature.Vault) ? 2 : 0) && urns > 0);
                 if (chests.Length > 0)
                 {
                     int dropsBefore = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
@@ -216,6 +216,58 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(1.2f);
                     Log("powder barrel", "exploded and gone: " + (barrel == null), barrel == null);
                 }
+
+                // Feature rooms.
+                var fm = local.GetComponent<FirstPersonMotor>();
+                string features = string.Join(", ", layout.Rooms.Where(r => r.Feature != RoomFeature.None).Select(r => r.Feature.ToString()));
+                Log("feature rooms", features, layout.Rooms.Any(r => r.Feature == RoomFeature.GreatHall) && layout.Rooms.Any(r => r.Feature == RoomFeature.Chasm));
+
+                var sarc = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None).FirstOrDefault();
+                if (sarc != null)
+                {
+                    fm.Teleport(sarc.transform.position + sarc.transform.forward * 3f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.5f);
+                    Log("crypt", "sarcophagus opened on approach: " + sarc.Opened.Value, sarc.Opened.Value);
+                }
+
+                var levers = FindObjectsByType<Lever>(FindObjectsSortMode.None);
+                var gatesBefore = FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Count(g => g.Closed.Value);
+                foreach (var lv in levers)
+                {
+                    fm.Teleport(lv.transform.position + lv.transform.forward * 1.5f, Quaternion.LookRotation(-lv.transform.forward));
+                    yield return new WaitForSeconds(0.2f);
+                    lv.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.2f);
+                }
+                yield return new WaitForSeconds(0.3f);
+                var gatesAfter = FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Count(g => g.Closed.Value);
+                Log("vault", levers.Length + " levers pulled, closed gates " + gatesBefore + " -> " + gatesAfter, levers.Length == 3 && gatesAfter < gatesBefore);
+
+                var fountain = FindObjectsByType<Fountain>(FindObjectsSortMode.None).FirstOrDefault();
+                if (fountain != null)
+                {
+                    var hpF = local.GetComponent<Health>();
+                    hpF.ServerSetFraction(0.3f);
+                    fm.Teleport(fountain.transform.position + Vector3.forward * 2f, Quaternion.LookRotation(Vector3.back));
+                    yield return new WaitForSeconds(0.2f);
+                    fountain.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.2f);
+                    Log("fountain", "hp " + hpF.Current.Value.ToString("F0") + " / " + hpF.Max.Value.ToString("F0") + ", spent " + fountain.Spent.Value, fountain.Spent.Value && hpF.Fraction > 0.99f);
+                }
+
+                var chasmRoom = layout.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Chasm);
+                if (chasmRoom != null)
+                {
+                    // Drop the player into the pit (beside the bridges) and expect a rescue.
+                    var pitPoint = new Vector3(chasmRoom.Pit.xMin + 1.5f, -6f, chasmRoom.Pit.yMin + 1.5f);
+                    fm.Teleport(pitPoint, local.transform.rotation);
+                    yield return new WaitForSeconds(1.2f);
+                    Log("chasm fall", "y after fall " + local.transform.position.y.ToString("F1") + ", hp " + local.GetComponent<Health>().Current.Value.ToString("F0"),
+                        local.transform.position.y > -0.5f);
+                }
+                fm.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                local.GetComponent<Health>().ServerSetFraction(1f);
+                yield return new WaitForSeconds(0.3f);
 
                 // Ambush: step into the trap room, clear both waves, find the chest.
                 var dir = DungeonDirector.Instance;
@@ -286,8 +338,12 @@ namespace Deepbound.Networking
             // Wipe the party and check the run summary has something to show.
             if (net.IsServer && local != null)
             {
-                foreach (var p in PlayerLife.All) p.Health.ServerDamage(1e6f, p.transform.position);
-                yield return new WaitForSeconds(0.6f);
+                // Repeat: a Phoenix Feather (or its grace window) can cheat the first blow.
+                for (int tries = 0; tries < 4 && DungeonDirector.Instance.Phase.Value != RunPhase.Wiped; tries++)
+                {
+                    foreach (var p in PlayerLife.All) p.Health.ServerDamage(1e6f, p.transform.position);
+                    yield return new WaitForSeconds(tries == 0 ? 0.6f : 2.5f);
+                }
                 var d = DungeonDirector.Instance;
                 var prog = local.GetComponent<PlayerProgress>();
                 Log("run summary", "phase " + d.Phase.Value + ", run " + (d.RunEndedAt.Value - d.RunStartedAt.Value).ToString("F0") + "s, kills " + prog.Kills.Value +
@@ -391,6 +447,28 @@ namespace Deepbound.Networking
             motor.Teleport(mFrom, Quaternion.LookRotation(m - mFrom));
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "1b_merchant");
+
+            // Every feature room on the floor, from a high corner looking across it.
+            foreach (var room in layout.Rooms)
+            {
+                if (room.Feature == RoomFeature.None) continue;
+                var fp = room.Center + new Vector3(-room.Size.x * 0.42f, 0.1f, -room.Size.y * 0.42f);
+                if (room.Feature != RoomFeature.Crypt)
+                    foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                        if (!(e is BossBrain) && room.Contains(e.transform.position, 1f)) e.GetComponent<Health>().ServerDamage(1e6f, fp);
+                var look = room.Center - fp;
+                if (room.Feature == RoomFeature.Chasm)
+                {
+                    // At the lip, between a bridge and the corner, peering down.
+                    fp = new Vector3(room.Pit.xMin - 0.8f, 0.1f, room.Pit.center.y + room.Pit.height * 0.25f);
+                    look = Vector3.right;
+                }
+                motor.Teleport(fp, Quaternion.LookRotation(look));
+                motor.SetPitch(room.Feature == RoomFeature.Chasm ? 50f : 0f);
+                yield return new WaitForSeconds(1.2f);
+                yield return Shot(dir, "1c_feature_" + room.Feature);
+                motor.SetPitch(0f);
+            }
 
             foreach (var room in layout.Rooms)
             {

@@ -180,6 +180,13 @@ namespace Deepbound.Player
         /// <c>Move</c> call — the old prototype's "teleport doesn't stick" bug. Disabling the
         /// controller around the write is the fix.
         /// </summary>
+        /// <summary>Tilt the view (degrees, positive looks down). For staged screenshots.</summary>
+        public void SetPitch(float degrees)
+        {
+            pitch = Mathf.Clamp(degrees, -maxPitch, maxPitch);
+            if (cameraPivot != null) cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        }
+
         public void Teleport(Vector3 position, Quaternion rotation)
         {
             bool wasEnabled = controller.enabled;
