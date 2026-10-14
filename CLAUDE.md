@@ -22,7 +22,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 - **If the user has the game open**, Windows locks the exe: set `DEEPBOUND_BUILD_PATH=Builds/DeepboundNext/Deepbound.exe`
   for the build, then `cp -rf Builds/DeepboundNext/. Builds/Deepbound/` once they close it. Check with
   `tasklist | grep -i deepbound`. Never kill their game to rebuild.
-- **Smoke test** (headless, the main regression check; it waits on events, so it is robust to new checks; ~42 PASS lines on host, 8 on client, zero FAIL):
+- **Smoke test** (headless, the main regression check; it waits on events, so it is robust to new checks; ~45 PASS lines on host, 8 on client, zero FAIL):
   ```
   cd Builds/Deepbound && L=$(cygpath -w "$PWD")
   ./Deepbound.exe -batchmode -nographics -host -smoketest 40 -logFile "$L\\host.log" & sleep 4
@@ -76,6 +76,11 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 - **Combos** (`Classes/Combos.cs`): Shatter (heavy hits consume chill x1.5), Exposed (stunned +25%), Distracted
   (taunted, +15% from non-taunters), Blessed (in Consecrate +20%), Aegis Burst (shield broken), Mark spreads on
   kill. All player->enemy damage goes through `Health.ServerOutgoingMultiplier` (GearEffects -> Combos).
+- **Anvil also**: refines/attunes worn gear (`Gear.RefineCost/AttuneCost`, `ReforgeRpc`), sets runes (`SocketRuneRpc`),
+  melts spare Sigils into embers once Q and E are rank 3. Team interactions: Smoke Screen (`PlayerLife.VeiledUntil`,
+  allies in a Rogue's smoke are untargetable) and Inspired (`ClericKit.IsInspired`, beam target +15%).
+- **Smoke-test flakiness to avoid**: loot is random, so checks on counts (sigils, runes, gates) must be relative to
+  the value before the action, and tests must not reuse an enemy an earlier check stunned/chilled.
 - **Relics**: one of each per player; effects live in `Relics` (damage-dealt hook), `PlayerProgress`
   (multipliers, incoming defence, Phoenix) and kits (cooldowns via `CooldownMultiplier`).
 
