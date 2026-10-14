@@ -42,6 +42,26 @@ namespace Deepbound.UI
         private struct FeedLine { public string Text; public Color Color; public float Time; }
         private static readonly List<FeedLine> FeedLines = new List<FeedLine>();
 
+        private static string cardTitle, cardSub;
+        private static float cardUntil;
+
+        /// <summary>A big centred announcement: a boss's name as its arena seals, an ambush.</summary>
+        public static void ShowTitleCard(string title, string subtitle)
+        {
+            cardTitle = title;
+            cardSub = subtitle;
+            cardUntil = UnityEngine.Time.time + 3.5f;
+        }
+
+        private void DrawTitleCard(float w, float h)
+        {
+            if (cardTitle == null || Time.time > cardUntil) return;
+            float a = Mathf.Clamp01((cardUntil - Time.time) / 1f) * Mathf.Clamp01((3.5f - (cardUntil - Time.time)) * 4f);
+            Rect(0, h * 0.3f - 12, w, 96, new Color(0f, 0f, 0f, 0.55f * a));
+            UiSkin.Shadowed(new Rect(0, h * 0.3f - 4, w, 54), cardTitle, new GUIStyle(big) { fontSize = 44, normal = { textColor = new Color(0.9f, 0.3f, 0.2f) } }, a);
+            GUI.Label(new Rect(0, h * 0.3f + 50, w, 26), cardSub, new GUIStyle(center) { fontSize = 17, normal = { textColor = new Color(1f, 1f, 1f, a) } });
+        }
+
         /// <summary>Adds a line to the event feed (potions drunk, and so on). Any peer.</summary>
         public static void Feed(string text, Color color)
         {
@@ -180,6 +200,15 @@ namespace Deepbound.UI
             GUI.Label(new Rect(0, cy, w, 22), "You are the " + ClassDefinition.For(current).Name.ToUpperInvariant() + "   ·   press B to change class",
                 new GUIStyle(center) { normal = { textColor = Gold } });
             GUI.Label(new Rect(0, cy + 22, w, 20), ClassDefinition.Pitch(current), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+
+            // Difficulty: the host chooses with [ and ]; everyone sees it.
+            var diff = Enemies.Difficulty.Level;
+            float dy = cy - 50;
+            Rect(w / 2f - 230, dy - 6, 460, 40, Panel);
+            bool host = Unity.Netcode.NetworkManager.Singleton.IsHost;
+            GUI.Label(new Rect(0, dy - 2, w, 20), "DIFFICULTY:  " + diff.Name.ToUpperInvariant() + (host ? "      ( [  /  ]  to change )" : ""),
+                new GUIStyle(center) { normal = { textColor = diff.Name == "Normal" ? Color.white : new Color(1f, 0.45f, 0.3f) } });
+            GUI.Label(new Rect(0, dy + 16, w, 18), diff.Blurb, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
             if (counting)
             {
                 int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
@@ -216,6 +245,15 @@ namespace Deepbound.UI
             if (!near) shopOpen = false;
             MenuOpen = shopOpen || CharacterSelect.Open || PauseMenu.Open;
             statsHeld = keyboard != null && keyboard.tabKey.isPressed;
+
+            // The host sets difficulty at camp.
+            var dir = DungeonDirector.Instance;
+            if (keyboard != null && dir != null && DungeonDirector.InLobby && Unity.Netcode.NetworkManager.Singleton.IsHost)
+            {
+                int cur = dir.DifficultyIndex.Value;
+                if (keyboard.rightBracketKey.wasPressedThisFrame) dir.SetDifficultyRpc((byte)Mathf.Min(cur + 1, Enemies.Difficulty.Settings.Length - 1));
+                if (keyboard.leftBracketKey.wasPressedThisFrame) dir.SetDifficultyRpc((byte)Mathf.Max(cur - 1, 0));
+            }
 
             // Class choice is a camp decision: number keys pick one, only in the lobby.
             if (keyboard != null && DungeonDirector.InLobby)
@@ -262,6 +300,7 @@ namespace Deepbound.UI
             DrawRevive(w, h);
             DrawPhase(w, h);
             DrawBanner(w, h);
+            DrawTitleCard(w, h);
             DrawControlsHint(w, h);
             DrawFeed(h);
             DrawMerchant(w, h);

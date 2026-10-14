@@ -37,6 +37,7 @@ namespace Deepbound.Enemies
         {
             base.OnNetworkSpawn();
             Active = this;
+            if (IsServer) health.DamagedServer += (_, __) => Dormant = false;
         }
 
         public override void OnNetworkDespawn()
@@ -54,11 +55,22 @@ namespace Deepbound.Enemies
 
         protected bool Casting => Time.time < castUntil;
 
+        /// <summary>
+        /// Server: asleep on the throne until the arena seals (or it is hit). The director
+        /// wakes it; damage wakes it too, so a party cannot plink it from the doorway.
+        /// </summary>
+        public bool Dormant { get; set; }
+
         protected override bool IsBoss => true;
         protected override bool Heavy => true;
 
         protected override void Update()
         {
+            if (IsServer && !IsDead && Dormant)
+            {
+                if (agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
+                return;
+            }
             if (IsServer && !IsDead && Casting)
             {
                 agent.isStopped = true;

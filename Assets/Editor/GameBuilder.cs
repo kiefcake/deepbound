@@ -63,8 +63,14 @@ namespace Deepbound.EditorTools
             var breakable = BuildBreakablePrefab();
             var director = BuildDirectorPrefab(skeleton, archer, dummy, new[] { warden, lich, king }, ghoul, brute, necro);
             WireDirectorObjects(director, chest, altar, breakable, trap, loot);
+            var gate = BuildPortcullisPrefab();
+            var dso = new SerializedObject(director.GetComponent<DungeonDirector>());
+            dso.FindProperty("portcullisPrefab").objectReferenceValue = gate.GetComponent<NetworkObject>();
+            dso.ApplyModifiedPropertiesWithoutUndo();
+            EditorUtility.SetDirty(director);
+            AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -280,6 +286,26 @@ namespace Deepbound.EditorTools
             }
             root.AddComponent<T>();
             return SavePrefab(root, name);
+        }
+
+        /// <summary>A doorway gate: blocks players with a box, enemies with a carving obstacle.</summary>
+        private static GameObject BuildPortcullisPrefab()
+        {
+            var root = new GameObject("Portcullis");
+            root.AddComponent<NetworkObject>();
+            var size = new Vector3(DungeonLayout.CorridorWidth, DungeonLayout.CorridorHeight, 0.5f);
+            var box = root.AddComponent<BoxCollider>();
+            box.size = size;
+            box.center = new Vector3(0f, size.y / 2f, 0f);
+            box.enabled = false;
+            var obstacle = root.AddComponent<NavMeshObstacle>();
+            obstacle.shape = NavMeshObstacleShape.Box;
+            obstacle.size = size;
+            obstacle.center = box.center;
+            obstacle.carving = true;
+            obstacle.enabled = false;
+            root.AddComponent<Portcullis>();
+            return SavePrefab(root, "Portcullis");
         }
 
         private static GameObject BuildBreakablePrefab()

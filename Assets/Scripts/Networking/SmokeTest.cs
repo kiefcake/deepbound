@@ -210,6 +210,30 @@ namespace Deepbound.Networking
                     Log("powder barrel", "exploded and gone: " + (barrel == null), barrel == null);
                 }
 
+                // Ambush: step into the trap room, clear both waves, find the chest.
+                var dir = DungeonDirector.Instance;
+                if (dir.AmbushRoom != null)
+                {
+                    var amb = dir.AmbushRoom;
+                    var am = local.GetComponent<FirstPersonMotor>();
+                    int chestsBefore = FindObjectsByType<Chest>(FindObjectsSortMode.None).Length;
+                    am.Teleport(amb.Center + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.5f);
+                    int waveSeen = dir.AmbushWave;
+                    bool gatesShut = FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Any(g => g.Closed.Value);
+                    for (int pass = 0; pass < 6 && dir.AmbushWave < 3; pass++)
+                    {
+                        foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                            if (!(e is BossBrain) && !e.IsDead && amb.Contains(e.transform.position, 1f)) e.GetComponent<Health>().ServerDamage(1e6f, e.transform.position, local.NetworkObjectId);
+                        yield return new WaitForSeconds(0.6f);
+                    }
+                    int chestsAfter = FindObjectsByType<Chest>(FindObjectsSortMode.None).Length;
+                    Log("ambush", "triggered wave " + waveSeen + ", gates shut " + gatesShut + ", final wave " + dir.AmbushWave + ", chests " + chestsBefore + " -> " + chestsAfter,
+                        waveSeen == 1 && gatesShut && dir.AmbushWave == 3 && chestsAfter == chestsBefore + 1);
+                    am.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                    yield return new WaitForSeconds(0.3f);
+                }
+
                 // Kill a handful of skeletons and confirm they drop loot that a player can take.
                 var victims = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain)).Take(6).ToList();
                 foreach (var v in victims) v.GetComponent<Health>().ServerDamage(1e6f, v.transform.position, local.NetworkObjectId);
@@ -243,6 +267,7 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(1f);
                 var phase = DungeonDirector.Instance.Phase.Value;
                 Log("boss kill -> phase", phase.ToString(), phase == RunPhase.FloorCleared);
+                Log("boss arena", "sealed when hit: " + DungeonDirector.Instance.BossSealed, DungeonDirector.Instance.BossSealed);
             }
 
             // Wait until the party has descended to the next floor, so the wipe is not

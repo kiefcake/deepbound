@@ -117,8 +117,8 @@ namespace Deepbound.Enemies
         public void ServerScale(int players, int depth)
         {
             scaledPlayersBase = players;
-            float hpScale = (IsBoss ? Difficulty.BossHealth(players) : Difficulty.EnemyHealth(players)) * Difficulty.DepthHealth(depth);
-            damage *= Difficulty.Damage(players) * Difficulty.DepthDamage(depth);
+            float hpScale = (IsBoss ? Difficulty.BossHealth(players) : Difficulty.EnemyHealth(players)) * Difficulty.DepthHealth(depth) * Difficulty.Level.Health;
+            damage *= Difficulty.Damage(players) * Difficulty.DepthDamage(depth) * Difficulty.Level.Damage;
             depthForLoot = depth;
             health.ServerSetMax(maxHealth * hpScale, refill: true);
         }
@@ -364,6 +364,18 @@ namespace Deepbound.Enemies
             PlayActionRpc(RigAction.Stagger, Mathf.Min(seconds, 0.6f));
         }
 
+        /// <summary>Server: wake up hunting the nearest targetable player (ambush spawns).</summary>
+        public void ServerAggroNearest()
+        {
+            float best = float.MaxValue;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || !p.Targetable) continue;
+                float d = FlatDistance(p.transform.position);
+                if (d < best) { best = d; target = p.Health; }
+            }
+        }
+
         public void ServerTaunt(Health taunterHealth, float seconds)
         {
             taunter = taunterHealth;
@@ -404,7 +416,7 @@ namespace Deepbound.Enemies
             PlayActionRpc(RigAction.Death, 1.1f);
             if (!NoLoot && lootPrefab != null)
             {
-                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, 1f + 0.5f * depthForLoot);
+                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.5f * depthForLoot) * Difficulty.Level.Gold);
             }
             Invoke(nameof(Despawn), 4f);
         }

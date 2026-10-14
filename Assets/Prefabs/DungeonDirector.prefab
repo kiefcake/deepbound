@@ -73,6 +73,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.World.DungeonDirector
   ShowTopMostFoldoutHeaderGroup: 1
+  portcullisPrefab: {fileID: 718576205680989572, guid: 8705e581428d22d4aa7f589d23300b11, type: 3}
   skeletonPrefab: {fileID: 6347288401934167848, guid: 193fe9095fca3fe4d9657fe22d9dd2d8, type: 3}
   archerPrefab: {fileID: 1189994025091854638, guid: c9a59dea8caf8604bac5f21df48c4056, type: 3}
   ghoulPrefab: {fileID: 7136521967555521536, guid: 5972763f0fdc1cb41a1279040eaf44d5, type: 3}

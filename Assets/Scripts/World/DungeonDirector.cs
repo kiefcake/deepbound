@@ -37,7 +37,7 @@ namespace Deepbound.World
     /// ended by a boss → back to the lobby. A wipe also returns to the lobby. Nothing
     /// earned inside a run survives it.
     /// </summary>
-    public class DungeonDirector : NetworkBehaviour
+    public partial class DungeonDirector : NetworkBehaviour
     {
         public const int FloorsPerRun = 3;
         // Long enough to read the run summary before returning to camp.
@@ -65,6 +65,17 @@ namespace Deepbound.World
         public readonly NetworkVariable<RunPhase> Phase = new NetworkVariable<RunPhase>(RunPhase.Lobby);
         /// <summary>Server time the pending transition fires (descend, return, depart); 0 if none.</summary>
         public readonly NetworkVariable<double> PhaseEndsAt = new NetworkVariable<double>();
+
+        /// <summary>Index into <see cref="Difficulty.Settings"/>. The host picks it at camp.</summary>
+        public readonly NetworkVariable<byte> DifficultyIndex = new NetworkVariable<byte>();
+
+        /// <summary>Host → server: change difficulty. Only honoured in the lobby.</summary>
+        [Rpc(SendTo.Server)]
+        public void SetDifficultyRpc(byte index)
+        {
+            if (Phase.Value != RunPhase.Lobby) return;
+            DifficultyIndex.Value = (byte)Mathf.Clamp(index, 0, Difficulty.Settings.Length - 1);
+        }
 
         /// <summary>Server time the current run began (boarding the carriage), for the summary.</summary>
         public readonly NetworkVariable<double> RunStartedAt = new NetworkVariable<double>();
@@ -177,6 +188,7 @@ namespace Deepbound.World
 
             BakeNavMesh();
             SpawnObjects(Layout);
+            SetupEncounters(Layout);
             SpawnEnemies(Layout);
 
             foreach (var p in PlayerLife.All)
@@ -197,6 +209,7 @@ namespace Deepbound.World
             spawned.Clear();
             boss = null;
             bossSeen = false;
+            ResetEncounters();
 
             // Boss minions are not tracked individually; sweep up anything left.
             foreach (var brain in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
@@ -269,11 +282,11 @@ namespace Deepbound.World
 
             foreach (var room in layout.Rooms)
             {
-                if (room.EnemySpawns.Count == 0) continue;
+                if (room.EnemySpawns.Count == 0 || IsAmbushRoom(room)) continue;
 
                 // More players, more bodies: scale the room's head count, cycling through its
                 // spawn points with a little jitter for the extras.
-                int count = Mathf.RoundToInt(room.EnemySpawns.Count * Difficulty.SpawnCount(players));
+                int count = Mathf.RoundToInt(room.EnemySpawns.Count * Difficulty.SpawnCount(players) * Difficulty.Level.SpawnMultiplier);
                 bool hasBrute = false, hasNecro = false;
 
                 for (int i = 0; i < count; i++)
@@ -305,6 +318,7 @@ namespace Deepbound.World
             // The Lich raises archers from the water; everyone else raises swordsmen.
             boss.SetMinionPrefab(boss is TideLichBrain && archerPrefab != null ? archerPrefab : skeletonPrefab);
             boss.ServerScaleBoss(players, layout.Depth);
+            boss.Dormant = portcullisPrefab != null; // waits on its throne until the party arrives
             spawned.Add(bossObj);
             bossSeen = true;
         }
@@ -445,6 +459,7 @@ namespace Deepbound.World
 
                 case RunPhase.Exploring:
                     if (Layout == null) break;
+                    TickEncounters();
                     if (PartyWiped())
                     {
                         EnterPhase(RunPhase.Wiped, WipeDelay);
