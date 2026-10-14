@@ -68,6 +68,15 @@ namespace Deepbound.Player
             return false;
         }
 
+        /// <summary>Is this player held in a Cleric's Mending Beam? (Inspired: +15% damage.)</summary>
+        public static bool IsInspired(Health ally)
+        {
+            if (ally == null) return false;
+            foreach (var c in AllClerics)
+                if (c != null && c.Active && c != ally.GetComponent<ClericKit>() && c.BeamTarget.Value == ally.NetworkObjectId && c.life.CanAct) return true;
+            return false;
+        }
+
         private void OnEnable() => AllClerics.Add(this);
         private void OnDisable() => AllClerics.Remove(this);
 

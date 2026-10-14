@@ -41,7 +41,10 @@ namespace Deepbound.Player
         public readonly NetworkVariable<bool> Hidden = new NetworkVariable<bool>();
 
         /// <summary>True if enemies may target this player right now.</summary>
-        public bool Targetable => !Downed.Value && !Hidden.Value && Health.IsAlive;
+        public bool Targetable => !Downed.Value && !Hidden.Value && Health.IsAlive && Time.time >= VeiledUntil;
+
+        /// <summary>Server: inside a Rogue's smoke cloud (Smoke Screen) — enemies cannot pick you.</summary>
+        public float VeiledUntil { get; set; }
 
         /// <summary>Whether an enemy may target this health: players must be <see cref="Targetable"/>.</summary>
         public static bool CanTarget(Health h) => h != null && h.IsAlive && (!h.TryGetComponent<PlayerLife>(out var p) || p.Targetable);

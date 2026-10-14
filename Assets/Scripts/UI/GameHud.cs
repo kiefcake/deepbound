@@ -192,9 +192,22 @@ namespace Deepbound.UI
             }
 
             // Standing in consecrated ground: say so, under the crosshair.
-            if (ClericKit.InConsecration(player.transform.position))
-                GUI.Label(new Rect(0, Screen.height / 2f + 18, Screen.width, 20), "BLESSED  +20% damage",
+            var buffs = new List<string>();
+            if (ClericKit.InConsecration(player.transform.position)) buffs.Add("BLESSED +20%");
+            if (ClericKit.IsInspired(health)) buffs.Add("INSPIRED +15%");
+            if (Time.time < life.VeiledUntil || (life.IsServer == false && InRogueSmoke())) buffs.Add("SMOKE SCREEN");
+            if (buffs.Count > 0)
+                GUI.Label(new Rect(0, Screen.height / 2f + 18, Screen.width, 20), string.Join("   ", buffs),
                     new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = Combos.Color(ComboKind.Blessed) } });
+        }
+
+        /// <summary>Clients do not run the veil; approximate it from any hidden Rogue nearby.</summary>
+        private bool InRogueSmoke()
+        {
+            foreach (var p in PlayerLife.All)
+                if (p != null && p != life && p.Hidden.Value && p.GetComponent<PlayerProgress>().ClassId.Value == ClassId.Rogue &&
+                    Vector3.Distance(p.transform.position, player.transform.position) < RogueKit.SmokeCloudRadius) return true;
+            return false;
         }
 
         private void DrawDamageNumbers()

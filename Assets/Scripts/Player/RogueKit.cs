@@ -43,6 +43,9 @@ namespace Deepbound.Player
         public float Energy { get; private set; } = EnergyMax;
         private float nextStab, fanReadyAt, stepReadyAt, smokeReadyAt;
         private bool lastHitFromBehind;
+        private Vector3 smokeCloudAt;
+        private float smokeCloudUntil;
+        public const float SmokeCloudRadius = 3.5f;
         private float side = 1f;
         private float lastServerStab;
 
@@ -94,6 +97,11 @@ namespace Deepbound.Player
         private void Update()
         {
             if (IsServer && life.Hidden.Value && (Time.time >= hiddenUntil || !life.CanAct || !Active)) EndHidden();
+            // Smoke Screen: the cloud stays where it burst and veils any ally standing in it.
+            if (IsServer && Time.time < smokeCloudUntil)
+                foreach (var ally in PlayerLife.All)
+                    if (ally != null && ally != life && Vector3.Distance(ally.transform.position, smokeCloudAt) < SmokeCloudRadius)
+                        ally.VeiledUntil = Time.time + 0.25f;
 
             if (!IsOwner || !Active) return;
 
@@ -276,6 +284,8 @@ namespace Deepbound.Player
         {
             if (!life.CanAct) return;
             hiddenUntil = Time.time + SmokeSeconds * progress.Potency(AbilitySlot.E);
+            smokeCloudAt = transform.position;
+            smokeCloudUntil = hiddenUntil;
             openerArmed = true;
             life.Hidden.Value = true;
             // Rank 3: the burst of smoke staggers everything close — Exposed for the party.

@@ -25,7 +25,7 @@ namespace Deepbound.Classes
     /// </summary>
     public static class Combos
     {
-        public const float ShatterMultiplier = 1.5f, ExposedMultiplier = 1.25f, DistractedMultiplier = 1.15f, BlessedMultiplier = 1.2f;
+        public const float ShatterMultiplier = 1.5f, ExposedMultiplier = 1.25f, DistractedMultiplier = 1.15f, BlessedMultiplier = 1.2f, InspiredMultiplier = 1.15f;
         public const float AegisBurstDamage = 35f, AegisBurstRadius = 3.5f;
 
         public static string Label(ComboKind kind)
@@ -127,6 +127,7 @@ namespace Deepbound.Classes
                 }
             }
             if (Player.ClericKit.InConsecration(attacker.transform.position)) m *= BlessedMultiplier;
+            if (Player.ClericKit.IsInspired(attacker.GetComponent<Health>())) m *= InspiredMultiplier;
             return m;
         }
 

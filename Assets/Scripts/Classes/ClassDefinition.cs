@@ -126,9 +126,9 @@ namespace Deepbound.Classes
         public static string ComboLine(ClassId id) => id == ClassId.Mage
             ? "Frost chills for everyone's heavy hits to Shatter. Your fire Shatters for x1.75; Meteor feasts on stunned crowds."
             : id == ClassId.Cleric
-            ? "Consecrate Blesses allies inside (+20% damage). A broken Aegis shield bursts, hurting enemies around its wearer."
+            ? "Consecrate Blesses allies inside (+20% damage); the ally in your Mending Beam is Inspired (+15%). A broken Aegis shield bursts."
             : id == ClassId.Rogue
-            ? "Openers stun (Exposed: +25% for all). Ambush hits Shatter chill, and enemies Distracted by a taunt turn their backs."
+            ? "Openers stun (Exposed: +25% for all); Ambush hits Shatter chill. Allies in your smoke cloud are hidden too (Smoke Screen)."
             : id == ClassId.Ranger
             ? "Marks give everyone +25% and spread when the target dies. Traps stun (Exposed); full draws Shatter chill."
             : "Bash stuns (Exposed: +25% for all) and Shatters chill. War Cry Distracts enemies: +15% damage from everyone else.";
