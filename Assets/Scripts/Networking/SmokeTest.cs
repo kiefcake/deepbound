@@ -624,6 +624,23 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(1.5f);
                 yield return Shot(dir, "2_combat_room");
 
+                // Status tags: chill one, mark another, stun and taunt a third.
+                var all = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain) && !e.IsDead).ToArray();
+                var anchor = all.FirstOrDefault();
+                var inRoom = anchor == null ? new EnemyBrain[0] : all.OrderBy(e => Vector3.Distance(e.transform.position, anchor.transform.position)).Take(3).ToArray();
+                if (anchor != null)
+                {
+                    var look = anchor.transform.position + anchor.transform.forward * 5f + Vector3.up * 0.1f;
+                    motor.Teleport(look, Quaternion.LookRotation(anchor.transform.position - look));
+                    yield return new WaitForSeconds(0.3f);
+                }
+                if (inRoom.Length > 0) inRoom[0].GetComponent<Health>().ServerChill(10f);
+                if (inRoom.Length > 1) inRoom[1].GetComponent<Health>().ServerMark(10f);
+                if (inRoom.Length > 2) { inRoom[2].ServerStun(10f); inRoom[2].ServerTaunt(local.GetComponent<Health>(), 10f); }
+                foreach (var e in inRoom) e.ServerStun(10f);
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, "2a_status_tags");
+
                 // Kill everything in the room so the loot it leaves is visible.
                 foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
                 {

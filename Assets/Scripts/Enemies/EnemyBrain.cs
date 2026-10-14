@@ -171,6 +171,7 @@ namespace Deepbound.Enemies
 
         protected virtual void Update()
         {
+            if (IsServer) ServerSyncStatus();
             if (!IsServer || IsDead || !agent.enabled || !agent.isOnNavMesh) return;
 
             ApplyKnockback();
@@ -377,6 +378,15 @@ namespace Deepbound.Enemies
         }
 
         public bool IsStunned => Time.time < stunnedUntil;
+
+        /// <summary>Synced crowd-control state, for the status tags over enemies: bit 0 stunned, bit 1 taunted.</summary>
+        public readonly NetworkVariable<byte> Status = new NetworkVariable<byte>();
+
+        private void ServerSyncStatus()
+        {
+            byte s = (byte)((IsStunned ? 1 : 0) | (Taunter != null ? 2 : 0));
+            if (Status.Value != s) Status.Value = s;
+        }
 
         /// <summary>Who has this enemy taunted right now, or null.</summary>
         public Health Taunter => taunter != null && Time.time < tauntUntil ? taunter : null;

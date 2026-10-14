@@ -458,10 +458,10 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x, y - 4, bw, 24), boss.DisplayName, new GUIStyle(center) { normal = { textColor = Gold } });
             Rect(x - 3, y + 21, bw + 6, 20, Panel);
             Bar(x, y + 24, bw, 14, boss.Health.Fraction, new Color(0.55f, 0.08f, 0.1f));
-            if (boss.Health.Fraction < 0.25f)
-            {
-                GUI.Label(new Rect(x, y + 40, bw, 20), "ENRAGED", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = HealthRed } });
-            }
+            string tags = StatusTags(boss.Health, boss);
+            if (boss.Health.Fraction < 0.25f) tags = "<color=#E0403A>ENRAGED</color>" + (tags.Length > 0 ? "   " + tags : "");
+            if (tags.Length > 0)
+                GUI.Label(new Rect(x, y + 40, bw, 20), tags, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, richText = true, fontStyle = FontStyle.Bold });
         }
 
         /// <summary>
@@ -889,17 +889,44 @@ namespace Deepbound.UI
             foreach (var hp in Health.All)
             {
                 if (hp == null || hp.Team != Team.Enemies || !hp.IsAlive) continue;
-                if (Time.time - hp.LastHurtTime > 5f || hp.GetComponent<BossBrain>() != null) continue;
+                if (hp.GetComponent<BossBrain>() != null) continue;
+                var brain = hp.GetComponent<EnemyBrain>();
+                string tags = StatusTags(hp, brain);
+                bool hurt = Time.time - hp.LastHurtTime <= 5f;
+                if (!hurt && tags.Length == 0) continue;
 
                 var world = hp.transform.position + Vector3.up * (hp.CenterHeight * 2f + 0.35f);
                 var screen = cam.WorldToScreenPoint(world);
                 if (screen.z <= 0f || screen.z > 25f) continue;
 
                 float bw = 60f, x = screen.x - bw / 2f, y = Screen.height - screen.y;
-                Rect(x - 1, y - 1, bw + 2, 7, new Color(0, 0, 0, 0.75f));
-                Rect(x, y, bw * hp.Fraction, 5, new Color(0.85f, 0.2f, 0.15f));
+                if (hurt)
+                {
+                    Rect(x - 1, y - 1, bw + 2, 7, new Color(0, 0, 0, 0.75f));
+                    Rect(x, y, bw * hp.Fraction, 5, new Color(0.85f, 0.2f, 0.15f));
+                }
+                if (tags.Length > 0)
+                {
+                    var style = new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, richText = true, fontSize = 11 };
+                    GUI.Label(new Rect(screen.x - 90, y - 17, 180, 16), "<color=#000000AA>" + StripColors(tags) + "</color>", new GUIStyle(style) { contentOffset = new Vector2(1, 1) });
+                    GUI.Label(new Rect(screen.x - 90, y - 17, 180, 16), tags, style);
+                }
             }
         }
+
+        /// <summary>What a combo can cash in on this enemy, as coloured tags ("CHILL MARK STUN").</summary>
+        private static string StatusTags(Health hp, EnemyBrain brain)
+        {
+            var sb = new System.Text.StringBuilder();
+            void Tag(string text, string hex) { if (sb.Length > 0) sb.Append(' '); sb.Append("<color=#").Append(hex).Append('>').Append(text).Append("</color>"); }
+            if (hp.Chilled.Value) Tag("CHILL", "8CD9FF");
+            if (hp.Marked.Value) Tag("MARK", "FF5A4D");
+            if (brain != null && (brain.Status.Value & 1) != 0) Tag("STUN", "FFD94D");
+            if (brain != null && (brain.Status.Value & 2) != 0) Tag("TAUNT", "FF8C59");
+            return sb.ToString();
+        }
+
+        private static string StripColors(string tags) => System.Text.RegularExpressions.Regex.Replace(tags, "<[^>]+>", "");
 
         private void DrawVignette(float w, float h)
         {
