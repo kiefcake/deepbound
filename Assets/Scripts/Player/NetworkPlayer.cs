@@ -52,6 +52,10 @@ namespace Deepbound.Player
 
         /// <summary>The cloak dye this player wears (<see cref="Cosmetics.Dyes"/>); the owner sets it from its saved wardrobe.</summary>
         public readonly NetworkVariable<byte> CloakDye = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+        /// <summary>The aura this player wears (<see cref="Cosmetics.Auras"/>): motes drifting up around them.</summary>
+        public readonly NetworkVariable<byte> Aura = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        private float nextMote;
         public Color SlotColor => SlotColors[(int)(OwnerClientId % (ulong)SlotColors.Length)];
         public Camera Camera => playerCamera;
 
@@ -94,7 +98,11 @@ namespace Deepbound.Player
             BuildVisuals();
             progress.ClassId.OnValueChanged += (_, __) => BuildVisuals();
             CloakDye.OnValueChanged += (_, __) => BuildVisuals();
-            if (IsOwner) CloakDye.Value = (byte)Cosmetics.Equipped;
+            if (IsOwner)
+            {
+                CloakDye.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Cloak);
+                Aura.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Aura);
+            }
             progress.WeaponLevel.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket0.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket1.OnValueChanged += (_, __) => RefreshWeaponGlow();
@@ -282,6 +290,14 @@ namespace Deepbound.Player
             {
                 Rig.Blocking = knight != null && knight.Blocking.Value;
                 Rig.Downed = life != null && life.Downed.Value;
+            }
+
+            // A cosmetic aura; not while hidden in smoke, and sparser on your own screen.
+            var aura = Cosmetics.AuraColor(Aura.Value);
+            if (aura.HasValue && Time.time >= nextMote && life != null && !life.Hidden.Value && !life.Downed.Value)
+            {
+                nextMote = Time.time + (IsOwner ? 0.4f : 0.09f);
+                Vfx.Mote(transform.position, aura.Value);
             }
 
             if (!IsOwner) return;

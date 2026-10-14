@@ -275,12 +275,12 @@ namespace Deepbound.Networking
                 string features = string.Join(", ", layout.Rooms.Where(r => r.Feature != RoomFeature.None).Select(r => r.Feature.ToString()));
                 Log("feature rooms", features, layout.Rooms.Any(r => r.Feature == RoomFeature.GreatHall) && layout.Rooms.Any(r => r.Feature == RoomFeature.Chasm));
 
-                var sarc = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None).FirstOrDefault(x => !x.Opened.Value && !x.Scheduled);
+                var sarc = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None).FirstOrDefault(x => x.IsSpawned && x.HasOccupant && !x.Opened.Value && !x.Scheduled);
                 if (sarc != null)
                 {
                     fm.Teleport(sarc.transform.position + sarc.transform.forward * 3f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.5f);
-                    Log("crypt", "sarcophagus opened on approach: " + sarc.Opened.Value + " (occupant " + sarc.HasOccupant + ", targetable " + local.GetComponent<PlayerLife>().Targetable +
+                    Log("crypt", "sarcophagus opened on approach: " + sarc.Opened.Value + " (spawned " + sarc.IsSpawned + ", occupant " + sarc.HasOccupant + ", targetable " + local.GetComponent<PlayerLife>().Targetable +
                         ", downed " + local.GetComponent<PlayerLife>().Downed.Value + ", dist " + Vector3.Distance(local.transform.position, sarc.transform.position).ToString("F1") + ")", sarc.Opened.Value);
                     // The rest of the crypt follows, two at a time.
                     yield return new WaitForSeconds(5.2f);
@@ -618,6 +618,11 @@ namespace Deepbound.Networking
                 Log("tailor dye", "dye " + npT.CloakDye.Value + ", rebuilt " + (npT.Rig != rigBefore) + ", cloak " + (cloakR != null) + ", renown for a clear " +
                     Progression.Cosmetics.RenownFor(4, 120, 30, true, 1), npT.Rig != rigBefore && cloakR != null && Progression.Cosmetics.RenownFor(4, 120, 30, true, 1) > 0);
                 npT.CloakDye.Value = 0;
+                npT.Aura.Value = 2;
+                yield return new WaitForSeconds(0.3f);
+                Log("tailor aura", "aura " + npT.Aura.Value + " (" + Progression.Cosmetics.Auras[npT.Aura.Value].Name + "), cardinal legendary " + Gear.Name(new GearItem(GearId.CardinalVestments, 3, 3)),
+                    npT.Aura.Value == 2 && Progression.Cosmetics.AuraColor(2).HasValue);
+                npT.Aura.Value = 0;
 
                 // Board: floor two, same run.
                 dc.ServerBoard();
@@ -787,6 +792,7 @@ namespace Deepbound.Networking
             tLook.y = 0f;
             lobbyMotor.Teleport(tFrom, Quaternion.LookRotation(tLook));
             local.GetComponent<NetworkPlayer>().CloakDye.Value = 2;
+            local.GetComponent<NetworkPlayer>().Aura.Value = 1;
             yield return new WaitForSeconds(0.6f);
             yield return Shot(dir, "1c_tailor");
             var tClose = Lobby.TailorSpot + Lobby.TailorFacing * 1.8f + Vector3.up * 0.1f;
@@ -797,6 +803,7 @@ namespace Deepbound.Networking
             yield return Shot(dir, "1c_tailor_panel");
             local.GetComponent<UI.Wardrobe>().DebugOpen(false);
             local.GetComponent<NetworkPlayer>().CloakDye.Value = 0;
+            local.GetComponent<NetworkPlayer>().Aura.Value = 0;
 
             var anvilObj = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
             if (anvilObj != null)

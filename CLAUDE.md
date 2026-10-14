@@ -139,11 +139,11 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
   (`RangeTarget`, motion is a function of server time, session tally).
 - **Cosmetics** (`Progression/Cosmetics.cs`, `UI/Wardrobe.cs`): Renown is banked once per run on the run summary
   (`Cosmetics.AwardRun`, keyed by RunStartedAt; bosses/kills/combos/clear x difficulty) and spent at the camp tailor
-  (`Lobby.TailorSpot`, G) on cloak dyes, some gated on a boss felled. Saved in PlayerPrefs on each machine; the worn
-  dye syncs via `NetworkPlayer.CloakDye` (owner-write) and is applied by `GothicKit.CloakOverride` inside
+  (`Lobby.TailorSpot`, G) on cloak dyes and auras (`Cosmetics.Kind`, Tab switches in the tailor), some gated on a boss felled. Saved in PlayerPrefs on each machine; the worn
+  dye/aura sync via `NetworkPlayer.CloakDye`/`Aura` (owner-write; auras are `Vfx.Mote`s) and is applied by `GothicKit.CloakOverride` inside
   `NetworkPlayer.BuildBody`. A turning mannequin wears the hovered dye. Tests set `Cosmetics.TestMode` so they never
   touch the real save. `Dyes` indices are append-only.
-- 12 relics; 6 runes (`Loot/Runes.cs`, sockets at weapon +1/+3, set at the anvil); 12 gear pieces (6 armour, 6 charms) in 3 qualities + 3 boss Legendaries (35% per player per boss, `Gear.LegendaryOf`); 10 weapon paths; 10 rank-3 ability twists; run stats and summary (with COMBOS and a build line); pause-menu Guide page.
+- 12 relics; 6 runes (`Loot/Runes.cs`, sockets at weapon +1/+3, set at the anvil); 12 gear pieces (6 armour, 6 charms) in 3 qualities + 4 boss Legendaries (the Cardinal's Vestments call a holy-fire pillar on each kill) (35% per player per boss, `Gear.LegendaryOf`); 10 weapon paths; 10 rank-3 ability twists; run stats and summary (with COMBOS and a build line); pause-menu Guide page.
 
 ## Backlog / ideas not yet built
 

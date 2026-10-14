@@ -52,6 +52,14 @@ namespace Deepbound.Art
             }
         }
 
+        /// <summary>One soft mote drifting up from somewhere around a body (cosmetic auras).</summary>
+        public static void Mote(Vector3 feet, Color color)
+        {
+            float a = Random.value * Mathf.PI * 2f;
+            var p = feet + new Vector3(Mathf.Cos(a) * Random.Range(0.25f, 0.5f), Random.Range(0.1f, 1.5f), Mathf.Sin(a) * Random.Range(0.25f, 0.5f));
+            Spawn(Cube, Mat.Glow, p, Vector3.up * Random.Range(0.3f, 0.6f) + Random.insideUnitSphere * 0.12f, Random.Range(1.2f, 2f), 0.06f, 0f, color * 1.7f, -0.1f, 0.4f);
+        }
+
         /// <summary>Dust and grit kicked up and drifting off — small grey motes, rising and dwindling.</summary>
         public static void Smoke(Vector3 at, int count, float spread = 1f, float life = 2.2f)
         {

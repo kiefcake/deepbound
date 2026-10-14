@@ -17,7 +17,7 @@ namespace Deepbound.Loot
         OssuaryPlate = 1, GraveclothMantle = 2, TidewovenRobe = 3, ThornhideJerkin = 4, KingsguardHauberk = 5, AshenShroud = 6,
         LanternOfTheLost = 7, HuntersTooth = 8, CrackedHourglass = 9, Bloodstone = 10, EmberLocket = 11, LuckyKnucklebone = 12,
         // Boss legendaries: each boss's own piece, never rolled at random.
-        WardensBulwark = 13, LichPhylactery = 14, HollowCrown = 15,
+        WardensBulwark = 13, LichPhylactery = 14, HollowCrown = 15, CardinalVestments = 16,
     }
 
     /// <summary>
@@ -71,6 +71,8 @@ namespace Deepbound.Loot
                 Effect = "Every fourth hit you land chills its target (sets up Shatter).", Stats = new[] { (StatType.ATT, 2f), (StatType.WIS, 2f) } } },
             { GearId.HollowCrown, new Def { Slot = GearSlot.Charm, Name = "Crown of the Hollow King",
                 Effect = "Your Q and E count as one rank higher (up to rank 3).", Stats = new[] { (StatType.ATT, 2f), (StatType.HP, 2f) } } },
+            { GearId.CardinalVestments, new Def { Slot = GearSlot.Armor, Name = "Vestments of the Pale Cardinal",
+                Effect = "Your kills call down Judgement: a pillar of holy fire erupts there a moment later (once a second).", Stats = new[] { (StatType.DEF, 2f), (StatType.WIS, 2f), (StatType.ATT, 1.5f) } } },
         };
 
         /// <summary>Random rolls draw from the first twelve; the boss pieces only come from their boss.</summary>
@@ -79,7 +81,7 @@ namespace Deepbound.Loot
         /// <summary>The legendary a boss can drop, by its type.</summary>
         public static GearId LegendaryOf(Enemies.BossBrain boss) => boss is Enemies.GravewardenBrain ? GearId.WardensBulwark
             : boss is Enemies.TideLichBrain ? GearId.LichPhylactery
-            : boss is Enemies.CardinalBrain ? (Random.value < 0.5f ? GearId.WardensBulwark : GearId.HollowCrown)
+            : boss is Enemies.CardinalBrain ? GearId.CardinalVestments
             : GearId.HollowCrown;
 
         public static readonly string[] QualityNames = { "Worn", "Fine", "Masterwork", "Legendary" };

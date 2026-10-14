@@ -446,6 +446,37 @@ namespace Deepbound.Progression
             return damage;
         }
 
+        private float judgementReadyAt;
+
+        /// <summary>Server: the Cardinal's Vestments — a pillar of holy fire where a foe fell, a moment later.</summary>
+        public void ServerJudgement(Vector3 at)
+        {
+            if (Time.time < judgementReadyAt) return;
+            judgementReadyAt = Time.time + 1f;
+            JudgementWarnRpc(at);
+            StartCoroutine(Judgement(at));
+        }
+
+        private System.Collections.IEnumerator Judgement(Vector3 at)
+        {
+            yield return new WaitForSeconds(0.7f);
+            foreach (var foe in CombatQuery.Circle(at, 2.6f, Team.Enemies).ToArray())
+                foe.ServerDamage(30f * AttackMultiplier, at, NetworkObjectId);
+            JudgementFxRpc(at);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void JudgementWarnRpc(Vector3 at) => Telegraph.Show(at, 2.6f, 0.7f, null, new Color(1f, 0.8f, 0.35f, 0.3f));
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void JudgementFxRpc(Vector3 at)
+        {
+            var holy = new Color(1f, 0.75f, 0.35f);
+            Art.Sfx.Play(Art.Sound.Fire, at + Vector3.up, 0.6f, 1.3f);
+            for (int i = 0; i < 4; i++) Art.Vfx.Fireball(at + Vector3.up * (0.4f + i * 0.6f), 1f - i * 0.12f, holy);
+            Art.Vfx.Embers(at, 10, holy, 4f, 0.05f, 0.7f);
+        }
+
         [Rpc(SendTo.ClientsAndHost)]
         private void BulwarkFxRpc() => Art.Sfx.Play(Art.Sound.Block, transform.position + Vector3.up, 1f, 0.7f);
 

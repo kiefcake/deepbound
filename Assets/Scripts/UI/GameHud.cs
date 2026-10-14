@@ -344,7 +344,7 @@ namespace Deepbound.UI
             if (!near) shopOpen = false;
             if (anvil == null) forgeOpen = false;
             MenuOpen = shopOpen || forgeOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
-            statsHeld = DebugShowStats || (keyboard != null && keyboard.tabKey.isPressed);
+            statsHeld = DebugShowStats || (keyboard != null && keyboard.tabKey.isPressed && !Wardrobe.Open);
 
             // The host sets difficulty at camp.
             var dir = DungeonDirector.Instance;

@@ -69,7 +69,8 @@ namespace Deepbound.Enemies
         protected bool TryShockwave()
         {
             if (ShockwaveCooldown <= 0f) return false;
-            if (nextShockwave < 0f) nextShockwave = Time.time + ShockwaveCooldown * 0.6f;
+            // The first comes a little after the fight starts (or after a phase unlocks it).
+            if (nextShockwave < 0f) nextShockwave = Time.time + Mathf.Min(6f, ShockwaveCooldown * 0.6f);
             if (Time.time < nextShockwave) return false;
             nextShockwave = Time.time + ShockwaveCooldown;
             shockwaveAt = Time.time + 1.1f;

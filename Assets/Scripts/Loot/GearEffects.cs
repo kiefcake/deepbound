@@ -61,6 +61,7 @@ namespace Deepbound.Loot
                 return;
             }
             if (p.Wears(GearId.Bloodstone)) p.GetComponent<Health>().ServerHeal(p.GetComponent<Health>().Max.Value * 0.04f);
+            if (p.Wears(GearId.CardinalVestments)) p.ServerJudgement(target.transform.position);
             if (p.Wears(GearId.EmberLocket) && Random.value < 0.3f && World.DungeonDirector.Instance != null)
                 World.DungeonDirector.Instance.ServerDropEmbers(target.transform.position, 2);
         }
