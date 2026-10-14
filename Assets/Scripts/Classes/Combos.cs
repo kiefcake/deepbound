@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Deepbound.Classes
 {
     /// <summary>APPEND ONLY: synced as a byte for the popup.</summary>
-    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed }
+    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed, WardBroken }
 
     /// <summary>
     /// How the classes play off each other. Each class leaves a state on enemies or allies
@@ -38,6 +38,7 @@ namespace Deepbound.Classes
                 case ComboKind.AegisBurst: return "AEGIS BURST";
                 case ComboKind.MarkSpread: return "MARK SPREADS";
                 case ComboKind.Hallowed: return "HALLOWED FIRE";
+                case ComboKind.WardBroken: return "WARD BROKEN";
                 default: return "BLESSED";
             }
         }
@@ -52,6 +53,7 @@ namespace Deepbound.Classes
                 case ComboKind.AegisBurst: return new Color(1f, 0.9f, 0.55f);
                 case ComboKind.MarkSpread: return new Color(1f, 0.35f, 0.3f);
                 case ComboKind.Hallowed: return new Color(1f, 0.75f, 0.35f);
+                case ComboKind.WardBroken: return new Color(0.73f, 0.66f, 1f);
                 default: return new Color(1f, 0.95f, 0.6f);
             }
         }
@@ -67,6 +69,7 @@ namespace Deepbound.Classes
                 case ComboKind.AegisBurst: return "Aegis Burst: a broken shield erupts, hurting enemies around its wearer.";
                 case ComboKind.MarkSpread: return "Mark Spreads: kill a marked enemy and the mark jumps to the nearest foe.";
                 case ComboKind.Hallowed: return "Hallowed Fire: a meteor landing on consecrated ground heals the allies on it.";
+                case ComboKind.WardBroken: return "Ward Broken: stun or chill a Warded elite and its ward shatters.";
                 default: return "Blessed: allies standing in consecrated ground deal +20% damage.";
             }
         }

@@ -397,6 +397,27 @@ namespace Deepbound.Networking
                         exposed > plain * 1.2f && shatter > 1.4f && !fh.Chilled.Value && progress.CombosTriggered.Value > 0);
                 }
 
+                // Elite affixes: a Warded elite shrugs off damage until a stun breaks the ward.
+                var eliteTest = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !e.Elite.Value && !e.IsStunned && !e.GetComponent<Health>().Chilled.Value && e != foe);
+                if (eliteTest != null)
+                {
+                    var eh = eliteTest.GetComponent<Health>();
+                    eliteTest.ServerMakeElite(EliteAffix.Warded);
+                    if (eliteTest.AffixKind == EliteAffix.Warded)
+                    {
+                        float hpA = eh.Current.Value;
+                        eh.ServerDamage(50f, local.transform.position);
+                        float warded = hpA - eh.Current.Value;
+                        eliteTest.ServerStun(1f);
+                        yield return null;
+                        float hpB = eh.Current.Value;
+                        eh.ServerDamage(50f, local.transform.position);
+                        float broken = hpB - eh.Current.Value;
+                        Log("elite ward", "warded hit " + warded.ToString("F0") + ", after stun " + broken.ToString("F0") + ", affix now " + eliteTest.AffixKind, broken > warded * 2f && eliteTest.AffixKind == EliteAffix.None);
+                    }
+                    else Log("elite ward", "rolled " + eliteTest.AffixKind + " (no ward to test)", true);
+                }
+
                 // +3 needs a path; choose Cleave and check the swing now reaches wider.
                     progress.ServerAddEmbers(Anvil.Cost(2));
                     progress.TemperRpc();

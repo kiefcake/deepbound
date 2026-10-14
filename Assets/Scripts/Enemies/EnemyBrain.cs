@@ -70,6 +70,11 @@ namespace Deepbound.Enemies
         /// </summary>
         public readonly NetworkVariable<bool> Elite = new NetworkVariable<bool>();
 
+        /// <summary>The elite's affix (see <see cref="EliteAffix"/>). Synced for the status tags.</summary>
+        public readonly NetworkVariable<byte> Affix = new NetworkVariable<byte>();
+        public EliteAffix AffixKind => (EliteAffix)Affix.Value;
+        private bool wardUp;
+
         /// <summary>Bosses opt out of poise breaks and backstabs; they have their own answers.</summary>
         protected virtual bool IsBoss => false;
 
@@ -124,7 +129,7 @@ namespace Deepbound.Enemies
         }
 
         /// <summary>Server: promote to elite. Call after <see cref="ServerScale"/>.</summary>
-        public void ServerMakeElite()
+        public void ServerMakeElite(EliteAffix forced = EliteAffix.None)
         {
             if (IsBoss) return;
             Elite.Value = true;
@@ -132,6 +137,53 @@ namespace Deepbound.Enemies
             moveSpeed *= 1.1f;
             health.ServerSetMax(health.Max.Value * 2.2f, refill: true);
             health.Defense += 3f;
+
+            var affix = forced != EliteAffix.None ? forced : (EliteAffix)UnityEngine.Random.Range(1, EliteAffixes.Count + 1);
+            Affix.Value = (byte)affix;
+            if (affix == EliteAffix.Warded)
+            {
+                wardUp = true;
+                health.IncomingModifiers.Add(WardModifier);
+            }
+            if (affix == EliteAffix.Swift) moveSpeed *= 1.35f;
+            if (affix == EliteAffix.Vampiric) EnsureVampireHook();
+        }
+
+        /// <summary>Warded: most damage turned aside until a stun or a chill breaks the ward.</summary>
+        private float WardModifier(float dealt, Vector3 attackerPosition)
+        {
+            if (!wardUp) return dealt;
+            if (IsStunned || health.Chilled.Value)
+            {
+                ServerBreakWard();
+                return dealt;
+            }
+            return dealt * 0.35f;
+        }
+
+        private void ServerBreakWard()
+        {
+            if (!wardUp) return;
+            wardUp = false;
+            Affix.Value = (byte)EliteAffix.None;
+            Classes.Combos.Popup(health, Classes.ComboKind.WardBroken);
+        }
+
+        private static bool vampireHooked;
+
+        private static void EnsureVampireHook()
+        {
+            if (vampireHooked) return;
+            vampireHooked = true;
+            Health.ServerAnyDamaged += (target, dealt, attackerId) =>
+            {
+                if (target.Team != Team.Players) return;
+                var net = NetworkManager.Singleton;
+                if (net == null || !net.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj)) return;
+                if (!obj.TryGetComponent<EnemyBrain>(out var brain) || brain.IsDead || brain.AffixKind != EliteAffix.Vampiric) return;
+                // A Mark cuts the drain: the Ranger's answer to a Vampiric elite.
+                if (!brain.health.Marked.Value) brain.health.ServerHeal(dealt * 0.35f);
+            };
         }
 
         private float BackstabModifier(float dealt, Vector3 attackerPosition)
@@ -171,7 +223,11 @@ namespace Deepbound.Enemies
 
         protected virtual void Update()
         {
-            if (IsServer) ServerSyncStatus();
+            if (IsServer)
+            {
+                ServerSyncStatus();
+                if (wardUp && (IsStunned || health.Chilled.Value)) ServerBreakWard();
+            }
             if (!IsServer || IsDead || !agent.enabled || !agent.isOnNavMesh) return;
 
             ApplyKnockback();
@@ -423,6 +479,7 @@ namespace Deepbound.Enemies
 
         protected virtual void OnDied(Health _)
         {
+            if (AffixKind == EliteAffix.Volatile) StartCoroutine(VolatileBlast());
             IsDead = true;
             attacking = false;
             agent.isStopped = true;
@@ -443,6 +500,27 @@ namespace Deepbound.Enemies
                 else if (Elite.Value) GearDrop.ServerSpawnForParty(transform.position, 0.3f, 0);
             }
             Invoke(nameof(Despawn), 4f);
+        }
+
+        /// <summary>Volatile: the corpse swells and bursts. Get clear of the ring.</summary>
+        private System.Collections.IEnumerator VolatileBlast()
+        {
+            var at = transform.position;
+            VolatileWarnRpc(at);
+            yield return new WaitForSeconds(1.3f);
+            foreach (var victim in CombatQuery.Circle(at, 3.2f, Team.Players))
+                victim.ServerDamage(damage * 1.6f, at, NetworkObjectId);
+            VolatileBoomRpc(at);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void VolatileWarnRpc(Vector3 at) => Telegraph.Show(at, 3.2f, 1.3f, null, new Color(1f, 0.45f, 0.1f, 0.4f));
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void VolatileBoomRpc(Vector3 at)
+        {
+            Sfx.Play(Sound.Fire, at + Vector3.up, 1f, 0.7f);
+            BoneBurst.Spawn(at + Vector3.up * 0.5f, 1.2f, false, Mat.Flame);
         }
 
         private void Despawn()
