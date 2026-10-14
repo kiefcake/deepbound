@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Deepbound.Classes
 {
     /// <summary>APPEND ONLY: synced as a byte for the popup.</summary>
-    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed }
+    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed }
 
     /// <summary>
     /// How the classes play off each other. Each class leaves a state on enemies or allies
@@ -37,6 +37,7 @@ namespace Deepbound.Classes
                 case ComboKind.Distracted: return "DISTRACTED";
                 case ComboKind.AegisBurst: return "AEGIS BURST";
                 case ComboKind.MarkSpread: return "MARK SPREADS";
+                case ComboKind.Hallowed: return "HALLOWED FIRE";
                 default: return "BLESSED";
             }
         }
@@ -50,30 +51,57 @@ namespace Deepbound.Classes
                 case ComboKind.Distracted: return new Color(1f, 0.55f, 0.35f);
                 case ComboKind.AegisBurst: return new Color(1f, 0.9f, 0.55f);
                 case ComboKind.MarkSpread: return new Color(1f, 0.35f, 0.3f);
+                case ComboKind.Hallowed: return new Color(1f, 0.75f, 0.35f);
                 default: return new Color(1f, 0.95f, 0.6f);
+            }
+        }
+
+        /// <summary>One line, shown in the feed the first time a combo fires each run.</summary>
+        public static string Explain(ComboKind kind)
+        {
+            switch (kind)
+            {
+                case ComboKind.Shatter: return "Shatter: heavy hits on a chilled enemy break the chill for bonus damage.";
+                case ComboKind.Exposed: return "Exposed: stunned enemies take +25% damage from everyone.";
+                case ComboKind.Distracted: return "Distracted: a taunted enemy takes +15% damage from everyone but its taunter.";
+                case ComboKind.AegisBurst: return "Aegis Burst: a broken shield erupts, hurting enemies around its wearer.";
+                case ComboKind.MarkSpread: return "Mark Spreads: kill a marked enemy and the mark jumps to the nearest foe.";
+                case ComboKind.Hallowed: return "Hallowed Fire: a meteor landing on consecrated ground heals the allies on it.";
+                default: return "Blessed: allies standing in consecrated ground deal +20% damage.";
             }
         }
 
         // One popup per target per kind per second, so a flurry of stabs is not a word cloud.
         private static readonly Dictionary<(ulong, ComboKind), float> lastPopup = new Dictionary<(ulong, ComboKind), float>();
+        private static readonly HashSet<ComboKind> seenThisRun = new HashSet<ComboKind>();
 
-        public static void Popup(Health at, ComboKind kind)
+        /// <summary>Server: a new run — combos explain themselves again.</summary>
+        public static void ResetRun() => seenThisRun.Clear();
+
+        /// <summary>
+        /// Server: show a combo over a target, credited to <paramref name="by"/> (may be null).
+        /// False if throttled (so callers do not double-count).
+        /// </summary>
+        public static bool Popup(Health at, ComboKind kind, PlayerProgress by = null)
         {
             var key = (at.NetworkObjectId, kind);
-            if (lastPopup.TryGetValue(key, out float t) && Time.time - t < 1f) return;
+            if (lastPopup.TryGetValue(key, out float t) && Time.time - t < 1f) return false;
             lastPopup[key] = Time.time;
             if (lastPopup.Count > 256) lastPopup.Clear();
-            World.DungeonDirector.Instance?.ComboFxRpc(at.Center, (byte)kind);
+            if (by != null) by.ServerCreditCombo();
+            bool first = seenThisRun.Add(kind);
+            World.DungeonDirector.Instance?.ComboFxRpc(at.Center, (byte)kind, first);
+            return true;
         }
 
         /// <summary>
         /// Server: a heavy hit (Knight bash, full-draw arrow, Rogue ambush) on a chilled
         /// enemy consumes the chill. Returns the damage multiplier to apply.
         /// </summary>
-        public static float TryShatter(Health target)
+        public static float TryShatter(Health target, PlayerProgress by = null)
         {
             if (!target.ServerConsumeChill()) return 1f;
-            Popup(target, ComboKind.Shatter);
+            Popup(target, ComboKind.Shatter, by);
             return ShatterMultiplier;
         }
 
@@ -86,13 +114,13 @@ namespace Deepbound.Classes
                 if (brain.IsStunned)
                 {
                     m *= ExposedMultiplier;
-                    Popup(target, ComboKind.Exposed);
+                    Popup(target, ComboKind.Exposed, attacker);
                 }
                 var taunter = brain.Taunter;
                 if (taunter != null && taunter.gameObject != attacker.gameObject)
                 {
                     m *= DistractedMultiplier;
-                    Popup(target, ComboKind.Distracted);
+                    Popup(target, ComboKind.Distracted, attacker);
                 }
             }
             if (Player.ClericKit.InConsecration(attacker.transform.position)) m *= BlessedMultiplier;
@@ -114,7 +142,7 @@ namespace Deepbound.Classes
             if (shielded.Team != Team.Players) return;
             foreach (var foe in CombatQuery.Circle(shielded.transform.position, AegisBurstRadius, Team.Enemies).ToArrayList())
                 foe.ServerDamage(AegisBurstDamage, shielded.transform.position, shielded.NetworkObjectId);
-            Popup(shielded, ComboKind.AegisBurst);
+            Popup(shielded, ComboKind.AegisBurst, shielded.GetComponent<PlayerProgress>());
             World.DungeonDirector.Instance?.AegisBurstFxRpc(shielded.transform.position);
         }
 
@@ -132,7 +160,10 @@ namespace Deepbound.Classes
             }
             if (next == null) return;
             next.ServerMark(5f);
-            Popup(next, ComboKind.MarkSpread);
+            var net = Unity.Netcode.NetworkManager.Singleton;
+            PlayerProgress killer = null;
+            if (net != null && net.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var o)) o.TryGetComponent(out killer);
+            Popup(next, ComboKind.MarkSpread, killer);
         }
 
         private static List<Health> ToArrayList(this IEnumerable<Health> e) => new List<Health>(e);

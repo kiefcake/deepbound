@@ -39,8 +39,8 @@ namespace Deepbound.UI
                 new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
 
             // Table.
-            string[] headers = { "PLAYER", "CLASS", "KILLS", "DAMAGE", "GOLD", "RELICS", "REVIVES", "DOWNED" };
-            float[] cols = { 0.03f, 0.2f, 0.36f, 0.47f, 0.6f, 0.7f, 0.8f, 0.9f };
+            string[] headers = { "PLAYER", "CLASS", "KILLS", "DAMAGE", "COMBOS", "GOLD", "RELICS", "REVIVES", "DOWNED" };
+            float[] cols = { 0.03f, 0.19f, 0.32f, 0.42f, 0.54f, 0.64f, 0.73f, 0.82f, 0.91f };
             float ty = panel.y + 110;
             for (int c = 0; c < headers.Length; c++)
                 GUI.Label(new Rect(panel.x + pw * cols[c], ty, 120, 20), headers[c], new GUIStyle(UiSkin.Small) { normal = { textColor = UiSkin.Gold }, fontStyle = FontStyle.Bold });
@@ -62,6 +62,7 @@ namespace Deepbound.UI
                     prog.Class.Name,
                     prog.Kills.Value + (prog.Kills.Value == topKills && topKills > 0 ? "  ★" : ""),
                     prog.DamageDealt.Value.ToString("N0"),
+                    prog.CombosTriggered.Value.ToString(),
                     prog.GoldEarned.Value.ToString(),
                     prog.RelicCount.ToString(),
                     prog.Revives.Value.ToString(),

@@ -228,6 +228,7 @@ namespace Deepbound.Player
                 Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, FireboltSpeed, h =>
                 {
                     bool shatter = h.ServerConsumeChill();
+                    if (shatter && this != null) Combos.Popup(h, ComboKind.Shatter, progress);
                     h.ServerDamage(FireboltDamage * att * (shatter ? shatterMul : 1f), casterPos, me);
                     if (pyro)
                     {
@@ -279,10 +280,26 @@ namespace Deepbound.Player
                 foreach (var h in CombatQuery.Circle(at, MeteorRadius * (potency > 1f ? 1.15f : 1f), Team.Enemies).ToArray())
                 {
                     bool shatter = h.ServerConsumeChill();
-                    if (shatter) shattered++;
+                    if (shatter)
+                    {
+                        shattered++;
+                        Combos.Popup(h, ComboKind.Shatter, progress);
+                    }
                     h.ServerDamage(MeteorDamage * progress.AttackMultiplier * potency * (shatter ? Shatter : 1f), at + Vector3.up, NetworkObjectId);
                 }
                 MeteorImpactRpc(at, shattered > 0);
+
+                // Hallowed Fire: a meteor into consecrated ground mends everyone standing on it.
+                if (ClericKit.InConsecration(at))
+                {
+                    Health first = null;
+                    foreach (var ally in CombatQuery.Circle(at, MeteorRadius + 1f, Team.Players).ToArray())
+                    {
+                        ally.ServerHeal(ally.Max.Value * 0.15f);
+                        if (first == null) first = ally;
+                    }
+                    if (first != null) Combos.Popup(first, ComboKind.Hallowed, progress);
+                }
             }
         }
 

@@ -59,10 +59,11 @@ namespace Deepbound.World
 
         /// <summary>A class combo fired: float its name over the spot for everyone.</summary>
         [Rpc(SendTo.ClientsAndHost)]
-        public void ComboFxRpc(Vector3 at, byte kind)
+        public void ComboFxRpc(Vector3 at, byte kind, bool first)
         {
             var k = (Classes.ComboKind)kind;
             UI.GameHud.ShowCombo(at + Vector3.up * 0.6f, Classes.Combos.Label(k), Classes.Combos.Color(k));
+            if (first) UI.GameHud.Feed("COMBO  " + Classes.Combos.Explain(k), Classes.Combos.Color(k));
             if (k == Classes.ComboKind.Shatter) Art.Sfx.Play(Art.Sound.Shatter, at, 0.9f, 1.15f);
         }
 
@@ -197,6 +198,7 @@ namespace Deepbound.World
         {
             if (!IsServer) return;
             RunStartedAt.Value = NetworkManager.ServerTime.Time;
+            Classes.Combos.ResetRun();
             StartFloor(0);
         }
 

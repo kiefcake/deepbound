@@ -188,7 +188,7 @@ namespace Deepbound.Player
             bool behind = toMe.sqrMagnitude > 0.01f && Vector3.Angle(target.transform.forward, toMe) > 115f;
             lastHitFromBehind = behind;
             // Assassin: deadlier from behind. Duelist: better face to face.
-            if (behind) m *= (progress.OnPath(1) ? 2f : AmbushMultiplier) * Combos.TryShatter(target);
+            if (behind) m *= (progress.OnPath(1) ? 2f : AmbushMultiplier) * Combos.TryShatter(target, progress);
             else if (progress.OnPath(2)) m *= 1.25f;
             if (openerArmed && (life.Hidden.Value || Time.time < openerExpires))
             {

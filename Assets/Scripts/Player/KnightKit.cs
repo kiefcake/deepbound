@@ -263,7 +263,7 @@ namespace Deepbound.Player
             bool wave = progress.Twist(AbilitySlot.Q);
             foreach (var target in CombatQuery.Arc(origin, forward, BashRange + 1.5f + (wave ? 1f : 0f), wave ? 180f : 100f, Team.Enemies))
             {
-                target.ServerDamage(BashDamage * AttackMultiplier * potency * Combos.TryShatter(target), transform.position, NetworkObjectId);
+                target.ServerDamage(BashDamage * AttackMultiplier * potency * Combos.TryShatter(target, progress), transform.position, NetworkObjectId);
                 if (target.TryGetComponent<ICrowdControl>(out var cc))
                 {
                     cc.ServerStun(BashStun * potency);

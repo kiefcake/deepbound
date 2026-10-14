@@ -383,8 +383,8 @@ namespace Deepbound.Networking
                     float exposed = Classes.Combos.ServerMultiplier(fh, progress);
                     fh.ServerChill(3f);
                     float shatter = Classes.Combos.TryShatter(fh);
-                    Log("combos", "plain x" + plain.ToString("F2") + ", stunned x" + exposed.ToString("F2") + ", shatter x" + shatter + ", chill left " + fh.Chilled.Value,
-                        exposed > plain * 1.2f && shatter > 1.4f && !fh.Chilled.Value);
+                    Log("combos", "plain x" + plain.ToString("F2") + ", stunned x" + exposed.ToString("F2") + ", shatter x" + shatter + ", chill left " + fh.Chilled.Value + ", credited " + progress.CombosTriggered.Value,
+                        exposed > plain * 1.2f && shatter > 1.4f && !fh.Chilled.Value && progress.CombosTriggered.Value > 0);
                 }
 
                 // +3 needs a path; choose Cleave and check the swing now reaches wider.

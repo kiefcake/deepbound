@@ -135,6 +135,10 @@ namespace Deepbound.Progression
         public readonly NetworkVariable<int> GoldEarned = new NetworkVariable<int>();
         public readonly NetworkVariable<int> Downs = new NetworkVariable<int>();
         public readonly NetworkVariable<int> Revives = new NetworkVariable<int>();
+        public readonly NetworkVariable<int> CombosTriggered = new NetworkVariable<int>();
+
+        /// <summary>Server: this player set off a class combo.</summary>
+        public void ServerCreditCombo() => CombosTriggered.Value++;
         private float damageCarry;
 
         /// <summary>Server: credit damage this player dealt, and a kill if it was the final blow.</summary>
@@ -554,7 +558,7 @@ namespace Deepbound.Progression
             Armor.Value = default;
             Charm.Value = default;
             health.HealMultiplier = 1f;
-            Kills.Value = DamageDealt.Value = GoldEarned.Value = Downs.Value = Revives.Value = 0;
+            Kills.Value = DamageDealt.Value = GoldEarned.Value = Downs.Value = Revives.Value = CombosTriggered.Value = 0;
             damageCarry = 0f;
             relics.Clear();
             ServerNewFloor();
