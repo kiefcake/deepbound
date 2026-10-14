@@ -18,6 +18,8 @@ namespace Deepbound.Loot
         LanternOfTheLost = 7, HuntersTooth = 8, CrackedHourglass = 9, Bloodstone = 10, EmberLocket = 11, LuckyKnucklebone = 12,
         // Boss legendaries: each boss's own piece, never rolled at random.
         WardensBulwark = 13, LichPhylactery = 14, HollowCrown = 15, CardinalVestments = 16,
+        // More rollable pieces (after the legendaries: ids are synced, append only).
+        BellringersHauberk = 17, GravediggersCoat = 18, RosaryOfAsh = 19, WitchboneFetish = 20,
     }
 
     /// <summary>
@@ -71,12 +73,25 @@ namespace Deepbound.Loot
                 Effect = "Every fourth hit you land chills its target (sets up Shatter).", Stats = new[] { (StatType.ATT, 2f), (StatType.WIS, 2f) } } },
             { GearId.HollowCrown, new Def { Slot = GearSlot.Charm, Name = "Crown of the Hollow King",
                 Effect = "Your Q and E count as one rank higher (up to rank 3).", Stats = new[] { (StatType.ATT, 2f), (StatType.HP, 2f) } } },
+            { GearId.BellringersHauberk, new Def { Slot = GearSlot.Armor, Name = "Bellringer's Hauberk",
+                Effect = "Every 10 s, being hit tolls out a shockwave that hurls nearby enemies away.", Stats = new[] { (StatType.DEF, 3f), (StatType.HP, 1.5f) } } },
+            { GearId.GravediggersCoat, new Def { Slot = GearSlot.Armor, Name = "Gravedigger's Coat",
+                Effect = "Stand your ground: after a second without moving, take 25% less damage.", Stats = new[] { (StatType.HP, 2.5f), (StatType.VIT, 1.5f) } } },
+            { GearId.RosaryOfAsh, new Def { Slot = GearSlot.Charm, Name = "Rosary of Ash",
+                Effect = "Your ultimate (R) charges 35% faster.", Stats = new[] { (StatType.WIS, 2f), (StatType.ATT, 1f) } } },
+            { GearId.WitchboneFetish, new Def { Slot = GearSlot.Charm, Name = "Witchbone Fetish",
+                Effect = "Every 8 s, your next hit Marks its target (+25% damage from everyone).", Stats = new[] { (StatType.ATT, 1.5f), (StatType.DEX, 1.5f) } } },
             { GearId.CardinalVestments, new Def { Slot = GearSlot.Armor, Name = "Vestments of the Pale Cardinal",
                 Effect = "Your kills call down Judgement: a pillar of holy fire erupts there a moment later (once a second).", Stats = new[] { (StatType.DEF, 2f), (StatType.WIS, 2f), (StatType.ATT, 1.5f) } } },
         };
 
-        /// <summary>Random rolls draw from the first twelve; the boss pieces only come from their boss.</summary>
-        private const int RollablePieces = 12;
+        /// <summary>Random rolls draw from these; the boss pieces only come from their boss.</summary>
+        private static readonly GearId[] Rollable =
+        {
+            GearId.OssuaryPlate, GearId.GraveclothMantle, GearId.TidewovenRobe, GearId.ThornhideJerkin, GearId.KingsguardHauberk, GearId.AshenShroud,
+            GearId.LanternOfTheLost, GearId.HuntersTooth, GearId.CrackedHourglass, GearId.Bloodstone, GearId.EmberLocket, GearId.LuckyKnucklebone,
+            GearId.BellringersHauberk, GearId.GravediggersCoat, GearId.RosaryOfAsh, GearId.WitchboneFetish,
+        };
 
         /// <summary>The legendary a boss can drop, by its type.</summary>
         public static GearId LegendaryOf(Enemies.BossBrain boss) => boss is Enemies.GravewardenBrain ? GearId.WardensBulwark
@@ -142,7 +157,7 @@ namespace Deepbound.Loot
         /// <summary>A random piece for the given depth. <paramref name="luck"/> 0 = normal, 1 = boss/vault.</summary>
         public static GearItem Roll(int depth, int luck)
         {
-            int id = Random.Range(1, RollablePieces + 1);
+            int id = (int)Rollable[Random.Range(0, Rollable.Length)];
             float r = Random.value;
             int quality = luck > 0 ? (r < 0.45f ? 2 : 1) : (r < 0.1f ? 2 : r < 0.42f ? 1 : 0);
             return new GearItem((GearId)id, quality, depth);

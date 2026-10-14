@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Deepbound.Combat;
 using Deepbound.Progression;
 using Unity.Netcode;
@@ -21,6 +22,10 @@ namespace Deepbound.Loot
         ThornedMail = 9,
         HeartOfTheDeep = 10,
         BloodPact = 11,
+        ExecutionersCoin = 12,
+        WraithChain = 13,
+        WarlordsHorn = 14,
+        WintersTooth = 15,
     }
 
     /// <summary>
@@ -50,6 +55,10 @@ namespace Deepbound.Loot
                 case Relic.ThornedMail: return "Thorned Mail";
                 case Relic.HeartOfTheDeep: return "Heart of the Deep";
                 case Relic.BloodPact: return "Blood Pact";
+                case Relic.ExecutionersCoin: return "Executioner's Coin";
+                case Relic.WraithChain: return "Wraith Chain";
+                case Relic.WarlordsHorn: return "Warlord's Horn";
+                case Relic.WintersTooth: return "Winter's Tooth";
                 default: return r.ToString();
             }
         }
@@ -70,6 +79,10 @@ namespace Deepbound.Loot
                 case Relic.ThornedMail: return "Melee attackers take 40% of their damage back.";
                 case Relic.HeartOfTheDeep: return "+70 maximum health.";
                 case Relic.BloodPact: return "+30% damage, but -25% maximum health.";
+                case Relic.ExecutionersCoin: return "+50% damage to enemies below 30% health.";
+                case Relic.WraithChain: return "Your kills burst in a ghostly nova that hurts enemies within 4 m.";
+                case Relic.WarlordsHorn: return "Your ultimate charges 50% faster, and casting it heals allies within 12 m by 25%.";
+                case Relic.WintersTooth: return "+25% damage to chilled enemies.";
                 default: return "";
             }
         }
@@ -90,6 +103,10 @@ namespace Deepbound.Loot
                 case Relic.ThornedMail: return new Color(0.4f, 0.65f, 0.3f);
                 case Relic.HeartOfTheDeep: return new Color(0.2f, 0.5f, 0.9f);
                 case Relic.BloodPact: return new Color(0.5f, 0f, 0.1f);
+                case Relic.ExecutionersCoin: return new Color(0.75f, 0.7f, 0.6f);
+                case Relic.WraithChain: return new Color(0.55f, 0.75f, 1f);
+                case Relic.WarlordsHorn: return new Color(0.85f, 0.45f, 0.2f);
+                case Relic.WintersTooth: return new Color(0.75f, 0.95f, 1f);
                 default: return Color.white;
             }
         }
@@ -132,6 +149,19 @@ namespace Deepbound.Loot
             if (p.HasRelic(Relic.VampiricFang)) obj.GetComponent<Health>().ServerHeal(dealt * 0.06f);
 
             if (p.HasRelic(Relic.FrostCharm) && UnityEngine.Random.value < 0.2f) target.ServerChill(3f);
+
+            if (!target.IsAlive && p.HasRelic(Relic.WraithChain))
+            {
+                resolvingProc = true;
+                try
+                {
+                    var at = target.transform.position;
+                    foreach (var foe in CombatQuery.Circle(at, 4f, Team.Enemies).ToArray())
+                        foe.ServerDamage(22f * p.AttackMultiplier, at, attackerId);
+                    p.WraithNovaFxRpc(at);
+                }
+                finally { resolvingProc = false; }
+            }
 
             if (p.HasRelic(Relic.ThunderSigil))
             {

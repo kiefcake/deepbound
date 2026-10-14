@@ -471,7 +471,7 @@ namespace Deepbound.UI
         private void DrawAbilities(float w, float h)
         {
             float size = 58, gap = 10;
-            float total = size * 5 + gap * 4;
+            float total = size * 6 + gap * 5;
             float x = w / 2f - total / 2f, y = h - size - 26;
 
             abilities.Clear();
@@ -482,6 +482,27 @@ namespace Deepbound.UI
                 var a = abilities[i];
                 Ability(x + (size + gap) * i, y, size, a.Key, a.Name, a.Remaining, a.Cooldown, a.Active, a.Unaffordable);
             }
+            DrawUltimate(x + (size + gap) * abilities.Count, y, size);
+        }
+
+        /// <summary>R: the ultimate, a slot that fills from the bottom as you fight and glows when full.</summary>
+        private void DrawUltimate(float x, float y, float size)
+        {
+            var ult = player.GetComponent<Ultimates>();
+            if (ult == null) return;
+            var cls = progress.ClassId.Value;
+            float k = Mathf.Clamp01(ult.Charge.Value / Ultimates.ChargeMax);
+            var c = Ultimates.UltColor(cls);
+            UiSkin.Panel(new Rect(x, y, size, size), 0.9f);
+            Rect(x + 3, y + 3 + (size - 6) * (1f - k), size - 6, (size - 6) * k, new Color(c.r, c.g, c.b, ult.Ready ? 0.45f + 0.2f * Mathf.Sin(Time.time * 5f) : 0.22f));
+            if (ult.Ready)
+            {
+                Rect(x - 3, y - 3, size + 6, 2, c); Rect(x - 3, y + size + 1, size + 6, 2, c);
+                Rect(x - 3, y - 3, 2, size + 6, c); Rect(x + size + 1, y - 3, 2, size + 6, c);
+            }
+            GUI.Label(new Rect(x, y + 6, size, 20), "R", center);
+            string label = ult.Ready ? "READY" : Mathf.FloorToInt(k * 100f) + "%";
+            GUI.Label(new Rect(x - 10, y + size - 22, size + 20, 18), label, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = ult.Ready ? FontStyle.Bold : FontStyle.Normal });
         }
 
         private void Ability(float x, float y, float size, string key, string name, float remaining, float cooldown, bool active = false, bool unaffordable = false)
@@ -1016,6 +1037,7 @@ namespace Deepbound.UI
             void Tag(string text, string hex) { if (sb.Length > 0) sb.Append(' '); sb.Append("<color=#").Append(hex).Append('>').Append(text).Append("</color>"); }
             if (brain != null && brain.AffixKind != EliteAffix.None) Tag(EliteAffixes.Tag(brain.AffixKind), EliteAffixes.Hex(brain.AffixKind));
             if (brain is WraithBrain wr && !wr.Pinned) Tag("ETHEREAL", "8FA8D0");
+            if (brain is ShieldbearerBrain shieldB && shieldB.ShieldUp) Tag("SHIELDED", "C8B48C");
             if (hp.Chilled.Value) Tag("CHILL", "8CD9FF");
             if (hp.Marked.Value) Tag("MARK", "FF5A4D");
             if (brain != null && (brain.Status.Value & 1) != 0) Tag("STUN", "FFD94D");

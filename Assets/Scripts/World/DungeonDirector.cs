@@ -50,6 +50,7 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject brutePrefab;
         [SerializeField] private NetworkObject necromancerPrefab;
         [SerializeField] private NetworkObject wraithPrefab;
+        [SerializeField] private NetworkObject shieldbearerPrefab;
 
         [Header("Dungeon objects")]
         [SerializeField] private NetworkObject chestPrefab;
@@ -557,6 +558,8 @@ namespace Deepbound.World
             if ((roll -= necro) < 0f) { hasNecro = true; return necromancerPrefab; }
             if ((roll -= ghoul) < 0f) { pack = 2; return ghoulPrefab; }
             if ((roll -= archer) < 0f) return archerPrefab;
+            float shield = shieldbearerPrefab != null && depth >= 1 ? 0.1f + 0.03f * depth : shieldbearerPrefab != null ? 0.05f : 0f;
+            if ((roll -= shield) < 0f) return shieldbearerPrefab;
             return skeletonPrefab;
         }
 

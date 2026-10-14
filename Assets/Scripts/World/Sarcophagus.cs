@@ -31,6 +31,16 @@ namespace Deepbound.World
         /// <summary>Server: already queued to open (its crypt has woken).</summary>
         public bool Scheduled => wakeAt >= 0f;
 
+        /// <summary>Tests: why a coffin did or did not wake.</summary>
+        public string DebugState()
+        {
+            string players = "";
+            foreach (var p in PlayerLife.All)
+                if (p != null) players += p.name + "@" + Vector3.Distance(p.transform.position, transform.position).ToString("F1") + (p.Targetable ? "" : "(untargetable)") + " ";
+            return "enabled " + isActiveAndEnabled + ", last tick " + (Time.time - lastTick).ToString("F2") + "s ago, room " + roomId + ", players " + players.Trim();
+        }
+        private float lastTick = -99f;
+
         public void ServerLoad(NetworkObject prefab, int playerCount, int floorDepth, int room)
         {
             occupantPrefab = prefab;
@@ -77,6 +87,7 @@ namespace Deepbound.World
                 lid.localPosition += new Vector3(Random.Range(-0.02f, 0.02f), Random.Range(0f, 0.03f), Random.Range(-0.02f, 0.02f));
 
             if (!IsServer || Opened.Value || occupantPrefab == null) return;
+            lastTick = Time.time;
             if (wakeAt >= 0f)
             {
                 if (Time.time >= wakeAt - 0.9f && rattleUntil < Time.time) { rattleUntil = wakeAt; RattleRpc(wakeAt - Time.time); }

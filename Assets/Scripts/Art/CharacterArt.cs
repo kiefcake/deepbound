@@ -584,7 +584,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -677,6 +677,26 @@ namespace Deepbound.Art
                 glow.Add(rune.GetComponent<Renderer>());
                 rig.GlowRenderers = glow.ToArray();
                 rig.StrideLength = 1.4f;
+            }
+            else if (kind == SkeletonKind.Shieldbearer)
+            {
+                // A tower shield on the left arm (rusted iron face, wooden rim, a bone sigil),
+                // a short spear in the right, and a dented kettle helm.
+                rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
+                var shield = MeshKit.Pivot(rig.ArmL, "TowerShield", new Vector3(-0.06f, -0.45f, 0.16f));
+                MeshKit.Part(shield, "Face", MeshKit.Box(new Vector3(0.55f, 1.05f, 0.05f)), Mat.Steel, Vector3.zero);
+                MeshKit.Part(shield, "RimTop", MeshKit.Box(new Vector3(0.59f, 0.06f, 0.08f)), Mat.Wood, new Vector3(0f, 0.53f, 0f));
+                MeshKit.Part(shield, "RimBottom", MeshKit.Box(new Vector3(0.59f, 0.06f, 0.08f)), Mat.Wood, new Vector3(0f, -0.53f, 0f));
+                foreach (float sx in new[] { -0.29f, 0.29f })
+                    MeshKit.Part(shield, "RimSide", MeshKit.Box(new Vector3(0.05f, 1.1f, 0.08f)), Mat.Wood, new Vector3(sx, 0f, 0f));
+                MeshKit.Part(shield, "Boss", MeshKit.Ball(0.08f, 8, 6), Mat.Steel, new Vector3(0f, 0.05f, 0.04f));
+                MeshKit.Part(shield, "SigilV", MeshKit.Box(new Vector3(0.05f, 0.5f, 0.02f)), Mat.Bone, new Vector3(0f, 0.05f, 0.035f));
+                MeshKit.Part(shield, "SigilH", MeshKit.Box(new Vector3(0.32f, 0.05f, 0.02f)), Mat.Bone, new Vector3(0f, 0.16f, 0.035f));
+                MeshKit.Part(grip, "Shaft", MeshKit.Cylinder(0.02f, 0.02f, 1.5f, 6), Mat.Wood, new Vector3(0f, -0.5f, 0f));
+                MeshKit.Part(grip, "Spearhead", MeshKit.Lathe("spearhead", new[] { new Vector2(0.04f, 0f), new Vector2(0.03f, 0.08f), new Vector2(0f, 0.24f) }, 4), Mat.Steel, new Vector3(0f, 1f, 0f));
+                MeshKit.Part(rig.Head, "Helm", MeshKit.Lathe("kettleHelm", new[] { new Vector2(0.21f, 0.06f), new Vector2(0.15f, 0.09f), new Vector2(0.14f, 0.2f), new Vector2(0.06f, 0.27f), new Vector2(0f, 0.28f) }, 10), Mat.Steel, Vector3.zero);
+                rig.OffhandItem = null;
+                rig.StrideLength = 1.1f;
             }
             else if (kind == SkeletonKind.Gravewarden)
             {

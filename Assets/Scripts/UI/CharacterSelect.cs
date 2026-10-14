@@ -245,7 +245,7 @@ namespace Deepbound.UI
             }
             y += 4 * 22 + 14;
 
-            var kit = new System.Collections.Generic.List<(string, string, string)>(ClassDefinition.Kit(id)) { ("COMBOS", "", ClassDefinition.ComboLine(id)) };
+            var kit = new System.Collections.Generic.List<(string, string, string)>(ClassDefinition.Kit(id)) { ("R", Ultimates.Name(id), Ultimates.Describe(id)), ("COMBOS", "", ClassDefinition.ComboLine(id)) };
             float kitRow = Mathf.Min(52f, (r.yMax - 76 - y) / kit.Count);
             foreach (var (key, name, desc) in kit)
             {

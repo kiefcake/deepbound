@@ -109,12 +109,12 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - Classes: Knight (tank), Mage (frost-then-fire burst), Cleric (beam heals, consecrate, aegis shields, fast revives), Rogue (backstab ambush, shadowstep, smoke-bomb stealth via PlayerLife.Hidden), Ranger (charged longbow that pierces at full draw, Hunter's Mark via Health.Marked, bear traps, volley). Planned: Barbarian, Druid, Engineer
   (design doc section 5).
-- Enemies: Skeleton, Archer (sidesteps after each shot), Ghoul (pairs, pounce), Bone Brute, Necromancer (heals/raises),
+- Enemies: Skeleton, Archer (sidesteps after each shot), Shieldbearer (`ShieldbearerBrain`: tower shield blocks 85% in front unless stunned; shove knockback; from floor 1), Ghoul (pairs, pounce), Bone Brute, Necromancer (heals/raises),
   Wraith (`WraithBrain`: hovers, shadow bolts, telegraphed Wail, slips away; Ethereal -60% unless chilled/stunned/
   marked/consecrated); any can be Elite, and every
   elite rolls an `EliteAffix` (Warded: -65% until stunned/chilled; Vampiric: heals from hits unless Marked; Volatile:
   bursts after death; Swift). Status tags (CHILL/MARK/STUN/TAUNT + affix) float over enemies (`EnemyBrain.Status`).
-- Bosses: Gravewarden (shield, charge into walls → dazed, Shield Quake), Tide Lich (volleys, pools under everyone, blink,
+- Bosses: Gravewarden (shield, charge into walls → dazed, Shield Quake, Grave Rend bone-spike lines below 50%), Tide Lich (volleys, pools under everyone, blink,
   Tidal Surge below 60%), Hollow King (cleave, slam, summons, enrage, Crown's Fall), Pale Cardinal (floor 4, Black
   Cathedral: Toll of the Bell shockwave, Judgement fire pillars under/around players, Wraith choir at 66/33%, Last Rites
   below a third). Shockwaves (`BossBrain` waves + `Art/ShockwaveRing`) hit grounded players as the ring passes: jump them.
@@ -143,7 +143,10 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
   dye/aura sync via `NetworkPlayer.CloakDye`/`Aura` (owner-write; auras are `Vfx.Mote`s) and is applied by `GothicKit.CloakOverride` inside
   `NetworkPlayer.BuildBody`. A turning mannequin wears the hovered dye. Tests set `Cosmetics.TestMode` so they never
   touch the real save. `Dyes` indices are append-only.
-- 12 relics; 6 runes (`Loot/Runes.cs`, sockets at weapon +1/+3, set at the anvil); 12 gear pieces (6 armour, 6 charms) in 3 qualities + 4 boss Legendaries (the Cardinal's Vestments call a holy-fire pillar on each kill) (35% per player per boss, `Gear.LegendaryOf`); 10 weapon paths; 10 rank-3 ability twists; run stats and summary (with COMBOS and a build line); pause-menu Guide page.
+- **Ultimates** (`Player/Ultimates.cs`, R): one per class (Rallying Banner, Cataclysm, Hymn of Return, Death From Shadow,
+  Rain of Arrows). Charge is server-owned, fills from damage dealt/taken and a trickle on floors, resets at camp between
+  runs; the banner feeds `IncomingModifiers` and the outgoing chain (`Ultimates.OutgoingMultiplier`). HUD R slot + class screen line.
+- 16 relics (new: Executioner's Coin, Wraith Chain, Warlord's Horn, Winter's Tooth); 6 runes (`Loot/Runes.cs`, sockets at weapon +1/+3, set at the anvil); 16 rollable gear pieces (`Gear.Rollable`; new: Bellringer's Hauberk, Gravedigger's Coat, Rosary of Ash, Witchbone Fetish) in 3 qualities + 4 boss Legendaries (the Cardinal's Vestments call a holy-fire pillar on each kill) (35% per player per boss, `Gear.LegendaryOf`); 10 weapon paths; 10 rank-3 ability twists; run stats and summary (with COMBOS and a build line); pause-menu Guide page.
 
 ## Backlog / ideas not yet built
 

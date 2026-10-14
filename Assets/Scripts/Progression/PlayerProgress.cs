@@ -420,6 +420,19 @@ namespace Deepbound.Progression
                 return 0f;
             }
             if (Wears(GearId.OssuaryPlate) && health.Fraction > 0.5f) damage *= 0.85f;
+            if (Wears(GearId.GravediggersCoat) && StandingStill()) damage *= 0.75f;
+            if (Wears(GearId.BellringersHauberk) && Time.time >= bellReadyAt)
+            {
+                bellReadyAt = Time.time + 10f;
+                foreach (var foe in CombatQuery.Circle(transform.position, 4f, Team.Enemies).ToArray())
+                {
+                    if (!foe.TryGetComponent<ICrowdControl>(out var cc)) continue;
+                    var push = foe.transform.position - transform.position;
+                    push.y = 0f;
+                    cc.ServerKnockback(push.normalized * 9f);
+                }
+                BellFxRpc();
+            }
             if (Blessed(Blessing.Bulwark)) damage *= 0.85f;
             if (Wears(GearId.WardensBulwark) && Time.time >= bulwarkReadyAt)
             {
@@ -446,7 +459,48 @@ namespace Deepbound.Progression
             return damage;
         }
 
-        private float judgementReadyAt;
+        private float judgementReadyAt, fetishReadyAt, bellReadyAt, stillSince;
+        private Vector3 stillAt;
+
+        /// <summary>Server: the Witchbone Fetish's mark is ready (and is now spent).</summary>
+        public bool ServerConsumeFetish()
+        {
+            if (Time.time < fetishReadyAt) return false;
+            fetishReadyAt = Time.time + 8f;
+            return true;
+        }
+
+        /// <summary>Server: has this player stood (near enough) still for a second? Gravedigger's Coat.</summary>
+        private bool StandingStill()
+        {
+            if ((transform.position - stillAt).sqrMagnitude > 0.04f)
+            {
+                stillAt = transform.position;
+                stillSince = Time.time;
+            }
+            return Time.time - stillSince >= 1f;
+        }
+
+        private void LateUpdate()
+        {
+            if (IsServer && Wears(GearId.GravediggersCoat)) StandingStill();
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        public void WraithNovaFxRpc(Vector3 at)
+        {
+            var ghost = new Color(0.55f, 0.75f, 1f);
+            Art.Sfx.Play(Art.Sound.Whisper, at + Vector3.up, 0.7f, 0.7f);
+            Art.Vfx.Ring(at, 4f, ghost, 0.4f);
+            Art.Vfx.Embers(at + Vector3.up * 0.6f, 10, ghost, 3.5f, 0.05f, 0.6f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BellFxRpc()
+        {
+            Art.Sfx.Play(Art.Sound.Slam, transform.position + Vector3.up, 0.8f, 1.4f);
+            Art.Vfx.Ring(transform.position, 4f, new Color(1f, 0.8f, 0.4f), 0.4f);
+        }
 
         /// <summary>Server: the Cardinal's Vestments — a pillar of holy fire where a foe fell, a moment later.</summary>
         public void ServerJudgement(Vector3 at)
