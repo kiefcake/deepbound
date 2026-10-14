@@ -16,6 +16,7 @@ namespace Deepbound.UI
     {
         private void OnGUI()
         {
+            UiSkin.Apply();
             var d = DungeonDirector.Instance;
             if (d == null || (d.Phase.Value != RunPhase.Wiped && d.Phase.Value != RunPhase.RunComplete)) return;
             float w = Screen.width, h = Screen.height;

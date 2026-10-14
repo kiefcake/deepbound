@@ -3,11 +3,27 @@ using UnityEngine;
 namespace Deepbound.UI
 {
     /// <summary>
-    /// Shared IMGUI look for the menus: dark iron panels, gold accents, bold type.
-    /// Built once from generated 1-pixel textures — no assets, like everything else.
+    /// Shared IMGUI look: gothic. Serif book type (Palatino, from the OS), blackletter for
+    /// titles where Windows has it, and panels framed like old ironwork — dark iron edge, a
+    /// gold inner rule, a leather-dark fill and gold studs at the corners. Built from code;
+    /// no assets, like everything else.
     /// </summary>
     public static class UiSkin
     {
+        private static Font bookFont, titleFont;
+
+        /// <summary>Body text: a book serif.</summary>
+        public static Font BookFont => bookFont ??= Font.CreateDynamicFontFromOSFont(new[] { "Palatino Linotype", "Book Antiqua", "Georgia", "Times New Roman" }, 16);
+
+        /// <summary>Titles: blackletter if installed, else the book serif.</summary>
+        public static Font TitleFont => titleFont ??= Font.CreateDynamicFontFromOSFont(new[] { "Old English Text MT", "Palatino Linotype", "Georgia" }, 32);
+
+        /// <summary>Call at the top of every OnGUI: styles that do not name a font use the book serif.</summary>
+        public static void Apply()
+        {
+            if (GUI.skin.font != BookFont) GUI.skin.font = BookFont;
+        }
+
         public static readonly Color Gold = new Color(0.92f, 0.74f, 0.36f);
         public static readonly Color Ink = new Color(0.03f, 0.03f, 0.04f, 0.88f);
         public static readonly Color Ember = new Color(0.85f, 0.35f, 0.12f);
@@ -16,7 +32,14 @@ namespace Deepbound.UI
 
         public static GUIStyle Button => button ??= MakeButton(18);
         public static GUIStyle ButtonBig => buttonBig ??= MakeButton(24);
-        public static GUIStyle Title => title ??= MakeLabel(72, TextAnchor.MiddleCenter, Gold, FontStyle.Bold);
+        public static GUIStyle Title => title ??= MakeTitle();
+
+        private static GUIStyle MakeTitle()
+        {
+            var s = MakeLabel(72, TextAnchor.MiddleCenter, Gold, FontStyle.Normal);
+            s.font = TitleFont;
+            return s;
+        }
         public static GUIStyle Heading => heading ??= MakeLabel(22, TextAnchor.MiddleLeft, Gold, FontStyle.Bold);
         public static GUIStyle Body => body ??= MakeLabel(15, TextAnchor.UpperLeft, new Color(0.9f, 0.88f, 0.84f), FontStyle.Normal, wrap: true);
         public static GUIStyle Small => small ??= MakeLabel(12, TextAnchor.UpperLeft, new Color(0.75f, 0.72f, 0.68f), FontStyle.Normal, wrap: true);
@@ -42,11 +65,48 @@ namespace Deepbound.UI
             GUI.color = old;
         }
 
-        /// <summary>A panel with a thin gold frame.</summary>
+        public static readonly Color Iron = new Color(0.16f, 0.15f, 0.15f);
+        public static readonly Color Leather = new Color(0.07f, 0.05f, 0.045f);
+
+        /// <summary>An ornate panel: iron edge, gold rule, dark leather, gold corner studs.</summary>
         public static void Panel(Rect r, float alpha = 0.88f)
         {
-            Rect(new Rect(r.x - 2, r.y - 2, r.width + 4, r.height + 4), new Color(Gold.r, Gold.g, Gold.b, 0.55f * alpha));
-            Rect(r, new Color(Ink.r, Ink.g, Ink.b, alpha));
+            float a = alpha;
+            Rect(new Rect(r.x - 4, r.y - 4, r.width + 8, r.height + 8), new Color(0f, 0f, 0f, 0.5f * a));
+            Rect(new Rect(r.x - 3, r.y - 3, r.width + 6, r.height + 6), new Color(Iron.r, Iron.g, Iron.b, 0.95f * a));
+            Rect(new Rect(r.x - 1, r.y - 1, r.width + 2, r.height + 2), new Color(Gold.r * 0.8f, Gold.g * 0.8f, Gold.b * 0.8f, 0.85f * a));
+            Rect(r, new Color(Leather.r, Leather.g, Leather.b, 0.94f * a));
+            // A faint warm sheen across the top, like lamplight on leather.
+            Rect(new Rect(r.x, r.y, r.width, Mathf.Min(18f, r.height * 0.3f)), new Color(0.35f, 0.22f, 0.1f, 0.12f * a));
+            if (r.width > 40 && r.height > 24)
+            {
+                foreach (var c in new[] { new Vector2(r.x - 2, r.y - 2), new Vector2(r.xMax + 2, r.y - 2), new Vector2(r.x - 2, r.yMax + 2), new Vector2(r.xMax + 2, r.yMax + 2) })
+                    Stud(c, 5f, a);
+            }
+        }
+
+        /// <summary>A small gold diamond (rotated square) centred on a point.</summary>
+        public static void Stud(Vector2 at, float size, float alpha = 1f)
+        {
+            var m = GUI.matrix;
+            GUIUtility.RotateAroundPivot(45f, at);
+            Rect(new Rect(at.x - size / 2f - 1, at.y - size / 2f - 1, size + 2, size + 2), new Color(0.1f, 0.07f, 0.03f, alpha));
+            Rect(new Rect(at.x - size / 2f, at.y - size / 2f, size, size), new Color(Gold.r, Gold.g, Gold.b, alpha));
+            GUI.matrix = m;
+        }
+
+        /// <summary>A framed bar: iron frame, dark well, the fill with a highlight, and notches.</summary>
+        public static void Bar(Rect r, float k, Color fill, int notches = 0)
+        {
+            Rect(new Rect(r.x - 2, r.y - 2, r.width + 4, r.height + 4), new Color(Iron.r, Iron.g, Iron.b, 0.95f));
+            Rect(new Rect(r.x - 1, r.y - 1, r.width + 2, r.height + 2), new Color(Gold.r * 0.55f, Gold.g * 0.55f, Gold.b * 0.55f, 0.9f));
+            Rect(r, new Color(0.05f, 0.03f, 0.03f, 0.95f));
+            float fw = r.width * Mathf.Clamp01(k);
+            Rect(new Rect(r.x, r.y, fw, r.height), fill);
+            Rect(new Rect(r.x, r.y, fw, Mathf.Max(1f, r.height * 0.35f)), new Color(1f, 1f, 1f, 0.18f));
+            Rect(new Rect(r.x, r.yMax - Mathf.Max(1f, r.height * 0.2f), fw, Mathf.Max(1f, r.height * 0.2f)), new Color(0f, 0f, 0f, 0.25f));
+            for (int i = 1; i < notches; i++)
+                Rect(new Rect(r.x + r.width * i / notches, r.y, 1f, r.height), new Color(0f, 0f, 0f, 0.35f));
         }
 
         /// <summary>Text with a soft dark drop shadow, for titles over 3D scenes.</summary>
@@ -62,12 +122,14 @@ namespace Deepbound.UI
         private static GUIStyle MakeButton(int size)
         {
             var s = new GUIStyle(GUI.skin.button) { fontSize = size, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
-            s.normal.background = Tex(new Color(0.1f, 0.085f, 0.07f, 0.92f));
-            s.hover.background = Tex(new Color(0.32f, 0.22f, 0.1f, 0.95f));
-            s.active.background = Tex(new Color(0.55f, 0.36f, 0.14f, 1f));
+            // Buttons are little framed plaques: a gold-ruled border baked into a 3x3 texture.
+            s.normal.background = Framed(new Color(0.09f, 0.065f, 0.05f, 0.95f), new Color(0.55f, 0.42f, 0.2f, 0.9f));
+            s.hover.background = Framed(new Color(0.28f, 0.17f, 0.08f, 0.97f), new Color(0.95f, 0.75f, 0.36f, 1f));
+            s.active.background = Framed(new Color(0.5f, 0.3f, 0.12f, 1f), new Color(1f, 0.85f, 0.45f, 1f));
+            s.onNormal.background = s.normal.background;
             s.normal.textColor = new Color(0.9f, 0.85f, 0.75f);
             s.hover.textColor = s.active.textColor = Color.white;
-            s.border = new RectOffset(0, 0, 0, 0);
+            s.border = new RectOffset(1, 1, 1, 1);
             return s;
         }
 
@@ -76,6 +138,17 @@ namespace Deepbound.UI
             var s = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = anchor, fontStyle = fs, wordWrap = wrap, richText = true };
             s.normal.textColor = color;
             return s;
+        }
+
+        /// <summary>A 3x3 texture: a one-pixel border round a fill (stretched with a 1px border).</summary>
+        private static Texture2D Framed(Color fill, Color edge)
+        {
+            var t = new Texture2D(3, 3) { hideFlags = HideFlags.HideAndDontSave, filterMode = FilterMode.Point };
+            for (int x = 0; x < 3; x++)
+                for (int y = 0; y < 3; y++)
+                    t.SetPixel(x, y, x == 1 && y == 1 ? fill : edge);
+            t.Apply();
+            return t;
         }
 
         private static Texture2D Tex(Color c)

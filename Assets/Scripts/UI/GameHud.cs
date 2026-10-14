@@ -362,16 +362,18 @@ namespace Deepbound.UI
         {
             if (white != null && label != null) return;
             white = Texture2D.whiteTexture;
-            label = new GUIStyle(GUI.skin.label) { fontSize = 15, fontStyle = FontStyle.Bold };
-            label.normal.textColor = Color.white;
-            small = new GUIStyle(label) { fontSize = 12, fontStyle = FontStyle.Normal };
-            big = new GUIStyle(label) { fontSize = 34, alignment = TextAnchor.MiddleCenter };
+            UiSkin.Apply();
+            label = new GUIStyle(GUI.skin.label) { fontSize = 16, fontStyle = FontStyle.Bold };
+            label.normal.textColor = new Color(0.94f, 0.9f, 0.84f);
+            small = new GUIStyle(label) { fontSize = 13, fontStyle = FontStyle.Normal };
+            big = new GUIStyle(label) { fontSize = 36, alignment = TextAnchor.MiddleCenter, font = UiSkin.TitleFont, fontStyle = FontStyle.Normal };
             center = new GUIStyle(label) { alignment = TextAnchor.MiddleCenter };
         }
 
         private void OnGUI()
         {
             if (player == null) return;
+            UiSkin.Apply();
             EnsureStyles();
             if (CharacterSelect.Open) return;
 
@@ -381,6 +383,7 @@ namespace Deepbound.UI
             DrawDamageNumbers();
             DrawCombos();
             DrawCampReadouts(w, h);
+            DrawHidden(w, h);
             DrawPings(w, h);
             DrawVignette(w, h);
             DrawCrosshair(w, h);
@@ -465,8 +468,12 @@ namespace Deepbound.UI
 
         private void Ability(float x, float y, float size, string key, string name, float remaining, float cooldown, bool active = false, bool unaffordable = false)
         {
-            Rect(x - 2, y - 2, size + 4, size + 4, active ? Gold : new Color(0.35f, 0.3f, 0.22f, 0.9f));
-            Rect(x, y, size, size, Panel);
+            UiSkin.Panel(new Rect(x, y, size, size), 0.9f);
+            if (active)
+            {
+                Rect(x - 3, y - 3, size + 6, 2, Gold); Rect(x - 3, y + size + 1, size + 6, 2, Gold);
+                Rect(x - 3, y - 3, 2, size + 6, Gold); Rect(x + size + 1, y - 3, 2, size + 6, Gold);
+            }
             if (unaffordable) Rect(x, y, size, size, new Color(0.1f, 0.15f, 0.4f, 0.45f));
             GUI.Label(new Rect(x, y + 6, size, 20), key, center);
             GUI.Label(new Rect(x, y + size - 22, size, 18), name, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
@@ -999,6 +1006,30 @@ namespace Deepbound.UI
 
         private static string StripColors(string tags) => System.Text.RegularExpressions.Regex.Replace(tags, "<[^>]+>", "");
 
+        private float hiddenSince = -1f;
+
+        /// <summary>Hidden in smoke: darkened violet edges and a countdown, so you know you are unseen and for how long.</summary>
+        private void DrawHidden(float w, float h)
+        {
+            if (!life.Hidden.Value) { hiddenSince = -1f; return; }
+            if (hiddenSince < 0f) hiddenSince = Time.time;
+            var rogue = GetComponent<RogueKit>();
+            float total = rogue != null ? rogue.HiddenDuration : 4f;
+            float left = Mathf.Clamp01(1f - (Time.time - hiddenSince) / total);
+            var edge = new Color(0.12f, 0.05f, 0.2f, 0.55f);
+            float t = Mathf.Min(w, h) * 0.16f;
+            for (int i = 0; i < 6; i++)
+            {
+                float k = t * (1f - i / 6f);
+                var c = new Color(edge.r, edge.g, edge.b, edge.a * 0.22f);
+                Rect(0, 0, w, k, c); Rect(0, h - k, w, k, c); Rect(0, 0, k, h, c); Rect(w - k, 0, k, h, c);
+            }
+            float bw = 220, bx = w / 2f - bw / 2f, by = h / 2f + 90;
+            GUI.Label(new Rect(0, by - 22, w, 20), "HIDDEN  -  your next strike is an Ambush", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.8f, 0.65f, 1f) } });
+            Rect(bx - 1, by - 1, bw + 2, 8, new Color(0f, 0f, 0f, 0.7f));
+            Rect(bx, by, bw * left, 6, new Color(0.65f, 0.45f, 1f));
+        }
+
         private void DrawVignette(float w, float h)
         {
             if (hurtFlash <= 0f) return;
@@ -1019,13 +1050,19 @@ namespace Deepbound.UI
 
         private static void Bar(float x, float y, float width, float height, float k, Color color)
         {
-            Rect(x, y, width, height, new Color(0.12f, 0.1f, 0.1f, 0.9f));
-            Rect(x, y, width * Mathf.Clamp01(k), height, color);
+            UiSkin.Bar(new Rect(x, y, width, height), k, color, height >= 18f ? 10 : 0);
+            return;
             Rect(x, y, width * Mathf.Clamp01(k), height * 0.35f, new Color(1f, 1f, 1f, 0.12f));
         }
 
         private static void Rect(float x, float y, float width, float height, Color color)
         {
+            // Every HUD panel goes through here: draw those as the skin's ornate panel.
+            if (color == Panel && width > 30f && height > 20f)
+            {
+                UiSkin.Panel(new Rect(x, y, width, height), 0.86f);
+                return;
+            }
             var old = GUI.color;
             GUI.color = color;
             GUI.DrawTexture(new Rect(x, y, width, height), Texture2D.whiteTexture);

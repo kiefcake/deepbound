@@ -233,7 +233,7 @@ namespace Deepbound.Enemies
             ApplyKnockback();
             // Chill slows the walk, not the attack timing: you get time to reposition, not
             // a free win.
-            agent.speed = health.Chilled.Value ? moveSpeed * 0.5f : moveSpeed;
+            agent.speed = (health.Chilled.Value ? moveSpeed * 0.5f : moveSpeed) * SpeedScale;
 
             if (Time.time < stunnedUntil)
             {
@@ -435,6 +435,9 @@ namespace Deepbound.Enemies
 
         public bool IsStunned => Time.time < stunnedUntil;
 
+        /// <summary>Per-type walk-speed scale (archers creep while repositioning).</summary>
+        protected virtual float SpeedScale => 1f;
+
         /// <summary>Synced crowd-control state, for the status tags over enemies: bit 0 stunned, bit 1 taunted.</summary>
         public readonly NetworkVariable<byte> Status = new NetworkVariable<byte>();
 
@@ -446,6 +449,15 @@ namespace Deepbound.Enemies
 
         /// <summary>Who has this enemy taunted right now, or null.</summary>
         public Health Taunter => taunter != null && Time.time < tauntUntil ? taunter : null;
+
+        /// <summary>Server: lose track of someone (they vanished into smoke). True if it was hunting them.</summary>
+        public bool ServerForget(Health h)
+        {
+            bool was = target == h || taunter == h;
+            if (target == h) target = null;
+            if (taunter == h) taunter = null;
+            return was;
+        }
 
         public void ServerTaunt(Health taunterHealth, float seconds)
         {

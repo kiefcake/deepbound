@@ -62,6 +62,7 @@ namespace Deepbound.EditorTools
 
             BakeUnlit("Flame", unlit, new Color(1f, 0.55f, 0.15f), transparent: false);
             BakeUnlit("Telegraph", unlit, new Color(1f, 0.15f, 0.1f, 0.45f), transparent: true);
+            BakeUnlit("Smoke", unlit, new Color(0.17f, 0.15f, 0.2f, 0.32f), transparent: true);
             BakeWater("Water", lit);
 
             BakeVolumeProfile();

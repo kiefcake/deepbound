@@ -54,6 +54,7 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
+            UiSkin.Apply();
             if (!Open) return;
             float w = Screen.width, h = Screen.height;
             GUI.depth = -20;

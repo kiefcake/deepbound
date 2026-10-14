@@ -20,6 +20,8 @@ namespace Deepbound.Art
         public const string Flame = "Flame";
         public const string Telegraph = "Telegraph";
         public const string Water = "Water";
+        /// <summary>Translucent, unlit haze: smoke clouds.</summary>
+        public const string Smoke = "Smoke";
     }
 
     /// <summary>

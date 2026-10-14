@@ -641,6 +641,19 @@ namespace Deepbound.Networking
 
             yield return new WaitForSeconds(1.5f);
             yield return Shot(dir, "0a_character_select");
+            // Every class, front and back, for judging the character art.
+            var select = local.GetComponent<UI.CharacterSelect>();
+            for (int ci = 0; ci < Classes.ClassDefinition.ById.Length; ci++)
+            {
+                foreach (var (yaw, tag) in new[] { (200f, "front"), (20f, "back") })
+                {
+                    select.DebugView(ci, yaw);
+                    yield return null;
+                    yield return null;
+                    yield return Shot(dir, "0p_class_" + ((Classes.ClassId)ci) + "_" + tag);
+                }
+            }
+            select.DebugView((int)local.GetComponent<PlayerProgress>().ClassId.Value, 200f);
             local.GetComponent<UI.CharacterSelect>().Close();
             yield return new WaitForSeconds(0.2f);
 
@@ -655,6 +668,9 @@ namespace Deepbound.Networking
             lobbyMotor.Teleport(dummyFrom, Quaternion.LookRotation(Lobby.DummySpots[0] - dummyFrom));
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "0c_lobby_dummies");
+            Art.SmokeCloud.Spawn(Lobby.DummySpots[0] + new Vector3(2f, 0f, 2.5f), Player.RogueKit.SmokeCloudRadius, 4f);
+            yield return new WaitForSeconds(0.9f);
+            yield return Shot(dir, "0c2_smoke_cloud");
 
             // A tour of the castle: the road from the bonfire, the stalls, the tent, the gong, the gate.
             var tour = new (string name, Vector3 at, Vector3 look, float pitch)[]

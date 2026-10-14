@@ -60,6 +60,7 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
+            UiSkin.Apply();
             var layout = DungeonDirector.Layout;
             if (layout == null || player == null || CharacterSelect.Open) return;
 

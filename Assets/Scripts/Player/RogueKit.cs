@@ -288,11 +288,17 @@ namespace Deepbound.Player
             smokeCloudUntil = hiddenUntil;
             openerArmed = true;
             life.Hidden.Value = true;
+            // Everything hunting you loses you: they stop, look about, and pick someone else.
+            var lost = new System.Collections.Generic.List<Vector3>();
+            foreach (var brain in FindObjectsByType<Enemies.EnemyBrain>(FindObjectsSortMode.None))
+                if (!brain.IsDead && Vector3.Distance(brain.transform.position, transform.position) < 25f && brain.ServerForget(health))
+                    lost.Add(brain.GetComponent<Health>().Center + Vector3.up * 1.2f);
+            if (lost.Count > 0) LostYouRpc(lost.ToArray());
             // Rank 3: the burst of smoke staggers everything close — Exposed for the party.
             if (progress.Twist(AbilitySlot.E))
                 foreach (var h in CombatQuery.Circle(transform.position, 5f, Team.Enemies).ToArray())
                     if (h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.5f);
-            SmokeFxRpc(transform.position);
+            SmokeFxRpc(transform.position, SmokeSeconds * progress.Potency(AbilitySlot.E));
         }
 
         /// <summary>
@@ -363,12 +369,25 @@ namespace Deepbound.Player
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void SmokeFxRpc(Vector3 at)
+        private void SmokeFxRpc(Vector3 at, float seconds)
         {
-            Sfx.Play(Sound.Slam, at, 0.5f, 1.8f);
-            SmokePuff.Spawn(at, 2.2f);
-            Vfx.Ring(at, RogueKit.SmokeCloudRadius, new Color(0.5f, 0.45f, 0.6f), 0.4f);
-            Vfx.Smoke(at, 6, 1.6f, 2.4f);
+            // A sharp pop, a burst ring, then a cloud that hangs in the air while you work.
+            Sfx.Play(Sound.Slam, at, 0.6f, 1.9f);
+            Sfx.Play(Sound.Whisper, at + Vector3.up, 0.8f, 0.7f);
+            Vfx.Ring(at, SmokeCloudRadius, new Color(0.5f, 0.42f, 0.65f), 0.35f);
+            Vfx.Embers(at + Vector3.up * 0.5f, 12, new Color(0.6f, 0.4f, 0.95f), 4f, 0.05f, 0.6f);
+            SmokeCloud.Spawn(at, SmokeCloudRadius, seconds);
+            if (IsOwner) hiddenFor = seconds;
+        }
+
+        /// <summary>Owner: how long the current smoke lasts, for the HUD's countdown.</summary>
+        public float HiddenDuration => hiddenFor;
+        private float hiddenFor = 4f;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void LostYouRpc(Vector3[] at)
+        {
+            foreach (var p in at) UI.GameHud.ShowCombo(p, "?", new Color(0.75f, 0.6f, 1f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

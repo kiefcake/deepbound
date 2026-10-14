@@ -114,14 +114,15 @@ namespace Deepbound.UI
                 turntables[i] = table;
 
                 // Warm key light and a cool rim, like the dungeon itself.
-                AddLight(spot + new Vector3(-2f, 3f, -2.5f), new Color(1f, 0.7f, 0.45f), 6f);
-                AddLight(spot + new Vector3(2.2f, 2.5f, 1.5f), new Color(0.45f, 0.6f, 1f), 4f);
+                AddLight(spot + new Vector3(-2f, 3f, -2.5f), new Color(1f, 0.7f, 0.45f), 9f);
+                AddLight(spot + new Vector3(2.2f, 2.5f, 1.5f), new Color(0.45f, 0.6f, 1f), 6f);
+                AddLight(spot + new Vector3(1.5f, 1.4f, -2.2f), new Color(1f, 0.85f, 0.7f), 3f);
 
                 previews[i] = new RenderTexture(480, 600, 24) { name = "ClassPreview" + i };
                 var cam = new GameObject("PreviewCam" + i).AddComponent<Camera>();
                 cam.transform.SetParent(stage.transform, false);
-                cam.transform.SetPositionAndRotation(spot + new Vector3(0f, 1.05f, -5.2f), Quaternion.Euler(1f, 0f, 0f));
-                cam.fieldOfView = 36f;
+                cam.transform.SetPositionAndRotation(spot + new Vector3(0f, 1.15f, -4.1f), Quaternion.Euler(2f, 0f, 0f));
+                cam.fieldOfView = 34f;
                 cam.targetTexture = previews[i];
                 previewCams[i] = cam;
                 cam.clearFlags = CameraClearFlags.SolidColor;
@@ -146,10 +147,18 @@ namespace Deepbound.UI
         // ------------------------------------------------------------------
 
         private int viewing = -1;
+
+        /// <summary>Screenshots only: show one class, turned to a given yaw (200 = front, 20 = back).</summary>
+        public void DebugView(int i, float yaw)
+        {
+            viewing = i;
+            if (turntables != null && i < turntables.Length) turntables[i].rotation = Quaternion.Euler(0f, yaw, 0f);
+        }
         private Camera[] previewCams;
 
         private void OnGUI()
         {
+            UiSkin.Apply();
             if (!Open || progress == null) return;
             float w = Screen.width, h = Screen.height;
             GUI.depth = -10;

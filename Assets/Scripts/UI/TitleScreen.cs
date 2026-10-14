@@ -32,6 +32,7 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
+            UiSkin.Apply();
             if (launcher == null || Connected) return;
             float w = Screen.width, h = Screen.height;
             float fade = Mathf.Clamp01((Time.time - shownAt) / 1.2f);

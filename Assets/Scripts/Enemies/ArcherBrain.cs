@@ -21,8 +21,52 @@ namespace Deepbound.Enemies
 
         private float nextRetreat;
 
+        // After each shot the archer sidesteps to a new spot, slowly, so it is never a
+        // stationary turret: you have to track it, and its next arrow comes from a new angle.
+        private float repositionUntil;
+        private Vector3 repositionTo;
+
+        protected override float SpeedScale => Time.time < repositionUntil ? 0.5f : 1f;
+
+        private void PlanReposition()
+        {
+            if (target == null) return;
+            var toTarget = target.transform.position - transform.position;
+            toTarget.y = 0f;
+            float dist = toTarget.magnitude;
+            var side = Vector3.Cross(Vector3.up, toTarget.normalized) * (Random.value < 0.5f ? -1f : 1f);
+            // Sideways, and a little toward or away to settle back near the preferred range.
+            var step = side * Random.Range(2.5f, 4.5f) + toTarget.normalized * Mathf.Clamp(dist - preferredRange, -2f, 2f);
+            var want = transform.position + step;
+            if (UnityEngine.AI.NavMesh.SamplePosition(want, out var hit, 2f, UnityEngine.AI.NavMesh.AllAreas) &&
+                UnityEngine.AI.NavMesh.Raycast(transform.position, hit.position, out _, UnityEngine.AI.NavMesh.AllAreas) == false)
+            {
+                repositionTo = hit.position;
+                repositionUntil = Time.time + Random.Range(1.6f, 2.6f);
+            }
+        }
+
         protected override bool ChooseSpecialAttack(float distanceToTarget)
         {
+            // Mid-sidestep: keep walking (and keep facing the target) instead of shooting.
+            if (Time.time < repositionUntil)
+            {
+                if ((transform.position - repositionTo).sqrMagnitude < 0.5f) repositionUntil = 0f;
+                else
+                {
+                    agent.isStopped = false;
+                    agent.stoppingDistance = 0.2f;
+                    agent.SetDestination(repositionTo);
+                    if (target != null)
+                    {
+                        var look = target.transform.position - transform.position;
+                        look.y = 0f;
+                        if (look.sqrMagnitude > 0.01f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(look), Time.deltaTime * 6f);
+                    }
+                    return true;
+                }
+            }
+
             // Too close: back away rather than shoot point-blank.
             if (distanceToTarget < panicRange && Time.time >= nextRetreat)
             {
@@ -65,6 +109,7 @@ namespace Deepbound.Enemies
             var dir = target.Center - origin;
             Arrows.ServerFire(origin, dir, damage, Team.Players, NetworkObjectId);
             FireRpc(origin, dir);
+            PlanReposition();
         }
 
         [Rpc(SendTo.ClientsAndHost)]
