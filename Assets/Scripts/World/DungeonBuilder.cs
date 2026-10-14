@@ -177,6 +177,17 @@ namespace Deepbound.World
                 b.AddBox(wallCenter + inward + Along(-door / 2f - 0.15f) + Vector3.up * DungeonLayout.CorridorHeight / 2f, Size(0.3f, DungeonLayout.CorridorHeight) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.Wood);
                 b.AddBox(wallCenter + inward + Along(door / 2f + 0.15f) + Vector3.up * DungeonLayout.CorridorHeight / 2f, Size(0.3f, DungeonLayout.CorridorHeight) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.Wood);
                 b.AddBox(wallCenter + inward + Vector3.up * (DungeonLayout.CorridorHeight + 0.15f), Size(door + 0.9f, 0.3f) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.Wood);
+                // A pointed gothic arch of dressed stone over the lintel, with a keystone.
+                var normal = new Vector3(dir.x, 0f, dir.y);
+                float archY = DungeonLayout.CorridorHeight + 0.3f;
+                float leg = door * 0.62f;
+                foreach (float sgn in new[] { -1f, 1f })
+                {
+                    var rot = Quaternion.AngleAxis(sgn * (alongX ? -32f : 32f), normal);
+                    b.AddBox(wallCenter + inward * 1.15f + Along(sgn * door * 0.25f) + Vector3.up * (archY + leg * 0.27f),
+                        Size(leg, 0.32f) + (alongX ? new Vector3(0, 0, -0.55f) : new Vector3(-0.55f, 0, 0)), Mat.StoneWall, rot);
+                }
+                b.AddBox(wallCenter + inward * 1.2f + Vector3.up * (archY + leg * 0.55f), Size(0.32f, 0.42f) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.StoneWall);
             }
 
             // Plinth along the base of the wall, so walls meet the floor with a line
@@ -292,6 +303,7 @@ namespace Deepbound.World
             }
 
             if (rng.NextDouble() < 0.5) Props.BonePile(b, c + new Vector3((float)rng.NextDouble() * 4f - 2f, 0f, (float)rng.NextDouble() * 4f - 2f), rng);
+            GothicDressing(room, b, lights, rng);
             if (room.Kind == RoomKind.Combat && rng.NextDouble() < 0.4) Props.Brazier(lights, c, theme.BrazierColor, true);
         }
 
@@ -387,9 +399,55 @@ namespace Deepbound.World
         }
 
         /// <summary>A great hall: a colonnade down both sides, chandeliers, and banners in the floor's colours.</summary>
+        /// <summary>
+        /// The gothic layer for any room: gargoyles flanking a doorless wall, iron candelabras,
+        /// and cobwebs in the high corners.
+        /// </summary>
+        private static void GothicDressing(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
+        {
+            var c = room.Center;
+            float hx = room.Size.x / 2f, hz = room.Size.y / 2f;
+            // A pair of gargoyles watching from a wall with no door (and no hollow in it).
+            for (int side = 0; side < 4; side++)
+            {
+                if (room.Doors[side] || room.HoleOn(side) != null || room.Size.x < 12f || rng.NextDouble() < 0.5) continue;
+                var d = DungeonLayout.Dir[side];
+                var wall = c + new Vector3(d.x, 0f, d.y) * ((side == 0 || side == 2 ? hz : hx) - 0.9f);
+                var along = side == 0 || side == 2 ? Vector3.right : Vector3.forward;
+                var face = Quaternion.LookRotation(-new Vector3(d.x, 0f, d.y));
+                Props.Gargoyle(b, wall + along * 2.2f, face);
+                Props.Gargoyle(b, wall - along * 2.2f, face);
+                Props.Candelabra(lights, b, wall + along * 0.0f - new Vector3(d.x, 0f, d.y) * 0.3f, theme.TorchColor);
+                break;
+            }
+            // Cobwebs in two or three of the high corners.
+            for (int corner = 0; corner < 4; corner++)
+            {
+                if (rng.NextDouble() < 0.4) continue;
+                float sx = (corner & 1) == 0 ? -1f : 1f, sz = (corner & 2) == 0 ? -1f : 1f;
+                var p = c + new Vector3(sx * (hx - 0.05f), room.Height - 0.1f, sz * (hz - 0.05f));
+                Props.Cobweb(lights, p, new Vector3(-sx, 0f, 0f), new Vector3(0f, 0f, -sz), 1.4f + (float)rng.NextDouble());
+            }
+        }
+
         private static void DressGreatHall(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights)
         {
             var c = room.Center;
+            // Stained-glass lancets along both long walls, between the banners.
+            int seed = room.DecorSeed;
+            for (int side = 1; side < 4; side += 2)
+            {
+                var d = DungeonLayout.Dir[side];
+                for (float z = -room.Size.y / 2f + 8f; z < room.Size.y / 2f - 6f; z += 6f)
+                {
+                    if (room.Doors[side] && Mathf.Abs(z) < DungeonLayout.CorridorWidth + 2f) continue;
+                    if (room.HoleOn(side) != null && Mathf.Abs(z - room.HoleOn(side).Along) < 3f) continue;
+                    var face = c + new Vector3(d.x * (room.Size.x / 2f), 0f, z);
+                    Props.StainedGlass(lights, b, face, -new Vector3(d.x, 0f, 0f), room.Height * 0.55f, seed++);
+                }
+            }
+            Props.Candelabra(lights, b, c + new Vector3(-2.5f, 0f, 0f), theme.TorchColor);
+            Props.Candelabra(lights, b, c + new Vector3(2.5f, 0f, 0f), theme.TorchColor);
             for (int i = 0; i < 4; i++)
             {
                 float z = -room.Size.y / 2f + room.Size.y * (i + 0.5f) / 4f;

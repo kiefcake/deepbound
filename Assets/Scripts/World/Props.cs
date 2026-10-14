@@ -160,6 +160,101 @@ namespace Deepbound.World
             ArtLibrary.SetGlow(stone.GetComponent<Renderer>(), new Color(0.45f, 0.7f, 1f) * 1.6f);
         }
 
+        /// <summary>A crouching gargoyle on a plinth: hunched body, folded wings, horned head.</summary>
+        public static void Gargoyle(MeshKit.Batcher b, Vector3 floor, Quaternion facing)
+        {
+            Matrix4x4 T(Vector3 local, Vector3 euler, Vector3 scale) => Matrix4x4.TRS(floor + facing * local, facing * Quaternion.Euler(euler), scale);
+            b.Add(MeshKit.Box(new Vector3(0.9f, 1.1f, 0.9f)), Mat.StoneWall, T(new Vector3(0f, 0.55f, 0f), Vector3.zero, Vector3.one));
+            b.Add(MeshKit.Box(new Vector3(1f, 0.12f, 1f)), Mat.StoneWall, T(new Vector3(0f, 1.15f, 0f), Vector3.zero, Vector3.one));
+            b.Add(MeshKit.Ball(0.38f, 8, 6), Mat.StoneWall, T(new Vector3(0f, 1.55f, 0f), new Vector3(20f, 0f, 0f), new Vector3(1f, 0.9f, 1.25f)));
+            b.Add(MeshKit.Ball(0.2f, 8, 6), Mat.StoneWall, T(new Vector3(0f, 1.92f, 0.28f), Vector3.zero, new Vector3(1f, 0.9f, 1.15f)));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                b.Add(MeshKit.Lathe("gargHorn", new[] { new Vector2(0.05f, 0f), new Vector2(0f, 0.18f) }, 5), Mat.StoneWall, T(new Vector3(0.1f * s, 2.06f, 0.22f), new Vector3(-30f, 0f, -25f * s), Vector3.one));
+                b.Add(MeshKit.Box(new Vector3(0.06f, 0.7f, 0.5f)), Mat.StoneWall, T(new Vector3(0.36f * s, 1.75f, -0.15f), new Vector3(-25f, 0f, 22f * s), Vector3.one));
+                b.Add(MeshKit.Box(new Vector3(0.14f, 0.3f, 0.16f)), Mat.StoneWall, T(new Vector3(0.22f * s, 1.32f, 0.3f), new Vector3(15f, 0f, 0f), Vector3.one));
+            }
+        }
+
+        /// <summary>A standing iron candelabra: a tall stem and a crown of candles.</summary>
+        public static void Candelabra(Transform parent, MeshKit.Batcher b, Vector3 floor, Color fire)
+        {
+            b.Add(MeshKit.Cylinder(0.25f, 0.18f, 0.12f, 8), Mat.Steel, Matrix4x4.Translate(floor));
+            b.Add(MeshKit.Cylinder(0.04f, 0.035f, 1.9f, 6), Mat.Steel, Matrix4x4.Translate(floor + Vector3.up * 0.1f));
+            b.Add(MeshKit.Cylinder(0.32f, 0.32f, 0.04f, 10), Mat.Steel, Matrix4x4.Translate(floor + Vector3.up * 1.95f));
+            for (int i = 0; i < 5; i++)
+            {
+                var p = floor + Vector3.up * 2f + (i == 0 ? Vector3.zero : Quaternion.Euler(0f, i * 90f + 45f, 0f) * Vector3.forward * 0.25f);
+                b.Add(MeshKit.Cylinder(0.03f, 0.03f, 0.16f + (i == 0 ? 0.06f : 0f), 6), Mat.Bone, Matrix4x4.Translate(p));
+                b.Add(MeshKit.Ball(0.025f, 5, 4), Mat.Flame, Matrix4x4.Translate(p + Vector3.up * (0.2f + (i == 0 ? 0.06f : 0f))));
+            }
+            var l = new GameObject("CandelabraLight").AddComponent<Light>();
+            l.transform.SetParent(parent, false);
+            l.transform.position = floor + Vector3.up * 2.3f;
+            l.type = LightType.Point;
+            l.color = fire;
+            l.range = 5f;
+            l.intensity = 1.4f;
+            l.shadows = LightShadows.None;
+        }
+
+        /// <summary>
+        /// A gothic lancet window set into a wall: stone frame, a pointed head, and panes of
+        /// coloured glass glowing as if lit from beyond, throwing coloured light into the room.
+        /// </summary>
+        public static void StainedGlass(Transform parent, MeshKit.Batcher b, Vector3 wallFace, Vector3 inward, float height, int seed)
+        {
+            var rot = Quaternion.LookRotation(inward);
+            var right = rot * Vector3.right;
+            var center = wallFace + inward * 0.05f + Vector3.up * height;
+            b.AddBox(center - inward * 0.05f, new Vector3(1.5f, 3.4f, 0.12f), Mat.StoneWall, rot);
+            b.AddBox(center + Vector3.up * 1.9f + right * -0.35f - inward * 0.05f, new Vector3(0.9f, 0.18f, 0.14f), Mat.StoneWall, rot * Quaternion.Euler(0f, 0f, 38f));
+            b.AddBox(center + Vector3.up * 1.9f + right * 0.35f - inward * 0.05f, new Vector3(0.9f, 0.18f, 0.14f), Mat.StoneWall, rot * Quaternion.Euler(0f, 0f, -38f));
+            var palette = new[] { new Color(0.75f, 0.12f, 0.12f), new Color(0.15f, 0.25f, 0.8f), new Color(0.85f, 0.65f, 0.15f), new Color(0.2f, 0.55f, 0.3f), new Color(0.5f, 0.2f, 0.65f) };
+            var rng = new System.Random(seed);
+            for (int y = 0; y < 5; y++)
+                for (int x = 0; x < 2; x++)
+                {
+                    var pane = MeshKit.Part(parent, "Pane", MeshKit.Box(new Vector3(0.55f, 0.55f, 0.03f)), Mat.Glow,
+                        center + right * (x - 0.5f) * 0.6f + Vector3.up * (-1.25f + y * 0.62f) + inward * 0.03f, rot.eulerAngles);
+                    ArtLibrary.SetGlow(pane.GetComponent<Renderer>(), palette[rng.Next(palette.Length)] * 1.1f);
+                }
+            var top = MeshKit.Part(parent, "PaneTop", MeshKit.Box(new Vector3(0.5f, 0.5f, 0.03f)), Mat.Glow, center + Vector3.up * 1.7f + inward * 0.03f, (rot * Quaternion.Euler(0f, 0f, 45f)).eulerAngles);
+            ArtLibrary.SetGlow(top.GetComponent<Renderer>(), palette[rng.Next(palette.Length)] * 1.1f);
+            // Lead cames between the panes.
+            b.AddBox(center + inward * 0.05f, new Vector3(0.05f, 3.2f, 0.04f), Mat.Dark, rot);
+            var l = new GameObject("GlassLight").AddComponent<Light>();
+            l.transform.SetParent(parent, false);
+            l.transform.position = center + inward * 1.6f;
+            l.type = LightType.Point;
+            l.color = palette[rng.Next(palette.Length)];
+            l.range = 6f;
+            l.intensity = 1.2f;
+            l.shadows = LightShadows.None;
+        }
+
+        /// <summary>Cobweb strands across an upper corner (translucent, catches the torchlight).</summary>
+        public static void Cobweb(Transform parent, Vector3 corner, Vector3 alongA, Vector3 alongB, float size)
+        {
+            var strand = MeshKit.Box(new Vector3(0.008f, 0.008f, 1f));
+            for (int i = 0; i <= 4; i++)
+            {
+                float t = i / 4f;
+                var dir = (alongA * (1f - t) + alongB * t + Vector3.down * 0.6f).normalized;
+                var s = MeshKit.Part(parent, "Web", strand, Mat.Smoke, corner + dir * size * 0.5f, Quaternion.LookRotation(dir).eulerAngles, new Vector3(1f, 1f, size));
+                ArtLibrary.Tint(s.GetComponent<Renderer>(), new Color(0.75f, 0.75f, 0.72f, 0.45f));
+            }
+            for (int ring = 1; ring <= 3; ring++)
+            {
+                float r = size * ring / 3.5f;
+                var a = corner + (alongA + Vector3.down * 0.6f).normalized * r;
+                var c = corner + (alongB + Vector3.down * 0.6f).normalized * r;
+                var mid = (a + c) / 2f;
+                var s = MeshKit.Part(parent, "WebRing", strand, Mat.Smoke, mid, Quaternion.LookRotation(c - a).eulerAngles, new Vector3(1f, 1f, Vector3.Distance(a, c)));
+                ArtLibrary.Tint(s.GetComponent<Renderer>(), new Color(0.75f, 0.75f, 0.72f, 0.4f));
+            }
+        }
+
         /// <summary>A rack of spare arms against a wall: swords and a spear.</summary>
         public static void WeaponRack(MeshKit.Batcher b, Vector3 floor, Quaternion facing)
         {
