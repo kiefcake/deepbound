@@ -186,9 +186,21 @@ namespace Deepbound.Combat
             return dealt;
         }
 
+        /// <summary>Server: does chilling this target freeze it solid (it is standing in water)?</summary>
+        public static Func<Health, bool> FreezesWhenChilled;
+        public static Action<Health> FrozenFx;
+        private float freezeReadyAt;
+
         public void ServerChill(float seconds)
         {
             if (!IsServer || !IsAlive) return;
+            if (Team == Team.Enemies && Time.time >= freezeReadyAt && FreezesWhenChilled != null && FreezesWhenChilled(this) &&
+                TryGetComponent<ICrowdControl>(out var cc))
+            {
+                freezeReadyAt = Time.time + 4f;
+                cc.ServerStun(1.2f);
+                FrozenFx?.Invoke(this);
+            }
             chilledUntil = Mathf.Max(chilledUntil, Time.time + seconds);
             Chilled.Value = true;
         }

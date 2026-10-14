@@ -23,6 +23,8 @@ namespace Deepbound.World
         /// <summary>Standing water over the floor, if > 0: its depth in metres.</summary>
         public float WaterDepth;
         public Color WaterColor;
+        /// <summary>Light falling through cracks in the ceiling (moonlight, mostly).</summary>
+        public Color ShaftColor = new Color(0.55f, 0.65f, 0.85f);
         /// <summary>Chance per enemy spawn of a ranged archer instead of a swordsman.</summary>
         public float ArcherChance;
 
@@ -45,6 +47,7 @@ namespace Deepbound.World
                 TorchColor = new Color(0.85f, 0.75f, 0.45f), BrazierColor = new Color(0.45f, 0.95f, 0.7f),
                 StoneTint = new Color(0.72f, 0.85f, 0.72f), FloorTint = new Color(0.65f, 0.78f, 0.68f),
                 WaterDepth = 0.28f, WaterColor = new Color(0.05f, 0.13f, 0.11f, 0.82f),
+                ShaftColor = new Color(0.45f, 0.8f, 0.75f),
                 ArcherChance = 0.3f,
             },
             new DungeonTheme
@@ -55,6 +58,7 @@ namespace Deepbound.World
                 AmbientSky = new Color(0.07f, 0.065f, 0.12f), AmbientEquator = new Color(0.05f, 0.045f, 0.08f), AmbientGround = new Color(0.03f, 0.025f, 0.04f),
                 TorchColor = new Color(0.55f, 0.7f, 1f), BrazierColor = new Color(0.35f, 0.65f, 1f),
                 StoneTint = new Color(0.78f, 0.76f, 0.92f), FloorTint = new Color(0.75f, 0.72f, 0.85f),
+                ShaftColor = new Color(0.68f, 0.6f, 1f),
                 ArcherChance = 0.35f,
             },
             new DungeonTheme
@@ -65,6 +69,7 @@ namespace Deepbound.World
                 AmbientSky = new Color(0.1f, 0.05f, 0.06f), AmbientEquator = new Color(0.07f, 0.035f, 0.04f), AmbientGround = new Color(0.04f, 0.02f, 0.02f),
                 TorchColor = new Color(1f, 0.45f, 0.3f), BrazierColor = new Color(0.95f, 0.3f, 0.2f),
                 StoneTint = new Color(0.62f, 0.55f, 0.58f), FloorTint = new Color(0.6f, 0.5f, 0.52f),
+                ShaftColor = new Color(1f, 0.5f, 0.38f),
                 ArcherChance = 0.3f,
             },
         };

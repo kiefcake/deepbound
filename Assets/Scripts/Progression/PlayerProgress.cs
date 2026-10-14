@@ -342,7 +342,8 @@ namespace Deepbound.Progression
         }
 
         /// <summary>SPD 50 is the reference speed; each point either side is ±1%.</summary>
-        public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1.15f : 1f) * (Blessed(Blessing.Swiftness) ? 1.12f : 1f);
+        public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1.15f : 1f) * (Blessed(Blessing.Swiftness) ? 1.12f : 1f)
+            * World.DungeonDirector.WaterSlow(transform.position);
 
         /// <summary>Q and E cooldowns scale by this (Echo Stone).</summary>
         public float CooldownMultiplier => (HasRelic(Relic.EchoStone) ? 0.7f : 1f) * (Wears(GearId.CrackedHourglass) ? 0.82f : 1f) * (Blessed(Blessing.Swiftness) ? 0.85f : 1f);

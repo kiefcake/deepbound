@@ -52,6 +52,10 @@ namespace Deepbound.Art
             }
         }
 
+        /// <summary>A speck of dust turning in a light shaft: slow, faint, drifting.</summary>
+        public static void Speck(Vector3 at, Color color) =>
+            Spawn(Cube, Mat.Glow, at, Random.insideUnitSphere * 0.12f + Vector3.down * 0.05f, Random.Range(2f, 3.5f), 0.025f, 0f, color * 0.9f, 0f, 0.2f);
+
         /// <summary>One soft mote drifting up from somewhere around a body (cosmetic auras).</summary>
         public static void Mote(Vector3 feet, Color color)
         {

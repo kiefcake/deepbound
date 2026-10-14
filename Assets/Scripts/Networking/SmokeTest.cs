@@ -980,11 +980,32 @@ namespace Deepbound.Networking
             yield return Shot(dir, "4_boss_room_back");
 
             // One look at each later floor's theme.
+            var shotFeatures = new System.Collections.Generic.HashSet<RoomFeature>(layout.Rooms.Select(r => r.Feature));
             for (int depth = 1; depth < DungeonDirector.FloorsPerRun; depth++)
             {
                 DungeonDirector.Instance.ServerDebugStartFloor(depth);
                 yield return new WaitForSeconds(2.5f);
                 var l = DungeonDirector.Layout;
+                // Any room mechanic not seen yet: from a corner, and (galleries) from the balcony.
+                foreach (var room in l.Rooms)
+                {
+                    if (room.Feature == RoomFeature.None || !shotFeatures.Add(room.Feature)) continue;
+                    var fromF = room.Center + new Vector3(-room.Size.x * 0.42f, 0.1f, -room.Size.y * 0.42f);
+                    foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                        if (!(e is BossBrain) && room.Contains(e.transform.position, 1f)) e.GetComponent<Health>().ServerDamage(1e6f, fromF);
+                    motor.Teleport(fromF, Quaternion.LookRotation(room.Center - fromF));
+                    yield return new WaitForSeconds(1.4f);
+                    yield return Shot(dir, "1c_feature_" + room.Feature + "_floor" + (depth + 1));
+                    if (room.Balconies.Count > 0)
+                    {
+                        var d = DungeonLayout.Dir[room.Balconies[0]];
+                        bool alongX = room.Balconies[0] == 0 || room.Balconies[0] == 2;
+                        var deck = room.Center + new Vector3(d.x, 0f, d.y) * ((alongX ? room.Size.y : room.Size.x) / 2f - 1.6f) + Vector3.up * (DungeonLayout.BalconyHeight + 0.1f);
+                        motor.Teleport(deck, Quaternion.LookRotation(room.Center - deck - Vector3.up * 2f));
+                        yield return new WaitForSeconds(1f);
+                        yield return Shot(dir, "1c_feature_Gallery_balcony");
+                    }
+                }
                 foreach (var room in l.Rooms)
                 {
                     if (room.Kind != RoomKind.Combat) continue;

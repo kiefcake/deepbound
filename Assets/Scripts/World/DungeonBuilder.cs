@@ -10,7 +10,7 @@ namespace Deepbound.World
     /// randomness comes from each room's <c>DecorSeed</c>). Only the server additionally
     /// bakes a navmesh over the result, since only the server runs enemy AI.
     /// </summary>
-    public static class DungeonBuilder
+    public static partial class DungeonBuilder
     {
         private const float WallThickness = 0.8f;
         private const float FloorThickness = 0.4f;
@@ -100,6 +100,8 @@ namespace Deepbound.World
             string floorMat = Mat.Flagstone;
 
             if (room.Feature == RoomFeature.Chasm) BuildChasmFloor(room, structure, dressing, lights);
+            else if (room.Feature == RoomFeature.SunkenCourt) BuildLowFloor(room, DungeonLayout.SunkenDepth, 4.6f, structure, dressing, Mat.Flagstone);
+            else if (room.Feature == RoomFeature.Cistern) BuildLowFloor(room, DungeonLayout.CisternDepth, 1.8f, structure, dressing, Mat.Rubble);
             else structure.AddBox(c + Vector3.down * FloorThickness / 2f, new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), floorMat);
             structure.AddBox(c + Vector3.up * (h + FloorThickness / 2f), new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), Mat.StoneWall);
 
@@ -117,9 +119,15 @@ namespace Deepbound.World
             }
 
             PlaceWallTorches(room, lights, rng);
+            if (room.Kind != RoomKind.Start) PlaceLightShafts(room, lights, dressing, rng);
 
             switch (room.Feature)
             {
+                case RoomFeature.Gallery: DressGallery(room, structure, dressing, lights, rng); return;
+                case RoomFeature.SunkenCourt: DressSunken(room, dressing, lights, rng); return;
+                case RoomFeature.Cistern: DressCistern(room, dressing, lights, lights, rng); return;
+                case RoomFeature.Pendulums: DressPendulums(room, dressing, lights, lights); return;
+                case RoomFeature.Ritual: DressRitual(room, dressing, lights, rng); return;
                 case RoomFeature.GreatHall: DressGreatHall(room, dressing, lights); return;
                 case RoomFeature.Chasm: return; // the pit is the dressing
                 case RoomFeature.Crypt: DressCrypt(room, dressing, lights, rng); return;
@@ -280,7 +288,9 @@ namespace Deepbound.World
                     if (holeHere != null && Mathf.Abs(t - holeHere.Along) < WallHole.Width) continue;
                     if (Mathf.Abs(t) > len / 2f - 0.8f) continue;
 
-                    var p = room.Center + new Vector3(dir.x, 0f, dir.y) * offset + (alongX ? new Vector3(t, y, 0f) : new Vector3(0f, y, t));
+                    // On a gallery wall the torches hang above the balcony.
+                    float ty = room.Balconies.Contains(side) ? DungeonLayout.BalconyHeight + 1.7f : y;
+                    var p = room.Center + new Vector3(dir.x, 0f, dir.y) * offset + (alongX ? new Vector3(t, ty, 0f) : new Vector3(0f, ty, t));
                     Props.WallTorch(lights, p, outward, shadowBudget-- > 0, theme.TorchColor);
                 }
             }

@@ -163,6 +163,10 @@ namespace Deepbound.World
 
         private void ResetEncounters()
         {
+            ritualRoom = null;
+            ritualBraziers.Clear();
+            if (IsServer) RitualActive.Value = false;
+            bladeHitAt.Clear();
             bossGates.Clear();
             bossSealed = false;
             ambush = null;
@@ -191,7 +195,7 @@ namespace Deepbound.World
             // A combat room at least two steps from the start, so the first fight is not an ambush.
             var rng = new System.Random(layout.Seed ^ 0xA3B);
             var candidates = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && r.Id >= 2 &&
-                (r.Feature == RoomFeature.None || r.Feature == RoomFeature.GreatHall));
+                (r.Feature == RoomFeature.None || r.Feature == RoomFeature.GreatHall || r.Feature == RoomFeature.Gallery || r.Feature == RoomFeature.SunkenCourt));
             if (candidates.Count == 0) return;
             ambush = new Ambush { Room = candidates[rng.Next(candidates.Count)] };
             ambush.Gates.AddRange(SpawnGates(ambush.Room));
@@ -239,6 +243,23 @@ namespace Deepbound.World
                                 chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
                             }
                         }
+                        break;
+
+                    case RoomFeature.Ritual when breakablePrefab != null:
+                        ritualRoom = room;
+                        ritualBraziers.Clear();
+                        foreach (var spot in room.FeatureSpots)
+                        {
+                            var obj = Instantiate(breakablePrefab, spot, Quaternion.identity);
+                            var br = obj.GetComponent<Breakable>();
+                            br.Type.Value = Breakable.Kind.RitualBrazier;
+                            br.SetLootPrefab(lootPrefab);
+                            obj.Spawn(destroyWithScene: true);
+                            ritualBraziers.Add(br);
+                        }
+                        RitualActive.Value = true;
+                        nextRitualSummon = 0f;
+                        ritualSummons = 0;
                         break;
 
                     case RoomFeature.Fountain when fountainPrefab != null && room.FeatureSpots.Count > 0:
@@ -319,7 +340,120 @@ namespace Deepbound.World
             TickVault();
             TickFalls();
             TickBreaches();
+            TickPendulums();
+            TickRitual();
         }
+
+        // ------------------------------------------------------------------
+        // Pendulum halls: the blades cut anyone, players and the dead alike
+        // ------------------------------------------------------------------
+
+        private readonly Dictionary<Health, float> bladeHitAt = new Dictionary<Health, float>();
+
+        private void TickPendulums()
+        {
+            if (Layout == null) return;
+            double now = Pendulum.Clock;
+            foreach (var room in Layout.Rooms)
+            {
+                if (room.Feature != RoomFeature.Pendulums) continue;
+                bool occupied = false;
+                foreach (var p in PlayerLife.All) if (p != null && room.Contains(p.transform.position, 1f)) { occupied = true; break; }
+                if (!occupied) continue;
+                for (int i = 0; i < room.FeatureSpots.Count; i++)
+                {
+                    var blade = Pendulum.BladeCenter(room, i, now);
+                    foreach (var h in Health.All)
+                    {
+                        if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
+                        if ((h.Center - blade).sqrMagnitude > Pendulum.HitRadius * Pendulum.HitRadius) continue;
+                        if (bladeHitAt.TryGetValue(h, out float t) && Time.time - t < 0.9f) continue;
+                        bladeHitAt[h] = Time.time;
+                        var push = Pendulum.SwingDirection(room, i, now);
+                        if (h.Team == Team.Players)
+                        {
+                            h.ServerDamage(18f + 7f * Layout.Depth, blade);
+                            if (h.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(push * 9f + Vector3.up * 3f);
+                        }
+                        else
+                        {
+                            h.ServerDamage(80f + 25f * Layout.Depth, blade);
+                            if (h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerKnockback(push * 9f);
+                        }
+                        BladeHitFxRpc(h.Center);
+                    }
+                }
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BladeHitFxRpc(Vector3 at)
+        {
+            Art.Sfx.Play(Art.Sound.Hit, at, 1f, 0.7f);
+            Art.Vfx.Embers(at, 8, new Color(1f, 0.75f, 0.45f), 5f, 0.04f, 0.4f);
+        }
+
+        // ------------------------------------------------------------------
+        // Ritual chamber: braziers ward the room's dead and raise more, until smashed
+        // ------------------------------------------------------------------
+
+        public readonly NetworkVariable<bool> RitualActive = new NetworkVariable<bool>();
+        private DungeonLayout.Room ritualRoom;
+        private readonly List<Breakable> ritualBraziers = new List<Breakable>();
+        private float nextRitualSummon;
+        private int ritualSummons;
+
+        /// <summary>Anyone: is this spot inside a ritual chamber whose braziers still burn?</summary>
+        public static bool InRitualWard(Vector3 at)
+        {
+            if (Instance == null || !Instance.RitualActive.Value || Layout == null) return false;
+            var room = Layout.RoomAt(at, 0.5f);
+            return room != null && room.Feature == RoomFeature.Ritual;
+        }
+
+        private void TickRitual()
+        {
+            if (!RitualActive.Value || ritualRoom == null) return;
+            ritualBraziers.RemoveAll(b => b == null || !b.IsSpawned);
+            if (ritualBraziers.Count == 0)
+            {
+                RitualActive.Value = false;
+                TitleCardRpc("THE RITUAL IS BROKEN", "The dead stagger, unwarded");
+                foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                    if (!e.IsDead && ritualRoom.Contains(e.transform.position, 1f)) e.ServerStun(2.2f);
+                ServerDropEmbers(ritualRoom.Center + Vector3.up * 0.5f, 6);
+                return;
+            }
+            // While the party is in the room, the circle raises one of the dead every so often.
+            bool occupied = false;
+            foreach (var p in PlayerLife.All) if (p != null && ritualRoom.Contains(p.transform.position)) { occupied = true; break; }
+            if (!occupied || ritualSummons >= 4) return;
+            if (nextRitualSummon <= 0f) { nextRitualSummon = Time.time + 6f; return; }
+            if (Time.time < nextRitualSummon) return;
+            nextRitualSummon = Time.time + 13f;
+            ritualSummons++;
+            var at = ritualRoom.Center + Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f) * Vector3.forward * 2.5f;
+            if (NavMesh.SamplePosition(at, out var hit, 3f, NavMesh.AllAreas)) at = hit.position;
+            var obj = Spawn(skeletonPrefab, at, Quaternion.identity);
+            var brain = obj.GetComponent<EnemyBrain>();
+            brain.ServerScale(Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count), Layout.Depth);
+            spawned.Add(obj);
+            RiseFxRpc(new[] { at });
+        }
+
+        // ------------------------------------------------------------------
+        // Water: cistern basins slow everyone; frost freezes what stands in them
+        // ------------------------------------------------------------------
+
+        /// <summary>Anyone: movement multiplier for standing here (cistern water slows).</summary>
+        public static float WaterSlow(Vector3 at)
+        {
+            if (Layout == null) return 1f;
+            var room = Layout.RoomAt(at, 0f);
+            return room != null && DungeonLayout.InCisternWater(room, at) ? 0.68f : 1f;
+        }
+
+        public static bool InWater(Vector3 at) => WaterSlow(at) < 1f;
 
         private void TickBossArena()
         {

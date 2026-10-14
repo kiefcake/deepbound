@@ -7,10 +7,13 @@ namespace Deepbound.World
 
     /// <summary>
     /// What makes a room more than four walls. Assigned per floor from the seed, so every
-    /// peer agrees. Combat rooms can be a Great Hall, a Chasm or a Crypt; side rooms can be
-    /// a Vault or a Fountain.
+    /// peer agrees. Every combat room gets one: a Great Hall, a Chasm, a Crypt, a Gallery
+    /// (balconies to climb), a Sunken Court (a pit arena), a Cistern (flooded, with dry
+    /// stepping stones), a Pendulum hall (swinging blades that cut anyone) or a Ritual
+    /// chamber (braziers empower the room's dead until smashed). Side rooms can be a
+    /// Vault or a Fountain.
     /// </summary>
-    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain }
+    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual }
 
     /// <summary>A hollow section of wall with a niche behind it.</summary>
     public class WallHole
@@ -43,7 +46,7 @@ namespace Deepbound.World
     {
         /// <summary>Distance between room centres. Bounds the largest room plus a corridor.</summary>
         /// <remarks>Raised from 30m so rooms can be bigger: a 30m Great Hall still leaves a corridor.</remarks>
-        public const float CellSize = 40f;
+        public const float CellSize = 46f;
         public const float CorridorWidth = 3.2f;
         public const float CorridorHeight = 3.8f;
 
@@ -67,6 +70,9 @@ namespace Deepbound.World
             public readonly List<Vector3> FeatureSpots = new List<Vector3>();
             /// <summary>For a chasm: the pit, as a rect in world XZ.</summary>
             public Rect Pit;
+            /// <summary>Gallery: the walls with a balcony (side indices). Sunken court / cistern: the low area, as a rect in world XZ.</summary>
+            public readonly List<int> Balconies = new List<int>();
+            public Rect Low;
             /// <summary>For a vault: the room its levers are in (the one its door opens onto).</summary>
             public Room VaultHost;
 
@@ -248,7 +254,7 @@ namespace Deepbound.World
                 case RoomKind.Start: size = new Vector2(12f, 12f); height = 5f; break;
                 case RoomKind.Boss: size = new Vector2(30f, 30f); height = 12f; break;
                 case RoomKind.Side: size = new Vector2(Even(rng, 12, 16), Even(rng, 12, 16)); height = 5f; break;
-                default: size = new Vector2(Even(rng, 16, 28), Even(rng, 16, 28)); height = 5.5f + rng.Next(3); break;
+                default: size = new Vector2(Even(rng, 18, 32), Even(rng, 18, 32)); height = 6f + rng.Next(3); break;
             }
 
             var room = new Room
@@ -304,13 +310,13 @@ namespace Deepbound.World
                     for (int s = 0; s < 4; s++)
                     {
                         float len = (s == 0 || s == 2) ? room.Size.x : room.Size.y;
-                        if (!room.Doors[s] && len >= 10f) sides.Add(s);
+                        if (!room.Doors[s] && len >= 10f && !room.Balconies.Contains(s)) sides.Add(s);
                     }
                     if (sides.Count == 0)
                         for (int s = 0; s < 4; s++)
                         {
                             float len = (s == 0 || s == 2) ? room.Size.x : room.Size.y;
-                            if (room.Doors[s] && len / 2f - 2.5f > doorClear) sides.Add(s);
+                            if (room.Doors[s] && len / 2f - 2.5f > doorClear && !room.Balconies.Contains(s)) sides.Add(s);
                         }
                     if (sides.Count == 0) continue;
                     int side = sides[rng.Next(sides.Count)];
@@ -344,7 +350,7 @@ namespace Deepbound.World
             if (hall != null)
             {
                 hall.Feature = RoomFeature.GreatHall;
-                hall.Size = new Vector2(30f, 30f);
+                hall.Size = new Vector2(34f, 34f);
                 hall.Height = 9f;
             }
 
@@ -352,7 +358,7 @@ namespace Deepbound.World
             if (chasm != null)
             {
                 chasm.Feature = RoomFeature.Chasm;
-                chasm.Size = new Vector2(Mathf.Max(chasm.Size.x, 24f), Mathf.Max(chasm.Size.y, 24f));
+                chasm.Size = new Vector2(Mathf.Max(chasm.Size.x, 26f), Mathf.Max(chasm.Size.y, 26f));
                 chasm.Height = 8f;
                 // The pit runs across the middle; bridges cross it on both axes.
                 float pw = chasm.Size.x * 0.55f, pd = chasm.Size.y * 0.5f;
@@ -376,6 +382,21 @@ namespace Deepbound.World
                         crypt.FeatureSpots.Add(crypt.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)));
                     }
                 }
+            }
+
+            // Every other combat room gets one of the newer mechanics, shuffled, no repeats
+            // until all have been used.
+            var extras = new List<RoomFeature> { RoomFeature.Gallery, RoomFeature.SunkenCourt, RoomFeature.Cistern, RoomFeature.Pendulums, RoomFeature.Ritual };
+            for (int i = extras.Count - 1; i > 0; i--)
+            {
+                int j = rng.Next(i + 1);
+                (extras[i], extras[j]) = (extras[j], extras[i]);
+            }
+            for (int k = 0; ; k++)
+            {
+                var room = Take();
+                if (room == null) break;
+                ShapeFeature(room, extras[k % extras.Count], rng);
             }
 
             var sides = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side);
@@ -419,6 +440,73 @@ namespace Deepbound.World
             }
         }
 
+        public const float BalconyHeight = 2.8f, BalconyDepth = 3.2f, SunkenDepth = 1.8f, CisternDepth = 0.6f;
+
+        /// <summary>Give a combat room one of the newer mechanics, and the size and shape it needs.</summary>
+        private static void ShapeFeature(Room room, RoomFeature feature, System.Random rng)
+        {
+            room.Feature = feature;
+            switch (feature)
+            {
+                case RoomFeature.Gallery:
+                    // Balconies along the two long walls; tall enough to stand under them.
+                    room.Size = new Vector2(Mathf.Max(room.Size.x, 22f), Mathf.Max(room.Size.y, 22f));
+                    room.Height = 9f;
+                    bool longX = room.Size.x >= room.Size.y;
+                    room.Balconies.Add(longX ? 0 : 1);
+                    room.Balconies.Add(longX ? 2 : 3);
+                    break;
+                case RoomFeature.SunkenCourt:
+                    room.Size = new Vector2(Mathf.Max(room.Size.x, 24f), Mathf.Max(room.Size.y, 24f));
+                    room.Height = 8f;
+                    room.Low = new Rect(room.Center.x - room.Size.x * 0.3f, room.Center.z - room.Size.y * 0.3f, room.Size.x * 0.6f, room.Size.y * 0.6f);
+                    break;
+                case RoomFeature.Cistern:
+                    room.Size = new Vector2(Mathf.Max(room.Size.x, 22f), Mathf.Max(room.Size.y, 22f));
+                    room.Height = 7f;
+                    room.Low = new Rect(room.Center.x - room.Size.x / 2f + 2.5f, room.Center.z - room.Size.y / 2f + 2.5f, room.Size.x - 5f, room.Size.y - 5f);
+                    // Stepping stones: dry ground in a loose grid across the water.
+                    for (float x = -room.Size.x / 2f + 6f; x <= room.Size.x / 2f - 6f; x += 5.5f)
+                        for (float z = -room.Size.y / 2f + 6f; z <= room.Size.y / 2f - 6f; z += 5.5f)
+                            if (rng.NextDouble() < 0.6)
+                                room.FeatureSpots.Add(room.Center + new Vector3(x + (float)(rng.NextDouble() - 0.5) * 1.5f, 0f, z + (float)(rng.NextDouble() - 0.5) * 1.5f));
+                    break;
+                case RoomFeature.Pendulums:
+                    // Blades swing across the room's long axis, spaced along it.
+                    room.Size = new Vector2(Mathf.Max(room.Size.x, 20f), Mathf.Max(room.Size.y, 20f));
+                    room.Height = 9f;
+                    bool alongX = room.Size.x >= room.Size.y;
+                    float len = alongX ? room.Size.x : room.Size.y;
+                    int n = Mathf.Clamp(Mathf.FloorToInt(len / 7f), 2, 4);
+                    for (int i = 0; i < n; i++)
+                    {
+                        float t = -len / 2f + len * (i + 0.5f) / n;
+                        room.FeatureSpots.Add(room.Center + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)));
+                    }
+                    break;
+                case RoomFeature.Ritual:
+                    room.Size = new Vector2(Mathf.Max(room.Size.x, 20f), Mathf.Max(room.Size.y, 20f));
+                    room.Height = 8f;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        float a = (i * 120f + 90f) * Mathf.Deg2Rad;
+                        room.FeatureSpots.Add(room.Center + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * Mathf.Min(room.Size.x, room.Size.y) * 0.3f);
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>Inside a sunken court's pit or a cistern's basin (in plan)?</summary>
+        public static bool InLowArea(Room room, Vector3 p) =>
+            (room.Feature == RoomFeature.SunkenCourt || room.Feature == RoomFeature.Cistern) && room.Low.Contains(new Vector2(p.x, p.z));
+
+        /// <summary>The pendulums swing across the long axis: true if that axis is X.</summary>
+        public static bool PendulumsAlongX(Room room) => room.Size.x >= room.Size.y;
+
+        /// <summary>Is this spot in the flooded part of a cistern (and not up on a stepping stone)?</summary>
+        public static bool InCisternWater(Room room, Vector3 p) =>
+            room.Feature == RoomFeature.Cistern && room.Low.Contains(new Vector2(p.x, p.z)) && p.y < -0.15f;
+
         private static void PlaceEnemySpawns(DungeonLayout layout, System.Random rng, int depth)
         {
             foreach (var room in layout.Rooms)
@@ -436,8 +524,19 @@ namespace Deepbound.World
                     var p = room.Center + new Vector3(x, 0.1f, z);
                     // Never inside the pit.
                     if (room.Feature == RoomFeature.Chasm && room.Pit.Contains(new Vector2(p.x, p.z), true)) continue;
+                    if (room.Feature == RoomFeature.SunkenCourt && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -SunkenDepth + 0.1f;
+                    if (room.Feature == RoomFeature.Cistern && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -CisternDepth + 0.1f;
                     room.EnemySpawns.Add(p);
                     i++;
+                }
+                // A gallery posts some of its dead up on the balconies.
+                foreach (int side in room.Balconies)
+                {
+                    var d = Dir[side];
+                    bool alongX = side == 0 || side == 2;
+                    float off = (alongX ? room.Size.y : room.Size.x) / 2f - BalconyDepth / 2f;
+                    float t = (float)(rng.NextDouble() - 0.5) * (alongX ? room.Size.x : room.Size.y) * 0.4f;
+                    room.EnemySpawns.Add(room.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)) + Vector3.up * (BalconyHeight + 0.1f));
                 }
             }
         }

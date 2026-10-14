@@ -16,7 +16,7 @@ namespace Deepbound.World
     [RequireComponent(typeof(Health))]
     public class Breakable : NetworkBehaviour
     {
-        public enum Kind : byte { Urn, PowderBarrel }
+        public enum Kind : byte { Urn, PowderBarrel, RitualBrazier }
 
         public readonly NetworkVariable<Kind> Type = new NetworkVariable<Kind>();
         [SerializeField] private NetworkObject lootPrefab;
@@ -33,7 +33,7 @@ namespace Deepbound.World
         {
             BuildVisual();
             if (!IsServer) return;
-            health.ServerSetMax(Type.Value == Kind.Urn ? 1f : 10f, refill: true);
+            health.ServerSetMax(Type.Value == Kind.Urn ? 1f : Type.Value == Kind.RitualBrazier ? 60f + 20f * Mathf.Max(0, DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0) : 10f, refill: true);
             health.Died += _ => ServerBreak();
         }
 
@@ -41,6 +41,12 @@ namespace Deepbound.World
         {
             if (broken) return;
             broken = true;
+            if (Type.Value == Kind.RitualBrazier)
+            {
+                RitualFxRpc();
+                NetworkObject.Despawn();
+                return;
+            }
             if (Type.Value == Kind.Urn)
             {
                 LootDrop.ServerSpawnFromTable(lootPrefab, LootTable.Urn, transform.position, 1f);
@@ -88,6 +94,17 @@ namespace Deepbound.World
         }
 
         [Rpc(SendTo.ClientsAndHost)]
+        private void RitualFxRpc()
+        {
+            var violet = new Color(0.7f, 0.3f, 1f);
+            Sfx.Play(Sound.Shatter, transform.position + Vector3.up, 1f, 0.7f);
+            Vfx.Flash(transform.position + Vector3.up * 1.2f, violet, 6f, 8f, 0.5f);
+            Vfx.Embers(transform.position + Vector3.up * 1.1f, 20, violet, 5f, 0.06f, 0.8f);
+            Vfx.Ring(transform.position, 2.5f, violet, 0.4f);
+            BoneBurst.Spawn(transform.position + Vector3.up * 0.6f, 1f, false, Mat.Steel);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
         private void FuseFxRpc() => Sfx.Play(Sound.Fire, transform.position + Vector3.up, 0.8f, 1.8f);
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -107,6 +124,33 @@ namespace Deepbound.World
 
         private void BuildVisual()
         {
+            if (Type.Value == Kind.RitualBrazier)
+            {
+                // A black iron brazier on a bone tripod, burning violet: smash it.
+                var violet = new Color(0.7f, 0.3f, 1f);
+                for (int i = 0; i < 3; i++)
+                    MeshKit.Part(transform, "Leg" + i, MeshKit.Box(new Vector3(0.08f, 1.1f, 0.08f)), Mat.Bone,
+                        Quaternion.Euler(0f, i * 120f, 0f) * new Vector3(0f, 0.55f, 0.28f), new Vector3(-14f, i * 120f, 0f));
+                MeshKit.Part(transform, "Bowl", MeshKit.Lathe("ritualBowl", new[]
+                {
+                    new Vector2(0.1f, 0f), new Vector2(0.45f, 0.16f), new Vector2(0.55f, 0.34f), new Vector2(0.48f, 0.34f), new Vector2(0f, 0.2f),
+                }, 10), Mat.Dark, new Vector3(0f, 1.05f, 0f));
+                var fire = MeshKit.Part(transform, "VioletFire", MeshKit.Lathe("ritualFlame", new[]
+                {
+                    new Vector2(0f, 0f), new Vector2(0.3f, 0.1f), new Vector2(0.25f, 0.45f), new Vector2(0.1f, 0.8f), new Vector2(0f, 1f),
+                }, 8, false), Mat.Glow, new Vector3(0f, 1.2f, 0f));
+                ArtLibrary.SetGlow(fire.GetComponent<Renderer>(), violet * 1.6f);
+                fire.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                var l = new GameObject("RitualLight").AddComponent<Light>();
+                l.transform.SetParent(transform, false);
+                l.transform.localPosition = Vector3.up * 1.8f;
+                l.type = LightType.Point;
+                l.color = violet;
+                l.range = 8f;
+                l.intensity = 2.6f;
+                l.shadows = LightShadows.None;
+                return;
+            }
             if (Type.Value == Kind.Urn)
             {
                 var urn = MeshKit.Part(transform, "Urn", MeshKit.Lathe("urn", new[]

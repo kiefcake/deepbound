@@ -233,7 +233,7 @@ namespace Deepbound.Enemies
             ApplyKnockback();
             // Chill slows the walk, not the attack timing: you get time to reposition, not
             // a free win.
-            agent.speed = (health.Chilled.Value ? moveSpeed * 0.5f : moveSpeed) * SpeedScale;
+            agent.speed = (health.Chilled.Value ? moveSpeed * 0.5f : moveSpeed) * SpeedScale * World.DungeonDirector.WaterSlow(transform.position);
 
             if (Time.time < stunnedUntil)
             {

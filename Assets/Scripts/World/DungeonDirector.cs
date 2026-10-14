@@ -392,6 +392,8 @@ namespace Deepbound.World
 
         private void BakeNavMesh()
         {
+            Combat.Health.FreezesWhenChilled = h => InWater(h.transform.position);
+            Combat.Health.FrozenFx = h => FrozenFxRpc(h.Center);
             var surface = built.AddComponent<NavMeshSurface>();
             surface.collectObjects = CollectObjects.Children;
             surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
@@ -502,6 +504,14 @@ namespace Deepbound.World
                     if (rng.NextDouble() < 0.4) Spawn(trapPrefab, layout.CorridorMidpoint(link) + Vector3.up * 0.005f, Quaternion.identity);
                 }
             }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void FrozenFxRpc(Vector3 at)
+        {
+            Art.Sfx.Play(Art.Sound.Frost, at, 1f, 0.8f);
+            Art.Vfx.IceSpikes(at - Vector3.up * 0.9f, 0.9f, 8);
+            UI.GameHud.ShowCombo(at + Vector3.up * 0.8f, "FROZEN", new Color(0.6f, 0.9f, 1f));
         }
 
         private NetworkObject Spawn(NetworkObject prefab, Vector3 at, Quaternion rot)

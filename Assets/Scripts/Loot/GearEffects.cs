@@ -42,6 +42,7 @@ namespace Deepbound.Loot
             if (p.HasRelic(Relic.ExecutionersCoin) && target.Fraction < 0.3f) m *= 1.5f;
             if (p.HasRelic(Relic.WintersTooth) && target.Chilled.Value) m *= 1.25f;
             m *= Player.Ultimates.OutgoingMultiplier(p);
+            if (World.DungeonDirector.InRitualWard(target.transform.position)) m *= 0.5f;
             return m;
         }
 
