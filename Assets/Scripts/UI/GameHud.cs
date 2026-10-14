@@ -349,8 +349,9 @@ namespace Deepbound.UI
             var kit = player.ActiveKit;
             Bar(x, y + 32, bw, 12, kit.ResourceMax > 0f ? kit.Resource / kit.ResourceMax : 0f, kit.ResourceColor);
             string cls = progress.Class.Name.ToUpperInvariant();
-            GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun) + "  ·  Tab: stats", small);
-            GUI.Label(new Rect(x + bw - 90, y + 46, 90, 20), progress.Gold.Value + " gold", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
+            string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
+            GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun) + "  ·  " + weapon, small);
+            GUI.Label(new Rect(x + bw - 150, y + 46, 150, 20), progress.Embers.Value + " embers   " + progress.Gold.Value + " gold", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
         }
 
         private void DrawAbilities(float w, float h)
@@ -579,22 +580,26 @@ namespace Deepbound.UI
             float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH;
             float x = w - pw - 24, y = h / 2f - ph / 2f;
             Rect(x, y, pw, ph, Panel);
-            GUI.Label(new Rect(x + 12, y + 10, pw, 22), progress.Class.Name.ToUpperInvariant() + "  -  potions this run", new GUIStyle(label) { normal = { textColor = Gold } });
+            GUI.Label(new Rect(x + 12, y + 10, pw, 22), progress.Class.Name.ToUpperInvariant() + "  -  " + ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value,
+                new GUIStyle(label) { normal = { textColor = Gold } });
 
+            // Each stat: its value, a bar against a generous ceiling, and what this run has added.
             for (int i = 0; i < Stats.Count; i++)
             {
                 var stat = (StatType)i;
                 float ry = y + 40 + i * rowH;
+                float value = progress.Value(stat), baseValue = progress.Class.BaseStats[i];
                 GUI.Label(new Rect(x + 12, ry, 50, 22), Stats.ShortName(stat), label);
-                GUI.Label(new Rect(x + 60, ry, 60, 22), Mathf.RoundToInt(progress.Value(stat)).ToString(), label);
+                GUI.Label(new Rect(x + 60, ry, 60, 22), Mathf.RoundToInt(value).ToString(), label);
 
-                var c = LootInfo.PotionColor(stat);
-                int have = progress.PotionsApplied(stat);
-                for (int p = 0; p < StatBlock.PotionsToMaxStat; p++)
-                {
-                    Rect(x + 120 + p * 22, ry + 4, 16, 14, p < have ? c : new Color(c.r, c.g, c.b, 0.18f));
-                }
-                if (progress.IsMaxed(stat)) GUI.Label(new Rect(x + 236, ry, 60, 22), "MAX", new GUIStyle(small) { normal = { textColor = Gold } });
+                var c = LootInfo.StatColor(stat);
+                float ceiling = stat == StatType.HP ? 500f : stat == StatType.MP ? 250f : stat == StatType.DEF ? 30f : 100f;
+                Rect(x + 110, ry + 6, 120, 10, new Color(c.r, c.g, c.b, 0.18f));
+                Rect(x + 110, ry + 6, 120 * Mathf.Clamp01(baseValue / ceiling), 10, new Color(c.r, c.g, c.b, 0.6f));
+                Rect(x + 110 + 120 * Mathf.Clamp01(baseValue / ceiling), ry + 6, 120 * Mathf.Clamp01((value - baseValue) / ceiling), 10, c);
+                float added = value - baseValue;
+                if (Mathf.Abs(added) >= 0.5f)
+                    GUI.Label(new Rect(x + 238, ry, 60, 22), (added > 0 ? "+" : "") + Mathf.RoundToInt(added), new GUIStyle(small) { normal = { textColor = Gold } });
             }
         }
 

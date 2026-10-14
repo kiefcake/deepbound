@@ -54,6 +54,7 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject chestPrefab;
         [SerializeField] private NetworkObject altarPrefab;
         [SerializeField] private NetworkObject breakablePrefab;
+        [SerializeField] private NetworkObject anvilPrefab;
         [SerializeField] private NetworkObject trapPrefab;
         [SerializeField] private NetworkObject lootPrefab;
         /// <summary>One boss per floor, by depth: the Gravewarden, the Tide Lich, the Hollow King.</summary>
@@ -331,6 +332,14 @@ namespace Deepbound.World
         /// </summary>
         private void SpawnObjects(DungeonLayout layout)
         {
+            if (anvilPrefab != null)
+            {
+                // Beside the merchant, along the same wall, facing into the room.
+                var m = layout.MerchantPosition;
+                var into = (layout.StartRoom.Center - m).normalized;
+                var along = Vector3.Cross(Vector3.up, into);
+                Spawn(anvilPrefab, m + along * 3.2f + into * 0.3f, Quaternion.LookRotation(into));
+            }
             if (breakablePrefab == null) return;
             var rng = new System.Random(layout.Seed ^ 0x5eed);
             DungeonLayout.Room altarRoom = null;

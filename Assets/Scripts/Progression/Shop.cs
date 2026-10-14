@@ -8,12 +8,13 @@ namespace Deepbound.Progression
     /// The merchant's catalogue. Everything bought is run-scoped, like everything else.
     ///
     /// Gold has one job — turn a good floor into a stronger next floor — so the shop sells
-    /// the same three kinds of power the dungeon drops: healing, stat potions, and gear
-    /// bonuses. Prices are fixed so players can plan around them.
+    /// healing, embers for the anvil next door, small stat bonuses, and two relics.
+    /// Prices are fixed so players can plan around them.
     /// </summary>
     public static class Shop
     {
-        public enum ItemKind : byte { Heal, Potion, Bonus, Relic }
+        /// <summary>Value 1 was the retired stat potion.</summary>
+        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3 }
 
         public struct Item
         {
@@ -63,14 +64,11 @@ namespace Deepbound.Progression
         public static readonly Item[] Items =
         {
             new Item { Name = "Healing Draught", Description = "Restore half your health", Price = 12, Kind = ItemKind.Heal, Amount = 0.5f },
-            new Item { Name = "Potion of HP", Description = "+1 HP potion", Price = 45, Kind = ItemKind.Potion, Stat = StatType.HP },
-            new Item { Name = "Potion of ATT", Description = "+1 ATT potion", Price = 45, Kind = ItemKind.Potion, Stat = StatType.ATT },
-            new Item { Name = "Potion of DEF", Description = "+1 DEF potion", Price = 45, Kind = ItemKind.Potion, Stat = StatType.DEF },
-            new Item { Name = "Potion of SPD", Description = "+1 SPD potion", Price = 45, Kind = ItemKind.Potion, Stat = StatType.SPD },
-            new Item { Name = "Potion of DEX", Description = "+1 DEX potion", Price = 45, Kind = ItemKind.Potion, Stat = StatType.DEX },
-            new Item { Name = "Potion of VIT", Description = "+1 VIT potion", Price = 45, Kind = ItemKind.Potion, Stat = StatType.VIT },
-            new Item { Name = "Whetstone", Description = "+3 ATT for the run (max +9)", Price = 60, Kind = ItemKind.Bonus, Stat = StatType.ATT, Amount = 3f, Cap = 9f },
+            new Item { Name = "Ember Pouch", Description = "10 embers for the anvil", Price = 45, Kind = ItemKind.Embers, Amount = 10f },
+            new Item { Name = "Ember Sack", Description = "25 embers for the anvil", Price = 100, Kind = ItemKind.Embers, Amount = 25f },
+            new Item { Name = "Hearty Stew", Description = "+30 max HP for the run (max +90)", Price = 55, Kind = ItemKind.Bonus, Stat = StatType.HP, Amount = 30f, Cap = 90f },
             new Item { Name = "Riveted Plate", Description = "+2 DEF for the run (max +6)", Price = 60, Kind = ItemKind.Bonus, Stat = StatType.DEF, Amount = 2f, Cap = 6f },
+            new Item { Name = "Swift Boots", Description = "+5 SPD for the run (max +10)", Price = 50, Kind = ItemKind.Bonus, Stat = StatType.SPD, Amount = 5f, Cap = 10f },
         };
     }
 }

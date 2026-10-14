@@ -4,8 +4,9 @@ using UnityEngine;
 namespace Deepbound.Loot
 {
     /// <summary>
-    /// What a loot drop is. Values 0-7 deliberately mirror <see cref="StatType"/>, so a
-    /// stat potion's kind casts straight to its stat. APPEND ONLY, like StatType.
+    /// What a loot drop is. APPEND ONLY, like StatType. Values 0-7 and 9 are the retired
+    /// stat potions (replaced by the weapon/gear system); they are kept so later values
+    /// keep their numbers, and nothing drops them any more.
     /// </summary>
     public enum LootKind : byte
     {
@@ -14,17 +15,13 @@ namespace Deepbound.Loot
         Gold = 8,
         PotionAll = 9, // one potion's worth of every stat; boss-only
         Relic = 10,    // Amount carries the Relic id
+        Embers = 11,   // weapon upgrade material
     }
 
     public static class LootInfo
     {
-        public static bool IsStatPotion(LootKind kind) => (byte)kind < Stats.Count;
-
-        /// <summary>
-        /// RotMG-flavoured potion colours, so a potion is identifiable from across the room
-        /// before you read anything.
-        /// </summary>
-        public static Color PotionColor(StatType stat)
+        /// <summary>One colour per stat, used wherever a stat is drawn (stat bars, gear lines).</summary>
+        public static Color StatColor(StatType stat)
         {
             switch (stat)
             {
@@ -40,12 +37,14 @@ namespace Deepbound.Loot
             }
         }
 
+        public static readonly Color EmberColor = new Color(1f, 0.42f, 0.12f);
+
         public static string Name(LootKind kind)
         {
             if (kind == LootKind.Gold) return "Gold";
-            if (kind == LootKind.PotionAll) return "Potion of the Deep";
+            if (kind == LootKind.Embers) return "Embers";
             if (kind == LootKind.Relic) return "a relic";
-            return "Potion of " + Stats.ShortName((StatType)kind);
+            return kind.ToString();
         }
     }
 }

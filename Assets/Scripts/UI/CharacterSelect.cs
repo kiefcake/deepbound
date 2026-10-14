@@ -229,7 +229,7 @@ namespace Deepbound.UI
                 float bw = cw / 2f - 90;
                 GUI.Label(new Rect(col, row, 40, 20), Stats.ShortName(stat), UiSkin.Small);
                 UiSkin.Rect(new Rect(col + 40, row + 6, bw, 9), new Color(0.15f, 0.13f, 0.12f));
-                UiSkin.Rect(new Rect(col + 40, row + 6, bw * Mathf.Clamp01(v / max), 9), Loot.LootInfo.PotionColor(stat));
+                UiSkin.Rect(new Rect(col + 40, row + 6, bw * Mathf.Clamp01(v / max), 9), Loot.LootInfo.StatColor(stat));
                 GUI.Label(new Rect(col + 46 + bw, row, 40, 20), Mathf.RoundToInt(v).ToString(), UiSkin.Small);
             }
             y += 4 * 22 + 14;

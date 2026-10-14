@@ -311,10 +311,26 @@ namespace Deepbound.Networking
                     motor.Teleport(drop.transform.position, local.transform.rotation);
                     yield return new WaitForSeconds(0.9f);
                 }
-                int potions = 0;
-                for (int i = 0; i < Core.Stats.Count; i++) potions += progress.PotionsApplied((Core.StatType)i);
-                Log("pickup", "gold " + goldBefore + " -> " + progress.Gold.Value + ", potions " + potions,
-                    progress.Gold.Value > goldBefore || potions > 0);
+                Log("pickup", "gold " + goldBefore + " -> " + progress.Gold.Value + ", embers " + progress.Embers.Value,
+                    progress.Gold.Value > goldBefore || progress.Embers.Value > 0);
+
+                // The anvil: hand the player embers, temper twice, check ATT rose.
+                var anvil = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
+                if (anvil != null)
+                {
+                    float attBefore = progress.Value(Core.StatType.ATT);
+                    progress.ServerAddEmbers(Anvil.Cost(0) + Anvil.Cost(1));
+                    var ap = anvil.transform.position + anvil.transform.forward * 1.6f + Vector3.up * 0.1f;
+                    motor.Teleport(ap, Quaternion.LookRotation(-anvil.transform.forward));
+                    yield return new WaitForSeconds(0.2f);
+                    anvil.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.2f);
+                    anvil.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.3f);
+                    Log("anvil", "weapon +" + progress.WeaponLevel.Value + ", ATT " + attBefore + " -> " + progress.Value(Core.StatType.ATT) + ", embers left " + progress.Embers.Value,
+                        progress.WeaponLevel.Value == 2 && progress.Value(Core.StatType.ATT) > attBefore);
+                }
+                else Log("anvil", "none in the start room", false);
                 motor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
             }
 

@@ -140,7 +140,7 @@ namespace Deepbound.World
                     new Vector2(0f, 0f), new Vector2(0.08f, 0.02f), new Vector2(0.11f, 0.08f), new Vector2(0.1f, 0.15f),
                     new Vector2(0.04f, 0.2f), new Vector2(0.035f, 0.28f), new Vector2(0f, 0.28f),
                 }, 10), Mat.Glow, root.InverseTransformPoint(p));
-                ArtLibrary.SetGlow(flask.GetComponent<Renderer>(), Loot.LootInfo.PotionColor((Core.StatType)(new[] { 0, 2, 3, 4, 5 }[i])) * 1.4f);
+                ArtLibrary.SetGlow(flask.GetComponent<Renderer>(), Loot.LootInfo.StatColor((Core.StatType)(new[] { 0, 2, 3, 4, 5 }[i])) * 1.4f);
             }
         }
 

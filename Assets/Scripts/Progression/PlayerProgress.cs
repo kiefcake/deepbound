@@ -9,20 +9,26 @@ using UnityEngine;
 namespace Deepbound.Progression
 {
     /// <summary>
-    /// A player's run-scoped power: the stat block, potions drunk, bonuses bought, and
-    /// gold. Everything here is wiped when the run ends — the game's central rule.
+    /// A player's run-scoped power: the stat block, the class weapon's level, bonuses, relics,
+    /// gold and embers. Everything here is wiped when the run ends — the game's central rule.
     ///
     /// <para>
-    /// The authoritative <see cref="StatBlock"/> lives on the server. Potion counts and
-    /// bonuses are mirrored into network lists so every peer can compute the same stat
-    /// values: the owner needs SPD for movement and DEX for swing speed without asking the
-    /// server, and the HUD's stat panel needs all eight.
+    /// The authoritative <see cref="StatBlock"/> lives on the server. Bonuses are mirrored
+    /// into a network list so every peer can compute the same stat values: the owner needs
+    /// SPD for movement and DEX for swing speed without asking the server, and the HUD's
+    /// stat panel needs all eight.
     /// </para>
     /// </summary>
     [RequireComponent(typeof(Health))]
     public class PlayerProgress : NetworkBehaviour
     {
         public readonly NetworkVariable<int> Gold = new NetworkVariable<int>();
+
+        /// <summary>Weapon upgrade material, spent at the anvil.</summary>
+        public readonly NetworkVariable<int> Embers = new NetworkVariable<int>();
+
+        /// <summary>The class weapon's anvil level, 0 to <see cref="World.Anvil.MaxLevel"/>.</summary>
+        public readonly NetworkVariable<int> WeaponLevel = new NetworkVariable<int>();
 
         // ---- Run statistics, for the end-of-run summary. Server-written, reset with the run. ----
         public readonly NetworkVariable<int> Kills = new NetworkVariable<int>();
@@ -51,7 +57,6 @@ namespace Deepbound.Progression
         /// </summary>
         public readonly NetworkVariable<ClassId> ClassId = new NetworkVariable<ClassId>(Classes.ClassId.Knight,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
-        private NetworkList<byte> potions;
         private NetworkList<float> bonuses;
         private NetworkList<byte> relics;
 
@@ -74,14 +79,13 @@ namespace Deepbound.Progression
             health = GetComponent<Health>();
             // NetworkLists must exist before spawn, and NGO requires them constructed in
             // Awake or at declaration so they are registered with the behaviour.
-            potions = new NetworkList<byte>();
             bonuses = new NetworkList<float>();
             relics = new NetworkList<byte>();
         }
 
         public override void OnNetworkSpawn()
         {
-            potions.OnListChanged += _ => StatsChanged?.Invoke();
+            WeaponLevel.OnValueChanged += (_, __) => StatsChanged?.Invoke();
             bonuses.OnListChanged += _ => StatsChanged?.Invoke();
             relics.OnListChanged += _ => StatsChanged?.Invoke();
             ClassId.OnValueChanged += (_, __) =>
@@ -101,11 +105,7 @@ namespace Deepbound.Progression
             health.IncomingModifiers.Add(RelicDefense);
 
             Stats = Class.Build();
-            for (int i = 0; i < Core.Stats.Count; i++)
-            {
-                potions.Add(0);
-                bonuses.Add(0f);
-            }
+            for (int i = 0; i < Core.Stats.Count; i++) bonuses.Add(0f);
             ApplyToHealth(refill: true);
         }
 
@@ -113,21 +113,17 @@ namespace Deepbound.Progression
         // Reads (any peer)
         // ------------------------------------------------------------------
 
-        public int PotionsApplied(StatType stat) => (int)stat < potions.Count ? potions[(int)stat] : 0;
-
         /// <summary>
         /// The effective stat value, computed from synced inputs with the same formula as
-        /// <see cref="StatBlock.GetValue"/>. On the server the two always agree.
+        /// <see cref="StatBlock.GetValue"/>. On the server the two always agree: everything
+        /// beyond the class base (weapon levels, gear, purchases) is a synced bonus.
         /// </summary>
         public float Value(StatType stat)
         {
             int i = (int)stat;
-            float potionFraction = (float)PotionsApplied(stat) / StatBlock.PotionsToMaxStat;
             float bonus = i < bonuses.Count ? bonuses[i] : 0f;
-            return Mathf.Max(0f, Class.BaseStats[i] + Class.PotionPools[i] * potionFraction + bonus);
+            return Mathf.Max(0f, Class.BaseStats[i] + bonus);
         }
-
-        public bool IsMaxed(StatType stat) => PotionsApplied(stat) >= StatBlock.PotionsToMaxStat;
 
         /// <summary>
         /// RotMG ATT scaling (0 ATT is half damage, 50 ATT is double base), then damage
@@ -248,24 +244,29 @@ namespace Deepbound.Progression
         // Server API
         // ------------------------------------------------------------------
 
-        /// <returns>False if the stat is already maxed, so the potion is not consumed.</returns>
-        public bool ServerDrinkPotion(StatType stat)
+        public void ServerAddEmbers(int amount)
         {
-            if (!IsServer || !Stats.ApplyPotion(stat)) return false;
-            potions[(int)stat] = (byte)Stats.PotionsApplied(stat);
-            OnStatsChangedServer(stat);
+            if (!IsServer) return;
+            Embers.Value = Mathf.Max(0, Embers.Value + amount);
+        }
+
+        /// <summary>Server: spend embers on the next anvil level. False if maxed or short.</summary>
+        public bool ServerUpgradeWeapon()
+        {
+            if (!IsServer || WeaponLevel.Value >= World.Anvil.MaxLevel) return false;
+            int cost = World.Anvil.Cost(WeaponLevel.Value);
+            if (Embers.Value < cost) return false;
+            Embers.Value -= cost;
+            WeaponLevel.Value++;
+            ServerAddBonus(StatType.ATT, ClassDefinition.WeaponAttPerLevel);
+            ServerAddBonus(StatType.DEX, ClassDefinition.WeaponDexPerLevel);
+            WeaponUpgradedRpc(WeaponLevel.Value);
             return true;
         }
 
-        /// <returns>How many stats advanced. Zero means everything is maxed.</returns>
-        public int ServerDrinkAllPotion()
-        {
-            if (!IsServer) return 0;
-            int advanced = Stats.ApplyAllStatPotion();
-            for (int i = 0; i < Core.Stats.Count; i++) potions[i] = (byte)Stats.PotionsApplied((StatType)i);
-            if (advanced > 0) OnStatsChangedServer(null);
-            return advanced;
-        }
+        [Rpc(SendTo.ClientsAndHost)]
+        private void WeaponUpgradedRpc(int level) =>
+            UI.GameHud.Feed(name + " tempered their " + ClassDefinition.WeaponName(ClassId.Value) + " to +" + level, LootInfo.EmberColor);
 
         /// <summary>A run-scoped flat bonus, e.g. a whetstone bought from the merchant.</summary>
         public void ServerAddBonus(StatType stat, float amount)
@@ -302,7 +303,7 @@ namespace Deepbound.Progression
             switch (item.Kind)
             {
                 case Shop.ItemKind.Heal: return health.Current.Value >= health.Max.Value ? "Already at full health" : null;
-                case Shop.ItemKind.Potion: return IsMaxed(item.Stat) ? "Stat maxed" : null;
+                case Shop.ItemKind.Embers: return null;
                 case Shop.ItemKind.Relic: return HasRelic((Relic)(int)item.Amount) ? "Owned" : null;
                 default: return Bonus(item.Stat) + item.Amount > item.Cap + 0.01f ? "Sold out" : null;
             }
@@ -324,8 +325,9 @@ namespace Deepbound.Progression
                     bought = true;
                     health.ServerHeal(health.Max.Value * item.Amount);
                     break;
-                case Shop.ItemKind.Potion:
-                    bought = ServerDrinkPotion(item.Stat);
+                case Shop.ItemKind.Embers:
+                    ServerAddEmbers((int)item.Amount);
+                    bought = true;
                     break;
                 case Shop.ItemKind.Relic:
                     bought = ServerAddRelic((Relic)(int)item.Amount);
@@ -351,12 +353,10 @@ namespace Deepbound.Progression
         {
             if (!IsServer) return;
             Stats.ResetRunProgress();
-            for (int i = 0; i < Core.Stats.Count; i++)
-            {
-                potions[i] = 0;
-                bonuses[i] = 0f;
-            }
+            for (int i = 0; i < Core.Stats.Count; i++) bonuses[i] = 0f;
             Gold.Value = 0;
+            Embers.Value = 0;
+            WeaponLevel.Value = 0;
             Kills.Value = DamageDealt.Value = GoldEarned.Value = Downs.Value = Revives.Value = 0;
             damageCarry = 0f;
             relics.Clear();
@@ -366,8 +366,7 @@ namespace Deepbound.Progression
 
         private void OnStatsChangedServer(StatType? stat)
         {
-            // An HP potion also heals by the amount it added — drinking one mid-fight should
-            // feel like it did something right now, not just raise a ceiling.
+            // Raising max HP also heals by the amount added, so it is felt right now.
             float before = health.Max.Value;
             ApplyToHealth(refill: false);
             if (stat == null || stat == StatType.HP) health.ServerHeal(health.Max.Value - before);

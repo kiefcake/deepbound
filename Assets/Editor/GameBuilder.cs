@@ -67,16 +67,18 @@ namespace Deepbound.EditorTools
             var lever = BuildObjectPrefab<Lever>("Lever", new Vector3(0.5f, 1.8f, 0.3f));
             var fountain = BuildObjectPrefab<Fountain>("Fountain", new Vector3(2.6f, 0.7f, 2.6f));
             var sarcophagus = BuildObjectPrefab<Sarcophagus>("Sarcophagus", new Vector3(2.2f, 1.0f, 0.95f));
+            var anvil = BuildObjectPrefab<Anvil>("Anvil", new Vector3(0.8f, 0.9f, 0.6f));
             var dso = new SerializedObject(director.GetComponent<DungeonDirector>());
             dso.FindProperty("portcullisPrefab").objectReferenceValue = gate.GetComponent<NetworkObject>();
             dso.FindProperty("leverPrefab").objectReferenceValue = lever.GetComponent<NetworkObject>();
             dso.FindProperty("fountainPrefab").objectReferenceValue = fountain.GetComponent<NetworkObject>();
             dso.FindProperty("sarcophagusPrefab").objectReferenceValue = sarcophagus.GetComponent<NetworkObject>();
+            dso.FindProperty("anvilPrefab").objectReferenceValue = anvil.GetComponent<NetworkObject>();
             dso.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };

@@ -1,9 +1,7 @@
 using System.Collections.Generic;
 using Deepbound.Art;
-using Deepbound.Core;
 using Deepbound.Player;
 using Deepbound.Progression;
-using Deepbound.UI;
 using Unity.Netcode;
 using UnityEngine;
 
@@ -15,9 +13,8 @@ namespace Deepbound.Loot
     /// <para>
     /// Pickup is server-decided — the server checks who is standing on it and applies it
     /// to that player's <see cref="PlayerProgress"/> — so two players touching it in the
-    /// same frame cannot both get it. A stat potion you have maxed stays on the floor for
-    /// a teammate instead of being wasted, which is also the game's quiet nudge toward
-    /// sharing loot.
+    /// same frame cannot both get it. A relic you already own stays on the floor for a
+    /// teammate instead of being wasted.
     /// </para>
     /// </summary>
     public class LootDrop : NetworkBehaviour
@@ -107,24 +104,22 @@ namespace Deepbound.Loot
                 return true;
             }
             if (kind == LootKind.Relic) return progress.ServerAddRelic((Relic)Amount.Value);
-            if (kind == LootKind.PotionAll) return progress.ServerDrinkAllPotion() > 0;
-            if (LootInfo.IsStatPotion(kind)) return progress.ServerDrinkPotion((StatType)kind);
+            if (kind == LootKind.Embers)
+            {
+                progress.ServerAddEmbers(Amount.Value);
+                return true;
+            }
             return false;
         }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void PickedUpRpc(ulong playerObjectId)
         {
-            bool gold = Kind.Value == LootKind.Gold;
-            Sfx.Play(gold ? Sound.Coins : Sound.Potion, transform.position + Vector3.up * 0.4f, gold ? 0.6f : 0.8f);
-
-            if (gold || Kind.Value == LootKind.Relic) return; // relics announce themselves
-            string who = NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(playerObjectId, out var obj) ? obj.name : "Someone";
-            GameHud.Feed(who + " drank a " + LootInfo.Name(Kind.Value), PotionColor());
+            // Relics announce themselves; gold and embers just make their noise.
+            var at = transform.position + Vector3.up * 0.4f;
+            if (Kind.Value == LootKind.Gold) Sfx.Play(Sound.Coins, at, 0.6f);
+            else if (Kind.Value == LootKind.Embers) Sfx.Play(Sound.Fire, at, 0.45f, 1.6f);
         }
-
-        private Color PotionColor() => Kind.Value == LootKind.PotionAll ? new Color(1f, 0.85f, 0.4f) :
-            LootInfo.IsStatPotion(Kind.Value) ? LootInfo.PotionColor((StatType)Kind.Value) : new Color(1f, 0.8f, 0.3f);
 
         // ------------------------------------------------------------------
 
@@ -150,21 +145,22 @@ namespace Deepbound.Loot
                 return;
             }
 
-            var color = PotionColor();
-            bool big = Kind.Value == LootKind.PotionAll;
-            float s = big ? 1.4f : 1f;
-
-            // Round-bottomed flask: glowing liquid body, steel collar, leather cork.
-            var body = MeshKit.Part(visual, "Flask", MeshKit.Lathe("flask", new[]
+            if (Kind.Value == LootKind.Embers)
             {
-                new Vector2(0f, 0f), new Vector2(0.08f, 0.02f), new Vector2(0.11f, 0.08f), new Vector2(0.1f, 0.15f),
-                new Vector2(0.04f, 0.2f), new Vector2(0.035f, 0.28f), new Vector2(0f, 0.28f),
-            }, 10), Mat.Glow, new Vector3(0f, -0.15f, 0f), Vector3.zero, Vector3.one * s);
-            ArtLibrary.SetGlow(body.GetComponent<Renderer>(), color * 1.8f);
-            MeshKit.Part(visual, "Collar", MeshKit.Cylinder(0.045f, 0.045f, 0.03f, 8), Mat.Steel, new Vector3(0f, -0.15f + 0.24f * s, 0f), Vector3.zero, Vector3.one * s);
-            MeshKit.Part(visual, "Cork", MeshKit.Cylinder(0.03f, 0.035f, 0.06f, 6), Mat.Leather, new Vector3(0f, -0.15f + 0.28f * s, 0f), Vector3.zero, Vector3.one * s);
-
-            AddLight(color, big ? 3f : 2f);
+                // A little cluster of glowing shards: more embers, more shards.
+                int shards = Mathf.Clamp(2 + Amount.Value / 3, 3, 9);
+                for (int i = 0; i < shards; i++)
+                {
+                    float a = i * 2.4f, r = 0.04f + (i % 3) * 0.04f;
+                    var shard = MeshKit.Part(visual, "Ember" + i, MeshKit.Lathe("emberShard", new[]
+                    {
+                        new Vector2(0f, -0.06f), new Vector2(0.035f, 0f), new Vector2(0f, 0.08f),
+                    }, 4), Mat.Glow, new Vector3(Mathf.Cos(a) * r, -0.2f + (i % 4) * 0.035f, Mathf.Sin(a) * r), new Vector3(i * 23f, i * 61f, i * 17f));
+                    ArtLibrary.SetGlow(shard.GetComponent<Renderer>(), LootInfo.EmberColor * 1.8f);
+                }
+                AddLight(LootInfo.EmberColor, 1.6f);
+                return;
+            }
         }
 
         /// <summary>

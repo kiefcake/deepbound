@@ -7,8 +7,8 @@ namespace Deepbound.Classes
     public enum ClassId : byte { Knight = 0, Mage = 1, Cleric = 2, Rogue = 3, Ranger = 4 }
 
     /// <summary>
-    /// A class's base stats and potion pools. Plain data; <see cref="Build"/> turns it into
-    /// a run-scoped <see cref="StatBlock"/>.
+    /// A class's base stats. Plain data; <see cref="Build"/> turns it into a run-scoped
+    /// <see cref="StatBlock"/>. Growth comes from the class weapon (anvil levels) and gear.
     ///
     /// Defined in code while there are only a couple of classes. When all eight
     /// exist (M3) this becomes a ScriptableObject so balance can be tuned without a
@@ -19,7 +19,6 @@ namespace Deepbound.Classes
         public string Name;
         public string Role;
         public float[] BaseStats = new float[Stats.Count];
-        public float[] PotionPools = new float[Stats.Count];
 
         public StatBlock Build()
         {
@@ -27,18 +26,15 @@ namespace Deepbound.Classes
             for (int i = 0; i < Stats.Count; i++)
             {
                 block.SetBase((StatType)i, BaseStats[i]);
-                block.SetPotionPool((StatType)i, PotionPools[i]);
             }
             return block;
         }
 
         private static ClassDefinition Make(string name, string role,
-            float hp, float mp, float att, float def, float spd, float dex, float vit, float wis,
-            float hpPool, float mpPool, float attPool, float defPool, float spdPool, float dexPool, float vitPool, float wisPool)
+            float hp, float mp, float att, float def, float spd, float dex, float vit, float wis)
         {
             var c = new ClassDefinition { Name = name, Role = role };
             c.BaseStats = new[] { hp, mp, att, def, spd, dex, vit, wis };
-            c.PotionPools = new[] { hpPool, mpPool, attPool, defPool, spdPool, dexPool, vitPool, wisPool };
             return c;
         }
 
@@ -48,40 +44,35 @@ namespace Deepbound.Classes
         /// party does the killing.
         /// </summary>
         public static readonly ClassDefinition Knight = Make("Knight", "Tank",
-            hp: 240, mp: 100, att: 20, def: 6, spd: 45, dex: 45, vit: 40, wis: 20,
-            hpPool: 160, mpPool: 60, attPool: 25, defPool: 14, spdPool: 20, dexPool: 25, vitPool: 30, wisPool: 25);
+            hp: 240, mp: 100, att: 20, def: 6, spd: 45, dex: 45, vit: 40, wis: 20);
 
         /// <summary>
         /// The Mage: burst and control. Fragile, no armour, a deep mana pool; all of its
         /// damage is ranged, and its best damage needs setting up (chill, then fire).
         /// </summary>
         public static readonly ClassDefinition Mage = Make("Mage", "Burst / Control",
-            hp: 160, mp: 120, att: 26, def: 0, spd: 52, dex: 50, vit: 25, wis: 45,
-            hpPool: 100, mpPool: 80, attPool: 25, defPool: 10, spdPool: 20, dexPool: 25, vitPool: 20, wisPool: 30);
+            hp: 160, mp: 120, att: 26, def: 0, spd: 52, dex: 50, vit: 25, wis: 45);
 
         /// <summary>
         /// The Cleric: the healer. Middling everything, the deepest mana and WIS pools; it
         /// keeps the party standing rather than ending fights.
         /// </summary>
         public static readonly ClassDefinition Cleric = Make("Cleric", "Healer / Support",
-            hp: 195, mp: 140, att: 16, def: 3, spd: 48, dex: 45, vit: 35, wis: 50,
-            hpPool: 120, mpPool: 70, attPool: 20, defPool: 12, spdPool: 20, dexPool: 20, vitPool: 25, wisPool: 35);
+            hp: 195, mp: 140, att: 16, def: 3, spd: 48, dex: 45, vit: 35, wis: 50);
 
         /// <summary>
         /// The Rogue: assassin. Fast and fragile with the highest DEX; its damage is huge
         /// from behind and ordinary from the front, so it lives on positioning.
         /// </summary>
         public static readonly ClassDefinition Rogue = Make("Rogue", "Assassin",
-            hp: 175, mp: 80, att: 24, def: 2, spd: 58, dex: 60, vit: 30, wis: 20,
-            hpPool: 110, mpPool: 40, attPool: 25, defPool: 10, spdPool: 15, dexPool: 25, vitPool: 20, wisPool: 15);
+            hp: 175, mp: 80, att: 24, def: 2, spd: 58, dex: 60, vit: 30, wis: 20);
 
         /// <summary>
         /// The Ranger: marksman and controller. Long range, good DEX, light armour; it makes
         /// the party's damage better (Hunter's Mark) and keeps enemies where it wants them.
         /// </summary>
         public static readonly ClassDefinition Ranger = Make("Ranger", "Marksman / Control",
-            hp: 180, mp: 90, att: 24, def: 2, spd: 52, dex: 55, vit: 30, wis: 25,
-            hpPool: 110, mpPool: 40, attPool: 25, defPool: 10, spdPool: 20, dexPool: 25, vitPool: 20, wisPool: 15);
+            hp: 180, mp: 90, att: 24, def: 2, spd: 52, dex: 55, vit: 30, wis: 25);
 
         public static readonly ClassDefinition[] ById = { Knight, Mage, Cleric, Rogue, Ranger };
 
@@ -137,6 +128,16 @@ namespace Deepbound.Classes
             : id == ClassId.Rogue ? "Hard - all about getting behind things"
             : id == ClassId.Ranger ? "Medium - keep your distance, aim your draws"
             : "Easy - forgiving, holds the line";
+
+        /// <summary>The class's own weapon: never found, only tempered at the anvil.</summary>
+        public static string WeaponName(ClassId id) => id == ClassId.Mage ? "Staff"
+            : id == ClassId.Cleric ? "Mace"
+            : id == ClassId.Rogue ? "Daggers"
+            : id == ClassId.Ranger ? "Longbow"
+            : "Longsword";
+
+        /// <summary>What one anvil level adds: ATT and DEX, the same for every class.</summary>
+        public const float WeaponAttPerLevel = 4f, WeaponDexPerLevel = 2f;
 
         public static ClassDefinition For(ClassId id) => ById[Mathf.Clamp((int)id, 0, ById.Length - 1)];
 
