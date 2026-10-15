@@ -660,6 +660,38 @@ namespace Deepbound.World
                 dressing.AddBox(p + Vector3.up * (h - 0.18f), Size(0.3f, 0.36f, w), Mat.Wood);
             }
 
+            // Clutter, deterministic per corridor: bones and rubble at the foot of the walls,
+            // chains hanging from the cap beams, cobwebs in the corners, a puddle or two.
+            var crng = new System.Random(a.Id * 7919 + bRoom.Id * 104729 + 11);
+            for (float t = 2f; t < length - 2f; t += 2.5f + (float)crng.NextDouble() * 3f)
+            {
+                float s = crng.Next(2) == 0 ? 1f : -1f;
+                var foot = start + axis * t + side * s * (w / 2f - 0.45f);
+                switch (crng.Next(6))
+                {
+                    case 0: Props.BonePile(dressing, foot, crng); break;
+                    case 1: Props.Rubble(dressing, foot, crng); break;
+                    case 2:
+                        // A chain hanging from the beam, swaying slightly out of true.
+                        float len = 0.8f + (float)crng.NextDouble() * 1.4f;
+                        dressing.AddBox(start + axis * t + side * s * 0.6f + Vector3.up * (h - 0.4f - len / 2f), new Vector3(0.04f, len, 0.04f), Mat.Steel,
+                            Quaternion.Euler((float)crng.NextDouble() * 8f - 4f, 0f, (float)crng.NextDouble() * 8f - 4f));
+                        break;
+                    case 3:
+                        Props.Cobweb(lights, start + axis * t + side * s * (w / 2f - 0.05f) + Vector3.up * (h - 0.1f), -side * s, axis, 0.9f + (float)crng.NextDouble() * 0.6f);
+                        break;
+                    case 4:
+                        if (theme.WaterDepth <= 0f)
+                        {
+                            var puddle = MeshKit.Part(lights, "Puddle", MeshKit.Cylinder(0.6f + (float)crng.NextDouble() * 0.5f, 0.6f, 0.01f, 10), Mat.Water,
+                                start + axis * t + side * s * 0.4f + Vector3.up * 0.005f, Vector3.zero, new Vector3(1f, 1f, 0.6f + (float)crng.NextDouble() * 0.5f));
+                            ArtLibrary.Tint(puddle.GetComponent<Renderer>(), new Color(0.06f, 0.07f, 0.08f, 0.8f));
+                            puddle.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                        }
+                        break;
+                }
+            }
+
             // One torch per ~9m, alternating walls.
             int torches = Mathf.Max(1, Mathf.FloorToInt(length / 9f));
             for (int i = 0; i < torches; i++)

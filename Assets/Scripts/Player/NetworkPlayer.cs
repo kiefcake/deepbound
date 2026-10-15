@@ -121,6 +121,7 @@ namespace Deepbound.Player
                 gameObject.AddComponent<Minimap>().Init(this);
                 gameObject.AddComponent<RunSummary>();
                 gameObject.AddComponent<Wardrobe>().Init(this);
+                gameObject.AddComponent<AmbientMotes>();
                 gameObject.AddComponent<PauseMenu>();
                 health.Hurt += OnLocalHurt;
 

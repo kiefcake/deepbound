@@ -56,6 +56,30 @@ namespace Deepbound.Enemies
 
         protected bool Casting => Time.time < castUntil;
 
+        // ---- Fury: a fight that drags past a few minutes makes the boss hit much harder. ----
+        public const float FurySeconds = 210f;
+        private float fightStartedAt = -1f;
+        private bool furious;
+
+        private void TickFury()
+        {
+            if (Dormant || furious) return;
+            if (fightStartedAt < 0f) { fightStartedAt = Time.time; return; }
+            if (Time.time - fightStartedAt < FurySeconds) return;
+            furious = true;
+            damage *= 1.4f;
+            moveSpeed *= 1.15f;
+            FuryRpc(DisplayName);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void FuryRpc(string who)
+        {
+            UI.GameHud.ShowTitleCard(who.ToUpperInvariant() + " GROWS FURIOUS", "Finish this, quickly");
+            Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 2f, 1f, 0.6f);
+            if (Rig != null) Rig.GlowColor = new Color(1f, 0.15f, 0.05f);
+        }
+
         // ---- Shockwave: an expanding ring that hits grounded players as it passes. ----
         protected virtual float ShockwaveCooldown => 0f;   // 0 = this boss has none
         protected virtual Color ShockwaveColor => new Color(1f, 0.6f, 0.3f);
@@ -137,7 +161,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
-            if (IsServer && !IsDead) TickShockwaves();
+            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); }
             if (IsServer && !IsDead && Dormant)
             {
                 if (agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
