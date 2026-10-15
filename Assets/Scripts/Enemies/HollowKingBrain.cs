@@ -50,6 +50,23 @@ namespace Deepbound.Enemies
         }
 
         private bool Enraged => health.Fraction < 0.25f;
+
+        // ---- Phases ----
+        protected override float[] PhaseGates => new[] { 0.5f, 0.25f };
+
+        protected override void OnPhaseGate(int index)
+        {
+            if (index == 0)
+            {
+                var guards = guardPrefab != null ? SummonOf(guardPrefab, 2, 3.5f, 1.4f) : new System.Collections.Generic.List<EnemyBrain>();
+                guardCalled = true;
+                GuardFxRpc();
+                InvulnerableWhile("Throne Ward", null, "The Royal Guard wards the King: kick their shields aside and cut them down", guards, 25f,
+                    () => Taunt("Traitors. All of you. Then I will do it myself."));
+            }
+            else
+                Transition("The Last Crown", "I was a king before your gods were born!", 2.2f);
+        }
         private float WindupScale => Enraged ? 0.7f : 1f;
 
         protected override void Update()
@@ -73,13 +90,6 @@ namespace Deepbound.Enemies
             if (TryShockwave()) return true;
             if (!summoned66 && health.Fraction < 0.66f) { summoned66 = true; Summon(2 + scaledPlayers, 4f); return true; }
             if (!summoned33 && health.Fraction < 0.33f) { summoned33 = true; Summon(2 + scaledPlayers, 4f); return true; }
-            if (!guardCalled && health.Fraction < 0.5f && guardPrefab != null)
-            {
-                guardCalled = true;
-                SummonOf(guardPrefab, 2, 3.5f, 1.4f);
-                GuardFxRpc();
-                return true;
-            }
             if (judged == null && Time.time >= nextJudgement && BeginJudgement()) return false;
 
             if (Time.time >= nextSlam && distanceToTarget < slamRadius + 2f)

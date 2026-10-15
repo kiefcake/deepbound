@@ -229,6 +229,27 @@ namespace Deepbound.Networking
             // Early, while the client is still connected.
             if (net.IsServer && local != null && layout != null)
             {
+                // Boss phases: damage stops at the first gate (50%), the boss goes immune for the transition.
+                var gateBoss = BossBrain.Active;
+                if (gateBoss != null && gateBoss is GravewardenBrain)
+                {
+                    var bh = gateBoss.Health;
+                    bh.ServerSetFraction(0.56f);
+                    yield return null;
+                    bh.ServerDamage(bh.Max.Value * 0.3f, gateBoss.transform.position + gateBoss.transform.forward * -3f);
+                    float atGate = bh.Fraction;
+                    for (float t = 0f; t < 1f && !gateBoss.Immune; t += 0.05f) yield return new WaitForSeconds(0.05f);
+                    bool immune = gateBoss.Immune;
+                    float before = bh.Current.Value;
+                    bh.ServerDamage(200f, gateBoss.transform.position + gateBoss.transform.forward * -3f);
+                    bool held = Mathf.Approximately(before, bh.Current.Value);
+                    Log("boss phase gate", "hp stopped at " + (atGate * 100f).ToString("F1") + "%, stance " + gateBoss.CurrentStance + " (" + gateBoss.PhaseName.Value + "), immune hit held " + held,
+                        Mathf.Abs(atGate - 0.5f) < 0.01f && immune && held);
+                    gateBoss.ServerDebugResetPhases();
+                    bh.ServerSetFraction(1f);
+                    gateBoss.Dormant = true;
+                }
+
                 var remoteVoice = PlayerLife.All.Where(pl => pl != null && pl.gameObject != local.gameObject).Select(pl => pl.GetComponent<PlayerVoice>()).FirstOrDefault();
                 if (remoteVoice != null)
                 {
@@ -1397,6 +1418,8 @@ namespace Deepbound.Networking
             var local = NetworkPlayer.Local;
             var motor = local.GetComponent<FirstPersonMotor>();
             var hp = local.GetComponent<Health>();
+            // The test player takes a tenth of every hit: the run must not wipe mid-test.
+            hp.IncomingModifiers.Insert(0, (d, f) => d * 0.1f);
 
             for (int depth = 0; depth < DungeonDirector.FloorsPerRun; depth++)
             {
@@ -1423,13 +1446,64 @@ namespace Deepbound.Networking
                     if (i % 3 == 1) yield return Shot(dir, "boss" + (depth + 1) + "_" + i);
                     // Walk toward the Lich mid-test, to provoke the blink.
                     // Wound it halfway through, to see the late-fight phases (summons, surges, enrage).
-                    if (i == 7) boss.GetComponent<Health>().ServerSetFraction(0.3f);
                     if (depth == 1 && i == 6) motor.Teleport(boss.transform.position + boss.transform.forward * 2f, local.transform.rotation);
+                }
+
+                // Walk the boss through every phase gate: wound it from behind until it changes stance,
+                // then play the stance out (kill the wards, outlast the survival, wait out the transition).
+                var bh = boss.GetComponent<Health>();
+                motor.Teleport(at, Quaternion.LookRotation(boss.transform.position - at));
+                for (int g = 0; g < boss.GateCount; g++)
+                {
+                    for (int k = 0; k < 60 && !boss.IsDead && boss.CurrentStance == BossBrain.Stance.Normal; k++)
+                    {
+                        bh.ServerDamage(bh.Max.Value * 0.05f, boss.transform.position - boss.transform.forward * 3f);
+                        hp.ServerSetFraction(1f);
+                        yield return new WaitForSeconds(0.12f);
+                    }
+                    var stance = boss.CurrentStance;
+                    Log("boss phase " + boss.DisplayName + " #" + (g + 1), stance + " '" + boss.PhaseName.Value + "' at " + Mathf.RoundToInt(bh.Fraction * 100f) + "%", stance != BossBrain.Stance.Normal);
+                    yield return new WaitForSeconds(0.9f);
+                    FaceBoss(local, boss);
+                    yield return Shot(dir, "boss" + (depth + 1) + "_phase" + (g + 1));
+                    if (stance == BossBrain.Stance.Transition)
+                    {
+                        for (float t = 0f; t < 5f && boss.Immune; t += 0.2f) { hp.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                        // A transition may lead straight into the phase it announced.
+                        stance = boss.CurrentStance;
+                    }
+                    if (stance == BossBrain.Stance.Invulnerable)
+                    {
+                        int wards = boss.WardsLeft.Value;
+                        yield return new WaitForSeconds(1.5f);
+                        FaceBoss(local, boss);
+                        yield return Shot(dir, "boss" + (depth + 1) + "_phase" + (g + 1) + "_warded");
+                        foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                            if (!(e is BossBrain) && !e.IsDead) e.GetComponent<Health>().ServerDamage(1e6f, e.transform.position);
+                        for (float t = 0f; t < 3f && boss.Immune; t += 0.2f) yield return new WaitForSeconds(0.2f);
+                        Log("boss ward " + boss.DisplayName, wards + " wards killed, immune after: " + boss.Immune, wards > 0 && !boss.Immune);
+                    }
+                    else if (stance == BossBrain.Stance.Survival)
+                    {
+                        for (int k = 0; k < 20; k++) { hp.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                        FaceBoss(local, boss);
+                        yield return Shot(dir, "boss" + (depth + 1) + "_phase" + (g + 1) + "_survive");
+                        for (float t = 0f; t < 16f && boss.Immune; t += 0.2f) { hp.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                        Log("boss survival " + boss.DisplayName, "ended, immune after: " + boss.Immune, !boss.Immune);
+                    }
+                    for (float t = 0f; t < 4f && boss.Immune; t += 0.2f) { hp.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
                 }
             }
 
             Debug.Log("[Smoke] boss test done");
             Application.Quit(0);
+        }
+
+        private static void FaceBoss(NetworkPlayer local, BossBrain boss)
+        {
+            var look = boss.transform.position - local.transform.position;
+            look.y = 0f;
+            if (look.sqrMagnitude > 0.1f) local.transform.rotation = Quaternion.LookRotation(look);
         }
 
         private static FirstPersonMotor lobbyMotorFor(NetworkPlayer p) => p.GetComponent<FirstPersonMotor>();

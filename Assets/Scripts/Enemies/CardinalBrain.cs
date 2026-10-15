@@ -27,7 +27,7 @@ namespace Deepbound.Enemies
 
         public override string DisplayName => "The Pale Cardinal";
         public override string Epithet => "Last Voice of the Black Cathedral";
-        public override string Hint => "Step out of the burning circles, jump the bell's toll, and silence the choir first.";
+        public override string Hint => "Kill the Wraith choir to break its ward. Step out of the burning circles and jump the bell's toll.";
 
         private float nextJudgement;
         private bool choir66, choir33;
@@ -36,6 +36,41 @@ namespace Deepbound.Enemies
         private readonly List<Pillar> pillars = new List<Pillar>();
 
         private bool LastRites => health.Fraction < 0.34f;
+
+        // ---- Phases ----
+        protected override float[] PhaseGates => new[] { 0.66f, 0.33f, 0.12f };
+        private float nextHymnPillars;
+
+        protected override void OnPhaseGate(int index)
+        {
+            if (index < 2)
+            {
+                var choir = Summon((index == 0 ? 1 : 2) + scaledPlayers, 5f, 1.8f);
+                if (index == 0) choir66 = true; else choir33 = true;
+                InvulnerableWhile("Choir of the Damned", index == 0 ? "Sing, my children. Sing them to sleep." : "Louder! Let the whole cathedral hear!",
+                    "The Wraith choir wards the Cardinal: pin them (chill, stun, mark) and silence them", choir, 22f,
+                    () => Taunt("The hymn is broken... no matter. I am the hymn."));
+            }
+            else
+            {
+                Survive("Final Hymn", "Kneel. Kneel, and burn.", "Survive the Final Hymn: never stop moving", 10f, () => Taunt("Still standing? Then come and end it."));
+                nextHymnPillars = Time.time + 0.8f;
+                LaunchShockwave(transform.position, 9f, 18f, ShockwaveDamage);
+            }
+        }
+
+        private void TickHymn()
+        {
+            if (!InSurvival || Time.time < nextHymnPillars) return;
+            nextHymnPillars = Time.time + 1.3f;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || !p.Targetable) continue;
+                AddPillar(p.transform.position);
+                for (int i = 0; i < 2; i++)
+                    AddPillar(p.transform.position + Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward * Random.Range(2.5f, 4.5f));
+            }
+        }
         protected override float ShockwaveCooldown => LastRites ? 7f : 10f;
         protected override Color ShockwaveColor => new Color(1f, 0.8f, 0.35f);
 
@@ -47,14 +82,12 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
-            if (IsServer && !IsDead) ResolvePillars();
+            if (IsServer && !IsDead) { ResolvePillars(); TickHymn(); }
             base.Update();
         }
 
         protected override bool ChooseSpecialAttack(float distanceToTarget)
         {
-            if (!choir66 && health.Fraction < 0.66f) { choir66 = true; Summon(1 + scaledPlayers, 5f, 1.8f); return true; }
-            if (!choir33 && health.Fraction < 0.33f) { choir33 = true; Summon(2 + scaledPlayers, 5f, 1.8f); return true; }
             if (TryShockwave()) return true;
 
             if (Time.time >= nextJudgement)

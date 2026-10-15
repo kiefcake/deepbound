@@ -72,13 +72,42 @@ namespace Deepbound.Enemies
 
         private bool Enraged => health.Fraction < 0.3f;
 
+        // ---- Phases ----
+        protected override float[] PhaseGates => new[] { 0.5f, 0.2f };
+        private bool lastStand;
+
+        protected override void OnPhaseGate(int index)
+        {
+            if (index == 0)
+                Transition("Grave Rend", "You knock at the first door. Now it knocks back.");
+            else
+                Transition("Last Stand", "No more walls between us. Only the grave.", 2.4f, () =>
+                {
+                    // The tower shield is thrown down: no more frontal guard, but every blow comes faster.
+                    lastStand = true;
+                    moveSpeed *= 1.12f;
+                    LastStandRpc();
+                    PhaseHint.Value = "Its shield is gone: strike from any side, but its blows come faster";
+                });
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void LastStandRpc()
+        {
+            if (Rig == null) return;
+            foreach (var t in Rig.GetComponentsInChildren<Transform>(true))
+                if (t.name == "TowerShield") t.gameObject.SetActive(false);
+            Sfx.Play(Sound.Slam, transform.position, 1f, 0.7f);
+            Rig.GlowColor = new Color(1f, 0.35f, 0.15f);
+        }
+
         private float ShieldModifier(float damage, Vector3 attackerPosition)
         {
             if (Dazed) return damage * dazedDamageTaken;
 
             var to = attackerPosition - transform.position;
             to.y = 0f;
-            if (charge != ChargeState.Charging && !Opened && Vector3.Angle(transform.forward, to) < 55f)
+            if (!lastStand && charge != ChargeState.Charging && !Opened && Vector3.Angle(transform.forward, to) < 55f)
             {
                 ShieldClangRpc();
                 return damage * (scaledPlayers <= 1 ? frontalDamageTakenSolo : frontalDamageTaken);
@@ -197,7 +226,7 @@ namespace Deepbound.Enemies
 
         protected override void BeginAttack()
         {
-            windup = 0.9f;
+            windup = lastStand ? 0.72f : 0.9f;
             attackArc = 140f;
             base.BeginAttack();
         }

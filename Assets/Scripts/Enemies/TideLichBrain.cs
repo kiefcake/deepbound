@@ -104,6 +104,50 @@ namespace Deepbound.Enemies
         protected override float ShockwaveCooldown => health.Fraction < 0.6f ? 14f : 0f;
         protected override Color ShockwaveColor => new Color(0.3f, 0.9f, 0.75f);
 
+        // ---- Phases ----
+        protected override float[] PhaseGates => new[] { 0.6f, 0.35f };
+        private float spiralAngle, nextSpiral;
+
+        protected override void OnPhaseGate(int index)
+        {
+            if (index == 0)
+                Transition("The Tide Turns", "The water remembers every drowned name. Yours is next.");
+            else
+            {
+                Survive("The Drowning Deep", "Breathe while you still can.", "Survive the spiral: move with it, through its gaps", 12f, () => Taunt("Still breathing? Then drown slowly."));
+                spiralAngle = Random.Range(0f, 360f);
+                nextSpiral = Time.time + 0.6f;
+                pools.Clear();
+                volleyAt = -1f;
+                PlayActionRpc(RigAction.Cast, 12f);
+            }
+        }
+
+        /// <summary>Survival: arms of slow bolts wheel out from the Lich. Strafe with the turn and slip the gaps.</summary>
+        private void TickSpiral()
+        {
+            if (!InSurvival || Time.time < nextSpiral) return;
+            nextSpiral = Time.time + 0.11f;
+            int arms = scaledPlayers <= 1 ? 3 : 4;
+            spiralAngle += 13f;
+            var origin = transform.position + Vector3.up * 1.15f;
+            var dirs = new Vector3[arms];
+            for (int i = 0; i < arms; i++)
+            {
+                dirs[i] = Quaternion.Euler(0f, spiralAngle + i * 360f / arms, 0f) * Vector3.forward;
+                Arrows.ServerFire(origin, dirs[i], boltDamage * 0.55f, Team.Players, NetworkObjectId, SpiralSpeed);
+            }
+            SpiralRpc(origin, dirs);
+        }
+
+        private const float SpiralSpeed = 8.5f;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SpiralRpc(Vector3 origin, Vector3[] dirs)
+        {
+            foreach (var d in dirs) Arrows.SpawnVisual(origin, d, ProjectileKind.Frostbolt, SpiralSpeed);
+        }
+
         private float nextVolley, nextPool, nextBlink;
         private float volleyAt = -1f;
         private float crowdedFor;
@@ -121,7 +165,8 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
-            if (IsServer && !IsDead) TickMaelstrom();
+            if (IsServer && !IsDead) TickSpiral();
+            if (IsServer && !IsDead && !InSurvival) TickMaelstrom();
             if (IsServer && !IsDead)
             {
                 ResolvePools();

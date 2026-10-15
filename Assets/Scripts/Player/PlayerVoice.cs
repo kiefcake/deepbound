@@ -174,7 +174,7 @@ namespace Deepbound.Player
                 pending.Add(Mathf.Clamp(Mathf.Lerp(micRead[i], micRead[i + 1], f) * gain, -1f, 1f));
                 t += stepIn;
             }
-            resampleCarry = t - count;
+            resampleCarry = Mathf.Max(0f, t - count);
         }
 
         private bool ShouldTransmit(float rms)

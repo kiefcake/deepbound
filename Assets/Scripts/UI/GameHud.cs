@@ -62,6 +62,32 @@ namespace Deepbound.UI
             cardUntil = UnityEngine.Time.time + 3.5f;
         }
 
+        private static string tauntWho, tauntLine;
+        private static float tauntAt = -99f;
+
+        /// <summary>A boss speaks (phase changes): a line under the boss bar, typed out.</summary>
+        public static void ShowBossTaunt(string who, string line)
+        {
+            tauntWho = who;
+            tauntLine = line;
+            tauntAt = UnityEngine.Time.time;
+        }
+
+        private void DrawTaunt(float w, float h)
+        {
+            float t = Time.time - tauntAt;
+            if (tauntLine == null || t > 5f) return;
+            float a = Mathf.Clamp01(Mathf.Min(t / 0.25f, (5f - t) / 0.6f));
+            int shown = Mathf.Clamp(Mathf.RoundToInt(t * 45f), 0, tauntLine.Length);
+            var style = new GUIStyle(center) { fontSize = 18, fontStyle = FontStyle.Italic, wordWrap = true, normal = { textColor = new Color(1f, 0.85f, 0.7f, a) } };
+            // Subtitles: low and centred, clear of the tips and the boss bar.
+            float y = h - 196f;
+            Rect(w * 0.18f, y - 18, w * 0.64f, 54, new Color(0f, 0f, 0f, 0.5f * a));
+            GUI.Label(new Rect(w * 0.18f, y - 16, w * 0.64f, 18), tauntWho.ToUpperInvariant(),
+                new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(Gold.r, Gold.g, Gold.b, a) } });
+            GUI.Label(new Rect(w * 0.18f, y + 2, w * 0.64f, 34), "\u201C" + tauntLine.Substring(0, shown) + (shown < tauntLine.Length ? "" : "\u201D"), style);
+        }
+
         private static string introName, introEpithet, introHint;
         private static float introAt = -99f;
         private const float IntroLength = 5.5f;
@@ -665,6 +691,7 @@ namespace Deepbound.UI
             DrawBanner(w, h);
             DrawTitleCard(w, h);
             DrawBossIntro(w, h);
+            DrawTaunt(w, h);
             if (!statsHeld) DrawControlsHint(w, h);
             DrawFeed(h);
             DrawForge(w, h);
@@ -817,9 +844,28 @@ namespace Deepbound.UI
             float bw = Mathf.Min(620f, w * 0.6f), x = w / 2f - bw / 2f, y = 28;
             GUI.Label(new Rect(x, y - 4, bw, 24), boss.DisplayName, new GUIStyle(center) { normal = { textColor = Gold } });
             Rect(x - 3, y + 21, bw + 6, 20, Panel);
-            Bar(x, y + 24, bw, 14, boss.Health.Fraction, new Color(0.55f, 0.08f, 0.1f));
+            var stance = boss.CurrentStance;
+            var barColor = boss.Immune ? new Color(0.35f, 0.45f, 0.62f) : stance == BossBrain.Stance.Armored ? new Color(0.45f, 0.45f, 0.5f) : new Color(0.55f, 0.08f, 0.1f);
+            Bar(x, y + 24, bw, 14, boss.Health.Fraction, barColor);
+            // Phase name on the right of the title row.
+            string phase = boss.PhaseName.Value.ToString();
+            if (phase.Length > 0)
+                GUI.Label(new Rect(x, y - 4, bw, 24), phase, new GUIStyle(small) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.85f, 0.8f, 0.7f) } });
             string tags = StatusTags(boss.Health, boss);
-            if (boss.Health.Fraction < 0.25f) tags = "<color=#E0403A>ENRAGED</color>" + (tags.Length > 0 ? "   " + tags : "");
+            string stanceTag = null;
+            double left = boss.StanceEndsAt.Value > 0.0 && Unity.Netcode.NetworkManager.Singleton != null ? boss.StanceEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time : 0.0;
+            switch (stance)
+            {
+                case BossBrain.Stance.Transition: stanceTag = "<color=#9DB8FF>INVULNERABLE</color>"; break;
+                case BossBrain.Stance.Invulnerable: stanceTag = "<color=#9DB8FF>WARDED</color>" + (boss.WardsLeft.Value > 0 ? "  (" + boss.WardsLeft.Value + " left)" : ""); break;
+                case BossBrain.Stance.Survival: stanceTag = "<color=#FFB070>SURVIVE " + Mathf.CeilToInt((float)System.Math.Max(0.0, left)) + "</color>"; break;
+                case BossBrain.Stance.Armored: stanceTag = "<color=#C8C8D0>ARMORED</color>"; break;
+            }
+            if (stanceTag != null) tags = stanceTag + (tags.Length > 0 ? "   " + tags : "");
+            else if (boss.Health.Fraction < 0.25f) tags = "<color=#E0403A>ENRAGED</color>" + (tags.Length > 0 ? "   " + tags : "");
+            string hint = boss.PhaseHint.Value.ToString();
+            if (hint.Length > 0 && (boss.Immune || stance == BossBrain.Stance.Armored || Time.time - tauntAt < 12f))
+                GUI.Label(new Rect(x - 60, y + 58, bw + 120, 20), hint, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.8f, 0.85f, 1f) } });
             if (tags.Length > 0)
                 GUI.Label(new Rect(x, y + 40, bw, 20), tags, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, richText = true, fontStyle = FontStyle.Bold });
         }

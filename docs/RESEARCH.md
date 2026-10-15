@@ -52,6 +52,36 @@ at the end. Fan wikis and forum posts were the main sources, so treat exact numb
   "killed by" line too.
 - **Semantic pings** (danger, on my way, enemy missing, help) let a team talk without voice.
 
+### Realm of the Mad God boss logic (follow-up, 2026-10-15)
+- **Phase structure.** Bosses are state machines that move between named phases on HP thresholds or
+  timers. Oryx 1 is the exception: it picks phases at random until a rage phase at low HP.
+- **Invulnerable minion phases.** Null alternates: it is vulnerable on odd phases, then invulnerable on
+  even ones while its minions attack. Killing every minion starts the next phase. Shaitan becomes
+  invulnerable and summons his hands, and has short invulnerable gaps between phases.
+- **Armored phases.** Oryx and the Marble Colossus have phases where they can be hit but are
+  Armored (heavy damage reduction).
+- **Survival phases.** The Marble Colossus goes invulnerable for 20-45 s, circling and firing spirals
+  and spears. You can't damage it; you dodge until the timer ends.
+- **Taunts.** Every phase change has a spoken line, so players hear the shift as well as see it.
+- **Rage.** A last, fastest phase. Some bosses respawn their pillars or orbiting rocks for it.
+- **Adaptive HP.** Boss HP scales with the number of players in the dungeon.
+
+**Applied in Deepbound** (`BossBrain` phase framework):
+- HP gates: damage stops at the gate, so no burst can skip a phase.
+- Four stances: Transition, Invulnerable-while-warded with a timeout, timed Survival, Armored.
+- A shield bubble while the boss is immune, IMMUNE on hits, and the stance and phase name on the
+  boss bar with a countdown or wards left.
+- Taunts shown as subtitles.
+
+| Boss | Phases |
+|---|---|
+| Gravewarden | 50% Grave Rend; 20% Last Stand (throws its shield away: no frontal block, faster blows) |
+| Tide Lich | 60% The Tide Turns; 35% The Drowning Deep (12 s survival spiral) |
+| Hollow King | 50% Throne Ward (immune while 2 Royal Guards live, 25 s max); 25% The Last Crown |
+| Pale Cardinal | 66% and 33% Choir of the Damned (immune while the Wraiths live, 22 s max); 12% Final Hymn (10 s survival) |
+
+Extra RotMG sources: [Null](https://realmeye.com/wiki/null), [Marble Colossus](https://realmeye.com/wiki/marble-colossus), [Shaitan](https://www.realmeye.com/wiki/shaitan-the-advisor/78), [Oryx](https://www.realmeye.com/wiki/oryx-the-mad-god/8).
+
 ## What Deepbound already has
 | Idea | Deepbound |
 |---|---|
