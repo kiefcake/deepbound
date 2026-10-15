@@ -210,6 +210,8 @@ namespace Deepbound.Networking
 
             var boss = BossBrain.Active;
             Log("boss", boss != null ? boss.Health.Current.Value + " hp" : "missing", boss != null);
+            if (boss != null)
+                Log("boss intro", boss.DisplayName + ", " + boss.Epithet, !string.IsNullOrEmpty(boss.Epithet) && !string.IsNullOrEmpty(boss.Hint) && boss.Epithet != "Guardian of the deep");
 
             if (net.IsServer && net.IsHost)
             {
@@ -1167,7 +1169,7 @@ namespace Deepbound.Networking
             var boss = layout.BossRoom;
             var bp = boss.Center + (layout.BossSpawn - boss.Center).normalized * -9f + Vector3.up * 0.1f;
             motor.Teleport(bp, Quaternion.LookRotation(layout.BossSpawn - bp));
-            yield return new WaitForSeconds(1.5f);
+            yield return new WaitForSeconds(2.4f);
             yield return Shot(dir, "3_boss_room");
 
             // Turn round to see a corridor mouth from inside the boss room.

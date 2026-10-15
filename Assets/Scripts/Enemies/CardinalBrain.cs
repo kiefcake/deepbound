@@ -26,6 +26,8 @@ namespace Deepbound.Enemies
         [SerializeField] private float judgementCooldown = 7.5f, judgementWindup = 1.5f, judgementRadius = 2.4f, judgementDamage = 38f;
 
         public override string DisplayName => "The Pale Cardinal";
+        public override string Epithet => "Last Voice of the Black Cathedral";
+        public override string Hint => "Step out of the burning circles, jump the bell's toll, and silence the choir first.";
 
         private float nextJudgement;
         private bool choir66, choir33;

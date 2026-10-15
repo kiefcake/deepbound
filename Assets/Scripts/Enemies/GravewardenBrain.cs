@@ -47,6 +47,8 @@ namespace Deepbound.Enemies
         [SerializeField] private float dazedDamageTaken = 1.5f;
 
         public override string DisplayName => "The Gravewarden";
+        public override string Epithet => "Keeper of the First Door";
+        public override string Hint => "Its shield turns blows from the front. Strike after each sweep, from behind, or when it charges into stone.";
 
         private enum ChargeState { None, Windup, Charging }
         private ChargeState charge;

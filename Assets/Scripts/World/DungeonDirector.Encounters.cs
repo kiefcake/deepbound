@@ -550,7 +550,7 @@ namespace Deepbound.World
                 bossSealed = true;
                 boss.Dormant = false;
                 SetGates(bossGates, true);
-                TitleCardRpc(boss.DisplayName.ToUpperInvariant(), "Guardian of " + DungeonTheme.ForDepth(Layout.Depth).Name);
+                BossIntroRpc(boss.DisplayName.ToUpperInvariant(), boss.Epithet, boss.Hint);
             }
         }
 
@@ -647,6 +647,14 @@ namespace Deepbound.World
         {
             UI.GameHud.ShowTitleCard(title, subtitle);
             Art.Sfx.Play2D(Art.Sound.Summon, 0.8f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BossIntroRpc(string name, string epithet, string hint)
+        {
+            UI.GameHud.ShowBossIntro(name, epithet, hint);
+            Art.Sfx.Play2D(Art.Sound.Slam, 0.9f);
+            Art.Sfx.Play2D(Art.Sound.Summon, 0.7f);
         }
 
         /// <summary>The dead climbing out of the floor: a dark circle and a spray of bone at each spot.</summary>

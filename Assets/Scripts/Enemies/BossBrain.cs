@@ -25,6 +25,12 @@ namespace Deepbound.Enemies
         [SerializeField] protected NetworkObject minionPrefab;
 
         public abstract string DisplayName { get; }
+
+        /// <summary>The line under the name on the intro card.</summary>
+        public virtual string Epithet => "Guardian of the deep";
+
+        /// <summary>One sentence on how to beat it, shown on the intro card.</summary>
+        public virtual string Hint => "Watch for the red ! and jump its shockwaves.";
         public Health Health => health;
 
         protected int scaledPlayers = 1, scaledDepth;

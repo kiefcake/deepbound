@@ -34,6 +34,8 @@ namespace Deepbound.Enemies
         [SerializeField] private float blinkCooldown = 7f, crowdRange = 3.5f, crowdTolerance = 1.2f;
 
         public override string DisplayName => "The Tide Lich";
+        public override string Epithet => "Who Drowned the Vaults";
+        public override string Hint => "Keep moving off the pools it lays, and fight the whirlpool's pull toward the centre.";
 
         // ---- Maelstrom: a whirlpool opens and drags everyone toward its drowning heart. ----
         private float maelstromUntil = -1f, nextMaelstrom, nextPull;

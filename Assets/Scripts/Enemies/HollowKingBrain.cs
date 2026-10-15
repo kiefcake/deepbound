@@ -26,6 +26,8 @@ namespace Deepbound.Enemies
         [SerializeField] private float cleaveWindup = 0.85f;
 
         public override string DisplayName => "Ossric, the Hollow King";
+        public override string Epithet => "Sovereign of the Empty Throne";
+        public override string Hint => "When a player is marked by the crown, everyone stands in the circle to share the blow.";
 
         private float nextSlam;
         private bool slamming;

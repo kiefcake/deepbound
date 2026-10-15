@@ -62,6 +62,53 @@ namespace Deepbound.UI
             cardUntil = UnityEngine.Time.time + 3.5f;
         }
 
+        private static string introName, introEpithet, introHint;
+        private static float introAt = -99f;
+        private const float IntroLength = 5.5f;
+
+        /// <summary>A boss's entrance: letterbox bars, its name and epithet, and how to fight it.</summary>
+        public static void ShowBossIntro(string name, string epithet, string hint)
+        {
+            introName = name;
+            introEpithet = epithet;
+            introHint = hint;
+            introAt = UnityEngine.Time.time;
+            cardUntil = 0f;
+        }
+
+        /// <summary>For tests and screenshots: is the intro card up?</summary>
+        public static bool BossIntroShowing => UnityEngine.Time.time - introAt < IntroLength;
+
+        private void DrawBossIntro(float w, float h)
+        {
+            float t = Time.time - introAt;
+            if (introName == null || t > IntroLength) return;
+            // Bars slide in, hold, slide out; the text fades in after them.
+            float bars = Mathf.SmoothStep(0f, 1f, Mathf.Min(t / 0.5f, (IntroLength - t) / 0.6f));
+            float text = Mathf.Clamp01(Mathf.Min((t - 0.35f) / 0.5f, (IntroLength - t) / 0.8f));
+            float bar = h * 0.11f * bars;
+            Rect(0, 0, w, bar, Color.black);
+            Rect(0, h - bar, w, bar, Color.black);
+            if (text <= 0f) return;
+            float y = h * 0.24f;
+            // The name tracks in: wide letter-spacing that settles.
+            float spread = Mathf.Lerp(1.12f, 1f, Mathf.Clamp01((t - 0.35f) / 1.2f));
+            int nameSize = Mathf.RoundToInt(Mathf.Clamp(w / 22f, 34f, 60f));
+            UiSkin.Shadowed(new Rect(-w * (spread - 1f) / 2f, y, w * spread, nameSize + 12), introName,
+                new GUIStyle(big) { fontSize = nameSize, normal = { textColor = new Color(0.92f, 0.32f, 0.22f) } }, text);
+            float line = Mathf.Min(w * 0.36f, 460f) * Mathf.Clamp01((t - 0.5f) / 0.6f);
+            Rect(w / 2f - line / 2f, y + nameSize + 16, line, 2, new Color(Gold.r, Gold.g, Gold.b, 0.8f * text));
+            GUI.Label(new Rect(0, y + nameSize + 22, w, 28), introEpithet.ToUpperInvariant(),
+                new GUIStyle(center) { fontSize = 18, fontStyle = FontStyle.Bold, normal = { textColor = new Color(Gold.r, Gold.g, Gold.b, text) } });
+            float hintA = Mathf.Clamp01(Mathf.Min((t - 1.2f) / 0.6f, (IntroLength - t) / 0.8f));
+            if (hintA > 0f)
+            {
+                Rect(w * 0.18f, y + nameSize + 52, w * 0.64f, 48, new Color(0f, 0f, 0f, 0.5f * hintA));
+                GUI.Label(new Rect(w * 0.22f, y + nameSize + 54, w * 0.56f, 44), introHint,
+                    new GUIStyle(center) { fontSize = 15, wordWrap = true, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.85f, 0.82f, 0.75f, hintA) } });
+            }
+        }
+
         private void DrawTitleCard(float w, float h)
         {
             if (cardTitle == null || Time.time > cardUntil) return;
@@ -543,6 +590,7 @@ namespace Deepbound.UI
             DrawPhase(w, h);
             DrawBanner(w, h);
             DrawTitleCard(w, h);
+            DrawBossIntro(w, h);
             if (!statsHeld) DrawControlsHint(w, h);
             DrawFeed(h);
             DrawForge(w, h);
