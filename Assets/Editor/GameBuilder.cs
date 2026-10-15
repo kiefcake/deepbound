@@ -181,6 +181,7 @@ namespace Deepbound.EditorTools
             root.AddComponent<Ultimates>();
             root.AddComponent<Kick>();
             root.AddComponent<Flasks>();
+            root.AddComponent<Emotes>();
             root.AddComponent<RangerKit>().SetTrapPrefab(bearTrap.GetComponent<NetworkObject>());
             root.AddComponent<KnockbackReceiver>();
             root.AddComponent<PlayerPings>();

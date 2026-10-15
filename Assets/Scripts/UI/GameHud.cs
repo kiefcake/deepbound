@@ -237,6 +237,8 @@ namespace Deepbound.UI
             var buffs = new List<string>();
             if (ClericKit.InConsecration(player.transform.position)) buffs.Add("BLESSED +20%");
             if (ClericKit.IsInspired(health)) buffs.Add("INSPIRED +15%");
+            var emotes = player.GetComponent<Emotes>();
+            if (emotes != null && emotes.Brothers) buffs.Add("BROTHERS IN ARMS +10%");
             if (Time.time < life.VeiledUntil || (life.IsServer == false && InRogueSmoke())) buffs.Add("SMOKE SCREEN");
             if (buffs.Count > 0)
                 GUI.Label(new Rect(0, Screen.height / 2f + 18, Screen.width, 20), string.Join("   ", buffs),
@@ -704,7 +706,7 @@ namespace Deepbound.UI
                 "CTRL dodge (slide if sprinting)  ·  V kick\n" +
                 "R ultimate (when charged)\n" +
                 "1 / 2 / 3  throw Fire / Frost / Holy flask\n" +
-                "M map  ·  Z / middle mouse: ping  ·  Esc free mouse\n" +
+                "M map  ·  Z ping  ·  H high five  ·  Esc free mouse\n" +
                 "Hit enemies from behind for +35%", style);
         }
 

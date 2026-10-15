@@ -40,7 +40,7 @@ namespace Deepbound.UI
         // Page two: the dungeon, its creatures and its tricks.
         private static readonly (string title, string body)[] DungeonLeft =
         {
-            ("EVERY CLASS", "R: your ultimate, charged by fighting. V: kick (dodge while sprinting to slide, then kick for a SLIDE KICK). 1 / 2 / 3: Fire, Frost and Holy flasks - one satchel each run, more at the merchant. Hits sometimes CRIT."),
+            ("EVERY CLASS", "R: your ultimate, charged by fighting. V: kick (dodge while sprinting to slide, then kick for a SLIDE KICK). 1 / 2 / 3: Fire, Frost and Holy flasks - one satchel each run, more at the merchant. Hits sometimes CRIT. H: high five a nearby ally who does the same for +10% damage."),
             ("THE DEAD", "WRAITHS are ethereal until chilled, stunned, marked or consecrated. SHIELDBEARERS block from the front: flank or stun them. GARGOYLES pose as statues from floor 2 and dive along a marked line. MIMICS breathe when you are not looking. BONE HOARDERS run with a sack of gold."),
             ("ROOMS", "Kick the dead into chasms and pendulum blades. Smash a ritual chamber's violet braziers to lift its ward. Frost freezes anything standing in water. Balconies and pits reward high ground. Corridor flame traps fire on a beat."),
         };
