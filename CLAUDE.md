@@ -6,6 +6,8 @@ design decisions Claude made on the user's behalf).
 
 The user wants autonomous progress: make the call, record it, keep going. They play-test builds themselves.
 
+**Start every session by reading `docs/AGENT_PROMPT.md`** (the standing prompt: the loop, hard rules, backlog) and follow it.
+
 **Production rules** live in `docs/PRODUCTION.md` (readability, teach-by-play tips, feedback, counterplay, accessibility options, performance budget, test-before-ship). New features follow them: a telegraph or tag for every threat, a `UI/Tips` entry for every new mechanic, a smoke check, lights under the level root (`Art/LightBudget`). Use `Art.ViewCamera.Current`, never `Camera.main` (the player camera is not tagged MainCamera).
 
 ## Build, run, test
