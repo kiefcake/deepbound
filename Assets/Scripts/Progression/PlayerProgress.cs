@@ -195,6 +195,19 @@ namespace Deepbound.Progression
         private float damageCarry;
 
         /// <summary>Server: credit damage this player dealt, and a kill if it was the final blow.</summary>
+        private float lastKillAt = -10f;
+        private int killChain;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void MultiKillRpc(byte n)
+        {
+            string text = n == 2 ? "DOUBLE KILL" : n == 3 ? "TRIPLE KILL" : n == 4 ? "QUAD KILL" : "MASSACRE";
+            var color = n >= 4 ? new Color(1f, 0.3f, 0.2f) : n == 3 ? new Color(1f, 0.6f, 0.2f) : new Color(1f, 0.85f, 0.4f);
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.4f, text, color);
+            if (n >= 3) UI.GameHud.Feed(name + ": " + text, color);
+            if (IsOwner) Art.Sfx.Play2D(Art.Sound.Relic, 0.4f + 0.1f * n);
+        }
+
         public void ServerCreditDamage(float dealt, bool killed)
         {
             damageCarry += dealt;
@@ -204,7 +217,15 @@ namespace Deepbound.Progression
                 damageCarry -= whole;
                 DamageDealt.Value += whole;
             }
-            if (killed) Kills.Value++;
+            if (killed)
+            {
+                Kills.Value++;
+                // Multi-kills: kills in quick succession are called out to the party.
+                if (Time.time - lastKillAt > 1.6f) killChain = 0;
+                lastKillAt = Time.time;
+                killChain++;
+                if (killChain >= 2) MultiKillRpc((byte)Mathf.Min(killChain, 6));
+            }
         }
 
         /// <summary>

@@ -51,6 +51,20 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject necromancerPrefab;
         [SerializeField] private NetworkObject wraithPrefab;
         [SerializeField] private NetworkObject shieldbearerPrefab;
+        [SerializeField] private NetworkObject mimicPrefab;
+        [SerializeField] private NetworkObject hoarderPrefab;
+
+        /// <summary>Server: a mimic chest was reached for — it becomes the Mimic, and bites.</summary>
+        public void ServerSpringMimic(Chest chest, Combat.Health victim)
+        {
+            if (mimicPrefab == null || Layout == null) return;
+            var obj = Spawn(mimicPrefab, chest.transform.position, chest.transform.rotation);
+            var brain = obj.GetComponent<MimicBrain>();
+            brain.ServerScale(Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count), Layout.Depth);
+            spawned.Add(obj);
+            chest.NetworkObject.Despawn();
+            brain.ServerAmbush(victim);
+        }
 
         [Header("Dungeon objects")]
         [SerializeField] private NetworkObject chestPrefab;
@@ -449,6 +463,18 @@ namespace Deepbound.World
                 }
             }
 
+            // Now and then, a Bone Hoarder in one of the combat rooms: a chase for gold.
+            var combatRooms = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && !IsAmbushRoom(r) && r.EnemySpawns.Count > 0);
+            if (hoarderPrefab != null && combatRooms.Count > 0 && UnityEngine.Random.value < 0.45f)
+            {
+                var room = combatRooms[UnityEngine.Random.Range(0, combatRooms.Count)];
+                var at = room.EnemySpawns[UnityEngine.Random.Range(0, room.EnemySpawns.Count)];
+                if (NavMesh.SamplePosition(at, out var hhit, 3f, NavMesh.AllAreas)) at = hhit.position;
+                var hobj = Spawn(hoarderPrefab, at, Quaternion.identity);
+                hobj.GetComponent<EnemyBrain>().ServerScale(players, layout.Depth);
+                spawned.Add(hobj);
+            }
+
             var spawn = layout.BossSpawn;
             var bossPrefab = bossPrefabs[Mathf.Clamp(layout.Depth, 0, bossPrefabs.Length - 1)];
             var bossObj = Instantiate(bossPrefab, spawn, Quaternion.LookRotation(layout.BossRoom.Center - spawn + Vector3.back * 0.01f));
@@ -487,6 +513,8 @@ namespace Deepbound.World
                     for (int s = 0; s < 4; s++) if (room.Doors[s]) entry = s;
                     var back = -new Vector3(DungeonLayout.Dir[entry].x, 0f, DungeonLayout.Dir[entry].y);
                     var chest = Spawn(chestPrefab, room.Center + back * (room.Size.y / 2f - 1.5f), Quaternion.LookRotation(-back));
+                    // Some chests are hungry. Fewer on the first floor.
+                    if (mimicPrefab != null && !TestMode && rng.NextDouble() < (layout.Depth == 0 ? 0.12 : 0.2)) chest.GetComponent<Chest>().Mimic.Value = true;
                     chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
                 }
 

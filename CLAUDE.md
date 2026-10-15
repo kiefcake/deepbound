@@ -114,6 +114,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
   marked/consecrated); any can be Elite, and every
   elite rolls an `EliteAffix` (Warded: -65% until stunned/chilled; Vampiric: heals from hits unless Marked; Volatile:
   bursts after death; Swift). Status tags (CHILL/MARK/STUN/TAUNT + affix) float over enemies (`EnemyBrain.Status`).
+- Surprises: Mimic chests (`Chest.Mimic`, 12-20% of side-room chests, never in TestMode; the lid 'breathes' as a tell; `DungeonDirector.ServerSpringMimic` swaps in `MimicBrain`, which bites at once and drops chest loot + gear); Bone Hoarder (`HoarderBrain`, 45% per floor in a combat room: flees, spills gold per hit, escapes 25 s after being spotted). Multi-kill callouts (`PlayerProgress.MultiKillRpc`: kills within 1.6 s).
 - Bosses: Gravewarden (shield, charge into walls → dazed, Shield Quake, Grave Rend bone-spike lines below 50%), Tide Lich (volleys, pools under everyone, blink,
   Tidal Surge below 60%), Hollow King (cleave, slam, summons, enrage, Crown's Fall), Pale Cardinal (floor 4, Black
   Cathedral: Toll of the Bell shockwave, Judgement fire pillars under/around players, Wraith choir at 66/33%, Last Rites

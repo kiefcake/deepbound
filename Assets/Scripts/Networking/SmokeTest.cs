@@ -297,6 +297,23 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.4f);
                     Log("ritual", "ward " + wardOn + " -> " + DungeonDirector.InRitualWard(ritual.Center), wardOn && !DungeonDirector.InRitualWard(ritual.Center));
                 }
+                // A mimic: reaching for it springs the beast.
+                var mimicChest = FindObjectsByType<Chest>(FindObjectsSortMode.None).FirstOrDefault(c => !c.Opened.Value);
+                if (mimicChest != null)
+                {
+                    mimicChest.Mimic.Value = true;
+                    fm.Teleport(mimicChest.transform.position + mimicChest.transform.forward * 1.6f + Vector3.up * 0.1f, Quaternion.LookRotation(-mimicChest.transform.forward));
+                    yield return new WaitForSeconds(0.3f);
+                    float hpM = local.GetComponent<Health>().Current.Value;
+                    mimicChest.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.3f);
+                    var mimicB = FindObjectsByType<MimicBrain>(FindObjectsSortMode.None).FirstOrDefault();
+                    Log("mimic", "sprung " + (mimicB != null) + ", chest gone " + (mimicChest == null || !mimicChest.IsSpawned) + ", bitten " + (local.GetComponent<Health>().Current.Value < hpM),
+                        mimicB != null && (mimicChest == null || !mimicChest.IsSpawned));
+                    if (mimicB != null) mimicB.GetComponent<Health>().ServerDamage(1e6f, mimicB.transform.position + Vector3.forward, local.NetworkObjectId);
+                    local.GetComponent<Health>().ServerSetFraction(1f);
+                    yield return new WaitForSeconds(0.3f);
+                }
                 Log("feature rooms", features, layout.Rooms.Any(r => r.Feature == RoomFeature.GreatHall) && layout.Rooms.Any(r => r.Feature == RoomFeature.Chasm));
 
                 var sarc = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None).FirstOrDefault(x => x.IsSpawned && x.HasOccupant && !x.Opened.Value && !x.Scheduled);
@@ -304,8 +321,8 @@ namespace Deepbound.Networking
                 {
                     fm.Teleport(sarc.transform.position + sarc.transform.forward * 3f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.5f);
-                    Log("crypt", "sarcophagus opened on approach: " + sarc.Opened.Value + " (spawned " + sarc.IsSpawned + ", occupant " + sarc.HasOccupant + ", targetable " + local.GetComponent<PlayerLife>().Targetable +
-                        ", downed " + local.GetComponent<PlayerLife>().Downed.Value + (sarc.Opened.Value ? "" : ", " + sarc.DebugState()) + ", dist " + Vector3.Distance(local.transform.position, sarc.transform.position).ToString("F1") + ")", sarc.Opened.Value);
+                    Log("crypt", "sarcophagus opened on approach: " + sarc.Opened.Value + (sarc.Scheduled ? " (a neighbour woke first; scheduled)" : "") + " (spawned " + sarc.IsSpawned + ", occupant " + sarc.HasOccupant + ", targetable " + local.GetComponent<PlayerLife>().Targetable +
+                        ", downed " + local.GetComponent<PlayerLife>().Downed.Value + (sarc.Opened.Value ? "" : ", " + sarc.DebugState()) + ", dist " + Vector3.Distance(local.transform.position, sarc.transform.position).ToString("F1") + ")", sarc.Opened.Value || sarc.Scheduled);
                     // The rest of the crypt follows, two at a time.
                     yield return new WaitForSeconds(5.2f);
                     var all = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None);
@@ -1044,7 +1061,7 @@ namespace Deepbound.Networking
                     yield return Shot(dir, "5_floor" + (depth + 1));
 
                     // Line up one of each newer enemy type for a close look.
-                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain) })
+                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain) })
                     {
                         var e = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(b => b.GetType() == type && !b.IsDead);
                         if (e == null) continue;

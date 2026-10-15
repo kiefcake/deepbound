@@ -16,8 +16,12 @@ namespace Deepbound.World
     {
         [SerializeField] private NetworkObject lootPrefab;
         public readonly NetworkVariable<bool> Opened = new NetworkVariable<bool>();
+        /// <summary>Not a chest at all. Reaching for it springs the Mimic.</summary>
+        public readonly NetworkVariable<bool> Mimic = new NetworkVariable<bool>();
+        private float nextBreath;
 
         private Transform lid;
+        private float breathUntil;
         private float lidAngle;
 
         public void SetLootPrefab(NetworkObject prefab) => lootPrefab = prefab;
@@ -32,6 +36,11 @@ namespace Deepbound.World
 
         protected override void ServerUse(PlayerProgress who)
         {
+            if (Mimic.Value && DungeonDirector.Instance != null)
+            {
+                DungeonDirector.Instance.ServerSpringMimic(this, who.GetComponent<Health>());
+                return;
+            }
             Opened.Value = true;
             int depth = Mathf.Max(0, DungeonDirector.Instance != null ? DungeonDirector.Instance.Floor.Value.y : 0);
             LootDrop.ServerSpawnFromTable(lootPrefab, LootTable.Chest, transform.position + transform.forward * 1.1f, 1f + 0.5f * depth);
@@ -45,7 +54,21 @@ namespace Deepbound.World
         private void Update()
         {
             if (lid == null) return;
-            lidAngle = Mathf.MoveTowards(lidAngle, Opened.Value ? -110f : 0f, Time.deltaTime * 260f);
+            // The tell: a mimic's lid lifts a crack now and then, and it breathes.
+            float target = Opened.Value ? -110f : 0f;
+            if (Mimic.Value && !Opened.Value)
+            {
+                if (Time.time >= nextBreath)
+                {
+                    nextBreath = Time.time + Random.Range(5f, 9f);
+                    breathUntil = Time.time + 0.9f;
+                    var cam = Camera.main;
+                    if (cam != null && Vector3.Distance(cam.transform.position, transform.position) < 12f)
+                        Sfx.Play(Sound.Whisper, transform.position + Vector3.up * 0.6f, 0.5f, 0.45f);
+                }
+                if (Time.time < breathUntil) target = -9f * Mathf.Sin((breathUntil - Time.time) / 0.9f * Mathf.PI);
+            }
+            lidAngle = Mathf.MoveTowards(lidAngle, target, Time.deltaTime * 260f);
             lid.localRotation = Quaternion.Euler(lidAngle, 0f, 0f);
         }
 

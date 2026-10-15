@@ -584,7 +584,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -594,6 +594,7 @@ namespace Deepbound.Art
         public static HumanoidRig BuildSkeleton(Transform root, SkeletonKind kind)
         {
             if (kind == SkeletonKind.Wraith) return BuildWraith(root);
+            if (kind == SkeletonKind.Mimic) return BuildMimic(root);
             bool king = kind == SkeletonKind.King;
             float s = king ? 1.75f : kind == SkeletonKind.Gravewarden ? 2.0f : kind == SkeletonKind.Lich ? 1.45f : kind == SkeletonKind.Cardinal ? 1.7f
                 : kind == SkeletonKind.Brute ? 1.45f : kind == SkeletonKind.Ghoul ? 0.92f : kind == SkeletonKind.Necromancer ? 1.05f : 1f;
@@ -677,6 +678,22 @@ namespace Deepbound.Art
                 glow.Add(rune.GetComponent<Renderer>());
                 rig.GlowRenderers = glow.ToArray();
                 rig.StrideLength = 1.4f;
+            }
+            else if (kind == SkeletonKind.Hoarder)
+            {
+                // A sack of stolen gold over its shoulder, a crooked crown, coins spilling.
+                rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
+                var sack = MeshKit.Part(rig.Torso, "Sack", MeshKit.Ball(0.36f, 10, 8), Mat.Cloth, new Vector3(0.05f, 0.55f, -0.32f), new Vector3(10f, 0f, 15f), new Vector3(1f, 1.15f, 0.9f));
+                ArtLibrary.Tint(sack.GetComponent<Renderer>(), new Color(0.45f, 0.32f, 0.16f));
+                MeshKit.Part(rig.Torso, "SackTie", MeshKit.Cylinder(0.08f, 0.06f, 0.15f, 6), Mat.Leather, new Vector3(0.12f, 0.92f, -0.25f), new Vector3(30f, 0f, 20f));
+                for (int i = 0; i < 6; i++)
+                {
+                    var coin = MeshKit.Part(rig.Torso, "Coin" + i, MeshKit.Cylinder(0.05f, 0.05f, 0.012f, 8), Mat.Gold,
+                        new Vector3(-0.15f + i * 0.07f, 0.85f + (i % 2) * 0.05f, -0.2f - (i % 3) * 0.05f), new Vector3(70f, i * 30f, 0f));
+                }
+                MeshKit.Part(rig.Head, "Crown", MeshKit.Cylinder(0.11f, 0.12f, 0.05f, 8), Mat.Gold, new Vector3(0.02f, 0.23f, 0f), new Vector3(0f, 0f, 12f));
+                MeshKit.Part(rig.ArmR, "Pouch", MeshKit.Ball(0.1f, 6, 4), Mat.Leather, new Vector3(0f, -0.65f, 0.05f));
+                rig.StrideLength = 1.6f;
             }
             else if (kind == SkeletonKind.Shieldbearer)
             {
@@ -1078,6 +1095,51 @@ namespace Deepbound.Art
 
             rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
             rig.StrideLength = 1.4f;
+            return rig;
+        }
+
+        /// <summary>
+        /// The Mimic: the chest it pretends to be, on four bony legs, its lid a jaw — rows of
+        /// teeth, a long tongue, and two eyes in the dark inside.
+        /// </summary>
+        private static HumanoidRig BuildMimic(Transform root)
+        {
+            var visual = MeshKit.Pivot(root, "MimicVisual", Vector3.zero);
+            var rig = visual.gameObject.AddComponent<HumanoidRig>();
+            rig.GlowColor = new Color(1f, 0.55f, 0.2f);
+            rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.55f, 0f));
+            rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", Vector3.zero);
+            // Legs: two pivots, each carrying a front and a back leg (they walk in pairs).
+            rig.LegL = MeshKit.Pivot(rig.Hips, "LegL", new Vector3(-0.4f, 0f, 0f));
+            rig.LegR = MeshKit.Pivot(rig.Hips, "LegR", new Vector3(0.4f, 0f, 0f));
+            foreach (var leg in new[] { rig.LegL, rig.LegR })
+                foreach (float z in new[] { -0.25f, 0.25f })
+                {
+                    MeshKit.Part(leg, "Thigh", MeshKit.Box(new Vector3(0.06f, 0.35f, 0.06f)), Mat.Bone, new Vector3(0f, -0.15f, z), new Vector3(z > 0 ? -25f : 25f, 0f, 0f));
+                    MeshKit.Part(leg, "Claw", MeshKit.Box(new Vector3(0.05f, 0.3f, 0.05f)), Mat.Bone, new Vector3(0f, -0.42f, z * 1.5f), new Vector3(z > 0 ? 20f : -20f, 0f, 0f));
+                }
+            // The body: the chest itself.
+            MeshKit.Part(rig.Torso, "Body", MeshKit.Box(new Vector3(1.1f, 0.6f, 0.7f)), Mat.Wood, new Vector3(0f, 0.3f, 0f));
+            foreach (float x in new[] { -0.38f, 0.38f })
+                MeshKit.Part(rig.Torso, "Band", MeshKit.Box(new Vector3(0.08f, 0.62f, 0.72f)), Mat.Gold, new Vector3(x, 0.31f, 0f));
+            var maw = MeshKit.Part(rig.Torso, "Maw", MeshKit.Box(new Vector3(1f, 0.05f, 0.6f)), Mat.Dark, new Vector3(0f, 0.59f, 0f));
+            for (int i = 0; i < 7; i++)
+                MeshKit.Part(rig.Torso, "LowerTooth" + i, MeshKit.Lathe("tooth", new[] { new Vector2(0.035f, 0f), new Vector2(0f, 0.11f) }, 4), Mat.Bone, new Vector3(-0.45f + i * 0.15f, 0.6f, 0.32f));
+            var tongue = MeshKit.Part(rig.Torso, "Tongue", MeshKit.Box(new Vector3(0.18f, 0.05f, 0.6f)), Mat.Leather, new Vector3(0f, 0.63f, 0.25f), new Vector3(-12f, 0f, 0f));
+            ArtLibrary.Tint(tongue.GetComponent<Renderer>(), new Color(0.6f, 0.15f, 0.18f));
+            // The lid is the head: it hinges at the back and is the jaw.
+            rig.Head = MeshKit.Pivot(rig.Torso, "Lid", new Vector3(0f, 0.6f, -0.35f));
+            MeshKit.Part(rig.Head, "LidTop", MeshKit.Box(new Vector3(1.12f, 0.22f, 0.72f)), Mat.Wood, new Vector3(0f, 0.11f, 0.35f));
+            MeshKit.Part(rig.Head, "LidBand", MeshKit.Box(new Vector3(1.14f, 0.06f, 0.1f)), Mat.Gold, new Vector3(0f, 0.12f, 0.7f));
+            for (int i = 0; i < 7; i++)
+                MeshKit.Part(rig.Head, "UpperTooth" + i, MeshKit.Lathe("tooth", new[] { new Vector2(0.035f, 0f), new Vector2(0f, 0.11f) }, 4), Mat.Bone,
+                    new Vector3(-0.45f + i * 0.15f, 0f, 0.67f), new Vector3(180f, 0f, 0f));
+            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.04f, 6, 4), Mat.Glow, new Vector3(-0.2f, -0.02f, 0.3f));
+            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.04f, 6, 4), Mat.Glow, new Vector3(0.2f, -0.02f, 0.3f));
+            rig.ArmL = MeshKit.Pivot(rig.Torso, "ArmL", new Vector3(-0.5f, 0.3f, 0f));
+            rig.ArmR = MeshKit.Pivot(rig.Torso, "ArmR", new Vector3(0.5f, 0.3f, 0f));
+            rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
+            rig.StrideLength = 0.7f;
             return rig;
         }
 

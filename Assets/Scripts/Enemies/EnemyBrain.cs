@@ -44,7 +44,7 @@ namespace Deepbound.Enemies
         /// <summary>Server: boss summons drop nothing, or the boss becomes a gold farm.</summary>
         public bool NoLoot { get; set; }
         protected virtual LootTable Loot => LootTable.Skeleton;
-        private int depthForLoot;
+        protected int depthForLoot;
 
         protected Health health;
         protected NavMeshAgent agent;
