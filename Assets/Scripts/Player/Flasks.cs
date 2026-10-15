@@ -125,7 +125,11 @@ namespace Deepbound.Player
                         foe.ServerDamage(24f * att, at, NetworkObjectId);
                         if (foe.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.8f);
                     }
-                    foreach (var ally in CombatQuery.Circle(at, 4f, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.2f);
+                    foreach (var ally in CombatQuery.Circle(at, 4f, Team.Players).ToArray())
+                    {
+                        if (ally.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerCleanse();
+                        ally.ServerHeal(ally.Max.Value * 0.2f);
+                    }
                     break;
             }
         }

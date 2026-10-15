@@ -375,7 +375,8 @@ namespace Deepbound.Combat
         public void ServerHeal(float amount)
         {
             if (!IsServer || amount <= 0f) return;
-            Current.Value = Mathf.Min(Max.Value, Current.Value + amount * HealMultiplier * (Team == Team.Players ? OmenPlayerHealScale : 1f));
+            float cursed = Team == Team.Players && TryGetComponent<Player.PlayerDebuffs>(out var deb) ? deb.HealMultiplier : 1f;
+            Current.Value = Mathf.Min(Max.Value, Current.Value + amount * HealMultiplier * cursed * (Team == Team.Players ? OmenPlayerHealScale : 1f));
         }
 
         public void ServerSetFraction(float fraction)

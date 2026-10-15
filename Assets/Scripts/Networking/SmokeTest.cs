@@ -349,6 +349,22 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                 }
 
+                // Afflictions: poison, frostbite and a curse land, slow and weaken; Holy Water washes them off.
+                var deb = local.GetComponent<PlayerDebuffs>();
+                if (deb != null)
+                {
+                    float speedBefore = local.GetComponent<PlayerProgress>().SpeedMultiplier;
+                    deb.ServerPoison(4f, 5f);
+                    deb.ServerFrostbite(4f);
+                    deb.ServerCurse(4f, ulong.MaxValue);
+                    yield return new WaitForSeconds(0.2f);
+                    bool afflicted = deb.Poisoned && deb.Frostbitten && deb.Cursed && local.GetComponent<PlayerProgress>().SpeedMultiplier < speedBefore;
+                    deb.ServerCleanse();
+                    yield return new WaitForSeconds(0.2f);
+                    Log("afflictions", "afflicted " + afflicted + ", cleansed " + !(deb.Poisoned || deb.Frostbitten || deb.Cursed), afflicted && !(deb.Poisoned || deb.Frostbitten || deb.Cursed));
+                    local.GetComponent<Health>().ServerSetFraction(1f);
+                }
+
                 // A kick knocks a Shieldbearer's shield aside.
                 var sbT = FindObjectsByType<ShieldbearerBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !e.IsDead);
                 if (sbT != null)
@@ -1201,7 +1217,7 @@ namespace Deepbound.Networking
                     yield return Shot(dir, "5_floor" + (depth + 1));
 
                     // Line up one of each newer enemy type for a close look.
-                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain) })
+                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain) })
                     {
                         var e = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(b => b.GetType() == type && !b.IsDead);
                         if (e == null) continue;

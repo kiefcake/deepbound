@@ -239,6 +239,17 @@ namespace Deepbound.UI
             if (ClericKit.IsInspired(health)) buffs.Add("INSPIRED +15%");
             var emotes = player.GetComponent<Emotes>();
             if (emotes != null && emotes.Brothers) buffs.Add("BROTHERS IN ARMS +10%");
+            var debuffs = new List<string>();
+            var afflict = player.GetComponent<PlayerDebuffs>();
+            if (afflict != null)
+            {
+                if (afflict.Poisoned) debuffs.Add("<color=#7FE04A>POISONED</color>");
+                if (afflict.Frostbitten) debuffs.Add("<color=#9AD8FF>FROSTBITTEN -40% speed</color>");
+                if (afflict.Cursed) debuffs.Add("<color=#B070FF>CURSED -30% damage, -50% healing</color>");
+            }
+            if (debuffs.Count > 0)
+                GUI.Label(new Rect(0, Screen.height - 132, Screen.width, 20), string.Join("   ", debuffs) + "   <color=#C8C0B0>(Holy Water cleanses)</color>",
+                    new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, richText = true });
             if (Time.time < life.VeiledUntil || (life.IsServer == false && InRogueSmoke())) buffs.Add("SMOKE SCREEN");
             if (buffs.Count > 0)
                 GUI.Label(new Rect(0, Screen.height / 2f + 18, Screen.width, 20), string.Join("   ", buffs),

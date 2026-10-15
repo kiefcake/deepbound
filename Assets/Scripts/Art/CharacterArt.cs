@@ -585,7 +585,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -599,7 +599,7 @@ namespace Deepbound.Art
             if (kind == SkeletonKind.Gargoyle) return BuildGargoyle(root);
             bool king = kind == SkeletonKind.King;
             float s = king ? 1.75f : kind == SkeletonKind.Gravewarden ? 2.0f : kind == SkeletonKind.Lich ? 1.45f : kind == SkeletonKind.Cardinal ? 1.7f
-                : kind == SkeletonKind.Brute ? 1.45f : kind == SkeletonKind.Ghoul ? 0.92f : kind == SkeletonKind.Necromancer ? 1.05f : 1f;
+                : kind == SkeletonKind.Brute ? 1.45f : kind == SkeletonKind.Plaguebearer ? 1.15f : kind == SkeletonKind.Ghoul ? 0.92f : kind == SkeletonKind.Necromancer ? 1.05f : 1f;
 
             var visual = MeshKit.Pivot(root, "SkeletonVisual", Vector3.zero);
             visual.localScale = Vector3.one * s;
@@ -608,7 +608,9 @@ namespace Deepbound.Art
                 : kind == SkeletonKind.Gravewarden ? new Color(1f, 0.55f, 0.15f)
                 : kind == SkeletonKind.Lich ? new Color(0.3f, 1f, 0.7f)
                 : kind == SkeletonKind.Cardinal ? new Color(0.8f, 0.55f, 0.22f)
-                : kind == SkeletonKind.Ghoul ? new Color(0.6f, 1f, 0.2f)
+                : kind == SkeletonKind.Ghoul || kind == SkeletonKind.Plaguebearer ? new Color(0.6f, 1f, 0.2f)
+                : kind == SkeletonKind.FrostWight ? new Color(0.55f, 0.85f, 1f)
+                : kind == SkeletonKind.Hexer ? new Color(0.7f, 0.3f, 1f)
                 : kind == SkeletonKind.Necromancer ? new Color(0.75f, 0.35f, 1f)
                 : kind == SkeletonKind.Brute ? new Color(1f, 0.4f, 0.1f)
                 : new Color(1f, 0.25f, 0.1f);
@@ -769,6 +771,50 @@ namespace Deepbound.Art
             else if (kind == SkeletonKind.Necromancer)
             {
                 BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.24f, 0.12f, 0.3f), new Color(0.75f, 0.35f, 1f), false);
+            }
+            else if (kind == SkeletonKind.Plaguebearer)
+            {
+                // A ghoul swollen with plague: a bloated green belly, weeping pustules.
+                BuildGhoul(rig, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>());
+                foreach (var r in rig.GetComponentsInChildren<Renderer>())
+                    if (r.sharedMaterial != null && r.sharedMaterial.name.Contains("Bone")) ArtLibrary.Tint(r, new Color(0.45f, 0.6f, 0.32f));
+                var belly = MeshKit.Part(rig.Torso, "Belly", MeshKit.Ball(0.3f, 10, 8), Mat.Cloth, new Vector3(0f, 0.22f, 0.1f), Vector3.zero, new Vector3(1.1f, 1f, 1.05f));
+                ArtLibrary.Tint(belly.GetComponent<Renderer>(), new Color(0.42f, 0.5f, 0.25f));
+                for (int i = 0; i < 6; i++)
+                {
+                    var dir = Quaternion.Euler(Random.Range(-40f, 40f), i * 60f, 0f) * Vector3.forward;
+                    var pus = MeshKit.Part(rig.Torso, "Pustule" + i, MeshKit.Ball(0.045f, 6, 4), Mat.Glow, new Vector3(0f, 0.25f, 0.1f) + dir * 0.31f);
+                    ArtLibrary.SetGlow(pus.GetComponent<Renderer>(), new Color(0.5f, 0.95f, 0.2f) * 1.1f);
+                }
+                // The plague sac on its belly: burst it.
+                WeakPoint.Add(rig.Torso, new Vector3(0f, 0.2f, 0.42f), 0.11f, new Color(0.55f, 1f, 0.2f));
+            }
+            else if (kind == SkeletonKind.FrostWight)
+            {
+                // Rimed bone, an ice crown of shards, a blade of black ice.
+                rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
+                foreach (var r in rig.GetComponentsInChildren<Renderer>())
+                    if (r.sharedMaterial != null && r.sharedMaterial.name.Contains("Bone")) ArtLibrary.Tint(r, new Color(0.75f, 0.88f, 1f));
+                for (int i = 0; i < 5; i++)
+                {
+                    float a = -50f + i * 25f;
+                    var shard = MeshKit.Part(rig.Head, "IceShard" + i, MeshKit.Lathe("iceShard", new[] { new Vector2(0.03f, 0f), new Vector2(0f, 0.18f + (i % 2) * 0.08f) }, 4), Mat.Glow,
+                        new Vector3(0f, 0.24f, 0f) + Quaternion.Euler(0f, a, 0f) * new Vector3(0f, 0f, 0.09f), new Vector3(15f, a, 0f));
+                    ArtLibrary.SetGlow(shard.GetComponent<Renderer>(), new Color(0.5f, 0.8f, 1f) * 0.9f);
+                }
+                MeshKit.Part(grip, "Handle", MeshKit.Cylinder(0.02f, 0.02f, 0.14f, 5), Mat.Leather, new Vector3(0f, -0.05f, 0f));
+                var iceBlade = MeshKit.Part(grip, "IceBlade", MeshKit.Box(new Vector3(0.07f, 0.75f, 0.02f)), Mat.Glow, new Vector3(0f, 0.42f, 0f));
+                ArtLibrary.SetGlow(iceBlade.GetComponent<Renderer>(), new Color(0.45f, 0.75f, 1f) * 0.8f);
+                foreach (float sx in new[] { -1f, 1f })
+                {
+                    var frost = MeshKit.Part(rig.Torso, "FrostMantle", MeshKit.Box(new Vector3(0.16f, 0.06f, 0.2f)), Mat.Glow, new Vector3(sx * 0.2f, 0.6f, 0f), new Vector3(0f, 0f, sx * 20f));
+                    ArtLibrary.SetGlow(frost.GetComponent<Renderer>(), new Color(0.55f, 0.85f, 1f) * 0.6f);
+                }
+                rig.StrideLength = 1.2f;
+            }
+            else if (kind == SkeletonKind.Hexer)
+            {
+                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.14f, 0.2f, 0.1f), new Color(0.65f, 0.25f, 0.95f), false);
             }
             else if (kind == SkeletonKind.Ghoul)
             {

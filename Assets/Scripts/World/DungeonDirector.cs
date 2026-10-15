@@ -54,6 +54,7 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject mimicPrefab;
         [SerializeField] private NetworkObject hoarderPrefab;
         [SerializeField] private NetworkObject gargoylePrefab;
+        [SerializeField] private NetworkObject plaguebearerPrefab, frostWightPrefab, hexerPrefab;
         [SerializeField] private NetworkObject fateWheelPrefab;
         [SerializeField] private NetworkObject bountyNoticePrefab;
         [SerializeField] private NetworkObject omenStonePrefab;
@@ -736,6 +737,13 @@ namespace Deepbound.World
             if ((roll -= necro) < 0f) { hasNecro = true; return necromancerPrefab; }
             if ((roll -= ghoul) < 0f) { pack = 2; return ghoulPrefab; }
             if ((roll -= archer) < 0f) return archerPrefab;
+            // The afflicters: plague from the first floor, frost and hexes deeper down.
+            float plague = plaguebearerPrefab != null ? 0.06f + 0.02f * depth : 0f;
+            float frost = frostWightPrefab != null && depth >= 1 ? 0.07f + 0.02f * depth : 0f;
+            float hex = hexerPrefab != null && depth >= 1 ? 0.04f + 0.02f * depth : 0f;
+            if ((roll -= plague) < 0f) return plaguebearerPrefab;
+            if ((roll -= frost) < 0f) return frostWightPrefab;
+            if ((roll -= hex) < 0f) return hexerPrefab;
             float shield = shieldbearerPrefab != null && depth >= 1 ? 0.1f + 0.03f * depth : shieldbearerPrefab != null ? 0.05f : 0f;
             if ((roll -= shield) < 0f) return shieldbearerPrefab;
             return skeletonPrefab;

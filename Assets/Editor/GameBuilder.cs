@@ -62,6 +62,9 @@ namespace Deepbound.EditorTools
             var mimic = BuildEnemyPrefab("Mimic", EnemyType.Mimic, loot);
             var hoarder = BuildEnemyPrefab("BoneHoarder", EnemyType.Hoarder, loot);
             var gargoyle = BuildEnemyPrefab("Gargoyle", EnemyType.Gargoyle, loot);
+            var plaguebearer = BuildEnemyPrefab("Plaguebearer", EnemyType.Plaguebearer, loot);
+            var frostWight = BuildEnemyPrefab("FrostWight", EnemyType.FrostWight, loot);
+            var hexer = BuildEnemyPrefab("Hexer", EnemyType.Hexer, loot);
             var dummy = BuildDummyPrefab();
             var chest = BuildObjectPrefab<Chest>("Chest", new Vector3(1.1f, 0.8f, 0.7f));
             var altar = BuildObjectPrefab<BloodAltar>("BloodAltar", new Vector3(1.4f, 0.9f, 1.0f));
@@ -96,6 +99,9 @@ namespace Deepbound.EditorTools
             dso.FindProperty("mimicPrefab").objectReferenceValue = mimic.GetComponent<NetworkObject>();
             dso.FindProperty("hoarderPrefab").objectReferenceValue = hoarder.GetComponent<NetworkObject>();
             dso.FindProperty("gargoylePrefab").objectReferenceValue = gargoyle.GetComponent<NetworkObject>();
+            dso.FindProperty("plaguebearerPrefab").objectReferenceValue = plaguebearer.GetComponent<NetworkObject>();
+            dso.FindProperty("frostWightPrefab").objectReferenceValue = frostWight.GetComponent<NetworkObject>();
+            dso.FindProperty("hexerPrefab").objectReferenceValue = hexer.GetComponent<NetworkObject>();
             dso.FindProperty("crackedWallPrefab").objectReferenceValue = crackedWall.GetComponent<NetworkObject>();
             dso.FindProperty("diceTablePrefab").objectReferenceValue = diceTable.GetComponent<NetworkObject>();
             dso.FindProperty("cofferPrefab").objectReferenceValue = coffer.GetComponent<NetworkObject>();
@@ -109,7 +115,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -182,6 +188,7 @@ namespace Deepbound.EditorTools
             root.AddComponent<Kick>();
             root.AddComponent<Flasks>();
             root.AddComponent<Emotes>();
+            root.AddComponent<PlayerDebuffs>();
             root.AddComponent<RangerKit>().SetTrapPrefab(bearTrap.GetComponent<NetworkObject>());
             root.AddComponent<KnockbackReceiver>();
             root.AddComponent<PlayerPings>();
@@ -219,12 +226,12 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer }
 
         private static GameObject BuildEnemyPrefab(string name, EnemyType type, GameObject loot)
         {
             float scale = type == EnemyType.HollowKing ? 1.75f : type == EnemyType.Gravewarden ? 2.0f : type == EnemyType.TideLich ? 1.45f : type == EnemyType.Cardinal ? 1.7f
-                : type == EnemyType.Brute ? 1.45f : type == EnemyType.Ghoul ? 0.92f : 1f;
+                : type == EnemyType.Brute ? 1.45f : type == EnemyType.Plaguebearer ? 1.15f : type == EnemyType.Ghoul ? 0.92f : 1f;
             var root = new GameObject(name);
 
             root.AddComponent<NetworkObject>();
@@ -265,6 +272,9 @@ namespace Deepbound.EditorTools
                 case EnemyType.Mimic: brain = root.AddComponent<MimicBrain>(); break;
                 case EnemyType.Hoarder: brain = root.AddComponent<HoarderBrain>(); break;
                 case EnemyType.Gargoyle: brain = root.AddComponent<GargoyleBrain>(); break;
+                case EnemyType.Plaguebearer: brain = root.AddComponent<PlaguebearerBrain>(); break;
+                case EnemyType.FrostWight: brain = root.AddComponent<FrostWightBrain>(); break;
+                case EnemyType.Hexer: brain = root.AddComponent<HexerBrain>(); break;
                 default: brain = root.AddComponent<EnemyBrain>(); break;
             }
 
@@ -286,6 +296,21 @@ namespace Deepbound.EditorTools
                     Kind(Art.CharacterArt.SkeletonKind.Ghoul);
                     Set("maxHealth", 42f); Set("damage", 11f); Set("defense", 0f); Set("moveSpeed", 5.4f);
                     Set("attackRange", 1.8f); Set("windup", 0.35f); Set("recovery", 0.6f); Set("aggroRange", 15f);
+                    break;
+                case EnemyType.Plaguebearer:
+                    Kind(Art.CharacterArt.SkeletonKind.Plaguebearer);
+                    Set("maxHealth", 120f); Set("damage", 9f); Set("defense", 1f); Set("moveSpeed", 2.6f);
+                    Set("attackRange", 11f); Set("windup", 0.9f); Set("recovery", 1.8f); Set("aggroRange", 16f);
+                    break;
+                case EnemyType.FrostWight:
+                    Kind(Art.CharacterArt.SkeletonKind.FrostWight);
+                    Set("maxHealth", 130f); Set("damage", 15f); Set("defense", 3f); Set("moveSpeed", 3.2f);
+                    Set("attackRange", 2.2f); Set("windup", 0.6f); Set("recovery", 1.1f); Set("aggroRange", 15f);
+                    break;
+                case EnemyType.Hexer:
+                    Kind(Art.CharacterArt.SkeletonKind.Hexer);
+                    Set("maxHealth", 95f); Set("damage", 10f); Set("defense", 0f); Set("moveSpeed", 3.3f);
+                    Set("attackRange", 13f); Set("windup", 0.8f); Set("recovery", 1.9f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Gargoyle:
                     Kind(Art.CharacterArt.SkeletonKind.Gargoyle);
