@@ -105,7 +105,7 @@ namespace Deepbound.Player
         {
             if (progress != null && progress.ServerTryPhoenix())
             {
-                Health.ServerSetFraction(0.5f);
+                Health.ServerSetFraction(progress.PhoenixFraction);
                 return;
             }
             if (progress != null) progress.Downs.Value++;

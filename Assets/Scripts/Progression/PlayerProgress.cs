@@ -402,6 +402,12 @@ namespace Deepbound.Progression
             relics.Add((byte)r);
             if (r == Relic.HeartOfTheDeep || r == Relic.BloodPact) OnStatsChangedServer(StatType.HP);
             RelicGainedRpc((byte)r);
+            // Completing a pair awakens its synergy.
+            for (int i = 0; i < Relics.Synergies.Length; i++)
+            {
+                var syn = Relics.Synergies[i];
+                if ((syn.a == r || syn.b == r) && HasRelic(syn.a) && HasRelic(syn.b)) SynergyRpc(i);
+            }
             return true;
         }
 
@@ -413,6 +419,24 @@ namespace Deepbound.Progression
         }
 
         /// <summary>Server: Phoenix Feather. True if it fires (and is used up for this floor).</summary>
+        /// <summary>Server: the health fraction the Phoenix raises you to.</summary>
+        public float PhoenixFraction => Relics.Has(this, Relics.Synergy.Undying) ? 1f : 0.5f;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SynergyRpc(int index)
+        {
+            var syn = Relics.Synergies[index];
+            var c = Relics.GemColor(syn.a);
+            UI.GameHud.Feed(name + " awakens a SYNERGY: " + syn.name + " - " + syn.text, c);
+            if (IsOwner)
+            {
+                UI.GameHud.ShowTitleCard("SYNERGY: " + syn.name.ToUpperInvariant(), syn.text);
+                Art.Sfx.Play2D(Art.Sound.Relic, 1f);
+            }
+            Art.Vfx.Ring(transform.position, 2.5f, c, 0.5f);
+            Art.Vfx.Embers(transform.position + Vector3.up, 20, c, 4f, 0.05f, 0.9f);
+        }
+
         public bool ServerTryPhoenix()
         {
             if (!HasRelic(Relic.PhoenixFeather) || phoenixSpent) return false;

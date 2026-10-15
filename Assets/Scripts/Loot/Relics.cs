@@ -114,6 +114,27 @@ namespace Deepbound.Loot
         public static Relic Random() => (Relic)UnityEngine.Random.Range(0, Count);
 
         // ------------------------------------------------------------------
+        // Synergies: two relics that belong together awaken something more
+        // ------------------------------------------------------------------
+
+        public enum Synergy { DeepWinter, Bloodbound, StormCaller, Reaper, Undying }
+
+        public static readonly (Synergy kind, Relic a, Relic b, string name, string text)[] Synergies =
+        {
+            (Synergy.DeepWinter, Relic.FrostCharm, Relic.WintersTooth, "Deep Winter", "chilled enemies take a further 20% from you"),
+            (Synergy.Bloodbound, Relic.VampiricFang, Relic.BloodPact, "Bloodbound", "your lifesteal rises to 12%"),
+            (Synergy.StormCaller, Relic.ThunderSigil, Relic.EchoStone, "Storm Caller", "lightning strikes every 3rd hit"),
+            (Synergy.Reaper, Relic.ExecutionersCoin, Relic.BerserkersBrand, "Reaper", "the execution threshold rises to 45%"),
+            (Synergy.Undying, Relic.PhoenixFeather, Relic.HeartOfTheDeep, "Undying", "the Phoenix raises you at full health"),
+        };
+
+        public static bool Has(PlayerProgress p, Synergy s)
+        {
+            foreach (var x in Synergies) if (x.kind == s) return p.HasRelic(x.a) && p.HasRelic(x.b);
+            return false;
+        }
+
+        // ------------------------------------------------------------------
         // Server-side effects that hook into damage dealt
         // ------------------------------------------------------------------
 
@@ -147,7 +168,7 @@ namespace Deepbound.Loot
             if (!obj.TryGetComponent<PlayerProgress>(out var p)) return;
             p.ServerCreditDamage(dealt, !target.IsAlive);
 
-            if (p.HasRelic(Relic.VampiricFang)) obj.GetComponent<Health>().ServerHeal(dealt * 0.06f);
+            if (p.HasRelic(Relic.VampiricFang)) obj.GetComponent<Health>().ServerHeal(dealt * (Has(p, Synergy.Bloodbound) ? 0.12f : 0.06f));
 
             if (p.HasRelic(Relic.FrostCharm) && UnityEngine.Random.value < 0.2f) target.ServerChill(3f);
 
@@ -168,7 +189,7 @@ namespace Deepbound.Loot
             {
                 HitCounters.TryGetValue(attackerId, out int hits);
                 hits++;
-                if (hits >= 6)
+                if (hits >= (Has(p, Synergy.StormCaller) ? 3 : 6))
                 {
                     hits = 0;
                     resolvingProc = true;

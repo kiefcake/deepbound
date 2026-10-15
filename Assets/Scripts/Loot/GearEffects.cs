@@ -39,8 +39,8 @@ namespace Deepbound.Loot
             if (p.Wears(GearId.HuntersTooth) && target.TryGetComponent<EnemyBrain>(out var brain) && (brain.Elite.Value || brain is BossBrain)) m *= 1.25f;
             if (p.ServerConsumeDodgeStrike()) m *= 1.6f;
             if (p.Blessed(Blessing.Wrath)) m *= 1.15f;
-            if (p.HasRelic(Relic.ExecutionersCoin) && target.Fraction < 0.3f) m *= 1.5f;
-            if (p.HasRelic(Relic.WintersTooth) && target.Chilled.Value) m *= 1.25f;
+            if (p.HasRelic(Relic.ExecutionersCoin) && target.Fraction < (Relics.Has(p, Relics.Synergy.Reaper) ? 0.45f : 0.3f)) m *= 1.5f;
+            if (p.HasRelic(Relic.WintersTooth) && target.Chilled.Value) m *= Relics.Has(p, Relics.Synergy.DeepWinter) ? 1.5f : 1.25f;
             m *= Player.Ultimates.OutgoingMultiplier(p);
             // Critical hits: a little luck, more with DEX.
             if (!World.DungeonDirector.TestMode && Random.value < 0.05f + p.Value(Core.StatType.DEX) / 650f)

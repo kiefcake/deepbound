@@ -149,6 +149,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 - **Ultimates** (`Player/Ultimates.cs`, R): one per class (Rallying Banner, Cataclysm, Hymn of Return, Death From Shadow,
   Rain of Arrows). Charge is server-owned, fills from damage dealt/taken and a trickle on floors, resets at camp between
   runs; the banner feeds `IncomingModifiers` and the outgoing chain (`Ultimates.OutgoingMultiplier`). HUD R slot + class screen line.
+- Relic synergies (`Relics.Synergies`, `Relics.Has`): Deep Winter (Frost Charm + Winter's Tooth), Bloodbound (Fang + Blood Pact), Storm Caller (Thunder Sigil + Echo Stone), Reaper (Executioner's Coin + Berserker's Brand), Undying (Phoenix + Heart of the Deep); announced by `PlayerProgress.SynergyRpc` when the pair completes.
 - 16 relics (new: Executioner's Coin, Wraith Chain, Warlord's Horn, Winter's Tooth); 6 runes (`Loot/Runes.cs`, sockets at weapon +1/+3, set at the anvil); 16 rollable gear pieces (`Gear.Rollable`; new: Bellringer's Hauberk, Gravedigger's Coat, Rosary of Ash, Witchbone Fetish) in 3 qualities + 4 boss Legendaries (the Cardinal's Vestments call a holy-fire pillar on each kill) (35% per player per boss, `Gear.LegendaryOf`); 10 weapon paths; 10 rank-3 ability twists; run stats and summary (with COMBOS, a build line, and a title per player from `RunSummary.Titles`: Butcher, Chasm Enthusiast, Guardian Angel, Bonebreaker, Maestro, Lucky Devil, Pincushion, Professional Corpse; extra stats `DamageTaken`, `Crits`, `AbyssKicks`); pause-menu Guide page.
 
 ## Backlog / ideas not yet built

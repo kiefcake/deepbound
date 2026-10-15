@@ -761,6 +761,15 @@ namespace Deepbound.Networking
                     d.Phase.Value == RunPhase.Wiped && prog.Kills.Value >= 6 && prog.Downs.Value >= 1 && d.RunEndedAt.Value > d.RunStartedAt.Value);
             }
 
+            // Relic synergy (last, so its effects cannot disturb other checks).
+            if (net.IsServer && local != null)
+            {
+                var synP = local.GetComponent<PlayerProgress>();
+                synP.ServerAddRelic(Relic.ThunderSigil);
+                synP.ServerAddRelic(Relic.EchoStone);
+                Log("relic synergy", "Storm Caller " + Relics.Has(synP, Relics.Synergy.StormCaller), Relics.Has(synP, Relics.Synergy.StormCaller));
+            }
+
             yield return new WaitForSeconds(2f);
             Log("final phase", DungeonDirector.Instance != null ? DungeonDirector.Instance.Phase.Value.ToString() : "no director", true);
             Debug.Log("[Smoke] done");
