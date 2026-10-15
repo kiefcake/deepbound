@@ -140,6 +140,7 @@ namespace Deepbound.Player
             if (Rig != null) Destroy(Rig.gameObject);
             if (viewModel != null) Destroy(viewModel.Root.gameObject);
             viewModel = null;
+            vmRestKnown = false;
             viewAnim = null;
 
             var cls = progress.ClassId.Value;
@@ -313,7 +314,53 @@ namespace Deepbound.Player
             // Damage shake: a brief, decaying jitter on the camera — felt more than seen.
             shake = Mathf.MoveTowards(shake, 0f, Time.deltaTime * 2.5f);
             var cam = playerCamera.transform;
-            cam.localPosition = shake > 0f ? Random.insideUnitSphere * shake * 0.06f * Settings.ShakeScale : Vector3.zero;
+            var shakeOffset = shake > 0f ? Random.insideUnitSphere * shake * 0.06f * Settings.ShakeScale : Vector3.zero;
+            cam.localPosition = shakeOffset + FirstPersonFeel(cam);
+        }
+
+        // ---- First-person feel: walk bob, weapon lag on turns, landing dip, slide lean. ----
+        private Vector3 vmRestPos;
+        private Quaternion vmRestRot = Quaternion.identity;
+        private bool vmRestKnown, wasGrounded = true;
+        private float walkPhase, landDip, lastVy, lastYaw, lastPitch, slideLean;
+        private Vector2 sway;
+
+        /// <summary>Owner: animate the view model and return the camera's bob offset.</summary>
+        private Vector3 FirstPersonFeel(Transform cam)
+        {
+            float dt = Time.deltaTime;
+            var cc = GetComponent<CharacterController>();
+            var vel = cc != null ? cc.velocity : Vector3.zero;
+            float speed = new Vector2(vel.x, vel.z).magnitude;
+            bool grounded = cc == null || cc.isGrounded;
+            if (grounded && !wasGrounded && lastVy < -4f) landDip = Mathf.Min(1f, -lastVy / 12f);
+            wasGrounded = grounded;
+            lastVy = vel.y;
+            landDip = Mathf.MoveTowards(landDip, 0f, dt * 3f);
+            bool sliding = motor.IsSliding;
+            if (grounded && !sliding) walkPhase += dt * speed * 1.7f;
+            float amp = Mathf.Clamp01(speed / 5f) * (grounded && !sliding ? 1f : 0f);
+
+            // The weapon trails a fast turn and settles back.
+            float yaw = transform.eulerAngles.y, pitch = cam.parent != null ? cam.parent.localEulerAngles.x : 0f;
+            float dYaw = Mathf.DeltaAngle(lastYaw, yaw), dPitch = Mathf.DeltaAngle(lastPitch, pitch);
+            lastYaw = yaw;
+            lastPitch = pitch;
+            var want = new Vector2(Mathf.Clamp(dPitch * 0.5f, -5f, 5f), Mathf.Clamp(-dYaw * 0.5f, -6f, 6f));
+            sway = Vector2.Lerp(sway, want, dt * 9f);
+
+            if (viewModel != null && viewModel.Root != null)
+            {
+                if (!vmRestKnown) { vmRestPos = viewModel.Root.localPosition; vmRestRot = viewModel.Root.localRotation; vmRestKnown = true; }
+                var bob = new Vector3(Mathf.Sin(walkPhase) * 0.011f, -Mathf.Abs(Mathf.Cos(walkPhase)) * 0.013f, 0f) * amp;
+                viewModel.Root.localPosition = vmRestPos + bob + Vector3.down * 0.07f * landDip + Vector3.down * (sliding ? 0.04f : 0f);
+                viewModel.Root.localRotation = vmRestRot * Quaternion.Euler(sway.x, sway.y, sway.y * 0.6f);
+            }
+
+            // A slide leans the view; walking nods it a little (scaled with the shake option).
+            slideLean = Mathf.MoveTowards(slideLean, sliding ? 7f : 0f, dt * 40f);
+            cam.localRotation = Quaternion.Euler(0f, 0f, slideLean);
+            return (Vector3.up * Mathf.Sin(walkPhase * 2f) * 0.022f * amp + Vector3.down * 0.12f * landDip) * Settings.ShakeScale;
         }
 
         // ------------------------------------------------------------------
