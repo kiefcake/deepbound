@@ -31,6 +31,9 @@ runs that end in a satisfying summary and send you back to camp wanting one more
 - Be honest in reports: say what was not tested or not seen.
 
 ## Backlog (top first; reorder as the game teaches you)
+0. **From `docs/RESEARCH.md`** (done: death recap, bleed-out + soul skull, legendary moment): Reliquary
+   escort, the Mourner (moves only when unseen), Seals + hidden Abyss floor, named bullet-pattern boss
+   phases, ping wheel, Silence/Daze afflicters. Proximity voice needs the user's OK (outside service).
 1. **Balance pass** (started: `BalanceReport` measures enemies and bosses; next, players' side - class DPS, ultimate charge, flasks, contracts, omens): gather every tunable (enemy stats, affix strength, ultimate charge, contract
    rewards, omen numbers, trap damage) into `Enemies/Difficulty` / one tuning table; log a
    time-to-kill and damage-taken table per floor from the smoke test; even out outliers.

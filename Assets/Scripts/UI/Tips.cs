@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "camp", "tell", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell",
+            "camp", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -51,6 +51,12 @@ namespace Deepbound.UI
             if (layout == null) return;
 
             var ult = player.GetComponent<Ultimates>();
+            foreach (var pl in PlayerLife.All)
+            {
+                if (pl == null || pl.gameObject == player.gameObject) continue;
+                if (pl.Downed.Value && !pl.Soul.Value) Offer("bleed", "An ally is DOWN: hold F beside them before they bleed out (40 s). If they do, carry their soul skull to the waystone in the start room.");
+                if (pl.Soul.Value) Offer("soul", "A SOUL SKULL glows where an ally bled out. F to carry it (you move slower and cannot fight) to the start room's waystone. A heavy hit knocks it loose.");
+            }
             if (ult != null && ult.Ready) Offer("ult", "Your ULTIMATE is charged: press R.");
 
             var deb = player.GetComponent<PlayerDebuffs>();

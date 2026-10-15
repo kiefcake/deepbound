@@ -48,6 +48,9 @@ namespace Deepbound.Networking
 
         private IEnumerator Sequence(float seconds)
         {
+            // The client is downed by the host's bleed-out check: its owner gets the death recap.
+            bool recapSeen = false;
+            PlayerLife.DownedRecap += (killer, lines) => { if (recapSeen) return; recapSeen = true; Log("death recap", "downed by " + killer + " | " + lines.Replace("\n", "; ").Replace("\t", " "), !string.IsNullOrEmpty(killer)); };
             yield return new WaitForSeconds(4f);
 
             var net = NetworkManager.Singleton;
@@ -212,6 +215,45 @@ namespace Deepbound.Networking
             Log("boss", boss != null ? boss.Health.Current.Value + " hp" : "missing", boss != null);
             if (boss != null)
                 Log("boss intro", boss.DisplayName + ", " + boss.Epithet, !string.IsNullOrEmpty(boss.Epithet) && !string.IsNullOrEmpty(boss.Hint) && boss.Epithet != "Guardian of the deep");
+
+            // Early, while the client is still connected.
+            if (net.IsServer && local != null && layout != null)
+            {
+                var fm = local.GetComponent<FirstPersonMotor>();
+                // Bleed-out: a downed ally who bleeds out leaves a soul skull; F-revive no longer works,
+                // but carrying the skull to the start room's waystone brings them back.
+                var otherLife = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
+                if (otherLife != null)
+                {
+                    var safeAt = layout.PlayerSpawnFor(local.OwnerClientId);
+                    otherLife.Health.ServerDamage(1e6f, otherLife.transform.position + Vector3.forward);
+                    yield return new WaitForSeconds(0.3f);
+                    bool wentDown = otherLife.Downed.Value;
+                    otherLife.ServerBleedOut();
+                    yield return new WaitForSeconds(0.4f);
+                    var skullT = SoulSkull.For(otherLife.NetworkObjectId);
+                    bool noFRevive = PlayerLife.DownedNear(otherLife.transform.position, local.GetComponent<PlayerLife>()) == null;
+                    if (skullT != null)
+                    {
+                        skullT.ServerDebugCarry(local.GetComponent<PlayerProgress>());
+                        yield return new WaitForSeconds(0.2f);
+                        bool slowed = SoulSkull.IsCarrying(local.NetworkObjectId) && !local.GetComponent<PlayerLife>().CanAct;
+                        var way = layout.WaystonePosition;
+                        fm.Teleport(way + (layout.StartRoom.Center - way).normalized * 1.5f + Vector3.up * 0.1f, local.transform.rotation);
+                        for (float t = 0f; t < 6f && otherLife.Downed.Value; t += 0.1f)
+                        {
+                            local.GetComponent<Health>().ServerSetFraction(1f);
+                            yield return new WaitForSeconds(0.1f);
+                        }
+                        Log("soul skull", "down " + wentDown + ", skull " + (skullT != null) + ", F-revive blocked " + noFRevive + ", carrying slows " + slowed + ", returned " + !otherLife.Downed.Value,
+                            wentDown && noFRevive && slowed && !otherLife.Downed.Value && SoulSkull.For(otherLife.NetworkObjectId) == null);
+                    }
+                    else Log("soul skull", "no skull spawned (down " + wentDown + ")", false);
+                    foreach (var pl in PlayerLife.All) { if (pl.Downed.Value) pl.ServerRevive(1f); pl.Health.ServerSetFraction(1f); }
+                    fm.Teleport(safeAt, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
+                }
+            }
 
             if (net.IsServer && net.IsHost)
             {
@@ -1049,6 +1091,19 @@ namespace Deepbound.Networking
                 lobbyMotor.SetPitch(25f);
                 yield return new WaitForSeconds(0.8f);
                 yield return Shot(dir, "1d_gear_drop");
+                // A Legendary: the pillar of light, from a few steps back.
+                GearDrop.ServerSpawn(new GearItem(GearId.WardensBulwark, 3, 0), local.OwnerClientId, gFrom + new Vector3(-2.2f, -0.1f, 5f));
+                lobbyMotor.SetPitch(5f);
+                yield return new WaitForSeconds(0.8f);
+                yield return Shot(dir, "1d_gear_legendary");
+                // A soul skull, close up (as an ally would see it).
+                var skullAt = gFrom + new Vector3(-3.5f, -0.1f, 0.5f);
+                var shotSkull = DungeonDirector.Instance.ServerDebugSkull(skullAt, ulong.MaxValue - 1);
+                lobbyMotor.Teleport(gFrom, Quaternion.LookRotation(Vector3.left));
+                lobbyMotor.SetPitch(22f);
+                yield return new WaitForSeconds(0.8f);
+                yield return Shot(dir, "1d_soul_skull");
+                if (shotSkull != null && shotSkull.NetworkObject.IsSpawned) shotSkull.NetworkObject.Despawn();
                 lobbyMotor.SetPitch(0f);
                 UI.GameHud.DebugShowStats = true;
                 yield return null;

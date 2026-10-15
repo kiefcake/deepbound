@@ -5,6 +5,7 @@ using Deepbound.Core;
 using Deepbound.Progression;
 using Unity.Netcode;
 using UnityEngine;
+using Deepbound.World;
 using UnityEngine.InputSystem;
 
 namespace Deepbound.Player
@@ -33,6 +34,18 @@ namespace Deepbound.Player
         public static readonly List<PlayerLife> All = new List<PlayerLife>();
 
         public readonly NetworkVariable<bool> Downed = new NetworkVariable<bool>();
+
+        /// <summary>Downed and unrevived this long (while an ally still stands) and you bleed out.</summary>
+        public const float BleedOutSeconds = 40f;
+
+        /// <summary>Seconds bled so far while downed (server-written, for the HUD).</summary>
+        public readonly NetworkVariable<float> Bleed = new NetworkVariable<float>();
+
+        /// <summary>Bled out: only your Soul Skull, carried to the waystone, brings you back.</summary>
+        public readonly NetworkVariable<bool> Soul = new NetworkVariable<bool>();
+
+        /// <summary>Seconds left before a downed player bleeds out.</summary>
+        public float BleedLeft => Mathf.Max(0f, BleedOutSeconds - Bleed.Value);
 
         /// <summary>
         /// Hidden from enemies (the Rogue's Smoke Bomb): no enemy will pick, keep, or be
@@ -79,7 +92,7 @@ namespace Deepbound.Player
             if (IsServer)
             {
                 Health.Died += HandleDied;
-                Health.DamagedServer += (_, __) => lastDamagedAt = Time.time;
+                Health.DamagedServer += (lost, from) => { lastDamagedAt = Time.time; ServerRecordHit(lost, from); };
                 // Registered first, so a dodged hit is gone before blocks or relics see it.
                 Health.IncomingModifiers.Insert(0, (dmg, from) => Time.time < invulnerableUntil ? 0f : dmg);
             }
@@ -99,7 +112,44 @@ namespace Deepbound.Player
             base.OnDestroy();
         }
 
-        public bool CanAct => !Downed.Value;
+        public bool CanAct => !Downed.Value && !World.SoulSkull.IsCarrying(NetworkObjectId);
+
+        // ---- Death recap: the last hits before going down (League's death recap). ----
+        private struct HitRecord { public string Who; public float Amount, Time; }
+        private readonly List<HitRecord> recentHits = new List<HitRecord>();
+
+        private void ServerRecordHit(float lost, ulong attackerId)
+        {
+            if (lost <= 0f) return;
+            recentHits.Add(new HitRecord { Who = Combat.Health.NameOf(attackerId), Amount = lost, Time = Time.time });
+            if (recentHits.Count > 12) recentHits.RemoveAt(0);
+        }
+
+        /// <summary>Owner: what put you down, newest last, and the killing blow's source.</summary>
+        public static event System.Action<string, string> DownedRecap;
+
+        [Rpc(SendTo.Owner)]
+        private void RecapRpc(string killer, string lines) => DownedRecap?.Invoke(killer, lines);
+
+        private void ServerSendRecap()
+        {
+            // Sum by source over the last 10 seconds, the biggest first.
+            var totals = new Dictionary<string, (float sum, int n)>();
+            foreach (var r in recentHits)
+            {
+                if (Time.time - r.Time > 10f) continue;
+                totals.TryGetValue(r.Who, out var t);
+                totals[r.Who] = (t.sum + r.Amount, t.n + 1);
+            }
+            var order = new List<KeyValuePair<string, (float sum, int n)>>(totals);
+            order.Sort((a, b) => b.Value.sum.CompareTo(a.Value.sum));
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < order.Count && i < 5; i++)
+                sb.Append(order[i].Key).Append(order[i].Value.n > 1 ? "  x" + order[i].Value.n : "").Append('\t').Append(Mathf.RoundToInt(order[i].Value.sum)).Append('\n');
+            string killer = recentHits.Count > 0 ? recentHits[recentHits.Count - 1].Who : "the dark";
+            recentHits.Clear();
+            RecapRpc(killer, sb.ToString());
+        }
 
         private void HandleDied(Health _)
         {
@@ -114,6 +164,21 @@ namespace Deepbound.Player
             Debug.Log("[Down] " + name + " went down at " + transform.position.ToString("F1") + ", last hit by " + by + " from " + Health.LastHitAt.ToString("F1"));
             Downed.Value = true;
             ReviveProgress.Value = 0f;
+            Bleed.Value = 0f;
+            bleedCarry = 0f;
+            ServerSendRecap();
+        }
+
+        /// <summary>Server: the bleed-out ran its course. Leave a Soul Skull for the others to carry.</summary>
+        public void ServerBleedOut()
+        {
+            if (!IsServer || !Downed.Value || Soul.Value) return;
+            Soul.Value = true;
+            Bleed.Value = BleedOutSeconds;
+            ReviveProgress.Value = 0f;
+            reviver = null;
+            Debug.Log("[Down] " + name + " bled out");
+            if (DungeonDirector.Instance != null) DungeonDirector.Instance.ServerSpawnSoulSkull(this);
         }
 
         private void HandleDownedChanged(bool was, bool now)
@@ -133,7 +198,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.Server)]
         public void ReviveHoldRpc(NetworkObjectReference reviverRef)
         {
-            if (!Downed.Value || !reviverRef.TryGet(out var reviverObject)) return;
+            if (!Downed.Value || Soul.Value || !reviverRef.TryGet(out var reviverObject)) return;
             var r = reviverObject.GetComponent<PlayerLife>();
             if (r == null || r == this || r.Downed.Value) return;
             if (Vector3.Distance(r.transform.position, transform.position) > ReviveRange + 0.5f) return;
@@ -156,8 +221,18 @@ namespace Deepbound.Player
                 return;
             }
 
+            if (Soul.Value) return;
             bool beingRevived = reviver != null && Time.time - lastReviverPing < 0.35f && !reviver.Downed.Value &&
                                 Vector3.Distance(reviver.transform.position, transform.position) <= ReviveRange + 0.5f;
+
+            // Bleeding out: only while someone is still standing to save you, and not while they try.
+            if (!beingRevived && !DungeonDirector.TestMode && AnyAllyStanding())
+            {
+                bleedCarry += Time.deltaTime;
+                if (Bleed.Value + bleedCarry >= BleedOutSeconds) { bleedCarry = 0f; ServerBleedOut(); return; }
+                // Synced in quarter-second steps, not every frame.
+                if (bleedCarry >= 0.25f) { Bleed.Value += bleedCarry; bleedCarry = 0f; }
+            }
 
             // The Cleric's passive, Grace: revives twice as fast.
             float rate = beingRevived && reviver.progress != null && reviver.progress.ClassId.Value == Classes.ClassId.Cleric ? 2f : 1f;
@@ -252,9 +327,21 @@ namespace Deepbound.Player
             }
         }
 
+        private float bleedCarry;
+
+        private bool AnyAllyStanding()
+        {
+            foreach (var p in All) if (p != null && p != this && !p.Downed.Value) return true;
+            return false;
+        }
+
         public void ServerRevive(float healthFraction)
         {
             if (!IsServer) return;
+            Soul.Value = false;
+            Bleed.Value = 0f;
+            var skull = World.SoulSkull.For(NetworkObjectId);
+            if (skull != null && skull.NetworkObject.IsSpawned) skull.NetworkObject.Despawn();
             Health.ServerSetFraction(healthFraction);
             Downed.Value = false;
             ReviveProgress.Value = 0f;
@@ -268,7 +355,7 @@ namespace Deepbound.Player
             float bestDist = ReviveRange;
             foreach (var p in All)
             {
-                if (p == exclude || !p.Downed.Value) continue;
+                if (p == exclude || !p.Downed.Value || p.Soul.Value) continue;
                 float d = Vector3.Distance(p.transform.position, from);
                 if (d <= bestDist) { best = p; bestDist = d; }
             }

@@ -128,6 +128,23 @@ namespace Deepbound.World
         public Vector3 PlayerSpawn => StartRoom.Center;
         public Vector3 BossSpawn => BossRoom.Center + new Vector3(0f, 0f, BossRoom.Size.y * 0.2f);
 
+        /// <summary>The start room's waystone (the Shrine of Return): the first wall with no door.</summary>
+        public Vector3 WaystonePosition
+        {
+            get
+            {
+                var c = StartRoom.Center;
+                float hx = StartRoom.Size.x / 2f, hz = StartRoom.Size.y / 2f;
+                for (int side = 0; side < 4; side++)
+                {
+                    if (StartRoom.Doors[side]) continue;
+                    var d = Dir[side];
+                    return c + new Vector3(d.x, 0f, d.y) * ((side == 0 || side == 2 ? hz : hx) - 1.2f);
+                }
+                return c + Vector3.forward * 4f;
+            }
+        }
+
         /// <summary>Where the merchant stands: against the start room's back wall, facing the centre.</summary>
         public Vector3 MerchantPosition
         {

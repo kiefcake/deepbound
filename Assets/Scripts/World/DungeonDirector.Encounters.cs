@@ -27,6 +27,32 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject portcullisPrefab;
         [SerializeField] private NetworkObject leverPrefab;
         [SerializeField] private NetworkObject fountainPrefab;
+        [SerializeField] private NetworkObject soulSkullPrefab;
+
+        /// <summary>Server: a player bled out; leave their Soul Skull where they fell.</summary>
+        public void ServerSpawnSoulSkull(Player.PlayerLife who)
+        {
+            if (soulSkullPrefab == null || SoulSkull.For(who.NetworkObjectId) != null) return;
+            var obj = Spawn(soulSkullPrefab, who.transform.position + Vector3.up * 0.05f, Quaternion.identity);
+            obj.GetComponent<SoulSkull>().Soul.Value = who.NetworkObjectId;
+            BledOutRpc(who.name);
+        }
+
+        /// <summary>Server (screenshots): a skull on display, not tied to a real bleed-out.</summary>
+        public SoulSkull ServerDebugSkull(Vector3 at, ulong soulId)
+        {
+            if (soulSkullPrefab == null) return null;
+            var skull = Spawn(soulSkullPrefab, at, Quaternion.identity).GetComponent<SoulSkull>();
+            skull.Soul.Value = soulId;
+            return skull;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BledOutRpc(string who)
+        {
+            UI.GameHud.Feed(who + " has bled out. Carry their soul skull to the waystone in the start room.", new Color(0.75f, 0.55f, 1f));
+            Art.Sfx.Play2D(Art.Sound.Whisper, 0.9f);
+        }
         [SerializeField] private NetworkObject sarcophagusPrefab;
 
         private class Vault
@@ -182,6 +208,8 @@ namespace Deepbound.World
                 if (l.NetworkObject.IsSpawned) l.NetworkObject.Despawn();
             foreach (var f in FindObjectsByType<Fountain>(FindObjectsSortMode.None))
                 if (f.NetworkObject.IsSpawned) f.NetworkObject.Despawn();
+            foreach (var sk in FindObjectsByType<SoulSkull>(FindObjectsSortMode.None))
+                if (sk.NetworkObject.IsSpawned) sk.NetworkObject.Despawn();
             foreach (var s in FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None))
                 if (s.NetworkObject.IsSpawned) s.NetworkObject.Despawn();
             foreach (var g in FindObjectsByType<Portcullis>(FindObjectsSortMode.None))
@@ -648,6 +676,12 @@ namespace Deepbound.World
             UI.GameHud.ShowTitleCard(title, subtitle);
             Art.Sfx.Play2D(Art.Sound.Summon, 0.8f);
         }
+
+        /// <summary>Server: a line in everyone's event feed.</summary>
+        public void ServerFeedAll(string text, Color color) => FeedAllRpc(text, color);
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void FeedAllRpc(string text, Color color) => UI.GameHud.Feed(text, color);
 
         [Rpc(SendTo.ClientsAndHost)]
         private void BossIntroRpc(string name, string epithet, string hint)

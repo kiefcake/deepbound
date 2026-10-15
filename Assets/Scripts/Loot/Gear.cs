@@ -102,7 +102,7 @@ namespace Deepbound.Loot
         public static readonly string[] QualityNames = { "Worn", "Fine", "Masterwork", "Legendary" };
         private static readonly float[] QualityPower = { 1f, 1.3f, 1.65f, 1.85f };
 
-        public static Color QualityColor(int quality) => quality >= 3 ? new Color(0.85f, 0.45f, 1f)
+        public static Color QualityColor(int quality) => quality >= 3 ? new Color(1f, 0.93f, 0.62f)
             : quality >= 2 ? new Color(1f, 0.62f, 0.2f)
             : quality == 1 ? new Color(0.45f, 0.7f, 1f) : new Color(0.82f, 0.8f, 0.76f);
 

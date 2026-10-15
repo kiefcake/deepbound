@@ -21,6 +21,8 @@ namespace Deepbound.Loot
 
         private Transform visual;
         private float phase;
+        private bool fanfarePlayed;
+        private Transform legendRing;
 
         public override float Range => 2.2f;
 
@@ -92,6 +94,13 @@ namespace Deepbound.Loot
             // so the visual is also gated below.)
             obj.CheckObjectVisibility = id => id == forClient;
             obj.Spawn(destroyWithScene: true);
+            // The white-bag moment: the whole party hears who got lucky.
+            if (item.Quality >= 3 && DungeonDirector.Instance != null)
+            {
+                string who = "Someone";
+                if (NetworkManager.Singleton.ConnectedClients.TryGetValue(forClient, out var cl) && cl.PlayerObject != null) who = cl.PlayerObject.name;
+                DungeonDirector.Instance.ServerFeedAll(who + " found a LEGENDARY: " + Gear.Name(item) + "!", Gear.QualityColor(3));
+            }
             return drop;
         }
 
@@ -109,6 +118,11 @@ namespace Deepbound.Loot
             phase += Time.deltaTime;
             visual.localPosition = new Vector3(0f, 0.45f + Mathf.Sin(phase * 2f) * 0.06f, 0f);
             visual.localRotation = Quaternion.Euler(0f, phase * 50f, 0f);
+            if (legendRing != null)
+            {
+                float k = 1f + 0.12f * Mathf.Sin(phase * 3f);
+                legendRing.localScale = new Vector3(k, 1f, k);
+            }
         }
 
         private void BuildVisual()
@@ -140,16 +154,36 @@ namespace Deepbound.Loot
                 MeshKit.Part(visual, "Chain", MeshKit.Cylinder(0.01f, 0.01f, 0.2f, 4), Mat.Gold, new Vector3(0f, 0.11f, 0f));
             }
 
-            var beam = MeshKit.Part(transform, "Beam", MeshKit.Cylinder(0.018f, 0.006f, 2.4f, 6), Mat.Glow, Vector3.up * 0.7f);
-            ArtLibrary.SetGlow(beam.GetComponent<Renderer>(), color * 0.6f);
+            bool legendary = item.Quality >= 3;
+            // A Legendary throws a pillar of light you can see from the next room, and a ring on the floor.
+            var beam = legendary
+                ? MeshKit.Part(transform, "Beam", MeshKit.Cylinder(0.07f, 0.02f, 9f, 8), Mat.Glow, Vector3.up * 0.2f)
+                : MeshKit.Part(transform, "Beam", MeshKit.Cylinder(0.018f, 0.006f, 2.4f, 6), Mat.Glow, Vector3.up * 0.7f);
+            ArtLibrary.SetGlow(beam.GetComponent<Renderer>(), color * (legendary ? 1.3f : 0.6f));
             beam.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            legendRing = null;
+            if (legendary)
+            {
+                // A child of the beam, so rebuilding the visual removes it too.
+                var ring = MeshKit.Part(beam.transform, "BeamRing", MeshKit.Cylinder(0.75f, 0.75f, 0.015f, 24), Mat.Glow, Vector3.down * 0.15f);
+                ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), color * 0.5f);
+                ring.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                legendRing = ring.transform;
+                if (!fanfarePlayed)
+                {
+                    fanfarePlayed = true;
+                    Sfx.Play2D(Sound.Relic, 1f);
+                    Sfx.Play(Sound.Revive, transform.position + Vector3.up, 0.9f, 1.25f);
+                    UI.GameHud.ShowTitleCard("LEGENDARY", Gear.Name(item));
+                }
+            }
 
             var light = new GameObject("Glow").AddComponent<Light>();
             light.transform.SetParent(visual, false);
             light.type = LightType.Point;
             light.color = color;
-            light.range = 3f;
-            light.intensity = 2f;
+            light.range = legendary ? 6f : 3f;
+            light.intensity = legendary ? 3.5f : 2f;
             light.shadows = LightShadows.None;
         }
     }

@@ -144,6 +144,7 @@ namespace Deepbound.UI
             life = owner.GetComponent<PlayerLife>();
             progress = owner.GetComponent<PlayerProgress>();
             health.Hurt += amount => hurtFlash = Mathf.Min(1f, hurtFlash + amount / 30f);
+            PlayerLife.DownedRecap += (killer, lines) => { recapKiller = killer; recapLines = lines; };
             health.HurtFrom += from => { hitMarks.Add((from, Time.time)); if (hitMarks.Count > 6) hitMarks.RemoveAt(0); };
             spawnTime = Time.time;
             Health.AnyHurt += OnAnyHurt;
@@ -388,6 +389,52 @@ namespace Deepbound.UI
             }
         }
 
+        // ---- Death recap: what put you down (newest hit's source, then damage by source). ----
+        private string recapKiller, recapLines;
+
+        private void DrawRecap(float w, float h)
+        {
+            if (string.IsNullOrEmpty(recapKiller)) return;
+            var lines = (recapLines ?? "").Split(new[] { '\n' }, System.StringSplitOptions.RemoveEmptyEntries);
+            float pw = 300f, ph = 50f + lines.Length * 20f;
+            float x = w - pw - 24f, y = h * 0.5f - ph / 2f;
+            Rect(x, y, pw, ph, Panel);
+            GUI.Label(new Rect(x + 12, y + 8, pw - 24, 20), "DOWNED BY", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.75f, 0.7f, 0.65f) } });
+            GUI.Label(new Rect(x + 12, y + 24, pw - 24, 22), recapKiller, new GUIStyle(label) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.4f, 0.3f) } });
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var parts = lines[i].Split('\t');
+                float ly = y + 48 + i * 20;
+                GUI.Label(new Rect(x + 12, ly, pw - 80, 20), parts[0], small);
+                if (parts.Length > 1) GUI.Label(new Rect(x + pw - 72, ly, 60, 20), parts[1], new GUIStyle(small) { alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(1f, 0.55f, 0.45f) } });
+            }
+        }
+
+        // ---- Soul skulls: a violet marker on each, through walls; the waystone while you carry one. ----
+        private void DrawSouls(float w, float h)
+        {
+            var cam = player.Camera;
+            bool carrying = false;
+            foreach (var sk in SoulSkull.Skulls)
+            {
+                if (sk == null) continue;
+                if (sk.Carrier.Value == player.NetworkObjectId) { carrying = true; continue; }
+                var screen = cam.WorldToScreenPoint(sk.transform.position + Vector3.up * 0.9f);
+                if (screen.z <= 0f) continue;
+                float dist = Vector3.Distance(cam.transform.position, sk.transform.position);
+                string text = (sk.Carried ? "SOUL (carried): " : "SOUL: ") + sk.SoulName + (dist > 8f ? "  " + Mathf.RoundToInt(dist) + "m" : "");
+                GUI.Label(new Rect(screen.x - 120, h - screen.y - 10, 240, 20), text,
+                    new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.78f, 0.6f, 1f) } });
+            }
+            if (!carrying || DungeonDirector.Layout == null) return;
+            var way = DungeonDirector.Layout.WaystonePosition + Vector3.up * 2.9f;
+            var ws = cam.WorldToScreenPoint(way);
+            float wd = Vector3.Distance(player.transform.position, DungeonDirector.Layout.WaystonePosition);
+            if (ws.z > 0f)
+                GUI.Label(new Rect(ws.x - 120, h - ws.y - 10, 240, 20), "WAYSTONE  " + Mathf.RoundToInt(wd) + "m",
+                    new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.6f, 0.85f, 1f) } });
+        }
+
         // ---- Tells: a red "!" over anything about to strike, bigger when it is coming for you. ----
         private void DrawThreats(float w, float h)
         {
@@ -434,7 +481,8 @@ namespace Deepbound.UI
                 if (downed)
                 {
                     float pulse = 0.6f + 0.4f * Mathf.Sin(Time.time * 6f);
-                    GUI.Label(new Rect(screen.x - 90, y - 2, 180, 18), "DOWNED - hold F to revive",
+                    string downText = p.Soul.Value ? "BLED OUT - carry the soul skull" : "DOWNED " + Mathf.CeilToInt(p.BleedLeft) + "s - hold F";
+                    GUI.Label(new Rect(screen.x - 120, y - 2, 240, 18), downText,
                         new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.3f, 0.25f, pulse) } });
                     continue;
                 }
@@ -581,6 +629,7 @@ namespace Deepbound.UI
             DrawVignette(w, h);
             DrawHitDirections(w, h);
             DrawThreats(w, h);
+            DrawSouls(w, h);
             DrawAllies(w, h);
             DrawCrosshair(w, h);
             DrawVitals(w, h);
@@ -787,13 +836,41 @@ namespace Deepbound.UI
 
         private void DrawRevive(float w, float h)
         {
+            if (!life.Downed.Value) recapKiller = null;
             if (life.Downed.Value)
             {
+                if (life.Soul.Value)
+                {
+                    Rect(0, 0, w, h, new Color(0.12f, 0.04f, 0.22f, 0.45f));
+                    GUI.Label(new Rect(0, h / 2f - 70, w, 40), "YOU HAVE BLED OUT", big);
+                    var skull = SoulSkull.For(player.NetworkObjectId);
+                    string where = skull != null && skull.Carried ? "An ally is carrying your soul skull to the waystone..." : "Your soul skull lies where you fell. An ally must carry it to the waystone in the start room.";
+                    GUI.Label(new Rect(0, h / 2f - 30, w, 24), where, center);
+                    if (skull != null && skull.Ritual.Value > 0f)
+                        ProgressBar(w, h / 2f + 4, skull.Ritual.Value / SoulSkull.RitualSeconds, new Color(0.7f, 0.5f, 1f));
+                    DrawRecap(w, h);
+                    return;
+                }
                 Rect(0, 0, w, h, new Color(0.35f, 0f, 0f, 0.25f));
                 GUI.Label(new Rect(0, h / 2f - 70, w, 40), "YOU ARE DOWN", big);
                 GUI.Label(new Rect(0, h / 2f - 30, w, 24), "A teammate must hold F next to you to revive you", center);
                 ProgressBar(w, h / 2f + 4, life.ReviveProgress.Value / PlayerLife.ReviveSeconds, new Color(0.6f, 0.9f, 1f));
+                if (life.Bleed.Value > 0f)
+                {
+                    float left = life.BleedLeft;
+                    var bc = left < 10f ? new Color(1f, 0.3f, 0.25f, 0.6f + 0.4f * Mathf.Sin(Time.time * 8f)) : new Color(1f, 0.6f, 0.5f);
+                    GUI.Label(new Rect(0, h / 2f + 22, w, 24), "Bleeding out in " + Mathf.CeilToInt(left) + "s", new GUIStyle(center) { normal = { textColor = bc } });
+                }
+                DrawRecap(w, h);
                 return;
+            }
+
+            foreach (var sk in SoulSkull.Skulls)
+            {
+                if (sk == null || sk.Carrier.Value != player.NetworkObjectId) continue;
+                string msg = sk.Ritual.Value > 0f ? "The waystone stirs... (don't get hit)" : "Carrying " + sk.SoulName + "'s soul skull: bring it to the waystone (F sets it down)";
+                GUI.Label(new Rect(0, h / 2f + 96, w, 24), msg, new GUIStyle(center) { normal = { textColor = new Color(0.8f, 0.65f, 1f) } });
+                if (sk.Ritual.Value > 0f) ProgressBar(w, h / 2f + 124, sk.Ritual.Value / SoulSkull.RitualSeconds, new Color(0.7f, 0.5f, 1f));
             }
 
             var target = PlayerLife.DownedNear(player.transform.position, life);

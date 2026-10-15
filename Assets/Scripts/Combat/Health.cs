@@ -221,6 +221,25 @@ namespace Deepbound.Combat
 
         /// <summary>Server: who hit this last, and from where (for diagnosing deaths).</summary>
         public ulong LastHitFrom { get; private set; } = ulong.MaxValue;
+
+        /// <summary>Server: a readable name for whatever has this object id (bosses and champions by title).</summary>
+        public static string NameOf(ulong id)
+        {
+            var nm = NetworkManager.Singleton;
+            if (id == ulong.MaxValue || nm == null || !nm.SpawnManager.SpawnedObjects.TryGetValue(id, out var obj) || obj == null) return "Traps and afflictions";
+            if (obj.TryGetComponent<Enemies.BossBrain>(out var boss)) return boss.DisplayName;
+            if (obj.TryGetComponent<Enemies.EnemyBrain>(out var brain) && brain.IsChampion) return brain.Title.Value.ToString();
+            string n = obj.name.Replace("(Clone)", "").Trim();
+            var sb = new System.Text.StringBuilder();
+            for (int i = 0; i < n.Length; i++)
+            {
+                if (i > 0 && char.IsUpper(n[i]) && !char.IsUpper(n[i - 1])) sb.Append(' ');
+                sb.Append(n[i]);
+            }
+            string pretty = sb.ToString();
+            if (obj.TryGetComponent<Enemies.EnemyBrain>(out var e) && e.Elite.Value) pretty = "Elite " + pretty;
+            return pretty;
+        }
         public Vector3 LastHitAt { get; private set; }
 
         public float ServerDamage(float amount, Vector3 attackerPosition, ulong attackerId = ulong.MaxValue)
