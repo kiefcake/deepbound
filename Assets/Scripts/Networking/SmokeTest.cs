@@ -349,6 +349,15 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                 }
 
+                // A kick knocks a Shieldbearer's shield aside.
+                var sbT = FindObjectsByType<ShieldbearerBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !e.IsDead);
+                if (sbT != null)
+                {
+                    sbT.ServerBreakGuard(3.5f);
+                    yield return new WaitForSeconds(0.6f);
+                    Log("shield kick", "guard down " + sbT.GuardDown + ", shield up " + sbT.ShieldUp, sbT.GuardDown && !sbT.ShieldUp);
+                }
+
                 // A shove into the chasm kills for good.
                 var abyssRoom = layout.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Chasm);
                 var shoved = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !(e is HoarderBrain));

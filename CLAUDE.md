@@ -109,7 +109,7 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - Classes: Knight (tank), Mage (frost-then-fire burst), Cleric (beam heals, consecrate, aegis shields, fast revives), Rogue (backstab ambush, shadowstep, smoke-bomb stealth via PlayerLife.Hidden), Ranger (charged longbow that pierces at full draw, Hunter's Mark via Health.Marked, bear traps, volley). Planned: Barbarian, Druid, Engineer
   (design doc section 5).
-- Enemies: Skeleton, Archer (sidesteps after each shot), Shieldbearer (`ShieldbearerBrain`: tower shield blocks 85% in front unless stunned; shove knockback; from floor 1), Ghoul (pairs, pounce), Bone Brute, Necromancer (heals/raises),
+- Enemies: Skeleton, Archer (sidesteps after each shot), Shieldbearer (`ShieldbearerBrain`: tower shield blocks 85% in front unless stunned or knocked aside; a kick (3.5 s, slide kick 5 s) or Shield Bash (3 s) calls `ServerBreakGuard` -> `GuardDownUntil`, OPEN tag; shove knockback; from floor 1), Ghoul (pairs, pounce), Bone Brute, Necromancer (heals/raises),
   Wraith (`WraithBrain`: hovers, shadow bolts, telegraphed Wail, slips away; Ethereal -60% unless chilled/stunned/
   marked/consecrated); any can be Elite, and every
   elite rolls an `EliteAffix` (Warded: -65% until stunned/chilled; Vampiric: heals from hits unless Marked; Volatile:

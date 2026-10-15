@@ -63,6 +63,8 @@ namespace Deepbound.Player
                     push.y = 0f;
                     var v = (push.normalized + forward).normalized * (slide ? Shove * 1.5f : Shove);
                     cc.ServerStun(slide ? 1f : 0.45f);
+                    // Shielded rank and file: the boot knocks the shield wide open.
+                    if (target.TryGetComponent<Enemies.ShieldbearerBrain>(out var sb)) sb.ServerBreakGuard(slide ? 5f : 3.5f);
                     cc.ServerKnockback(v);
                     World.DungeonDirector.Instance?.ServerCheckShove(target, v, NetworkObjectId);
                 }

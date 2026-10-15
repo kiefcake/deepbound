@@ -270,6 +270,7 @@ namespace Deepbound.Player
                 if (target.TryGetComponent<ICrowdControl>(out var cc))
                 {
                     cc.ServerStun(BashStun * potency);
+                    if (target.TryGetComponent<Enemies.ShieldbearerBrain>(out var sb)) sb.ServerBreakGuard(3f);
                     var push = target.transform.position - transform.position;
                     push.y = 0f;
                     cc.ServerKnockback(push.normalized * 8f);

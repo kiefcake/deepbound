@@ -16,8 +16,33 @@ namespace Deepbound.Enemies
         [SerializeField] private float frontalTaken = 0.15f, frontArc = 70f;
         private float lastClang;
 
-        /// <summary>Is the shield up (anyone): not while stunned.</summary>
-        public bool ShieldUp => (Status.Value & 1) == 0 && !IsDead;
+        /// <summary>Server clock time a kick or a bash knocked the shield aside until.</summary>
+        public readonly NetworkVariable<double> GuardDownUntil = new NetworkVariable<double>();
+
+        /// <summary>The shield is knocked aside right now (anyone).</summary>
+        public bool GuardDown => NetworkManager != null && NetworkManager.IsListening && NetworkManager.ServerTime.Time < GuardDownUntil.Value;
+
+        /// <summary>Is the shield up (anyone): not while stunned, nor while knocked aside.</summary>
+        public bool ShieldUp => (Status.Value & 1) == 0 && !GuardDown && !IsDead;
+
+        /// <summary>Server: a kick or a bash knocks the shield wide for a few seconds.</summary>
+        public void ServerBreakGuard(float seconds)
+        {
+            if (IsDead) return;
+            bool wasUp = !GuardDown;
+            GuardDownUntil.Value = System.Math.Max(GuardDownUntil.Value, NetworkManager.ServerTime.Time + seconds);
+            if (wasUp) GuardBrokenRpc();
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void GuardBrokenRpc()
+        {
+            var at = transform.position + transform.forward * 0.5f + Vector3.up * 1.2f;
+            Sfx.Play(Sound.Block, at, 1f, 0.6f);
+            Sfx.Play(Sound.Bash, at, 0.8f, 0.7f);
+            Vfx.Embers(at, 12, new Color(1f, 0.85f, 0.55f), 4f, 0.05f, 0.5f);
+            UI.GameHud.ShowCombo(at + Vector3.up * 0.9f, "SHIELD BROKEN", new Color(1f, 0.85f, 0.55f));
+        }
 
         public override void OnNetworkSpawn()
         {
@@ -27,7 +52,7 @@ namespace Deepbound.Enemies
 
         private float Shield(float damage, Vector3 from)
         {
-            if (IsStunned) return damage;
+            if (IsStunned || GuardDown) return damage;
             var to = from - transform.position;
             to.y = 0f;
             // Blasts centred on it (a meteor landing on its head) go round the shield.
