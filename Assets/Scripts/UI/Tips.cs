@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "camp", "voice", "phases", "mourner", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell",
+            "camp", "voice", "phases", "mourner", "pingwheel", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -59,6 +59,7 @@ namespace Deepbound.UI
             }
             if (PlayerVoice.MicAvailable && Settings.VoiceMode != 2)
                 Offer("voice", "PROXIMITY VOICE is on: players near you hear you, muffled through walls. SHOUTING wakes the dead nearby. Options has push-to-talk (T).");
+            Offer("pingwheel", "PINGS: tap Z (or middle mouse) to mark what you aim at. HOLD it for the wheel: Danger, On my way, Need help, Look.");
             if (ult != null && ult.Ready) Offer("ult", "Your ULTIMATE is charged: press R.");
 
             var deb = player.GetComponent<PlayerDebuffs>();

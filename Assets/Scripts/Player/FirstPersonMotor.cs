@@ -79,6 +79,9 @@ namespace Deepbound.Player
         /// <summary>True while the player has captured the mouse — i.e. is playing, not in a menu.</summary>
         public bool HasControl => Cursor.lockState == CursorLockMode.Locked;
 
+        /// <summary>Set while the ping wheel is open: the mouse picks a slice instead of turning the view.</summary>
+        public static bool LookHeld;
+
         public Transform CameraPivot
         {
             get => cameraPivot;
@@ -125,7 +128,7 @@ namespace Deepbound.Player
             bool hasControl = HasControl;
             bool canMove = hasControl && !Frozen;
 
-            if (hasControl) ApplyLook(ReadLookInput());
+            if (hasControl && !LookHeld) ApplyLook(ReadLookInput());
             MoveInput = canMove ? ReadMoveInput() : Vector2.zero;
 
             ApplyMovement(MoveInput,

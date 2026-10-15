@@ -219,6 +219,13 @@ namespace Deepbound.Networking
                 local.GetComponent<PlayerPings>().PingSpot(local.transform.position + local.transform.forward * 5f);
                 yield return new WaitForSeconds(0.5f);
                 Log("ping round trip", "own ping visible: " + PlayerPings.Active.ContainsKey(local.NetworkObjectId), PlayerPings.Active.ContainsKey(local.NetworkObjectId));
+                local.GetComponent<PlayerPings>().PingKind(PlayerPings.Kind.Danger, local.transform.position + local.transform.forward * 6f);
+                yield return new WaitForSeconds(0.5f);
+                bool danger = PlayerPings.Active.TryGetValue(local.NetworkObjectId, out var dp) && dp.Kind == PlayerPings.Kind.Danger;
+                local.GetComponent<PlayerPings>().PingKind(PlayerPings.Kind.Help, local.transform.position);
+                yield return new WaitForSeconds(0.5f);
+                bool help = PlayerPings.Active.TryGetValue(local.NetworkObjectId, out var hp2) && hp2.Kind == PlayerPings.Kind.Help && hp2.Follow == local.transform;
+                Log("ping wheel", "danger " + danger + ", help pinned to self " + help, danger && help);
             }
 
             var boss = BossBrain.Active;
@@ -1179,6 +1186,12 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "1d_soul_skull");
                 if (shotSkull != null && shotSkull.NetworkObject.IsSpawned) shotSkull.NetworkObject.Despawn();
                 if (campMourner != null) campMourner.GetComponent<Health>().ServerDamage(1e6f, campMourner.transform.position);
+                // The ping wheel, open, with Danger picked.
+                var wheelPings = local.GetComponent<PlayerPings>();
+                wheelPings.DebugShowWheel(true, new Vector2(0f, 80f));
+                yield return new WaitForSeconds(0.3f);
+                yield return Shot(dir, "1e_ping_wheel");
+                wheelPings.DebugShowWheel(false, Vector2.zero);
                 lobbyMotor.SetPitch(0f);
                 UI.GameHud.DebugShowStats = true;
                 yield return null;
