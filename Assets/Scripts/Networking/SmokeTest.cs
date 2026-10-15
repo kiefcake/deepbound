@@ -327,7 +327,8 @@ namespace Deepbound.Networking
                     Log("kick into the abyss", "dead " + shoved.IsDead, shoved.IsDead);
                 }
                 // The Wheel of Fate: one spin, then it is spent.
-                var wheelT = FindObjectsByType<FateWheel>(FindObjectsSortMode.None).FirstOrDefault();
+                var wheelT = FindObjectsByType<FateWheel>(FindObjectsSortMode.None).FirstOrDefault(
+                    w => DungeonDirector.Instance.AmbushRoom == null || !DungeonDirector.Instance.AmbushRoom.Contains(w.transform.position, 2f));
                 if (wheelT != null)
                 {
                     fm.Teleport(wheelT.transform.position + wheelT.transform.forward * 2f + Vector3.up * 0.1f, Quaternion.LookRotation(-wheelT.transform.forward));
