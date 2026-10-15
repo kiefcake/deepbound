@@ -314,6 +314,21 @@ namespace Deepbound.Networking
                     local.GetComponent<Health>().ServerSetFraction(1f);
                     yield return new WaitForSeconds(0.3f);
                 }
+                // A frost flask chills where it lands.
+                var flaskT = local.GetComponent<Flasks>();
+                var flaskFoe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !e.GetComponent<Health>().Chilled.Value && !(e is GargoyleBrain) && !(e is HoarderBrain));
+                if (flaskT != null && flaskFoe != null)
+                {
+                    int frostBefore = flaskT.Frost.Value;
+                    flaskFoe.ServerStun(3f);
+                    fm.Teleport(flaskFoe.transform.position - flaskFoe.transform.forward * 6f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
+                    flaskT.ServerDebugThrow(Flasks.Kind.Frost, flaskFoe.transform.position);
+                    yield return new WaitForSeconds(0.9f);
+                    Log("frost flask", "flasks " + frostBefore + " -> " + flaskT.Frost.Value + ", chilled " + flaskFoe.GetComponent<Health>().Chilled.Value,
+                        flaskT.Frost.Value == frostBefore - 1 && flaskFoe.GetComponent<Health>().Chilled.Value);
+                }
+
                 // A shove into the chasm kills for good.
                 var abyssRoom = layout.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Chasm);
                 var shoved = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !(e is HoarderBrain));

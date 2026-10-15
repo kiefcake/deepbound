@@ -707,6 +707,7 @@ namespace Deepbound.Progression
                 case Shop.ItemKind.Heal: return health.Current.Value >= health.Max.Value ? "Already at full health" : null;
                 case Shop.ItemKind.Embers: return null;
                 case Shop.ItemKind.Sigil: return null;
+                case Shop.ItemKind.Flasks: return GetComponent<Player.Flasks>() is var fl && fl != null && fl.Full ? "Satchel full" : null;
                 case Shop.ItemKind.Gear: return gearBoughtSeed == World.DungeonDirector.Instance?.Floor.Value.x ? "Sold" : null;
                 case Shop.ItemKind.Relic: return HasRelic((Relic)(int)item.Amount) ? "Owned" : null;
                 default: return Bonus(item.Stat) + item.Amount > item.Cap + 0.01f ? "Sold out" : null;
@@ -735,6 +736,10 @@ namespace Deepbound.Progression
                     break;
                 case Shop.ItemKind.Sigil:
                     ServerAddSigil();
+                    bought = true;
+                    break;
+                case Shop.ItemKind.Flasks:
+                    GetComponent<Player.Flasks>()?.ServerAddSatchel();
                     bought = true;
                     break;
                 case Shop.ItemKind.Gear:
@@ -774,6 +779,9 @@ namespace Deepbound.Progression
         {
             if (!IsServer) return;
             Stats.ResetRunProgress();
+            // Every run starts with a satchel: one flask of each kind.
+            var flasks = GetComponent<Player.Flasks>();
+            if (flasks != null) { flasks.ServerReset(); flasks.ServerAddSatchel(); }
             for (int i = 0; i < Core.Stats.Count; i++) bonuses[i] = 0f;
             Gold.Value = 0;
             Embers.Value = 0;

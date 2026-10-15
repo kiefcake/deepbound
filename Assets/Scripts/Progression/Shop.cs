@@ -14,7 +14,7 @@ namespace Deepbound.Progression
     public static class Shop
     {
         /// <summary>Value 1 was the retired stat potion.</summary>
-        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5 }
+        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6 }
 
         public struct Item
         {
@@ -89,6 +89,7 @@ namespace Deepbound.Progression
         public static readonly Item[] Items =
         {
             new Item { Name = "Healing Draught", Description = "Restore half your health", Price = 12, Kind = ItemKind.Heal, Amount = 0.5f },
+            new Item { Name = "Flask Satchel", Description = "One Fire, Frost and Holy flask each (throw with 1 / 2 / 3)", Price = 40, Kind = ItemKind.Flasks },
             new Item { Name = "Ember Pouch", Description = "10 embers for the anvil", Price = 45, Kind = ItemKind.Embers, Amount = 10f },
             new Item { Name = "Ember Sack", Description = "25 embers for the anvil", Price = 100, Kind = ItemKind.Embers, Amount = 25f },
             new Item { Name = "Hearty Stew", Description = "+30 max HP for the run (max +90)", Price = 55, Kind = ItemKind.Bonus, Stat = StatType.HP, Amount = 30f, Cap = 90f },

@@ -504,6 +504,22 @@ namespace Deepbound.UI
                 Ability(x + (size + gap) * i, y, size, a.Key, a.Name, a.Remaining, a.Cooldown, a.Active, a.Unaffordable);
             }
             DrawUltimate(x + (size + gap) * abilities.Count, y, size);
+
+            // The flask belt, just above the bar.
+            var belt = player.GetComponent<Flasks>();
+            if (belt != null)
+            {
+                var parts = new System.Text.StringBuilder();
+                for (int k = 0; k < 3; k++)
+                {
+                    var kind = (Flasks.Kind)k;
+                    var c = Flasks.ColorOf(kind);
+                    if (parts.Length > 0) parts.Append("     ");
+                    parts.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(belt.Count(kind) > 0 ? c : c * 0.4f)).Append('>')
+                        .Append(k + 1).Append("  ").Append(Flasks.NameOf(kind)).Append(" x").Append(belt.Count(kind)).Append("</color>");
+                }
+                GUI.Label(new Rect(0, y - 24, w, 20), parts.ToString(), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, richText = true, fontStyle = FontStyle.Bold });
+            }
         }
 
         /// <summary>R: the ultimate, a slot that fills from the bottom as you fight and glows when full.</summary>
