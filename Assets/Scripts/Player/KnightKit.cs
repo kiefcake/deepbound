@@ -270,6 +270,7 @@ namespace Deepbound.Player
                     var push = target.transform.position - transform.position;
                     push.y = 0f;
                     cc.ServerKnockback(push.normalized * 8f);
+                    World.DungeonDirector.Instance?.ServerCheckShove(target, push.normalized * 10f, NetworkObjectId);
                 }
             }
             BashFxRpc();

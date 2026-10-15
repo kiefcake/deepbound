@@ -314,6 +314,18 @@ namespace Deepbound.Networking
                     local.GetComponent<Health>().ServerSetFraction(1f);
                     yield return new WaitForSeconds(0.3f);
                 }
+                // A shove into the chasm kills for good.
+                var abyssRoom = layout.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Chasm);
+                var shoved = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !(e is HoarderBrain));
+                if (abyssRoom != null && shoved != null)
+                {
+                    var lip = new Vector3(abyssRoom.Pit.xMin - 0.6f, 0f, abyssRoom.Pit.center.y + abyssRoom.Pit.height * 0.3f);
+                    shoved.GetComponent<UnityEngine.AI.NavMeshAgent>().Warp(lip);
+                    yield return null;
+                    DungeonDirector.Instance.ServerCheckShove(shoved.GetComponent<Health>(), Vector3.right * 15f, local.NetworkObjectId);
+                    yield return new WaitForSeconds(0.2f);
+                    Log("kick into the abyss", "dead " + shoved.IsDead, shoved.IsDead);
+                }
                 Log("feature rooms", features, layout.Rooms.Any(r => r.Feature == RoomFeature.GreatHall) && layout.Rooms.Any(r => r.Feature == RoomFeature.Chasm));
 
                 var sarc = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None).FirstOrDefault(x => x.IsSpawned && x.HasOccupant && !x.Opened.Value && !x.Scheduled);
@@ -1024,6 +1036,27 @@ namespace Deepbound.Networking
             motor.Teleport(bp, Quaternion.LookRotation(bp - layout.BossSpawn));
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "4_boss_room_back");
+
+            // A corridor flame trap, mid-burst, and the floor's champion.
+            if (layout.FlameTraps.Count > 0)
+            {
+                var trap = layout.FlameTraps[0];
+                var along = Vector3.Cross(trap.Across, Vector3.up);
+                var tp = trap.At + along * 4f + Vector3.up * 0.1f;
+                motor.Teleport(tp, Quaternion.LookRotation(trap.At - tp));
+                for (int w = 0; w < 120 && !FlameJet.Lit(trap.Phase, Pendulum.Clock + 0.2); w++) yield return new WaitForSeconds(0.05f);
+                yield return new WaitForSeconds(0.35f);
+                yield return Shot(dir, "1j_flame_trap");
+            }
+            var champ = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => e.IsChampion && !e.IsDead);
+            if (champ != null)
+            {
+                champ.ServerStun(30f);
+                var cp = champ.transform.position + champ.transform.forward * 4f + Vector3.up * 0.1f;
+                motor.Teleport(cp, Quaternion.LookRotation(champ.transform.position - cp));
+                yield return new WaitForSeconds(0.6f);
+                yield return Shot(dir, "1k_champion");
+            }
 
             // One look at each later floor's theme.
             var shotFeatures = new System.Collections.Generic.HashSet<RoomFeature>(layout.Rooms.Select(r => r.Feature));

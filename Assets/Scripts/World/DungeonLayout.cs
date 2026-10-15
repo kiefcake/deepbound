@@ -109,6 +109,10 @@ namespace Deepbound.World
 
         public static readonly Vector2Int[] Dir = { new Vector2Int(0, 1), new Vector2Int(1, 0), new Vector2Int(0, -1), new Vector2Int(-1, 0) };
 
+        /// <summary>A pair of fire vents across a corridor. <see cref="Phase"/> offsets its beat.</summary>
+        public struct FlameTrap { public Vector3 At, Across; public int Phase; }
+        public readonly List<FlameTrap> FlameTraps = new List<FlameTrap>();
+
         public readonly List<Room> Rooms = new List<Room>();
         public readonly List<Link> Links = new List<Link>();
         public int Seed { get; private set; }
@@ -242,6 +246,7 @@ namespace Deepbound.World
 
             AssignFeatures(layout, rng);
             PlaceEnemySpawns(layout, rng, depth);
+            PlaceFlameTraps(layout, rng);
             return layout;
         }
 
@@ -538,6 +543,30 @@ namespace Deepbound.World
                     float t = (float)(rng.NextDouble() - 0.5) * (alongX ? room.Size.x : room.Size.y) * 0.4f;
                     room.EnemySpawns.Add(room.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)) + Vector3.up * (BalconyHeight + 0.1f));
                 }
+            }
+        }
+
+        /// <summary>Long corridors sometimes carry a flame trap, a third of the way along (clear of spike traps at the middle).</summary>
+        private static void PlaceFlameTraps(DungeonLayout layout, System.Random rng)
+        {
+            int n = 0;
+            foreach (var link in layout.Links)
+            {
+                var a = layout.Rooms[link.A];
+                var b = layout.Rooms[link.B];
+                var d = Dir[link.Dir];
+                bool alongX = d.x != 0;
+                var axis = new Vector3(d.x, 0f, d.y);
+                var start = a.Center + axis * ((alongX ? a.Size.x : a.Size.y) / 2f + 0.8f);
+                var end = b.Center - axis * ((alongX ? b.Size.x : b.Size.y) / 2f + 0.8f);
+                float len = Vector3.Distance(start, end);
+                if (len < 9f || rng.NextDouble() > 0.45) continue;
+                layout.FlameTraps.Add(new FlameTrap
+                {
+                    At = Vector3.Lerp(start, end, rng.NextDouble() < 0.5 ? 0.3f : 0.7f),
+                    Across = new Vector3(-axis.z, 0f, axis.x),
+                    Phase = n++,
+                });
             }
         }
 

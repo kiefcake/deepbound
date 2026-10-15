@@ -463,6 +463,13 @@ namespace Deepbound.World
                 }
             }
 
+            // One champion per floor: a named elite in a combat room, guarding a hoard.
+            var candidates = new System.Collections.Generic.List<EnemyBrain>();
+            foreach (var o in spawned)
+                if (o != null && o.TryGetComponent<EnemyBrain>(out var cb) && !(cb is BossBrain) && !(cb is HoarderBrain) && !(cb is WraithBrain) &&
+                    layout.RoomAt(o.transform.position)?.Kind == RoomKind.Combat) candidates.Add(cb);
+            if (candidates.Count > 0) candidates[UnityEngine.Random.Range(0, candidates.Count)].ServerMakeChampion();
+
             // Now and then, a Bone Hoarder in one of the combat rooms: a chase for gold.
             var combatRooms = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && !IsAmbushRoom(r) && r.EnemySpawns.Count > 0);
             if (hoarderPrefab != null && combatRooms.Count > 0 && UnityEngine.Random.value < 0.45f)

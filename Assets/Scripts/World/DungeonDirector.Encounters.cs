@@ -344,6 +344,70 @@ namespace Deepbound.World
             TickPendulums();
             TickRitual();
             TickGimmicks();
+            TickFlameJets();
+        }
+
+        // ------------------------------------------------------------------
+        // Corridor flame traps
+        // ------------------------------------------------------------------
+
+        private readonly Dictionary<Health, float> burnedAt = new Dictionary<Health, float>();
+
+        private void TickFlameJets()
+        {
+            if (Layout == null || Layout.FlameTraps.Count == 0) return;
+            double now = Pendulum.Clock;
+            foreach (var trap in Layout.FlameTraps)
+            {
+                if (!FlameJet.Lit(trap.Phase, now)) continue;
+                var along = Vector3.Cross(trap.Across, Vector3.up);
+                foreach (var h in Health.All)
+                {
+                    if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
+                    var d = h.transform.position - trap.At;
+                    if (Mathf.Abs(Vector3.Dot(d, along)) > 0.75f || Mathf.Abs(Vector3.Dot(d, trap.Across)) > DungeonLayout.CorridorWidth / 2f || Mathf.Abs(d.y) > 1.5f) continue;
+                    if (burnedAt.TryGetValue(h, out float t) && Time.time - t < 0.5f) continue;
+                    burnedAt[h] = Time.time;
+                    h.ServerDamage(h.Team == Team.Players ? 10f + 4f * Layout.Depth : 35f + 10f * Layout.Depth, trap.At);
+                }
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Shoves: into the abyss, off a balcony, down into a pit
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// Server: an enemy was shoved hard (a kick, a bash). Where it would end up decides
+        /// whether it simply staggers, drops to a lower level, or falls into a chasm for good.
+        /// </summary>
+        public void ServerCheckShove(Health target, Vector3 velocity, ulong by)
+        {
+            if (Layout == null || target == null || !target.IsAlive) return;
+            if (!target.TryGetComponent<EnemyBrain>(out var brain) || brain is BossBrain) return;
+            var from = target.transform.position;
+            var flat = velocity;
+            flat.y = 0f;
+            var to = from + flat.normalized * Mathf.Min(4f, flat.magnitude * 0.3f);
+            var room = Layout.RoomAt(to, 0.5f);
+            if (room != null && room.Feature == RoomFeature.Chasm && room.Pit.Contains(new Vector2(to.x, to.z)) &&
+                Mathf.Abs(to.x - room.Center.x) > 1.4f && Mathf.Abs(to.z - room.Center.z) > 1.4f)
+            {
+                brain.ServerFallIntoAbyss(to, by);
+                AbyssFxRpc(to);
+                return;
+            }
+            // A ledge: the ground beyond is well below the enemy's feet.
+            if (Physics.Raycast(to + Vector3.up * 0.6f, Vector3.down, out var ground, 12f, ~0, QueryTriggerInteraction.Ignore) &&
+                ground.point.y < from.y - 1.2f && NavMesh.SamplePosition(ground.point, out var land, 1.5f, NavMesh.AllAreas))
+                brain.ServerFallTo(land.position, (from.y - land.position.y) * 0.06f, by);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void AbyssFxRpc(Vector3 at)
+        {
+            Art.Sfx.Play(Art.Sound.Rattle, at, 1f, 0.6f);
+            UI.GameHud.ShowCombo(at + Vector3.up * 1.5f, "INTO THE ABYSS", new Color(1f, 0.45f, 0.2f));
         }
 
         // ------------------------------------------------------------------

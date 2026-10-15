@@ -473,12 +473,14 @@ namespace Deepbound.UI
         private void DrawAbilities(float w, float h)
         {
             float size = 58, gap = 10;
-            float total = size * 6 + gap * 5;
+            float total = size * 7 + gap * 6;
             float x = w / 2f - total / 2f, y = h - size - 26;
 
             abilities.Clear();
             player.ActiveKit.FillAbilities(abilities);
             abilities.Add(new AbilityView { Key = "CTRL", Name = "Dodge", Remaining = life.DodgeReadyAt - Time.time, Cooldown = life.DodgeCooldownNow });
+            var kick = player.GetComponent<Kick>();
+            if (kick != null) abilities.Add(new AbilityView { Key = "V", Name = "Kick", Remaining = kick.ReadyAt - Time.time, Cooldown = Kick.Cooldown });
             for (int i = 0; i < abilities.Count; i++)
             {
                 var a = abilities[i];
@@ -1039,6 +1041,7 @@ namespace Deepbound.UI
         {
             var sb = new System.Text.StringBuilder();
             void Tag(string text, string hex) { if (sb.Length > 0) sb.Append(' '); sb.Append("<color=#").Append(hex).Append('>').Append(text).Append("</color>"); }
+            if (brain != null && brain.IsChampion) Tag(brain.Title.Value.ToString().ToUpperInvariant(), "FFC14D");
             if (brain != null && brain.AffixKind != EliteAffix.None) Tag(EliteAffixes.Tag(brain.AffixKind), EliteAffixes.Hex(brain.AffixKind));
             if (brain is WraithBrain wr && !wr.Pinned) Tag("ETHEREAL", "8FA8D0");
             if (brain is ShieldbearerBrain shieldB && shieldB.ShieldUp) Tag("SHIELDED", "C8B48C");

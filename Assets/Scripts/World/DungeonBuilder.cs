@@ -29,6 +29,7 @@ namespace Deepbound.World
 
             foreach (var room in layout.Rooms) BuildRoom(room, structure, dressing, lights);
             foreach (var link in layout.Links) BuildCorridor(layout.Rooms[link.A], layout.Rooms[link.B], link.Dir, structure, dressing, lights);
+            foreach (var trap in layout.FlameTraps) FlameJet.Build(lights, trap, dressing);
 
             System.Func<string, Color> tint = mat => mat == Mat.StoneWall ? theme.StoneTint : mat == Mat.Flagstone ? theme.FloorTint : Color.white;
             structure.Build(root.transform, "Structure", collide: true, tint);

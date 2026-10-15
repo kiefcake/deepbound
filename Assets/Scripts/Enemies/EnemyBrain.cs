@@ -70,6 +70,58 @@ namespace Deepbound.Enemies
         /// </summary>
         public readonly NetworkVariable<bool> Elite = new NetworkVariable<bool>();
 
+        /// <summary>A named champion's title ("Grimbold the Unburied"); empty for everyone else.</summary>
+        public readonly NetworkVariable<Unity.Collections.FixedString64Bytes> Title = new NetworkVariable<Unity.Collections.FixedString64Bytes>();
+        public bool IsChampion => Title.Value.Length > 0;
+        private bool championAnnounced;
+
+        private static readonly string[] ChampionNames = { "Grimbold", "Morwen", "Aldric", "Hesk", "Vorn", "Ysolde", "Bram", "Cael", "Odo", "Sabine", "Tormund", "Wenna" };
+        private static readonly string[] ChampionEpithets = { "the Unburied", "Gravefist", "the Hollow", "Bonegnawer", "the Patient", "Ashenhand", "the Tithe-Taker", "Oathbreaker", "the Pale", "Marrowgrin" };
+
+        /// <summary>Server: make this the floor's champion — an elite with a name, more of everything, and a hoard.</summary>
+        public void ServerMakeChampion()
+        {
+            if (IsBoss) return;
+            if (!Elite.Value) ServerMakeElite();
+            damage *= 1.15f;
+            health.ServerSetMax(health.Max.Value * 1.6f, refill: true);
+            health.Defense += 2f;
+            Title.Value = ChampionNames[UnityEngine.Random.Range(0, ChampionNames.Length)] + " " + ChampionEpithets[UnityEngine.Random.Range(0, ChampionEpithets.Length)];
+        }
+
+        /// <summary>Server: shoved off a ledge — land below, a little the worse for it.</summary>
+        public void ServerFallTo(Vector3 ground, float damageFraction, ulong by)
+        {
+            if (IsDead || !agent.enabled) return;
+            agent.Warp(ground);
+            knockback = Vector3.zero;
+            ServerStun(0.8f);
+            health.ServerDamage(health.Max.Value * Mathf.Clamp(damageFraction, 0.05f, 0.4f), ground + Vector3.up * 3f, by);
+        }
+
+        /// <summary>Server: shoved into a chasm. It does not climb back out.</summary>
+        public void ServerFallIntoAbyss(Vector3 at, ulong by)
+        {
+            if (IsDead) return;
+            NoLoot = true;
+            health.ServerDamage(1e6f, at + Vector3.up, by);
+            StartCoroutine(Plummet(at));
+        }
+
+        private System.Collections.IEnumerator Plummet(Vector3 at)
+        {
+            yield return null;
+            var p = new Vector3(at.x, transform.position.y, at.z);
+            float v = 0f;
+            for (float t = 0f; t < 1.6f; t += Time.deltaTime)
+            {
+                v += 20f * Time.deltaTime;
+                p.y -= v * Time.deltaTime;
+                transform.position = p;
+                yield return null;
+            }
+        }
+
         /// <summary>The elite's affix (see <see cref="EliteAffix"/>). Synced for the status tags.</summary>
         public readonly NetworkVariable<byte> Affix = new NetworkVariable<byte>();
         public EliteAffix AffixKind => (EliteAffix)Affix.Value;
@@ -93,6 +145,8 @@ namespace Deepbound.Enemies
 
         public override void OnNetworkSpawn()
         {
+            Title.OnValueChanged += (_, t) => { if (t.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f; };
+            if (Title.Value.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f;
             Rig = CharacterArt.BuildSkeleton(transform, visualKind);
             health.Hurt += OnHurtVisual;
             Elite.OnValueChanged += (_, now) => ApplyEliteVisual(now);
@@ -259,6 +313,11 @@ namespace Deepbound.Enemies
             }
 
             target = PickTarget();
+            if (target != null && IsChampion && !championAnnounced)
+            {
+                championAnnounced = true;
+                ChampionSeenRpc(Title.Value.ToString());
+            }
             if (target == null)
             {
                 ReturnHome();
@@ -489,6 +548,16 @@ namespace Deepbound.Enemies
             }
         }
 
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ChampionFallenRpc(string title) => UI.GameHud.ShowTitleCard(title.ToUpperInvariant() + " FALLS", "A champion's hoard spills across the floor");
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ChampionSeenRpc(string title)
+        {
+            UI.GameHud.Feed("A champion stirs: " + title, new Color(1f, 0.75f, 0.3f));
+            Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.5f, 1f, 0.7f);
+        }
+
         protected virtual void OnDied(Health _)
         {
             if (AffixKind == EliteAffix.Volatile) StartCoroutine(VolatileBlast());
@@ -498,6 +567,13 @@ namespace Deepbound.Enemies
             agent.enabled = false;
             foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
             PlayActionRpc(RigAction.Death, 1.1f);
+            if (IsChampion && !NoLoot)
+            {
+                // The champion's hoard: gear for everyone and a Sigil.
+                GearDrop.ServerSpawnForParty(transform.position, 1f, 0);
+                World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f, LootKind.Sigil, 1);
+                ChampionFallenRpc(Title.Value.ToString());
+            }
             if (!NoLoot && lootPrefab != null)
             {
                 LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.5f * depthForLoot) * Difficulty.Level.Gold);
