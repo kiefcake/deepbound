@@ -58,6 +58,26 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject bountyNoticePrefab;
         [SerializeField] private NetworkObject omenStonePrefab;
 
+        /// <summary>Server: a Splitting elite breaks apart into two lesser skeletons.</summary>
+        public void ServerSpawnSplit(Vector3 at, int players, int depth)
+        {
+            if (skeletonPrefab == null) return;
+            var points = new Vector3[2];
+            for (int i = 0; i < 2; i++)
+            {
+                var p = at + Quaternion.Euler(0f, i * 180f + 90f, 0f) * Vector3.forward * 1.1f;
+                if (NavMesh.SamplePosition(p, out var hit, 2f, NavMesh.AllAreas)) p = hit.position;
+                var obj = Spawn(skeletonPrefab, p, Quaternion.identity);
+                var brain = obj.GetComponent<EnemyBrain>();
+                brain.NoLoot = true;
+                brain.ServerScale(players, depth);
+                brain.ServerAggroNearest();
+                spawned.Add(obj);
+                points[i] = p;
+            }
+            RiseFxRpc(points);
+        }
+
         /// <summary>Server: a pack of the floor's dead around a point (the Wheel's cruel turn).</summary>
         public void ServerSpawnPack(Vector3 around, int count, bool elite)
         {

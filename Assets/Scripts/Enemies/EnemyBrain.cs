@@ -201,7 +201,31 @@ namespace Deepbound.Enemies
             }
             if (affix == EliteAffix.Swift) moveSpeed *= 1.35f;
             if (affix == EliteAffix.Vampiric) EnsureVampireHook();
+            if (affix == EliteAffix.Thorned) EnsureThornHook();
         }
+
+        private static bool thornHooked;
+
+        /// <summary>Thorned: a fifth of what you deal in melee range comes back to you. Fight it from range.</summary>
+        private static void EnsureThornHook()
+        {
+            if (thornHooked) return;
+            thornHooked = true;
+            Health.ServerAnyDamaged += (target, dealt, attackerId) =>
+            {
+                if (target == null || target.Team != Team.Enemies || dealt <= 0f || attackerId == ulong.MaxValue) return;
+                if (!target.TryGetComponent<EnemyBrain>(out var brain) || brain.AffixKind != EliteAffix.Thorned) return;
+                var net = NetworkManager.Singleton;
+                if (net == null || !net.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj)) return;
+                if (!obj.TryGetComponent<Health>(out var attacker) || attacker.Team != Team.Players) return;
+                if (Vector3.Distance(attacker.transform.position, target.transform.position) > 3.5f) return;
+                attacker.ServerDamage(dealt * 0.2f, target.transform.position);
+                brain.ThornFxRpc(attacker.Center);
+            };
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ThornFxRpc(Vector3 at) => Vfx.Embers(at, 4, new Color(0.5f, 0.75f, 0.3f), 2.5f, 0.04f, 0.3f);
 
         /// <summary>Warded: most damage turned aside until a stun or a chill breaks the ward.</summary>
         private float WardModifier(float dealt, Vector3 attackerPosition)
@@ -561,6 +585,7 @@ namespace Deepbound.Enemies
         protected virtual void OnDied(Health _)
         {
             if (AffixKind == EliteAffix.Volatile) StartCoroutine(VolatileBlast());
+            if (AffixKind == EliteAffix.Splitting) World.DungeonDirector.Instance?.ServerSpawnSplit(transform.position, scaledPlayersBase, depthForLoot);
             IsDead = true;
             attacking = false;
             agent.isStopped = true;

@@ -347,9 +347,16 @@ namespace Deepbound.Networking
                 if (wheelT != null)
                 {
                     fm.Teleport(wheelT.transform.position + wheelT.transform.forward * 2f + Vector3.up * 0.1f, Quaternion.LookRotation(-wheelT.transform.forward));
+                    foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                        if (!(e is BossBrain) && Vector3.Distance(e.transform.position, wheelT.transform.position) < 14f) e.GetComponent<Health>().ServerDamage(1e6f, wheelT.transform.position);
                     yield return new WaitForSeconds(0.3f);
                     wheelT.UseRpc(local.NetworkObject);
-                    yield return new WaitForSeconds(3f);
+                    // Stay standing through the spin, whatever it brings.
+                    for (int w = 0; w < 6; w++)
+                    {
+                        yield return new WaitForSeconds(0.5f);
+                        foreach (var pl in PlayerLife.All) if (pl != null && !pl.Downed.Value) pl.Health.ServerSetFraction(1f);
+                    }
                     Log("wheel of fate", "spun " + wheelT.Spun.Value + ", prompt now " + (wheelT.Prompt(local.GetComponent<PlayerProgress>()) ?? "none"), wheelT.Spun.Value);
                     foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
                         if (!(e is BossBrain) && Vector3.Distance(e.transform.position, wheelT.transform.position) < 8f) e.GetComponent<Health>().ServerDamage(1e6f, wheelT.transform.position);
