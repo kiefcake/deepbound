@@ -183,7 +183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.TideLichBrain
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 950
+  maxHealth: 1750
   damage: 18
   defense: 2
   moveSpeed: 3.4

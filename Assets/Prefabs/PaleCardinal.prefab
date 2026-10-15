@@ -183,7 +183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.CardinalBrain
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 1550
+  maxHealth: 2150
   damage: 32
   defense: 6
   moveSpeed: 2.9

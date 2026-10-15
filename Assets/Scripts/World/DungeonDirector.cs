@@ -172,6 +172,15 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject lootPrefab;
         /// <summary>One boss per floor, by depth: the Gravewarden, the Tide Lich, the Hollow King, the Pale Cardinal.</summary>
         [SerializeField] private NetworkObject[] bossPrefabs;
+
+        /// <summary>Every enemy prefab the director can spawn (balance report).</summary>
+        public System.Collections.Generic.IEnumerable<EnemyBrain> AllEnemyPrefabs()
+        {
+            var all = new System.Collections.Generic.List<NetworkObject> { skeletonPrefab, archerPrefab, ghoulPrefab, brutePrefab, necromancerPrefab, wraithPrefab,
+                shieldbearerPrefab, mimicPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab };
+            if (bossPrefabs != null) all.AddRange(bossPrefabs);
+            foreach (var p in all) if (p != null && p.TryGetComponent<EnemyBrain>(out var b)) yield return b;
+        }
         [SerializeField] private NetworkObject dummyPrefab;
 
         /// <summary>x = nonce (the seed, for floors), y = depth; -1 is the lobby.</summary>

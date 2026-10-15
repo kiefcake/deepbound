@@ -27,6 +27,12 @@ namespace Deepbound.Enemies
     {
         [Header("Stats (scaled by depth and party size at spawn)")]
         [SerializeField] protected float maxHealth = 75f;
+
+        /// <summary>Unscaled stats, for the balance report.</summary>
+        public float BaseHealth => maxHealth;
+        public float BaseDamage => damage;
+        public float BaseDefense => defense;
+        public float AttackCycle => windup + recovery;
         [SerializeField] protected float damage = 16f;
         [SerializeField] protected float defense = 2f;
 

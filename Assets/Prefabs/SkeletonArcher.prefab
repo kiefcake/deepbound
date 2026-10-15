@@ -183,7 +183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.ArcherBrain
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 50
+  maxHealth: 60
   damage: 14
   defense: 2
   moveSpeed: 3.2

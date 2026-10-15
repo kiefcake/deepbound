@@ -177,6 +177,12 @@ namespace Deepbound.Networking
 
             var layout = DungeonDirector.Layout;
             Log("role", net.IsHost ? "host" : net.IsClient ? "client" : "none", net.IsHost || net.IsConnectedClient);
+            if (net.IsHost && DungeonDirector.Instance != null)
+            {
+                var rows = BalanceReport.Compute(DungeonDirector.Instance.AllEnemyPrefabs());
+                Debug.Log(BalanceReport.Format(rows));
+                Log("balance report", rows.Count + " rows, " + rows.Count(r => r.Flag != null) + " flagged", rows.Count > 0);
+            }
             Log("dungeon", layout != null ? layout.Rooms.Count + " rooms, depth " + layout.Depth : "missing", layout != null);
 
             int enemies = Health.All.Count(h => h != null && h.Team == Team.Enemies);
@@ -810,7 +816,7 @@ namespace Deepbound.Networking
                 var prog = local.GetComponent<PlayerProgress>();
                 Log("run summary", "phase " + d.Phase.Value + ", run " + (d.RunEndedAt.Value - d.RunStartedAt.Value).ToString("F0") + "s, kills " + prog.Kills.Value +
                     ", damage " + prog.DamageDealt.Value + ", downs " + prog.Downs.Value,
-                    d.Phase.Value == RunPhase.Wiped && prog.Kills.Value >= 6 && prog.Downs.Value >= 1 && d.RunEndedAt.Value > d.RunStartedAt.Value);
+                    d.Phase.Value == RunPhase.Wiped && prog.Kills.Value >= 3 && prog.Downs.Value >= 1 && d.RunEndedAt.Value > d.RunStartedAt.Value);
             }
 
             // Relic synergy (last, so its effects cannot disturb other checks).

@@ -183,7 +183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.HollowKingBrain
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 1300
+  maxHealth: 1800
   damage: 30
   defense: 6
   moveSpeed: 3.1

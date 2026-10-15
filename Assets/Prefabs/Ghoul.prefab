@@ -183,7 +183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.GhoulBrain
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 42
+  maxHealth: 55
   damage: 11
   defense: 0
   moveSpeed: 5.4

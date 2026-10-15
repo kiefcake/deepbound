@@ -288,13 +288,13 @@ namespace Deepbound.EditorTools
                 case EnemyType.Archer:
                     // Fragile and slow to fire, but it hurts from range: kill it first.
                     Kind(Art.CharacterArt.SkeletonKind.Archer);
-                    Set("maxHealth", 50f); Set("damage", 14f); Set("attackRange", 15f); Set("windup", 1.0f);
+                    Set("maxHealth", 60f); Set("damage", 14f); Set("attackRange", 15f); Set("windup", 1.0f);
                     Set("recovery", 1.5f); Set("aggroRange", 17f); Set("moveSpeed", 3.2f);
                     break;
                 case EnemyType.Ghoul:
                     // Fast and fragile, in pairs. Dies to anything; dangerous in numbers.
                     Kind(Art.CharacterArt.SkeletonKind.Ghoul);
-                    Set("maxHealth", 42f); Set("damage", 11f); Set("defense", 0f); Set("moveSpeed", 5.4f);
+                    Set("maxHealth", 55f); Set("damage", 11f); Set("defense", 0f); Set("moveSpeed", 5.4f);
                     Set("attackRange", 1.8f); Set("windup", 0.35f); Set("recovery", 0.6f); Set("aggroRange", 15f);
                     break;
                 case EnemyType.Plaguebearer:
@@ -353,23 +353,23 @@ namespace Deepbound.EditorTools
                     break;
                 case EnemyType.Gravewarden:
                     Kind(Art.CharacterArt.SkeletonKind.Gravewarden);
-                    Set("maxHealth", 1100f); Set("damage", 26f); Set("defense", 4f); Set("moveSpeed", 2.9f);
+                    Set("maxHealth", 1450f); Set("damage", 26f); Set("defense", 4f); Set("moveSpeed", 2.9f);
                     Set("attackRange", 3.6f); Set("recovery", 1.2f); Set("aggroRange", 20f); Set("leashRange", 60f);
                     break;
                 case EnemyType.TideLich:
                     // Squishier than the others; the difficulty is catching it.
                     Kind(Art.CharacterArt.SkeletonKind.Lich);
-                    Set("maxHealth", 950f); Set("damage", 18f); Set("defense", 2f); Set("moveSpeed", 3.4f);
+                    Set("maxHealth", 1750f); Set("damage", 18f); Set("defense", 2f); Set("moveSpeed", 3.4f);
                     Set("attackRange", 2.8f); Set("recovery", 1.0f); Set("aggroRange", 22f); Set("leashRange", 60f);
                     break;
                 case EnemyType.Cardinal:
                     Kind(Art.CharacterArt.SkeletonKind.Cardinal);
-                    Set("maxHealth", 1550f); Set("damage", 32f); Set("defense", 6f); Set("moveSpeed", 2.9f);
+                    Set("maxHealth", 2150f); Set("damage", 32f); Set("defense", 6f); Set("moveSpeed", 2.9f);
                     Set("attackRange", 3.4f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 60f);
                     break;
                 case EnemyType.HollowKing:
                     Kind(Art.CharacterArt.SkeletonKind.King);
-                    Set("maxHealth", 1300f); Set("damage", 30f); Set("defense", 6f); Set("moveSpeed", 3.1f);
+                    Set("maxHealth", 1800f); Set("damage", 30f); Set("defense", 6f); Set("moveSpeed", 3.1f);
                     Set("attackRange", 3.5f); Set("recovery", 1.1f); Set("aggroRange", 20f); Set("leashRange", 60f);
                     break;
             }
