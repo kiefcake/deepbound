@@ -1062,6 +1062,7 @@ namespace Deepbound.UI
             if (brain != null && brain.AffixKind != EliteAffix.None) Tag(EliteAffixes.Tag(brain.AffixKind), EliteAffixes.Hex(brain.AffixKind));
             if (brain is WraithBrain wr && !wr.Pinned) Tag("ETHEREAL", "8FA8D0");
             if (brain is ShieldbearerBrain shieldB && shieldB.ShieldUp) Tag("SHIELDED", "C8B48C");
+            if (brain is GargoyleBrain garg && !garg.Woken.Value) return "";
             if (DungeonDirector.InRitualWard(brain != null ? brain.transform.position : hp.transform.position)) Tag("RITUAL WARD", "B266FF");
             if (hp.Chilled.Value) Tag("CHILL", "8CD9FF");
             if (hp.Marked.Value) Tag("MARK", "FF5A4D");

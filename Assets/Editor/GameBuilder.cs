@@ -61,6 +61,7 @@ namespace Deepbound.EditorTools
             var shieldbearer = BuildEnemyPrefab("Shieldbearer", EnemyType.Shieldbearer, loot);
             var mimic = BuildEnemyPrefab("Mimic", EnemyType.Mimic, loot);
             var hoarder = BuildEnemyPrefab("BoneHoarder", EnemyType.Hoarder, loot);
+            var gargoyle = BuildEnemyPrefab("Gargoyle", EnemyType.Gargoyle, loot);
             var dummy = BuildDummyPrefab();
             var chest = BuildObjectPrefab<Chest>("Chest", new Vector3(1.1f, 0.8f, 0.7f));
             var altar = BuildObjectPrefab<BloodAltar>("BloodAltar", new Vector3(1.4f, 0.9f, 1.0f));
@@ -93,6 +94,7 @@ namespace Deepbound.EditorTools
             dso.FindProperty("shieldbearerPrefab").objectReferenceValue = shieldbearer.GetComponent<NetworkObject>();
             dso.FindProperty("mimicPrefab").objectReferenceValue = mimic.GetComponent<NetworkObject>();
             dso.FindProperty("hoarderPrefab").objectReferenceValue = hoarder.GetComponent<NetworkObject>();
+            dso.FindProperty("gargoylePrefab").objectReferenceValue = gargoyle.GetComponent<NetworkObject>();
             dso.FindProperty("crackedWallPrefab").objectReferenceValue = crackedWall.GetComponent<NetworkObject>();
             dso.FindProperty("diceTablePrefab").objectReferenceValue = diceTable.GetComponent<NetworkObject>();
             dso.FindProperty("cofferPrefab").objectReferenceValue = coffer.GetComponent<NetworkObject>();
@@ -105,7 +107,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, shieldbearer, mimic, hoarder, fateWheel, bountyNotice);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -213,7 +215,7 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle }
 
         private static GameObject BuildEnemyPrefab(string name, EnemyType type, GameObject loot)
         {
@@ -253,6 +255,7 @@ namespace Deepbound.EditorTools
                 case EnemyType.Shieldbearer: brain = root.AddComponent<ShieldbearerBrain>(); break;
                 case EnemyType.Mimic: brain = root.AddComponent<MimicBrain>(); break;
                 case EnemyType.Hoarder: brain = root.AddComponent<HoarderBrain>(); break;
+                case EnemyType.Gargoyle: brain = root.AddComponent<GargoyleBrain>(); break;
                 default: brain = root.AddComponent<EnemyBrain>(); break;
             }
 
@@ -274,6 +277,11 @@ namespace Deepbound.EditorTools
                     Kind(Art.CharacterArt.SkeletonKind.Ghoul);
                     Set("maxHealth", 42f); Set("damage", 11f); Set("defense", 0f); Set("moveSpeed", 5.4f);
                     Set("attackRange", 1.8f); Set("windup", 0.35f); Set("recovery", 0.6f); Set("aggroRange", 15f);
+                    break;
+                case EnemyType.Gargoyle:
+                    Kind(Art.CharacterArt.SkeletonKind.Gargoyle);
+                    Set("maxHealth", 210f); Set("damage", 20f); Set("defense", 4f); Set("moveSpeed", 4.2f);
+                    Set("attackRange", 2.2f); Set("windup", 0.55f); Set("recovery", 1f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Hoarder:
                     // Quick, fragile-ish, never fights: a chase.

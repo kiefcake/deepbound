@@ -584,7 +584,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -595,6 +595,7 @@ namespace Deepbound.Art
         {
             if (kind == SkeletonKind.Wraith) return BuildWraith(root);
             if (kind == SkeletonKind.Mimic) return BuildMimic(root);
+            if (kind == SkeletonKind.Gargoyle) return BuildGargoyle(root);
             bool king = kind == SkeletonKind.King;
             float s = king ? 1.75f : kind == SkeletonKind.Gravewarden ? 2.0f : kind == SkeletonKind.Lich ? 1.45f : kind == SkeletonKind.Cardinal ? 1.7f
                 : kind == SkeletonKind.Brute ? 1.45f : kind == SkeletonKind.Ghoul ? 0.92f : kind == SkeletonKind.Necromancer ? 1.05f : 1f;
@@ -1095,6 +1096,65 @@ namespace Deepbound.Art
 
             rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
             rig.StrideLength = 1.4f;
+            return rig;
+        }
+
+        /// <summary>
+        /// A Gargoyle: hunched grey stone, a horned snouted head, long clawed arms and great
+        /// bat wings folded at its back. Its eyes are coals that only light when it wakes.
+        /// </summary>
+        private static HumanoidRig BuildGargoyle(Transform root)
+        {
+            var stone = new Color(0.58f, 0.58f, 0.62f);
+            var visual = MeshKit.Pivot(root, "GargoyleVisual", Vector3.zero);
+            var rig = visual.gameObject.AddComponent<HumanoidRig>();
+            rig.GlowColor = new Color(1f, 0.3f, 0.12f);
+            Renderer Stone(GameObject g) { var r = g.GetComponent<Renderer>(); ArtLibrary.Tint(r, stone); return r; }
+
+            rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.75f, 0f));
+            Stone(MeshKit.Part(rig.Hips, "Pelvis", MeshKit.Box(new Vector3(0.42f, 0.25f, 0.3f)), Mat.Bone, Vector3.zero));
+            rig.LegL = MeshKit.Pivot(rig.Hips, "LegL", new Vector3(-0.16f, 0f, 0f));
+            rig.LegR = MeshKit.Pivot(rig.Hips, "LegR", new Vector3(0.16f, 0f, 0f));
+            foreach (var leg in new[] { rig.LegL, rig.LegR })
+            {
+                // Digitigrade: thigh forward, shin back, a clawed foot.
+                Stone(MeshKit.Part(leg, "Thigh", MeshKit.Box(new Vector3(0.16f, 0.38f, 0.18f)), Mat.Bone, new Vector3(0f, -0.15f, 0.08f), new Vector3(-30f, 0f, 0f)));
+                Stone(MeshKit.Part(leg, "Shin", MeshKit.Box(new Vector3(0.12f, 0.38f, 0.12f)), Mat.Bone, new Vector3(0f, -0.48f, 0.02f), new Vector3(25f, 0f, 0f)));
+                Stone(MeshKit.Part(leg, "Foot", MeshKit.Box(new Vector3(0.16f, 0.06f, 0.26f)), Mat.Bone, new Vector3(0f, -0.72f, 0.1f)));
+            }
+            rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", new Vector3(0f, 0.1f, 0f));
+            Stone(MeshKit.Part(rig.Torso, "Chest", MeshKit.Box(new Vector3(0.55f, 0.5f, 0.38f)), Mat.Bone, new Vector3(0f, 0.3f, 0.06f), new Vector3(20f, 0f, 0f)));
+            Stone(MeshKit.Part(rig.Torso, "Hump", MeshKit.Ball(0.25f, 8, 6), Mat.Bone, new Vector3(0f, 0.5f, -0.1f)));
+            // Wings: two pivots on the back, each a fan of thin stone vanes.
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var wing = MeshKit.Pivot(rig.Torso, s < 0 ? "WingL" : "WingR", new Vector3(s * 0.18f, 0.55f, -0.18f));
+                Stone(MeshKit.Part(wing, "Bone", MeshKit.Box(new Vector3(0.9f, 0.07f, 0.07f)), Mat.Bone, new Vector3(s * 0.45f, 0.15f, -0.05f), new Vector3(0f, 0f, s * 25f)));
+                for (int i = 0; i < 3; i++)
+                    Stone(MeshKit.Part(wing, "Vane" + i, MeshKit.Box(new Vector3(0.32f, 0.6f - i * 0.12f, 0.02f)), Mat.Bone,
+                        new Vector3(s * (0.25f + i * 0.28f), -0.05f - i * 0.06f, -0.06f), new Vector3(0f, 0f, s * (10f - i * 12f))));
+                wing.localRotation = Quaternion.Euler(0f, s * 20f, s * -25f);
+            }
+            rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.62f, 0.22f));
+            Stone(MeshKit.Part(rig.Head, "Skull", MeshKit.Box(new Vector3(0.28f, 0.24f, 0.28f)), Mat.Bone, new Vector3(0f, 0.08f, 0f)));
+            Stone(MeshKit.Part(rig.Head, "Snout", MeshKit.Box(new Vector3(0.18f, 0.12f, 0.2f)), Mat.Bone, new Vector3(0f, 0.02f, 0.2f)));
+            foreach (float s in new[] { -1f, 1f })
+                Stone(MeshKit.Part(rig.Head, "Horn", MeshKit.Lathe("gargHorn", new[] { new Vector2(0.05f, 0f), new Vector2(0f, 0.28f) }, 5), Mat.Bone,
+                    new Vector3(s * 0.1f, 0.2f, -0.05f), new Vector3(-35f, 0f, s * -25f)));
+            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.03f, 6, 4), Mat.Glow, new Vector3(-0.07f, 0.12f, 0.145f));
+            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.03f, 6, 4), Mat.Glow, new Vector3(0.07f, 0.12f, 0.145f));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var arm = MeshKit.Pivot(rig.Torso, s < 0 ? "ArmL" : "ArmR", new Vector3(s * 0.32f, 0.45f, 0.08f));
+                Stone(MeshKit.Part(arm, "Upper", MeshKit.Box(new Vector3(0.14f, 0.42f, 0.14f)), Mat.Bone, new Vector3(0f, -0.21f, 0f)));
+                Stone(MeshKit.Part(arm, "Fore", MeshKit.Box(new Vector3(0.12f, 0.4f, 0.12f)), Mat.Bone, new Vector3(0f, -0.58f, 0.04f)));
+                for (int f = 0; f < 3; f++)
+                    Stone(MeshKit.Part(arm, "Claw" + f, MeshKit.Lathe("gargClaw", new[] { new Vector2(0.025f, 0f), new Vector2(0f, 0.14f) }, 4), Mat.Bone,
+                        new Vector3((f - 1) * 0.04f, -0.8f, 0.06f), new Vector3(160f, 0f, (f - 1) * 10f)));
+                if (s < 0) rig.ArmL = arm; else rig.ArmR = arm;
+            }
+            rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
+            rig.StrideLength = 1.3f;
             return rig;
         }
 

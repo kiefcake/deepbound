@@ -53,6 +53,7 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject shieldbearerPrefab;
         [SerializeField] private NetworkObject mimicPrefab;
         [SerializeField] private NetworkObject hoarderPrefab;
+        [SerializeField] private NetworkObject gargoylePrefab;
         [SerializeField] private NetworkObject fateWheelPrefab;
         [SerializeField] private NetworkObject bountyNoticePrefab;
 
@@ -510,9 +511,26 @@ namespace Deepbound.World
             // One champion per floor: a named elite in a combat room, guarding a hoard.
             var candidates = new System.Collections.Generic.List<EnemyBrain>();
             foreach (var o in spawned)
-                if (o != null && o.TryGetComponent<EnemyBrain>(out var cb) && !(cb is BossBrain) && !(cb is HoarderBrain) && !(cb is WraithBrain) &&
+                if (o != null && o.TryGetComponent<EnemyBrain>(out var cb) && !(cb is BossBrain) && !(cb is HoarderBrain) && !(cb is WraithBrain) && !(cb is GargoyleBrain) &&
                     layout.RoomAt(o.transform.position)?.Kind == RoomKind.Combat) candidates.Add(cb);
             if (candidates.Count > 0) candidates[UnityEngine.Random.Range(0, candidates.Count)].ServerMakeChampion();
+
+            // From the second floor down, some of the statues by the walls are not statues.
+            if (gargoylePrefab != null && layout.Depth >= 1)
+            {
+                var grng = new System.Random(layout.Seed ^ 0x6a76);
+                foreach (var room in layout.Rooms)
+                {
+                    if (room.Kind != RoomKind.Combat || IsAmbushRoom(room) || grng.NextDouble() > 0.4) continue;
+                    var gat = WallSpot(room, grng);
+                    var face = room.Center - gat;
+                    face.y = 0f;
+                    if (NavMesh.SamplePosition(gat, out var ghit, 2f, NavMesh.AllAreas)) gat = ghit.position;
+                    var gobj = Spawn(gargoylePrefab, gat, Quaternion.LookRotation(face));
+                    gobj.GetComponent<EnemyBrain>().ServerScale(players, layout.Depth);
+                    spawned.Add(gobj);
+                }
+            }
 
             // Now and then, a Bone Hoarder in one of the combat rooms: a chase for gold.
             var combatRooms = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && !IsAmbushRoom(r) && r.EnemySpawns.Count > 0);

@@ -129,6 +129,7 @@ namespace Deepbound.UI
             foreach (var hp in Health.All)
             {
                 if (hp == null || hp.Team != Team.Enemies || !hp.IsAlive) continue;
+                if (hp.TryGetComponent<Enemies.GargoyleBrain>(out var stone) && !stone.Woken.Value) continue;
                 if (Vector3.Distance(hp.transform.position, player.transform.position) > RadarRange) continue;
                 bool boss = hp.GetComponent<Enemies.BossBrain>() != null;
                 Dot(ToMap(hp.transform.position), boss ? new Color(1f, 0.2f, 0.15f) : new Color(0.85f, 0.25f, 0.2f), boss ? 9f : 5f);
