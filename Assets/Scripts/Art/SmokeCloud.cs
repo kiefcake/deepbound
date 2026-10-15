@@ -52,7 +52,7 @@ namespace Deepbound.Art
         {
             age += Time.deltaTime;
             var lp = Player.NetworkPlayer.Local;
-            var cam = lp != null && lp.Camera != null ? lp.Camera.transform : (Camera.main != null ? Camera.main.transform : null);
+            var cam = lp != null && lp.Camera != null ? lp.Camera.transform : (ViewCamera.Current != null ? ViewCamera.Current.transform : null);
             // Billows out fast, holds, then thins over the last second.
             float grow = Mathf.Clamp01(age / 0.35f);
             float fade = Mathf.Clamp01((life + 1f - age) / 1.2f);

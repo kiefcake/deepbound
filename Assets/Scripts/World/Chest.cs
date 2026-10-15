@@ -62,7 +62,7 @@ namespace Deepbound.World
                 {
                     nextBreath = Time.time + Random.Range(5f, 9f);
                     breathUntil = Time.time + 0.9f;
-                    var cam = Camera.main;
+                    var cam = Art.ViewCamera.Current;
                     if (cam != null && Vector3.Distance(cam.transform.position, transform.position) < 12f)
                         Sfx.Play(Sound.Whisper, transform.position + Vector3.up * 0.6f, 0.5f, 0.45f);
                 }

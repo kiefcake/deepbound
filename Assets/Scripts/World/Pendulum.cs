@@ -90,7 +90,7 @@ namespace Deepbound.World
             if (Mathf.Abs(a) < 8f && Time.time - lastWhoosh > Period * 0.4f)
             {
                 lastWhoosh = Time.time;
-                var cam = Camera.main;
+                var cam = Art.ViewCamera.Current;
                 if (cam != null && Vector3.Distance(cam.transform.position, pivot) < 22f)
                     Sfx.Play(Sound.Swing, pivot + Vector3.down * arm, 0.5f, 0.55f);
             }

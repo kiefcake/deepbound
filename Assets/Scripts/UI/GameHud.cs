@@ -151,6 +151,7 @@ namespace Deepbound.UI
             // Only meaningful heals (not regen ticks), and only on the party.
             if (target == null || amount < 4f || target.Team != Team.Players) return;
             var jitter = new Vector3(Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f));
+            if (!Settings.DamageNumbers) return;
             numbers.Add(new DamageNumber { World = target.Center + Vector3.up * (target.CenterHeight + 0.3f) + jitter, Amount = amount, Time = Time.time, Heal = true });
             if (numbers.Count > 40) numbers.RemoveAt(0);
         }
@@ -164,6 +165,7 @@ namespace Deepbound.UI
             // Your own damage shows on your vitals; teammates' and enemies' float.
             if (mine) return;
             var jitter = new Vector3(Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f));
+            if (!Settings.DamageNumbers) return;
             numbers.Add(new DamageNumber { World = target.Center + Vector3.up * (target.CenterHeight + 0.2f) + jitter, Amount = amount, Time = Time.time, Player = target.Team == Team.Players });
             if (numbers.Count > 40) numbers.RemoveAt(0);
         }
@@ -309,6 +311,18 @@ namespace Deepbound.UI
             GUI.Label(new Rect(22, 35, 320, 20), line, new GUIStyle(small) { normal = { textColor = col } });
         }
 
+        private float fpsSmoothed = 60f;
+
+        /// <summary>Optional frame-rate readout under the minimap (Options).</summary>
+        private void DrawFps(float w)
+        {
+            fpsSmoothed = Mathf.Lerp(fpsSmoothed, 1f / Mathf.Max(0.0001f, Time.unscaledDeltaTime), 0.05f);
+            if (!Settings.ShowFps) return;
+            var c = fpsSmoothed >= 55f ? new Color(0.6f, 1f, 0.6f) : fpsSmoothed >= 30f ? new Color(1f, 0.85f, 0.4f) : new Color(1f, 0.4f, 0.35f);
+            GUI.Label(new Rect(w - 220, 248, 206, 20), Mathf.RoundToInt(fpsSmoothed) + " fps  (" + (1000f / fpsSmoothed).ToString("F1") + " ms)",
+                new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = c } });
+        }
+
         private void DrawLobby(float w, float h)
         {
             var director = DungeonDirector.Instance;
@@ -357,6 +371,7 @@ namespace Deepbound.UI
         private void Update()
         {
             hurtFlash = Mathf.MoveTowards(hurtFlash, 0f, Time.deltaTime * 1.5f);
+            Tips.Check(player);
 
             var keyboard = Keyboard.current;
             bool near = NearMerchant();
@@ -443,6 +458,8 @@ namespace Deepbound.UI
             DrawFeed(h);
             DrawForge(w, h);
                 DrawMerchant(w, h);
+            DrawFps(w);
+            Tips.Draw(w, h);
             DrawContract();
             DrawLobby(w, h);
             if (statsHeld) DrawStatSheet(w, h);

@@ -80,7 +80,7 @@ namespace Deepbound.UI
                 DrawGuide(w, h);
                 return;
             }
-            var area = new Rect(w / 2f - 180, h / 2f - 200, 360, 410);
+            var area = options ? new Rect(w / 2f - 190, h / 2f - 290, 380, 590) : new Rect(w / 2f - 180, h / 2f - 200, 360, 410);
             UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
             GUILayout.BeginArea(area);
             GUILayout.Label(options ? "OPTIONS" : "PAUSED", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
@@ -96,6 +96,15 @@ namespace Deepbound.UI
                 GUILayout.Space(10);
                 GUILayout.Label("Field of view  " + Mathf.RoundToInt(Settings.FieldOfView), UiSkin.Body);
                 Settings.FieldOfView = GUILayout.HorizontalSlider(Settings.FieldOfView, 60f, 100f);
+                GUILayout.Space(10);
+                GUILayout.Label("Screen shake  " + Mathf.RoundToInt(Settings.ShakeScale * 100f) + "%", UiSkin.Body);
+                Settings.ShakeScale = GUILayout.HorizontalSlider(Settings.ShakeScale, 0f, 1.5f);
+                GUILayout.Space(8);
+                Settings.DamageNumbers = GUILayout.Toggle(Settings.DamageNumbers, "  Damage numbers", UiSkin.Body);
+                Settings.ReduceFlashing = GUILayout.Toggle(Settings.ReduceFlashing, "  Reduce flashing effects", UiSkin.Body);
+                Settings.ShowTips = GUILayout.Toggle(Settings.ShowTips, "  Show tips", UiSkin.Body);
+                Settings.ShowFps = GUILayout.Toggle(Settings.ShowFps, "  Show frame rate", UiSkin.Body);
+                if (GUILayout.Button("Show all tips again", UiSkin.Button, GUILayout.Height(30))) Settings.ResetTips();
                 var cam = Player.NetworkPlayer.Local != null ? Player.NetworkPlayer.Local.Camera : null;
                 if (cam != null) cam.fieldOfView = Settings.FieldOfView;
                 GUILayout.Space(18);

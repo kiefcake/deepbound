@@ -83,7 +83,7 @@ namespace Deepbound.World
             ArtLibrary.SetGlow(vents, lit ? new Color(0.9f, 0.25f, 0.05f) * 0.8f : warn ? new Color(1f, 0.3f, 0.1f) * (0.6f + 0.6f * Mathf.Sin(Time.time * 30f)) : new Color(0.3f, 0.08f, 0.02f));
             if (lit && !wasLit)
             {
-                var cam = Camera.main;
+                var cam = Art.ViewCamera.Current;
                 if (cam != null && Vector3.Distance(cam.transform.position, transform.position) < 18f)
                     Sfx.Play(Sound.Fire, transform.position + Vector3.up, 0.9f, 0.7f);
             }

@@ -46,6 +46,7 @@ namespace Deepbound.World
             if (theme.WaterDepth > 0f) BuildWater(layout, root.transform);
 
             ApplyAtmosphere(theme);
+            root.AddComponent<LightBudget>();
             return root;
         }
 

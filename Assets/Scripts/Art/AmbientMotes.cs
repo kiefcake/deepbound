@@ -16,7 +16,7 @@ namespace Deepbound.Art
         {
             if (Time.time < next) return;
             next = Time.time + 0.06f;
-            var cam = Camera.main;
+            var cam = ViewCamera.Current;
             if (cam == null) return;
             var d = World.DungeonDirector.Layout;
             Color c;

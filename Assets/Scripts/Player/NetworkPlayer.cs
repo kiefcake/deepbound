@@ -313,7 +313,7 @@ namespace Deepbound.Player
             // Damage shake: a brief, decaying jitter on the camera — felt more than seen.
             shake = Mathf.MoveTowards(shake, 0f, Time.deltaTime * 2.5f);
             var cam = playerCamera.transform;
-            cam.localPosition = shake > 0f ? Random.insideUnitSphere * shake * 0.06f : Vector3.zero;
+            cam.localPosition = shake > 0f ? Random.insideUnitSphere * shake * 0.06f * Settings.ShakeScale : Vector3.zero;
         }
 
         // ------------------------------------------------------------------

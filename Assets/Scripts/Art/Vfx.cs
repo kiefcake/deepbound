@@ -103,6 +103,7 @@ namespace Deepbound.Art
         /// <summary>A short-lived point light that fades out (flashes, explosions).</summary>
         public static void Flash(Vector3 at, Color color, float intensity, float range, float life)
         {
+            if (UI.Settings.ReduceFlashing) intensity *= 0.35f;
             var go = new GameObject("VfxFlash");
             go.transform.position = at;
             var l = go.AddComponent<Light>();

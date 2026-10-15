@@ -19,7 +19,7 @@ namespace Deepbound.Art
         {
             if (Time.time < next) return;
             next = Time.time + 0.18f;
-            var cam = Camera.main;
+            var cam = ViewCamera.Current;
             if (cam == null || (cam.transform.position - transform.position).sqrMagnitude > 28f * 28f) return;
             var p = transform.position + new Vector3(Random.Range(-radius, radius) * 0.7f, Random.Range(0.3f, height * 0.75f), Random.Range(-radius, radius) * 0.7f);
             Vfx.Speck(p, color);

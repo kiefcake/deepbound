@@ -1336,6 +1336,10 @@ namespace Deepbound.Networking
 
         private static IEnumerator Shot(string dir, string name)
         {
+            // Frame-time budget: log what each staged view costs (60 fps = 16.7 ms).
+            Debug.Log("[Perf] " + name + " " + (Time.smoothDeltaTime * 1000f).ToString("F1") + " ms, " +
+                FindObjectsByType<Light>(FindObjectsSortMode.None).Count(l => l.enabled) + " lights on, " +
+                FindObjectsByType<Light>(FindObjectsSortMode.None).Count(l => l.enabled && l.shadows != LightShadows.None) + " shadowed");
             yield return new WaitForEndOfFrame();
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, name + ".png"));
             yield return null;
