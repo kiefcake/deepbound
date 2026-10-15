@@ -18,7 +18,7 @@ namespace Deepbound.UI
         private bool options, guide;
 
         /// <summary>For the screenshot run.</summary>
-        public static void DebugShowGuide(PauseMenu menu) { Open = true; menu.guide = true; }
+        public static void DebugShowGuide(PauseMenu menu, int page = 0) { Open = true; menu.guide = true; menu.guidePage = page; }
 
         // The Guide: every progression system and combo on one page, in plain words.
         private static readonly (string title, string body)[] GuideLeft =
@@ -27,15 +27,30 @@ namespace Deepbound.UI
             ("WEAPON PATHS", "At +2 your weapon chooses one of two paths, which changes how your class plays (a wider Cleave or a Riposte, Pyromancer or Cryomancer...). At +4 the path is mastered and gains a second effect."),
             ("SIGILS & ABILITY RANKS", "Sigils drop from elites and chests, and every boss drops one for each player. At the anvil, a Sigil ranks up Q or E: rank 2 is 30% stronger, rank 3 recharges a quarter faster and adds a twist."),
             ("RUNES", "Runes are weapon enchantments: chill, stun, mark, holy healing, burning kills, keen edges. Sockets open at +1 and +3; set them at the anvil."),
+            ("NOTHING CARRIES OVER", "Everything here lasts one run (only Renown and cosmetics from the tailor are kept). The camp is where you start again."),
         };
         private static readonly (string title, string body)[] GuideRight =
         {
-            ("GEAR", "Armour and a charm, rolled for each player - only you see your drops. F equips (your old piece is left in its place), X scraps it for embers. Deeper and finer pieces are stronger. At the anvil you can refine a piece's quality or attune it to a deeper floor, so a favourite keeps up. Each boss may drop its own Legendary piece: the Warden's Bulwark, the Lich's Phylactery, the Crown of the Hollow King."),
+            ("GEAR", "Armour and a charm, rolled for each player - only you see your drops. F equips (your old piece is left in its place), X scraps it for embers. Deeper and finer pieces are stronger. At the anvil you can refine a piece's quality or attune it to a deeper floor, so a favourite keeps up. Each boss may drop its own Legendary piece: the Warden's Bulwark, the Lich's Phylactery, the Crown of the Hollow King, the Pale Cardinal's Vestments."),
             ("RELICS", "Rare powers, one of each per player. Found on elites, in chests, from bosses, and sold by the merchant."),
             ("COMBOS", "Classes set each other up. Chill + a heavy hit = SHATTER. Stunned enemies are EXPOSED (+25% for all). Taunted enemies are DISTRACTED (+15%). Allies in Consecrate are BLESSED (+20%); the Cleric's beam target is INSPIRED (+15%). Allies in a Rogue's smoke are hidden (SMOKE SCREEN). A broken Aegis shield BURSTS. A marked enemy's mark SPREADS when it dies. Tags over enemies show what is ready to cash in."),
-            ("ELITES", "Gold-ringed elites carry an affix. WARDED: barely hurt until stunned or chilled. VAMPIRIC: heals from its hits - a Mark stops it. VOLATILE: bursts after death, get clear. SWIFT: fast; chill slows it. WRAITHS are ETHEREAL: most damage passes through them until they are chilled, stunned, marked or caught in Consecrate. SHIELDBEARERS block 85% from the front: flank them, or stun them to drop the shield. GARGOYLES: from floor 2, some statues are alive; nearly immune as stone, they wake when you come close, dive along a marked line, then land exposed. FLASKS (1/2/3): Fire burns an area, Frost chills (and freezes in water), Holy Water stuns the dead and mends allies. One satchel each run; more at the merchant. RELIC SYNERGIES: some pairs awaken more (Frost Charm + Winter's Tooth, Vampiric Fang + Blood Pact, Thunder Sigil + Echo Stone, Executioner's Coin + Berserker's Brand, Phoenix Feather + Heart of the Deep). OMENS: turn the Omen Stone by the carriage before a run: Blood Moon, Famine, Restless Dead or Glass Bones make it harder, pay something back, and earn 35% more Renown. CONTRACTS: take one notice at the camp's bounty board before boarding; fulfil it on the next floor for gold, embers and sometimes a Sigil each. WHEEL OF FATE: one spin per floor for the party: usually a gift, sometimes blood or an ambush. CRITS: hits sometimes deal 75% more (more often with DEX). KICK (V): every class can boot an enemy away (dodge while sprinting to slide, then kick, for a SLIDE KICK); kick them into chasms (they die), off balconies or into blades. CHAMPIONS: one named elite per floor, with a hoard. FLAME TRAPS in some corridors fire on a beat: time your run. MIMICS: some chests bite back (watch for a lid that breathes); kill one for a big haul. BONE HOARDERS flee with a sack of gold: every hit spills coins, and they escape after 25 s. ROOMS: pendulum blades cut enemies too (lure them in); smash a ritual chamber's violet braziers to lift its ward; frost freezes anything standing in cistern water; galleries and sunken courts reward high ground. FLOORS: Ossuary bone piles rise again unless stamped out; the Drowned Vaults' tide slows everyone on low ground; Hollow Throne soul lanterns heal and stun when smashed; the Black Cathedral's bell sends shockwaves to jump."),
-            ("NOTHING CARRIES OVER", "Everything above lasts one run. The camp is where you start again."),
+            ("ELITES", "Gold-ringed elites carry an affix. WARDED: barely hurt until stunned or chilled. VAMPIRIC: heals from its hits - a Mark stops it. VOLATILE: bursts after death, get clear. SWIFT: fast; chill slows it. One named CHAMPION per floor guards a hoard."),
         };
+
+        // Page two: the dungeon, its creatures and its tricks.
+        private static readonly (string title, string body)[] DungeonLeft =
+        {
+            ("EVERY CLASS", "R: your ultimate, charged by fighting. V: kick (dodge while sprinting to slide, then kick for a SLIDE KICK). 1 / 2 / 3: Fire, Frost and Holy flasks - one satchel each run, more at the merchant. Hits sometimes CRIT."),
+            ("THE DEAD", "WRAITHS are ethereal until chilled, stunned, marked or consecrated. SHIELDBEARERS block from the front: flank or stun them. GARGOYLES pose as statues from floor 2 and dive along a marked line. MIMICS breathe when you are not looking. BONE HOARDERS run with a sack of gold."),
+            ("ROOMS", "Kick the dead into chasms and pendulum blades. Smash a ritual chamber's violet braziers to lift its ward. Frost freezes anything standing in water. Balconies and pits reward high ground. Corridor flame traps fire on a beat."),
+        };
+        private static readonly (string title, string body)[] DungeonRight =
+        {
+            ("FLOORS", "Ossuary: stamp out bone piles before they rise. Drowned Vaults: get to high ground when the tide surges. Hollow Throne: smash soul lanterns to heal and stun. Black Cathedral: jump the bell's shockwave."),
+            ("AT CAMP", "Take a CONTRACT at the bounty board for the next floor. Turn the OMEN STONE before a run for a harder descent and more Renown. Spin the WHEEL OF FATE when you find one: it usually gives."),
+            ("RELIC SYNERGIES", "Some pairs awaken more: Frost Charm + Winter's Tooth, Vampiric Fang + Blood Pact, Thunder Sigil + Echo Stone, Executioner's Coin + Berserker's Brand, Phoenix Feather + Heart of the Deep."),
+        };
+        private int guidePage;
 
         /// <summary>Set by other menus each frame; Esc closes them rather than opening this.</summary>
         public static bool OtherMenuOpenLastFrame;
@@ -120,14 +135,14 @@ namespace Deepbound.UI
             float pw = Mathf.Min(980f, w - 60f), ph = Mathf.Min(600f, h - 60f);
             var panel = new Rect(w / 2f - pw / 2f, h / 2f - ph / 2f, pw, ph);
             UiSkin.Panel(panel, 0.96f);
-            GUI.Label(new Rect(panel.x, panel.y + 12, pw, 40), "GUIDE", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
+            GUI.Label(new Rect(panel.x, panel.y + 12, pw, 40), guidePage == 0 ? "GUIDE: PROGRESSION" : "GUIDE: THE DUNGEON", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
             float colW = (pw - 72f) / 2f;
             var titleStyle = new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, fontSize = 14, normal = { textColor = UiSkin.Gold } };
             var bodyStyle = new GUIStyle(UiSkin.Body) { fontSize = 14, wordWrap = true };
             for (int c = 0; c < 2; c++)
             {
                 float x = panel.x + 24 + c * (colW + 24), y = panel.y + 64;
-                foreach (var (title, body) in c == 0 ? GuideLeft : GuideRight)
+                foreach (var (title, body) in guidePage == 0 ? (c == 0 ? GuideLeft : GuideRight) : (c == 0 ? DungeonLeft : DungeonRight))
                 {
                     GUI.Label(new Rect(x, y, colW, 20), title, titleStyle);
                     float bh = bodyStyle.CalcHeight(new GUIContent(body), colW);
@@ -135,7 +150,8 @@ namespace Deepbound.UI
                     y += 20 + bh + 14;
                 }
             }
-            if (GUI.Button(new Rect(panel.x + pw / 2f - 90, panel.yMax - 56, 180, 40), "BACK", UiSkin.Button)) guide = false;
+            if (GUI.Button(new Rect(panel.x + pw / 2f - 280, panel.yMax - 56, 180, 40), guidePage == 0 ? "THE DUNGEON >" : "< PROGRESSION", UiSkin.Button)) guidePage = 1 - guidePage;
+            if (GUI.Button(new Rect(panel.x + pw / 2f + 100, panel.yMax - 56, 180, 40), "BACK", UiSkin.Button)) guide = false;
         }
     }
 }

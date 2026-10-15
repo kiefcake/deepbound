@@ -1216,6 +1216,9 @@ namespace Deepbound.Networking
             UI.PauseMenu.DebugShowGuide(local.GetComponent<UI.PauseMenu>() ?? FindFirstObjectByType<UI.PauseMenu>());
             yield return null;
             yield return Shot(dir, "9a_guide");
+            UI.PauseMenu.DebugShowGuide(local.GetComponent<UI.PauseMenu>() ?? FindFirstObjectByType<UI.PauseMenu>(), 1);
+            yield return null;
+            yield return Shot(dir, "9a_guide_dungeon");
             UI.PauseMenu.SetOpen(false);
 
             foreach (var p in PlayerLife.All) p.Health.ServerDamage(1e6f, p.transform.position);
