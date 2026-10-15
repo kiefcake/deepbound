@@ -326,6 +326,19 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     Log("kick into the abyss", "dead " + shoved.IsDead, shoved.IsDead);
                 }
+                // The Wheel of Fate: one spin, then it is spent.
+                var wheelT = FindObjectsByType<FateWheel>(FindObjectsSortMode.None).FirstOrDefault();
+                if (wheelT != null)
+                {
+                    fm.Teleport(wheelT.transform.position + wheelT.transform.forward * 2f + Vector3.up * 0.1f, Quaternion.LookRotation(-wheelT.transform.forward));
+                    yield return new WaitForSeconds(0.3f);
+                    wheelT.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(3f);
+                    Log("wheel of fate", "spun " + wheelT.Spun.Value + ", prompt now " + (wheelT.Prompt(local.GetComponent<PlayerProgress>()) ?? "none"), wheelT.Spun.Value);
+                    foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                        if (!(e is BossBrain) && Vector3.Distance(e.transform.position, wheelT.transform.position) < 8f) e.GetComponent<Health>().ServerDamage(1e6f, wheelT.transform.position);
+                    foreach (var pl in PlayerLife.All) { if (pl.Downed.Value) pl.ServerRevive(1f); pl.Health.ServerSetFraction(1f); }
+                }
                 Log("feature rooms", features, layout.Rooms.Any(r => r.Feature == RoomFeature.GreatHall) && layout.Rooms.Any(r => r.Feature == RoomFeature.Chasm));
 
                 var sarc = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None).FirstOrDefault(x => x.IsSpawned && x.HasOccupant && !x.Opened.Value && !x.Scheduled);
@@ -1056,6 +1069,15 @@ namespace Deepbound.Networking
                 motor.Teleport(cp, Quaternion.LookRotation(champ.transform.position - cp));
                 yield return new WaitForSeconds(0.6f);
                 yield return Shot(dir, "1k_champion");
+            }
+
+            var wheelS = FindObjectsByType<FateWheel>(FindObjectsSortMode.None).FirstOrDefault();
+            if (wheelS != null)
+            {
+                var wp = wheelS.transform.position + wheelS.transform.forward * 4.5f + Vector3.up * 0.1f;
+                motor.Teleport(wp, Quaternion.LookRotation(wheelS.transform.position + Vector3.up * 1.2f - wp - Vector3.up * 1.6f));
+                yield return new WaitForSeconds(0.6f);
+                yield return Shot(dir, "1l_wheel_of_fate");
             }
 
             // One look at each later floor's theme.

@@ -369,6 +369,7 @@ namespace Deepbound.World
                     if (burnedAt.TryGetValue(h, out float t) && Time.time - t < 0.5f) continue;
                     burnedAt[h] = Time.time;
                     h.ServerDamage(h.Team == Team.Players ? 10f + 4f * Layout.Depth : 35f + 10f * Layout.Depth, trap.At);
+                    if (!h.IsAlive && h.Team == Team.Enemies) EnvKillRpc(h.Center, 1);
                 }
             }
         }
@@ -402,6 +403,10 @@ namespace Deepbound.World
                 ground.point.y < from.y - 1.2f && NavMesh.SamplePosition(ground.point, out var land, 1.5f, NavMesh.AllAreas))
                 brain.ServerFallTo(land.position, (from.y - land.position.y) * 0.06f, by);
         }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void EnvKillRpc(Vector3 at, byte how) =>
+            UI.GameHud.ShowCombo(at + Vector3.up * 0.6f, how == 0 ? "SLICED" : "SCORCHED", how == 0 ? new Color(0.9f, 0.9f, 1f) : new Color(1f, 0.5f, 0.2f));
 
         [Rpc(SendTo.ClientsAndHost)]
         private void AbyssFxRpc(Vector3 at)
@@ -445,6 +450,7 @@ namespace Deepbound.World
                         {
                             h.ServerDamage(80f + 25f * Layout.Depth, blade);
                             if (h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerKnockback(push * 9f);
+                            if (!h.IsAlive) EnvKillRpc(h.Center, 0);
                         }
                         BladeHitFxRpc(h.Center);
                     }

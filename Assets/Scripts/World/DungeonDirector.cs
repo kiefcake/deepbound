@@ -53,6 +53,30 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject shieldbearerPrefab;
         [SerializeField] private NetworkObject mimicPrefab;
         [SerializeField] private NetworkObject hoarderPrefab;
+        [SerializeField] private NetworkObject fateWheelPrefab;
+
+        /// <summary>Server: a pack of the floor's dead around a point (the Wheel's cruel turn).</summary>
+        public void ServerSpawnPack(Vector3 around, int count, bool elite)
+        {
+            if (Layout == null) return;
+            int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
+            var theme = DungeonTheme.ForDepth(Layout.Depth);
+            bool brute = true, necro = true;
+            var points = new System.Collections.Generic.List<Vector3>();
+            for (int i = 0; i < count; i++)
+            {
+                var at = around + Quaternion.Euler(0f, i * 360f / count, 0f) * Vector3.forward * 2.5f;
+                if (NavMesh.SamplePosition(at, out var hit, 3f, NavMesh.AllAreas)) at = hit.position;
+                var obj = Spawn(PickEnemy(Layout.Depth, theme, ref brute, ref necro, out int _), at, Quaternion.identity);
+                var brain = obj.GetComponent<EnemyBrain>();
+                brain.ServerScale(players, Layout.Depth);
+                if (brain is NecromancerBrain nb) nb.SetMinionPrefab(skeletonPrefab);
+                if (elite && i == 0) brain.ServerMakeElite();
+                spawned.Add(obj);
+                points.Add(at);
+            }
+            RiseFxRpc(points.ToArray());
+        }
 
         /// <summary>Server: a mimic chest was reached for — it becomes the Mimic, and bites.</summary>
         public void ServerSpringMimic(Chest chest, Combat.Health victim)
@@ -512,6 +536,13 @@ namespace Deepbound.World
                 if (combat.Count > 0) altarRoom = combat[rng.Next(combat.Count)];
             }
 
+            DungeonLayout.Room wheelRoom = null;
+            if (fateWheelPrefab != null && (rng.NextDouble() < 0.55 || TestMode))
+            {
+                var pool = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && r != altarRoom && r.Feature != RoomFeature.Chasm && r.Feature != RoomFeature.Crypt);
+                if (pool.Count > 0) wheelRoom = pool[rng.Next(pool.Count)];
+            }
+
             foreach (var room in layout.Rooms)
             {
                 if (room.Kind == RoomKind.Side && chestPrefab != null)
@@ -523,6 +554,28 @@ namespace Deepbound.World
                     // Some chests are hungry. Fewer on the first floor.
                     if (mimicPrefab != null && !TestMode && rng.NextDouble() < (layout.Depth == 0 ? 0.12 : 0.2)) chest.GetComponent<Chest>().Mimic.Value = true;
                     chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
+                }
+
+                if (room == wheelRoom)
+                {
+                    // Against a wall with no door, facing in; failing that, across a corner.
+                    bool placed = false;
+                    for (int side = 0; side < 4 && !placed; side++)
+                    {
+                        if (room.Doors[side] || room.HoleOn(side) != null || room.Balconies.Contains(side)) continue;
+                        var d = DungeonLayout.Dir[side];
+                        var outward = new Vector3(d.x, 0f, d.y);
+                        float half = (side == 0 || side == 2 ? room.Size.y : room.Size.x) / 2f;
+                        Spawn(fateWheelPrefab, room.Center + outward * (half - 0.7f), Quaternion.LookRotation(-outward));
+                        placed = true;
+                    }
+                    if (!placed)
+                    {
+                        var corner = room.Center + new Vector3(room.Size.x / 2f - 2.2f, 0f, room.Size.y / 2f - 2.2f);
+                        var face = room.Center - corner;
+                        face.y = 0f;
+                        Spawn(fateWheelPrefab, corner, Quaternion.LookRotation(face));
+                    }
                 }
 
                 if (room == altarRoom)

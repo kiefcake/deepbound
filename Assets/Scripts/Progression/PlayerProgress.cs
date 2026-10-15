@@ -509,6 +509,13 @@ namespace Deepbound.Progression
         }
 
         [Rpc(SendTo.ClientsAndHost)]
+        public void CritFxRpc(Vector3 at)
+        {
+            UI.GameHud.ShowCombo(at, "CRIT", new Color(1f, 0.55f, 0.15f));
+            if (IsOwner) Art.Sfx.Play(Art.Sound.Hit, at, 0.9f, 0.7f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
         public void WraithNovaFxRpc(Vector3 at)
         {
             var ghost = new Color(0.55f, 0.75f, 1f);

@@ -42,6 +42,12 @@ namespace Deepbound.Loot
             if (p.HasRelic(Relic.ExecutionersCoin) && target.Fraction < 0.3f) m *= 1.5f;
             if (p.HasRelic(Relic.WintersTooth) && target.Chilled.Value) m *= 1.25f;
             m *= Player.Ultimates.OutgoingMultiplier(p);
+            // Critical hits: a little luck, more with DEX.
+            if (!World.DungeonDirector.TestMode && Random.value < 0.05f + p.Value(Core.StatType.DEX) / 650f)
+            {
+                m *= 1.75f;
+                p.CritFxRpc(target.Center + Vector3.up * 0.4f);
+            }
             if (World.DungeonDirector.InRitualWard(target.transform.position)) m *= 0.5f;
             return m;
         }
