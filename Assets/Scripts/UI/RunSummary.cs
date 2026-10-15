@@ -53,6 +53,7 @@ namespace Deepbound.UI
             int topKills = 0;
             foreach (var p in PlayerLife.All) if (p != null) topKills = Mathf.Max(topKills, p.GetComponent<PlayerProgress>().Kills.Value);
 
+            var titles = Titles();
             foreach (var p in PlayerLife.All)
             {
                 if (p == null) continue;
@@ -73,7 +74,9 @@ namespace Deepbound.UI
                 };
                 for (int c = 0; c < values.Length; c++)
                     GUI.Label(new Rect(panel.x + pw * cols[c], ty + 4, 160, 24), values[c], new GUIStyle(UiSkin.Body) { fontStyle = c == 0 ? FontStyle.Bold : FontStyle.Normal });
-                GUI.Label(new Rect(panel.x + pw * cols[0], ty + 28, pw - 48, 20), BuildLine(prog), new GUIStyle(UiSkin.Small) { fontSize = 12 });
+                string title = titles.TryGetValue(prog, out var t) ? t : "";
+                GUI.Label(new Rect(panel.x + pw * cols[0], ty + 28, pw - 48, 20), "<color=#E8BC5C><b>" + title + "</b></color>     " + BuildLine(prog),
+                    new GUIStyle(UiSkin.Small) { fontSize = 12, richText = true });
                 ty += 62;
             }
 
@@ -91,6 +94,42 @@ namespace Deepbound.UI
 
             GUI.Label(new Rect(panel.x, panel.yMax - 40, pw, 24), "Returning to camp in " + left + "...",
                 new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14 });
+        }
+
+        /// <summary>
+        /// One title each, for what they did most: the party's butcher, its guardian angel,
+        /// its pincushion. A player who tops nothing still gets an honest one.
+        /// </summary>
+        private static System.Collections.Generic.Dictionary<PlayerProgress, string> Titles()
+        {
+            var players = new System.Collections.Generic.List<PlayerProgress>();
+            foreach (var p in PlayerLife.All) if (p != null) players.Add(p.GetComponent<PlayerProgress>());
+            var titles = new System.Collections.Generic.Dictionary<PlayerProgress, string>();
+            var categories = new (string title, System.Func<PlayerProgress, int> stat)[]
+            {
+                ("THE BUTCHER", p => p.Kills.Value),
+                ("CHASM ENTHUSIAST", p => p.AbyssKicks.Value),
+                ("GUARDIAN ANGEL", p => p.Revives.Value),
+                ("BONEBREAKER", p => p.DamageDealt.Value),
+                ("MAESTRO OF COMBOS", p => p.CombosTriggered.Value),
+                ("LUCKY DEVIL", p => p.Crits.Value),
+                ("PINCUSHION", p => p.DamageTaken.Value),
+                ("PROFESSIONAL CORPSE", p => p.Downs.Value),
+            };
+            foreach (var (title, stat) in categories)
+            {
+                PlayerProgress best = null;
+                int bestValue = 0;
+                foreach (var p in players)
+                {
+                    if (titles.ContainsKey(p)) continue;
+                    int v = stat(p);
+                    if (v > bestValue) { bestValue = v; best = p; }
+                }
+                if (best != null) titles[best] = title;
+            }
+            foreach (var p in players) if (!titles.ContainsKey(p)) titles[p] = "THE SURVIVOR";
+            return titles;
         }
 
         /// <summary>"Longsword +3 (Cleave) · Ossuary Plate · Hunter's Tooth · Frost Rune · Q2 E1"</summary>

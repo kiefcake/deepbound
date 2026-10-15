@@ -189,6 +189,19 @@ namespace Deepbound.Progression
         public readonly NetworkVariable<int> Downs = new NetworkVariable<int>();
         public readonly NetworkVariable<int> Revives = new NetworkVariable<int>();
         public readonly NetworkVariable<int> CombosTriggered = new NetworkVariable<int>();
+        /// <summary>For the run summary's titles: damage soaked, critical hits, enemies sent into the abyss.</summary>
+        public readonly NetworkVariable<int> DamageTaken = new NetworkVariable<int>();
+        public readonly NetworkVariable<int> Crits = new NetworkVariable<int>();
+        public readonly NetworkVariable<int> AbyssKicks = new NetworkVariable<int>();
+        private float takenCarry;
+
+        /// <summary>Server: tally damage this player took.</summary>
+        public void ServerCreditTaken(float dealt)
+        {
+            takenCarry += dealt;
+            int whole = Mathf.FloorToInt(takenCarry);
+            if (whole > 0) { takenCarry -= whole; DamageTaken.Value += whole; }
+        }
 
         /// <summary>Server: this player set off a class combo.</summary>
         public void ServerCreditCombo() => CombosTriggered.Value++;
@@ -511,6 +524,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.ClientsAndHost)]
         public void CritFxRpc(Vector3 at)
         {
+            if (IsServer) Crits.Value++;
             UI.GameHud.ShowCombo(at, "CRIT", new Color(1f, 0.55f, 0.15f));
             if (IsOwner) Art.Sfx.Play(Art.Sound.Hit, at, 0.9f, 0.7f);
         }
@@ -796,6 +810,7 @@ namespace Deepbound.Progression
             Charm.Value = default;
             health.HealMultiplier = 1f;
             Kills.Value = DamageDealt.Value = GoldEarned.Value = Downs.Value = Revives.Value = CombosTriggered.Value = 0;
+            DamageTaken.Value = Crits.Value = AbyssKicks.Value = 0;
             damageCarry = 0f;
             relics.Clear();
             ServerNewFloor();

@@ -396,6 +396,7 @@ namespace Deepbound.World
                 Mathf.Abs(to.x - room.Center.x) > 1.4f && Mathf.Abs(to.z - room.Center.z) > 1.4f)
             {
                 brain.ServerFallIntoAbyss(to, by);
+                if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(by, out var kicker) && kicker.TryGetComponent<Progression.PlayerProgress>(out var kp)) kp.AbyssKicks.Value++;
                 AbyssFxRpc(to);
                 return;
             }

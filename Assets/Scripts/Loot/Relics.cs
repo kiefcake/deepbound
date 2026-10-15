@@ -132,6 +132,7 @@ namespace Deepbound.Loot
 
         private static void OnServerAnyDamaged(Health target, float dealt, ulong attackerId)
         {
+            if (target.Team == Team.Players && target.TryGetComponent<PlayerProgress>(out var victim)) victim.ServerCreditTaken(dealt);
             if (target.Team != Team.Enemies) return;
             // Relic procs deal damage too: they count for stats, but must not trigger more procs.
             if (resolvingProc)
