@@ -35,6 +35,69 @@ namespace Deepbound.Enemies
 
         public override string DisplayName => "The Tide Lich";
 
+        // ---- Maelstrom: a whirlpool opens and drags everyone toward its drowning heart. ----
+        private float maelstromUntil = -1f, nextMaelstrom, nextPull;
+        private Vector3 maelstromAt;
+        private const float MaelstromSeconds = 6.5f, MaelstromRadius = 13f, EyeRadius = 2.2f;
+
+        private void BeginMaelstrom()
+        {
+            var room = World.DungeonDirector.Layout?.BossRoom;
+            maelstromAt = room != null ? room.Center : transform.position;
+            maelstromUntil = Time.time + MaelstromSeconds;
+            nextMaelstrom = Time.time + 20f;
+            castUntil = Time.time + 1f;
+            busyUntil = castUntil;
+            PlayActionRpc(RigAction.Cast, 1f);
+            MaelstromRpc(maelstromAt, MaelstromSeconds);
+            Debug.Log("[Boss] Tide Lich maelstrom");
+        }
+
+        private void TickMaelstrom()
+        {
+            if (maelstromUntil < 0f) return;
+            if (Time.time >= maelstromUntil) { maelstromUntil = -1f; return; }
+            if (Time.time < nextPull) return;
+            nextPull = Time.time + 0.3f;
+            foreach (var p in Player.PlayerLife.All)
+            {
+                if (p == null || !p.Targetable) continue;
+                var to = maelstromAt - p.transform.position;
+                to.y = 0f;
+                float d = to.magnitude;
+                if (d > MaelstromRadius) continue;
+                if (d < EyeRadius) p.Health.ServerDamage(9f * Difficulty.Level.Damage, maelstromAt, NetworkObjectId);
+                // Stronger the closer you are; a sideways swirl so it reads as a whirlpool.
+                var swirl = Vector3.Cross(Vector3.up, to.normalized) * 1.2f;
+                KnockPlayer(p.Health, to.normalized * Mathf.Lerp(4.5f, 2f, d / MaelstromRadius) + swirl);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void MaelstromRpc(Vector3 at, float seconds)
+        {
+            Telegraph.Show(at, EyeRadius, seconds, null, new Color(0.1f, 0.5f, 0.6f, 0.55f));
+            UI.GameHud.Feed("The Tide Lich opens a maelstrom. Fight the pull!", new Color(0.3f, 0.9f, 0.75f));
+            Sfx.Play(Sound.Splash, at + Vector3.up, 1f, 0.5f);
+            StartCoroutine(MaelstromFx(at, seconds));
+        }
+
+        private System.Collections.IEnumerator MaelstromFx(Vector3 at, float seconds)
+        {
+            var c = new Color(0.25f, 0.85f, 0.75f);
+            for (float t = 0f; t < seconds; t += 0.35f)
+            {
+                Vfx.Ring(at, MaelstromRadius * (1f - (t % 1.05f) / 1.05f) + 1f, c * 0.6f, 0.35f);
+                for (int i = 0; i < 4; i++)
+                {
+                    float a = t * 3f + i * Mathf.PI / 2f;
+                    Vfx.Speck(at + new Vector3(Mathf.Cos(a), 0.2f, Mathf.Sin(a)) * (EyeRadius + 1.5f), c);
+                }
+                if ((int)(t / 0.35f) % 3 == 0) Sfx.Play(Sound.Splash, at, 0.5f, 0.6f);
+                yield return new WaitForSeconds(0.35f);
+            }
+        }
+
         // Tidal Surge, once it is wounded: a wall of black water rolls out from it.
         protected override float ShockwaveCooldown => health.Fraction < 0.6f ? 14f : 0f;
         protected override Color ShockwaveColor => new Color(0.3f, 0.9f, 0.75f);
@@ -56,6 +119,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (IsServer && !IsDead) TickMaelstrom();
             if (IsServer && !IsDead)
             {
                 ResolvePools();
@@ -80,6 +144,12 @@ namespace Deepbound.Enemies
         {
             agent.stoppingDistance = preferredRange;
             if (TryShockwave()) return true;
+
+            if (maelstromUntil < 0f && health.Fraction < 0.6f && Time.time >= nextMaelstrom)
+            {
+                BeginMaelstrom();
+                return true;
+            }
 
             if (!summoned && health.Fraction < 0.5f)
             {

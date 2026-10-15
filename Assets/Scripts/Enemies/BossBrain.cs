@@ -152,8 +152,16 @@ namespace Deepbound.Enemies
         }
 
         /// <summary>A cast-time summon of the minion prefab in a ring around the boss.</summary>
-        protected void Summon(int count, float radius, float castTime = 1.6f)
+        protected NetworkObject guardPrefab;
+
+        /// <summary>A second kind of minion some bosses call (the Hollow King's royal guard).</summary>
+        public void SetGuardPrefab(NetworkObject prefab) => guardPrefab = prefab;
+
+        protected void Summon(int count, float radius, float castTime = 1.6f) => SummonOf(minionPrefab, count, radius, castTime);
+
+        protected void SummonOf(NetworkObject prefab, int count, float radius, float castTime = 1.6f)
         {
+            var minionPrefab = prefab;
             castUntil = Time.time + castTime;
             busyUntil = castUntil;
             PlayActionRpc(RigAction.Cast, castTime);

@@ -30,13 +30,21 @@ namespace Deepbound.Enemies
         private float nextSlam;
         private bool slamming;
         private float slamAt;
-        private bool summoned66, summoned33;
+        private bool summoned66, summoned33, guardCalled;
+
+        // ---- Crown's Judgement: a marked player is crushed; the blow is shared by all who stand with them. ----
+        private float nextJudgement;
+        private Player.PlayerLife judged;
+        private float judgeTelegraphAt = -1f, judgeAt = -1f;
+        private Vector3 judgeSpot;
+        private const float JudgeRadius = 3.4f, JudgeDamage = 130f;
 
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
             Rig.StrideLength = 2.4f;
             nextSlam = Time.time + 6f;
+            nextJudgement = Time.time + 8f;
         }
 
         private bool Enraged => health.Fraction < 0.25f;
@@ -44,6 +52,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (IsServer && !IsDead) TickJudgement();
             if (IsServer && !IsDead && slamming)
             {
                 agent.isStopped = true;
@@ -62,6 +71,14 @@ namespace Deepbound.Enemies
             if (TryShockwave()) return true;
             if (!summoned66 && health.Fraction < 0.66f) { summoned66 = true; Summon(2 + scaledPlayers, 4f); return true; }
             if (!summoned33 && health.Fraction < 0.33f) { summoned33 = true; Summon(2 + scaledPlayers, 4f); return true; }
+            if (!guardCalled && health.Fraction < 0.5f && guardPrefab != null)
+            {
+                guardCalled = true;
+                SummonOf(guardPrefab, 2, 3.5f, 1.4f);
+                GuardFxRpc();
+                return true;
+            }
+            if (judged == null && Time.time >= nextJudgement && BeginJudgement()) return false;
 
             if (Time.time >= nextSlam && distanceToTarget < slamRadius + 2f)
             {
@@ -104,6 +121,67 @@ namespace Deepbound.Enemies
             }
             ImpactFxRpc(transform.position, 18f);
         }
+
+        private bool BeginJudgement()
+        {
+            var pool = Player.PlayerLife.All.FindAll(p => p != null && p.Targetable);
+            if (pool.Count == 0) return false;
+            judged = pool[Random.Range(0, pool.Count)];
+            nextJudgement = Time.time + (Enraged ? 12f : 17f);
+            judgeTelegraphAt = Time.time + 1.2f;
+            judgeAt = Time.time + 2.9f;
+            JudgementMarkRpc(judged.NetworkObjectId);
+            Debug.Log("[Boss] Hollow King judges " + judged.name);
+            return true;
+        }
+
+        private void TickJudgement()
+        {
+            if (judged == null) return;
+            if (judgeTelegraphAt > 0f && Time.time >= judgeTelegraphAt)
+            {
+                judgeTelegraphAt = -1f;
+                judgeSpot = judged.transform.position;
+                CircleTelegraphRpc(judgeSpot, JudgeRadius, judgeAt - Time.time, false);
+            }
+            if (judgeAt > 0f && Time.time >= judgeAt)
+            {
+                judgeAt = -1f;
+                judged = null;
+                var inside = new System.Collections.Generic.List<Health>(CombatQuery.Circle(judgeSpot, JudgeRadius, Team.Players));
+                float share = JudgeDamage * Difficulty.Level.Damage / Mathf.Max(1, inside.Count);
+                foreach (var v in inside) v.ServerDamage(share, judgeSpot + Vector3.up, NetworkObjectId);
+                JudgementFallsRpc(judgeSpot, inside.Count);
+                Debug.Log("[Boss] Hollow King judgement shared by " + inside.Count);
+            }
+        }
+
+        [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
+        private void JudgementMarkRpc(ulong who)
+        {
+            if (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(who, out var obj)) return;
+            bool me = Player.NetworkPlayer.Local != null && obj.gameObject == Player.NetworkPlayer.Local.gameObject;
+            UI.GameHud.Feed((me ? "YOU are" : obj.name + " is") + " judged by the Crown. Stand together to share the blow!", new Color(0.55f, 0.75f, 1f));
+            UI.GameHud.ShowCombo(obj.transform.position + Vector3.up * 2.6f, "JUDGED", new Color(0.55f, 0.75f, 1f));
+            Sfx.Play(Sound.Summon, obj.transform.position + Vector3.up * 2f, 1f, 1.3f);
+            if (me) Sfx.Play2D(Sound.WarCry, 0.6f);
+        }
+
+        [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
+        private void JudgementFallsRpc(Vector3 at, int sharedBy)
+        {
+            var c = new Color(0.55f, 0.75f, 1f);
+            Sfx.Play(Sound.Slam, at, 1f, 0.7f);
+            Vfx.Flash(at + Vector3.up * 3f, c, 8f, 10f, 0.4f);
+            Vfx.Ring(at, JudgeRadius, c, 0.45f);
+            for (int i = 0; i < 5; i++) Vfx.Fireball(at + Vector3.up * (0.5f + i * 0.9f), 1.2f - i * 0.15f, c);
+            if (sharedBy > 1) UI.GameHud.ShowCombo(at + Vector3.up * 1.5f, "SHARED x" + sharedBy, c);
+            var local = Player.NetworkPlayer.Local;
+            if (local != null && Vector3.Distance(local.transform.position, at) < 10f) local.AddShake(0.5f);
+        }
+
+        [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
+        private void GuardFxRpc() => UI.GameHud.Feed("\"Guards! To your king!\"", new Color(0.55f, 0.75f, 1f));
 
         public override void ServerStun(float seconds)
         {

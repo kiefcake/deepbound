@@ -514,6 +514,7 @@ namespace Deepbound.World
             // The Lich raises archers from the water; everyone else raises swordsmen.
             boss.SetMinionPrefab(boss is TideLichBrain && archerPrefab != null ? archerPrefab
                 : boss is CardinalBrain && wraithPrefab != null ? wraithPrefab : skeletonPrefab);
+            boss.SetGuardPrefab(shieldbearerPrefab);
             boss.ServerScaleBoss(players, layout.Depth);
             boss.Dormant = portcullisPrefab != null; // waits on its throne until the party arrives
             spawned.Add(bossObj);
