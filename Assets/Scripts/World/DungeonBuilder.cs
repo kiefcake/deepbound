@@ -30,6 +30,14 @@ namespace Deepbound.World
             foreach (var room in layout.Rooms) BuildRoom(room, structure, dressing, lights);
             foreach (var link in layout.Links) BuildCorridor(layout.Rooms[link.A], layout.Rooms[link.B], link.Dir, structure, dressing, lights);
             foreach (var trap in layout.FlameTraps) FlameJet.Build(lights, trap, dressing);
+            if (layout.PeddlerSpot.HasValue)
+            {
+                // The peddler: the camp merchant's travelling cousin, with a lantern and his pack.
+                var at = layout.PeddlerSpot.Value;
+                Props.Merchant(lights, at, at + layout.PeddlerFacing * 3f, dressing);
+                Props.Crate(dressing, at - layout.PeddlerFacing * 0.6f + new Vector3(layout.PeddlerFacing.z, 0f, -layout.PeddlerFacing.x) * 1.2f, 0.9f, 20f);
+                Props.Candles(lights, at + layout.PeddlerFacing * 1.2f, new Color(1f, 0.75f, 0.45f));
+            }
 
             System.Func<string, Color> tint = mat => mat == Mat.StoneWall ? theme.StoneTint : mat == Mat.Flagstone ? theme.FloorTint : Color.white;
             structure.Build(root.transform, "Structure", collide: true, tint);

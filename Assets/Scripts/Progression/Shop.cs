@@ -80,8 +80,18 @@ namespace Deepbound.Progression
             {
                 new Item { Name = Loot.Gear.Name(gear), Description = Loot.Gear.StatLine(gear) + ". " + Loot.Gear.Effect(gear.Kind), Price = 60 + 40 * quality + 25 * depth, Kind = ItemKind.Gear, Gear = gear },
             };
+            if (!World.DungeonDirector.InLobby)
+                for (int i = 0; i < list.Count; i++)
+                {
+                    var it = list[i];
+                    it.Price = UnityEngine.Mathf.RoundToInt(it.Price * PeddlerMarkup);
+                    list[i] = it;
+                }
             return list.ToArray();
         }
+
+        /// <summary>Deep in the dungeon, the peddler charges for the trip.</summary>
+        public const float PeddlerMarkup = 1.35f;
 
         private static Item[] cached;
         private static int cachedSeed = int.MinValue;

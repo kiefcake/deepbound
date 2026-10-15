@@ -195,7 +195,7 @@ namespace Deepbound.World
         public static int GearDepth => Instance == null ? 0 : InLobby ? Instance.NextDepth.Value : Mathf.Max(0, Instance.Floor.Value.y);
 
         /// <summary>The merchant's stall, only at camp.</summary>
-        public static Vector3? MerchantPosition => InLobby ? Lobby.MerchantSpot : (Vector3?)null;
+        public static Vector3? MerchantPosition => InLobby ? Lobby.MerchantSpot : Layout?.PeddlerSpot;
 
         /// <summary>Host → server: change difficulty. Only honoured in the lobby.</summary>
         [Rpc(SendTo.Server)]

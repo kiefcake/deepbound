@@ -327,6 +327,10 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.9f);
                     Log("frost flask", "flasks " + frostBefore + " -> " + flaskT.Frost.Value + ", chilled " + flaskFoe.GetComponent<Health>().Chilled.Value,
                         flaskT.Frost.Value == frostBefore - 1 && flaskFoe.GetComponent<Health>().Chilled.Value);
+                    // Out of the fight again before the next check.
+                    fm.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                    foreach (var pl in PlayerLife.All) { if (pl.Downed.Value) pl.ServerRevive(1f); pl.Health.ServerSetFraction(1f); }
+                    yield return new WaitForSeconds(0.2f);
                 }
 
                 // A shove into the chasm kills for good.

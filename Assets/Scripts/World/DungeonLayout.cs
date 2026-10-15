@@ -113,6 +113,10 @@ namespace Deepbound.World
         public struct FlameTrap { public Vector3 At, Across; public int Phase; }
         public readonly List<FlameTrap> FlameTraps = new List<FlameTrap>();
 
+        /// <summary>From floor two: sometimes a wandering peddler sets up in a side room (null if not).</summary>
+        public Vector3? PeddlerSpot;
+        public Vector3 PeddlerFacing;
+
         public readonly List<Room> Rooms = new List<Room>();
         public readonly List<Link> Links = new List<Link>();
         public int Seed { get; private set; }
@@ -247,6 +251,7 @@ namespace Deepbound.World
             AssignFeatures(layout, rng);
             PlaceEnemySpawns(layout, rng, depth);
             PlaceFlameTraps(layout, rng);
+            PlacePeddler(layout, rng);
             return layout;
         }
 
@@ -543,6 +548,29 @@ namespace Deepbound.World
                     float t = (float)(rng.NextDouble() - 0.5) * (alongX ? room.Size.x : room.Size.y) * 0.4f;
                     room.EnemySpawns.Add(room.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)) + Vector3.up * (BalconyHeight + 0.1f));
                 }
+            }
+        }
+
+        private static void PlacePeddler(DungeonLayout layout, System.Random rng)
+        {
+            if (layout.Depth < 1 || rng.NextDouble() > 0.6) return;
+            var pool = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side && r.Feature != RoomFeature.Vault);
+            if (pool.Count == 0) return;
+            var room = pool[rng.Next(pool.Count)];
+            // Against a doorless side wall (the chest has the back wall), facing the middle.
+            int entry = 0;
+            for (int s = 0; s < 4; s++) if (room.Doors[s]) entry = s;
+            int back = (entry + 2) % 4;
+            for (int side = 0; side < 4; side++)
+            {
+                if (room.Doors[side] || room.HoleOn(side) != null || side == back) continue;
+                var d = Dir[side];
+                var outward = new Vector3(d.x, 0f, d.y);
+                float half = (side == 0 || side == 2 ? room.Size.y : room.Size.x) / 2f;
+                var spot = room.Center + outward * (half - 1.4f) + new Vector3(-outward.z, 0f, outward.x) * 2.5f;
+                layout.PeddlerSpot = spot;
+                layout.PeddlerFacing = -outward;
+                return;
             }
         }
 
