@@ -90,6 +90,7 @@ MonoBehaviour:
   gargoylePrefab: {fileID: 486367888570501251, guid: 81da41a3b76a7a642a8bcc1007264e5e, type: 3}
   fateWheelPrefab: {fileID: 5332673811175829373, guid: f3cf4823e8237f04f855c69286e7b9d8, type: 3}
   bountyNoticePrefab: {fileID: 3915093814716477257, guid: 534f8b4084fc56a4bbd049eccaba92ad, type: 3}
+  omenStonePrefab: {fileID: 382665563209428435, guid: 65d7f993c336c7d43b5975cc5e24fa6e, type: 3}
   chestPrefab: {fileID: 5389848433996289612, guid: 1b8f0e82fafab894fa40501de576fd99, type: 3}
   altarPrefab: {fileID: 7031684641988543945, guid: b2bdb4bd0518b0943b77591220049a62, type: 3}
   breakablePrefab: {fileID: 6486612486930930439, guid: e03bc3e5b20ced241be0b40e9ec5205d, type: 3}

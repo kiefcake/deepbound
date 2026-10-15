@@ -40,6 +40,8 @@ namespace Deepbound.World
         /// <summary>The bounty board, by the road near the gate: contracts for the next floor.</summary>
         public static readonly Vector3 BountySpot = Origin + new Vector3(-5.2f, 0f, 12.5f);
         public static readonly Vector3 BountyFacing = Vector3.right;
+        /// <summary>The Omen Stone, east of the boarding circle.</summary>
+        public static readonly Vector3 OmenSpot = Origin + new Vector3(5.2f, 0f, 14.5f);
 
         /// <summary>The tailor, west of the merchant: cloak dyes for Renown (local, see <c>UI.Wardrobe</c>).</summary>
         public static readonly Vector3 TailorSpot = Origin + new Vector3(-14.6f, 0f, -4f);

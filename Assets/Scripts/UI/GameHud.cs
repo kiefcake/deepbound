@@ -315,7 +315,8 @@ namespace Deepbound.UI
             string cls = ClassDefinition.For(progress.ClassId.Value).Name;
             string line2 = midRun
                 ? "Rest, trade and gamble.   The carriage goes down to floor " + (director.NextDepth.Value + 1) + "."
-                : cls + " (B to change)   ·   " + diff.Name + (host ? " difficulty ( [ / ] )" : " difficulty");
+                : cls + " (B to change)   ·   " + diff.Name + (host ? " difficulty ( [ / ] )" : " difficulty") +
+                  (director.RunOmen != Omen.None ? "   ·   Omen: " + DungeonDirector.OmenName(director.RunOmen) : "");
             GUI.Label(new Rect(x, y + 24, pw, 18), line2, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
             GUI.Label(new Rect(x, y + 41, pw, 18), "Gather in the golden circle at the gate   (" + aboard + " / " + total + " aboard)",
                 new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = aboard > 0 ? Gold : new Color(0.85f, 0.82f, 0.78f) } });

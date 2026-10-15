@@ -714,6 +714,10 @@ namespace Deepbound.Networking
                 Log("ultimate", Ultimates.Name(clsT) + ", charge after " + ultT.Charge.Value.ToString("F0") + ", in banner " + Ultimates.InBanner(local.transform.position),
                     ultT.Charge.Value < 1f && (clsT != Classes.ClassId.Knight || Ultimates.InBanner(local.transform.position)));
 
+                // The Omen Stone exists at camp (the run is already under way, so it will not turn).
+                Log("omen stone", FindObjectsByType<OmenStone>(FindObjectsSortMode.None).Length + " stone(s), omen " + DungeonDirector.OmenName(dc.RunOmen),
+                    FindObjectsByType<OmenStone>(FindObjectsSortMode.None).Length == 1);
+
                 // The bounty board: take a Slayer-free notice, see it ride down with the party.
                 var notice = FindObjectsByType<BountyNotice>(FindObjectsSortMode.None).FirstOrDefault();
                 if (notice != null)

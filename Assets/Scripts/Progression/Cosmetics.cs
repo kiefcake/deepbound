@@ -108,12 +108,12 @@ namespace Deepbound.Progression
         /// Award a finished run once (keyed by its start time, so the summary can call this
         /// every frame). Returns the Renown earned, or -1 if this run was already counted.
         /// </summary>
-        public static int AwardRun(double runKey, int bossesFelled, int kills, int combos, bool cleared, int difficulty)
+        public static int AwardRun(double runKey, int bossesFelled, int kills, int combos, bool cleared, int difficulty, float bonus = 1f)
         {
             if (TestMode) return -1;
             string key = runKey.ToString("F3");
             if (PlayerPrefs.GetString(KeyLastRun, "") == key) return -1;
-            int earned = RenownFor(bossesFelled, kills, combos, cleared, difficulty);
+            int earned = Mathf.RoundToInt(RenownFor(bossesFelled, kills, combos, cleared, difficulty) * bonus);
             PlayerPrefs.SetString(KeyLastRun, key);
             PlayerPrefs.SetInt(KeyRenown, Renown + earned);
             PlayerPrefs.SetInt(KeyRuns, RunsFinished + 1);

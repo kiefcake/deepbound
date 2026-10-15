@@ -56,6 +56,7 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject gargoylePrefab;
         [SerializeField] private NetworkObject fateWheelPrefab;
         [SerializeField] private NetworkObject bountyNoticePrefab;
+        [SerializeField] private NetworkObject omenStonePrefab;
 
         /// <summary>Server: a pack of the floor's dead around a point (the Wheel's cruel turn).</summary>
         public void ServerSpawnPack(Vector3 around, int count, bool elite)
@@ -134,7 +135,7 @@ namespace Deepbound.World
         }
 
         /// <summary>Server: a small pile of embers (Ember Locket).</summary>
-        public void ServerDropEmbers(Vector3 at, int amount) => ServerDropLoot(at, LootKind.Embers, amount);
+        public void ServerDropEmbers(Vector3 at, int amount) => ServerDropLoot(at, LootKind.Embers, Mathf.RoundToInt(amount * OmenEmbers));
 
         /// <summary>Server: one loot drop of a given kind at a point.</summary>
         public void ServerDropLoot(Vector3 at, LootKind kind, int amount)
@@ -245,6 +246,7 @@ namespace Deepbound.World
         {
             ClearSpawned();
             ClearSettledContract();
+            ApplyOmen(false);
             if (!keepRun) NextDepth.Value = 0;
             Phase.Value = RunPhase.Lobby;
             PhaseEndsAt.Value = 0;
@@ -295,6 +297,7 @@ namespace Deepbound.World
             Put(cofferPrefab, Lobby.CofferSpot, Lobby.TentFacing);
             Put(gongPrefab, Lobby.GongSpot, Lobby.GongFacing);
             Put(shrinePrefab, Lobby.ShrineSpot, Vector3.left);
+            Put(omenStonePrefab, Lobby.OmenSpot, Vector3.left);
             // The bounty board: three different contracts for the next floor.
             if (bountyNoticePrefab != null)
             {
@@ -366,6 +369,7 @@ namespace Deepbound.World
             SetupEncounters(Layout);
             SetupFeatures(Layout);
             SetupHoles(Layout);
+            ApplyOmen(true);
             SpawnEnemies(Layout);
             BeginContract(Layout.Depth);
 
@@ -475,7 +479,7 @@ namespace Deepbound.World
         {
             int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
 
-            float eliteChance = Difficulty.EliteChance(layout.Depth, players);
+            float eliteChance = Difficulty.EliteChance(layout.Depth, players) * OmenElites;
             var theme = DungeonTheme.ForDepth(layout.Depth);
 
             foreach (var room in layout.Rooms)
@@ -484,7 +488,7 @@ namespace Deepbound.World
 
                 // More players, more bodies: scale the room's head count, cycling through its
                 // spawn points with a little jitter for the extras.
-                int count = Mathf.RoundToInt(room.EnemySpawns.Count * Difficulty.SpawnCount(players) * Difficulty.Level.SpawnMultiplier);
+                int count = Mathf.RoundToInt(room.EnemySpawns.Count * Difficulty.SpawnCount(players) * Difficulty.Level.SpawnMultiplier * OmenCrowd);
                 bool hasBrute = false, hasNecro = false;
 
                 for (int i = 0; i < count; i++)

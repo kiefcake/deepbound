@@ -82,6 +82,7 @@ namespace Deepbound.EditorTools
             var shrine = BuildObjectPrefab<Shrine>("Shrine", new Vector3(1.75f, 1f, 0.9f));
             var fateWheel = BuildObjectPrefab<FateWheel>("FateWheel", new Vector3(3f, 4f, 1f));
             var bountyNotice = BuildObjectPrefab<BountyNotice>("BountyNotice", Vector3.zero);
+            var omenStone = BuildObjectPrefab<OmenStone>("OmenStone", new Vector3(1f, 2.6f, 0.7f));
             var rangeTarget = BuildRangeTargetPrefab();
             var dso = new SerializedObject(director.GetComponent<DungeonDirector>());
             dso.FindProperty("portcullisPrefab").objectReferenceValue = gate.GetComponent<NetworkObject>();
@@ -102,12 +103,13 @@ namespace Deepbound.EditorTools
             dso.FindProperty("shrinePrefab").objectReferenceValue = shrine.GetComponent<NetworkObject>();
             dso.FindProperty("fateWheelPrefab").objectReferenceValue = fateWheel.GetComponent<NetworkObject>();
             dso.FindProperty("bountyNoticePrefab").objectReferenceValue = bountyNotice.GetComponent<NetworkObject>();
+            dso.FindProperty("omenStonePrefab").objectReferenceValue = omenStone.GetComponent<NetworkObject>();
             dso.FindProperty("rangeTargetPrefab").objectReferenceValue = rangeTarget.GetComponent<NetworkObject>();
             dso.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };

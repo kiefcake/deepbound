@@ -87,6 +87,9 @@ namespace Deepbound.Combat
         /// <summary>Server: scales healing this receives (Tidewoven Robe).</summary>
         public float HealMultiplier { get; set; } = 1f;
 
+        /// <summary>The run's omen: Glass Bones scales all damage, Famine scales healing on players.</summary>
+        public static float OmenDamageScale = 1f, OmenPlayerHealScale = 1f;
+
         /// <summary>Raised on the server after any damage is applied, with the attacker's object id.</summary>
         public event Action<float, ulong> DamagedServer;
 
@@ -160,6 +163,7 @@ namespace Deepbound.Combat
         {
             if (!IsServer || !IsAlive || amount <= 0f) return 0f;
             LastHitFrom = attackerId;
+            amount *= OmenDamageScale;
             LastHitAt = attackerPosition;
             if (ServerOutgoingMultiplier != null && attackerId != ulong.MaxValue) amount *= ServerOutgoingMultiplier(this, attackerId);
 
@@ -314,7 +318,7 @@ namespace Deepbound.Combat
         public void ServerHeal(float amount)
         {
             if (!IsServer || amount <= 0f) return;
-            Current.Value = Mathf.Min(Max.Value, Current.Value + amount * HealMultiplier);
+            Current.Value = Mathf.Min(Max.Value, Current.Value + amount * HealMultiplier * (Team == Team.Players ? OmenPlayerHealScale : 1f));
         }
 
         public void ServerSetFraction(float fraction)

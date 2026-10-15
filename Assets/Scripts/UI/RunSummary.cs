@@ -82,7 +82,7 @@ namespace Deepbound.UI
             if (me != null)
             {
                 int bosses = won ? DungeonDirector.FloorsPerRun : Mathf.Max(0, d.Floor.Value.y);
-                int got = Cosmetics.AwardRun(d.RunStartedAt.Value, bosses, me.Kills.Value, me.CombosTriggered.Value, won, d.DifficultyIndex.Value);
+                int got = Cosmetics.AwardRun(d.RunStartedAt.Value, bosses, me.Kills.Value, me.CombosTriggered.Value, won, d.DifficultyIndex.Value, DungeonDirector.OmenRenown(d.RunOmen));
                 if (got >= 0) renownEarned = got;
                 GUI.Label(new Rect(panel.x, panel.yMax - 72, pw, 26),
                     "RENOWN  +" + renownEarned + "      (" + Cosmetics.Renown + " to spend at the tailor in camp)",
