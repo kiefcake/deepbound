@@ -701,7 +701,8 @@ namespace Deepbound.UI
                       "Q  Shield Bash — stuns, cancels wind-ups\n" +
                       "E  War Cry — taunt + half damage\n") +
                 "F  revive a downed ally  ·  G  trade  ·  Tab  stats\n" +
-                "CTRL dodge  ·  V kick  ·  R ultimate (when charged)\n" +
+                "CTRL dodge (slide if sprinting)  ·  V kick\n" +
+                "R ultimate (when charged)\n" +
                 "1 / 2 / 3  throw Fire / Frost / Holy flask\n" +
                 "M map  ·  Z / middle mouse: ping  ·  Esc free mouse\n" +
                 "Hit enemies from behind for +35%", style);

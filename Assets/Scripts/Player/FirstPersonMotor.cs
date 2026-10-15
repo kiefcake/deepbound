@@ -55,6 +55,24 @@ namespace Deepbound.Player
         /// <summary>True on frames where sprint is held and actually applied.</summary>
         public bool IsSprinting { get; private set; }
 
+        // ---- Slide: C while sprinting. A low, fast burst; a kick during it hits much harder. ----
+        public const float SlideSeconds = 0.75f, SlideCooldown = 1.4f;
+        private float slideUntil = -1f, slideReadyAt;
+        private Vector3 slideDir;
+
+        /// <summary>Owner: begin a slide if sprinting on the ground. Returns whether it did.</summary>
+        public bool TryStartSlide()
+        {
+            if (!IsSprinting || !controller.isGrounded || Time.time < slideReadyAt) return false;
+            slideUntil = Time.time + SlideSeconds;
+            slideReadyAt = Time.time + SlideCooldown;
+            slideDir = transform.forward;
+            return true;
+        }
+
+        /// <summary>True during a slide.</summary>
+        public bool IsSliding => Time.time < slideUntil;
+
         /// <summary>Lowers the camera, e.g. to kneeling height while downed.</summary>
         public float CameraDrop { get; set; }
 
@@ -109,6 +127,7 @@ namespace Deepbound.Player
 
             if (hasControl) ApplyLook(ReadLookInput());
             MoveInput = canMove ? ReadMoveInput() : Vector2.zero;
+
             ApplyMovement(MoveInput,
                           canMove && CanSprint && keyboard != null && keyboard.leftShiftKey.isPressed,
                           canMove && keyboard != null && keyboard.spaceKey.wasPressedThisFrame);
@@ -116,7 +135,7 @@ namespace Deepbound.Player
             if (cameraPivot != null)
             {
                 var p = cameraPivot.localPosition;
-                p.y = Mathf.Lerp(p.y, pivotRestHeight - CameraDrop, Time.deltaTime * 8f);
+                p.y = Mathf.Lerp(p.y, pivotRestHeight - CameraDrop - (IsSliding ? 0.7f : 0f), Time.deltaTime * (IsSliding ? 14f : 8f));
                 cameraPivot.localPosition = p;
             }
         }
@@ -166,6 +185,13 @@ namespace Deepbound.Player
             IsSprinting = sprint && input.y > 0.1f;
             float speed = (IsSprinting ? sprintSpeed : walkSpeed) * SpeedMultiplier;
             Vector3 horizontal = (transform.right * input.x + transform.forward * input.y) * speed;
+            if (IsSliding)
+            {
+                // Fast at first, easing off; steering is locked to the direction you slid.
+                float k = (slideUntil - Time.time) / SlideSeconds;
+                horizontal = slideDir * sprintSpeed * SpeedMultiplier * Mathf.Lerp(0.9f, 1.7f, k);
+                IsSprinting = true;
+            }
 
             impulse = Vector3.MoveTowards(new Vector3(impulse.x, 0f, impulse.z), Vector3.zero, Time.deltaTime * 40f);
             Vector3 velocity = horizontal + impulse + Vector3.up * verticalVelocity;

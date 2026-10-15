@@ -37,13 +37,14 @@ namespace Deepbound.Player
             var keyboard = Keyboard.current;
             if (keyboard == null || !keyboard.vKey.wasPressedThisFrame || Time.time < ReadyAt || !life.CanAct || !motor.HasControl) return;
             ReadyAt = Time.time + Cooldown;
-            motor.AddImpulse(transform.forward * 3f);
-            player.ConfirmHit(0.6f);
-            KickRpc(player.AimOrigin, transform.forward);
+            bool slide = motor.IsSliding;
+            motor.AddImpulse(transform.forward * (slide ? 1f : 3f));
+            player.ConfirmHit(slide ? 1.2f : 0.6f);
+            KickRpc(player.AimOrigin, transform.forward, slide);
         }
 
         [Rpc(SendTo.Server)]
-        private void KickRpc(Vector3 origin, Vector3 forward)
+        private void KickRpc(Vector3 origin, Vector3 forward, bool slide)
         {
             if (!life.CanAct || Time.time - lastServerKick < Cooldown * 0.8f) return;
             lastServerKick = Time.time;
@@ -51,26 +52,29 @@ namespace Deepbound.Player
             forward.y = 0f;
             forward.Normalize();
             bool hit = false;
-            foreach (var target in CombatQuery.Arc(origin, forward, Range, Arc, Team.Enemies))
+            // A slide kick sweeps low and wide, and hits like a cart.
+            var from = slide ? transform.position + Vector3.up * 0.6f : origin;
+            foreach (var target in CombatQuery.Arc(from, forward, Range + (slide ? 0.6f : 0f), slide ? 110f : Arc, Team.Enemies))
             {
-                target.ServerDamage(8f * progress.AttackMultiplier, transform.position, NetworkObjectId);
+                target.ServerDamage((slide ? 20f : 8f) * progress.AttackMultiplier, transform.position, NetworkObjectId);
                 if (target.TryGetComponent<ICrowdControl>(out var cc))
                 {
                     var push = target.transform.position - transform.position;
                     push.y = 0f;
-                    var v = (push.normalized + forward).normalized * Shove;
-                    cc.ServerStun(0.45f);
+                    var v = (push.normalized + forward).normalized * (slide ? Shove * 1.5f : Shove);
+                    cc.ServerStun(slide ? 1f : 0.45f);
                     cc.ServerKnockback(v);
                     World.DungeonDirector.Instance?.ServerCheckShove(target, v, NetworkObjectId);
                 }
                 hit = true;
             }
-            KickFxRpc(hit);
+            KickFxRpc(hit, slide);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void KickFxRpc(bool hit)
+        private void KickFxRpc(bool hit, bool slide)
         {
+            if (hit && slide) UI.GameHud.ShowCombo(transform.position + transform.forward * 1.6f + Vector3.up * 1.4f, "SLIDE KICK", new Color(1f, 0.8f, 0.4f));
             if (!IsOwner) player.Rig?.Play(RigAction.Bash, 0.35f);
             Sfx.Play(hit ? Sound.Bash : Sound.Swing, transform.position + transform.forward + Vector3.up, 0.8f, hit ? 0.8f : 1.3f);
             if (hit) Vfx.Smoke(transform.position + transform.forward * 1.6f, 1, 0.4f, 0.8f);

@@ -186,9 +186,14 @@ namespace Deepbound.Player
             if (!keyboard.leftCtrlKey.wasPressedThisFrame && !keyboard.cKey.wasPressedThisFrame) return;
 
             var input = motor.MoveInput;
-            var dir = input.sqrMagnitude > 0.01f ? transform.right * input.x + transform.forward * input.y : -transform.forward;
-            dir.y = 0f;
-            motor.AddImpulse(dir.normalized * DodgeSpeed);
+            // Dodging while sprinting forward is a slide instead: low and fast, and a kick
+            // during it is a slide kick. Same i-frames, same cooldown.
+            if (!(input.y > 0.5f && Mathf.Abs(input.x) < 0.5f && motor.TryStartSlide()))
+            {
+                var dir = input.sqrMagnitude > 0.01f ? transform.right * input.x + transform.forward * input.y : -transform.forward;
+                dir.y = 0f;
+                motor.AddImpulse(dir.normalized * DodgeSpeed);
+            }
             DodgeReadyAt = Time.time + DodgeCooldownNow;
             DodgeRpc();
         }
