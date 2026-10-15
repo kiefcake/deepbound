@@ -679,7 +679,7 @@ namespace Deepbound.UI
             if (age > 25f) return;
             float a = Mathf.Clamp01((25f - age) / 3f);
             var style = new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 1f, 1f, a * 0.85f) } };
-            GUI.Label(new Rect(w - 330, 262, 310, 150),
+            GUI.Label(new Rect(w - 330, 262, 310, 190),
                 "WASD move  ·  Shift sprint  ·  Space jump\n" +
                 (progress.ClassId.Value == ClassId.Ranger
                     ? "LMB hold to draw, release to shoot\n" +
@@ -701,8 +701,10 @@ namespace Deepbound.UI
                       "Q  Shield Bash — stuns, cancels wind-ups\n" +
                       "E  War Cry — taunt + half damage\n") +
                 "F  revive a downed ally  ·  G  trade  ·  Tab  stats\n" +
-                "CTRL dodge  ·  M map  ·  Z / middle mouse: ping\n" +
-                "Hit enemies from behind for +35%  ·  Esc free mouse", style);
+                "CTRL dodge  ·  V kick  ·  R ultimate (when charged)\n" +
+                "1 / 2 / 3  throw Fire / Frost / Holy flask\n" +
+                "M map  ·  Z / middle mouse: ping  ·  Esc free mouse\n" +
+                "Hit enemies from behind for +35%", style);
         }
 
         private void DrawFeed(float h)
