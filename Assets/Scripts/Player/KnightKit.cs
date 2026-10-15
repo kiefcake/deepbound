@@ -240,6 +240,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void SwingFxRpc(float swingSide, bool hit)
         {
+            SwingTrail.Spawn(transform, SwingRange * 0.85f, progress.OnPath(1) ? 160f : SwingArc, swingSide, new Color(1f, 0.85f, 0.6f) * 1.1f);
             if (!IsOwner)
             {
                 player.Rig?.Play(RigAction.Swing, SwingStrike + 0.15f);
