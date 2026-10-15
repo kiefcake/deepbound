@@ -31,7 +31,8 @@ namespace Deepbound.Combat
                 to.y = 0f;
                 float dist = to.magnitude;
 
-                if (dist > range || Mathf.Abs(vertical) > 2.5f) continue;
+                // Reach the body's edge, not its middle: a giant can be struck at arm's length.
+                if (dist - h.BodyRadius > range || Mathf.Abs(vertical) > 2.5f + h.CenterHeight * 0.5f) continue;
                 // Point-blank targets count regardless of angle — at 0.5m you are hitting
                 // them even if their centre is slightly behind your shoulder.
                 if (dist > 0.8f && Vector3.Angle(forward, to) > halfArc) continue;
@@ -53,7 +54,7 @@ namespace Deepbound.Combat
                 Vector3 to = h.transform.position - center;
                 if (Mathf.Abs(to.y) > 3f) continue;
                 to.y = 0f;
-                if (to.magnitude <= radius) Results.Add(h);
+                if (to.magnitude <= radius + h.BodyRadius * 0.6f) Results.Add(h);
             }
             return Results;
         }

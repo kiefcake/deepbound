@@ -236,6 +236,11 @@ namespace Deepbound.EditorTools
             capsule.height = 1.8f * scale;
             capsule.radius = 0.35f * scale;
             capsule.center = new Vector3(0f, 0.9f * scale, 0f);
+            // Shapes that are not a standing skeleton get a body to match.
+            if (type == EnemyType.Mimic) { capsule.height = 1.1f; capsule.radius = 0.55f; capsule.center = new Vector3(0f, 0.55f, 0f); }
+            if (type == EnemyType.Gargoyle) { capsule.height = 2.7f; capsule.radius = 0.45f; capsule.center = new Vector3(0f, 1.35f, 0f); }
+            if (type == EnemyType.Wraith) { capsule.height = 2.0f; capsule.center = new Vector3(0f, 1.1f, 0f); }
+            if (type == EnemyType.Brute) capsule.radius = 0.45f * scale;
 
             var agent = root.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f * scale;

@@ -546,6 +546,20 @@ namespace Deepbound.Progression
         }
 
         [Rpc(SendTo.ClientsAndHost)]
+        public void ZoneHitFxRpc(Vector3 at, byte zone)
+        {
+            bool weak = zone == (byte)HitZone.Weak;
+            var c = weak ? new Color(1f, 0.5f, 0.2f) : new Color(1f, 0.92f, 0.55f);
+            UI.GameHud.ShowCombo(at + Vector3.up * 0.25f, weak ? "WEAK POINT" : "HEADSHOT", c);
+            Art.Vfx.Embers(at, 6, c, 3f, 0.04f, 0.35f);
+            if (IsOwner)
+            {
+                Art.Sfx.Play(Art.Sound.Shatter, at, 0.5f, weak ? 1.1f : 1.6f);
+                Player.NetworkPlayer.Local?.ConfirmHit(weak ? 1.4f : 1.1f);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
         public void CritFxRpc(Vector3 at)
         {
             if (IsServer) Crits.Value++;

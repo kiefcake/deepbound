@@ -25,7 +25,16 @@ namespace Deepbound.Combat
     {
         public const float Speed = 21f;
         private const float MaxRange = 30f;
-        private const float HitRadius = 0.55f;
+        /// <summary>How fat a projectile is for hit tests, on top of the target's real body.</summary>
+        private const float ProjectileRadius = 0.12f;
+
+        /// <summary>Server: tell everyone a shot found a head or a weak point (the shooter hears it).</summary>
+        public static void ReportZone(ulong shooter, Vector3 at, HitZone zone)
+        {
+            var net = Unity.Netcode.NetworkManager.Singleton;
+            if (net == null || !net.SpawnManager.SpawnedObjects.TryGetValue(shooter, out var obj)) return;
+            if (obj.TryGetComponent<Progression.PlayerProgress>(out var p)) p.ZoneHitFxRpc(at, (byte)zone);
+        }
 
         private struct Arrow
         {
@@ -134,17 +143,26 @@ namespace Deepbound.Combat
             foreach (var h in Health.All)
             {
                 if (h == null || !CombatQuery.Matches(h, a.Targets) || !h.IsAlive) continue;
-                if (DistanceToSegment(h.Center, from, to) > HitRadius) continue;
+                if (!h.SegmentTouchesBody(from, to, ProjectileRadius)) continue;
                 if (a.Pierce && !a.AlreadyHit.Add(h)) continue;
 
                 if (a.OnHit != null)
                 {
-                    a.OnHit(h);
+                    var spellZone = HitZones.Along(h, from - a.Velocity.normalized * 0.5f, to + a.Velocity.normalized * 0.5f, out var spellPoint);
+                    Health.SetZoneBoost(h, HitZones.Multiplier(h, spellZone, true));
+                    try { a.OnHit(h); }
+                    finally { Health.SetZoneBoost(null, 1f); }
+                    if (spellZone != HitZone.Body) ReportZone(a.Shooter, spellPoint, spellZone);
                 }
                 else
                 {
+                    // Where along its flight it struck: a head, a glowing weak point, or the body.
+                    var zone = HitZones.Along(h, from - a.Velocity.normalized * 0.5f, to + a.Velocity.normalized * 0.5f, out var zonePoint);
+                    if (zone == HitZone.Weak && h.TryGetComponent<Enemies.HoarderBrain>(out var hoarder)) hoarder.ServerSackHit();
+                    float mult = HitZones.Multiplier(h, zone, true);
                     // "From" for blocking purposes is a point back along the flight path.
-                    h.ServerDamage(a.Damage, h.Center - a.Velocity.normalized * 3f, a.Shooter);
+                    h.ServerDamage(a.Damage * mult, h.Center - a.Velocity.normalized * 3f, a.Shooter);
+                    if (zone != HitZone.Body) ReportZone(a.Shooter, zonePoint, zone);
                     Sfx.Play(Sound.Hit, h.Center, 0.6f, 1.3f);
                 }
                 // One hit per step either way: damage can despawn things in Health.All.

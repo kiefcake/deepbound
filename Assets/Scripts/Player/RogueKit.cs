@@ -237,7 +237,10 @@ namespace Deepbound.Player
             foreach (var target in CombatQuery.Arc(origin, forward, StabRange, StabArc, Team.Enemies).ToArray())
             {
                 float m = Multiplier(target, out bool opener);
+                var zone = HitZones.Aimed(target, origin, forward, StabRange, out var zonePoint);
+                m *= HitZones.Multiplier(target, zone, false);
                 target.ServerDamage(StabDamage * m, transform.position, NetworkObjectId);
+                if (zone != HitZone.Body) Arrows.ReportZone(NetworkObjectId, zonePoint, zone);
                 AfterHit(target, opener);
                 if (++hits >= maxHits) break;
             }

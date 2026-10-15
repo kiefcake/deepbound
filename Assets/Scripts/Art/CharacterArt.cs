@@ -404,6 +404,7 @@ namespace Deepbound.Art
             }
 
             rig.GlowColor = new Color(0.75f, 0.55f, 1f);
+            WeakPoint.Add(rig.Torso, new Vector3(0f, 0.36f, 0.31f), 0.1f, new Color(1f, 0.3f, 0.1f));
             rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
             rig.StrideLength = 1.3f;
             return rig;
@@ -666,6 +667,8 @@ namespace Deepbound.Art
                 }
                 rig.GlowRenderers = glow.ToArray();
 
+                WeakPoint.Add(rig.Head, new Vector3(0f, 0.2f, 0.13f), 0.05f, new Color(0.45f, 0.75f, 1f));
+
                 // Tattered royal cape.
                 var cape = MeshKit.Part(rig.Torso, "Cape", MeshKit.Box(new Vector3(0.5f, 0.95f, 0.02f)), Mat.Cloth, new Vector3(0f, 0.15f, -0.14f), new Vector3(8f, 0f, 0f));
                 ArtLibrary.Tint(cape.GetComponent<Renderer>(), new Color(0.28f, 0.08f, 0.32f));
@@ -684,6 +687,7 @@ namespace Deepbound.Art
             {
                 // A sack of stolen gold over its shoulder, a crooked crown, coins spilling.
                 rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
+                WeakPoint.Add(rig.Torso, new Vector3(0.05f, 0.62f, -0.5f), 0.12f, new Color(1f, 0.82f, 0.3f));
                 var sack = MeshKit.Part(rig.Torso, "Sack", MeshKit.Ball(0.36f, 10, 8), Mat.Cloth, new Vector3(0.05f, 0.55f, -0.32f), new Vector3(10f, 0f, 15f), new Vector3(1f, 1.15f, 0.9f));
                 ArtLibrary.Tint(sack.GetComponent<Renderer>(), new Color(0.45f, 0.32f, 0.16f));
                 MeshKit.Part(rig.Torso, "SackTie", MeshKit.Cylinder(0.08f, 0.06f, 0.15f, 6), Mat.Leather, new Vector3(0.12f, 0.92f, -0.25f), new Vector3(30f, 0f, 20f));
@@ -719,6 +723,8 @@ namespace Deepbound.Art
             else if (kind == SkeletonKind.Gravewarden)
             {
                 BuildGravewarden(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>());
+                // A crack in its back plate, glowing: the shield guards the front, not this.
+                WeakPoint.Add(rig.Torso, new Vector3(0f, 0.45f, -0.22f), 0.1f, new Color(1f, 0.55f, 0.2f));
             }
             else if (kind == SkeletonKind.Cardinal)
             {
@@ -771,6 +777,8 @@ namespace Deepbound.Art
             else if (kind == SkeletonKind.Brute)
             {
                 BuildBrute(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>());
+                // A rune burned into its back: get behind it.
+                WeakPoint.Add(rig.Torso, new Vector3(0f, 0.4f, -0.24f), 0.13f);
             }
             else if (kind == CharacterArt.SkeletonKind.Archer)
             {
@@ -919,6 +927,9 @@ namespace Deepbound.Art
                     new Vector3(0f, 0.27f, 0.02f) + Quaternion.Euler(0f, a, 0f) * new Vector3(0f, 0f, 0.1f), new Vector3(20f, a, 0f));
                 ArtLibrary.Tint(c.GetComponent<Renderer>(), new Color(0.95f, 0.45f, 0.45f));
             }
+
+            // The phylactery: a soul gem on the chest, where the unlife is kept.
+            WeakPoint.Add(rig.Torso, new Vector3(0f, 0.42f, 0.22f), 0.08f, orbColor);
 
             // Staff with a glowing orb, held upright.
             MeshKit.Part(grip, "Staff", MeshKit.Cylinder(0.025f, 0.03f, 1.5f, 6), Mat.Wood, new Vector3(0f, -0.6f, 0f));
@@ -1185,6 +1196,7 @@ namespace Deepbound.Art
             var maw = MeshKit.Part(rig.Torso, "Maw", MeshKit.Box(new Vector3(1f, 0.05f, 0.6f)), Mat.Dark, new Vector3(0f, 0.59f, 0f));
             for (int i = 0; i < 7; i++)
                 MeshKit.Part(rig.Torso, "LowerTooth" + i, MeshKit.Lathe("tooth", new[] { new Vector2(0.035f, 0f), new Vector2(0f, 0.11f) }, 4), Mat.Bone, new Vector3(-0.45f + i * 0.15f, 0.6f, 0.32f));
+            WeakPoint.Add(rig.Torso, new Vector3(0f, 0.62f, 0.05f), 0.13f, new Color(1f, 0.3f, 0.35f));
             var tongue = MeshKit.Part(rig.Torso, "Tongue", MeshKit.Box(new Vector3(0.18f, 0.05f, 0.6f)), Mat.Leather, new Vector3(0f, 0.63f, 0.25f), new Vector3(-12f, 0f, 0f));
             ArtLibrary.Tint(tongue.GetComponent<Renderer>(), new Color(0.6f, 0.15f, 0.18f));
             // The lid is the head: it hinges at the back and is the jaw.

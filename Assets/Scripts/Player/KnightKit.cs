@@ -227,7 +227,9 @@ namespace Deepbound.Player
             bool hitAny = false;
             foreach (var target in CombatQuery.Arc(origin, forward, range, arc, Team.Enemies))
             {
-                target.ServerDamage(damage, transform.position, NetworkObjectId);
+                var zone = HitZones.Aimed(target, origin, forward, range, out var zonePoint);
+                target.ServerDamage(damage * HitZones.Multiplier(target, zone, false), transform.position, NetworkObjectId);
+                if (zone != HitZone.Body) Arrows.ReportZone(NetworkObjectId, zonePoint, zone);
                 if (progress.Mastered(1)) target.ServerChill(1.5f);
                 if (riposte && progress.Mastered(2) && target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.2f);
                 hitAny = true;

@@ -106,6 +106,56 @@ namespace Deepbound.Combat
         [SerializeField] private float centerHeight = 1f;
         public float CenterHeight { get => centerHeight; set => centerHeight = value; }
 
+        // ---- The body, as hit tests see it: the creature's own collider shape. ----
+        private float bodyRadius = 0.4f, bodyLow = 0f, bodyHigh = 1.8f;
+        private bool bodyCached;
+
+        private void CacheBody()
+        {
+            bodyCached = true;
+            if (TryGetComponent<CapsuleCollider>(out var cap))
+            {
+                bodyRadius = cap.radius;
+                bodyLow = cap.center.y - cap.height / 2f;
+                bodyHigh = cap.center.y + cap.height / 2f;
+            }
+            else if (TryGetComponent<CharacterController>(out var cc))
+            {
+                bodyRadius = cc.radius;
+                bodyLow = cc.center.y - cc.height / 2f;
+                bodyHigh = cc.center.y + cc.height / 2f;
+            }
+            else if (TryGetComponent<BoxCollider>(out var box))
+            {
+                bodyRadius = Mathf.Max(box.size.x, box.size.z) * 0.5f;
+                bodyLow = box.center.y - box.size.y / 2f;
+                bodyHigh = box.center.y + box.size.y / 2f;
+            }
+            else { bodyRadius = 0.4f; bodyLow = 0f; bodyHigh = centerHeight * 2f; }
+        }
+
+        /// <summary>The body's horizontal radius (world).</summary>
+        public float BodyRadius { get { if (!bodyCached) CacheBody(); return bodyRadius; } }
+
+        /// <summary>Distance from a point to the body's surface (negative inside).</summary>
+        public float DistanceToBody(Vector3 p)
+        {
+            if (!bodyCached) CacheBody();
+            float lo = transform.position.y + bodyLow + bodyRadius, hi = transform.position.y + bodyHigh - bodyRadius;
+            if (hi < lo) hi = lo;
+            var axis = new Vector3(transform.position.x, Mathf.Clamp(p.y, lo, hi), transform.position.z);
+            return Vector3.Distance(p, axis) - bodyRadius;
+        }
+
+        /// <summary>Does a straight path come within <paramref name="extra"/> of the body? Sampled finely enough for any projectile step.</summary>
+        public bool SegmentTouchesBody(Vector3 from, Vector3 to, float extra)
+        {
+            int n = Mathf.Clamp(Mathf.CeilToInt(Vector3.Distance(from, to) / 0.15f), 1, 24);
+            for (int i = 0; i <= n; i++)
+                if (DistanceToBody(Vector3.Lerp(from, to, i / (float)n)) <= extra) return true;
+            return false;
+        }
+
         public override void OnNetworkSpawn()
         {
             All.Add(this);
@@ -155,6 +205,12 @@ namespace Deepbound.Combat
         }
 
         /// <returns>Damage actually dealt after defence and modifiers.</returns>
+        private static Health zoneBoostTarget;
+        private static float zoneBoost = 1f;
+
+        /// <summary>Server: while set, damage to <paramref name="target"/> is scaled (a projectile's headshot, for custom hit handlers).</summary>
+        public static void SetZoneBoost(Health target, float multiplier) { zoneBoostTarget = target; zoneBoost = multiplier; }
+
         /// <summary>Server: who hit this last, and from where (for diagnosing deaths).</summary>
         public ulong LastHitFrom { get; private set; } = ulong.MaxValue;
         public Vector3 LastHitAt { get; private set; }
@@ -163,6 +219,7 @@ namespace Deepbound.Combat
         {
             if (!IsServer || !IsAlive || amount <= 0f) return 0f;
             LastHitFrom = attackerId;
+            if (zoneBoostTarget == this) amount *= zoneBoost;
             amount *= OmenDamageScale;
             LastHitAt = attackerPosition;
             if (ServerOutgoingMultiplier != null && attackerId != ulong.MaxValue) amount *= ServerOutgoingMultiplier(this, attackerId);

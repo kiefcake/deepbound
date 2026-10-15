@@ -277,6 +277,22 @@ namespace Deepbound.Networking
                 // Feature rooms.
                 var fm = local.GetComponent<FirstPersonMotor>();
                 string features = string.Join(", ", layout.Rooms.Where(r => r.Feature != RoomFeature.None).Select(r => r.Feature.ToString()));
+                // Hit zones: a line through a skeleton's head is a headshot; through its chest, the body.
+                var zoneT = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => e.GetType() == typeof(EnemyBrain) && !e.IsDead && e.Rig != null && e.Rig.Head != null);
+                if (zoneT != null)
+                {
+                    var zh = zoneT.GetComponent<Health>();
+                    var headP = zoneT.Rig.Head.position + zoneT.Rig.Head.up * 0.12f;
+                    var side = Vector3.Cross(Vector3.up, zoneT.transform.forward);
+                    var headZone = HitZones.Along(zh, headP - side * 3f, headP + side * 3f, out _);
+                    var chestP = zh.Center;
+                    var chestZone = HitZones.Along(zh, chestP - side * 3f, chestP + side * 3f, out _);
+                    bool bodyHit = zh.SegmentTouchesBody(chestP - side * 3f, chestP + side * 3f, 0.1f);
+                    bool missWide = zh.SegmentTouchesBody(chestP - side * 3f + zoneT.transform.forward * 1.5f, chestP + side * 3f + zoneT.transform.forward * 1.5f, 0.1f);
+                    Log("hit zones", "head line " + headZone + ", chest line " + chestZone + ", body hit " + bodyHit + ", 1.5 m off misses " + !missWide + ", headshot x" + HitZones.Multiplier(zh, HitZone.Head, true),
+                        headZone == HitZone.Head && chestZone == HitZone.Body && bodyHit && !missWide);
+                }
+
                 // Restless Bones: a plain skeleton killed on the Ossuary leaves a pile.
                 var plainSk = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => e.GetType() == typeof(EnemyBrain) && !e.IsDead && !e.Elite.Value &&
                     !layout.BossRoom.Contains(e.transform.position, 1f));

@@ -19,7 +19,10 @@ namespace Deepbound.Enemies
 
         protected override LootTable Loot => LootTable.Chest;
 
-        private float escapeAt = -1f, nextSpill;
+        private float escapeAt = -1f, nextSpill, lastSackHit = -1f;
+
+        /// <summary>Server: the sack was struck (called just before the damage lands).</summary>
+        public void ServerSackHit() => lastSackHit = Time.time;
         private bool escaped;
 
         public override void OnNetworkSpawn()
@@ -38,8 +41,10 @@ namespace Deepbound.Enemies
         {
             if (hit != health || !health.IsAlive || Time.time < nextSpill) return;
             nextSpill = Time.time + 0.35f;
+            // A hit on the sack (its weak point) tears it: a bigger spill.
+            bool sack = Time.time - lastSackHit < 0.1f;
             World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.6f - transform.forward * 0.4f, LootKind.Gold,
-                Mathf.RoundToInt(Random.Range(6, 12) * (1f + 0.5f * depthForLoot)));
+                Mathf.RoundToInt(Random.Range(6, 12) * (sack ? 3 : 1) * (1f + 0.5f * depthForLoot)));
             SpillFxRpc();
         }
 
