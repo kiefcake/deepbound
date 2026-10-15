@@ -53,6 +53,7 @@ namespace Deepbound.EditorTools
             BakeSurface("Cloth", lit, ClothWeave, 0.05f, 0f, 0.9f);
             BakeSurface("Leather", lit, LeatherSurface, 0.3f, 0f, 1.0f);
             BakeSurface("Rubble", lit, Rubble, 0.08f, 0f, 3f);
+            BakeSurface("Marble", lit, Marble, 0.18f, 0f, 0.5f);
 
             BakeFlat("Dark", lit, new Color(0.05f, 0.05f, 0.06f), 0.4f, 0.3f);
 
@@ -343,6 +344,18 @@ namespace Deepbound.EditorTools
             float tone = 0.22f + id * 0.12f;
             var c = new Color(tone, tone * 0.96f, tone * 0.9f) * (0.5f + rock * 0.5f);
             c.a = rock;
+            return c;
+        }
+
+        /// <summary>Pale funerary marble: cool grey-white, soft clouding, thin dark veins. For statues.</summary>
+        private static Color Marble(float u, float v)
+        {
+            float cloud = Fbm(u, v, 4f, 4f, 4, 31);
+            float warp = Fbm(u, v, 3f, 3f, 3, 32) * 7f;
+            float vein = Mathf.Pow(Mathf.Clamp01(1f - Mathf.Abs(Mathf.Sin((u * 5f + v * 2f) * Mathf.PI + warp)) * 9f), 2f);
+            float tone = 0.7f + cloud * 0.16f;
+            var c = new Color(tone * 0.96f, tone * 0.97f, tone, 1f) * (1f - vein * 0.45f);
+            c.a = 0.6f + cloud * 0.3f - vein * 0.2f;
             return c;
         }
 

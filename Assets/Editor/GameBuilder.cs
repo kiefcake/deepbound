@@ -65,6 +65,7 @@ namespace Deepbound.EditorTools
             var plaguebearer = BuildEnemyPrefab("Plaguebearer", EnemyType.Plaguebearer, loot);
             var frostWight = BuildEnemyPrefab("FrostWight", EnemyType.FrostWight, loot);
             var hexer = BuildEnemyPrefab("Hexer", EnemyType.Hexer, loot);
+            var mourner = BuildEnemyPrefab("Mourner", EnemyType.Mourner, loot);
             var dummy = BuildDummyPrefab();
             var chest = BuildObjectPrefab<Chest>("Chest", new Vector3(1.1f, 0.8f, 0.7f));
             var altar = BuildObjectPrefab<BloodAltar>("BloodAltar", new Vector3(1.4f, 0.9f, 1.0f));
@@ -104,6 +105,7 @@ namespace Deepbound.EditorTools
             dso.FindProperty("plaguebearerPrefab").objectReferenceValue = plaguebearer.GetComponent<NetworkObject>();
             dso.FindProperty("frostWightPrefab").objectReferenceValue = frostWight.GetComponent<NetworkObject>();
             dso.FindProperty("hexerPrefab").objectReferenceValue = hexer.GetComponent<NetworkObject>();
+            dso.FindProperty("mournerPrefab").objectReferenceValue = mourner.GetComponent<NetworkObject>();
             dso.FindProperty("crackedWallPrefab").objectReferenceValue = crackedWall.GetComponent<NetworkObject>();
             dso.FindProperty("diceTablePrefab").objectReferenceValue = diceTable.GetComponent<NetworkObject>();
             dso.FindProperty("cofferPrefab").objectReferenceValue = coffer.GetComponent<NetworkObject>();
@@ -117,7 +119,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -229,7 +231,7 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner }
 
         private static GameObject BuildEnemyPrefab(string name, EnemyType type, GameObject loot)
         {
@@ -248,6 +250,7 @@ namespace Deepbound.EditorTools
             capsule.center = new Vector3(0f, 0.9f * scale, 0f);
             // Shapes that are not a standing skeleton get a body to match.
             if (type == EnemyType.Mimic) { capsule.height = 1.1f; capsule.radius = 0.55f; capsule.center = new Vector3(0f, 0.55f, 0f); }
+            if (type == EnemyType.Mourner) { capsule.height = 2.2f; capsule.radius = 0.38f; capsule.center = new Vector3(0f, 1.1f, 0f); }
             if (type == EnemyType.Gargoyle) { capsule.height = 2.7f; capsule.radius = 0.45f; capsule.center = new Vector3(0f, 1.35f, 0f); }
             if (type == EnemyType.Wraith) { capsule.height = 2.0f; capsule.center = new Vector3(0f, 1.1f, 0f); }
             if (type == EnemyType.Brute) capsule.radius = 0.45f * scale;
@@ -278,6 +281,7 @@ namespace Deepbound.EditorTools
                 case EnemyType.Plaguebearer: brain = root.AddComponent<PlaguebearerBrain>(); break;
                 case EnemyType.FrostWight: brain = root.AddComponent<FrostWightBrain>(); break;
                 case EnemyType.Hexer: brain = root.AddComponent<HexerBrain>(); break;
+                case EnemyType.Mourner: brain = root.AddComponent<MournerBrain>(); break;
                 default: brain = root.AddComponent<EnemyBrain>(); break;
             }
 
@@ -314,6 +318,12 @@ namespace Deepbound.EditorTools
                     Kind(Art.CharacterArt.SkeletonKind.Hexer);
                     Set("maxHealth", 95f); Set("damage", 10f); Set("defense", 0f); Set("moveSpeed", 3.3f);
                     Set("attackRange", 13f); Set("windup", 0.8f); Set("recovery", 1.9f); Set("aggroRange", 18f);
+                    break;
+                case EnemyType.Mourner:
+                    // Moves only unseen, and then fast. Sturdy stone; hits hard.
+                    Kind(Art.CharacterArt.SkeletonKind.Mourner);
+                    Set("maxHealth", 170f); Set("damage", 24f); Set("defense", 3f); Set("moveSpeed", 7.5f);
+                    Set("attackRange", 1.9f); Set("windup", 0.3f); Set("recovery", 1.2f); Set("aggroRange", 30f); Set("leashRange", 80f);
                     break;
                 case EnemyType.Gargoyle:
                     Kind(Art.CharacterArt.SkeletonKind.Gargoyle);

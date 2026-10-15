@@ -501,6 +501,13 @@ namespace Deepbound.Enemies
         // Crowd control
         // ------------------------------------------------------------------
 
+        /// <summary>Server: abandon the attack being wound up (no stagger).</summary>
+        protected void CancelWindup()
+        {
+            attacking = false;
+            busyUntil = 0f;
+        }
+
         public virtual void ServerStun(float seconds)
         {
             if (IsDead) return;

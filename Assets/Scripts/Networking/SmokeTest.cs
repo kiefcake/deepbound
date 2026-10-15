@@ -293,13 +293,46 @@ namespace Deepbound.Networking
                     fm.Teleport(safeAt, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
                 }
+
+                // The Mourner: frozen while watched, moving the moment you look away.
+                var farRoom = layout.Rooms.Where(r => r.Kind == RoomKind.Combat).OrderByDescending(r => Vector3.Distance(r.Center, layout.StartRoom.Center)).FirstOrDefault();
+                if (farRoom != null)
+                {
+                    var lfm = local.GetComponent<FirstPersonMotor>();
+                    var stand = farRoom.Center + Vector3.up * 0.1f;
+                    var mAt = farRoom.Center + Vector3.forward * 7f;
+                    if (UnityEngine.AI.NavMesh.SamplePosition(mAt, out var mh, 3f, UnityEngine.AI.NavMesh.AllAreas)) mAt = mh.position;
+                    lfm.Teleport(stand, Quaternion.LookRotation(mAt - stand));
+                    yield return new WaitForSeconds(0.3f);
+                    var mourner = DungeonDirector.Instance.ServerDebugSpawnMourner(mAt, stand - mAt) as MournerBrain;
+                    if (mourner != null)
+                    {
+                        yield return new WaitForSeconds(1.2f);
+                        float watchedMove = Vector3.Distance(mourner.transform.position, mAt);
+                        bool frozen = mourner.Seen.Value;
+                        var lookAway = stand - mAt; lookAway.y = 0f;
+                        lfm.Teleport(stand, Quaternion.LookRotation(lookAway));
+                        for (int k = 0; k < 20; k++) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                        float unseenMove = Vector3.Distance(mourner.transform.position, mAt);
+                        Log("mourner", "watched: seen " + frozen + ", moved " + watchedMove.ToString("F2") + " m; unwatched moved " + unseenMove.ToString("F1") + " m (seen now " + mourner.Seen.Value +
+                            ", agent " + (mourner.GetComponent<UnityEngine.AI.NavMeshAgent>().enabled ? "on" : "off") + ", watchers " + string.Join(",", PlayerLife.All.Where(pl => pl != null).Select(pl => pl.name + "@" + Vector3.Distance(pl.transform.position, mourner.transform.position).ToString("F0"))) + ")",
+                            frozen && watchedMove < 0.2f && unseenMove > 2f);
+                        mourner.GetComponent<Health>().ServerDamage(1e6f, mourner.transform.position);
+                    }
+                    lfm.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                    local.GetComponent<Health>().ServerSetFraction(1f);
+                    yield return new WaitForSeconds(0.2f);
+                }
+
             }
 
             if (net.IsServer && net.IsHost)
             {
                 int agentsOnMesh = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None)
-                    .Count(e => e.GetComponent<UnityEngine.AI.NavMeshAgent>().isOnNavMesh);
-                Log("navmesh agents", agentsOnMesh + " / " + enemies, agentsOnMesh == enemies);
+                    .Count(e => !e.IsDead && e.GetComponent<UnityEngine.AI.NavMeshAgent>().isOnNavMesh);
+                // Against the living now: earlier checks give breaches and risen bones time to add more.
+                int living = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead);
+                Log("navmesh agents", agentsOnMesh + " / " + living, agentsOnMesh == living);
             }
 
             if (net.IsServer && local != null)
@@ -422,7 +455,7 @@ namespace Deepbound.Networking
                 }
                 // A frost flask chills where it lands.
                 var flaskT = local.GetComponent<Flasks>();
-                var flaskFoe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !e.GetComponent<Health>().Chilled.Value && !(e is GargoyleBrain) && !(e is HoarderBrain));
+                var flaskFoe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !e.GetComponent<Health>().Chilled.Value && !(e is GargoyleBrain) && !(e is MournerBrain) && !(e is HoarderBrain));
                 if (flaskT != null && flaskFoe != null)
                 {
                     int frostBefore = flaskT.Frost.Value;
@@ -440,7 +473,7 @@ namespace Deepbound.Networking
                 }
 
                 // Tells: an enemy winding up an attack flags it in its synced status (the HUD's red "!").
-                var tellFoe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !e.IsStunned && !(e is GargoyleBrain) && !(e is HoarderBrain) && !(e is MimicBrain));
+                var tellFoe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !e.IsStunned && !(e is GargoyleBrain) && !(e is MournerBrain) && !(e is HoarderBrain) && !(e is MimicBrain));
                 if (tellFoe != null)
                 {
                     fm.Teleport(tellFoe.transform.position + tellFoe.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
@@ -1139,11 +1172,13 @@ namespace Deepbound.Networking
                 // A soul skull, close up (as an ally would see it).
                 var skullAt = gFrom + new Vector3(-3.5f, -0.1f, 0.5f);
                 var shotSkull = DungeonDirector.Instance.ServerDebugSkull(skullAt, ulong.MaxValue - 1);
+                var campMourner = DungeonDirector.Instance.ServerDebugSpawnMourner(skullAt + new Vector3(-1.5f, 0f, 1.8f), Vector3.right);
                 lobbyMotor.Teleport(gFrom, Quaternion.LookRotation(Vector3.left));
                 lobbyMotor.SetPitch(22f);
                 yield return new WaitForSeconds(0.8f);
                 yield return Shot(dir, "1d_soul_skull");
                 if (shotSkull != null && shotSkull.NetworkObject.IsSpawned) shotSkull.NetworkObject.Despawn();
+                if (campMourner != null) campMourner.GetComponent<Health>().ServerDamage(1e6f, campMourner.transform.position);
                 lobbyMotor.SetPitch(0f);
                 UI.GameHud.DebugShowStats = true;
                 yield return null;
@@ -1347,6 +1382,18 @@ namespace Deepbound.Networking
                         motor.Teleport(ep, Quaternion.LookRotation(e.transform.position - ep));
                         yield return new WaitForSeconds(0.5f);
                         yield return Shot(dir, "7_" + type.Name + "_floor" + (depth + 1));
+                    }
+
+                    // The Mourner (never spawned in tests): one weeping far off, one caught reaching up close.
+                    if (depth == 1)
+                    {
+                        var mournFrom = room.Center + Vector3.up * 0.1f;
+                        var far = DungeonDirector.Instance.ServerDebugSpawnMourner(room.Center + new Vector3(-1.5f, 0f, 7f), Vector3.back);
+                        var near = DungeonDirector.Instance.ServerDebugSpawnMourner(room.Center + new Vector3(1.4f, 0f, 2.6f), Vector3.back);
+                        motor.Teleport(mournFrom, Quaternion.LookRotation(Vector3.forward));
+                        yield return new WaitForSeconds(0.8f);
+                        yield return Shot(dir, "7_MournerBrain_floor2");
+                        foreach (var mn in new[] { far, near }) if (mn != null) mn.GetComponent<Health>().ServerDamage(1e6f, mn.transform.position);
                     }
 
                     var archer = FindObjectsByType<ArcherBrain>(FindObjectsSortMode.None).FirstOrDefault();

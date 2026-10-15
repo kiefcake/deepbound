@@ -15,6 +15,7 @@ namespace Deepbound.Art
         public const string Cloth = "Cloth";
         public const string Leather = "Leather";
         public const string Rubble = "Rubble";
+        public const string Marble = "Marble";
         public const string Dark = "Dark";
         public const string Glow = "Glow";
         public const string Flame = "Flame";

@@ -585,7 +585,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -597,6 +597,7 @@ namespace Deepbound.Art
             if (kind == SkeletonKind.Wraith) return BuildWraith(root);
             if (kind == SkeletonKind.Mimic) return BuildMimic(root);
             if (kind == SkeletonKind.Gargoyle) return BuildGargoyle(root);
+            if (kind == SkeletonKind.Mourner) return BuildMourner(root);
             bool king = kind == SkeletonKind.King;
             float s = king ? 1.75f : kind == SkeletonKind.Gravewarden ? 2.0f : kind == SkeletonKind.Lich ? 1.45f : kind == SkeletonKind.Cardinal ? 1.7f
                 : kind == SkeletonKind.Brute ? 1.45f : kind == SkeletonKind.Plaguebearer ? 1.15f : kind == SkeletonKind.Ghoul ? 0.92f : kind == SkeletonKind.Necromancer ? 1.05f : 1f;
@@ -1212,6 +1213,61 @@ namespace Deepbound.Art
             }
             rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
             rig.StrideLength = 1.3f;
+            return rig;
+        }
+
+        /// <summary>
+        /// The Mourner: a tall weeping figure of pale stone. A bare stone face (no hood) under long
+        /// carved hair, a wreath, a long robe to the floor, folded feathered wings. Its weak point
+        /// is a glowing crack over the heart, where the stone wept through.
+        /// </summary>
+        private static HumanoidRig BuildMourner(Transform root)
+        {
+            var stone = new Color(0.92f, 0.94f, 1f);
+            var visual = MeshKit.Pivot(root, "MournerVisual", Vector3.zero);
+            visual.localScale = Vector3.one * 1.12f;
+            var rig = visual.gameObject.AddComponent<HumanoidRig>();
+            rig.GlowColor = new Color(0.55f, 0.75f, 1f);
+            Renderer Stone(GameObject g) { var r = g.GetComponent<Renderer>(); ArtLibrary.Tint(r, stone); return r; }
+
+            rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.95f, 0f));
+            // The robe: one long carved bell to the floor (the legs are hidden inside it).
+            Stone(MeshKit.Part(rig.Hips, "Robe", MeshKit.Lathe("mournerRobe", new[] { new Vector2(0.44f, -0.95f), new Vector2(0.36f, -0.6f), new Vector2(0.24f, -0.1f), new Vector2(0.2f, 0.12f) }, 10), Mat.Marble, Vector3.zero));
+            rig.LegL = MeshKit.Pivot(rig.Hips, "LegL", new Vector3(-0.1f, 0f, 0f));
+            rig.LegR = MeshKit.Pivot(rig.Hips, "LegR", new Vector3(0.1f, 0f, 0f));
+            foreach (var leg in new[] { rig.LegL, rig.LegR })
+                Stone(MeshKit.Part(leg, "Foot", MeshKit.Box(new Vector3(0.1f, 0.06f, 0.2f)), Mat.Marble, new Vector3(0f, -0.92f, 0.12f)));
+            rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", new Vector3(0f, 0.12f, 0f));
+            Stone(MeshKit.Part(rig.Torso, "Chest", MeshKit.Lathe("mournerChest", new[] { new Vector2(0.2f, 0f), new Vector2(0.23f, 0.25f), new Vector2(0.2f, 0.5f), new Vector2(0.08f, 0.6f) }, 10), Mat.Marble, Vector3.zero, default, new Vector3(1f, 1f, 0.75f)));
+            // Folded wings: tall feathered vanes along the back.
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var wing = MeshKit.Pivot(rig.Torso, s < 0 ? "WingL" : "WingR", new Vector3(s * 0.12f, 0.48f, -0.14f));
+                for (int i = 0; i < 6; i++)
+                    Stone(MeshKit.Part(wing, "Feather" + i, MeshKit.Lathe("mournerFeather", new[] { new Vector2(0.035f, 0f), new Vector2(0.03f, 0.6f), new Vector2(0f, 0.9f) }, 4), Mat.Marble,
+                        new Vector3(s * (0.04f + i * 0.05f), -0.75f + i * 0.08f, -0.04f - i * 0.015f), new Vector3(-6f, 0f, s * (4f + i * 6f)), new Vector3(1f, 1f - i * 0.1f, 0.4f)));
+                wing.localRotation = Quaternion.Euler(0f, s * 25f, 0f);
+            }
+            rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.66f, 0.02f));
+            Stone(MeshKit.Part(rig.Head, "Face", MeshKit.Ball(0.13f, 10, 8), Mat.Marble, new Vector3(0f, 0.1f, 0f), default, new Vector3(0.9f, 1.1f, 0.95f)));
+            Stone(MeshKit.Part(rig.Head, "Nose", MeshKit.Box(new Vector3(0.03f, 0.06f, 0.04f)), Mat.Marble, new Vector3(0f, 0.09f, 0.12f)));
+            // Long hair down the back, and a stone wreath.
+            for (int i = -2; i <= 2; i++)
+                Stone(MeshKit.Part(rig.Head, "Hair" + i, MeshKit.Box(new Vector3(0.05f, 0.42f, 0.04f)), Mat.Marble, new Vector3(i * 0.045f, -0.06f, -0.1f), new Vector3(10f, 0f, i * 3f)));
+            Stone(MeshKit.Part(rig.Head, "Wreath", MeshKit.Cylinder(0.13f, 0.13f, 0.035f, 12), Mat.Marble, new Vector3(0f, 0.2f, 0f), new Vector3(-12f, 0f, 0f)));
+            // Tear streaks: faintly glowing lines down the cheeks, the only light on it.
+            var tearL = MeshKit.Part(rig.Head, "TearL", MeshKit.Box(new Vector3(0.012f, 0.09f, 0.01f)), Mat.Glow, new Vector3(-0.045f, 0.06f, 0.115f));
+            var tearR = MeshKit.Part(rig.Head, "TearR", MeshKit.Box(new Vector3(0.012f, 0.09f, 0.01f)), Mat.Glow, new Vector3(0.045f, 0.06f, 0.115f));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var arm = MeshKit.Pivot(rig.Torso, s < 0 ? "ArmL" : "ArmR", new Vector3(s * 0.22f, 0.5f, 0f));
+                Stone(MeshKit.Part(arm, "Sleeve", MeshKit.Cylinder(0.07f, 0.09f, 0.55f, 8), Mat.Marble, new Vector3(0f, -0.55f, 0f)));
+                Stone(MeshKit.Part(arm, "Hand", MeshKit.Box(new Vector3(0.07f, 0.13f, 0.04f)), Mat.Marble, new Vector3(0f, -0.62f, 0.02f)));
+                if (s < 0) rig.ArmL = arm; else rig.ArmR = arm;
+            }
+            WeakPoint.Add(rig.Torso, new Vector3(-0.06f, 0.36f, 0.16f), 0.05f, new Color(0.55f, 0.8f, 1f));
+            rig.GlowRenderers = new[] { tearL.GetComponent<Renderer>(), tearR.GetComponent<Renderer>() };
+            rig.StrideLength = 1.1f;
             return rig;
         }
 

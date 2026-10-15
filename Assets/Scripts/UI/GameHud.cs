@@ -1402,6 +1402,7 @@ namespace Deepbound.UI
             if (hp.Chilled.Value) Tag("CHILL", "8CD9FF");
             if (hp.Marked.Value) Tag("MARK", "FF5A4D");
             if (brain != null && (brain.Status.Value & 1) != 0) Tag("STUN", "FFD94D");
+            if (brain is MournerBrain mo && mo.Seen.Value) Tag("WATCHED", "B8C4D6");
             if (brain != null && (brain.Status.Value & 2) != 0) Tag("TAUNT", "FF8C59");
             return sb.ToString();
         }

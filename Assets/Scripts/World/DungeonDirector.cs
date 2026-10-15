@@ -54,6 +54,17 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject mimicPrefab;
         [SerializeField] private NetworkObject hoarderPrefab;
         [SerializeField] private NetworkObject gargoylePrefab;
+        [SerializeField] private NetworkObject mournerPrefab;
+
+        /// <summary>Server (tests): a Mourner here, facing <paramref name="face"/>.</summary>
+        public EnemyBrain ServerDebugSpawnMourner(Vector3 at, Vector3 face)
+        {
+            if (mournerPrefab == null) return null;
+            var obj = Spawn(mournerPrefab, at, Quaternion.LookRotation(face));
+            var b = obj.GetComponent<EnemyBrain>();
+            b.ServerScale(1, 0);
+            return b;
+        }
         [SerializeField] private NetworkObject plaguebearerPrefab, frostWightPrefab, hexerPrefab;
         [SerializeField] private NetworkObject fateWheelPrefab;
         [SerializeField] private NetworkObject bountyNoticePrefab;
@@ -177,7 +188,7 @@ namespace Deepbound.World
         public System.Collections.Generic.IEnumerable<EnemyBrain> AllEnemyPrefabs()
         {
             var all = new System.Collections.Generic.List<NetworkObject> { skeletonPrefab, archerPrefab, ghoulPrefab, brutePrefab, necromancerPrefab, wraithPrefab,
-                shieldbearerPrefab, mimicPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab };
+                shieldbearerPrefab, mimicPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, mournerPrefab };
             if (bossPrefabs != null) all.AddRange(bossPrefabs);
             foreach (var p in all) if (p != null && p.TryGetComponent<EnemyBrain>(out var b)) yield return b;
         }
@@ -563,7 +574,7 @@ namespace Deepbound.World
             // One champion per floor: a named elite in a combat room, guarding a hoard.
             var candidates = new System.Collections.Generic.List<EnemyBrain>();
             foreach (var o in spawned)
-                if (o != null && o.TryGetComponent<EnemyBrain>(out var cb) && !(cb is BossBrain) && !(cb is HoarderBrain) && !(cb is WraithBrain) && !(cb is GargoyleBrain) &&
+                if (o != null && o.TryGetComponent<EnemyBrain>(out var cb) && !(cb is BossBrain) && !(cb is HoarderBrain) && !(cb is WraithBrain) && !(cb is GargoyleBrain) && !(cb is MournerBrain) &&
                     layout.RoomAt(o.transform.position)?.Kind == RoomKind.Combat) candidates.Add(cb);
             if (candidates.Count > 0) candidates[UnityEngine.Random.Range(0, candidates.Count)].ServerMakeChampion();
 
@@ -581,6 +592,26 @@ namespace Deepbound.World
                     var gobj = Spawn(gargoylePrefab, gat, Quaternion.LookRotation(face));
                     gobj.GetComponent<EnemyBrain>().ServerScale(players, layout.Depth);
                     spawned.Add(gobj);
+                }
+            }
+
+            // From the second floor, a Mourner or two waits by a wall, weeping. Never in tests (it hunts whoever looks away).
+            if (mournerPrefab != null && layout.Depth >= 1 && !TestMode)
+            {
+                var mrng = new System.Random(layout.Seed ^ 0x3e0a);
+                int placed = 0;
+                foreach (var room in layout.Rooms)
+                {
+                    if (placed >= 2) break;
+                    if (room.Kind != RoomKind.Combat || IsAmbushRoom(room) || mrng.NextDouble() > 0.3) continue;
+                    var mat = WallSpot(room, mrng);
+                    var mface = room.Center - mat;
+                    mface.y = 0f;
+                    if (NavMesh.SamplePosition(mat, out var mhit, 2f, NavMesh.AllAreas)) mat = mhit.position;
+                    var mobj = Spawn(mournerPrefab, mat, Quaternion.LookRotation(mface));
+                    mobj.GetComponent<EnemyBrain>().ServerScale(players, layout.Depth);
+                    spawned.Add(mobj);
+                    placed++;
                 }
             }
 
