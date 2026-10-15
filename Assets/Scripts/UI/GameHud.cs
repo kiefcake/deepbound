@@ -97,6 +97,7 @@ namespace Deepbound.UI
             life = owner.GetComponent<PlayerLife>();
             progress = owner.GetComponent<PlayerProgress>();
             health.Hurt += amount => hurtFlash = Mathf.Min(1f, hurtFlash + amount / 30f);
+            health.HurtFrom += from => { hitMarks.Add((from, Time.time)); if (hitMarks.Count > 6) hitMarks.RemoveAt(0); };
             spawnTime = Time.time;
             Health.AnyHurt += OnAnyHurt;
             Health.AnyHealed += OnAnyHealed;
@@ -311,6 +312,67 @@ namespace Deepbound.UI
             GUI.Label(new Rect(22, 35, 320, 20), line, new GUIStyle(small) { normal = { textColor = col } });
         }
 
+        // ---- Where hits come from: a red arc at the screen's edge, toward the attacker. ----
+        private readonly List<(Vector3 from, float time)> hitMarks = new List<(Vector3, float)>();
+
+        private void DrawHitDirections(float w, float h)
+        {
+            var cam = player.Camera;
+            for (int i = hitMarks.Count - 1; i >= 0; i--)
+            {
+                float age = Time.time - hitMarks[i].time;
+                if (age > 1.1f) { hitMarks.RemoveAt(i); continue; }
+                var to = hitMarks[i].from - player.transform.position;
+                to.y = 0f;
+                if (to.sqrMagnitude < 0.01f) continue;
+                // Angle relative to where you look: 0 = ahead, 90 = right.
+                float ang = Vector3.SignedAngle(Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up), to, Vector3.up) * Mathf.Deg2Rad;
+                float a = (1f - age / 1.1f) * 0.85f;
+                var center = new Vector2(w / 2f, h / 2f);
+                float radius = Mathf.Min(w, h) * 0.32f;
+                // A short arc of blocks, thickest in the middle.
+                for (int k = -4; k <= 4; k++)
+                {
+                    float t = ang + k * 0.06f;
+                    var p = center + new Vector2(Mathf.Sin(t), -Mathf.Cos(t)) * radius;
+                    float size = 10f - Mathf.Abs(k) * 1.4f;
+                    Rect(p.x - size / 2f, p.y - size / 2f, size, size, new Color(0.95f, 0.15f, 0.1f, a));
+                }
+            }
+        }
+
+        // ---- Allies: name and health over their heads, through walls; DOWNED pulses. ----
+        private void DrawAllies(float w, float h)
+        {
+            var cam = player.Camera;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || p == life) continue;
+                var np = p.GetComponent<NetworkPlayer>();
+                var world = p.transform.position + Vector3.up * 2.25f;
+                var screen = cam.WorldToScreenPoint(world);
+                float dist = Vector3.Distance(cam.transform.position, world);
+                if (screen.z <= 0f || dist > 60f) continue;
+                float y = h - screen.y;
+                bool downed = p.Downed.Value;
+                var slot = np != null ? np.SlotColor : Color.white;
+                float a = Mathf.Lerp(1f, 0.55f, Mathf.InverseLerp(10f, 60f, dist));
+                string label = p.name + (dist > 12f ? "  " + Mathf.RoundToInt(dist) + "m" : "");
+                var style = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(slot.r * 0.5f + 0.5f, slot.g * 0.5f + 0.5f, slot.b * 0.5f + 0.5f, a) } };
+                GUI.Label(new Rect(screen.x - 80, y - 18, 160, 16), label, style);
+                if (downed)
+                {
+                    float pulse = 0.6f + 0.4f * Mathf.Sin(Time.time * 6f);
+                    GUI.Label(new Rect(screen.x - 90, y - 2, 180, 18), "DOWNED - hold F to revive",
+                        new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.3f, 0.25f, pulse) } });
+                    continue;
+                }
+                float bw = 54f;
+                Rect(screen.x - bw / 2f - 1, y, bw + 2, 6, new Color(0f, 0f, 0f, 0.7f * a));
+                Rect(screen.x - bw / 2f, y + 1, bw * p.Health.Fraction, 4, new Color(0.3f, 0.85f, 0.35f, a));
+            }
+        }
+
         private float fpsSmoothed = 60f;
 
         /// <summary>Optional frame-rate readout under the minimap (Options).</summary>
@@ -446,6 +508,8 @@ namespace Deepbound.UI
             DrawHidden(w, h);
             DrawPings(w, h);
             DrawVignette(w, h);
+            DrawHitDirections(w, h);
+            DrawAllies(w, h);
             DrawCrosshair(w, h);
             DrawVitals(w, h);
             DrawAbilities(w, h);

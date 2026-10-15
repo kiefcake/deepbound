@@ -209,6 +209,12 @@ namespace Deepbound.Combat
         private static float zoneBoost = 1f;
 
         /// <summary>Server: while set, damage to <paramref name="target"/> is scaled (a projectile's headshot, for custom hit handlers).</summary>
+        /// <summary>Owner: a hit landed on you from this point (for the HUD's direction marker).</summary>
+        public event Action<Vector3> HurtFrom;
+
+        [Rpc(SendTo.Owner)]
+        private void HurtFromRpc(Vector3 from) => HurtFrom?.Invoke(from);
+
         public static void SetZoneBoost(Health target, float multiplier) { zoneBoostTarget = target; zoneBoost = multiplier; }
 
         public const float DefenseWeight = 0.5f, MinDamageFraction = 0.2f;
@@ -232,6 +238,7 @@ namespace Deepbound.Combat
             if (Marked.Value) dealt *= MarkedMultiplier;
             foreach (var modifier in IncomingModifiers) dealt = modifier(dealt, attackerPosition);
             if (dealt <= 0f) return 0f;
+            if (Team == Team.Players && (attackerPosition - transform.position).sqrMagnitude > 0.25f) HurtFromRpc(attackerPosition);
 
             // Shields soak what is left before health does.
             if (Shield.Value > 0f)

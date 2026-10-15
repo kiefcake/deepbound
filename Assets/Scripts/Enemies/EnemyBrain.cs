@@ -668,8 +668,17 @@ namespace Deepbound.Enemies
                     Sfx.Play(Sound.BoneBreak, transform.position + Vector3.up);
                     BoneBurst.Spawn(transform.position, Rig != null ? Rig.transform.lossyScale.y : 1f, Elite.Value);
                     foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
+                    // The rank and file fall apart once they have crumpled; bosses keep their fall.
+                    if (!(this is BossBrain)) StartCoroutine(FallApart(duration * 0.5f));
                     break;
             }
+        }
+
+        private System.Collections.IEnumerator FallApart(float after)
+        {
+            yield return new WaitForSeconds(after);
+            if (Rig != null) BoneScatter.Break(Rig);
+            Sfx.Play(Sound.Rattle, transform.position + Vector3.up * 0.5f, 0.8f, 0.9f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

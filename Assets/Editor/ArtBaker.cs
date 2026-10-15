@@ -43,8 +43,9 @@ namespace Deepbound.EditorTools
             var lit = Shader.Find("Universal Render Pipeline/Lit");
             var unlit = Shader.Find("Universal Render Pipeline/Unlit");
 
-            BakeSurface("StoneWall", lit, StoneBricks, 0.12f, 0f, 2.2f);
-            BakeSurface("Flagstone", lit, Flagstones, 0.18f, 0f, 2.6f);
+            // Stone is damp down here: a gloss map makes torchlight catch on wet streaks and puddles.
+            BakeSurface("StoneWall", lit, StoneBricks, 0.75f, 0f, 2.2f, StoneWallGloss);
+            BakeSurface("Flagstone", lit, Flagstones, 0.95f, 0f, 2.6f, FlagstoneGloss);
             BakeSurface("Wood", lit, WoodPlanks, 0.2f, 0f, 1.6f);
             BakeSurface("Steel", lit, BrushedMetal, 0.62f, 0.85f, 0.6f);
             BakeSurface("Gold", lit, (x, y) => Tint(BrushedMetal(x, y), new Color(1f, 0.78f, 0.35f)), 0.7f, 1f, 0.5f);
@@ -80,8 +81,9 @@ namespace Deepbound.EditorTools
         /// <summary>Albedo at (u, v) in [0,1), with alpha carrying height for the normal map.</summary>
         private delegate Color Surface(float u, float v);
 
+        /// <param name="gloss">Optional smoothness per texel (0-1), stored in albedo alpha; <paramref name="smoothness"/> then scales it.</param>
         private static void BakeSurface(string name, Shader shader, Surface surface,
-            float smoothness, float metallic, float normalStrength)
+            float smoothness, float metallic, float normalStrength, System.Func<float, float, float> gloss = null)
         {
             var albedo = new Color[Size * Size];
             var height = new float[Size * Size];
@@ -89,9 +91,10 @@ namespace Deepbound.EditorTools
             for (int y = 0; y < Size; y++)
             for (int x = 0; x < Size; x++)
             {
-                var c = surface((float)x / Size, (float)y / Size);
+                float u = (float)x / Size, v = (float)y / Size;
+                var c = surface(u, v);
                 height[y * Size + x] = c.a;
-                c.a = 1f;
+                c.a = gloss != null ? Mathf.Clamp01(gloss(u, v)) : 1f;
                 albedo[y * Size + x] = c;
             }
 
@@ -106,6 +109,16 @@ namespace Deepbound.EditorTools
             mat.EnableKeyword("_NORMALMAP");
             mat.SetFloat("_Smoothness", smoothness);
             mat.SetFloat("_Metallic", metallic);
+            if (gloss != null)
+            {
+                mat.SetFloat("_SmoothnessTextureChannel", 1f);
+                mat.EnableKeyword("_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A");
+            }
+            else
+            {
+                mat.SetFloat("_SmoothnessTextureChannel", 0f);
+                mat.DisableKeyword("_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A");
+            }
             EditorUtility.SetDirty(mat);
         }
 
@@ -212,8 +225,11 @@ namespace Deepbound.EditorTools
                         * (0.72f + bevel * 0.28f) * (1f - grime);
             var mortarColor = new Color(0.16f, 0.15f, 0.14f);
 
+            float crack = Mathf.Clamp01(1f - Mathf.Abs(Fbm(u, v, 5f, 5f, 3, 15) - 0.5f) * 90f) * (brickId > 0.88f ? 1f : 0f);
+            stone *= 1f - crack * 0.55f;
             var c = Color.Lerp(mortarColor, stone, inBrick);
-            c.a = inBrick * (0.6f + bevel * 0.3f + grain) - chip * 0.4f;
+            c *= 1f - Damp(u, v) * 0.3f;
+            c.a = inBrick * (0.6f + bevel * 0.3f + grain) - chip * 0.4f - crack * 0.4f;
             return c;
         }
 
@@ -228,12 +244,33 @@ namespace Deepbound.EditorTools
             float grain = Fbm(u, v, 24f, 24f, 4, 21) * 0.15f;
             float moss = Mathf.Clamp01(Fbm(u, v, 3f, 3f, 3, 22) - 0.6f) * (1f - gap);
 
-            var stone = new Color(tone, tone * 0.97f, tone * 0.92f) * (1f - grain);
+            // Hairline cracks across some stones.
+            float crack = Mathf.Clamp01(1f - Mathf.Abs(Fbm(u, v, 7f, 7f, 4, 25) - 0.5f) * 40f) * (cellId > 0.55f ? 1f : 0f);
+            var stone = new Color(tone, tone * 0.97f, tone * 0.92f) * (1f - grain) * (1f - crack * 0.6f);
             stone = Color.Lerp(stone, new Color(0.14f, 0.18f, 0.1f), moss * 1.5f);
             var c = Color.Lerp(new Color(0.08f, 0.075f, 0.07f), stone, gap);
-            c.a = gap * (0.85f + grain) * (1f - d1 * 0.3f);
+            // Wet stone is darker.
+            c *= 1f - Puddle(u, v) * 0.35f;
+            c.a = gap * (0.85f + grain) * (1f - d1 * 0.3f) - crack * 0.35f;
             return c;
         }
+
+        /// <summary>Where water stands on the floor: broad, soft-edged patches (0 dry .. 1 pooled).</summary>
+        private static float Puddle(float u, float v) => Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.6f, 0.7f, Fbm(u, v, 2f, 2f, 3, 23)));
+
+        /// <summary>Damp running down a wall: tall thin streaks, strongest low on the wall.</summary>
+        private static float Damp(float u, float v) =>
+            Mathf.Clamp01((Fbm(u, v, 14f, 1.5f, 3, 14) - 0.55f) * 3.5f) * Mathf.Lerp(1f, 0.35f, v);
+
+        private static float FlagstoneGloss(float u, float v)
+        {
+            Voronoi(u * 5f, v * 5f, 5, out float d1, out float d2, out float _);
+            float grout = 1f - Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.02f, 0.09f, d2 - d1));
+            // Dry stone is matte, grout holds a little water, puddles are mirrors.
+            return Mathf.Max(0.18f + Fbm(u, v, 20f, 20f, 2, 24) * 0.1f, grout * 0.45f, Puddle(u, v) * 0.95f);
+        }
+
+        private static float StoneWallGloss(float u, float v) => 0.12f + Damp(u, v) * 0.6f;
 
         private static Color WoodPlanks(float u, float v)
         {
