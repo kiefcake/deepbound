@@ -532,7 +532,8 @@ namespace Deepbound.Enemies
 
         private void ServerSyncStatus()
         {
-            byte s = (byte)((IsStunned ? 1 : 0) | (Taunter != null ? 2 : 0));
+            // Bits: 1 stunned, 2 taunted, 4 winding up an attack (the HUD shows a "!" tell).
+            byte s = (byte)((IsStunned ? 1 : 0) | (Taunter != null ? 2 : 0) | (attacking ? 4 : 0));
             if (Status.Value != s) Status.Value = s;
         }
 

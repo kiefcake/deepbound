@@ -355,6 +355,24 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                 }
 
+                // Tells: an enemy winding up an attack flags it in its synced status (the HUD's red "!").
+                var tellFoe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !e.IsStunned && !(e is GargoyleBrain) && !(e is HoarderBrain) && !(e is MimicBrain));
+                if (tellFoe != null)
+                {
+                    fm.Teleport(tellFoe.transform.position + tellFoe.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                    bool sawTell = false;
+                    for (float t = 0f; t < 4f && !sawTell; t += 0.05f)
+                    {
+                        sawTell = (tellFoe.Status.Value & 4) != 0;
+                        local.GetComponent<Health>().ServerSetFraction(1f);
+                        yield return new WaitForSeconds(0.05f);
+                    }
+                    Log("wind-up tell", "saw the wind-up flag " + sawTell, sawTell);
+                    fm.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                    foreach (var pl in PlayerLife.All) { if (pl.Downed.Value) pl.ServerRevive(1f); pl.Health.ServerSetFraction(1f); }
+                    yield return new WaitForSeconds(0.2f);
+                }
+
                 // Afflictions: poison, frostbite and a curse land, slow and weaken; Holy Water washes them off.
                 var deb = local.GetComponent<PlayerDebuffs>();
                 if (deb != null)

@@ -341,6 +341,30 @@ namespace Deepbound.UI
             }
         }
 
+        // ---- Tells: a red "!" over anything about to strike, bigger when it is coming for you. ----
+        private void DrawThreats(float w, float h)
+        {
+            var cam = player.Camera;
+            foreach (var hp in Health.All)
+            {
+                if (hp == null || hp.Team != Team.Enemies || !hp.IsAlive) continue;
+                var brain = hp.GetComponent<EnemyBrain>();
+                if (brain == null || (brain.Status.Value & 4) == 0) continue;
+                var world = hp.transform.position + Vector3.up * (hp.CenterHeight * 2f + 0.7f);
+                var screen = cam.WorldToScreenPoint(world);
+                if (screen.z <= 0f || screen.z > 22f) continue;
+                bool atMe = Vector3.Distance(player.transform.position, hp.transform.position) < 4f;
+                float pulse = 0.8f + 0.2f * Mathf.Sin(Time.time * 18f);
+                int size = Mathf.RoundToInt((atMe ? 34 : 24) * pulse);
+                var c = atMe ? new Color(1f, 0.25f, 0.15f) : new Color(1f, 0.6f, 0.2f);
+                var style = new GUIStyle(big) { fontSize = size, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = c } };
+                var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, 0.8f) } };
+                var r = new Rect(screen.x - 30, h - screen.y - 26, 60, 40);
+                GUI.Label(new Rect(r.x + 2, r.y + 2, r.width, r.height), "!", shadow);
+                GUI.Label(r, "!", style);
+            }
+        }
+
         // ---- Allies: name and health over their heads, through walls; DOWNED pulses. ----
         private void DrawAllies(float w, float h)
         {
@@ -509,6 +533,7 @@ namespace Deepbound.UI
             DrawPings(w, h);
             DrawVignette(w, h);
             DrawHitDirections(w, h);
+            DrawThreats(w, h);
             DrawAllies(w, h);
             DrawCrosshair(w, h);
             DrawVitals(w, h);
