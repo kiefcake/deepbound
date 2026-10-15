@@ -1,3 +1,4 @@
+using Deepbound.Art;
 using System;
 using System.Linq;
 using Deepbound.Classes;
@@ -122,6 +123,79 @@ namespace Deepbound.Progression
         public readonly NetworkVariable<GearItem> Charm = new NetworkVariable<GearItem>();
 
         public GearItem Equipped(GearSlot slot) => slot == GearSlot.Armor ? Armor.Value : Charm.Value;
+
+        // ---- The pack: spare gear carried for the run (Dark and Darker's stash, small). ----
+        public const int BagSize = 8;
+        private NetworkList<GearItem> bag;
+        public int BagCount => bag.Count;
+        public GearItem BagItem(int i) => i >= 0 && i < bag.Count ? bag[i] : default;
+        public bool BagFull => bag.Count >= BagSize;
+
+        /// <summary>Server: put a piece in the pack. False if it is full.</summary>
+        public bool ServerStow(GearItem item)
+        {
+            if (!IsServer || item.IsEmpty || bag.Count >= BagSize) return false;
+            bag.Add(item);
+            return true;
+        }
+
+        private bool CanManagePack(int i) => IsServer && i >= 0 && i < bag.Count && !GetComponent<Player.PlayerLife>().Downed.Value;
+
+        /// <summary>Owner → server: wear a piece from the pack; what was worn takes its place.</summary>
+        [Rpc(SendTo.Server)]
+        public void BagEquipRpc(int i)
+        {
+            if (!CanManagePack(i)) return;
+            var item = bag[i];
+            bag.RemoveAt(i);
+            var old = ServerEquip(item);
+            if (!old.IsEmpty) bag.Insert(Mathf.Min(i, bag.Count), old);
+        }
+
+        /// <summary>Owner → server: break a piece in the pack down into embers.</summary>
+        [Rpc(SendTo.Server)]
+        public void BagScrapRpc(int i)
+        {
+            if (!CanManagePack(i)) return;
+            var item = bag[i];
+            bag.RemoveAt(i);
+            ServerAddEmbers(Gear.ScrapValue(item));
+            PackFxRpc(0);
+        }
+
+        /// <summary>Owner → server: set a piece down on the floor (yours alone to see, as ever).</summary>
+        [Rpc(SendTo.Server)]
+        public void BagDropRpc(int i)
+        {
+            if (!CanManagePack(i)) return;
+            var item = bag[i];
+            bag.RemoveAt(i);
+            GearDrop.ServerSpawn(item, OwnerClientId, transform.position + transform.forward * 1.2f + Vector3.up * 0.05f);
+        }
+
+        /// <summary>Owner → server: take a worn piece off into the pack.</summary>
+        [Rpc(SendTo.Server)]
+        public void UnequipRpc(byte slot)
+        {
+            if (!IsServer || slot > 1 || GetComponent<Player.PlayerLife>().Downed.Value || bag.Count >= BagSize) return;
+            var item = Equipped((GearSlot)slot);
+            if (item.IsEmpty) return;
+            ServerUnequip((GearSlot)slot);
+            bag.Add(item);
+        }
+
+        private void ServerUnequip(GearSlot which)
+        {
+            var slot = which == GearSlot.Armor ? Armor : Charm;
+            var old = slot.Value;
+            foreach (var s in Gear.StatsOf(old)) Stats.AddEquipmentBonus(s, -Gear.StatValue(old, s));
+            slot.Value = default;
+            health.HealMultiplier = Wears(GearId.TidewovenRobe) ? 1.3f : 1f;
+            OnStatsChangedServer(null);
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void PackFxRpc(byte kind) => Sfx.Play2D(kind == 0 ? Sound.Shatter : Sound.Purchase, 0.5f);
         public bool Wears(GearId id) => Armor.Value.Kind == id || Charm.Value.Kind == id;
 
         private float dodgeStrikeUntil, shroudReadyAt, bulwarkReadyAt;
@@ -310,6 +384,7 @@ namespace Deepbound.Progression
             bonuses = new NetworkList<float>();
             relics = new NetworkList<byte>();
             runeBag = new NetworkList<byte>();
+            bag = new NetworkList<GearItem>();
         }
 
         public override void OnNetworkSpawn()
@@ -846,6 +921,7 @@ namespace Deepbound.Progression
             RankQ.Value = RankE.Value = 1;
             Armor.Value = default;
             runeBag.Clear();
+            bag.Clear();
             Socket0.Value = Socket1.Value = 0;
             Charm.Value = default;
             health.HealMultiplier = 1f;

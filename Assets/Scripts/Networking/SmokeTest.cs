@@ -301,6 +301,34 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                 }
 
+                // The pack: stow, wear from it (the worn piece takes its place), scrap, drop, take off.
+                {
+                    var ip = local.GetComponent<PlayerProgress>();
+                    var wornBefore = ip.Armor.Value;
+                    var spare = new GearItem(GearId.KingsguardHauberk, 1, 0);
+                    bool stowed = ip.ServerStow(spare) && ip.ServerStow(new GearItem(GearId.LuckyKnucklebone, 0, 0));
+                    int n0 = ip.BagCount;
+                    ip.BagEquipRpc(n0 - 2);
+                    yield return new WaitForSeconds(0.2f);
+                    bool swapped = ip.Armor.Value.Equals(spare) && (wornBefore.IsEmpty ? ip.BagCount == n0 - 1 : ip.BagCount == n0);
+                    int embers0 = ip.Embers.Value;
+                    ip.BagScrapRpc(ip.BagCount - 1);
+                    yield return new WaitForSeconds(0.2f);
+                    bool scrapped = ip.Embers.Value > embers0;
+                    int drops0 = FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
+                    ip.UnequipRpc(0);
+                    yield return new WaitForSeconds(0.2f);
+                    bool off = ip.Armor.Value.IsEmpty && ip.BagCount > 0;
+                    ip.BagDropRpc(ip.BagCount - 1);
+                    yield return new WaitForSeconds(0.3f);
+                    bool dropped = FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length > drops0;
+                    Log("inventory", "stowed " + stowed + ", wore from pack " + swapped + ", scrapped " + scrapped + ", took off " + off + ", dropped " + dropped,
+                        stowed && swapped && scrapped && off && dropped);
+                    foreach (var gd in FindObjectsByType<GearDrop>(FindObjectsSortMode.None)) if (gd.NetworkObject.IsSpawned && gd.For.Value == local.OwnerClientId) gd.NetworkObject.Despawn();
+                    while (ip.BagCount > 0) { ip.BagScrapRpc(0); yield return null; }
+                    if (!wornBefore.IsEmpty) ip.ServerEquip(wornBefore);
+                }
+
                 // The Reliquary: carried slowly, cracked by hits, delivered at the waystone for party gold.
                 var relT = Reliquary.Current;
                 if (relT != null)
@@ -1222,6 +1250,13 @@ namespace Deepbound.Networking
                 yield return null;
                 yield return Shot(dir, "1e_stat_sheet");
                 UI.GameHud.DebugShowStats = false;
+                ap.ServerStow(new GearItem(GearId.KingsguardHauberk, 2, 1));
+                ap.ServerStow(new GearItem(GearId.LuckyKnucklebone, 0, 0));
+                ap.ServerStow(new GearItem(GearId.WardensBulwark, 3, 0));
+                local.GetComponent<UI.GameHud>().DebugOpenInventory(true);
+                yield return new WaitForSeconds(0.3f);
+                yield return Shot(dir, "1e_inventory");
+                local.GetComponent<UI.GameHud>().DebugOpenInventory(false);
                 ap.ServerResetRun();
             }
 

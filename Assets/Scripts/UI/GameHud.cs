@@ -36,7 +36,11 @@ namespace Deepbound.UI
         /// <summary>True while a menu wants the cursor (the merchant's shop). The motor reads this.</summary>
         public static bool MenuOpen { get; private set; }
 
-        private bool shopOpen, forgeOpen;
+        private bool shopOpen, forgeOpen, invOpen;
+
+        /// <summary>Tests and screenshots: open the inventory panel.</summary>
+        public void DebugOpenInventory(bool open) => invOpen = open;
+        public static bool InventoryOpen { get; private set; }
 
         /// <summary>Screenshots only: stage the forge panel open.</summary>
         public void DebugOpenForge() => forgeOpen = true;
@@ -182,7 +186,7 @@ namespace Deepbound.UI
         private void LateUpdate()
         {
             // Esc closes the shop or class screen first; only a second Esc pauses.
-            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || CharacterSelect.Open || Wardrobe.Open;
+            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || CharacterSelect.Open || Wardrobe.Open;
         }
 
         private void OnDestroy()
@@ -415,6 +419,122 @@ namespace Deepbound.UI
             }
         }
 
+        // ---- Inventory (I): what you wear, your pack, and everything else the run has given you. ----
+        private void DrawInventory(float w, float h)
+        {
+            Rect(0, 0, w, h, new Color(0f, 0f, 0f, 0.55f));
+            float pw = Mathf.Min(980f, w - 40f), ph = Mathf.Min(560f, h - 60f);
+            float px = w / 2f - pw / 2f, py = h / 2f - ph / 2f;
+            UiSkin.Panel(new Rect(px - 12, py - 12, pw + 24, ph + 24), 0.96f);
+            GUI.Label(new Rect(px, py, pw, 30), "INVENTORY", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleLeft, fontSize = 26 });
+            GUI.Label(new Rect(px, py + 4, pw, 24), progress.Gold.Value + " gold     " + progress.Embers.Value + " embers     " + progress.Sigils.Value + " sigil" + (progress.Sigils.Value == 1 ? "" : "s"),
+                new GUIStyle(label) { alignment = TextAnchor.MiddleRight, normal = { textColor = Gold } });
+
+            var ev = Event.current;
+            var mouse = ev.mousePosition;
+            GearItem hovered = default;
+            bool hoveredWorn = false;
+            bool click = ev.type == EventType.MouseDown;
+            int button = ev.button;
+
+            // ---- Equipped ----
+            float cx = px, cy = py + 44;
+            GUI.Label(new Rect(cx, cy, 300, 22), "EQUIPPED", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            cy += 24;
+            string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
+            Rect(cx, cy, 300, 46, new Color(0f, 0f, 0f, 0.45f));
+            GUI.Label(new Rect(cx + 10, cy + 4, 280, 20), weapon, new GUIStyle(label) { fontStyle = FontStyle.Bold });
+            string runes = "";
+            for (int s = 0; s < Runes.SocketsAt(progress.WeaponLevel.Value); s++) runes += (s > 0 ? ",  " : "") + Runes.Name(progress.Socketed(s));
+            GUI.Label(new Rect(cx + 10, cy + 24, 280, 18), runes.Length > 0 ? runes : "No rune sockets yet (anvil +1)", small);
+            cy += 54;
+            foreach (var slot in new[] { GearSlot.Armor, GearSlot.Charm })
+            {
+                var item = progress.Equipped(slot);
+                var r = new Rect(cx, cy, 300, 52);
+                bool over = r.Contains(mouse);
+                var qc = item.IsEmpty ? new Color(0.4f, 0.4f, 0.4f) : Gear.QualityColor(item.Quality);
+                Rect(r.x - 1, r.y - 1, r.width + 2, r.height + 2, new Color(qc.r, qc.g, qc.b, over ? 0.8f : 0.35f));
+                Rect(r.x, r.y, r.width, r.height, new Color(0.05f, 0.045f, 0.04f, 0.95f));
+                GUI.Label(new Rect(r.x + 10, r.y + 4, 280, 18), slot.ToString().ToUpperInvariant(), small);
+                GUI.Label(new Rect(r.x + 10, r.y + 22, 280, 22), item.IsEmpty ? "(empty)" : Gear.Name(item), new GUIStyle(label) { normal = { textColor = qc } });
+                if (over && !item.IsEmpty) { hovered = item; hoveredWorn = true; }
+                if (over && click && !item.IsEmpty && button == 1) { progress.UnequipRpc((byte)slot); ev.Use(); }
+                cy += 60;
+            }
+
+            // ---- Flasks and relics ----
+            var fl = player.GetComponent<Flasks>();
+            if (fl != null)
+            {
+                GUI.Label(new Rect(cx, cy + 4, 300, 20), "FLASKS   Fire " + fl.Fire.Value + "   Frost " + fl.Frost.Value + "   Holy " + fl.Holy.Value, small);
+                cy += 28;
+            }
+            GUI.Label(new Rect(cx, cy, 300, 22), "RELICS (" + progress.RelicCount + ")", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            cy += 22;
+            string hoverText = null;
+            for (int i = 0; i < progress.RelicCount && cy < py + ph - 20; i++)
+            {
+                var rel = progress.RelicAt(i);
+                var rr = new Rect(cx, cy, 300, 18);
+                GUI.Label(rr, Relics.Name(rel), new GUIStyle(small) { normal = { textColor = rr.Contains(mouse) ? Color.white : new Color(0.85f, 0.8f, 0.7f) } });
+                if (rr.Contains(mouse)) hoverText = Relics.Name(rel) + ": " + Relics.Describe(rel);
+                cy += 18;
+            }
+
+            // ---- The pack: a 4 x 2 grid ----
+            float gx = px + 330, gy = py + 44;
+            GUI.Label(new Rect(gx, gy, 400, 22), "PACK  " + progress.BagCount + " / " + PlayerProgress.BagSize, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            gy += 24;
+            const float cell = 122f, gap = 8f;
+            for (int i = 0; i < PlayerProgress.BagSize; i++)
+            {
+                var r = new Rect(gx + (i % 4) * (cell + gap), gy + (i / 4) * (cell * 0.8f + gap), cell, cell * 0.8f);
+                var item = progress.BagItem(i);
+                bool over = r.Contains(mouse);
+                var qc = item.IsEmpty ? new Color(0.3f, 0.3f, 0.3f) : Gear.QualityColor(item.Quality);
+                Rect(r.x - 1, r.y - 1, r.width + 2, r.height + 2, new Color(qc.r, qc.g, qc.b, over && !item.IsEmpty ? 0.9f : 0.35f));
+                Rect(r.x, r.y, r.width, r.height, new Color(0.05f, 0.045f, 0.04f, 0.95f));
+                if (item.IsEmpty) continue;
+                GUI.Label(new Rect(r.x + 6, r.y + 4, r.width - 12, 16), Gear.SlotOf(item.Kind) == GearSlot.Armor ? "ARMOR" : "CHARM", small);
+                GUI.Label(new Rect(r.x + 6, r.y + 20, r.width - 12, r.height - 22), Gear.Name(item),
+                    new GUIStyle(small) { wordWrap = true, fontStyle = FontStyle.Bold, normal = { textColor = qc } });
+                if (over)
+                {
+                    hovered = item;
+                    if (click && button == 0 && ev.shift) { progress.BagDropRpc(i); ev.Use(); }
+                    else if (click && button == 0) { progress.BagEquipRpc(i); Art.Sfx.Play2D(Art.Sound.Block, 0.4f); ev.Use(); }
+                    else if (click && button == 1) { progress.BagScrapRpc(i); ev.Use(); }
+                }
+            }
+
+            // ---- Runes waiting for a socket ----
+            float ry = gy + 2 * (cell * 0.8f + gap) + 8;
+            GUI.Label(new Rect(gx, ry, 400, 22), "RUNES IN THE BAG (" + progress.RuneBagCount + ")  -  set them at the anvil", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            ry += 22;
+            for (int i = 0; i < progress.RuneBagCount && i < 6; i++)
+            {
+                var rune = progress.RuneInBag(i);
+                var rr = new Rect(gx + (i % 3) * 132, ry + (i / 3) * 20, 128, 18);
+                GUI.Label(rr, Runes.Name(rune), new GUIStyle(small) { normal = { textColor = Runes.Color(rune) } });
+                if (rr.Contains(mouse)) hoverText = Runes.Name(rune) + ": " + Runes.Describe(rune);
+            }
+
+            // ---- What the mouse is over ----
+            // Below the pack and runes, clear of the grid.
+            float dx = gx, dy = Mathf.Min(ry + 52f, py + ph - 214f);
+            if (!hovered.IsEmpty) DrawGearCard(hovered, dx, dy, !hoveredWorn);
+            else if (hoverText != null)
+            {
+                Rect(dx, dy, 360, 70, new Color(0.04f, 0.035f, 0.03f, 0.93f));
+                GUI.Label(new Rect(dx + 10, dy + 8, 340, 60), hoverText, new GUIStyle(small) { wordWrap = true });
+            }
+
+            GUI.Label(new Rect(px, py + ph - 22, pw, 20),
+                "Pack: click to wear   right-click to scrap for embers   shift-click to drop        Worn: right-click to take off        I / Esc close",
+                new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+        }
+
         // ---- Your microphone: lit while you transmit; PTT hint. ----
         private void DrawMicLight(float w, float h)
         {
@@ -625,13 +745,19 @@ namespace Deepbound.UI
                 if (anvilFirst) { forgeOpen = !forgeOpen; shopOpen = false; }
                 else if (near) { shopOpen = !shopOpen; forgeOpen = false; }
             }
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = forgeOpen = false;
+            if (keyboard != null && keyboard.iKey.wasPressedThisFrame && !shopOpen && !forgeOpen && !CharacterSelect.Open && !PauseMenu.Open && !Wardrobe.Open) invOpen = !invOpen;
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = forgeOpen = invOpen = false;
+            // G (when no station is near) stows the gear you are looking at.
+            if (keyboard != null && keyboard.gKey.wasPressedThisFrame && !near && anvil == null && !MenuOpen &&
+                Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is GearDrop stow && !progress.BagFull)
+                stow.StowRpc(player.NetworkObject);
             if (keyboard != null && keyboard.xKey.wasPressedThisFrame && !MenuOpen &&
                 Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is GearDrop scrap)
                 scrap.ScrapRpc(player.NetworkObject);
             if (!near) shopOpen = false;
             if (anvil == null) forgeOpen = false;
-            MenuOpen = shopOpen || forgeOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
+            MenuOpen = shopOpen || forgeOpen || invOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
+            InventoryOpen = invOpen;
             statsHeld = DebugShowStats || (keyboard != null && keyboard.tabKey.isPressed && !Wardrobe.Open);
 
             // The host sets difficulty at camp.
@@ -702,7 +828,7 @@ namespace Deepbound.UI
             DrawTitleCard(w, h);
             DrawBossIntro(w, h);
             DrawTaunt(w, h);
-            if (!statsHeld) DrawControlsHint(w, h);
+            if (!statsHeld && !invOpen) DrawControlsHint(w, h);
             DrawFeed(h);
             DrawForge(w, h);
                 DrawMerchant(w, h);
@@ -711,6 +837,8 @@ namespace Deepbound.UI
             DrawContract();
             DrawLobby(w, h);
             if (statsHeld) DrawStatSheet(w, h);
+            // Last, so nothing (feed, tips, banners) draws over it.
+            if (invOpen) DrawInventory(w, h);
             DrawFade(w, h);
         }
 
@@ -911,7 +1039,7 @@ namespace Deepbound.UI
             if (compare)
             {
                 GUI.Label(new Rect(x + 10, ry + 34, cw - 20, 18), "Wearing: " + (current.IsEmpty ? "nothing" : Gear.Name(current)), small);
-                GUI.Label(new Rect(x + 10, ry + 52, cw - 20, 18), "X   scrap for " + Gear.ScrapValue(item) + " embers", new GUIStyle(small) { normal = { textColor = LootInfo.EmberColor } });
+                GUI.Label(new Rect(x + 10, ry + 52, cw - 20, 18), "X   scrap for " + Gear.ScrapValue(item) + " embers" + (progress.BagFull ? "" : "      G   stow in pack"), new GUIStyle(small) { normal = { textColor = LootInfo.EmberColor } });
             }
         }
 
@@ -1026,7 +1154,7 @@ namespace Deepbound.UI
                     : "LMB swing  ·  RMB block (front)\n" +
                       "Q  Shield Bash — stuns, cancels wind-ups\n" +
                       "E  War Cry — taunt + half damage\n") +
-                "F  revive a downed ally  ·  G  trade  ·  Tab  stats\n" +
+                "F  revive a downed ally  ·  G  trade  ·  Tab  stats  ·  I  inventory\n" +
                 "CTRL dodge (slide if sprinting)  ·  V kick\n" +
                 "R ultimate (when charged)\n" +
                 "1 / 2 / 3  throw Fire / Frost / Holy flask\n" +

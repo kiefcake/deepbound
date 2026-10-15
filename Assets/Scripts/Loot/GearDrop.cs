@@ -32,15 +32,28 @@ namespace Deepbound.Loot
         {
             if (!Mine(who) || Item.Value.IsEmpty) return null;
             var current = who.Equipped(Gear.SlotOf(Item.Value.Kind));
-            return (current.IsEmpty ? "Equip " : "Swap for ") + Gear.Name(Item.Value);
+            if (current.IsEmpty) return "Equip " + Gear.Name(Item.Value);
+            return who.BagFull ? "Swap for " + Gear.Name(Item.Value) + " (pack full)" : "Equip " + Gear.Name(Item.Value) + " (old piece to your pack)";
         }
 
         protected override void ServerUse(PlayerProgress who)
         {
             var old = who.ServerEquip(Item.Value);
             EquipFxRpc();
-            if (old.IsEmpty) NetworkObject.Despawn();
+            // What you took off goes in the pack while there is room; otherwise it stays here.
+            if (old.IsEmpty || who.ServerStow(old)) NetworkObject.Despawn();
             else Item.Value = old;
+        }
+
+        /// <summary>Owner → server: put this piece in your pack without wearing it.</summary>
+        [Rpc(SendTo.Server)]
+        public void StowRpc(NetworkObjectReference user)
+        {
+            if (!user.TryGet(out var obj) || !obj.TryGetComponent<PlayerProgress>(out var who) || !Mine(who)) return;
+            if (Vector3.Distance(obj.transform.position, transform.position) > Range + 1f) return;
+            if (!who.ServerStow(Item.Value)) return;
+            EquipFxRpc();
+            NetworkObject.Despawn();
         }
 
         /// <summary>Owner → server: break this piece down into embers.</summary>
