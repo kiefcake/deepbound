@@ -19,7 +19,22 @@ namespace Deepbound.Loot
     /// </summary>
     public class LootDrop : NetworkBehaviour
     {
-        private const float PickupRadius = 1.3f;
+        private const float PickupRadius = 1.3f, MagnetRadius = 2.6f;
+
+        private bool Magnetic => Kind.Value == LootKind.Gold || Kind.Value == LootKind.Embers;
+
+        private PlayerLife NearestCollector(float radius)
+        {
+            PlayerLife best = null;
+            float bestD = radius;
+            foreach (var life in PlayerLife.All)
+            {
+                if (life == null || life.Downed.Value) continue;
+                float d = Vector3.Distance(life.transform.position, transform.position);
+                if (d < bestD) { bestD = d; best = life; }
+            }
+            return best;
+        }
 
         /// <summary>Every drop on this peer, so the minimap need not search the scene each frame.</summary>
         public static readonly List<LootDrop> All = new List<LootDrop>();
@@ -73,6 +88,16 @@ namespace Deepbound.Loot
                 phase += Time.deltaTime;
                 visual.localPosition = new Vector3(0f, 0.35f + Mathf.Sin(phase * 2.2f) * 0.07f, 0f);
                 visual.localRotation = Quaternion.Euler(0f, phase * 70f, 0f);
+                // Coins and embers drift toward whoever is near enough to collect them.
+                if (Magnetic && Time.time >= pickupAllowedAt)
+                {
+                    var near = NearestCollector(MagnetRadius);
+                    if (near != null)
+                    {
+                        float k = 1f - Mathf.Clamp01(Vector3.Distance(near.transform.position, transform.position) / MagnetRadius);
+                        visual.position = Vector3.Lerp(visual.position, near.transform.position + Vector3.up * 1f, 0.15f + 0.5f * k);
+                    }
+                }
             }
 
             if (!IsServer || Time.time < pickupAllowedAt) return;
@@ -82,7 +107,7 @@ namespace Deepbound.Loot
                 if (life == null || life.Downed.Value) continue;
                 var d = life.transform.position - transform.position;
                 d.y *= 0.5f;
-                if (d.magnitude > PickupRadius) continue;
+                if (d.magnitude > (Magnetic ? MagnetRadius : PickupRadius)) continue;
 
                 if (TryApply(life.GetComponent<PlayerProgress>()))
                 {

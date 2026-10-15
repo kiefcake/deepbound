@@ -87,7 +87,10 @@ namespace Deepbound.World
                         var chest = Spawn(chestPrefab, back - outward * 0.6f, Quaternion.LookRotation(-outward));
                         chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
                     }
-                    ServerDropLoot(back + outward * 0.75f + Vector3.up * 0.6f, rng.NextDouble() < 0.5 ? LootKind.Sigil : LootKind.Rune, (int)Runes.Random());
+                    // Usually a rune or a Sigil on the plinth; one time in three, a relic.
+                    double roll = rng.NextDouble();
+                    if (roll < 0.33) ServerDropLoot(back + outward * 0.75f + Vector3.up * 0.6f, LootKind.Relic, (int)Relics.Random());
+                    else ServerDropLoot(back + outward * 0.75f + Vector3.up * 0.6f, roll < 0.66 ? LootKind.Sigil : LootKind.Rune, (int)Runes.Random());
                 }
             }
         }
