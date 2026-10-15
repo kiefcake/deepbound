@@ -194,6 +194,7 @@ namespace Deepbound.EditorTools
             root.AddComponent<RangerKit>().SetTrapPrefab(bearTrap.GetComponent<NetworkObject>());
             root.AddComponent<KnockbackReceiver>();
             root.AddComponent<PlayerPings>();
+            root.AddComponent<PlayerVoice>();
 
             var pivot = new GameObject("CameraPivot").transform;
             pivot.SetParent(root.transform, false);

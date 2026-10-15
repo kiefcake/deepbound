@@ -389,6 +389,18 @@ namespace Deepbound.UI
             }
         }
 
+        // ---- Your microphone: lit while you transmit; PTT hint. ----
+        private void DrawMicLight(float w, float h)
+        {
+            var v = PlayerVoice.LocalVoice;
+            if (v == null || !PlayerVoice.MicAvailable || Settings.VoiceMode == 2) return;
+            bool on = v.Speaking;
+            float x = 24f, y = h - 154f;
+            Rect(x, y, 58, 18, new Color(0f, 0f, 0f, on ? 0.6f : 0.35f));
+            Rect(x + 4, y + 5, 8, 8, on ? new Color(0.4f, 1f, 0.5f) : new Color(0.4f, 0.4f, 0.4f));
+            GUI.Label(new Rect(x + 16, y, 44, 18), Settings.VoiceMode == 1 ? "T talk" : "MIC", small);
+        }
+
         // ---- Death recap: what put you down (newest hit's source, then damage by source). ----
         private string recapKiller, recapLines;
 
@@ -478,6 +490,18 @@ namespace Deepbound.UI
                 string label = p.name + (dist > 12f ? "  " + Mathf.RoundToInt(dist) + "m" : "");
                 var style = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(slot.r * 0.5f + 0.5f, slot.g * 0.5f + 0.5f, slot.b * 0.5f + 0.5f, a) } };
                 GUI.Label(new Rect(screen.x - 80, y - 18, 160, 16), label, style);
+                var voice = p.GetComponent<PlayerVoice>();
+                if (voice != null && voice.Speaking)
+                {
+                    // Three little bars that bounce with their voice.
+                    float lv = Mathf.Clamp01(voice.Level / 0.12f);
+                    float bx = screen.x - 7;
+                    for (int k = 0; k < 3; k++)
+                    {
+                        float bh = 3f + lv * (6f + 6f * Mathf.Abs(Mathf.Sin(Time.time * 14f + k * 1.7f)));
+                        Rect(bx + k * 5, y - 22 - bh, 3, bh, new Color(0.45f, 1f, 0.55f, a));
+                    }
+                }
                 if (downed)
                 {
                     float pulse = 0.6f + 0.4f * Mathf.Sin(Time.time * 6f);
@@ -629,6 +653,7 @@ namespace Deepbound.UI
             DrawVignette(w, h);
             DrawHitDirections(w, h);
             DrawThreats(w, h);
+            DrawMicLight(w, h);
             DrawSouls(w, h);
             DrawAllies(w, h);
             DrawCrosshair(w, h);

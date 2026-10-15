@@ -253,6 +253,7 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             if (IsServer) GearDrop.Prefab = gearDropPrefab;
+            if (IsServer) Player.PlayerVoice.ServerHeard += ServerOnShout;
             Instance = this;
             Floor.OnValueChanged += (_, now) => BuildLocal(now);
 
@@ -260,8 +261,25 @@ namespace Deepbound.World
             else BuildLocal(Floor.Value);
         }
 
+        /// <summary>Server: a shout wakes the dead within earshot (statues included). Bosses ignore it.</summary>
+        private void ServerOnShout(Combat.Health who, Vector3 at, float radius)
+        {
+            int woke = 0;
+            foreach (var h in Combat.Health.All)
+            {
+                if (h == null || h.Team != Combat.Team.Enemies || !h.IsAlive) continue;
+                if (Vector3.Distance(h.transform.position, at) > radius) continue;
+                var brain = h.GetComponent<Enemies.EnemyBrain>();
+                if (brain == null || brain is Enemies.BossBrain) continue;
+                brain.ServerHear(who);
+                woke++;
+            }
+            if (woke > 0) Debug.Log("[Voice] shout at " + at.ToString("F0") + " alerted " + woke);
+        }
+
         public override void OnNetworkDespawn()
         {
+            if (IsServer) Player.PlayerVoice.ServerHeard -= ServerOnShout;
             if (Instance == this) Instance = null;
             if (built != null) Destroy(built);
             Layout = null;

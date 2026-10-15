@@ -47,6 +47,7 @@ namespace Deepbound.UI
         private static readonly (string title, string body)[] DungeonRight =
         {
             ("FLOORS", "Ossuary: stamp out bone piles before they rise. Drowned Vaults: get to high ground when the tide surges. Hollow Throne: smash soul lanterns to heal and stun. Black Cathedral: jump the bell's shockwave."),
+            ("VOICE", "Proximity voice: anyone within about 30 m hears you, muffled through walls. Shouting wakes the dead within 10 m, statues too. The bled-out can only whisper. Push to talk (T) or turn it off in Options."),
             ("AT CAMP", "Take a CONTRACT at the bounty board for the next floor. Turn the OMEN STONE before a run for a harder descent and more Renown. Spin the WHEEL OF FATE when you find one: it usually gives. From floor 2 a PEDDLER sometimes trades in a side room, at a markup."),
             ("RELIC SYNERGIES", "Some pairs awaken more: Frost Charm + Winter's Tooth, Vampiric Fang + Blood Pact, Thunder Sigil + Echo Stone, Executioner's Coin + Berserker's Brand, Phoenix Feather + Heart of the Deep."),
         };
@@ -67,6 +68,37 @@ namespace Deepbound.UI
             }
         }
 
+        private static void DrawVoiceOptions()
+        {
+            GUILayout.Label("PROXIMITY VOICE", UiSkin.Heading);
+            GUILayout.Label(Player.PlayerVoice.MicAvailable ? "Players near you hear you; walls muffle. Shouting draws the dead." : "No microphone found: you can still hear others.", UiSkin.Body);
+            GUILayout.Space(6);
+            GUILayout.BeginHorizontal();
+            for (int i = 0; i < Settings.VoiceModeNames.Length; i++)
+            {
+                bool on = Settings.VoiceMode == i;
+                if (GUILayout.Toggle(on, " " + Settings.VoiceModeNames[i], UiSkin.Body) && !on) Settings.VoiceMode = i;
+            }
+            GUILayout.EndHorizontal();
+            GUILayout.Space(10);
+            GUILayout.Label("Voice volume  " + Mathf.RoundToInt(Settings.VoiceVolume * 100f) + "%", UiSkin.Body);
+            Settings.VoiceVolume = GUILayout.HorizontalSlider(Settings.VoiceVolume, 0f, 1.5f);
+            GUILayout.Space(10);
+            GUILayout.Label("Microphone boost  " + Settings.MicGain.ToString("F1") + "x", UiSkin.Body);
+            Settings.MicGain = GUILayout.HorizontalSlider(Settings.MicGain, 0.25f, 4f);
+            GUILayout.Space(10);
+            GUILayout.Label("Open-mic sensitivity (the bar must pass the line)", UiSkin.Body);
+            Settings.MicThreshold = GUILayout.HorizontalSlider(Settings.MicThreshold, 0.002f, 0.08f);
+            // Live meter: your level against the threshold line.
+            var r = GUILayoutUtility.GetRect(370, 14);
+            UiSkin.Rect(r, new Color(0f, 0f, 0f, 0.6f));
+            float level = Mathf.Clamp01(Player.PlayerVoice.MicLevel / 0.08f);
+            bool open = Player.PlayerVoice.MicLevel >= Settings.MicThreshold;
+            UiSkin.Rect(new Rect(r.x, r.y, r.width * level, r.height), open ? new Color(0.35f, 0.9f, 0.4f) : new Color(0.6f, 0.6f, 0.6f));
+            float tx = r.x + r.width * Mathf.Clamp01(Settings.MicThreshold / 0.08f);
+            UiSkin.Rect(new Rect(tx - 1, r.y - 2, 2, r.height + 4), new Color(1f, 0.85f, 0.4f));
+        }
+
         private void OnGUI()
         {
             UiSkin.Apply();
@@ -80,7 +112,7 @@ namespace Deepbound.UI
                 DrawGuide(w, h);
                 return;
             }
-            var area = options ? new Rect(w / 2f - 190, h / 2f - 290, 380, 590) : new Rect(w / 2f - 180, h / 2f - 200, 360, 410);
+            var area = options ? new Rect(w / 2f - 390, h / 2f - 290, 780, 590) : new Rect(w / 2f - 180, h / 2f - 200, 360, 410);
             UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
             GUILayout.BeginArea(area);
             GUILayout.Label(options ? "OPTIONS" : "PAUSED", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
@@ -88,6 +120,8 @@ namespace Deepbound.UI
 
             if (options)
             {
+                GUILayout.BeginHorizontal();
+                GUILayout.BeginVertical(GUILayout.Width(370));
                 GUILayout.Label("Mouse sensitivity  " + Settings.MouseSensitivity.ToString("F2"), UiSkin.Body);
                 Settings.MouseSensitivity = GUILayout.HorizontalSlider(Settings.MouseSensitivity, 0.2f, 3f);
                 GUILayout.Space(10);
@@ -107,6 +141,12 @@ namespace Deepbound.UI
                 if (GUILayout.Button("Show all tips again", UiSkin.Button, GUILayout.Height(30))) Settings.ResetTips();
                 var cam = Player.NetworkPlayer.Local != null ? Player.NetworkPlayer.Local.Camera : null;
                 if (cam != null) cam.fieldOfView = Settings.FieldOfView;
+                GUILayout.EndVertical();
+                GUILayout.Space(40);
+                GUILayout.BeginVertical(GUILayout.Width(370));
+                DrawVoiceOptions();
+                GUILayout.EndVertical();
+                GUILayout.EndHorizontal();
                 GUILayout.Space(18);
                 if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(42))) options = false;
             }

@@ -50,6 +50,39 @@ namespace Deepbound.UI
         public static bool ShowFps { get => (fps ??= Load(FpsKey, 0f)) > 0.5f; set { fps = value ? 1f : 0f; Save(FpsKey, fps.Value); } }
         public static bool ShowTips { get => (tips ??= Load(TipsKey, 1f)) > 0.5f; set { tips = value ? 1f : 0f; Save(TipsKey, tips.Value); } }
 
+        // Proximity voice.
+        private const string VoiceModeKey = "deepbound.voicemode", VoiceVolKey = "deepbound.voicevol", MicThreshKey = "deepbound.micthresh", MicGainKey = "deepbound.micgain";
+        private static float? voiceMode, voiceVol, micThresh, micGain;
+
+        /// <summary>0 = open mic (voice-activated), 1 = push to talk (hold T), 2 = off.</summary>
+        public static int VoiceMode
+        {
+            get => Mathf.RoundToInt(voiceMode ??= Load(VoiceModeKey, 0f));
+            set { voiceMode = Mathf.Clamp(value, 0, 2); Save(VoiceModeKey, voiceMode.Value); }
+        }
+
+        public static readonly string[] VoiceModeNames = { "Open mic", "Push to talk (T)", "Off" };
+
+        /// <summary>How loud other players' voices are, 0-1.5.</summary>
+        public static float VoiceVolume
+        {
+            get => voiceVol ??= Load(VoiceVolKey, 1f);
+            set { voiceVol = Mathf.Clamp(value, 0f, 1.5f); Save(VoiceVolKey, voiceVol.Value); }
+        }
+
+        /// <summary>Open mic: the microphone level (RMS) that opens it.</summary>
+        public static float MicThreshold
+        {
+            get => micThresh ??= Load(MicThreshKey, 0.012f);
+            set { micThresh = Mathf.Clamp(value, 0.002f, 0.08f); Save(MicThreshKey, micThresh.Value); }
+        }
+
+        public static float MicGain
+        {
+            get => micGain ??= Load(MicGainKey, 1f);
+            set { micGain = Mathf.Clamp(value, 0.25f, 4f); Save(MicGainKey, micGain.Value); }
+        }
+
         /// <summary>Has this one-time tip been shown before (on this machine)?</summary>
         public static bool TipSeen(string key)
         {

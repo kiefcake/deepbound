@@ -192,6 +192,16 @@ namespace Deepbound.Networking
             Log("enemies", enemies.ToString(), enemies > 0);
             Log("players", PlayerLife.All.Count.ToString(), PlayerLife.All.Count > 0);
 
+            // Voice: the codec survives a round trip, and a client's voice reaches the host.
+            float snr = VoiceCodec.RoundTripSnr();
+            Log("voice codec", "round trip SNR " + snr.ToString("F1") + " dB", snr > 15f);
+            if (!net.IsServer && NetworkPlayer.Local != null)
+            {
+                var tone = new float[VoiceCodec.SampleRate * 6 / 5];
+                for (int i = 0; i < tone.Length; i++) tone[i] = 0.25f * Mathf.Sin(i * 2f * Mathf.PI * 330f / VoiceCodec.SampleRate);
+                NetworkPlayer.Local.GetComponent<PlayerVoice>().DebugInject(tone);
+            }
+
             var local = NetworkPlayer.Local;
             if (local != null && layout != null)
             {
@@ -219,6 +229,15 @@ namespace Deepbound.Networking
             // Early, while the client is still connected.
             if (net.IsServer && local != null && layout != null)
             {
+                var remoteVoice = PlayerLife.All.Where(pl => pl != null && pl.gameObject != local.gameObject).Select(pl => pl.GetComponent<PlayerVoice>()).FirstOrDefault();
+                if (remoteVoice != null)
+                {
+                    for (float t = 0f; t < 12f && remoteVoice.ServerFramesFrom < 10; t += 0.2f) yield return new WaitForSeconds(0.2f);
+                    yield return new WaitForSeconds(0.3f);
+                    Log("voice round trip", "host got " + remoteVoice.ServerFramesFrom + " frames from the client, played " + remoteVoice.FramesHeard +
+                        " (distance " + Vector3.Distance(local.transform.position, remoteVoice.transform.position).ToString("F0") + " m)", remoteVoice.ServerFramesFrom >= 10);
+                }
+
                 var fm = local.GetComponent<FirstPersonMotor>();
                 // Bleed-out: a downed ally who bleeds out leaves a soul skull; F-revive no longer works,
                 // but carrying the skull to the start room's waystone brings them back.

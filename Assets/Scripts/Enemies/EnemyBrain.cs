@@ -510,6 +510,13 @@ namespace Deepbound.Enemies
             PlayActionRpc(RigAction.Stagger, Mathf.Min(seconds, 0.6f));
         }
 
+        /// <summary>Server: a player shouted nearby (proximity voice). Idle enemies turn on them.</summary>
+        public virtual void ServerHear(Health who)
+        {
+            if (IsDead || who == null || !PlayerLife.CanTarget(who)) return;
+            if (target == null) target = who;
+        }
+
         /// <summary>Server: wake up hunting the nearest targetable player (ambush spawns).</summary>
         public void ServerAggroNearest()
         {

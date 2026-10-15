@@ -43,6 +43,12 @@ namespace Deepbound.Enemies
             });
         }
 
+        public override void ServerHear(Health who)
+        {
+            Wake();
+            base.ServerHear(who);
+        }
+
         private void Wake()
         {
             if (Woken.Value) return;
