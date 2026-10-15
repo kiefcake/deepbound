@@ -280,6 +280,22 @@ namespace Deepbound.UI
         /// Camp banner, top of the screen and out of the way: where you are, what is next,
         /// your class and the difficulty (both only changeable before a run), and boarding.
         /// </summary>
+        /// <summary>The party's contract, top left: what it asks, how far along, and how it ended.</summary>
+        private void DrawContract()
+        {
+            var d = DungeonDirector.Instance;
+            if (d == null || d.ActiveContract.Value == 0) return;
+            var c = (Contract)d.ActiveContract.Value;
+            var state = (DungeonDirector.ContractStatus)d.ContractState.Value;
+            string line = state == DungeonDirector.ContractStatus.Taken ? "Next floor: " + DungeonDirector.ContractTask(c, d.NextDepth.Value)
+                : state == DungeonDirector.ContractStatus.Active ? (c == Contract.Slayer ? d.ContractProgress.Value + " / " + d.ContractGoal.Value + " slain" : DungeonDirector.ContractTask(c, DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0).Replace("the next", "this").Replace("next ", ""))
+                : state == DungeonDirector.ContractStatus.Fulfilled ? "FULFILLED" : state == DungeonDirector.ContractStatus.Failed ? "FAILED" : "";
+            var col = state == DungeonDirector.ContractStatus.Fulfilled ? new Color(0.5f, 1f, 0.55f) : state == DungeonDirector.ContractStatus.Failed ? new Color(0.9f, 0.4f, 0.35f) : new Color(0.9f, 0.88f, 0.84f);
+            Rect(14, 14, 330, 46, Panel);
+            GUI.Label(new Rect(22, 16, 320, 20), "CONTRACT  ·  " + DungeonDirector.ContractName(c).ToUpperInvariant(), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            GUI.Label(new Rect(22, 35, 320, 20), line, new GUIStyle(small) { normal = { textColor = col } });
+        }
+
         private void DrawLobby(float w, float h)
         {
             var director = DungeonDirector.Instance;
@@ -413,6 +429,7 @@ namespace Deepbound.UI
             DrawFeed(h);
             DrawForge(w, h);
                 DrawMerchant(w, h);
+            DrawContract();
             DrawLobby(w, h);
             if (statsHeld) DrawStatSheet(w, h);
             DrawFade(w, h);

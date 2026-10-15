@@ -88,6 +88,7 @@ MonoBehaviour:
   mimicPrefab: {fileID: 57016346618195320, guid: b43ed699c2fdba84d987d5ce62a3d452, type: 3}
   hoarderPrefab: {fileID: 4366552995233553530, guid: a7d697832657ad549ae0a28dfa3a3b4d, type: 3}
   fateWheelPrefab: {fileID: 5332673811175829373, guid: f3cf4823e8237f04f855c69286e7b9d8, type: 3}
+  bountyNoticePrefab: {fileID: 3915093814716477257, guid: 534f8b4084fc56a4bbd049eccaba92ad, type: 3}
   chestPrefab: {fileID: 5389848433996289612, guid: 1b8f0e82fafab894fa40501de576fd99, type: 3}
   altarPrefab: {fileID: 7031684641988543945, guid: b2bdb4bd0518b0943b77591220049a62, type: 3}
   breakablePrefab: {fileID: 6486612486930930439, guid: e03bc3e5b20ced241be0b40e9ec5205d, type: 3}

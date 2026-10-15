@@ -699,11 +699,25 @@ namespace Deepbound.Networking
                 Log("ultimate", Ultimates.Name(clsT) + ", charge after " + ultT.Charge.Value.ToString("F0") + ", in banner " + Ultimates.InBanner(local.transform.position),
                     ultT.Charge.Value < 1f && (clsT != Classes.ClassId.Knight || Ultimates.InBanner(local.transform.position)));
 
+                // The bounty board: take a Slayer-free notice, see it ride down with the party.
+                var notice = FindObjectsByType<BountyNotice>(FindObjectsSortMode.None).FirstOrDefault();
+                if (notice != null)
+                {
+                    lobbyMotorFor(local).Teleport(notice.transform.position + notice.transform.forward * 1.4f + Vector3.up * 0.1f, Quaternion.LookRotation(-notice.transform.forward));
+                    yield return new WaitForSeconds(0.3f);
+                    notice.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.3f);
+                    Log("bounty board", FindObjectsByType<BountyNotice>(FindObjectsSortMode.None).Length + " notices, taken " + DungeonDirector.ContractName((Contract)dc.ActiveContract.Value) +
+                        ", state " + (DungeonDirector.ContractStatus)dc.ContractState.Value, dc.ContractState.Value == (byte)DungeonDirector.ContractStatus.Taken);
+                }
+
                 // Board: floor two, same run.
                 dc.ServerBoard();
                 float boardBy = Time.time + 10f;
                 while (dc.Phase.Value != RunPhase.Exploring && Time.time < boardBy) yield return null;
                 yield return new WaitForSeconds(1.5f);
+                Log("contract live", DungeonDirector.ContractName((Contract)dc.ActiveContract.Value) + " " + (DungeonDirector.ContractStatus)dc.ContractState.Value + ", goal " + dc.ContractGoal.Value,
+                    dc.ActiveContract.Value == 0 || dc.ContractState.Value == (byte)DungeonDirector.ContractStatus.Active);
                 Log("next floor", "depth " + dc.Floor.Value.y + ", weapon kept +" + pc.WeaponLevel.Value, dc.Floor.Value.y == 1 && pc.WeaponLevel.Value >= 2);
                 // The Drowned Vaults' tide: low ground slows while it is up.
                 dc.ServerDebugTide();
@@ -884,6 +898,12 @@ namespace Deepbound.Networking
             local.GetComponent<UI.Wardrobe>().DebugOpen(false);
             local.GetComponent<NetworkPlayer>().CloakDye.Value = 0;
             local.GetComponent<NetworkPlayer>().Aura.Value = 0;
+
+            // The bounty board and its notices.
+            var bFrom = Lobby.BountySpot + Lobby.BountyFacing * 2.6f + Vector3.up * 0.1f;
+            lobbyMotor.Teleport(bFrom, Quaternion.LookRotation(Lobby.BountySpot + Vector3.up * 0.2f - bFrom));
+            yield return new WaitForSeconds(0.5f);
+            yield return Shot(dir, "1c_bounty_board");
 
             var anvilObj = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
             if (anvilObj != null)
@@ -1228,6 +1248,8 @@ namespace Deepbound.Networking
             Debug.Log("[Smoke] boss test done");
             Application.Quit(0);
         }
+
+        private static FirstPersonMotor lobbyMotorFor(NetworkPlayer p) => p.GetComponent<FirstPersonMotor>();
 
         private static IEnumerator Shot(string dir, string name)
         {

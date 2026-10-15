@@ -64,6 +64,7 @@ namespace Deepbound.World
         {
             if (broken || Breach.Value) return;
             broken = true;
+            DungeonDirector.Instance?.ContractOnSecret();
             CrumbleFxRpc(false);
             NetworkObject.Despawn();
         }

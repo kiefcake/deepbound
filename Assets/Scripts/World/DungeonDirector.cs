@@ -54,6 +54,7 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject mimicPrefab;
         [SerializeField] private NetworkObject hoarderPrefab;
         [SerializeField] private NetworkObject fateWheelPrefab;
+        [SerializeField] private NetworkObject bountyNoticePrefab;
 
         /// <summary>Server: a pack of the floor's dead around a point (the Wheel's cruel turn).</summary>
         public void ServerSpawnPack(Vector3 around, int count, bool elite)
@@ -242,6 +243,7 @@ namespace Deepbound.World
         private void EnterLobby(bool keepRun = false)
         {
             ClearSpawned();
+            ClearSettledContract();
             if (!keepRun) NextDepth.Value = 0;
             Phase.Value = RunPhase.Lobby;
             PhaseEndsAt.Value = 0;
@@ -292,6 +294,21 @@ namespace Deepbound.World
             Put(cofferPrefab, Lobby.CofferSpot, Lobby.TentFacing);
             Put(gongPrefab, Lobby.GongSpot, Lobby.GongFacing);
             Put(shrinePrefab, Lobby.ShrineSpot, Vector3.left);
+            // The bounty board: three different contracts for the next floor.
+            if (bountyNoticePrefab != null)
+            {
+                var kinds = new System.Collections.Generic.List<byte> { 1, 2, 3, 4, 5 };
+                for (int i = 0; i < 3; i++)
+                {
+                    int k = UnityEngine.Random.Range(0, kinds.Count);
+                    var at = Lobby.BountySpot + Lobby.BountyFacing * 0.12f + Vector3.Cross(Vector3.up, Lobby.BountyFacing) * ((i - 1) * 0.85f);
+                    var obj = Instantiate(bountyNoticePrefab, at, Quaternion.LookRotation(Lobby.BountyFacing));
+                    obj.GetComponent<BountyNotice>().Kind.Value = kinds[k];
+                    kinds.RemoveAt(k);
+                    obj.Spawn(destroyWithScene: true);
+                    spawned.Add(obj);
+                }
+            }
             if (rangeTargetPrefab != null)
             {
                 for (int i = 0; i < Lobby.TargetSpots.Length; i++)
@@ -349,6 +366,7 @@ namespace Deepbound.World
             SetupFeatures(Layout);
             SetupHoles(Layout);
             SpawnEnemies(Layout);
+            BeginContract(Layout.Depth);
 
             foreach (var p in PlayerLife.All)
             {
@@ -440,7 +458,9 @@ namespace Deepbound.World
                     {
                         pileFor.Add(t.NetworkObjectId);
                         OnKillForBones(t);
+                        ContractOnKill(t);
                     }
+                    else if (t != null && !t.IsAlive && t.Team == Combat.Team.Players && Instance == this) ContractOnKill(t);
                 };
             }
             Combat.Health.FrozenFx = h => FrozenFxRpc(h.Center);
@@ -714,6 +734,7 @@ namespace Deepbound.World
                     }
                     else if (bossSeen && (boss == null || boss.IsDead))
                     {
+                        ContractOnFloorCleared();
                         bool last = Floor.Value.y >= FloorsPerRun - 1;
                         EnterPhase(last ? RunPhase.RunComplete : RunPhase.FloorCleared, last ? CompleteDelay : DescendDelay);
                         // The cleared floor is safe: pick everyone up.

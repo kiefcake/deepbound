@@ -345,6 +345,7 @@ namespace Deepbound.World
             TickRitual();
             TickGimmicks();
             TickFlameJets();
+            TickContract();
         }
 
         // ------------------------------------------------------------------

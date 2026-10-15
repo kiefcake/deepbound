@@ -37,6 +37,10 @@ namespace Deepbound.World
 
         public static readonly Vector3 ShrineSpot = Origin + new Vector3(15.5f, 0f, -4f);
 
+        /// <summary>The bounty board, by the road near the gate: contracts for the next floor.</summary>
+        public static readonly Vector3 BountySpot = Origin + new Vector3(-5.2f, 0f, 12.5f);
+        public static readonly Vector3 BountyFacing = Vector3.right;
+
         /// <summary>The tailor, west of the merchant: cloak dyes for Renown (local, see <c>UI.Wardrobe</c>).</summary>
         public static readonly Vector3 TailorSpot = Origin + new Vector3(-14.6f, 0f, -4f);
         public static readonly Vector3 TailorFacing = Vector3.right;
@@ -293,6 +297,22 @@ namespace Deepbound.World
             forgeLight.intensity = 3f;
             Props.Barrel(d, o + new Vector3(6.8f, 0f, -3.2f));
             Props.WeaponRack(d, o + new Vector3(8.6f, 0f, -3.4f), Quaternion.Euler(0f, -90f, 0f));
+
+            // The bounty board: a timber frame with a little roof, notices pinned to it (networked).
+            var bs = BountySpot;
+            foreach (float z in new[] { -1.5f, 1.5f })
+                d.AddBox(bs + new Vector3(-0.1f, 1.3f, z), new Vector3(0.2f, 2.6f, 0.2f), Mat.Wood);
+            d.AddBox(bs + new Vector3(-0.12f, 1.55f, 0f), new Vector3(0.1f, 1.3f, 3f), Mat.Wood);
+            d.AddBox(bs + new Vector3(-0.1f, 2.7f, 0f), new Vector3(0.9f, 0.08f, 3.4f), Mat.Wood, Quaternion.Euler(0f, 0f, -12f));
+            var sign = MeshKit.Part(lights, "BountySign", MeshKit.Box(new Vector3(0.06f, 0.3f, 1.4f)), Mat.Wood, bs + new Vector3(0.0f, 2.42f, 0f));
+            ArtLibrary.Tint(sign.GetComponent<Renderer>(), new Color(0.55f, 0.18f, 0.12f));
+            var bl = new GameObject("BountyLamp").AddComponent<Light>();
+            bl.transform.SetParent(lights, false);
+            bl.transform.position = bs + new Vector3(1.2f, 2.4f, 0f);
+            bl.type = LightType.Point;
+            bl.color = Fire;
+            bl.range = 5f;
+            bl.intensity = 1.5f;
 
             // The tailor (far west): bolts of dyed cloth on the counter, more on a rack behind.
             Stall(lights, d, TailorSpot + TailorFacing * 2.4f, TailorFacing, new Color(0.3f, 0.08f, 0.32f), new Color(0.8f, 0.72f, 0.55f));
