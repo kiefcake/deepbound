@@ -301,6 +301,31 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                 }
 
+                // The Reliquary: carried slowly, cracked by hits, delivered at the waystone for party gold.
+                var relT = Reliquary.Current;
+                if (relT != null)
+                {
+                    var lprog = local.GetComponent<PlayerProgress>();
+                    var lfm2 = local.GetComponent<FirstPersonMotor>();
+                    int goldBefore = lprog.Gold.Value;
+                    relT.ServerDebugCarry(lprog);
+                    yield return new WaitForSeconds(0.2f);
+                    float speedMul = lprog.SpeedMultiplier;
+                    var lh = local.GetComponent<Health>();
+                    lh.ServerDamage(lh.Max.Value * 0.06f, local.transform.position + local.transform.forward * 2f);
+                    yield return new WaitForSeconds(0.2f);
+                    float integ = relT.Integrity.Value;
+                    bool stillCarried = relT.Carried;
+                    var way2 = layout.WaystonePosition;
+                    lfm2.Teleport(way2 + (layout.StartRoom.Center - way2).normalized * 1.5f + Vector3.up * 0.1f, local.transform.rotation);
+                    for (float t = 0f; t < 6f && Reliquary.Current != null; t += 0.1f) { lh.ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                    Log("reliquary", "speed x" + speedMul.ToString("F2") + ", integrity after a hit " + integ.ToString("F0") + "%, still carried " + stillCarried +
+                        ", delivered " + (Reliquary.Current == null) + ", gold " + goldBefore + " -> " + lprog.Gold.Value,
+                        speedMul < 0.75f && integ < 100f && stillCarried && Reliquary.Current == null && lprog.Gold.Value > goldBefore);
+                    lfm2.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                    lh.ServerSetFraction(1f);
+                }
+
                 // The Mourner: frozen while watched, moving the moment you look away.
                 var farRoom = layout.Rooms.Where(r => r.Kind == RoomKind.Combat).OrderByDescending(r => Vector3.Distance(r.Center, layout.StartRoom.Center)).FirstOrDefault();
                 if (farRoom != null)
@@ -1348,6 +1373,16 @@ namespace Deepbound.Networking
                 motor.Teleport(wp, Quaternion.LookRotation(wheelS.transform.position + Vector3.up * 1.2f - wp - Vector3.up * 1.6f));
                 yield return new WaitForSeconds(0.6f);
                 yield return Shot(dir, "1l_wheel_of_fate");
+            }
+
+            // The Reliquary, resting in its side room.
+            var relS = Reliquary.Current;
+            if (relS != null)
+            {
+                var rp = relS.transform.position + new Vector3(1.8f, 0.1f, 1.8f);
+                motor.Teleport(rp, Quaternion.LookRotation(relS.transform.position + Vector3.up * 0.4f - rp - Vector3.up * 1.6f));
+                yield return new WaitForSeconds(0.6f);
+                yield return Shot(dir, "1m_reliquary");
             }
 
             // One look at each later floor's theme.

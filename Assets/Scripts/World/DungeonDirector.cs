@@ -55,6 +55,7 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject hoarderPrefab;
         [SerializeField] private NetworkObject gargoylePrefab;
         [SerializeField] private NetworkObject mournerPrefab;
+        [SerializeField] private NetworkObject reliquaryPrefab;
 
         /// <summary>Server (tests): a Mourner here, facing <paramref name="face"/>.</summary>
         public EnemyBrain ServerDebugSpawnMourner(Vector3 at, Vector3 face)
@@ -264,7 +265,7 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             if (IsServer) GearDrop.Prefab = gearDropPrefab;
-            if (IsServer) Player.PlayerVoice.ServerHeard += ServerOnShout;
+            if (IsServer) Player.PlayerVoice.ServerHeard += ServerNoise;
             Instance = this;
             Floor.OnValueChanged += (_, now) => BuildLocal(now);
 
@@ -272,8 +273,8 @@ namespace Deepbound.World
             else BuildLocal(Floor.Value);
         }
 
-        /// <summary>Server: a shout wakes the dead within earshot (statues included). Bosses ignore it.</summary>
-        private void ServerOnShout(Combat.Health who, Vector3 at, float radius)
+        /// <summary>Server: a noise (a shout, the Reliquary's hymn) wakes the dead within earshot, statues included. Bosses ignore it.</summary>
+        public void ServerNoise(Combat.Health who, Vector3 at, float radius)
         {
             int woke = 0;
             foreach (var h in Combat.Health.All)
@@ -285,12 +286,12 @@ namespace Deepbound.World
                 brain.ServerHear(who);
                 woke++;
             }
-            if (woke > 0) Debug.Log("[Voice] shout at " + at.ToString("F0") + " alerted " + woke);
+            if (woke > 0) Debug.Log("[Noise] at " + at.ToString("F0") + " alerted " + woke);
         }
 
         public override void OnNetworkDespawn()
         {
-            if (IsServer) Player.PlayerVoice.ServerHeard -= ServerOnShout;
+            if (IsServer) Player.PlayerVoice.ServerHeard -= ServerNoise;
             if (Instance == this) Instance = null;
             if (built != null) Destroy(built);
             Layout = null;
@@ -612,6 +613,23 @@ namespace Deepbound.World
                     mobj.GetComponent<EnemyBrain>().ServerScale(players, layout.Depth);
                     spawned.Add(mobj);
                     placed++;
+                }
+            }
+
+            // Most floors: a Reliquary in a side room, to haul to the waystone (always in tests).
+            if (reliquaryPrefab != null && (TestMode || UnityEngine.Random.value < 0.6f))
+            {
+                // A plain side room, at its centre; failing that, against the wall of one without a fountain or vault.
+                var sides = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side && r.Feature == RoomFeature.None);
+                bool atWall = sides.Count == 0;
+                if (atWall) sides = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side && r.Feature != RoomFeature.Vault && r.Feature != RoomFeature.Fountain);
+                if (atWall && sides.Count == 0) sides = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && !IsAmbushRoom(r));
+                if (sides.Count > 0)
+                {
+                    var room = sides[UnityEngine.Random.Range(0, sides.Count)];
+                    var rat = atWall ? WallSpot(room, new System.Random(layout.Seed ^ 0x71c)) : room.Center + new Vector3(0.8f, 0f, 0.8f);
+                    if (NavMesh.SamplePosition(rat, out var rhit, 3f, NavMesh.AllAreas)) rat = rhit.position;
+                    Spawn(reliquaryPrefab, rat, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
                 }
             }
 

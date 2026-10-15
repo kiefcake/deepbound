@@ -379,7 +379,7 @@ namespace Deepbound.Progression
         public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1.15f : 1f) * (Blessed(Blessing.Swiftness) ? 1.12f : 1f)
             * World.DungeonDirector.WaterSlow(transform.position)
             * (TryGetComponent<Player.PlayerDebuffs>(out var deb) ? deb.SpeedMultiplier : 1f)
-            * (World.SoulSkull.IsCarrying(NetworkObjectId) ? World.SoulSkull.CarrySpeed : 1f);
+            * World.Carryable.SpeedFor(NetworkObjectId);
 
         /// <summary>Q and E cooldowns scale by this (Echo Stone).</summary>
         public float CooldownMultiplier => (HasRelic(Relic.EchoStone) ? 0.7f : 1f) * (Wears(GearId.CrackedHourglass) ? 0.82f : 1f) * (Blessed(Blessing.Swiftness) ? 0.85f : 1f);

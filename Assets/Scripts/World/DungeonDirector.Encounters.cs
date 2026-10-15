@@ -208,7 +208,7 @@ namespace Deepbound.World
                 if (l.NetworkObject.IsSpawned) l.NetworkObject.Despawn();
             foreach (var f in FindObjectsByType<Fountain>(FindObjectsSortMode.None))
                 if (f.NetworkObject.IsSpawned) f.NetworkObject.Despawn();
-            foreach (var sk in FindObjectsByType<SoulSkull>(FindObjectsSortMode.None))
+            foreach (var sk in FindObjectsByType<Carryable>(FindObjectsSortMode.None))
                 if (sk.NetworkObject.IsSpawned) sk.NetworkObject.Despawn();
             foreach (var s in FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None))
                 if (s.NetworkObject.IsSpawned) s.NetworkObject.Despawn();

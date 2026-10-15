@@ -112,7 +112,7 @@ namespace Deepbound.Player
             base.OnDestroy();
         }
 
-        public bool CanAct => !Downed.Value && !World.SoulSkull.IsCarrying(NetworkObjectId);
+        public bool CanAct => !Downed.Value && !World.Carryable.IsCarrying(NetworkObjectId);
 
         // ---- Death recap: the last hits before going down (League's death recap). ----
         private struct HitRecord { public string Who; public float Amount, Time; }

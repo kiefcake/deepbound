@@ -453,10 +453,20 @@ namespace Deepbound.UI
         {
             var cam = player.Camera;
             bool carrying = false;
+            var rel = Reliquary.Current;
+            if (rel != null && rel.Carrier.Value != player.NetworkObjectId)
+            {
+                var rs = cam.WorldToScreenPoint(rel.transform.position + Vector3.up * 1.1f);
+                float rd = Vector3.Distance(cam.transform.position, rel.transform.position);
+                if (rs.z > 0f && (rd < 30f || rel.Carried))
+                    GUI.Label(new Rect(rs.x - 120, h - rs.y - 10, 240, 20), (rel.Carried ? "RELIQUARY (carried)  " : "RELIQUARY  ") + Mathf.RoundToInt(rel.Integrity.Value) + "%" + (rd > 8f ? "  " + Mathf.RoundToInt(rd) + "m" : ""),
+                        new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = rel.MarkerColor } });
+            }
+            foreach (var cy in Carryable.All) if (cy != null && cy.Carrier.Value == player.NetworkObjectId) carrying = true;
             foreach (var sk in SoulSkull.Skulls)
             {
                 if (sk == null) continue;
-                if (sk.Carrier.Value == player.NetworkObjectId) { carrying = true; continue; }
+                if (sk.Carrier.Value == player.NetworkObjectId) continue;
                 var screen = cam.WorldToScreenPoint(sk.transform.position + Vector3.up * 0.9f);
                 if (screen.z <= 0f) continue;
                 float dist = Vector3.Distance(cam.transform.position, sk.transform.position);
@@ -936,12 +946,13 @@ namespace Deepbound.UI
                 return;
             }
 
-            foreach (var sk in SoulSkull.Skulls)
+            foreach (var sk in Carryable.All)
             {
                 if (sk == null || sk.Carrier.Value != player.NetworkObjectId) continue;
-                string msg = sk.Ritual.Value > 0f ? "The waystone stirs... (don't get hit)" : "Carrying " + sk.SoulName + "'s soul skull: bring it to the waystone (F sets it down)";
-                GUI.Label(new Rect(0, h / 2f + 96, w, 24), msg, new GUIStyle(center) { normal = { textColor = new Color(0.8f, 0.65f, 1f) } });
-                if (sk.Ritual.Value > 0f) ProgressBar(w, h / 2f + 124, sk.Ritual.Value / SoulSkull.RitualSeconds, new Color(0.7f, 0.5f, 1f));
+                string msg = sk.Ritual.Value > 0f ? "The waystone stirs... (don't get hit)" : "Carrying " + sk.ItemName + ": bring it to the waystone (F sets it down)";
+                if (sk is Reliquary rq) msg += "   Intact " + Mathf.RoundToInt(rq.Integrity.Value) + "%";
+                GUI.Label(new Rect(0, h / 2f + 96, w, 24), msg, new GUIStyle(center) { normal = { textColor = sk.MarkerColor } });
+                if (sk.Ritual.Value > 0f) ProgressBar(w, h / 2f + 124, sk.Ritual.Value / sk.DeliverSeconds, sk.MarkerColor);
             }
 
             var target = PlayerLife.DownedNear(player.transform.position, life);
