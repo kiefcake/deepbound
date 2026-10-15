@@ -56,8 +56,8 @@ namespace Deepbound.Enemies
 
         // --- Depth (0 = first floor) ---
 
-        public static float DepthHealth(int depth) => 1f + 0.25f * depth;
-        public static float DepthDamage(int depth) => 1f + 0.15f * depth;
+        public static float DepthHealth(int depth) => 1f + 0.45f * depth;
+        public static float DepthDamage(int depth) => 1f + 0.3f * depth;
 
         /// <summary>Chance a regular enemy spawns as an elite.</summary>
         public static float EliteChance(int depth, int players) => 0.07f + 0.04f * depth + 0.02f * Extra(players) + Level.EliteBonus;

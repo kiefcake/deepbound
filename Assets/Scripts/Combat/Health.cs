@@ -211,6 +211,8 @@ namespace Deepbound.Combat
         /// <summary>Server: while set, damage to <paramref name="target"/> is scaled (a projectile's headshot, for custom hit handlers).</summary>
         public static void SetZoneBoost(Health target, float multiplier) { zoneBoostTarget = target; zoneBoost = multiplier; }
 
+        public const float DefenseWeight = 0.5f, MinDamageFraction = 0.2f;
+
         /// <summary>Server: who hit this last, and from where (for diagnosing deaths).</summary>
         public ulong LastHitFrom { get; private set; } = ulong.MaxValue;
         public Vector3 LastHitAt { get; private set; }
@@ -224,7 +226,9 @@ namespace Deepbound.Combat
             LastHitAt = attackerPosition;
             if (ServerOutgoingMultiplier != null && attackerId != ulong.MaxValue) amount *= ServerOutgoingMultiplier(this, attackerId);
 
-            float dealt = Mathf.Max(amount - Defense, amount * 0.15f);
+            // DEF turns aside half its value from each hit, never more than 80% of it: armour
+            // matters, but the rank and file can always still hurt you.
+            float dealt = Mathf.Max(amount - Defense * DefenseWeight, amount * MinDamageFraction);
             if (Marked.Value) dealt *= MarkedMultiplier;
             foreach (var modifier in IncomingModifiers) dealt = modifier(dealt, attackerPosition);
             if (dealt <= 0f) return 0f;

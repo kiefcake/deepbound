@@ -11,9 +11,10 @@ namespace Deepbound.Enemies
     /// The Gravewarden: floor 1's boss, and the fight that teaches positioning.
     ///
     /// <list type="bullet">
-    /// <item><b>Tower Shield</b> (passive) — hits from the front deal a quarter damage, with a
-    ///   loud clang so you know. Answer: the tank holds its attention while everyone else
-    ///   works its back and flanks.</item>
+    /// <item><b>Tower Shield</b> (passive) — hits from the front deal a quarter damage (two
+    ///   fifths when you fight it alone), with a loud clang so you know. Answer: the tank holds
+    ///   its attention while everyone else works its back and flanks — and right after each
+    ///   Mace Sweep the shield is wide open (OPENING) for a moment, from any side.</item>
     /// <item><b>Mace Sweep</b> — a wide, slow melee arc. Answer: block, or step back.</item>
     /// <item><b>Gaoler's Charge</b> — a red lane fills from its feet toward a player; then it
     ///   charges down the lane, trampling and flinging everyone in it. Answer: step out of
@@ -32,6 +33,17 @@ namespace Deepbound.Enemies
         [SerializeField] private float chargeMaxLength = 20f;
         [SerializeField] private float dazeSeconds = 2.8f;
         [SerializeField] private float frontalDamageTaken = 0.25f;
+        // Solo there is nobody to flank with: the shield turns less aside.
+        [SerializeField] private float frontalDamageTakenSolo = 0.4f;
+        // After every Mace Sweep the shield swings wide for a moment: hit it then.
+        [SerializeField] private float openingSeconds = 1.2f;
+        private float openUntil;
+
+        /// <summary>For the balance report: how the shield treats a solo player.</summary>
+        public const float SoloFrontal = 0.4f, Opening = 1.2f, SweepCycle = 0.9f + 1.1f;
+
+        /// <summary>The shield is wide after a sweep (anyone can read it from the animation).</summary>
+        public bool Opened => Time.time < openUntil;
         [SerializeField] private float dazedDamageTaken = 1.5f;
 
         public override string DisplayName => "The Gravewarden";
@@ -64,10 +76,10 @@ namespace Deepbound.Enemies
 
             var to = attackerPosition - transform.position;
             to.y = 0f;
-            if (charge != ChargeState.Charging && Vector3.Angle(transform.forward, to) < 55f)
+            if (charge != ChargeState.Charging && !Opened && Vector3.Angle(transform.forward, to) < 55f)
             {
                 ShieldClangRpc();
-                return damage * frontalDamageTaken;
+                return damage * (scaledPlayers <= 1 ? frontalDamageTakenSolo : frontalDamageTaken);
             }
             return damage;
         }
@@ -186,6 +198,21 @@ namespace Deepbound.Enemies
             windup = 0.9f;
             attackArc = 140f;
             base.BeginAttack();
+        }
+
+        protected override void Strike()
+        {
+            base.Strike();
+            // The sweep carries the shield arm round with it: an opening.
+            openUntil = Time.time + openingSeconds;
+            OpeningRpc();
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void OpeningRpc()
+        {
+            UI.GameHud.ShowCombo(transform.position + transform.forward * 0.8f + Vector3.up * 3.6f, "OPENING", new Color(1f, 0.85f, 0.45f));
+            Sfx.Play(Sound.Block, transform.position + Vector3.up * 2f, 0.5f, 0.6f);
         }
 
         private void BeginChargeWindup()

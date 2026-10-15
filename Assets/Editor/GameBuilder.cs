@@ -359,17 +359,17 @@ namespace Deepbound.EditorTools
                 case EnemyType.TideLich:
                     // Squishier than the others; the difficulty is catching it.
                     Kind(Art.CharacterArt.SkeletonKind.Lich);
-                    Set("maxHealth", 1750f); Set("damage", 18f); Set("defense", 2f); Set("moveSpeed", 3.4f);
+                    Set("maxHealth", 2600f); Set("damage", 18f); Set("defense", 2f); Set("moveSpeed", 3.4f);
                     Set("attackRange", 2.8f); Set("recovery", 1.0f); Set("aggroRange", 22f); Set("leashRange", 60f);
                     break;
                 case EnemyType.Cardinal:
                     Kind(Art.CharacterArt.SkeletonKind.Cardinal);
-                    Set("maxHealth", 2150f); Set("damage", 32f); Set("defense", 6f); Set("moveSpeed", 2.9f);
+                    Set("maxHealth", 3700f); Set("damage", 32f); Set("defense", 6f); Set("moveSpeed", 2.9f);
                     Set("attackRange", 3.4f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 60f);
                     break;
                 case EnemyType.HollowKing:
                     Kind(Art.CharacterArt.SkeletonKind.King);
-                    Set("maxHealth", 1800f); Set("damage", 30f); Set("defense", 6f); Set("moveSpeed", 3.1f);
+                    Set("maxHealth", 3080f); Set("damage", 30f); Set("defense", 6f); Set("moveSpeed", 3.1f);
                     Set("attackRange", 3.5f); Set("recovery", 1.1f); Set("aggroRange", 20f); Set("leashRange", 60f);
                     break;
             }

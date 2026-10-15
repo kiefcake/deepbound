@@ -12,12 +12,13 @@ namespace Deepbound.Combat
     /// </summary>
     public static class CombatQuery
     {
-        private static readonly List<Health> Results = new List<Health>();
+        // Each query returns its own list: a hit can trigger another query (a thorn, a
+        // shockwave from armour) while the caller is still walking the first one.
 
         /// <summary>Targets of <paramref name="team"/> within a horizontal arc in front of <paramref name="origin"/>.</summary>
         public static List<Health> Arc(Vector3 origin, Vector3 forward, float range, float arcDegrees, Team team)
         {
-            Results.Clear();
+            var Results = new List<Health>();
             forward.y = 0f;
             forward.Normalize();
             float halfArc = arcDegrees * 0.5f;
@@ -47,7 +48,7 @@ namespace Deepbound.Combat
         /// <summary>Targets of <paramref name="team"/> within <paramref name="radius"/> of a point.</summary>
         public static List<Health> Circle(Vector3 center, float radius, Team team)
         {
-            Results.Clear();
+            var Results = new List<Health>();
             foreach (var h in Health.All)
             {
                 if (h == null || !Matches(h, team) || !h.IsAlive) continue;
