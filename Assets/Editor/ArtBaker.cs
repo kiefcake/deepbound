@@ -47,10 +47,11 @@ namespace Deepbound.EditorTools
             BakeSurface("StoneWall", lit, StoneBricks, 0.75f, 0f, 2.2f, StoneWallGloss);
             BakeSurface("Flagstone", lit, Flagstones, 0.95f, 0f, 2.6f, FlagstoneGloss);
             BakeSurface("Wood", lit, WoodPlanks, 0.2f, 0f, 1.6f);
-            BakeSurface("Steel", lit, BrushedMetal, 0.62f, 0.85f, 0.6f);
+            // Steel: a little less metallic and a little smoother, so torchlight catches it instead of it reading as a dark plank.
+            BakeSurface("Steel", lit, BrushedMetal, 0.72f, 0.65f, 0.6f);
             BakeSurface("Gold", lit, (x, y) => Tint(BrushedMetal(x, y), new Color(1f, 0.78f, 0.35f)), 0.7f, 1f, 0.5f);
             BakeSurface("Bone", lit, BoneSurface, 0.25f, 0f, 1.4f);
-            BakeSurface("Cloth", lit, ClothWeave, 0.05f, 0f, 0.9f);
+            BakeSurface("Cloth", lit, ClothWeave, 0.08f, 0f, 0.6f);
             BakeSurface("Leather", lit, LeatherSurface, 0.3f, 0f, 1.0f);
             BakeSurface("Rubble", lit, Rubble, 0.08f, 0f, 3f);
             BakeSurface("Marble", lit, Marble, 0.18f, 0f, 0.5f);
@@ -298,7 +299,7 @@ namespace Deepbound.EditorTools
         {
             float streak = Fbm(u, v, 2f, 64f, 3, 41) * 0.25f;
             float scratch = Mathf.Pow(Mathf.Clamp01(Fbm(u, v, 40f, 3f, 2, 42) - 0.55f) * 2.5f, 2f);
-            float tone = 0.62f + streak - scratch * 0.15f;
+            float tone = 0.72f + streak - scratch * 0.15f;
             var c = new Color(tone, tone, tone * 1.02f);
             c.a = 0.5f + streak - scratch * 0.5f;
             return c;
@@ -316,13 +317,16 @@ namespace Deepbound.EditorTools
 
         private static Color ClothWeave(float u, float v)
         {
-            float warp = Mathf.Sin(u * Mathf.PI * 2f * 96f) * 0.5f + 0.5f;
-            float weft = Mathf.Sin(v * Mathf.PI * 2f * 96f) * 0.5f + 0.5f;
-            float weave = (warp + weft) * 0.5f;
-            float dirt = Fbm(u, v, 6f, 6f, 3, 61) * 0.2f;
-            float tone = 0.78f - dirt + weave * 0.1f;
+            // A diagonal twill at a frequency the texture can hold (8 px a thread), soft folds over
+            // it, and grime gathered in the creases.
+            float twill = Mathf.Sin((u + v) * Mathf.PI * 2f * 64f) * 0.5f + 0.5f;
+            float thread = Mathf.Sin((u - v) * Mathf.PI * 2f * 64f) * 0.5f + 0.5f;
+            float weave = Mathf.Lerp(twill, thread, 0.35f);
+            float fold = Fbm(u, v, 3f, 1.5f, 3, 62);
+            float dirt = Fbm(u, v, 7f, 7f, 3, 61);
+            float tone = 0.74f + (fold - 0.5f) * 0.18f - dirt * 0.12f + weave * 0.05f;
             var c = new Color(tone, tone, tone);
-            c.a = weave;
+            c.a = 0.35f + fold * 0.45f + weave * 0.12f;
             return c;
         }
 
@@ -543,30 +547,80 @@ namespace Deepbound.EditorTools
             var tone = Get<Tonemapping>();
             tone.mode.Override(TonemappingMode.ACES);
 
+            // The grade (visual pass 2026-10-16): deeper blacks, warmer firelight, cooler shadows, a
+            // little lens character. Readability first: the tells and glows must still pop.
             var bloom = Get<Bloom>();
-            bloom.threshold.Override(1.0f);
-            bloom.intensity.Override(0.9f);
-            bloom.scatter.Override(0.65f);
+            bloom.threshold.Override(0.9f);
+            bloom.intensity.Override(1.05f);
+            bloom.scatter.Override(0.7f);
+            bloom.tint.Override(new Color(1f, 0.93f, 0.85f));
 
             var vignette = Get<Vignette>();
-            vignette.intensity.Override(0.38f);
-            vignette.smoothness.Override(0.45f);
+            vignette.intensity.Override(0.34f);
+            vignette.smoothness.Override(0.5f);
+            vignette.color.Override(new Color(0.03f, 0.02f, 0.02f));
 
             var color = Get<ColorAdjustments>();
-            color.postExposure.Override(0.35f);
-            color.contrast.Override(14f);
-            color.saturation.Override(-12f);
+            color.postExposure.Override(0.62f);
+            color.contrast.Override(22f);
+            color.saturation.Override(-4f);
 
             var split = Get<SplitToning>();
-            split.shadows.Override(new Color(0.35f, 0.42f, 0.55f));
-            split.highlights.Override(new Color(0.62f, 0.52f, 0.4f));
-            split.balance.Override(-15f);
+            split.shadows.Override(new Color(0.3f, 0.4f, 0.58f));
+            split.highlights.Override(new Color(0.68f, 0.52f, 0.36f));
+            split.balance.Override(-10f);
+
+            // Shadows sink a little, highlights keep their warmth.
+            var smh = Get<ShadowsMidtonesHighlights>();
+            smh.shadows.Override(new Vector4(0.92f, 0.95f, 1.05f, -0.06f));
+            smh.midtones.Override(new Vector4(1f, 1f, 1f, 0.02f));
+            smh.highlights.Override(new Vector4(1.04f, 1f, 0.95f, 0.03f));
+
+            var chroma = Get<ChromaticAberration>();
+            chroma.intensity.Override(0.08f);
 
             var grain = Get<FilmGrain>();
             grain.type.Override(FilmGrainLookup.Thin1);
-            grain.intensity.Override(0.25f);
+            grain.intensity.Override(0.2f);
 
             EditorUtility.SetDirty(profile);
+        }
+
+        /// <summary>
+        /// Screen-space ambient occlusion: contact shadows in corners, under props and round feet —
+        /// the single biggest step away from the flat look. Added once to the renderer asset.
+        /// </summary>
+        private static void AddAmbientOcclusion(UniversalRendererData renderer)
+        {
+            ScreenSpaceAmbientOcclusion ssao = null;
+            foreach (var f in renderer.rendererFeatures) if (f is ScreenSpaceAmbientOcclusion s) ssao = s;
+            if (ssao == null)
+            {
+                ssao = ScriptableObject.CreateInstance<ScreenSpaceAmbientOcclusion>();
+                ssao.name = "SSAO";
+                AssetDatabase.AddObjectToAsset(ssao, renderer);
+                renderer.rendererFeatures.Add(ssao);
+                var rso = new SerializedObject(renderer);
+                var map = rso.FindProperty("m_RendererFeatureMap");
+                if (map != null && AssetDatabase.TryGetGUIDAndLocalFileIdentifier(ssao, out string _, out long localId))
+                {
+                    map.arraySize++;
+                    map.GetArrayElementAtIndex(map.arraySize - 1).longValue = localId;
+                    rso.ApplyModifiedPropertiesWithoutUndo();
+                }
+            }
+            var fso = new SerializedObject(ssao);
+            void F(string field, float v) { var p = fso.FindProperty("m_Settings." + field); if (p != null) p.floatValue = v; }
+            F("Intensity", 1.7f);
+            F("Radius", 0.45f);
+            F("DirectLightingStrength", 0.3f);
+            F("Falloff", 60f);
+            var down = fso.FindProperty("m_Settings.Downsample");
+            if (down != null) down.boolValue = false;
+            fso.ApplyModifiedPropertiesWithoutUndo();
+            ssao.SetActive(true);
+            EditorUtility.SetDirty(ssao);
+            EditorUtility.SetDirty(renderer);
         }
 
         /// <summary>
@@ -582,6 +636,7 @@ namespace Deepbound.EditorTools
                 so.FindProperty("m_RenderingMode").intValue = 2; // Forward+
                 so.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(renderer);
+                AddAmbientOcclusion(renderer);
             }
 
             var pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>("Assets/Settings/DeepboundURP.asset");
