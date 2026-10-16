@@ -303,7 +303,7 @@ namespace Deepbound.UI
 
         // ---- Floating damage numbers ----
 
-        private struct DamageNumber { public Vector3 World; public float Amount; public float Time; public bool Player; public bool Heal; }
+        private struct DamageNumber { public Vector3 World; public float Amount; public float Time; public bool Player; public bool Heal; public float Drift; }
 
         private void OnAnyHealed(Health target, float amount)
         {
@@ -325,7 +325,7 @@ namespace Deepbound.UI
             if (mine) return;
             var jitter = new Vector3(Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f));
             if (!Settings.DamageNumbers) return;
-            numbers.Add(new DamageNumber { World = target.Center + Vector3.up * (target.CenterHeight + 0.2f) + jitter, Amount = amount, Time = Time.time, Player = target.Team == Team.Players });
+            numbers.Add(new DamageNumber { World = target.Center + Vector3.up * (target.CenterHeight + 0.2f) + jitter, Amount = amount, Time = Time.time, Player = target.Team == Team.Players, Drift = Random.Range(-1f, 1f) });
             if (numbers.Count > 40) numbers.RemoveAt(0);
         }
 
@@ -435,15 +435,18 @@ namespace Deepbound.UI
                 float age = Time.time - n.Time;
                 if (age > 1f) { numbers.RemoveAt(i); continue; }
 
-                var screen = cam.WorldToScreenPoint(n.World + Vector3.up * age * 0.8f);
+                // Hits pop out and arc away to one side under a little gravity; heals rise straight.
+                var lift = n.Heal ? Vector3.up * age * 0.8f : Vector3.up * (age * 1.6f - age * age * 1.1f) + cam.transform.right * n.Drift * age * 0.6f;
+                var screen = cam.WorldToScreenPoint(n.World + lift);
                 if (screen.z <= 0f || screen.z > 30f) continue;
 
                 bool heavy = n.Amount >= 35f;
                 float a = 1f - age * age;
+                float pop = age < 0.12f ? Mathf.Lerp(1.6f, 1f, age / 0.12f) : 1f;
                 var color = n.Heal ? new Color(0.45f, 1f, 0.5f, a) : n.Player ? new Color(1f, 0.35f, 0.3f, a) : heavy ? new Color(1f, 0.82f, 0.35f, a) : new Color(1f, 1f, 1f, a);
-                var style = new GUIStyle(big) { fontSize = heavy ? 24 : 18, normal = { textColor = color } };
+                var style = new GUIStyle(big) { fontSize = Mathf.RoundToInt((heavy ? 26 : 18) * pop), normal = { textColor = color } };
                 var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, a * 0.8f) } };
-                var rect = new Rect(screen.x - 50, Screen.height - screen.y - 15, 100, 30);
+                var rect = new Rect(screen.x - 60, Screen.height - screen.y - 20, 120, 40);
                 string text = (n.Heal ? "+" : "") + Mathf.RoundToInt(n.Amount);
                 GUI.Label(new Rect(rect.x + 1.5f, rect.y + 1.5f, rect.width, rect.height), text, shadow);
                 GUI.Label(rect, text, style);

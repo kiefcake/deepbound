@@ -52,7 +52,9 @@ namespace Deepbound.Loot
 
         private Transform visual;
         private float phase;
-        private float pickupAllowedAt;
+        private float pickupAllowedAt, bornAt;
+        private bool landed;
+        private const float HopSeconds = 0.55f;
 
         /// <summary>Server: spawn drops from a table roll, scattered around a point.</summary>
         public static void ServerSpawnFromTable(NetworkObject prefab, LootTable table, Vector3 at, float goldScale)
@@ -76,6 +78,7 @@ namespace Deepbound.Loot
             All.Add(this);
             BuildVisual();
             phase = Random.value * 10f;
+            bornAt = Time.time;
             // A short delay so loot visibly lands before it vanishes into whoever was
             // standing on the corpse.
             pickupAllowedAt = Time.time + 0.6f;
@@ -88,6 +91,21 @@ namespace Deepbound.Loot
                 phase += Time.deltaTime;
                 visual.localPosition = new Vector3(0f, 0.35f + Mathf.Sin(phase * 2.2f) * 0.07f, 0f);
                 visual.localRotation = Quaternion.Euler(0f, phase * 70f, 0f);
+                // Spilled from the body: a quick spinning hop, growing to size, and a bump on landing.
+                float age = Time.time - bornAt;
+                if (age < HopSeconds)
+                {
+                    float t = age / HopSeconds;
+                    visual.localPosition += Vector3.up * (4f * 0.9f * t * (1f - t)) + new Vector3(0f, -0.3f * (1f - t), 0f);
+                    visual.localRotation = Quaternion.Euler(0f, phase * 70f + t * 540f, 0f);
+                    visual.localScale = Vector3.one * Mathf.Lerp(0.35f, 1f, Mathf.Sqrt(t));
+                }
+                else if (!landed)
+                {
+                    landed = true;
+                    visual.localScale = Vector3.one;
+                    Vfx.Ring(transform.position + Vector3.up * 0.04f, 0.35f, new Color(1f, 0.85f, 0.45f, 0.6f), 0.3f);
+                }
                 // Coins and embers drift toward whoever is near enough to collect them.
                 if (Magnetic && Time.time >= pickupAllowedAt)
                 {

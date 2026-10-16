@@ -719,7 +719,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     fountain.UseRpc(local.NetworkObject);
                     yield return new WaitForSeconds(0.2f);
-                    Log("fountain", "hp " + hpF.Current.Value.ToString("F0") + " / " + hpF.Max.Value.ToString("F0") + ", spent " + fountain.Spent.Value, fountain.Spent.Value && hpF.Fraction > 0.99f);
+                    Log("fountain", "hp " + hpF.Current.Value.ToString("F0") + " / " + hpF.Max.Value.ToString("F0") + ", spent " + fountain.Spent.Value, fountain.Spent.Value && hpF.Fraction > 0.95f); // from 30%: a stray hit can land in the same moment
                 }
 
                 var chasmRoom = layout.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Chasm);
@@ -1755,13 +1755,21 @@ namespace Deepbound.Networking
             var someChest = FindObjectsByType<Chest>(FindObjectsSortMode.None).FirstOrDefault();
             if (someChest != null)
             {
-                var cp = someChest.transform.position + someChest.transform.forward * 2.6f + Vector3.up * 0.1f;
-                motor.Teleport(cp, Quaternion.LookRotation(someChest.transform.position - cp));
+                // Stand on whichever side of it is open (a chest's back is often to a wall), looking down at it.
+                var cpos = someChest.transform.position;
+                var side = someChest.transform.forward;
+                foreach (var d in new[] { someChest.transform.forward, someChest.transform.right, -someChest.transform.right, -someChest.transform.forward })
+                    if (!Physics.Raycast(cpos + Vector3.up, d, 2.8f)) { side = d; break; }
+                var cp = cpos + side * 2.3f + Vector3.up * 0.1f;
+                var flat = cpos - cp; flat.y = 0f;
+                motor.Teleport(cp, Quaternion.LookRotation(flat));
+                motor.SetPitch(28f);
                 yield return new WaitForSeconds(0.6f);
                 yield return Shot(dir, "8_chest");
                 someChest.UseRpc(local.NetworkObject);
                 yield return new WaitForSeconds(1f);
                 yield return Shot(dir, "8b_chest_open");
+                motor.SetPitch(0f);
             }
             var someUrn = FindObjectsByType<Breakable>(FindObjectsSortMode.None).FirstOrDefault();
             if (someUrn != null)
