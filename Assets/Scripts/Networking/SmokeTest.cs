@@ -1573,6 +1573,16 @@ namespace Deepbound.Networking
                 foreach (var e in inRoom) e.ServerStun(10f);
                 yield return new WaitForSeconds(0.4f);
                 yield return Shot(dir, "2a_status_tags");
+                // A hit landing on the nearest one: sparks, chips, the flinch.
+                if (anchor != null)
+                {
+                    var close = anchor.transform.position + anchor.transform.forward * 2.2f + Vector3.up * 0.1f;
+                    motor.Teleport(close, Quaternion.LookRotation(anchor.transform.position - close));
+                    yield return new WaitForSeconds(0.25f);
+                    anchor.GetComponent<Health>().ServerDamage(anchor.GetComponent<Health>().Max.Value * 0.15f, close, local.NetworkObjectId);
+                    yield return new WaitForSeconds(0.06f);
+                    yield return Shot(dir, "2c_hit_impact");
+                }
 
                 // Kill everything in the room so the loot it leaves is visible.
                 foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))

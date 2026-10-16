@@ -70,12 +70,15 @@ namespace Deepbound.UI
         private static int pageShown = -1;
         private static bool pageNew;
         private static float pageAt;
+        private static Vector3 pageWhere;
+        private static bool pageAnchored;
 
         public static void ShowPage(int index, bool isNew)
         {
             pageShown = index;
             pageNew = isNew;
             pageAt = UnityEngine.Time.time;
+            pageAnchored = false;
         }
 
         private void DrawPage(float w, float h)
@@ -84,6 +87,8 @@ namespace Deepbound.UI
             var kb = Keyboard.current;
             // F, Esc, or walking off closes it (it closes itself after a while too).
             if (Time.time - pageAt > 0.3f && kb != null && kb.escapeKey.wasPressedThisFrame) { pageShown = -1; return; }
+            if (!pageAnchored) { pageWhere = player.transform.position; pageAnchored = true; }
+            if ((player.transform.position - pageWhere).sqrMagnitude > 16f) { pageShown = -1; return; }
             if (Time.time - pageAt > 25f || player.GetComponent<FirstPersonMotor>().MoveInput.sqrMagnitude > 0.1f && Time.time - pageAt > 1f) { pageShown = -1; return; }
             var e = Journal.Entries[pageShown];
             float pw = Mathf.Min(560f, w - 80f), ph = 330f, px = w / 2f - pw / 2f, py = h / 2f - ph / 2f - 20f;
@@ -1731,13 +1736,46 @@ namespace Deepbound.UI
             Rect(bx, by, bw * left, 6, new Color(0.65f, 0.45f, 1f));
         }
 
+        private static Texture2D vignetteTex;
+
+        /// <summary>A soft radial edge (clear centre, dense corners), built once.</summary>
+        private static Texture2D VignetteTex
+        {
+            get
+            {
+                if (vignetteTex != null) return vignetteTex;
+                const int n = 128;
+                vignetteTex = new Texture2D(n, n, TextureFormat.RGBA32, false) { wrapMode = TextureWrapMode.Clamp, filterMode = FilterMode.Bilinear };
+                var px = new Color32[n * n];
+                for (int y = 0; y < n; y++)
+                    for (int x = 0; x < n; x++)
+                    {
+                        float u = (x + 0.5f) / n * 2f - 1f, v = (y + 0.5f) / n * 2f - 1f;
+                        float d = Mathf.Sqrt(u * u * 0.9f + v * v * 1.1f);
+                        float a = Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.55f, 1.25f, d));
+                        px[y * n + x] = new Color32(255, 255, 255, (byte)(a * 255f));
+                    }
+                vignetteTex.SetPixels32(px);
+                vignetteTex.Apply();
+                return vignetteTex;
+            }
+        }
+
         private void DrawVignette(float w, float h)
         {
-            if (hurtFlash <= 0f) return;
-            var c = new Color(0.6f, 0f, 0f, hurtFlash * 0.45f);
-            float t = Mathf.Min(w, h) * 0.12f;
-            Rect(0, 0, w, t, c); Rect(0, h - t, w, t, c);
-            Rect(0, t, t, h - 2 * t, c); Rect(w - t, t, t, h - 2 * t, c);
+            // A hit flashes the edges red; below a third of your health they pulse with your heartbeat.
+            float low = 0f;
+            if (health != null && health.Fraction > 0f && health.Fraction < 0.33f)
+            {
+                float beat = Mathf.Pow(Mathf.Abs(Mathf.Sin(Time.time * Mathf.Lerp(4.5f, 2.6f, health.Fraction * 3f))), 6f);
+                low = (0.25f + 0.35f * beat) * Mathf.InverseLerp(0.33f, 0.05f, health.Fraction) + 0.12f;
+            }
+            float a = Mathf.Clamp01(hurtFlash * 0.75f + low);
+            if (a <= 0.01f) return;
+            var old = GUI.color;
+            GUI.color = new Color(0.55f, 0.02f, 0.02f, a);
+            GUI.DrawTexture(new Rect(0, 0, w, h), VignetteTex, ScaleMode.StretchToFill);
+            GUI.color = old;
         }
 
         // ------------------------------------------------------------------

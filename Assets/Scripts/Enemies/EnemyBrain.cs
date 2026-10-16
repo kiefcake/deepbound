@@ -154,6 +154,7 @@ namespace Deepbound.Enemies
             Title.OnValueChanged += (_, t) => { if (t.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f; };
             if (Title.Value.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f;
             Rig = CharacterArt.BuildSkeleton(transform, visualKind);
+            if (Rig != null) Rig.WatchViewer = true;
             if (Rig != null && (IsBoss || Heavy || Rig.transform.lossyScale.y >= 1.12f)) FitBodyToRig();
             health.Hurt += OnHurtVisual;
             Elite.OnValueChanged += (_, now) => ApplyEliteVisual(now);
@@ -859,12 +860,42 @@ namespace Deepbound.Enemies
 
         private HitFlash flash;
 
+        private float nextImpactFx;
+
         private void OnHurtVisual(float amount)
         {
             if (flash == null) flash = gameObject.AddComponent<HitFlash>();
             flash.Flash(Mathf.Clamp01(0.5f + amount / Mathf.Max(1f, health.Max.Value) * 4f));
             Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 0.8f, 1.2f);
-            if (Rig != null && Rig.Current == RigAction.None) Rig.Play(RigAction.Stagger, 0.2f);
+            if (Rig != null)
+            {
+                // Every hit jolts the body away from where it came; a heavy one still staggers.
+                // The server knows the attacker's spot; clients take the nearest player as the source.
+                var from = IsServer ? health.LastHitAt : transform.position - transform.forward;
+                if (!IsServer)
+                {
+                    float best = float.MaxValue;
+                    foreach (var pl in PlayerLife.All)
+                    {
+                        if (pl == null) continue;
+                        float dd = (pl.transform.position - transform.position).sqrMagnitude;
+                        if (dd < best) { best = dd; from = pl.transform.position; }
+                    }
+                }
+                float hitStrength = amount / Mathf.Max(1f, health.Max.Value) * 6f;
+                Rig.Flinch(from, hitStrength);
+                if (Time.time >= nextImpactFx)
+                {
+                    nextImpactFx = Time.time + 0.07f;
+                    var at = health.Center + Vector3.up * 0.2f;
+                    var toward = from - at;
+                    toward.y = 0f;
+                    at += toward.normalized * Mathf.Min(health.BodyRadius, 0.8f);
+                    bool stone = visualKind == CharacterArt.SkeletonKind.Gargoyle || visualKind == CharacterArt.SkeletonKind.Mourner;
+                    Vfx.HitImpact(at, from, hitStrength, Elite.Value ? new Color(1f, 0.8f, 0.35f) : new Color(1f, 0.85f, 0.6f), stone ? Mat.Rubble : Mat.Bone);
+                }
+                if (Rig.Current == RigAction.None && amount > health.Max.Value * 0.08f) Rig.Play(RigAction.Stagger, 0.2f);
+            }
         }
     }
 }

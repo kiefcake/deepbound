@@ -42,6 +42,32 @@ namespace Deepbound.Art
             Spawn(RingMesh, Mat.Glow, at + Vector3.up * 0.08f, Vector3.zero, life, radius * 0.15f, radius, color * 2f);
         }
 
+        /// <summary>
+        /// A hit landing: a spray of sparks and bone chips thrown out of the struck side (toward
+        /// <paramref name="toward"/>, the attacker), and a puff of grit. Stronger hits throw more.
+        /// </summary>
+        public static void HitImpact(Vector3 at, Vector3 toward, float strength, Color spark, string chipMaterial = Mat.Bone)
+        {
+            strength = Mathf.Clamp01(strength);
+            var n = toward - at;
+            n.y = 0f;
+            n = n.sqrMagnitude > 0.001f ? n.normalized : Vector3.back;
+            int sparks = 5 + Mathf.RoundToInt(strength * 9f);
+            for (int i = 0; i < sparks; i++)
+            {
+                var v = (n + Random.insideUnitSphere * 0.7f + Vector3.up * 0.35f).normalized * Random.Range(4f, 9f);
+                Spawn(Cube, Mat.Glow, at + Random.insideUnitSphere * 0.08f, v, Random.Range(0.15f, 0.3f), 0.04f, 0f, spark * 2.6f, 12f, 3f);
+            }
+            int chips = 2 + Mathf.RoundToInt(strength * 4f);
+            for (int i = 0; i < chips; i++)
+            {
+                var v = (n + Random.insideUnitSphere * 0.9f + Vector3.up * 0.6f).normalized * Random.Range(2.5f, 5f);
+                var chip = Spawn(Cube, chipMaterial, at + Random.insideUnitSphere * 0.1f, v, Random.Range(0.45f, 0.8f), Random.Range(0.035f, 0.06f), 0.02f, null, 14f, 0.5f);
+                chip.transform.rotation = Random.rotation;
+            }
+            Spawn(Ball, Mat.Rubble, at + n * 0.15f, n * 0.6f + Vector3.up * 0.3f, 0.35f, 0.08f, 0.35f + strength * 0.2f, null, -0.2f, 2f);
+        }
+
         /// <summary>Glowing sparks thrown up and out, falling back under gravity.</summary>
         public static void Embers(Vector3 at, int count, Color color, float speed = 6f, float size = 0.08f, float life = 0.9f)
         {

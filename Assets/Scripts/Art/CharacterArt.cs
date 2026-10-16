@@ -109,12 +109,28 @@ namespace Deepbound.Art
         /// <summary>Arming sword. Grip pivot at the hand; blade extends along local +Y.</summary>
         public static void BuildSword(Transform grip, float scale)
         {
-            MeshKit.Part(grip, "Handle", MeshKit.Cylinder(0.02f * scale, 0.02f * scale, 0.16f * scale, 6), Mat.Leather, new Vector3(0f, -0.06f * scale, 0f));
-            MeshKit.Part(grip, "Pommel", MeshKit.Ball(0.035f * scale, 6, 4), Mat.Gold, new Vector3(0f, -0.08f * scale, 0f));
-            MeshKit.Part(grip, "Guard", MeshKit.Box(new Vector3(0.24f, 0.035f, 0.045f) * scale), Mat.Gold, new Vector3(0f, 0.11f * scale, 0f));
-            MeshKit.Part(grip, "Blade", MeshKit.Box(new Vector3(0.06f, 0.78f, 0.014f) * scale), Mat.Steel, new Vector3(0f, 0.5f * scale, 0f));
-            MeshKit.Part(grip, "Tip", MeshKit.Lathe("swordTip", new[] { new Vector2(0.042f, 0f), new Vector2(0f, 0.09f) }, 4), Mat.Steel,
-                new Vector3(0f, 0.89f * scale, 0f), new Vector3(0f, 45f, 0f), new Vector3(scale, scale, scale * 0.25f));
+            // Grip: a leather-wrapped handle (raised wraps), a wheel pommel with a gold cap.
+            MeshKit.Part(grip, "Handle", MeshKit.Cylinder(0.019f * scale, 0.022f * scale, 0.16f * scale, 8), Mat.Leather, new Vector3(0f, -0.06f * scale, 0f));
+            for (int i = 0; i < 4; i++)
+                MeshKit.Part(grip, "Wrap" + i, MeshKit.Cylinder(0.024f * scale, 0.024f * scale, 0.012f * scale, 8), Mat.Leather, new Vector3(0f, (-0.045f + i * 0.04f) * scale, 0f), new Vector3(0f, 0f, i % 2 == 0 ? 8f : -8f));
+            MeshKit.Part(grip, "Pommel", MeshKit.Cylinder(0.042f * scale, 0.042f * scale, 0.026f * scale, 12), Mat.Steel, new Vector3(0f, -0.085f * scale, 0f), new Vector3(90f, 0f, 0f));
+            MeshKit.Part(grip, "PommelCap", MeshKit.Ball(0.018f * scale, 6, 4), Mat.Gold, new Vector3(0f, -0.085f * scale, 0f));
+            // Crossguard: a gently curved bar, thickening at the quillon ends.
+            MeshKit.Part(grip, "Guard", MeshKit.Box(new Vector3(0.2f, 0.03f, 0.04f) * scale), Mat.Gold, new Vector3(0f, 0.11f * scale, 0f));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                MeshKit.Part(grip, "GuardArm", MeshKit.Box(new Vector3(0.06f, 0.026f, 0.036f) * scale), Mat.Gold, new Vector3(s * 0.12f * scale, 0.118f * scale, 0f), new Vector3(0f, 0f, s * 14f));
+                MeshKit.Part(grip, "Quillon", MeshKit.Ball(0.022f * scale, 6, 4), Mat.Gold, new Vector3(s * 0.155f * scale, 0.128f * scale, 0f));
+            }
+            MeshKit.Part(grip, "Ricasso", MeshKit.Box(new Vector3(0.05f, 0.05f, 0.022f) * scale), Mat.Steel, new Vector3(0f, 0.15f * scale, 0f));
+            // The blade: a diamond section (a four-sided lathe flattened), a dark fuller down the middle,
+            // and a bevelled point.
+            MeshKit.Part(grip, "Blade", MeshKit.Lathe("swordBlade", new[]
+            {
+                new Vector2(0.034f, 0f), new Vector2(0.032f, 0.5f), new Vector2(0.028f, 0.68f), new Vector2(0f, 0.8f),
+            }, 4), Mat.Steel, new Vector3(0f, 0.17f * scale, 0f), new Vector3(0f, 45f, 0f), new Vector3(scale, scale, scale * 0.28f));
+            var fuller = MeshKit.Part(grip, "Fuller", MeshKit.Box(new Vector3(0.012f, 0.46f, 0.016f) * scale), Mat.Dark, new Vector3(0f, 0.43f * scale, 0f));
+            fuller.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
         /// <summary>Heater shield facing local +Z.</summary>
@@ -146,17 +162,26 @@ namespace Deepbound.Art
             public Transform ShieldPivot;
             /// <summary>Glowing spell light in the off hand (Mage only).</summary>
             public Renderer SpellGlow;
+            /// <summary>A small point light the palm flame throws on the hands (casters).</summary>
+            public Light SpellLight;
         }
 
         public static ViewModel BuildKnightViewModel(Transform camera, Color teamColor)
         {
             var root = MeshKit.Pivot(camera, "ViewModel", Vector3.zero);
 
-            var swordPivot = MeshKit.Pivot(root, "SwordHand", new Vector3(0.38f, -0.4f, 0.55f), new Vector3(-28f, -12f, -18f));
-            MeshKit.Part(swordPivot, "Gauntlet", MeshKit.Ball(0.07f, 6, 4), Mat.Steel, Vector3.zero, Vector3.zero, new Vector3(1f, 0.9f, 1.3f));
-            MeshKit.Part(swordPivot, "Bracer", MeshKit.Cylinder(0.07f, 0.08f, 0.35f, 6), Mat.Steel, new Vector3(0f, -0.03f, -0.05f), new Vector3(-100f, 0f, 0f));
+            // Held low at the right, the blade raised and leaning in so it sits in view.
+            var swordPivot = MeshKit.Pivot(root, "SwordHand", new Vector3(0.4f, -0.47f, 0.62f), new Vector3(-24f, -10f, 16f));
+            // The hand: an articulated gauntlet (knuckle plates over a mail glove) and a sleeved forearm.
+            MeshKit.Part(swordPivot, "Gauntlet", MeshKit.Ball(0.068f, 8, 6), Mat.Steel, Vector3.zero, Vector3.zero, new Vector3(1f, 0.85f, 1.25f));
+            for (int k = 0; k < 4; k++)
+                MeshKit.Part(swordPivot, "Knuckle" + k, MeshKit.Box(new Vector3(0.022f, 0.02f, 0.03f)), Mat.Steel, new Vector3(-0.03f + k * 0.02f, 0.03f, 0.055f), new Vector3(20f, 0f, 0f));
+            MeshKit.Part(swordPivot, "Cuff", MeshKit.Cylinder(0.08f, 0.07f, 0.08f, 8), Mat.Steel, new Vector3(0f, -0.03f, -0.07f), new Vector3(-100f, 0f, 0f));
+            MeshKit.Part(swordPivot, "Bracer", MeshKit.Cylinder(0.072f, 0.082f, 0.32f, 8), Mat.Steel, new Vector3(0f, -0.06f, -0.14f), new Vector3(-100f, 0f, 0f));
+            var sleeve = MeshKit.Part(swordPivot, "Sleeve", MeshKit.Cylinder(0.09f, 0.1f, 0.3f, 8), Mat.Cloth, new Vector3(0f, -0.11f, -0.38f), new Vector3(-100f, 0f, 0f));
+            ArtLibrary.Tint(sleeve.GetComponent<Renderer>(), teamColor * 0.8f);
             var grip = MeshKit.Pivot(swordPivot, "Grip", new Vector3(0f, 0.02f, 0.02f), new Vector3(-10f, 0f, 0f));
-            BuildSword(grip, 0.75f);
+            BuildSword(grip, 0.62f);
 
             var shieldPivot = MeshKit.Pivot(root, "ShieldHand", new Vector3(-0.55f, -0.5f, 0.7f), new Vector3(8f, 28f, 6f));
             var mount = MeshKit.Pivot(shieldPivot, "Mount", Vector3.zero, new Vector3(0f, 180f, 0f));
@@ -334,22 +359,24 @@ namespace Deepbound.Art
             var root = MeshKit.Pivot(camera, "ViewModel", Vector3.zero);
             var white = new Color(0.88f, 0.85f, 0.78f);
 
-            var hand = MeshKit.Pivot(root, "SceptreHand", new Vector3(0.34f, -0.36f, 0.6f), new Vector3(22f, -8f, -14f));
-            var sleeveR = MeshKit.Part(hand, "Sleeve", MeshKit.Cylinder(0.08f, 0.1f, 0.4f, 7), Mat.Cloth, new Vector3(0f, -0.05f, -0.22f), new Vector3(-100f, 0f, 0f));
-            ArtLibrary.Tint(sleeveR.GetComponent<Renderer>(), white);
-            MeshKit.Part(hand, "Glove", MeshKit.Ball(0.06f, 6, 4), Mat.Leather, Vector3.zero, Vector3.zero, new Vector3(1f, 0.9f, 1.2f));
-            MeshKit.Part(hand, "Sceptre", MeshKit.Cylinder(0.016f, 0.02f, 0.6f, 6), Mat.Gold, new Vector3(0f, -0.2f, 0f));
-            var sun = MeshKit.Part(hand, "SunDisc", MeshKit.Cylinder(0.06f, 0.06f, 0.02f, 14), Mat.Glow, new Vector3(0f, 0.42f, 0f), new Vector3(90f, 0f, 0f));
-            ArtLibrary.SetGlow(sun.GetComponent<Renderer>(), new Color(1f, 0.85f, 0.45f) * 1.3f);
+            var hand = MeshKit.Pivot(root, "SceptreHand", new Vector3(0.36f, -0.4f, 0.62f), new Vector3(16f, -8f, -12f));
+            CasterArm(hand, white, teamColor, true);
+            // A gold sceptre: knopped shaft, then a sun of eight rays round a glowing boss.
+            MeshKit.Part(hand, "Sceptre", MeshKit.Lathe("vmSceptre", new[] { new Vector2(0.02f, -0.6f), new Vector2(0.016f, 0.1f), new Vector2(0.03f, 0.14f), new Vector2(0.016f, 0.18f), new Vector2(0.016f, 0.36f), new Vector2(0.028f, 0.4f) }, 8), Mat.Gold, Vector3.zero);
+            var sunAt = MeshKit.Pivot(hand, "Sun", new Vector3(0f, 0.47f, 0f), new Vector3(90f, 0f, 0f));
+            MeshKit.Part(sunAt, "Ring", MeshKit.Cylinder(0.05f, 0.05f, 0.016f, 16), Mat.Gold, Vector3.zero);
+            var sun = MeshKit.Part(sunAt, "SunDisc", MeshKit.Cylinder(0.036f, 0.036f, 0.022f, 14), Mat.Glow, Vector3.zero);
+            ArtLibrary.SetGlow(sun.GetComponent<Renderer>(), new Color(1f, 0.85f, 0.45f) * 1.1f);
+            for (int i = 0; i < 8; i++)
+                MeshKit.Part(sunAt, "Ray" + i, MeshKit.Box(new Vector3(0.012f, 0.012f, i % 2 == 0 ? 0.07f : 0.045f)), Mat.Gold,
+                    Quaternion.Euler(0f, i * 45f, 0f) * new Vector3(0f, 0f, i % 2 == 0 ? 0.08f : 0.068f), new Vector3(0f, i * 45f, 0f));
 
-            var castHand = MeshKit.Pivot(root, "CastHand", new Vector3(-0.3f, -0.36f, 0.55f), new Vector3(-30f, 20f, 10f));
-            var sleeveL = MeshKit.Part(castHand, "Sleeve", MeshKit.Cylinder(0.08f, 0.1f, 0.4f, 7), Mat.Cloth, new Vector3(0f, -0.05f, -0.22f), new Vector3(-100f, 0f, 0f));
-            ArtLibrary.Tint(sleeveL.GetComponent<Renderer>(), white);
-            MeshKit.Part(castHand, "Glove", MeshKit.Box(new Vector3(0.09f, 0.03f, 0.11f)), Mat.Leather, Vector3.zero);
-            var light = MeshKit.Part(castHand, "Light", MeshKit.Ball(0.025f, 8, 6), Mat.Glow, new Vector3(0f, 0.05f, 0.02f));
+            var castHand = MeshKit.Pivot(root, "CastHand", new Vector3(-0.38f, -0.37f, 0.58f), new Vector3(-30f, 24f, 12f));
+            CasterArm(castHand, white, teamColor, false);
+            var glow = PalmFlame(castHand, new Color(1f, 0.85f, 0.45f), out var palmLight);
 
             foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            return new ViewModel { Root = root, SwordPivot = hand, ShieldPivot = castHand, SpellGlow = light.GetComponent<Renderer>() };
+            return new ViewModel { Root = root, SwordPivot = hand, ShieldPivot = castHand, SpellGlow = glow, SpellLight = palmLight };
         }
 
         /// <summary>
@@ -494,9 +521,7 @@ namespace Deepbound.Art
             var leather = new Color(0.42f, 0.32f, 0.22f);
 
             var bowHand = MeshKit.Pivot(root, "BowHand", new Vector3(-0.22f, -0.22f, 0.62f), new Vector3(0f, 8f, -12f));
-            var sleeve = MeshKit.Part(bowHand, "Sleeve", MeshKit.Cylinder(0.065f, 0.08f, 0.4f, 7), Mat.Leather, new Vector3(0f, -0.04f, -0.24f), new Vector3(-100f, 0f, 0f));
-            ArtLibrary.Tint(sleeve.GetComponent<Renderer>(), leather);
-            MeshKit.Part(bowHand, "Glove", MeshKit.Ball(0.055f, 6, 4), Mat.Leather, Vector3.zero);
+            CasterArm(bowHand, leather, teamColor, true);
             // Bow upright in view: limbs along Y, curving away from you (+Z).
             for (int i = -3; i <= 3; i++)
             {
@@ -504,14 +529,15 @@ namespace Deepbound.Art
                 var p = new Vector3(0f, Mathf.Sin(a) * 0.42f, (1f - Mathf.Cos(a)) * 0.42f);
                 MeshKit.Part(bowHand, "Limb" + i, MeshKit.Box(new Vector3(0.022f, 0.11f, 0.028f)), Mat.Wood, p, new Vector3(i * 14f, 0f, 0f));
             }
+            MeshKit.Part(bowHand, "GripWrap", MeshKit.Box(new Vector3(0.03f, 0.1f, 0.034f)), Mat.Leather, Vector3.zero);
+            foreach (float tip in new[] { -1f, 1f })
+                MeshKit.Part(bowHand, "Nock", MeshKit.Box(new Vector3(0.026f, 0.03f, 0.03f)), Mat.Bone, new Vector3(0f, tip * Mathf.Sin(42f * Mathf.Deg2Rad) * 0.42f + tip * 0.05f, (1f - Mathf.Cos(42f * Mathf.Deg2Rad)) * 0.42f));
             var arrow = MeshKit.Pivot(bowHand, "NockedArrow", Vector3.zero);
             MeshKit.Part(arrow, "Shaft", MeshKit.Box(new Vector3(0.012f, 0.012f, 0.6f)), Mat.Wood, new Vector3(0.02f, 0f, -0.2f));
             MeshKit.Part(arrow, "Head", MeshKit.Lathe("arrowHead", new[] { new Vector2(0.02f, 0f), new Vector2(0f, 0.06f) }, 4), Mat.Steel, new Vector3(0.02f, 0f, 0.1f), new Vector3(90f, 0f, 0f));
 
             var drawHand = MeshKit.Pivot(root, "DrawHand", new Vector3(-0.18f, -0.24f, 0.42f), new Vector3(0f, -10f, 0f));
-            var sleeveR = MeshKit.Part(drawHand, "Sleeve", MeshKit.Cylinder(0.065f, 0.08f, 0.38f, 7), Mat.Leather, new Vector3(0.05f, -0.04f, -0.22f), new Vector3(-100f, 0f, 0f));
-            ArtLibrary.Tint(sleeveR.GetComponent<Renderer>(), leather);
-            MeshKit.Part(drawHand, "Glove", MeshKit.Ball(0.05f, 6, 4), Mat.Leather, Vector3.zero);
+            CasterArm(drawHand, leather, teamColor, true);
 
             foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             return new ViewModel { Root = root, SwordPivot = drawHand, ShieldPivot = bowHand };
@@ -525,9 +551,7 @@ namespace Deepbound.Art
             Transform Hand(string name, Vector3 pos, Vector3 euler)
             {
                 var hand = MeshKit.Pivot(root, name, pos, euler);
-                var sleeve = MeshKit.Part(hand, "Sleeve", MeshKit.Cylinder(0.065f, 0.08f, 0.38f, 7), Mat.Leather, new Vector3(0f, -0.04f, -0.22f), new Vector3(-100f, 0f, 0f));
-                ArtLibrary.Tint(sleeve.GetComponent<Renderer>(), leather);
-                MeshKit.Part(hand, "Glove", MeshKit.Ball(0.055f, 6, 4), Mat.Leather, Vector3.zero, Vector3.zero, new Vector3(1f, 0.9f, 1.2f));
+                CasterArm(hand, leather, teamColor, true);
                 var grip = MeshKit.Pivot(hand, "Grip", new Vector3(0f, 0.01f, 0.02f), new Vector3(-10f, 0f, 0f));
                 BuildDagger(grip, 0.85f);
                 return hand;
@@ -556,29 +580,69 @@ namespace Deepbound.Art
             var robe = Color.Lerp(teamColor, new Color(0.13f, 0.1f, 0.18f), 0.78f);
             robe.a = 1f;
 
-            var staffHand = MeshKit.Pivot(root, "StaffHand", new Vector3(0.34f, -0.36f, 0.6f), new Vector3(22f, -8f, -14f));
-            var sleeveR = MeshKit.Part(staffHand, "Sleeve", MeshKit.Cylinder(0.08f, 0.1f, 0.4f, 7), Mat.Cloth, new Vector3(0f, -0.05f, -0.22f), new Vector3(-100f, 0f, 0f));
-            ArtLibrary.Tint(sleeveR.GetComponent<Renderer>(), robe);
-            MeshKit.Part(staffHand, "Glove", MeshKit.Ball(0.06f, 6, 4), Mat.Leather, Vector3.zero, Vector3.zero, new Vector3(1f, 0.9f, 1.2f));
-            // Short in view: only the top of the staff should be on screen, leaning away.
-            MeshKit.Part(staffHand, "Staff", MeshKit.Cylinder(0.018f, 0.022f, 0.85f, 6), Mat.Wood, new Vector3(0f, -0.4f, 0f));
-            var orb = MeshKit.Part(staffHand, "Orb", MeshKit.Ball(0.035f, 8, 6), Mat.Glow, new Vector3(0f, 0.5f, 0f));
-            ArtLibrary.SetGlow(orb.GetComponent<Renderer>(), new Color(0.55f, 0.75f, 1f) * 1.3f);
+            var staffHand = MeshKit.Pivot(root, "StaffHand", new Vector3(0.36f, -0.4f, 0.62f), new Vector3(16f, -8f, -12f));
+            CasterArm(staffHand, robe, teamColor, true);
+            // Short in view: only the top of the staff is on screen, leaning away. Gnarled shaft with
+            // bound grips, then a carved head: three gold claws caging a cold crystal.
+            MeshKit.Part(staffHand, "Staff", MeshKit.Lathe("vmStaff", new[] { new Vector2(0.024f, -0.9f), new Vector2(0.02f, -0.3f), new Vector2(0.023f, 0.1f), new Vector2(0.019f, 0.38f), new Vector2(0.03f, 0.44f) }, 7), Mat.Wood, Vector3.zero);
+            foreach (float y in new[] { 0.0f, 0.06f, 0.36f })
+                MeshKit.Part(staffHand, "Binding", MeshKit.Cylinder(0.027f, 0.027f, 0.022f, 8), Mat.Leather, new Vector3(0f, y, 0f));
+            MeshKit.Part(staffHand, "Collar", MeshKit.Cylinder(0.034f, 0.03f, 0.03f, 8), Mat.Gold, new Vector3(0f, 0.44f, 0f));
+            var crystal = MeshKit.Part(staffHand, "Crystal", MeshKit.Lathe("vmCrystal", new[] { new Vector2(0f, 0f), new Vector2(0.03f, 0.04f), new Vector2(0.026f, 0.1f), new Vector2(0f, 0.15f) }, 6), Mat.Glow, new Vector3(0f, 0.47f, 0f));
+            ArtLibrary.SetGlow(crystal.GetComponent<Renderer>(), new Color(0.45f, 0.65f, 1f) * 1.1f);
             for (int i = 0; i < 3; i++)
             {
-                MeshKit.Part(staffHand, "Prong" + i, MeshKit.Box(new Vector3(0.01f, 0.08f, 0.01f)), Mat.Gold,
-                    new Vector3(0f, 0.46f, 0f) + Quaternion.Euler(0f, i * 120f, 0f) * new Vector3(0f, 0f, 0.035f), new Vector3(-18f, i * 120f, 0f));
+                var claw = MeshKit.Pivot(staffHand, "Claw" + i, new Vector3(0f, 0.45f, 0f), new Vector3(0f, i * 120f, 0f));
+                MeshKit.Part(claw, "Lower", MeshKit.Box(new Vector3(0.012f, 0.08f, 0.014f)), Mat.Gold, new Vector3(0f, 0.035f, 0.04f), new Vector3(22f, 0f, 0f));
+                MeshKit.Part(claw, "Upper", MeshKit.Box(new Vector3(0.01f, 0.07f, 0.012f)), Mat.Gold, new Vector3(0f, 0.1f, 0.045f), new Vector3(-28f, 0f, 0f));
             }
 
-            var castHand = MeshKit.Pivot(root, "CastHand", new Vector3(-0.3f, -0.36f, 0.55f), new Vector3(-30f, 20f, 10f));
-            var sleeveL = MeshKit.Part(castHand, "Sleeve", MeshKit.Cylinder(0.08f, 0.1f, 0.4f, 7), Mat.Cloth, new Vector3(0f, -0.05f, -0.22f), new Vector3(-100f, 0f, 0f));
-            ArtLibrary.Tint(sleeveL.GetComponent<Renderer>(), robe);
-            MeshKit.Part(castHand, "Glove", MeshKit.Box(new Vector3(0.09f, 0.03f, 0.11f)), Mat.Leather, Vector3.zero);
-            var spell = MeshKit.Part(castHand, "Spell", MeshKit.Ball(0.025f, 8, 6), Mat.Glow, new Vector3(0f, 0.05f, 0.02f));
-            ArtLibrary.SetGlow(spell.GetComponent<Renderer>(), new Color(1f, 0.5f, 0.15f) * 1.2f);
+            var castHand = MeshKit.Pivot(root, "CastHand", new Vector3(-0.38f, -0.37f, 0.58f), new Vector3(-30f, 24f, 12f));
+            CasterArm(castHand, robe, teamColor, false);
+            var spell = PalmFlame(castHand, new Color(1f, 0.5f, 0.15f), out var light);
 
             foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            return new ViewModel { Root = root, SwordPivot = staffHand, ShieldPivot = castHand, SpellGlow = spell.GetComponent<Renderer>() };
+            return new ViewModel { Root = root, SwordPivot = staffHand, ShieldPivot = castHand, SpellGlow = spell, SpellLight = light };
+        }
+
+        /// <summary>A robed caster's forearm and bare-knuckled glove; <paramref name="grip"/> curls the fingers round a staff, else an open palm.</summary>
+        private static void CasterArm(Transform hand, Color robe, Color trim, bool grip)
+        {
+            var sleeve = MeshKit.Part(hand, "Sleeve", MeshKit.Cylinder(0.075f, 0.11f, 0.42f, 9), Mat.Cloth, new Vector3(0f, -0.06f, -0.24f), new Vector3(-100f, 0f, 0f));
+            ArtLibrary.Tint(sleeve.GetComponent<Renderer>(), robe);
+            // A flared cuff with a trim band in the party colour.
+            var cuff = MeshKit.Part(hand, "Cuff", MeshKit.Cylinder(0.1f, 0.085f, 0.07f, 9), Mat.Cloth, new Vector3(0f, -0.025f, -0.06f), new Vector3(-100f, 0f, 0f));
+            ArtLibrary.Tint(cuff.GetComponent<Renderer>(), robe * 0.7f);
+            var band = MeshKit.Part(hand, "CuffTrim", MeshKit.Cylinder(0.102f, 0.102f, 0.016f, 9), Mat.Cloth, new Vector3(0f, -0.02f, -0.035f), new Vector3(-100f, 0f, 0f));
+            ArtLibrary.Tint(band.GetComponent<Renderer>(), Color.Lerp(trim, new Color(0.9f, 0.7f, 0.3f), 0.5f));
+            MeshKit.Part(hand, "Palm", MeshKit.Ball(0.05f, 8, 6), Mat.Leather, Vector3.zero, Vector3.zero, new Vector3(1.05f, 0.55f, 1.2f));
+            for (int f = 0; f < 4; f++)
+            {
+                float x = -0.033f + f * 0.022f;
+                if (grip)
+                    MeshKit.Part(hand, "Finger" + f, MeshKit.Box(new Vector3(0.017f, 0.02f, 0.045f)), Mat.Leather, new Vector3(x, 0.012f, 0.045f), new Vector3(60f, 0f, 0f));
+                else
+                    MeshKit.Part(hand, "Finger" + f, MeshKit.Box(new Vector3(0.015f, 0.014f, 0.06f - Mathf.Abs(f - 1.5f) * 0.008f)), Mat.Leather, new Vector3(x, 0.006f, 0.07f), new Vector3(-8f, (f - 1.5f) * 7f, 0f));
+            }
+            MeshKit.Part(hand, "Thumb", MeshKit.Box(new Vector3(0.016f, 0.016f, 0.045f)), Mat.Leather, new Vector3(grip ? -0.05f : 0.055f, 0.012f, 0.03f), new Vector3(0f, grip ? 40f : -40f, 0f));
+        }
+
+        /// <summary>A living flame cupped over an open palm: a teardrop core in a softer halo, lit by a small light.</summary>
+        private static Renderer PalmFlame(Transform hand, Color color, out Light light)
+        {
+            var at = MeshKit.Pivot(hand, "Flame", new Vector3(0.005f, 0.06f, 0.05f));
+            var core = MeshKit.Part(at, "Core", MeshKit.Lathe("vmFlame", new[] { new Vector2(0f, -0.02f), new Vector2(0.026f, 0.0f), new Vector2(0.022f, 0.035f), new Vector2(0.008f, 0.075f), new Vector2(0f, 0.09f) }, 8), Mat.Glow, Vector3.zero);
+            ArtLibrary.SetGlow(core.GetComponent<Renderer>(), color * 1.2f);
+            // Two small licks of flame curling off the core.
+            foreach (float side in new[] { -1f, 1f })
+            {
+                var lick = MeshKit.Part(at, "Lick", MeshKit.Lathe("vmFlame", new[] { new Vector2(0f, -0.02f), new Vector2(0.026f, 0.0f), new Vector2(0.022f, 0.035f), new Vector2(0.008f, 0.075f), new Vector2(0f, 0.09f) }, 8), Mat.Glow,
+                    new Vector3(side * 0.018f, -0.005f, 0.004f), new Vector3(0f, 0f, -side * 24f), Vector3.one * 0.55f);
+                ArtLibrary.SetGlow(lick.GetComponent<Renderer>(), color * 0.9f);
+            }
+            // No light here: a point light centimetres from the glove floods the hand white.
+            light = null;
+            return core.GetComponent<Renderer>();
         }
 
         // ------------------------------------------------------------------
@@ -626,7 +690,11 @@ namespace Deepbound.Art
             BuildBoneLegs(rig);
 
             rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", Vector3.zero);
-            MeshKit.Part(rig.Torso, "Spine", MeshKit.Box(new Vector3(0.05f, 0.5f, 0.05f)), Mat.Bone, new Vector3(0f, 0.27f, -0.06f));
+            // Spine: a column of knobbed vertebrae, a sternum down the front of the ribs.
+            for (int v = 0; v < 8; v++)
+                MeshKit.Part(rig.Torso, "Vertebra" + v, MeshKit.Lathe("vertebra", new[] { new Vector2(0.018f, 0f), new Vector2(0.03f, 0.012f), new Vector2(0.03f, 0.03f), new Vector2(0.018f, 0.042f) }, 6),
+                    Mat.Bone, new Vector3(0f, 0.04f + v * 0.068f, -0.07f), Vector3.zero, new Vector3(1f, 1f, 0.8f));
+            MeshKit.Part(rig.Torso, "Sternum", MeshKit.Box(new Vector3(0.04f, 0.26f, 0.02f)), Mat.Bone, new Vector3(0f, 0.43f, 0.105f), new Vector3(-6f, 0f, 0f));
             // Ribcage: stacked thin rings, narrowing downward.
             for (int i = 0; i < 5; i++)
             {
@@ -641,10 +709,7 @@ namespace Deepbound.Art
 
             rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.66f, 0f));
             MeshKit.Part(rig.Head, "Neck", MeshKit.Cylinder(0.025f, 0.025f, 0.08f, 5), Mat.Bone, new Vector3(0f, -0.05f, 0f));
-            MeshKit.Part(rig.Head, "Skull", MeshKit.Ball(0.13f, 8, 6), Mat.Bone, new Vector3(0f, 0.13f, 0f), Vector3.zero, new Vector3(0.9f, 1f, 1.05f));
-            MeshKit.Part(rig.Head, "Jaw", MeshKit.Box(new Vector3(0.15f, 0.05f, 0.12f)), Mat.Bone, new Vector3(0f, 0.02f, 0.05f), new Vector3(12f, 0f, 0f));
-            MeshKit.Part(rig.Head, "SocketL", MeshKit.Ball(0.035f, 6, 4), Mat.Dark, new Vector3(-0.045f, 0.13f, 0.1f));
-            MeshKit.Part(rig.Head, "SocketR", MeshKit.Ball(0.035f, 6, 4), Mat.Dark, new Vector3(0.045f, 0.13f, 0.1f));
+            BuildSkullDetail(rig.Head);
             var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.018f, 6, 4), Mat.Glow, new Vector3(-0.045f, 0.13f, 0.12f));
             var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.018f, 6, 4), Mat.Glow, new Vector3(0.045f, 0.13f, 0.12f));
 
@@ -1060,15 +1125,58 @@ namespace Deepbound.Art
             rig.StrideLength = 1.9f;
         }
 
+        /// <summary>A long bone hanging down from <paramref name="top"/>: a turned shaft with knobbed ends.</summary>
+        private static GameObject LongBone(Transform parent, string name, Vector3 top, float length, float thick)
+        {
+            var mesh = MeshKit.Lathe("longBone", new[]
+            {
+                new Vector2(0.38f, 0f), new Vector2(0.5f, 0.03f), new Vector2(0.42f, 0.09f), new Vector2(0.24f, 0.2f),
+                new Vector2(0.2f, 0.5f), new Vector2(0.24f, 0.8f), new Vector2(0.44f, 0.92f), new Vector2(0.5f, 0.97f), new Vector2(0.3f, 1f),
+            }, 6);
+            return MeshKit.Part(parent, name, mesh, Mat.Bone, top - new Vector3(0f, length, 0f), Vector3.zero, new Vector3(thick, length, thick));
+        }
+
+        /// <summary>A skull worth looking at: domed cranium, brow ridge, cheekbones, a nasal hole, a row of teeth and a hinged jaw that chatters.</summary>
+        private static void BuildSkullDetail(Transform head)
+        {
+            MeshKit.Part(head, "Cranium", MeshKit.Lathe("cranium", new[]
+            {
+                new Vector2(0.07f, 0.02f), new Vector2(0.105f, 0.06f), new Vector2(0.125f, 0.12f), new Vector2(0.12f, 0.18f), new Vector2(0.09f, 0.24f), new Vector2(0f, 0.265f),
+            }, 9, false), Mat.Bone, new Vector3(0f, 0.01f, -0.01f), Vector3.zero, new Vector3(0.92f, 1f, 1.1f));
+            MeshKit.Part(head, "Face", MeshKit.Box(new Vector3(0.17f, 0.11f, 0.06f)), Mat.Bone, new Vector3(0f, 0.1f, 0.085f));
+            MeshKit.Part(head, "Brow", MeshKit.Box(new Vector3(0.19f, 0.03f, 0.05f)), Mat.Bone, new Vector3(0f, 0.165f, 0.1f), new Vector3(-8f, 0f, 0f));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                MeshKit.Part(head, "Cheek", MeshKit.Box(new Vector3(0.05f, 0.03f, 0.07f)), Mat.Bone, new Vector3(s * 0.085f, 0.085f, 0.07f), new Vector3(0f, s * 18f, s * -10f));
+                MeshKit.Part(head, s < 0 ? "SocketL" : "SocketR", MeshKit.Ball(0.034f, 7, 5), Mat.Dark, new Vector3(s * 0.045f, 0.128f, 0.108f), Vector3.zero, new Vector3(1.1f, 0.9f, 0.6f));
+            }
+            MeshKit.Part(head, "Nose", MeshKit.Lathe("nasal", new[] { new Vector2(0.016f, 0f), new Vector2(0f, 0.035f) }, 3), Mat.Dark, new Vector3(0f, 0.07f, 0.114f), new Vector3(0f, 0f, 180f), new Vector3(1f, 1f, 0.5f));
+            for (int t = 0; t < 6; t++)
+                MeshKit.Part(head, "ToothU" + t, MeshKit.Box(new Vector3(0.017f, 0.022f, 0.012f)), Mat.Bone, new Vector3(-0.045f + t * 0.018f, 0.04f, 0.112f));
+            // The jaw hangs from a hinge so it can work.
+            var hinge = MeshKit.Pivot(head, "JawHinge", new Vector3(0f, 0.06f, 0.0f));
+            MeshKit.Part(hinge, "Jaw", MeshKit.Box(new Vector3(0.15f, 0.035f, 0.12f)), Mat.Bone, new Vector3(0f, -0.04f, 0.06f), new Vector3(8f, 0f, 0f));
+            foreach (float s in new[] { -1f, 1f })
+                MeshKit.Part(hinge, "Ramus", MeshKit.Box(new Vector3(0.02f, 0.06f, 0.035f)), Mat.Bone, new Vector3(s * 0.07f, -0.015f, 0.01f));
+            for (int t = 0; t < 6; t++)
+                MeshKit.Part(hinge, "ToothL" + t, MeshKit.Box(new Vector3(0.016f, 0.02f, 0.011f)), Mat.Bone, new Vector3(-0.045f + t * 0.018f, -0.012f, 0.112f));
+            hinge.gameObject.AddComponent<JawChatter>();
+        }
+
         private static Transform BuildBoneArm(Transform torso, string name, float side)
         {
             var shoulder = MeshKit.Pivot(torso, name, new Vector3(0.21f * side, 0.58f, 0f));
-            MeshKit.Part(shoulder, "Joint", MeshKit.Ball(0.04f, 6, 4), Mat.Bone, Vector3.zero);
-            MeshKit.Part(shoulder, "Humerus", MeshKit.Box(new Vector3(0.04f, 0.3f, 0.04f)), Mat.Bone, new Vector3(0f, -0.16f, 0f));
+            MeshKit.Part(shoulder, "Joint", MeshKit.Ball(0.042f, 7, 5), Mat.Bone, Vector3.zero);
+            // Shoulder blade behind the joint.
+            MeshKit.Part(shoulder, "Scapula", MeshKit.Box(new Vector3(0.1f, 0.13f, 0.02f)), Mat.Bone, new Vector3(-0.05f * side, -0.06f, -0.08f), new Vector3(0f, 0f, side * 12f));
+            LongBone(shoulder, "Humerus", new Vector3(0f, -0.02f, 0f), 0.3f, 0.05f);
             MeshKit.Part(shoulder, "Elbow", MeshKit.Ball(0.03f, 6, 4), Mat.Bone, new Vector3(0f, -0.32f, 0f));
-            MeshKit.Part(shoulder, "Radius", MeshKit.Box(new Vector3(0.03f, 0.26f, 0.03f)), Mat.Bone, new Vector3(0.012f, -0.46f, 0f));
-            MeshKit.Part(shoulder, "Ulna", MeshKit.Box(new Vector3(0.025f, 0.26f, 0.025f)), Mat.Bone, new Vector3(-0.012f, -0.46f, 0f));
-            MeshKit.Part(shoulder, "Hand", MeshKit.Box(new Vector3(0.06f, 0.08f, 0.03f)), Mat.Bone, new Vector3(0f, -0.62f, 0f));
+            LongBone(shoulder, "Radius", new Vector3(0.012f, -0.33f, 0f), 0.26f, 0.034f);
+            LongBone(shoulder, "Ulna", new Vector3(-0.012f, -0.33f, 0f), 0.26f, 0.03f);
+            MeshKit.Part(shoulder, "Hand", MeshKit.Box(new Vector3(0.06f, 0.05f, 0.025f)), Mat.Bone, new Vector3(0f, -0.61f, 0f));
+            for (int f = 0; f < 4; f++)
+                MeshKit.Part(shoulder, "Finger" + f, MeshKit.Box(new Vector3(0.011f, 0.06f, 0.011f)), Mat.Bone, new Vector3(-0.022f + f * 0.0145f, -0.665f, 0.008f), new Vector3(14f + f * 3f, 0f, 0f));
+            MeshKit.Part(shoulder, "Thumb", MeshKit.Box(new Vector3(0.011f, 0.045f, 0.011f)), Mat.Bone, new Vector3(0.036f * side, -0.62f, 0.015f), new Vector3(0f, 0f, side * 30f));
             return shoulder;
         }
 
@@ -1078,10 +1186,14 @@ namespace Deepbound.Art
             {
                 float side = i == 0 ? -1f : 1f;
                 var hip = MeshKit.Pivot(rig.Hips, i == 0 ? "LegL" : "LegR", new Vector3(0.1f * side, -0.04f, 0f));
-                MeshKit.Part(hip, "Femur", MeshKit.Box(new Vector3(0.045f, 0.42f, 0.045f)), Mat.Bone, new Vector3(0f, -0.22f, 0f));
-                MeshKit.Part(hip, "Knee", MeshKit.Ball(0.035f, 6, 4), Mat.Bone, new Vector3(0f, -0.44f, 0.01f));
-                MeshKit.Part(hip, "Tibia", MeshKit.Box(new Vector3(0.035f, 0.4f, 0.035f)), Mat.Bone, new Vector3(0f, -0.65f, 0f));
-                MeshKit.Part(hip, "Foot", MeshKit.Box(new Vector3(0.07f, 0.04f, 0.16f)), Mat.Bone, new Vector3(0f, -0.86f, 0.04f));
+                LongBone(hip, "Femur", new Vector3(0f, -0.01f, 0f), 0.43f, 0.058f);
+                MeshKit.Part(hip, "Knee", MeshKit.Ball(0.036f, 7, 5), Mat.Bone, new Vector3(0f, -0.44f, 0.015f));
+                LongBone(hip, "Tibia", new Vector3(0.008f, -0.45f, 0f), 0.4f, 0.046f);
+                LongBone(hip, "Fibula", new Vector3(-0.022f * side, -0.46f, -0.01f), 0.37f, 0.024f);
+                MeshKit.Part(hip, "Heel", MeshKit.Box(new Vector3(0.05f, 0.04f, 0.06f)), Mat.Bone, new Vector3(0f, -0.86f, -0.01f));
+                MeshKit.Part(hip, "Foot", MeshKit.Box(new Vector3(0.07f, 0.025f, 0.11f)), Mat.Bone, new Vector3(0f, -0.875f, 0.07f), new Vector3(6f, 0f, 0f));
+                for (int t = 0; t < 3; t++)
+                    MeshKit.Part(hip, "Toe" + t, MeshKit.Box(new Vector3(0.016f, 0.016f, 0.04f)), Mat.Bone, new Vector3(-0.022f + t * 0.022f, -0.88f, 0.14f));
                 if (i == 0) rig.LegL = hip; else rig.LegR = hip;
             }
         }

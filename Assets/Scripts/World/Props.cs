@@ -494,10 +494,37 @@ namespace Deepbound.World
             var root = new GameObject("Banner").transform;
             root.SetParent(parent, false);
             root.SetPositionAndRotation(at, Quaternion.LookRotation(outward));
-            MeshKit.Part(root, "Rod", MeshKit.Box(new Vector3(1.4f, 0.06f, 0.06f)), Mat.Wood, new Vector3(0f, 0f, 0.1f));
-            var cloth = MeshKit.Part(root, "Cloth", MeshKit.Box(new Vector3(1.2f, 2.6f, 0.03f)), Mat.Cloth, new Vector3(0f, -1.3f, 0.1f));
+            MeshKit.Part(root, "Rod", MeshKit.Cylinder(0.03f, 0.03f, 1.45f, 8), Mat.Wood, new Vector3(-0.725f, 0f, 0.1f), new Vector3(0f, 0f, -90f));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                MeshKit.Part(root, "Finial", MeshKit.Ball(0.05f, 8, 6), Mat.Gold, new Vector3(s * 0.74f, 0f, 0.1f));
+                var tassel = MeshKit.Part(root, "Tassel", MeshKit.Cylinder(0.03f, 0.012f, 0.28f, 6), Mat.Cloth, new Vector3(s * 0.74f, -0.3f, 0.1f));
+                ArtLibrary.Tint(tassel.GetComponent<Renderer>(), new Color(0.85f, 0.65f, 0.25f));
+            }
+            // The cloth hangs from a pivot at the rod so it can stir.
+            var hang = MeshKit.Pivot(root, "Hang", new Vector3(0f, 0f, 0.1f));
+            var cloth = MeshKit.Part(hang, "Cloth", MeshKit.Box(new Vector3(1.2f, 2.3f, 0.03f)), Mat.Cloth, new Vector3(0f, -1.15f, 0f));
             ArtLibrary.Tint(cloth.GetComponent<Renderer>(), color);
-            MeshKit.Part(root, "Trim", MeshKit.Box(new Vector3(1.2f, 0.12f, 0.035f)), Mat.Gold, new Vector3(0f, -2.55f, 0.1f));
+            // Swallowtail: two hanging points below the body.
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var tail = MeshKit.Part(hang, "Tail", MeshKit.Box(new Vector3(0.6f, 0.6f, 0.03f)), Mat.Cloth, new Vector3(s * 0.3f, -2.3f, 0f), new Vector3(0f, 0f, 45f));
+                tail.transform.localScale = new Vector3(0.72f, 0.72f, 1f);
+                ArtLibrary.Tint(tail.GetComponent<Renderer>(), color * 0.95f);
+            }
+            var gold = new Color(0.9f, 0.7f, 0.3f);
+            MeshKit.Part(hang, "TrimTop", MeshKit.Box(new Vector3(1.22f, 0.1f, 0.04f)), Mat.Gold, new Vector3(0f, -0.08f, 0f));
+            foreach (float s in new[] { -1f, 1f })
+                MeshKit.Part(hang, "TrimSide", MeshKit.Box(new Vector3(0.05f, 2.25f, 0.04f)), Mat.Gold, new Vector3(s * 0.585f, -1.15f, 0f));
+            // The emblem: a gold skull over crossed bones, the arms of Cathedra.
+            MeshKit.Part(hang, "EmblemSkull", MeshKit.Ball(0.16f, 10, 8), Mat.Gold, new Vector3(0f, -0.95f, 0.025f), default, new Vector3(1f, 1.05f, 0.35f));
+            MeshKit.Part(hang, "EmblemJaw", MeshKit.Box(new Vector3(0.16f, 0.07f, 0.04f)), Mat.Gold, new Vector3(0f, -1.13f, 0.025f));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                MeshKit.Part(hang, "EmblemEye", MeshKit.Ball(0.04f, 6, 4), Mat.Dark, new Vector3(s * 0.06f, -0.93f, 0.06f), default, new Vector3(1f, 1f, 0.4f));
+                MeshKit.Part(hang, "EmblemBone", MeshKit.Box(new Vector3(0.62f, 0.05f, 0.03f)), Mat.Gold, new Vector3(0f, -1.42f, 0.02f), new Vector3(0f, 0f, s * 32f));
+            }
+            hang.gameObject.AddComponent<BannerSway>();
         }
 
         /// <summary>A cluster of melted candles with one shared light.</summary>

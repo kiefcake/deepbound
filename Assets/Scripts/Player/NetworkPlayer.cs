@@ -353,6 +353,9 @@ namespace Deepbound.Player
             {
                 if (!vmRestKnown) { vmRestPos = viewModel.Root.localPosition; vmRestRot = viewModel.Root.localRotation; vmRestKnown = true; }
                 var bob = new Vector3(Mathf.Sin(walkPhase) * 0.011f, -Mathf.Abs(Mathf.Cos(walkPhase)) * 0.013f, 0f) * amp;
+                // Standing still the hands breathe: a slow rise and a faint drift.
+                float still = 1f - amp, tb = Time.time;
+                bob += new Vector3(Mathf.Sin(tb * 0.7f) * 0.003f, Mathf.Sin(tb * 1.5f) * 0.004f, Mathf.Sin(tb * 1.5f + 0.6f) * 0.002f) * still;
                 viewModel.Root.localPosition = vmRestPos + bob + Vector3.down * 0.07f * landDip + Vector3.down * (sliding ? 0.04f : 0f);
                 viewModel.Root.localRotation = vmRestRot * Quaternion.Euler(sway.x, sway.y, sway.y * 0.6f);
             }
@@ -549,8 +552,16 @@ namespace Deepbound.Player
                 if (vm.SpellGlow != null)
                 {
                     var color = lastFrost ? Frost : Fire;
-                    ArtLibrary.SetGlow(vm.SpellGlow, color * (0.9f + 2.2f * thrust + Mathf.Sin(idle * 6f) * 0.15f));
-                    vm.SpellGlow.transform.localScale = Vector3.one * (1f + thrust * 0.8f);
+                    // Kept under ~2x HDR so bloom tints it instead of whiting it out.
+                    float flick = Mathf.PerlinNoise(idle * 5f, 0.3f) * 0.3f;
+                    ArtLibrary.SetGlow(vm.SpellGlow, color * (0.8f + 0.9f * thrust + flick));
+                    vm.SpellGlow.transform.localScale = Vector3.one * (0.9f + flick * 0.5f + thrust * 0.5f);
+                    vm.SpellGlow.transform.localRotation = Quaternion.Euler(0f, idle * 140f, 0f);
+                    if (vm.SpellLight != null)
+                    {
+                        vm.SpellLight.color = color;
+                        vm.SpellLight.intensity = 0.5f + flick + thrust * 1.6f;
+                    }
                 }
             }
         }

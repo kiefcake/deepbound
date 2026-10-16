@@ -13,14 +13,21 @@ namespace Deepbound.World
         public Light Light;
         public Transform Flame;
         public float BaseIntensity = 6f;
+        private static Mesh emberMesh;
+        private static Mesh EmberMesh => emberMesh ??= Art.MeshKit.Box(Vector3.one);
 
         private float offset;
         private Vector3 flameScale;
+        private Vector3 lightRest;
+        private Quaternion flameRest;
+        private float nextEmber;
 
         private void Start()
         {
             offset = Random.value * 100f;
-            if (Flame != null) flameScale = Flame.localScale;
+            if (Flame != null) { flameScale = Flame.localScale; flameRest = Flame.localRotation; }
+            if (Light != null) lightRest = Light.transform.localPosition;
+            nextEmber = Time.time + Random.value * 2f;
         }
 
         private void Update()
@@ -28,10 +35,25 @@ namespace Deepbound.World
             float t = Time.time * 7f + offset;
             float n = Mathf.PerlinNoise(t, offset) * 0.7f + Mathf.PerlinNoise(t * 2.7f, offset + 5f) * 0.3f;
 
-            if (Light != null) Light.intensity = BaseIntensity * (0.75f + n * 0.45f);
+            if (Light != null)
+            {
+                Light.intensity = BaseIntensity * (0.75f + n * 0.45f);
+                // The flame wanders, so its shadows breathe a little.
+                Light.transform.localPosition = lightRest + new Vector3(Mathf.PerlinNoise(t * 0.6f, offset + 9f) - 0.5f, 0f, Mathf.PerlinNoise(offset + 3f, t * 0.6f) - 0.5f) * 0.06f;
+            }
             if (Flame != null)
             {
                 Flame.localScale = new Vector3(flameScale.x * (0.9f + n * 0.2f), flameScale.y * (0.8f + n * 0.45f), flameScale.z * (0.9f + n * 0.2f));
+                Flame.localRotation = flameRest * Quaternion.Euler((Mathf.PerlinNoise(t * 0.8f, offset + 1f) - 0.5f) * 14f, 0f, (Mathf.PerlinNoise(offset + 2f, t * 0.8f) - 0.5f) * 14f);
+                // Now and then a spark lifts off (only near the viewer: cheap).
+                if (Time.time >= nextEmber)
+                {
+                    nextEmber = Time.time + Random.Range(0.35f, 1.2f);
+                    var cam = Art.ViewCamera.Current;
+                    if (cam != null && (cam.transform.position - Flame.position).sqrMagnitude < 14f * 14f)
+                        Art.Vfx.Spawn(EmberMesh, Art.Mat.Glow, Flame.position + Random.insideUnitSphere * 0.05f, Vector3.up * Random.Range(0.6f, 1.2f) + Random.insideUnitSphere * 0.25f,
+                            Random.Range(0.8f, 1.6f), 0.025f, 0f, (Light != null ? Light.color : new Color(1f, 0.6f, 0.3f)) * 2.5f, -0.4f, 0.8f);
+                }
             }
         }
     }
