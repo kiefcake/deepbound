@@ -411,7 +411,11 @@ namespace Deepbound.Networking
                     bool stillCarried = relT.Carried;
                     var way2 = layout.WaystonePosition;
                     lfm2.Teleport(way2 + (layout.StartRoom.Center - way2).normalized * 1.5f + Vector3.up * 0.1f, local.transform.rotation);
+                    // A stray hit at the waystone would restart the delivery: shield the carrier while it completes.
+                    System.Func<float, Vector3, float> shieldT = (d, f) => 0f;
+                    lh.IncomingModifiers.Insert(0, shieldT);
                     for (float t = 0f; t < 6f && Reliquary.Current != null; t += 0.1f) { lh.ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                    lh.IncomingModifiers.Remove(shieldT);
                     Log("reliquary", "speed x" + speedMul.ToString("F2") + ", integrity after a hit " + integ.ToString("F0") + "%, still carried " + stillCarried +
                         ", delivered " + (Reliquary.Current == null) + ", gold " + goldBefore + " -> " + lprog.Gold.Value,
                         speedMul < 0.75f && integ < 100f && stillCarried && Reliquary.Current == null && lprog.Gold.Value > goldBefore);
@@ -872,10 +876,40 @@ namespace Deepbound.Networking
                         int g0 = gp.Gold.Value;
                         bjT.UseRpc(local.NetworkObject);
                         yield return new WaitForSeconds(0.3f);
-                        bool dealt = gp.Gold.Value != g0 || BlackjackTable.LocalOpen;
+                        bool seated = BlackjackTable.LocalOpen;
+                        // A chosen bet; then DEAL AGAIN after the hand is over.
+                        bjT.DealRpc(local.NetworkObject, 40);
+                        yield return new WaitForSeconds(0.3f);
+                        bool dealt = gp.Gold.Value != g0;
+                        bjT.InsuranceRpc(local.NetworkObject, false);
                         bjT.StandRpc(local.NetworkObject);
                         yield return new WaitForSeconds(0.3f);
-                        bjOk = dealt && BlackjackTable.LocalOpen;
+                        int g1 = gp.Gold.Value;
+                        bjT.DealRpc(local.NetworkObject, 15);
+                        yield return new WaitForSeconds(0.3f);
+                        bool again = gp.Gold.Value != g1;
+                        bjT.InsuranceRpc(local.NetworkObject, false);
+                        bjT.StandRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.3f);
+                        // Split a pair of eights against a dealer 10-7: two hands, a second bet.
+                        int g2 = gp.Gold.Value;
+                        bjT.ServerDebugDeal(gp, 20, new byte[] { 7, 20, 9, 6 });
+                        bjT.SplitRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.2f);
+                        bool split = bjT.ServerHandCount(gp) == 2 && gp.Gold.Value == g2 - 40;
+                        bjT.StandRpc(local.NetworkObject);
+                        bjT.StandRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.2f);
+                        bool splitDone = bjT.ServerPhase(gp) == BlackjackTable.Phase.Done;
+                        // Double an 11 (5+6) against a dealer 9-7: one card, the bet doubled, the hand over.
+                        int g3 = gp.Gold.Value;
+                        bjT.ServerDebugDeal(gp, 20, new byte[] { 4, 18, 8, 6 });
+                        bjT.DoubleRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.2f);
+                        bool doubled = bjT.ServerPhase(gp) == BlackjackTable.Phase.Done && (gp.Gold.Value == g3 - 40 || gp.Gold.Value == g3 || gp.Gold.Value == g3 + 40);
+                        Log("blackjack rules", "seated " + seated + ", dealt " + dealt + ", deal again " + again + ", split " + split + "/" + splitDone + ", double " + doubled,
+                            seated && dealt && again && split && splitDone && doubled);
+                        bjOk = seated && dealt && again;
                     }
                     int solid = 0;
                     foreach (var bc in FindObjectsByType<BoxCollider>(FindObjectsSortMode.None)) if (bc.GetComponent<MeshRenderer>() != null && bc.GetComponentInParent<Unity.Netcode.NetworkObject>() == null) solid++;

@@ -20,6 +20,17 @@ namespace Deepbound.World
         private static readonly string[] Names = { "SKULL", "BONE", "CANDLE", "COIN", "CROWN" };
 
         private float busyUntil;
+
+        // What the reels show, for the on-screen card: each reel's symbol, and whether it has stopped yet.
+        private readonly byte[] shown = new byte[3];
+        private readonly bool[] landed = new bool[3];
+        private float cardUntil = -1f;
+        private int cardWin = -1;
+        private string cardWho;
+        private static readonly Color[] SymbolColors =
+        {
+            new Color(0.85f, 0.85f, 0.8f), new Color(0.95f, 0.9f, 0.75f), new Color(1f, 0.6f, 0.25f), new Color(1f, 0.82f, 0.3f), new Color(1f, 0.92f, 0.45f),
+        };
         private readonly Transform[] reels = new Transform[3];
         private Transform lever;
 
@@ -79,6 +90,10 @@ namespace Deepbound.World
             Sfx.Play(Sound.Bash, transform.position + Vector3.up * 1.2f, 0.5f, 1.4f);
             Sfx.Play(Sound.SlotSpin, transform.position + Vector3.up * 1.2f, 0.8f, 1.2f);
             float start = Time.time;
+            cardWho = who;
+            cardWin = -1;
+            cardUntil = Time.time + 6f;
+            for (int i = 0; i < 3; i++) landed[i] = false;
             var spin = new float[3];
             bool[] stopped = new bool[3];
             while (Time.time - start < 1.9f)
@@ -89,10 +104,12 @@ namespace Deepbound.World
                 {
                     if (reels[i] == null) continue;
                     float stopAt = 0.8f + i * 0.45f;
-                    if (t < stopAt) spin[i] += Time.deltaTime * 1400f;
+                    if (t < stopAt) { spin[i] += Time.deltaTime * 1400f; shown[i] = (byte)((int)(spin[i] / 72f) % 5); }
                     else if (!stopped[i])
                     {
                         stopped[i] = true;
+                        shown[i] = stops[i];
+                        landed[i] = true;
                         // Land with the rolled symbol facing out.
                         spin[i] = -stops[i] * 72f;
                         Sfx.Play(Sound.Block, reels[i].position, 0.35f, 1.8f);
@@ -101,6 +118,8 @@ namespace Deepbound.World
                 }
                 yield return null;
             }
+            cardWin = win;
+            cardUntil = Time.time + 4.5f;
             string line = Names[stops[0]] + " | " + Names[stops[1]] + " | " + Names[stops[2]];
             var color = win > Stake ? new Color(1f, 0.85f, 0.35f) : win == Stake ? Color.white : new Color(1f, 0.45f, 0.4f);
             UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.1f, win > 0 ? "+" + (win - Stake) : "-" + Stake, color);
@@ -113,6 +132,38 @@ namespace Deepbound.World
         {
             base.OnNetworkSpawn();
             BuildVisual();
+        }
+
+        /// <summary>The result, big and plain: three symbol tiles and what they paid. Shown to anyone near the machine.</summary>
+        private void OnGUI()
+        {
+            if (Time.time > cardUntil) return;
+            var local = Player.NetworkPlayer.Local;
+            if (local == null || Vector3.Distance(local.transform.position, transform.position) > 7f) return;
+            UI.UiSkin.Apply();
+            float w = Screen.width, h = Screen.height;
+            float tile = 120f, gap = 14f, pw = tile * 3 + gap * 2 + 40, ph = 230f;
+            float px = w / 2f - pw / 2f, py = h * 0.5f + 40f;
+            UI.UiSkin.Panel(new Rect(px, py, pw, ph), 0.94f);
+            GUI.Label(new Rect(px, py + 8, pw, 24), "THE BONE REELS" + (cardWho != null ? "   -   " + cardWho : ""), new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 18 });
+            for (int i = 0; i < 3; i++)
+            {
+                var r = new Rect(px + 20 + i * (tile + gap), py + 40, tile, tile * 0.8f);
+                var c = SymbolColors[shown[i]];
+                UI.UiSkin.Rect(r, landed[i] ? new Color(c.r, c.g, c.b, 0.9f) : new Color(0.3f, 0.28f, 0.25f, 0.9f));
+                UI.UiSkin.Rect(new Rect(r.x + 3, r.y + 3, r.width - 6, r.height - 6), new Color(0.08f, 0.06f, 0.05f, 0.95f));
+                GUI.Label(r, Names[shown[i]], new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 22,
+                    normal = { textColor = landed[i] ? c : new Color(0.6f, 0.58f, 0.55f) } });
+            }
+            string result;
+            Color rc;
+            if (cardWin < 0) { result = "spinning..."; rc = new Color(0.8f, 0.78f, 0.72f); }
+            else if (cardWin == 0) { result = "NOTHING  -  lost " + Stake + " gold"; rc = new Color(1f, 0.45f, 0.4f); }
+            else if (cardWin >= Stake * 6) { result = "JACKPOT!  +" + (cardWin - Stake) + " gold"; rc = new Color(1f, 0.85f, 0.35f); }
+            else { result = "WIN  +" + (cardWin - Stake) + " gold"; rc = new Color(0.6f, 1f, 0.55f); }
+            GUI.Label(new Rect(px, py + 146, pw, 34), result, new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 26, normal = { textColor = rc } });
+            GUI.Label(new Rect(px, py + 186, pw, 34), "3 crowns x25   3 coins x10   3 candles x6   3 bones x4   any pair x2 (crowns x3)   skulls pay nothing",
+                new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, wordWrap = true });
         }
 
         private void BuildVisual()
@@ -131,7 +182,9 @@ namespace Deepbound.World
                 for (int s = 0; s < 5; s++)
                 {
                     var face = MeshKit.Pivot(reel, "Face" + s, Vector3.zero, new Vector3(s * 72f, 0f, 0f));
-                    BuildSymbol(face, (Symbol)s, new Vector3(0f, 0f, 0.18f));
+                    var sym = MeshKit.Pivot(face, "Symbol", new Vector3(0f, 0f, 0.18f));
+                    sym.localScale = Vector3.one * 1.7f;
+                    BuildSymbol(sym, (Symbol)s, Vector3.zero);
                 }
                 reels[i] = reel;
             }

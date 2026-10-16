@@ -8,131 +8,388 @@ using UnityEngine;
 namespace Deepbound.World
 {
     /// <summary>
-    /// Deadman's Hand: blackjack against a skeleton dealer in the gambling tent. F sits you down and
-    /// deals (the stake is taken up front); HIT or STAND in the table's panel. Closest to 21 without
-    /// going over wins double; a natural 21 pays 3:2; a tie returns the stake; the dealer draws to 17.
-    /// Server-authoritative: hands live on the server, each player sees their own through an owner RPC.
+    /// Deadman's Hand: blackjack against a skeleton dealer, played to casino rules.
+    ///
+    /// <list type="bullet">
+    /// <item>A six-deck shoe, reshuffled when three quarters have been dealt.</item>
+    /// <item>You choose your bet (5 to 500 gold, never more than you carry) before the deal.</item>
+    /// <item>The dealer peeks for blackjack under an Ace or a ten, stands on all 17s (S17).</item>
+    /// <item>Blackjack pays 3:2. Insurance (half your bet) is offered against an Ace and pays 2:1.</item>
+    /// <item>DOUBLE on any first two cards (one more card, bet doubled). SPLIT any pair, up to four
+    ///   hands; split Aces get one card each and a split 21 is not a blackjack. SURRENDER the first
+    ///   two cards for half your bet back (late surrender, after the peek).</item>
+    /// </list>
+    ///
+    /// Server-authoritative: the shoe and every hand live on the server; each player is sent their
+    /// own table state by an owner RPC and acts through server RPCs.
     /// </summary>
     public class BlackjackTable : Interactable
     {
-        private class Hand { public readonly List<byte> Mine = new List<byte>(), House = new List<byte>(); public int Stake; public float StartedAt; }
-        private readonly Dictionary<ulong, Hand> hands = new Dictionary<ulong, Hand>();
+        public const int MinBet = 5, MaxBet = 500, Decks = 6, MaxHands = 4;
+        public enum Phase : byte { Betting, Insurance, Playing, Done }
 
-        // ---- The local player's view of their own hand ----
+        private class Seat
+        {
+            public Phase Phase;
+            public readonly List<List<byte>> Hands = new List<List<byte>>();
+            public readonly List<int> Bets = new List<int>();
+            public readonly List<bool> Doubled = new List<bool>(), Surrendered = new List<bool>();
+            public readonly List<byte> House = new List<byte>();
+            public int Active, Insurance, LastBet = 20;
+            public bool SplitAces;
+            public string Result = "";
+            public float LastAction;
+        }
+
+        private readonly Dictionary<ulong, Seat> seats = new Dictionary<ulong, Seat>();
+        private readonly List<byte> shoe = new List<byte>();
+
+        // ---- The local player's view of their seat ----
         public static bool LocalOpen { get; private set; }
         private static BlackjackTable localTable;
-        private byte[] seenMine = new byte[0], seenHouse = new byte[0];
-        private bool seenDone;
+        private Phase seenPhase;
+        private byte[][] seenHands = new byte[0][];
+        private int[] seenBets = new int[0];
+        private byte[] seenFlags = new byte[0];
+        private byte[] seenHouse = new byte[0];
+        private int seenActive, seenInsurance;
+        private bool seenHoleHidden;
         private string seenResult = "";
-        private int seenStake;
+        private int betChoice = 20;
 
         public override float Range => 2.6f;
 
-        public static int StakeFor(int gold) => Mathf.Clamp(Mathf.RoundToInt(gold * 0.2f / 5f) * 5, 20, 100);
-
         public override string Prompt(PlayerProgress who)
         {
-            if (hands.ContainsKey(who.NetworkObjectId) || (LocalOpen && localTable == this)) return null;
-            int stake = StakeFor(who.Gold.Value);
-            return who.Gold.Value < stake ? "Deadman's Hand: you need " + stake + " gold" : "Play Deadman's Hand  -  stake " + stake + " gold";
+            if (who.IsOwner && LocalOpen && localTable == this) return null;
+            return who.Gold.Value < MinBet ? "Deadman's Hand: you need " + MinBet + " gold" : "Sit at Deadman's Hand (blackjack)";
         }
 
-        private static byte Draw() => (byte)Random.Range(1, 14);
+        // ------------------------------------------------------------------
+        // Cards: byte = suit * 13 + (rank - 1); rank 1 = Ace, 11-13 = J Q K.
+        // ------------------------------------------------------------------
 
-        public static int Total(IList<byte> cards)
+        public static int Rank(byte card) => card % 13 + 1;
+        public static int Suit(byte card) => card / 13;
+        private static int Value(byte card) { int r = Rank(card); return r >= 10 ? 10 : r; }
+
+        public static int Total(IList<byte> cards, out bool soft)
         {
             int total = 0, aces = 0;
-            foreach (var c in cards)
-            {
-                int v = c >= 10 ? 10 : c;
-                if (c == 1) { aces++; v = 11; }
-                total += v;
-            }
+            foreach (var c in cards) { int v = Value(c); if (v == 1) { aces++; v = 11; } total += v; }
             while (total > 21 && aces > 0) { total -= 10; aces--; }
+            soft = aces > 0;
             return total;
         }
+        public static int Total(IList<byte> cards) => Total(cards, out _);
+        private static bool Natural(IList<byte> cards) => cards.Count == 2 && Total(cards) == 21;
+
+        private byte Draw()
+        {
+            if (shoe.Count < Decks * 52 / 4) Shuffle();
+            var c = shoe[shoe.Count - 1];
+            shoe.RemoveAt(shoe.Count - 1);
+            return c;
+        }
+
+        private void Shuffle(bool announce = true)
+        {
+            shoe.Clear();
+            for (int d = 0; d < Decks; d++) for (int c = 0; c < 52; c++) shoe.Add((byte)c);
+            for (int i = shoe.Count - 1; i > 0; i--) { int j = Random.Range(0, i + 1); (shoe[i], shoe[j]) = (shoe[j], shoe[i]); }
+            if (announce && IsServer) ShuffleFxRpc();
+        }
+
+        // ------------------------------------------------------------------
+        // Server: the game
+        // ------------------------------------------------------------------
 
         protected override void ServerUse(PlayerProgress who)
         {
-            if (hands.ContainsKey(who.NetworkObjectId)) return;
-            int stake = StakeFor(who.Gold.Value);
-            if (who.Gold.Value < stake) return;
-            who.ServerAddGold(-stake);
-            var h = new Hand { Stake = stake, StartedAt = Time.time };
-            h.Mine.Add(Draw()); h.House.Add(Draw()); h.Mine.Add(Draw()); h.House.Add(Draw());
-            hands[who.NetworkObjectId] = h;
+            if (!seats.TryGetValue(who.NetworkObjectId, out var seat)) seats[who.NetworkObjectId] = seat = new Seat { Phase = Phase.Betting };
+            seat.LastAction = Time.time;
+            Send(who, seat);
+        }
+
+        private bool TryGet(NetworkObjectReference player, out PlayerProgress who, out Seat seat)
+        {
+            seat = null;
+            who = null;
+            if (!player.TryGet(out var obj) || !obj.TryGetComponent(out who)) return false;
+            if (Vector3.Distance(obj.transform.position, transform.position) > Range + 2.5f) return false;
+            if (!seats.TryGetValue(who.NetworkObjectId, out seat)) seats[who.NetworkObjectId] = seat = new Seat { Phase = Phase.Betting };
+            seat.LastAction = Time.time;
+            return true;
+        }
+
+        /// <summary>Owner → server: place a bet and deal.</summary>
+        [Rpc(SendTo.Server)]
+        public void DealRpc(NetworkObjectReference player, int bet)
+        {
+            if (!TryGet(player, out var who, out var seat) || (seat.Phase != Phase.Betting && seat.Phase != Phase.Done)) return;
+            bet = Mathf.Clamp(bet, MinBet, MaxBet);
+            if (who.Gold.Value < bet) return;
+            ServerDeal(who, seat, bet, null);
+        }
+
+        /// <summary>Server (tests): deal with chosen cards (player's first two, then dealer's two).</summary>
+        public void ServerDebugDeal(PlayerProgress who, int bet, byte[] cards)
+        {
+            if (!seats.TryGetValue(who.NetworkObjectId, out var seat)) seats[who.NetworkObjectId] = seat = new Seat();
+            seat.Phase = Phase.Betting;
+            ServerDeal(who, seat, bet, cards);
+        }
+
+        private void ServerDeal(PlayerProgress who, Seat seat, int bet, byte[] forced)
+        {
+            who.ServerAddGold(-bet);
+            seat.LastBet = bet;
+            seat.Hands.Clear(); seat.Bets.Clear(); seat.Doubled.Clear(); seat.Surrendered.Clear(); seat.House.Clear();
+            seat.Active = 0; seat.Insurance = 0; seat.SplitAces = false; seat.Result = "";
+            var hand = new List<byte>();
+            byte Next(int i) => forced != null && i < forced.Length ? forced[i] : Draw();
+            hand.Add(Next(0)); seat.House.Add(Next(2)); hand.Add(Next(1)); seat.House.Add(Next(3));
+            seat.Hands.Add(hand); seat.Bets.Add(bet); seat.Doubled.Add(false); seat.Surrendered.Add(false);
             DealFxRpc();
-            if (Total(h.Mine) == 21) { Resolve(who, h); return; }
-            Send(who, h, false, "");
+            // An Ace showing: insurance first. Otherwise the dealer peeks under a ten, then play begins.
+            if (Rank(seat.House[0]) == 1) { seat.Phase = Phase.Insurance; Send(who, seat); return; }
+            AfterPeek(who, seat);
+        }
+
+        /// <summary>Owner → server: take insurance (true) or decline it, against the dealer's Ace.</summary>
+        [Rpc(SendTo.Server)]
+        public void InsuranceRpc(NetworkObjectReference player, bool take)
+        {
+            if (!TryGet(player, out var who, out var seat) || seat.Phase != Phase.Insurance) return;
+            if (take)
+            {
+                int cost = seat.Bets[0] / 2;
+                if (who.Gold.Value >= cost) { who.ServerAddGold(-cost); seat.Insurance = cost; }
+            }
+            AfterPeek(who, seat);
+        }
+
+        private void AfterPeek(PlayerProgress who, Seat seat)
+        {
+            bool dealerNatural = Natural(seat.House);
+            bool peeks = Rank(seat.House[0]) == 1 || Value(seat.House[0]) == 10;
+            if (peeks && dealerNatural) { Settle(who, seat); return; }
+            if (seat.Insurance > 0) seat.Result = "No dealer blackjack: insurance lost. ";
+            if (Natural(seat.Hands[0])) { Settle(who, seat); return; }
+            seat.Phase = Phase.Playing;
+            Send(who, seat);
         }
 
         [Rpc(SendTo.Server)]
         public void HitRpc(NetworkObjectReference player)
         {
-            if (!player.TryGet(out var obj) || !obj.TryGetComponent<PlayerProgress>(out var who) || !hands.TryGetValue(who.NetworkObjectId, out var h)) return;
-            h.Mine.Add(Draw());
+            if (!TryGet(player, out var who, out var seat) || seat.Phase != Phase.Playing) return;
+            var hand = seat.Hands[seat.Active];
+            hand.Add(Draw());
             DealFxRpc();
-            if (Total(h.Mine) >= 21) Resolve(who, h);
-            else Send(who, h, false, "");
+            if (Total(hand) >= 21) NextHand(who, seat);
+            else Send(who, seat);
         }
 
         [Rpc(SendTo.Server)]
         public void StandRpc(NetworkObjectReference player)
         {
-            if (!player.TryGet(out var obj) || !obj.TryGetComponent<PlayerProgress>(out var who) || !hands.TryGetValue(who.NetworkObjectId, out var h)) return;
-            Resolve(who, h);
+            if (!TryGet(player, out var who, out var seat)) return;
+            if (seat.Phase == Phase.Insurance) { AfterPeek(who, seat); return; }
+            if (seat.Phase != Phase.Playing) return;
+            NextHand(who, seat);
         }
 
-        private void Resolve(PlayerProgress who, Hand h)
+        public static bool CanDouble(int cards, bool splitAces) => cards == 2 && !splitAces;
+
+        [Rpc(SendTo.Server)]
+        public void DoubleRpc(NetworkObjectReference player)
         {
-            int mine = Total(h.Mine);
-            bool natural = mine == 21 && h.Mine.Count == 2;
-            if (mine <= 21 && !natural) while (Total(h.House) < 17) h.House.Add(Draw());
-            int house = Total(h.House);
-            int payout; string result;
-            if (mine > 21) { payout = 0; result = "BUST  -  the dead keep " + h.Stake; }
-            else if (natural && !(house == 21 && h.House.Count == 2)) { payout = h.Stake + h.Stake * 3 / 2; result = "DEADMAN'S HAND!  +" + (payout - h.Stake); }
-            else if (house > 21 || mine > house) { payout = h.Stake * 2; result = "YOU WIN  +" + h.Stake; }
-            else if (mine == house) { payout = h.Stake; result = "PUSH  -  stake returned"; }
-            else { payout = 0; result = "THE HOUSE WINS  -" + h.Stake; }
-            who.ServerAddGold(payout);
-            hands.Remove(who.NetworkObjectId);
-            Send(who, h, true, result);
-            ResultFxRpc(who.name, result, payout > h.Stake);
+            if (!TryGet(player, out var who, out var seat) || seat.Phase != Phase.Playing) return;
+            var hand = seat.Hands[seat.Active];
+            int bet = seat.Bets[seat.Active];
+            if (!CanDouble(hand.Count, seat.SplitAces) || who.Gold.Value < bet) return;
+            who.ServerAddGold(-bet);
+            seat.Bets[seat.Active] = bet * 2;
+            seat.Doubled[seat.Active] = true;
+            hand.Add(Draw());
+            DealFxRpc();
+            NextHand(who, seat);
         }
 
-        private void Send(PlayerProgress who, Hand h, bool done, string result) =>
-            HandRpc(h.Mine.ToArray(), h.House.ToArray(), done, result, h.Stake, RpcTarget.Single(who.OwnerClientId, RpcTargetUse.Temp));
+        public static bool CanSplit(IList<byte> hand, int hands) => hand.Count == 2 && Rank(hand[0]) == Rank(hand[1]) && hands < MaxHands;
+
+        [Rpc(SendTo.Server)]
+        public void SplitRpc(NetworkObjectReference player)
+        {
+            if (!TryGet(player, out var who, out var seat) || seat.Phase != Phase.Playing) return;
+            var hand = seat.Hands[seat.Active];
+            int bet = seat.Bets[seat.Active];
+            if (!CanSplit(hand, seat.Hands.Count) || seat.SplitAces || who.Gold.Value < bet) return;
+            who.ServerAddGold(-bet);
+            var second = new List<byte> { hand[1] };
+            hand.RemoveAt(1);
+            seat.Hands.Insert(seat.Active + 1, second);
+            seat.Bets.Insert(seat.Active + 1, bet);
+            seat.Doubled.Insert(seat.Active + 1, false);
+            seat.Surrendered.Insert(seat.Active + 1, false);
+            hand.Add(Draw());
+            second.Add(Draw());
+            DealFxRpc();
+            if (Rank(hand[0]) == 1)
+            {
+                // Split Aces: one card each, and that is all.
+                seat.SplitAces = true;
+                Settle(who, seat);
+                return;
+            }
+            if (Total(hand) >= 21) NextHand(who, seat);
+            else Send(who, seat);
+        }
+
+        public static bool CanSurrender(int cards, int hands) => cards == 2 && hands == 1;
+
+        [Rpc(SendTo.Server)]
+        public void SurrenderRpc(NetworkObjectReference player)
+        {
+            if (!TryGet(player, out var who, out var seat) || seat.Phase != Phase.Playing) return;
+            if (!CanSurrender(seat.Hands[0].Count, seat.Hands.Count)) return;
+            seat.Surrendered[0] = true;
+            Settle(who, seat);
+        }
+
+        private void NextHand(PlayerProgress who, Seat seat)
+        {
+            seat.Active++;
+            if (seat.Active < seat.Hands.Count)
+            {
+                // A split hand that already stands at 21 moves straight on.
+                if (Total(seat.Hands[seat.Active]) >= 21) { NextHand(who, seat); return; }
+                Send(who, seat);
+                return;
+            }
+            Settle(who, seat);
+        }
+
+        /// <summary>The dealer plays out (unless every hand is already bust or surrendered), then each hand is paid.</summary>
+        private void Settle(PlayerProgress who, Seat seat)
+        {
+            seat.Active = Mathf.Min(seat.Active, seat.Hands.Count - 1);
+            bool split = seat.Hands.Count > 1;
+            bool anyLive = false;
+            for (int i = 0; i < seat.Hands.Count; i++)
+                if (!seat.Surrendered[i] && Total(seat.Hands[i]) <= 21 && !(Natural(seat.Hands[i]) && !split)) anyLive = true;
+            bool dealerNatural = Natural(seat.House);
+            if (anyLive && !dealerNatural)
+                while (true)
+                {
+                    int t = Total(seat.House, out bool soft);
+                    if (t > 17 || (t == 17)) break; // stands on all 17s
+                    seat.House.Add(Draw());
+                }
+            int house = Total(seat.House);
+            int paid = 0, staked = 0;
+            var lines = new System.Text.StringBuilder(seat.Result);
+            if (seat.Insurance > 0 && dealerNatural)
+            {
+                paid += seat.Insurance * 3;
+                lines.Append("Insurance pays " + seat.Insurance * 2 + ". ");
+            }
+            staked += seat.Insurance;
+            for (int i = 0; i < seat.Hands.Count; i++)
+            {
+                var hand = seat.Hands[i];
+                int bet = seat.Bets[i], mine = Total(hand);
+                staked += bet;
+                string label = split ? "Hand " + (i + 1) + ": " : "";
+                bool natural = Natural(hand) && !split;
+                if (seat.Surrendered[i]) { paid += bet / 2; lines.Append(label + "surrendered, " + bet / 2 + " back. "); }
+                else if (mine > 21) lines.Append(label + "bust. ");
+                else if (natural && !dealerNatural) { paid += bet + bet * 3 / 2; lines.Append(label + "BLACKJACK! "); }
+                else if (dealerNatural && !natural) lines.Append(label + "dealer blackjack. ");
+                else if (natural && dealerNatural) { paid += bet; lines.Append(label + "push. "); }
+                else if (house > 21 || mine > house) { paid += bet * 2; lines.Append(label + "win. "); }
+                else if (mine == house) { paid += bet; lines.Append(label + "push. "); }
+                else lines.Append(label + "lose. ");
+            }
+            who.ServerAddGold(paid);
+            int net = paid - staked;
+            lines.Append(net > 0 ? "  +" + net + " gold" : net < 0 ? "  " + net + " gold" : "  even");
+            seat.Result = lines.ToString();
+            seat.Phase = Phase.Done;
+            Send(who, seat);
+            if (net != 0) ResultFxRpc(who.name, net);
+        }
+
+        private void Send(PlayerProgress who, Seat seat)
+        {
+            // Flatten for the RPC: hand lengths, then all cards; flags per hand (bit 0 doubled, bit 1 surrendered).
+            var lengths = new List<byte>();
+            var cards = new List<byte>();
+            var flags = new List<byte>();
+            for (int i = 0; i < seat.Hands.Count; i++)
+            {
+                lengths.Add((byte)seat.Hands[i].Count);
+                cards.AddRange(seat.Hands[i]);
+                flags.Add((byte)((seat.Doubled[i] ? 1 : 0) | (seat.Surrendered[i] ? 2 : 0)));
+            }
+            bool holeHidden = seat.Phase == Phase.Insurance || seat.Phase == Phase.Playing;
+            SeatRpc((byte)seat.Phase, lengths.ToArray(), cards.ToArray(), flags.ToArray(), seat.Bets.ToArray(), seat.House.ToArray(), holeHidden,
+                seat.Active, seat.Insurance, seat.Result, seat.LastBet, RpcTarget.Single(who.OwnerClientId, RpcTargetUse.Temp));
+        }
 
         [Rpc(SendTo.SpecifiedInParams)]
-        private void HandRpc(byte[] mine, byte[] house, bool done, string result, int stake, RpcParams p = default)
+        private void SeatRpc(byte phase, byte[] lengths, byte[] cards, byte[] flags, int[] bets, byte[] house, bool holeHidden, int active, int insurance, string result, int lastBet, RpcParams p = default)
         {
-            seenMine = mine; seenHouse = house; seenDone = done; seenResult = result; seenStake = stake;
+            seenPhase = (Phase)phase;
+            seenHands = new byte[lengths.Length][];
+            int at = 0;
+            for (int i = 0; i < lengths.Length; i++) { seenHands[i] = new byte[lengths[i]]; System.Array.Copy(cards, at, seenHands[i], 0, lengths[i]); at += lengths[i]; }
+            seenFlags = flags; seenBets = bets; seenHouse = house; seenHoleHidden = holeHidden; seenActive = active; seenInsurance = insurance; seenResult = result;
+            if (!LocalOpen) betChoice = Mathf.Clamp(lastBet, MinBet, MaxBet);
             LocalOpen = true;
             localTable = this;
         }
+
+        // ---- State for tests ----
+        public Phase ServerPhase(PlayerProgress who) => seats.TryGetValue(who.NetworkObjectId, out var s) ? s.Phase : Phase.Betting;
+        public int ServerHandCount(PlayerProgress who) => seats.TryGetValue(who.NetworkObjectId, out var s) ? s.Hands.Count : 0;
 
         [Rpc(SendTo.ClientsAndHost)]
         private void DealFxRpc() => Sfx.Play(Sound.Card, transform.position + Vector3.up, 0.8f, Random.Range(0.9f, 1.2f));
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void ResultFxRpc(string who, string result, bool won)
+        private void ShuffleFxRpc()
         {
-            var color = won ? new Color(1f, 0.85f, 0.35f) : new Color(1f, 0.6f, 0.5f);
-            UI.GameHud.Feed(who + " at Deadman's Hand: " + result, color);
-            if (won) Sfx.Play(Sound.Coins, transform.position + Vector3.up, 1f);
+            Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 0.6f, 1.8f);
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 1.6f, "THE DEALER SHUFFLES", new Color(0.85f, 0.8f, 0.7f));
         }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ResultFxRpc(string who, int net)
+        {
+            var color = net > 0 ? new Color(1f, 0.85f, 0.35f) : new Color(1f, 0.6f, 0.5f);
+            UI.GameHud.Feed(who + " at Deadman's Hand: " + (net > 0 ? "+" : "") + net + " gold", color);
+            if (net > 0) Sfx.Play(Sound.Coins, transform.position + Vector3.up, 1f);
+        }
+
+        // ------------------------------------------------------------------
+        // Local: the table panel
+        // ------------------------------------------------------------------
 
         private void Update()
         {
-            // Server: a hand left too long (or a player who wandered off) stands.
-            if (IsServer && hands.Count > 0)
+            // Server: a seat left too long, or a player who walked off, is settled as it stands.
+            if (IsServer && seats.Count > 0)
             {
-                foreach (var id in new List<ulong>(hands.Keys))
+                foreach (var id in new List<ulong>(seats.Keys))
                 {
-                    if (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(id, out var o) || o == null) { hands.Remove(id); continue; }
-                    bool far = Vector3.Distance(o.transform.position, transform.position) > 5f;
-                    if (far || Time.time - hands[id].StartedAt > 60f) Resolve(o.GetComponent<PlayerProgress>(), hands[id]);
+                    var seat = seats[id];
+                    if (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(id, out var o) || o == null) { seats.Remove(id); continue; }
+                    bool live = seat.Phase == Phase.Playing || seat.Phase == Phase.Insurance;
+                    bool gone = Vector3.Distance(o.transform.position, transform.position) > 6f || Time.time - seat.LastAction > 90f;
+                    if (live && gone) Settle(o.GetComponent<PlayerProgress>(), seat);
+                    else if (!live && gone) seats.Remove(id);
                 }
             }
             if (localTable != this || !LocalOpen) return;
@@ -141,65 +398,154 @@ namespace Deepbound.World
             var kb = UnityEngine.InputSystem.Keyboard.current;
             if (kb != null && kb.escapeKey.wasPressedThisFrame)
             {
-                if (!seenDone) StandRpc(local.NetworkObject);
+                if (seenPhase == Phase.Playing || seenPhase == Phase.Insurance) StandRpc(local.NetworkObject);
                 LocalOpen = false;
             }
         }
 
-        private static string Rank(byte c) => c == 1 ? "A" : c == 11 ? "J" : c == 12 ? "Q" : c == 13 ? "K" : c.ToString();
+        private static readonly string[] Suits = { "♠", "♥", "♦", "♣" };
+        private static Font suitFont;
+        private static Font SuitFont
+        {
+            get
+            {
+                if (suitFont == null) { try { suitFont = Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI Symbol", "Arial Unicode MS", "Arial" }, 30); } catch { } }
+                return suitFont;
+            }
+        }
+        private static string RankName(byte c) { int r = Rank(c); return r == 1 ? "A" : r == 11 ? "J" : r == 12 ? "Q" : r == 13 ? "K" : r.ToString(); }
 
         private void OnGUI()
         {
             if (localTable != this || !LocalOpen) return;
             UI.UiSkin.Apply();
             GUI.depth = -15;
+            var local = NetworkPlayer.Local;
+            if (local == null) return;
+            var prog = local.GetComponent<PlayerProgress>();
             float w = Screen.width, h = Screen.height;
-            float pw = 520, ph = 300, px = w / 2f - pw / 2f, py = h - ph - 150;
-            UI.UiSkin.Panel(new Rect(px - 10, py - 10, pw + 20, ph + 20), 0.95f);
-            GUI.Label(new Rect(px, py, pw, 28), "DEADMAN'S HAND   -   stake " + seenStake, new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter });
-            DrawRow(px, py + 40, pw, "THE DEALER", seenHouse, !seenDone);
-            DrawRow(px, py + 140, pw, "YOU", seenMine, false);
-            if (seenDone)
+            float pw = Mathf.Min(760f, w - 40f), ph = 430f, px = w / 2f - pw / 2f, py = Mathf.Max(20f, h - ph - 120f);
+            UI.UiSkin.Panel(new Rect(px - 10, py - 10, pw + 20, ph + 20), 0.96f);
+            // Felt.
+            UI.UiSkin.Rect(new Rect(px, py, pw, ph), new Color(0.06f, 0.2f, 0.1f, 0.95f));
+            GUI.Label(new Rect(px, py + 6, pw, 26), "DEADMAN'S HAND", new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(px, py + 30, pw, 18), "Blackjack pays 3 to 2   ·   Dealer stands on all 17s   ·   Insurance pays 2 to 1   ·   6 decks",
+                new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.85f, 0.8f, 0.6f) } });
+            GUI.Label(new Rect(px + pw - 180, py + 6, 170, 22), prog.Gold.Value + " gold", new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleRight, normal = { textColor = UI.UiSkin.Gold } });
+
+            bool dealt = seenPhase != Phase.Betting;
+            if (dealt)
             {
-                GUI.Label(new Rect(px, py + 236, pw, 26), seenResult, new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter });
-                var local = NetworkPlayer.Local;
-                if (GUI.Button(new Rect(px + 60, py + 266, 180, 30), "DEAL AGAIN", UI.UiSkin.Button) && local != null) UseRpc(local.NetworkObject);
-                if (GUI.Button(new Rect(px + pw - 240, py + 266, 180, 30), "LEAVE", UI.UiSkin.Button)) LocalOpen = false;
+                DrawRow(px + 20, py + 56, "DEALER", seenHouse, seenHoleHidden, -1, false);
+                float rowY = py + 168;
+                float rowW = seenHands.Length > 1 ? (pw - 40) / seenHands.Length : pw - 40;
+                for (int i = 0; i < seenHands.Length; i++)
+                {
+                    bool active = seenPhase == Phase.Playing && i == seenActive;
+                    string tag = (seenHands.Length > 1 ? "HAND " + (i + 1) : "YOU") + "   bet " + (i < seenBets.Length ? seenBets[i] : 0) +
+                        (i < seenFlags.Length && (seenFlags[i] & 1) != 0 ? "  (doubled)" : "") + (i < seenFlags.Length && (seenFlags[i] & 2) != 0 ? "  (surrendered)" : "");
+                    if (active) UI.UiSkin.Rect(new Rect(px + 16 + i * rowW, rowY - 4, rowW - 8, 118), new Color(1f, 0.85f, 0.4f, 0.12f));
+                    DrawRow(px + 20 + i * rowW, rowY, tag, seenHands[i], false, seenHands.Length > 1 ? 34f : 62f, active);
+                }
+                if (seenInsurance > 0) GUI.Label(new Rect(px + 20, py + 290, 300, 18), "Insurance: " + seenInsurance, UI.UiSkin.Small);
             }
-            else
+            else GUI.Label(new Rect(px, py + 120, pw, 40), "Place your bet.", new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 24 });
+
+            float by = py + ph - 100;
+            switch (seenPhase)
             {
-                var local = NetworkPlayer.Local;
-                if (GUI.Button(new Rect(px + 60, py + 250, 180, 40), "HIT", UI.UiSkin.ButtonBig) && local != null) { HitRpc(local.NetworkObject); Sfx.Play2D(Sound.Card, 0.5f); }
-                if (GUI.Button(new Rect(px + pw - 240, py + 250, 180, 40), "STAND", UI.UiSkin.ButtonBig) && local != null) StandRpc(local.NetworkObject);
+                case Phase.Betting:
+                case Phase.Done:
+                    if (seenPhase == Phase.Done)
+                        GUI.Label(new Rect(px + 10, by - 34, pw - 20, 30), seenResult, new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleCenter, wordWrap = true, fontStyle = FontStyle.Bold, normal = { textColor = UI.UiSkin.Gold } });
+                    DrawBetControls(px, by, pw, prog, local);
+                    break;
+                case Phase.Insurance:
+                    GUI.Label(new Rect(px, by - 30, pw, 24), "The dealer shows an Ace. Insurance costs " + (seenBets.Length > 0 ? seenBets[0] / 2 : 0) + " and pays 2 to 1 if the dealer has blackjack.",
+                        new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
+                    if (GUI.Button(new Rect(px + pw / 2f - 250, by + 10, 230, 44), "TAKE INSURANCE", UI.UiSkin.Button)) InsuranceRpc(local.NetworkObject, true);
+                    if (GUI.Button(new Rect(px + pw / 2f + 20, by + 10, 230, 44), "NO INSURANCE", UI.UiSkin.Button)) InsuranceRpc(local.NetworkObject, false);
+                    break;
+                case Phase.Playing:
+                    var hand = seenActive < seenHands.Length ? seenHands[seenActive] : new byte[0];
+                    int bet = seenActive < seenBets.Length ? seenBets[seenActive] : 0;
+                    bool canDouble = CanDouble(hand.Length, false) && prog.Gold.Value >= bet;
+                    bool canSplit = CanSplit(hand, seenHands.Length) && prog.Gold.Value >= bet;
+                    bool canSurrender = CanSurrender(hand.Length, seenHands.Length);
+                    float bw = (pw - 60) / 5f;
+                    if (Button(px + 20, by + 10, bw, "HIT", true)) HitRpc(local.NetworkObject);
+                    if (Button(px + 20 + (bw + 5), by + 10, bw, "STAND", true)) StandRpc(local.NetworkObject);
+                    if (Button(px + 20 + (bw + 5) * 2, by + 10, bw, "DOUBLE", canDouble)) DoubleRpc(local.NetworkObject);
+                    if (Button(px + 20 + (bw + 5) * 3, by + 10, bw, "SPLIT", canSplit)) SplitRpc(local.NetworkObject);
+                    if (Button(px + 20 + (bw + 5) * 4, by + 10, bw, "SURRENDER", canSurrender)) SurrenderRpc(local.NetworkObject);
+                    GUI.Label(new Rect(px, by + 60, pw, 18), "Double: one card, bet doubled   ·   Split: a pair into two hands   ·   Surrender: give up, half back",
+                        new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+                    break;
             }
+            GUI.Label(new Rect(px, py + ph - 20, pw, 18), "Esc or walk away to leave the table", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.7f, 0.7f, 0.6f) } });
         }
 
-        private static void DrawRow(float x, float y, float width, string who, byte[] cards, bool hideSecond)
+        private static bool Button(float x, float y, float width, string text, bool enabled)
         {
-            int total = Total(hideSecond && cards.Length > 0 ? new[] { cards[0] } : cards);
-            GUI.Label(new Rect(x + 10, y, width, 20), who + "   " + (hideSecond ? total + " + ?" : total.ToString()), UI.UiSkin.Body);
+            var was = GUI.enabled;
+            GUI.enabled = enabled;
+            bool pressed = GUI.Button(new Rect(x, y, width, 44), text, UI.UiSkin.Button);
+            GUI.enabled = was;
+            return pressed && enabled;
+        }
+
+        private void DrawBetControls(float px, float by, float pw, PlayerProgress prog, NetworkPlayer local)
+        {
+            int max = Mathf.Min(MaxBet, prog.Gold.Value);
+            betChoice = Mathf.Clamp(betChoice, MinBet, Mathf.Max(MinBet, max));
+            float cx = px + pw / 2f;
+            if (Button(cx - 330, by + 10, 60, "-25", betChoice - 25 >= MinBet)) betChoice -= 25;
+            if (Button(cx - 265, by + 10, 50, "-5", betChoice - 5 >= MinBet)) betChoice -= 5;
+            GUI.Label(new Rect(cx - 210, by + 10, 120, 44), "BET  " + betChoice, new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 20 });
+            if (Button(cx - 85, by + 10, 50, "+5", betChoice + 5 <= max)) betChoice += 5;
+            if (Button(cx - 30, by + 10, 60, "+25", betChoice + 25 <= max)) betChoice += 25;
+            if (Button(cx + 35, by + 10, 60, "MAX", max >= MinBet)) betChoice = Mathf.Max(MinBet, max);
+            bool can = prog.Gold.Value >= betChoice && betChoice >= MinBet;
+            if (Button(cx + 105, by + 10, 220, can ? (seenPhase == Phase.Done ? "DEAL AGAIN" : "DEAL") : "NOT ENOUGH GOLD", can)) DealRpc(local.NetworkObject, betChoice);
+            GUI.Label(new Rect(px, by + 60, pw, 18), "Bets from " + MinBet + " to " + MaxBet + " gold", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+        }
+
+        private void DrawRow(float x, float y, string who, byte[] cards, bool holeHidden, float spacing, bool active)
+        {
+            int shownTotal = Total(holeHidden && cards.Length > 0 ? new[] { cards[0] } : cards, out bool soft);
+            string total = holeHidden ? shownTotal + " + ?" : (soft && shownTotal < 21 ? "soft " : "") + shownTotal + (shownTotal > 21 ? "  BUST" : Natural(cards) ? "  BLACKJACK" : "");
+            GUI.Label(new Rect(x, y, 400, 20), who + "    " + total, new GUIStyle(UI.UiSkin.Body) { fontStyle = active ? FontStyle.Bold : FontStyle.Normal, normal = { textColor = active ? UI.UiSkin.Gold : new Color(0.9f, 0.9f, 0.85f) } });
+            float step = spacing < 0 ? 62f : spacing;
             for (int i = 0; i < cards.Length; i++)
             {
-                var r = new Rect(x + 10 + i * 62, y + 24, 54, 72);
-                UI.UiSkin.Rect(r, new Color(0.92f, 0.88f, 0.78f));
-                UI.UiSkin.Rect(new Rect(r.x + 2, r.y + 2, r.width - 4, r.height - 4), new Color(0.98f, 0.95f, 0.86f));
-                bool hidden = hideSecond && i == 1;
-                if (hidden) { UI.UiSkin.Rect(new Rect(r.x + 4, r.y + 4, r.width - 8, r.height - 8), new Color(0.35f, 0.08f, 0.1f)); continue; }
-                var ink = (cards[i] + i) % 2 == 0 ? new Color(0.15f, 0.1f, 0.1f) : new Color(0.65f, 0.1f, 0.1f);
-                GUI.Label(r, Rank(cards[i]), new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 26, normal = { textColor = ink } });
+                var r = new Rect(x + i * step, y + 24, 56, 78);
+                UI.UiSkin.Rect(new Rect(r.x + 2, r.y + 2, r.width, r.height), new Color(0f, 0f, 0f, 0.4f));
+                UI.UiSkin.Rect(r, new Color(0.96f, 0.93f, 0.85f));
+                if (holeHidden && i == 1)
+                {
+                    UI.UiSkin.Rect(new Rect(r.x + 4, r.y + 4, r.width - 8, r.height - 8), new Color(0.4f, 0.08f, 0.1f));
+                    UI.UiSkin.Rect(new Rect(r.x + 10, r.y + 10, r.width - 20, r.height - 20), new Color(0.55f, 0.15f, 0.15f));
+                    continue;
+                }
+                bool red = Suit(cards[i]) == 1 || Suit(cards[i]) == 2;
+                var ink = red ? new Color(0.72f, 0.1f, 0.1f) : new Color(0.1f, 0.08f, 0.08f);
+                GUI.Label(new Rect(r.x + 5, r.y + 2, r.width, 22), RankName(cards[i]), new GUIStyle(UI.UiSkin.Heading) { fontSize = 18, alignment = TextAnchor.UpperLeft, normal = { textColor = ink } });
+                GUI.Label(new Rect(r.x, r.y + 20, r.width, r.height - 20), Suits[Suit(cards[i])], new GUIStyle() { font = SuitFont, fontSize = 30, alignment = TextAnchor.MiddleCenter, normal = { textColor = ink } });
             }
         }
 
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            // A long felt table, candles, and the dealer: a skeleton in a black waistcoat, waiting.
+            if (IsServer) Shuffle(announce: false);
+            // A long felt table, candles, and the dealer: a skeleton waiting with the shoe.
             MeshKit.Part(transform, "Top", MeshKit.Box(new Vector3(1.8f, 0.08f, 1.0f)), Mat.Wood, Vector3.up * 0.88f);
             var felt = MeshKit.Part(transform, "Felt", MeshKit.Box(new Vector3(1.6f, 0.02f, 0.82f)), Mat.Cloth, Vector3.up * 0.93f);
             ArtLibrary.Tint(felt.GetComponent<Renderer>(), new Color(0.1f, 0.28f, 0.14f));
             foreach (float x in new[] { -0.8f, 0.8f })
                 foreach (float z in new[] { -0.4f, 0.4f })
                     MeshKit.Part(transform, "Leg", MeshKit.Box(new Vector3(0.08f, 0.86f, 0.08f)), Mat.Wood, new Vector3(x, 0.43f, z));
+            MeshKit.Part(transform, "Shoe", MeshKit.Box(new Vector3(0.18f, 0.1f, 0.3f)), Mat.Wood, new Vector3(0.55f, 0.99f, 0.25f));
             for (int i = 0; i < 3; i++)
                 MeshKit.Part(transform, "Card", MeshKit.Box(new Vector3(0.1f, 0.005f, 0.14f)), Mat.Bone, new Vector3(-0.3f + i * 0.14f, 0.95f, 0.1f), new Vector3(0f, i * 8f - 8f, 0f));
             var dealer = CharacterArt.BuildSkeleton(transform, CharacterArt.SkeletonKind.Warrior);

@@ -88,6 +88,8 @@ namespace Deepbound.Networking
             for (int i = 0; i < args.Length; i++)
             {
                 if (args[i] == "-address" && i + 1 < args.Length) address = args[i + 1];
+                // Tests use their own port, so they never meet a game that is already open.
+                if (args[i] == "-port" && i + 1 < args.Length && ushort.TryParse(args[i + 1], out var p)) port = p;
             }
 
             if (Array.IndexOf(args, "-host") >= 0) StartHost();
