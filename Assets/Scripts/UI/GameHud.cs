@@ -800,7 +800,10 @@ namespace Deepbound.UI
             // G uses whichever station is closer: the merchant or the anvil beside him.
             bool anvilFirst = anvil != null && (!near || Vector3.Distance(player.transform.position, anvil.transform.position) <
                 Vector3.Distance(player.transform.position, DungeonDirector.MerchantPosition.Value));
-            if (keyboard != null && keyboard.gKey.wasPressedThisFrame)
+            bool catFirst = keyboard != null && keyboard.gKey.wasPressedThisFrame && !MenuOpen &&
+                Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is CampCat;
+            if (catFirst) ((CampCat)Interactable.Nearest(player.AimOrigin, player.AimForward, progress)).PickUpRpc(player.NetworkObject);
+            else if (keyboard != null && keyboard.gKey.wasPressedThisFrame)
             {
                 if (anvilFirst) { forgeOpen = !forgeOpen; shopOpen = false; }
                 else if (near) { shopOpen = !shopOpen; forgeOpen = false; }
@@ -937,6 +940,10 @@ namespace Deepbound.UI
         {
             float x = 24, y = h - 110, bw = 300;
             DrawRelicRow(x, y - 44);
+            string cat = (progress.CatPeed.Value ? "Peed on by the cat: -5% max health" : "") + (progress.CatPeed.Value && progress.CatWhisker.Value ? "   ·   " : "") + (progress.CatWhisker.Value ? "Cat Whisker: 1% evasion" : "");
+            if (cat.Length > 0)
+                GUI.Label(new Rect(x, y - (progress.ActiveBlessing.Value != 0 ? 86 : 66), bw + 120, 20), cat,
+                    new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = progress.CatPeed.Value ? new Color(0.95f, 0.85f, 0.3f) : new Color(0.9f, 0.85f, 0.7f) } });
             if (progress.ActiveBlessing.Value != 0)
             {
                 var b = (Blessing)progress.ActiveBlessing.Value;

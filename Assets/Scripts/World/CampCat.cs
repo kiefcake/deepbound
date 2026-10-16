@@ -28,7 +28,52 @@ namespace Deepbound.World
 
         public override float Range => 1.8f;
 
-        public override string Prompt(PlayerProgress who) => "Pet the cat";
+        public override string Prompt(PlayerProgress who) => HeldBy.Value != ulong.MaxValue ? null : "Pet the cat      G  pick it up";
+
+        /// <summary>Who is holding the cat (it sits in their arms for a moment), or none.</summary>
+        public readonly NetworkVariable<ulong> HeldBy = new NetworkVariable<ulong>(ulong.MaxValue);
+        public readonly NetworkVariable<double> HeldUntil = new NetworkVariable<double>();
+        private Transform smile;
+
+        /// <summary>
+        /// Owner → server: pick the cat up. If you have not petted it this visit it pees on you
+        /// (-5% max health for the run); if you have, it smiles and gives you a whisker (1% evasion, one per run).
+        /// </summary>
+        [Rpc(SendTo.Server)]
+        public void PickUpRpc(NetworkObjectReference user)
+        {
+            if (!user.TryGet(out var obj) || !obj.TryGetComponent<PlayerProgress>(out var who)) return;
+            if (HeldBy.Value != ulong.MaxValue || Vector3.Distance(obj.transform.position, transform.position) > Range + 1f) return;
+            bool petted = pettedThisVisit.Contains(who.NetworkObjectId);
+            bool news = petted ? !who.CatWhisker.Value : !who.CatPeed.Value;
+            who.ServerCatVerdict(petted);
+            HeldBy.Value = who.NetworkObjectId;
+            HeldUntil.Value = NetworkManager.ServerTime.Time + 2.5;
+            VerdictRpc(who.name, petted, news);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void VerdictRpc(string who, bool petted, bool news)
+        {
+            var at = transform.position + Vector3.up * 0.8f;
+            if (petted)
+            {
+                Sfx.Play(Sound.Purr, at, 1f);
+                Sfx.Play(Sound.Meow, at, 0.6f, 1.2f);
+                if (smile != null) smile.gameObject.SetActive(true);
+                Vfx.Embers(at, 10, new Color(1f, 0.85f, 0.5f), 1.2f, 0.04f, 1f);
+                UI.GameHud.ShowCombo(at + Vector3.up * 0.4f, news ? "THE CAT SMILES  (+ whisker)" : "THE CAT SMILES", new Color(1f, 0.85f, 0.55f));
+                UI.GameHud.Feed(news ? who + " gets a Cat Whisker: a 1% chance to evade any hit, this run." : "The cat smiles at " + who + ". (One whisker per run.)", new Color(1f, 0.85f, 0.55f));
+            }
+            else
+            {
+                Sfx.Play(Sound.Meow, at, 1f, 0.8f);
+                Sfx.Play(Sound.Splash, at, 0.6f, 1.5f);
+                for (int i = 0; i < 3; i++) Vfx.Embers(at + Vector3.down * 0.2f, 6, new Color(0.95f, 0.85f, 0.2f), 1.4f, 0.04f, 0.8f);
+                UI.GameHud.ShowCombo(at + Vector3.up * 0.4f, "THE CAT PEES ON YOU", new Color(0.95f, 0.85f, 0.2f));
+                UI.GameHud.Feed(news ? who + " picked the cat up without asking. It peed on them: -5% max health this run." : "The cat peed on " + who + " again. It is not getting any better.", new Color(0.95f, 0.85f, 0.2f));
+            }
+        }
 
         protected override void ServerUse(PlayerProgress who)
         {
@@ -92,6 +137,16 @@ namespace Deepbound.World
         {
             if (NetworkManager == null) return;
             double now = NetworkManager.ServerTime.Time;
+            if (IsServer && HeldBy.Value != ulong.MaxValue && now >= HeldUntil.Value) HeldBy.Value = ulong.MaxValue;
+            // Held: in the holder's arms, facing them.
+            if (HeldBy.Value != ulong.MaxValue && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(HeldBy.Value, out var holder))
+            {
+                transform.position = holder.transform.position + Vector3.up * 1.05f + holder.transform.forward * 0.45f;
+                transform.rotation = Quaternion.LookRotation(-holder.transform.forward);
+                Animate(false, true);
+                return;
+            }
+            if (smile != null && smile.gameObject.activeSelf) smile.gameObject.SetActive(false);
             bool petted = now < PettedUntil.Value;
             // While being petted it holds still (the route resumes from where time has carried it after).
             if (!petted)
@@ -140,6 +195,14 @@ namespace Deepbound.World
                 var eye = MeshKit.Part(head, "Eye", MeshKit.Ball(0.016f, 6, 4), Mat.Glow, new Vector3(s * 0.035f, 0.015f, 0.075f));
                 ArtLibrary.SetGlow(eye.GetComponent<Renderer>(), new Color(1f, 0.7f, 0.15f) * 1.6f);
             }
+            // The smile: a little curve of light under the eyes, only when it is pleased with you.
+            smile = MeshKit.Pivot(head, "Smile", new Vector3(0f, -0.035f, 0.08f));
+            for (int i = -2; i <= 2; i++)
+            {
+                var seg = MeshKit.Part(smile, "Arc", MeshKit.Box(new Vector3(0.012f, 0.005f, 0.005f)), Mat.Glow, new Vector3(i * 0.011f, Mathf.Abs(i) * 0.004f, 0f));
+                ArtLibrary.SetGlow(seg.GetComponent<Renderer>(), new Color(1f, 0.75f, 0.4f) * 1.5f);
+            }
+            smile.gameObject.SetActive(false);
             legs = MeshKit.Pivot(body, "Legs", Vector3.zero);
             foreach (float x in new[] { -0.06f, 0.06f })
                 foreach (float z in new[] { -0.15f, 0.15f })

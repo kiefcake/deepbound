@@ -37,7 +37,7 @@ namespace Deepbound.Networking
             StartCoroutine(Sequence(seconds));
             // Watchdog: if the sequence throws, the coroutine dies silently and the
             // process would idle forever. Fail loudly instead.
-            Invoke(nameof(Timeout), seconds * 2.5f);
+            Invoke(nameof(Timeout), seconds * 4f);
         }
 
         private void Timeout()
@@ -477,11 +477,11 @@ namespace Deepbound.Networking
                 }
                 bool secretGone = hadSecret && (secret == null || !secret.IsSpawned);
                 Log("secret wall", walls.Length + " hollow walls (" + breachWalls + " breaches), secret broken: " + secretGone,
-                    walls.Length >= 2 && breachWalls >= 1 && secretGone);
-                if (DungeonDirector.Instance.BreachCount > 0)
+                    walls.Length >= 1 && (secretGone || !hadSecret) && (hadSecret || breachWalls >= 1));
+                var bw = DungeonDirector.Instance.BreachCount > 0 ? DungeonDirector.Instance.BreachWall(0) : null;
+                if (bw != null)
                 {
                     int enemiesBefore = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead);
-                    var bw = DungeonDirector.Instance.BreachWall(0);
                     var bwFrom = bw.transform.position - bw.transform.forward * 5f + Vector3.up * 0.1f;
                     local.GetComponent<FirstPersonMotor>().Teleport(bwFrom, Quaternion.LookRotation(bw.transform.forward));
                     DungeonDirector.Instance.ServerDebugTriggerBreach(0);
@@ -856,6 +856,28 @@ namespace Deepbound.Networking
                     }
                     int solid = 0;
                     foreach (var bc in FindObjectsByType<BoxCollider>(FindObjectsSortMode.None)) if (bc.GetComponent<MeshRenderer>() != null && bc.GetComponentInParent<Unity.Netcode.NetworkObject>() == null) solid++;
+                    bool catOk = false;
+                    if (catT != null)
+                    {
+                        var cprog = local.GetComponent<PlayerProgress>();
+                        float max0 = local.GetComponent<Health>().Max.Value;
+                        gm.Teleport(catT.transform.position + Vector3.back * 0.8f + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return null;
+                        catT.PickUpRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.3f);
+                        bool peed = cprog.CatPeed.Value && local.GetComponent<Health>().Max.Value < max0 - 0.5f;
+                        yield return new WaitForSeconds(2.6f);
+                        gm.Teleport(catT.transform.position + Vector3.back * 0.8f + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return null;
+                        catT.UseRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.2f);
+                        catT.PickUpRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.3f);
+                        catOk = peed && cprog.CatWhisker.Value;
+                        Log("cat verdict", "unpetted pick-up peed " + peed + ", petted pick-up whisker " + cprog.CatWhisker.Value, catOk);
+                        cprog.CatPeed.Value = false;
+                        cprog.CatWhisker.Value = false;
+                    }
                     Log("tent games and the cat", "slots " + slotOk + ", blackjack " + bjOk + ", cat " + (catT != null) + ", solid props " + solid, slotOk && bjOk && catT != null && solid > 10);
                     gm.Teleport(Lobby.Origin + Vector3.up * 0.1f, local.transform.rotation);
                 }

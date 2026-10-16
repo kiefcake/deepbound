@@ -95,6 +95,13 @@ namespace Deepbound.Player
                 Health.DamagedServer += (lost, from) => { lastDamagedAt = Time.time; ServerRecordHit(lost, from); };
                 // Registered first, so a dodged hit is gone before blocks or relics see it.
                 Health.IncomingModifiers.Insert(0, (dmg, from) => Time.time < invulnerableUntil ? 0f : dmg);
+                // The cat's whisker: a one-in-a-hundred chance to slip a hit entirely.
+                Health.IncomingModifiers.Insert(1, (dmg, from) =>
+                {
+                    if (progress == null || !progress.CatWhisker.Value || dmg <= 0f || Random.value >= PlayerProgress.WhiskerEvade) return dmg;
+                    EvadedRpc();
+                    return 0f;
+                });
             }
             Downed.OnValueChanged += HandleDownedChanged;
         }
@@ -179,6 +186,13 @@ namespace Deepbound.Player
             reviver = null;
             Debug.Log("[Down] " + name + " bled out");
             if (DungeonDirector.Instance != null) DungeonDirector.Instance.ServerSpawnSoulSkull(this);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void EvadedRpc()
+        {
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.1f, "EVADED (whisker)", new Color(0.85f, 0.85f, 0.7f));
+            Sfx.Play(Sound.Dodge, transform.position + Vector3.up, 0.6f, 1.4f);
         }
 
         private void HandleDownedChanged(bool was, bool now)

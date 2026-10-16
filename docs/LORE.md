@@ -50,7 +50,9 @@ else at all.
   not lost a hand since. Nobody has tried to send it back.
 - **The cat.** No one owns the cat. The cat has been at Ravenhold longer than anyone can remember,
   and it is the only living thing that has been down the shaft and come back unchanged. It brings
-  you coins sometimes. Do not ask where it finds them.
+  you coins sometimes. Do not ask where it finds them. It has opinions about being picked up. Ask first (pet it), and it will smile and leave you a
+  whisker, which delvers swear makes the dead miss. Do not ask, and it will make its opinion known
+  all down your front, and the smell follows you the whole descent.
 
 ### The Last Lantern and the waystones
 The lantern at the top of the shaft burns with a flame that was lit from the Cardinal's own

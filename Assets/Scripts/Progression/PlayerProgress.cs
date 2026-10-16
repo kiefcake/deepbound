@@ -34,6 +34,24 @@ namespace Deepbound.Progression
 
         /// <summary>Ability rank-ups, spent at the anvil.</summary>
         public readonly NetworkVariable<int> Sigils = new NetworkVariable<int>();
+
+        // ---- The castle cat's verdict, kept until the run ends ----
+        /// <summary>Picked the cat up without petting it first: it peed on you. -5% max health this run.</summary>
+        public readonly NetworkVariable<bool> CatPeed = new NetworkVariable<bool>();
+        /// <summary>Petted, then picked up: it gave you a whisker. 1% chance to evade any hit this run (one per run).</summary>
+        public readonly NetworkVariable<bool> CatWhisker = new NetworkVariable<bool>();
+        public const float CatPeeHealth = 0.95f, WhiskerEvade = 0.01f;
+
+        /// <summary>Server: the cat has judged you.</summary>
+        public void ServerCatVerdict(bool petted)
+        {
+            if (petted) { if (!CatWhisker.Value) CatWhisker.Value = true; }
+            else if (!CatPeed.Value)
+            {
+                CatPeed.Value = true;
+                ApplyToHealth(refill: false);
+            }
+        }
         public readonly NetworkVariable<byte> RankQ = new NetworkVariable<byte>(1);
         public readonly NetworkVariable<byte> RankE = new NetworkVariable<byte>(1);
 
@@ -934,6 +952,8 @@ namespace Deepbound.Progression
             Armor.Value = default;
             runeBag.Clear();
             bag.Clear();
+            CatPeed.Value = false;
+            CatWhisker.Value = false;
             Socket0.Value = Socket1.Value = 0;
             Charm.Value = default;
             health.HealMultiplier = 1f;
@@ -959,6 +979,7 @@ namespace Deepbound.Progression
             if (HasRelic(Relic.HeartOfTheDeep)) hp += 70f;
             if (HasRelic(Relic.BloodPact)) hp *= 0.75f;
             if (Blessed(Blessing.Vigor)) hp *= 1.25f;
+            if (CatPeed.Value) hp *= CatPeeHealth;
             health.ServerSetMax(hp, refill);
             health.Defense = Stats.GetValue(StatType.DEF);
         }

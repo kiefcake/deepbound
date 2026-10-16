@@ -48,7 +48,7 @@ namespace Deepbound.UI
                 {
                     if (it == null || Vector3.Distance(it.transform.position, me) > 6f) continue;
                     if (it is SlotMachine || it is BlackjackTable) Offer("gamble2", "THE TENT: the Bone Reels pay big for three of a kind; at Deadman's Hand beat the skeleton dealer to 21. HIT or STAND in the table's panel.");
-                    if (it is CampCat) Offer("cat", "The castle cat. Press F to pet it. Sometimes it has found something for you.");
+                    if (it is CampCat) Offer("cat", "The castle cat. F pets it (sometimes it has found something for you). G picks it up... ask it first.");
                 }
                 Offer("camp", "CAMP: trade at the merchant, temper your weapon at the anvil, take a contract at the bounty board and set an omen at the stone. Board the carriage when ready.");
                 return;
