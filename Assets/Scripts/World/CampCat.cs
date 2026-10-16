@@ -63,15 +63,15 @@ namespace Deepbound.World
                 if (smile != null) smile.gameObject.SetActive(true);
                 Vfx.Embers(at, 10, new Color(1f, 0.85f, 0.5f), 1.2f, 0.04f, 1f);
                 UI.GameHud.ShowCombo(at + Vector3.up * 0.4f, news ? "THE CAT SMILES  (+ whisker)" : "THE CAT SMILES", new Color(1f, 0.85f, 0.55f));
-                UI.GameHud.Feed(news ? who + " gets a Cat Whisker: a 1% chance to evade any hit, this run." : "The cat smiles at " + who + ". (One whisker per run.)", new Color(1f, 0.85f, 0.55f));
+                UI.GameHud.Feed(news ? "The cat gives " + who + " a whisker: 1% evasion this run." : "The cat smiles at " + who + ".", new Color(1f, 0.85f, 0.55f));
             }
             else
             {
                 Sfx.Play(Sound.Meow, at, 1f, 0.8f);
                 Sfx.Play(Sound.Splash, at, 0.6f, 1.5f);
-                for (int i = 0; i < 3; i++) Vfx.Embers(at + Vector3.down * 0.2f, 6, new Color(0.95f, 0.85f, 0.2f), 1.4f, 0.04f, 0.8f);
+                for (int i = 0; i < 3; i++) Vfx.Embers(at + Vector3.down * 0.45f, 6, new Color(0.95f, 0.85f, 0.2f), 1.2f, 0.025f, 0.7f);
                 UI.GameHud.ShowCombo(at + Vector3.up * 0.4f, "THE CAT PEES ON YOU", new Color(0.95f, 0.85f, 0.2f));
-                UI.GameHud.Feed(news ? who + " picked the cat up without asking. It peed on them: -5% max health this run." : "The cat peed on " + who + " again. It is not getting any better.", new Color(0.95f, 0.85f, 0.2f));
+                UI.GameHud.Feed(news ? "The cat peed on " + who + ": -5% max health this run." : "The cat peed on " + who + " again.", new Color(0.95f, 0.85f, 0.2f));
             }
         }
 
@@ -141,7 +141,8 @@ namespace Deepbound.World
             // Held: in the holder's arms, facing them.
             if (HeldBy.Value != ulong.MaxValue && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(HeldBy.Value, out var holder))
             {
-                transform.position = holder.transform.position + Vector3.up * 1.05f + holder.transform.forward * 0.45f;
+                // Held low against the chest, so it sits at the bottom of the holder's view rather than filling it.
+                transform.position = holder.transform.position + Vector3.up * 0.75f + holder.transform.forward * 0.75f;
                 transform.rotation = Quaternion.LookRotation(-holder.transform.forward);
                 Animate(false, true);
                 return;

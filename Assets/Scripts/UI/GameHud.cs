@@ -66,6 +66,38 @@ namespace Deepbound.UI
             cardUntil = UnityEngine.Time.time + 3.5f;
         }
 
+        // ---- A journal page, read at its lectern ----
+        private static int pageShown = -1;
+        private static bool pageNew;
+        private static float pageAt;
+
+        public static void ShowPage(int index, bool isNew)
+        {
+            pageShown = index;
+            pageNew = isNew;
+            pageAt = UnityEngine.Time.time;
+        }
+
+        private void DrawPage(float w, float h)
+        {
+            if (pageShown < 0 || pageShown >= Journal.Entries.Length) return;
+            var kb = Keyboard.current;
+            // F, Esc, or walking off closes it (it closes itself after a while too).
+            if (Time.time - pageAt > 0.3f && kb != null && kb.escapeKey.wasPressedThisFrame) { pageShown = -1; return; }
+            if (Time.time - pageAt > 25f || player.GetComponent<FirstPersonMotor>().MoveInput.sqrMagnitude > 0.1f && Time.time - pageAt > 1f) { pageShown = -1; return; }
+            var e = Journal.Entries[pageShown];
+            float pw = Mathf.Min(560f, w - 80f), ph = 330f, px = w / 2f - pw / 2f, py = h / 2f - ph / 2f - 20f;
+            Rect(px - 6, py - 6, pw + 12, ph + 12, new Color(0.25f, 0.18f, 0.1f, 0.95f));
+            Rect(px, py, pw, ph, new Color(0.9f, 0.84f, 0.68f, 0.98f));
+            var ink = new Color(0.22f, 0.14f, 0.08f);
+            string[] floors = { "The Ossuary", "The Drowned Vaults", "The Hollow Throne", "The Black Cathedral" };
+            GUI.Label(new Rect(px + 24, py + 16, pw - 48, 20), floors[Mathf.Clamp(e.Floor, 0, 3)].ToUpperInvariant() + (pageNew ? "   -   NEW PAGE  (" + Journal.Count + " / " + Journal.Entries.Length + ")" : ""),
+                new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.45f, 0.25f, 0.12f) } });
+            GUI.Label(new Rect(px + 24, py + 38, pw - 48, 34), e.Title, new GUIStyle(big) { fontSize = 26, alignment = TextAnchor.MiddleLeft, normal = { textColor = ink } });
+            GUI.Label(new Rect(px + 24, py + 82, pw - 48, ph - 120), e.Text, new GUIStyle(label) { wordWrap = true, fontSize = 16, fontStyle = FontStyle.Italic, normal = { textColor = ink } });
+            GUI.Label(new Rect(px, py + ph - 28, pw, 20), "Esc or walk away to close   ·   kept in your Journal (Esc > Guide)", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.4f, 0.3f, 0.2f) } });
+        }
+
         private static string tauntWho, tauntLine;
         private static float tauntAt = -99f;
 
@@ -186,7 +218,7 @@ namespace Deepbound.UI
         private void LateUpdate()
         {
             // Esc closes the shop or class screen first; only a second Esc pauses.
-            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || CharacterSelect.Open || Wardrobe.Open;
+            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open;
         }
 
         private void OnDestroy()
@@ -892,6 +924,7 @@ namespace Deepbound.UI
             DrawTitleCard(w, h);
             DrawBossIntro(w, h);
             DrawTaunt(w, h);
+            DrawPage(w, h);
             if (!statsHeld && !invOpen) DrawControlsHint(w, h);
             DrawFeed(h);
             DrawForge(w, h);

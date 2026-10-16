@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "camp", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell",
+            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -77,6 +77,9 @@ namespace Deepbound.UI
                     Offer("levers", "A VAULT LEVER. Three are bolted to walls in different rooms on this floor; pull all three (they stay down) to open the vault.");
             if (player.GetComponent<Health>().Fraction < 0.5f)
                 Offer("potions", "You do not heal on your own down here. Press 1 to drink a Health Potion (your pouch holds 5); the dead drop more.");
+            foreach (var it in Interactable.All)
+                if (it is LorePage && Vector3.Distance(it.transform.position, me) < 8f)
+                    Offer("lore", "A JOURNAL PAGE on a lectern. Press F to read it; every page you find is kept in your Journal (Esc > Guide), run after run.");
             if (ult != null && ult.Ready) Offer("ult", "Your ULTIMATE is charged: press R.");
 
             var deb = player.GetComponent<PlayerDebuffs>();

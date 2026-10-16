@@ -56,6 +56,7 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject gargoylePrefab;
         [SerializeField] private NetworkObject mournerPrefab;
         [SerializeField] private NetworkObject reliquaryPrefab;
+        [SerializeField] private NetworkObject lorePagePrefab;
 
         /// <summary>Server (tests): a Mourner here, facing <paramref name="face"/>.</summary>
         public EnemyBrain ServerDebugSpawnMourner(Vector3 at, Vector3 face)
@@ -644,6 +645,26 @@ namespace Deepbound.World
                     mobj.GetComponent<EnemyBrain>().ServerScale(players, layout.Depth);
                     spawned.Add(mobj);
                     placed++;
+                }
+            }
+
+            // Every floor: one journal page on a lectern, by a side-room wall (a combat room's if there are none).
+            if (lorePagePrefab != null)
+            {
+                var prng = new System.Random(layout.Seed ^ 0x10e);
+                var pageRooms = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side && r.Feature != RoomFeature.Vault && r.Feature != RoomFeature.Fountain);
+                if (pageRooms.Count == 0) pageRooms = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && !IsAmbushRoom(r));
+                if (pageRooms.Count > 0)
+                {
+                    var room = pageRooms[prng.Next(pageRooms.Count)];
+                    var pat = WallSpot(room, prng);
+                    var pface = room.Center - pat;
+                    pface.y = 0f;
+                    if (NavMesh.SamplePosition(pat, out var phit, 2f, NavMesh.AllAreas)) pat = phit.position;
+                    var pobj = Instantiate(lorePagePrefab, pat, Quaternion.LookRotation(-pface));
+                    pobj.GetComponent<LorePage>().Index.Value = (byte)UI.Journal.PickFor(layout.Depth, prng);
+                    pobj.Spawn(destroyWithScene: true);
+                    spawned.Add(pobj);
                 }
             }
 

@@ -30,6 +30,7 @@ namespace Deepbound.Networking
         {
             Progression.Cosmetics.TestMode = true;
             DungeonDirector.TestMode = true;
+            UI.Journal.TestMode = true;
         }
 
         public void Run(float seconds)
@@ -322,6 +323,17 @@ namespace Deepbound.Networking
                     fm.Teleport(safeAt, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
                 }
+
+                // A journal page on its lectern: reading it adds it to the journal.
+                var pageT = FindObjectsByType<LorePage>(FindObjectsSortMode.None).FirstOrDefault();
+                if (pageT != null)
+                {
+                    int before = UI.Journal.Count;
+                    pageT.DebugRead();
+                    Log("journal page", "page " + pageT.Index.Value + " '" + UI.Journal.Entries[pageT.Index.Value].Title + "', journal " + before + " -> " + UI.Journal.Count,
+                        UI.Journal.Has(pageT.Index.Value) && UI.Journal.Entries[pageT.Index.Value].Floor == Mathf.Clamp(layout.Depth, 0, 3));
+                }
+                else Log("journal page", "no lectern on this floor", false);
 
                 // The potion pouch: a health potion mends over time; the pouch holds five of a kind; no passive regen.
                 {
@@ -1381,6 +1393,21 @@ namespace Deepbound.Networking
                     lm.SetPitch(30f);
                     yield return new WaitForSeconds(0.2f);
                     yield return Shot(dir, "0s_cat");
+                    // Picked up unasked: it pees. Then petted and picked up: it smiles.
+                    cat.PickUpRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.25f);
+                    yield return Shot(dir, "0s_cat_pee");
+                    yield return new WaitForSeconds(2.6f);
+                    cp = cat.transform.position + cat.transform.forward * 1.2f + Vector3.up * 0.1f;
+                    lm.Teleport(cp, Quaternion.LookRotation(cat.transform.position - cp));
+                    yield return null;
+                    cat.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.2f);
+                    cat.PickUpRpc(local.NetworkObject);
+                    lm.SetPitch(15f);
+                    yield return new WaitForSeconds(0.35f);
+                    yield return Shot(dir, "0s_cat_smile");
+                    local.GetComponent<PlayerProgress>().ServerResetRun();
                 }
                 var tentFrom = Lobby.TentCenter + new Vector3(2.6f, 0.1f, 0f);
                 lm.Teleport(tentFrom, Quaternion.LookRotation(Lobby.TentCenter + new Vector3(-2f, 0f, -0.6f) - tentFrom));
@@ -1558,6 +1585,17 @@ namespace Deepbound.Networking
             }
 
             {
+                var lectern = FindObjectsByType<LorePage>(FindObjectsSortMode.None).FirstOrDefault();
+                if (lectern != null)
+                {
+                    var lpp = lectern.transform.position - lectern.transform.forward * 1.6f + Vector3.up * 0.1f;
+                    motor.Teleport(lpp, Quaternion.LookRotation(lectern.transform.position - lpp));
+                    yield return new WaitForSeconds(0.4f);
+                    yield return Shot(dir, "1o_lectern");
+                    lectern.DebugRead();
+                    yield return null;
+                    yield return Shot(dir, "1o_journal_page");
+                }
                 var lever = FindObjectsByType<Lever>(FindObjectsSortMode.None).FirstOrDefault();
                 if (lever != null)
                 {
@@ -1682,6 +1720,9 @@ namespace Deepbound.Networking
             UI.PauseMenu.DebugShowGuide(local.GetComponent<UI.PauseMenu>() ?? FindFirstObjectByType<UI.PauseMenu>(), 1);
             yield return null;
             yield return Shot(dir, "9a_guide_dungeon");
+            UI.PauseMenu.DebugShowGuide(local.GetComponent<UI.PauseMenu>() ?? FindFirstObjectByType<UI.PauseMenu>(), 2);
+            yield return null;
+            yield return Shot(dir, "9a_guide_journal");
             UI.PauseMenu.SetOpen(false);
 
             foreach (var p in PlayerLife.All) p.Health.ServerDamage(1e6f, p.transform.position);

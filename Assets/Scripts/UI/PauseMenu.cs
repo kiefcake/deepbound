@@ -182,16 +182,51 @@ namespace Deepbound.UI
             GUILayout.EndArea();
         }
 
+        // The journal: the pages found so far, by floor; the rest are blanks to find.
+        private Vector2 journalScroll;
+        private int journalOpen = -1;
+
+        private void DrawJournal(Rect panel, float colW, GUIStyle titleStyle, GUIStyle bodyStyle)
+        {
+            string[] floors = { "THE OSSUARY", "THE DROWNED VAULTS", "THE HOLLOW THRONE", "THE BLACK CATHEDRAL" };
+            float listX = panel.x + 24, y = panel.y + 64, listW = colW * 0.75f;
+            for (int f = 0; f < 4; f++)
+            {
+                GUI.Label(new Rect(listX, y, listW, 20), floors[f], titleStyle);
+                y += 20;
+                for (int i = 0; i < Journal.Entries.Length; i++)
+                {
+                    if (Journal.Entries[i].Floor != f) continue;
+                    bool have = Journal.Has(i);
+                    var r = new Rect(listX + 8, y, listW - 8, 20);
+                    if (have && GUI.Button(r, (journalOpen == i ? "> " : "") + Journal.Entries[i].Title, new GUIStyle(UiSkin.Body) { fontSize = 14, normal = { textColor = journalOpen == i ? UiSkin.Gold : new Color(0.9f, 0.88f, 0.84f) } })) journalOpen = i;
+                    if (!have) GUI.Label(r, "a page not yet found", new GUIStyle(UiSkin.Body) { fontSize = 14, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.55f, 0.52f, 0.48f) } });
+                    y += 21;
+                }
+                y += 8;
+            }
+            float tx = listX + listW + 24, tw = panel.width - (tx - panel.x) - 24;
+            if (journalOpen >= 0 && Journal.Has(journalOpen))
+            {
+                var e = Journal.Entries[journalOpen];
+                GUI.Label(new Rect(tx, panel.y + 64, tw, 30), e.Title, new GUIStyle(UiSkin.Heading) { fontSize = 22 });
+                GUI.Label(new Rect(tx, panel.y + 100, tw, panel.height - 180), e.Text, new GUIStyle(bodyStyle) { fontSize = 16, fontStyle = FontStyle.Italic });
+            }
+            else GUI.Label(new Rect(tx, panel.y + 64, tw, 60), Journal.Count == 0 ? "Pages of Cathedra's history lie open on lecterns in the dungeon, one on every floor. Read them (F) and they are kept here." : "Choose a page to read it.", bodyStyle);
+        }
+
         private void DrawGuide(float w, float h)
         {
             float pw = Mathf.Min(980f, w - 60f), ph = Mathf.Min(600f, h - 60f);
             var panel = new Rect(w / 2f - pw / 2f, h / 2f - ph / 2f, pw, ph);
             UiSkin.Panel(panel, 0.96f);
-            GUI.Label(new Rect(panel.x, panel.y + 12, pw, 40), guidePage == 0 ? "GUIDE: PROGRESSION" : "GUIDE: THE DUNGEON", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
+            string[] titles = { "GUIDE: PROGRESSION", "GUIDE: THE DUNGEON", "JOURNAL  (" + Journal.Count + " / " + Journal.Entries.Length + " pages)" };
+            GUI.Label(new Rect(panel.x, panel.y + 12, pw, 40), titles[guidePage], new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
             float colW = (pw - 72f) / 2f;
             var titleStyle = new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, fontSize = 14, normal = { textColor = UiSkin.Gold } };
             var bodyStyle = new GUIStyle(UiSkin.Body) { fontSize = 14, wordWrap = true };
-            for (int c = 0; c < 2; c++)
+            if (guidePage == 2) DrawJournal(panel, colW, titleStyle, bodyStyle);
+            else for (int c = 0; c < 2; c++)
             {
                 float x = panel.x + 24 + c * (colW + 24), y = panel.y + 64;
                 foreach (var (title, body) in guidePage == 0 ? (c == 0 ? GuideLeft : GuideRight) : (c == 0 ? DungeonLeft : DungeonRight))
@@ -202,7 +237,8 @@ namespace Deepbound.UI
                     y += 20 + bh + 14;
                 }
             }
-            if (GUI.Button(new Rect(panel.x + pw / 2f - 280, panel.yMax - 56, 180, 40), guidePage == 0 ? "THE DUNGEON >" : "< PROGRESSION", UiSkin.Button)) guidePage = 1 - guidePage;
+            string[] next = { "THE DUNGEON >", "JOURNAL >", "PROGRESSION >" };
+            if (GUI.Button(new Rect(panel.x + pw / 2f - 280, panel.yMax - 56, 180, 40), next[guidePage], UiSkin.Button)) guidePage = (guidePage + 1) % 3;
             if (GUI.Button(new Rect(panel.x + pw / 2f + 100, panel.yMax - 56, 180, 40), "BACK", UiSkin.Button)) guide = false;
         }
     }
