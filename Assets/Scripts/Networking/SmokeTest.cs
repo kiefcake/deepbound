@@ -1582,6 +1582,10 @@ namespace Deepbound.Networking
                     anchor.GetComponent<Health>().ServerDamage(anchor.GetComponent<Health>().Max.Value * 0.15f, close, local.NetworkObjectId);
                     yield return new WaitForSeconds(0.06f);
                     yield return Shot(dir, "2c_hit_impact");
+                    // Mid-cut: the swing trail behind the blade.
+                    local.ViewModelSwing(0.12f, 0.4f, 1f);
+                    yield return new WaitForSeconds(0.2f);
+                    yield return Shot(dir, "2d_swing_trail");
                 }
 
                 // Kill everything in the room so the loot it leaves is visible.

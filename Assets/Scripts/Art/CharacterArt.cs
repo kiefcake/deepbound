@@ -164,6 +164,8 @@ namespace Deepbound.Art
             public Renderer SpellGlow;
             /// <summary>A small point light the palm flame throws on the hands (casters).</summary>
             public Light SpellLight;
+            /// <summary>The Knight's slash arc: a crescent in view space the animator wipes and fades during a cut.</summary>
+            public Renderer Slash;
         }
 
         public static ViewModel BuildKnightViewModel(Transform camera, Color teamColor)
@@ -194,7 +196,14 @@ namespace Deepbound.Art
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
 
-            return new ViewModel { Root = root, SwordPivot = swordPivot, ShieldPivot = shieldPivot };
+            // The slash: a thin crescent (a flat ring sector) hung in front of the view, invisible until a cut.
+            var slashPivot = MeshKit.Pivot(root, "SlashPivot", new Vector3(0f, -0.22f, 0.8f));
+            var slash = MeshKit.Part(slashPivot, "Slash", MeshKit.Lathe("slashArc", new[] { new Vector2(0.5f, 0f), new Vector2(0.455f, 0f) }, 16, false, 100f), Mat.Smoke,
+                Vector3.zero, new Vector3(-90f, 0f, 0f));
+            var slashR = slash.GetComponent<Renderer>();
+            slashR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            slashR.enabled = false;
+            return new ViewModel { Root = root, SwordPivot = swordPivot, ShieldPivot = shieldPivot, Slash = slashR };
         }
 
         // ------------------------------------------------------------------

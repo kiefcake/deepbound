@@ -67,6 +67,7 @@ namespace Deepbound.EditorTools
             BakeUnlit("Telegraph", unlit, new Color(1f, 0.15f, 0.1f, 0.45f), transparent: true);
             BakeUnlit("Smoke", unlit, new Color(0.17f, 0.15f, 0.2f, 0.32f), transparent: true);
             BakeWater("Water", lit);
+            BakeTrail("Trail");
 
             BakeVolumeProfile();
             ConfigureRenderer();
@@ -140,6 +141,27 @@ namespace Deepbound.EditorTools
             mat.SetColor("_EmissionColor", color * intensity);
             mat.EnableKeyword("_EMISSION");
             mat.globalIlluminationFlags = MaterialGlobalIlluminationFlags.None;
+            EditorUtility.SetDirty(mat);
+        }
+
+        /// <summary>Additive, vertex-coloured (URP particle unlit): weapon swing trails that fade along their length.</summary>
+        private static void BakeTrail(string name)
+        {
+            var shader = Shader.Find("Universal Render Pipeline/Particles/Unlit");
+            if (shader == null) return;
+            var mat = GetOrCreateMaterial(name, shader);
+            mat.SetColor("_BaseColor", Color.white);
+            mat.SetFloat("_Surface", 1f);
+            mat.SetFloat("_Blend", 2f); // additive
+            mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+            mat.SetFloat("_DstBlend", (float)BlendMode.One);
+            mat.SetFloat("_SrcBlendAlpha", (float)BlendMode.Zero);
+            mat.SetFloat("_DstBlendAlpha", (float)BlendMode.One);
+            mat.SetFloat("_ZWrite", 0f);
+            mat.SetFloat("_Cull", 0f);
+            mat.SetOverrideTag("RenderType", "Transparent");
+            mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+            mat.renderQueue = (int)RenderQueue.Transparent;
             EditorUtility.SetDirty(mat);
         }
 

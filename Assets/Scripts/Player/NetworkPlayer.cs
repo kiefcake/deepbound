@@ -579,6 +579,7 @@ namespace Deepbound.Player
             private float swingStart = -10f, swingWindup, swingRest, swingSide = 1f;
             private float bashStart = -10f, impactStart = -10f;
             private float block, bob;
+            private MaterialPropertyBlock slashBlock;
 
             public ViewModelAnimator(CharacterArt.ViewModel vm)
             {
@@ -631,6 +632,24 @@ namespace Deepbound.Player
                     rot *= Quaternion.Euler(euler);
                 }
 
+                // The slash arc wipes across with the cut and fades.
+                if (vm.Slash != null)
+                {
+                    float c = (t - swingWindup) / 0.2f;
+                    bool on = c >= 0f && c < 1f;
+                    vm.Slash.enabled = on;
+                    if (on)
+                    {
+                        var pivot = vm.Slash.transform.parent;
+                        pivot.localScale = new Vector3(swingSide, 1f, 1f);
+                        pivot.localRotation = Quaternion.Euler(0f, 0f, 40f + Mathf.Lerp(-35f, 35f, Smooth(c)));
+                        slashBlock ??= new MaterialPropertyBlock();
+                        vm.Slash.GetPropertyBlock(slashBlock);
+                        float alpha = Mathf.Sin(c * Mathf.PI) * 0.38f;
+                        slashBlock.SetColor("_BaseColor", new Color(1f, 0.93f, 0.8f, alpha));
+                        vm.Slash.SetPropertyBlock(slashBlock);
+                    }
+                }
                 if (sprinting) pos += new Vector3(Mathf.Sin(bob) * 0.02f, Mathf.Abs(Mathf.Cos(bob)) * 0.025f, 0f);
                 if (downed) pos += new Vector3(0f, -0.35f, -0.1f);
                 vm.SwordPivot.localPosition = pos;
