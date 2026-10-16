@@ -44,12 +44,6 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Shatter, to + Vector3.up * 0.3f, 0.8f, 1.3f);
             switch (kind)
             {
-                case Flasks.Kind.Fire:
-                    Sfx.Play(Sound.Fire, to + Vector3.up, 1f, 0.8f);
-                    Telegraph.Show(to, 3.2f, 4f, null, new Color(1f, 0.35f, 0.08f, 0.35f));
-                    for (int i = 0; i < 6; i++) Vfx.Fireball(to + Random.insideUnitSphere * 1.6f + Vector3.up * 0.4f, 0.9f, c);
-                    Vfx.Embers(to, 18, c, 4f, 0.06f, 1.2f);
-                    break;
                 case Flasks.Kind.Frost:
                     Sfx.Play(Sound.Frost, to + Vector3.up, 1f, 1f);
                     Vfx.IceSpikes(to, 3.6f, 16);

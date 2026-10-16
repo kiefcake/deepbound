@@ -129,6 +129,17 @@ namespace Deepbound.Loot
                 return true;
             }
             if (kind == LootKind.Relic) return progress.ServerAddRelic((Relic)Amount.Value);
+            if (kind == LootKind.PotionHP || kind == LootKind.PotionMP)
+            {
+                // Into the pouch while it has room; a full pouch leaves it on the floor for someone else.
+                var pouch = progress.GetComponent<Player.Flasks>();
+                if (pouch == null) return false;
+                var k = kind == LootKind.PotionHP ? Player.Flasks.Kind.Health : Player.Flasks.Kind.Mana;
+                int fit = pouch.ServerAdd(k, Mathf.Max(1, Amount.Value));
+                if (fit <= 0) return false;
+                if (fit < Amount.Value) { Amount.Value -= fit; return false; }
+                return true;
+            }
             if (kind == LootKind.Sigil)
             {
                 progress.ServerAddSigil();
@@ -155,6 +166,7 @@ namespace Deepbound.Loot
             if (Kind.Value == LootKind.Gold) Sfx.Play(Sound.Coins, at, 0.6f);
             else if (Kind.Value == LootKind.Embers) Sfx.Play(Sound.Fire, at, 0.45f, 1.6f);
             else if (Kind.Value == LootKind.Sigil || Kind.Value == LootKind.Rune) Sfx.Play(Sound.Relic, at, 0.8f, 1.3f);
+            else if (Kind.Value == LootKind.PotionHP || Kind.Value == LootKind.PotionMP) Sfx.Play(Sound.Potion, at, 0.7f, 1.1f);
         }
 
         // ------------------------------------------------------------------
@@ -178,6 +190,20 @@ namespace Deepbound.Loot
                     MeshKit.Part(visual, "Coin" + i, MeshKit.Cylinder(0.07f, 0.07f, 0.02f, 10), Mat.Gold, off, new Vector3(0f, i * 37f, i % 2 == 0 ? 6f : -4f));
                 }
                 AddLight(new Color(1f, 0.75f, 0.3f), 1.2f);
+                return;
+            }
+
+            if (Kind.Value == LootKind.PotionHP || Kind.Value == LootKind.PotionMP)
+            {
+                // A stoppered bottle, red or blue, glowing faintly through the glass.
+                var pc = Kind.Value == LootKind.PotionHP ? new Color(0.95f, 0.2f, 0.2f) : new Color(0.3f, 0.5f, 1f);
+                var bottle = MeshKit.Part(visual, "Bottle", MeshKit.Lathe("potionBottle", new[]
+                {
+                    new Vector2(0f, -0.14f), new Vector2(0.1f, -0.12f), new Vector2(0.11f, -0.02f), new Vector2(0.05f, 0.06f), new Vector2(0.04f, 0.12f), new Vector2(0f, 0.13f),
+                }, 10), Mat.Glow, Vector3.zero);
+                ArtLibrary.SetGlow(bottle.GetComponent<Renderer>(), pc * 1.1f);
+                MeshKit.Part(visual, "Cork", MeshKit.Cylinder(0.035f, 0.03f, 0.05f, 6), Mat.Wood, new Vector3(0f, 0.12f, 0f));
+                AddLight(pc, 1.6f);
                 return;
             }
 

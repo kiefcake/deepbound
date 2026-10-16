@@ -60,7 +60,14 @@ namespace Deepbound.Enemies
         public static float DepthDamage(int depth) => 1f + 0.3f * depth;
 
         /// <summary>Chance a regular enemy spawns as an elite.</summary>
-        public static float EliteChance(int depth, int players) => 0.07f + 0.04f * depth + 0.02f * Extra(players) + Level.EliteBonus;
+        public static float EliteChance(int depth, int players) => 0.11f + 0.05f * depth + 0.02f * Extra(players) + Level.EliteBonus;
+
+        // --- Rank and file: fewer of them, each a real fight (play-test feedback 2026-10-16) ---
+
+        /// <summary>Room crowds are this fraction of what the spawn points would hold.</summary>
+        public const float RoomCrowd = 0.75f;
+        /// <summary>Extra toughness and bite for every non-boss enemy.</summary>
+        public const float RankHealth = 1.55f, RankDamage = 1.15f;
 
         /// <summary>
         /// Poise: a single hit worth this fraction of an enemy's max health breaks its

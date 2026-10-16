@@ -75,6 +75,7 @@ namespace Deepbound.Player
         public Color ResourceColor => new Color(0.85f, 0.9f, 0.3f);
         public float Resource => Energy;
         public float ResourceMax => EnergyMax;
+        public void RestoreResource(float fraction) => Energy = Mathf.Min(ResourceMax, Energy + ResourceMax * fraction);
 
         public void FillAbilities(List<AbilityView> into)
         {

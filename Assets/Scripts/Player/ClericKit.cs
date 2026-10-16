@@ -105,6 +105,7 @@ namespace Deepbound.Player
         public Color ResourceColor => new Color(0.95f, 0.8f, 0.35f);
         public float Resource => Mana;
         public float ResourceMax => ManaMax;
+        public void RestoreResource(float fraction) => Mana = Mathf.Min(ResourceMax, Mana + ResourceMax * fraction);
 
         public void FillAbilities(List<AbilityView> into)
         {

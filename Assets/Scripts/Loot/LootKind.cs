@@ -4,9 +4,9 @@ using UnityEngine;
 namespace Deepbound.Loot
 {
     /// <summary>
-    /// What a loot drop is. APPEND ONLY, like StatType. Values 0-7 and 9 are the retired
-    /// stat potions (replaced by the weapon/gear system); they are kept so later values
-    /// keep their numbers, and nothing drops them any more.
+    /// What a loot drop is. APPEND ONLY, like StatType. 0 and 1 are the health and mana potions
+    /// that go in the potion pouch (Amount = how many). 2-7 and 9 are retired stat potions,
+    /// kept so later values keep their numbers; nothing drops them any more.
     /// </summary>
     public enum LootKind : byte
     {
@@ -49,6 +49,8 @@ namespace Deepbound.Loot
             if (kind == LootKind.Sigil) return "a Sigil";
             if (kind == LootKind.Rune) return "a rune";
             if (kind == LootKind.Relic) return "a relic";
+            if (kind == LootKind.PotionHP) return "a Health Potion";
+            if (kind == LootKind.PotionMP) return "a Mana Potion";
             return kind.ToString();
         }
     }

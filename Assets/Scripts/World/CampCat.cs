@@ -1,0 +1,152 @@
+using System.Collections.Generic;
+using Deepbound.Art;
+using Deepbound.Progression;
+using Unity.Netcode;
+using UnityEngine;
+
+namespace Deepbound.World
+{
+    /// <summary>
+    /// The castle cat: a small black cat with amber eyes who patrols the camp, stops to sit and
+    /// wash, and lets you pet it (F). Petted, it sits, purrs, and now and then brings you a coin
+    /// it found. Its route is a function of server time, so every peer sees it in the same spot
+    /// without a network transform.
+    /// </summary>
+    public class CampCat : Interactable
+    {
+        private static readonly Vector3[] Route =
+        {
+            new Vector3(0.6f, 0f, -8f), new Vector3(-2.2f, 0f, -2.5f), new Vector3(-4.6f, 0f, 5.6f), new Vector3(-1.5f, 0f, 9.5f),
+            new Vector3(2.4f, 0f, 13f), new Vector3(3.2f, 0f, 4f), new Vector3(3.6f, 0f, -3.2f),
+        };
+        private const float WalkSpeed = 0.9f, SitSeconds = 7f;
+
+        private Transform body, head, tail, legs;
+        private readonly HashSet<ulong> pettedThisVisit = new HashSet<ulong>();
+        public readonly NetworkVariable<double> PettedUntil = new NetworkVariable<double>();
+        private float nextMeow;
+
+        public override float Range => 1.8f;
+
+        public override string Prompt(PlayerProgress who) => "Pet the cat";
+
+        protected override void ServerUse(PlayerProgress who)
+        {
+            PettedUntil.Value = NetworkManager.ServerTime.Time + 3.5;
+            int coin = 0;
+            // Once a visit to camp per player, it may have something for you.
+            if (pettedThisVisit.Add(who.NetworkObjectId) && Random.value < 0.35f)
+            {
+                coin = Random.Range(5, 21);
+                who.ServerAddGold(coin);
+            }
+            PetFxRpc(who.name, coin);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PetFxRpc(string who, int coin)
+        {
+            Sfx.Play(Sound.Purr, transform.position + Vector3.up * 0.3f, 0.9f);
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 0.9f, coin > 0 ? "PURR  (+" + coin + " gold)" : "PURR", new Color(1f, 0.8f, 0.55f));
+            if (coin > 0) UI.GameHud.Feed("The cat drops a coin at " + who + "'s feet: +" + coin + " gold.", new Color(1f, 0.85f, 0.4f));
+        }
+
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+            BuildVisual();
+            nextMeow = Time.time + Random.Range(8f, 16f);
+        }
+
+        // ---- The route: walk a leg, sit a while, walk the next ----
+        private static float LegLength(int i) => Vector3.Distance(Route[i], Route[(i + 1) % Route.Length]);
+
+        private static float Cycle()
+        {
+            float t = 0f;
+            for (int i = 0; i < Route.Length; i++) t += LegLength(i) / WalkSpeed + SitSeconds;
+            return t;
+        }
+
+        /// <summary>Where the cat is at server time <paramref name="time"/>: position, facing, and whether it is walking.</summary>
+        private static void Pose(double time, out Vector3 pos, out Vector3 facing, out bool walking)
+        {
+            float t = (float)(time % Cycle());
+            for (int i = 0; i < Route.Length; i++)
+            {
+                var a = Route[i];
+                var b = Route[(i + 1) % Route.Length];
+                float walk = LegLength(i) / WalkSpeed;
+                facing = (b - a).normalized;
+                if (t < walk) { pos = Vector3.Lerp(a, b, t / walk); walking = true; return; }
+                t -= walk;
+                if (t < SitSeconds) { pos = b; walking = false; return; }
+                t -= SitSeconds;
+            }
+            pos = Route[0];
+            facing = Vector3.forward;
+            walking = false;
+        }
+
+        private void Update()
+        {
+            if (NetworkManager == null) return;
+            double now = NetworkManager.ServerTime.Time;
+            bool petted = now < PettedUntil.Value;
+            // While being petted it holds still (the route resumes from where time has carried it after).
+            if (!petted)
+            {
+                Pose(now, out var p, out var f, out bool walking);
+                var at = Lobby.Origin + p;
+                if (Physics.Raycast(at + Vector3.up * 2f, Vector3.down, out var hit, 4f, ~0, QueryTriggerInteraction.Ignore)) at.y = hit.point.y;
+                transform.position = at;
+                if (walking) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(f), Time.deltaTime * 6f);
+                Animate(walking, false);
+            }
+            else Animate(false, true);
+
+            if (Time.time >= nextMeow)
+            {
+                nextMeow = Time.time + Random.Range(12f, 25f);
+                var cam = ViewCamera.Current;
+                if (cam != null && Vector3.Distance(cam.transform.position, transform.position) < 14f) Sfx.Play(Sound.Meow, transform.position + Vector3.up * 0.3f, 0.7f);
+            }
+        }
+
+        private void Animate(bool walking, bool petted)
+        {
+            float t = Time.time;
+            if (body != null) body.localPosition = new Vector3(0f, walking ? 0.2f + Mathf.Abs(Mathf.Sin(t * 9f)) * 0.015f : 0.15f, 0f);
+            if (body != null) body.localRotation = Quaternion.Euler(walking ? 0f : -18f, 0f, 0f);
+            if (legs != null) legs.localScale = new Vector3(1f, walking ? 1f : 0.6f, 1f);
+            if (tail != null) tail.localRotation = Quaternion.Euler(-60f + Mathf.Sin(t * (petted ? 6f : 2f)) * 12f, Mathf.Sin(t * 1.3f) * 30f, 0f);
+            if (head != null) head.localRotation = Quaternion.Euler(petted ? -15f : 0f, petted ? Mathf.Sin(t * 3f) * 10f : Mathf.Sin(t * 0.7f) * 20f, petted ? 8f : 0f);
+        }
+
+        private void BuildVisual()
+        {
+            var fur = new Color(0.08f, 0.07f, 0.08f);
+            Renderer Fur(GameObject g) { var r = g.GetComponent<Renderer>(); ArtLibrary.Tint(r, fur); return r; }
+            var scaleRoot = MeshKit.Pivot(transform, "CatScale", Vector3.zero);
+            scaleRoot.localScale = Vector3.one * 1.35f;
+            body = MeshKit.Pivot(scaleRoot, "Body", Vector3.up * 0.2f);
+            Fur(MeshKit.Part(body, "Torso", MeshKit.Ball(0.12f, 10, 8), Mat.Cloth, Vector3.zero, default, new Vector3(1f, 0.9f, 2.1f)));
+            head = MeshKit.Pivot(body, "Head", new Vector3(0f, 0.1f, 0.24f));
+            Fur(MeshKit.Part(head, "Skull", MeshKit.Ball(0.085f, 10, 8), Mat.Cloth, Vector3.zero, default, new Vector3(1.1f, 0.95f, 1f)));
+            Fur(MeshKit.Part(head, "Muzzle", MeshKit.Ball(0.04f, 8, 6), Mat.Cloth, new Vector3(0f, -0.02f, 0.07f)));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Fur(MeshKit.Part(head, "Ear", MeshKit.Lathe("catEar", new[] { new Vector2(0.03f, 0f), new Vector2(0f, 0.07f) }, 4), Mat.Cloth, new Vector3(s * 0.045f, 0.06f, 0f), new Vector3(-10f, 0f, s * -18f)));
+                var eye = MeshKit.Part(head, "Eye", MeshKit.Ball(0.016f, 6, 4), Mat.Glow, new Vector3(s * 0.035f, 0.015f, 0.075f));
+                ArtLibrary.SetGlow(eye.GetComponent<Renderer>(), new Color(1f, 0.7f, 0.15f) * 1.6f);
+            }
+            legs = MeshKit.Pivot(body, "Legs", Vector3.zero);
+            foreach (float x in new[] { -0.06f, 0.06f })
+                foreach (float z in new[] { -0.15f, 0.15f })
+                    Fur(MeshKit.Part(legs, "Leg", MeshKit.Cylinder(0.022f, 0.02f, 0.2f, 6), Mat.Cloth, new Vector3(x, -0.2f, z)));
+            tail = MeshKit.Pivot(body, "Tail", new Vector3(0f, 0.04f, -0.24f));
+            Fur(MeshKit.Part(tail, "Tail", MeshKit.Cylinder(0.02f, 0.012f, 0.32f, 6), Mat.Cloth, Vector3.zero));
+            foreach (var r in GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+        }
+    }
+}

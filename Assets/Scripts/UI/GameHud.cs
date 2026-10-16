@@ -202,9 +202,38 @@ namespace Deepbound.UI
         private float fade;
         private string bannerTitle, bannerSub, bannerHint;
 
+        // The descent cutscene: white rises as the beam takes you; you arrive out of white, letterboxed.
+        private static float departStart = -1f, departLength = 1f;
+        private static bool arrivingFromBeam;
+        private float whiteFade, letterboxUntil;
+
+        private static float freezeUntil;
+
+        /// <summary>The descent cutscene holds the player still: while the beam takes them, and a moment after arriving.</summary>
+        public static bool CutsceneFreeze => departStart >= 0f || UnityEngine.Time.time < freezeUntil;
+
+        public static void BeginDeparture(float seconds)
+        {
+            departStart = UnityEngine.Time.time;
+            departLength = seconds;
+            arrivingFromBeam = true;
+        }
+
         private void OnArenaBuilt(int _)
         {
             fade = 1f;
+            if (arrivingFromBeam && !DungeonDirector.InLobby)
+            {
+                arrivingFromBeam = false;
+                departStart = -1f;
+                fade = 0f;
+                whiteFade = 1f;
+                letterboxUntil = Time.time + 3.2f;
+                foreach (var p in PlayerLife.All) if (p != null) Art.TeleportBeam.On(p.transform, true, 2.2f);
+                Art.Sfx.Play2D(Art.Sound.Revive, 0.7f);
+                freezeUntil = Time.time + 1.2f;
+            }
+            else if (DungeonDirector.InLobby) { departStart = -1f; arrivingFromBeam = false; }
             bannerUntil = Time.time + 5f;
             if (DungeonDirector.InLobby || DungeonDirector.Layout == null)
             {
@@ -467,7 +496,7 @@ namespace Deepbound.UI
             var fl = player.GetComponent<Flasks>();
             if (fl != null)
             {
-                GUI.Label(new Rect(cx, cy + 4, 300, 20), "FLASKS   Fire " + fl.Fire.Value + "   Frost " + fl.Frost.Value + "   Holy " + fl.Holy.Value, small);
+                GUI.Label(new Rect(cx, cy + 4, 320, 20), "POUCH   Health " + fl.Health.Value + "   Mana " + fl.Mana.Value + "   Frost " + fl.Frost.Value + "   Holy " + fl.Holy.Value + "   (5 each)", small);
                 cy += 28;
             }
             GUI.Label(new Rect(cx, cy, 300, 22), "RELICS (" + progress.RelicCount + ")", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
@@ -616,14 +645,19 @@ namespace Deepbound.UI
                 var screen = cam.WorldToScreenPoint(world);
                 if (screen.z <= 0f || screen.z > 22f) continue;
                 bool atMe = Vector3.Distance(player.transform.position, hp.transform.position) < 4f;
+                byte st = brain.Status.Value;
+                // Heavy "!!" (sidestep it), sweep "<!>" (back off), lunge ">>" (dodge sideways), plain "!".
+                string glyph = (st & 8) != 0 ? "!!" : (st & 16) != 0 ? "<!>" : (st & 32) != 0 ? ">>" : "!";
+                if ((st & 32) != 0) atMe = atMe || Vector3.Distance(player.transform.position, hp.transform.position) < 8f;
                 float pulse = 0.8f + 0.2f * Mathf.Sin(Time.time * 18f);
                 int size = Mathf.RoundToInt((atMe ? 34 : 24) * pulse);
                 var c = atMe ? new Color(1f, 0.25f, 0.15f) : new Color(1f, 0.6f, 0.2f);
                 var style = new GUIStyle(big) { fontSize = size, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = c } };
                 var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, 0.8f) } };
                 var r = new Rect(screen.x - 30, h - screen.y - 26, 60, 40);
-                GUI.Label(new Rect(r.x + 2, r.y + 2, r.width, r.height), "!", shadow);
-                GUI.Label(r, "!", style);
+                r = new Rect(screen.x - 50, h - screen.y - 26, 100, 40);
+                GUI.Label(new Rect(r.x + 2, r.y + 2, r.width, r.height), glyph, shadow);
+                GUI.Label(r, glyph, style);
             }
         }
 
@@ -717,6 +751,32 @@ namespace Deepbound.UI
 
         private void DrawFade(float w, float h)
         {
+            // Departing: bars close in and the light takes the screen.
+            if (departStart >= 0f)
+            {
+                float k = Mathf.Clamp01((Time.time - departStart) / departLength);
+                float bar = h * 0.12f * Mathf.SmoothStep(0f, 1f, Mathf.Min(1f, k * 3f));
+                Rect(0, 0, w, bar, Color.black);
+                Rect(0, h - bar, w, bar, Color.black);
+                Rect(0, 0, w, h, new Color(1f, 0.97f, 0.88f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 1f, k))));
+                if (k > 0.2f && k < 0.9f)
+                    GUI.Label(new Rect(0, h * 0.5f - 20, w, 40), "INTO THE DEEP", new GUIStyle(big) { normal = { textColor = new Color(0.2f, 0.15f, 0.1f, Mathf.Sin((k - 0.2f) / 0.7f * Mathf.PI)) } });
+                if (k >= 1f && !arrivingFromBeam) departStart = -1f;
+                return;
+            }
+            // Arriving: out of white, letterboxed for a moment.
+            if (Time.time < letterboxUntil)
+            {
+                float k = Mathf.Clamp01((letterboxUntil - Time.time) / 0.8f);
+                float bar = h * 0.12f * k;
+                Rect(0, 0, w, bar, Color.black);
+                Rect(0, h - bar, w, bar, Color.black);
+            }
+            if (whiteFade > 0f)
+            {
+                whiteFade = Mathf.MoveTowards(whiteFade, 0f, Time.deltaTime * 0.55f);
+                Rect(0, 0, w, h, new Color(1f, 0.97f, 0.88f, Mathf.SmoothStep(0f, 1f, whiteFade)));
+            }
             fade = Mathf.MoveTowards(fade, 0f, Time.deltaTime * 0.8f);
             if (fade <= 0f) return;
             Rect(0, 0, w, h, new Color(0f, 0f, 0f, Mathf.SmoothStep(0f, 1f, fade)));
@@ -756,7 +816,7 @@ namespace Deepbound.UI
                 scrap.ScrapRpc(player.NetworkObject);
             if (!near) shopOpen = false;
             if (anvil == null) forgeOpen = false;
-            MenuOpen = shopOpen || forgeOpen || invOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
+            MenuOpen = shopOpen || forgeOpen || invOpen || BlackjackTable.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
             InventoryOpen = invOpen;
             statsHeld = DebugShowStats || (keyboard != null && keyboard.tabKey.isPressed && !Wardrobe.Open);
 
@@ -770,14 +830,15 @@ namespace Deepbound.UI
             }
 
             // Class choice is a camp decision: number keys pick one, only in the lobby.
-            if (keyboard != null && DungeonDirector.InLobby)
+            // Only before a run: once the first floor is done the class is locked for the run.
+            if (keyboard != null && PlayerProgress.ClassChangeAllowed)
             {
                 for (int i = 0; i < ClassDefinition.ById.Length && i < 9; i++)
                 {
                     var key = keyboard[(Key)((int)Key.Digit1 + i)];
                     if (key.wasPressedThisFrame && progress.ClassId.Value != (ClassId)i)
                     {
-                        progress.ClassId.Value = (ClassId)i;
+                        progress.ChooseClassRpc((ClassId)i);
                         Art.Sfx.Play2D(Art.Sound.Purchase, 0.6f);
                     }
                 }
@@ -856,11 +917,20 @@ namespace Deepbound.UI
                 Rect(c.x - 31, c.y + 17, 62, 6, new Color(0f, 0f, 0f, 0.7f));
                 Rect(c.x - 30, c.y + 18, 60 * charge, 4, charge >= 1f ? Gold : new Color(0.8f, 0.85f, 0.7f));
             }
-            Rect(c.x - 1.5f, c.y - 1.5f, 3, 3, new Color(1f, 1f, 1f, 0.9f));
-            var tick = new Color(1f, 1f, 1f, 0.45f);
-            Rect(c.x - 11, c.y - 0.5f, 6, 1, tick);
-            Rect(c.x + 5, c.y - 0.5f, 6, 1, tick);
-            Rect(c.x - 0.5f, c.y + 5, 1, 6, tick);
+            // A centred dot and four even ticks, with a dark outline so it reads on bright stone too.
+            float cx = Mathf.Round(c.x), cy = Mathf.Round(c.y);
+            var outline = new Color(0f, 0f, 0f, 0.55f);
+            var tick = new Color(1f, 1f, 1f, 0.6f);
+            Rect(cx - 2f, cy - 2f, 4, 4, outline);
+            Rect(cx - 1f, cy - 1f, 2, 2, new Color(1f, 1f, 1f, 0.95f));
+            foreach (var d in new[] { new Vector2(1, 0), new Vector2(-1, 0), new Vector2(0, 1), new Vector2(0, -1) })
+            {
+                float tx = cx + d.x * 8f, ty = cy + d.y * 8f;
+                bool horizontal = d.y == 0f;
+                var rr = horizontal ? new Rect(tx + (d.x > 0 ? 0f : -5f), ty - 0.5f, 5, 1) : new Rect(tx - 0.5f, ty + (d.y > 0 ? 0f : -5f), 1, 5);
+                Rect(rr.x - 0.5f, rr.y - 0.5f, rr.width + 1f, rr.height + 1f, outline);
+                Rect(rr.x, rr.y, rr.width, rr.height, tick);
+            }
         }
 
         private void DrawVitals(float w, float h)
@@ -912,20 +982,26 @@ namespace Deepbound.UI
             }
             DrawUltimate(x + (size + gap) * abilities.Count, y, size);
 
-            // The flask belt, just above the bar.
+            // The potion pouch, just above the bar: four little bottles with their counts.
             var belt = player.GetComponent<Flasks>();
             if (belt != null)
             {
-                var parts = new System.Text.StringBuilder();
-                for (int k = 0; k < 3; k++)
+                float bw = 74f, bx = w / 2f - bw * 2f;
+                for (int k = 0; k < Flasks.All.Length; k++)
                 {
-                    var kind = (Flasks.Kind)k;
+                    var kind = Flasks.All[k];
                     var c = Flasks.ColorOf(kind);
-                    if (parts.Length > 0) parts.Append("     ");
-                    parts.Append("<color=#").Append(ColorUtility.ToHtmlStringRGB(belt.Count(kind) > 0 ? c : c * 0.4f)).Append('>')
-                        .Append(k + 1).Append("  ").Append(Flasks.NameOf(kind)).Append(" x").Append(belt.Count(kind)).Append("</color>");
+                    int n = belt.Count(kind);
+                    float sx = bx + k * bw;
+                    Rect(sx + 2, y - 30, bw - 4, 24, new Color(0f, 0f, 0f, 0.5f));
+                    // The bottle: a filled body, dim when empty.
+                    var bc = n > 0 ? c : c * 0.35f;
+                    Rect(sx + 8, y - 25, 10, 14, bc);
+                    Rect(sx + 11, y - 29, 4, 4, n > 0 ? new Color(0.6f, 0.45f, 0.3f) : new Color(0.3f, 0.25f, 0.2f));
+                    if (kind == Flasks.Kind.Health && belt.Healing) Rect(sx + 2, y - 7, (bw - 4) * Mathf.PingPong(Time.time * 2f, 1f), 2, c);
+                    GUI.Label(new Rect(sx + 22, y - 30, bw - 24, 24), (k + 1) + "  " + n + "/" + Flasks.Max,
+                        new GUIStyle(small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft, normal = { textColor = n > 0 ? Color.white : new Color(0.6f, 0.6f, 0.6f) } });
                 }
-                GUI.Label(new Rect(0, y - 24, w, 20), parts.ToString(), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, richText = true, fontStyle = FontStyle.Bold });
             }
         }
 
@@ -1096,24 +1172,48 @@ namespace Deepbound.UI
             ProgressBar(w, h / 2f + 68, target.ReviveProgress.Value / PlayerLife.ReviveSeconds, new Color(0.6f, 0.9f, 1f));
         }
 
+        private float clearedSeenAt = -1f;
+
         private void DrawPhase(float w, float h)
         {
             var director = DungeonDirector.Instance;
             // Wipes and victories get the full run summary instead.
-            if (director == null || director.Phase.Value != RunPhase.FloorCleared) return;
+            if (director == null || director.Phase.Value != RunPhase.FloorCleared) { clearedSeenAt = -1f; return; }
 
             int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
             string title, sub;
             switch (director.Phase.Value)
             {
-                case RunPhase.FloorCleared: title = "THE FLOOR IS CLEARED"; sub = "Back to the castle in " + seconds + "... rest, trade, then ride deeper."; break;
+                case RunPhase.FloorCleared:
+                    title = director.ExitFinal.Value ? "THE DEPTHS ARE CLEARED" : "THE FLOOR IS CLEARED";
+                    int at = DungeonDirector.PlayersAtExit(), all = PlayerLife.All.Count;
+                    sub = director.PhaseEndsAt.Value > 0 ? (director.ExitFinal.Value ? "Ending the run in " : "Leaving for the castle in ") + seconds + "..."
+                        : "Explore and loot at your leisure. When you are ready, everyone steps into the portal  (" + at + " / " + all + ")";
+                    break;
                 case RunPhase.Wiped: title = "YOUR PARTY HAS FALLEN"; sub = "The run is over. Returning to camp in " + seconds + "..."; break;
                 default: title = "THE DEPTHS ARE CLEARED"; sub = "Run complete! Returning to camp in " + seconds + "..."; break;
             }
 
-            Rect(0, h * 0.28f - 10, w, 90, new Color(0f, 0f, 0f, 0.55f));
-            GUI.Label(new Rect(0, h * 0.28f, w, 44), title, new GUIStyle(big) { normal = { textColor = Gold } });
-            GUI.Label(new Rect(0, h * 0.28f + 46, w, 24), sub, center);
+            // Big for the first moments, then a quiet strip at the top so the floor can be explored.
+            bool fresh = director.PhaseEndsAt.Value > 0 || Time.time - clearedSeenAt < 6f;
+            if (clearedSeenAt < 0f) clearedSeenAt = Time.time;
+            if (fresh)
+            {
+                Rect(0, h * 0.28f - 10, w, 90, new Color(0f, 0f, 0f, 0.55f));
+                GUI.Label(new Rect(0, h * 0.28f, w, 44), title, new GUIStyle(big) { normal = { textColor = Gold } });
+                GUI.Label(new Rect(0, h * 0.28f + 46, w, 24), sub, center);
+            }
+            else
+            {
+                Rect(w * 0.25f, 88, w * 0.5f, 24, new Color(0f, 0f, 0f, 0.5f));
+                GUI.Label(new Rect(w * 0.25f, 88, w * 0.5f, 24), sub, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = Gold } });
+            }
+            // A marker on the portal, through walls.
+            var cam = player.Camera;
+            var ps = cam.WorldToScreenPoint(DungeonDirector.ExitPosition + Vector3.up * 3.2f);
+            if (ps.z > 0f)
+                GUI.Label(new Rect(ps.x - 100, h - ps.y - 10, 200, 20), "PORTAL  " + Mathf.RoundToInt(Vector3.Distance(player.transform.position, DungeonDirector.ExitPosition)) + "m",
+                    new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.6f, 0.9f, 1f) } });
         }
 
         private void DrawBanner(float w, float h)
@@ -1157,7 +1257,7 @@ namespace Deepbound.UI
                 "F  revive a downed ally  ·  G  trade  ·  Tab  stats  ·  I  inventory\n" +
                 "CTRL dodge (slide if sprinting)  ·  V kick\n" +
                 "R ultimate (when charged)\n" +
-                "1 / 2 / 3  throw Fire / Frost / Holy flask\n" +
+                "1 / 2  drink Health / Mana   3 / 4  throw Frost / Holy\n" +
                 "M map  ·  Z ping  ·  H high five  ·  Esc free mouse\n" +
                 "Hit enemies from behind for +35%", style);
         }

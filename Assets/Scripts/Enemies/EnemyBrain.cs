@@ -154,6 +154,7 @@ namespace Deepbound.Enemies
             Title.OnValueChanged += (_, t) => { if (t.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f; };
             if (Title.Value.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f;
             Rig = CharacterArt.BuildSkeleton(transform, visualKind);
+            if (Rig != null && (IsBoss || Heavy || Rig.transform.lossyScale.y >= 1.12f)) FitBodyToRig();
             health.Hurt += OnHurtVisual;
             Elite.OnValueChanged += (_, now) => ApplyEliteVisual(now);
             if (Elite.Value) ApplyEliteVisual(true);
@@ -182,8 +183,8 @@ namespace Deepbound.Enemies
         public void ServerScale(int players, int depth)
         {
             scaledPlayersBase = players;
-            float hpScale = (IsBoss ? Difficulty.BossHealth(players) : Difficulty.EnemyHealth(players)) * Difficulty.DepthHealth(depth) * Difficulty.Level.Health;
-            damage *= Difficulty.Damage(players) * Difficulty.DepthDamage(depth) * Difficulty.Level.Damage;
+            float hpScale = (IsBoss ? Difficulty.BossHealth(players) : Difficulty.EnemyHealth(players) * Difficulty.RankHealth) * Difficulty.DepthHealth(depth) * Difficulty.Level.Health;
+            damage *= Difficulty.Damage(players) * Difficulty.DepthDamage(depth) * Difficulty.Level.Damage * (IsBoss ? 1f : Difficulty.RankDamage);
             depthForLoot = depth;
             health.ServerSetMax(maxHealth * hpScale, refill: true);
         }
@@ -305,6 +306,44 @@ namespace Deepbound.Enemies
         // Server loop
         // ------------------------------------------------------------------
 
+        /// <summary>
+        /// Big creatures: size the hit capsule to the model itself (shoulders, shields, robes),
+        /// so what you see is what you hit. Weapons and glow are left out.
+        /// </summary>
+        private void FitBodyToRig()
+        {
+            var capsule = GetComponent<CapsuleCollider>();
+            if (capsule == null) return;
+            float top = 0f, rx = 0f, rz = 0f;
+            bool any = false;
+            foreach (var mf in Rig.GetComponentsInChildren<MeshFilter>())
+            {
+                var r = mf.GetComponent<Renderer>();
+                if (mf.sharedMesh == null || r == null) continue;
+                string n = mf.name;
+                if (r.sharedMaterial != null && (r.sharedMaterial.name.Contains("Glow") || r.sharedMaterial.name.Contains("Telegraph"))) continue;
+                if (n.Contains("Blade") || n.Contains("Sword") || n.Contains("Staff") || n.Contains("Mace") || n.Contains("Spear") || n.Contains("Axe") || n.Contains("Trail")) continue;
+                var b = mf.sharedMesh.bounds;
+                for (int i = 0; i < 8; i++)
+                {
+                    var corner = b.center + Vector3.Scale(b.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+                    var p = transform.InverseTransformPoint(mf.transform.TransformPoint(corner));
+                    top = Mathf.Max(top, p.y);
+                    rx = Mathf.Max(rx, Mathf.Abs(p.x));
+                    rz = Mathf.Max(rz, Mathf.Abs(p.z));
+                    any = true;
+                }
+            }
+            if (!any) return;
+            // Bounding extents overstate a round body: take a bit less than the wider side.
+            float radius = Mathf.Clamp(Mathf.Lerp(Mathf.Min(rx, rz), Mathf.Max(rx, rz), 0.5f) * 0.85f, 0.3f, 1.8f);
+            float height = Mathf.Clamp(top, radius * 2f, 8f);
+            capsule.radius = radius;
+            capsule.height = height;
+            capsule.center = new Vector3(0f, height / 2f, 0f);
+            health.InvalidateBody();
+        }
+
         protected virtual void Update()
         {
             if (IsServer)
@@ -322,6 +361,14 @@ namespace Deepbound.Enemies
             if (Time.time < stunnedUntil)
             {
                 agent.isStopped = true;
+                return;
+            }
+
+            if (lunging) { StepLunge(); return; }
+            if (lungeStartAt > 0f)
+            {
+                agent.isStopped = true;
+                if (Time.time >= lungeStartAt) { lungeStartAt = -1f; lunging = true; }
                 return;
             }
 
@@ -356,6 +403,7 @@ namespace Deepbound.Enemies
 
             float dist = FlatDistance(target.transform.position);
             if (ChooseSpecialAttack(dist)) return;
+            if (TryLunge(dist)) return;
 
             if (dist <= attackRange)
             {
@@ -404,24 +452,118 @@ namespace Deepbound.Enemies
             PlayActionRpc(RigAction.Stagger, stagger);
         }
 
+        // ---- Move set: every rank-and-file melee enemy mixes its swing with a heavy blow, a two-hit
+        //      flurry, a wide sweep and a lunge. Each has its own tell (Status bits 8/16/32, the HUD glyph). ----
+        public enum Move : byte { Swing = 0, Heavy = 1, Flurry = 2, Sweep = 3, Lunge = 4 }
+        protected Move currentMove;
+        private int flurryLeft;
+        private float lungeReadyAt;
+        private bool lunging;
+        private Vector3 lungeDir;
+        private float lungeTravelled;
+        private readonly System.Collections.Generic.HashSet<Health> lungeHit = new System.Collections.Generic.HashSet<Health>();
+        public const float LungeMin = 3f, LungeMax = 7f, LungeSpeed = 13f, LungeCooldown = 7f;
+
+        /// <summary>Does this enemy use the shared move set? Melee rank and file only.</summary>
+        protected virtual bool UsesMoveSet => !IsBoss && attackRange <= 3f && damage > 0f;
+
+        private Move PickMove()
+        {
+            if (!UsesMoveSet) return Move.Swing;
+            float r = Random.value;
+            return r < 0.5f ? Move.Swing : r < 0.7f ? Move.Heavy : r < 0.86f ? Move.Flurry : Move.Sweep;
+        }
+
         protected virtual void BeginAttack()
         {
+            currentMove = PickMove();
+            float w = windup * (currentMove == Move.Heavy ? 1.7f : currentMove == Move.Sweep ? 1.25f : 1f);
+            flurryLeft = currentMove == Move.Flurry ? 1 : 0;
             attacking = true;
             agent.isStopped = true;
-            strikeAt = Time.time + windup;
-            busyUntil = strikeAt + recovery;
-            PlayActionRpc(RigAction.Windup, windup);
+            strikeAt = Time.time + w;
+            busyUntil = strikeAt + recovery * (currentMove == Move.Heavy ? 1.3f : 1f);
+            PlayActionRpc(RigAction.Windup, w);
         }
 
         protected virtual void Strike()
         {
             PlayActionRpc(RigAction.Swing, 0.3f);
+            float mult = currentMove == Move.Heavy ? 1.8f : currentMove == Move.Flurry ? 0.7f : currentMove == Move.Sweep ? 0.8f : 1f;
+            float arc = currentMove == Move.Heavy ? Mathf.Min(attackArc, 60f) : currentMove == Move.Sweep ? 220f : attackArc;
+            float reach = attackRange + (currentMove == Move.Sweep ? 0.8f : 0.5f);
             var origin = transform.position + Vector3.up * 1.2f;
-            foreach (var victim in CombatQuery.Arc(origin, transform.forward, attackRange + 0.5f, attackArc, Team.Players))
+            foreach (var victim in CombatQuery.Arc(origin, transform.forward, reach, arc, Team.Players))
             {
-                victim.ServerDamage(damage, transform.position, NetworkObjectId);
+                victim.ServerDamage(damage * mult, transform.position, NetworkObjectId);
+                if (currentMove == Move.Heavy && victim.TryGetComponent<KnockbackReceiver>(out var kb))
+                    kb.KnockbackRpc((victim.transform.position - transform.position).normalized * 6f + Vector3.up * 2f);
+            }
+            if (currentMove == Move.Heavy) ImpactThudRpc(transform.position + transform.forward * 1.2f);
+            // Flurry: the second blow follows fast.
+            if (flurryLeft > 0)
+            {
+                flurryLeft--;
+                attacking = true;
+                strikeAt = Time.time + 0.32f;
+                busyUntil = strikeAt + recovery;
+                PlayActionRpc(RigAction.Windup, 0.32f);
             }
         }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ImpactThudRpc(Vector3 at)
+        {
+            Sfx.Play(Sound.Slam, at, 0.6f, 1.3f);
+            Vfx.Smoke(at, 2, 0.4f, 0.8f);
+        }
+
+        /// <summary>Server: start a lunge if one fits (mid range, clear line, off cooldown). Returns true if it began.</summary>
+        private bool TryLunge(float dist)
+        {
+            if (!UsesMoveSet || Time.time < lungeReadyAt || dist < LungeMin || dist > LungeMax || target == null) return false;
+            if (!CombatQuery.ClearLine(transform.position + Vector3.up * 1.2f, target)) return false;
+            lungeReadyAt = Time.time + LungeCooldown * Random.Range(0.8f, 1.3f);
+            if (Random.value > 0.55f) return false;
+            lungeDir = target.transform.position - transform.position;
+            lungeDir.y = 0f;
+            lungeDir.Normalize();
+            transform.rotation = Quaternion.LookRotation(lungeDir);
+            currentMove = Move.Lunge;
+            agent.isStopped = true;
+            lungeTravelled = 0f;
+            lungeHit.Clear();
+            float w = 0.55f;
+            lungeStartAt = Time.time + w;
+            busyUntil = lungeStartAt + 0.6f + recovery;
+            PlayActionRpc(RigAction.Windup, w);
+            LungeWarnRpc(transform.position, lungeDir, Mathf.Min(dist + 1.5f, LungeMax + 1f), w);
+            return true;
+        }
+        private float lungeStartAt = -1f;
+
+        private void StepLunge()
+        {
+            float step = LungeSpeed * Time.deltaTime;
+            var before = transform.position;
+            agent.Move(lungeDir * step);
+            float moved = Vector3.Distance(before, transform.position);
+            lungeTravelled += moved;
+            foreach (var victim in CombatQuery.Circle(transform.position + Vector3.up * 0.9f, 1.1f, Team.Players))
+            {
+                if (!lungeHit.Add(victim)) continue;
+                victim.ServerDamage(damage * 1.25f, transform.position - lungeDir, NetworkObjectId);
+            }
+            if (moved < step * 0.3f || lungeTravelled >= LungeMax + 1f || lungeHit.Count > 0)
+            {
+                lunging = false;
+                PlayActionRpc(RigAction.Swing, 0.3f);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void LungeWarnRpc(Vector3 from, Vector3 dir, float length, float seconds) =>
+            Telegraph.ShowLine(from, dir, length, 1.2f, seconds, this);
 
         protected Health PickTarget()
         {
@@ -513,6 +655,9 @@ namespace Deepbound.Enemies
             if (IsDead) return;
             stunnedUntil = Mathf.Max(stunnedUntil, Time.time + seconds);
             attacking = false;
+            lunging = false;
+            lungeStartAt = -1f;
+            flurryLeft = 0;
             busyUntil = 0f;
             PlayActionRpc(RigAction.Stagger, Mathf.Min(seconds, 0.6f));
         }
@@ -547,7 +692,9 @@ namespace Deepbound.Enemies
         private void ServerSyncStatus()
         {
             // Bits: 1 stunned, 2 taunted, 4 winding up an attack (the HUD shows a "!" tell).
-            byte s = (byte)((IsStunned ? 1 : 0) | (Taunter != null ? 2 : 0) | (attacking ? 4 : 0));
+            bool lungeTell = lungeStartAt > 0f || lunging;
+            byte s = (byte)((IsStunned ? 1 : 0) | (Taunter != null ? 2 : 0) | (attacking || lungeTell ? 4 : 0)
+                | (attacking && currentMove == Move.Heavy ? 8 : 0) | (attacking && currentMove == Move.Sweep ? 16 : 0) | (lungeTell ? 32 : 0));
             if (Status.Value != s) Status.Value = s;
         }
 

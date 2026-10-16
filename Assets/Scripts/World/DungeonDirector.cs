@@ -268,6 +268,10 @@ namespace Deepbound.World
             if (IsServer) Player.PlayerVoice.ServerHeard += ServerNoise;
             Instance = this;
             Floor.OnValueChanged += (_, now) => BuildLocal(now);
+            Phase.OnValueChanged += (_, now) =>
+            {
+                if (now == RunPhase.FloorCleared && Layout != null && built != null) Art.ExitPortal.Spawn(ExitPosition, built.transform);
+            };
 
             if (IsServer) EnterLobby();
             else BuildLocal(Floor.Value);
@@ -338,6 +342,9 @@ namespace Deepbound.World
         }
 
         [SerializeField] private NetworkObject diceTablePrefab;
+        [SerializeField] private NetworkObject catPrefab;
+        [SerializeField] private NetworkObject slotMachinePrefab;
+        [SerializeField] private NetworkObject blackjackPrefab;
         [SerializeField] private NetworkObject cofferPrefab;
         [SerializeField] private NetworkObject gongPrefab;
         [SerializeField] private NetworkObject shrinePrefab;
@@ -355,6 +362,9 @@ namespace Deepbound.World
             Put(anvilPrefab, Lobby.AnvilSpot, Lobby.AnvilFacing);
             Put(diceTablePrefab, Lobby.DiceSpot, Lobby.TentFacing);
             Put(cofferPrefab, Lobby.CofferSpot, Lobby.TentFacing);
+            Put(slotMachinePrefab, Lobby.SlotSpot, Lobby.TentFacing);
+            Put(blackjackPrefab, Lobby.BlackjackSpot, Vector3.back);
+            Put(catPrefab, Lobby.Origin + new Vector3(0.6f, 0f, -8f), Vector3.forward);
             Put(gongPrefab, Lobby.GongSpot, Lobby.GongFacing);
             Put(shrinePrefab, Lobby.ShrineSpot, Vector3.left);
             Put(omenStonePrefab, Lobby.OmenSpot, Vector3.left);
@@ -389,11 +399,32 @@ namespace Deepbound.World
         }
 
         /// <summary>Server: the carriage leaves — for the next floor of this run, or a new run.</summary>
+        public const float DepartSeconds = 2.6f;
+        private float departAt = -1f;
+
+        /// <summary>Server: the carriage goes. A beam of light takes the party first (a short cutscene), then the floor starts.</summary>
         public void ServerBoard()
         {
-            if (!IsServer) return;
+            if (!IsServer || departAt > 0f) return;
+            departAt = Time.time + DepartSeconds;
+            DepartRpc();
+        }
+
+        private void ServerFinishBoarding()
+        {
+            departAt = -1f;
             if (RunInProgress) StartFloor(NextDepth.Value);
             else ServerStartRun();
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void DepartRpc()
+        {
+            foreach (var p in PlayerLife.All)
+                if (p != null) Art.TeleportBeam.On(p.transform, false, DepartSeconds);
+            Art.Sfx.Play2D(Art.Sound.Relic, 0.9f);
+            Art.Sfx.Play2D(Art.Sound.Revive, 0.6f);
+            UI.GameHud.BeginDeparture(DepartSeconds);
         }
 
         /// <summary>Server: board the carriage and start floor one. Also used by the smoke test.</summary>
@@ -548,7 +579,7 @@ namespace Deepbound.World
 
                 // More players, more bodies: scale the room's head count, cycling through its
                 // spawn points with a little jitter for the extras.
-                int count = Mathf.RoundToInt(room.EnemySpawns.Count * Difficulty.SpawnCount(players) * Difficulty.Level.SpawnMultiplier * OmenCrowd);
+                int count = Mathf.Max(2, Mathf.RoundToInt(room.EnemySpawns.Count * Difficulty.RoomCrowd * Difficulty.SpawnCount(players) * Difficulty.Level.SpawnMultiplier * OmenCrowd));
                 bool hasBrute = false, hasNecro = false;
 
                 for (int i = 0; i < count; i++)
@@ -838,6 +869,11 @@ namespace Deepbound.World
             switch (Phase.Value)
             {
                 case RunPhase.Lobby:
+                    if (departAt > 0f)
+                    {
+                        if (Time.time >= departAt) ServerFinishBoarding();
+                        break;
+                    }
                     // Everyone in the boarding circle starts a short countdown; anyone
                     // stepping out cancels it. One player can start a solo run.
                     if (EveryoneAboard())
@@ -861,14 +897,35 @@ namespace Deepbound.World
                     else if (bossSeen && (boss == null || boss.IsDead))
                     {
                         ContractOnFloorCleared();
-                        bool last = Floor.Value.y >= FloorsPerRun - 1;
-                        EnterPhase(last ? RunPhase.RunComplete : RunPhase.FloorCleared, last ? CompleteDelay : DescendDelay);
+                        // No timer: a portal opens where the boss stood, and the party leaves when everyone steps in.
+                        ExitFinal.Value = Floor.Value.y >= FloorsPerRun - 1;
+                        EnterPhase(RunPhase.FloorCleared, 0f);
+                        phaseTimer = double.MaxValue;
+                        PhaseEndsAt.Value = 0;
                         // The cleared floor is safe: pick everyone up.
                         foreach (var p in PlayerLife.All)
                         {
                             if (p.Downed.Value) p.ServerRevive(0.5f);
                         }
                     }
+                    break;
+
+                case RunPhase.FloorCleared:
+                    // Everyone at the portal starts a short countdown; anyone stepping out cancels it.
+                    if (PlayersAtExit() == PlayerLife.All.Count && PlayerLife.All.Count > 0)
+                    {
+                        if (PhaseEndsAt.Value <= 0) PhaseEndsAt.Value = now + ExitDelay;
+                        else if (now >= PhaseEndsAt.Value)
+                        {
+                            if (ExitFinal.Value) EnterPhase(RunPhase.RunComplete, CompleteDelay);
+                            else
+                            {
+                                NextDepth.Value = Floor.Value.y + 1;
+                                EnterLobby(keepRun: true);
+                            }
+                        }
+                    }
+                    else if (PhaseEndsAt.Value > 0) PhaseEndsAt.Value = 0;
                     break;
 
                 default:
@@ -882,6 +939,38 @@ namespace Deepbound.World
                         else EnterLobby();
                     }
                     break;
+            }
+        }
+
+        /// <summary>After the boss: the last floor's portal ends the run; the others go back to camp.</summary>
+        public readonly NetworkVariable<bool> ExitFinal = new NetworkVariable<bool>();
+        public const float ExitRadius = 3.2f, ExitDelay = 3f;
+
+        /// <summary>Where the way out opens: the boss's throne spot.</summary>
+        public static Vector3 ExitPosition => Layout != null ? Layout.BossSpawn : Vector3.zero;
+
+        public static int PlayersAtExit()
+        {
+            int n = 0;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null) continue;
+                var d = p.transform.position - ExitPosition;
+                d.y = 0f;
+                if (d.magnitude <= ExitRadius) n++;
+            }
+            return n;
+        }
+
+        /// <summary>Server (tests): bring everyone to the portal.</summary>
+        public void ServerDebugGatherAtExit()
+        {
+            int i = 0;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null) continue;
+                var at = ExitPosition + Quaternion.Euler(0f, i++ * 90f, 0f) * Vector3.forward * 1.2f + Vector3.up * 0.1f;
+                p.GetComponent<NetworkPlayer>().RescueRpc(at);
             }
         }
 

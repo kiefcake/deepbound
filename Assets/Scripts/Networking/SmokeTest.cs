@@ -46,8 +46,28 @@ namespace Deepbound.Networking
             Application.Quit(1);
         }
 
+        /// <summary>
+        /// Server: the test player has no passive regeneration any more and the dead hit harder, so a
+        /// long run of checks would wear them down and wipe the party mid-test. Top them up when low
+        /// (never reviving: checks that down a player on purpose still do).
+        /// </summary>
+        private IEnumerator Guardian()
+        {
+            while (true)
+            {
+                yield return new WaitForSeconds(0.5f);
+                var net = NetworkManager.Singleton;
+                if (net == null || !net.IsServer) continue;
+                var me = NetworkPlayer.Local;
+                if (me == null) continue;
+                var life = me.GetComponent<PlayerLife>();
+                if (life != null && !life.Downed.Value && life.Health.IsAlive && life.Health.Fraction < 0.35f) life.Health.ServerSetFraction(0.8f);
+            }
+        }
+
         private IEnumerator Sequence(float seconds)
         {
+            StartCoroutine(Guardian());
             // The client is downed by the host's bleed-out check: its owner gets the death recap.
             bool recapSeen = false;
             PlayerLife.DownedRecap += (killer, lines) => { if (recapSeen) return; recapSeen = true; Log("death recap", "downed by " + killer + " | " + lines.Replace("\n", "; ").Replace("\t", " "), !string.IsNullOrEmpty(killer)); };
@@ -241,6 +261,7 @@ namespace Deepbound.Networking
                 if (gateBoss != null && gateBoss is GravewardenBrain)
                 {
                     var bh = gateBoss.Health;
+                    gateBoss.Dormant = false; // asleep it is immune; the gate test needs it awake
                     bh.ServerSetFraction(0.56f);
                     yield return null;
                     bh.ServerDamage(bh.Max.Value * 0.3f, gateBoss.transform.position + gateBoss.transform.forward * -3f);
@@ -292,6 +313,7 @@ namespace Deepbound.Networking
                             local.GetComponent<Health>().ServerSetFraction(1f);
                             yield return new WaitForSeconds(0.1f);
                         }
+                        yield return new WaitForSeconds(0.3f);
                         Log("soul skull", "down " + wentDown + ", skull " + (skullT != null) + ", F-revive blocked " + noFRevive + ", carrying slows " + slowed + ", returned " + !otherLife.Downed.Value,
                             wentDown && noFRevive && slowed && !otherLife.Downed.Value && SoulSkull.For(otherLife.NetworkObjectId) == null);
                     }
@@ -299,6 +321,26 @@ namespace Deepbound.Networking
                     foreach (var pl in PlayerLife.All) { if (pl.Downed.Value) pl.ServerRevive(1f); pl.Health.ServerSetFraction(1f); }
                     fm.Teleport(safeAt, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
+                }
+
+                // The potion pouch: a health potion mends over time; the pouch holds five of a kind; no passive regen.
+                {
+                    var pouch = local.GetComponent<Flasks>();
+                    var ph = local.GetComponent<Health>();
+                    if (pouch != null)
+                    {
+                        ph.ServerSetFraction(0.4f);
+                        yield return new WaitForSeconds(1.5f);
+                        bool noRegen = ph.Fraction <= 0.401f;
+                        pouch.ServerAdd(Flasks.Kind.Health, 10);
+                        bool capped = pouch.Count(Flasks.Kind.Health) == Flasks.Max;
+                        pouch.ServerDebugDrink(Flasks.Kind.Health);
+                        yield return new WaitForSeconds(Flasks.HealSeconds + 0.4f);
+                        float after = ph.Fraction;
+                        Log("potion pouch", "no regen " + noRegen + ", capped at " + pouch.Count(Flasks.Kind.Health) + "+1, hp 40% -> " + Mathf.RoundToInt(after * 100f) + "%",
+                            noRegen && capped && after >= 0.8f && pouch.Count(Flasks.Kind.Health) == Flasks.Max - 1);
+                        ph.ServerSetFraction(1f);
+                    }
                 }
 
                 // The pack: stow, wear from it (the worn piece takes its place), scrap, drop, take off.
@@ -360,7 +402,7 @@ namespace Deepbound.Networking
                 {
                     var lfm = local.GetComponent<FirstPersonMotor>();
                     var stand = farRoom.Center + Vector3.up * 0.1f;
-                    var mAt = farRoom.Center + Vector3.forward * 7f;
+                    var mAt = farRoom.Center + Vector3.forward * 9.5f; // beyond lunge range, so it has to walk
                     if (UnityEngine.AI.NavMesh.SamplePosition(mAt, out var mh, 3f, UnityEngine.AI.NavMesh.AllAreas)) mAt = mh.position;
                     lfm.Teleport(stand, Quaternion.LookRotation(mAt - stand));
                     yield return new WaitForSeconds(0.3f);
@@ -372,7 +414,7 @@ namespace Deepbound.Networking
                         bool frozen = mourner.Seen.Value;
                         var lookAway = stand - mAt; lookAway.y = 0f;
                         lfm.Teleport(stand, Quaternion.LookRotation(lookAway));
-                        for (int k = 0; k < 20; k++) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                        for (int k = 0; k < 30; k++) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
                         float unseenMove = Vector3.Distance(mourner.transform.position, mAt);
                         Log("mourner", "watched: seen " + frozen + ", moved " + watchedMove.ToString("F2") + " m; unwatched moved " + unseenMove.ToString("F1") + " m (seen now " + mourner.Seen.Value +
                             ", agent " + (mourner.GetComponent<UnityEngine.AI.NavMeshAgent>().enabled ? "on" : "off") + ", watchers " + string.Join(",", PlayerLife.All.Where(pl => pl != null).Select(pl => pl.name + "@" + Vector3.Distance(pl.transform.position, mourner.transform.position).ToString("F0"))) + ")",
@@ -753,11 +795,22 @@ namespace Deepbound.Networking
 
             if (net.IsServer && boss != null)
             {
+                // Asleep (party not all inside): hits from the doorway do nothing and the gates stay open.
+                bool wasDormant = boss.Dormant;
+                float hpBefore = boss.Health.Current.Value;
+                boss.Health.ServerDamage(60f, boss.transform.position + boss.transform.forward * 6f);
+                yield return new WaitForSeconds(0.3f);
+                Log("boss asleep until the party is in", "dormant " + wasDormant + ", hp " + hpBefore.ToString("F0") + " -> " + boss.Health.Current.Value.ToString("F0") + ", sealed " + DungeonDirector.Instance.BossSealed,
+                    !wasDormant || (Mathf.Approximately(hpBefore, boss.Health.Current.Value) && boss.Dormant && !DungeonDirector.Instance.BossSealed));
                 boss.Health.ServerDamage(1e6f, boss.transform.position);
                 yield return new WaitForSeconds(1f);
                 var phase = DungeonDirector.Instance.Phase.Value;
                 Log("boss kill -> phase", phase.ToString(), phase == RunPhase.FloorCleared);
-                Log("boss arena", "sealed when hit: " + DungeonDirector.Instance.BossSealed, DungeonDirector.Instance.BossSealed);
+                // No timer: the party leaves when everyone is at the portal.
+                yield return new WaitForSeconds(2f);
+                bool stillHere = DungeonDirector.Instance.Phase.Value == RunPhase.FloorCleared;
+                DungeonDirector.Instance.ServerDebugGatherAtExit();
+                Log("exit at will", "waited without leaving " + stillHere, stillHere);
             }
 
             // After the boss the party goes home to camp, run intact; spend there, then ride down.
@@ -770,6 +823,42 @@ namespace Deepbound.Networking
                 var pc = local.GetComponent<PlayerProgress>();
                 Log("camp between floors", "in camp " + DungeonDirector.InLobby + ", next floor " + (dc.NextDepth.Value + 1) + ", kills kept " + pc.Kills.Value + ", gold " + pc.Gold.Value,
                     DungeonDirector.InLobby && dc.RunInProgress && dc.NextDepth.Value == 1 && pc.Kills.Value > 0);
+                // The tent's new games, the cat, and solid props.
+                {
+                    var slotsT = FindObjectsByType<SlotMachine>(FindObjectsSortMode.None).FirstOrDefault();
+                    var bjT = FindObjectsByType<BlackjackTable>(FindObjectsSortMode.None).FirstOrDefault();
+                    var catT = FindObjectsByType<CampCat>(FindObjectsSortMode.None).FirstOrDefault();
+                    var gp = local.GetComponent<PlayerProgress>();
+                    var gm = local.GetComponent<FirstPersonMotor>();
+                    gp.ServerAddGold(200);
+                    bool slotOk = false, bjOk = false;
+                    if (slotsT != null)
+                    {
+                        gm.Teleport(slotsT.transform.position + slotsT.transform.forward * 1.4f + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return new WaitForSeconds(0.3f);
+                        int g0 = gp.Gold.Value;
+                        slotsT.UseRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.3f);
+                        int delta = gp.Gold.Value - g0;
+                        slotOk = delta == -SlotMachine.Stake || delta > 0;
+                    }
+                    if (bjT != null)
+                    {
+                        gm.Teleport(bjT.transform.position + bjT.transform.forward * 1.3f + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return new WaitForSeconds(0.3f);
+                        int g0 = gp.Gold.Value;
+                        bjT.UseRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.3f);
+                        bool dealt = gp.Gold.Value != g0 || BlackjackTable.LocalOpen;
+                        bjT.StandRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.3f);
+                        bjOk = dealt && BlackjackTable.LocalOpen;
+                    }
+                    int solid = 0;
+                    foreach (var bc in FindObjectsByType<BoxCollider>(FindObjectsSortMode.None)) if (bc.GetComponent<MeshRenderer>() != null && bc.GetComponentInParent<Unity.Netcode.NetworkObject>() == null) solid++;
+                    Log("tent games and the cat", "slots " + slotOk + ", blackjack " + bjOk + ", cat " + (catT != null) + ", solid props " + solid, slotOk && bjOk && catT != null && solid > 10);
+                    gm.Teleport(Lobby.Origin + Vector3.up * 0.1f, local.transform.rotation);
+                }
                 Log("camp stations", FindObjectsByType<Anvil>(FindObjectsSortMode.None).Length + " anvil, " + FindObjectsByType<DiceTable>(FindObjectsSortMode.None).Length + " dice, " +
                     FindObjectsByType<MysteryCoffer>(FindObjectsSortMode.None).Length + " coffer, " + FindObjectsByType<Gong>(FindObjectsSortMode.None).Length + " gong",
                     FindObjectsByType<Anvil>(FindObjectsSortMode.None).Length == 1 && FindObjectsByType<DiceTable>(FindObjectsSortMode.None).Length == 1 && FindObjectsByType<Gong>(FindObjectsSortMode.None).Length == 1);
@@ -1260,6 +1349,32 @@ namespace Deepbound.Networking
                 ap.ServerResetRun();
             }
 
+            {
+                var lm = local.GetComponent<FirstPersonMotor>();
+                var cat = FindObjectsByType<CampCat>(FindObjectsSortMode.None).FirstOrDefault();
+                if (cat != null)
+                {
+                    var cp = cat.transform.position + cat.transform.forward * 1.6f + cat.transform.right * 0.6f + Vector3.up * 0.1f;
+                    lm.Teleport(cp, Quaternion.LookRotation(cat.transform.position - cp));
+                    lm.SetPitch(30f);
+                    yield return new WaitForSeconds(0.2f);
+                    yield return Shot(dir, "0s_cat");
+                }
+                var tentFrom = Lobby.TentCenter + new Vector3(2.6f, 0.1f, 0f);
+                lm.Teleport(tentFrom, Quaternion.LookRotation(Lobby.TentCenter + new Vector3(-2f, 0f, -0.6f) - tentFrom));
+                lm.SetPitch(12f);
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, "0s_tent_games");
+                lm.SetPitch(0f);
+                lm.Teleport(Lobby.BoardingCenter + Vector3.up * 0.1f, Quaternion.LookRotation(Vector3.back));
+                yield return new WaitForSeconds(0.3f);
+                UI.GameHud.BeginDeparture(DungeonDirector.DepartSeconds);
+                Art.TeleportBeam.On(local.transform, false, DungeonDirector.DepartSeconds);
+                yield return new WaitForSeconds(0.9f);
+                yield return Shot(dir, "0t_departure");
+                yield return new WaitForSeconds(1.2f);
+            }
+
             DungeonDirector.Instance.ServerStartRun();
             yield return new WaitForSeconds(2.5f);
 
@@ -1418,6 +1533,29 @@ namespace Deepbound.Networking
                 motor.Teleport(rp, Quaternion.LookRotation(relS.transform.position + Vector3.up * 0.4f - rp - Vector3.up * 1.6f));
                 yield return new WaitForSeconds(0.6f);
                 yield return Shot(dir, "1m_reliquary");
+            }
+
+            {
+                var lever = FindObjectsByType<Lever>(FindObjectsSortMode.None).FirstOrDefault();
+                if (lever != null)
+                {
+                    var lp = lever.transform.position + lever.transform.forward * 2.2f + Vector3.up * 0.1f;
+                    motor.Teleport(lp, Quaternion.LookRotation(lever.transform.position + Vector3.up * 1.3f - lp - Vector3.up * 1.6f));
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot(dir, "1n_vault_lever");
+                }
+                var bossNow = BossBrain.Active;
+                if (bossNow != null && !bossNow.IsDead)
+                {
+                    bossNow.Health.ServerDamage(1e6f, bossNow.transform.position);
+                    yield return new WaitForSeconds(1.2f);
+                    var ex = DungeonDirector.ExitPosition;
+                    var ep = ex + (layout.BossRoom.Center - ex).normalized * 7f + Vector3.up * 0.1f;
+                    if ((ep - ex).sqrMagnitude < 1f) ep = ex + Vector3.back * 7f + Vector3.up * 0.1f;
+                    motor.Teleport(ep, Quaternion.LookRotation(ex - ep));
+                    yield return new WaitForSeconds(7f);
+                    yield return Shot(dir, "4c_exit_portal");
+                }
             }
 
             // One look at each later floor's theme.

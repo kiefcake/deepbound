@@ -51,7 +51,9 @@ namespace Deepbound.Loot
 
         public static readonly LootTable Skeleton = new LootTable()
             .Add(0.75f, LootKind.Gold, 3, 8)
-            .Add(0.35f, LootKind.Embers, 1, 3);
+            .Add(0.35f, LootKind.Embers, 1, 3)
+            .Add(0.2f, LootKind.PotionHP, 1, 1)
+            .Add(0.1f, LootKind.PotionMP, 1, 1);
 
         /// <summary>Elites: worth hunting. A real chance at a relic.</summary>
         public static readonly LootTable Elite = new LootTable()
@@ -59,7 +61,9 @@ namespace Deepbound.Loot
             .Add(1f, LootKind.Embers, 6, 10)
             .Add(0.3f, LootKind.Relic)
             .Add(0.15f, LootKind.Sigil)
-            .Add(0.2f, LootKind.Rune);
+            .Add(0.2f, LootKind.Rune)
+            .Add(0.6f, LootKind.PotionHP, 1, 1)
+            .Add(0.35f, LootKind.PotionMP, 1, 1);
 
         /// <summary>Side-room chests: worth the detour.</summary>
         public static readonly LootTable Chest = new LootTable()
@@ -67,17 +71,22 @@ namespace Deepbound.Loot
             .Add(1f, LootKind.Embers, 8, 14)
             .Add(0.3f, LootKind.Relic)
             .Add(0.25f, LootKind.Sigil)
-            .Add(0.3f, LootKind.Rune);
+            .Add(0.3f, LootKind.Rune)
+            .Add(0.75f, LootKind.PotionHP, 1, 2)
+            .Add(0.4f, LootKind.PotionMP, 1, 1);
 
         /// <summary>Clay urns: pocket change, now and then an ember.</summary>
         public static readonly LootTable Urn = new LootTable()
             .Add(0.6f, LootKind.Gold, 2, 6)
-            .Add(0.1f, LootKind.Embers, 1, 2);
+            .Add(0.1f, LootKind.Embers, 1, 2)
+            .Add(0.08f, LootKind.PotionHP, 1, 1);
 
         /// <summary>Every boss always pays out — a boss kill should never feel wasted.</summary>
         public static readonly LootTable SkeletonKing = new LootTable()
             .Add(1f, LootKind.Gold, 40, 60)
             .Add(1f, LootKind.Relic)
-            .Add(1f, LootKind.Embers, 30, 40);
+            .Add(1f, LootKind.Embers, 30, 40)
+            .Add(1f, LootKind.PotionHP, 2, 2)
+            .Add(1f, LootKind.PotionMP, 1, 1);
     }
 }

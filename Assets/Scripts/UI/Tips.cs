@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "camp", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell",
+            "camp", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -44,6 +44,12 @@ namespace Deepbound.UI
 
             if (DungeonDirector.InLobby)
             {
+                foreach (var it in Interactable.All)
+                {
+                    if (it == null || Vector3.Distance(it.transform.position, me) > 6f) continue;
+                    if (it is SlotMachine || it is BlackjackTable) Offer("gamble2", "THE TENT: the Bone Reels pay big for three of a kind; at Deadman's Hand beat the skeleton dealer to 21. HIT or STAND in the table's panel.");
+                    if (it is CampCat) Offer("cat", "The castle cat. Press F to pet it. Sometimes it has found something for you.");
+                }
                 Offer("camp", "CAMP: trade at the merchant, temper your weapon at the anvil, take a contract at the bounty board and set an omen at the stone. Board the carriage when ready.");
                 return;
             }
@@ -66,11 +72,16 @@ namespace Deepbound.UI
             var progT = player.GetComponent<Progression.PlayerProgress>();
             if (progT != null && progT.BagCount > 0)
                 Offer("inventory", "Your old gear went in your PACK. Press I for the inventory: click to wear, right-click to scrap, shift-click to drop.");
+            foreach (var it in Interactable.All)
+                if (it is Lever lv && !lv.Pulled.Value && Vector3.Distance(lv.transform.position, me) < 9f)
+                    Offer("levers", "A VAULT LEVER. Three are bolted to walls in different rooms on this floor; pull all three (they stay down) to open the vault.");
+            if (player.GetComponent<Health>().Fraction < 0.5f)
+                Offer("potions", "You do not heal on your own down here. Press 1 to drink a Health Potion (your pouch holds 5); the dead drop more.");
             if (ult != null && ult.Ready) Offer("ult", "Your ULTIMATE is charged: press R.");
 
             var deb = player.GetComponent<PlayerDebuffs>();
             if (deb != null && (deb.Poisoned || deb.Frostbitten || deb.Cursed))
-                Offer("afflicted", "You are AFFLICTED. Holy Water (3) cleanses it; a curse also ends when its Hexer dies.");
+                Offer("afflicted", "You are AFFLICTED. Holy Water (4) cleanses it; a curse also ends when its Hexer dies.");
 
             foreach (var h in Health.All)
             {

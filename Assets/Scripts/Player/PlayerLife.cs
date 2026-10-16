@@ -315,10 +315,12 @@ namespace Deepbound.Player
         private void ServerRegen()
         {
             if (progress == null || progress.Stats == null || !Health.IsAlive) return;
+            // No passive regeneration (play-test, 2026-10-16): healing comes from the potion pouch,
+            // the fountain, Holy Water and the Cleric. Only the Thornhide Jerkin still mends you, when badly hurt.
             bool desperate = progress.DesperateRegen;
-            if ((!desperate && Time.time - lastDamagedAt < 5f) || Health.Current.Value >= Health.Max.Value) return;
+            if (!desperate || Health.Current.Value >= Health.Max.Value) return;
 
-            regenCarry += (2f + progress.Value(StatType.VIT) * 0.12f) * (desperate ? 3f : 1f) * Time.deltaTime;
+            regenCarry += (2f + progress.Value(StatType.VIT) * 0.12f) * 3f * Time.deltaTime;
             if (regenCarry >= 1f)
             {
                 float whole = Mathf.Floor(regenCarry);

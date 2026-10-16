@@ -78,9 +78,9 @@ namespace Deepbound.Enemies
                     bool boss = b is BossBrain;
                     var kit = Loadout.For(depth);
                     float swing = SwingDamage * (0.5f + kit.Att / 50f) * kit.DamageMult * (boss && !kit.Charm.IsEmpty ? 1.25f : 1f); // Hunter's Tooth vs bosses
-                    float hp = b.BaseHealth * (boss ? Difficulty.BossHealth(1) : Difficulty.EnemyHealth(1)) * Difficulty.DepthHealth(depth);
+                    float hp = b.BaseHealth * (boss ? Difficulty.BossHealth(1) : Difficulty.EnemyHealth(1) * Difficulty.RankHealth) * Difficulty.DepthHealth(depth);
                     float perSwing = Mathf.Max(swing - b.BaseDefense * Combat.Health.DefenseWeight, swing * Combat.Health.MinDamageFraction);
-                    float hit = b.BaseDamage * Difficulty.Damage(1) * Difficulty.DepthDamage(depth);
+                    float hit = b.BaseDamage * Difficulty.Damage(1) * Difficulty.DepthDamage(depth) * (boss ? 1f : Difficulty.RankDamage);
                     float taken = Mathf.Max(hit - kit.Def * Combat.Health.DefenseWeight, hit * Combat.Health.MinDamageFraction);
                     rows.Add(Make(b.name, depth, hp, hit, perSwing, taken, kit.Hp, b.AttackCycle, b));
                     // The first boss, alone: the shield takes most frontal hits; openings after each sweep let some through.

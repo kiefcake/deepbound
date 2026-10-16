@@ -217,6 +217,13 @@ namespace Deepbound.Enemies
         }
 
         [Rpc(SendTo.ClientsAndHost)]
+        private void DormantFxRpc(Vector3 at)
+        {
+            UI.GameHud.ShowCombo(at, "ASLEEP: ENTER THE ARENA", new Color(0.6f, 0.75f, 1f));
+            Sfx.Play(Sound.Block, at, 0.4f, 1.6f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
         private void ImmuneFxRpc(Vector3 at)
         {
             UI.GameHud.ShowCombo(at, "IMMUNE", new Color(0.6f, 0.75f, 1f));
@@ -264,7 +271,18 @@ namespace Deepbound.Enemies
             Active = this;
             if (IsServer)
             {
-                health.DamagedServer += (_, __) => Dormant = false;
+                // Asleep on its throne it cannot be hurt (no plinking it from the doorway, no
+                // sealing the gates on half the party); the director wakes it when everyone is in.
+                health.IncomingModifiers.Insert(0, (dmg, from) =>
+                {
+                    if (!Dormant || dmg >= KillDamage) return dmg;
+                    if (Time.time >= nextImmuneFx)
+                    {
+                        nextImmuneFx = Time.time + 0.6f;
+                        DormantFxRpc(transform.position + Vector3.up * (health.CenterHeight * 1.6f));
+                    }
+                    return 0f;
+                });
             }
         }
 

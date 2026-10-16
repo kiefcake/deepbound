@@ -76,6 +76,7 @@ namespace Deepbound.Player
         public Color ResourceColor => new Color(0.45f, 0.85f, 0.4f);
         public float Resource => Focus;
         public float ResourceMax => FocusMax;
+        public void RestoreResource(float fraction) => Focus = Mathf.Min(ResourceMax, Focus + ResourceMax * fraction);
         public float Charge => drawStart < 0f ? 0f : Mathf.Clamp01((Time.time - drawStart) / DrawFull);
 
         public void FillAbilities(List<AbilityView> into)

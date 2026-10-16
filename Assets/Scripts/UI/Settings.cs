@@ -73,7 +73,7 @@ namespace Deepbound.UI
         /// <summary>Open mic: the microphone level (RMS) that opens it.</summary>
         public static float MicThreshold
         {
-            get => micThresh ??= Load(MicThreshKey, 0.012f);
+            get => micThresh ??= Load(MicThreshKey, 0.025f);
             set { micThresh = Mathf.Clamp(value, 0.002f, 0.08f); Save(MicThreshKey, micThresh.Value); }
         }
 

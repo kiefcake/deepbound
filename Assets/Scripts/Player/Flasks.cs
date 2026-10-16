@@ -10,23 +10,28 @@ using UnityEngine.InputSystem;
 namespace Deepbound.Player
 {
     /// <summary>
-    /// Alchemist's flasks, thrown with 1 / 2 / 3, for every class. Bought at the merchant
-    /// (a satchel: one of each), carried up to three of a kind, lobbed at the crosshair.
+    /// The potion pouch, for every class: up to <see cref="Max"/> of each kind. Health and mana
+    /// potions are drunk; frost and holy flasks are thrown at the crosshair. Potions drop from the
+    /// dead, come out of chests, and are sold by the merchant. There is no passive regeneration:
+    /// the pouch is how you heal between fights.
     ///
     /// <list type="bullet">
-    /// <item><b>1 — Fire Flask.</b> A pool of burning pitch: the dead in it burn for 4 s. Sets off powder barrels.</item>
-    /// <item><b>2 — Frost Flask.</b> A burst of rime that chills everything it touches (Shatter!), and
-    ///   freezes solid whatever stands in water.</item>
-    /// <item><b>3 — Holy Water.</b> The dead reel (stunned) and burn; allies in the splash are mended.</item>
+    /// <item><b>1 — Health Potion.</b> Mends 45% of your health over 3 seconds.</item>
+    /// <item><b>2 — Mana Potion.</b> Refills 70% of your class resource (mana, stamina, focus, energy).</item>
+    /// <item><b>3 — Frost Flask.</b> Thrown: chills everything it touches (Shatter!), freezes what stands in water.</item>
+    /// <item><b>4 — Holy Water.</b> Thrown: the dead reel (stunned) and burn; allies in the splash are cleansed and mended.</item>
     /// </list>
     /// </summary>
     public class Flasks : NetworkBehaviour
     {
-        public enum Kind : byte { Fire, Frost, Holy }
-        public const int Max = 3;
-        private const float Range = 16f, Flight = 0.55f, Cooldown = 0.8f;
+        public enum Kind : byte { Health, Mana, Frost, Holy }
+        public static readonly Kind[] All = { Kind.Health, Kind.Mana, Kind.Frost, Kind.Holy };
+        public const int Max = 5;
+        public const float HealFraction = 0.45f, HealSeconds = 3f, ManaFraction = 0.7f;
+        private const float Range = 16f, Flight = 0.55f, ThrowCooldown = 0.8f, DrinkCooldown = 1.2f;
 
-        public readonly NetworkVariable<byte> Fire = new NetworkVariable<byte>();
+        public readonly NetworkVariable<byte> Health = new NetworkVariable<byte>();
+        public readonly NetworkVariable<byte> Mana = new NetworkVariable<byte>();
         public readonly NetworkVariable<byte> Frost = new NetworkVariable<byte>();
         public readonly NetworkVariable<byte> Holy = new NetworkVariable<byte>();
 
@@ -35,12 +40,20 @@ namespace Deepbound.Player
         private NetworkPlayer player;
         private PlayerProgress progress;
         private float readyAt;
+        private float healingUntil;
 
-        public static Color ColorOf(Kind k) => k == Kind.Fire ? new Color(1f, 0.45f, 0.15f) : k == Kind.Frost ? new Color(0.55f, 0.85f, 1f) : new Color(1f, 0.92f, 0.6f);
-        public static string NameOf(Kind k) => k == Kind.Fire ? "Fire" : k == Kind.Frost ? "Frost" : "Holy";
+        public static Color ColorOf(Kind k) => k == Kind.Health ? new Color(0.95f, 0.2f, 0.2f) : k == Kind.Mana ? new Color(0.3f, 0.5f, 1f)
+            : k == Kind.Frost ? new Color(0.55f, 0.85f, 1f) : new Color(1f, 0.92f, 0.6f);
+        public static string NameOf(Kind k) => k == Kind.Health ? "Health" : k == Kind.Mana ? "Mana" : k == Kind.Frost ? "Frost" : "Holy";
+        public static string FullName(Kind k) => k == Kind.Health ? "Health Potion" : k == Kind.Mana ? "Mana Potion" : k == Kind.Frost ? "Frost Flask" : "Holy Water";
+        public static bool Drunk(Kind k) => k == Kind.Health || k == Kind.Mana;
 
-        public int Count(Kind k) => k == Kind.Fire ? Fire.Value : k == Kind.Frost ? Frost.Value : Holy.Value;
-        public bool Full => Fire.Value >= Max && Frost.Value >= Max && Holy.Value >= Max;
+        private NetworkVariable<byte> Slot(Kind k) => k == Kind.Health ? Health : k == Kind.Mana ? Mana : k == Kind.Frost ? Frost : Holy;
+        public int Count(Kind k) => Slot(k).Value;
+        public bool IsFull(Kind k) => Count(k) >= Max;
+
+        /// <summary>Is a health potion mending you right now? (HUD.)</summary>
+        public bool Healing => Time.time < healingUntil;
 
         private void Awake()
         {
@@ -50,25 +63,56 @@ namespace Deepbound.Player
             progress = GetComponent<PlayerProgress>();
         }
 
-        /// <summary>Server: a satchel — one more of each, up to the cap.</summary>
-        public void ServerAddSatchel()
+        /// <summary>Server: put potions in the pouch. Returns how many fit (the rest stay where they were).</summary>
+        public int ServerAdd(Kind k, int count)
         {
-            if (Fire.Value < Max) Fire.Value++;
-            if (Frost.Value < Max) Frost.Value++;
-            if (Holy.Value < Max) Holy.Value++;
+            if (!IsServer || count <= 0) return 0;
+            var slot = Slot(k);
+            int fit = Mathf.Min(count, Max - slot.Value);
+            if (fit <= 0) return 0;
+            slot.Value = (byte)(slot.Value + fit);
+            AddedRpc((byte)k, (byte)slot.Value);
+            return fit;
         }
 
-        /// <summary>Server: run over — the satchel empties with everything else.</summary>
-        public void ServerReset() { Fire.Value = 0; Frost.Value = 0; Holy.Value = 0; }
+        [Rpc(SendTo.Owner)]
+        private void AddedRpc(byte kind, byte now)
+        {
+            var k = (Kind)kind;
+            UI.GameHud.Feed("+1 " + FullName(k) + "  (" + now + " / " + Max + ")", ColorOf(k));
+            Sfx.Play2D(Sound.Potion, 0.5f);
+        }
+
+        /// <summary>Server: a new run's pouch: two health potions, one of everything else.</summary>
+        public void ServerStartingPouch()
+        {
+            Health.Value = 2; Mana.Value = 1; Frost.Value = 1; Holy.Value = 1;
+        }
+
+        /// <summary>Server: run over, the pouch empties with everything else.</summary>
+        public void ServerReset() { Health.Value = 0; Mana.Value = 0; Frost.Value = 0; Holy.Value = 0; }
 
         private void Update()
         {
             if (!IsOwner) return;
             var kb = Keyboard.current;
             if (kb == null || Time.time < readyAt || !life.CanAct || !motor.HasControl) return;
-            Kind? k = kb.digit1Key.wasPressedThisFrame ? Kind.Fire : kb.digit2Key.wasPressedThisFrame ? Kind.Frost : kb.digit3Key.wasPressedThisFrame ? Kind.Holy : (Kind?)null;
-            if (k == null || Count(k.Value) <= 0) return;
-            readyAt = Time.time + Cooldown;
+            Kind? k = kb.digit1Key.wasPressedThisFrame ? Kind.Health : kb.digit2Key.wasPressedThisFrame ? Kind.Mana
+                : kb.digit3Key.wasPressedThisFrame ? Kind.Frost : kb.digit4Key.wasPressedThisFrame ? Kind.Holy : (Kind?)null;
+            // Number keys pick a class at camp before a run; there the pouch stays shut.
+            if (k == null || (World.DungeonDirector.InLobby && PlayerProgress.ClassChangeAllowed)) return;
+            if (Count(k.Value) <= 0) { UI.GameHud.Feed("No " + FullName(k.Value) + " in your pouch", new Color(0.8f, 0.6f, 0.5f)); readyAt = Time.time + 0.3f; return; }
+            if (k == Kind.Health && life.Health.Current.Value >= life.Health.Max.Value - 0.5f) { UI.GameHud.Feed("You are already at full health", new Color(0.8f, 0.7f, 0.6f)); readyAt = Time.time + 0.3f; return; }
+            var kit = player.ActiveKit;
+            if (k == Kind.Mana && kit != null && kit.Resource >= kit.ResourceMax - 0.5f) { UI.GameHud.Feed("Your " + kit.ResourceName.ToLowerInvariant() + " is already full", new Color(0.6f, 0.7f, 0.9f)); readyAt = Time.time + 0.3f; return; }
+
+            if (Drunk(k.Value))
+            {
+                readyAt = Time.time + DrinkCooldown;
+                DrinkRpc((byte)k.Value);
+                return;
+            }
+            readyAt = Time.time + ThrowCooldown;
             var origin = player.AimOrigin;
             var dir = player.AimForward;
             Vector3 aim;
@@ -77,10 +121,55 @@ namespace Deepbound.Player
             ThrowRpc((byte)k.Value, aim);
         }
 
+        // ---- Drinking ----
+
+        [Rpc(SendTo.Server)]
+        private void DrinkRpc(byte kind)
+        {
+            var k = (Kind)kind;
+            if (!life.CanAct || Count(k) <= 0 || !Drunk(k)) return;
+            Slot(k).Value--;
+            if (k == Kind.Health) StartCoroutine(Mend());
+            else ManaOwnerRpc();
+            DrinkFxRpc(kind);
+        }
+
+        /// <summary>Server: the health potion's mend, a little at a time (going down ends it).</summary>
+        private IEnumerator Mend()
+        {
+            const int ticks = 12;
+            float each = life.Health.Max.Value * HealFraction / ticks;
+            healingUntil = Time.time + HealSeconds;
+            for (int i = 0; i < ticks; i++)
+            {
+                if (life.Downed.Value) yield break;
+                life.Health.ServerHeal(each);
+                yield return new WaitForSeconds(HealSeconds / ticks);
+            }
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void ManaOwnerRpc() => player.ActiveKit?.RestoreResource(ManaFraction);
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void DrinkFxRpc(byte kind)
+        {
+            var k = (Kind)kind;
+            Sfx.Play(Sound.Drink, transform.position + Vector3.up * 1.5f, 0.8f);
+            Vfx.Embers(transform.position + Vector3.up * 1.2f, 8, ColorOf(k), 1.5f, 0.05f, 0.9f);
+            if (k == Kind.Health) healingUntil = Time.time + HealSeconds;
+            if (IsOwner) player.ViewModelCast(false);
+        }
+
+        /// <summary>Tests: drink as the owner would (host only).</summary>
+        public void ServerDebugDrink(Kind k) => DrinkRpc((byte)k);
+
+        // ---- Throwing ----
+
         /// <summary>Tests: throw as the owner would (host only).</summary>
         public void ServerDebugThrow(Kind k, Vector3 at)
         {
-            if (Count(k) <= 0) ServerAddSatchel();
+            if (Count(k) <= 0) ServerAdd(k, 1);
             ThrowRpc((byte)k, at);
         }
 
@@ -88,8 +177,8 @@ namespace Deepbound.Player
         private void ThrowRpc(byte kind, Vector3 aim)
         {
             var k = (Kind)kind;
-            if (!life.CanAct || Count(k) <= 0) return;
-            if (k == Kind.Fire) Fire.Value--; else if (k == Kind.Frost) Frost.Value--; else Holy.Value--;
+            if (!life.CanAct || Count(k) <= 0 || Drunk(k)) return;
+            Slot(k).Value--;
             var from = transform.position + Vector3.up * 1.5f;
             if (Vector3.Distance(aim, from) > Range + 2f) aim = from + (aim - from).normalized * Range;
             // Land on the floor under the aim point (a wall hit drops to its foot).
@@ -104,14 +193,6 @@ namespace Deepbound.Player
             float att = progress.AttackMultiplier;
             switch (k)
             {
-                case Kind.Fire:
-                    for (int tick = 0; tick < 8; tick++)
-                    {
-                        foreach (var foe in CombatQuery.Circle(at, 3.2f, Team.Enemies).ToArray())
-                            foe.ServerDamage(11f * att, at, NetworkObjectId);
-                        yield return new WaitForSeconds(0.5f);
-                    }
-                    break;
                 case Kind.Frost:
                     foreach (var foe in CombatQuery.Circle(at, 3.6f, Team.Enemies).ToArray())
                     {

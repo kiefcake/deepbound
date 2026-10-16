@@ -43,6 +43,8 @@ namespace Deepbound.Player
         private float resampleCarry;
         private VoiceCodec.State encoder;
         private float openUntil;
+        private float noiseFloor = 0.01f;
+        private float hpPrev, hpOut;
         private float nextShout;
         private readonly Queue<float> injected = new Queue<float>();
 
@@ -131,6 +133,13 @@ namespace Deepbound.Player
                 float rms = VoiceCodec.Rms(frame, 0, frame.Length);
                 MicLevel = rms;
                 if (!forced && !ShouldTransmit(rms)) { encoder = default; continue; }
+                for (int s = 0; s < frame.Length; s++)
+                {
+                    // ~100 Hz one-pole high-pass: takes out hum and desk thumps.
+                    hpOut = 0.962f * (hpOut + frame[s] - hpPrev);
+                    hpPrev = frame[s];
+                    frame[s] = hpOut;
+                }
                 var bytes = VoiceCodec.Encode(frame, 0, ref encoder);
                 Level = Mathf.Max(Level, rms);
                 VoiceUpRpc(bytes, (byte)Mathf.Clamp(Mathf.RoundToInt(rms * 1000f), 0, 255));
@@ -186,7 +195,10 @@ namespace Deepbound.Player
                     var k = Keyboard.current;
                     return k != null && k.tKey.isPressed && !PauseMenu.Open;
                 default:              // open mic, voice-activated, with a short hang so words are not clipped
-                    if (rms >= Settings.MicThreshold) openUntil = Time.time + 0.35f;
+                    // The gate tracks the room's noise floor (hiss, fans, hum) and opens only well above it,
+                    // so a quiet mic never streams static.
+                    noiseFloor = rms < noiseFloor ? Mathf.Lerp(noiseFloor, rms, 0.2f) : Mathf.Lerp(noiseFloor, rms, 0.004f);
+                    if (rms >= Mathf.Max(Settings.MicThreshold, noiseFloor * 3f)) openUntil = Time.time + 0.35f;
                     return Time.time < openUntil;
             }
         }

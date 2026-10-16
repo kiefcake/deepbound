@@ -320,7 +320,18 @@ namespace Deepbound.Progression
         /// offers the choice there, and the server re-checks.
         /// </summary>
         public readonly NetworkVariable<ClassId> ClassId = new NetworkVariable<ClassId>(Classes.ClassId.Knight,
-            NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+            NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Server);
+
+        /// <summary>Can the class change now? Only at camp, before a run begins (never between floors).</summary>
+        public static bool ClassChangeAllowed => World.DungeonDirector.InLobby && (World.DungeonDirector.Instance == null || !World.DungeonDirector.Instance.RunInProgress);
+
+        /// <summary>Owner → server: pick a class. Refused once the run has begun.</summary>
+        [Rpc(SendTo.Server)]
+        public void ChooseClassRpc(ClassId id)
+        {
+            if (!ClassChangeAllowed || (int)id < 0 || (int)id >= System.Enum.GetValues(typeof(ClassId)).Length) return;
+            ClassId.Value = id;
+        }
         private NetworkList<float> bonuses;
         private NetworkList<byte> runeBag;
         public readonly NetworkVariable<byte> Socket0 = new NetworkVariable<byte>();
@@ -836,7 +847,8 @@ namespace Deepbound.Progression
                 case Shop.ItemKind.Heal: return health.Current.Value >= health.Max.Value ? "Already at full health" : null;
                 case Shop.ItemKind.Embers: return null;
                 case Shop.ItemKind.Sigil: return null;
-                case Shop.ItemKind.Flasks: return GetComponent<Player.Flasks>() is var fl && fl != null && fl.Full ? "Satchel full" : null;
+                case Shop.ItemKind.Flasks: return "Sold out";
+                case Shop.ItemKind.Potion: return GetComponent<Player.Flasks>() is var fl && fl != null && fl.IsFull((Player.Flasks.Kind)(int)item.Amount) ? "Pouch full (5)" : null;
                 case Shop.ItemKind.Gear: return gearBoughtSeed == World.DungeonDirector.Instance?.Floor.Value.x ? "Sold" : null;
                 case Shop.ItemKind.Relic: return HasRelic((Relic)(int)item.Amount) ? "Owned" : null;
                 default: return Bonus(item.Stat) + item.Amount > item.Cap + 0.01f ? "Sold out" : null;
@@ -867,9 +879,9 @@ namespace Deepbound.Progression
                     ServerAddSigil();
                     bought = true;
                     break;
-                case Shop.ItemKind.Flasks:
-                    GetComponent<Player.Flasks>()?.ServerAddSatchel();
-                    bought = true;
+                case Shop.ItemKind.Potion:
+                    var pouch = GetComponent<Player.Flasks>();
+                    bought = pouch != null && pouch.ServerAdd((Player.Flasks.Kind)(int)item.Amount, 1) > 0;
                     break;
                 case Shop.ItemKind.Gear:
                     // Laid at your feet, so you can compare it before putting it on.
@@ -908,9 +920,9 @@ namespace Deepbound.Progression
         {
             if (!IsServer) return;
             Stats.ResetRunProgress();
-            // Every run starts with a satchel: one flask of each kind.
+            // Every run starts with a small pouch: two health potions, one of everything else.
             var flasks = GetComponent<Player.Flasks>();
-            if (flasks != null) { flasks.ServerReset(); flasks.ServerAddSatchel(); }
+            if (flasks != null) { flasks.ServerReset(); flasks.ServerStartingPouch(); }
             for (int i = 0; i < Core.Stats.Count; i++) bonuses[i] = 0f;
             Gold.Value = 0;
             Embers.Value = 0;

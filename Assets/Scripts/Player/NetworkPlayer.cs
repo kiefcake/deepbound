@@ -305,7 +305,7 @@ namespace Deepbound.Player
             if (!IsOwner) return;
             Footsteps();
 
-            motor.Frozen = life.Downed.Value;
+            motor.Frozen = life.Downed.Value || UI.GameHud.CutsceneFreeze;
             motor.CameraDrop = life.Downed.Value ? 0.9f : 0f;
 
             viewAnim?.SetCharge(ActiveKit.Charge);
@@ -322,7 +322,7 @@ namespace Deepbound.Player
         private Vector3 vmRestPos;
         private Quaternion vmRestRot = Quaternion.identity;
         private bool vmRestKnown, wasGrounded = true;
-        private float walkPhase, landDip, lastVy, lastYaw, lastPitch, slideLean;
+        private float walkPhase, landDip, lastVy, lastYaw, lastPitch, slideLean, downRoll, downTilt;
         private Vector2 sway;
 
         /// <summary>Owner: animate the view model and return the camera's bob offset.</summary>
@@ -359,7 +359,11 @@ namespace Deepbound.Player
 
             // A slide leans the view; walking nods it a little (scaled with the shake option).
             slideLean = Mathf.MoveTowards(slideLean, sliding ? 7f : 0f, dt * 40f);
-            cam.localRotation = Quaternion.Euler(0f, 0f, slideLean);
+            // Downed: you crumple — the view rolls onto its side and tips up at whatever stands over you.
+            bool down = life != null && life.Downed.Value;
+            downRoll = Mathf.MoveTowards(downRoll, down ? 24f : 0f, dt * (down ? 60f : 90f));
+            downTilt = Mathf.MoveTowards(downTilt, down ? 18f : 0f, dt * (down ? 40f : 80f));
+            cam.localRotation = Quaternion.Euler(-downTilt, 0f, slideLean + downRoll);
             return (Vector3.up * Mathf.Sin(walkPhase * 2f) * 0.022f * amp + Vector3.down * 0.12f * landDip) * Settings.ShakeScale;
         }
 

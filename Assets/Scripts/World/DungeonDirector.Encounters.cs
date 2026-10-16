@@ -201,6 +201,7 @@ namespace Deepbound.World
             bossSealed = false;
             ambush = null;
             vault = null;
+            leversAnnounced = 0;
             breaches.Clear();
             foreach (var w in FindObjectsByType<CrackedWall>(FindObjectsSortMode.None))
                 if (w.NetworkObject.IsSpawned) w.NetworkObject.Despawn();
@@ -260,11 +261,14 @@ namespace Deepbound.World
                         vault = new Vault { Room = room };
                         vault.Gates.AddRange(SpawnGates(room));
                         SetGates(vault.Gates, true);
-                        var host = room.VaultHost ?? room;
-                        foreach (var spot in room.FeatureSpots)
+                        // Three levers, each on a wall in a different room around the floor.
+                        var lrng = new System.Random(layout.Seed ^ 0x1e7e);
+                        var leverRooms = layout.Rooms.FindAll(r => r != room && r.Kind != RoomKind.Boss && r.Kind != RoomKind.Start && !IsAmbushRoom(r));
+                        for (int li = 0; li < 3 && leverRooms.Count > 0; li++)
                         {
-                            var face = host.Center - spot;
-                            face.y = 0f;
+                            var lr = leverRooms[lrng.Next(leverRooms.Count)];
+                            leverRooms.Remove(lr);
+                            var spot = WallMount(lr, lrng, out var face);
                             vault.Levers.Add(Spawn(leverPrefab, spot, Quaternion.LookRotation(face)).GetComponent<Lever>());
                         }
                         if (chestPrefab != null)
@@ -301,10 +305,40 @@ namespace Deepbound.World
             }
         }
 
+        private int leversAnnounced;
+
+        /// <summary>Server: a spot flush on a room's inner wall (away from doors) and the way it faces (into the room).</summary>
+        private static Vector3 WallMount(DungeonLayout.Room room, System.Random rng, out Vector3 face)
+        {
+            for (int tries = 0; tries < 12; tries++)
+            {
+                int side = rng.Next(4);
+                var d = DungeonLayout.Dir[side];
+                bool alongX = side == 0 || side == 2;
+                float half = (alongX ? room.Size.x : room.Size.y) / 2f - 1.6f;
+                float t = (float)(rng.NextDouble() * 2.0 - 1.0) * half;
+                if (room.Doors[side] && Mathf.Abs(t) < DungeonLayout.CorridorWidth) continue;
+                var n = new Vector3(d.x, 0f, d.y);
+                face = -n;
+                float off = (alongX ? room.Size.y : room.Size.x) / 2f - 0.06f;
+                return room.Center + n * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t));
+            }
+            face = Vector3.back;
+            return room.Center + Vector3.forward * (room.Size.y / 2f - 0.06f);
+        }
+
         private void TickVault()
         {
             if (vault == null || vault.Open || vault.Levers.Count == 0) return;
-            foreach (var l in vault.Levers) if (l == null || !l.Pulled.Value) return;
+            int down = 0;
+            foreach (var l in vault.Levers) if (l != null && l.Pulled.Value) down++;
+            if (down > leversAnnounced)
+            {
+                leversAnnounced = down;
+                if (down < vault.Levers.Count)
+                    ServerFeedAll("A vault lever falls into place: " + down + " of " + vault.Levers.Count + ". Somewhere, a vault stirs.", new Color(1f, 0.75f, 0.35f));
+            }
+            if (down < vault.Levers.Count) return;
             vault.Open = true;
             foreach (var l in vault.Levers) l.ServerLock();
             SetGates(vault.Gates, false);
@@ -571,9 +605,9 @@ namespace Deepbound.World
                 return;
             }
 
-            // Wake when the whole standing party is inside, or when someone starts the fight early.
+            // Wake only when the whole standing party is inside: until then it sleeps and cannot be hurt.
             bool allIn = AllStandingInside(Layout.BossRoom, 1f);
-            if (allIn || !boss.Dormant)
+            if (allIn)
             {
                 bossSealed = true;
                 boss.Dormant = false;

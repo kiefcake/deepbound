@@ -134,6 +134,9 @@ namespace Deepbound.Combat
             else { bodyRadius = 0.4f; bodyLow = 0f; bodyHigh = centerHeight * 2f; }
         }
 
+        /// <summary>Re-read the body from the collider (after it is resized).</summary>
+        public void InvalidateBody() => bodyCached = false;
+
         /// <summary>The body's horizontal radius (world).</summary>
         public float BodyRadius { get { if (!bodyCached) CacheBody(); return bodyRadius; } }
 

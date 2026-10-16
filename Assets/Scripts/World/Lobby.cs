@@ -32,6 +32,9 @@ namespace Deepbound.World
         public static readonly Vector3 DiceSpot = TentCenter + new Vector3(1.4f, 0f, -1.2f);
         public static readonly Vector3 CofferSpot = TentCenter + new Vector3(1.6f, 0f, 1.6f);
         public static readonly Vector3 TentFacing = Vector3.right;
+        /// <summary>The bone reels, against the tent's back wall, and the card table by its south wall.</summary>
+        public static readonly Vector3 SlotSpot = TentCenter + new Vector3(-2.9f, 0f, 0.3f);
+        public static readonly Vector3 BlackjackSpot = TentCenter + new Vector3(-0.6f, 0f, -2.5f);
         public static readonly Vector3 GongSpot = Origin + new Vector3(8.5f, 0f, 6f);
         public static readonly Vector3 GongFacing = Vector3.left;
 
@@ -119,6 +122,7 @@ namespace Deepbound.World
             structure.Build(root.transform, "LobbyStructure", collide: true);
             dressing.Build(root.transform, "LobbyDressing", collide: true);
             ApplyCastleAtmosphere();
+            Art.PropColliders.Add(root.transform);
             return root;
         }
 

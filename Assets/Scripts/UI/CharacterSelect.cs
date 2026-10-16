@@ -50,7 +50,7 @@ namespace Deepbound.UI
         private void Update()
         {
             bool inLobby = DungeonDirector.InLobby;
-            if (inLobby && !shownOnce && DungeonDirector.ArenaId > 0)
+            if (inLobby && !shownOnce && DungeonDirector.ArenaId > 0 && Progression.PlayerProgress.ClassChangeAllowed)
             {
                 shownOnce = true;
                 SetOpen(true);
@@ -60,7 +60,7 @@ namespace Deepbound.UI
             // Class is chosen for a whole run: only at camp, and not between floors.
             bool midRun = World.DungeonDirector.Instance != null && World.DungeonDirector.Instance.RunInProgress;
             if (keyboard != null && keyboard.bKey.wasPressedThisFrame && inLobby && !midRun) SetOpen(!Open);
-            if (Open && (!inLobby || (keyboard != null && keyboard.escapeKey.wasPressedThisFrame))) SetOpen(false);
+            if (Open && (!inLobby || midRun || (keyboard != null && keyboard.escapeKey.wasPressedThisFrame))) SetOpen(false);
 
             if (Open && turntables != null)
             {
@@ -208,7 +208,8 @@ namespace Deepbound.UI
                 SetOpen(false);
                 return;
             }
-            progress.ClassId.Value = id;
+            if (!Progression.PlayerProgress.ClassChangeAllowed) { SetOpen(false); return; }
+            progress.ChooseClassRpc(id);
             Sfx.Play2D(Sound.Purchase, 0.6f);
         }
 

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash }
+    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card }
 
     /// <summary>
     /// Every sound in the game, synthesised at startup. Like the art, nothing is
@@ -78,6 +78,11 @@ namespace Deepbound.Art
                 case Sound.Splash: data = Mix(Whoosh(0.25f, 700f, 2600f), Burst(0.12f, 0.35f), Thump(0.1f, 160f, 90f)); break;
                 case Sound.Bow: data = Mix(Thump(0.12f, 320f, 180f), Whoosh(0.22f, 1500f, 3200f)); break;
                 case Sound.Purchase: data = Mix(Chime(0.5f, new[] { 659f, 988f }), Clang(0.3f, new[] { 2600f, 3900f })); break;
+                case Sound.Meow: data = Meow(0.6f); break;
+                case Sound.Purr: data = Purr(1.6f); break;
+                case Sound.Drink: data = Mix(Gulp(0.12f, 0f), Gulp(0.12f, 0.2f), Gulp(0.12f, 0.4f), Delay(Chime(0.4f, new[] { 784f, 1175f }), 0.5f)); break;
+                case Sound.SlotSpin: data = Rattle(1.1f, 40); break;
+                case Sound.Card: data = Mix(Burst(0.04f, 0.5f), Whoosh(0.08f, 1800f, 4000f)); break;
                 default: data = new float[Rate / 10]; break;
             }
 
@@ -187,6 +192,56 @@ namespace Deepbound.Art
                 float saw = (phase % 1f) * 2f - 1f;
                 float env = Mathf.Clamp01(t * 12f) * Mathf.Clamp01((1f - t) * 4f);
                 d[i] = saw * env * 0.6f;
+            }
+            return d;
+        }
+
+        /// <summary>A cat: a nasal tone that rises and falls ("mi-aow"), its harmonics opening as it goes.</summary>
+        private static float[] Meow(float seconds)
+        {
+            var d = new float[(int)(seconds * Rate)];
+            float phase = 0f;
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = (float)i / d.Length;
+                float hz = t < 0.35f ? Mathf.Lerp(520f, 820f, t / 0.35f) : Mathf.Lerp(820f, 480f, (t - 0.35f) / 0.65f);
+                phase += 2f * Mathf.PI * hz * (1f + 0.01f * Mathf.Sin(t * 60f)) / Rate;
+                float open = Mathf.Sin(Mathf.Clamp01(t * 1.4f) * Mathf.PI);
+                float v = Mathf.Sin(phase) + 0.5f * open * Mathf.Sin(phase * 2f) + 0.35f * open * Mathf.Sin(phase * 3f) + 0.15f * Mathf.Sin(phase * 4f);
+                float env = Mathf.Clamp01(t * 10f) * Mathf.Clamp01((1f - t) * 5f);
+                d[i] = v * env * 0.5f;
+            }
+            return d;
+        }
+
+        /// <summary>A purr: low, soft noise pulsing about 25 times a second, in and out breaths.</summary>
+        private static float[] Purr(float seconds)
+        {
+            var d = new float[(int)(seconds * Rate)];
+            float lp = 0f;
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = (float)i / Rate;
+                lp += 0.02f * (N() - lp);
+                float pulse = 0.5f + 0.5f * Mathf.Sin(2f * Mathf.PI * 26f * t);
+                float breath = 0.6f + 0.4f * Mathf.Sin(2f * Mathf.PI * 0.8f * t);
+                float env = Mathf.Clamp01(t * 6f) * Mathf.Clamp01((seconds - t) * 4f);
+                d[i] = lp * pulse * pulse * breath * env * 6f;
+            }
+            return d;
+        }
+
+        /// <summary>One swallow: a short wet low thump, starting <paramref name="at"/> seconds in.</summary>
+        private static float[] Gulp(float seconds, float at)
+        {
+            int off = (int)(at * Rate);
+            var d = new float[off + (int)(seconds * Rate)];
+            float phase = 0f;
+            for (int i = off; i < d.Length; i++)
+            {
+                float t = (float)(i - off) / (d.Length - off);
+                phase += 2f * Mathf.PI * Mathf.Lerp(260f, 140f, t) / Rate;
+                d[i] = Mathf.Sin(phase) * Mathf.Sin(t * Mathf.PI) * 0.7f;
             }
             return d;
         }

@@ -47,6 +47,7 @@ namespace Deepbound.World
 
             ApplyAtmosphere(theme);
             root.AddComponent<LightBudget>();
+            PropColliders.Add(root.transform);
             return root;
         }
 
