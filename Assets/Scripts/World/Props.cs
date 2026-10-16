@@ -158,6 +158,7 @@ namespace Deepbound.World
             MeshKit.Part(root, "Charm", MeshKit.Cylinder(0.08f, 0.08f, 0.03f, 12), Mat.Gold, Local(0.6f) + new Vector3(0f, 0.02f, 0f));
             var stone = MeshKit.Part(root, "CharmStone", MeshKit.Ball(0.05f, 8, 6), Mat.Glow, Local(0.6f) + new Vector3(0f, 0.05f, 0f));
             ArtLibrary.SetGlow(stone.GetComponent<Renderer>(), new Color(0.45f, 0.7f, 1f) * 1.6f);
+            Art.FolkIdle.Attach(root, 1.36f, "Hood", "Face", "EyeL", "EyeR");
         }
 
         public enum Folk { Smith, Priest, Tailor, Driver }
@@ -227,6 +228,7 @@ namespace Deepbound.World
                     MeshKit.Part(root, "Whip", MeshKit.Cylinder(0.01f, 0.006f, 1.1f, 4), Mat.Leather, new Vector3(0.32f, 0.8f, 0.2f), new Vector3(30f, 0f, 0f));
                     break;
             }
+            Art.FolkIdle.Attach(root, 1.52f, "Head", "Eye", "Beard", "Tonsure", "Hair", "Brim", "Hat");
         }
 
         /// <summary>A crouching gargoyle on a plinth: hunched body, folded wings, horned head.</summary>

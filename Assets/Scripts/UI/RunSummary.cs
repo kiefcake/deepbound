@@ -45,7 +45,8 @@ namespace Deepbound.UI
             UiSkin.Shadowed(new Rect(panel.x, panel.y + 14, pw, 50), won ? "THE DEPTHS ARE CLEARED" : "YOUR PARTY HAS FALLEN",
                 new GUIStyle(UiSkin.Title) { fontSize = 38, normal = { textColor = won ? UiSkin.Gold : new Color(0.85f, 0.25f, 0.2f) } });
             GUI.Label(new Rect(panel.x, panel.y + 66, pw, 24),
-                (won ? "Every floor conquered" : "Fell on floor " + floor + " of " + DungeonDirector.FloorsPerRun) + "   ·   Run time " + time,
+                (won ? (floor > DungeonDirector.FloorsPerRun ? "Every floor conquered, and what lay beneath" : "Every floor conquered")
+                    : floor > DungeonDirector.FloorsPerRun ? "Fell in the Abyss, below the last floor" : "Fell on floor " + floor + " of " + DungeonDirector.FloorsPerRun) + "   ·   Run time " + time,
                 new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
 
             // Table.
