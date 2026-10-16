@@ -854,9 +854,9 @@ namespace Deepbound.Progression
         public float Bonus(StatType stat) => (int)stat < bonuses.Count ? bonuses[(int)stat] : 0f;
 
         /// <summary>Why an item cannot be bought right now, or null if it can. Any peer; the server re-checks.</summary>
-        public string CannotBuyReason(int index)
+        public string CannotBuyReason(Shop.Vendor vendor, int index)
         {
-            var items = Shop.For(OwnerClientId);
+            var items = Shop.For(OwnerClientId, vendor);
             if (index < 0 || index >= items.Length) return "Unknown item";
             var item = items[index];
             if (Gold.Value < item.Price) return "Not enough gold";
@@ -873,15 +873,14 @@ namespace Deepbound.Progression
             }
         }
 
-        /// <summary>Owner → server: buy catalogue item <paramref name="index"/> from the merchant.</summary>
+        /// <summary>Owner → server: buy item <paramref name="index"/> of <paramref name="vendor"/>'s stock (you must be at their stall).</summary>
         [Rpc(SendTo.Server)]
-        public void BuyRpc(int index)
+        public void BuyRpc(Shop.Vendor vendor, int index)
         {
-            var merchant = World.DungeonDirector.MerchantPosition;
-            if (merchant == null || Vector3.Distance(transform.position, merchant.Value) > Shop.MerchantRange + 1f) return;
-            if (CannotBuyReason(index) != null) return;
+            if (!Shop.InReach(vendor, transform.position, 1f)) return;
+            if (CannotBuyReason(vendor, index) != null) return;
 
-            var item = Shop.For(OwnerClientId)[index];
+            var item = Shop.For(OwnerClientId, vendor)[index];
             bool bought;
             switch (item.Kind)
             {

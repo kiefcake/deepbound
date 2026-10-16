@@ -43,6 +43,8 @@ namespace Deepbound.Combat
             public ulong Shooter;
             public Team Targets;
             public Transform Visual;
+            /// <summary>Visual copies of spell bolts: the colour of the small burst where it ends (alpha 0 = none).</summary>
+            public Color Burst;
             public bool ServerSide;
             /// <summary>Server: replaces the default damage on hit (for chill, shatter and the like).</summary>
             public System.Action<Health> OnHit;
@@ -84,6 +86,7 @@ namespace Deepbound.Combat
                 Visual = kind == ProjectileKind.Arrow ? BuildVisual(origin, direction)
                     : kind == ProjectileKind.Knife ? BuildKnife(origin, direction)
                     : BuildBolt(origin, direction, kind),
+                Burst = kind == ProjectileKind.Arrow || kind == ProjectileKind.Knife ? Color.clear : BoltColor(kind),
             });
         }
 
@@ -107,9 +110,10 @@ namespace Deepbound.Combat
                 if (Physics.Raycast(a.Position, step.normalized, out var wall, step.magnitude, ~0, QueryTriggerInteraction.Ignore) &&
                     wall.collider.GetComponentInParent<Health>() == null)
                 {
-                    // Stick in the wall for a moment, then vanish.
+                    // Stick in the wall for a moment, then vanish (bolts burst instead).
                     a.Position = wall.point;
                     done = true;
+                    if (a.Visual != null && a.Burst.a > 0f) { Art.BoltFx.Burst(wall.point, a.Burst); Destroy(a.Visual.gameObject); a.Visual = null; }
                     if (a.Visual != null)
                     {
                         a.Visual.position = wall.point - step.normalized * 0.3f;
@@ -128,6 +132,7 @@ namespace Deepbound.Combat
 
                 if (done)
                 {
+                    if (a.Burst.a > 0f && a.Visual != null) Art.BoltFx.Burst(a.Position, a.Burst);
                     if (a.Visual != null) Destroy(a.Visual.gameObject);
                     live.RemoveAt(i);
                 }
@@ -182,10 +187,7 @@ namespace Deepbound.Combat
         private static Transform BuildBolt(Vector3 origin, Vector3 direction, ProjectileKind kind)
         {
             bool fire = kind == ProjectileKind.Firebolt || kind == ProjectileKind.ShadowBolt || kind == ProjectileKind.Smite || kind == ProjectileKind.Spit;
-            var color = kind == ProjectileKind.Spit ? new Color(0.45f, 0.85f, 0.15f)
-                : kind == ProjectileKind.Smite ? new Color(1f, 0.85f, 0.4f)
-                : kind == ProjectileKind.ShadowBolt ? new Color(0.7f, 0.3f, 1f)
-                : fire ? new Color(1f, 0.45f, 0.12f) : new Color(0.45f, 0.8f, 1f);
+            var color = BoltColor(kind);
 
             var root = new GameObject(kind.ToString()).transform;
             root.SetPositionAndRotation(origin, Quaternion.LookRotation(direction));
@@ -193,7 +195,7 @@ namespace Deepbound.Combat
             {
                 new Vector2(0f, -0.25f), new Vector2(0.08f, 0f), new Vector2(0f, 0.12f),
             }, 5), Mat.Glow, Vector3.zero, fire ? Vector3.zero : new Vector3(90f, 0f, 0f));
-            ArtLibrary.SetGlow(core.GetComponent<Renderer>(), color * 3f);
+            ArtLibrary.SetGlow(core.GetComponent<Renderer>(), color * 1.9f);
             var tail = MeshKit.Part(root, "Tail", MeshKit.Lathe("boltTail", new[] { new Vector2(0f, 0f), new Vector2(0.07f, 0.1f), new Vector2(0f, 0.6f) }, 6, false),
                 Mat.Glow, new Vector3(0f, 0f, -0.05f), new Vector3(-90f, 0f, 0f));
             ArtLibrary.SetGlow(tail.GetComponent<Renderer>(), color * 1.5f);
@@ -205,7 +207,20 @@ namespace Deepbound.Combat
             light.color = color;
             light.range = 5f;
             light.intensity = 3f;
+            var fx = root.gameObject.AddComponent<Art.BoltFx>();
+            fx.Color = color;
+            fx.Core = core.transform;
+            fx.Frost = !fire;
             return root;
+        }
+
+        private static Color BoltColor(ProjectileKind kind)
+        {
+            bool fire = kind == ProjectileKind.Firebolt || kind == ProjectileKind.ShadowBolt || kind == ProjectileKind.Smite || kind == ProjectileKind.Spit;
+            return kind == ProjectileKind.Spit ? new Color(0.45f, 0.85f, 0.15f)
+                : kind == ProjectileKind.Smite ? new Color(1f, 0.85f, 0.4f)
+                : kind == ProjectileKind.ShadowBolt ? new Color(0.7f, 0.3f, 1f)
+                : fire ? new Color(1f, 0.45f, 0.12f) : new Color(0.45f, 0.8f, 1f);
         }
 
         /// <summary>A thrown knife: a steel blade and a leather grip, with a pale glint.</summary>

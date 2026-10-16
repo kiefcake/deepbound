@@ -998,19 +998,28 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     Log("gear scrap", "embers " + embersBefore + " -> " + progress.Embers.Value, progress.Embers.Value > embersBefore);
 
-                    // The merchant: this player's own gear offer lands at their feet.
-                    var mpos = Lobby.MerchantSpot;
-                    motor.Teleport(mpos + Vector3.right * 2.4f + Vector3.up * 0.1f, local.transform.rotation);
+                    // Camp trade is split by craft: each vendor sells only its own share.
+                    var mStock = Shop.For(local.OwnerClientId, Shop.Vendor.Merchant);
+                    var sStock = Shop.For(local.OwnerClientId, Shop.Vendor.Smith);
+                    var hStock = Shop.For(local.OwnerClientId, Shop.Vendor.Shrine);
+                    bool split = !mStock.Any(it => it.Kind == Shop.ItemKind.Relic || it.Kind == Shop.ItemKind.Gear || it.Kind == Shop.ItemKind.Sigil || it.Kind == Shop.ItemKind.Embers)
+                        && sStock.Any(it => it.Kind == Shop.ItemKind.Gear) && sStock.Any(it => it.Kind == Shop.ItemKind.Sigil) && sStock.Any(it => it.Kind == Shop.ItemKind.Embers)
+                        && hStock.Count(it => it.Kind == Shop.ItemKind.Relic) == 2 && hStock.Any(it => it.Name == "Holy Water") && !mStock.Any(it => it.Name == "Holy Water");
+                    Log("vendors", "merchant " + mStock.Length + ", smith " + sStock.Length + ", shrine " + hStock.Length + " items", split);
+
+                    // The smith: this player's own gear offer lands at their feet.
+                    var mpos = Lobby.AnvilSpot;
+                    motor.Teleport(mpos + Vector3.left * 2.4f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
                     progress.ServerAddGold(500);
                     int goldNow = progress.Gold.Value;
-                    var stock = Shop.For(local.OwnerClientId);
+                    var stock = sStock;
                     int gearIndex = System.Array.FindIndex(stock, it => it.Kind == Shop.ItemKind.Gear);
                     int dropsBeforeBuy = FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
-                    progress.BuyRpc(gearIndex);
+                    progress.BuyRpc(Shop.Vendor.Smith, gearIndex);
                     yield return new WaitForSeconds(0.3f);
-                    Log("shop gear", "bought " + stock[gearIndex].Name + " for " + stock[gearIndex].Price + ", gold " + goldNow + " -> " + progress.Gold.Value + ", sold-out: " + progress.CannotBuyReason(gearIndex),
-                        progress.Gold.Value == goldNow - stock[gearIndex].Price && FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length == dropsBeforeBuy + 1 && progress.CannotBuyReason(gearIndex) == "Sold");
+                    Log("shop gear", "bought " + stock[gearIndex].Name + " for " + stock[gearIndex].Price + ", gold " + goldNow + " -> " + progress.Gold.Value + ", sold-out: " + progress.CannotBuyReason(Shop.Vendor.Smith, gearIndex),
+                        progress.Gold.Value == goldNow - stock[gearIndex].Price && FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length == dropsBeforeBuy + 1 && progress.CannotBuyReason(Shop.Vendor.Smith, gearIndex) == "Sold");
                     var anvilAgain = FindObjectsByType<Anvil>(FindObjectsSortMode.None).First();
                     motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);

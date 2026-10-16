@@ -46,7 +46,9 @@ namespace Deepbound.UI
         public void DebugOpenForge() => forgeOpen = true;
 
         /// <summary>Screenshots only: stage the merchant's panel open.</summary>
-        public void DebugOpenShop() { shopOpen = true; forgeOpen = false; }
+        public void DebugOpenShop(Shop.Vendor vendor = Shop.Vendor.Merchant) { shopOpen = true; forgeOpen = false; shopVendor = vendor; }
+        /// <summary>Which vendor's stall the open shop panel belongs to.</summary>
+        private Shop.Vendor shopVendor;
 
         /// <summary>Screenshots only: hold the stat sheet open.</summary>
         public static bool DebugShowStats;
@@ -840,11 +842,16 @@ namespace Deepbound.UI
             Rect(0, 0, w, h, new Color(0f, 0f, 0f, Mathf.SmoothStep(0f, 1f, fade)));
         }
 
-        private bool NearMerchant()
+        private bool NearMerchant() => NearVendor(Shop.Vendor.Merchant);
+
+        private bool NearVendor(Shop.Vendor v) => !life.Downed.Value && Shop.InReach(v, player.transform.position);
+
+        /// <summary>The vendor whose stall you stand at (merchant or shrine; the smith trades through the forge), or null.</summary>
+        private Shop.Vendor? StallHere()
         {
-            var merchant = DungeonDirector.MerchantPosition;
-            return merchant != null && !life.Downed.Value &&
-                   Vector3.Distance(player.transform.position, merchant.Value) <= Shop.MerchantRange;
+            if (NearVendor(Shop.Vendor.Merchant)) return Shop.Vendor.Merchant;
+            if (NearVendor(Shop.Vendor.Shrine)) return Shop.Vendor.Shrine;
+            return null;
         }
 
         private void Update()
@@ -853,18 +860,20 @@ namespace Deepbound.UI
             Tips.Check(player);
 
             var keyboard = Keyboard.current;
-            bool near = NearMerchant();
+            var stall = StallHere();
+            bool near = stall != null;
             var anvil = NearAnvil();
-            // G uses whichever station is closer: the merchant or the anvil beside him.
+            // G uses whichever station is closer: a stall or the anvil.
             bool anvilFirst = anvil != null && (!near || Vector3.Distance(player.transform.position, anvil.transform.position) <
-                Vector3.Distance(player.transform.position, DungeonDirector.MerchantPosition.Value));
+                Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value));
             bool catFirst = keyboard != null && keyboard.gKey.wasPressedThisFrame && !MenuOpen &&
                 Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is CampCat;
             if (catFirst) ((CampCat)Interactable.Nearest(player.AimOrigin, player.AimForward, progress)).PickUpRpc(player.NetworkObject);
             else if (keyboard != null && keyboard.gKey.wasPressedThisFrame)
             {
-                if (anvilFirst) { forgeOpen = !forgeOpen; shopOpen = false; }
-                else if (near) { shopOpen = !shopOpen; forgeOpen = false; }
+                if (shopOpen && shopVendor == Shop.Vendor.Smith) { shopOpen = false; forgeOpen = false; }
+                else if (anvilFirst) { forgeOpen = !forgeOpen; shopOpen = false; }
+                else if (near) { shopOpen = !shopOpen; forgeOpen = false; shopVendor = stall.Value; }
             }
             if (keyboard != null && keyboard.iKey.wasPressedThisFrame && !shopOpen && !forgeOpen && !CharacterSelect.Open && !PauseMenu.Open && !Wardrobe.Open) invOpen = !invOpen;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = forgeOpen = invOpen = false;
@@ -875,7 +884,7 @@ namespace Deepbound.UI
             if (keyboard != null && keyboard.xKey.wasPressedThisFrame && !MenuOpen &&
                 Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is GearDrop scrap)
                 scrap.ScrapRpc(player.NetworkObject);
-            if (!near) shopOpen = false;
+            if (shopOpen && !NearVendor(shopVendor)) shopOpen = false;
             if (anvil == null) forgeOpen = false;
             MenuOpen = shopOpen || forgeOpen || invOpen || BlackjackTable.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
             InventoryOpen = invOpen;
@@ -1400,9 +1409,10 @@ namespace Deepbound.UI
             if (NearAnvil() == null || shopOpen) return;
             if (!forgeOpen)
             {
-                if (!NearMerchant() || Vector3.Distance(player.transform.position, NearAnvil().transform.position) <
-                    Vector3.Distance(player.transform.position, DungeonDirector.MerchantPosition.Value))
-                    GUI.Label(new Rect(0, h / 2f + 40, w, 24), "Press G to use the anvil", center);
+                var stall = StallHere();
+                if (stall == null || Vector3.Distance(player.transform.position, NearAnvil().transform.position) <
+                    Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value))
+                    GUI.Label(new Rect(0, h / 2f + 40, w, 24), DungeonDirector.InLobby ? "Press G to use the anvil (Hobb sells embers, plate and gear here)" : "Press G to use the anvil", center);
                 return;
             }
 
@@ -1416,6 +1426,8 @@ namespace Deepbound.UI
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(ember.r, ember.g, ember.b, 0.5f));
             Rect(x, y, pw, ph, new Color(0.05f, 0.03f, 0.02f, 0.95f));
             GUI.Label(new Rect(x + 16, y + 12, pw, 24), "THE ANVIL", new GUIStyle(label) { normal = { textColor = ember } });
+            if (Shop.Position(Shop.Vendor.Smith) != null && GUI.Button(new Rect(x + 150, y + 10, 190, 24), "Hobb's wares (buy)"))
+            { forgeOpen = false; shopOpen = true; shopVendor = Shop.Vendor.Smith; }
             GUI.Label(new Rect(x + pw - 300, y + 12, 284, 24), progress.Sigils.Value + " sigils    " + progress.Embers.Value + " embers", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = ember } });
 
             // Level pips and the temper button.
@@ -1532,32 +1544,37 @@ namespace Deepbound.UI
 
         private void DrawMerchant(float w, float h)
         {
-            if (!NearMerchant() || forgeOpen) return;
-            var nearAnvil = NearAnvil();
-            if (!shopOpen && nearAnvil != null && Vector3.Distance(player.transform.position, nearAnvil.transform.position) <
-                Vector3.Distance(player.transform.position, DungeonDirector.MerchantPosition.Value)) return;
-
+            if (forgeOpen) return;
             if (!shopOpen)
             {
-                GUI.Label(new Rect(0, h / 2f + 40, w, 24), "Press G to trade with the merchant", center);
+                var stall = StallHere();
+                if (stall == null) return;
+                var nearAnvil = NearAnvil();
+                if (nearAnvil != null && Vector3.Distance(player.transform.position, nearAnvil.transform.position) <
+                    Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value)) return;
+                string who = stall == Shop.Vendor.Shrine ? "Press G for the shrine's offerings (holy water, relics)"
+                    : DungeonDirector.InLobby ? "Press G to trade with Silas (potions and provisions)" : "Press G to trade with the peddler";
+                GUI.Label(new Rect(0, h / 2f + (stall == Shop.Vendor.Shrine ? 64 : 40), w, 24), who, center);
                 return;
             }
 
+            var vendor = shopVendor;
             float pw = 600, rowH = 38;
-            var stock = Shop.For(progress.OwnerClientId);
+            var stock = Shop.For(progress.OwnerClientId, vendor);
             float ph = 70 + stock.Length * rowH;
             float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(Gold.r, Gold.g, Gold.b, 0.5f));
             Rect(x, y, pw, ph, new Color(0.04f, 0.035f, 0.03f, 0.94f));
-            GUI.Label(new Rect(x + 14, y + 10, pw, 24), "THE MERCHANT", new GUIStyle(label) { normal = { textColor = Gold } });
-            GUI.Label(new Rect(x + 14, y + 30, pw - 28, 20), "\"Coin for courage, friend. It all spends the same down here.\"", small);
+            GUI.Label(new Rect(x + 14, y + 10, pw, 24), Shop.VendorTitle(vendor), new GUIStyle(label) { normal = { textColor = Gold } });
+            GUI.Label(new Rect(x + 14, y + 30, pw - 28, 20), Shop.VendorLine(vendor), small);
+            if (vendor == Shop.Vendor.Smith && GUI.Button(new Rect(x + pw - 300, y + 8, 160, 24), "Back to the anvil")) { shopOpen = false; forgeOpen = true; }
             GUI.Label(new Rect(x + pw - 120, y + 10, 106, 24), progress.Gold.Value + " gold", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
 
             for (int i = 0; i < stock.Length; i++)
             {
                 var item = stock[i];
                 float ry = y + 60 + i * rowH;
-                string reason = progress.CannotBuyReason(i);
+                string reason = progress.CannotBuyReason(vendor, i);
 
                 var nameStyle = item.Kind == Shop.ItemKind.Relic ? new GUIStyle(label) { normal = { textColor = Relics.GemColor((Relic)(int)item.Amount) } }
                     : item.Kind == Shop.ItemKind.Gear ? new GUIStyle(label) { normal = { textColor = Gear.QualityColor(item.Gear.Quality) } }
@@ -1570,7 +1587,7 @@ namespace Deepbound.UI
                 GUI.enabled = reason == null;
                 if (GUI.Button(new Rect(x + pw - 174, ry + 3, 160, 28), reason ?? (item.Price + " gold")))
                 {
-                    progress.BuyRpc(i);
+                    progress.BuyRpc(vendor, i);
                 }
                 GUI.enabled = true;
             }
