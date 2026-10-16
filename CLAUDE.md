@@ -108,6 +108,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 8. **No time-scale hitstop**: on a host it would slow the whole server. Use `ConfirmHit` camera kick.
 9. **IMGUI view-model and RenderTexture aspect**: draw RTs with an aspect that matches their rect, or heads get
    cropped (the class-select previews hit this).
+11. `MeshKit.Lathe` partial sweeps run from +Z toward +X (same sense as Unity yaw), so the gap spans [sweep, 360]. A hood/cowl/open helm faces its opening forward with yaw `180 - sweep/2`; a cloak/ribcage with its gap at the back uses `-sweep/2` (e.g. 170 -> 95). Every hood was built facing backward until 2026-10-16. Bosses never wear a pointed hood over a face (Tide Lich and Cardinal have theirs removed).
+12. View-model point lights a few cm from the hand flood it white; weapon trails via `TrailRenderer` smear with camera turns in first person (use a view-space mesh like the Knight's `Slash`).
 10. Python edit scripts: put non-ASCII text (·, —) in a `.py` file via Write, not a bash heredoc — heredoc input
     mangled the escapes once.
 
