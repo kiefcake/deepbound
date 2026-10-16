@@ -739,10 +739,28 @@ namespace Deepbound.Art
 
                 WeakPoint.Add(rig.Head, new Vector3(0f, 0.2f, 0.13f), 0.05f, new Color(0.45f, 0.75f, 1f));
 
-                // Tattered royal cape.
-                var cape = MeshKit.Part(rig.Torso, "Cape", MeshKit.Box(new Vector3(0.5f, 0.95f, 0.02f)), Mat.Cloth, new Vector3(0f, 0.15f, -0.14f), new Vector3(8f, 0f, 0f));
-                ArtLibrary.Tint(cape.GetComponent<Renderer>(), new Color(0.28f, 0.08f, 0.32f));
-                MeshKit.Part(rig.Torso, "Mantle", MeshKit.Box(new Vector3(0.55f, 0.08f, 0.22f)), Mat.Gold, new Vector3(0f, 0.6f, -0.03f));
+                // A tattered royal cloak (it sways), under an ermine mantle: white fur flecked with black.
+                GothicKit.Cloak(rig.Torso, new Color(0.3f, 0.07f, 0.34f), 1.15f, 0.28f, new Color(0.85f, 0.65f, 0.25f), true);
+                var mantle = MeshKit.Part(rig.Torso, "Mantle", MeshKit.Lathe("royalMantle", new[]
+                {
+                    new Vector2(0.2f, 0.46f), new Vector2(0.31f, 0.52f), new Vector2(0.3f, 0.6f), new Vector2(0.2f, 0.66f), new Vector2(0.12f, 0.68f),
+                }, 12), Mat.Cloth, Vector3.zero, Vector3.zero, new Vector3(1.05f, 1f, 0.85f));
+                ArtLibrary.Tint(mantle.GetComponent<Renderer>(), new Color(0.86f, 0.83f, 0.76f));
+                for (int i = 0; i < 10; i++)
+                {
+                    float a = i * 36f * Mathf.Deg2Rad;
+                    MeshKit.Part(rig.Torso, "Ermine" + i, MeshKit.Box(new Vector3(0.022f, 0.045f, 0.012f)), Mat.Dark,
+                        new Vector3(Mathf.Sin(a) * 0.31f * 1.05f, 0.535f + (i % 2) * 0.03f, Mathf.Cos(a) * 0.31f * 0.85f), new Vector3(0f, i * 36f, 0f));
+                }
+                // A taller crown: a jewelled band and five tines rising from it.
+                MeshKit.Part(rig.Head, "CrownBand", MeshKit.Cylinder(0.135f, 0.135f, 0.035f, 12), Mat.Gold, new Vector3(0f, 0.2f, 0f));
+                for (int i = 0; i < 5; i++)
+                {
+                    var dir = Quaternion.Euler(0f, i * 72f + 36f, 0f) * Vector3.forward;
+                    MeshKit.Part(rig.Head, "Tine" + i, MeshKit.Lathe("crownTine", new[] { new Vector2(0.028f, 0f), new Vector2(0.02f, 0.07f), new Vector2(0f, 0.16f) }, 4),
+                        Mat.Gold, new Vector3(0f, 0.25f, 0f) + dir * 0.125f, new Vector3(0f, 0f, 0f));
+                    MeshKit.Part(rig.Head, "TineBall" + i, MeshKit.Ball(0.016f, 6, 4), Mat.Gold, new Vector3(0f, 0.415f, 0f) + dir * 0.125f);
+                }
 
                 // Greatsword, held point-up.
                 MeshKit.Part(grip, "Handle", MeshKit.Cylinder(0.025f, 0.025f, 0.3f, 6), Mat.Leather, new Vector3(0f, -0.12f, 0f));
@@ -1046,13 +1064,17 @@ namespace Deepbound.Art
             WeakPoint.Add(rig.Torso, new Vector3(0f, 0.42f, 0.22f), 0.08f, orbColor);
 
             // Staff with a glowing orb, held upright.
-            MeshKit.Part(grip, "Staff", MeshKit.Cylinder(0.025f, 0.03f, 1.5f, 6), Mat.Wood, new Vector3(0f, -0.6f, 0f));
-            var orb = MeshKit.Part(grip, "Orb", MeshKit.Ball(0.08f, 8, 6), Mat.Glow, new Vector3(0f, 0.95f, 0f));
+            MeshKit.Part(grip, "Staff", MeshKit.Lathe("lichStaff", new[] { new Vector2(0.03f, -1.35f), new Vector2(0.025f, -0.2f), new Vector2(0.028f, 0.6f), new Vector2(0.024f, 0.78f), new Vector2(0.045f, 0.82f) }, 7), Mat.Wood, Vector3.zero);
+            MeshKit.Part(grip, "Knop", MeshKit.Ball(0.05f, 8, 6), Mat.Bone, new Vector3(0f, 0.83f, 0f), Vector3.zero, new Vector3(1f, 0.6f, 1f));
+            // A cut soul-crystal (not a ball of light) gripped in four curled bone fingers.
+            var orb = MeshKit.Part(grip, "Orb", MeshKit.Lathe("soulCrystal", new[] { new Vector2(0f, 0f), new Vector2(0.045f, 0.05f), new Vector2(0.04f, 0.12f), new Vector2(0f, 0.19f) }, 6), Mat.Glow, new Vector3(0f, 0.86f, 0f));
             glow.Add(orb.GetComponent<Renderer>());
-            for (int i = 0; i < 3; i++)
+            for (int i = 0; i < 4; i++)
             {
-                MeshKit.Part(grip, "Claw" + i, MeshKit.Box(new Vector3(0.02f, 0.14f, 0.02f)), Mat.Bone,
-                    new Vector3(0f, 0.88f, 0f) + Quaternion.Euler(0f, i * 120f, 0f) * new Vector3(0f, 0f, 0.07f), new Vector3(-20f, i * 120f, 0f));
+                var finger = MeshKit.Pivot(grip, "Claw" + i, new Vector3(0f, 0.85f, 0f), new Vector3(0f, i * 90f + 45f, 0f));
+                MeshKit.Part(finger, "Low", MeshKit.Box(new Vector3(0.018f, 0.1f, 0.018f)), Mat.Bone, new Vector3(0f, 0.04f, 0.055f), new Vector3(25f, 0f, 0f));
+                MeshKit.Part(finger, "High", MeshKit.Box(new Vector3(0.015f, 0.09f, 0.015f)), Mat.Bone, new Vector3(0f, 0.13f, 0.065f), new Vector3(-30f, 0f, 0f));
+                MeshKit.Part(finger, "Tip", MeshKit.Lathe("clawTip", new[] { new Vector2(0.01f, 0f), new Vector2(0f, 0.04f) }, 4), Mat.Bone, new Vector3(0f, 0.18f, 0.04f), new Vector3(-70f, 0f, 0f));
             }
             var light = new GameObject("OrbLight").AddComponent<Light>();
             light.transform.SetParent(orb.transform, false);
