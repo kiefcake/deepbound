@@ -532,24 +532,46 @@ namespace Deepbound.Art
             var root = MeshKit.Pivot(camera, "ViewModel", Vector3.zero);
             var leather = new Color(0.42f, 0.32f, 0.22f);
 
-            var bowHand = MeshKit.Pivot(root, "BowHand", new Vector3(-0.22f, -0.22f, 0.62f), new Vector3(0f, 8f, -12f));
+            var bowHand = MeshKit.Pivot(root, "BowHand", new Vector3(-0.27f, -0.23f, 0.7f), new Vector3(0f, 30f, -20f));
             CasterArm(bowHand, leather, teamColor, true);
-            // Bow upright in view: limbs along Y, curving away from you (+Z).
-            for (int i = -3; i <= 3; i++)
+            // A longbow upright in view: tapered limbs curving away from you (+Z), horn nocks at the tips.
+            const float bowR = 0.5f, step = 12f;
+            for (int i = -4; i <= 4; i++)
             {
-                float a = i * 14f * Mathf.Deg2Rad;
-                var p = new Vector3(0f, Mathf.Sin(a) * 0.42f, (1f - Mathf.Cos(a)) * 0.42f);
-                MeshKit.Part(bowHand, "Limb" + i, MeshKit.Box(new Vector3(0.022f, 0.11f, 0.028f)), Mat.Wood, p, new Vector3(i * 14f, 0f, 0f));
+                float a = i * step * Mathf.Deg2Rad;
+                float taper = 1f - Mathf.Abs(i) * 0.12f;
+                var p = new Vector3(0f, Mathf.Sin(a) * bowR, (1f - Mathf.Cos(a)) * bowR);
+                var limb = MeshKit.Part(bowHand, "Limb" + i, MeshKit.Box(new Vector3(0.026f * taper, 0.11f, 0.034f * taper)), Mat.Wood, p, new Vector3(i * step, 0f, 0f));
+                ArtLibrary.Tint(limb.GetComponent<Renderer>(), new Color(0.55f, 0.38f, 0.24f));
             }
-            MeshKit.Part(bowHand, "GripWrap", MeshKit.Box(new Vector3(0.03f, 0.1f, 0.034f)), Mat.Leather, Vector3.zero);
-            foreach (float tip in new[] { -1f, 1f })
-                MeshKit.Part(bowHand, "Nock", MeshKit.Box(new Vector3(0.026f, 0.03f, 0.03f)), Mat.Bone, new Vector3(0f, tip * Mathf.Sin(42f * Mathf.Deg2Rad) * 0.42f + tip * 0.05f, (1f - Mathf.Cos(42f * Mathf.Deg2Rad)) * 0.42f));
-            var arrow = MeshKit.Pivot(bowHand, "NockedArrow", Vector3.zero);
-            MeshKit.Part(arrow, "Shaft", MeshKit.Box(new Vector3(0.012f, 0.012f, 0.6f)), Mat.Wood, new Vector3(0.02f, 0f, -0.2f));
-            MeshKit.Part(arrow, "Head", MeshKit.Lathe("arrowHead", new[] { new Vector2(0.02f, 0f), new Vector2(0f, 0.06f) }, 4), Mat.Steel, new Vector3(0.02f, 0f, 0.1f), new Vector3(90f, 0f, 0f));
+            MeshKit.Part(bowHand, "GripWrap", MeshKit.Box(new Vector3(0.034f, 0.12f, 0.04f)), Mat.Leather, Vector3.zero);
+            float tipA = 4.5f * step * Mathf.Deg2Rad;
+            var tipTop = MeshKit.Pivot(bowHand, "TipTop", new Vector3(0f, Mathf.Sin(tipA) * bowR, (1f - Mathf.Cos(tipA)) * bowR));
+            var tipBottom = MeshKit.Pivot(bowHand, "TipBottom", new Vector3(0f, -Mathf.Sin(tipA) * bowR, (1f - Mathf.Cos(tipA)) * bowR));
+            MeshKit.Part(tipTop, "Nock", MeshKit.Box(new Vector3(0.022f, 0.035f, 0.026f)), Mat.Bone, Vector3.zero);
+            MeshKit.Part(tipBottom, "Nock", MeshKit.Box(new Vector3(0.022f, 0.035f, 0.026f)), Mat.Bone, Vector3.zero);
 
-            var drawHand = MeshKit.Pivot(root, "DrawHand", new Vector3(-0.18f, -0.24f, 0.42f), new Vector3(0f, -10f, 0f));
+            // The draw forearm angles down and out to the right, out of the line of sight.
+            var drawEuler = new Vector3(-28f, -38f, 0f);
+            var drawHand = MeshKit.Pivot(root, "DrawHand", new Vector3(-0.235f, -0.235f, 0.57f), drawEuler);
             CasterArm(drawHand, leather, teamColor, true);
+            // The arrow rides on the draw hand, so it comes back with the string; counter-rotated to point straight ahead.
+            var arrow = MeshKit.Pivot(drawHand, "NockedArrow", new Vector3(0.012f, 0.02f, 0.02f));
+            arrow.localRotation = Quaternion.Inverse(Quaternion.Euler(drawEuler));
+            MeshKit.Part(arrow, "Shaft", MeshKit.Box(new Vector3(0.011f, 0.011f, 0.52f)), Mat.Wood, new Vector3(0f, 0f, 0.26f));
+            MeshKit.Part(arrow, "Head", MeshKit.Lathe("arrowHead", new[] { new Vector2(0.02f, 0f), new Vector2(0f, 0.06f) }, 4), Mat.Steel, new Vector3(0f, 0f, 0.52f), new Vector3(90f, 0f, 0f));
+            for (int f = 0; f < 3; f++)
+            {
+                var fl = MeshKit.Part(arrow, "Fletch" + f, MeshKit.Box(new Vector3(0.002f, 0.022f, 0.07f)), Mat.Cloth, new Vector3(0f, 0f, 0.05f), new Vector3(0f, 0f, f * 120f));
+                ArtLibrary.Tint(fl.GetComponent<Renderer>(), f == 0 ? teamColor : new Color(0.85f, 0.82f, 0.75f));
+            }
+            var nock = MeshKit.Pivot(drawHand, "StringNock", new Vector3(0.012f, 0.02f, 0.02f));
+            // The string: two thin segments, re-laid every frame from the tips to the nock.
+            var seg = MeshKit.Box(new Vector3(0.004f, 0.004f, 1f));
+            var upper = MeshKit.Part(root, "StringUpper", seg, Mat.Bone, Vector3.zero).transform;
+            var lower = MeshKit.Part(root, "StringLower", seg, Mat.Bone, Vector3.zero).transform;
+            var bs = root.gameObject.AddComponent<BowString>();
+            bs.TipTop = tipTop; bs.TipBottom = tipBottom; bs.Nock = nock; bs.Upper = upper; bs.Lower = lower;
 
             foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             return new ViewModel { Root = root, SwordPivot = drawHand, ShieldPivot = bowHand };
