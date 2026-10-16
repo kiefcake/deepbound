@@ -1092,9 +1092,55 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x - 10, y + size - 22, size + 20, 18), label, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = ult.Ready ? FontStyle.Bold : FontStyle.Normal });
         }
 
+        private static Font glyphFont;
+        private readonly Dictionary<string, float> readyFlash = new Dictionary<string, float>();
+        private readonly Dictionary<string, float> lastRemaining = new Dictionary<string, float>();
+
+        /// <summary>A symbol for an ability, picked from its name (OS symbol font; plain text if missing).</summary>
+        private static string GlyphFor(string name)
+        {
+            var n = name.ToLowerInvariant();
+            if (n.Contains("frost") || n.Contains("ice") || n.Contains("nova")) return "❄";
+            if (n.Contains("meteor") || n.Contains("cataclysm")) return "☄";
+            if (n.Contains("fire") || n.Contains("flame")) return "✹";
+            if (n.Contains("blink")) return "✧";
+            if (n.Contains("shadow") || n.Contains("step")) return "☾";
+            if (n.Contains("smoke")) return "☁";
+            if (n.Contains("smite")) return "☀";
+            if (n.Contains("consecr")) return "✠";
+            if (n.Contains("beam") || n.Contains("mend") || n.Contains("heal")) return "✚";
+            if (n.Contains("aegis") || n.Contains("block") || n.Contains("bash") || n.Contains("shield") || n.Contains("guard")) return "⛨";
+            if (n.Contains("cry") || n.Contains("taunt") || n.Contains("roar")) return "❗";
+            if (n.Contains("mark")) return "◎";
+            if (n.Contains("trap")) return "❂";
+            if (n.Contains("knife") || n.Contains("knives") || n.Contains("fan")) return "✦";
+            if (n.Contains("bow") || n.Contains("shot") || n.Contains("arrow") || n.Contains("volley") || n.Contains("draw")) return "➶";
+            if (n.Contains("dodge") || n.Contains("roll")) return "↻";
+            if (n.Contains("kick")) return "✷";
+            if (n.Contains("swing") || n.Contains("dagger") || n.Contains("strike") || n.Contains("slash") || n.Contains("stab")) return "⚔";
+            return "✦";
+        }
+
         private void Ability(float x, float y, float size, string key, string name, float remaining, float cooldown, bool active = false, bool unaffordable = false)
         {
             UiSkin.Panel(new Rect(x, y, size, size), 0.9f);
+            // The ability's symbol, faint in the middle of the slot.
+            if (glyphFont == null) { try { glyphFont = Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI Symbol", "Arial Unicode MS", "Arial" }, 26); } catch { } }
+            bool cooling = remaining > 0f && cooldown > 0f;
+            var glyphCol = unaffordable ? new Color(0.5f, 0.6f, 0.9f, 0.5f) : cooling ? new Color(0.7f, 0.65f, 0.55f, 0.35f) : new Color(0.95f, 0.8f, 0.5f, 0.7f);
+            GUI.Label(new Rect(x, y + 13, size, size - 30), GlyphFor(name), new GUIStyle(GUI.skin.label) { font = glyphFont, fontSize = 28, alignment = TextAnchor.MiddleCenter, normal = { textColor = glyphCol } });
+            // A flash when it comes off cooldown.
+            if (lastRemaining.TryGetValue(name, out var was) && was > 0f && remaining <= 0f && cooldown > 0f) readyFlash[name] = Time.time;
+            lastRemaining[name] = remaining;
+            if (readyFlash.TryGetValue(name, out var at) && Time.time - at < 0.45f)
+            {
+                float f = 1f - (Time.time - at) / 0.45f;
+                var fc = new Color(1f, 0.9f, 0.6f, 0.8f * f);
+                float g = 2f + 5f * (1f - f);
+                Rect(x - g, y - g, size + 2 * g, 2, fc); Rect(x - g, y + size + g - 2, size + 2 * g, 2, fc);
+                Rect(x - g, y - g, 2, size + 2 * g, fc); Rect(x + size + g - 2, y - g, 2, size + 2 * g, fc);
+                Rect(x, y, size, size, new Color(1f, 0.85f, 0.5f, 0.18f * f));
+            }
             if (active)
             {
                 Rect(x - 3, y - 3, size + 6, 2, Gold); Rect(x - 3, y + size + 1, size + 6, 2, Gold);

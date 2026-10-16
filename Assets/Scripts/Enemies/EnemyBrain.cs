@@ -847,7 +847,11 @@ namespace Deepbound.Enemies
         private System.Collections.IEnumerator FallApart(float after)
         {
             yield return new WaitForSeconds(after);
-            if (Rig != null) BoneScatter.Break(Rig);
+            if (Rig != null)
+            {
+                SoulWisp.Release(Rig.Head != null ? Rig.Head.position : transform.position + Vector3.up, Rig.GlowColor);
+                BoneScatter.Break(Rig);
+            }
             Sfx.Play(Sound.Rattle, transform.position + Vector3.up * 0.5f, 0.8f, 0.9f);
         }
 
