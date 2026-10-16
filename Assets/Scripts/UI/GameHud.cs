@@ -1331,7 +1331,7 @@ namespace Deepbound.UI
 
         private void DrawBanner(float w, float h)
         {
-            if (Time.time > bannerUntil || bannerTitle == null) return;
+            if (Time.time > bannerUntil || bannerTitle == null || BossIntroShowing) return;
             float a = Mathf.Clamp01((bannerUntil - Time.time) / 1.5f) * Mathf.Clamp01(1f - fade * 1.5f);
             var gold = new Color(Gold.r, Gold.g, Gold.b, a);
             GUI.Label(new Rect(0, h * 0.18f, w, 44), bannerTitle, new GUIStyle(big) { normal = { textColor = gold } });

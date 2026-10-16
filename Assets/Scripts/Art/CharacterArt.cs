@@ -990,6 +990,19 @@ namespace Deepbound.Art
                 new Vector2(0.24f, -0.3f), new Vector2(0.2f, 0f), new Vector2(0.17f, 0.08f),
             }, 8), Mat.Steel, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.8f));
             ArtLibrary.Tint(tasset.GetComponent<Renderer>(), rust);
+            // Plate legs: a giant should not stand on bare bone. Cuisse, knee cop, greave, sabaton.
+            foreach (var leg in new[] { rig.LegL, rig.LegR })
+            {
+                if (leg == null) continue;
+                var cuisse = MeshKit.Part(leg, "Cuisse", MeshKit.Lathe("wardenCuisse", new[] { new Vector2(0.075f, -0.42f), new Vector2(0.095f, -0.2f), new Vector2(0.1f, -0.02f) }, 8), Mat.Steel, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.9f));
+                ArtLibrary.Tint(cuisse.GetComponent<Renderer>(), rust);
+                var cop = MeshKit.Part(leg, "KneeCop", MeshKit.Ball(0.07f, 8, 6), Mat.Steel, new Vector3(0f, -0.45f, 0.04f), Vector3.zero, new Vector3(1f, 1f, 0.8f));
+                ArtLibrary.Tint(cop.GetComponent<Renderer>(), rust * 0.9f);
+                var greave = MeshKit.Part(leg, "Greave", MeshKit.Lathe("wardenGreave", new[] { new Vector2(0.06f, -0.85f), new Vector2(0.08f, -0.65f), new Vector2(0.07f, -0.48f) }, 8), Mat.Steel, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.95f));
+                ArtLibrary.Tint(greave.GetComponent<Renderer>(), rust);
+                var sabaton = MeshKit.Part(leg, "Sabaton", MeshKit.Box(new Vector3(0.12f, 0.07f, 0.22f)), Mat.Steel, new Vector3(0f, -0.87f, 0.05f));
+                ArtLibrary.Tint(sabaton.GetComponent<Renderer>(), rust * 0.85f);
+            }
 
             var helm = MeshKit.Part(rig.Head, "Helm", MeshKit.Lathe("wardenHelm", new[]
             {
@@ -1152,6 +1165,17 @@ namespace Deepbound.Art
             MeshKit.Part(grip, "Haft", MeshKit.Cylinder(0.035f, 0.035f, 0.95f, 6), Mat.Wood, new Vector3(0f, -0.15f, 0f));
             MeshKit.Part(grip, "Head", MeshKit.Box(new Vector3(0.38f, 0.26f, 0.26f)), Mat.Rubble, new Vector3(0f, 0.85f, 0f), new Vector3(0f, 12f, 4f));
             MeshKit.Part(grip, "Band", MeshKit.Box(new Vector3(0.4f, 0.06f, 0.28f)), Mat.Steel, new Vector3(0f, 0.85f, 0f), new Vector3(0f, 12f, 4f));
+            // Iron bands at both ends and spikes driven through: a maul, not a brick on a stick.
+            var head = MeshKit.Pivot(grip, "MaulHead", new Vector3(0f, 0.85f, 0f), new Vector3(0f, 12f, 4f));
+            foreach (float x in new[] { -0.17f, 0.17f })
+                MeshKit.Part(head, "EndBand", MeshKit.Box(new Vector3(0.05f, 0.28f, 0.28f)), Mat.Steel, new Vector3(x, 0f, 0f));
+            var spike = MeshKit.Lathe("maulSpike", new[] { new Vector2(0.035f, 0f), new Vector2(0.025f, 0.04f), new Vector2(0f, 0.12f) }, 5);
+            foreach (var (pos, rot) in new[] { (new Vector3(-0.08f, 0.13f, 0f), new Vector3(0f, 0f, 0f)), (new Vector3(0.08f, 0.13f, 0f), new Vector3(0f, 0f, 0f)),
+                (new Vector3(0f, 0f, 0.13f), new Vector3(90f, 0f, 0f)), (new Vector3(0f, 0f, -0.13f), new Vector3(-90f, 0f, 0f)),
+                (new Vector3(-0.08f, -0.13f, 0f), new Vector3(180f, 0f, 0f)), (new Vector3(0.08f, -0.13f, 0f), new Vector3(180f, 0f, 0f)) })
+                MeshKit.Part(head, "Spike", spike, Mat.Steel, pos, rot);
+            for (int w = 0; w < 4; w++)
+                MeshKit.Part(grip, "HaftWrap" + w, MeshKit.Cylinder(0.042f, 0.042f, 0.03f, 6), Mat.Leather, new Vector3(0f, -0.25f + w * 0.07f, 0f));
             rig.GlowRenderers = new[] { eyeL, eyeR };
             rig.StrideLength = 1.9f;
         }
