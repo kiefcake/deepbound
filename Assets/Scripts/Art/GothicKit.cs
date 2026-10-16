@@ -24,25 +24,28 @@ namespace Deepbound.Art
                 trim = TrimOverride ?? trim;
             }
             float top = 0.56f, bottom = top - length;
-            var sheet = MeshKit.Part(torso, "Cloak", MeshKit.Lathe("cloak" + length.ToString("F2") + flare.ToString("F2"), new[]
+            // Everything below hangs from a pivot at the shoulders so the cloak can move (CloakSway).
+            var hang = MeshKit.Pivot(torso, "CloakHang", new Vector3(0f, top, -0.02f));
+            var drop = new Vector3(0f, -top, 0.02f);
+            var sheet = MeshKit.Part(hang, "Cloak", MeshKit.Lathe("cloak" + length.ToString("F2") + flare.ToString("F2"), new[]
             {
                 new Vector2(0.27f, top), new Vector2(0.3f, top - 0.15f), new Vector2(0.31f + flare * 0.4f, top - length * 0.5f), new Vector2(0.3f + flare, bottom),
-            }, 10, true, 170f), Mat.Cloth, Vector3.zero, new Vector3(0f, 95f, 0f), new Vector3(1f, 1f, 0.82f));
+            }, 10, true, 170f), Mat.Cloth, drop, new Vector3(0f, 95f, 0f), new Vector3(1f, 1f, 0.82f));
             ArtLibrary.Tint(sheet.GetComponent<Renderer>(), color);
             // The lathe is a surface of revolution; flip normals isn't possible, so add a
             // second, slightly smaller sheet facing in — the cloak has an inside.
-            var lining = MeshKit.Part(torso, "CloakLining", MeshKit.Lathe("cloakIn" + length.ToString("F2") + flare.ToString("F2"), new[]
+            var lining = MeshKit.Part(hang, "CloakLining", MeshKit.Lathe("cloakIn" + length.ToString("F2") + flare.ToString("F2"), new[]
             {
                 new Vector2(0.3f + flare - 0.015f, bottom), new Vector2(0.31f + flare * 0.4f - 0.015f, top - length * 0.5f), new Vector2(0.285f, top - 0.15f), new Vector2(0.255f, top),
-            }, 10, true, 170f), Mat.Cloth, Vector3.zero, new Vector3(0f, 95f, 0f), new Vector3(1f, 1f, 0.82f));
+            }, 10, true, 170f), Mat.Cloth, drop, new Vector3(0f, 95f, 0f), new Vector3(1f, 1f, 0.82f));
             ArtLibrary.Tint(lining.GetComponent<Renderer>(), color * 0.55f);
 
             if (trim.HasValue)
             {
-                var band = MeshKit.Part(torso, "CloakTrim", MeshKit.Lathe("cloakTrim" + length.ToString("F2") + flare.ToString("F2"), new[]
+                var band = MeshKit.Part(hang, "CloakTrim", MeshKit.Lathe("cloakTrim" + length.ToString("F2") + flare.ToString("F2"), new[]
                 {
                     new Vector2(0.3f + flare + 0.005f, bottom), new Vector2(0.3f + flare - 0.02f, bottom + 0.07f),
-                }, 10, true, 170f), Mat.Cloth, Vector3.zero, new Vector3(0f, 95f, 0f), new Vector3(1f, 1f, 0.82f));
+                }, 10, true, 170f), Mat.Cloth, drop, new Vector3(0f, 95f, 0f), new Vector3(1f, 1f, 0.82f));
                 ArtLibrary.Tint(band.GetComponent<Renderer>(), trim.Value);
             }
             if (tattered)
@@ -53,11 +56,12 @@ namespace Deepbound.Art
                     float a = (115f + i * 22f) * Mathf.Deg2Rad;
                     float r = 0.3f + flare;
                     var p = new Vector3(Mathf.Cos(a) * r, bottom - 0.06f - (i % 2) * 0.05f, -Mathf.Abs(Mathf.Sin(a)) * r * 0.82f);
-                    var tongue = MeshKit.Part(torso, "Rag" + i, MeshKit.Box(new Vector3(0.09f, 0.14f + (i % 3) * 0.04f, 0.015f)), Mat.Cloth, p,
+                    var tongue = MeshKit.Part(hang, "Rag" + i, MeshKit.Box(new Vector3(0.09f, 0.14f + (i % 3) * 0.04f, 0.015f)), Mat.Cloth, p + drop,
                         new Vector3(8f, Mathf.Atan2(p.x, -p.z) * Mathf.Rad2Deg, (i % 2 == 0 ? 6f : -6f)));
                     ArtLibrary.Tint(tongue.GetComponent<Renderer>(), color * 0.9f);
                 }
             }
+            hang.gameObject.AddComponent<CloakSway>();
             foreach (float side in new[] { -1f, 1f })
                 MeshKit.Part(torso, "Clasp", MeshKit.Ball(0.035f, 6, 4), Mat.Gold, new Vector3(0.17f * side, 0.55f, 0.13f));
             MeshKit.Part(torso, "ClaspChain", MeshKit.Box(new Vector3(0.32f, 0.012f, 0.012f)), Mat.Gold, new Vector3(0f, 0.53f, 0.15f));

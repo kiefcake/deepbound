@@ -21,11 +21,18 @@ namespace Deepbound.World
         private Vector3 lightRest;
         private Quaternion flameRest;
         private float nextEmber;
+        private Transform[] tongues;
 
         private void Start()
         {
             offset = Random.value * 100f;
-            if (Flame != null) { flameScale = Flame.localScale; flameRest = Flame.localRotation; }
+            if (Flame != null)
+            {
+                flameScale = Flame.localScale; flameRest = Flame.localRotation;
+                var list = new System.Collections.Generic.List<Transform>();
+                for (int i = 0; i < 3; i++) { var tg = Flame.Find("Tongue" + i); if (tg != null) list.Add(tg); }
+                tongues = list.ToArray();
+            }
             if (Light != null) lightRest = Light.transform.localPosition;
             nextEmber = Time.time + Random.value * 2f;
         }
@@ -45,6 +52,13 @@ namespace Deepbound.World
             {
                 Flame.localScale = new Vector3(flameScale.x * (0.9f + n * 0.2f), flameScale.y * (0.8f + n * 0.45f), flameScale.z * (0.9f + n * 0.2f));
                 Flame.localRotation = flameRest * Quaternion.Euler((Mathf.PerlinNoise(t * 0.8f, offset + 1f) - 0.5f) * 14f, 0f, (Mathf.PerlinNoise(offset + 2f, t * 0.8f) - 0.5f) * 14f);
+                // Each tongue leaps and sinks on its own rhythm.
+                if (tongues != null)
+                    for (int i = 0; i < tongues.Length; i++)
+                    {
+                        float k = Mathf.PerlinNoise(t * 1.3f + i * 3.1f, offset + i);
+                        tongues[i].localScale = new Vector3(1f, 0.5f + k * 0.9f, 1f);
+                    }
                 // Now and then a spark lifts off (only near the viewer: cheap).
                 if (Time.time >= nextEmber)
                 {
@@ -52,7 +66,7 @@ namespace Deepbound.World
                     var cam = Art.ViewCamera.Current;
                     if (cam != null && (cam.transform.position - Flame.position).sqrMagnitude < 14f * 14f)
                         Art.Vfx.Spawn(EmberMesh, Art.Mat.Glow, Flame.position + Random.insideUnitSphere * 0.05f, Vector3.up * Random.Range(0.6f, 1.2f) + Random.insideUnitSphere * 0.25f,
-                            Random.Range(0.8f, 1.6f), 0.025f, 0f, (Light != null ? Light.color : new Color(1f, 0.6f, 0.3f)) * 2.5f, -0.4f, 0.8f);
+                            Random.Range(0.8f, 1.6f), 0.025f * Mathf.Max(1f, flameScale.x * 1.6f), 0f, (Light != null ? Light.color : new Color(1f, 0.6f, 0.3f)) * 2.5f, -0.4f, 0.8f);
                 }
             }
         }

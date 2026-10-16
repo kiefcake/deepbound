@@ -149,12 +149,18 @@ namespace Deepbound.Enemies
             agent.enabled = false;
         }
 
+        /// <summary>Walking dead climb out of the floor when they appear; spirits, statues and mimics do not.</summary>
+        private static bool RisesFromGround(CharacterArt.SkeletonKind k) =>
+            k != CharacterArt.SkeletonKind.Wraith && k != CharacterArt.SkeletonKind.Mimic && k != CharacterArt.SkeletonKind.Gargoyle && k != CharacterArt.SkeletonKind.Mourner && k != CharacterArt.SkeletonKind.Unsung;
+
         public override void OnNetworkSpawn()
         {
-            Title.OnValueChanged += (_, t) => { if (t.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f; };
-            if (Title.Value.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f;
             Rig = CharacterArt.BuildSkeleton(transform, visualKind);
             if (Rig != null) Rig.WatchViewer = true;
+            // Champions stand larger (applied after the rig exists, so late joiners see it too).
+            Title.OnValueChanged += (_, t) => { if (t.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f; };
+            if (Title.Value.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f;
+            if (Rig != null && !IsBoss && RisesFromGround(visualKind)) Rig.gameObject.AddComponent<RiseFromGround>();
             if (Rig != null && (IsBoss || Heavy || Rig.transform.lossyScale.y >= 1.12f)) FitBodyToRig();
             health.Hurt += OnHurtVisual;
             Elite.OnValueChanged += (_, now) => ApplyEliteVisual(now);

@@ -601,21 +601,35 @@ namespace Deepbound.World
         {
             var flame = MeshKit.Pivot(root, "Flame", at);
             flame.localScale = Vector3.one * size;
+            // Flames keep their colour: a pale fire bleaches to white under bloom, so saturate it first.
+            Color.RGBToHSV(color, out float fh, out float fs, out float fv);
+            var hot = Color.HSVToRGB(fh, Mathf.Max(fs, 0.82f), 1f);
             var outer = MeshKit.Part(flame, "Outer", MeshKit.Lathe("flame", new[]
             {
                 new Vector2(0f, 0f), new Vector2(0.07f, 0.05f), new Vector2(0.08f, 0.12f), new Vector2(0.04f, 0.24f), new Vector2(0f, 0.32f),
             }, 6, false), Mat.Glow, Vector3.zero);
             // Keep flame emission modest and saturated: at high HDR values ACES + bloom
             // desaturate it to white, and fire stops reading as fire.
-            ArtLibrary.SetGlow(outer.GetComponent<Renderer>(), new Color(color.r, color.g * 0.75f, color.b * 0.6f) * 1.6f);
+            ArtLibrary.SetGlow(outer.GetComponent<Renderer>(), hot * 1.25f);
             outer.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
 
             var inner = MeshKit.Part(flame, "Inner", MeshKit.Lathe("flameInner", new[]
             {
                 new Vector2(0f, 0f), new Vector2(0.04f, 0.04f), new Vector2(0.045f, 0.09f), new Vector2(0f, 0.18f),
             }, 6, false), Mat.Glow, new Vector3(0f, 0.01f, 0f));
-            ArtLibrary.SetGlow(inner.GetComponent<Renderer>(), Color.Lerp(color, new Color(1f, 0.9f, 0.6f), 0.5f) * 2.4f);
+            ArtLibrary.SetGlow(inner.GetComponent<Renderer>(), Color.Lerp(hot, Color.white, 0.35f) * 1.6f);
             inner.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            // Tongues: three thinner licks round the core, each flickering on its own (see Torch).
+            for (int i = 0; i < 3; i++)
+            {
+                var tongue = MeshKit.Pivot(flame, "Tongue" + i, Quaternion.Euler(0f, i * 120f + 30f, 0f) * new Vector3(0f, 0f, 0.035f), new Vector3(0f, i * 120f + 30f, 0f));
+                var lick = MeshKit.Part(tongue, "Lick", MeshKit.Lathe("flame", new[]
+                {
+                    new Vector2(0f, 0f), new Vector2(0.07f, 0.05f), new Vector2(0.08f, 0.12f), new Vector2(0.04f, 0.24f), new Vector2(0f, 0.32f),
+                }, 6, false), Mat.Glow, Vector3.zero, new Vector3(14f, 0f, 0f), new Vector3(0.45f, 0.75f, 0.45f));
+                ArtLibrary.SetGlow(lick.GetComponent<Renderer>(), Color.Lerp(hot, hot * hot, 0.5f) * 1.2f);
+                lick.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
 
             var light = new GameObject("Light").AddComponent<Light>();
             light.transform.SetParent(root, false);
