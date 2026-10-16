@@ -12,6 +12,9 @@ namespace Deepbound.World
     public class Shrine : Interactable
     {
         private Renderer sigil;
+        // The two relics the shrine offers this visit, shown as gems in caskets on the altar.
+        private readonly Renderer[] relicGems = new Renderer[2];
+        private float nextRelicCheck;
         private float pulse;
 
         public override float Range => 2.6f;
@@ -50,6 +53,19 @@ namespace Deepbound.World
 
         private void Update()
         {
+            if (Time.time >= nextRelicCheck && relicGems[0] != null)
+            {
+                nextRelicCheck = Time.time + 1f;
+                int n = 0;
+                if (World.DungeonDirector.InLobby)
+                    foreach (var it in Shop.Current(Shop.Vendor.Shrine))
+                        if (it.Kind == Shop.ItemKind.Relic && n < 2)
+                        {
+                            ArtLibrary.SetGlow(relicGems[n], Loot.Relics.GemColor((Loot.Relic)(int)it.Amount) * (1.3f + Mathf.Sin(Time.time * 2f + n) * 0.2f));
+                            n++;
+                        }
+                for (int i = n; i < 2; i++) ArtLibrary.SetGlow(relicGems[i], Color.black);
+            }
             pulse = Mathf.MoveTowards(pulse, 0f, Time.deltaTime * 0.6f);
             if (sigil != null) ArtLibrary.SetGlow(sigil, new Color(1f, 0.85f, 0.5f) * (0.9f + 0.3f * Mathf.Sin(Time.time * 1.5f) + pulse * 1.5f));
         }
@@ -74,6 +90,13 @@ namespace Deepbound.World
                 var p = new Vector3(-0.6f + i * 0.3f, 1f, 0.25f - (i % 2) * 0.15f);
                 MeshKit.Part(transform, "Candle" + i, MeshKit.Cylinder(0.035f, 0.035f, 0.12f + (i % 3) * 0.05f, 6), Mat.Bone, p);
                 MeshKit.Part(transform, "Flame" + i, MeshKit.Ball(0.025f, 5, 4), Mat.Flame, p + Vector3.up * (0.15f + (i % 3) * 0.05f));
+            }
+            for (int i = 0; i < 2; i++)
+            {
+                float x = i == 0 ? -0.62f : 0.62f;
+                MeshKit.Part(transform, "Casket" + i, MeshKit.Box(new Vector3(0.22f, 0.14f, 0.16f)), Mat.Gold, new Vector3(x, 1.07f, -0.12f));
+                MeshKit.Part(transform, "CasketLid" + i, MeshKit.Box(new Vector3(0.24f, 0.03f, 0.18f)), Mat.Gold, new Vector3(x, 1.155f, -0.12f));
+                relicGems[i] = MeshKit.Part(transform, "RelicGem" + i, MeshKit.Ball(0.05f, 8, 6), Mat.Glow, new Vector3(x, 1.22f, -0.12f), default, new Vector3(1f, 1.3f, 1f)).GetComponent<Renderer>();
             }
             var l = new GameObject("ShrineLight").AddComponent<Light>();
             l.transform.SetParent(transform, false);

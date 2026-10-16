@@ -1342,6 +1342,15 @@ namespace Deepbound.Networking
             local.GetComponent<UI.GameHud>().DebugOpenShop();
             yield return null;
             yield return Shot(dir, "1b_merchant_panel");
+            // The other two stalls: Hobb at the anvil, the shrine's offerings.
+            foreach (var (vendor, spot, tag) in new[] { (Shop.Vendor.Smith, Lobby.AnvilSpot + Vector3.left * 2.2f, "1b_smith_panel"), (Shop.Vendor.Shrine, Lobby.ShrineSpot + Vector3.left * 2.4f, "1b_shrine_panel") })
+            {
+                lobbyMotor.Teleport(spot + Vector3.up * 0.1f, Quaternion.LookRotation(Vector3.right));
+                yield return new WaitForSeconds(0.3f);
+                local.GetComponent<UI.GameHud>().DebugOpenShop(vendor);
+                yield return null;
+                yield return Shot(dir, tag);
+            }
             local.GetComponent<PlayerProgress>().ServerResetRun();
 
             // The tailor: the stall, the mannequin in a dye, and the wardrobe panel.

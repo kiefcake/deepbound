@@ -41,7 +41,7 @@ namespace Deepbound.UI
                 "Mana potions are blue for the same reason. Different thing. Also do not ask.",
                 "I have sold to every delver who ever went down that shaft. Repeat customers are rarer.",
                 "Gold from below spends the same up here. It just smells of graves. Most gold does.",
-                "No refunds on Holy Water. The priest gets very particular about where it came from.",
+                "Holy Water? See the priest. I sell things that work on the living.",
                 "Frost flasks are bottled river from the year it froze. Shake well. Throw better.",
                 "I have not taken this hood off since the war. Nobody remembers which war. Including me.",
             }, () =>
@@ -62,6 +62,7 @@ namespace Deepbound.UI
                 "A rune on a blade is older than the blade, older than me, older than Cathedra. Treat it nice.",
                 "Every blade that goes down comes back heavier. Some of that is the blood. Most is the dark.",
                 "Strike while it's hot? Down there it's always cold. Strike anyway.",
+                "I sell embers, if you're too soft to dig them out of the dead yourself. Plate too. And one piece cut for you.",
             }, () =>
             {
                 var me = Me;
@@ -79,6 +80,7 @@ namespace Deepbound.UI
                 "I pray for every delver. Out loud, so the dead can hear it and know you're spoken for.",
                 "The Holy Water comes from the font. The font is fed from below. I try not to think about it.",
                 "The cat? The cat is not mine. The cat is not anyone's. I feed it, and it permits this.",
+                "The relics on the altar came up in dead hands. Give to the font, and one may go down again in yours.",
             }, () =>
             {
                 var me = Me;

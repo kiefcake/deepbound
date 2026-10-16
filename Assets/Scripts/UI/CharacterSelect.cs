@@ -171,7 +171,7 @@ namespace Deepbound.UI
 
             UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.82f));
             UiSkin.Shadowed(new Rect(0, h * 0.03f, w, 50), "CHOOSE YOUR CLASS", new GUIStyle(UiSkin.Title) { fontSize = 40 });
-            GUI.Label(new Rect(0, h * 0.03f + 48, w, 24), "Your choice lasts the run. You can change it at camp with B.",
+            GUI.Label(new Rect(0, h * 0.03f + 48, w, 24), "Your choice lasts the run. Change it at camp with B before the next one.",
                 new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14 });
 
             float top = h * 0.14f, bottom = h * 0.95f;
