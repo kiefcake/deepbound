@@ -212,7 +212,7 @@ namespace Deepbound.Art
 
         /// <summary>
         /// The Mage: robe and sleeves in the party colour, a hood shadowing a faceless face
-        /// with two faint arcane eyes, and a tall wide-brimmed hat — the silhouette that
+        /// with two faint arcane eyes, a silver circlet and a high collar — the silhouette that
         /// says "caster" from across any room.
         /// </summary>
         public static HumanoidRig BuildMage(Transform root, Color teamColor)
@@ -243,12 +243,12 @@ namespace Deepbound.Art
 
             rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.62f, 0f));
             MeshKit.Part(rig.Head, "Face", MeshKit.Ball(0.13f, 8, 6), Mat.Dark, new Vector3(0f, 0.14f, 0.01f));
-            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.022f, 6, 4), Mat.Glow, new Vector3(-0.045f, 0.15f, 0.135f));
-            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.022f, 6, 4), Mat.Glow, new Vector3(0.045f, 0.15f, 0.135f));
+            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.016f, 6, 4), Mat.Glow, new Vector3(-0.045f, 0.15f, 0.135f));
+            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.016f, 6, 4), Mat.Glow, new Vector3(0.045f, 0.15f, 0.135f));
             var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("mageHood", new[]
             {
                 new Vector2(0.17f, -0.02f), new Vector2(0.18f, 0.12f), new Vector2(0.14f, 0.24f), new Vector2(0.05f, 0.28f), new Vector2(0f, 0.29f),
-            }, 9, true, 280f), Mat.Cloth, new Vector3(0f, 0.02f, -0.04f), new Vector3(0f, 220f, 0f), new Vector3(1.18f, 1.12f, 1.18f));
+            }, 9, true, 280f), Mat.Cloth, new Vector3(0f, 0.02f, -0.04f), new Vector3(0f, 40f, 0f), new Vector3(1.18f, 1.12f, 1.18f));
             ArtLibrary.Tint(hood.GetComponent<Renderer>(), robe * 0.8f);
 
             // A sorcerer's cowl rising to a tall point behind the head, a silver circlet with
@@ -266,12 +266,16 @@ namespace Deepbound.Art
             rig.ArmL = BuildSleeveArm(rig.Torso, "ArmL", -1f, robe);
 
             var grip = MeshKit.Pivot(rig.ArmR, "Grip", new Vector3(0f, -0.6f, 0.02f), new Vector3(80f, 0f, 0f));
-            MeshKit.Part(grip, "Staff", MeshKit.Cylinder(0.025f, 0.03f, 1.6f, 6), Mat.Wood, new Vector3(0f, -0.7f, 0f));
-            var orb = MeshKit.Part(grip, "Orb", MeshKit.Ball(0.07f, 8, 6), Mat.Glow, new Vector3(0f, 0.95f, 0f));
+            MeshKit.Part(grip, "Staff", MeshKit.Lathe("vmStaff", new[] { new Vector2(0.024f, -0.9f), new Vector2(0.02f, -0.3f), new Vector2(0.023f, 0.1f), new Vector2(0.019f, 0.38f), new Vector2(0.03f, 0.44f) }, 7),
+                Mat.Wood, new Vector3(0f, 0.4f, 0f), Vector3.zero, new Vector3(1.25f, 1.25f, 1.25f));
+            MeshKit.Part(grip, "Collar", MeshKit.Cylinder(0.04f, 0.036f, 0.035f, 8), Mat.Gold, new Vector3(0f, 0.95f, 0f));
+            var orb = MeshKit.Part(grip, "Orb", MeshKit.Lathe("vmCrystal", new[] { new Vector2(0f, 0f), new Vector2(0.03f, 0.04f), new Vector2(0.026f, 0.1f), new Vector2(0f, 0.15f) }, 6),
+                Mat.Glow, new Vector3(0f, 0.97f, 0f), Vector3.zero, Vector3.one * 1.4f);
             for (int i = 0; i < 3; i++)
             {
-                MeshKit.Part(grip, "Prong" + i, MeshKit.Box(new Vector3(0.018f, 0.14f, 0.018f)), Mat.Gold,
-                    new Vector3(0f, 0.88f, 0f) + Quaternion.Euler(0f, i * 120f, 0f) * new Vector3(0f, 0f, 0.06f), new Vector3(-18f, i * 120f, 0f));
+                var claw = MeshKit.Pivot(grip, "Prong" + i, new Vector3(0f, 0.96f, 0f), new Vector3(0f, i * 120f + 30f, 0f));
+                MeshKit.Part(claw, "Lower", MeshKit.Box(new Vector3(0.016f, 0.1f, 0.018f)), Mat.Gold, new Vector3(0f, 0.045f, 0.05f), new Vector3(22f, 0f, 0f));
+                MeshKit.Part(claw, "Upper", MeshKit.Box(new Vector3(0.013f, 0.09f, 0.015f)), Mat.Gold, new Vector3(0f, 0.13f, 0.056f), new Vector3(-28f, 0f, 0f));
             }
 
             rig.GlowColor = new Color(0.55f, 0.75f, 1f);
@@ -331,7 +335,7 @@ namespace Deepbound.Art
             var cowl = MeshKit.Part(rig.Head, "Cowl", MeshKit.Lathe("mageHood", new[]
             {
                 new Vector2(0.17f, -0.02f), new Vector2(0.18f, 0.12f), new Vector2(0.14f, 0.24f), new Vector2(0.05f, 0.28f), new Vector2(0f, 0.29f),
-            }, 9, true, 280f), Mat.Cloth, new Vector3(0f, 0.03f, -0.02f), new Vector3(0f, 220f, 0f));
+            }, 9, true, 280f), Mat.Cloth, new Vector3(0f, 0.03f, -0.02f), new Vector3(0f, 40f, 0f));
             ArtLibrary.Tint(cowl.GetComponent<Renderer>(), white * 0.9f);
             // Mitre: a tall, slightly flattened cone, gold-trimmed.
             var mitre = MeshKit.Part(rig.Head, "Mitre", MeshKit.Lathe("mitre", new[]
@@ -429,7 +433,7 @@ namespace Deepbound.Art
             var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("rogueHood", new[]
             {
                 new Vector2(0.16f, -0.04f), new Vector2(0.18f, 0.1f), new Vector2(0.15f, 0.24f), new Vector2(0.06f, 0.33f), new Vector2(0f, 0.36f),
-            }, 9, true, 260f), Mat.Cloth, new Vector3(0f, 0.04f, -0.03f), new Vector3(10f, 230f, 0f));
+            }, 9, true, 260f), Mat.Cloth, new Vector3(0f, 0.04f, -0.03f), new Vector3(10f, 50f, 0f));
             ArtLibrary.Tint(hood.GetComponent<Renderer>(), teamColor * 0.55f);
 
             rig.ArmR = BuildSleeveArm(rig.Torso, "ArmR", 1f, leather);
@@ -441,7 +445,6 @@ namespace Deepbound.Art
             }
 
             rig.GlowColor = new Color(0.75f, 0.55f, 1f);
-            WeakPoint.Add(rig.Torso, new Vector3(0f, 0.36f, 0.31f), 0.1f, new Color(1f, 0.3f, 0.1f));
             rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
             rig.StrideLength = 1.3f;
             return rig;
@@ -493,7 +496,7 @@ namespace Deepbound.Art
             var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("rangerHood", new[]
             {
                 new Vector2(0.16f, -0.04f), new Vector2(0.18f, 0.1f), new Vector2(0.15f, 0.24f), new Vector2(0.06f, 0.36f), new Vector2(0f, 0.42f),
-            }, 9, true, 270f), Mat.Cloth, new Vector3(0f, 0.04f, -0.03f), new Vector3(14f, 225f, 0f));
+            }, 9, true, 270f), Mat.Cloth, new Vector3(0f, 0.04f, -0.03f), new Vector3(14f, 45f, 0f));
             ArtLibrary.Tint(hood.GetComponent<Renderer>(), green);
             var feather = MeshKit.Part(rig.Head, "Feather", MeshKit.Box(new Vector3(0.012f, 0.24f, 0.05f)), Mat.Cloth, new Vector3(0.14f, 0.3f, -0.08f), new Vector3(-30f, 0f, -25f));
             ArtLibrary.Tint(feather.GetComponent<Renderer>(), teamColor);
@@ -862,6 +865,9 @@ namespace Deepbound.Art
             else if (kind == SkeletonKind.Lich)
             {
                 BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.2f, 0.36f, 0.34f), new Color(0.3f, 1f, 0.7f), true);
+                // A boss never wears a pointed hood over its face: the Tide Lich goes bare-skulled under its coral crown.
+                var lichHood = rig.Head.Find("Hood");
+                if (lichHood != null) Object.DestroyImmediate(lichHood.gameObject);
             }
             else if (kind == SkeletonKind.Necromancer)
             {
@@ -947,7 +953,7 @@ namespace Deepbound.Art
                 var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("archerHood", new[]
                 {
                     new Vector2(0.15f, -0.02f), new Vector2(0.16f, 0.1f), new Vector2(0.12f, 0.2f), new Vector2(0.03f, 0.26f), new Vector2(0f, 0.27f),
-                }, 8, true, 280f), Mat.Cloth, new Vector3(0f, 0.05f, -0.01f), new Vector3(0f, 220f, 0f));
+                }, 8, true, 280f), Mat.Cloth, new Vector3(0f, 0.05f, -0.01f), new Vector3(0f, 40f, 0f));
                 ArtLibrary.Tint(hood.GetComponent<Renderer>(), new Color(0.22f, 0.2f, 0.16f));
                 rig.StrideLength = 1.2f;
             }
@@ -963,7 +969,7 @@ namespace Deepbound.Art
                 var helm = MeshKit.Part(rig.Head, "BrokenHelm", MeshKit.Lathe("skelHelm", new[]
                 {
                     new Vector2(0.14f, 0f), new Vector2(0.145f, 0.06f), new Vector2(0.11f, 0.12f), new Vector2(0f, 0.14f),
-                }, 7, true, 290f), Mat.Steel, new Vector3(0f, 0.15f, 0f), new Vector3(0f, 215f, 0f));
+                }, 7, true, 290f), Mat.Steel, new Vector3(0f, 0.15f, 0f), new Vector3(0f, 35f, 0f));
                 ArtLibrary.Tint(helm.GetComponent<Renderer>(), new Color(0.55f, 0.45f, 0.38f));
                 rig.StrideLength = 1.2f;
             }
@@ -1069,7 +1075,7 @@ namespace Deepbound.Art
             var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("lichHood", new[]
             {
                 new Vector2(0.17f, -0.03f), new Vector2(0.18f, 0.12f), new Vector2(0.13f, 0.24f), new Vector2(0.04f, 0.31f), new Vector2(0f, 0.32f),
-            }, 9, true, 270f), Mat.Cloth, new Vector3(0f, 0.04f, -0.02f), new Vector3(0f, 225f, 0f));
+            }, 9, true, 270f), Mat.Cloth, new Vector3(0f, 0.04f, -0.02f), new Vector3(0f, 45f, 0f));
             ArtLibrary.Tint(hood.GetComponent<Renderer>(), robeColor * 0.7f);
 
             // Coral crown: branching red-pink spikes.
@@ -1300,7 +1306,7 @@ namespace Deepbound.Art
             var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("mageHood", new[]
             {
                 new Vector2(0.17f, -0.02f), new Vector2(0.18f, 0.12f), new Vector2(0.14f, 0.24f), new Vector2(0.05f, 0.28f), new Vector2(0f, 0.29f),
-            }, 9, true, 280f), Mat.Smoke, new Vector3(0f, 0.03f, -0.04f), new Vector3(0f, 220f, 0f), new Vector3(1.25f, 1.25f, 1.3f));
+            }, 9, true, 280f), Mat.Smoke, new Vector3(0f, 0.03f, -0.04f), new Vector3(0f, 40f, 0f), new Vector3(1.25f, 1.25f, 1.3f));
             ArtLibrary.Tint(hood.GetComponent<Renderer>(), new Color(0.1f, 0.12f, 0.18f, 0.75f));
 
             rig.ArmR = BuildBoneArm(rig.Torso, "ArmR", 1f);
