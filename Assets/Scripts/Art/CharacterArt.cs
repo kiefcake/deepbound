@@ -664,7 +664,8 @@ namespace Deepbound.Art
         /// <summary>A living flame cupped over an open palm: a teardrop core in a softer halo, lit by a small light.</summary>
         private static Renderer PalmFlame(Transform hand, Color color, out Light light)
         {
-            var at = MeshKit.Pivot(hand, "Flame", new Vector3(0.005f, 0.06f, 0.05f));
+            var at = MeshKit.Pivot(hand, "Flame", new Vector3(0.005f, 0.05f, 0.05f));
+            at.localScale = Vector3.one * 0.65f;
             var core = MeshKit.Part(at, "Core", MeshKit.Lathe("vmFlame", new[] { new Vector2(0f, -0.02f), new Vector2(0.026f, 0.0f), new Vector2(0.022f, 0.035f), new Vector2(0.008f, 0.075f), new Vector2(0f, 0.09f) }, 8), Mat.Glow, Vector3.zero);
             ArtLibrary.SetGlow(core.GetComponent<Renderer>(), color * 1.2f);
             // Two small licks of flame curling off the core.

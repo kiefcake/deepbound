@@ -104,8 +104,19 @@ namespace Deepbound.Art
         /// <summary>A blooming fireball that swells and burns out in a moment.</summary>
         public static void Fireball(Vector3 at, float size, Color color)
         {
-            Spawn(Ball, Mat.Glow, at, Vector3.up * 1.5f, 0.45f, size * 0.3f, size, color * 2.4f);
-            Spawn(Ball, Mat.Glow, at + Vector3.up * 0.3f, Vector3.up * 2.5f, 0.6f, size * 0.2f, size * 0.7f, color * 1.6f);
+            // A white-hot core that pops and is gone...
+            Spawn(Ball, Mat.Glow, at, Vector3.up * 1.2f, 0.25f, size * 0.25f, size * 0.7f, Color.Lerp(color, Color.white, 0.45f) * 2f);
+            // ...lumpy billows rolling up and out, cooling from orange to a deep red...
+            var deep = new Color(color.r * 0.8f, color.g * 0.35f, color.b * 0.2f);
+            for (int i = 0; i < 7; i++)
+            {
+                var dir = Quaternion.Euler(Random.Range(-20f, 50f), i * 51f + Random.Range(-15f, 15f), 0f) * Vector3.forward;
+                var c = Color.Lerp(color, deep, Random.Range(0.1f, 0.7f));
+                Spawn(Ball, Mat.Glow, at + dir * size * 0.25f + Vector3.up * 0.2f, dir * size * 1.6f + Vector3.up * 2.2f,
+                    Random.Range(0.45f, 0.7f), size * 0.25f, size * Random.Range(0.5f, 0.75f), c * 1.5f, 0f, 2.5f);
+            }
+            // ...and a dark cap of smoke climbing after it.
+            Smoke(at + Vector3.up * size * 0.6f, 2, size * 0.5f, 1.8f);
         }
 
         /// <summary>A crown of ice spikes bursting from the ground, then melting away.</summary>

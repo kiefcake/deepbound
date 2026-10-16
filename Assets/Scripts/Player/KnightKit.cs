@@ -355,6 +355,9 @@ namespace Deepbound.Player
         private void BlockFxRpc()
         {
             Sfx.Play(Sound.Block, transform.position + transform.forward * 0.6f + Vector3.up * 1.2f);
+            // Sparks off the shield face, thrown back toward the attacker (seen by everyone, owner included).
+            var face = transform.position + transform.forward * 0.75f + Vector3.up * 1.25f;
+            Vfx.HitImpact(face, face + transform.forward, 0.8f, new Color(1f, 0.8f, 0.45f), Mat.Steel);
             if (IsOwner) player.ViewModelBlockImpact();
         }
     }
