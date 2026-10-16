@@ -33,6 +33,7 @@ namespace Deepbound.World
             : depth == 1 ? "The Tide: when the water surges, get to high ground"
             : depth == 2 ? "Soul Lanterns: smash one to heal your party and stun the dead"
             : depth == 3 ? "The Bell: when it tolls, jump the shockwave"
+            : depth == 4 ? "The Silence: now and then the light fails. Stay together, and watch for the red !"
             : "";
 
         public int DebugPileCount => bonePiles.Count;
@@ -62,6 +63,7 @@ namespace Deepbound.World
                 case 0: TickBones(); break;
                 case 1: TickTide(); break;
                 case 3: TickBell(); break;
+                case 4: TickSilence(); break;
             }
             TickWaves();
         }
@@ -208,6 +210,24 @@ namespace Deepbound.World
         // ------------------------------------------------------------------
 
         private float nextToll;
+
+        private float nextSilence;
+
+        /// <summary>The Abyss: every ~40 s the light fails for seven seconds.</summary>
+        private void TickSilence()
+        {
+            if (nextSilence <= 0f) { nextSilence = Time.time + 25f; return; }
+            if (Time.time < nextSilence) return;
+            nextSilence = Time.time + 40f;
+            SilenceRpc(7f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SilenceRpc(float seconds)
+        {
+            Art.TheSilence.Begin(seconds);
+            UI.GameHud.Feed("The light fails...", new Color(0.6f, 0.45f, 1f));
+        }
 
         private void TickBell()
         {

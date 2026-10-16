@@ -197,7 +197,7 @@ namespace Deepbound.UI
         private static readonly Color Gold = new Color(0.92f, 0.74f, 0.36f);
         private static readonly Color HealthRed = new Color(0.78f, 0.12f, 0.1f);
 
-        private static readonly string[] FloorNames = { "The Ossuary", "The Drowned Vaults", "The Hollow Throne", "The Black Cathedral" };
+        private static readonly string[] FloorNames = { "The Ossuary", "The Drowned Vaults", "The Hollow Throne", "The Black Cathedral", "The Abyss" };
 
         public void Init(NetworkPlayer owner)
         {
@@ -997,7 +997,8 @@ namespace Deepbound.UI
             Bar(x, y + 32, bw, 12, kit.ResourceMax > 0f ? kit.Resource / kit.ResourceMax : 0f, kit.ResourceColor);
             string cls = progress.Class.Name.ToUpperInvariant();
             string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
-            GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun) + "  ·  " + weapon, small);
+            GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? cls + "  ·  At camp" : CurrentDepth() >= DungeonDirector.AbyssDepth ? cls + "  ·  THE ABYSS" : cls + "  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun)
+                + (DungeonDirector.Instance != null && DungeonDirector.Instance.SealCount > 0 ? "  ·  Seals " + DungeonDirector.Instance.SealCount + "/3" : "") + "  ·  " + weapon, small);
             GUI.Label(new Rect(x, y + 64, bw, 20), progress.Embers.Value + " embers", new GUIStyle(small) { normal = { textColor = LootInfo.EmberColor } });
             if (progress.Sigils.Value > 0)
                 GUI.Label(new Rect(x + 90, y + 64, bw, 20), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil" : " sigils"), new GUIStyle(small) { normal = { textColor = LootInfo.SigilColor } });
@@ -1225,7 +1226,7 @@ namespace Deepbound.UI
             switch (director.Phase.Value)
             {
                 case RunPhase.FloorCleared:
-                    title = director.ExitFinal.Value ? "THE DEPTHS ARE CLEARED" : "THE FLOOR IS CLEARED";
+                    title = director.ExitToAbyss ? "THE SEALS ARE BROKEN" : director.ExitFinal.Value ? "THE DEPTHS ARE CLEARED" : "THE FLOOR IS CLEARED";
                     int at = DungeonDirector.PlayersAtExit(), all = PlayerLife.All.Count;
                     sub = director.PhaseEndsAt.Value > 0 ? (director.ExitFinal.Value ? "Ending the run in " : "Leaving for the castle in ") + seconds + "..."
                         : "Explore and loot at your leisure. When you are ready, everyone steps into the portal  (" + at + " / " + all + ")";
@@ -1252,7 +1253,7 @@ namespace Deepbound.UI
             var cam = player.Camera;
             var ps = cam.WorldToScreenPoint(DungeonDirector.ExitPosition + Vector3.up * 3.2f);
             if (ps.z > 0f)
-                GUI.Label(new Rect(ps.x - 100, h - ps.y - 10, 200, 20), "PORTAL  " + Mathf.RoundToInt(Vector3.Distance(player.transform.position, DungeonDirector.ExitPosition)) + "m",
+                GUI.Label(new Rect(ps.x - 100, h - ps.y - 10, 200, 20), (director.ExitToAbyss ? "DOWN INTO THE ABYSS  " : "PORTAL  ") + Mathf.RoundToInt(Vector3.Distance(player.transform.position, DungeonDirector.ExitPosition)) + "m",
                     new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.6f, 0.9f, 1f) } });
         }
 

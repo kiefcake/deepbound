@@ -47,6 +47,7 @@ namespace Deepbound.UI
         private static readonly (string title, string body)[] DungeonRight =
         {
             ("BOSS PHASES", "Bosses change phase at set health; no burst skips one. Between phases they are briefly INVULNERABLE. WARDED: kill the guards that shield them. SURVIVE: they are immune while a pattern plays out; dodge until the timer ends. ARMORED: a third of your damage gets through."),
+            ("THE SEALS", "Each floor's CHAMPION (a named elite) carries a fragment of an old Seal on the first three floors. Take all three in one run and the Pale Cardinal's portal will not lead home..."),
             ("FLOORS", "Ossuary: stamp out bone piles before they rise. Drowned Vaults: get to high ground when the tide surges. Hollow Throne: smash soul lanterns to heal and stun. Black Cathedral: jump the bell's shockwave."),
             ("INVENTORY", "I opens it. Equipping found gear sends what you wore to your PACK (8 slots); G stows a piece without wearing it. In the pack: click to wear, right-click to scrap for embers, shift-click to drop. Right-click worn gear to take it off. Everything is lost when the run ends."),
             ("PINGS", "Tap Z or middle mouse: mark the enemy, loot or spot you aim at. Hold it for the wheel and flick the mouse: up DANGER, right ON MY WAY, down NEED HELP (pinned to you), left LOOK. Downed, a tap calls for help."),

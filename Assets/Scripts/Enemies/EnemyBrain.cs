@@ -766,6 +766,7 @@ namespace Deepbound.Enemies
                 GearDrop.ServerSpawnForParty(transform.position, 1f, 0);
                 World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f, LootKind.Sigil, 1);
                 ChampionFallenRpc(Title.Value.ToString());
+                World.DungeonDirector.Instance?.ServerSealFound(depthForLoot);
             }
             if (!NoLoot && lootPrefab != null)
             {

@@ -72,6 +72,17 @@ namespace Deepbound.World
                 ShaftColor = new Color(1f, 0.5f, 0.38f),
                 ArcherChance = 0.3f,
             },
+            new DungeonTheme
+            {
+                // The Abyss (secret, below the Cathedral): black stone veined violet, thick dark, cold violet fire.
+                Name = "The Abyss",
+                Fog = new Color(0.012f, 0.006f, 0.022f), FogDensity = 0.048f,
+                AmbientSky = new Color(0.06f, 0.035f, 0.1f), AmbientEquator = new Color(0.04f, 0.022f, 0.07f), AmbientGround = new Color(0.02f, 0.012f, 0.035f),
+                TorchColor = new Color(0.7f, 0.45f, 1f), BrazierColor = new Color(0.55f, 0.3f, 1f),
+                StoneTint = new Color(0.45f, 0.4f, 0.55f), FloorTint = new Color(0.42f, 0.38f, 0.5f),
+                ShaftColor = new Color(0.6f, 0.4f, 1f),
+                ArcherChance = 0.35f,
+            },
         };
 
         public static DungeonTheme ForDepth(int depth) => ByDepth[Mathf.Clamp(depth, 0, ByDepth.Length - 1)];

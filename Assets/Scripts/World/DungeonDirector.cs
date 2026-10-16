@@ -40,6 +40,33 @@ namespace Deepbound.World
     public partial class DungeonDirector : NetworkBehaviour
     {
         public const int FloorsPerRun = 4;
+        /// <summary>The secret fifth floor, below the Black Cathedral: reached only with all three Seals.</summary>
+        public const int AbyssDepth = 4;
+
+        /// <summary>Seal fragments the party has taken from champions this run (bit per floor 0-2).</summary>
+        public readonly NetworkVariable<byte> Seals = new NetworkVariable<byte>();
+        public const byte AllSeals = 0b111;
+        public int SealCount => (Seals.Value & 1) + ((Seals.Value >> 1) & 1) + ((Seals.Value >> 2) & 1);
+        /// <summary>The Cathedral's portal leads down, not home.</summary>
+        public bool ExitToAbyss => Floor.Value.y == FloorsPerRun - 1 && Seals.Value == AllSeals;
+
+        /// <summary>Server: a champion fell on floor <paramref name="depth"/>; floors 1-3 carry a fragment of the Seal.</summary>
+        public void ServerSealFound(int depth)
+        {
+            if (!IsServer || depth < 0 || depth > 2) return;
+            byte bit = (byte)(1 << depth);
+            if ((Seals.Value & bit) != 0) return;
+            Seals.Value |= bit;
+            SealRpc(SealCount);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SealRpc(int count)
+        {
+            UI.GameHud.ShowTitleCard("A FRAGMENT OF THE SEAL  (" + count + " / 3)", count >= 3 ? "All three. Beneath the Cathedral, something is listening." : "The champion carried it without knowing");
+            Art.Sfx.Play2D(Art.Sound.Relic, 0.9f);
+            Art.Sfx.Play2D(Art.Sound.Summon, 0.5f);
+        }
         // Long enough to read the run summary before returning to camp.
         private const float DescendDelay = 8f, WipeDelay = 14f, CompleteDelay = 18f, BoardingDelay = 3f;
         private const int LobbyDepth = -1;
@@ -312,7 +339,7 @@ namespace Deepbound.World
             ClearSpawned();
             ClearSettledContract();
             ApplyOmen(false);
-            if (!keepRun) NextDepth.Value = 0;
+            if (!keepRun) { NextDepth.Value = 0; Seals.Value = 0; }
             Phase.Value = RunPhase.Lobby;
             PhaseEndsAt.Value = 0;
             Floor.Value = new Vector2Int(UnityEngine.Random.Range(1, int.MaxValue), LobbyDepth);
@@ -521,6 +548,7 @@ namespace Deepbound.World
         {
             if (floor.y == int.MinValue || floor == builtFloor) return;
             builtFloor = floor;
+            Art.TheSilence.Cancel();
 
             if (built != null) Destroy(built);
             Combat.Arrows.Clear();
@@ -704,8 +732,8 @@ namespace Deepbound.World
             boss = bossObj.GetComponent<BossBrain>();
             // The Lich raises archers from the water; everyone else raises swordsmen.
             boss.SetMinionPrefab(boss is TideLichBrain && archerPrefab != null ? archerPrefab
-                : boss is CardinalBrain && wraithPrefab != null ? wraithPrefab : skeletonPrefab);
-            boss.SetGuardPrefab(shieldbearerPrefab);
+                : (boss is CardinalBrain || boss is UnsungBrain) && wraithPrefab != null ? wraithPrefab : skeletonPrefab);
+            boss.SetGuardPrefab(boss is UnsungBrain && mournerPrefab != null ? mournerPrefab : shieldbearerPrefab);
             boss.ServerScaleBoss(players, layout.Depth);
             boss.Dormant = portcullisPrefab != null; // waits on its throne until the party arrives
             spawned.Add(bossObj);
@@ -919,7 +947,7 @@ namespace Deepbound.World
                     {
                         ContractOnFloorCleared();
                         // No timer: a portal opens where the boss stood, and the party leaves when everyone steps in.
-                        ExitFinal.Value = Floor.Value.y >= FloorsPerRun - 1;
+                        ExitFinal.Value = Floor.Value.y >= AbyssDepth || (Floor.Value.y == FloorsPerRun - 1 && Seals.Value != AllSeals);
                         EnterPhase(RunPhase.FloorCleared, 0f);
                         phaseTimer = double.MaxValue;
                         PhaseEndsAt.Value = 0;
@@ -939,6 +967,12 @@ namespace Deepbound.World
                         else if (now >= PhaseEndsAt.Value)
                         {
                             if (ExitFinal.Value) EnterPhase(RunPhase.RunComplete, CompleteDelay);
+                            else if (Floor.Value.y == FloorsPerRun - 1)
+                            {
+                                // The Seals break: straight down into the Abyss, no camp.
+                                SealsBreakRpc();
+                                StartFloor(AbyssDepth);
+                            }
                             else
                             {
                                 NextDepth.Value = Floor.Value.y + 1;
@@ -969,6 +1003,13 @@ namespace Deepbound.World
 
         /// <summary>Where the way out opens: the boss's throne spot.</summary>
         public static Vector3 ExitPosition => Layout != null ? Layout.BossSpawn : Vector3.zero;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SealsBreakRpc()
+        {
+            UI.GameHud.ShowTitleCard("THE SEALS BREAK", "Below the hymn, something has been waiting");
+            Art.Sfx.Play2D(Art.Sound.Slam, 1f);
+        }
 
         public static int PlayersAtExit()
         {

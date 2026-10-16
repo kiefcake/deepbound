@@ -324,6 +324,17 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                 }
 
+                // The floor's champion carries its Seal.
+                var champ = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => e.IsChampion && !e.IsDead);
+                if (champ != null)
+                {
+                    int sealsBefore = DungeonDirector.Instance.SealCount;
+                    champ.GetComponent<Health>().ServerDamage(1e6f, champ.transform.position, local.NetworkObjectId);
+                    yield return new WaitForSeconds(0.3f);
+                    Log("champion seal", "seals " + sealsBefore + " -> " + DungeonDirector.Instance.SealCount + " (bits " + DungeonDirector.Instance.Seals.Value + ")",
+                        (DungeonDirector.Instance.Seals.Value & (1 << layout.Depth)) != 0);
+                }
+
                 // A journal page on its lectern: reading it adds it to the journal.
                 var pageT = FindObjectsByType<LorePage>(FindObjectsSortMode.None).FirstOrDefault();
                 if (pageT != null)
@@ -1620,7 +1631,7 @@ namespace Deepbound.Networking
 
             // One look at each later floor's theme.
             var shotFeatures = new System.Collections.Generic.HashSet<RoomFeature>(layout.Rooms.Select(r => r.Feature));
-            for (int depth = 1; depth < DungeonDirector.FloorsPerRun; depth++)
+            for (int depth = 1; depth <= DungeonDirector.AbyssDepth; depth++)
             {
                 DungeonDirector.Instance.ServerDebugStartFloor(depth);
                 yield return new WaitForSeconds(2.5f);
@@ -1752,7 +1763,7 @@ namespace Deepbound.Networking
             // The test player takes a tenth of every hit: the run must not wipe mid-test.
             hp.IncomingModifiers.Insert(0, (d, f) => d * 0.1f);
 
-            for (int depth = 0; depth < DungeonDirector.FloorsPerRun; depth++)
+            for (int depth = 0; depth <= DungeonDirector.AbyssDepth; depth++)
             {
                 DungeonDirector.Instance.ServerDebugStartFloor(depth);
                 yield return new WaitForSeconds(2f);

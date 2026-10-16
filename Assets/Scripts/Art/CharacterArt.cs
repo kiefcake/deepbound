@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Deepbound.Art
@@ -585,7 +586,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -598,6 +599,7 @@ namespace Deepbound.Art
             if (kind == SkeletonKind.Mimic) return BuildMimic(root);
             if (kind == SkeletonKind.Gargoyle) return BuildGargoyle(root);
             if (kind == SkeletonKind.Mourner) return BuildMourner(root);
+            if (kind == SkeletonKind.Unsung) return BuildUnsung(root);
             bool king = kind == SkeletonKind.King;
             float s = king ? 1.75f : kind == SkeletonKind.Gravewarden ? 2.0f : kind == SkeletonKind.Lich ? 1.45f : kind == SkeletonKind.Cardinal ? 1.7f
                 : kind == SkeletonKind.Brute ? 1.45f : kind == SkeletonKind.Plaguebearer ? 1.15f : kind == SkeletonKind.Ghoul ? 0.92f : kind == SkeletonKind.Necromancer ? 1.05f : 1f;
@@ -1213,6 +1215,82 @@ namespace Deepbound.Art
             }
             rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
             rig.StrideLength = 1.3f;
+            return rig;
+        }
+
+        /// <summary>
+        /// The Unsung: a colossal floating ribcage on a trailing spine, under a cracked skull with
+        /// three burning violet eye sockets and a hanging jaw; long arms of bone end in claws; two
+        /// rings of bone orbit it. A dark heart glows inside the ribs (the weak point). No hood, no robe.
+        /// </summary>
+        private static HumanoidRig BuildUnsung(Transform root)
+        {
+            var bone = new Color(0.62f, 0.6f, 0.66f);
+            var violet = new Color(0.6f, 0.3f, 1f);
+            var visual = MeshKit.Pivot(root, "UnsungVisual", Vector3.zero);
+            visual.localScale = Vector3.one * 2.1f;
+            var rig = visual.gameObject.AddComponent<HumanoidRig>();
+            rig.GlowColor = violet;
+            Renderer Bone(GameObject g) { var r = g.GetComponent<Renderer>(); ArtLibrary.Tint(r, bone); return r; }
+
+            rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.9f, 0f));
+            // The trailing spine: vertebrae tapering down into nothing.
+            for (int i = 0; i < 7; i++)
+                Bone(MeshKit.Part(rig.Hips, "Vertebra" + i, MeshKit.Ball(0.07f - i * 0.006f, 8, 6), Mat.Bone, new Vector3(0f, -0.1f - i * 0.12f, -0.02f * i), default, new Vector3(1.2f, 0.8f, 1.2f)));
+            rig.LegL = MeshKit.Pivot(rig.Hips, "LegL", new Vector3(-0.1f, 0f, 0f));
+            rig.LegR = MeshKit.Pivot(rig.Hips, "LegR", new Vector3(0.1f, 0f, 0f));
+            rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", new Vector3(0f, 0.05f, 0f));
+            Bone(MeshKit.Part(rig.Torso, "Spine", MeshKit.Cylinder(0.05f, 0.05f, 0.75f, 6), Mat.Bone, new Vector3(0f, 0f, -0.14f)));
+            Bone(MeshKit.Part(rig.Torso, "Sternum", MeshKit.Box(new Vector3(0.07f, 0.4f, 0.04f)), Mat.Bone, new Vector3(0f, 0.38f, 0.18f)));
+            for (int i = 0; i < 6; i++)
+            {
+                float y = 0.12f + i * 0.09f, w = 0.26f - Mathf.Abs(i - 2.5f) * 0.025f;
+                foreach (float s in new[] { -1f, 1f })
+                    Bone(MeshKit.Part(rig.Torso, "Rib" + i, MeshKit.Box(new Vector3(w, 0.025f, 0.03f)), Mat.Bone, new Vector3(s * w * 0.45f, y, 0.03f), new Vector3(0f, s * -38f, s * -12f)));
+            }
+            // The dark heart in the cage.
+            var heart = MeshKit.Part(rig.Torso, "Heart", MeshKit.Ball(0.08f, 10, 8), Mat.Glow, new Vector3(0f, 0.4f, 0.02f));
+            ArtLibrary.SetGlow(heart.GetComponent<Renderer>(), violet * 1.4f);
+            WeakPoint.Add(rig.Torso, new Vector3(0f, 0.4f, 0.04f), 0.07f, violet);
+            rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.84f, 0.04f));
+            Bone(MeshKit.Part(rig.Head, "Cranium", MeshKit.Ball(0.17f, 12, 10), Mat.Bone, new Vector3(0f, 0.08f, 0f), default, new Vector3(1.05f, 1f, 1.15f)));
+            Bone(MeshKit.Part(rig.Head, "Jaw", MeshKit.Box(new Vector3(0.2f, 0.06f, 0.16f)), Mat.Bone, new Vector3(0f, -0.1f, 0.06f), new Vector3(18f, 0f, 0f)));
+            var eyes = new List<Renderer>();
+            foreach (var e in new[] { new Vector3(-0.065f, 0.09f, 0.16f), new Vector3(0.065f, 0.09f, 0.16f), new Vector3(0f, 0.17f, 0.17f) })
+            {
+                MeshKit.Part(rig.Head, "Socket", MeshKit.Ball(0.04f, 8, 6), Mat.Dark, e - new Vector3(0f, 0f, 0.01f));
+                var eye = MeshKit.Part(rig.Head, "Eye", MeshKit.Ball(0.022f, 6, 4), Mat.Glow, e + new Vector3(0f, 0f, 0.02f));
+                eyes.Add(eye.GetComponent<Renderer>());
+            }
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var arm = MeshKit.Pivot(rig.Torso, s < 0 ? "ArmL" : "ArmR", new Vector3(s * 0.26f, 0.66f, 0f));
+                Bone(MeshKit.Part(arm, "Upper", MeshKit.Cylinder(0.03f, 0.025f, 0.5f, 6), Mat.Bone, new Vector3(0f, -0.5f, 0f)));
+                Bone(MeshKit.Part(arm, "Fore", MeshKit.Cylinder(0.025f, 0.02f, 0.5f, 6), Mat.Bone, new Vector3(0f, -1.0f, 0.05f)));
+                for (int f = 0; f < 4; f++)
+                    Bone(MeshKit.Part(arm, "Claw" + f, MeshKit.Lathe("unsungClaw", new[] { new Vector2(0.015f, 0f), new Vector2(0f, 0.18f) }, 4), Mat.Bone,
+                        new Vector3((f - 1.5f) * 0.03f, -1.02f, 0.08f), new Vector3(170f, 0f, (f - 1.5f) * 9f)));
+                if (s < 0) rig.ArmL = arm; else rig.ArmR = arm;
+            }
+            // Two rings of bone, orbiting (turned by the brain).
+            foreach (var (name, r, y) in new[] { ("BoneRingA", 0.62f, 0.45f), ("BoneRingB", 0.78f, 0.25f) })
+            {
+                var ring = MeshKit.Pivot(visual, name, new Vector3(0f, 0.9f + y, 0f));
+                for (int i = 0; i < 14; i++)
+                {
+                    float a = i * Mathf.PI * 2f / 14f;
+                    Bone(MeshKit.Part(ring, "Bone" + i, MeshKit.Cylinder(0.018f, 0.018f, 0.16f, 5), Mat.Bone, new Vector3(Mathf.Cos(a) * r, 0f, Mathf.Sin(a) * r), new Vector3(90f, -a * Mathf.Rad2Deg, 0f)));
+                }
+            }
+            var glow = new GameObject("UnsungLight").AddComponent<Light>();
+            glow.transform.SetParent(visual, false);
+            glow.transform.localPosition = new Vector3(0f, 1.3f, 0.5f);
+            glow.color = violet;
+            glow.range = 8f;
+            glow.intensity = 2f;
+            glow.shadows = LightShadows.None;
+            rig.GlowRenderers = eyes.ToArray();
+            rig.StrideLength = 2f;
             return rig;
         }
 

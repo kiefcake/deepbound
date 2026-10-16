@@ -54,6 +54,7 @@ namespace Deepbound.EditorTools
             var lich = BuildEnemyPrefab("TideLich", EnemyType.TideLich, loot);
             var king = BuildEnemyPrefab("SkeletonKing", EnemyType.HollowKing, loot);
             var cardinal = BuildEnemyPrefab("PaleCardinal", EnemyType.Cardinal, loot);
+            var unsung = BuildEnemyPrefab("TheUnsung", EnemyType.Unsung, loot);
             var ghoul = BuildEnemyPrefab("Ghoul", EnemyType.Ghoul, loot);
             var brute = BuildEnemyPrefab("BoneBrute", EnemyType.Brute, loot);
             var necro = BuildEnemyPrefab("Necromancer", EnemyType.Necromancer, loot);
@@ -71,7 +72,7 @@ namespace Deepbound.EditorTools
             var altar = BuildObjectPrefab<BloodAltar>("BloodAltar", new Vector3(1.4f, 0.9f, 1.0f));
             var trap = BuildObjectPrefab<SpikeTrap>("SpikeTrap", Vector3.zero);
             var breakable = BuildBreakablePrefab();
-            var director = BuildDirectorPrefab(skeleton, archer, dummy, new[] { warden, lich, king, cardinal }, ghoul, brute, necro);
+            var director = BuildDirectorPrefab(skeleton, archer, dummy, new[] { warden, lich, king, cardinal, unsung }, ghoul, brute, necro);
             WireDirectorObjects(director, chest, altar, breakable, trap, loot);
             var gate = BuildPortcullisPrefab();
             var lever = BuildObjectPrefab<Lever>("Lever", new Vector3(0.5f, 1.8f, 0.3f));
@@ -129,7 +130,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -241,7 +242,7 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung }
 
         private static GameObject BuildEnemyPrefab(string name, EnemyType type, GameObject loot)
         {
@@ -284,6 +285,7 @@ namespace Deepbound.EditorTools
                 case EnemyType.Necromancer: brain = root.AddComponent<NecromancerBrain>(); break;
                 case EnemyType.Wraith: brain = root.AddComponent<WraithBrain>(); break;
                 case EnemyType.Cardinal: brain = root.AddComponent<CardinalBrain>(); break;
+                case EnemyType.Unsung: brain = root.AddComponent<UnsungBrain>(); break;
                 case EnemyType.Shieldbearer: brain = root.AddComponent<ShieldbearerBrain>(); break;
                 case EnemyType.Mimic: brain = root.AddComponent<MimicBrain>(); break;
                 case EnemyType.Hoarder: brain = root.AddComponent<HoarderBrain>(); break;
@@ -384,6 +386,12 @@ namespace Deepbound.EditorTools
                     Kind(Art.CharacterArt.SkeletonKind.Lich);
                     Set("maxHealth", 2600f); Set("damage", 18f); Set("defense", 2f); Set("moveSpeed", 3.4f);
                     Set("attackRange", 2.8f); Set("recovery", 1.0f); Set("aggroRange", 22f); Set("leashRange", 60f);
+                    break;
+                case EnemyType.Unsung:
+                    // The secret final boss: patterns more than reach; the toughest fight in the game.
+                    Kind(Art.CharacterArt.SkeletonKind.Unsung);
+                    Set("maxHealth", 4600f); Set("damage", 34f); Set("defense", 7f); Set("moveSpeed", 1.7f);
+                    Set("attackRange", 3.6f); Set("windup", 1.0f); Set("recovery", 1.2f); Set("aggroRange", 26f); Set("leashRange", 70f);
                     break;
                 case EnemyType.Cardinal:
                     Kind(Art.CharacterArt.SkeletonKind.Cardinal);

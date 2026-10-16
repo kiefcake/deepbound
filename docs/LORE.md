@@ -196,14 +196,25 @@ deep you are coming, and the deep answers:
 
 ---
 
+### The Abyss and the Unsung (built)
+Beneath the altar of the Black Cathedral, three seals held a door shut. The Cardinal's hymn was
+never for the dead of Cathedra; it was sung so the dead would sleep quietly enough not to wake
+the thing the seals held. The first three floors' **champions** each carry a fragment of a seal
+without knowing it. Take all three in one descent and the Cathedral's portal does not lead home.
+It leads down, into **the Abyss**, where the light fails (the Silence) and **the Unsung** waits:
+a colossal ribcage hanging in the dark under a skull with three burning eyes, ringed in orbiting
+bone. It has never been sung to. It does not know what a song is for. Its wardens are the Mourners
+who stood over the seals, and they move the same way they always have: only when no one is looking.
+
+> *"You broke my seals. Then meet the ones who kept them."*
+> *"The morning they waited for. It is mine."*
+
 ## Open threads (for later)
 
 These are deliberately unanswered. Each one is a hook for a future floor, boss, quest or
 secret:
 
-1. **The hidden floor.** Below the Black Cathedral there is something the Cardinal was singing
-   *to*, not singing *for*. Three seals held it shut. The champions of each floor each carry a
-   fragment, without knowing it. (Planned: Seals and the Abyss floor.)
+1. **The hidden floor** (built: see "The Abyss and the Unsung"). What lies below the Abyss?
 2. **The first expedition.** The anvil came back up. The people who carried it did not, all of
    them. One of them is the dealer at Deadman's Hand. It has never said which.
 3. **The Baron's oath.** If the Gravewarden is the first Baron Ravenhold, who is the Baron now, and
