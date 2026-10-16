@@ -288,6 +288,7 @@ namespace Deepbound.World
             }
             // Water, a little below the rim.
             var water = MeshKit.Part(root, "CisternWater", MeshKit.Box(new Vector3(low.width, 0.01f, low.height)), Mat.Water, new Vector3(low.center.x, -0.08f, low.center.y));
+            water.AddComponent<WaterFlow>();
             ArtLibrary.Tint(water.GetComponent<Renderer>(), new Color(0.1f, 0.22f, 0.24f, 0.85f));
             water.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             // A teal glow from under the water, and drains spilling from the walls.
@@ -311,6 +312,7 @@ namespace Deepbound.World
                 var spout = room.Center + outward * (half - 0.3f) + Vector3.up * 2.4f;
                 b.Add(MeshKit.Cylinder(0.28f, 0.28f, 0.6f, 8), Mat.StoneWall, Matrix4x4.TRS(spout, Quaternion.LookRotation(Vector3.up, -outward) * Quaternion.Euler(90f, 0f, 0f), Vector3.one));
                 var fall = MeshKit.Part(root, "Spill", MeshKit.Box(new Vector3(0.35f, 2.4f, 0.12f)), Mat.Water, spout - outward * 0.9f + Vector3.down * 1.2f, Quaternion.LookRotation(outward).eulerAngles);
+                fall.AddComponent<WaterFlow>().Falling = true;
                 ArtLibrary.Tint(fall.GetComponent<Renderer>(), new Color(0.35f, 0.55f, 0.6f, 0.6f));
                 fall.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }

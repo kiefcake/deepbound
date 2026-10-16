@@ -1011,7 +1011,7 @@ namespace Deepbound.UI
             Rect(x - 8, y - 10, bw + 16, 96, Panel);
 
             float hp = health.Current.Value, max = Mathf.Max(1f, health.Max.Value);
-            Bar(x, y, bw, 22, hp / max, HealthRed);
+            Bar(x, y, bw, 22, hp / max, HealthRed, Trail(ref hpTrail, ref hpHold, hp / max));
             // Aegis shield, drawn as a gold band over the health bar.
             if (health.Shield.Value > 0f)
             {
@@ -1173,7 +1173,7 @@ namespace Deepbound.UI
             Rect(x - 3, y + 21, bw + 6, 20, Panel);
             var stance = boss.CurrentStance;
             var barColor = boss.Immune ? new Color(0.35f, 0.45f, 0.62f) : stance == BossBrain.Stance.Armored ? new Color(0.45f, 0.45f, 0.5f) : new Color(0.55f, 0.08f, 0.1f);
-            Bar(x, y + 24, bw, 14, boss.Health.Fraction, barColor);
+            Bar(x, y + 24, bw, 14, boss.Health.Fraction, barColor, Trail(ref bossTrail, ref bossHold, boss.Health.Fraction));
             // Phase name on the right of the title row.
             string phase = boss.PhaseName.Value.ToString();
             if (phase.Length > 0)
@@ -1836,9 +1836,22 @@ namespace Deepbound.UI
             Rect(w / 2f - bw / 2f, y, bw * Mathf.Clamp01(k), 10, color);
         }
 
-        private static void Bar(float x, float y, float width, float height, float k, Color color)
+        private float hpTrail = 1f, hpHold, bossTrail = 1f, bossHold;
+
+        /// <summary>A trailing value for a bar: holds a moment after a drop, then drains toward the real value.</summary>
+        private static float Trail(ref float trail, ref float holdUntil, float now)
         {
-            UiSkin.Bar(new Rect(x, y, width, height), k, color, height >= 18f ? 10 : 0);
+            if (now >= trail) { trail = now; return trail; }
+            if (Event.current.type != EventType.Repaint) return trail;
+            if (holdUntil < Time.time - 2f) holdUntil = Time.time + 0.45f; // a fresh drop
+            if (Time.time >= holdUntil) trail = Mathf.MoveTowards(trail, now, Time.unscaledDeltaTime * 0.8f);
+            if (trail - now < 0.001f) { trail = now; holdUntil = 0f; }
+            return trail;
+        }
+
+        private static void Bar(float x, float y, float width, float height, float k, Color color, float trail = -1f)
+        {
+            UiSkin.Bar(new Rect(x, y, width, height), k, color, height >= 18f ? 10 : 0, trail);
             return;
             Rect(x, y, width * Mathf.Clamp01(k), height * 0.35f, new Color(1f, 1f, 1f, 0.12f));
         }

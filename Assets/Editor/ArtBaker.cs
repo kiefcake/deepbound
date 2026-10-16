@@ -179,10 +179,25 @@ namespace Deepbound.EditorTools
             mat.SetColor("_BaseColor", new Color(0.06f, 0.16f, 0.14f, 0.72f));
             mat.SetFloat("_Smoothness", 0.88f);
             mat.SetFloat("_Metallic", 0f);
-            mat.SetTexture("_BumpMap", AssetDatabase.LoadAssetAtPath<Texture2D>(TextureDir + "/Flagstone_Normal.png"));
-            mat.SetTextureScale("_BumpMap", new Vector2(0.3f, 0.3f));
-            mat.SetFloat("_BumpScale", 0.25f);
+            // Ripples: a tileable wave field (whole-number sine waves + soft noise). URP Lit samples the
+            // normal with the base UVs and the detail normal with its own: WaterFlow scrolls the two
+            // against each other, so the surface moves instead of sliding.
+            var h = new float[Size * Size];
+            for (int y = 0; y < Size; y++)
+                for (int x = 0; x < Size; x++)
+                {
+                    float u = x / (float)Size, v = y / (float)Size, tau = Mathf.PI * 2f;
+                    h[y * Size + x] = Mathf.Sin(tau * (3f * u + 2f * v)) * 0.22f + Mathf.Sin(tau * (-2f * u + 5f * v)) * 0.16f
+                        + Mathf.Sin(tau * (7f * u - 1f * v)) * 0.08f + (Fbm(u, v, 6f, 6f, 4, 77) - 0.5f) * 0.9f;
+                }
+            var ripple = SaveTexture("WaterRipple_Normal", HeightToNormal(h, 5f), true);
+            mat.SetTexture("_BumpMap", ripple);
+            mat.SetFloat("_BumpScale", 0.32f);
             mat.EnableKeyword("_NORMALMAP");
+            mat.SetTexture("_DetailNormalMap", ripple);
+            mat.SetFloat("_DetailNormalMapScale", 0.45f);
+            mat.SetTextureScale("_DetailAlbedoMap", new Vector2(1.7f, 1.7f));
+            mat.EnableKeyword("_DETAIL_MULX2");
             mat.SetFloat("_Surface", 1f);
             mat.SetFloat("_Blend", 0f);
             mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);

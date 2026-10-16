@@ -71,6 +71,7 @@ namespace Deepbound.World
             var water = MeshKit.Part(parent, "Water", MeshKit.Box(new Vector3(size.x, 0.01f, size.y)), Mat.Water, center);
             var r = water.GetComponent<Renderer>();
             ArtLibrary.Tint(r, theme.WaterColor);
+            water.AddComponent<WaterFlow>();
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 

@@ -96,12 +96,14 @@ namespace Deepbound.UI
         }
 
         /// <summary>A framed bar: iron frame, dark well, the fill with a highlight, and notches.</summary>
-        public static void Bar(Rect r, float k, Color fill, int notches = 0)
+        public static void Bar(Rect r, float k, Color fill, int notches = 0, float trail = -1f)
         {
             Rect(new Rect(r.x - 2, r.y - 2, r.width + 4, r.height + 4), new Color(Iron.r, Iron.g, Iron.b, 0.95f));
             Rect(new Rect(r.x - 1, r.y - 1, r.width + 2, r.height + 2), new Color(Gold.r * 0.55f, Gold.g * 0.55f, Gold.b * 0.55f, 0.9f));
             Rect(r, new Color(0.05f, 0.03f, 0.03f, 0.95f));
             float fw = r.width * Mathf.Clamp01(k);
+            // What was just lost lingers as a pale chunk before it drains away.
+            if (trail > k) Rect(new Rect(r.x + fw, r.y, r.width * (Mathf.Clamp01(trail) - Mathf.Clamp01(k)), r.height), new Color(1f, 0.92f, 0.75f, 0.75f));
             Rect(new Rect(r.x, r.y, fw, r.height), fill);
             Rect(new Rect(r.x, r.y, fw, Mathf.Max(1f, r.height * 0.35f)), new Color(1f, 1f, 1f, 0.18f));
             Rect(new Rect(r.x, r.yMax - Mathf.Max(1f, r.height * 0.2f), fw, Mathf.Max(1f, r.height * 0.2f)), new Color(0f, 0f, 0f, 0.25f));
