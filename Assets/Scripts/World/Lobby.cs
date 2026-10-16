@@ -439,19 +439,64 @@ namespace Deepbound.World
         /// <summary>No roof: a pale moon and a scatter of stars over the walls.</summary>
         private static void BuildSky(Transform lights)
         {
-            var moon = MeshKit.Part(lights, "Moon", MeshKit.Ball(4f, 16, 12), Mat.Glow, Origin + new Vector3(28f, 42f, 50f));
-            ArtLibrary.SetGlow(moon.GetComponent<Renderer>(), new Color(0.85f, 0.88f, 1f) * 1.4f);
+            var moonAt = Origin + new Vector3(28f, 42f, 50f);
+            var moon = MeshKit.Part(lights, "Moon", MeshKit.Ball(4f, 16, 12), Mat.Glow, moonAt);
+            ArtLibrary.SetGlow(moon.GetComponent<Renderer>(), new Color(0.9f, 0.9f, 1f) * 1.15f);
             moon.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            // Maria: darker seas on the face turned toward the castle.
+            var toCastle = (Origin + Vector3.up * 2f - moonAt).normalized;
+            var face = Quaternion.LookRotation(toCastle);
+            var mrng = new System.Random(11);
+            for (int i = 0; i < 6; i++)
+            {
+                var off = face * new Vector3((float)mrng.NextDouble() * 4.4f - 2.2f, (float)mrng.NextDouble() * 4.4f - 2.2f, 0f);
+                if (off.magnitude > 2.6f) off = off.normalized * 2.6f;
+                var sea = MeshKit.Part(lights, "Mare", MeshKit.Ball(0.9f + (float)mrng.NextDouble() * 0.7f, 10, 8), Mat.Glow, moonAt + off + toCastle * (Mathf.Sqrt(Mathf.Max(0f, 16f - off.sqrMagnitude)) - 0.35f), face.eulerAngles, new Vector3(1f, 0.8f, 0.3f));
+                ArtLibrary.SetGlow(sea.GetComponent<Renderer>(), new Color(0.7f, 0.73f, 0.84f) * 0.95f);
+                sea.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            // A pale halo round it.
+            // Three faint shells stacked, so the glow falls off instead of ending at an edge.
+            foreach (var (radius, alpha) in new[] { (5.6f, 0.05f), (7.6f, 0.035f), (10.5f, 0.022f) })
+            {
+                var halo = MeshKit.Part(lights, "MoonHalo", MeshKit.Ball(radius, 18, 12), Mat.Smoke, moonAt - toCastle * (radius - 3f));
+                ArtLibrary.Tint(halo.GetComponent<Renderer>(), new Color(0.55f, 0.62f, 0.85f, alpha));
+                halo.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+
             var rng = new System.Random(7);
             var star = MeshKit.Box(Vector3.one * 0.22f);
-            for (int i = 0; i < 90; i++)
+            var stars = new System.Collections.Generic.List<Renderer>();
+            for (int i = 0; i < 120; i++)
             {
                 float az = (float)rng.NextDouble() * Mathf.PI * 2f, el = 0.35f + (float)rng.NextDouble() * 1.1f;
                 var dir = new Vector3(Mathf.Cos(az) * Mathf.Cos(el), Mathf.Sin(el), Mathf.Sin(az) * Mathf.Cos(el));
                 var s = MeshKit.Part(lights, "Star", star, Mat.Glow, Origin + dir * 68f);
+                s.transform.localScale = Vector3.one * (0.6f + (float)rng.NextDouble() * 0.9f);
                 ArtLibrary.SetGlow(s.GetComponent<Renderer>(), new Color(0.8f, 0.85f, 1f) * (0.6f + (float)rng.NextDouble() * 0.9f));
                 s.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                stars.Add(s.GetComponent<Renderer>());
             }
+            // Ragged night clouds, drifting slowly over the moon (Art/NightSky moves them).
+            var clouds = new System.Collections.Generic.List<Transform>();
+            var crng = new System.Random(5);
+            for (int c = 0; c < 7; c++)
+            {
+                var cloud = MeshKit.Pivot(lights, "Cloud", Origin + Vector3.up * 46f);
+                for (int k = 0; k < 4; k++)
+                {
+                    var puff = MeshKit.Part(cloud, "Puff", MeshKit.Ball(5f, 10, 6), Mat.Smoke,
+                        new Vector3(k * 6f - 9f + (float)crng.NextDouble() * 3f, (float)crng.NextDouble() * 1.5f, (float)crng.NextDouble() * 4f - 2f), Vector3.zero,
+                        new Vector3(1.6f + (float)crng.NextDouble(), 0.35f + (float)crng.NextDouble() * 0.2f, 1f));
+                    ArtLibrary.Tint(puff.GetComponent<Renderer>(), new Color(0.12f, 0.12f, 0.17f, 0.38f));
+                    puff.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+                clouds.Add(cloud);
+            }
+            var sky = lights.gameObject.AddComponent<Art.NightSky>();
+            sky.Stars = stars.ToArray();
+            sky.Clouds = clouds.ToArray();
+            sky.Center = Origin;
             var moonlight = new GameObject("Moonlight").AddComponent<Light>();
             moonlight.transform.SetParent(lights, false);
             moonlight.transform.position = Origin + new Vector3(0f, 40f, 10f);
