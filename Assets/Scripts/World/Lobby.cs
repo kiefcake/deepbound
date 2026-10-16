@@ -119,8 +119,15 @@ namespace Deepbound.World
             Props.Carriage(lights, dressing, BoardingCenter + new Vector3(6f, 0f, 1f), Quaternion.Euler(0f, 90f, 0f));
             Props.BoardingCircle(lights, BoardingCenter, BoardingRadius);
 
+            // The camp's people (the merchant has his own stall above).
+            Props.Townsfolk(lights, AnvilSpot + Vector3.back * 1.4f, AnvilSpot + Vector3.left * 3f, Props.Folk.Smith);
+            Props.Townsfolk(lights, ShrineSpot + Vector3.left * 1.2f, ShrineSpot + Vector3.left * 4f, Props.Folk.Priest);
+            Props.Townsfolk(lights, TailorSpot + Vector3.right * 0.6f, TailorSpot + Vector3.right * 4f, Props.Folk.Tailor);
+            Props.Townsfolk(lights, BoardingCenter + new Vector3(5.6f, 0.9f, 1f), BoardingCenter, Props.Folk.Driver);
+
             structure.Build(root.transform, "LobbyStructure", collide: true);
             dressing.Build(root.transform, "LobbyDressing", collide: true);
+            root.AddComponent<UI.CampChatter>();
             ApplyCastleAtmosphere();
             Art.PropColliders.Add(root.transform);
             return root;

@@ -1007,6 +1007,7 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void SealsBreakRpc()
         {
+            Progression.Deeds.Add(Progression.Deeds.Deed.SawAbyss);
             UI.GameHud.ShowTitleCard("THE SEALS BREAK", "Below the hymn, something has been waiting");
             Art.Sfx.Play2D(Art.Sound.Slam, 1f);
         }

@@ -32,8 +32,8 @@ on the road: a gatehouse, a carriage that runs on rails down the shaft, a road o
 stalls run by people with nowhere better to be, and a gambling tent run by people with nowhere
 else at all.
 
-- **The merchant** sells potions and plate. She does not ask where your gold came from, because
-  she knows.
+- **The merchant**, Silas Crane, sells potions and plate. He does not ask where your gold came from, because
+  he knows.
 - **The blacksmith's anvil** is older than the castle. It was carried up out of the deep by the
   first expedition that came back. Embers from below are the only thing that will heat it, and
   the only thing it will temper is a weapon that has already been down there.
@@ -53,6 +53,25 @@ else at all.
   you coins sometimes. Do not ask where it finds them. It has opinions about being picked up. Ask first (pet it), and it will smile and leave you a
   whisker, which delvers swear makes the dead miss. Do not ask, and it will make its opinion known
   all down your front, and the smell follows you the whole descent.
+
+### The people of Ravenhold (in game: they talk when you walk past)
+- **Silas Crane, the merchant.** A stooped peddler who has not taken his hood off since the war;
+  nobody remembers which war, least of all Silas. Sells potions he will not explain, refuses to
+  touch Seal fragments, and has opinions about how you smell after the cat has had its say.
+- **Hobb Ironside, the smith.** Keeper of the anvil that came up with the first expedition. It
+  only takes embers from below; he tried good coal once and it spat it back at him. His
+  grandfather swore the old Baron would hold the first door until the end of days.
+- **Brother Aldric, the shrine priest.** Kind, evasive about whose blessing he gives, and the
+  only person in Ravenhold who sings for the dead. Has fed the cat every day for nine years and
+  has never been given a whisker.
+- **Mistress Vey, the tailor.** Takes Renown, never gold, because gold is for people with no
+  taste. Once dyed a ghoul. It was much improved.
+- **Corwin, the carriage driver.** Forty years on the seat and never seen the bottom; keeps his
+  eyes shut on the way down. Counts the times he has driven the carriage home empty, and talks to
+  the seats now.
+- **Mister Bones, the dealer.** The skeleton at Deadman's Hand. It walked up out of the shaft one
+  night and sat down, and it has been shuffling ever since. It never speaks. If anyone ever brings
+  the Unsung to its end, they say it will stop shuffling, and bow.
 
 ### The Last Lantern and the waystones
 The lantern at the top of the shaft burns with a flame that was lit from the Cardinal's own
@@ -224,6 +243,21 @@ secret:
    way, is waiting for it. What happens when the party is the one that brings it?
 
 ---
+
+## How the lore is in the game (built)
+- **Camp chatter** (`UI/CampChatter`): the six people above speak over their heads when you are
+  near. News comes first and reads what *you* have done, on this machine and this run:
+  guardians felled, Seals carried, the cat's verdict, journal pages read, wins, parties lost.
+  Then idle talk.
+- **Deeds** (`Progression/Deeds`): which guardians you have felled, whether you have seen the
+  Abyss, and how many runs you have won or lost, kept across sessions. The camp remembers them.
+- **Last words**: every guardian says something as it falls (in its own voice; see each boss).
+- **Eulogies**: the first time you fell each guardian, its eulogy is written into your Journal
+  (Esc > Guide > Journal > Eulogies).
+- **Journal pages** on lecterns, one per floor (twelve to find).
+- **The descent** shows a line of the Cardinal's hymn under "INTO THE DEEP".
+- **Epitaphs**: the run summary ends with the camp's one-line verdict on your descent ("Here lies
+  ..., who picked up the cat without asking. The smell outlived them.").
 
 ## Using this in game
 

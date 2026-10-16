@@ -30,6 +30,13 @@ namespace Deepbound.UI
             new Entry { Floor = 3, Title = "The hymn, first verse", Text = "Sleep, you who were carried down. Sleep, you who carried. The morning is coming and it is not yet. I will sing until it is. I will sing until it is. I will sing until" },
             new Entry { Floor = 3, Title = "The Cardinal's confession", Text = "Each night the hymn takes a little more of me. Tonight it took my name. I do not need a name to sing. When it has taken everything, I wonder what will be left holding the note." },
             new Entry { Floor = 3, Title = "Beneath the altar", Text = "There are three seals under the altar of the Black Cathedral, and the hymn was never meant for the dead of Cathedra at all. We sang them to sleep only so that they would not wake the thing we were singing to. If you are reading this, the singing has stopped." },
+            // Appended last so saved page indices never move.
+            // Eulogies: written in your journal the first time you fell each guardian.
+            new Entry { Floor = 4, Title = "Eulogy for the Gravewarden", Text = "Here stood Baron Ravenhold, first of his line, who swore at the first door that nothing would pass and kept his word four hundred years. Something passed. It was you. He did not seem to mind, at the end. He seemed tired, and then he seemed nothing at all." },
+            new Entry { Floor = 4, Title = "Eulogy for the Tide Lich", Text = "Aldous Vane, banker of the Drowned Vaults, who would not be parted from his ledgers. The river took the vault, the vault took the ledgers, and the ledgers took him. In the end he was owed everything and paid nothing, which is, the merchant says, a banker's idea of heaven." },
+            new Entry { Floor = 4, Title = "Eulogy for the Hollow King", Text = "Ossric, last king of Cathedra, promised a reign until the Last Morning. He ruled. He judged. He waited. He asked, at the end, whether the morning was always so cold. It is, your Majesty. We are sorry. Somebody should have told you." },
+            new Entry { Floor = 4, Title = "Eulogy for the Pale Cardinal", Text = "The one who sang. For four hundred years the hymn took a little more of them each night: their sleep, their name, their face. What was left was only the note. You stopped the note. Brother Aldric sang for the Cardinal that night, badly, in the shrine. It was the first hymn sung for them in four centuries." },
+            new Entry { Floor = 4, Title = "The Unsung", Text = "It had never been sung to. It did not know what a song was for. You showed it: a song is for the end of something. It understood, we think, at the very last. In the castle above, the dealer stopped shuffling, and the cat came in from the shaft and slept by the fire all night, for the first time anyone remembers." },
         };
 
         private const string Key = "deepbound.journal";
@@ -68,10 +75,20 @@ namespace Deepbound.UI
             return true;
         }
 
+        /// <summary>The journal page written when a guardian falls (deed 0-4), or -1.</summary>
+        public static int EulogyFor(int deed)
+        {
+            int n = 0;
+            for (int i = 0; i < Entries.Length; i++)
+                if (Entries[i].Floor == 4) { if (n == deed) return i; n++; }
+            return -1;
+        }
+
         /// <summary>A page for floor <paramref name="depth"/>: the first one this machine has not found, else any.</summary>
         public static int PickFor(int depth, System.Random rng)
         {
             var options = new List<int>();
+            // Lecterns carry the floors' pages (the Abyss reuses the Cathedral's); eulogies are only ever earned.
             for (int i = 0; i < Entries.Length; i++) if (Entries[i].Floor == Mathf.Clamp(depth, 0, 3)) options.Add(i);
             foreach (var i in options) if (!Has(i)) return i;
             return options.Count > 0 ? options[rng.Next(options.Count)] : 0;

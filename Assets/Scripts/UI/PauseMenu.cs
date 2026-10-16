@@ -189,9 +189,9 @@ namespace Deepbound.UI
 
         private void DrawJournal(Rect panel, float colW, GUIStyle titleStyle, GUIStyle bodyStyle)
         {
-            string[] floors = { "THE OSSUARY", "THE DROWNED VAULTS", "THE HOLLOW THRONE", "THE BLACK CATHEDRAL" };
-            float listX = panel.x + 24, y = panel.y + 64, listW = colW * 0.75f;
-            for (int f = 0; f < 4; f++)
+            string[] floors = { "THE OSSUARY", "THE DROWNED VAULTS", "THE HOLLOW THRONE", "THE BLACK CATHEDRAL", "EULOGIES" };
+            float listX = panel.x + 24, y = panel.y + 58, listW = colW * 0.75f;
+            for (int f = 0; f < 5; f++)
             {
                 GUI.Label(new Rect(listX, y, listW, 20), floors[f], titleStyle);
                 y += 20;
@@ -199,12 +199,12 @@ namespace Deepbound.UI
                 {
                     if (Journal.Entries[i].Floor != f) continue;
                     bool have = Journal.Has(i);
-                    var r = new Rect(listX + 8, y, listW - 8, 20);
+                    var r = new Rect(listX + 8, y, listW - 8, 19);
                     if (have && GUI.Button(r, (journalOpen == i ? "> " : "") + Journal.Entries[i].Title, new GUIStyle(UiSkin.Body) { fontSize = 14, normal = { textColor = journalOpen == i ? UiSkin.Gold : new Color(0.9f, 0.88f, 0.84f) } })) journalOpen = i;
-                    if (!have) GUI.Label(r, "a page not yet found", new GUIStyle(UiSkin.Body) { fontSize = 14, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.55f, 0.52f, 0.48f) } });
-                    y += 21;
+                    if (!have) GUI.Label(r, f == 4 ? "a guardian not yet felled" : "a page not yet found", new GUIStyle(UiSkin.Body) { fontSize = 14, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.55f, 0.52f, 0.48f) } });
+                    y += 19;
                 }
-                y += 8;
+                y += 4;
             }
             float tx = listX + listW + 24, tw = panel.width - (tx - panel.x) - 24;
             if (journalOpen >= 0 && Journal.Has(journalOpen))

@@ -15,6 +15,7 @@ namespace Deepbound.UI
     public class RunSummary : MonoBehaviour
     {
         private int renownEarned;
+        private static double recordedRun = -1;
 
         private void OnGUI()
         {
@@ -31,7 +32,13 @@ namespace Deepbound.UI
             int left = Mathf.Max(0, Mathf.CeilToInt((float)(d.PhaseEndsAt.Value - NetworkManager.Singleton.ServerTime.Time)));
 
             UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.6f));
-            float pw = Mathf.Min(900f, w - 60f), ph = 236f + PlayerLife.All.Count * 62f;
+            float pw = Mathf.Min(900f, w - 60f), ph = 270f + PlayerLife.All.Count * 62f;
+            // Remember how it ended (once a run): the camp will mention it.
+            if (recordedRun != d.RunStartedAt.Value)
+            {
+                recordedRun = d.RunStartedAt.Value;
+                if (won) Deeds.AddWin(); else Deeds.AddWipe();
+            }
             var panel = new Rect(w / 2f - pw / 2f, h / 2f - ph / 2f, pw, ph);
             UiSkin.Panel(panel, 0.95f);
 
@@ -87,6 +94,8 @@ namespace Deepbound.UI
                 int bosses = won ? DungeonDirector.FloorsPerRun : Mathf.Max(0, d.Floor.Value.y);
                 int got = Cosmetics.AwardRun(d.RunStartedAt.Value, bosses, me.Kills.Value, me.CombosTriggered.Value, won, d.DifficultyIndex.Value, DungeonDirector.OmenRenown(d.RunOmen));
                 if (got >= 0) renownEarned = got;
+                GUI.Label(new Rect(panel.x + 30, panel.yMax - 104, pw - 60, 28), Epitaph(me, won, floor),
+                    new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic, wordWrap = true, normal = { textColor = new Color(0.85f, 0.8f, 0.72f) } });
                 GUI.Label(new Rect(panel.x, panel.yMax - 72, pw, 26),
                     "RENOWN  +" + renownEarned + "      (" + Cosmetics.Renown + " to spend at the tailor in camp)",
                     new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Gold } });
@@ -94,6 +103,24 @@ namespace Deepbound.UI
 
             GUI.Label(new Rect(panel.x, panel.yMax - 40, pw, 24), "Returning to camp in " + left + "...",
                 new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14 });
+        }
+
+        /// <summary>The camp's verdict on your run, in one line, from the most notable thing you did.</summary>
+        private static string Epitaph(PlayerProgress me, bool won, int floor)
+        {
+            string name = me.name;
+            var d = DungeonDirector.Instance;
+            if (won && d != null && d.Floor.Value.y >= DungeonDirector.AbyssDepth) return "Here walks " + name + ", who went below the hymn and sang the Unsung to its end.";
+            if (won && me.Downs.Value == 0) return "Here walks " + name + ", who went to the bottom of Cathedra and never once knelt.";
+            if (won) return "Here walks " + name + ", who brought the Last Lantern home from the bottom of the world.";
+            if (me.CatPeed.Value) return "Here lies " + name + ", who picked up the cat without asking. The smell outlived them.";
+            if (me.AbyssKicks.Value >= 3) return "Here lies " + name + ", who kicked " + me.AbyssKicks.Value + " of the dead into the dark. The dark kept count.";
+            if (me.Revives.Value >= 3) return "Here lies " + name + ", who lifted their friends " + me.Revives.Value + " times, and had no one left to lift them.";
+            if (me.Kills.Value >= 60) return "Here lies " + name + ", who made the Ossuary " + me.Kills.Value + " bones fuller.";
+            if (me.Downs.Value >= 4) return "Here lies " + name + ", who knelt " + me.Downs.Value + " times and got up " + (me.Downs.Value - 1) + ".";
+            if (me.GoldEarned.Value >= 500) return "Here lies " + name + ", with " + me.GoldEarned.Value + " gold in their pockets. The dead are richer for it.";
+            if (floor <= 1) return "Here lies " + name + ", who did not get far, but got further than the Baron let most.";
+            return "Here lies " + name + ", who went down to floor " + floor + " and is still there, in a way.";
         }
 
         /// <summary>

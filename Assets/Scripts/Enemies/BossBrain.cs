@@ -36,6 +36,30 @@ namespace Deepbound.Enemies
         /// <summary>The line under the name on the intro card.</summary>
         public virtual string Epithet => "Guardian of the deep";
 
+        /// <summary>What it says as it falls.</summary>
+        public virtual string LastWords => "...";
+
+        /// <summary>Which of the camp's remembered deeds this boss is.</summary>
+        public virtual Progression.Deeds.Deed Deed => Progression.Deeds.Deed.Gravewarden;
+
+        protected override void OnDied(Health h)
+        {
+            base.OnDied(h);
+            LastWordsRpc(DisplayName, LastWords, (int)Deed);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void LastWordsRpc(string who, string words, int deed)
+        {
+            UI.GameHud.ShowBossTaunt(who, words);
+            if (Progression.Deeds.Add((Progression.Deeds.Deed)deed))
+            {
+                // A first kill on this machine: the guardian's eulogy goes into the journal.
+                int page = UI.Journal.EulogyFor(deed);
+                if (page >= 0 && UI.Journal.Add(page)) UI.GameHud.Feed("A new page in your Journal: " + UI.Journal.Entries[page].Title, new Color(0.9f, 0.8f, 0.55f));
+            }
+        }
+
         /// <summary>One sentence on how to beat it, shown on the intro card.</summary>
         public virtual string Hint => "Watch for the red ! and jump its shockwaves.";
         public Health Health => health;

@@ -27,6 +27,8 @@ namespace Deepbound.Enemies
 
         public override string DisplayName => "The Pale Cardinal";
         public override string Epithet => "Last Voice of the Black Cathedral";
+        public override string LastWords => "The hymn... ends... and so... they wake...";
+        public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.Cardinal;
         public override string Hint => "Kill the Wraith choir to break its ward. Step out of the burning circles and jump the bell's toll.";
 
         private float nextJudgement;

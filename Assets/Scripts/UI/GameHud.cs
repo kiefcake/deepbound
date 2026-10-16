@@ -90,8 +90,8 @@ namespace Deepbound.UI
             Rect(px - 6, py - 6, pw + 12, ph + 12, new Color(0.25f, 0.18f, 0.1f, 0.95f));
             Rect(px, py, pw, ph, new Color(0.9f, 0.84f, 0.68f, 0.98f));
             var ink = new Color(0.22f, 0.14f, 0.08f);
-            string[] floors = { "The Ossuary", "The Drowned Vaults", "The Hollow Throne", "The Black Cathedral" };
-            GUI.Label(new Rect(px + 24, py + 16, pw - 48, 20), floors[Mathf.Clamp(e.Floor, 0, 3)].ToUpperInvariant() + (pageNew ? "   -   NEW PAGE  (" + Journal.Count + " / " + Journal.Entries.Length + ")" : ""),
+            string[] floors = { "The Ossuary", "The Drowned Vaults", "The Hollow Throne", "The Black Cathedral", "Eulogies" };
+            GUI.Label(new Rect(px + 24, py + 16, pw - 48, 20), floors[Mathf.Clamp(e.Floor, 0, 4)].ToUpperInvariant() + (pageNew ? "   -   NEW PAGE  (" + Journal.Count + " / " + Journal.Entries.Length + ")" : ""),
                 new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.45f, 0.25f, 0.12f) } });
             GUI.Label(new Rect(px + 24, py + 38, pw - 48, 34), e.Title, new GUIStyle(big) { fontSize = 26, alignment = TextAnchor.MiddleLeft, normal = { textColor = ink } });
             GUI.Label(new Rect(px + 24, py + 82, pw - 48, ph - 120), e.Text, new GUIStyle(label) { wordWrap = true, fontSize = 16, fontStyle = FontStyle.Italic, normal = { textColor = ink } });
@@ -244,8 +244,22 @@ namespace Deepbound.UI
         /// <summary>The descent cutscene holds the player still: while the beam takes them, and a moment after arriving.</summary>
         public static bool CutsceneFreeze => departStart >= 0f || UnityEngine.Time.time < freezeUntil;
 
+        /// <summary>Lines of the Cardinal's hymn, one shown on each descent.</summary>
+        private static readonly string[] Hymn =
+        {
+            "Sleep, you who were carried down. Sleep, you who carried.",
+            "The morning is coming, and it is not yet.",
+            "Lie close, lie still, lie near to the Light.",
+            "Keep the lantern lit. Keep the way home.",
+            "What the dark takes, the stone gives back.",
+            "I will sing until it is. I will sing until it is.",
+            "Down, and down, and nearer to Thee.",
+        };
+        private static string HymnLine = Hymn[0];
+
         public static void BeginDeparture(float seconds)
         {
+            HymnLine = Hymn[UnityEngine.Random.Range(0, Hymn.Length)];
             departStart = UnityEngine.Time.time;
             departLength = seconds;
             arrivingFromBeam = true;
@@ -792,7 +806,11 @@ namespace Deepbound.UI
                 Rect(0, h - bar, w, bar, Color.black);
                 Rect(0, 0, w, h, new Color(1f, 0.97f, 0.88f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 1f, k))));
                 if (k > 0.2f && k < 0.9f)
-                    GUI.Label(new Rect(0, h * 0.5f - 20, w, 40), "INTO THE DEEP", new GUIStyle(big) { normal = { textColor = new Color(0.2f, 0.15f, 0.1f, Mathf.Sin((k - 0.2f) / 0.7f * Mathf.PI)) } });
+                {
+                    float ta = Mathf.Sin((k - 0.2f) / 0.7f * Mathf.PI);
+                    GUI.Label(new Rect(0, h * 0.5f - 20, w, 40), "INTO THE DEEP", new GUIStyle(big) { normal = { textColor = new Color(0.2f, 0.15f, 0.1f, ta) } });
+                    GUI.Label(new Rect(0, h * 0.5f + 26, w, 26), "\u201C" + HymnLine + "\u201D", new GUIStyle(center) { fontSize = 17, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.3f, 0.22f, 0.15f, ta) } });
+                }
                 if (k >= 1f && !arrivingFromBeam) departStart = -1f;
                 return;
             }

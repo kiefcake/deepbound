@@ -31,6 +31,7 @@ namespace Deepbound.Networking
             Progression.Cosmetics.TestMode = true;
             DungeonDirector.TestMode = true;
             UI.Journal.TestMode = true;
+            Progression.Deeds.TestMode = true;
         }
 
         public void Run(float seconds)
@@ -833,6 +834,8 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(1f);
                 var phase = DungeonDirector.Instance.Phase.Value;
                 Log("boss kill -> phase", phase.ToString(), phase == RunPhase.FloorCleared);
+                Log("boss last words", "deed " + Progression.Deeds.Has(Progression.Deeds.Deed.Gravewarden) + ", eulogy page " + UI.Journal.Has(UI.Journal.EulogyFor(0)),
+                    Progression.Deeds.Has(Progression.Deeds.Deed.Gravewarden) && UI.Journal.Has(UI.Journal.EulogyFor(0)));
                 // No timer: the party leaves when everyone is at the portal.
                 yield return new WaitForSeconds(2f);
                 bool stillHere = DungeonDirector.Instance.Phase.Value == RunPhase.FloorCleared;
@@ -935,6 +938,9 @@ namespace Deepbound.Networking
                         cprog.CatPeed.Value = false;
                         cprog.CatWhisker.Value = false;
                     }
+                    Log("camp folk", FindObjectsByType<UI.CampChatter>(FindObjectsSortMode.None).Length + " chatter, figures " +
+                        (GameObject.Find("Smith") != null) + "/" + (GameObject.Find("Priest") != null) + "/" + (GameObject.Find("Tailor") != null) + "/" + (GameObject.Find("Driver") != null),
+                        FindObjectsByType<UI.CampChatter>(FindObjectsSortMode.None).Length == 1 && GameObject.Find("Smith") != null && GameObject.Find("Driver") != null);
                     Log("tent games and the cat", "slots " + slotOk + ", blackjack " + bjOk + ", cat " + (catT != null) + ", solid props " + solid, slotOk && bjOk && catT != null && solid > 10);
                     gm.Teleport(Lobby.Origin + Vector3.up * 0.1f, local.transform.rotation);
                 }

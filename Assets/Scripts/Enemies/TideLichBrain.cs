@@ -35,6 +35,8 @@ namespace Deepbound.Enemies
 
         public override string DisplayName => "The Tide Lich";
         public override string Epithet => "Who Drowned the Vaults";
+        public override string LastWords => "The water... finally... collects.";
+        public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.TideLich;
         public override string Hint => "Keep moving off the pools it lays, and fight the whirlpool's pull toward the centre.";
 
         // ---- Maelstrom: a whirlpool opens and drags everyone toward its drowning heart. ----
