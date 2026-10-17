@@ -52,6 +52,8 @@ namespace Deepbound.Enemies
         private void LastWordsRpc(string who, string words, int deed)
         {
             UI.GameHud.ShowBossTaunt(who, words);
+            Art.BossFall.Play(transform.position, Rig != null ? Mathf.Max(1f, Rig.transform.lossyScale.y * 0.6f) : 1f, Rig != null ? Rig.GlowColor : new Color(1f, 0.85f, 0.6f));
+            UI.GameHud.ShowTitleCard(who.ToUpperInvariant() + " FALLS", Epithet, new Color(1f, 0.82f, 0.4f));
             if (Progression.Deeds.Add((Progression.Deeds.Deed)deed))
             {
                 // A first kill on this machine: the guardian's eulogy goes into the journal.

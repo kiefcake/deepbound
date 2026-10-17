@@ -167,7 +167,9 @@ namespace Deepbound.EditorTools
                 // running (Windows locks a running exe).
                 locationPathName = System.Environment.GetEnvironmentVariable("DEEPBOUND_BUILD_PATH") ?? StandalonePath,
                 target = BuildTarget.StandaloneWindows64,
-                options = BuildOptions.Development,
+                // Release by default: faster, and no "Development Build" stamp on the screen. Logs still
+                // go to Player.log (the smoke test reads them). DEEPBOUND_DEV=1 for a debuggable build.
+                options = System.Environment.GetEnvironmentVariable("DEEPBOUND_DEV") == "1" ? BuildOptions.Development : BuildOptions.None,
             });
 
             Debug.Log("[Build] Player build " + report.summary.result + " -> " + StandalonePath);

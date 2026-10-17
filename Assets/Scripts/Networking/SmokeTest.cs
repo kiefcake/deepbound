@@ -1782,8 +1782,15 @@ namespace Deepbound.Networking
                 var bossNow = BossBrain.Active;
                 if (bossNow != null && !bossNow.IsDead)
                 {
+                    var bpos = bossNow.transform.position;
+                    var bfrom = bpos + (layout.BossRoom.Center - bpos).normalized * 8f + Vector3.up * 0.1f;
+                    if ((bfrom - bpos).sqrMagnitude < 4f) bfrom = bpos + Vector3.back * 8f + Vector3.up * 0.1f;
+                    motor.Teleport(bfrom, Quaternion.LookRotation(Vector3.ProjectOnPlane(bpos - bfrom, Vector3.up)));
+                    yield return new WaitForSeconds(0.3f);
                     bossNow.Health.ServerDamage(1e6f, bossNow.transform.position);
-                    yield return new WaitForSeconds(1.2f);
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot(dir, "4b_boss_falls");
+                    yield return new WaitForSeconds(0.7f);
                     var ex = DungeonDirector.ExitPosition;
                     var ep = ex + (layout.BossRoom.Center - ex).normalized * 7f + Vector3.up * 0.1f;
                     if ((ep - ex).sqrMagnitude < 1f) ep = ex + Vector3.back * 7f + Vector3.up * 0.1f;

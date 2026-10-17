@@ -62,8 +62,11 @@ namespace Deepbound.UI
         private static float cardUntil;
 
         /// <summary>A big centred announcement: a boss's name as its arena seals, an ambush.</summary>
-        public static void ShowTitleCard(string title, string subtitle)
+        private static Color cardColor = new Color(0.9f, 0.3f, 0.2f);
+
+        public static void ShowTitleCard(string title, string subtitle, Color? color = null)
         {
+            cardColor = color ?? new Color(0.9f, 0.3f, 0.2f);
             cardTitle = title;
             cardSub = subtitle;
             cardUntil = UnityEngine.Time.time + 3.5f;
@@ -184,7 +187,7 @@ namespace Deepbound.UI
             if (cardTitle == null || Time.time > cardUntil) return;
             float a = Mathf.Clamp01((cardUntil - Time.time) / 1f) * Mathf.Clamp01((3.5f - (cardUntil - Time.time)) * 4f);
             Rect(0, h * 0.3f - 12, w, 96, new Color(0f, 0f, 0f, 0.55f * a));
-            UiSkin.Shadowed(new Rect(0, h * 0.3f - 4, w, 54), cardTitle, new GUIStyle(big) { fontSize = 44, normal = { textColor = new Color(0.9f, 0.3f, 0.2f) } }, a);
+            UiSkin.Shadowed(new Rect(0, h * 0.3f - 4, w, 54), cardTitle, new GUIStyle(big) { fontSize = 44, normal = { textColor = cardColor } }, a);
             GUI.Label(new Rect(0, h * 0.3f + 50, w, 26), cardSub, new GUIStyle(center) { fontSize = 17, normal = { textColor = new Color(1f, 1f, 1f, a) } });
         }
 
@@ -1381,6 +1384,8 @@ namespace Deepbound.UI
             var director = DungeonDirector.Instance;
             // Wipes and victories get the full run summary instead.
             if (director == null || director.Phase.Value != RunPhase.FloorCleared) { clearedSeenAt = -1f; return; }
+            // The boss's own card ("... FALLS") has the screen first.
+            if (cardTitle != null && Time.time < cardUntil) return;
 
             int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
             string title, sub;

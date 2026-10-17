@@ -13,6 +13,8 @@ namespace Deepbound.World
         public Light Light;
         public Transform Flame;
         public float BaseIntensity = 6f;
+        /// <summary>Scales the light (a boss's death gutters every fire for a moment).</summary>
+        public float Dim = 1f;
         private static Mesh emberMesh;
         private static Mesh EmberMesh => emberMesh ??= Art.MeshKit.Box(Vector3.one);
 
@@ -44,7 +46,7 @@ namespace Deepbound.World
 
             if (Light != null)
             {
-                Light.intensity = BaseIntensity * (0.75f + n * 0.45f);
+                Light.intensity = BaseIntensity * (0.75f + n * 0.45f) * Dim;
                 // The flame wanders, so its shadows breathe a little.
                 Light.transform.localPosition = lightRest + new Vector3(Mathf.PerlinNoise(t * 0.6f, offset + 9f) - 0.5f, 0f, Mathf.PerlinNoise(offset + 3f, t * 0.6f) - 0.5f) * 0.06f;
             }

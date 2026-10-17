@@ -183,7 +183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.UnsungBrain
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 4600
+  maxHealth: 4150
   damage: 34
   defense: 7
   moveSpeed: 1.7
