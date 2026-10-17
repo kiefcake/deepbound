@@ -18,7 +18,7 @@ namespace Deepbound.UI
     /// </summary>
     public class AudioDirector : MonoBehaviour
     {
-        private AudioSource explore, combat, boss;
+        private AudioSource explore, combat, boss, campAir, deepAir;
         private float combatHeat;
         private bool started;
 
@@ -29,6 +29,10 @@ namespace Deepbound.UI
             explore = MakeSource(MusicSynth.Explore());
             combat = MakeSource(MusicSynth.Combat());
             boss = MakeSource(MusicSynth.Boss());
+            campAir = MakeSource(AmbienceSynth.Camp());
+            deepAir = MakeSource(AmbienceSynth.Deep());
+            campAir.Play();
+            deepAir.Play();
 
             double at = AudioSettings.dspTime + 0.2;
             explore.PlayScheduled(at);
@@ -90,6 +94,11 @@ namespace Deepbound.UI
             Fade(explore, exploreTarget);
             Fade(combat, combatTarget);
             Fade(boss, bossTarget);
+            // Room tone under the music: night air at camp, the dungeon's breath below (deeper in the Abyss).
+            bool camp = local == null || DungeonDirector.InLobby;
+            Fade(campAir, camp ? 0.22f : 0f);
+            Fade(deepAir, camp ? 0f : bossTarget > 0f ? 0.1f : 0.2f);
+            if (deepAir != null) deepAir.pitch = DungeonDirector.Layout != null && DungeonDirector.Layout.Depth >= DungeonDirector.AbyssDepth ? 0.75f : 1f;
         }
 
         private static void Fade(AudioSource s, float target)

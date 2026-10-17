@@ -330,7 +330,7 @@ namespace Deepbound.Art
             lastGlow = intensity;
             foreach (var r in GlowRenderers)
             {
-                if (r != null) ArtLibrary.SetGlow(r, GlowColor * (2f * intensity));
+                if (r != null) ArtLibrary.SetGlow(r, GlowColor * (1.5f * intensity));
             }
         }
     }

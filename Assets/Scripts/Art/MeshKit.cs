@@ -219,6 +219,94 @@ namespace Deepbound.Art
             return go;
         }
 
+        private static readonly int MergeBaseColorId = Shader.PropertyToID("_BaseColor");
+        private static readonly int MergeEmissionId = Shader.PropertyToID("_EmissionColor");
+
+        /// <summary>
+        /// Draw-call diet for a built character: under every pivot, the plain leaf parts that share a
+        /// material, tint, glow and shadow mode become one mesh. Animation only ever moves pivots, so
+        /// nothing looks different, but a detailed skeleton drops from ~100 renderers to ~15. Leaves
+        /// with any other component (weak points, lights, scripts) are left alone. Returns old -> new
+        /// renderer, so references (glowing eyes) can be pointed at the merged ones.
+        /// </summary>
+        public static Dictionary<Renderer, Renderer> MergeParts(Transform root)
+        {
+            var map = new Dictionary<Renderer, Renderer>();
+            if (root == null) return map;
+            var block = new MaterialPropertyBlock();
+            var pivots = root.GetComponentsInChildren<Transform>(true);
+            var groups = new Dictionary<(Material, Color, Color, ShadowCastingMode), List<MeshRenderer>>();
+            var leaves = new List<Transform>();
+            foreach (var t in pivots)
+            {
+                if (t == null) continue;
+                groups.Clear();
+                leaves.Clear();
+                foreach (Transform c in t) leaves.Add(c);
+                foreach (var c in leaves)
+                {
+                    if (c.childCount > 0 || !c.gameObject.activeSelf) continue;
+                    if (c.GetComponents<Component>().Length != 3) continue; // Transform + MeshFilter + MeshRenderer only
+                    var mr = c.GetComponent<MeshRenderer>();
+                    var mf = c.GetComponent<MeshFilter>();
+                    if (mr == null || mf == null || mf.sharedMesh == null || mr.sharedMaterial == null) continue;
+                    mr.GetPropertyBlock(block);
+                    var key = (mr.sharedMaterial, block.isEmpty ? Color.clear : block.GetColor(MergeBaseColorId), block.isEmpty ? Color.clear : block.GetColor(MergeEmissionId), mr.shadowCastingMode);
+                    if (!groups.TryGetValue(key, out var list)) groups[key] = list = new List<MeshRenderer>();
+                    list.Add(mr);
+                }
+                foreach (var kv in groups)
+                {
+                    var list = kv.Value;
+                    if (list.Count < 2) continue;
+                    var parts = new CombineInstance[list.Count];
+                    int verts = 0;
+                    var toPivot = t.worldToLocalMatrix;
+                    for (int i = 0; i < list.Count; i++)
+                    {
+                        var mesh = list[i].GetComponent<MeshFilter>().sharedMesh;
+                        parts[i] = new CombineInstance { mesh = mesh, transform = toPivot * list[i].transform.localToWorldMatrix };
+                        verts += mesh.vertexCount;
+                    }
+                    var merged = new Mesh { name = t.name + "_merged" };
+                    if (verts > 65000) merged.indexFormat = IndexFormat.UInt32;
+                    merged.CombineMeshes(parts, true, true);
+                    var go = new GameObject("Merged");
+                    go.transform.SetParent(t, false);
+                    go.layer = list[0].gameObject.layer;
+                    go.AddComponent<MeshFilter>().sharedMesh = merged;
+                    var r = go.AddComponent<MeshRenderer>();
+                    r.sharedMaterial = list[0].sharedMaterial;
+                    r.shadowCastingMode = list[0].shadowCastingMode;
+                    r.receiveShadows = list[0].receiveShadows;
+                    list[0].GetPropertyBlock(block);
+                    if (!block.isEmpty) r.SetPropertyBlock(block);
+                    go.AddComponent<MergedMesh>().Mesh = merged;
+                    foreach (var old in list)
+                    {
+                        map[old] = r;
+                        Object.DestroyImmediate(old.gameObject);
+                    }
+                }
+            }
+            return map;
+        }
+
+        /// <summary>Merge a rig's parts and keep its glow references pointing at the merged renderers.</summary>
+        public static void MergeRig(HumanoidRig rig)
+        {
+            if (rig == null) return;
+            var map = MergeParts(rig.transform);
+            if (rig.GlowRenderers == null) return;
+            var glows = new List<Renderer>();
+            foreach (var g in rig.GlowRenderers)
+            {
+                var r = g != null && map.TryGetValue(g, out var m) ? m : g;
+                if (r != null && !glows.Contains(r)) glows.Add(r);
+            }
+            rig.GlowRenderers = glows.ToArray();
+        }
+
         /// <summary>An empty transform, for animation pivots (shoulders, hips, weapon grips).</summary>
         public static Transform Pivot(Transform parent, string name, Vector3 localPos, Vector3 localEuler = default)
         {

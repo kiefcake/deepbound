@@ -994,6 +994,10 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Owner)]
         private void GearBoughtRpc(int seed) => gearBoughtSeed = seed;
 
+        /// <summary>Server → owner: one of your hits landed (or killed). Unreliable: a lost marker is no loss.</summary>
+        [Rpc(SendTo.Owner, Delivery = RpcDelivery.Unreliable)]
+        public void HitMarkRpc(bool kill, bool heavy) => UI.GameHud.HitMark(kill, heavy);
+
         [Rpc(SendTo.Owner)]
         private void PurchasedRpc() => Art.Sfx.Play2D(Art.Sound.Purchase, 0.8f);
 

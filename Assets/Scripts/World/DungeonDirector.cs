@@ -294,6 +294,7 @@ namespace Deepbound.World
         {
             if (IsServer) GearDrop.Prefab = gearDropPrefab;
             if (IsServer) Player.PlayerVoice.ServerHeard += ServerNoise;
+            if (IsServer) Combat.Health.ServerAnyDamaged += ServerHitMark;
             Instance = this;
             Floor.OnValueChanged += (_, now) => BuildLocal(now);
             Phase.OnValueChanged += (_, now) =>
@@ -321,8 +322,18 @@ namespace Deepbound.World
             if (woke > 0) Debug.Log("[Noise] at " + at.ToString("F0") + " alerted " + woke);
         }
 
+        /// <summary>Server: a player's hit landed on an enemy - tell them, so their crosshair can say so.</summary>
+        private static void ServerHitMark(Combat.Health target, float lost, ulong attackerId)
+        {
+            if (target == null || target.Team != Combat.Team.Enemies || attackerId == ulong.MaxValue) return;
+            var nm = NetworkManager.Singleton;
+            if (nm == null || !nm.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj) || obj == null) return;
+            if (obj.TryGetComponent<PlayerProgress>(out var who)) who.HitMarkRpc(target.Current.Value <= 0f, lost >= target.Max.Value * 0.2f);
+        }
+
         public override void OnNetworkDespawn()
         {
+            if (IsServer) Combat.Health.ServerAnyDamaged -= ServerHitMark;
             if (IsServer) Player.PlayerVoice.ServerHeard -= ServerNoise;
             if (Instance == this) Instance = null;
             if (built != null) Destroy(built);

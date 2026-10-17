@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak }
+    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak, Heartbeat, KillTick }
 
     /// <summary>
     /// Every sound in the game, synthesised at startup. Like the art, nothing is
@@ -85,6 +85,8 @@ namespace Deepbound.Art
                 case Sound.Card: data = Mix(Burst(0.04f, 0.5f), Whoosh(0.08f, 1800f, 4000f)); break;
                 case Sound.Caw: data = Mix(Caw(0.32f, 0f), Caw(0.28f, 0.4f)); break;
                 case Sound.Squeak: data = Squeak(0.09f); break;
+                case Sound.Heartbeat: data = Mix(Thump(0.16f, 70f, 42f), Delay(Thump(0.14f, 62f, 40f), 0.22f)); break;
+                case Sound.KillTick: data = Mix(Clang(0.18f, new[] { 1760f, 2637f }), Burst(0.03f, 0.3f)); break;
                 default: data = new float[Rate / 10]; break;
             }
 

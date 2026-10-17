@@ -22,6 +22,7 @@ namespace Deepbound.World
         {
             theme = DungeonTheme.ForDepth(layout.Depth);
             var root = new GameObject("Dungeon (seed " + layout.Seed + ", depth " + layout.Depth + ")");
+            ThemeSpots.Clear();
             var structure = new MeshKit.Batcher();
             var dressing = new MeshKit.Batcher();
             var lights = new GameObject("Lights").transform;
@@ -152,8 +153,8 @@ namespace Deepbound.World
             switch (room.Kind)
             {
                 case RoomKind.Boss: DressBossRoom(room, dressing, lights); break;
-                case RoomKind.Start: DressStartRoom(room, dressing, lights); break;
-                default: DressRoom(room, dressing, lights, rng); break;
+                case RoomKind.Start: DressStartRoom(room, dressing, lights); ThemeDressing(room, dressing, lights, rng, 1); break;
+                default: DressRoom(room, dressing, lights, rng); ThemeDressing(room, dressing, lights, rng, 2 + rng.Next(0, 3)); break;
             }
         }
 

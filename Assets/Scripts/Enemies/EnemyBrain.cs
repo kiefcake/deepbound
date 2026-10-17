@@ -156,6 +156,8 @@ namespace Deepbound.Enemies
         public override void OnNetworkSpawn()
         {
             Rig = CharacterArt.BuildSkeleton(transform, visualKind);
+            // Fewer, bigger meshes: same look, a fraction of the draw calls.
+            MeshKit.MergeRig(Rig);
             if (Rig != null) Rig.WatchViewer = true;
             // Champions stand larger (applied after the rig exists, so late joiners see it too).
             Title.OnValueChanged += (_, t) => { if (t.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f; };

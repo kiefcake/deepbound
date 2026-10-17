@@ -119,6 +119,7 @@ namespace Deepbound.Art
                 }
             }
             transform.rotation = Quaternion.Euler(0f, Random.Range(0f, 360f), 0f);
+            MeshKit.MergeParts(transform);
         }
 
         /// <summary>Screenshots: hold still and in view (out of hiding, perched), optionally at a spot.</summary>

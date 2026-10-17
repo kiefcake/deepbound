@@ -1321,7 +1321,7 @@ namespace Deepbound.Networking
                 lobbyMotor.Teleport(tat, Quaternion.LookRotation(flat));
                 lobbyMotor.SetPitch(tpitch);
                 yield return new WaitForSeconds(0.4f);
-                yield return Shot(dir, tname);
+                yield return Shot(dir, tname); if (tname == "0j_castle_road") yield return SamplePerf(tname);
             }
             lobbyMotor.SetPitch(0f);
 
@@ -1572,7 +1572,7 @@ namespace Deepbound.Networking
             motor.Teleport(srFrom, Quaternion.LookRotation(sr.Center - srFrom));
             motor.SetPitch(12f);
             yield return new WaitForSeconds(0.4f);
-            yield return Shot(dir, "1_start_room_wide");
+            yield return Shot(dir, "1_start_room_wide"); yield return SamplePerf("1_start_room_wide");
             // A rat by the wall, before it bolts.
             var rat = FindObjectsByType<Art.Critter>(FindObjectsSortMode.None).Where(c => c.Type == Art.Critter.Kind.Rat).OrderBy(c => (c.transform.position - local.transform.position).sqrMagnitude).FirstOrDefault();
             if (rat != null)
@@ -1647,7 +1647,7 @@ namespace Deepbound.Networking
                 var p = room.Center + new Vector3(-room.Size.x * 0.35f, 0.1f, -room.Size.y * 0.35f);
                 motor.Teleport(p, Quaternion.LookRotation(room.Center - p));
                 yield return new WaitForSeconds(1.5f);
-                yield return Shot(dir, "2_combat_room");
+                yield return Shot(dir, "2_combat_room"); yield return SamplePerf("2_combat_room");
 
                 // Status tags: chill one, mark another, stun and taunt a third.
                 var all = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain) && !e.IsDead).ToArray();
@@ -1694,7 +1694,7 @@ namespace Deepbound.Networking
             var bp = boss.Center + (layout.BossSpawn - boss.Center).normalized * -9f + Vector3.up * 0.1f;
             motor.Teleport(bp, Quaternion.LookRotation(layout.BossSpawn - bp));
             yield return new WaitForSeconds(2.4f);
-            yield return Shot(dir, "3_boss_room");
+            yield return Shot(dir, "3_boss_room"); yield return SamplePerf("3_boss_room");
 
             // Turn round to see a corridor mouth from inside the boss room.
             motor.Teleport(bp, Quaternion.LookRotation(bp - layout.BossSpawn));
@@ -1809,6 +1809,19 @@ namespace Deepbound.Networking
                     motor.Teleport(from, Quaternion.LookRotation(room.Center - from));
                     yield return new WaitForSeconds(1.2f);
                     yield return Shot(dir, "5_floor" + (depth + 1));
+                    // This floor's own dressing, up close.
+                    if (DungeonBuilder.ThemeSpots.Count > 0)
+                    {
+                        var (tat, tin) = DungeonBuilder.ThemeSpots[DungeonBuilder.ThemeSpots.Count / 2];
+                        var tfrom = tat + tin * 3.4f + Vector3.up * 0.1f;
+                        motor.Teleport(tfrom, Quaternion.LookRotation(-tin));
+                        motor.SetPitch(14f);
+                        yield return new WaitForSeconds(0.8f);
+                        yield return Shot(dir, "5_floor" + (depth + 1) + "_dressing");
+                        motor.SetPitch(0f);
+                        motor.Teleport(from, Quaternion.LookRotation(room.Center - from));
+                        yield return new WaitForSeconds(0.3f);
+                    }
 
                     // Line up one of each newer enemy type for a close look.
                     foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain) })
@@ -2003,6 +2016,23 @@ namespace Deepbound.Networking
         }
 
         private static FirstPersonMotor lobbyMotorFor(NetworkPlayer p) => p.GetComponent<FirstPersonMotor>();
+
+        /// <summary>A steady frame-time sample: settle, then average 90 frames (min, mean, worst).</summary>
+        private static IEnumerator SamplePerf(string name)
+        {
+            yield return new WaitForSeconds(1f);
+            float sum = 0f, worst = 0f, best = 1f;
+            for (int i = 0; i < 90; i++)
+            {
+                yield return null;
+                float dt = Time.unscaledDeltaTime;
+                sum += dt; worst = Mathf.Max(worst, dt); best = Mathf.Min(best, dt);
+            }
+            Debug.Log("[PerfSample] " + name + " mean " + (sum / 90f * 1000f).ToString("F1") + " ms (" + (90f / sum).ToString("F0") + " fps), best " + (best * 1000f).ToString("F1") + ", worst " + (worst * 1000f).ToString("F1") +
+                ", renderers " + FindObjectsByType<Renderer>(FindObjectsSortMode.None).Count(r => r.isVisible) + " visible, lights " + FindObjectsByType<Light>(FindObjectsSortMode.None).Count(l => l.isActiveAndEnabled) +
+                ", top: " + string.Join(", ", FindObjectsByType<Renderer>(FindObjectsSortMode.None).Where(r => r.isVisible)
+                    .GroupBy(r => (r.transform.parent != null ? r.transform.parent.name + "/" : "") + r.name).OrderByDescending(g => g.Count()).Take(10).Select(g => g.Key + " x" + g.Count())));
+        }
 
         private static IEnumerator Shot(string dir, string name)
         {

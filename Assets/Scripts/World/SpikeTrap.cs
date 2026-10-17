@@ -95,6 +95,7 @@ namespace Deepbound.World
                 MeshKit.Part(spikes, "Spike", MeshKit.Lathe("trapSpike", new[] { new Vector2(0.06f, 0f), new Vector2(0f, 0.5f) }, 4), Mat.Steel,
                     new Vector3(-0.9f + x * 0.45f, 0f, -0.9f + z * 0.45f));
             }
+            MeshKit.MergeParts(spikes); // the bed of spikes rises as one
         }
     }
 }

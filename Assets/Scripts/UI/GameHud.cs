@@ -858,6 +858,7 @@ namespace Deepbound.UI
         private void Update()
         {
             hurtFlash = Mathf.MoveTowards(hurtFlash, 0f, Time.deltaTime * 1.5f);
+            Heartbeat();
             Tips.Check(player);
 
             var keyboard = Keyboard.current;
@@ -977,10 +978,59 @@ namespace Deepbound.UI
 
         // ------------------------------------------------------------------
 
+        private static float hitMarkAt = -10f, killMarkAt = -10f;
+        private static bool hitMarkHeavy;
+
+        /// <summary>Owner: your hit landed. The crosshair flashes an X (red and larger for a kill).</summary>
+        public static void HitMark(bool kill, bool heavy)
+        {
+            hitMarkAt = Time.time;
+            hitMarkHeavy = heavy;
+            if (kill)
+            {
+                killMarkAt = Time.time;
+                Art.Sfx.Play2D(Art.Sound.KillTick, 0.35f);
+            }
+        }
+
+        private void DrawHitMark(Vector2 c)
+        {
+            float ka = 1f - (Time.time - killMarkAt) / 0.35f, ha = 1f - (Time.time - hitMarkAt) / 0.18f;
+            bool kill = ka > 0f;
+            float a = kill ? ka : ha;
+            if (a <= 0f) return;
+            float gap = kill ? 9f : 7f, len = kill ? 9f : hitMarkHeavy ? 7f : 5f;
+            var col = kill ? new Color(1f, 0.25f, 0.2f, a) : new Color(1f, 1f, 1f, a * 0.95f);
+            var m = GUI.matrix;
+            GUIUtility.RotateAroundPivot(45f, c);
+            foreach (var d in new[] { new Vector2(1, 0), new Vector2(-1, 0), new Vector2(0, 1), new Vector2(0, -1) })
+            {
+                bool horizontal = d.y == 0f;
+                float tx = c.x + d.x * gap, ty = c.y + d.y * gap;
+                var rr = horizontal ? new Rect(tx + (d.x > 0 ? 0f : -len), ty - 1f, len, 2) : new Rect(tx - 1f, ty + (d.y > 0 ? 0f : -len), 2, len);
+                Rect(rr.x - 0.5f, rr.y - 0.5f, rr.width + 1f, rr.height + 1f, new Color(0f, 0f, 0f, a * 0.5f));
+                Rect(rr.x, rr.y, rr.width, rr.height, col);
+            }
+            GUI.matrix = m;
+        }
+
+        private float nextBeat;
+
+        /// <summary>Below a third of your health, you hear your heart (in time with the vignette's pulse).</summary>
+        private void Heartbeat()
+        {
+            if (health == null || health.Fraction <= 0f || health.Fraction >= 0.33f || life.Downed.Value) return;
+            if (Time.time < nextBeat) return;
+            float interval = Mathf.Lerp(0.6f, 1.15f, health.Fraction * 3f);
+            nextBeat = Time.time + interval;
+            Art.Sfx.Play2D(Art.Sound.Heartbeat, Mathf.Lerp(0.55f, 0.25f, health.Fraction * 3f));
+        }
+
         private void DrawCrosshair(float w, float h)
         {
             if (life.Downed.Value) return;
             var c = new Vector2(w / 2f, h / 2f);
+            DrawHitMark(new Vector2(Mathf.Round(c.x), Mathf.Round(c.y)));
 
             // Charge meter (bow draw) under the crosshair; gold when full.
             float charge = player.ActiveKit.Charge;

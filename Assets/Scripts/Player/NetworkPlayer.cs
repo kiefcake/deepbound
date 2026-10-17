@@ -146,6 +146,7 @@ namespace Deepbound.Player
             var cls = progress.ClassId.Value;
             bool mage = cls == ClassId.Mage, cleric = cls == ClassId.Cleric, rogue = cls == ClassId.Rogue, ranger = cls == ClassId.Ranger;
             Rig = BuildBody(cls, transform, SlotColor, CloakDye.Value);
+            MeshKit.MergeRig(Rig);
 
             if (!IsOwner)
             {
@@ -320,6 +321,10 @@ namespace Deepbound.Player
 
         private void Update()
         {
+            // Draw no further than the fog lets anyone see: beyond ~2.6/density (exp-squared fog) it is solid,
+            // and with no occlusion culling everything past the walls would otherwise still be drawn.
+            if (IsOwner && playerCamera != null)
+                playerCamera.farClipPlane = DungeonDirector.InLobby ? 220f : Mathf.Clamp(2.6f / Mathf.Max(0.001f, RenderSettings.fogDensity), 45f, 120f);
             if (Rig != null)
             {
                 Rig.Blocking = knight != null && knight.Blocking.Value;

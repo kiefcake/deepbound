@@ -574,7 +574,9 @@ namespace Deepbound.World
             MeshKit.Part(root, "Shaft", MeshKit.Cylinder(0.03f, 0.04f, 0.45f, 6), Mat.Wood, new Vector3(0f, -0.15f, 0.27f), new Vector3(15f, 0f, 0f));
             MeshKit.Part(root, "Cup", MeshKit.Cylinder(0.05f, 0.08f, 0.1f, 6), Mat.Steel, new Vector3(0f, 0.25f, 0.33f), new Vector3(15f, 0f, 0f));
 
-            return AddFlame(root, new Vector3(0f, 0.36f, 0.36f), 0.7f, fire ?? new Color(1f, 0.62f, 0.32f), 7f, 10f, shadows);
+            var torch = AddFlame(root, new Vector3(0f, 0.36f, 0.36f), 0.7f, fire ?? new Color(1f, 0.62f, 0.32f), 7f, 10f, shadows);
+            MeshKit.MergeParts(root); // the bracket, cup and shaft never move: one mesh per material
+            return torch;
         }
 
         /// <summary>A free-standing iron brazier. Boss rooms use cold blue fire.</summary>
@@ -596,7 +598,9 @@ namespace Deepbound.World
             MeshKit.Part(root, "Coals", MeshKit.Cylinder(0.4f, 0.38f, 0.06f, 10), Mat.Glow, new Vector3(0f, 1.1f, 0f));
             ArtLibrary.SetGlow(root.Find("Coals").GetComponent<Renderer>(), fire * 1.4f);
 
-            return AddFlame(root, new Vector3(0f, 1.15f, 0f), 1.6f, fire, 12f, 14f, shadows);
+            var brazier = AddFlame(root, new Vector3(0f, 1.15f, 0f), 1.6f, fire, 12f, 14f, shadows);
+            MeshKit.MergeParts(root);
+            return brazier;
         }
 
         private static Torch AddFlame(Transform root, Vector3 at, float size, Color color, float intensity, float range, bool shadows)

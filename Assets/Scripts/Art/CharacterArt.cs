@@ -745,8 +745,9 @@ namespace Deepbound.Art
             rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.66f, 0f));
             MeshKit.Part(rig.Head, "Neck", MeshKit.Cylinder(0.025f, 0.025f, 0.08f, 5), Mat.Bone, new Vector3(0f, -0.05f, 0f));
             BuildSkullDetail(rig.Head);
-            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.018f, 6, 4), Mat.Glow, new Vector3(-0.045f, 0.13f, 0.12f));
-            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.018f, 6, 4), Mat.Glow, new Vector3(0.045f, 0.13f, 0.12f));
+            // Small points of light deep in the sockets (big ones bloom into white discs).
+            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.012f, 6, 4), Mat.Glow, new Vector3(-0.045f, 0.128f, 0.118f));
+            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.012f, 6, 4), Mat.Glow, new Vector3(0.045f, 0.128f, 0.118f));
 
             rig.ArmR = BuildBoneArm(rig.Torso, "ArmR", 1f);
             rig.ArmL = BuildBoneArm(rig.Torso, "ArmL", -1f);
