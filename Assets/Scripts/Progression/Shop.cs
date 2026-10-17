@@ -113,11 +113,15 @@ namespace Deepbound.Progression
                 var gear = new Loot.GearItem((Loot.GearId)id, quality, depth);
                 list.Add(new Item { Name = Loot.Gear.Name(gear), Description = Loot.Gear.StatLine(gear) + ". " + Loot.Gear.Effect(gear.Kind), Price = 60 + 40 * quality + 25 * depth, Kind = ItemKind.Gear, Gear = gear, Seller = Vendor.Smith });
             }
-            if (!World.DungeonDirector.InLobby)
+            // The peddler charges for the trip; a vendor you have hit charges you for that.
+            float mult = !World.DungeonDirector.InLobby ? PeddlerMarkup : 1f;
+            var buyer = PlayerProgress.ForClient(clientId);
+            if (buyer != null && World.DungeonDirector.InLobby) mult *= buyer.PriceMultiplier(vendor);
+            if (mult != 1f)
                 for (int i = 0; i < list.Count; i++)
                 {
                     var it = list[i];
-                    it.Price = UnityEngine.Mathf.RoundToInt(it.Price * PeddlerMarkup);
+                    it.Price = UnityEngine.Mathf.RoundToInt(it.Price * mult);
                     list[i] = it;
                 }
             return list.ToArray();

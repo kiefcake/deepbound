@@ -40,6 +40,17 @@ namespace Deepbound.World
 
         public static readonly Vector3 ShrineSpot = Origin + new Vector3(15.5f, 0f, -4f);
 
+        /// <summary>Where each camp character stands (their struck-body, <see cref="CampFolk"/>).</summary>
+        public static (FolkId id, Vector3 at)[] FolkBodies => new[]
+        {
+            (FolkId.Silas, MerchantSpot),
+            (FolkId.Hobb, AnvilSpot + Vector3.back * 1.4f),
+            (FolkId.Aldric, ShrineSpot + Vector3.left * 1.2f),
+            (FolkId.Vey, TailorSpot + Vector3.right * 0.6f),
+            (FolkId.Corwin, BoardingCenter + new Vector3(5.6f, 0.9f, 1f)),
+            (FolkId.Bones, BlackjackSpot + Vector3.back * 1f),
+        };
+
         /// <summary>The bounty board, by the road near the gate: contracts for the next floor.</summary>
         public static readonly Vector3 BountySpot = Origin + new Vector3(-5.2f, 0f, 12.5f);
         public static readonly Vector3 BountyFacing = Vector3.right;

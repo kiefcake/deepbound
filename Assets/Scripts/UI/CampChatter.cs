@@ -21,12 +21,91 @@ namespace Deepbound.UI
             public string[] Idle;
             public System.Func<string> News; // a line for what has happened, or null
             public string Current;
-            public float Until, NextAt;
+            public float Until, NextAt, StartledUntil;
             public int IdleIndex;
             public readonly HashSet<string> Said = new HashSet<string>();
         }
 
         private readonly List<Speaker> speakers = new List<Speaker>();
+        private static CampChatter instance;
+
+        private void OnEnable() => instance = this;
+        private void OnDisable() { if (instance == this) instance = null; }
+
+        // What each of them says when struck, by grudge level 1..4. {0} is who did it.
+        private static readonly string[][] Struck =
+        {
+            new[] { "{0}! Mind where you point that. ...Prices just went up, by the way.", "Again? That's another quarter on everything, friend. Pain is a cost of business.",
+                    "Hit me once more and I'll sell you river water and call it a potion.", "I've doubled my prices for you, {0}. I'd triple them, but I'm a reasonable man." },
+            new[] { "Oi! I've been hit by better. That dent's going on your bill.", "That's it. Embers cost more for people who swing at the smith.",
+                    "I've broken bigger than you over this anvil, {0}. Prices up. Again.", "Keep swinging. Every bruise is on your bill now. Double." },
+            new[] { "Peace, child. ...Though the shrine will expect a larger gift from you now.", "Violence on holy ground. The font weighs heavier for you, {0}.",
+                    "I forgive you. The offering box does not.", "The dead are watching you do this. So am I. So is the price." },
+            new[] { "Darling. The velvet. Not the velvet.", "If you tear this coat I will dye you a colour you cannot wash off.",
+                    "Out of my light, {0}. Come back with manners. And money.", "*Mistress Vey turns her back on you and measures the air, pointedly.*" },
+            new[] { "Easy! Easy! I just drive the thing!", "Hit the driver again and see who gets you down that shaft.",
+                    "One more, {0}, and you're walking. All the way down. It's a long way.", "*Corwin pulls his hat over his eyes and refuses to look at you.*" },
+            new[] { "*The dealer's jaw clacks shut. It taps the felt, slowly.*", "*It turns one card over: the Ace of Spades. It points it at you.*",
+                    "*The dealer folds its hands. It will not deal to {0} until tempers cool.*", "*It sweeps the cards away and simply stares at you.*" },
+        };
+
+        private static readonly string[] Forgive =
+        {
+            "Coin heals all wounds, {0}. Most of them. Prices are back where they were.",
+            "Hmph. Paid for the dent. We're square, {0}. Don't do it again.",
+            "The shrine accepts your penance, {0}. Go in peace. Swing at the dead instead.",
+            "", "", "",
+        };
+
+        private static readonly string[] Startled =
+        {
+            "Not near the glassware!", "Ha! Felt that one in my teeth.", "Not on holy ground, please.",
+            "Smoke! On the silk!", "Whoa! Whoa! Easy, horses!", "*The dealer brushes ash off the cards.*",
+        };
+
+        /// <summary>Any peer: a camp character was struck by <paramref name="attacker"/> (grudge now <paramref name="level"/>).</summary>
+        public static void Offended(FolkId who, int level, string attacker, Vector3 body)
+        {
+            var lines = Struck[(int)who];
+            Say(who, string.Format(lines[Mathf.Clamp(level, 1, lines.Length) - 1], attacker), 6f);
+            var fig = Art.FolkIdle.Near(body);
+            var from = NetworkPlayer.Local != null ? NetworkPlayer.Local.transform.position : body - Vector3.forward;
+            foreach (var p in Player.PlayerLife.All) if (p != null && p.name == attacker) from = p.transform.position;
+            if (fig != null) fig.Flinch(from, 1f);
+        }
+
+        /// <summary>Any peer: amends were paid.</summary>
+        public static void Forgiven(FolkId who, string payer)
+        {
+            var line = Forgive[(int)who];
+            if (!string.IsNullOrEmpty(line)) Say(who, string.Format(line, payer), 6f);
+        }
+
+        /// <summary>Any peer: something exploded at camp. Everyone near it jumps and says so.</summary>
+        public static void Blast(Vector3 at)
+        {
+            if (instance == null) return;
+            for (int i = 0; i < instance.speakers.Count; i++)
+            {
+                var s = instance.speakers[i];
+                var foot = new Vector3(s.Head.x, at.y, s.Head.z);
+                if ((foot - at).sqrMagnitude > 9f * 9f || Time.time < s.StartledUntil) continue;
+                s.StartledUntil = Time.time + 10f;
+                Say((FolkId)i, Startled[i], 4f);
+                var fig = Art.FolkIdle.Near(foot);
+                if (fig != null) fig.Flinch(at, 0.7f);
+            }
+        }
+
+        /// <summary>Make a speaker say something now (over whatever they were saying).</summary>
+        public static void Say(FolkId who, string text, float seconds)
+        {
+            if (instance == null || (int)who >= instance.speakers.Count) return;
+            var s = instance.speakers[(int)who];
+            s.Current = text;
+            s.Until = Time.time + seconds;
+            s.NextAt = s.Until + Random.Range(4f, 8f);
+        }
 
         private static PlayerProgress Me => NetworkPlayer.Local != null ? NetworkPlayer.Local.GetComponent<PlayerProgress>() : null;
         private static DungeonDirector Dir => DungeonDirector.Instance;
@@ -145,6 +224,7 @@ namespace Deepbound.UI
             foreach (var s in speakers)
             {
                 bool near = Vector3.Distance(me.transform.position, s.Head) < 9f;
+                if (Time.time < s.Until && s.Current != null) continue; // still saying something (a reaction, perhaps)
                 if (!near) { if (Time.time > s.Until) s.Current = null; continue; }
                 if (Time.time < s.NextAt) continue;
                 // News first (each line once a visit), then the idle talk in turn.
@@ -168,8 +248,8 @@ namespace Deepbound.UI
                 if (s.Current == null || Time.time > s.Until) continue;
                 var screen = cam.WorldToScreenPoint(s.Head);
                 float dist = Vector3.Distance(cam.transform.position, s.Head);
-                if (screen.z <= 0f || dist > 11f) continue;
-                float a = Mathf.Clamp01((s.Until - Time.time) / 0.6f) * Mathf.Clamp01((11f - dist) / 2f);
+                if (screen.z <= 0f || dist > 16f) continue;
+                float a = Mathf.Clamp01((s.Until - Time.time) / 0.6f) * Mathf.Clamp01((16f - dist) / 3f);
                 var body = new GUIStyle(UiSkin.Small) { fontSize = 13, wordWrap = true, alignment = TextAnchor.UpperCenter, fontStyle = s.Current.StartsWith("*") ? FontStyle.Italic : FontStyle.Normal,
                     normal = { textColor = new Color(0.95f, 0.92f, 0.85f, a) } };
                 const float bw = 280f;

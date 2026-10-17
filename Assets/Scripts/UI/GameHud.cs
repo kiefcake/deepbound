@@ -1568,6 +1568,16 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x + 14, y + 10, pw, 24), Shop.VendorTitle(vendor), new GUIStyle(label) { normal = { textColor = Gold } });
             GUI.Label(new Rect(x + 14, y + 30, pw - 28, 20), Shop.VendorLine(vendor), small);
             if (vendor == Shop.Vendor.Smith && GUI.Button(new Rect(x + pw - 300, y + 8, 160, 24), "Back to the anvil")) { shopOpen = false; forgeOpen = true; }
+            // Struck this vendor? It shows in the prices, and coin can mend it.
+            int amends = progress.AmendsCost(vendor);
+            if (amends > 0)
+            {
+                int pct = Mathf.RoundToInt((progress.PriceMultiplier(vendor) - 1f) * 100f);
+                GUI.Label(new Rect(x + 14, y + ph + 6, pw - 200, 22), "You struck them: +" + pct + "% on everything here.", new GUIStyle(small) { normal = { textColor = new Color(0.95f, 0.45f, 0.35f) } });
+                GUI.enabled = progress.Gold.Value >= amends;
+                if (GUI.Button(new Rect(x + pw - 190, y + ph + 4, 190, 26), "Make amends (" + amends + " gold)")) progress.AmendsRpc(vendor);
+                GUI.enabled = true;
+            }
             GUI.Label(new Rect(x + pw - 120, y + 10, 106, 24), progress.Gold.Value + " gold", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
 
             for (int i = 0; i < stock.Length; i++)

@@ -1007,6 +1007,27 @@ namespace Deepbound.Networking
                         && hStock.Count(it => it.Kind == Shop.ItemKind.Relic) == 2 && hStock.Any(it => it.Name == "Holy Water") && !mStock.Any(it => it.Name == "Holy Water");
                     Log("vendors", "merchant " + mStock.Length + ", smith " + sStock.Length + ", shrine " + hStock.Length + " items", split);
 
+                    // Strike Silas: he takes no harm, holds a grudge, and charges for it until amends are paid.
+                    var silas = FindObjectsByType<CampFolk>(FindObjectsSortMode.None).FirstOrDefault(f => f.Who.Value == (byte)FolkId.Silas);
+                    if (silas != null)
+                    {
+                        int potionBefore = mStock[0].Price;
+                        var silasHp = silas.GetComponent<Health>();
+                        silasHp.ServerDamage(30f, local.transform.position, local.NetworkObjectId);
+                        yield return new WaitForSeconds(0.3f);
+                        int grudge = progress.Grudge(FolkId.Silas);
+                        int potionAfter = Shop.For(local.OwnerClientId, Shop.Vendor.Merchant)[0].Price;
+                        bool unhurt = silasHp.Current.Value >= silasHp.Max.Value;
+                        motor.Teleport(Lobby.MerchantSpot + Vector3.right * 2.4f + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return new WaitForSeconds(0.2f);
+                        progress.ServerAddGold(200);
+                        progress.AmendsRpc(Shop.Vendor.Merchant);
+                        yield return new WaitForSeconds(0.3f);
+                        Log("struck folk", "grudge " + grudge + ", potion " + potionBefore + " -> " + potionAfter + ", unhurt " + unhurt + ", after amends grudge " + progress.Grudge(FolkId.Silas),
+                            grudge == 1 && potionAfter > potionBefore && unhurt && progress.Grudge(FolkId.Silas) == 0);
+                    }
+                    else Log("struck folk", "no camp folk spawned", false);
+
                     // The smith: this player's own gear offer lands at their feet.
                     var mpos = Lobby.AnvilSpot;
                     motor.Teleport(mpos + Vector3.left * 2.4f + Vector3.up * 0.1f, local.transform.rotation);

@@ -127,10 +127,15 @@ namespace Deepbound.World
         public void DealRpc(NetworkObjectReference player, int bet)
         {
             if (!TryGet(player, out var who, out var seat) || (seat.Phase != Phase.Betting && seat.Phase != Phase.Done)) return;
+            // Strike the dealer and it will not deal to you until the grudge eases.
+            if (who.Grudge(FolkId.Bones) >= 3) { RefusedRpc(who.name); return; }
             bet = Mathf.Clamp(bet, MinBet, MaxBet);
             if (who.Gold.Value < bet) return;
             ServerDeal(who, seat, bet, null);
         }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RefusedRpc(string who) => UI.CampChatter.Say(FolkId.Bones, "*The dealer slides " + who + "'s chips back across the felt. Not tonight.*", 5f);
 
         /// <summary>Server (tests): deal with chosen cards (player's first two, then dealer's two).</summary>
         public void ServerDebugDeal(PlayerProgress who, int bet, byte[] cards)

@@ -122,6 +122,8 @@ namespace Deepbound.EditorTools
             dso.FindProperty("blackjackPrefab").objectReferenceValue = blackjack.GetComponent<NetworkObject>();
             dso.FindProperty("gongPrefab").objectReferenceValue = gong.GetComponent<NetworkObject>();
             dso.FindProperty("shrinePrefab").objectReferenceValue = shrine.GetComponent<NetworkObject>();
+            var folkBody = BuildFolkPrefab();
+            dso.FindProperty("folkPrefab").objectReferenceValue = folkBody.GetComponent<NetworkObject>();
             dso.FindProperty("fateWheelPrefab").objectReferenceValue = fateWheel.GetComponent<NetworkObject>();
             dso.FindProperty("bountyNoticePrefab").objectReferenceValue = bountyNotice.GetComponent<NetworkObject>();
             dso.FindProperty("omenStonePrefab").objectReferenceValue = omenStone.GetComponent<NetworkObject>();
@@ -130,7 +132,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -522,6 +524,19 @@ namespace Deepbound.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
+        }
+
+        private static GameObject BuildFolkPrefab()
+        {
+            var root = new GameObject("CampFolk");
+            root.AddComponent<NetworkObject>();
+            var capsule = root.AddComponent<CapsuleCollider>();
+            capsule.height = 1.8f;
+            capsule.radius = 0.32f;
+            capsule.center = new Vector3(0f, 0.9f, 0f);
+            SetTeam(root.AddComponent<Health>(), Team.Props, 1.2f);
+            root.AddComponent<CampFolk>();
+            return SavePrefab(root, "CampFolk");
         }
 
         private static GameObject BuildDummyPrefab()

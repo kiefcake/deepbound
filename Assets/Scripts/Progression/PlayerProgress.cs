@@ -40,6 +40,69 @@ namespace Deepbound.Progression
         public readonly NetworkVariable<bool> CatPeed = new NetworkVariable<bool>();
         /// <summary>Petted, then picked up: it gave you a whisker. 1% chance to evade any hit this run (one per run).</summary>
         public readonly NetworkVariable<bool> CatWhisker = new NetworkVariable<bool>();
+
+        /// <summary>
+        /// How much each camp character resents you (3 bits per <see cref="World.FolkId"/>, 0..4), from
+        /// hitting them. Server-written; eases by one per return to camp, cleared with the run.
+        /// </summary>
+        public readonly NetworkVariable<int> Grudges = new NetworkVariable<int>();
+        public const int MaxGrudge = 4;
+
+        public int Grudge(World.FolkId who) => (Grudges.Value >> ((int)who * 3)) & 7;
+
+        private void SetGrudge(World.FolkId who, int level)
+        {
+            int shift = (int)who * 3;
+            Grudges.Value = (Grudges.Value & ~(7 << shift)) | (Mathf.Clamp(level, 0, MaxGrudge) << shift);
+        }
+
+        /// <summary>Server: one more offence against <paramref name="who"/>. Returns the new level.</summary>
+        public int ServerAddGrudge(World.FolkId who)
+        {
+            int level = Mathf.Min(MaxGrudge, Grudge(who) + 1);
+            SetGrudge(who, level);
+            return level;
+        }
+
+        /// <summary>Server: time heals - every grudge eases by one (called on each return to camp).</summary>
+        public void ServerEaseGrudges()
+        {
+            for (int i = 0; i < 6; i++) SetGrudge((World.FolkId)i, Grudge((World.FolkId)i) - 1);
+        }
+
+        /// <summary>A vendor's mark-up for you: +25% per grudge level.</summary>
+        public float PriceMultiplier(Shop.Vendor vendor) => 1f + 0.25f * Grudge(vendor == Shop.Vendor.Smith ? World.FolkId.Hobb : vendor == Shop.Vendor.Shrine ? World.FolkId.Aldric : World.FolkId.Silas);
+
+        /// <summary>What it costs to make amends with a vendor (0: nothing to mend).</summary>
+        public int AmendsCost(Shop.Vendor vendor)
+        {
+            if (!World.DungeonDirector.InLobby) return 0;
+            int g = Grudge(vendor == Shop.Vendor.Smith ? World.FolkId.Hobb : vendor == Shop.Vendor.Shrine ? World.FolkId.Aldric : World.FolkId.Silas);
+            return g * 30;
+        }
+
+        /// <summary>Owner → server: pay a vendor to forget it (at their stall).</summary>
+        [Rpc(SendTo.Server)]
+        public void AmendsRpc(Shop.Vendor vendor)
+        {
+            int cost = AmendsCost(vendor);
+            if (cost <= 0 || Gold.Value < cost || !Shop.InReach(vendor, transform.position, 1f)) return;
+            Gold.Value -= cost;
+            var who = vendor == Shop.Vendor.Smith ? World.FolkId.Hobb : vendor == Shop.Vendor.Shrine ? World.FolkId.Aldric : World.FolkId.Silas;
+            SetGrudge(who, 0);
+            AmendsMadeRpc((byte)who);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void AmendsMadeRpc(byte who) => UI.CampChatter.Forgiven((World.FolkId)who, name);
+
+        /// <summary>The player object whose owner is <paramref name="clientId"/>, on any peer.</summary>
+        public static PlayerProgress ForClient(ulong clientId)
+        {
+            foreach (var life in Player.PlayerLife.All)
+                if (life != null && life.OwnerClientId == clientId && life.TryGetComponent<PlayerProgress>(out var p)) return p;
+            return null;
+        }
         public const float CatPeeHealth = 0.95f, WhiskerEvade = 0.01f;
 
         /// <summary>Server: the cat has judged you.</summary>
@@ -953,6 +1016,7 @@ namespace Deepbound.Progression
             bag.Clear();
             CatPeed.Value = false;
             CatWhisker.Value = false;
+            Grudges.Value = 0;
             Socket0.Value = Socket1.Value = 0;
             Charm.Value = default;
             health.HealMultiplier = 1f;

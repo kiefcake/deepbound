@@ -362,6 +362,7 @@ namespace Deepbound.World
             foreach (var p in PlayerLife.All)
             {
                 if (p.TryGetComponent<PlayerProgress>(out var blessed)) blessed.ServerClearBlessing();
+                if (keepRun && p.TryGetComponent<PlayerProgress>(out var sore)) sore.ServerEaseGrudges();
                 if (!keepRun && p.TryGetComponent<PlayerProgress>(out var progress) && progress.Stats != null) progress.ServerResetRun();
                 p.ServerRevive(1f);
                 p.Health.ServerSetFraction(1f);
@@ -377,6 +378,7 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject gongPrefab;
         [SerializeField] private NetworkObject shrinePrefab;
         [SerializeField] private NetworkObject rangeTargetPrefab;
+        [SerializeField] private NetworkObject folkPrefab;
 
         private void SpawnCampStations()
         {
@@ -396,6 +398,15 @@ namespace Deepbound.World
             Put(gongPrefab, Lobby.GongSpot, Lobby.GongFacing);
             Put(shrinePrefab, Lobby.ShrineSpot, Vector3.left);
             Put(omenStonePrefab, Lobby.OmenSpot, Vector3.left);
+            // The camp's people get bodies that can be struck (and remember it).
+            if (folkPrefab != null)
+                foreach (var (id, at) in Lobby.FolkBodies)
+                {
+                    var folk = Instantiate(folkPrefab, at, Quaternion.identity);
+                    folk.GetComponent<CampFolk>().Who.Value = (byte)id;
+                    folk.Spawn(destroyWithScene: true);
+                    spawned.Add(folk);
+                }
             // The bounty board: three different contracts for the next floor.
             if (bountyNoticePrefab != null)
             {

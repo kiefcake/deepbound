@@ -12,6 +12,34 @@ namespace Deepbound.Art
         private Transform neck;
         private float seed, yaw, pitch, nextGlance, glanceYaw;
         private Vector3 baseScale;
+        private float jolt;
+        private Vector3 joltAway;
+        private Quaternion baseRot;
+        public static readonly System.Collections.Generic.List<FolkIdle> All = new System.Collections.Generic.List<FolkIdle>();
+
+        private void OnEnable() => All.Add(this);
+        private void OnDisable() => All.Remove(this);
+
+        /// <summary>The figure standing nearest <paramref name="at"/> (within 3 m), or null.</summary>
+        public static FolkIdle Near(Vector3 at)
+        {
+            FolkIdle best = null; float bd = 9f;
+            foreach (var f in All)
+            {
+                if (f == null) continue;
+                var d = f.transform.position - at; d.y = 0f;
+                if (d.sqrMagnitude < bd) { bd = d.sqrMagnitude; best = f; }
+            }
+            return best;
+        }
+
+        /// <summary>Struck (or startled): rock back away from <paramref name="from"/>.</summary>
+        public void Flinch(Vector3 from, float strength = 1f)
+        {
+            var away = transform.position - from; away.y = 0f;
+            joltAway = away.sqrMagnitude > 0.01f ? away.normalized : -transform.forward;
+            jolt = Mathf.Max(jolt, strength);
+        }
 
         /// <summary>Gather the named head parts under a neck pivot at <paramref name="neckY"/> and animate them.</summary>
         public static FolkIdle Attach(Transform root, float neckY, params string[] headParts)
@@ -33,6 +61,7 @@ namespace Deepbound.Art
         {
             seed = Random.value * 20f;
             baseScale = transform.localScale;
+            baseRot = transform.localRotation;
             nextGlance = Time.time + Random.Range(1f, 4f);
         }
 
@@ -41,6 +70,11 @@ namespace Deepbound.Art
             float t = Time.time + seed;
             // Breathing: a slow rise and fall.
             transform.localScale = new Vector3(baseScale.x * (1f + Mathf.Sin(t * 1.4f) * 0.006f), baseScale.y * (1f + Mathf.Sin(t * 1.4f) * 0.009f), baseScale.z);
+            // A flinch: the whole figure rocks back and settles.
+            jolt = Mathf.MoveTowards(jolt, 0f, Time.deltaTime * 2.5f);
+            var axis = Vector3.Cross(Vector3.up, joltAway);
+            var lean = jolt > 0f ? Quaternion.AngleAxis(Mathf.Sin(jolt * Mathf.PI) * 14f * jolt, transform.parent != null ? transform.parent.InverseTransformDirection(axis) : axis) : Quaternion.identity;
+            transform.localRotation = lean * baseRot;
             if (neck == null) return;
 
             float wantYaw = glanceYaw, wantPitch = 0f;

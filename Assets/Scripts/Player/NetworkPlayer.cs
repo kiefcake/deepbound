@@ -180,6 +180,38 @@ namespace Deepbound.Player
                 viewAnim = new ViewModelAnimator(viewModel);
             }
             RefreshWeaponGlow();
+            ViewModelLayer(viewModel.Root);
+        }
+
+        /// <summary>The layer only the view-model camera draws (so walls and bodies never cut into your hands).</summary>
+        public const int ViewModelLayerIndex = 8;
+        private Camera viewModelCamera;
+
+        /// <summary>
+        /// Owner: put the hands on their own layer, drawn by an overlay camera after the world with a
+        /// cleared depth buffer. Swings, casts and draws then stay whole even pressed into a wall or an
+        /// enemy, and a fixed field of view keeps them framed whatever FOV the player picks.
+        /// </summary>
+        private void ViewModelLayer(Transform root)
+        {
+            if (root == null || playerCamera == null) return;
+            foreach (var t in root.GetComponentsInChildren<Transform>(true)) t.gameObject.layer = ViewModelLayerIndex;
+            playerCamera.cullingMask &= ~(1 << ViewModelLayerIndex);
+            if (viewModelCamera != null) return;
+            var go = new GameObject("ViewModelCamera");
+            go.transform.SetParent(playerCamera.transform, false);
+            viewModelCamera = go.AddComponent<Camera>();
+            viewModelCamera.cullingMask = 1 << ViewModelLayerIndex;
+            viewModelCamera.nearClipPlane = 0.01f;
+            viewModelCamera.farClipPlane = 6f;
+            viewModelCamera.fieldOfView = 68f;
+            var data = go.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            data.renderType = UnityEngine.Rendering.Universal.CameraRenderType.Overlay;
+            data.renderShadows = false;
+            data.renderPostProcessing = true;
+            var baseData = playerCamera.GetComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            if (baseData == null) baseData = playerCamera.gameObject.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+            if (!baseData.cameraStack.Contains(viewModelCamera)) baseData.cameraStack.Add(viewModelCamera);
         }
 
         /// <summary>A class's third-person body, in a cloak dye (also used by the tailor's mannequin).</summary>

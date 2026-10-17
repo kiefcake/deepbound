@@ -28,6 +28,7 @@ namespace Deepbound.Art
             if (shattered) Vfx.Embers(at, 18, new Color(0.55f, 0.85f, 1f), 7f, 0.09f, 0.9f);
             BoneBurst.Spawn(at + Vector3.up * 0.2f, 1.6f, false, Mat.Rubble);
             Vfx.Smoke(at, 6, radius * 0.5f, 2.6f);
+            if (World.DungeonDirector.InLobby) UI.CampChatter.Blast(at);
 
             var go = new GameObject("MeteorCrater");
             go.transform.position = at;
