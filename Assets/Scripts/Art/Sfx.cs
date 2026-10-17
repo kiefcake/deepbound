@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak, Heartbeat, KillTick }
+    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak, Heartbeat, KillTick, Creak }
 
     /// <summary>
     /// Every sound in the game, synthesised at startup. Like the art, nothing is
@@ -86,6 +86,7 @@ namespace Deepbound.Art
                 case Sound.Caw: data = Mix(Caw(0.32f, 0f), Caw(0.28f, 0.4f)); break;
                 case Sound.Squeak: data = Squeak(0.09f); break;
                 case Sound.Heartbeat: data = Mix(Thump(0.16f, 70f, 42f), Delay(Thump(0.14f, 62f, 40f), 0.22f)); break;
+                case Sound.Creak: data = Creak(0.75f); break;
                 case Sound.KillTick: data = Mix(Clang(0.18f, new[] { 1760f, 2637f }), Burst(0.03f, 0.3f)); break;
                 default: data = new float[Rate / 10]; break;
             }
@@ -221,6 +222,24 @@ namespace Deepbound.Art
         }
 
         /// <summary>A rat's squeak: a quick high chirp.</summary>
+        /// <summary>An old hinge: a slow, uneven sawtooth groan with a little grit.</summary>
+        private static float[] Creak(float seconds)
+        {
+            var d = new float[(int)(seconds * Rate)];
+            float phase = 0f, wob = 0f;
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = (float)i / d.Length;
+                wob += 0.002f * (N() - wob);
+                float hz = Mathf.Lerp(95f, 150f, Mathf.Sin(t * Mathf.PI)) * (1f + wob * 3f);
+                phase += hz / Rate;
+                float saw = (phase % 1f) * 2f - 1f;
+                float env = Mathf.Sin(Mathf.Clamp01(t) * Mathf.PI) * (0.6f + 0.4f * Mathf.Sin(t * 37f));
+                d[i] = (saw * 0.5f + N() * 0.12f) * env;
+            }
+            return d;
+        }
+
         private static float[] Squeak(float seconds)
         {
             var d = new float[(int)(seconds * Rate)];

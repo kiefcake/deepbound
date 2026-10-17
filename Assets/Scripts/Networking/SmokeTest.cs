@@ -1575,6 +1575,22 @@ namespace Deepbound.Networking
             motor.SetPitch(12f);
             yield return new WaitForSeconds(0.4f);
             yield return Shot(dir, "1_start_room_wide"); yield return SamplePerf("1_start_room_wide");
+            // A door in a doorway: shut from a distance, swinging open as you come up to it.
+            var door = FindObjectsByType<SwingDoor>(FindObjectsSortMode.None).OrderBy(d => (d.transform.position - local.transform.position).sqrMagnitude).FirstOrDefault();
+            if (door != null)
+            {
+                var dp = door.transform.position;
+                var toRoom = DungeonDirector.Layout.Rooms.OrderBy(r => (r.Center - dp).sqrMagnitude).First().Center - dp; toRoom.y = 0f;
+                var standD = dp + toRoom.normalized * 5.5f; standD.y = dp.y + 0.1f;
+                motor.Teleport(standD, Quaternion.LookRotation(Vector3.ProjectOnPlane(dp - standD, Vector3.up)));
+                motor.SetPitch(5f);
+                yield return new WaitForSeconds(4.5f);
+                yield return Shot(dir, "1p_door_closed");
+                motor.Teleport(dp + toRoom.normalized * 3f + Vector3.up * 0.1f, Quaternion.LookRotation(Vector3.ProjectOnPlane(-toRoom, Vector3.up)));
+                yield return new WaitForSeconds(0.8f);
+                yield return Shot(dir, "1p_door_open");
+                motor.SetPitch(0f);
+            }
             // A rat by the wall, before it bolts.
             var rat = FindObjectsByType<Art.Critter>(FindObjectsSortMode.None).Where(c => c.Type == Art.Critter.Kind.Rat).OrderBy(c => (c.transform.position - local.transform.position).sqrMagnitude).FirstOrDefault();
             if (rat != null)

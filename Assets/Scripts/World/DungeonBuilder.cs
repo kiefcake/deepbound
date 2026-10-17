@@ -27,6 +27,7 @@ namespace Deepbound.World
             var dressing = new MeshKit.Batcher();
             var lights = new GameObject("Lights").transform;
             lights.SetParent(root.transform, false);
+            doorParent = lights;
 
             foreach (var room in layout.Rooms) BuildRoom(room, structure, dressing, lights);
             foreach (var link in layout.Links) BuildCorridor(layout.Rooms[link.A], layout.Rooms[link.B], link.Dir, structure, dressing, lights);
@@ -182,6 +183,18 @@ namespace Deepbound.World
             b.AddBox(wallCenter + inward * 1.2f + Vector3.up * (archY + leg * 0.55f), Size(0.32f, 0.42f) + (alongX ? new Vector3(0, 0, -0.5f) : new Vector3(-0.5f, 0, 0)), Mat.StoneWall);
         }
 
+        private static Transform doorParent;
+
+        /// <summary>Plank doors in a doorway (not into the boss arena or a vault: those have portcullises).</summary>
+        private static void HangDoor(DungeonLayout.Room room, Vector3 wallCenter, Vector2 dir, bool alongX)
+        {
+            if (doorParent == null || room.Kind == RoomKind.Boss || room.Feature == RoomFeature.Vault) return;
+            var inward = -new Vector3(dir.x, 0f, dir.y);
+            var tangent = alongX ? Vector3.right : Vector3.forward;
+            var center = wallCenter + inward * (WallThickness / 2f + 0.14f);
+            SwingDoor.Build(doorParent, center, tangent, inward, DungeonLayout.CorridorWidth - 0.1f, DungeonLayout.CorridorHeight - 0.06f);
+        }
+
         private static void BuildWall(DungeonLayout.Room room, int side, MeshKit.Batcher b)
         {
             var c = room.Center;
@@ -213,6 +226,7 @@ namespace Deepbound.World
                 if (length / 2f - cursor > 0.01f) b.AddBox(wallCenter + Along((cursor + length / 2f) / 2f) + Vector3.up * h / 2f, Size(length / 2f - cursor, h), Mat.StoneWall);
                 BuildNiche(wallCenter + Along(a), new Vector3(dir.x, 0f, dir.y), alongX, hole.Breach, b);
                 DoorTrim(wallCenter, dir, alongX, b);
+                HangDoor(room, wallCenter, dir, alongX);
             }
             else if (hole != null && !room.Doors[side])
             {
@@ -238,6 +252,7 @@ namespace Deepbound.World
                 b.AddBox(wallCenter + Vector3.up * (DungeonLayout.CorridorHeight + lintel / 2f) + Along(0f), Size(door, lintel), Mat.StoneWall);
 
                 DoorTrim(wallCenter, dir, alongX, b);
+                HangDoor(room, wallCenter, dir, alongX);
             }
 
             // Plinth along the base of the wall, so walls meet the floor with a line
