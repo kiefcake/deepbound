@@ -468,6 +468,31 @@ namespace Deepbound.Networking
                 // Against the living now: earlier checks give breaches and risen bones time to add more.
                 int living = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead);
                 Log("navmesh agents", agentsOnMesh + " / " + living, agentsOnMesh == living);
+
+                // Doors never wall off the navmesh: the dead can walk through every doorway (bar one a closed portcullis seals).
+                var doorPath = new UnityEngine.AI.NavMeshPath();
+                var closedGates = FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Where(g => g.Closed.Value).Select(g => g.transform.position).ToList();
+                var doorsAll = FindObjectsByType<SwingDoor>(FindObjectsSortMode.None).Where(d => !closedGates.Any(g => (g - d.transform.position).sqrMagnitude < 4f * 4f)).ToArray();
+                int doorsThrough = 0;
+                foreach (var d in doorsAll)
+                {
+                    var roomSide = layout.RoomAt(d.transform.position, 1.5f);
+                    var inward = roomSide != null ? Vector3.ProjectOnPlane(roomSide.Center - d.transform.position, Vector3.up).normalized : d.transform.forward;
+                    if (UnityEngine.AI.NavMesh.SamplePosition(d.transform.position + inward * 2f, out var ah, 1.5f, UnityEngine.AI.NavMesh.AllAreas)
+                        && UnityEngine.AI.NavMesh.SamplePosition(d.transform.position - inward * 2.2f, out var bh2, 1.5f, UnityEngine.AI.NavMesh.AllAreas)
+                        && UnityEngine.AI.NavMesh.CalculatePath(ah.position, bh2.position, UnityEngine.AI.NavMesh.AllAreas, doorPath)
+                        && doorPath.status == UnityEngine.AI.NavMeshPathStatus.PathComplete && doorPath.corners.Length > 0 && PathLength(doorPath) < 12f) doorsThrough++;
+                }
+                Log("doors passable", doorsThrough + " / " + doorsAll.Length + " doorways walkable straight through", doorsThrough == doorsAll.Length);
+
+                // No chest stands inside a pillar, a wall or the dressing.
+                int stuck = 0;
+                foreach (var ch in FindObjectsByType<Chest>(FindObjectsSortMode.None))
+                {
+                    var hitsC = Physics.OverlapBox(ch.transform.position + Vector3.up * 0.6f, new Vector3(0.5f, 0.38f, 0.32f), ch.transform.rotation, ~0, QueryTriggerInteraction.Ignore);
+                    if (hitsC.Any(c => !c.transform.IsChildOf(ch.transform) && c.GetComponentInParent<Health>() == null && c.GetComponentInParent<Interactable>() == null && c.GetComponentInParent<CharacterController>() == null)) stuck++;
+                }
+                Log("chests clear", stuck + " chest(s) overlapping walls or props", stuck == 0);
             }
 
             if (net.IsServer && local != null)
@@ -536,7 +561,9 @@ namespace Deepbound.Networking
                 var fm = local.GetComponent<FirstPersonMotor>();
                 string features = string.Join(", ", layout.Rooms.Where(r => r.Feature != RoomFeature.None).Select(r => r.Feature.ToString()));
                 // Hit zones: a line through a skeleton's head is a headshot; through its chest, the body.
-                var zoneT = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => e.GetType() == typeof(EnemyBrain) && !e.IsDead && e.Rig != null && e.Rig.Head != null);
+                // One standing upright (a crouch, a wind-up or a rear-up can bring the head down to chest height).
+                var zoneT = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => e.GetType() == typeof(EnemyBrain) && !e.IsDead && e.Rig != null && e.Rig.Head != null
+                    && e.Rig.Current == Art.RigAction.None && e.Rig.Head.position.y - e.transform.position.y > 1.4f);
                 if (zoneT != null)
                 {
                     var zh = zoneT.GetComponent<Health>();
@@ -772,6 +799,12 @@ namespace Deepbound.Networking
 
                 var drops = FindObjectsByType<LootDrop>(FindObjectsSortMode.None);
                 Log("loot drops", drops.Length + " from " + victims.Count + " kills", drops.Length > 0);
+                // Every drop landed where you can walk to it (not in a wall, on a ledge or inside a prop).
+                int reachable = drops.Count(d => d != null && UnityEngine.AI.NavMesh.SamplePosition(d.transform.position, out _, 0.7f, UnityEngine.AI.NavMesh.AllAreas));
+                var lost = drops.Where(d => d != null && !UnityEngine.AI.NavMesh.SamplePosition(d.transform.position, out _, 0.7f, UnityEngine.AI.NavMesh.AllAreas)).ToList();
+                string lostWhat = string.Join("; ", lost.Select(d => d.Kind.Value + " at " + d.transform.position.ToString("F1") + " room " + (layout.RoomAt(d.transform.position, 0f) != null ? layout.RoomAt(d.transform.position, 0f).Kind.ToString() : "none") +
+                    " nearest mesh " + (UnityEngine.AI.NavMesh.SamplePosition(d.transform.position, out var lh, 5f, UnityEngine.AI.NavMesh.AllAreas) ? Vector3.Distance(lh.position, d.transform.position).ToString("F2") : "none")));
+                Log("loot reachable", reachable + " / " + drops.Count(d => d != null) + " on walkable floor" + (lost.Count > 0 ? " (off: " + lostWhat + ")" : ""), reachable == drops.Count(d => d != null));
 
                 var progress = local.GetComponent<PlayerProgress>();
                 int goldBefore = progress.Gold.Value;
@@ -1381,6 +1414,17 @@ namespace Deepbound.Networking
             local.GetComponent<UI.GameHud>().DebugOpenShop();
             yield return null;
             yield return Shot(dir, "1b_merchant_panel");
+            // Silas from behind: his pack.
+            local.GetComponent<UI.GameHud>().DebugCloseMenus();
+            foreach (var (side, tag) in new[] { (-1f, "1b_merchant_back"), (1f, "1b_merchant_front") })
+            {
+                var view = Lobby.MerchantSpot + new Vector3(side * 1.7f, 0.1f, 0.6f);
+                lobbyMotor.Teleport(view, Quaternion.LookRotation(Vector3.ProjectOnPlane(Lobby.MerchantSpot - view, Vector3.up)));
+                lobbyMotor.SetPitch(10f);
+                yield return new WaitForSeconds(0.3f);
+                yield return Shot(dir, tag);
+            }
+            lobbyMotor.SetPitch(0f);
             // A raven on the road, up close (the lowest one: they also sit on the battlements).
             var raven = FindObjectsByType<Art.Critter>(FindObjectsSortMode.None).Where(c => c.Type == Art.Critter.Kind.Raven).OrderBy(c => c.transform.position.y).FirstOrDefault();
             if (raven != null)
@@ -1837,6 +1881,15 @@ namespace Deepbound.Networking
                     motor.Teleport(from, Quaternion.LookRotation(room.Center - from));
                     yield return new WaitForSeconds(1.2f);
                     yield return Shot(dir, "5_floor" + (depth + 1));
+                    if (depth == 1)
+                    {
+                        // The water thickens: murk, slow ripples, and the MIRED badge (read by hovering it).
+                        DungeonDirector.Instance.ServerDebugTide();
+                        yield return new WaitForSeconds(1.5f);
+                        UI.StatusEffects.DebugHover = 0;
+                        yield return Shot(dir, "5_floor2_mire");
+                        UI.StatusEffects.DebugHover = -1;
+                    }
                     // This floor's own dressing, up close.
                     if (DungeonBuilder.ThemeSpots.Count > 0)
                     {
@@ -2075,6 +2128,13 @@ namespace Deepbound.Networking
             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(dir, name + ".png"));
             yield return null;
             yield return null;
+        }
+
+        private static float PathLength(UnityEngine.AI.NavMeshPath p)
+        {
+            float len = 0f;
+            for (int i = 1; i < p.corners.Length; i++) len += Vector3.Distance(p.corners[i - 1], p.corners[i]);
+            return len;
         }
 
         private static void Log(string check, string value, bool ok)

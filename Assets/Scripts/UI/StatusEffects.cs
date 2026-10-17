@@ -1,0 +1,134 @@
+using System.Collections.Generic;
+using Deepbound.Classes;
+using Deepbound.Combat;
+using Deepbound.Player;
+using Deepbound.Progression;
+using Deepbound.World;
+using UnityEngine;
+
+namespace Deepbound.UI
+{
+    /// <summary>
+    /// Everything currently affecting you, as a row of badges above your health: green for help,
+    /// red for harm, gold for the run's conditions. A thin bar under a badge runs down its time.
+    /// Hover one to read it - hold ALT to free the cursor (or hover while the inventory or pause
+    /// menu is open).
+    /// </summary>
+    public static class StatusEffects
+    {
+        public struct Status
+        {
+            public string Glyph, Name, Text, Lasts;
+            public Color Color;
+            public float Left, Total; // seconds; Total 0 = untimed
+        }
+
+        private static readonly Color Good = new Color(0.45f, 0.9f, 0.5f), Bad = new Color(0.95f, 0.38f, 0.32f), Run = new Color(0.95f, 0.78f, 0.4f);
+        private static readonly List<Status> list = new List<Status>();
+        private static Font glyphFont;
+        /// <summary>Screenshots: show this badge's tooltip as if hovered.</summary>
+        public static int DebugHover = -1;
+
+        private static double ServerNow => Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsListening
+            ? Unity.Netcode.NetworkManager.Singleton.ServerTime.Time : 0;
+
+        public static List<Status> Gather(NetworkPlayer player)
+        {
+            list.Clear();
+            if (player == null) return list;
+            var progress = player.GetComponent<PlayerProgress>();
+            var life = player.GetComponent<PlayerLife>();
+            var health = player.GetComponent<Health>();
+            var pos = player.transform.position;
+            double now = ServerNow;
+
+            if (progress != null && progress.ActiveBlessing.Value != 0)
+            {
+                var b = (Blessing)progress.ActiveBlessing.Value;
+                list.Add(new Status { Glyph = "✝", Name = Blessings.Name(b), Text = Blessings.Describe(b), Lasts = "Until you return to camp", Color = Blessings.Color(b) });
+            }
+            var afflict = player.GetComponent<PlayerDebuffs>();
+            if (afflict != null)
+            {
+                if (afflict.Poisoned) list.Add(Timed("☠", "Poisoned", "You are losing health over time. Holy Water cleanses it.", Bad, afflict.PoisonUntil.Value - now, 8f));
+                if (afflict.Frostbitten) list.Add(Timed("❄", "Frostbitten", "-40% movement speed. Holy Water cleanses it.", new Color(0.6f, 0.85f, 1f), afflict.FrostUntil.Value - now, 6f));
+                if (afflict.Cursed) list.Add(Timed("✷", "Cursed", "-30% damage dealt and -50% healing received, until the Hexer that cursed you dies. Holy Water cleanses it.", new Color(0.75f, 0.45f, 1f), afflict.CurseUntil.Value - now, 20f));
+            }
+            float water = DungeonDirector.WaterSlow(pos, true);
+            if (water < 0.99f)
+                list.Add(new Status { Glyph = "≈", Name = DungeonDirector.Thickness > 0.05f ? "Mired" : "Wading",
+                    Text = (DungeonDirector.Thickness > 0.05f ? "The thickened water drags at your legs" : "The water slows you") + ": -" + Mathf.RoundToInt((1f - water) * 100f) + "% movement speed. Get onto stairs, balconies or stones.",
+                    Lasts = "While you stand in it", Color = new Color(0.55f, 0.75f, 0.45f) });
+            var flasks = player.GetComponent<Flasks>();
+            if (flasks != null && flasks.Healing)
+                list.Add(new Status { Glyph = "♥", Name = "Mending", Text = "A health potion is closing your wounds.", Lasts = "A few seconds", Color = Good });
+            var emotes = player.GetComponent<Emotes>();
+            if (emotes != null && emotes.Brothers) list.Add(Timed("✋", "Brothers in Arms", "+10% damage. You high-fived an ally.", Good, emotes.BrothersUntil.Value - now, Emotes.BuffSeconds));
+            if (ClericKit.InConsecration(pos)) list.Add(new Status { Glyph = "✦", Name = "Blessed", Text = "+20% damage while you stand in the Cleric's consecrated ground.", Lasts = "While you stand in it", Color = Good });
+            if (health != null && ClericKit.IsInspired(health)) list.Add(new Status { Glyph = "★", Name = "Inspired", Text = "+15% damage while the Cleric's beam is on you.", Lasts = "While the beam holds", Color = Good });
+            if (life != null && Time.time < life.VeiledUntil) list.Add(new Status { Glyph = "☁", Name = "Smoke Screen", Text = "The dead cannot see you while you stay in the smoke.", Lasts = "While you stay in it", Color = Good });
+            if (progress != null && progress.CatWhisker.Value) list.Add(new Status { Glyph = "❧", Name = "Cat Whisker", Text = "+1% chance to evade any hit outright. A gift from the cat, for petting it first.", Lasts = "This run", Color = Good });
+            if (progress != null && progress.CatPeed.Value) list.Add(new Status { Glyph = "☂", Name = "Peed On", Text = "-5% max health. The cat's opinion of being picked up without asking.", Lasts = "This run", Color = Bad });
+            var dir = DungeonDirector.Instance;
+            if (dir != null && dir.RunOmen != Omen.None && (dir.RunInProgress || DungeonDirector.InLobby))
+                list.Add(new Status { Glyph = "☾", Name = "Omen: " + DungeonDirector.OmenName(dir.RunOmen), Text = DungeonDirector.OmenText(dir.RunOmen) + ". +35% Renown.", Lasts = "This run", Color = DungeonDirector.OmenColor(dir.RunOmen) });
+            if (progress != null && DungeonDirector.InLobby)
+            {
+                var sore = new List<string>();
+                foreach (var (id, nm) in new[] { (FolkId.Silas, "Silas"), (FolkId.Hobb, "Hobb"), (FolkId.Aldric, "Brother Aldric"), (FolkId.Vey, "Mistress Vey"), (FolkId.Corwin, "Corwin"), (FolkId.Bones, "Mister Bones") })
+                    if (progress.Grudge(id) > 0) sore.Add(nm + " (" + progress.Grudge(id) + ")");
+                if (sore.Count > 0)
+                    list.Add(new Status { Glyph = "⚔", Name = "Held a Grudge", Text = "You struck: " + string.Join(", ", sore) + ". Vendors charge +25% per level; Mister Bones will not deal at 3. Pay amends at a stall, or let it fade (one level per return to camp).", Lasts = "Fades with time", Color = Bad });
+            }
+            return list;
+        }
+
+        private static Status Timed(string glyph, string name, string text, Color color, double left, float total) =>
+            new Status { Glyph = glyph, Name = name, Text = text, Color = color, Left = Mathf.Max(0f, (float)left), Total = Mathf.Max(total, (float)left), Lasts = Mathf.CeilToInt(Mathf.Max(0f, (float)left)) + " s left" };
+
+        /// <summary>Draw the row from (x, y) rightward; returns true if the mouse is over a badge.</summary>
+        public static void Draw(NetworkPlayer player, float x, float y, bool cursorFree)
+        {
+            var all = Gather(player);
+            if (all.Count == 0) return;
+            if (glyphFont == null) { try { glyphFont = Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI Symbol", "Arial Unicode MS", "Arial" }, 18); } catch { } }
+            const float size = 30f, gap = 6f;
+            int hover = -1;
+            var mouse = Event.current.mousePosition;
+            for (int i = 0; i < all.Count; i++)
+            {
+                var s = all[i];
+                var r = new Rect(x + i * (size + gap), y, size, size);
+                bool over = cursorFree && r.Contains(mouse);
+                if (over) hover = i;
+                UiSkin.Rect(new Rect(r.x - 1.5f, r.y - 1.5f, size + 3f, size + 3f), new Color(s.Color.r, s.Color.g, s.Color.b, over ? 1f : 0.75f));
+                UiSkin.Rect(r, new Color(0.05f, 0.04f, 0.035f, 0.92f));
+                var g = new GUIStyle(GUI.skin.label) { font = glyphFont, fontSize = 18, alignment = TextAnchor.MiddleCenter, normal = { textColor = s.Color } };
+                GUI.Label(new Rect(r.x, r.y - 1f, size, size), s.Glyph, g);
+                if (s.Total > 0f)
+                {
+                    UiSkin.Rect(new Rect(r.x + 2f, r.yMax - 4f, size - 4f, 2f), new Color(0f, 0f, 0f, 0.7f));
+                    UiSkin.Rect(new Rect(r.x + 2f, r.yMax - 4f, (size - 4f) * Mathf.Clamp01(s.Left / s.Total), 2f), s.Color);
+                }
+            }
+            if (DebugHover >= 0 && DebugHover < all.Count) hover = DebugHover;
+            float rowEnd = x + all.Count * (size + gap);
+            if (!cursorFree)
+                GUI.Label(new Rect(rowEnd, y + 7f, 120f, 18f), "ALT: inspect", new GUIStyle(UiSkin.Small) { fontSize = 11, normal = { textColor = new Color(0.75f, 0.72f, 0.65f, 0.75f) } });
+            if (hover < 0) return;
+
+            // The tooltip card above the badge.
+            var h = all[hover];
+            var body = new GUIStyle(UiSkin.Small) { wordWrap = true, fontSize = 13, normal = { textColor = new Color(0.92f, 0.9f, 0.85f) } };
+            const float tw = 300f;
+            float textH = body.CalcHeight(new GUIContent(h.Text), tw - 20f);
+            float th = 30f + textH + 22f;
+            float tx = Mathf.Min(x + hover * (size + gap), Screen.width - tw - 8f), ty = y - th - 8f;
+            UiSkin.Rect(new Rect(tx - 1.5f, ty - 1.5f, tw + 3f, th + 3f), new Color(h.Color.r, h.Color.g, h.Color.b, 0.9f));
+            UiSkin.Rect(new Rect(tx, ty, tw, th), new Color(0.04f, 0.035f, 0.03f, 0.96f));
+            GUI.Label(new Rect(tx + 10f, ty + 6f, tw - 20f, 22f), h.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Small) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = h.Color } });
+            GUI.Label(new Rect(tx + 10f, ty + 28f, tw - 20f, textH + 4f), h.Text, body);
+            GUI.Label(new Rect(tx + 10f, ty + th - 22f, tw - 20f, 18f), h.Lasts, new GUIStyle(UiSkin.Small) { fontSize = 11, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.75f, 0.72f, 0.65f) } });
+        }
+    }
+}

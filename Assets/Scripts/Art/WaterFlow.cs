@@ -10,6 +10,9 @@ namespace Deepbound.Art
     public class WaterFlow : MonoBehaviour
     {
         public bool Falling;
+        /// <summary>0..1: the Drowned Vaults' water thickening (ripples slow to a crawl).</summary>
+        public static float Sluggish;
+        private float clock;
         private static readonly int BaseSt = Shader.PropertyToID("_BaseMap_ST");
         private static readonly int DetailSt = Shader.PropertyToID("_DetailAlbedoMap_ST");
         private Renderer rend;
@@ -26,7 +29,8 @@ namespace Deepbound.Art
         private void Update()
         {
             if (rend == null || !rend.isVisible) return;
-            float t = Time.time + seed;
+            clock += Time.deltaTime * (Falling ? 1f : 1f - 0.85f * Sluggish);
+            float t = clock + seed;
             rend.GetPropertyBlock(block);
             if (Falling)
             {

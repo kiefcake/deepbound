@@ -64,7 +64,7 @@ namespace Deepbound.Loot
             for (int i = 0; i < rolls.Count; i++)
             {
                 float a = (i / (float)Mathf.Max(1, rolls.Count)) * Mathf.PI * 2f + Random.value;
-                var pos = at + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (rolls.Count > 1 ? 0.9f : 0f) + Vector3.up * 0.05f;
+                var pos = World.DropSpots.Settle(at, at + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (rolls.Count > 1 ? 0.9f : 0f));
                 var obj = Object.Instantiate(prefab, pos, Quaternion.identity);
                 var drop = obj.GetComponent<LootDrop>();
                 drop.Kind.Value = rolls[i].Item1;

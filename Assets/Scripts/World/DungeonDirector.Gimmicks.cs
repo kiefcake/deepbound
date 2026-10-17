@@ -30,7 +30,7 @@ namespace Deepbound.World
     {
         public static string GimmickHint(int depth) =>
             depth == 0 ? "Restless Bones: stamp out the bone piles before the dead rise again"
-            : depth == 1 ? "The Tide: when the water surges, get to high ground"
+            : depth == 1 ? "The Mire: when the water thickens, it drags at your legs - get to high ground"
             : depth == 2 ? "Soul Lanterns: smash one to heal your party and stun the dead"
             : depth == 3 ? "The Bell: when it tolls, jump the shockwave"
             : depth == 4 ? "The Silence: now and then the light fails. Stay together, and watch for the red !"
@@ -156,7 +156,20 @@ namespace Deepbound.World
         /// <summary>Server time the current (or last) tide began; synced so everyone draws the water.</summary>
         public readonly NetworkVariable<double> TideStart = new NetworkVariable<double>(-1000);
         private float nextTide;
-        public const float TideSeconds = 14f, TideRise = 2.5f, TidePeak = 0.8f;
+        public const float TideSeconds = 14f, TideRise = 2.5f, TidePeak = 0.55f;
+
+        /// <summary>0..1: how thick the Drowned Vaults' water is right now (it rises and turns to mire).</summary>
+        public static float Thickness
+        {
+            get
+            {
+                var nm = NetworkManager.Singleton;
+                if (Instance == null || nm == null || !nm.IsListening || Layout == null || Layout.Depth != 1) return 0f;
+                float t = (float)(nm.ServerTime.Time - Instance.TideStart.Value);
+                if (t < 0f || t > TideSeconds) return 0f;
+                return Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / TideRise) * Mathf.Clamp01((TideSeconds - t) / TideRise));
+            }
+        }
 
         /// <summary>Anyone: the water line right now on a tidal floor (or -10 when there is none).</summary>
         public static float TideLevel
@@ -179,7 +192,7 @@ namespace Deepbound.World
         {
             if (nextTide <= 0f) { nextTide = Time.time + 35f; return; }
             if (Time.time < nextTide) return;
-            nextTide = Time.time + 55f;
+            nextTide = Time.time + 45f;
             TideStart.Value = NetworkManager.ServerTime.Time + 3.0;
             TideWarnRpc();
         }
@@ -187,11 +200,13 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void TideWarnRpc()
         {
-            UI.GameHud.ShowTitleCard("THE TIDE RISES", "Get to high ground");
+            UI.GameHud.ShowTitleCard("THE WATER THICKENS", "It drags at your legs: get to high ground", new Color(0.55f, 0.75f, 0.45f));
             Sfx.Play2D(Sound.Splash, 1f);
+            Sfx.Play2D(Sound.Whisper, 0.6f);
         }
 
         private Transform tideWater;
+        private float nextBubble;
 
         /// <summary>Everyone: move the floor's water sheet with the tide.</summary>
         private void UpdateTideVisual()
@@ -203,6 +218,24 @@ namespace Deepbound.World
             var p = tideWater.position;
             p.y = level > -5f ? level : DungeonTheme.ForDepth(1).WaterDepth;
             tideWater.position = p;
+            // Thickening: the clear green murk turns to an opaque brown-green mire, its ripples slowing to a crawl.
+            float thick = Thickness;
+            var rend = tideWater.GetComponent<Renderer>();
+            if (rend != null)
+            {
+                var baseCol = DungeonTheme.ForDepth(1).WaterColor;
+                ArtLibrary.Tint(rend, Color.Lerp(baseCol, new Color(0.13f, 0.12f, 0.05f, 0.97f), thick));
+            }
+            Art.WaterFlow.Sluggish = thick;
+            // Bubbles of marsh gas around you while it is thick.
+            var cam = Art.ViewCamera.Current;
+            if (thick > 0.3f && cam != null && Time.time >= nextBubble)
+            {
+                nextBubble = Time.time + 0.18f;
+                var at = cam.transform.position + new Vector3(Random.Range(-6f, 6f), 0f, Random.Range(-6f, 6f));
+                at.y = p.y + 0.02f;
+                Art.Vfx.Ring(at, Random.Range(0.12f, 0.3f), new Color(0.35f, 0.4f, 0.22f, 0.6f), 0.7f);
+            }
         }
 
         // ------------------------------------------------------------------

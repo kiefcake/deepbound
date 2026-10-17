@@ -21,6 +21,8 @@ namespace Deepbound.Art
             foreach (var r in root.GetComponentsInChildren<MeshRenderer>(true))
             {
                 if (r.GetComponentInParent<Collider>() != null) continue;
+                // Doors swing aside for anyone; a box on them would wall off the navmesh (the dead could not follow).
+                if (r.GetComponentInParent<World.SwingDoor>() != null) continue;
                 var mf = r.GetComponent<MeshFilter>();
                 if (mf == null || mf.sharedMesh == null) continue;
                 var mat = r.sharedMaterial != null ? r.sharedMaterial.name : "";

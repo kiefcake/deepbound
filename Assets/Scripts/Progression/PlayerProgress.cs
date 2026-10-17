@@ -546,7 +546,7 @@ namespace Deepbound.Progression
 
         /// <summary>SPD 50 is the reference speed; each point either side is ±1%.</summary>
         public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1.15f : 1f) * (Blessed(Blessing.Swiftness) ? 1.12f : 1f)
-            * World.DungeonDirector.WaterSlow(transform.position)
+            * World.DungeonDirector.WaterSlow(transform.position, true)
             * (TryGetComponent<Player.PlayerDebuffs>(out var deb) ? deb.SpeedMultiplier : 1f)
             * World.Carryable.SpeedFor(NetworkObjectId);
 

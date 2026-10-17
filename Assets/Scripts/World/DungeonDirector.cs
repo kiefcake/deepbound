@@ -201,10 +201,16 @@ namespace Deepbound.World
         public void ServerDropEmbers(Vector3 at, int amount) => ServerDropLoot(at, LootKind.Embers, Mathf.RoundToInt(amount * OmenEmbers));
 
         /// <summary>Server: one loot drop of a given kind at a point.</summary>
-        public void ServerDropLoot(Vector3 at, LootKind kind, int amount)
+        /// <summary>
+        /// Server: one drop. It lands on walkable floor on this side of any wall between it and
+        /// <paramref name="from"/> (its source, default: where it was asked for); <paramref name="settle"/> false
+        /// leaves it exactly where it was put (a niche's plinth).
+        /// </summary>
+        public void ServerDropLoot(Vector3 at, LootKind kind, int amount, Vector3? from = null, bool settle = true)
         {
             if (lootPrefab == null) return;
-            var obj = Instantiate(lootPrefab, at + Vector3.up * 0.05f, Quaternion.identity);
+            var place = settle ? DropSpots.Settle(from ?? at, at) : at + Vector3.up * 0.05f;
+            var obj = Instantiate(lootPrefab, place, Quaternion.identity);
             var drop = obj.GetComponent<LootDrop>();
             drop.Kind.Value = kind;
             drop.Amount.Value = amount;
@@ -803,7 +809,10 @@ namespace Deepbound.World
                     int entry = 0;
                     for (int s = 0; s < 4; s++) if (room.Doors[s]) entry = s;
                     var back = -new Vector3(DungeonLayout.Dir[entry].x, 0f, DungeonLayout.Dir[entry].y);
-                    var chest = Spawn(chestPrefab, room.Center + back * (room.Size.y / 2f - 1.5f), Quaternion.LookRotation(-back));
+                    // The back wall's distance depends on which way the room runs (it used to always use its depth).
+                    float toBack = (entry == 0 || entry == 2 ? room.Size.y : room.Size.x) / 2f - 1.5f;
+                    var chestRot = Quaternion.LookRotation(-back);
+                    var chest = Spawn(chestPrefab, DropSpots.ClearForChest(room.Center + back * toBack, chestRot, room), chestRot);
                     // Some chests are hungry. Fewer on the first floor.
                     if (mimicPrefab != null && !TestMode && rng.NextDouble() < (layout.Depth == 0 ? 0.12 : 0.2)) chest.GetComponent<Chest>().Mimic.Value = true;
                     chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);

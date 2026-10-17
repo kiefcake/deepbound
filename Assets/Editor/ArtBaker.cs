@@ -51,7 +51,7 @@ namespace Deepbound.EditorTools
             BakeSurface("Steel", lit, BrushedMetal, 0.72f, 0.65f, 0.6f);
             BakeSurface("Gold", lit, (x, y) => Tint(BrushedMetal(x, y), new Color(1f, 0.78f, 0.35f)), 0.7f, 1f, 0.5f);
             BakeSurface("Bone", lit, BoneSurface, 0.25f, 0f, 1.4f);
-            BakeSurface("Cloth", lit, ClothWeave, 0.08f, 0f, 0.6f);
+            BakeSurface("Cloth", lit, ClothWeave, 0.08f, 0f, 0.45f);
             BakeSurface("Leather", lit, LeatherSurface, 0.3f, 0f, 1.0f);
             BakeSurface("Rubble", lit, Rubble, 0.08f, 0f, 3f);
             BakeSurface("Marble", lit, Marble, 0.18f, 0f, 0.5f);
@@ -361,9 +361,11 @@ namespace Deepbound.EditorTools
             float weave = Mathf.Lerp(twill, thread, 0.35f);
             float fold = Fbm(u, v, 3f, 1.5f, 3, 62);
             float dirt = Fbm(u, v, 7f, 7f, 3, 61);
-            float tone = 0.74f + (fold - 0.5f) * 0.18f - dirt * 0.12f + weave * 0.05f;
+            // The weave is a faint texture in the colour only: as height it lit up as big diagonal
+            // ridges on small things (hoods, bedrolls) and read as scuffed. Folds carry the relief.
+            float tone = 0.74f + (fold - 0.5f) * 0.18f - dirt * 0.1f + weave * 0.025f;
             var c = new Color(tone, tone, tone);
-            c.a = 0.35f + fold * 0.45f + weave * 0.12f;
+            c.a = 0.35f + fold * 0.5f + weave * 0.015f;
             return c;
         }
 

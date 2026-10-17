@@ -91,7 +91,7 @@ namespace Deepbound.Loot
             {
                 if (Random.value > chance) continue;
                 float a = i++ * 2.1f + Random.value;
-                var pos = at + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 1.1f + Vector3.up * 0.05f;
+                var pos = World.DropSpots.Settle(at, at + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 1.1f);
                 var item = boss != null && Random.value < 0.35f ? new GearItem(Gear.LegendaryOf(boss), 3, depth) : Gear.Roll(depth, luck);
                 ServerSpawn(item, client, pos);
             }

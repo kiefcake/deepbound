@@ -115,8 +115,8 @@ namespace Deepbound.World
                     }
                     // Usually a rune or a Sigil on the plinth; one time in three, a relic.
                     double roll = rng.NextDouble();
-                    if (roll < 0.33) ServerDropLoot(back + outward * 0.75f + Vector3.up * 0.6f, LootKind.Relic, (int)Relics.Random());
-                    else ServerDropLoot(back + outward * 0.75f + Vector3.up * 0.6f, roll < 0.66 ? LootKind.Sigil : LootKind.Rune, (int)Runes.Random());
+                    if (roll < 0.33) ServerDropLoot(back + outward * 0.75f + Vector3.up * 0.6f, LootKind.Relic, (int)Relics.Random(), settle: false);
+                    else ServerDropLoot(back + outward * 0.75f + Vector3.up * 0.6f, roll < 0.66 ? LootKind.Sigil : LootKind.Rune, (int)Runes.Random(), settle: false);
                 }
             }
         }
@@ -275,7 +275,8 @@ namespace Deepbound.World
                         {
                             foreach (float s in new[] { -1f, 1f })
                             {
-                                var chest = Spawn(chestPrefab, room.Center + new Vector3(s * 2f, 0f, 0f), Quaternion.Euler(0f, s > 0 ? -90f : 90f, 0f));
+                                var vrot = Quaternion.Euler(0f, s > 0 ? -90f : 90f, 0f);
+                                var chest = Spawn(chestPrefab, DropSpots.ClearForChest(room.Center + new Vector3(s * 2f, 0f, 0f), vrot, room), vrot);
                                 chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
                             }
                         }
@@ -584,12 +585,16 @@ namespace Deepbound.World
         // Water: cistern basins slow everyone; frost freezes what stands in them
         // ------------------------------------------------------------------
 
-        /// <summary>Anyone: movement multiplier for standing here (cistern water slows).</summary>
-        public static float WaterSlow(Vector3 at)
+        /// <summary>
+        /// Anyone: movement multiplier for standing here. Cistern water slows; on the Drowned Vaults the
+        /// water periodically thickens to a sucking mire that halves a player's speed (the dead, who do not
+        /// tire, wade through it at 80%).
+        /// </summary>
+        public static float WaterSlow(Vector3 at, bool player = false)
         {
             if (Layout == null) return 1f;
             float tide = TideLevel;
-            if (tide > 0.4f && at.y < tide - 0.25f) return 0.72f;
+            if (tide > 0.3f && at.y < tide - 0.12f) return Mathf.Lerp(1f, player ? 0.5f : 0.8f, Thickness);
             var room = Layout.RoomAt(at, 0f);
             return room != null && DungeonLayout.InCisternWater(room, at) ? 0.68f : 1f;
         }
@@ -652,7 +657,7 @@ namespace Deepbound.World
             SetGates(ambush.Gates, false);
             if (chestPrefab != null)
             {
-                var chest = Spawn(chestPrefab, room.Center, Quaternion.Euler(0f, 180f, 0f));
+                var chest = Spawn(chestPrefab, DropSpots.ClearForChest(room.Center, Quaternion.Euler(0f, 180f, 0f), room), Quaternion.Euler(0f, 180f, 0f));
                 chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
             }
             TitleCardRpc("AMBUSH BROKEN", "A chest rises from the floor");

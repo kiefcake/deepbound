@@ -114,7 +114,7 @@ namespace Deepbound.UI
             if (Object.FindObjectsByType<FateWheel>(FindObjectsSortMode.None).Any(w => !w.Spun.Value && Vector3.Distance(w.transform.position, me) < 9f))
                 Offer("wheel", "WHEEL OF FATE: one spin for the whole party. It usually gives... usually.");
             if (layout.Depth == 0) Offer("bones", "THE OSSUARY: fallen skeletons pull themselves together. Walk over a bone pile to stamp it out.");
-            if (layout.Depth == 1) Offer("tide", "THE DROWNED VAULTS: when the tide surges, get onto stairs, balconies or stones.");
+            if (layout.Depth == 1) Offer("tide", "THE DROWNED VAULTS: when the water thickens it halves your speed (the dead barely slow). Get onto stairs, balconies or stones.");
             if (layout.Depth == 2) Offer("lantern", "THE HOLLOW THRONE: smash a soul lantern to heal your party and stun the dead nearby.");
             if (layout.Depth == 3) Offer("bell", "THE BLACK CATHEDRAL: when the bell tolls, JUMP the shockwave.");
         }

@@ -819,7 +819,7 @@ namespace Deepbound.Enemies
                     GearDrop.ServerSpawnForParty(transform.position, 1f, 1, (BossBrain)this);
                     // A Sigil for each player: every boss is a chance to rank up an ability.
                     for (int i = 0; i < NetworkManager.ConnectedClientsIds.Count; i++)
-                        World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Quaternion.Euler(0f, i * 90f + 45f, 0f) * Vector3.forward * 1.6f, LootKind.Sigil, 1);
+                        World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Quaternion.Euler(0f, i * 90f + 45f, 0f) * Vector3.forward * 1.6f, LootKind.Sigil, 1, transform.position);
                 }
                 else if (Elite.Value) GearDrop.ServerSpawnForParty(transform.position, 0.3f, 0);
             }

@@ -117,8 +117,22 @@ namespace Deepbound.World
             var eyeR = MeshKit.Part(root, "EyeR", MeshKit.Ball(0.015f, 6, 4), Mat.Glow, new Vector3(0.045f, 1.48f, 0.2f));
             ArtLibrary.SetGlow(eyeL.GetComponent<Renderer>(), new Color(1f, 0.85f, 0.3f) * 2f);
             ArtLibrary.SetGlow(eyeR.GetComponent<Renderer>(), new Color(1f, 0.85f, 0.3f) * 2f);
-            MeshKit.Part(root, "Pack", MeshKit.Box(new Vector3(0.5f, 0.6f, 0.35f)), Mat.Leather, new Vector3(0f, 1.05f, -0.35f), new Vector3(-8f, 0f, 0f));
-            MeshKit.Part(root, "Bedroll", MeshKit.Cylinder(0.12f, 0.12f, 0.6f, 8), Mat.Cloth, new Vector3(-0.3f, 1.4f, -0.38f), new Vector3(0f, 0f, 90f));
+            // A travelling pack: a rounded leather sack with a buckled flap, shoulder straps, a side
+            // pouch and a dented pot, and a bedroll strapped across the top.
+            var pack = MeshKit.Pivot(root, "Pack", new Vector3(0f, 1.0f, -0.4f), new Vector3(-6f, 0f, 0f));
+            var leather = new Color(0.42f, 0.29f, 0.17f);
+            ArtLibrary.Tint(MeshKit.Part(pack, "Sack", MeshKit.Ball(0.5f, 12, 10), Mat.Leather, Vector3.zero, default, new Vector3(0.46f, 0.56f, 0.3f)).GetComponent<Renderer>(), leather);
+            ArtLibrary.Tint(MeshKit.Part(pack, "Flap", MeshKit.Ball(0.5f, 12, 8), Mat.Leather, new Vector3(0f, 0.17f, -0.03f), new Vector3(-12f, 0f, 0f), new Vector3(0.44f, 0.2f, 0.3f)).GetComponent<Renderer>(), leather * 0.8f);
+            MeshKit.Part(pack, "Buckle", MeshKit.Box(new Vector3(0.06f, 0.05f, 0.02f)), Mat.Gold, new Vector3(0f, 0.09f, -0.16f));
+            ArtLibrary.Tint(MeshKit.Part(pack, "Pouch", MeshKit.Ball(0.5f, 8, 6), Mat.Leather, new Vector3(0.22f, -0.08f, 0f), default, new Vector3(0.12f, 0.2f, 0.16f)).GetComponent<Renderer>(), leather * 0.9f);
+            MeshKit.Part(pack, "Pot", MeshKit.Cylinder(0.07f, 0.065f, 0.09f, 10), Mat.Steel, new Vector3(-0.24f, -0.12f, 0.02f), new Vector3(0f, 0f, 90f));
+            foreach (float sx in new[] { -0.12f, 0.12f })
+                ArtLibrary.Tint(MeshKit.Part(pack, "Strap", MeshKit.Box(new Vector3(0.045f, 0.5f, 0.02f)), Mat.Leather, new Vector3(sx, 0.08f, 0.17f), new Vector3(-8f, 0f, 0f)).GetComponent<Renderer>(), leather * 0.6f);
+            var roll = MeshKit.Pivot(pack, "Bedroll", new Vector3(0f, 0.33f, 0f), new Vector3(0f, 0f, 90f));
+            ArtLibrary.Tint(MeshKit.Part(roll, "Roll", MeshKit.Cylinder(0.1f, 0.1f, 0.5f, 10), Mat.Cloth, new Vector3(0f, -0.25f, 0f)).GetComponent<Renderer>(), new Color(0.45f, 0.38f, 0.28f));
+            foreach (float ry in new[] { -0.15f, 0.15f })
+                ArtLibrary.Tint(MeshKit.Part(roll, "Tie", MeshKit.Cylinder(0.106f, 0.106f, 0.03f, 10), Mat.Leather, new Vector3(0f, ry, 0f)).GetComponent<Renderer>(), leather * 0.55f);
+            MeshKit.MergeParts(pack);
 
             // Lantern on a crook staff.
             MeshKit.Part(root, "Staff", MeshKit.Cylinder(0.025f, 0.03f, 2.1f, 6), Mat.Wood, new Vector3(0.48f, 0f, 0.15f));

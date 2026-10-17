@@ -407,17 +407,7 @@ namespace Deepbound.UI
             if (ClericKit.IsInspired(health)) buffs.Add("INSPIRED +15%");
             var emotes = player.GetComponent<Emotes>();
             if (emotes != null && emotes.Brothers) buffs.Add("BROTHERS IN ARMS +10%");
-            var debuffs = new List<string>();
-            var afflict = player.GetComponent<PlayerDebuffs>();
-            if (afflict != null)
-            {
-                if (afflict.Poisoned) debuffs.Add("<color=#7FE04A>POISONED</color>");
-                if (afflict.Frostbitten) debuffs.Add("<color=#9AD8FF>FROSTBITTEN -40% speed</color>");
-                if (afflict.Cursed) debuffs.Add("<color=#B070FF>CURSED -30% damage, -50% healing</color>");
-            }
-            if (debuffs.Count > 0)
-                GUI.Label(new Rect(0, Screen.height - 132, Screen.width, 20), string.Join("   ", debuffs) + "   <color=#C8C0B0>(Holy Water cleanses)</color>",
-                    new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, richText = true });
+            DrawPouchFull();
             if (Time.time < life.VeiledUntil || (life.IsServer == false && InRogueSmoke())) buffs.Add("SMOKE SCREEN");
             if (buffs.Count > 0)
                 GUI.Label(new Rect(0, Screen.height / 2f + 18, Screen.width, 20), string.Join("   ", buffs),
@@ -631,7 +621,8 @@ namespace Deepbound.UI
             var v = PlayerVoice.LocalVoice;
             if (v == null || !PlayerVoice.MicAvailable || Settings.VoiceMode == 2) return;
             bool on = v.Speaking;
-            float x = 24f, y = h - 154f;
+            // Beside the vitals panel, clear of the status badges above it.
+            float x = 270f, y = h - 142f;
             Rect(x, y, 58, 18, new Color(0f, 0f, 0f, on ? 0.6f : 0.35f));
             Rect(x + 4, y + 5, 8, 8, on ? new Color(0.4f, 1f, 0.5f) : new Color(0.4f, 0.4f, 0.4f));
             GUI.Label(new Rect(x + 16, y, 44, 18), Settings.VoiceMode == 1 ? "T talk" : "MIC", small);
@@ -893,7 +884,8 @@ namespace Deepbound.UI
                 scrap.ScrapRpc(player.NetworkObject);
             if (shopOpen && !NearVendor(shopVendor)) shopOpen = false;
             if (anvil == null) forgeOpen = false;
-            MenuOpen = shopOpen || forgeOpen || invOpen || BlackjackTable.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
+            bool inspect = keyboard != null && keyboard.leftAltKey.isPressed && !life.Downed.Value;
+            MenuOpen = shopOpen || forgeOpen || invOpen || inspect || BlackjackTable.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
             InventoryOpen = invOpen;
             statsHeld = DebugShowStats || (keyboard != null && keyboard.tabKey.isPressed && !Wardrobe.Open);
 
@@ -982,6 +974,26 @@ namespace Deepbound.UI
         }
 
         // ------------------------------------------------------------------
+
+        /// <summary>Standing on a potion you cannot carry: say why, so it does not look like a bug.</summary>
+        private void DrawPouchFull()
+        {
+            var pouch = player.GetComponent<Flasks>();
+            if (pouch == null) return;
+            foreach (var d in LootDrop.All)
+            {
+                if (d == null) continue;
+                var k = d.Kind.Value;
+                if (k != LootKind.PotionHP && k != LootKind.PotionMP) continue;
+                var off = d.transform.position - player.transform.position; off.y *= 0.5f;
+                if (off.magnitude > 1.8f) continue;
+                var kind = k == LootKind.PotionHP ? Flasks.Kind.Health : Flasks.Kind.Mana;
+                if (!pouch.IsFull(kind)) continue;
+                GUI.Label(new Rect(0, Screen.height / 2f + 44f, Screen.width, 22f), "POUCH FULL  -  " + (kind == Flasks.Kind.Health ? "Health" : "Mana") + " Potions " + Flasks.Max + "/" + Flasks.Max + "  (drink one to make room)",
+                    new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = Flasks.ColorOf(kind) } });
+                return;
+            }
+        }
 
         private static float hitMarkAt = -10f, killMarkAt = -10f;
         private static bool hitMarkHeavy;
@@ -1091,15 +1103,8 @@ namespace Deepbound.UI
         {
             float x = 24, y = h - 110, bw = 300;
             DrawRelicRow(x, y - 44);
-            string cat = (progress.CatPeed.Value ? "Peed on by the cat: -5% max health" : "") + (progress.CatPeed.Value && progress.CatWhisker.Value ? "   ·   " : "") + (progress.CatWhisker.Value ? "Cat Whisker: 1% evasion" : "");
-            if (cat.Length > 0)
-                GUI.Label(new Rect(x, y - (progress.ActiveBlessing.Value != 0 ? 86 : 66), bw + 120, 20), cat,
-                    new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = progress.CatPeed.Value ? new Color(0.95f, 0.85f, 0.3f) : new Color(0.9f, 0.85f, 0.7f) } });
-            if (progress.ActiveBlessing.Value != 0)
-            {
-                var b = (Blessing)progress.ActiveBlessing.Value;
-                GUI.Label(new Rect(x, y - 66, bw, 20), Blessings.Name(b) + "  -  " + Blessings.Describe(b), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Blessings.Color(b) } });
-            }
+            // What is affecting you: badges, hover (ALT) to read them.
+            StatusEffects.Draw(player, x, progress.RelicCount > 0 ? y - 84 : y - 50, MenuOpen);
             Rect(x - 8, y - 10, bw + 16, 96, Panel);
 
             float hp = health.Current.Value, max = Mathf.Max(1f, health.Max.Value);
