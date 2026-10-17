@@ -89,6 +89,8 @@ namespace Deepbound.World
         public EnemyBrain ServerDebugSpawnMourner(Vector3 at, Vector3 face)
         {
             if (mournerPrefab == null) return null;
+            // Onto the navmesh, or it spawns without an agent and cannot move at all.
+            if (NavMesh.SamplePosition(at, out var onMesh, 4f, NavMesh.AllAreas)) at = onMesh.position;
             var obj = Spawn(mournerPrefab, at, Quaternion.LookRotation(face));
             var b = obj.GetComponent<EnemyBrain>();
             b.ServerScale(1, 0);

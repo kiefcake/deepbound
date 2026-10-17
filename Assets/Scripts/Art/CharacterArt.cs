@@ -692,6 +692,13 @@ namespace Deepbound.Art
         /// first boss. Glowing eyes double as the attack telegraph: they flare during
         /// wind-ups (see <see cref="HumanoidRig"/>).
         /// </summary>
+        /// <summary>
+        /// Set before <see cref="BuildSkeleton"/> to dress the rank and file differently: weapon, helm,
+        /// pauldron, tabard and shield are rolled from it. Seed it from something every peer shares
+        /// (the network id) so everyone sees the same skeleton.
+        /// </summary>
+        public static int SkeletonVariant;
+
         public static HumanoidRig BuildSkeleton(Transform root, SkeletonKind kind)
         {
             if (kind == SkeletonKind.Wraith) return BuildWraith(root);
@@ -978,27 +985,93 @@ namespace Deepbound.Art
                 {
                     new Vector2(0.15f, -0.02f), new Vector2(0.16f, 0.1f), new Vector2(0.12f, 0.2f), new Vector2(0.03f, 0.26f), new Vector2(0f, 0.27f),
                 }, 8, true, 280f), Mat.Cloth, new Vector3(0f, 0.05f, -0.01f), new Vector3(0f, 40f, 0f));
-                ArtLibrary.Tint(hood.GetComponent<Renderer>(), new Color(0.22f, 0.2f, 0.16f));
+                var vr = new System.Random(SkeletonVariant);
+                var hoodCols = new[] { new Color(0.22f, 0.2f, 0.16f), new Color(0.18f, 0.22f, 0.17f), new Color(0.26f, 0.17f, 0.14f), new Color(0.16f, 0.16f, 0.2f) };
+                ArtLibrary.Tint(hood.GetComponent<Renderer>(), hoodCols[vr.Next(hoodCols.Length)]);
+                if (vr.NextDouble() < 0.5)
+                {
+                    var scarf = MeshKit.Part(rig.Torso, "Scarf", MeshKit.Cylinder(0.13f, 0.11f, 0.08f, 8), Mat.Cloth, new Vector3(0f, 0.58f, 0f), Vector3.zero, new Vector3(1f, 1f, 0.85f));
+                    ArtLibrary.Tint(scarf.GetComponent<Renderer>(), hoodCols[vr.Next(hoodCols.Length)] * 1.3f);
+                }
                 rig.StrideLength = 1.2f;
             }
             else
             {
                 rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
-
-                // Rusted sword and a scrap of armour, so they are not all bare bones.
-                MeshKit.Part(grip, "Handle", MeshKit.Cylinder(0.018f, 0.018f, 0.13f, 5), Mat.Leather, new Vector3(0f, -0.05f, 0f));
-                MeshKit.Part(grip, "Guard", MeshKit.Box(new Vector3(0.16f, 0.03f, 0.04f)), Mat.Steel, new Vector3(0f, 0.03f, 0f));
-                var blade = MeshKit.Part(grip, "Blade", MeshKit.Box(new Vector3(0.055f, 0.65f, 0.012f)), Mat.Steel, new Vector3(0f, 0.37f, 0f));
-                ArtLibrary.Tint(blade.GetComponent<Renderer>(), new Color(0.6f, 0.45f, 0.35f));
-                var helm = MeshKit.Part(rig.Head, "BrokenHelm", MeshKit.Lathe("skelHelm", new[]
-                {
-                    new Vector2(0.14f, 0f), new Vector2(0.145f, 0.06f), new Vector2(0.11f, 0.12f), new Vector2(0f, 0.14f),
-                }, 7, true, 290f), Mat.Steel, new Vector3(0f, 0.15f, 0f), new Vector3(0f, 35f, 0f));
-                ArtLibrary.Tint(helm.GetComponent<Renderer>(), new Color(0.55f, 0.45f, 0.38f));
+                DressWarrior(rig, grip, new System.Random(SkeletonVariant));
                 rig.StrideLength = 1.2f;
             }
 
             return rig;
+        }
+
+        /// <summary>
+        /// The rank and file, each one different: a rusted sword, axe, mace or spear; a broken helm, a
+        /// kettle helm or a bare skull; perhaps a single pauldron, a rotted tabard, a cracked round shield.
+        /// </summary>
+        private static void DressWarrior(HumanoidRig rig, Transform grip, System.Random vr)
+        {
+            var rust = new Color(0.6f, 0.47f, 0.37f);
+            var oldSteel = new Color(0.55f, 0.5f, 0.46f);
+            int weapon = vr.Next(4);
+            switch (weapon)
+            {
+                case 0: // a notched sword
+                    MeshKit.Part(grip, "Handle", MeshKit.Cylinder(0.018f, 0.018f, 0.13f, 5), Mat.Leather, new Vector3(0f, -0.05f, 0f));
+                    MeshKit.Part(grip, "Guard", MeshKit.Box(new Vector3(0.16f, 0.03f, 0.04f)), Mat.Steel, new Vector3(0f, 0.03f, 0f));
+                    ArtLibrary.Tint(MeshKit.Part(grip, "Blade", MeshKit.Box(new Vector3(0.055f, 0.65f, 0.012f)), Mat.Steel, new Vector3(0f, 0.37f, 0f)).GetComponent<Renderer>(), rust);
+                    break;
+                case 1: // a woodsman's axe
+                    MeshKit.Part(grip, "Haft", MeshKit.Cylinder(0.02f, 0.018f, 0.78f, 6), Mat.Wood, new Vector3(0f, -0.15f, 0f));
+                    ArtLibrary.Tint(MeshKit.Part(grip, "AxeHead", MeshKit.Box(new Vector3(0.2f, 0.15f, 0.02f)), Mat.Steel, new Vector3(0.09f, 0.55f, 0f), new Vector3(0f, 0f, -8f)).GetComponent<Renderer>(), rust);
+                    ArtLibrary.Tint(MeshKit.Part(grip, "AxeBack", MeshKit.Box(new Vector3(0.06f, 0.05f, 0.03f)), Mat.Steel, new Vector3(-0.03f, 0.56f, 0f)).GetComponent<Renderer>(), rust);
+                    break;
+                case 2: // a flanged mace
+                    MeshKit.Part(grip, "Haft", MeshKit.Cylinder(0.02f, 0.02f, 0.6f, 6), Mat.Wood, new Vector3(0f, -0.1f, 0f));
+                    ArtLibrary.Tint(MeshKit.Part(grip, "MaceHead", MeshKit.Ball(0.065f, 8, 6), Mat.Steel, new Vector3(0f, 0.52f, 0f)).GetComponent<Renderer>(), oldSteel);
+                    for (int f = 0; f < 6; f++)
+                        ArtLibrary.Tint(MeshKit.Part(grip, "Flange", MeshKit.Box(new Vector3(0.015f, 0.12f, 0.05f)), Mat.Steel,
+                            new Vector3(0f, 0.52f, 0f) + Quaternion.Euler(0f, f * 60f, 0f) * new Vector3(0f, 0f, 0.06f), new Vector3(0f, f * 60f, 0f)).GetComponent<Renderer>(), oldSteel);
+                    break;
+                default: // a militia spear
+                    MeshKit.Part(grip, "Shaft", MeshKit.Cylinder(0.018f, 0.018f, 1.5f, 6), Mat.Wood, new Vector3(0f, -0.55f, 0f));
+                    ArtLibrary.Tint(MeshKit.Part(grip, "Spearhead", MeshKit.Lathe("skelSpear", new[] { new Vector2(0.035f, 0f), new Vector2(0.03f, 0.07f), new Vector2(0f, 0.22f) }, 4), Mat.Steel, new Vector3(0f, 0.95f, 0f)).GetComponent<Renderer>(), rust);
+                    break;
+            }
+            // Headgear: a broken helm, a dented kettle helm, or nothing at all.
+            int helmet = vr.Next(3);
+            if (helmet == 0)
+                ArtLibrary.Tint(MeshKit.Part(rig.Head, "BrokenHelm", MeshKit.Lathe("skelHelm", new[] { new Vector2(0.14f, 0f), new Vector2(0.145f, 0.06f), new Vector2(0.11f, 0.12f), new Vector2(0f, 0.14f) }, 7, true, 290f),
+                    Mat.Steel, new Vector3(0f, 0.15f, 0f), new Vector3(0f, 35f, 0f)).GetComponent<Renderer>(), rust * 0.95f);
+            else if (helmet == 1)
+            {
+                ArtLibrary.Tint(MeshKit.Part(rig.Head, "KettleHelm", MeshKit.Lathe("skelKettle", new[] { new Vector2(0.22f, 0.12f), new Vector2(0.16f, 0.14f), new Vector2(0.145f, 0.22f), new Vector2(0.06f, 0.28f), new Vector2(0f, 0.29f) }, 10),
+                    Mat.Steel, new Vector3(0f, 0.04f, 0f), new Vector3(0f, 0f, (float)vr.NextDouble() * 10f - 5f)).GetComponent<Renderer>(), oldSteel);
+            }
+            // One mismatched pauldron, salvaged off someone else.
+            if (vr.NextDouble() < 0.4)
+            {
+                var arm = vr.NextDouble() < 0.5 ? rig.ArmL : rig.ArmR;
+                float side = arm == rig.ArmL ? -1f : 1f;
+                ArtLibrary.Tint(MeshKit.Part(arm, "Pauldron", MeshKit.Lathe("pauldron", new[] { new Vector2(0.17f, -0.10f), new Vector2(0.16f, 0.0f), new Vector2(0.12f, 0.08f), new Vector2(0.0f, 0.11f) }, 8),
+                    Mat.Steel, new Vector3(0.02f * side, 0.02f, 0f), new Vector3(0f, 0f, -18f * side), Vector3.one * 0.7f).GetComponent<Renderer>(), rust);
+            }
+            // A rotted tabard in what was once a house colour.
+            if (vr.NextDouble() < 0.45)
+            {
+                var cols = new[] { new Color(0.32f, 0.1f, 0.08f), new Color(0.24f, 0.2f, 0.12f), new Color(0.14f, 0.18f, 0.14f), new Color(0.16f, 0.14f, 0.22f) };
+                var col = cols[vr.Next(cols.Length)];
+                ArtLibrary.Tint(MeshKit.Part(rig.Torso, "Tabard", MeshKit.Box(new Vector3(0.24f, 0.6f, 0.02f)), Mat.Cloth, new Vector3(0f, 0.18f, 0.16f), new Vector3(4f, 0f, (float)vr.NextDouble() * 6f - 3f)).GetComponent<Renderer>(), col);
+                ArtLibrary.Tint(MeshKit.Part(rig.Torso, "TabardBack", MeshKit.Box(new Vector3(0.22f, 0.5f, 0.02f)), Mat.Cloth, new Vector3(0f, 0.22f, -0.16f), new Vector3(-4f, 0f, 0f)).GetComponent<Renderer>(), col * 0.85f);
+            }
+            // A cracked round shield on the off arm (not with a spear: that is a two-hander).
+            if (weapon != 3 && vr.NextDouble() < 0.3)
+            {
+                var mount = MeshKit.Pivot(rig.ArmL, "RoundShield", new Vector3(-0.07f, -0.42f, 0.08f), new Vector3(0f, -90f, 0f));
+                MeshKit.Part(mount, "Board", MeshKit.Cylinder(0.26f, 0.26f, 0.04f, 12), Mat.Wood, Vector3.zero, new Vector3(90f, 0f, 0f));
+                ArtLibrary.Tint(MeshKit.Part(mount, "Rim", MeshKit.Cylinder(0.275f, 0.275f, 0.03f, 12), Mat.Steel, new Vector3(0f, 0f, -0.005f), new Vector3(90f, 0f, 0f)).GetComponent<Renderer>(), rust);
+                ArtLibrary.Tint(MeshKit.Part(mount, "Boss", MeshKit.Ball(0.06f, 8, 6), Mat.Steel, new Vector3(0f, 0f, 0.03f), Vector3.zero, new Vector3(1f, 1f, 0.6f)).GetComponent<Renderer>(), oldSteel);
+            }
         }
 
         /// <summary>

@@ -155,6 +155,7 @@ namespace Deepbound.Enemies
 
         public override void OnNetworkSpawn()
         {
+            CharacterArt.SkeletonVariant = (int)((NetworkObjectId * 2654435761UL) & 0x7FFFFFFF);
             Rig = CharacterArt.BuildSkeleton(transform, visualKind);
             // Fewer, bigger meshes: same look, a fraction of the draw calls.
             MeshKit.MergeRig(Rig);

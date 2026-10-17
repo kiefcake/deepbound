@@ -425,7 +425,9 @@ namespace Deepbound.Networking
                 }
 
                 // The Mourner: frozen while watched, moving the moment you look away.
-                var farRoom = layout.Rooms.Where(r => r.Kind == RoomKind.Combat).OrderByDescending(r => Vector3.Distance(r.Center, layout.StartRoom.Center)).FirstOrDefault();
+                // A plain combat room (no pit, pillars or water between it and you), far from the start.
+                var farRoom = layout.Rooms.Where(r => r.Kind == RoomKind.Combat).OrderBy(r => r.Feature == RoomFeature.None ? 0 : 1)
+                    .ThenByDescending(r => Vector3.Distance(r.Center, layout.StartRoom.Center)).FirstOrDefault();
                 if (farRoom != null)
                 {
                     var lfm = local.GetComponent<FirstPersonMotor>();
