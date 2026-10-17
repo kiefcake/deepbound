@@ -83,6 +83,13 @@ namespace Deepbound.World
         {
             busyUntil = Time.time + 2.2f;
             StartCoroutine(Spin(who, new[] { a, b, c }, win));
+            StartCoroutine(AfterSpin(who, win));
+        }
+
+        private IEnumerator AfterSpin(string who, int win)
+        {
+            yield return new WaitForSeconds(2.3f);
+            UI.CampChatter.SlotResult(who, win);
         }
 
         private IEnumerator Spin(string who, byte[] stops, int win)

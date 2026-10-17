@@ -375,6 +375,7 @@ namespace Deepbound.World
         {
             var color = net > 0 ? new Color(1f, 0.85f, 0.35f) : new Color(1f, 0.6f, 0.5f);
             UI.GameHud.Feed(who + " at Deadman's Hand: " + (net > 0 ? "+" : "") + net + " gold", color);
+            UI.CampChatter.CardsSettled(who, net);
             if (net > 0) Sfx.Play(Sound.Coins, transform.position + Vector3.up, 1f);
         }
 

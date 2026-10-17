@@ -57,6 +57,45 @@ namespace Deepbound.UI
             "", "", "",
         };
 
+        // What a bystander says when someone else gets hit. {0} is the one who swung.
+        private static readonly string[] Witness =
+        {
+            "Don't look at me, {0}. I only sell the potions you'll need afterwards.",
+            "Ha! ...No. Don't do that again, {0}.",
+            "Peace! Peace, {0}! Save it for the dead.",
+            "Barbaric. Simply barbaric.",
+            "I saw nothing. I never see anything. That's why I still drive.",
+            "*The dealer's jaw clacks: something like a laugh.*",
+        };
+
+        private readonly List<(float at, FolkId who, string text)> pending = new List<(float, FolkId, string)>();
+
+        /// <summary>Queue a line to be said a moment from now (a reply, a bystander).</summary>
+        private static void SayLater(FolkId who, string text, float delay)
+        {
+            if (instance != null) instance.pending.Add((Time.time + delay, who, text));
+        }
+
+        /// <summary>Any peer: the bone reels stopped for <paramref name="who"/>.</summary>
+        public static void SlotResult(string who, int win)
+        {
+            if (win >= 200) Say(FolkId.Bones, "*The dealer stops shuffling and turns its skull toward the reels. Slowly, it claps.*", 5f);
+            else if (win >= 50) SayLater(FolkId.Silas, "A winner! Spend it here, " + who + ". Potions first, regrets later.", 0.5f);
+        }
+
+        /// <summary>Any peer: the gong rang.</summary>
+        public static void GongStruck(string who, float damage, bool record)
+        {
+            if (record && damage >= 60f) Say(FolkId.Hobb, "Hear that? " + Mathf.RoundToInt(damage) + "! " + who + ", you'd make a fair smith. A poor one, but fair.", 6f);
+        }
+
+        /// <summary>Any peer: a hand of blackjack settled.</summary>
+        public static void CardsSettled(string who, int net)
+        {
+            if (net >= 150) Say(FolkId.Bones, "*The dealer taps the shoe twice: a rare mark of respect for " + who + ".*", 5f);
+            else if (net <= -150) Say(FolkId.Bones, "*Its jaw clacks. It pushes " + who + "'s empty chair in, gently.*", 5f);
+        }
+
         private static readonly string[] Startled =
         {
             "Not near the glassware!", "Ha! Felt that one in my teeth.", "Not on holy ground, please.",
@@ -72,6 +111,19 @@ namespace Deepbound.UI
             var from = NetworkPlayer.Local != null ? NetworkPlayer.Local.transform.position : body - Vector3.forward;
             foreach (var p in Player.PlayerLife.All) if (p != null && p.name == attacker) from = p.transform.position;
             if (fig != null) fig.Flinch(from, 1f);
+
+            // The nearest other person in earshot has an opinion about it.
+            if (instance != null)
+            {
+                int best = -1; float bd = 14f * 14f;
+                for (int i = 0; i < instance.speakers.Count; i++)
+                {
+                    if (i == (int)who) continue;
+                    var d = instance.speakers[i].Head - body; d.y = 0f;
+                    if (d.sqrMagnitude < bd) { bd = d.sqrMagnitude; best = i; }
+                }
+                if (best >= 0 && Random.value < 0.7f) SayLater((FolkId)best, string.Format(Witness[best], attacker), 1.8f);
+            }
         }
 
         /// <summary>Any peer: amends were paid.</summary>
@@ -219,6 +271,8 @@ namespace Deepbound.UI
 
         private void Update()
         {
+            for (int i = pending.Count - 1; i >= 0; i--)
+                if (Time.time >= pending[i].at) { Say(pending[i].who, pending[i].text, 5f); pending.RemoveAt(i); }
             var me = NetworkPlayer.Local;
             if (me == null) return;
             foreach (var s in speakers)

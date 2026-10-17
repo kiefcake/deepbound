@@ -46,6 +46,7 @@ namespace Deepbound.UI
         public void DebugOpenForge() => forgeOpen = true;
 
         /// <summary>Screenshots only: stage the merchant's panel open.</summary>
+        public void DebugCloseMenus() { shopOpen = forgeOpen = invOpen = false; }
         public void DebugOpenShop(Shop.Vendor vendor = Shop.Vendor.Merchant) { shopOpen = true; forgeOpen = false; shopVendor = vendor; }
         /// <summary>Which vendor's stall the open shop panel belongs to.</summary>
         private Shop.Vendor shopVendor;

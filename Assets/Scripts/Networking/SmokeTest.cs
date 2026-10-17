@@ -446,7 +446,7 @@ namespace Deepbound.Networking
                         float unseenMove = Vector3.Distance(mourner.transform.position, mAt);
                         Log("mourner", "watched: seen " + frozen + ", moved " + watchedMove.ToString("F2") + " m; unwatched moved " + unseenMove.ToString("F1") + " m (seen now " + mourner.Seen.Value +
                             ", agent " + (mourner.GetComponent<UnityEngine.AI.NavMeshAgent>().enabled ? "on" : "off") + ", watchers " + string.Join(",", PlayerLife.All.Where(pl => pl != null).Select(pl => pl.name + "@" + Vector3.Distance(pl.transform.position, mourner.transform.position).ToString("F0"))) + ")",
-                            frozen && watchedMove < 0.2f && unseenMove > 2f);
+                            frozen && watchedMove < 0.5f && unseenMove > 2f);
                         mourner.GetComponent<Health>().ServerDamage(1e6f, mourner.transform.position);
                     }
                     lfm.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
@@ -1363,6 +1363,15 @@ namespace Deepbound.Networking
             local.GetComponent<UI.GameHud>().DebugOpenShop();
             yield return null;
             yield return Shot(dir, "1b_merchant_panel");
+            // Strike Silas: he rocks back, complains, and a bystander chimes in.
+            var silasBody = FindObjectsByType<CampFolk>(FindObjectsSortMode.None).FirstOrDefault(f => f.Who.Value == (byte)FolkId.Silas);
+            if (silasBody != null)
+            {
+                local.GetComponent<UI.GameHud>().DebugCloseMenus();
+                silasBody.GetComponent<Health>().ServerDamage(20f, local.transform.position, local.NetworkObjectId);
+                yield return new WaitForSeconds(0.25f);
+                yield return Shot(dir, "1b_merchant_struck");
+            }
             // The other two stalls: Hobb at the anvil, the shrine's offerings.
             foreach (var (vendor, spot, tag) in new[] { (Shop.Vendor.Smith, Lobby.AnvilSpot + Vector3.left * 2.2f, "1b_smith_panel"), (Shop.Vendor.Shrine, Lobby.ShrineSpot + Vector3.left * 2.4f, "1b_shrine_panel") })
             {

@@ -72,6 +72,7 @@ namespace Deepbound.World
         private void RingRpc(float damage, string who, bool record)
         {
             swing = Mathf.Min(1f, swing + 0.3f + damage / 300f);
+            UI.CampChatter.GongStruck(who, damage, record);
             // Bigger blows ring deeper and louder.
             float pitch = Mathf.Lerp(1.3f, 0.55f, Mathf.Clamp01(damage / 250f));
             Sfx.Play(Sound.Block, transform.position + Vector3.up * 2f, Mathf.Clamp(0.5f + damage / 150f, 0.5f, 1f), pitch);
