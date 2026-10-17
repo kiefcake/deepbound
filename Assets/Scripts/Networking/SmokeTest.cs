@@ -432,7 +432,10 @@ namespace Deepbound.Networking
                 {
                     var lfm = local.GetComponent<FirstPersonMotor>();
                     var stand = farRoom.Center + Vector3.up * 0.1f;
-                    var mAt = farRoom.Center + Vector3.forward * 9.5f; // beyond lunge range, so it has to walk
+                    // Along the room's long axis, well inside its walls (wall dressing can block the view).
+                    bool longX = farRoom.Size.x > farRoom.Size.y;
+                    float reach = Mathf.Min(9f, (longX ? farRoom.Size.x : farRoom.Size.y) / 2f - 3.5f);
+                    var mAt = farRoom.Center + (longX ? Vector3.right : Vector3.forward) * reach;
                     if (UnityEngine.AI.NavMesh.SamplePosition(mAt, out var mh, 3f, UnityEngine.AI.NavMesh.AllAreas)) mAt = mh.position;
                     lfm.Teleport(stand, Quaternion.LookRotation(mAt - stand));
                     yield return new WaitForSeconds(0.3f);
