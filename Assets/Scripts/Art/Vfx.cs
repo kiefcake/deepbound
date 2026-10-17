@@ -38,6 +38,7 @@ namespace Deepbound.Art
                 go.SetActive(true);
                 p.Restart();
                 p.Glowing = false;
+                p.Fading = false;
             }
             else
             {
@@ -120,6 +121,16 @@ namespace Deepbound.Art
             float a = Random.value * Mathf.PI * 2f;
             var p = feet + new Vector3(Mathf.Cos(a) * Random.Range(0.25f, 0.5f), Random.Range(0.1f, 1.5f), Mathf.Sin(a) * Random.Range(0.25f, 0.5f));
             Spawn(Cube, Mat.Glow, p, Vector3.up * Random.Range(0.3f, 0.6f) + Random.insideUnitSphere * 0.12f, Random.Range(1.2f, 2f), 0.06f, 0f, color * 1.7f, -0.1f, 0.4f);
+        }
+
+        /// <summary>A thread of incense: faint pale wisps that curl up, swell and thin away (not grit: see Smoke).</summary>
+        public static void Incense(Vector3 at)
+        {
+            var drift = new Vector3(Random.Range(-0.08f, 0.08f), Random.Range(0.25f, 0.4f), Random.Range(-0.08f, 0.08f));
+            var p = Spawn(Ball, Mat.Smoke, at + Random.insideUnitSphere * 0.02f, drift, Random.Range(2.2f, 3f), 0.03f, Random.Range(0.18f, 0.28f), null, -0.05f, 0.5f);
+            p.Fading = true;
+            p.Fade = new Color(0.82f, 0.8f, 0.74f, 0.32f);
+            ArtLibrary.Tint(p.GetComponent<Renderer>(), new Color(p.Fade.r, p.Fade.g, p.Fade.b, 0f));
         }
 
         /// <summary>Dust and grit kicked up and drifting off — small grey motes, rising and dwindling.</summary>

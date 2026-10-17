@@ -12,6 +12,12 @@ namespace Deepbound.Art
         private Transform neck;
         private float seed, yaw, pitch, nextGlance, glanceYaw;
         private Vector3 baseScale;
+        /// <summary>How far the head hangs when nobody is about (the priest's bowed head).</summary>
+        public float RestPitch;
+        /// <summary>At prayer: a slow rock, and now and then a mote of light between the hands (and incense).</summary>
+        public bool Prays;
+        public Vector3 PrayAt, IncenseAt;
+        private float nextMote, nextSmoke;
         private float jolt;
         private Vector3 joltAway;
         private Quaternion baseRot;
@@ -77,7 +83,7 @@ namespace Deepbound.Art
             transform.localRotation = lean * baseRot;
             if (neck == null) return;
 
-            float wantYaw = glanceYaw, wantPitch = 0f;
+            float wantYaw = glanceYaw, wantPitch = RestPitch;
             var cam = ViewCamera.Current;
             bool watching = false;
             if (cam != null)
@@ -101,6 +107,24 @@ namespace Deepbound.Art
                 glanceYaw = Random.Range(-35f, 35f);
             }
             float nod = Mathf.Max(0f, Mathf.Sin(t * 0.7f) - 0.93f) * 60f;
+            if (Prays)
+            {
+                // Rocking at prayer, the head rising to peek at anyone who comes close (and their purse).
+                nod = watching ? 0f : Mathf.Sin(t * 1.1f) * 6f;
+                if (cam != null && (cam.transform.position - PrayAt).sqrMagnitude < 18f * 18f)
+                {
+                    if (Time.time >= nextMote)
+                    {
+                        nextMote = Time.time + Random.Range(1.2f, 2.4f);
+                        Vfx.Embers(PrayAt + Random.insideUnitSphere * 0.03f, 1, new Color(1f, 0.85f, 0.45f), 0.35f, 0.025f, 1.4f);
+                    }
+                    if (Time.time >= nextSmoke)
+                    {
+                        nextSmoke = Time.time + 0.35f;
+                        Vfx.Incense(IncenseAt);
+                    }
+                }
+            }
             yaw = Mathf.Lerp(yaw, wantYaw, 1f - Mathf.Exp(-Time.deltaTime * 3f));
             pitch = Mathf.Lerp(pitch, wantPitch, 1f - Mathf.Exp(-Time.deltaTime * 3f));
             neck.localRotation = Quaternion.Euler(pitch + nod, yaw, Mathf.Sin(t * 0.5f) * 2f);

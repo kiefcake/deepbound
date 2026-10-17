@@ -36,7 +36,10 @@ namespace Deepbound.Player
     {
         // Timings in seconds. Wind-ups are short — the Knight is meant to feel responsive.
         public const float SwingWindup = 0.16f, SwingStrike = 0.14f, SwingRecovery = 0.3f;
-        public const float SwingRange = 2.7f, SwingArc = 110f, SwingDamage = 34f;
+        /// <summary>Rebalanced 2026-10-17: the tank no longer out-damages the damage classes (34 -> 29); it holds rage instead.</summary>
+        public const float SwingRange = 2.7f, SwingArc = 110f, SwingDamage = 29f;
+        public float AttackRange => SwingRange * (progress != null ? progress.ReachMultiplier : 1f);
+        private float ReachMul => progress != null ? progress.ReachMultiplier : 1f;
         public const float BashCooldown = 7f, BashRange = 2.4f, BashDamage = 18f, BashStun = 1.6f;
         public const float WarCryCooldown = 16f, WarCryRadius = 12f, WarCryDuration = 5f;
         public const float StaminaMax = 100f;
@@ -222,7 +225,7 @@ namespace Deepbound.Player
             bool cleave = progress.OnPath(1);
             bool riposte = riposteReady && progress.OnPath(2);
             riposteReady = false;
-            float range = cleave ? SwingRange + 0.6f : SwingRange, arc = cleave ? 160f : SwingArc;
+            float range = (cleave ? SwingRange + 0.6f : SwingRange) * ReachMul, arc = cleave ? 160f : SwingArc;
             float damage = SwingDamage * AttackMultiplier * (riposte ? 2.2f : 1f);
 
             bool hitAny = false;
@@ -265,9 +268,10 @@ namespace Deepbound.Player
             // Rank 2: harder and longer; rank 3: a shockwave half-circle, a metre further.
             float potency = progress.Potency(AbilitySlot.Q);
             bool wave = progress.Twist(AbilitySlot.Q);
-            foreach (var target in CombatQuery.Arc(origin, forward, BashRange + 1.5f + (wave ? 1f : 0f), wave ? 180f : 100f, Team.Enemies))
+            foreach (var target in CombatQuery.Arc(origin, forward, (BashRange + 1.5f + (wave ? 1f : 0f)) * ReachMul, wave ? 180f : 100f, Team.Enemies))
             {
                 target.ServerDamage(BashDamage * AttackMultiplier * potency * Combos.TryShatter(target, progress), transform.position, NetworkObjectId);
+                if (target.TryGetComponent<Enemies.EnemyBrain>(out var bashed)) bashed.ServerAddThreat(NetworkObjectId, 80f * potency); // a shield in the face
                 if (target.TryGetComponent<ICrowdControl>(out var cc))
                 {
                     cc.ServerStun(BashStun * potency);
@@ -342,6 +346,9 @@ namespace Deepbound.Player
                 to.y = 0f;
                 if (Vector3.Angle(transform.forward, to) < 75f)
                 {
+                    // Turning a blow aside infuriates whoever threw it.
+                    if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(health.LastHitFrom, out var foe) && foe.TryGetComponent<Enemies.EnemyBrain>(out var angry))
+                        angry.ServerAddThreat(NetworkObjectId, damage * 3f + 15f);
                     damage *= 0.2f;
                     riposteReady = true;
                     BlockedHitRpc();

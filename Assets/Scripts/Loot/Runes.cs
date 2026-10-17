@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Deepbound.Loot
 {
     /// <summary>APPEND ONLY: synced as a byte. 0 = empty socket.</summary>
-    public enum Rune : byte { None = 0, Frost = 1, Storm = 2, Hunter = 3, Holy = 4, Ember = 5, Keen = 6 }
+    public enum Rune : byte { None = 0, Frost = 1, Storm = 2, Hunter = 3, Holy = 4, Ember = 5, Keen = 6, Farsight = 7 }
 
     /// <summary>
     /// Weapon enchantments. Runes drop as loot; at the anvil you set them into the class
@@ -18,7 +18,7 @@ namespace Deepbound.Loot
     /// </summary>
     public static class Runes
     {
-        public const int Count = 6;
+        public const int Count = 7;
 
         public static int SocketsAt(int weaponLevel) => weaponLevel >= 3 ? 2 : weaponLevel >= 1 ? 1 : 0;
 
@@ -32,6 +32,7 @@ namespace Deepbound.Loot
                 case Rune.Holy: return "Holy Rune";
                 case Rune.Ember: return "Ember Rune";
                 case Rune.Keen: return "Keen Rune";
+                case Rune.Farsight: return "Farsight Rune";
                 default: return "Empty socket";
             }
         }
@@ -46,6 +47,7 @@ namespace Deepbound.Loot
                 case Rune.Holy: return "Hits heal the most wounded ally nearby for 8% of the damage.";
                 case Rune.Ember: return "Kills explode, burning enemies within 2.5 m.";
                 case Rune.Keen: return "+15% damage to enemies above 80% health.";
+                case Rune.Farsight: return "+25% range on your attacks and abilities (melee reach a little longer).";
                 default: return "";
             }
         }
@@ -60,6 +62,7 @@ namespace Deepbound.Loot
                 case Rune.Holy: return new Color(1f, 0.92f, 0.6f);
                 case Rune.Ember: return new Color(1f, 0.5f, 0.15f);
                 case Rune.Keen: return new Color(0.75f, 1f, 0.75f);
+                case Rune.Farsight: return new Color(0.5f, 0.95f, 0.9f);
                 default: return UnityEngine.Color.gray;
             }
         }

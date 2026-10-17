@@ -13,6 +13,9 @@ namespace Deepbound.Art
         public float Gravity, Drag = 1f, Life = 1f, StartScale = 1f, EndScale = 0f;
         public Color Glow;
         public bool Glowing;
+        /// <summary>A see-through puff (Mat.Smoke): its colour's alpha thins out over its life.</summary>
+        public Color Fade;
+        public bool Fading;
         private Renderer rend;
         private float age;
 
@@ -34,6 +37,7 @@ namespace Deepbound.Art
             transform.position += Velocity * Time.deltaTime;
             transform.localScale = Vector3.one * Mathf.Lerp(StartScale, EndScale, k);
             if (Glowing && rend != null) ArtLibrary.SetGlow(rend, Glow * (1f - k) * (1f - k));
+            if (Fading && rend != null) ArtLibrary.Tint(rend, new Color(Fade.r, Fade.g, Fade.b, Fade.a * Mathf.Sin(Mathf.Min(1f, k * 3f) * Mathf.PI * 0.5f) * (1f - k)));
             if (age >= Life) Vfx.Recycle(this);
         }
     }

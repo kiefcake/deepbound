@@ -14,7 +14,7 @@ namespace Deepbound.Enemies
     public static class BalanceReport
     {
         // The reference player: a Knight carrying what a typical run has gathered by each floor.
-        private const float SwingDamage = 34f, SwingCycle = 0.6f;
+        private const float SwingDamage = Player.KnightKit.SwingDamage, SwingCycle = 0.6f;
 
         /// <summary>What the reference Knight carries into floor <paramref name="depth"/> (0-based).</summary>
         public struct Loadout

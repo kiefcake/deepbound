@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using Deepbound.Art;
 using Deepbound.Combat;
 using Deepbound.Loot;
@@ -175,7 +176,8 @@ namespace Deepbound.Enemies
             health.Defense = defense;
             health.Died += OnDied;
             health.DamagedServer += OnDamagedServer;
-            if (!IsBoss) health.IncomingModifiers.Add(BackstabModifier);
+            // From behind hurts more - bosses too, if someone holds their rage so another can get round them.
+            health.IncomingModifiers.Add(BackstabModifier);
             // Each enemy takes its own place around whoever it is fighting, so a pack
             // surrounds you instead of queueing in a line.
             surroundAngle = (NetworkObjectId * 137.508f) % 360f;
@@ -287,7 +289,7 @@ namespace Deepbound.Enemies
             to.y = 0f;
             if (to.sqrMagnitude < 0.01f || Vector3.Angle(transform.forward, to) < 115f) return dealt;
             BackstabRpc();
-            return dealt * Difficulty.BackstabMultiplier;
+            return dealt * (IsBoss ? Difficulty.BossBackstabMultiplier : Difficulty.BackstabMultiplier);
         }
 
         /// <summary>A gilded enemy: bigger, gold-eyed, wreathed in a slow gold ring.</summary>
@@ -358,6 +360,7 @@ namespace Deepbound.Enemies
         {
             if (IsServer)
             {
+                if (!IsDead) ServerTickThreat();
                 ServerSyncStatus();
                 if (wardUp && (IsStunned || health.Chilled.Value)) ServerBreakWard();
             }
@@ -593,12 +596,25 @@ namespace Deepbound.Enemies
         {
             if (taunter != null && Time.time < tauntUntil && PlayerLife.CanTarget(taunter)) return taunter;
 
-            // Stay on the current target while it is alive, visible and within leash.
-            if (target != null && PlayerLife.CanTarget(target) && FlatDistance(target.transform.position) < leashRange &&
-                FlatDistance(home) < leashRange)
+            // Rage: hunt whoever has angered it most - but only change its mind when someone clearly
+            // overtakes the one it is after (by a fifth), so the tank can hold it and a Rogue get round it.
+            Health raged = null;
+            float ragedThreat = 0f, currentThreat = 0f;
+            foreach (var p in PlayerLife.All)
             {
+                if (p == null || !PlayerLife.CanTarget(p.Health) || FlatDistance(p.transform.position) > leashRange) continue;
+                threat.TryGetValue(p.NetworkObjectId, out var t);
+                if (target == p.Health) currentThreat = t;
+                if (t > ragedThreat) { ragedThreat = t; raged = p.Health; }
+            }
+            bool targetValid = target != null && PlayerLife.CanTarget(target) && FlatDistance(target.transform.position) < leashRange && FlatDistance(home) < leashRange;
+            if (raged != null && FlatDistance(home) < leashRange)
+            {
+                if (!targetValid || (raged != target && ragedThreat > currentThreat * SwitchThreshold)) return raged;
                 return target;
             }
+            // Stay on the current target while it is alive, visible and within leash.
+            if (targetValid) return target;
 
             Health best = null;
             float bestDist = aggroRange;
@@ -614,7 +630,104 @@ namespace Deepbound.Enemies
             }
 
             if (best != null && target == null) AlertPack(best);
+            if (best != null) ServerAddThreat(best.NetworkObjectId, 1f);
             return best;
+        }
+
+        // ------------------------------------------------------------------
+        // Rage (threat): who it wants dead
+        // ------------------------------------------------------------------
+
+        private readonly Dictionary<ulong, float> threat = new Dictionary<ulong, float>();
+        private float lastThreatTick, nextThreatSync;
+        private static readonly List<ulong> threatKeys = new List<ulong>();
+
+        /// <summary>A rival must exceed the current target's rage by this much to take it.</summary>
+        public const float SwitchThreshold = 1.2f;
+
+        /// <summary>Synced for elites, champions and bosses (the HUD's rage meter).</summary>
+        public readonly NetworkVariable<ThreatView> Rage = new NetworkVariable<ThreatView>();
+
+        /// <summary>
+        /// How much rage a hit raises, by class: the Knight's whole job is to be the thing it hates
+        /// most; the Rogue works unnoticed until it strikes. (Healing raises rage too, see ServerHealThreat.)
+        /// </summary>
+        public static float ClassThreat(Classes.ClassId c) => c == Classes.ClassId.Knight ? 2.6f : c == Classes.ClassId.Rogue ? 0.7f
+            : c == Classes.ClassId.Ranger ? 0.85f : c == Classes.ClassId.Cleric ? 0.9f : 1f;
+
+        public void ServerAddThreat(ulong player, float amount)
+        {
+            if (!IsServer || amount <= 0f) return;
+            threat.TryGetValue(player, out var t);
+            threat[player] = t + amount;
+        }
+
+        public float ThreatOf(ulong player) => threat.TryGetValue(player, out var t) ? t : 0f;
+
+        /// <summary>Server (tests): move it, and its post, to a spot.</summary>
+        public void ServerDebugPlace(Vector3 at)
+        {
+            if (NavMesh.SamplePosition(at, out var nh, 3f, NavMesh.AllAreas)) at = nh.position;
+            if (agent != null && agent.enabled) agent.Warp(at); else transform.position = at;
+            home = at;
+        }
+
+        /// <summary>Server: who it is after right now (tests).</summary>
+        public Health CurrentTarget => target;
+
+        private float TopThreat()
+        {
+            float top = 0f;
+            foreach (var kv in threat) if (kv.Value > top) top = kv.Value;
+            return top;
+        }
+
+        /// <summary>Server: someone mended an ally in this fight. Everything fighting near the healer resents it a little.</summary>
+        public static void ServerHealThreat(Health healer, float healed)
+        {
+            if (healer == null || healed <= 0f) return;
+            int n = 0;
+            foreach (var h in Health.All)
+                if (h != null && h.Team == Team.Enemies && h.IsAlive && h.TryGetComponent<EnemyBrain>(out var b) && b.target != null
+                    && (h.transform.position - healer.transform.position).sqrMagnitude < 25f * 25f) n++;
+            if (n == 0) return;
+            float share = healed * 0.5f / n;
+            foreach (var h in Health.All)
+                if (h != null && h.Team == Team.Enemies && h.IsAlive && h.TryGetComponent<EnemyBrain>(out var b) && b.target != null
+                    && (h.transform.position - healer.transform.position).sqrMagnitude < 25f * 25f) b.ServerAddThreat(healer.NetworkObjectId, share);
+        }
+
+        /// <summary>Server, each frame it thinks: rage cools slowly; standing in its face keeps it warm; the meter is synced.</summary>
+        private void ServerTickThreat()
+        {
+            float dt = Mathf.Min(0.5f, Time.time - lastThreatTick);
+            lastThreatTick = Time.time;
+            if (dt <= 0f) return;
+            threatKeys.Clear();
+            threatKeys.AddRange(threat.Keys);
+            float decay = Mathf.Exp(-0.035f * dt);
+            foreach (var k in threatKeys)
+            {
+                float t = threat[k] * decay;
+                if (t < 0.5f || !NetworkManager.SpawnManager.SpawnedObjects.ContainsKey(k)) threat.Remove(k);
+                else threat[k] = t;
+            }
+            // Presence: whoever stands at arm's length is the obvious thing to hit.
+            foreach (var p in PlayerLife.All)
+                if (p != null && PlayerLife.CanTarget(p.Health) && FlatDistance(p.transform.position) < attackRange + 1.8f)
+                    ServerAddThreat(p.NetworkObjectId, 3f * dt);
+
+            bool show = IsBoss || Elite.Value || IsChampion;
+            if (!show || Time.time < nextThreatSync) return;
+            nextThreatSync = Time.time + 0.25f;
+            var view = new ThreatView { Target = target != null ? target.NetworkObjectId : 0 };
+            int i = 0;
+            foreach (var kv in threat)
+            {
+                if (i >= 4) break;
+                view.Set(i++, kv.Key, kv.Value);
+            }
+            if (!Rage.Value.Equals(view)) Rage.Value = view;
         }
 
         /// <summary>Wakes up every idle enemy within earshot onto the same target.</summary>
@@ -747,6 +860,7 @@ namespace Deepbound.Enemies
         public bool ServerForget(Health h)
         {
             bool was = target == h || taunter == h;
+            if (h != null) threat.Remove(h.NetworkObjectId);
             if (target == h) target = null;
             if (taunter == h) taunter = null;
             return was;
@@ -757,6 +871,8 @@ namespace Deepbound.Enemies
             taunter = taunterHealth;
             tauntUntil = Time.time + seconds;
             target = taunterHealth;
+            // A taunt does not just turn its head: it seizes the top of its rage, with room to spare.
+            if (taunterHealth != null) threat[taunterHealth.NetworkObjectId] = TopThreat() * 1.3f + 40f;
         }
 
         public virtual void ServerKnockback(Vector3 velocity)
@@ -766,6 +882,8 @@ namespace Deepbound.Enemies
 
         private void OnDamagedServer(float amount, ulong attackerId)
         {
+            if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var who) && who.TryGetComponent<Progression.PlayerProgress>(out var hitter))
+                ServerAddThreat(attackerId, amount * ClassThreat(hitter.ClassId.Value));
             // Poise: a big enough single hit breaks a wind-up.
             if (!IsBoss && WindingUp && amount >= health.Max.Value * Difficulty.PoiseBreakFraction)
             {

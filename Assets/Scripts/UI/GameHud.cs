@@ -952,6 +952,7 @@ namespace Deepbound.UI
             DrawVitals(w, h);
             DrawAbilities(w, h);
             DrawBoss(w);
+            DrawRage(w);
             DrawRevive(w, h);
             DrawPhase(w, h);
             DrawBanner(w, h);
@@ -993,6 +994,29 @@ namespace Deepbound.UI
                     new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = Flasks.ColorOf(kind) } });
                 return;
             }
+        }
+
+        private float rangeCheckAt;
+        private bool outOfRange;
+
+        /// <summary>Aiming at an enemy your attack cannot reach: say so under the crosshair.</summary>
+        private void DrawOutOfRange(Vector2 c)
+        {
+            if (Time.time >= rangeCheckAt)
+            {
+                rangeCheckAt = Time.time + 0.1f;
+                outOfRange = false;
+                float reach = player.ActiveKit.AttackRange;
+                if (reach > 0f && Physics.Raycast(player.AimOrigin, player.AimForward, out var hit, 80f, ~0, QueryTriggerInteraction.Ignore))
+                {
+                    var h = hit.collider.GetComponentInParent<Health>();
+                    // Melee reach is measured from your body, ranged from your eye; either way past it, it is out.
+                    if (h != null && h.Team == Team.Enemies && h.IsAlive && hit.distance > reach + 0.6f) outOfRange = true;
+                }
+            }
+            if (!outOfRange) return;
+            GUI.Label(new Rect(c.x - 100f, c.y + 24f, 200f, 18f), "OUT OF RANGE  (" + player.ActiveKit.AttackRange.ToString(player.ActiveKit.AttackRange < 10f ? "F1" : "F0") + " m)",
+                new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.55f, 0.4f, 0.9f) } });
         }
 
         private static float hitMarkAt = -10f, killMarkAt = -10f;
@@ -1075,6 +1099,7 @@ namespace Deepbound.UI
             if (life.Downed.Value) return;
             var c = new Vector2(w / 2f, h / 2f);
             DrawHitMark(new Vector2(Mathf.Round(c.x), Mathf.Round(c.y)));
+            DrawOutOfRange(c);
 
             // Charge meter (bow draw) under the crosshair; gold when full.
             float charge = player.ActiveKit.Charge;
@@ -1253,6 +1278,88 @@ namespace Deepbound.UI
                 Rect(x, y + size * (1f - k), size, size * k, new Color(0f, 0f, 0f, 0.65f));
                 GUI.Label(new Rect(x, y, size, size), Mathf.CeilToInt(remaining).ToString(), new GUIStyle(big) { fontSize = 22 });
             }
+        }
+
+        private EnemyBrain rageFocus;
+        private float rageFocusUntil;
+
+        /// <summary>
+        /// The enemy whose rage the meter shows: the boss in a fight; else an elite or champion under your
+        /// crosshair (kept a few seconds after you look away), else one that is hunting you.
+        /// </summary>
+        private EnemyBrain RageFocus()
+        {
+            var boss = BossBrain.Active;
+            if (boss != null && !boss.IsDead && (boss.transform.position - player.transform.position).sqrMagnitude < 40f * 40f && boss.Rage.Value.Count > 0) return boss;
+            var cam = player.Camera;
+            EnemyBrain best = null;
+            float bestAngle = 9f;
+            foreach (var h in Health.All)
+            {
+                if (h == null || h.Team != Team.Enemies || !h.IsAlive || !h.TryGetComponent<EnemyBrain>(out var e)) continue;
+                if (!(e.Elite.Value || e.IsChampion) || e.Rage.Value.Count == 0) continue;
+                var to = h.Center - cam.transform.position;
+                if (to.sqrMagnitude > 28f * 28f) continue;
+                float ang = Vector3.Angle(cam.transform.forward, to);
+                if (e.Rage.Value.Target == player.NetworkObjectId && to.sqrMagnitude < 15f * 15f) ang = Mathf.Min(ang, 8.5f);
+                if (ang < bestAngle) { bestAngle = ang; best = e; }
+            }
+            if (best != null) { rageFocus = best; rageFocusUntil = Time.time + 3f; return best; }
+            if (rageFocus != null && !rageFocus.IsDead && Time.time < rageFocusUntil) return rageFocus;
+            return null;
+        }
+
+        /// <summary>The rage meter: who it hates, by how much, and who it is after.</summary>
+        private void DrawRage(float w)
+        {
+            var e = RageFocus();
+            if (e == null) return;
+            var v = e.Rage.Value;
+            if (v.Count == 0) return;
+            bool boss = e is BossBrain;
+            float pw = 300f, x = w / 2f - pw / 2f, y = boss ? 82f : 62f;
+            var rows = new List<(ulong id, float t)>();
+            float top = 1f;
+            for (int i = 0; i < 4; i++) { v.Get(i, out var id, out var t); if (id != 0) { rows.Add((id, t)); top = Mathf.Max(top, t); } }
+            rows.Sort((a, b) => b.t.CompareTo(a.t));
+            float ph = 26f + rows.Count * 18f;
+            Rect(x, y, pw, ph, new Color(0.04f, 0.035f, 0.03f, 0.82f));
+            string who = boss ? ((BossBrain)e).DisplayName : e.IsChampion ? e.Title.Value.ToString() : "Elite " + Health.NameOf(e.NetworkObjectId).Replace("Elite ", "");
+            GUI.Label(new Rect(x + 8, y + 3, pw - 16, 18), "RAGE  -  " + who, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.45f, 0.35f) } });
+            var nm = Unity.Netcode.NetworkManager.Singleton;
+            float targetThreat = v.Of(v.Target);
+            for (int i = 0; i < rows.Count; i++)
+            {
+                var (id, t) = rows[i];
+                float ry = y + 23f + i * 18f;
+                string name = "?";
+                Color col = Color.gray;
+                if (nm != null && nm.SpawnManager.SpawnedObjects.TryGetValue(id, out var obj) && obj != null)
+                {
+                    name = obj.name.Replace("(Clone)", "").Trim();
+                    if (obj.TryGetComponent<NetworkPlayer>(out var np)) col = np.SlotColor;
+                    if (obj.TryGetComponent<PlayerProgress>(out var pp)) name += " (" + pp.Class.Name + ")";
+                }
+                bool me = id == player.NetworkObjectId, hunted = id == v.Target;
+                GUI.Label(new Rect(x + 8, ry, 130, 18), name, new GUIStyle(small) { fontStyle = me ? FontStyle.Bold : FontStyle.Normal, normal = { textColor = me ? Color.white : new Color(0.82f, 0.8f, 0.75f) } });
+                var bar = new Rect(x + 140, ry + 4, pw - 200, 9);
+                Rect(bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2, new Color(0f, 0f, 0f, 0.8f));
+                Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(t / top), bar.height, new Color(col.r, col.g, col.b, 0.95f));
+                // The line a rival must cross to take its rage (a fifth over whoever it is hunting).
+                if (!hunted && targetThreat > 0f)
+                {
+                    float line = Mathf.Clamp01(targetThreat * EnemyBrain.SwitchThreshold / top);
+                    Rect(bar.x + bar.width * line - 1f, bar.y - 2f, 2f, bar.height + 4f, new Color(1f, 0.4f, 0.3f, 0.7f));
+                }
+                if (hunted) GUI.Label(new Rect(x + pw - 58, ry, 54, 18), "HUNTED", new GUIStyle(small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 0.35f, 0.3f) } });
+            }
+            // A word for you: about to pull it, or already its prey.
+            float mine = v.Of(player.NetworkObjectId);
+            string warn = null;
+            if (v.Target == player.NetworkObjectId && progress.ClassId.Value != Classes.ClassId.Knight && rows.Count > 1) warn = "It is coming for YOU";
+            else if (v.Target != player.NetworkObjectId && targetThreat > 0f && mine > targetThreat * EnemyBrain.SwitchThreshold * 0.85f) warn = "Careful: you are about to pull its rage";
+            if (warn != null)
+                GUI.Label(new Rect(x, y + ph + 2f, pw, 18), warn, new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.6f, 0.3f) } });
         }
 
         private void DrawBoss(float w)
@@ -1526,7 +1633,7 @@ namespace Deepbound.UI
                 Rect(x + 180 + i * 26, y + 50, 20, 14, i < level ? ember : new Color(ember.r, ember.g, ember.b, 0.18f));
             string reason = progress.CannotTemperReason();
             string next = level >= Anvil.MaxLevel ? "Fully tempered"
-                : "Temper to +" + (level + 1) + ":  +" + ClassDefinition.WeaponAttPerLevel + " ATT, +" + ClassDefinition.WeaponDexPerLevel + " DEX" +
+                : "Temper to +" + (level + 1) + ":  +" + ClassDefinition.WeaponAttPerLevel + " ATT, +" + ClassDefinition.WeaponDexPerLevel + " DEX, +5% range" +
                   (level + 1 == WeaponPaths.MasteryLevel && path != 0 ? ", path mastery" : "");
             GUI.Label(new Rect(x + 16, y + 76, leftW - 200, 20), next, small);
             GUI.enabled = reason == null;
@@ -1642,7 +1749,7 @@ namespace Deepbound.UI
                 var nearAnvil = NearAnvil();
                 if (nearAnvil != null && Vector3.Distance(player.transform.position, nearAnvil.transform.position) <
                     Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value)) return;
-                string who = stall == Shop.Vendor.Shrine ? "Press G for the shrine's offerings (holy water, relics)"
+                string who = stall == Shop.Vendor.Shrine ? "Press G for the shrine's offerings (holy water, relics, Aldric's prayer)"
                     : DungeonDirector.InLobby ? "Press G to trade with Silas (potions and provisions)" : "Press G to trade with the peddler";
                 GUI.Label(new Rect(0, h / 2f + (stall == Shop.Vendor.Shrine ? 64 : 40), w, 24), who, center);
                 return;
@@ -1734,7 +1841,7 @@ namespace Deepbound.UI
                 }
             }
 
-            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70 + 88;
+            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70 + 88 + 22;
             float x = w - pw - 24, y = h / 2f - ph / 2f;
             Rect(x, y, pw, ph, Panel);
             // The two gear slots, at the foot of the sheet; hover-free: full cards sit left of it.
@@ -1756,6 +1863,14 @@ namespace Deepbound.UI
                     new GUIStyle(small) { normal = { textColor = open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.4f) } });
                 gy += 22;
             }
+            // Reach: the class's attack range now, and how much the anvil and runes have stretched it.
+            float rangeNow = player.ActiveKit.AttackRange;
+            bool melee = progress.ClassId.Value == Classes.ClassId.Knight || progress.ClassId.Value == Classes.ClassId.Rogue;
+            float bonus = (melee ? progress.ReachMultiplier : progress.RangeMultiplier) - 1f;
+            GUI.Label(new Rect(x + 12, gy, 70, 20), "RANGE", small);
+            GUI.Label(new Rect(x + 80, gy, pw - 90, 20), rangeNow.ToString(melee ? "F1" : "F0") + " m" + (melee ? " reach" : "") + (bonus > 0.001f ? "  (+" + Mathf.RoundToInt(bonus * 100f) + "%)" : "  (anvil, Farsight +)"),
+                new GUIStyle(small) { normal = { textColor = bonus > 0.001f ? new Color(0.5f, 0.95f, 0.9f) : new Color(1f, 1f, 1f, 0.6f) } });
+            gy += 22;
             foreach (var slot in new[] { AbilitySlot.Q, AbilitySlot.E })
             {
                 GUI.Label(new Rect(x + 12, gy, 70, 20), slot.ToString(), small);

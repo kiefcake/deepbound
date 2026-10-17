@@ -28,6 +28,11 @@ namespace Deepbound.Player
     public class RangerKit : NetworkBehaviour, IClassKit
     {
         public const float DrawMin = 0.15f, DrawFull = 0.85f, ArrowMinDamage = 12f, ArrowMaxDamage = 42f, ArrowSpeed = 34f;
+        /// <summary>A snap shot carries 20 m; a full draw 34 m (x the anvil / Farsight range multiplier).</summary>
+        public const float ArrowMinRange = 20f, ArrowMaxRange = 34f;
+        public static float ArrowRange(float charge, float mul) => Mathf.Lerp(ArrowMinRange, ArrowMaxRange, Mathf.Clamp01(charge)) * mul;
+        public float AttackRange => ArrowRange(Mathf.Max(Charge, 1f), progress != null ? progress.RangeMultiplier : 1f);
+        private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
         public const float DisengageCooldown = 6f, DisengageFocus = 25f;
         public const float TrapCooldown = 10f, TrapRange = 9f;
         public const float VolleyCooldown = 16f, VolleyFocus = 40f, VolleyRadius = 4f, VolleyDelay = 0.8f, VolleyDamage = 11f;
@@ -141,7 +146,7 @@ namespace Deepbound.Player
             }
 
             // --- Q: Bear Trap at the crosshair ---
-            if (keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= trapReadyAt && TryAimFloor(TrapRange, out var trapAt))
+            if (keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= trapReadyAt && TryAimFloor(TrapRange * RangeMul, out var trapAt))
             {
                 trapReadyAt = Time.time + TrapCooldown * progress.CooldownFor(AbilitySlot.Q) * (progress.OnPath(2) ? 0.6f : 1f);
                 TrapRpc(trapAt);
@@ -199,7 +204,7 @@ namespace Deepbound.Player
                     MarkFxRpc(h.Center);
                 }
                 else CountMark(h);
-            }, pierce);
+            }, pierce, ArrowRange(charge, RangeMul));
             ShotFxRpc(origin, direction, charge);
         }
 
@@ -226,7 +231,7 @@ namespace Deepbound.Player
         /// <summary>Server: set a bear trap. Public for the smoke test.</summary>
         public void ServerPlaceTrap(Vector3 at)
         {
-            if (!life.CanAct || trapPrefab == null || Vector3.Distance(at, transform.position) > TrapRange + 2f) return;
+            if (!life.CanAct || trapPrefab == null || Vector3.Distance(at, transform.position) > TrapRange * RangeMul + 2f) return;
             traps.RemoveAll(t => t == null || !t.IsSpawned);
             if (traps.Count >= (progress.OnPath(2) ? 3 : 2))
             {
@@ -273,7 +278,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void ShotFxRpc(Vector3 origin, Vector3 direction, float charge)
         {
-            Arrows.SpawnVisual(origin, direction, ProjectileKind.Arrow, ArrowSpeed * (0.7f + 0.3f * charge));
+            Arrows.SpawnVisual(origin, direction, ProjectileKind.Arrow, ArrowSpeed * (0.7f + 0.3f * charge), ArrowRange(charge, RangeMul));
             Sfx.Play(Sound.Bow, origin, 0.6f + 0.4f * charge, 1.2f - 0.3f * charge);
             if (!IsOwner) player.Rig?.Play(RigAction.Draw, 0.2f);
         }

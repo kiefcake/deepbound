@@ -36,6 +36,9 @@ namespace Deepbound.Player
         /// <summary>0-1 while charging something (the Ranger's bow draw); the HUD shows a meter.</summary>
         float Charge => 0f;
 
+        /// <summary>How far the primary attack reaches right now (metres), for the HUD.</summary>
+        float AttackRange => 0f;
+
         /// <summary>Owner: a mana potion. Refill this fraction of the resource.</summary>
         void RestoreResource(float fraction);
     }

@@ -14,7 +14,7 @@ namespace Deepbound.Progression
     public static class Shop
     {
         /// <summary>Value 1 was the retired stat potion.</summary>
-        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7 }
+        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7, Prayer = 8 }
 
         public struct Item
         {
@@ -89,6 +89,9 @@ namespace Deepbound.Progression
                     list.Add(new Item { Name = Relics.Name(relic), Description = Relics.Describe(relic), Price = 110 + 30 * depth, Kind = ItemKind.Relic, Amount = r, Seller = Vendor.Shrine });
                 }
             }
+            if (camp && vendor == Vendor.Shrine)
+                list.Add(new Item { Name = "Brother Aldric's Prayer", Description = "He prays for you, loudly. The first blow that would down you leaves you at 1 health instead (once)",
+                    Price = 45 + 15 * depth, Kind = ItemKind.Prayer, Seller = Vendor.Shrine });
             if (camp && vendor == Vendor.Smith)
                 list.Add(new Item { Name = "Sigil", Description = "Empower an ability one rank, here at the anvil", Price = 150 + 50 * depth, Kind = ItemKind.Sigil, Seller = Vendor.Smith });
             return list.ToArray();

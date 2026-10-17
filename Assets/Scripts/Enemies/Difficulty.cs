@@ -77,6 +77,8 @@ namespace Deepbound.Enemies
 
         /// <summary>Damage from behind a regular enemy.</summary>
         public const float BackstabMultiplier = 1.35f;
+        /// <summary>From behind on a boss (they did not used to take backstabs at all).</summary>
+        public const float BossBackstabMultiplier = 1.2f;
 
         private static int Extra(int players) => Mathf.Max(0, players - 1);
     }

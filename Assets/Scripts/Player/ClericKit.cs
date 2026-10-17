@@ -28,7 +28,10 @@ namespace Deepbound.Player
     [RequireComponent(typeof(Health))]
     public class ClericKit : NetworkBehaviour, IClassKit
     {
-        public const float SmiteInterval = 0.55f, SmiteDamage = 16f, SmiteSpeed = 28f, SmiteMana = 4f;
+        public const float SmiteInterval = 0.55f, SmiteDamage = 18f, SmiteSpeed = 28f, SmiteMana = 4f, SmiteRange = 18f;
+        public float AttackRange => SmiteRange * (progress != null ? progress.RangeMultiplier : 1f);
+        private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
+        private float BeamReach => BeamRange * RangeMul;
         public const float BeamRange = 16f, BeamHealPerSec = 22f, BeamManaPerSec = 11f;
         public const float ConsecrateCooldown = 14f, ConsecrateMana = 30f, ConsecrateRadius = 4f, ConsecrateSeconds = 6f;
         public const float ConsecrateHealPerSec = 9f, ConsecrateBurnPerSec = 12f;
@@ -198,7 +201,7 @@ namespace Deepbound.Player
             {
                 if (p == null || p == life || p.Downed.Value) continue;
                 var to = p.Health.Center - player.AimOrigin;
-                if (to.magnitude > BeamRange) continue;
+                if (to.magnitude > BeamReach) continue;
                 float angle = Vector3.Angle(player.AimForward, to);
                 if (angle < bestAngle && CombatQuery.ClearLine(player.AimOrigin, p.Health)) { bestAngle = angle; best = p; }
             }
@@ -218,13 +221,14 @@ namespace Deepbound.Player
             if (id == NetworkObjectId) target = health;
             else if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(id, out var obj)) target = obj.GetComponent<Health>();
             if (target == null || target.Team != Team.Players || !target.IsAlive) return;
-            if (target != health && Vector3.Distance(target.transform.position, transform.position) > BeamRange + 2f) return;
+            if (target != health && Vector3.Distance(target.transform.position, transform.position) > BeamReach + 2f) return;
 
             // Shepherd: stronger beam, and healing past full becomes a shield.
             float rate = BeamHealPerSec * Potency * (target == health ? 0.33f : 1f) * (progress.OnPath(2) ? 1.4f : 1f);
             if (progress.OnPath(2) && target.Current.Value >= target.Max.Value - 0.01f)
                 target.ServerShield(Mathf.Min(40f, target.Shield.Value + rate * Time.deltaTime), 4f);
             target.ServerHeal(rate * Time.deltaTime);
+            Enemies.EnemyBrain.ServerHealThreat(health, rate * Time.deltaTime);
         }
 
         [Rpc(SendTo.Server)]
@@ -246,9 +250,9 @@ namespace Deepbound.Player
                     foreach (var ally in CombatQuery.Circle(transform.position, 12f, Team.Players))
                         if (ally.IsAlive && (worst == null || ally.Fraction < worst.Fraction)) worst = ally;
                     if (worst != null) worst.ServerHeal(dmg * 0.4f * Potency);
-                });
+                }, false, SmiteRange * RangeMul);
             }
-            else Arrows.ServerFire(origin, direction, SmiteDamage * progress.AttackMultiplier, Team.Enemies, NetworkObjectId, SmiteSpeed);
+            else Arrows.ServerFire(origin, direction, SmiteDamage * progress.AttackMultiplier, Team.Enemies, NetworkObjectId, SmiteSpeed, null, false, SmiteRange * RangeMul);
             SmiteFxRpc(origin, direction);
         }
 
@@ -304,7 +308,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void SmiteFxRpc(Vector3 origin, Vector3 direction)
         {
-            Arrows.SpawnVisual(origin, direction, ProjectileKind.Smite, SmiteSpeed);
+            Arrows.SpawnVisual(origin, direction, ProjectileKind.Smite, SmiteSpeed, SmiteRange * RangeMul);
             Sfx.Play(Sound.Frost, origin, 0.45f, 0.7f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
         }

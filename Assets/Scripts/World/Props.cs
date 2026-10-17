@@ -204,6 +204,18 @@ namespace Deepbound.World
             foreach (float s in new[] { -1f, 1f })
             {
                 MeshKit.Part(root, "Eye", MeshKit.Ball(0.016f, 5, 4), Mat.Dark, new Vector3(s * 0.045f, 1.65f, 0.13f));
+                if (folk == Folk.Priest)
+                {
+                    // Hands pressed together in prayer at the chest: upper arm down and forward, forearm up to the hands.
+                    var shoulder = new Vector3(s * 0.27f, 1.3f, 0f);
+                    var elbow = new Vector3(s * 0.22f, 1.02f, 0.17f);
+                    var wrist = new Vector3(s * 0.035f, 1.14f, 0.28f);
+                    ArtLibrary.Tint(Limb(root, "UpperArm", shoulder, elbow, 0.06f).GetComponent<Renderer>(), coat * 0.9f);
+                    ArtLibrary.Tint(Limb(root, "Forearm", elbow, wrist, 0.052f).GetComponent<Renderer>(), coat * 0.9f);
+                    var palm = MeshKit.Part(root, "Hand", MeshKit.Box(new Vector3(0.035f, 0.11f, 0.07f)), Mat.Leather, new Vector3(s * 0.018f, 1.2f, 0.3f), new Vector3(-10f, 0f, s * -6f));
+                    ArtLibrary.Tint(palm.GetComponent<Renderer>(), skin);
+                    continue;
+                }
                 var arm = MeshKit.Part(root, "Arm", MeshKit.Cylinder(0.06f * bulk, 0.05f, 0.62f, 6), Mat.Cloth, new Vector3(s * 0.3f * bulk, 0.8f, 0.02f), new Vector3(0f, 0f, s * 6f));
                 ArtLibrary.Tint(arm.GetComponent<Renderer>(), coat * 0.9f);
                 var hand = MeshKit.Part(root, "Hand", MeshKit.Ball(0.05f, 6, 4), Mat.Leather, new Vector3(s * 0.31f * bulk, 0.78f, 0.04f));
@@ -225,8 +237,10 @@ namespace Deepbound.World
                     ArtLibrary.Tint(hair.GetComponent<Renderer>(), new Color(0.65f, 0.65f, 0.62f));
                     var sash = MeshKit.Part(root, "Stole", MeshKit.Box(new Vector3(0.1f, 0.9f, 0.03f)), Mat.Cloth, new Vector3(0f, 0.95f, 0.27f));
                     ArtLibrary.Tint(sash.GetComponent<Renderer>(), new Color(0.75f, 0.6f, 0.25f));
-                    MeshKit.Part(root, "Chain", MeshKit.Cylinder(0.008f, 0.008f, 0.35f, 4), Mat.Gold, new Vector3(0.34f, 0.6f, 0.08f));
-                    var censer = MeshKit.Part(root, "Censer", MeshKit.Ball(0.06f, 8, 6), Mat.Gold, new Vector3(0.34f, 0.4f, 0.08f));
+                    // A fat purse at his belt, which says more about him than the stole.
+                    var purse = MeshKit.Part(root, "Purse", MeshKit.Ball(0.07f, 8, 6), Mat.Leather, new Vector3(0.24f, 0.82f, 0.18f), default, new Vector3(1f, 1.2f, 0.9f));
+                    ArtLibrary.Tint(purse.GetComponent<Renderer>(), new Color(0.45f, 0.3f, 0.15f));
+                    MeshKit.Part(root, "PurseTie", MeshKit.Cylinder(0.025f, 0.025f, 0.02f, 8), Mat.Gold, new Vector3(0.24f, 0.9f, 0.18f));
                     break;
                 case Folk.Tailor:
                     var bun = MeshKit.Part(root, "Hair", MeshKit.Ball(0.11f, 8, 6), Mat.Cloth, new Vector3(0f, 1.7f, -0.06f));
@@ -242,7 +256,43 @@ namespace Deepbound.World
                     MeshKit.Part(root, "Whip", MeshKit.Cylinder(0.01f, 0.006f, 1.1f, 4), Mat.Leather, new Vector3(0.32f, 0.8f, 0.2f), new Vector3(30f, 0f, 0f));
                     break;
             }
-            Art.FolkIdle.Attach(root, 1.52f, "Head", "Eye", "Beard", "Tonsure", "Hair", "Brim", "Hat");
+            float neckY = 1.52f;
+            if (folk == Folk.Priest)
+            {
+                // He kneels: everything sinks, the robe pooling on a cushion; a censer smokes on the stones beside him.
+                const float kneel = 0.42f;
+                foreach (Transform c in root) c.localPosition += Vector3.down * kneel;
+                neckY -= kneel;
+                // The robe pools round his knees, and his shins and the soles of his sandals stick out behind:
+                // from any side he reads as kneeling, not as a short man standing in a hole.
+                var hem = MeshKit.Part(root, "Hem", MeshKit.Ball(0.36f, 12, 6), Mat.Cloth, new Vector3(0f, 0.15f, 0.02f), default, new Vector3(1.12f, 0.3f, 1.05f));
+                ArtLibrary.Tint(hem.GetComponent<Renderer>(), coat * 0.92f);
+                foreach (float s in new[] { -1f, 1f })
+                {
+                    ArtLibrary.Tint(Limb(root, "Shin", new Vector3(s * 0.12f, 0.13f, 0.02f), new Vector3(s * 0.13f, 0.1f, -0.42f), 0.075f).GetComponent<Renderer>(), coat * 0.85f);
+                    var sole = MeshKit.Part(root, "Sole", MeshKit.Box(new Vector3(0.085f, 0.13f, 0.04f)), Mat.Leather, new Vector3(s * 0.13f, 0.08f, -0.47f), new Vector3(-12f, 0f, 0f));
+                    ArtLibrary.Tint(sole.GetComponent<Renderer>(), new Color(0.22f, 0.15f, 0.1f));
+                }
+                var cushion = MeshKit.Part(root, "Cushion", MeshKit.Box(new Vector3(0.62f, 0.1f, 0.48f)), Mat.Cloth, new Vector3(0f, 0.05f, 0.02f));
+                ArtLibrary.Tint(cushion.GetComponent<Renderer>(), new Color(0.45f, 0.08f, 0.1f));
+                foreach (float cx in new[] { -0.3f, 0.3f })
+                    foreach (float cz in new[] { -0.22f, 0.26f })
+                        MeshKit.Part(root, "Tassel", MeshKit.Ball(0.025f, 6, 4), Mat.Gold, new Vector3(cx, 0.07f, cz));
+                var censerAt = new Vector3(0.55f, 0f, 0.3f);
+                MeshKit.Part(root, "CenserFoot", MeshKit.Cylinder(0.06f, 0.05f, 0.05f, 8), Mat.Gold, censerAt);
+                MeshKit.Part(root, "Censer", MeshKit.Lathe("censerBowl", new[] { new Vector2(0.03f, 0f), new Vector2(0.08f, 0.04f), new Vector2(0.09f, 0.1f), new Vector2(0.05f, 0.14f), new Vector2(0f, 0.16f) }, 10), Mat.Gold, censerAt + Vector3.up * 0.05f);
+                var coals = MeshKit.Part(root, "Coals", MeshKit.Ball(0.03f, 6, 4), Mat.Glow, censerAt + Vector3.up * 0.2f);
+                ArtLibrary.SetGlow(coals.GetComponent<Renderer>(), new Color(1f, 0.5f, 0.2f) * 1.2f);
+            }
+            var idle = Art.FolkIdle.Attach(root, neckY, "Head", "Eye", "Beard", "Tonsure", "Hair", "Brim", "Hat");
+            if (folk == Folk.Priest) { idle.RestPitch = 26f; idle.Prays = true; idle.PrayAt = root.TransformPoint(new Vector3(0f, 1.2f - 0.42f, 0.32f)); idle.IncenseAt = root.TransformPoint(new Vector3(0.55f, 0.25f, 0.3f)); }
+        }
+
+        /// <summary>A cylinder limb from <paramref name="a"/> to <paramref name="b"/> (local to <paramref name="parent"/>).</summary>
+        private static GameObject Limb(Transform parent, string name, Vector3 a, Vector3 b, float radius)
+        {
+            var d = b - a;
+            return MeshKit.Part(parent, name, MeshKit.Cylinder(radius, radius * 0.9f, d.magnitude, 6), Mat.Cloth, a, Quaternion.FromToRotation(Vector3.up, d).eulerAngles);
         }
 
         /// <summary>A crouching gargoyle on a plinth: hunched body, folded wings, horned head.</summary>

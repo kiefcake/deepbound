@@ -46,6 +46,38 @@ namespace Deepbound.Progression
         /// hitting them. Server-written; eases by one per return to camp, cleared with the run.
         /// </summary>
         public readonly NetworkVariable<int> Grudges = new NetworkVariable<int>();
+
+        private System.Collections.IEnumerator AddPrayerLast()
+        {
+            yield return null;
+            yield return null;
+            if (health != null) health.IncomingModifiers.Add(PrayerModifier);
+        }
+
+        /// <summary>Bought Brother Aldric's prayer: the next blow that would down you leaves you at 1 health instead.</summary>
+        public readonly NetworkVariable<bool> PrayedFor = new NetworkVariable<bool>();
+
+        /// <summary>Server, last in the incoming chain: a paid prayer catches a killing blow, once.</summary>
+        private float PrayerModifier(float dealt, Vector3 from)
+        {
+            // A shield soaks what comes after this; only a blow that would really down you spends the prayer.
+            if (!PrayedFor.Value || health == null || dealt - health.Shield.Value < health.Current.Value) return dealt;
+            PrayedFor.Value = false;
+            PrayerHeldRpc(name);
+            return Mathf.Max(0f, health.Current.Value - 1f + health.Shield.Value);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PrayerHeldRpc(string who)
+        {
+            var at = transform.position + Vector3.up * 1.4f;
+            Art.Vfx.Flash(at, new Color(1f, 0.88f, 0.55f), 6f, 6f, 0.5f);
+            Art.Vfx.Ring(transform.position + Vector3.up * 0.1f, 2.2f, new Color(1f, 0.88f, 0.55f), 0.6f);
+            Art.Vfx.Embers(at, 20, new Color(1f, 0.85f, 0.5f), 3f, 0.05f, 1.2f);
+            Art.Sfx.Play(Art.Sound.Relic, at, 1f, 1.2f);
+            UI.GameHud.ShowCombo(at + Vector3.up * 0.5f, "THE PRAYER HOLDS", new Color(1f, 0.88f, 0.55f));
+            UI.GameHud.Feed("Brother Aldric's prayer holds: " + who + " is still standing (at 1 health). Money well spent.", new Color(1f, 0.85f, 0.55f));
+        }
         public const int MaxGrudge = 4;
 
         public int Grudge(World.FolkId who) => (Grudges.Value >> ((int)who * 3)) & 7;
@@ -483,6 +515,7 @@ namespace Deepbound.Progression
 
         public override void OnNetworkSpawn()
         {
+            if (IsServer) StartCoroutine(AddPrayerLast());
             WeaponLevel.OnValueChanged += (_, __) => StatsChanged?.Invoke();
             bonuses.OnListChanged += _ => StatsChanged?.Invoke();
             relics.OnListChanged += _ => StatsChanged?.Invoke();
@@ -533,6 +566,15 @@ namespace Deepbound.Progression
         /// RotMG ATT scaling (0 ATT is half damage, 50 ATT is double base), then damage
         /// relics. Every kit multiplies by this, so relics apply to every class for free.
         /// </summary>
+        /// <summary>
+        /// How far your attacks reach, as a multiple of the class's base range: every temper at the
+        /// anvil adds 5%, a Farsight rune 25%. Any peer (it reads synced values), so visuals agree.
+        /// </summary>
+        public float RangeMultiplier => 1f + 0.05f * WeaponLevel.Value + (HasRune(Loot.Rune.Farsight) ? 0.25f : 0f);
+
+        /// <summary>Melee gains half as much reach from the same sources.</summary>
+        public float ReachMultiplier => 1f + (RangeMultiplier - 1f) * 0.5f;
+
         public float AttackMultiplier
         {
             get
@@ -934,6 +976,7 @@ namespace Deepbound.Progression
                 case Shop.ItemKind.Potion: return GetComponent<Player.Flasks>() is var fl && fl != null && fl.IsFull((Player.Flasks.Kind)(int)item.Amount) ? "Pouch full (5)" : null;
                 case Shop.ItemKind.Gear: return gearBoughtSeed == World.DungeonDirector.Instance?.Floor.Value.x ? "Sold" : null;
                 case Shop.ItemKind.Relic: return HasRelic((Relic)(int)item.Amount) ? "Owned" : null;
+                case Shop.ItemKind.Prayer: return PrayedFor.Value ? "Already prayed for" : null;
                 default: return Bonus(item.Stat) + item.Amount > item.Cap + 0.01f ? "Sold out" : null;
             }
         }
@@ -975,6 +1018,11 @@ namespace Deepbound.Progression
                 case Shop.ItemKind.Relic:
                     bought = ServerAddRelic((Relic)(int)item.Amount);
                     break;
+                case Shop.ItemKind.Prayer:
+                    PrayedFor.Value = true;
+                    PrayerBoughtRpc(name);
+                    bought = true;
+                    break;
                 default:
                     ServerAddBonus(item.Stat, item.Amount);
                     bought = true;
@@ -997,6 +1045,18 @@ namespace Deepbound.Progression
         /// <summary>Server → owner: one of your hits landed (or killed). Unreliable: a lost marker is no loss.</summary>
         [Rpc(SendTo.Owner, Delivery = RpcDelivery.Unreliable)]
         public void HitMarkRpc(bool kill, bool heavy) => UI.GameHud.HitMark(kill, heavy);
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PrayerBoughtRpc(string who)
+        {
+            string[] lines =
+            {
+                "*Brother Aldric pockets the coin, then prays at the top of his voice.* Lord, keep " + who + " from harm! Paid in full!",
+                "A generous soul! The gods will catch you once, " + who + ". Twice costs double.",
+                "*He bites the coin first. Then he prays.* There. You are spoken for, " + who + ".",
+            };
+            UI.CampChatter.Say(World.FolkId.Aldric, lines[UnityEngine.Random.Range(0, lines.Length)], 6f);
+        }
 
         [Rpc(SendTo.Owner)]
         private void PurchasedRpc() => Art.Sfx.Play2D(Art.Sound.Purchase, 0.8f);
@@ -1023,6 +1083,7 @@ namespace Deepbound.Progression
             CatPeed.Value = false;
             CatWhisker.Value = false;
             Grudges.Value = 0;
+            PrayedFor.Value = false;
             Socket0.Value = Socket1.Value = 0;
             Charm.Value = default;
             health.HealMultiplier = 1f;

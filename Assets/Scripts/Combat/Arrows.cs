@@ -24,7 +24,17 @@ namespace Deepbound.Combat
     public class Arrows : MonoBehaviour
     {
         public const float Speed = 21f;
-        private const float MaxRange = 30f;
+        /// <summary>The dead's projectiles, and anything not given a range.</summary>
+        public const float MaxRange = 30f;
+        public static int LiveCount => instance != null ? instance.live.Count : 0;
+
+        /// <summary>Server projectiles still in flight from one shooter (tests: other people's arrows do not count).</summary>
+        public static int LiveFrom(ulong shooter)
+        {
+            int n = 0;
+            if (instance != null) foreach (var a in instance.live) if (a.ServerSide && a.Shooter == shooter) n++;
+            return n;
+        }
         /// <summary>How fat a projectile is for hit tests, on top of the target's real body.</summary>
         private const float ProjectileRadius = 0.12f;
 
@@ -43,6 +53,8 @@ namespace Deepbound.Combat
             public ulong Shooter;
             public Team Targets;
             public Transform Visual;
+            /// <summary>How far it flies before it is spent (fizzles, or falls).</summary>
+            public float Range;
             /// <summary>Visual copies of spell bolts: the colour of the small burst where it ends (alpha 0 = none).</summary>
             public Color Burst;
             public bool ServerSide;
@@ -67,10 +79,11 @@ namespace Deepbound.Combat
 
         /// <summary>Server: fire an arrow that deals damage. Call the shooter's visual RPC alongside.</summary>
         public static void ServerFire(Vector3 origin, Vector3 direction, float damage, Team targets, ulong shooter,
-            float speed = Speed, System.Action<Health> onHit = null, bool pierce = false)
+            float speed = Speed, System.Action<Health> onHit = null, bool pierce = false, float range = MaxRange)
         {
             Instance.live.Add(new Arrow
             {
+                Range = range,
                 Position = origin, Velocity = direction.normalized * speed, Damage = damage,
                 Targets = targets, Shooter = shooter, ServerSide = true, OnHit = onHit,
                 Pierce = pierce, AlreadyHit = pierce ? new HashSet<Health>() : null,
@@ -78,10 +91,11 @@ namespace Deepbound.Combat
         }
 
         /// <summary>Any peer: fly a harmless visual copy.</summary>
-        public static void SpawnVisual(Vector3 origin, Vector3 direction, ProjectileKind kind = ProjectileKind.Arrow, float speed = Speed)
+        public static void SpawnVisual(Vector3 origin, Vector3 direction, ProjectileKind kind = ProjectileKind.Arrow, float speed = Speed, float range = MaxRange)
         {
             Instance.live.Add(new Arrow
             {
+                Range = range,
                 Position = origin, Velocity = direction.normalized * speed,
                 Visual = kind == ProjectileKind.Arrow ? BuildVisual(origin, direction)
                     : kind == ProjectileKind.Knife ? BuildKnife(origin, direction)
@@ -127,7 +141,12 @@ namespace Deepbound.Combat
                     a.Position += step;
                     a.Travelled += step.magnitude;
                     if (a.Visual != null) a.Visual.position = a.Position;
-                    if (a.Travelled > MaxRange) done = true;
+                    if (a.Travelled > (a.Range > 0f ? a.Range : MaxRange))
+                    {
+                        done = true;
+                        // Spent: an arrow or knife falls with a puff of dust; a bolt fizzles out (its burst, below).
+                        if (a.Visual != null && a.Burst.a <= 0f) Art.Vfx.Embers(a.Position, 3, new Color(0.6f, 0.55f, 0.48f), 1.2f, 0.03f, 0.4f);
+                    }
                 }
 
                 if (done)

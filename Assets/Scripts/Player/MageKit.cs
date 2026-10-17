@@ -38,6 +38,10 @@ namespace Deepbound.Player
         public const float BlinkCooldown = 8f, BlinkDistance = 7f;
         public const float MeteorCooldown = 14f, MeteorMana = 35f, MeteorDelay = 1.3f, MeteorRadius = 3.6f, MeteorDamage = 70f, MeteorRange = 30f;
         public const float ShatterMultiplier = 1.75f;
+        /// <summary>Base reach of the bolts and of Meteor's aim (x the anvil / Farsight range multiplier).</summary>
+        public const float FireboltRange = 20f, FrostboltRange = 22f, MeteorAimRange = 24f;
+        public float AttackRange => FireboltRange * (progress != null ? progress.RangeMultiplier : 1f);
+        private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
 
         /// <summary>Cryomancer mastery deepens the Shatter.</summary>
         private float Shatter => progress.Mastered(2) ? 2.5f : ShatterMultiplier;
@@ -180,8 +184,9 @@ namespace Deepbound.Player
             var origin = player.AimOrigin;
             var dir = player.AimForward;
             Vector3 point;
-            if (Physics.Raycast(origin, dir, out var hit, MeteorRange, ~0, QueryTriggerInteraction.Ignore)) point = hit.point;
-            else point = origin + dir * MeteorRange;
+            float reach = MeteorAimRange * RangeMul;
+            if (Physics.Raycast(origin, dir, out var hit, reach, ~0, QueryTriggerInteraction.Ignore)) point = hit.point;
+            else point = origin + dir * reach;
 
             // Drop to the floor beneath wherever the crosshair landed (a wall, an enemy).
             if (!Physics.Raycast(point + Vector3.up * 0.5f - dir * 0.3f, Vector3.down, out var floor, 12f, ~0, QueryTriggerInteraction.Ignore)) return false;
@@ -220,7 +225,7 @@ namespace Deepbound.Player
                     h.ServerDamage(FrostboltDamage * att, casterPos, me);
                     h.ServerChill(cryo ? 6f : ChillSeconds);
                     if (this != null) ImpactFxRpc(h.Center, true, false);
-                }, cryo);
+                }, cryo, FrostboltRange * RangeMul);
             }
             else
             {
@@ -239,7 +244,7 @@ namespace Deepbound.Player
                             if (other != h) other.ServerDamage(FireboltDamage * att * burstShare, h.Center, me);
                     }
                     if (this != null) ImpactFxRpc(h.Center, false, shatter || pyro);
-                });
+                }, false, FireboltRange * RangeMul);
             }
             BoltFxRpc(origin, direction, frost);
         }
@@ -250,7 +255,7 @@ namespace Deepbound.Player
         /// <summary>Server: call down a meteor. Public for the screenshot run.</summary>
         public void ServerMeteor(Vector3 spot)
         {
-            if (!life.CanAct || Vector3.Distance(spot, transform.position) > MeteorRange + 3f) return;
+            if (!life.CanAct || Vector3.Distance(spot, transform.position) > MeteorAimRange * RangeMul + 3f) return;
             meteors.Add(new PendingMeteor { At = spot, When = Time.time + MeteorDelay });
             // Rank 3: a second stone follows the first.
             bool twin = progress.Twist(AbilitySlot.E);
@@ -318,7 +323,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void BoltFxRpc(Vector3 origin, Vector3 direction, bool frost)
         {
-            Arrows.SpawnVisual(origin, direction, frost ? ProjectileKind.Frostbolt : ProjectileKind.Firebolt, frost ? FrostboltSpeed : FireboltSpeed);
+            Arrows.SpawnVisual(origin, direction, frost ? ProjectileKind.Frostbolt : ProjectileKind.Firebolt, frost ? FrostboltSpeed : FireboltSpeed, (frost ? FrostboltRange : FireboltRange) * RangeMul);
             Sfx.Play(frost ? Sound.Frost : Sound.Fire, origin, 0.55f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
         }

@@ -67,6 +67,8 @@ namespace Deepbound.UI
             if (ClericKit.InConsecration(pos)) list.Add(new Status { Glyph = "✦", Name = "Blessed", Text = "+20% damage while you stand in the Cleric's consecrated ground.", Lasts = "While you stand in it", Color = Good });
             if (health != null && ClericKit.IsInspired(health)) list.Add(new Status { Glyph = "★", Name = "Inspired", Text = "+15% damage while the Cleric's beam is on you.", Lasts = "While the beam holds", Color = Good });
             if (life != null && Time.time < life.VeiledUntil) list.Add(new Status { Glyph = "☁", Name = "Smoke Screen", Text = "The dead cannot see you while you stay in the smoke.", Lasts = "While you stay in it", Color = Good });
+            if (progress != null && progress.PrayedFor.Value)
+                list.Add(new Status { Glyph = "\u2629", Name = "Prayed For", Text = "Brother Aldric prayed for you (it cost you). The first blow that would down you leaves you standing at 1 health instead.", Lasts = "Until it saves you, or the run ends", Color = new Color(1f, 0.88f, 0.55f) });
             if (progress != null && progress.CatWhisker.Value) list.Add(new Status { Glyph = "❧", Name = "Cat Whisker", Text = "+1% chance to evade any hit outright. A gift from the cat, for petting it first.", Lasts = "This run", Color = Good });
             if (progress != null && progress.CatPeed.Value) list.Add(new Status { Glyph = "☂", Name = "Peed On", Text = "-5% max health. The cat's opinion of being picked up without asking.", Lasts = "This run", Color = Bad });
             var dir = DungeonDirector.Instance;

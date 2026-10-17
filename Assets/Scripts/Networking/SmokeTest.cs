@@ -255,9 +255,75 @@ namespace Deepbound.Networking
             if (boss != null)
                 Log("boss intro", boss.DisplayName + ", " + boss.Epithet, !string.IsNullOrEmpty(boss.Epithet) && !string.IsNullOrEmpty(boss.Hint) && boss.Epithet != "Guardian of the deep");
 
+            // The client stays for the host's two-player checks (rage, voice, the soul skull) and leaves once it has
+            // been carried back from a soul, so the host finishes the rest alone.
+            if (!net.IsServer && local != null)
+            {
+                var myLife = local.GetComponent<PlayerLife>();
+                bool wasSoul = false;
+                float leaveBy = Time.time + seconds;
+                while (Time.time < leaveBy && !(wasSoul && !myLife.Soul.Value && !myLife.Downed.Value))
+                {
+                    wasSoul |= myLife.Soul.Value;
+                    yield return null;
+                }
+                yield return new WaitForSeconds(1f);
+                Log("final phase", DungeonDirector.Instance != null ? DungeonDirector.Instance.Phase.Value.ToString() : "no director", true);
+                Debug.Log("[Smoke] done");
+                Application.Quit(0);
+                yield break;
+            }
+
             // Early, while the client is still connected.
             if (net.IsServer && local != null && layout != null)
             {
+                // Rage: an enemy hunts whoever angers it most, switching only when a rival passes them by a fifth.
+                var others = PlayerLife.All.Where(pl => pl != null && pl.gameObject != local.gameObject).ToList();
+                // A plain brain (no Update of its own): a skeleton, else a brute or an archer, whichever the seed gave us.
+                var rager = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !e.IsDead && !e.IsChampion &&
+                        (e.GetType() == typeof(EnemyBrain) || e is BruteBrain || e is ArcherBrain))
+                    .OrderBy(e => e.GetType() == typeof(EnemyBrain) ? 0 : e is BruteBrain ? 1 : 2).FirstOrDefault();
+                if (rager == null || others.Count == 0) Log("rage", "no plain enemy (" + (rager != null) + ") or no second player (" + others.Count + ")", false);
+                else
+                {
+                    var friend = others[0];
+                    var trace = new System.Text.StringBuilder();
+                    System.Action<string> mark = stage => trace.Append(" [" + stage + ": hp " + friend.Health.Current.Value.ToString("0") + "/" + friend.Health.Max.Value.ToString("0") +
+                        " down " + friend.Downed.Value + " soul " + friend.Soul.Value + " spawned " + friend.IsSpawned + " rage " + rager.ThreatOf(friend.NetworkObjectId).ToString("0") + "]");
+                    mark("start");
+                    // Next to the two of them (it only hunts within its leash).
+                    rager.ServerDebugPlace(friend.transform.position + (local.transform.position - friend.transform.position) * 0.5f + Vector3.right * 2f);
+                    // Elite (so its meter syncs), with a harmless affix: no splitting or bursting into the next checks.
+                    if (!rager.Elite.Value) rager.ServerMakeElite(EliteAffix.Swift);
+                    foreach (var pl in PlayerLife.All) if (pl != null) rager.ServerForget(pl.Health);
+                    rager.ServerAddThreat(friend.NetworkObjectId, 100f);
+                    mark("added");
+                    // It only re-thinks between swings: give it a moment each time.
+                    bool onFriend = false;
+                    for (int k = 0; k < 25 && !onFriend; k++) { yield return new WaitForSeconds(0.1f); onFriend = rager.CurrentTarget == friend.Health; }
+                    rager.ServerAddThreat(local.NetworkObjectId, rager.ThreatOf(friend.NetworkObjectId) - rager.ThreatOf(local.NetworkObjectId));
+                    yield return new WaitForSeconds(0.6f);
+                    bool held = rager.CurrentTarget == friend.Health;      // level with it: not enough to take it
+                    mark("held");
+                    rager.ServerAddThreat(local.NetworkObjectId, rager.ThreatOf(friend.NetworkObjectId) * 0.4f);
+                    bool pulled = false;
+                    for (int k = 0; k < 25 && !pulled; k++) { yield return new WaitForSeconds(0.1f); pulled = rager.CurrentTarget == local.GetComponent<Health>(); }
+                    float friendAfterPull = rager.ThreatOf(friend.NetworkObjectId);
+                    mark("pulled");
+                    yield return new WaitForSeconds(0.3f);
+                    float friendBefore = rager.ThreatOf(friend.NetworkObjectId);
+                    float before = rager.ThreatOf(local.NetworkObjectId);
+                    rager.GetComponent<Health>().ServerDamage(5f, local.transform.position, local.NetworkObjectId);
+                    bool hitsAnger = rager.ThreatOf(local.NetworkObjectId) > before;
+                    bool synced = rager.Rage.Value.Count >= 2 && rager.Rage.Value.Target == local.NetworkObjectId;
+                    Log("rage", "on first " + onFriend + ", held when level " + held + ", pulled at +40% " + pulled + ", hits anger " + hitsAnger + ", meter synced " + synced + (onFriend && held && pulled && hitsAnger && synced ? "" :
+                        " (rows " + rager.Rage.Value.Count + ", target " + rager.Rage.Value.Target + " vs me " + local.NetworkObjectId + ", elite " + rager.Elite.Value +
+                        ", friend " + friend.NetworkObjectId + " rage " + rager.ThreatOf(friend.NetworkObjectId).ToString("0") + " / me " + rager.ThreatOf(local.NetworkObjectId).ToString("0") +
+                        ", friend before hit " + friendBefore.ToString("0") + ", after pull " + friendAfterPull.ToString("0") + ", friend alive " + friend.Health.IsAlive + " targetable " + PlayerLife.CanTarget(friend.Health) + ")" + trace), onFriend && held && pulled && hitsAnger && synced);
+                    rager.GetComponent<Health>().ServerDamage(1e6f, rager.transform.position); // out of the way of the next checks
+                    yield return new WaitForSeconds(0.2f);
+                }
+
                 // Boss phases: damage stops at the first gate (50%), the boss goes immune for the transition.
                 var gateBoss = BossBrain.Active;
                 if (gateBoss != null && gateBoss is GravewardenBrain)
@@ -442,6 +508,7 @@ namespace Deepbound.Networking
                     var mourner = DungeonDirector.Instance.ServerDebugSpawnMourner(mAt, stand - mAt) as MournerBrain;
                     if (mourner != null)
                     {
+                        mourner.ServerAggroNearest(); // this checks the watching rule, not whether it noticed you
                         yield return new WaitForSeconds(1.2f);
                         float watchedMove = Vector3.Distance(mourner.transform.position, mAt);
                         bool frozen = mourner.Seen.Value;
@@ -468,6 +535,13 @@ namespace Deepbound.Networking
                 // Against the living now: earlier checks give breaches and risen bones time to add more.
                 int living = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead);
                 Log("navmesh agents", agentsOnMesh + " / " + living, agentsOnMesh == living);
+
+                // Range: a projectile is spent at its range.
+                int liveBefore = Arrows.LiveFrom(local.NetworkObjectId);
+                Arrows.ServerFire(local.transform.position + Vector3.up * 30f, Vector3.up, 0f, Team.Enemies, local.NetworkObjectId, 30f, null, false, 4f);
+                yield return new WaitForSeconds(0.35f);
+                Log("range", "a 4 m shot after 10 m of flight: mine in flight " + liveBefore + " -> " + Arrows.LiveFrom(local.NetworkObjectId) + ", farsight/temper multiplier " + local.GetComponent<PlayerProgress>().RangeMultiplier.ToString("F2"),
+                    Arrows.LiveFrom(local.NetworkObjectId) <= liveBefore);
 
                 // Doors never wall off the navmesh: the dead can walk through every doorway (bar one a closed portcullis seals).
                 var doorPath = new UnityEngine.AI.NavMeshPath();
@@ -1079,6 +1153,33 @@ namespace Deepbound.Networking
                     }
                     else Log("struck folk", "no camp folk spawned", false);
 
+                    // Brother Aldric's paid prayer: bought at the shrine, it catches one killing blow.
+                    motor.Teleport(Lobby.ShrineSpot + Vector3.left * 2.4f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
+                    progress.ServerAddGold(300);
+                    var shrineStock = Shop.For(local.OwnerClientId, Shop.Vendor.Shrine);
+                    int prayerIdx = System.Array.FindIndex(shrineStock, it => it.Kind == Shop.ItemKind.Prayer);
+                    if (prayerIdx >= 0)
+                    {
+                        progress.BuyRpc(Shop.Vendor.Shrine, prayerIdx);
+                        yield return new WaitForSeconds(0.3f);
+                        bool prayed = progress.PrayedFor.Value;
+                        var ph = local.GetComponent<Health>();
+                        // Repeat: a whisker's evade or a leftover shield can soak the first blow before the prayer sees it.
+                        int blows = 0;
+                        for (; blows < 3 && progress.PrayedFor.Value; blows++)
+                        {
+                            ph.ServerSetFraction(1f);
+                            ph.ServerDamage(ph.Max.Value * 5f, local.transform.position + Vector3.forward);
+                            yield return new WaitForSeconds(0.2f);
+                        }
+                        bool caught = ph.Current.Value >= 0.5f && !local.GetComponent<PlayerLife>().Downed.Value && !progress.PrayedFor.Value;
+                        Log("paid prayer", "bought " + prayed + ", killing blow left " + ph.Current.Value.ToString("F0") + " hp, spent " + !progress.PrayedFor.Value +
+                            " (blows " + blows + ", shield " + ph.Shield.Value.ToString("F0") + ", whisker " + progress.CatWhisker.Value + ")", prayed && caught);
+                        ph.ServerSetFraction(1f);
+                    }
+                    else Log("paid prayer", "not on sale at the shrine", false);
+
                     // The smith: this player's own gear offer lands at their feet.
                     var mpos = Lobby.AnvilSpot;
                     motor.Teleport(mpos + Vector3.left * 2.4f + Vector3.up * 0.1f, local.transform.rotation);
@@ -1441,6 +1542,19 @@ namespace Deepbound.Networking
                 lobbyMotor.SetPitch(0f);
                 raven.enabled = true;
             }
+            // Brother Aldric at his prayers by the shrine (he faces away from it, toward the road).
+            {
+                var aldric = Lobby.ShrineSpot + Vector3.left * 1.2f;
+                foreach (var (off, tag) in new[] { (new Vector3(-2.3f, 0.1f, 0.9f), "0v_aldric_praying"), (new Vector3(-0.3f, 0.1f, 2.4f), "0v_aldric_side") })
+                {
+                    var view = aldric + off;
+                    lobbyMotor.Teleport(view, Quaternion.LookRotation(Vector3.ProjectOnPlane(aldric - view, Vector3.up)));
+                    lobbyMotor.SetPitch(14f);
+                    yield return new WaitForSeconds(0.4f);
+                    yield return Shot(dir, tag);
+                }
+                lobbyMotor.SetPitch(0f);
+            }
             // Strike Silas: he rocks back, complains, and a bystander chimes in.
             var silasBody = FindObjectsByType<CampFolk>(FindObjectsSortMode.None).FirstOrDefault(f => f.Who.Value == (byte)FolkId.Silas);
             if (silasBody != null)
@@ -1781,6 +1895,7 @@ namespace Deepbound.Networking
             if (champ != null)
             {
                 champ.ServerStun(30f);
+                champ.ServerAddThreat(local.NetworkObjectId, 60f);   // its rage meter shows (and at 4 m a melee class reads OUT OF RANGE)
                 var cp = champ.transform.position + champ.transform.forward * 4f + Vector3.up * 0.1f;
                 motor.Teleport(cp, Quaternion.LookRotation(champ.transform.position - cp));
                 yield return new WaitForSeconds(0.6f);

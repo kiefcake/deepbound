@@ -39,8 +39,8 @@ namespace Deepbound.UI
                     "Hit me once more and I'll sell you river water and call it a potion.", "I've doubled my prices for you, {0}. I'd triple them, but I'm a reasonable man." },
             new[] { "Oi! I've been hit by better. That dent's going on your bill.", "That's it. Embers cost more for people who swing at the smith.",
                     "I've broken bigger than you over this anvil, {0}. Prices up. Again.", "Keep swinging. Every bruise is on your bill now. Double." },
-            new[] { "Peace, child. ...Though the shrine will expect a larger gift from you now.", "Violence on holy ground. The font weighs heavier for you, {0}.",
-                    "I forgive you. The offering box does not.", "The dead are watching you do this. So am I. So is the price." },
+            new[] { "Peace, child. ...Though the shrine will expect a larger gift from you now.", "Violence on holy ground! That's a tithe, {0}. A big one.",
+                    "I forgive you. The offering box does not.", "Strike a priest again and I'll pray AGAINST you, {0}. Free of charge." },
             new[] { "Darling. The velvet. Not the velvet.", "If you tear this coat I will dye you a colour you cannot wash off.",
                     "Out of my light, {0}. Come back with manners. And money.", "*Mistress Vey turns her back on you and measures the air, pointedly.*" },
             new[] { "Easy! Easy! I just drive the thing!", "Hit the driver again and see who gets you down that shaft.",
@@ -55,7 +55,7 @@ namespace Deepbound.UI
         {
             "Coin heals all wounds, {0}. Most of them. Prices are back where they were.",
             "Hmph. Paid for the dent. We're square, {0}. Don't do it again.",
-            "The shrine accepts your penance, {0}. Go in peace. Swing at the dead instead.",
+            "Your coin has washed you clean, {0}. Mostly my coin now. Go in peace.",
             "", "", "",
             "Fine, fine. Paid in full. The glass forgives you, {0}.",
         };
@@ -149,7 +149,7 @@ namespace Deepbound.UI
         {
             "*Silas raises a gloved hand, then thinks better of it and shakes yours instead. Firmly. Business-like.*",
             "Ha! Up top! ...Mind, I've a hand like an anvil.",
-            "*Brother Aldric blesses your raised palm instead. Close enough.*",
+            "*Brother Aldric presses a coin-sized blessing into your palm, then takes the coin out of it.*",
             "Darling, no. We do not slap hands. We nod. Like so.",
             "*Corwin tips his hat. He keeps both hands on the reins.*",
             "*The dealer raises one bony palm and meets yours, very gently. Click.*",
@@ -275,17 +275,24 @@ namespace Deepbound.UI
 
             Add("Brother Aldric, shrine", Lobby.ShrineSpot + Vector3.left * 1.2f + Vector3.up * 2.1f, new[]
             {
-                "The shrine grants one blessing for one descent. Whose blessing? Kneel, and don't ask.",
-                "The lantern at the top of the shaft was lit from the Cardinal's own censer. Keep it lit.",
-                "A waystone gives back what the dark takes. It has never yet refused a soul. Never yet.",
-                "I pray for every delver. Out loud, so the dead can hear it and know you're spoken for.",
-                "The Holy Water comes from the font. The font is fed from below. I try not to think about it.",
-                "The cat? The cat is not mine. The cat is not anyone's. I feed it, and it permits this.",
-                "The relics on the altar came up in dead hands. Give to the font, and one may go down again in yours.",
+                "I will pray for you, child. For a small donation. A large one buys a louder prayer.",
+                "The gods hear every prayer. Paid ones first. That's not doctrine, that's queueing.",
+                "*Brother Aldric murmurs a psalm, opens one eye, and checks your belt for a purse.*",
+                "Bless you. That one was free. The next will cost you ten.",
+                "Indulgences! Forgiveness for every sin, priced by the sin. Grave-robbing is on special.",
+                "I prayed for the last party that went down. Well. They hadn't paid in advance.",
+                "The font is holy. The coins in it are mine. That's the arrangement.",
+                "Kneel with me, child. Not too near the offering box.",
+                "Lord, protect this delver... *he peeks up* ...if this delver tithes.",
+                "Your soul looks heavy. I can lighten it. Your purse too.",
+                "The cat is not mine. The cat is not anyone's. I feed it, and it permits this. I bill the castle.",
+                "A prayer from me will catch you once, down there, when you fall. Forty-odd gold. Cheaper than a coffin.",
             }, () =>
             {
                 var me = Me;
-                if (me != null && me.Grudge(FolkId.Aldric) > 0) return "I have prayed for your temper, child. The shrine still asks a larger gift of you, until you make amends.";
+                if (me != null && me.Grudge(FolkId.Aldric) > 0) return "I have prayed for your temper, child. Prayers for the violent cost extra. Amends cost more.";
+                if (me != null && me.PrayedFor.Value) return "My prayer goes with you, child. Paid in full. Do try not to need it.";
+                if (me != null && me.Gold.Value >= 200) return "That purse looks heavy, child. Let the shrine carry some of it for you. For your soul.";
                 if (me != null && me.CatWhisker.Value) return "The cat gave you a whisker. It has never given me one. I have fed it every day for nine years.";
                 if (Journal.Count >= 6) return "You have been reading the old pages. Then you know what the hymn was really for.";
                 if (Deeds.Has(Deeds.Deed.Cardinal)) return "You silenced the Cardinal. I will sing for them tonight. Somebody should.";
