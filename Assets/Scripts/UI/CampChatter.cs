@@ -47,6 +47,8 @@ namespace Deepbound.UI
                     "One more, {0}, and you're walking. All the way down. It's a long way.", "*Corwin pulls his hat over his eyes and refuses to look at you.*" },
             new[] { "*The dealer's jaw clacks shut. It taps the felt, slowly.*", "*It turns one card over: the Ace of Spades. It points it at you.*",
                     "*The dealer folds its hands. It will not deal to {0} until tempers cool.*", "*It sweeps the cards away and simply stares at you.*" },
+            new[] { "Hey! I walked all this way with glass on my back! That'll cost you.", "Another one? The prices down here just got deeper, {0}.",
+                    "I've survived worse than you on the way down. Prices up.", "You're paying double now. Hit me again and I'll charge for breathing." },
         };
 
         private static readonly string[] Forgive =
@@ -55,6 +57,7 @@ namespace Deepbound.UI
             "Hmph. Paid for the dent. We're square, {0}. Don't do it again.",
             "The shrine accepts your penance, {0}. Go in peace. Swing at the dead instead.",
             "", "", "",
+            "Fine, fine. Paid in full. The glass forgives you, {0}.",
         };
 
         // What a bystander says when someone else gets hit. {0} is the one who swung.
@@ -106,7 +109,14 @@ namespace Deepbound.UI
         public static void Offended(FolkId who, int level, string attacker, Vector3 body)
         {
             var lines = Struck[(int)who];
-            Say(who, string.Format(lines[Mathf.Clamp(level, 1, lines.Length) - 1], attacker), 6f);
+            string line = string.Format(lines[Mathf.Clamp(level, 1, lines.Length) - 1], attacker);
+            // Off camp (the peddler) there are no speech panels: it goes over his head and into the feed.
+            if (who == FolkId.Peddler || instance == null)
+            {
+                GameHud.ShowCombo(body + Vector3.up * 2.2f, "!", new Color(1f, 0.55f, 0.3f));
+                GameHud.Feed("The peddler: \"" + line + "\"", new Color(1f, 0.75f, 0.45f));
+            }
+            else Say(who, line, 6f);
             var fig = Art.FolkIdle.Near(body);
             var from = NetworkPlayer.Local != null ? NetworkPlayer.Local.transform.position : body - Vector3.forward;
             foreach (var p in Player.PlayerLife.All) if (p != null && p.name == attacker) from = p.transform.position;
@@ -130,7 +140,65 @@ namespace Deepbound.UI
         public static void Forgiven(FolkId who, string payer)
         {
             var line = Forgive[(int)who];
-            if (!string.IsNullOrEmpty(line)) Say(who, string.Format(line, payer), 6f);
+            if (string.IsNullOrEmpty(line)) return;
+            if (who == FolkId.Peddler || instance == null) GameHud.Feed("The peddler: \"" + string.Format(line, payer) + "\"", new Color(1f, 0.85f, 0.55f));
+            else Say(who, string.Format(line, payer), 6f);
+        }
+
+        private static readonly string[] WaveBack =
+        {
+            "*Silas raises a gloved hand, then thinks better of it and shakes yours instead. Firmly. Business-like.*",
+            "Ha! Up top! ...Mind, I've a hand like an anvil.",
+            "*Brother Aldric blesses your raised palm instead. Close enough.*",
+            "Darling, no. We do not slap hands. We nod. Like so.",
+            "*Corwin tips his hat. He keeps both hands on the reins.*",
+            "*The dealer raises one bony palm and meets yours, very gently. Click.*",
+        };
+        private static readonly string[] WaveCold =
+        {
+            "Hands where I can see them, friend. After last time.", "Oh, now you want to be friends? Pay for the dent first.",
+            "Make amends first, child. Then we may be friendly.", "Absolutely not. Not after the velvet.",
+            "*Corwin flinches, then pretends he didn't.*", "*The dealer keeps its hands folded.*",
+        };
+
+        /// <summary>Any peer: <paramref name="who"/> raised a hand near a camp character (H with no ally about).</summary>
+        public static void Waved(FolkId folk, string who, Progression.PlayerProgress progress, Vector3 from)
+        {
+            if (instance == null || (int)folk >= WaveBack.Length) return;
+            bool sore = progress != null && progress.Grudge(folk) > 0;
+            Say(folk, sore ? WaveCold[(int)folk] : WaveBack[(int)folk], 5f);
+            if (!sore && (folk == FolkId.Hobb || folk == FolkId.Bones))
+            {
+                var at = (instance.speakers[(int)folk].Head + from) * 0.5f + Vector3.down * 0.4f;
+                Art.Sfx.Play(Art.Sound.Block, at, 0.8f, folk == FolkId.Bones ? 2.2f : 1.6f);
+                Art.Vfx.Embers(at, 8, new Color(1f, 0.85f, 0.45f), 3f, 0.04f, 0.5f);
+                GameHud.ShowCombo(at + Vector3.up * 0.3f, "HIGH FIVE!", new Color(1f, 0.85f, 0.45f));
+            }
+            var fig = Art.FolkIdle.Near(instance.speakers[(int)folk].Head);
+            if (fig != null && sore) fig.Flinch(from, 0.4f);
+        }
+
+        /// <summary>Any peer: someone swung at the cat. The priest who feeds it is not pleased; nor is anyone else.</summary>
+        public static void CatScared(string who, Vector3 at)
+        {
+            if (instance == null) return;
+            string[] lines =
+            {
+                "Not the cat! The cat is not anyone's, " + who + ", but it is ours.",
+                "You swung at the cat. I have nine years of feeding that animal, " + who + ". Nine.",
+                "...the cat, " + who + "? Truly?",
+            };
+            SayLater(FolkId.Aldric, lines[Random.Range(0, lines.Length)], 0.4f);
+            int best = -1; float bd = 12f * 12f;
+            for (int i = 0; i < instance.speakers.Count; i++)
+            {
+                if (i == (int)FolkId.Aldric) continue;
+                var d = instance.speakers[i].Head - at; d.y = 0f;
+                if (d.sqrMagnitude < bd) { bd = d.sqrMagnitude; best = i; }
+            }
+            string[] bystander = { "The cat's worth more than your gold, " + who + ".", "Kick the dog next, why don't you. We haven't got a dog.",
+                "Leave the poor creature be.", "Monster. Absolute monster.", "Even the horses saw that.", "*The dealer slowly shakes its skull.*" };
+            if (best >= 0) SayLater((FolkId)best, bystander[best], 2f);
         }
 
         /// <summary>Any peer: something exploded at camp. Everyone near it jumps and says so.</summary>
@@ -178,6 +246,7 @@ namespace Deepbound.UI
             }, () =>
             {
                 var me = Me;
+                if (me != null && me.Grudge(FolkId.Silas) > 0) return "Still sore from earlier, friend. Still charging for it, too. Amends are cheaper than bruises.";
                 if (me != null && me.CatPeed.Value) return "You smell like the cat's opinion of you. Potion? I'd charge you double for the smell, but I am a kind man.";
                 if (Seals >= 1 && Seals < 3) return "That fragment you carry hums. Do not try to sell it to me. Please. Do not even put it on the table.";
                 if (Seals >= 3) return "Three of them. I'll be honest, friend: I don't sell anything for where you're going.";
@@ -197,6 +266,7 @@ namespace Deepbound.UI
             }, () =>
             {
                 var me = Me;
+                if (me != null && me.Grudge(FolkId.Hobb) > 0) return "Mind your elbows near my anvil. The bill's still higher for you, and it'll stay that way till you pay for the dent.";
                 if (FloorsDone >= 1) return "Back up already? That means you didn't die. Good. Embers. Now.";
                 if (me != null && me.WeaponLevel.Value >= 4) return "That blade's near as good as I can make it. Any better and it'll want a name.";
                 if (Deeds.Has(Deeds.Deed.Gravewarden)) return "You put the old Baron down? My grandfather swore he'd hold that door till the end of days. Fair enough. It ended.";
@@ -215,6 +285,7 @@ namespace Deepbound.UI
             }, () =>
             {
                 var me = Me;
+                if (me != null && me.Grudge(FolkId.Aldric) > 0) return "I have prayed for your temper, child. The shrine still asks a larger gift of you, until you make amends.";
                 if (me != null && me.CatWhisker.Value) return "The cat gave you a whisker. It has never given me one. I have fed it every day for nine years.";
                 if (Journal.Count >= 6) return "You have been reading the old pages. Then you know what the hymn was really for.";
                 if (Deeds.Has(Deeds.Deed.Cardinal)) return "You silenced the Cardinal. I will sing for them tonight. Somebody should.";
@@ -232,6 +303,7 @@ namespace Deepbound.UI
             }, () =>
             {
                 var me = Me;
+                if (me != null && me.Grudge(FolkId.Vey) > 0) return "Oh. It's you. The one with the elbows. Do keep your distance from the silk.";
                 if (me != null && me.CatPeed.Value) return "Is that... cat? On the good wool? Out. Out, and come back clean.";
                 if (Deeds.Has(Deeds.Deed.SawAbyss)) return "You came back from below the Cathedral with your cloak intact. I am, genuinely, moved.";
                 if (Deeds.Wins >= 1) return "A delver who finished the descent. Let me do something about that cloak before they write songs.";
@@ -247,6 +319,8 @@ namespace Deepbound.UI
                 "Forty years on this seat. Never once seen the bottom. Intend to keep it that way.",
             }, () =>
             {
+                var me = Me;
+                if (me != null && me.Grudge(FolkId.Corwin) > 0) return "I'll drive you. I'll not talk to you. Get in the circle and keep your hands to yourself.";
                 if (Seals >= 3) return "Three Seals... The carriage won't go where that leads, friend. You'll be walking that part.";
                 if (Deeds.Wipes >= 1 && Deeds.Wipes < 3) return "I drove an empty carriage back up last time. Don't make me do that again.";
                 if (Deeds.Wipes >= 3) return "I've driven that carriage back empty " + Deeds.Wipes + " times now. I've started talking to the seats.";
@@ -261,7 +335,8 @@ namespace Deepbound.UI
                 "*Its jaw clicks. It may be a laugh. It may be the cards.*",
                 "*It deals itself a hand, looks at it, and folds. It always folds when nobody is playing.*",
                 "*It points one finger at the shoe, then at you, then at the shaft. Nobody knows what it means.*",
-            }, () => Deeds.Has(Deeds.Deed.Unsung) ? "*The dealer stops shuffling. For the first time anyone can remember, it bows.*" : null);
+            }, () => Me != null && Me.Grudge(FolkId.Bones) >= 3 ? "*The dealer keeps one empty hand raised toward you. Not yet.*"
+                : Deeds.Has(Deeds.Deed.Unsung) ? "*The dealer stops shuffling. For the first time anyone can remember, it bows.*" : null);
         }
 
         private void Add(string name, Vector3 head, string[] idle, System.Func<string> news)

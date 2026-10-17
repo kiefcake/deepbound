@@ -62,6 +62,17 @@ namespace Deepbound.Player
         {
             player.Rig?.Play(RigAction.Cast, 0.6f);
             Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.6f, 0.35f, 1.6f);
+            // No ally to slap? The camp folk answer a raised hand in their own ways.
+            if (World.DungeonDirector.InLobby)
+            {
+                float best = 3.2f * 3.2f; int who = -1;
+                foreach (var (id, at) in World.Lobby.FolkBodies)
+                {
+                    var d = at - transform.position; d.y = 0f;
+                    if (d.sqrMagnitude < best) { best = d.sqrMagnitude; who = (int)id; }
+                }
+                if (who >= 0) UI.CampChatter.Waved((World.FolkId)who, name, GetComponent<Progression.PlayerProgress>(), transform.position);
+            }
         }
 
         [Rpc(SendTo.ClientsAndHost)]

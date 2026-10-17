@@ -86,7 +86,7 @@ namespace Deepbound.EditorTools
             var crackedWall = BuildCrackedWallPrefab();
             var diceTable = BuildObjectPrefab<DiceTable>("DiceTable", new Vector3(1.5f, 0.95f, 1.5f));
             var coffer = BuildObjectPrefab<MysteryCoffer>("MysteryCoffer", new Vector3(1.2f, 1f, 0.8f));
-            var cat = BuildObjectPrefab<CampCat>("CampCat", Vector3.zero);
+            var cat = BuildCatPrefab();
             var slots = BuildObjectPrefab<SlotMachine>("SlotMachine", new Vector3(1.1f, 1.9f, 0.8f));
             var blackjack = BuildObjectPrefab<BlackjackTable>("BlackjackTable", new Vector3(1.8f, 0.95f, 1.1f));
             var gong = BuildGongPrefab();
@@ -524,6 +524,20 @@ namespace Deepbound.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
+        }
+
+        private static GameObject BuildCatPrefab()
+        {
+            var root = new GameObject("CampCat");
+            root.AddComponent<NetworkObject>();
+            var capsule = root.AddComponent<CapsuleCollider>();
+            capsule.isTrigger = true;
+            capsule.height = 0.55f;
+            capsule.radius = 0.2f;
+            capsule.center = new Vector3(0f, 0.27f, 0f);
+            SetTeam(root.AddComponent<Health>(), Team.Props, 0.4f);
+            root.AddComponent<CampCat>();
+            return SavePrefab(root, "CampCat");
         }
 
         private static GameObject BuildFolkPrefab()

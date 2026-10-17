@@ -687,6 +687,15 @@ namespace Deepbound.World
                 }
             }
 
+            // The peddler, if one set up shop on this floor, can be struck (and remembers it) too.
+            if (folkPrefab != null && layout.PeddlerSpot.HasValue)
+            {
+                var pd = Instantiate(folkPrefab, layout.PeddlerSpot.Value, Quaternion.identity);
+                pd.GetComponent<CampFolk>().Who.Value = (byte)FolkId.Peddler;
+                pd.Spawn(destroyWithScene: true);
+                spawned.Add(pd);
+            }
+
             // Every floor: one journal page on a lectern, by a side-room wall (a combat room's if there are none).
             if (lorePagePrefab != null)
             {

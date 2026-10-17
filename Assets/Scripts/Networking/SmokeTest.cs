@@ -937,6 +937,19 @@ namespace Deepbound.Networking
                         Log("cat verdict", "unpetted pick-up peed " + peed + ", petted pick-up whisker " + cprog.CatWhisker.Value, catOk);
                         cprog.CatPeed.Value = false;
                         cprog.CatWhisker.Value = false;
+                        // Swing at it: it is not hurt, it bolts, and it will not have you this visit.
+                        yield return new WaitForSeconds(2.6f);
+                        var catHp = catT.GetComponent<Health>();
+                        catHp.ServerDamage(10f, local.transform.position, local.NetworkObjectId);
+                        yield return new WaitForSeconds(0.3f);
+                        bool fled = catT.FleeEnd.Value > NetworkManager.Singleton.ServerTime.Time;
+                        gm.Teleport(catT.transform.position + Vector3.back * 0.8f + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return null;
+                        bool whiskerBefore = cprog.CatWhisker.Value;
+                        catT.PickUpRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.3f);
+                        Log("cat struck", "fled " + fled + ", unhurt " + (catHp.Current.Value >= catHp.Max.Value) + ", refused " + (catT.HeldBy.Value == ulong.MaxValue && cprog.CatWhisker.Value == whiskerBefore && !cprog.CatPeed.Value),
+                            fled && catHp.Current.Value >= catHp.Max.Value && catT.HeldBy.Value == ulong.MaxValue && !cprog.CatPeed.Value);
                     }
                     Log("camp folk", FindObjectsByType<UI.CampChatter>(FindObjectsSortMode.None).Length + " chatter, figures " +
                         (GameObject.Find("Smith") != null) + "/" + (GameObject.Find("Priest") != null) + "/" + (GameObject.Find("Tailor") != null) + "/" + (GameObject.Find("Driver") != null),
@@ -1363,6 +1376,22 @@ namespace Deepbound.Networking
             local.GetComponent<UI.GameHud>().DebugOpenShop();
             yield return null;
             yield return Shot(dir, "1b_merchant_panel");
+            // A raven on the road, up close (the lowest one: they also sit on the battlements).
+            var raven = FindObjectsByType<Art.Critter>(FindObjectsSortMode.None).Where(c => c.Type == Art.Critter.Kind.Raven).OrderBy(c => c.transform.position.y).FirstOrDefault();
+            if (raven != null)
+            {
+                local.GetComponent<UI.GameHud>().DebugCloseMenus();
+                var rv = raven.transform.position;
+                if (rv.y > Lobby.Origin.y + 2f) rv = Lobby.Origin + new Vector3(0.3f, 0.02f, 2.6f);
+                raven.DebugHold(rv);
+                var stand = rv + new Vector3(2.2f, 0f, 0.4f);
+                lobbyMotor.Teleport(stand + Vector3.up * 0.1f, Quaternion.LookRotation(Vector3.ProjectOnPlane(rv - stand, Vector3.up)));
+                lobbyMotor.SetPitch(30f);
+                yield return new WaitForSeconds(0.3f);
+                yield return Shot(dir, "0u_raven");
+                lobbyMotor.SetPitch(0f);
+                raven.enabled = true;
+            }
             // Strike Silas: he rocks back, complains, and a bystander chimes in.
             var silasBody = FindObjectsByType<CampFolk>(FindObjectsSortMode.None).FirstOrDefault(f => f.Who.Value == (byte)FolkId.Silas);
             if (silasBody != null)
@@ -1544,6 +1573,21 @@ namespace Deepbound.Networking
             motor.SetPitch(12f);
             yield return new WaitForSeconds(0.4f);
             yield return Shot(dir, "1_start_room_wide");
+            // A rat by the wall, before it bolts.
+            var rat = FindObjectsByType<Art.Critter>(FindObjectsSortMode.None).Where(c => c.Type == Art.Critter.Kind.Rat).OrderBy(c => (c.transform.position - local.transform.position).sqrMagnitude).FirstOrDefault();
+            if (rat != null)
+            {
+                var room0 = DungeonDirector.Layout.Rooms.OrderBy(r => (r.Center - local.transform.position).sqrMagnitude).First();
+                var stand = room0.Center + new Vector3(1.5f, 0f, 1.5f);
+                var rp = room0.Center + new Vector3(2.6f, 0.01f, 2.6f);
+                rat.DebugHold(rp);
+                motor.Teleport(stand + Vector3.up * 0.1f, Quaternion.LookRotation(Vector3.ProjectOnPlane(rp - stand, Vector3.up)));
+                motor.SetPitch(45f);
+                yield return new WaitForSeconds(0.3f);
+                yield return Shot(dir, "1_rat");
+                motor.SetPitch(0f);
+                rat.enabled = true;
+            }
             motor.SetPitch(0f);
             var map = local.GetComponent<UI.Minimap>();
             map.Large = true;

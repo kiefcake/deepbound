@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card }
+    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak }
 
     /// <summary>
     /// Every sound in the game, synthesised at startup. Like the art, nothing is
@@ -83,6 +83,8 @@ namespace Deepbound.Art
                 case Sound.Drink: data = Mix(Gulp(0.12f, 0f), Gulp(0.12f, 0.2f), Gulp(0.12f, 0.4f), Delay(Chime(0.4f, new[] { 784f, 1175f }), 0.5f)); break;
                 case Sound.SlotSpin: data = Rattle(1.1f, 40); break;
                 case Sound.Card: data = Mix(Burst(0.04f, 0.5f), Whoosh(0.08f, 1800f, 4000f)); break;
+                case Sound.Caw: data = Mix(Caw(0.32f, 0f), Caw(0.28f, 0.4f)); break;
+                case Sound.Squeak: data = Squeak(0.09f); break;
                 default: data = new float[Rate / 10]; break;
             }
 
@@ -197,6 +199,39 @@ namespace Deepbound.Art
         }
 
         /// <summary>A cat: a nasal tone that rises and falls ("mi-aow"), its harmonics opening as it goes.</summary>
+        /// <summary>A raven's caw: a raspy, falling tone, its pitch rattled by noise, starting <paramref name="at"/> seconds in.</summary>
+        private static float[] Caw(float seconds, float at)
+        {
+            int off = (int)(at * Rate);
+            var d = new float[off + (int)(seconds * Rate)];
+            float phase = 0f, rough = 0f;
+            for (int i = off; i < d.Length; i++)
+            {
+                float t = (float)(i - off) / (d.Length - off);
+                rough += 0.3f * (N() - rough);
+                float hz = Mathf.Lerp(720f, 430f, t) * (1f + 0.18f * rough);
+                phase += 2f * Mathf.PI * hz / Rate;
+                float v = Mathf.Sin(phase) + 0.7f * Mathf.Sin(phase * 2f) + 0.5f * Mathf.Sign(Mathf.Sin(phase * 3f)) * 0.4f;
+                float env = Mathf.Clamp01(t * 14f) * Mathf.Clamp01((1f - t) * 4f);
+                d[i] = (v * 0.55f + N() * 0.25f) * env;
+            }
+            return d;
+        }
+
+        /// <summary>A rat's squeak: a quick high chirp.</summary>
+        private static float[] Squeak(float seconds)
+        {
+            var d = new float[(int)(seconds * Rate)];
+            float phase = 0f;
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = (float)i / d.Length;
+                phase += 2f * Mathf.PI * Mathf.Lerp(3200f, 4100f, Mathf.Sin(t * Mathf.PI)) / Rate;
+                d[i] = Mathf.Sin(phase) * Mathf.Sin(t * Mathf.PI) * 0.6f;
+            }
+            return d;
+        }
+
         private static float[] Meow(float seconds)
         {
             var d = new float[(int)(seconds * Rate)];

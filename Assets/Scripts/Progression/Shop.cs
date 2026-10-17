@@ -116,7 +116,7 @@ namespace Deepbound.Progression
             // The peddler charges for the trip; a vendor you have hit charges you for that.
             float mult = !World.DungeonDirector.InLobby ? PeddlerMarkup : 1f;
             var buyer = PlayerProgress.ForClient(clientId);
-            if (buyer != null && World.DungeonDirector.InLobby) mult *= buyer.PriceMultiplier(vendor);
+            if (buyer != null) mult *= buyer.PriceMultiplier(vendor);
             if (mult != 1f)
                 for (int i = 0; i < list.Count; i++)
                 {

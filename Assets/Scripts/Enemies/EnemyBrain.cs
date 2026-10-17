@@ -397,6 +397,20 @@ namespace Deepbound.Enemies
             }
 
             target = PickTarget();
+            // First sight of you: a beat to rear up and rattle, so being spotted reads (and costs them a moment).
+            if (target != null && !engaged)
+            {
+                engaged = true;
+                if (!IsBoss && visualKind != CharacterArt.SkeletonKind.Gargoyle && visualKind != CharacterArt.SkeletonKind.Mourner && visualKind != CharacterArt.SkeletonKind.Mimic)
+                {
+                    busyUntil = Mathf.Max(busyUntil, Time.time + 0.4f);
+                    var look = target.transform.position - transform.position; look.y = 0f;
+                    if (look.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(look);
+                    PlayActionRpc(RigAction.Cast, 0.4f);
+                    NoticeRpc();
+                }
+            }
+            else if (target == null) engaged = false;
             if (target != null && IsChampion && !championAnnounced)
             {
                 championAnnounced = true;
@@ -853,6 +867,16 @@ namespace Deepbound.Enemies
                 BoneScatter.Break(Rig);
             }
             Sfx.Play(Sound.Rattle, transform.position + Vector3.up * 0.5f, 0.8f, 0.9f);
+        }
+
+        private bool engaged;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void NoticeRpc()
+        {
+            float top = Rig != null ? Rig.transform.lossyScale.y * 2.1f : 2.1f;
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * top, "!", new Color(1f, 0.85f, 0.3f));
+            Sfx.Play(Sound.Rattle, transform.position + Vector3.up * 1.4f, 0.5f, Random.Range(1.15f, 1.4f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

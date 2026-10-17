@@ -67,18 +67,20 @@ namespace Deepbound.Progression
         /// <summary>Server: time heals - every grudge eases by one (called on each return to camp).</summary>
         public void ServerEaseGrudges()
         {
-            for (int i = 0; i < 6; i++) SetGrudge((World.FolkId)i, Grudge((World.FolkId)i) - 1);
+            for (int i = 0; i <= (int)World.FolkId.Peddler; i++) SetGrudge((World.FolkId)i, Grudge((World.FolkId)i) - 1);
         }
 
         /// <summary>A vendor's mark-up for you: +25% per grudge level.</summary>
-        public float PriceMultiplier(Shop.Vendor vendor) => 1f + 0.25f * Grudge(vendor == Shop.Vendor.Smith ? World.FolkId.Hobb : vendor == Shop.Vendor.Shrine ? World.FolkId.Aldric : World.FolkId.Silas);
+        public float PriceMultiplier(Shop.Vendor vendor) => 1f + 0.25f * Grudge(VendorFolk(vendor));
+
+        /// <summary>Who stands behind a vendor's counter right now (the peddler, off camp).</summary>
+        public static World.FolkId VendorFolk(Shop.Vendor vendor) => vendor == Shop.Vendor.Smith ? World.FolkId.Hobb : vendor == Shop.Vendor.Shrine ? World.FolkId.Aldric
+            : World.DungeonDirector.InLobby ? World.FolkId.Silas : World.FolkId.Peddler;
 
         /// <summary>What it costs to make amends with a vendor (0: nothing to mend).</summary>
         public int AmendsCost(Shop.Vendor vendor)
         {
-            if (!World.DungeonDirector.InLobby) return 0;
-            int g = Grudge(vendor == Shop.Vendor.Smith ? World.FolkId.Hobb : vendor == Shop.Vendor.Shrine ? World.FolkId.Aldric : World.FolkId.Silas);
-            return g * 30;
+            return Grudge(VendorFolk(vendor)) * 30;
         }
 
         /// <summary>Owner → server: pay a vendor to forget it (at their stall).</summary>
@@ -88,7 +90,7 @@ namespace Deepbound.Progression
             int cost = AmendsCost(vendor);
             if (cost <= 0 || Gold.Value < cost || !Shop.InReach(vendor, transform.position, 1f)) return;
             Gold.Value -= cost;
-            var who = vendor == Shop.Vendor.Smith ? World.FolkId.Hobb : vendor == Shop.Vendor.Shrine ? World.FolkId.Aldric : World.FolkId.Silas;
+            var who = VendorFolk(vendor);
             SetGrudge(who, 0);
             AmendsMadeRpc((byte)who);
         }

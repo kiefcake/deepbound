@@ -35,6 +35,54 @@ namespace Deepbound.World
         public readonly NetworkVariable<double> HeldUntil = new NetworkVariable<double>();
         private Transform smile;
 
+        // Swung at: it hisses, sprints ahead along its route (a shared time offset, so every peer agrees),
+        // and will not let that player pet it or pick it up again this visit.
+        public readonly NetworkVariable<double> RouteOffset = new NetworkVariable<double>();
+        public readonly NetworkVariable<double> FleeStart = new NetworkVariable<double>(-100.0);
+        public readonly NetworkVariable<double> FleeEnd = new NetworkVariable<double>(-100.0);
+        private const float FleeSpeedUp = 4f;
+        private readonly HashSet<ulong> scorned = new HashSet<ulong>();
+        private readonly Dictionary<ulong, float> lastScare = new Dictionary<ulong, float>();
+
+        private double RouteTime(double now) => now + RouteOffset.Value + System.Math.Max(0.0, System.Math.Min(now, FleeEnd.Value) - FleeStart.Value) * FleeSpeedUp;
+        private bool Fleeing(double now) => now >= FleeStart.Value && now < FleeEnd.Value;
+
+        private void ServerScared(ulong attackerId)
+        {
+            var nm = NetworkManager.Singleton;
+            if (nm == null || !nm.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj) || obj == null) return;
+            if (!obj.TryGetComponent<PlayerProgress>(out var who)) return;
+            if (lastScare.TryGetValue(attackerId, out var at) && Time.time - at < 2f) return;
+            lastScare[attackerId] = Time.time;
+            double now = NetworkManager.ServerTime.Time;
+            // Fold any earlier flight into the offset, then bolt for a few seconds.
+            RouteOffset.Value += System.Math.Max(0.0, System.Math.Min(now, FleeEnd.Value) - FleeStart.Value) * FleeSpeedUp;
+            FleeStart.Value = now;
+            FleeEnd.Value = now + 2.6;
+            PettedUntil.Value = 0;
+            if (HeldBy.Value != ulong.MaxValue) HeldBy.Value = ulong.MaxValue;
+            scorned.Add(who.NetworkObjectId);
+            HissRpc(who.name);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void HissRpc(string who)
+        {
+            var at = transform.position + Vector3.up * 0.4f;
+            Sfx.Play(Sound.Meow, at, 1f, 0.55f);
+            Sfx.Play(Sound.Whisper, at, 0.8f, 1.6f);
+            UI.GameHud.ShowCombo(at + Vector3.up * 0.4f, "HSSSS!", new Color(1f, 0.6f, 0.3f));
+            UI.CampChatter.CatScared(who, transform.position);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SnubRpc(string who)
+        {
+            Sfx.Play(Sound.Meow, transform.position + Vector3.up * 0.4f, 0.8f, 0.65f);
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 0.9f, "THE CAT WILL NOT HAVE YOU", new Color(1f, 0.6f, 0.3f));
+            UI.GameHud.Feed("The cat remembers what " + who + " did. Not this visit.", new Color(1f, 0.65f, 0.4f));
+        }
+
         /// <summary>
         /// Owner → server: pick the cat up. If you have not petted it this visit it pees on you
         /// (-5% max health for the run); if you have, it smiles and gives you a whisker (1% evasion, one per run).
@@ -44,6 +92,7 @@ namespace Deepbound.World
         {
             if (!user.TryGet(out var obj) || !obj.TryGetComponent<PlayerProgress>(out var who)) return;
             if (HeldBy.Value != ulong.MaxValue || Vector3.Distance(obj.transform.position, transform.position) > Range + 1f) return;
+            if (scorned.Contains(who.NetworkObjectId)) { SnubRpc(who.name); return; }
             bool petted = pettedThisVisit.Contains(who.NetworkObjectId);
             bool news = petted ? !who.CatWhisker.Value : !who.CatPeed.Value;
             who.ServerCatVerdict(petted);
@@ -77,6 +126,7 @@ namespace Deepbound.World
 
         protected override void ServerUse(PlayerProgress who)
         {
+            if (scorned.Contains(who.NetworkObjectId)) { SnubRpc(who.name); return; }
             PettedUntil.Value = NetworkManager.ServerTime.Time + 3.5;
             int coin = 0;
             // Once a visit to camp per player, it may have something for you.
@@ -100,6 +150,11 @@ namespace Deepbound.World
         {
             base.OnNetworkSpawn();
             BuildVisual();
+            if (IsServer && TryGetComponent<Combat.Health>(out var hp))
+            {
+                hp.ServerSetMax(100f, refill: true);
+                hp.IncomingModifiers.Add((dealt, from) => { ServerScared(hp.LastHitFrom); return 0f; });
+            }
             nextMeow = Time.time + Random.Range(8f, 16f);
         }
 
@@ -149,15 +204,16 @@ namespace Deepbound.World
             }
             if (smile != null && smile.gameObject.activeSelf) smile.gameObject.SetActive(false);
             bool petted = now < PettedUntil.Value;
+            bool fleeing = Fleeing(now);
             // While being petted it holds still (the route resumes from where time has carried it after).
             if (!petted)
             {
-                Pose(now, out var p, out var f, out bool walking);
+                Pose(RouteTime(now), out var p, out var f, out bool walking);
                 var at = Lobby.Origin + p;
                 if (Physics.Raycast(at + Vector3.up * 2f, Vector3.down, out var hit, 4f, ~0, QueryTriggerInteraction.Ignore)) at.y = hit.point.y;
                 transform.position = at;
-                if (walking) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(f), Time.deltaTime * 6f);
-                Animate(walking, false);
+                if (walking) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(f), Time.deltaTime * (fleeing ? 14f : 6f));
+                Animate(walking, false, fleeing);
             }
             else Animate(false, true);
 
@@ -169,9 +225,18 @@ namespace Deepbound.World
             }
         }
 
-        private void Animate(bool walking, bool petted)
+        private void Animate(bool walking, bool petted, bool fleeing = false)
         {
             float t = Time.time;
+            // Bolting: a low, fast, bounding run with the tail straight up.
+            if (fleeing)
+            {
+                if (body != null) { body.localPosition = new Vector3(0f, 0.17f + Mathf.Abs(Mathf.Sin(t * 22f)) * 0.05f, 0f); body.localRotation = Quaternion.Euler(Mathf.Sin(t * 22f) * 8f, 0f, 0f); }
+                if (legs != null) legs.localScale = new Vector3(1f, 0.8f + Mathf.Abs(Mathf.Sin(t * 22f)) * 0.3f, 1f);
+                if (tail != null) tail.localRotation = Quaternion.Euler(-10f, 0f, 0f);
+                if (head != null) head.localRotation = Quaternion.Euler(10f, 0f, 0f);
+                return;
+            }
             if (body != null) body.localPosition = new Vector3(0f, walking ? 0.2f + Mathf.Abs(Mathf.Sin(t * 9f)) * 0.015f : 0.15f, 0f);
             if (body != null) body.localRotation = Quaternion.Euler(walking ? 0f : -18f, 0f, 0f);
             if (legs != null) legs.localScale = new Vector3(1f, walking ? 1f : 0.6f, 1f);

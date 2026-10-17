@@ -7,7 +7,7 @@ using UnityEngine;
 namespace Deepbound.World
 {
     /// <summary>The people of the camp, in the order <see cref="UI.CampChatter"/> lists them.</summary>
-    public enum FolkId : byte { Silas = 0, Hobb = 1, Aldric = 2, Vey = 3, Corwin = 4, Bones = 5 }
+    public enum FolkId : byte { Silas = 0, Hobb = 1, Aldric = 2, Vey = 3, Corwin = 4, Bones = 5, Peddler = 6 }
 
     /// <summary>
     /// The body of a camp character: an invisible capsule with a <see cref="Health"/> that no attack

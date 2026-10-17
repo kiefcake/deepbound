@@ -39,6 +39,8 @@ namespace Deepbound.World
                 Props.Candles(lights, at + layout.PeddlerFacing * 1.2f, new Color(1f, 0.75f, 0.45f));
             }
 
+            Art.AmbientLife.Populate(lights, layout);
+
             System.Func<string, Color> tint = mat => mat == Mat.StoneWall ? theme.StoneTint : mat == Mat.Flagstone ? theme.FloorTint : Color.white;
             structure.Build(root.transform, "Structure", collide: true, tint);
             dressing.Build(root.transform, "Dressing", collide: true, tint);

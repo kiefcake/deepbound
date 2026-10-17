@@ -137,6 +137,7 @@ namespace Deepbound.World
             Props.Townsfolk(lights, BoardingCenter + new Vector3(5.6f, 0.9f, 1f), BoardingCenter, Props.Folk.Driver);
 
             structure.Build(root.transform, "LobbyStructure", collide: true);
+            Art.AmbientLife.Ravens(lights, Origin, Radius, WallHeight);
             dressing.Build(root.transform, "LobbyDressing", collide: true);
             root.AddComponent<UI.CampChatter>();
             ApplyCastleAtmosphere();
