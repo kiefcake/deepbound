@@ -156,6 +156,8 @@ namespace Deepbound.EditorTools
         [MenuItem("Deepbound/Build Game + Windows Player")]
         public static void BuildWithPlayer()
         {
+            // Spread garbage collection over frames instead of stopping the world for it.
+            PlayerSettings.gcIncremental = true;
             Build();
 
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions

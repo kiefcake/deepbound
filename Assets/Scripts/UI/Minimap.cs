@@ -112,6 +112,30 @@ namespace Deepbound.UI
             }
 
 
+            // Places worth remembering, once you have been in their room.
+            if (Time.time >= nextScan)
+            {
+                nextScan = Time.time + 1f;
+                chests = FindObjectsByType<Chest>(FindObjectsSortMode.None);
+                fountains = FindObjectsByType<Fountain>(FindObjectsSortMode.None);
+                pages = FindObjectsByType<LorePage>(FindObjectsSortMode.None);
+                reliquaries = FindObjectsByType<Reliquary>(FindObjectsSortMode.None);
+            }
+            bool Known(Vector3 p)
+            {
+                foreach (var room in layout.Rooms) if (room.Contains(p, 0.5f)) return explored.Contains(room.Id);
+                return false;
+            }
+            int fs = large ? 13 : 10;
+            if (chests != null) foreach (var ch in chests) if (ch != null && !ch.Opened.Value && Known(ch.transform.position)) Square(ToMap(ch.transform.position), new Color(1f, 0.78f, 0.3f), large ? 8f : 6f);
+            if (fountains != null) foreach (var f in fountains) if (f != null && !f.Spent.Value && Known(f.transform.position)) Icon(ToMap(f.transform.position), "+", new Color(0.45f, 0.75f, 1f), fs + 2);
+            if (pages != null) foreach (var pg in pages) if (pg != null && Known(pg.transform.position)) Icon(ToMap(pg.transform.position), "J", new Color(0.92f, 0.85f, 0.65f), fs);
+            if (reliquaries != null) foreach (var rq in reliquaries) if (rq != null) Icon(ToMap(rq.transform.position), "R", new Color(1f, 0.85f, 0.4f), fs);
+            if (layout.PeddlerSpot.HasValue && Known(layout.PeddlerSpot.Value)) Icon(ToMap(layout.PeddlerSpot.Value), "$", new Color(1f, 0.82f, 0.35f), fs + 1);
+            if (layout.Rooms.Count > 0) Icon(ToMap(layout.WaystonePosition), "W", new Color(0.55f, 0.85f, 1f), fs);
+            var dirx = DungeonDirector.Instance;
+            if (dirx != null && dirx.Phase.Value == RunPhase.FloorCleared) Icon(ToMap(DungeonDirector.ExitPosition), "EXIT", new Color(0.75f, 0.55f, 1f), fs + 1);
+
             // Loot worth walking to: relics, sigils, runes, and your own gear.
             foreach (var drop in LootDrop.All)
             {
@@ -165,6 +189,18 @@ namespace Deepbound.UI
             var sum = Vector3.zero;
             foreach (var r in layout.Rooms) sum += r.Center;
             return sum / layout.Rooms.Count;
+        }
+
+        private float nextScan;
+        private Chest[] chests;
+        private Fountain[] fountains;
+        private LorePage[] pages;
+        private Reliquary[] reliquaries;
+
+        private static void Square(Vector2 at, Color color, float size)
+        {
+            UiSkin.Rect(new Rect(at.x - size / 2f - 1f, at.y - size / 2f - 1f, size + 2f, size + 2f), new Color(0f, 0f, 0f, 0.7f));
+            UiSkin.Rect(new Rect(at.x - size / 2f, at.y - size / 2f, size, size), color);
         }
 
         private static void Dot(Vector2 at, Color color, float size)

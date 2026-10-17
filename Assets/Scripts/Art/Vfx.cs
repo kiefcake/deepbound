@@ -8,12 +8,44 @@ namespace Deepbound.Art
     /// </summary>
     public static class Vfx
     {
+        // Spent particles wait here instead of being destroyed: effects fire constantly, and
+        // creating and collecting hundreds of GameObjects a second is what makes frames hitch.
+        private static readonly System.Collections.Generic.Stack<Puff> pool = new System.Collections.Generic.Stack<Puff>();
+        private const int PoolCap = 400;
+
+        public static void Recycle(Puff p)
+        {
+            if (p == null) return;
+            if (pool.Count >= PoolCap) { Object.Destroy(p.gameObject); return; }
+            p.gameObject.SetActive(false);
+            pool.Push(p);
+        }
+
         public static Puff Spawn(Mesh mesh, string mat, Vector3 at, Vector3 velocity, float life, float startScale, float endScale, Color? glow = null, float gravity = 0f, float drag = 1f)
         {
-            var go = MeshKit.Part(null, "Puff", mesh, mat, at);
-            var r = go.GetComponent<Renderer>();
-            r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            var p = go.AddComponent<Puff>();
+            Puff p = null;
+            while (pool.Count > 0 && p == null) p = pool.Pop();
+            GameObject go;
+            Renderer r;
+            if (p != null)
+            {
+                go = p.gameObject;
+                go.GetComponent<MeshFilter>().sharedMesh = mesh;
+                r = go.GetComponent<Renderer>();
+                r.sharedMaterial = ArtLibrary.Get(mat);
+                r.SetPropertyBlock(null);
+                go.transform.SetPositionAndRotation(at, Quaternion.identity);
+                go.SetActive(true);
+                p.Restart();
+                p.Glowing = false;
+            }
+            else
+            {
+                go = MeshKit.Part(null, "Puff", mesh, mat, at);
+                r = go.GetComponent<Renderer>();
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                p = go.AddComponent<Puff>();
+            }
             p.Velocity = velocity;
             p.Life = life;
             p.StartScale = startScale;

@@ -231,6 +231,7 @@ namespace Deepbound.UI
 
         private void OnDestroy()
         {
+            if (stateVolume != null) Destroy(stateVolume.gameObject);
             MenuOpen = false;
             Health.AnyHurt -= OnAnyHurt;
             Health.AnyHealed -= OnAnyHealed;
@@ -859,6 +860,7 @@ namespace Deepbound.UI
         {
             hurtFlash = Mathf.MoveTowards(hurtFlash, 0f, Time.deltaTime * 1.5f);
             Heartbeat();
+            StateGrade();
             Tips.Check(player);
 
             var keyboard = Keyboard.current;
@@ -1012,6 +1014,33 @@ namespace Deepbound.UI
                 Rect(rr.x, rr.y, rr.width, rr.height, col);
             }
             GUI.matrix = m;
+        }
+
+        private UnityEngine.Rendering.Volume stateVolume;
+        private float stateWeight;
+
+        /// <summary>Colour drains from the world as your health does, and nearly all of it while you are down.</summary>
+        private void StateGrade()
+        {
+            if (stateVolume == null)
+            {
+                var go = new GameObject("StateGrade");
+                stateVolume = go.AddComponent<UnityEngine.Rendering.Volume>();
+                stateVolume.isGlobal = true;
+                stateVolume.priority = 20f;
+                var profile = ScriptableObject.CreateInstance<UnityEngine.Rendering.VolumeProfile>();
+                var grade = profile.Add<UnityEngine.Rendering.Universal.ColorAdjustments>(true);
+                grade.saturation.Override(-80f);
+                grade.postExposure.Override(0.25f);
+                grade.contrast.Override(28f);
+                stateVolume.sharedProfile = profile;
+                stateVolume.weight = 0f;
+            }
+            float want = 0f;
+            if (life != null && life.Downed.Value) want = 1f;
+            else if (health != null && health.Fraction > 0f) want = Mathf.InverseLerp(0.4f, 0.08f, health.Fraction) * 0.55f;
+            stateWeight = Mathf.MoveTowards(stateWeight, want, Time.deltaTime * (want > stateWeight ? 2f : 0.8f));
+            stateVolume.weight = stateWeight;
         }
 
         private float nextBeat;

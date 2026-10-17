@@ -18,6 +18,13 @@ namespace Deepbound.Art
 
         private void Start() => rend = GetComponent<Renderer>();
 
+        /// <summary>Reused from the pool: start a fresh life.</summary>
+        public void Restart()
+        {
+            age = 0f;
+            rend = GetComponent<Renderer>();
+        }
+
         private void Update()
         {
             age += Time.deltaTime;
@@ -27,7 +34,7 @@ namespace Deepbound.Art
             transform.position += Velocity * Time.deltaTime;
             transform.localScale = Vector3.one * Mathf.Lerp(StartScale, EndScale, k);
             if (Glowing && rend != null) ArtLibrary.SetGlow(rend, Glow * (1f - k) * (1f - k));
-            if (age >= Life) Destroy(gameObject);
+            if (age >= Life) Vfx.Recycle(this);
         }
     }
 }
