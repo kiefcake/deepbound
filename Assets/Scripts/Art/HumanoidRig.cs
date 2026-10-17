@@ -93,6 +93,19 @@ namespace Deepbound.Art
             ApplyGlow(1f);
         }
 
+        private void Footfall(float speed)
+        {
+            float size = transform.lossyScale.y;
+            bool heavy = size >= 1.4f;
+            if (!heavy && speed < 5.5f) return;
+            var cam = ViewCamera.Current;
+            if (cam == null || (cam.transform.position - transform.position).sqrMagnitude > (heavy ? 26f * 26f : 14f * 14f)) return;
+            var foot = transform.position + Vector3.up * 0.05f;
+            var dust = new Color(0.36f, 0.31f, 0.26f);
+            Vfx.Embers(foot, heavy ? 5 : 2, dust, heavy ? 1.6f : 0.9f, heavy ? 0.07f : 0.045f, 0.6f);
+            if (heavy) Sfx.Play(Sound.Step, foot, Mathf.Clamp01(0.25f * size), Mathf.Lerp(0.8f, 0.45f, Mathf.InverseLerp(1.4f, 2.2f, size)));
+        }
+
         /// <summary>Plays an action whose length matches the gameplay timing that triggered it.</summary>
         public void Play(RigAction kind, float duration)
         {
@@ -119,7 +132,10 @@ namespace Deepbound.Art
             if (speed > 30f) speed = 0f; // a teleport, not a sprint
 
             walkAmount = Mathf.MoveTowards(walkAmount, Mathf.Clamp01(speed / 4f), dt * 4f);
+            float lastPhase = walkPhase;
             walkPhase += speed * dt / StrideLength * Mathf.PI * 2f;
+            // A footfall every half cycle: heavy things thud and raise dust, runners scuff up a little.
+            if (Mathf.Floor(walkPhase / Mathf.PI) != Mathf.Floor(lastPhase / Mathf.PI) && walkAmount > 0.5f) Footfall(speed);
 
             float swing = Mathf.Sin(walkPhase) * 35f * walkAmount;
             float bob = Mathf.Abs(Mathf.Cos(walkPhase)) * 0.05f * walkAmount;

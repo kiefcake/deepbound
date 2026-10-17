@@ -625,13 +625,31 @@ namespace Deepbound.Enemies
             }
         }
 
+        private float nextIdleStroll;
+
+        /// <summary>Idle undead shuffle about their post instead of standing like furniture (not archers on watch, statues or bosses).</summary>
+        private bool IdleWanders => !IsBoss && visualKind != CharacterArt.SkeletonKind.Archer && visualKind != CharacterArt.SkeletonKind.Gargoyle &&
+            visualKind != CharacterArt.SkeletonKind.Mourner && visualKind != CharacterArt.SkeletonKind.Mimic;
+
         private void ReturnHome()
         {
             agent.isStopped = false;
-            if (FlatDistance(home) > 1f && Time.time >= repathAt)
+            if (FlatDistance(home) > 4f || !IdleWanders)
             {
-                repathAt = Time.time + 1f;
-                agent.SetDestination(home);
+                if (FlatDistance(home) > 1f && Time.time >= repathAt)
+                {
+                    repathAt = Time.time + 1f;
+                    agent.SetDestination(home);
+                }
+                return;
+            }
+            // At its post: a slow, aimless shuffle now and then.
+            agent.speed *= 0.3f;
+            if (Time.time >= nextIdleStroll)
+            {
+                nextIdleStroll = Time.time + Random.Range(4f, 10f);
+                var p = home + new Vector3(Random.Range(-2.5f, 2.5f), 0f, Random.Range(-2.5f, 2.5f));
+                if (NavMesh.SamplePosition(p, out var hit, 1.2f, NavMesh.AllAreas)) agent.SetDestination(hit.position);
             }
         }
 
