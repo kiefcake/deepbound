@@ -102,7 +102,59 @@ namespace Deepbound.UI
             try { PlayerPrefs.Save(); } catch { }
         }
 
-        public static void Apply() => AudioListener.volume = Volume;
+        public static void Apply()
+        {
+            AudioListener.volume = Volume;
+            ApplyGraphics();
+        }
+
+        // ---- Graphics ----
+        private const string GraphicsKey = "deepbound.graphics", VsyncKey = "deepbound.vsync";
+        private static float? graphics, vsync;
+        public static readonly string[] GraphicsNames = { "Low", "Medium", "High" };
+
+        /// <summary>0 low, 1 medium, 2 high (the full look).</summary>
+        public static int GraphicsQuality
+        {
+            get => Mathf.Clamp(Mathf.RoundToInt(graphics ??= Load(GraphicsKey, 2f)), 0, 2);
+            set { graphics = Mathf.Clamp(value, 0, 2); Save(GraphicsKey, graphics.Value); ApplyGraphics(); }
+        }
+
+        public static bool VSync
+        {
+            get => (vsync ??= Load(VsyncKey, 1f)) > 0.5f;
+            set { vsync = value ? 1f : 0f; Save(VsyncKey, vsync.Value); ApplyGraphics(); }
+        }
+
+        private static float? baseShadowDistance;
+
+        /// <summary>
+        /// Push the graphics preset into the running pipeline: render scale, shadow distance (0 = no
+        /// shadows) and the ambient-occlusion pass; and the frame cap (VSync, or uncapped to 240).
+        /// </summary>
+        public static void ApplyGraphics()
+        {
+            int q = GraphicsQuality;
+            QualitySettings.vSyncCount = VSync ? 1 : 0;
+            Application.targetFrameRate = VSync ? -1 : 240;
+            if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline is UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset urp)
+            {
+                baseShadowDistance ??= urp.shadowDistance;
+                urp.renderScale = q == 0 ? 0.7f : q == 1 ? 0.85f : 1f;
+                urp.shadowDistance = q == 0 ? 0f : q == 1 ? Mathf.Min(baseShadowDistance.Value, 25f) : baseShadowDistance.Value;
+                // The SSAO renderer feature, found by type on the active renderer.
+                try
+                {
+                    var renderer = urp.GetRenderer(0);
+                    var prop = typeof(UnityEngine.Rendering.Universal.ScriptableRenderer).GetProperty("rendererFeatures",
+                        System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                    if (renderer != null && prop != null && prop.GetValue(renderer) is System.Collections.Generic.List<UnityEngine.Rendering.Universal.ScriptableRendererFeature> features)
+                        foreach (var f in features)
+                            if (f != null && f.GetType().Name.Contains("ScreenSpaceAmbientOcclusion")) f.SetActive(q == 2);
+                }
+                catch { /* the look is optional; never stop the game over it */ }
+            }
+        }
 
         private static float Load(string key, float fallback)
         {

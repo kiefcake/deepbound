@@ -1892,6 +1892,9 @@ namespace Deepbound.Networking
             UI.PauseMenu.SetOpen(true);
             yield return null;
             yield return Shot(dir, "9_pause");
+            UI.PauseMenu.DebugShowOptions(local.GetComponent<UI.PauseMenu>() ?? FindFirstObjectByType<UI.PauseMenu>());
+            yield return null;
+            yield return Shot(dir, "9c_options");
             UI.PauseMenu.DebugShowGuide(local.GetComponent<UI.PauseMenu>() ?? FindFirstObjectByType<UI.PauseMenu>());
             yield return null;
             yield return Shot(dir, "9a_guide");

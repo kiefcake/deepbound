@@ -19,6 +19,7 @@ namespace Deepbound.UI
 
         /// <summary>For the screenshot run.</summary>
         public static void DebugShowGuide(PauseMenu menu, int page = 0) { Open = true; menu.guide = true; menu.guidePage = page; }
+        public static void DebugShowOptions(PauseMenu menu) { Open = true; menu.guide = false; menu.options = true; }
 
         // The Guide: every progression system and combo on one page, in plain words.
         private static readonly (string title, string body)[] GuideLeft =
@@ -57,6 +58,37 @@ namespace Deepbound.UI
         };
         private int guidePage;
 
+        /// <summary>A checkbox that shows its state (a gold square inside a box), label beside it. <paramref name="radio"/>: round-ish, for one-of choices.</summary>
+        private static bool Check(bool on, string label, bool radio = false)
+        {
+            var rect = GUILayoutUtility.GetRect(new GUIContent("      " + label), UiSkin.Body, GUILayout.Height(24));
+            var box = new Rect(rect.x + 2f, rect.y + 4f, 16f, 16f);
+            var gold = UiSkin.Gold;
+            UiSkin.Rect(box, new Color(gold.r * 0.55f, gold.g * 0.55f, gold.b * 0.55f, 0.95f));
+            UiSkin.Rect(new Rect(box.x + 1f, box.y + 1f, 14f, 14f), new Color(0.05f, 0.04f, 0.03f, 1f));
+            if (on) UiSkin.Rect(radio ? new Rect(box.x + 5f, box.y + 5f, 6f, 6f) : new Rect(box.x + 3.5f, box.y + 3.5f, 9f, 9f), gold);
+            GUI.Label(new Rect(rect.x + 26f, rect.y, rect.width - 26f, rect.height), label, new GUIStyle(UiSkin.Body) { normal = { textColor = on ? Color.white : new Color(0.8f, 0.78f, 0.72f) } });
+            if (GUI.Button(rect, GUIContent.none, GUIStyle.none)) on = !on;
+            return on;
+        }
+
+        /// <summary>A row of buttons, the chosen one underlined in gold.</summary>
+        private static int Choice(int current, string[] names)
+        {
+            GUILayout.BeginHorizontal();
+            for (int i = 0; i < names.Length; i++)
+            {
+                if (GUILayout.Button(names[i], UiSkin.Button, GUILayout.Height(30))) current = i;
+                if (i == current && Event.current.type == EventType.Repaint)
+                {
+                    var r = GUILayoutUtility.GetLastRect();
+                    UiSkin.Rect(new Rect(r.x + 4f, r.yMax - 4f, r.width - 8f, 3f), UiSkin.Gold);
+                }
+            }
+            GUILayout.EndHorizontal();
+            return current;
+        }
+
         /// <summary>Set by other menus each frame; Esc closes them rather than opening this.</summary>
         public static bool OtherMenuOpenLastFrame;
 
@@ -81,7 +113,7 @@ namespace Deepbound.UI
             for (int i = 0; i < Settings.VoiceModeNames.Length; i++)
             {
                 bool on = Settings.VoiceMode == i;
-                if (GUILayout.Toggle(on, " " + Settings.VoiceModeNames[i], UiSkin.Body) && !on) Settings.VoiceMode = i;
+                if (Check(on, Settings.VoiceModeNames[i], true) && !on) Settings.VoiceMode = i;
             }
             GUILayout.EndHorizontal();
             GUILayout.Space(10);
@@ -116,7 +148,7 @@ namespace Deepbound.UI
                 DrawGuide(w, h);
                 return;
             }
-            var area = options ? new Rect(w / 2f - 390, h / 2f - 290, 780, 590) : new Rect(w / 2f - 180, h / 2f - 200, 360, 410);
+            var area = options ? new Rect(w / 2f - 390, h / 2f - 335, 780, 680) : new Rect(w / 2f - 180, h / 2f - 200, 360, 410);
             UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
             GUILayout.BeginArea(area);
             GUILayout.Label(options ? "OPTIONS" : "PAUSED", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
@@ -138,11 +170,17 @@ namespace Deepbound.UI
                 GUILayout.Label("Screen shake  " + Mathf.RoundToInt(Settings.ShakeScale * 100f) + "%", UiSkin.Body);
                 Settings.ShakeScale = GUILayout.HorizontalSlider(Settings.ShakeScale, 0f, 1.5f);
                 GUILayout.Space(8);
-                Settings.DamageNumbers = GUILayout.Toggle(Settings.DamageNumbers, "  Damage numbers", UiSkin.Body);
-                Settings.ReduceFlashing = GUILayout.Toggle(Settings.ReduceFlashing, "  Reduce flashing effects", UiSkin.Body);
-                Settings.ShowTips = GUILayout.Toggle(Settings.ShowTips, "  Show tips", UiSkin.Body);
-                Settings.ShowFps = GUILayout.Toggle(Settings.ShowFps, "  Show frame rate", UiSkin.Body);
+                Settings.DamageNumbers = Check(Settings.DamageNumbers, "Damage numbers");
+                Settings.ReduceFlashing = Check(Settings.ReduceFlashing, "Reduce flashing effects");
+                Settings.ShowTips = Check(Settings.ShowTips, "Show tips");
+                Settings.ShowFps = Check(Settings.ShowFps, "Show frame rate");
                 if (GUILayout.Button("Show all tips again", UiSkin.Button, GUILayout.Height(30))) Settings.ResetTips();
+                GUILayout.Space(10);
+                GUILayout.Label("Graphics  (lower helps slower PCs)", UiSkin.Body);
+                int gq = Choice(Settings.GraphicsQuality, Settings.GraphicsNames);
+                if (gq != Settings.GraphicsQuality) Settings.GraphicsQuality = gq;
+                bool vs = Check(Settings.VSync, "VSync (off: uncapped frame rate)");
+                if (vs != Settings.VSync) Settings.VSync = vs;
                 var cam = Player.NetworkPlayer.Local != null ? Player.NetworkPlayer.Local.Camera : null;
                 if (cam != null) cam.fieldOfView = Settings.FieldOfView;
                 GUILayout.EndVertical();
