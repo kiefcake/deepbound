@@ -70,10 +70,11 @@ namespace Deepbound.Enemies
             foreach (var b in prefabs)
             {
                 if (b == null) continue;
-                for (int depth = 0; depth < 4; depth++)
+                for (int depth = 0; depth <= World.DungeonDirector.AbyssDepth; depth++)
                 {
-                    // A boss is only ever met on its own floor.
-                    int bossFloor = b is GravewardenBrain ? 0 : b is TideLichBrain ? 1 : b is HollowKingBrain ? 2 : b is CardinalBrain ? 3 : -1;
+                    // A boss is only ever met on its own floor (the Unsung in the Abyss, below the last).
+                    int bossFloor = b is GravewardenBrain ? 0 : b is TideLichBrain ? 1 : b is HollowKingBrain ? 2 : b is CardinalBrain ? 3 : b is UnsungBrain ? World.DungeonDirector.AbyssDepth : -1;
+                    if (bossFloor < 0 && depth >= World.DungeonDirector.AbyssDepth) continue; // the rank and file: floors 1-4
                     if (bossFloor >= 0 && depth != bossFloor) continue;
                     bool boss = b is BossBrain;
                     var kit = Loadout.For(depth);

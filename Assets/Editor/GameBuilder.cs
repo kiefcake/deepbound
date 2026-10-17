@@ -394,7 +394,7 @@ namespace Deepbound.EditorTools
                 case EnemyType.Unsung:
                     // The secret final boss: patterns more than reach; the toughest fight in the game.
                     Kind(Art.CharacterArt.SkeletonKind.Unsung);
-                    Set("maxHealth", 4600f); Set("damage", 34f); Set("defense", 7f); Set("moveSpeed", 1.7f);
+                    Set("maxHealth", 4150f); Set("damage", 34f); Set("defense", 7f); Set("moveSpeed", 1.7f);
                     Set("attackRange", 3.6f); Set("windup", 1.0f); Set("recovery", 1.2f); Set("aggroRange", 26f); Set("leashRange", 70f);
                     break;
                 case EnemyType.Cardinal:
