@@ -685,7 +685,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -706,6 +706,7 @@ namespace Deepbound.Art
             if (kind == SkeletonKind.Gargoyle) return BuildGargoyle(root);
             if (kind == SkeletonKind.Mourner) return BuildMourner(root);
             if (kind == SkeletonKind.Unsung) return BuildUnsung(root);
+            if (kind == SkeletonKind.Entling) return BuildEntling(root);
             bool king = kind == SkeletonKind.King;
             float s = king ? 1.75f : kind == SkeletonKind.Gravewarden ? 2.0f : kind == SkeletonKind.Lich ? 1.45f : kind == SkeletonKind.Cardinal ? 1.7f
                 : kind == SkeletonKind.Brute ? 1.45f : kind == SkeletonKind.Plaguebearer ? 1.15f : kind == SkeletonKind.Ghoul ? 0.92f : kind == SkeletonKind.Necromancer ? 1.05f : 1f;
@@ -1569,6 +1570,81 @@ namespace Deepbound.Art
         /// carved hair, a wreath, a long robe to the floor, folded feathered wings. Its weak point
         /// is a glowing crack over the heart, where the stone wept through.
         /// </summary>
+        /// <summary>
+        /// The Entling: a hunched, knee-high knot of dark root and rotten wood. Legs of twisted root,
+        /// a split trunk for a body with a glowing heartwood knot (its weak point), long branch arms
+        /// ending in twig claws, a gnarled head with two amber eyes in the bark, and a crown of
+        /// dead twigs and a few sick leaves.
+        /// </summary>
+        private static HumanoidRig BuildEntling(Transform root)
+        {
+            var bark = new Color(0.3f, 0.21f, 0.13f);
+            var moss = new Color(0.22f, 0.32f, 0.14f);
+            var visual = MeshKit.Pivot(root, "EntlingVisual", Vector3.zero);
+            var rig = visual.gameObject.AddComponent<HumanoidRig>();
+            rig.GlowColor = new Color(1f, 0.7f, 0.2f);
+            Renderer Bark(GameObject g, float k = 1f) { var r = g.GetComponent<Renderer>(); ArtLibrary.Tint(r, bark * k); return r; }
+
+            rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.55f, 0f));
+            // Legs: each a pair of twisted root strands, splaying into root-toes.
+            rig.LegL = MeshKit.Pivot(rig.Hips, "LegL", new Vector3(-0.13f, 0f, 0f));
+            rig.LegR = MeshKit.Pivot(rig.Hips, "LegR", new Vector3(0.13f, 0f, 0f));
+            foreach (var leg in new[] { rig.LegL, rig.LegR })
+            {
+                Bark(MeshKit.Part(leg, "Root", MeshKit.Cylinder(0.075f, 0.05f, 0.5f, 6), Mat.Wood, new Vector3(0f, -0.26f, 0f), new Vector3(0f, 0f, 6f)));
+                Bark(MeshKit.Part(leg, "Strand", MeshKit.Cylinder(0.04f, 0.03f, 0.48f, 5), Mat.Wood, new Vector3(0.04f, -0.25f, 0.03f), new Vector3(8f, 30f, -10f)), 0.85f);
+                for (int t = -1; t <= 1; t++)
+                    Bark(MeshKit.Part(leg, "Toe", MeshKit.Cylinder(0.03f, 0.008f, 0.22f, 4), Mat.Wood, new Vector3(t * 0.06f, -0.52f, 0.08f), new Vector3(80f, t * 30f, 0f)), 0.9f);
+            }
+            // The trunk: a fat, split lathe leaning forward, with bark ridges and moss.
+            rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", new Vector3(0f, 0.02f, 0f));
+            Bark(MeshKit.Part(rig.Torso, "Trunk", MeshKit.Lathe("entTrunk", new[]
+            {
+                new Vector2(0.2f, -0.05f), new Vector2(0.26f, 0.12f), new Vector2(0.24f, 0.35f), new Vector2(0.19f, 0.55f), new Vector2(0.1f, 0.66f),
+            }, 9), Mat.Wood, Vector3.zero, new Vector3(12f, 0f, 0f), new Vector3(1f, 1f, 0.85f)));
+            for (int i = 0; i < 5; i++)
+                Bark(MeshKit.Part(rig.Torso, "Ridge" + i, MeshKit.Box(new Vector3(0.035f, 0.5f, 0.04f)), Mat.Wood, Quaternion.Euler(0f, i * 72f + 20f, 0f) * new Vector3(0f, 0f, 0.235f) + Vector3.up * 0.28f,
+                    new Vector3(12f, i * 72f + 20f, (i % 2 == 0 ? 4f : -4f))), 0.7f);
+            var mossPatch = MeshKit.Part(rig.Torso, "Moss", MeshKit.Ball(0.14f, 7, 5), Mat.Cloth, new Vector3(-0.12f, 0.5f, 0.1f), default, new Vector3(1.2f, 0.45f, 1f));
+            ArtLibrary.Tint(mossPatch.GetComponent<Renderer>(), moss);
+            // The heartwood knot, glowing through a split in the bark: hit it.
+            WeakPoint.Add(rig.Torso, new Vector3(0f, 0.3f, 0.23f), 0.06f, new Color(1f, 0.6f, 0.15f));
+
+            rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.68f, 0.08f));
+            Bark(MeshKit.Part(rig.Head, "Knot", MeshKit.Ball(0.17f, 9, 7), Mat.Wood, new Vector3(0f, 0.08f, 0f), default, new Vector3(1f, 0.85f, 0.95f)));
+            Bark(MeshKit.Part(rig.Head, "Brow", MeshKit.Box(new Vector3(0.3f, 0.05f, 0.08f)), Mat.Wood, new Vector3(0f, 0.13f, 0.13f), new Vector3(-15f, 0f, 0f)), 0.75f);
+            var mouth = MeshKit.Part(rig.Head, "Mouth", MeshKit.Box(new Vector3(0.14f, 0.035f, 0.03f)), Mat.Dark, new Vector3(0f, 0.0f, 0.15f));
+            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.022f, 6, 4), Mat.Glow, new Vector3(-0.065f, 0.095f, 0.145f));
+            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.022f, 6, 4), Mat.Glow, new Vector3(0.065f, 0.095f, 0.145f));
+            // Crown of dead twigs, and a few sick leaves.
+            for (int i = 0; i < 7; i++)
+            {
+                float a = i * 51f;
+                var twig = MeshKit.Part(rig.Head, "Twig" + i, MeshKit.Cylinder(0.02f, 0.005f, 0.3f + (i % 3) * 0.08f, 4), Mat.Wood,
+                    new Vector3(0f, 0.2f, 0f) + Quaternion.Euler(0f, a, 0f) * Vector3.forward * 0.08f, new Vector3(-25f - (i % 2) * 15f, a, 0f));
+                Bark(twig, 0.8f);
+                if (i % 2 == 0)
+                {
+                    var leaf = MeshKit.Part(rig.Head, "Leaf" + i, MeshKit.Box(new Vector3(0.09f, 0.01f, 0.13f)), Mat.Cloth,
+                        new Vector3(0f, 0.38f, 0f) + Quaternion.Euler(0f, a, 0f) * Vector3.forward * 0.17f, new Vector3(25f, a, 20f));
+                    ArtLibrary.Tint(leaf.GetComponent<Renderer>(), i == 4 ? new Color(0.45f, 0.35f, 0.1f) : moss);
+                }
+            }
+            // Long branch arms that drag low, twig claws at the ends.
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var arm = MeshKit.Pivot(rig.Torso, s < 0 ? "ArmL" : "ArmR", new Vector3(s * 0.24f, 0.5f, 0.02f));
+                Bark(MeshKit.Part(arm, "Upper", MeshKit.Cylinder(0.055f, 0.04f, 0.42f, 6), Mat.Wood, new Vector3(0f, -0.21f, 0f), new Vector3(0f, 0f, s * 8f)));
+                Bark(MeshKit.Part(arm, "Lower", MeshKit.Cylinder(0.04f, 0.028f, 0.38f, 5), Mat.Wood, new Vector3(s * 0.03f, -0.58f, 0.04f), new Vector3(-12f, 0f, s * -4f)), 0.9f);
+                for (int c = -1; c <= 1; c++)
+                    Bark(MeshKit.Part(arm, "Claw", MeshKit.Cylinder(0.018f, 0.004f, 0.2f, 4), Mat.Wood, new Vector3(s * 0.03f + c * 0.03f, -0.82f, 0.06f), new Vector3(-30f, c * 25f, 0f)), 0.8f);
+                if (s < 0) rig.ArmL = arm; else rig.ArmR = arm;
+            }
+            rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
+            rig.StrideLength = 0.9f;
+            return rig;
+        }
+
         private static HumanoidRig BuildMourner(Transform root)
         {
             var stone = new Color(0.92f, 0.94f, 1f);

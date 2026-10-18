@@ -62,7 +62,7 @@ namespace Deepbound.Enemies
         private float tauntUntil;
         protected float stunnedUntil;
         protected float busyUntil;
-        private bool attacking;
+        protected bool attacking;
         private float strikeAt;
         private Vector3 home;
         private Vector3 knockback;
@@ -655,6 +655,12 @@ namespace Deepbound.Enemies
         public static float ClassThreat(Classes.ClassId c) => c == Classes.ClassId.Knight ? 2.6f : c == Classes.ClassId.Rogue ? 0.7f
             : c == Classes.ClassId.Ranger ? 0.85f : c == Classes.ClassId.Cleric ? 0.9f : 1f;
 
+        /// <summary>How well this one leads a moving target: by depth, sharper for elites and bosses.</summary>
+        protected float LeadSkill => Mathf.Clamp01(Difficulty.Lead(depthForLoot) + (Elite.Value ? 0.25f : 0f) + (IsBoss ? 0.15f : 0f));
+
+        /// <summary>Server: the direction to fire a projectile of <paramref name="speed"/> at the target, leading it.</summary>
+        protected Vector3 AimDir(Vector3 origin, float speed) => target != null ? Aim.Lead(target, origin, speed, LeadSkill) - origin : transform.forward;
+
         public void ServerAddThreat(ulong player, float amount)
         {
             if (!IsServer || amount <= 0f) return;
@@ -930,7 +936,7 @@ namespace Deepbound.Enemies
             }
             if (!NoLoot && lootPrefab != null)
             {
-                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.5f * depthForLoot) * Difficulty.Level.Gold * World.DungeonDirector.OmenGold);
+                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.5f * World.DungeonDirector.Tier(depthForLoot)) * Difficulty.Level.Gold * World.DungeonDirector.OmenGold);
                 // Gear, rolled for each player: always from a boss, sometimes from an elite.
                 if (this is BossBrain)
                 {
@@ -939,7 +945,7 @@ namespace Deepbound.Enemies
                     for (int i = 0; i < NetworkManager.ConnectedClientsIds.Count; i++)
                         World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Quaternion.Euler(0f, i * 90f + 45f, 0f) * Vector3.forward * 1.6f, LootKind.Sigil, 1, transform.position);
                 }
-                else if (Elite.Value) GearDrop.ServerSpawnForParty(transform.position, 0.3f, 0);
+                else if (Elite.Value) GearDrop.ServerSpawnForParty(transform.position, 0.18f, 0);
             }
             Invoke(nameof(Despawn), 4f);
         }

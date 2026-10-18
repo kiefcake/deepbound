@@ -51,6 +51,9 @@ namespace Deepbound.UI
                     if (it is CampCat) Offer("cat", "The castle cat. F pets it (sometimes it has found something for you). G picks it up... ask it first.");
                 }
                 Offer("camp", "CAMP: Silas sells potions, Hobb at the anvil sells embers and gear, the shrine offers relics. Temper your weapon at the anvil, take a contract at the bounty board and set an omen at the stone. Board the carriage when ready.");
+                if (Vector3.Distance(me, Lobby.YardSpot) < 6f) Offer("drills", "THE DRILL BOARD: pay gold to train a stat for the run. Each drill costs more than the last.");
+                if (Vector3.Distance(me, Lobby.CarriageStall) < 6f) Offer("corwin", "CORWIN knows the way down: a SCOUT'S MAP charts the next floor; SMELLING SALTS get you up on your own once.");
+                if (PlayerLife.All.Count > 1) Offer("purse", "PARTY LOOT is shared by default: gold and embers anyone picks up are split evenly. In the inventory (I) you can give gold, even out the purse, or ctrl-click a piece to hand it to the nearest ally.");
                 return;
             }
             var layout = DungeonDirector.Layout;
@@ -65,6 +68,11 @@ namespace Deepbound.UI
             }
             if (PlayerVoice.MicAvailable && Settings.VoiceMode != 2)
                 Offer("voice", "PROXIMITY VOICE is on: players near you hear you, muffled through walls. SHOUTING wakes the dead nearby. Options has push-to-talk (T).");
+            if (DungeonDirector.IsWardenFloor(layout.Depth)) Offer("warden", "Each act's first floor ends at a WARDEN, the second at the act's master. Ten floors in all; the Unsung waits at the bottom.");
+            var myKit = player.ActiveKit;
+            if (myKit != null && myKit.AttackRange > 6f) Offer("falloff", "RANGED shots lose bite past half their range (60% at the very end), and arrows and knives DROP: aim a little high at distance.");
+            if (Object.FindObjectsByType<EntlingBrain>(FindObjectsSortMode.None).Any(e => !e.IsDead && Vector3.Distance(e.transform.position, me) < 16f))
+                Offer("entling", "ENTLINGS sprint at you and root you to the spot: you cannot move until it dies. Kill it on the way in, or turn and cut it off you.");
             Offer("pingwheel", "PINGS: tap Z (or middle mouse) to mark what you aim at. HOLD it for the wheel: Danger, On my way, Need help, Look.");
             var relic = Reliquary.Current;
             if (relic != null && !relic.Carried && Vector3.Distance(relic.transform.position, me) < 10f)
@@ -113,10 +121,11 @@ namespace Deepbound.UI
             }
             if (Object.FindObjectsByType<FateWheel>(FindObjectsSortMode.None).Any(w => !w.Spun.Value && Vector3.Distance(w.transform.position, me) < 9f))
                 Offer("wheel", "WHEEL OF FATE: one spin for the whole party. It usually gives... usually.");
-            if (layout.Depth == 0) Offer("bones", "THE OSSUARY: fallen skeletons pull themselves together. Walk over a bone pile to stamp it out.");
-            if (layout.Depth == 1) Offer("tide", "THE DROWNED VAULTS: when the water thickens it halves your speed (the dead barely slow). Get onto stairs, balconies or stones.");
-            if (layout.Depth == 2) Offer("lantern", "THE HOLLOW THRONE: smash a soul lantern to heal your party and stun the dead nearby.");
-            if (layout.Depth == 3) Offer("bell", "THE BLACK CATHEDRAL: when the bell tolls, JUMP the shockwave.");
+            int act = DungeonDirector.Act(layout.Depth);
+            if (act == 0) Offer("bones", "THE OSSUARY: fallen skeletons pull themselves together. Walk over a bone pile to stamp it out.");
+            if (act == 1) Offer("tide", "THE DROWNED VAULTS: when the water thickens it halves your speed (the dead barely slow). Get onto stairs, balconies or stones.");
+            if (act == 2) Offer("lantern", "THE HOLLOW THRONE: smash a soul lantern to heal your party and stun the dead nearby.");
+            if (act == 3) Offer("bell", "THE BLACK CATHEDRAL: when the bell tolls, JUMP the shockwave.");
         }
 
         /// <summary>Owner, from the HUD's OnGUI.</summary>

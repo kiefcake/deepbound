@@ -45,8 +45,8 @@ namespace Deepbound.UI
             UiSkin.Shadowed(new Rect(panel.x, panel.y + 14, pw, 50), won ? "THE DEPTHS ARE CLEARED" : "YOUR PARTY HAS FALLEN",
                 new GUIStyle(UiSkin.Title) { fontSize = 38, normal = { textColor = won ? UiSkin.Gold : new Color(0.85f, 0.25f, 0.2f) } });
             GUI.Label(new Rect(panel.x, panel.y + 66, pw, 24),
-                (won ? (floor > DungeonDirector.FloorsPerRun ? "Every floor conquered, and what lay beneath" : "Every floor conquered")
-                    : floor > DungeonDirector.FloorsPerRun ? "Fell in the Abyss, below the last floor" : "Fell on floor " + floor + " of " + DungeonDirector.FloorsPerRun) + "   ·   Run time " + time,
+                (won ? "All " + DungeonDirector.FloorsPerRun + " floors conquered, the Unsung silenced"
+                    : "Fell on floor " + floor + " of " + DungeonDirector.FloorsPerRun + (floor - 1 >= DungeonDirector.AbyssDepth ? ", in the Abyss" : "")) + "   ·   Run time " + time,
                 new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
 
             // Table.
@@ -92,7 +92,8 @@ namespace Deepbound.UI
             var me = NetworkPlayer.Local != null ? NetworkPlayer.Local.GetComponent<PlayerProgress>() : null;
             if (me != null)
             {
-                int bosses = won ? DungeonDirector.FloorsPerRun : Mathf.Max(0, d.Floor.Value.y);
+                // Renown counts the act bosses (a Warden is half of one): the run is twice as long as it was.
+                int bosses = ((won ? DungeonDirector.FloorsPerRun : Mathf.Max(0, d.Floor.Value.y)) + 1) / 2;
                 int got = Cosmetics.AwardRun(d.RunStartedAt.Value, bosses, me.Kills.Value, me.CombosTriggered.Value, won, d.DifficultyIndex.Value, DungeonDirector.OmenRenown(d.RunOmen));
                 if (got >= 0) renownEarned = got;
                 GUI.Label(new Rect(panel.x + 30, panel.yMax - 104, pw - 60, 28), Epitaph(me, won, floor),
@@ -111,8 +112,9 @@ namespace Deepbound.UI
         {
             string name = me.name;
             var d = DungeonDirector.Instance;
-            if (won && d != null && d.Floor.Value.y >= DungeonDirector.AbyssDepth) return "Here walks " + name + ", who went below the hymn and sang the Unsung to its end.";
             if (won && me.Downs.Value == 0) return "Here walks " + name + ", who went to the bottom of Cathedra and never once knelt.";
+            if (won && d != null && d.SealCount >= DungeonDirector.SealTotal) return "Here walks " + name + ", who broke every Seal and sang the Unsung to its end.";
+            if (won && d != null && d.Floor.Value.y >= DungeonDirector.AbyssDepth) return "Here walks " + name + ", who went below the hymn and sang the Unsung to its end.";
             if (won) return "Here walks " + name + ", who brought the Last Lantern home from the bottom of the world.";
             if (me.CatPeed.Value) return "Here lies " + name + ", who picked up the cat without asking. The smell outlived them.";
             if (me.AbyssKicks.Value >= 3) return "Here lies " + name + ", who kicked " + me.AbyssKicks.Value + " of the dead into the dark. The dark kept count.";
@@ -170,7 +172,7 @@ namespace Deepbound.UI
             parts.Add(weapon);
             foreach (var slot in new[] { Loot.GearSlot.Armor, Loot.GearSlot.Charm })
                 if (!prog.Equipped(slot).IsEmpty) parts.Add(Loot.Gear.BaseName(prog.Equipped(slot).Kind));
-            for (int i = 0; i < 2; i++)
+            for (int i = 0; i < Loot.Runes.MaxSockets; i++)
                 if (prog.Socketed(i) != Loot.Rune.None) parts.Add(Loot.Runes.Name(prog.Socketed(i)));
             parts.Add("Q" + prog.RankQ.Value + " E" + prog.RankE.Value);
             return string.Join("   ·   ", parts);

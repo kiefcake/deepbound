@@ -56,11 +56,18 @@ namespace Deepbound.Enemies
 
         // --- Depth (0 = first floor) ---
 
-        public static float DepthHealth(int depth) => 1f + 0.45f * depth;
-        public static float DepthDamage(int depth) => 1f + 0.3f * depth;
+        // Ten floors: everything climbs by the floor's tier (half a step a floor, see DungeonDirector.Tier).
+        public static float DepthHealth(int depth) => 1f + 0.45f * World.DungeonDirector.Tier(depth);
+        public static float DepthDamage(int depth) => 1f + 0.3f * World.DungeonDirector.Tier(depth);
+
+        /// <summary>
+        /// How well the dead lead a moving target and how many tricks a boss uses: nothing on the first
+        /// floors (learn the telegraphs first), half way by floor 4, fully from floor 7. Floor = depth + 1.
+        /// </summary>
+        public static float Lead(int depth) => Mathf.Clamp01((depth - 1) / 5f);
 
         /// <summary>Chance a regular enemy spawns as an elite.</summary>
-        public static float EliteChance(int depth, int players) => 0.11f + 0.05f * depth + 0.02f * Extra(players) + Level.EliteBonus;
+        public static float EliteChance(int depth, int players) => 0.11f + 0.05f * World.DungeonDirector.Tier(depth) + 0.02f * Extra(players) + Level.EliteBonus;
 
         // --- Rank and file: fewer of them, each a real fight (play-test feedback 2026-10-16) ---
 

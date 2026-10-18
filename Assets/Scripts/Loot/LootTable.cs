@@ -46,47 +46,48 @@ namespace Deepbound.Loot
         }
 
         // ------------------------------------------------------------------
-        // Tables. Embers are sized so a thorough floor buys about two weapon levels.
+        // Tables (fewer, fuller drops since 2026-10-18: most kills drop nothing, what drops is worth
+        // stopping for; potions mostly come from the merchant now). Embers buy about a level a floor.
         // ------------------------------------------------------------------
 
         public static readonly LootTable Skeleton = new LootTable()
-            .Add(0.75f, LootKind.Gold, 3, 8)
-            .Add(0.35f, LootKind.Embers, 1, 3)
-            .Add(0.2f, LootKind.PotionHP, 1, 1)
-            .Add(0.1f, LootKind.PotionMP, 1, 1);
+            .Add(0.4f, LootKind.Gold, 6, 12)
+            .Add(0.2f, LootKind.Embers, 2, 4)
+            .Add(0.07f, LootKind.PotionHP, 1, 1)
+            .Add(0.035f, LootKind.PotionMP, 1, 1);
 
-        /// <summary>Elites: worth hunting. A real chance at a relic.</summary>
+        /// <summary>Elites: worth hunting. A chance at a relic.</summary>
         public static readonly LootTable Elite = new LootTable()
-            .Add(1f, LootKind.Gold, 15, 25)
-            .Add(1f, LootKind.Embers, 6, 10)
-            .Add(0.3f, LootKind.Relic)
-            .Add(0.15f, LootKind.Sigil)
-            .Add(0.2f, LootKind.Rune)
-            .Add(0.6f, LootKind.PotionHP, 1, 1)
-            .Add(0.35f, LootKind.PotionMP, 1, 1);
+            .Add(1f, LootKind.Gold, 20, 32)
+            .Add(1f, LootKind.Embers, 7, 11)
+            .Add(0.18f, LootKind.Relic)
+            .Add(0.12f, LootKind.Sigil)
+            .Add(0.15f, LootKind.Rune)
+            .Add(0.3f, LootKind.PotionHP, 1, 1)
+            .Add(0.15f, LootKind.PotionMP, 1, 1);
 
         /// <summary>Side-room chests: worth the detour.</summary>
         public static readonly LootTable Chest = new LootTable()
-            .Add(1f, LootKind.Gold, 25, 40)
-            .Add(1f, LootKind.Embers, 8, 14)
-            .Add(0.3f, LootKind.Relic)
-            .Add(0.25f, LootKind.Sigil)
-            .Add(0.3f, LootKind.Rune)
-            .Add(0.75f, LootKind.PotionHP, 1, 2)
-            .Add(0.4f, LootKind.PotionMP, 1, 1);
+            .Add(1f, LootKind.Gold, 30, 45)
+            .Add(1f, LootKind.Embers, 9, 14)
+            .Add(0.22f, LootKind.Relic)
+            .Add(0.2f, LootKind.Sigil)
+            .Add(0.22f, LootKind.Rune)
+            .Add(0.45f, LootKind.PotionHP, 1, 1)
+            .Add(0.2f, LootKind.PotionMP, 1, 1);
 
-        /// <summary>Clay urns: pocket change, now and then an ember.</summary>
+        /// <summary>Clay urns: now and then some pocket change.</summary>
         public static readonly LootTable Urn = new LootTable()
-            .Add(0.6f, LootKind.Gold, 2, 6)
-            .Add(0.1f, LootKind.Embers, 1, 2)
-            .Add(0.08f, LootKind.PotionHP, 1, 1);
+            .Add(0.3f, LootKind.Gold, 3, 7)
+            .Add(0.05f, LootKind.Embers, 1, 2)
+            .Add(0.03f, LootKind.PotionHP, 1, 1);
 
         /// <summary>Every boss always pays out — a boss kill should never feel wasted.</summary>
         public static readonly LootTable SkeletonKing = new LootTable()
             .Add(1f, LootKind.Gold, 40, 60)
             .Add(1f, LootKind.Relic)
             .Add(1f, LootKind.Embers, 30, 40)
-            .Add(1f, LootKind.PotionHP, 2, 2)
-            .Add(1f, LootKind.PotionMP, 1, 1);
+            .Add(1f, LootKind.PotionHP, 1, 1)
+            .Add(0.6f, LootKind.PotionMP, 1, 1);
     }
 }

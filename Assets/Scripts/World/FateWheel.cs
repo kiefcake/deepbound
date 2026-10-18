@@ -66,7 +66,7 @@ namespace Deepbound.World
         {
             yield return new WaitForSeconds(SpinSeconds + 0.2f);
             var d = DungeonDirector.Instance;
-            int depth = DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0;
+            int depth = Mathf.RoundToInt(DungeonDirector.Tier(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0));
             var front = transform.position + transform.forward * 2f + Vector3.up * 0.5f;
             switch (Segments[pick].fate)
             {

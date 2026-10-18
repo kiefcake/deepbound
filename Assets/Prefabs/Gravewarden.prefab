@@ -183,7 +183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.GravewardenBrain
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 1450
+  maxHealth: 1700
   damage: 26
   defense: 4
   moveSpeed: 2.9

@@ -83,6 +83,7 @@ namespace Deepbound.Player
         {
             Health = GetComponent<Health>();
             progress = GetComponent<PlayerProgress>();
+            debuffs = GetComponent<PlayerDebuffs>();
             motor = GetComponent<FirstPersonMotor>();
         }
 
@@ -119,7 +120,26 @@ namespace Deepbound.Player
             base.OnDestroy();
         }
 
-        public bool CanAct => !Downed.Value && !World.Carryable.IsCarrying(NetworkObjectId);
+        public bool CanAct => !Downed.Value && !World.Carryable.IsCarrying(NetworkObjectId) && !(debuffs != null && debuffs.Manic);
+
+        private PlayerDebuffs debuffs;
+
+        /// <summary>Server: this player's ground velocity, smoothed (shooters use it to lead their shots).</summary>
+        public Vector3 ServerVelocity { get; private set; }
+        private Vector3 velocitySampleAt;
+        private float nextVelocitySample;
+
+        private void TrackVelocity()
+        {
+            if (Time.time < nextVelocitySample) return;
+            float dt = 0.1f;
+            nextVelocitySample = Time.time + dt;
+            var p = transform.position;
+            var raw = (p - velocitySampleAt) / dt;
+            velocitySampleAt = p;
+            if (raw.sqrMagnitude > 400f) raw = Vector3.zero; // a teleport, not a run
+            ServerVelocity = Vector3.Lerp(ServerVelocity, raw, 0.5f);
+        }
 
         // ---- Death recap: the last hits before going down (League's death recap). ----
         private struct HitRecord { public string Who; public float Amount, Time; }
@@ -170,6 +190,7 @@ namespace Deepbound.Player
                 : NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(Health.LastHitFrom, out var killer) ? killer.name : "#" + Health.LastHitFrom;
             Debug.Log("[Down] " + name + " went down at " + transform.position.ToString("F1") + ", last hit by " + by + " from " + Health.LastHitAt.ToString("F1"));
             Downed.Value = true;
+            downedAt = Time.time;
             ReviveProgress.Value = 0f;
             Bleed.Value = 0f;
             bleedCarry = 0f;
@@ -229,6 +250,7 @@ namespace Deepbound.Player
                 OwnerDodgeInput();
             }
             if (!IsServer) return;
+            TrackVelocity();
             if (!Downed.Value)
             {
                 ServerRegen();
@@ -236,6 +258,14 @@ namespace Deepbound.Player
             }
 
             if (Soul.Value) return;
+            // Smelling salts: a sharp breath and you are back on your feet.
+            if (this.progress != null && this.progress.Salts.Value && Time.time - downedAt >= SaltsSeconds)
+            {
+                this.progress.Salts.Value = false;
+                ServerRevive(0.3f);
+                SaltsRpc();
+                return;
+            }
             bool beingRevived = reviver != null && Time.time - lastReviverPing < 0.35f && !reviver.Downed.Value &&
                                 Vector3.Distance(reviver.transform.position, transform.position) <= ReviveRange + 0.5f;
 
@@ -344,6 +374,19 @@ namespace Deepbound.Player
         }
 
         private float bleedCarry;
+        private float downedAt;
+        public const float SaltsSeconds = 5f;
+
+        /// <summary>A downed player with smelling salts is about to get up: not a wipe yet.</summary>
+        public bool GettingUp => Downed.Value && !Soul.Value && progress != null && progress.Salts.Value;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SaltsRpc()
+        {
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.1f, "SMELLING SALTS", new Color(0.9f, 0.95f, 0.8f));
+            UI.GameHud.Feed(name + " comes round with a gasp (smelling salts)", new Color(0.85f, 0.95f, 0.8f));
+            Sfx.Play(Sound.Relic, transform.position + Vector3.up, 0.6f, 1.4f);
+        }
 
         private bool AnyAllyStanding()
         {

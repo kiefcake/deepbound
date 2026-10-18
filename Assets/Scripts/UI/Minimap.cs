@@ -3,6 +3,7 @@ using Deepbound.Combat;
 using Deepbound.Loot;
 using Deepbound.Player;
 using Deepbound.World;
+using Deepbound.Progression;
 using UnityEngine;
 using UnityEngine.InputSystem;
 
@@ -60,6 +61,11 @@ namespace Deepbound.UI
                 explored.Add(layout.StartRoom.Id);
                 nextScan = 0f;
             }
+
+            // Corwin's map: every room charted from the start.
+            var me = NetworkPlayer.Local;
+            if (me != null && me.TryGetComponent<PlayerProgress>(out var mine) && mine.MapRevealed.Value && explored.Count < layout.Rooms.Count)
+                foreach (var r in layout.Rooms) explored.Add(r.Id);
 
             // Any party member standing in a room reveals it for everyone's map.
             foreach (var p in PlayerLife.All)
@@ -301,7 +307,7 @@ namespace Deepbound.UI
             GUI.Label(new Rect(frame.center.x - 15f, frame.y - 4f, 30f, 18f), "N", new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = UiSkin.Gold } });
             if (!large)
             {
-                string place = layout.Depth >= DungeonDirector.AbyssDepth ? "THE ABYSS" : "FLOOR " + (layout.Depth + 1);
+                string place = "FLOOR " + (layout.Depth + 1) + (layout.Depth >= DungeonDirector.AbyssDepth ? " (ABYSS)" : "");
                 GUI.Label(new Rect(frame.x, frame.yMax + 6f, frame.width, 18), place + "   ·   M  map", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperRight });
             }
             else DrawLegend(layout, frame);
@@ -314,10 +320,10 @@ namespace Deepbound.UI
             UiSkin.Panel(panel, 0.95f);
             float y = panel.y + 14f;
             var theme = DungeonTheme.ForDepth(layout.Depth);
-            string title = layout.Depth >= DungeonDirector.AbyssDepth ? "THE ABYSS" : "FLOOR " + (layout.Depth + 1);
+            string title = "FLOOR " + (layout.Depth + 1);
             GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 24f), title, new GUIStyle(UiSkin.Heading) { fontSize = 20 });
             y += 26f;
-            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 20f), theme.Name, new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Italic });
+            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 20f), theme.Name + ": " + DungeonTheme.FloorName(layout.Depth), new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Italic, wordWrap = true });
             y += 26f;
             int seen = 0;
             foreach (var r in layout.Rooms) if (explored.Contains(r.Id)) seen++;

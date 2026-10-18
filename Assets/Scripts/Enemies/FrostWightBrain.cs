@@ -48,7 +48,12 @@ namespace Deepbound.Enemies
                 foreach (var victim in CombatQuery.Circle(transform.position, novaRadius, Team.Players))
                 {
                     victim.ServerDamage(damage * 0.8f, transform.position, NetworkObjectId);
-                    if (victim.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerFrostbite(4f);
+                    if (victim.TryGetComponent<PlayerDebuffs>(out var deb))
+                    {
+                        deb.ServerFrostbite(4f);
+                        // From the Hollow Throne down, the nova freezes your feet as well.
+                        if (World.DungeonDirector.Act(depthForLoot) >= 2) deb.ServerRoot(0.8f);
+                    }
                 }
                 NovaRpc(transform.position, novaRadius);
             }
@@ -64,7 +69,7 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void NovaWarnRpc(Vector3 at, float radius, float seconds)
         {
-            Telegraph.Show(at, radius, seconds, this, new Color(0.55f, 0.85f, 1f, 0.4f));
+            Telegraph.Show(at, radius, seconds, this, Telegraph.Frost);
             Sfx.Play(Sound.Frost, at + Vector3.up, 0.7f, 0.7f);
         }
 

@@ -130,10 +130,19 @@ namespace Deepbound.Player
 
             if (hasControl && !LookHeld) ApplyLook(ReadLookInput());
             MoveInput = canMove ? ReadMoveInput() : Vector2.zero;
+            bool sprintKey = keyboard != null && keyboard.leftShiftKey.isPressed;
+            bool jumpKey = keyboard != null && keyboard.spaceKey.wasPressedThisFrame;
+            // Mania: your legs are not your own. Rooted: they are frozen to the floor.
+            if (debuffs == null) debuffs = GetComponent<PlayerDebuffs>();
+            bool manic = debuffs != null && debuffs.Manic && canMove;
+            if (manic) { MoveInput = ManiaInput(); sprintKey = true; jumpKey = false; }
+            if (debuffs != null && debuffs.Rooted) jumpKey = false;
 
-            ApplyMovement(MoveInput,
-                          canMove && CanSprint && keyboard != null && keyboard.leftShiftKey.isPressed,
-                          canMove && keyboard != null && keyboard.spaceKey.wasPressedThisFrame);
+            ApplyMovement(MoveInput, canMove && (CanSprint || manic) && sprintKey, canMove && jumpKey);
+
+            // The world sways while madness has you.
+            maniaRoll = Mathf.Lerp(maniaRoll, manic ? Mathf.Sin(Time.time * 4.3f) * 7f + Mathf.Sin(Time.time * 7.1f) * 3f : 0f, 1f - Mathf.Exp(-Time.deltaTime * 6f));
+            if (cameraPivot != null && (manic || Mathf.Abs(maniaRoll) > 0.05f)) cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, maniaRoll);
 
             if (cameraPivot != null)
             {
@@ -141,6 +150,23 @@ namespace Deepbound.Player
                 p.y = Mathf.Lerp(p.y, pivotRestHeight - CameraDrop - (IsSliding ? 0.7f : 0f), Time.deltaTime * (IsSliding ? 14f : 8f));
                 cameraPivot.localPosition = p;
             }
+        }
+
+        private PlayerDebuffs debuffs;
+        private float maniaRoll, nextManiaTurn;
+        private Vector3 maniaDir;
+
+        /// <summary>Owner, while manic: a wild run that lurches to a new heading every half second or so.</summary>
+        private Vector2 ManiaInput()
+        {
+            bool stuck = controller.velocity.sqrMagnitude < 1f && Time.time > nextManiaTurn - 0.4f;
+            if (Time.time >= nextManiaTurn || stuck || maniaDir == Vector3.zero)
+            {
+                nextManiaTurn = Time.time + Random.Range(0.45f, 0.85f);
+                float a = Random.Range(0f, Mathf.PI * 2f);
+                maniaDir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+            }
+            return new Vector2(Vector3.Dot(maniaDir, transform.right), Vector3.Dot(maniaDir, transform.forward)).normalized;
         }
 
         private static Vector2 ReadMoveInput()

@@ -667,7 +667,7 @@ namespace Deepbound.World
             return brazier;
         }
 
-        private static Torch AddFlame(Transform root, Vector3 at, float size, Color color, float intensity, float range, bool shadows)
+        public static Torch AddFlame(Transform root, Vector3 at, float size, Color color, float intensity, float range, bool shadows)
         {
             var flame = MeshKit.Pivot(root, "Flame", at);
             flame.localScale = Vector3.one * size;

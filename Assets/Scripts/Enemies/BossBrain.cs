@@ -432,7 +432,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
-            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); }
+            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); TickPatterns(); TickQuickShots(); }
             if (IsServer && !IsDead && Dormant)
             {
                 if (agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
@@ -451,6 +451,177 @@ namespace Deepbound.Enemies
         {
             if (IsServer && !IsDead && IsSpawned) TickPhases();
             TickBubble();
+        }
+
+        // ------------------------------------------------------------------
+        // Bullet patterns: arms of bolts wheeling out from an emitter that MOVES (orbits the boss,
+        // walks with it, circles the arena), spinning one way then the other, with aimed shots
+        // mixed in, so standing still is never the answer.
+        // ------------------------------------------------------------------
+
+        protected class Pattern
+        {
+            public int Arms = 4;
+            public float Interval = 0.12f, Speed = 12f, Spin = 12f, Damage = 10f, Range = 34f;
+            /// <summary>Seconds between spin reversals (0 = never).</summary>
+            public float FlipEvery;
+            /// <summary>Degrees of extra sway per volley (a flower instead of a pinwheel).</summary>
+            public float Wobble;
+            /// <summary>Seconds between leading shots at every player (0 = none).</summary>
+            public float AimedEvery;
+            public ProjectileKind Kind = ProjectileKind.ShadowBolt;
+            /// <summary>Where the emitter is, given seconds since the pattern began.</summary>
+            public System.Func<float, Vector3> Origin;
+            public System.Action<Health> OnHit;
+            public float Duration = 6f;
+            internal float Started, NextAt, NextAimed, Angle;
+        }
+
+        private readonly List<Pattern> patterns = new List<Pattern>();
+
+        protected Pattern StartPattern(Pattern p)
+        {
+            p.Started = Time.time;
+            p.NextAt = Time.time;
+            p.NextAimed = Time.time + (p.AimedEvery > 0f ? p.AimedEvery * 0.6f : float.MaxValue);
+            p.Angle = Random.Range(0f, 360f);
+            p.Origin ??= _ => transform.position + Vector3.up * 1.3f;
+            patterns.Add(p);
+            return p;
+        }
+
+        protected void StopPatterns() => patterns.Clear();
+        protected bool PatternRunning => patterns.Count > 0;
+
+        /// <summary>An emitter circling the boss at <paramref name="radius"/>, <paramref name="degPerSec"/> round.</summary>
+        protected System.Func<float, Vector3> Orbit(float radius, float degPerSec, float phase = 0f, float height = 1.3f) =>
+            t => transform.position + Quaternion.Euler(0f, phase + t * degPerSec, 0f) * Vector3.forward * radius + Vector3.up * height;
+
+        private void TickPatterns()
+        {
+            for (int i = patterns.Count - 1; i >= 0; i--)
+            {
+                var p = patterns[i];
+                float t = Time.time - p.Started;
+                if (t >= p.Duration) { patterns.RemoveAt(i); continue; }
+                int guard = 0;
+                while (Time.time >= p.NextAt && guard++ < 3)
+                {
+                    p.NextAt += p.Interval;
+                    bool flipped = p.FlipEvery > 0f && ((int)(t / p.FlipEvery)) % 2 == 1;
+                    p.Angle += (flipped ? -p.Spin : p.Spin) + (p.Wobble > 0f ? Mathf.Sin(t * 2.4f) * p.Wobble : 0f);
+                    var origin = p.Origin(t);
+                    for (int a = 0; a < p.Arms; a++)
+                    {
+                        var dir = Quaternion.Euler(0f, p.Angle + a * 360f / p.Arms, 0f) * Vector3.forward;
+                        Arrows.ServerFire(origin, dir, p.OnHit != null ? 0f : p.Damage, Team.Players, NetworkObjectId, p.Speed, p.OnHit, false, p.Range);
+                    }
+                    PatternVolleyRpc(origin, p.Angle, (byte)p.Arms, p.Speed, (byte)p.Kind, p.Range);
+                }
+                if (Time.time >= p.NextAimed)
+                {
+                    p.NextAimed = Time.time + p.AimedEvery;
+                    var origin = p.Origin(t);
+                    foreach (var pl in PlayerLife.All)
+                    {
+                        if (pl == null || !pl.Targetable) continue;
+                        var dir = Aim.Lead(pl.Health, origin, p.Speed * 1.4f, Mathf.Max(0.6f, LeadSkill)) - origin;
+                        dir.y = 0f;
+                        Arrows.ServerFire(origin, dir, p.Damage * 1.2f, Team.Players, NetworkObjectId, p.Speed * 1.4f, null, false, p.Range);
+                        QuickVisualRpc(origin, dir, (byte)p.Kind, p.Speed * 1.4f, p.Range);
+                    }
+                }
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PatternVolleyRpc(Vector3 origin, float angle, byte arms, float speed, byte kind, float range)
+        {
+            for (int a = 0; a < arms; a++)
+                Arrows.SpawnVisual(origin, Quaternion.Euler(0f, angle + a * 360f / arms, 0f) * Vector3.forward, (ProjectileKind)kind, speed, range);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void QuickVisualRpc(Vector3 origin, Vector3 dir, byte kind, float speed, float range)
+        {
+            Arrows.SpawnVisual(origin, dir, (ProjectileKind)kind, speed, range);
+            Sfx.Play(Sound.Whisper, origin, 0.5f, 1.5f);
+        }
+
+        // ---- Quick shots: run from a boss on floor 3 or deeper and it answers with a fast, leading burst ----
+
+        /// <summary>What it throws at a fleeing party (none: it never does).</summary>
+        protected virtual ProjectileKind? QuickKind => ProjectileKind.ShadowBolt;
+        public const float QuickSpeed = 26f;
+        private float nextQuick, farSince = -1f;
+
+        private void TickQuickShots()
+        {
+            if (QuickKind == null || scaledDepth < 2 || Dormant || Immune || target == null || Casting || attacking) { farSince = -1f; return; }
+            if (FlatDistance(target.transform.position) < attackRange + 5f) { farSince = -1f; return; }
+            if (farSince < 0f) farSince = Time.time;
+            if (Time.time - farSince < 1.4f || Time.time < nextQuick) return;
+            nextQuick = Time.time + Mathf.Lerp(5.5f, 3f, Difficulty.Lead(scaledDepth));
+            StartCoroutine(QuickBurst(scaledDepth >= 6 ? 3 : 2));
+        }
+
+        private System.Collections.IEnumerator QuickBurst(int shots)
+        {
+            // The tell: a flare at its hand and a hiss, a beat before the first shot.
+            var hand = transform.position + Vector3.up * 2.3f + transform.forward * 0.9f;
+            QuickTellRpc(hand, (byte)QuickKind.Value);
+            yield return new WaitForSeconds(0.4f);
+            for (int i = 0; i < shots && target != null && !IsDead; i++)
+            {
+                FaceTarget(1f);
+                var origin = transform.position + Vector3.up * 2.3f + transform.forward * 0.9f;
+                var dir = AimDir(origin, QuickSpeed);
+                Arrows.ServerFire(origin, dir, damage * 0.45f, Team.Players, NetworkObjectId, QuickSpeed, null, false, 36f);
+                QuickVisualRpc(origin, dir, (byte)QuickKind.Value, QuickSpeed, 36f);
+                yield return new WaitForSeconds(0.2f);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void QuickTellRpc(Vector3 at, byte kind)
+        {
+            Vfx.Flash(at, Arrows.BoltColor((ProjectileKind)kind), 3f, 4f, 0.35f);
+            Vfx.Embers(at, 6, Arrows.BoltColor((ProjectileKind)kind), 2f, 0.05f, 0.4f);
+            Sfx.Play(Sound.Bow, at, 0.8f, 1.4f);
+        }
+
+        // ---- Cone warnings on its big swings ----
+
+        protected override void BeginAttack()
+        {
+            base.BeginAttack();
+            if (attacking && Rig != null)
+                ConeTelegraphRpc(transform.position, transform.forward, Mathf.Clamp(attackArc, 40f, 300f), attackRange + health.BodyRadius + 0.6f, windup);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ConeTelegraphRpc(Vector3 apex, Vector3 dir, float angle, float radius, float seconds)
+        {
+            if (Rig != null) Telegraph.ShowCone(apex, dir, angle, radius, seconds, Rig);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void CancelConeRpc() { if (Rig != null) Telegraph.Cancel(Rig); }
+
+        public override void ServerStun(float seconds)
+        {
+            if (attacking) CancelConeRpc();
+            base.ServerStun(seconds);
+        }
+
+        /// <summary>Where a player will be in <paramref name="seconds"/>, as far as this boss is clever enough to guess.</summary>
+        protected Vector3 PredictedFeet(PlayerLife p, float seconds)
+        {
+            var v = p.ServerVelocity;
+            v.y = 0f;
+            var at = p.transform.position + v * seconds * LeadSkill;
+            if (UnityEngine.AI.NavMesh.SamplePosition(at, out var hit, 2.5f, UnityEngine.AI.NavMesh.AllAreas)) at = hit.position;
+            return at;
         }
 
         /// <summary>A cast-time summon of the minion prefab in a ring around the boss.</summary>
@@ -503,6 +674,9 @@ namespace Deepbound.Enemies
         {
             Telegraph.Show(center, radius, duration, keyed ? this : null);
         }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        protected void TintedCircleRpc(Vector3 center, float radius, float duration, Color tint) => Telegraph.Show(center, radius, duration, null, tint);
 
         [Rpc(SendTo.ClientsAndHost)]
         protected void LineTelegraphRpc(Vector3 start, Vector3 direction, float length, float width, float duration)

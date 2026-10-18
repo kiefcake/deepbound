@@ -43,7 +43,7 @@ namespace Deepbound.World
 
         public static string ContractReward(Contract c) => HardContract(c) ? "gold, embers and a Sigil each" : "gold and embers each";
 
-        private static int SlayerGoal(int depth) => 30 + 10 * Mathf.Max(0, depth);
+        private static int SlayerGoal(int depth) => Mathf.RoundToInt(30 + 10 * Tier(depth));
 
         /// <summary>Server: the party takes a notice at camp.</summary>
         public void ServerTakeContract(Contract c)
@@ -111,7 +111,7 @@ namespace Deepbound.World
         {
             ContractState.Value = (byte)ContractStatus.Fulfilled;
             var c = (Contract)ActiveContract.Value;
-            int depth = Layout != null ? Layout.Depth : 0;
+            int depth = Mathf.RoundToInt(Tier(Layout != null ? Layout.Depth : 0));
             foreach (var p in PlayerLife.All)
             {
                 if (p == null) continue;

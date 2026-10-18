@@ -106,7 +106,7 @@ namespace Deepbound.Enemies
         {
             if (target == null) return;
             var origin = transform.position + Vector3.up * 1.45f + transform.forward * 0.4f;
-            var dir = target.Center - origin;
+            var dir = AimDir(origin, Arrows.Speed);
             Arrows.ServerFire(origin, dir, damage, Team.Players, NetworkObjectId);
             FireRpc(origin, dir);
             PlanReposition();

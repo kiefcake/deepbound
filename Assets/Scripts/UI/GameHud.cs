@@ -302,8 +302,9 @@ namespace Deepbound.UI
             else
             {
                 int depth = DungeonDirector.Layout.Depth;
-                bannerTitle = "FLOOR " + (depth + 1);
-                bannerSub = depth < FloorNames.Length ? FloorNames[depth] : "The Deep";
+                bannerTitle = "FLOOR " + (depth + 1) + "  -  " + DungeonTheme.FloorName(depth).ToUpperInvariant();
+                int act = DungeonDirector.Act(depth);
+                bannerSub = (act < FloorNames.Length ? FloorNames[act] : "The Deep") + (DungeonDirector.IsWardenFloor(depth) ? "  ·  a Warden bars the way down" : "  ·  the act's master waits below");
                 bannerHint = DungeonDirector.GimmickHint(depth);
             }
         }
@@ -553,13 +554,35 @@ namespace Deepbound.UI
             GUI.Label(new Rect(cx, cy, 300, 22), "RELICS (" + progress.RelicCount + ")", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
             cy += 22;
             string hoverText = null;
-            for (int i = 0; i < progress.RelicCount && cy < py + ph - 20; i++)
+            bool party = PlayerLife.All.Count > 1;
+            for (int i = 0; i < progress.RelicCount && cy < py + ph - (party ? 150 : 20); i++)
             {
                 var rel = progress.RelicAt(i);
                 var rr = new Rect(cx, cy, 300, 18);
                 GUI.Label(rr, Relics.Name(rel), new GUIStyle(small) { normal = { textColor = rr.Contains(mouse) ? Color.white : new Color(0.85f, 0.8f, 0.7f) } });
                 if (rr.Contains(mouse)) hoverText = Relics.Name(rel) + ": " + Relics.Describe(rel);
                 cy += 18;
+            }
+
+            // ---- The party purse: give gold, or even it out ----
+            if (party)
+            {
+                float qy = py + ph - 144;
+                GUI.Label(new Rect(cx, qy, 300, 22), "PARTY PURSE" + (DungeonDirector.ShareLoot ? "  (loot is shared)" : "  (finders keepers)"), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+                qy += 22;
+                int shown = 0;
+                foreach (var ally in PlayerLife.All)
+                {
+                    if (ally == null || ally.gameObject == player.gameObject || shown >= 3) continue;
+                    var ap = ally.GetComponent<PlayerProgress>();
+                    GUI.Label(new Rect(cx, qy, 190, 20), ally.name + "   " + ap.Gold.Value + "g", small);
+                    GUI.enabled = progress.Gold.Value >= 25;
+                    if (GUI.Button(new Rect(cx + 196, qy, 104, 20), "Give 25 gold")) progress.GiveGoldRpc(ally.NetworkObjectId, 25);
+                    GUI.enabled = true;
+                    qy += 23;
+                    shown++;
+                }
+                if (GUI.Button(new Rect(cx, qy + 2, 300, 22), "Even out gold  (share what you have over the average)")) progress.EvenOutGoldRpc();
             }
 
             // ---- The pack: a 4 x 2 grid ----
@@ -582,7 +605,8 @@ namespace Deepbound.UI
                 if (over)
                 {
                     hovered = item;
-                    if (click && button == 0 && ev.shift) { progress.BagDropRpc(i); ev.Use(); }
+                    if (click && button == 0 && ev.control && party) { progress.BagGiftRpc(i); ev.Use(); }
+                    else if (click && button == 0 && ev.shift) { progress.BagDropRpc(i); ev.Use(); }
                     else if (click && button == 0) { progress.BagEquipRpc(i); Art.Sfx.Play2D(Art.Sound.Block, 0.4f); ev.Use(); }
                     else if (click && button == 1) { progress.BagScrapRpc(i); ev.Use(); }
                 }
@@ -611,7 +635,7 @@ namespace Deepbound.UI
             }
 
             GUI.Label(new Rect(px, py + ph - 22, pw, 20),
-                "Pack: click to wear   right-click to scrap for embers   shift-click to drop        Worn: right-click to take off        I / Esc close",
+                "Pack: click to wear   right-click to scrap   shift-click to drop" + (party ? "   ctrl-click to give to the nearest ally" : "") + "      Worn: right-click to take off      I / Esc close",
                 new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
         }
 
@@ -791,6 +815,8 @@ namespace Deepbound.UI
                 ? "Rest, trade and gamble.   The carriage goes down to floor " + (director.NextDepth.Value + 1) + "."
                 : cls + " (B to change)   ·   " + diff.Name + (host ? " difficulty ( [ / ] )" : " difficulty") +
                   (director.RunOmen != Omen.None ? "   ·   Omen: " + DungeonDirector.OmenName(director.RunOmen) : "");
+            if (Unity.Netcode.NetworkManager.Singleton.ConnectedClientsIds.Count > 1 || PlayerLife.All.Count > 1)
+                line2 += "   ·   Loot: " + (director.FindersKeepers.Value ? "finders keepers" : "shared") + (host ? " (L)" : "");
             GUI.Label(new Rect(x, y + 24, pw, 18), line2, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
             GUI.Label(new Rect(x, y + 41, pw, 18), "Gather in the golden circle at the gate   (" + aboard + " / " + total + " aboard)",
                 new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = aboard > 0 ? Gold : new Color(0.85f, 0.82f, 0.78f) } });
@@ -847,6 +873,8 @@ namespace Deepbound.UI
         {
             if (NearVendor(Shop.Vendor.Merchant)) return Shop.Vendor.Merchant;
             if (NearVendor(Shop.Vendor.Shrine)) return Shop.Vendor.Shrine;
+            if (NearVendor(Shop.Vendor.Yard)) return Shop.Vendor.Yard;
+            if (NearVendor(Shop.Vendor.Carriage)) return Shop.Vendor.Carriage;
             return null;
         }
 
@@ -896,6 +924,7 @@ namespace Deepbound.UI
                 int cur = dir.DifficultyIndex.Value;
                 if (keyboard.rightBracketKey.wasPressedThisFrame) dir.SetDifficultyRpc((byte)Mathf.Min(cur + 1, Enemies.Difficulty.Settings.Length - 1));
                 if (keyboard.leftBracketKey.wasPressedThisFrame) dir.SetDifficultyRpc((byte)Mathf.Max(cur - 1, 0));
+                if (keyboard.lKey.wasPressedThisFrame && !MenuOpen) dir.SetLootRuleRpc(!dir.FindersKeepers.Value);
             }
 
             // Class choice is a camp decision: number keys pick one, only in the lobby.
@@ -1145,8 +1174,8 @@ namespace Deepbound.UI
             Bar(x, y + 32, bw, 12, kit.ResourceMax > 0f ? kit.Resource / kit.ResourceMax : 0f, kit.ResourceColor);
             string cls = progress.Class.Name.ToUpperInvariant();
             string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
-            GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? cls + "  ·  At camp" : CurrentDepth() >= DungeonDirector.AbyssDepth ? cls + "  ·  THE ABYSS" : cls + "  ·  Depth " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun)
-                + (DungeonDirector.Instance != null && DungeonDirector.Instance.SealCount > 0 ? "  ·  Seals " + DungeonDirector.Instance.SealCount + "/3" : "") + "  ·  " + weapon, small);
+            GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Floor " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun + (CurrentDepth() >= DungeonDirector.AbyssDepth ? " (ABYSS)" : ""))
+                + (DungeonDirector.Instance != null && DungeonDirector.Instance.SealCount > 0 ? "  ·  Seals " + DungeonDirector.Instance.SealCount + "/" + DungeonDirector.SealTotal : "") + "  ·  " + weapon, small);
             GUI.Label(new Rect(x, y + 64, bw, 20), progress.Embers.Value + " embers", new GUIStyle(small) { normal = { textColor = LootInfo.EmberColor } });
             if (progress.Sigils.Value > 0)
                 GUI.Label(new Rect(x + 90, y + 64, bw, 20), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil" : " sigils"), new GUIStyle(small) { normal = { textColor = LootInfo.SigilColor } });
@@ -1504,7 +1533,7 @@ namespace Deepbound.UI
             switch (director.Phase.Value)
             {
                 case RunPhase.FloorCleared:
-                    title = director.ExitToAbyss ? "THE SEALS ARE BROKEN" : director.ExitFinal.Value ? "THE DEPTHS ARE CLEARED" : "THE FLOOR IS CLEARED";
+                    title = director.ExitFinal.Value ? "THE DEPTHS ARE CLEARED" : "THE FLOOR IS CLEARED";
                     int at = DungeonDirector.PlayersAtExit(), all = PlayerLife.All.Count;
                     sub = director.PhaseEndsAt.Value > 0 ? (director.ExitFinal.Value ? "Ending the run in " : "Leaving for the castle in ") + seconds + "..."
                         : "Explore and loot at your leisure. When you are ready, everyone steps into the portal  (" + at + " / " + all + ")";
@@ -1531,7 +1560,7 @@ namespace Deepbound.UI
             var cam = player.Camera;
             var ps = cam.WorldToScreenPoint(DungeonDirector.ExitPosition + Vector3.up * 3.2f);
             if (ps.z > 0f)
-                GUI.Label(new Rect(ps.x - 100, h - ps.y - 10, 200, 20), (director.ExitToAbyss ? "DOWN INTO THE ABYSS  " : "PORTAL  ") + Mathf.RoundToInt(Vector3.Distance(player.transform.position, DungeonDirector.ExitPosition)) + "m",
+                GUI.Label(new Rect(ps.x - 100, h - ps.y - 10, 200, 20), "PORTAL  " + Mathf.RoundToInt(Vector3.Distance(player.transform.position, DungeonDirector.ExitPosition)) + "m",
                     new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.6f, 0.9f, 1f) } });
         }
 
@@ -1617,7 +1646,7 @@ namespace Deepbound.UI
             int level = progress.WeaponLevel.Value, path = progress.WeaponPath.Value;
             string weapon = ClassDefinition.WeaponName(id);
             const float leftW = 620f;
-            float pw = leftW + 340, ph = 470;
+            float pw = leftW + 340, ph = 500;
             float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
             var ember = LootInfo.EmberColor;
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(ember.r, ember.g, ember.b, 0.5f));
@@ -1630,14 +1659,18 @@ namespace Deepbound.UI
             // Level pips and the temper button.
             GUI.Label(new Rect(x + 16, y + 44, 200, 24), weapon + " +" + level, new GUIStyle(label) { fontSize = 20 });
             for (int i = 0; i < Anvil.MaxLevel; i++)
-                Rect(x + 180 + i * 26, y + 50, 20, 14, i < level ? ember : new Color(ember.r, ember.g, ember.b, 0.18f));
+                Rect(x + 180 + i * 17 + (i >= 5 ? 6 : 0), y + 50, 13, 14, i < level ? (i >= Anvil.AscendedLevel - 1 ? new Color(1f, 0.85f, 0.45f) : ember) : new Color(ember.r, ember.g, ember.b, 0.18f));
             string reason = progress.CannotTemperReason();
             string next = level >= Anvil.MaxLevel ? "Fully tempered"
                 : "Temper to +" + (level + 1) + ":  +" + ClassDefinition.WeaponAttPerLevel + " ATT, +" + ClassDefinition.WeaponDexPerLevel + " DEX, +5% range" +
-                  (level + 1 == WeaponPaths.MasteryLevel && path != 0 ? ", path mastery" : "");
-            GUI.Label(new Rect(x + 16, y + 76, leftW - 200, 20), next, small);
+                  (level + 1 == WeaponPaths.MasteryLevel && path != 0 ? ", path mastery" : "") +
+                  (level + 1 == Runes.SocketLevels[2] ? ", a 3rd rune socket" : "") +
+                  (level + 1 == Anvil.AscendedLevel ? ", ASCENDED (+10% dmg)" : "") +
+                  (level + 1 == Anvil.MasterworkLevel ? ", MASTERWORK (+8% crit)" : "");
+            GUI.Label(new Rect(x + 16, y + 76, leftW - 230, 20), next, small);
             GUI.enabled = reason == null;
-            if (GUI.Button(new Rect(x + leftW - 186, y + 46, 170, 30), reason ?? ("Temper  (" + Anvil.Cost(level) + " embers)"))) progress.TemperRpc();
+            int goldCost = Anvil.GoldCost(level);
+            if (GUI.Button(new Rect(x + leftW - 216, y + 46, 200, 30), reason ?? ("Temper  (" + Anvil.Cost(level) + " embers" + (goldCost > 0 ? ", " + goldCost + "g)" : ")")))) progress.TemperRpc();
             GUI.enabled = true;
 
             // The two paths.
@@ -1694,14 +1727,14 @@ namespace Deepbound.UI
             {
                 float ry = ay + 22 + (int)slot * 88;
                 int rank = progress.Rank(slot);
-                GUI.Label(new Rect(rx, ry, rw - 80, 22), slot + "  " + ClassDefinition.AbilityName(id, slot), label);
+                GUI.Label(new Rect(rx, ry, rw - 84, 22), slot + "  " + ClassDefinition.AbilityName(id, slot), label);
                 for (int r = 0; r < AbilityRanks.MaxRank; r++)
-                    Rect(rx + rw - 70 + r * 22, ry + 6, 16, 12, r < rank ? LootInfo.SigilColor : new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.2f));
-                string nextText = rank >= AbilityRanks.MaxRank ? "Rank 3: " + AbilityRanks.Twist(id, slot)
-                    : rank == 1 ? "Rank 2: " + AbilityRanks.Rank2(id, slot) : "Rank 3: 25% shorter cooldown. " + AbilityRanks.Twist(id, slot);
+                    Rect(rx + rw - 76 + r * 15, ry + 6, 11, 12, r < rank ? LootInfo.SigilColor : new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.2f));
+                string nextText = AbilityRanks.NextRank(id, slot, rank);
                 GUI.Label(new Rect(rx, ry + 21, rw, 34), nextText, new GUIStyle(small) { wordWrap = true });
-                GUI.enabled = rank < AbilityRanks.MaxRank && progress.Sigils.Value > 0;
-                if (GUI.Button(new Rect(rx, ry + 56, rw, 24), rank >= AbilityRanks.MaxRank ? "Max rank" : progress.Sigils.Value > 0 ? "Empower  (1 sigil)" : "Needs a Sigil"))
+                int sigilCost = AbilityRanks.SigilCost(rank);
+                GUI.enabled = rank < AbilityRanks.MaxRank && progress.Sigils.Value >= sigilCost;
+                if (GUI.Button(new Rect(rx, ry + 56, rw, 24), rank >= AbilityRanks.MaxRank ? "Max rank" : progress.Sigils.Value >= sigilCost ? "Empower  (" + sigilCost + (sigilCost == 1 ? " sigil)" : " sigils)") : "Needs " + sigilCost + (sigilCost == 1 ? " Sigil" : " Sigils")))
                     progress.EmpowerRpc((byte)slot);
                 GUI.enabled = true;
             }
@@ -1713,18 +1746,18 @@ namespace Deepbound.UI
             }
             float uy = ay + 22 + 2 * 88 + 18;
             int sockets = Runes.SocketsAt(level);
-            GUI.Label(new Rect(rx, uy, rw, 20), "RUNES  -  sockets open at +1 and +3", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
-            for (int sIdx = 0; sIdx < 2; sIdx++)
+            GUI.Label(new Rect(rx, uy, rw, 20), "RUNES  -  sockets open at +1, +3 and +6", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            for (int sIdx = 0; sIdx < Runes.MaxSockets; sIdx++)
             {
-                float sy = uy + 22 + sIdx * 38;
+                float sy = uy + 22 + sIdx * 34;
                 var r = progress.Socketed(sIdx);
                 bool open = sIdx < sockets;
                 Rect(rx, sy + 3, 10, 10, open ? (r == Rune.None ? new Color(1f, 1f, 1f, 0.25f) : Runes.Color(r)) : new Color(1f, 1f, 1f, 0.06f));
-                GUI.Label(new Rect(rx + 16, sy - 2, rw - 16, 18), open ? Runes.Name(r) : "Locked  (weapon +" + (sIdx == 0 ? 1 : 3) + ")",
+                GUI.Label(new Rect(rx + 16, sy - 2, rw - 16, 18), open ? Runes.Name(r) : "Locked  (weapon +" + Runes.SocketLevels[sIdx] + ")",
                     new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.5f) } });
                 if (open && r != Rune.None) GUI.Label(new Rect(rx + 16, sy + 14, rw - 16, 18), Runes.Describe(r), small);
             }
-            float by = uy + 22 + 2 * 38 + 2;
+            float by = uy + 22 + Runes.MaxSockets * 34 + 2;
             int bag = progress.RuneBagCount;
             if (bag == 0) GUI.Label(new Rect(rx, by, rw, 18), "No unset runes. Elites and chests drop them.", small);
             for (int i = 0; i < bag; i++)
@@ -1750,6 +1783,8 @@ namespace Deepbound.UI
                 if (nearAnvil != null && Vector3.Distance(player.transform.position, nearAnvil.transform.position) <
                     Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value)) return;
                 string who = stall == Shop.Vendor.Shrine ? "Press G for the shrine's offerings (holy water, relics, Aldric's prayer)"
+                    : stall == Shop.Vendor.Yard ? "Press G for the drill board (train a stat for gold)"
+                    : stall == Shop.Vendor.Carriage ? "Press G to talk to Corwin (maps of the way down, smelling salts)"
                     : DungeonDirector.InLobby ? "Press G to trade with Silas (potions and provisions)" : "Press G to trade with the peddler";
                 GUI.Label(new Rect(0, h / 2f + (stall == Shop.Vendor.Shrine ? 64 : 40), w, 24), who, center);
                 return;
@@ -1854,7 +1889,7 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(x + 80, gy, pw - 90, 20), g.IsEmpty ? "-" : Gear.Name(g), new GUIStyle(small) { normal = { textColor = gc } });
                 gy += 22;
             }
-            for (int sIdx = 0; sIdx < 2; sIdx++)
+            for (int sIdx = 0; sIdx < Runes.MaxSockets; sIdx++)
             {
                 var r = progress.Socketed(sIdx);
                 bool open = sIdx < Runes.SocketsAt(progress.WeaponLevel.Value);

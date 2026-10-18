@@ -13,9 +13,16 @@ namespace Deepbound.World
     /// </summary>
     public class Anvil : NetworkBehaviour
     {
-        public const int MaxLevel = 5;
+        /// <summary>Ten levels for ten floors. From +6 Hobb wants gold as well as embers (good steel is dear).</summary>
+        public const int MaxLevel = 10;
         public const float UseRange = 3f;
-        private static readonly int[] Costs = { 15, 25, 40, 60, 85 };
+        private static readonly int[] Costs = { 15, 25, 40, 60, 85, 110, 140, 175, 215, 260 };
+        /// <summary>+8: Ascended, the weapon's damage up a tenth. +10: Masterwork, a better chance to crit.</summary>
+        public const int AscendedLevel = 8, MasterworkLevel = 10;
+        public const float AscendedDamage = 1.1f, MasterworkCrit = 0.08f;
+
+        /// <summary>Gold to go from <paramref name="level"/> to the next (none below +6).</summary>
+        public static int GoldCost(int level) => level >= 5 && level < MaxLevel ? 60 + 40 * (level - 5) : 0;
 
         public static readonly List<Anvil> All = new List<Anvil>();
 

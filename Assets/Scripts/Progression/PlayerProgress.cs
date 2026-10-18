@@ -57,6 +57,18 @@ namespace Deepbound.Progression
         /// <summary>Bought Brother Aldric's prayer: the next blow that would down you leaves you at 1 health instead.</summary>
         public readonly NetworkVariable<bool> PrayedFor = new NetworkVariable<bool>();
 
+        /// <summary>Training-yard drills taken this run: four bits per stat (see Shop.Drills).</summary>
+        public readonly NetworkVariable<ulong> Drills = new NetworkVariable<ulong>();
+        public int DrillCount(StatType s) => (int)((Drills.Value >> (4 * (int)s)) & 0xF);
+
+        /// <summary>Bought Corwin's map: the next floor is charted from the start. MapRevealed: this floor is.</summary>
+        public readonly NetworkVariable<bool> ScoutMap = new NetworkVariable<bool>();
+        public readonly NetworkVariable<bool> MapRevealed = new NetworkVariable<bool>();
+        /// <summary>Smelling salts: going down, you come round on your own (once).</summary>
+        public readonly NetworkVariable<bool> Salts = new NetworkVariable<bool>();
+        /// <summary>How many times Hobb has re-forged your piece this run (it reseeds his offer).</summary>
+        public readonly NetworkVariable<byte> StockRerolls = new NetworkVariable<byte>();
+
         /// <summary>Server, last in the incoming chain: a paid prayer catches a killing blow, once.</summary>
         private float PrayerModifier(float dealt, Vector3 from)
         {
@@ -103,16 +115,17 @@ namespace Deepbound.Progression
         }
 
         /// <summary>A vendor's mark-up for you: +25% per grudge level.</summary>
-        public float PriceMultiplier(Shop.Vendor vendor) => 1f + 0.25f * Grudge(VendorFolk(vendor));
+        public float PriceMultiplier(Shop.Vendor vendor) => vendor == Shop.Vendor.Yard ? 1f : 1f + 0.25f * Grudge(VendorFolk(vendor));
 
         /// <summary>Who stands behind a vendor's counter right now (the peddler, off camp).</summary>
         public static World.FolkId VendorFolk(Shop.Vendor vendor) => vendor == Shop.Vendor.Smith ? World.FolkId.Hobb : vendor == Shop.Vendor.Shrine ? World.FolkId.Aldric
+            : vendor == Shop.Vendor.Carriage ? World.FolkId.Corwin
             : World.DungeonDirector.InLobby ? World.FolkId.Silas : World.FolkId.Peddler;
 
         /// <summary>What it costs to make amends with a vendor (0: nothing to mend).</summary>
         public int AmendsCost(Shop.Vendor vendor)
         {
-            return Grudge(VendorFolk(vendor)) * 30;
+            return vendor == Shop.Vendor.Yard ? 0 : Grudge(VendorFolk(vendor)) * 30;
         }
 
         /// <summary>Owner → server: pay a vendor to forget it (at their stall).</summary>
@@ -159,13 +172,13 @@ namespace Deepbound.Progression
         public int BoughtRank(AbilitySlot slot) => slot == AbilitySlot.Q ? RankQ.Value : RankE.Value;
 
         /// <summary>Rank 2 and up: 30% stronger.</summary>
-        public float Potency(AbilitySlot slot) => Rank(slot) >= 2 ? AbilityRanks.Rank2Potency : 1f;
+        public float Potency(AbilitySlot slot) => (Rank(slot) >= 2 ? AbilityRanks.Rank2Potency : 1f) * (Rank(slot) >= 4 ? AbilityRanks.Rank4Potency : 1f);
 
         /// <summary>Rank 3: the twist.</summary>
         public bool Twist(AbilitySlot slot) => Rank(slot) >= 3;
 
         /// <summary>Q/E cooldown scale: relics and gear, and a quarter off at rank 3.</summary>
-        public float CooldownFor(AbilitySlot slot) => CooldownMultiplier * (Twist(slot) ? AbilityRanks.Rank3Cooldown : 1f);
+        public float CooldownFor(AbilitySlot slot) => CooldownMultiplier * (Twist(slot) ? AbilityRanks.Rank3Cooldown : 1f) * (Rank(slot) >= 5 ? AbilityRanks.Rank5Cooldown : 1f);
 
         public void ServerAddSigil()
         {
@@ -182,16 +195,18 @@ namespace Deepbound.Progression
         public void EmpowerRpc(byte slot)
         {
             var anvil = World.Anvil.Near(transform.position);
-            if (anvil == null || Sigils.Value < 1 || slot > 1) return;
+            if (anvil == null || slot > 1) return;
             var rank = slot == 0 ? RankQ : RankE;
             if (rank.Value >= AbilityRanks.MaxRank || Rank((AbilitySlot)slot) >= AbilityRanks.MaxRank) return;
-            Sigils.Value--;
+            int cost = AbilityRanks.SigilCost(Rank((AbilitySlot)slot));
+            if (Sigils.Value < cost) return;
+            Sigils.Value -= cost;
             rank.Value++;
             anvil.ForgeFxRpc(rank.Value + 2);
             EmpoweredRpc(slot, rank.Value);
         }
 
-        /// <summary>Owner → server: with both abilities at rank 3, a spare Sigil melts into 30 embers.</summary>
+        /// <summary>Owner → server: with both abilities at their top rank, a spare Sigil melts into 30 embers.</summary>
         [Rpc(SendTo.Server)]
         public void MeltSigilRpc()
         {
@@ -451,9 +466,11 @@ namespace Deepbound.Progression
         private NetworkList<byte> runeBag;
         public readonly NetworkVariable<byte> Socket0 = new NetworkVariable<byte>();
         public readonly NetworkVariable<byte> Socket1 = new NetworkVariable<byte>();
+        /// <summary>The third socket, opened at weapon +6.</summary>
+        public readonly NetworkVariable<byte> Socket2 = new NetworkVariable<byte>();
 
-        public Rune Socketed(int socket) => (Rune)(socket == 0 ? Socket0.Value : Socket1.Value);
-        public bool HasRune(Rune r) => Socketed(0) == r || Socketed(1) == r;
+        public Rune Socketed(int socket) => (Rune)(socket == 0 ? Socket0.Value : socket == 1 ? Socket1.Value : Socket2.Value);
+        public bool HasRune(Rune r) => Socketed(0) == r || Socketed(1) == r || Socketed(2) == r;
         public int RuneBagCount => runeBag.Count;
         public Rune RuneInBag(int i) => (Rune)runeBag[i];
 
@@ -480,7 +497,7 @@ namespace Deepbound.Progression
             if (anvil == null || sockets == 0 || bagIndex < 0) return;
             int target = 0;
             for (int s = 0; s < sockets; s++) if (Socketed(s) == Rune.None) { target = s; break; }
-            var socket = target == 0 ? Socket0 : Socket1;
+            var socket = target == 0 ? Socket0 : target == 1 ? Socket1 : Socket2;
             runeBag.RemoveAt(bagIndex);
             if (socket.Value != 0) runeBag.Add(socket.Value);
             socket.Value = rune;
@@ -580,6 +597,7 @@ namespace Deepbound.Progression
             get
             {
                 float m = 0.5f + Value(StatType.ATT) / 50f;
+                if (WeaponLevel.Value >= World.Anvil.AscendedLevel) m *= World.Anvil.AscendedDamage;
                 if (HasRelic(Relic.BerserkersBrand) && health.Fraction < 0.5f) m *= 1.4f;
                 if (HasRelic(Relic.BloodPact)) m *= 1.3f;
                 return m;
@@ -629,6 +647,9 @@ namespace Deepbound.Progression
         {
             phoenixSpent = false;
             boneWardReadyAt = 0f;
+            // Corwin's map is for the next floor down: it charts this one, then it is spent.
+            MapRevealed.Value = ScoutMap.Value;
+            ScoutMap.Value = false;
         }
 
         /// <summary>Server: Phoenix Feather. True if it fires (and is used up for this floor).</summary>
@@ -884,6 +905,7 @@ namespace Deepbound.Progression
             if (WeaponLevel.Value >= World.Anvil.MaxLevel) return "Fully tempered";
             if (WeaponLevel.Value >= WeaponPaths.PathLevel && WeaponPath.Value == 0) return "Choose a path first";
             if (Embers.Value < World.Anvil.Cost(WeaponLevel.Value)) return "Not enough embers";
+            if (Gold.Value < World.Anvil.GoldCost(WeaponLevel.Value)) return "Not enough gold";
             return null;
         }
 
@@ -916,9 +938,10 @@ namespace Deepbound.Progression
         public bool ServerUpgradeWeapon()
         {
             if (!IsServer || CannotTemperReason() != null) return false;
-            int cost = World.Anvil.Cost(WeaponLevel.Value);
-            if (Embers.Value < cost) return false;
+            int cost = World.Anvil.Cost(WeaponLevel.Value), gold = World.Anvil.GoldCost(WeaponLevel.Value);
+            if (Embers.Value < cost || Gold.Value < gold) return false;
             Embers.Value -= cost;
+            Gold.Value -= gold;
             WeaponLevel.Value++;
             ServerAddBonus(StatType.ATT, ClassDefinition.WeaponAttPerLevel);
             ServerAddBonus(StatType.DEX, ClassDefinition.WeaponDexPerLevel);
@@ -933,6 +956,9 @@ namespace Deepbound.Progression
             UI.GameHud.Feed(name + " tempered their " + weapon + " to +" + level, LootInfo.EmberColor);
             if (level == WeaponPaths.MasteryLevel && WeaponPath.Value != 0)
                 UI.GameHud.Feed(WeaponPaths.Name(ClassId.Value, WeaponPath.Value) + " mastery: " + WeaponPaths.Mastery(ClassId.Value, WeaponPath.Value), LootInfo.EmberColor);
+            if (level == Runes.SocketLevels[2]) UI.GameHud.Feed("A third rune socket opens in the " + weapon, LootInfo.EmberColor);
+            if (level == World.Anvil.AscendedLevel) UI.GameHud.Feed(name + "'s " + weapon + " is ASCENDED: +10% damage", new Color(1f, 0.85f, 0.45f));
+            if (level == World.Anvil.MasterworkLevel) UI.GameHud.Feed(name + "'s " + weapon + " is a MASTERWORK: +8% critical chance", new Color(1f, 0.92f, 0.7f));
         }
 
         /// <summary>A run-scoped flat bonus, e.g. a whetstone bought from the merchant.</summary>
@@ -942,6 +968,95 @@ namespace Deepbound.Progression
             Stats.AddEquipmentBonus(stat, amount);
             bonuses[(int)stat] += amount;
             OnStatsChangedServer(stat);
+        }
+
+        // ---- The party purse: shared pickups, gifts, and evening out ----
+
+        private static System.Collections.Generic.List<PlayerProgress> Party()
+        {
+            var list = new System.Collections.Generic.List<PlayerProgress>();
+            foreach (var l in Player.PlayerLife.All)
+                if (l != null && l.TryGetComponent<PlayerProgress>(out var p)) list.Add(p);
+            return list;
+        }
+
+        /// <summary>Server: gold someone picked up. Shared loot splits it evenly (the finder keeps the odd coins).</summary>
+        public static void ServerShareGold(PlayerProgress finder, int total)
+        {
+            var party = Party();
+            if (!World.DungeonDirector.ShareLoot || party.Count <= 1) { finder.ServerAddGold(total); return; }
+            int each = total / party.Count, rest = total - each * party.Count;
+            foreach (var p in party) p.ServerAddGold(each + (p == finder ? rest : 0));
+        }
+
+        /// <summary>Server: embers someone picked up, split the same way.</summary>
+        public static void ServerShareEmbers(PlayerProgress finder, int total)
+        {
+            var party = Party();
+            if (!World.DungeonDirector.ShareLoot || party.Count <= 1) { finder.ServerAddEmbers(total); return; }
+            int each = total / party.Count, rest = total - each * party.Count;
+            foreach (var p in party) p.ServerAddEmbers(each + (p == finder ? rest : 0));
+        }
+
+        /// <summary>Owner → server: hand some of your gold to an ally.</summary>
+        [Rpc(SendTo.Server)]
+        public void GiveGoldRpc(ulong toPlayer, int amount)
+        {
+            amount = Mathf.Min(amount, Gold.Value);
+            if (amount <= 0 || !NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(toPlayer, out var obj) || !obj.TryGetComponent<PlayerProgress>(out var to) || to == this) return;
+            Gold.Value -= amount;
+            to.Gold.Value += amount;
+            GiftRpc(name, to.name, amount + " gold");
+        }
+
+        /// <summary>Owner → server: share your gold out so nobody has less than the party's average (you give, you never take).</summary>
+        [Rpc(SendTo.Server)]
+        public void EvenOutGoldRpc()
+        {
+            var party = Party();
+            if (party.Count <= 1) return;
+            int total = 0;
+            foreach (var p in party) total += p.Gold.Value;
+            int average = total / party.Count, spare = Gold.Value - average, given = 0;
+            foreach (var p in party)
+            {
+                if (spare <= 0) break;
+                if (p == this || p.Gold.Value >= average) continue;
+                int give = Mathf.Min(spare, average - p.Gold.Value);
+                p.Gold.Value += give;
+                Gold.Value -= give;
+                spare -= give;
+                given += give;
+            }
+            if (given > 0) GiftRpc(name, "the party", given + " gold, evening out the purse");
+        }
+
+        /// <summary>Owner → server: give a piece from your pack to the nearest ally (into their pack, or at their feet if it is full).</summary>
+        [Rpc(SendTo.Server)]
+        public void BagGiftRpc(int i)
+        {
+            if (!CanManagePack(i)) return;
+            PlayerProgress to = null;
+            float best = float.MaxValue;
+            foreach (var p in Party())
+            {
+                if (p == this) continue;
+                float d = (p.transform.position - transform.position).sqrMagnitude;
+                if (d < best) { best = d; to = p; }
+            }
+            if (to == null) return;
+            var item = bag[i];
+            bag.RemoveAt(i);
+            if (to.bag.Count < BagSize) to.bag.Add(item);
+            else GearDrop.ServerSpawn(item, to.OwnerClientId, to.transform.position + to.transform.forward * 1.2f + Vector3.up * 0.05f);
+            GiftRpc(name, to.name, Gear.Name(item));
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void GiftRpc(string from, string to, string what)
+        {
+            UI.GameHud.Feed(from + " gave " + to + " " + what, new Color(1f, 0.85f, 0.45f));
+            Art.Sfx.Play2D(Art.Sound.Coins, 0.5f);
         }
 
         public void ServerAddGold(int amount)
@@ -977,6 +1092,10 @@ namespace Deepbound.Progression
                 case Shop.ItemKind.Gear: return gearBoughtSeed == World.DungeonDirector.Instance?.Floor.Value.x ? "Sold" : null;
                 case Shop.ItemKind.Relic: return HasRelic((Relic)(int)item.Amount) ? "Owned" : null;
                 case Shop.ItemKind.Prayer: return PrayedFor.Value ? "Already prayed for" : null;
+                case Shop.ItemKind.Drill: return DrillCount(item.Stat) >= (int)item.Cap ? "Mastered" : null;
+                case Shop.ItemKind.Map: return ScoutMap.Value ? "Already have it" : null;
+                case Shop.ItemKind.Salts: return Salts.Value ? "Already carrying some" : null;
+                case Shop.ItemKind.Restock: return null;
                 default: return Bonus(item.Stat) + item.Amount > item.Cap + 0.01f ? "Sold out" : null;
             }
         }
@@ -1021,6 +1140,25 @@ namespace Deepbound.Progression
                 case Shop.ItemKind.Prayer:
                     PrayedFor.Value = true;
                     PrayerBoughtRpc(name);
+                    bought = true;
+                    break;
+                case Shop.ItemKind.Drill:
+                    ServerAddBonus(item.Stat, item.Amount);
+                    Drills.Value += 1UL << (4 * (int)item.Stat);
+                    bought = true;
+                    break;
+                case Shop.ItemKind.Map:
+                    ScoutMap.Value = true;
+                    bought = true;
+                    break;
+                case Shop.ItemKind.Salts:
+                    Salts.Value = true;
+                    bought = true;
+                    break;
+                case Shop.ItemKind.Restock:
+                    StockRerolls.Value++;
+                    gearBoughtSeed = 0;
+                    GearBoughtRpc(0);
                     bought = true;
                     break;
                 default:
@@ -1084,7 +1222,10 @@ namespace Deepbound.Progression
             CatWhisker.Value = false;
             Grudges.Value = 0;
             PrayedFor.Value = false;
-            Socket0.Value = Socket1.Value = 0;
+            Drills.Value = 0;
+            ScoutMap.Value = MapRevealed.Value = Salts.Value = false;
+            StockRerolls.Value = 0;
+            Socket0.Value = Socket1.Value = Socket2.Value = 0;
             Charm.Value = default;
             health.HealMultiplier = 1f;
             Kills.Value = DamageDealt.Value = GoldEarned.Value = Downs.Value = Revives.Value = CombosTriggered.Value = 0;

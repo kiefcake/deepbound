@@ -20,7 +20,9 @@ namespace Deepbound.Loot
     {
         public const int Count = 7;
 
-        public static int SocketsAt(int weaponLevel) => weaponLevel >= 3 ? 2 : weaponLevel >= 1 ? 1 : 0;
+        public const int MaxSockets = 3;
+        public static readonly int[] SocketLevels = { 1, 3, 6 };
+        public static int SocketsAt(int weaponLevel) => weaponLevel >= 6 ? 3 : weaponLevel >= 3 ? 2 : weaponLevel >= 1 ? 1 : 0;
 
         public static string Name(Rune r)
         {
@@ -92,7 +94,7 @@ namespace Deepbound.Loot
             if (resolving || target.Team != Team.Enemies) return;
             var net = NetworkManager.Singleton;
             if (net == null || !net.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj) || !obj.TryGetComponent<PlayerProgress>(out var p)) return;
-            if (p.Socketed(0) == Rune.None && p.Socketed(1) == Rune.None) return;
+            if (p.Socketed(0) == Rune.None && p.Socketed(1) == Rune.None && p.Socketed(2) == Rune.None) return;
 
             resolving = true;
             try

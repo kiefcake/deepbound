@@ -106,6 +106,7 @@ namespace Deepbound.Player
             progress.WeaponLevel.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket0.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket1.OnValueChanged += (_, __) => RefreshWeaponGlow();
+            progress.Socket2.OnValueChanged += (_, __) => RefreshWeaponGlow();
 
             bool isLocal = IsOwner;
             playerCamera.enabled = isLocal;
@@ -248,7 +249,7 @@ namespace Deepbound.Player
             var old = hand.Find("WeaponGlow");
             if (old != null) Destroy(old.gameObject);
             int level = progress.WeaponLevel.Value;
-            var rune = progress.Socketed(0) != Loot.Rune.None ? progress.Socketed(0) : progress.Socketed(1);
+            var rune = progress.Socketed(0) != Loot.Rune.None ? progress.Socketed(0) : progress.Socketed(1) != Loot.Rune.None ? progress.Socketed(1) : progress.Socketed(2);
             if (level == 0 && rune == Loot.Rune.None) return;
 
             var color = rune != Loot.Rune.None ? Loot.Runes.Color(rune) : Loot.LootInfo.EmberColor;

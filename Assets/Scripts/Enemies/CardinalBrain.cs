@@ -57,6 +57,18 @@ namespace Deepbound.Enemies
             {
                 Survive("Final Hymn", "Kneel. Kneel, and burn.", "Survive the Final Hymn: never stop moving", 10f, () => Taunt("Still standing? Then come and end it."));
                 nextHymnPillars = Time.time + 0.8f;
+                // The rose window: four emitters circling the arena, swaying arms of holy fire.
+                var c = World.DungeonDirector.Layout != null ? World.DungeonDirector.Layout.BossRoom.Center : transform.position;
+                for (int e = 0; e < 4; e++)
+                {
+                    float phase = e * 90f;
+                    StartPattern(new Pattern
+                    {
+                        Arms = 2, Interval = 0.16f, Speed = 10f, Spin = 8f, Wobble = 7f, Damage = judgementDamage * 0.3f,
+                        Kind = ProjectileKind.Smite, Duration = 9.5f, Range = 22f,
+                        Origin = t => c + Quaternion.Euler(0f, phase + t * 26f, 0f) * Vector3.forward * 7.5f + Vector3.up * 1.2f,
+                    });
+                }
                 LaunchShockwave(transform.position, 9f, 18f, ShockwaveDamage);
             }
         }
@@ -68,12 +80,13 @@ namespace Deepbound.Enemies
             foreach (var p in PlayerLife.All)
             {
                 if (p == null || !p.Targetable) continue;
-                AddPillar(p.transform.position);
+                AddPillar(PredictedFeet(p, judgementWindup));
                 for (int i = 0; i < 2; i++)
                     AddPillar(p.transform.position + Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward * Random.Range(2.5f, 4.5f));
             }
         }
         protected override float ShockwaveCooldown => LastRites ? 7f : 10f;
+        protected override ProjectileKind? QuickKind => ProjectileKind.Smite;
         protected override Color ShockwaveColor => new Color(1f, 0.8f, 0.35f);
 
         public override void OnNetworkSpawn()
@@ -103,7 +116,7 @@ namespace Deepbound.Enemies
                 foreach (var p in PlayerLife.All)
                 {
                     if (p == null || !p.Targetable) continue;
-                    AddPillar(p.transform.position);
+                    AddPillar(PredictedFeet(p, judgementWindup));
                     for (int i = 0; i < (LastRites ? 3 : 2); i++)
                         AddPillar(p.transform.position + Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward * Random.Range(2.5f, 5f));
                 }
@@ -127,7 +140,11 @@ namespace Deepbound.Enemies
                 var at = pillars[i].At;
                 pillars.RemoveAt(i);
                 foreach (var victim in CombatQuery.Circle(at, judgementRadius, Team.Players))
+                {
                     victim.ServerDamage(judgementDamage * Difficulty.Level.Damage, at + Vector3.up, NetworkObjectId);
+                    // In the Last Rites, holy fire burns the mind too.
+                    if (LastRites && victim.TryGetComponent<Player.PlayerDebuffs>(out var deb)) deb.ServerMania(1.8f);
+                }
                 PillarFxRpc(at);
                 Debug.Log("[Boss] Cardinal pillar erupted");
             }

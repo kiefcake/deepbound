@@ -13,6 +13,9 @@ namespace Deepbound.Player
     /// <item><b>Frostbitten</b> (Frost Wights): 40% slower on your feet.</item>
     /// <item><b>Cursed</b> (Hexers): you deal 30% less damage and heal half as well — until it
     ///   wears off, or the Hexer that laid it dies.</item>
+    /// <item><b>Mania</b> (the Cathedral's choir, the Unsung): for a couple of seconds you sprint about
+    ///   wildly and cannot attack; you can still look around. A short grace follows, so it never chains.</item>
+    /// <item><b>Rooted</b> (the drowned and the frozen): ice locks your feet for a moment; you can still fight.</item>
     /// </list>
     /// Holy Water cleanses everything it splashes. Server-owned; synced as timestamps.
     /// </summary>
@@ -22,6 +25,12 @@ namespace Deepbound.Player
         public readonly NetworkVariable<double> FrostUntil = new NetworkVariable<double>();
         public readonly NetworkVariable<double> CurseUntil = new NetworkVariable<double>();
         public readonly NetworkVariable<ulong> CurseSource = new NetworkVariable<ulong>(ulong.MaxValue);
+        public readonly NetworkVariable<double> ManiaUntil = new NetworkVariable<double>();
+        public readonly NetworkVariable<double> RootUntil = new NetworkVariable<double>();
+        /// <summary>An Entling holding you by the legs (its NetworkObjectId), until it dies. MaxValue: nobody.</summary>
+        public readonly NetworkVariable<ulong> RootedBy = new NetworkVariable<ulong>(ulong.MaxValue);
+        public bool Entangled => RootedBy.Value != ulong.MaxValue;
+        private double maniaGraceUntil, rootGraceUntil;
 
         private float poisonDps, nextTick;
         private Health health;
@@ -31,8 +40,10 @@ namespace Deepbound.Player
         public bool Poisoned => Now < PoisonUntil.Value;
         public bool Frostbitten => Now < FrostUntil.Value;
         public bool Cursed => Now < CurseUntil.Value;
+        public bool Manic => Now < ManiaUntil.Value;
+        public bool Rooted => Now < RootUntil.Value || Entangled;
 
-        public float SpeedMultiplier => Frostbitten ? 0.6f : 1f;
+        public float SpeedMultiplier => Rooted ? 0f : Frostbitten ? 0.6f : 1f;
         public float DamageMultiplier => Cursed ? 0.7f : 1f;
         public float HealMultiplier => Cursed ? 0.5f : 1f;
 
@@ -62,11 +73,61 @@ namespace Deepbound.Player
             CurseSource.Value = source;
         }
 
+        /// <summary>Server: madness takes you for <paramref name="seconds"/> (then a grace of twice as long).</summary>
+        public void ServerMania(float seconds)
+        {
+            if (!IsServer || life.Downed.Value || Now < maniaGraceUntil) return;
+            ManiaUntil.Value = Now + seconds;
+            maniaGraceUntil = Now + seconds * 3f;
+            AfflictedRpc(0);
+        }
+
+        /// <summary>Server: an Entling wraps your legs until it dies (or lets go).</summary>
+        public void ServerHoldRoots(ulong entling)
+        {
+            if (!IsServer) return;
+            RootedBy.Value = entling;
+        }
+
+        public void ServerReleaseRoots(ulong entling)
+        {
+            if (!IsServer || RootedBy.Value != entling) return;
+            RootedBy.Value = ulong.MaxValue;
+        }
+
+        /// <summary>Server: ice locks your feet for <paramref name="seconds"/>.</summary>
+        public void ServerRoot(float seconds)
+        {
+            if (!IsServer || life.Downed.Value || Now < rootGraceUntil) return;
+            RootUntil.Value = Now + seconds;
+            rootGraceUntil = Now + seconds * 2.5f;
+            AfflictedRpc(1);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void AfflictedRpc(byte kind)
+        {
+            var at = transform.position + Vector3.up * 2.1f;
+            if (kind == 0)
+            {
+                UI.GameHud.ShowCombo(at, "MANIA", new Color(0.85f, 0.4f, 1f));
+                Sfx.Play(Sound.Summon, at, 0.7f, 1.6f);
+            }
+            else
+            {
+                UI.GameHud.ShowCombo(at, "ROOTED", new Color(0.6f, 0.9f, 1f));
+                Sfx.Play(Sound.Frost, transform.position, 0.8f, 1.2f);
+                Vfx.IceSpikes(transform.position, 0.8f, 6);
+            }
+        }
+
         /// <summary>Server: Holy Water, a fountain, a revive — wash it all away.</summary>
         public void ServerCleanse()
         {
             if (!IsServer) return;
-            bool any = Poisoned || Frostbitten || Cursed;
+            bool any = Poisoned || Frostbitten || Cursed || Manic || Now < RootUntil.Value;
+            ManiaUntil.Value = 0;
+            RootUntil.Value = 0;
             PoisonUntil.Value = 0;
             FrostUntil.Value = 0;
             CurseUntil.Value = 0;
@@ -88,7 +149,10 @@ namespace Deepbound.Player
                     (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(CurseSource.Value, out var src) ||
                      (src.TryGetComponent<Health>(out var sh) && !sh.IsAlive)))
                     ServerCleanseCurse();
-                if (life.Downed.Value && (Poisoned || Frostbitten || Cursed)) ServerCleanse();
+                if (life.Downed.Value && (Poisoned || Frostbitten || Cursed || Manic || Rooted)) ServerCleanse();
+                // Whatever held you is gone: the roots go with it.
+                if (Entangled && (life.Downed.Value || !NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(RootedBy.Value, out var holder) ||
+                    (holder.TryGetComponent<Health>(out var hh) && !hh.IsAlive))) RootedBy.Value = ulong.MaxValue;
             }
 
             // Everyone: wisps around an afflicted player, so the party can see who needs help.
@@ -98,6 +162,8 @@ namespace Deepbound.Player
                 if (Poisoned) Vfx.Mote(transform.position, new Color(0.45f, 0.9f, 0.2f));
                 if (Frostbitten) Vfx.Mote(transform.position, new Color(0.6f, 0.85f, 1f));
                 if (Cursed) Vfx.Mote(transform.position, new Color(0.55f, 0.2f, 0.8f));
+                if (Manic) { Vfx.Mote(transform.position, new Color(0.9f, 0.4f, 1f)); Vfx.Mote(transform.position, new Color(1f, 0.5f, 0.9f)); }
+                if (Rooted) Vfx.Mote(transform.position + Vector3.down * 0.9f, new Color(0.7f, 0.95f, 1f));
             }
         }
 

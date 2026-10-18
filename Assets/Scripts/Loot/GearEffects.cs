@@ -45,7 +45,7 @@ namespace Deepbound.Loot
             if (p.TryGetComponent<Player.Emotes>(out var em) && em.Brothers) m *= 1.1f;
             if (p.TryGetComponent<Player.PlayerDebuffs>(out var curse)) m *= curse.DamageMultiplier;
             // Critical hits: a little luck, more with DEX.
-            if (!World.DungeonDirector.TestMode && Random.value < 0.05f + p.Value(Core.StatType.DEX) / 650f)
+            if (!World.DungeonDirector.TestMode && Random.value < 0.05f + p.Value(Core.StatType.DEX) / 650f + (p.WeaponLevel.Value >= World.Anvil.MasterworkLevel ? World.Anvil.MasterworkCrit : 0f))
             {
                 m *= 1.75f;
                 p.CritFxRpc(target.Center + Vector3.up * 0.4f);

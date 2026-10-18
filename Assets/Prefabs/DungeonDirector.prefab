@@ -86,6 +86,13 @@ MonoBehaviour:
   necromancerPrefab: {fileID: 8041632183493773884, guid: 6054c828120ee4c4aa840e55e00c4d05, type: 3}
   wraithPrefab: {fileID: 5317749395350274390, guid: 8986d499b153711468cfe0bb0fd051c1, type: 3}
   shieldbearerPrefab: {fileID: 7740348203352512963, guid: 565278e21acb737439a7f0e536f9650f, type: 3}
+  wardenPrefabs:
+  - {fileID: 559905583196393287, guid: ca927bfe4501bbc4385c0df22ed60300, type: 3}
+  - {fileID: 4943291775606223145, guid: 0ade815be526afa45bc2d42f9f7e2dc8, type: 3}
+  - {fileID: 3929165605072170463, guid: 95b79c09857399648a652264d3d28823, type: 3}
+  - {fileID: 5810608347931029524, guid: 8c8ab7ea71416274385eea651c58bf84, type: 3}
+  - {fileID: 3237325445595210370, guid: ffce1296f8149f349bd358ebf686b6e9, type: 3}
+  entlingPrefab: {fileID: 695369655124008559, guid: 80364f47367451142b6e392b07269b25, type: 3}
   mimicPrefab: {fileID: 57016346618195320, guid: b43ed699c2fdba84d987d5ce62a3d452, type: 3}
   hoarderPrefab: {fileID: 4366552995233553530, guid: a7d697832657ad549ae0a28dfa3a3b4d, type: 3}
   gargoylePrefab: {fileID: 486367888570501251, guid: 81da41a3b76a7a642a8bcc1007264e5e, type: 3}

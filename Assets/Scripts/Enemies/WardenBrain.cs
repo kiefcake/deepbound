@@ -1,0 +1,392 @@
+using System.Collections.Generic;
+using Deepbound.Art;
+using Deepbound.Combat;
+using Deepbound.Player;
+using Unity.Netcode;
+using UnityEngine;
+using UnityEngine.AI;
+
+namespace Deepbound.Enemies
+{
+    /// <summary>
+    /// The Wardens: the guardians at the end of the first floor of every act (floors 1, 3, 5, 7, 9),
+    /// a step below the act's own boss on the floor after. One brain, five of them: each prefab sets
+    /// <see cref="act"/>, which picks its name, look (a giant of that act's rank and file) and its
+    /// signature move. All of them swing wide, roll a jumpable shockwave, and at half health call
+    /// their act's dead to their side.
+    ///
+    /// <list type="bullet">
+    /// <item><b>Ossuary</b> - Marrowgut, the Bone Colossus: Bone Quake, a red circle round it that
+    ///   throws everyone inside. Get out, or bash it during the wind-up.</item>
+    /// <item><b>Drowned Vaults</b> - the Drowned Knight: Black Tide nova that frostbites (40% slower).</item>
+    /// <item><b>Hollow Throne</b> - Sir Aldous Vane, the King's Shield: blocks most of what hits it
+    ///   from the front, and charges down a red lane; into a wall, it is dazed and open.</item>
+    /// <item><b>Black Cathedral</b> - the Choirmaster: a fan of hex bolts, and a curse on its prey.</item>
+    /// <item><b>Abyss</b> - Gorr, the Rot Below: spits a spray of plague and leaves poison pools.</item>
+    /// </list>
+    /// </summary>
+    public class WardenBrain : BossBrain
+    {
+        [SerializeField] private int act;
+        public int Act => act;
+
+        private static readonly string[] Names = { "Marrowgut, the Bone Colossus", "The Drowned Knight", "Sir Aldous Vane", "The Choirmaster", "Gorr, the Rot Below" };
+        private static readonly string[] Epithets = { "Warden of the Upper Crypts", "Warden of the Flooded Stair", "The King's Shield", "Warden of the Nave", "Warden of the Last Stair" };
+        private static readonly string[] Hints =
+        {
+            "When the red circle fills around it, get out (or bash it). Jump its shockwaves.",
+            "Leave the ring before the Black Tide breaks: it freezes your legs.",
+            "It blocks from the front: get round it. Make it charge into a wall and it is open.",
+            "Spread out against the hex bolts. Its curse ends when it dies.",
+            "Keep moving: its spit and its pools poison. Holy water cleanses.",
+        };
+        private static readonly string[] Words =
+        {
+            "Bones... to the... pile...",
+            "The water is... warm... at last...",
+            "The King... will need... another shield...",
+            "The hymn... goes on... without me...",
+            "Below me... it is... still... singing...",
+        };
+
+        public override string DisplayName => Names[Mathf.Clamp(act, 0, 4)];
+        public override string Epithet => Epithets[Mathf.Clamp(act, 0, 4)];
+        public override string Hint => Hints[Mathf.Clamp(act, 0, 4)];
+        public override string LastWords => Words[Mathf.Clamp(act, 0, 4)];
+        public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.Warden;
+
+        protected override float[] PhaseGates => new[] { 0.5f };
+        protected override float ShockwaveCooldown => health.Fraction < 0.5f ? 10f : 14f;
+        protected override Color ShockwaveColor => act == 1 ? new Color(0.5f, 0.85f, 1f) : act == 3 ? new Color(0.75f, 0.45f, 1f) : act == 4 ? new Color(0.6f, 0.9f, 0.3f) : new Color(1f, 0.6f, 0.3f);
+
+        private float nextSpecial;
+        private float slamAt = -1f;
+        private const float SlamRadius = 5.5f, SlamWindup = 1.3f;
+
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+            nextSpecial = Time.time + 5f;
+            if (IsServer && act == 2) health.IncomingModifiers.Add(GuardModifier);
+        }
+
+        protected override void OnPhaseGate(int index)
+        {
+            string[] taunts = { "More bones for the pile!", "Rise, drowned ones. Rise!", "To me, the King's guard!", "Sing, my choir. SING!", "Wake, all of you. Feed." };
+            string taunt = taunts[Mathf.Clamp(act, 0, 4)];
+            switch (act)
+            {
+                case 0:
+                    // The first boss of the game: a breather and a few skeletons, nothing more.
+                    Transition("Called to Arms", taunt, 1.8f, () => Summon(1 + scaledPlayers, 4f));
+                    break;
+                case 1:
+                    // The Undertow: rings of black water with a gap that shifts each time.
+                    Transition("The Undertow", taunt, 1.4f, () =>
+                    {
+                        Summon(scaledPlayers, 4f, 0.8f);
+                        StartPattern(new Pattern { Arms = 16, Interval = 0.95f, Speed = 9f, Spin = 360f / 32f + 7f, Damage = damage * 0.5f, Kind = ProjectileKind.Frostbolt, Duration = 3.2f, Range = 24f });
+                    });
+                    break;
+                case 2:
+                    // Shield Wall: invulnerable until its guard falls.
+                    var guards = Summon(1 + scaledPlayers, 4.5f);
+                    InvulnerableWhile("Shield Wall", taunt, "The King's guard shields Sir Aldous: kick their shields aside and cut them down", guards, 22f,
+                        () => Taunt("Then I hold the line alone."));
+                    break;
+                case 3:
+                    // The Choir Sings: immune while two counter-turning spirals sweep the nave.
+                    Survive("The Choir Sings", taunt, "Survive the hymn: the spirals turn both ways, so keep moving", 9f, () => Summon(1 + scaledPlayers, 4f, 0.8f));
+                    for (int e = 0; e < 2; e++)
+                        StartPattern(new Pattern
+                        {
+                            Arms = 3, Interval = 0.13f, Speed = 11f, Spin = e == 0 ? 12f : -12f, Damage = damage * 0.4f, Kind = ProjectileKind.ShadowBolt,
+                            Duration = 8.6f, AimedEvery = e == 0 ? 1.6f : 0f, Range = 26f, Origin = Orbit(3f, e == 0 ? 35f : -35f, e * 180f, 1.6f),
+                        });
+                    break;
+                default:
+                    // Rot Rising: immune while a poison spiral spits out, flipping as it goes.
+                    Survive("Rot Rising", taunt, "Survive the rot: move with the spiral and slip its gaps", 8f, () => Summon(1 + scaledPlayers, 4f, 0.8f));
+                    StartPattern(new Pattern
+                    {
+                        Arms = 4, Interval = 0.12f, Speed = 10.5f, Spin = 13f, FlipEvery = 2.5f, Kind = ProjectileKind.Spit, Duration = 7.6f, AimedEvery = 1.5f, Range = 24f,
+                        Damage = damage * 0.35f, Origin = Orbit(1.8f, 60f, 0f, 1.6f),
+                        OnHit = hit => { hit.ServerDamage(damage * 0.35f, transform.position, NetworkObjectId); if (hit.TryGetComponent<PlayerDebuffs>(out var d)) d.ServerPoison(3f, 3f + 1.5f * scaledDepth); },
+                    });
+                    break;
+            }
+        }
+
+        // What it throws at a fleeing party: the spear of the King's Shield, hex bolts, spit.
+        protected override ProjectileKind? QuickKind => act == 2 ? ProjectileKind.Arrow : act == 3 ? ProjectileKind.ShadowBolt : act == 4 ? ProjectileKind.Spit : act == 1 ? ProjectileKind.Frostbolt : (ProjectileKind?)null;
+
+        protected override void BeginAttack()
+        {
+            windup = health.Fraction < 0.5f ? 0.75f : 0.9f;
+            attackArc = 150f;
+            base.BeginAttack();
+        }
+
+        protected override bool ChooseSpecialAttack(float distanceToTarget)
+        {
+            if (TryShockwave()) return true;
+            if (Time.time < nextSpecial) return false;
+            switch (act)
+            {
+                case 2:
+                    if (distanceToTarget < 4.5f || !CombatQuery.ClearLine(transform.position + Vector3.up * 1.2f, target)) return false;
+                    BeginChargeWindup();
+                    nextSpecial = Time.time + 9f;
+                    return true;
+                case 3:
+                    // Alternates: a fan of hex bolts (and a curse on its prey), then the Hymn of Madness.
+                    if (hymnNext) { BeginHymn(); nextSpecial = Time.time + 7f; hymnNext = false; return true; }
+                    Volley(ProjectileKind.ShadowBolt, 5, 14f, 15f);
+                    if (target != null && target.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerCurse(8f, NetworkObjectId);
+                    nextSpecial = Time.time + 6.5f;
+                    hymnNext = true;
+                    return true;
+                case 4:
+                    if (distanceToTarget > SlamRadius + 3f) { Volley(ProjectileKind.Spit, 5, 12f, 13f); nextSpecial = Time.time + 6f; return true; }
+                    BeginSlam();
+                    nextSpecial = Time.time + 8f;
+                    return true;
+                default:
+                    if (distanceToTarget > SlamRadius + 1.5f) return false;
+                    BeginSlam();
+                    nextSpecial = Time.time + 8f;
+                    return true;
+            }
+        }
+
+        protected override void Update()
+        {
+            if (IsServer && !IsDead) ResolveHymns();
+            if (IsServer && !IsDead)
+            {
+                if (slamAt > 0f)
+                {
+                    agent.isStopped = true;
+                    if (Time.time >= slamAt) ResolveSlam();
+                    return;
+                }
+                if (charge == 1)
+                {
+                    agent.isStopped = true;
+                    transform.rotation = Quaternion.LookRotation(chargeDir);
+                    if (Time.time >= chargeAt) { charge = 2; charged = 0f; PlayActionRpc(RigAction.Bash, 0.6f); }
+                    return;
+                }
+                if (charge == 2) { StepCharge(); return; }
+                if (Time.time < dazedUntil) { agent.isStopped = true; return; }
+            }
+            base.Update();
+        }
+
+        public override void ServerStun(float seconds)
+        {
+            // A bash in the wind-up snuffs the slam or the charge, as with the rank and file.
+            if (slamAt > 0f) { slamAt = -1f; CancelTelegraphRpc(); }
+            if (charge == 1) { charge = 0; CancelTelegraphRpc(); }
+            if (charge == 2) return;
+            base.ServerStun(Mathf.Min(seconds, 0.8f));
+        }
+
+        // ---- The Hymn of Madness: violet circles open where each player is heading; inside, madness ----
+        private bool hymnNext;
+        private readonly List<(Vector3 at, float when)> hymns = new List<(Vector3, float)>();
+        private const float HymnRadius = 2.6f, HymnWindup = 1.4f;
+
+        private void BeginHymn()
+        {
+            PlayActionRpc(RigAction.Cast, 1f);
+            busyUntil = Time.time + 1f;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || !p.Targetable) continue;
+                var at = PredictedFeet(p, HymnWindup);
+                hymns.Add((at, Time.time + HymnWindup));
+                TintedCircleRpc(at, HymnRadius, HymnWindup, Telegraph.Madness);
+            }
+        }
+
+        private void ResolveHymns()
+        {
+            for (int i = hymns.Count - 1; i >= 0; i--)
+            {
+                if (Time.time < hymns[i].when) continue;
+                var at = hymns[i].at;
+                hymns.RemoveAt(i);
+                foreach (var v in CombatQuery.Circle(at, HymnRadius, Team.Players))
+                {
+                    v.ServerDamage(damage * 0.6f, at + Vector3.up, NetworkObjectId);
+                    if (v.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerMania(2.2f);
+                }
+                HymnFxRpc(at);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void HymnFxRpc(Vector3 at)
+        {
+            var c = new Color(0.8f, 0.35f, 1f);
+            Sfx.Play(Sound.Whisper, at + Vector3.up, 1f, 0.8f);
+            Vfx.Ring(at, HymnRadius, c, 0.4f);
+            Vfx.Embers(at, 16, c, 3f, 0.06f, 0.9f);
+        }
+
+        // ---- Slam / nova / pools: a red circle round it fills, then breaks ----
+
+        private void BeginSlam()
+        {
+            slamAt = Time.time + SlamWindup;
+            busyUntil = slamAt + 1f;
+            PlayActionRpc(act == 1 || act == 4 ? RigAction.Cast : RigAction.Slam, SlamWindup + 0.3f);
+            if (act == 1 || act == 4) TintedKeyedCircleRpc(transform.position, SlamRadius, SlamWindup, act == 1 ? Telegraph.Frost : Telegraph.Poison);
+            else CircleTelegraphRpc(transform.position, SlamRadius, SlamWindup, true);
+        }
+
+        private void ResolveSlam()
+        {
+            slamAt = -1f;
+            foreach (var victim in CombatQuery.Circle(transform.position, SlamRadius, Team.Players))
+            {
+                victim.ServerDamage(damage * 1.5f, transform.position, NetworkObjectId);
+                var deb = victim.GetComponent<PlayerDebuffs>();
+                if (act == 1 && deb != null) { deb.ServerFrostbite(4f); deb.ServerRoot(0.9f); }
+                else if (act == 4 && deb != null) deb.ServerPoison(5f, 4f + 2f * scaledDepth);
+                else
+                {
+                    var away = victim.transform.position - transform.position;
+                    away.y = 0f;
+                    KnockPlayer(victim, away.normalized * 11f + Vector3.up * 5f);
+                }
+            }
+            SlamFxRpc(transform.position, SlamRadius, act);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void TintedKeyedCircleRpc(Vector3 at, float radius, float seconds, Color tint) => Telegraph.Show(at, radius, seconds, this, tint);
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SlamFxRpc(Vector3 at, float radius, int kind)
+        {
+            if (kind == 1)
+            {
+                Sfx.Play(Sound.Shatter, at + Vector3.up, 1f, 0.7f);
+                Vfx.IceSpikes(at, radius, 22);
+                Vfx.Ring(at, radius, new Color(0.5f, 0.85f, 1f), 0.5f);
+            }
+            else if (kind == 4)
+            {
+                Sfx.Play(Sound.Summon, at + Vector3.up, 0.9f, 0.6f);
+                Vfx.Ring(at, radius, new Color(0.55f, 0.9f, 0.25f), 0.6f);
+                Vfx.Smoke(at, 6, radius * 0.6f, 2f);
+            }
+            else
+            {
+                Sfx.Play(Sound.Slam, at, 1f, 0.6f);
+                Vfx.Ring(at, radius, new Color(1f, 0.6f, 0.3f), 0.45f);
+                Vfx.Smoke(at, 5, radius * 0.5f, 1.4f);
+                var local = NetworkPlayer.Local;
+                if (local != null && Vector3.Distance(local.transform.position, at) < 16f) local.ViewModelBlockImpact();
+            }
+        }
+
+        // ---- Volley: a fan of bolts or spit at its prey ----
+
+        private void Volley(ProjectileKind kind, int count, float speed, float range)
+        {
+            if (target == null) return;
+            var origin = transform.position + Vector3.up * 2.4f + transform.forward * 0.8f;
+            var at = AimDir(origin, speed);
+            PlayActionRpc(RigAction.Cast, 0.6f);
+            busyUntil = Time.time + 0.9f;
+            for (int i = 0; i < count; i++)
+            {
+                var dir = Quaternion.AngleAxis((i - (count - 1) / 2f) * 9f, Vector3.up) * at;
+                if (kind == ProjectileKind.Spit)
+                    Arrows.ServerFire(origin, dir, damage * 0.5f, Team.Players, NetworkObjectId, speed, hit =>
+                    {
+                        hit.ServerDamage(damage * 0.5f, transform.position, NetworkObjectId);
+                        if (hit.TryGetComponent<PlayerDebuffs>(out var d)) d.ServerPoison(4f, 3f + 1.5f * scaledDepth);
+                    }, false, range * 1.6f);
+                else
+                    Arrows.ServerFire(origin, dir, damage * 0.6f, Team.Players, NetworkObjectId, speed, null, false, range * 1.6f);
+                VolleyFxRpc(origin, dir, (byte)kind, speed, range * 1.6f);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void VolleyFxRpc(Vector3 origin, Vector3 dir, byte kind, float speed, float range) =>
+            Arrows.SpawnVisual(origin, dir, (ProjectileKind)kind, speed, range);
+
+        // ---- The King's Shield: guard from the front, and the charge ----
+
+        private int charge; // 0 none, 1 wind-up, 2 running
+        private Vector3 chargeDir;
+        private float chargeAt, chargeLength, charged, dazedUntil;
+        private readonly HashSet<Health> trampled = new HashSet<Health>();
+
+        private float GuardModifier(float dmg, Vector3 from)
+        {
+            if (Time.time < dazedUntil || IsStunned) return dmg * 1.4f;
+            var to = from - transform.position;
+            to.y = 0f;
+            if (charge != 2 && Vector3.Angle(transform.forward, to) < 60f)
+            {
+                GuardClangRpc();
+                return dmg * (scaledPlayers <= 1 ? 0.45f : 0.3f);
+            }
+            return dmg;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void GuardClangRpc() => Sfx.Play(Sound.Block, transform.position + transform.forward * 0.8f + Vector3.up * 1.6f, 0.8f, 0.75f);
+
+        private void BeginChargeWindup()
+        {
+            chargeDir = target.transform.position - transform.position;
+            chargeDir.y = 0f;
+            chargeDir.Normalize();
+            var from = transform.position;
+            chargeLength = 16f;
+            if (NavMesh.Raycast(from, from + chargeDir * chargeLength, out var hit, NavMesh.AllAreas)) chargeLength = hit.distance;
+            charge = 1;
+            chargeAt = Time.time + 1.1f;
+            trampled.Clear();
+            PlayActionRpc(RigAction.Windup, 1.1f);
+            LineTelegraphRpc(from, chargeDir, chargeLength + 1f, 2.6f, 1.1f);
+        }
+
+        private void StepCharge()
+        {
+            float step = 14f * Time.deltaTime;
+            var before = transform.position;
+            agent.Move(chargeDir * step);
+            float moved = Vector3.Distance(before, transform.position);
+            charged += moved;
+            foreach (var victim in CombatQuery.Circle(transform.position, 1.8f, Team.Players))
+            {
+                if (!trampled.Add(victim)) continue;
+                victim.ServerDamage(damage * 1.4f, transform.position - chargeDir, NetworkObjectId);
+                var side = Vector3.Cross(Vector3.up, chargeDir);
+                if (Vector3.Dot(victim.transform.position - transform.position, side) < 0f) side = -side;
+                KnockPlayer(victim, (side * 1.2f + chargeDir).normalized * 12f + Vector3.up * 4f);
+            }
+            if (moved < step * 0.4f)
+            {
+                charge = 0;
+                dazedUntil = Time.time + 2.6f;
+                busyUntil = dazedUntil;
+                PlayActionRpc(RigAction.Stagger, 2.6f);
+                ImpactFxRpc(transform.position + chargeDir, 14f);
+            }
+            else if (charged >= chargeLength + 0.5f)
+            {
+                charge = 0;
+                busyUntil = Time.time + 0.8f;
+            }
+        }
+    }
+}

@@ -65,7 +65,7 @@ namespace Deepbound.World
                 if (Mathf.Abs(d.y) > 1f) continue;
                 d.y = 0f;
                 if (d.magnitude > Radius) continue;
-                h.ServerDamage(Damage * (1f + 0.2f * depth) * (h.Team == Team.Enemies ? 1.5f : 1f), transform.position + Vector3.down, NetworkObjectId);
+                h.ServerDamage(Damage * (1f + 0.2f * DungeonDirector.Tier(depth)) * (h.Team == Team.Enemies ? 1.5f : 1f), transform.position + Vector3.down, NetworkObjectId);
             }
             FireRpc();
         }

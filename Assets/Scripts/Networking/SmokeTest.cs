@@ -324,6 +324,30 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                 }
 
+                // Shared loot: gold one player picks up is split across the party; a pack piece can be handed over.
+                var mate = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
+                if (mate != null)
+                {
+                    var myP = local.GetComponent<PlayerProgress>();
+                    var mateP = mate.GetComponent<PlayerProgress>();
+                    int mineBefore = myP.Gold.Value, mateBefore = mateP.Gold.Value;
+                    DungeonDirector.Instance.ServerDropLoot(local.transform.position + Vector3.up * 0.3f, LootKind.Gold, 40);
+                    for (int k = 0; k < 20 && myP.Gold.Value == mineBefore; k++) yield return new WaitForSeconds(0.1f);
+                    int gotMine = myP.Gold.Value - mineBefore, gotMate = mateP.Gold.Value - mateBefore;
+                    Log("shared gold", "picked up 40 (x gold bonus): me +" + gotMine + ", ally +" + gotMate + " (rule " + (DungeonDirector.ShareLoot ? "shared" : "finders keepers") + ")",
+                        gotMate > 0 && Mathf.Abs(gotMine - gotMate) <= 1);
+                    int mateBag = mateP.BagCount;
+                    myP.ServerStow(new GearItem(GearId.HuntersTooth, 0, 0));
+                    myP.BagGiftRpc(myP.BagCount - 1);
+                    yield return new WaitForSeconds(0.3f);
+                    myP.ServerAddGold(100);
+                    int beforeGive = mateP.Gold.Value;
+                    myP.GiveGoldRpc(mate.NetworkObjectId, 25);
+                    yield return new WaitForSeconds(0.3f);
+                    Log("gifts", "ally's pack " + mateBag + " -> " + mateP.BagCount + ", gave 25 gold: ally " + beforeGive + " -> " + mateP.Gold.Value,
+                        mateP.BagCount == mateBag + 1 && mateP.Gold.Value == beforeGive + 25);
+                }
+
                 // Boss phases: damage stops at the first gate (50%), the boss goes immune for the transition.
                 var gateBoss = BossBrain.Active;
                 if (gateBoss != null && gateBoss is GravewardenBrain)
@@ -946,8 +970,11 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(1f);
                 var phase = DungeonDirector.Instance.Phase.Value;
                 Log("boss kill -> phase", phase.ToString(), phase == RunPhase.FloorCleared);
-                Log("boss last words", "deed " + Progression.Deeds.Has(Progression.Deeds.Deed.Gravewarden) + ", eulogy page " + UI.Journal.Has(UI.Journal.EulogyFor(0)),
-                    Progression.Deeds.Has(Progression.Deeds.Deed.Gravewarden) && UI.Journal.Has(UI.Journal.EulogyFor(0)));
+                // Floor 1 ends at a Warden now (no eulogy of its own); the act bosses each write one.
+                var deed = boss.Deed;
+                int eulogy = UI.Journal.EulogyFor((int)deed);
+                Log("boss last words", boss.DisplayName + ": deed " + Progression.Deeds.Has(deed) + ", eulogy page " + (eulogy < 0 ? "none for a Warden" : UI.Journal.Has(eulogy).ToString()),
+                    Progression.Deeds.Has(deed) && (eulogy < 0 || UI.Journal.Has(eulogy)));
                 // No timer: the party leaves when everyone is at the portal.
                 yield return new WaitForSeconds(2f);
                 bool stillHere = DungeonDirector.Instance.Phase.Value == RunPhase.FloorCleared;
@@ -1153,6 +1180,46 @@ namespace Deepbound.Networking
                     }
                     else Log("struck folk", "no camp folk spawned", false);
 
+                    // The training yard: a drill raises a stat and the next costs more.
+                    motor.Teleport(Lobby.YardSpot + Vector3.right * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
+                    progress.ServerAddGold(400);
+                    var yard = Shop.For(local.OwnerClientId, Shop.Vendor.Yard);
+                    int drillIdx = System.Array.FindIndex(yard, it => it.Kind == Shop.ItemKind.Drill && it.Stat == Core.StatType.ATT);
+                    if (drillIdx >= 0)
+                    {
+                        float drillAtt = progress.Value(Core.StatType.ATT);
+                        int priceBefore = yard[drillIdx].Price;
+                        progress.BuyRpc(Shop.Vendor.Yard, drillIdx);
+                        yield return new WaitForSeconds(0.3f);
+                        int priceAfter = Shop.For(local.OwnerClientId, Shop.Vendor.Yard)[drillIdx].Price;
+                        Log("drills", "ATT " + drillAtt + " -> " + progress.Value(Core.StatType.ATT) + ", price " + priceBefore + " -> " + priceAfter,
+                            progress.Value(Core.StatType.ATT) > drillAtt && priceAfter > priceBefore);
+                    }
+                    else Log("drills", "no drill board at camp", false);
+
+                    // Corwin's smelling salts: go down, come round on your own.
+                    motor.Teleport(Lobby.CarriageStall + Vector3.back * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
+                    progress.ServerAddGold(400);
+                    var cart = Shop.For(local.OwnerClientId, Shop.Vendor.Carriage);
+                    int saltIdx = System.Array.FindIndex(cart, it => it.Kind == Shop.ItemKind.Salts);
+                    if (saltIdx >= 0)
+                    {
+                        progress.BuyRpc(Shop.Vendor.Carriage, saltIdx);
+                        yield return new WaitForSeconds(0.3f);
+                        bool hadSalts = progress.Salts.Value;
+                        var lifeS = local.GetComponent<PlayerLife>();
+                        var hS = local.GetComponent<Health>();
+                        for (int k = 0; k < 3 && !lifeS.Downed.Value; k++) { hS.ServerDamage(hS.Max.Value * 5f, local.transform.position + Vector3.forward); yield return new WaitForSeconds(0.2f); }
+                        bool wentDown = lifeS.Downed.Value;
+                        for (float t = 0f; t < 7f && lifeS.Downed.Value; t += 0.2f) yield return new WaitForSeconds(0.2f);
+                        Log("smelling salts", "bought " + hadSalts + ", went down " + wentDown + ", up again " + !lifeS.Downed.Value + " at " + Mathf.RoundToInt(hS.Fraction * 100f) + "%, used " + !progress.Salts.Value,
+                            hadSalts && wentDown && !lifeS.Downed.Value && !progress.Salts.Value);
+                        hS.ServerSetFraction(1f);
+                    }
+                    else Log("smelling salts", "Corwin sells none", false);
+
                     // Brother Aldric's paid prayer: bought at the shrine, it catches one killing blow.
                     motor.Teleport(Lobby.ShrineSpot + Vector3.left * 2.4f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
@@ -1347,11 +1414,55 @@ namespace Deepbound.Networking
                 Log("contract live", DungeonDirector.ContractName((Contract)dc.ActiveContract.Value) + " " + (DungeonDirector.ContractStatus)dc.ContractState.Value + ", goal " + dc.ContractGoal.Value,
                     dc.ActiveContract.Value == 0 || dc.ContractState.Value == (byte)DungeonDirector.ContractStatus.Active);
                 Log("next floor", "depth " + dc.Floor.Value.y + ", weapon kept +" + pc.WeaponLevel.Value, dc.Floor.Value.y == 1 && pc.WeaponLevel.Value >= 2);
-                // The Drowned Vaults' tide: low ground slows while it is up.
+                // The Drowned Vaults (act two, floor 3): their tide slows low ground while it is up.
+                dc.ServerDebugStartFloor(2);
+                yield return new WaitForSeconds(2f);
+                Log("act two", "floor " + (dc.Floor.Value.y + 1) + " is act " + (DungeonDirector.Act(dc.Floor.Value.y) + 1) + " (" + DungeonTheme.ForDepth(dc.Floor.Value.y).Name + "), boss " +
+                    (BossBrain.Active != null ? BossBrain.Active.DisplayName : "none"), DungeonDirector.Act(dc.Floor.Value.y) == 1 && BossBrain.Active is WardenBrain);
                 dc.ServerDebugTide();
                 yield return new WaitForSeconds(0.3f);
                 var floorSpot = DungeonDirector.Layout.StartRoom.Center + Vector3.up * 0.05f;
                 Log("tide", "level " + DungeonDirector.TideLevel.ToString("F2") + ", slow " + DungeonDirector.WaterSlow(floorSpot).ToString("F2"), DungeonDirector.WaterSlow(floorSpot) < 1f);
+            }
+
+            // An Entling roots the player until it dies; a Mania hit takes the legs for a moment.
+            if (net.IsServer && local != null && DungeonDirector.Layout != null)
+            {
+                var me2 = local.GetComponent<FirstPersonMotor>();
+                var deb2 = local.GetComponent<PlayerDebuffs>();
+                var hp2 = local.GetComponent<Health>();
+                var ent = DungeonDirector.Instance.ServerDebugSpawnEntling(local.transform.position + local.transform.forward * 5f);
+                bool held = false;
+                for (float t = 0f; t < 6f && ent != null && !held; t += 0.2f) { hp2.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); held = deb2.Entangled; }
+                bool cantMove = deb2.Rooted && deb2.SpeedMultiplier == 0f;
+                if (ent != null) ent.GetComponent<Health>().ServerDamage(1e6f, ent.transform.position, local.NetworkObjectId);
+                yield return new WaitForSeconds(0.4f);
+                Log("entling", "held " + held + ", rooted " + cantMove + ", free after it died " + !deb2.Entangled, ent != null && held && cantMove && !deb2.Entangled);
+                deb2.ServerMania(1f);
+                yield return new WaitForSeconds(0.2f);
+                bool manic = deb2.Manic && !local.GetComponent<PlayerLife>().CanAct;
+                deb2.ServerCleanse();
+                Log("mania", "manic " + manic + ", cleansed " + !deb2.Manic, manic && !deb2.Manic);
+                hp2.ServerSetFraction(1f);
+            }
+
+            // Ranged falloff: full bite to 45% of range, 60% at the very end.
+            Log("falloff", "at 30% " + Arrows.Falloff(9f, 30f).ToString("F2") + ", at 75% " + Arrows.Falloff(22.5f, 30f).ToString("F2") + ", at the end " + Arrows.Falloff(30f, 30f).ToString("F2"),
+                Arrows.Falloff(9f, 30f) >= 0.999f && Arrows.Falloff(30f, 30f) <= Arrows.FalloffFloor + 0.001f && Arrows.Falloff(22.5f, 30f) < 1f);
+
+            // The anvil goes to +10: gold from +6, a third socket at +6, Ascended at +8.
+            if (net.IsServer && local != null && DungeonDirector.InLobby == false)
+            {
+                var tp = local.GetComponent<PlayerProgress>();
+                if (tp.WeaponPath.Value == 0) tp.WeaponPath.Value = 1;
+                tp.ServerAddEmbers(3000);
+                tp.ServerAddGold(3000);
+                int goldBefore = tp.Gold.Value;
+                float multBefore = tp.AttackMultiplier;
+                int guard = 0;
+                while (tp.WeaponLevel.Value < World.Anvil.MaxLevel && guard++ < 12) tp.ServerUpgradeWeapon();
+                Log("anvil to +10", "level " + tp.WeaponLevel.Value + ", sockets " + Runes.SocketsAt(tp.WeaponLevel.Value) + ", gold spent " + (goldBefore - tp.Gold.Value) + ", attack x" + multBefore.ToString("F2") + " -> x" + tp.AttackMultiplier.ToString("F2"),
+                    tp.WeaponLevel.Value == World.Anvil.MaxLevel && Runes.SocketsAt(tp.WeaponLevel.Value) == 3 && goldBefore - tp.Gold.Value > 0);
             }
 
             // Wipe the party and check the run summary has something to show.
@@ -1964,11 +2075,23 @@ namespace Deepbound.Networking
 
             // One look at each later floor's theme.
             var shotFeatures = new System.Collections.Generic.HashSet<RoomFeature>(layout.Rooms.Select(r => r.Feature));
-            for (int depth = 1; depth <= DungeonDirector.AbyssDepth; depth++)
+            // One floor per later act (each the act's first: a Warden waits at the end of it).
+            for (int depth = 2; depth <= DungeonDirector.AbyssDepth; depth += 2)
             {
                 DungeonDirector.Instance.ServerDebugStartFloor(depth);
                 yield return new WaitForSeconds(2.5f);
                 var l = DungeonDirector.Layout;
+                // The Warden, asleep in its arena.
+                var wardenS = BossBrain.Active;
+                if (wardenS != null)
+                {
+                    var wv = wardenS.transform.position + wardenS.transform.forward * 7f + Vector3.up * 0.1f;
+                    motor.Teleport(wv, Quaternion.LookRotation(wardenS.transform.position - wv));
+                    motor.SetPitch(-8f);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Shot(dir, "3w_warden_floor" + (depth + 1));
+                    motor.SetPitch(0f);
+                }
                 // Any room mechanic not seen yet: from a corner, and (galleries) from the balcony.
                 foreach (var room in l.Rooms)
                 {
@@ -1996,13 +2119,13 @@ namespace Deepbound.Networking
                     motor.Teleport(from, Quaternion.LookRotation(room.Center - from));
                     yield return new WaitForSeconds(1.2f);
                     yield return Shot(dir, "5_floor" + (depth + 1));
-                    if (depth == 1)
+                    if (DungeonDirector.Act(depth) == 1)
                     {
                         // The water thickens: murk, slow ripples, and the MIRED badge (read by hovering it).
                         DungeonDirector.Instance.ServerDebugTide();
                         yield return new WaitForSeconds(1.5f);
                         UI.StatusEffects.DebugHover = 0;
-                        yield return Shot(dir, "5_floor2_mire");
+                        yield return Shot(dir, "5_floor3_mire");
                         UI.StatusEffects.DebugHover = -1;
                     }
                     // This floor's own dressing, up close.
@@ -2032,14 +2155,14 @@ namespace Deepbound.Networking
                     }
 
                     // The Mourner (never spawned in tests): one weeping far off, one caught reaching up close.
-                    if (depth == 1)
+                    if (depth == 2)
                     {
                         var mournFrom = room.Center + Vector3.up * 0.1f;
                         var far = DungeonDirector.Instance.ServerDebugSpawnMourner(room.Center + new Vector3(-1.5f, 0f, 7f), Vector3.back);
                         var near = DungeonDirector.Instance.ServerDebugSpawnMourner(room.Center + new Vector3(1.4f, 0f, 2.6f), Vector3.back);
                         motor.Teleport(mournFrom, Quaternion.LookRotation(Vector3.forward));
                         yield return new WaitForSeconds(0.8f);
-                        yield return Shot(dir, "7_MournerBrain_floor2");
+                        yield return Shot(dir, "7_MournerBrain_floor3");
                         foreach (var mn in new[] { far, near }) if (mn != null) mn.GetComponent<Health>().ServerDamage(1e6f, mn.transform.position);
                     }
 
@@ -2129,7 +2252,7 @@ namespace Deepbound.Networking
             // The test player takes a tenth of every hit: the run must not wipe mid-test.
             hp.IncomingModifiers.Insert(0, (d, f) => d * 0.1f);
 
-            for (int depth = 0; depth <= DungeonDirector.AbyssDepth; depth++)
+            for (int depth = 0; depth <= DungeonDirector.FinalDepth; depth++)
             {
                 DungeonDirector.Instance.ServerDebugStartFloor(depth);
                 yield return new WaitForSeconds(2f);
@@ -2154,7 +2277,7 @@ namespace Deepbound.Networking
                     if (i % 3 == 1) yield return Shot(dir, "boss" + (depth + 1) + "_" + i);
                     // Walk toward the Lich mid-test, to provoke the blink.
                     // Wound it halfway through, to see the late-fight phases (summons, surges, enrage).
-                    if (depth == 1 && i == 6) motor.Teleport(boss.transform.position + boss.transform.forward * 2f, local.transform.rotation);
+                    if (boss is TideLichBrain && i == 6) motor.Teleport(boss.transform.position + boss.transform.forward * 2f, local.transform.rotation);
                 }
 
                 // Walk the boss through every phase gate: wound it from behind until it changes stance,

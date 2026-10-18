@@ -14,7 +14,7 @@ namespace Deepbound.Progression
     public static class Shop
     {
         /// <summary>Value 1 was the retired stat potion.</summary>
-        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7, Prayer = 8 }
+        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7, Prayer = 8, Drill = 9, Map = 10, Salts = 11, Restock = 12 }
 
         public struct Item
         {
@@ -40,19 +40,23 @@ namespace Deepbound.Progression
         /// what the anvil eats (embers, plate, a fitted piece, sigils), the shrine keeps holy water and
         /// relics. Down in the dungeon the travelling peddler carries only potions, marked up.
         /// </summary>
-        public enum Vendor : byte { Merchant = 0, Smith = 1, Shrine = 2 }
+        /// <remarks>Yard: the training yard's drill board (stats for gold). Carriage: Corwin, at the carriage (maps, salts).</remarks>
+        public enum Vendor : byte { Merchant = 0, Smith = 1, Shrine = 2, Yard = 3, Carriage = 4 }
 
         public static string VendorTitle(Vendor v) => v == Vendor.Smith ? "HOBB'S WARES" : v == Vendor.Shrine ? "THE SHRINE'S OFFERINGS"
+            : v == Vendor.Yard ? "THE TRAINING YARD" : v == Vendor.Carriage ? "CORWIN, THE DRIVER"
             : World.DungeonDirector.InLobby ? "SILAS CRANE, MERCHANT" : "THE PEDDLER";
 
         public static string VendorLine(Vendor v) => v == Vendor.Smith ? "\"Embers, plate and a blade's worth of sense. Pay up.\""
             : v == Vendor.Shrine ? "\"Blessed things, for a gift to the shrine. The dead respect a full font.\""
+            : v == Vendor.Yard ? "Drills chalked on the board, an honesty box nailed under them. Each costs more than the last."
+            : v == Vendor.Carriage ? "\"I've driven folk to the door of every floor. I know a thing or two about the way down.\""
             : World.DungeonDirector.InLobby ? "\"Coin for courage, friend. It all spends the same down there.\"" : "\"Long way down to carry glass. Prices reflect it.\"";
 
         /// <summary>Where a vendor stands right now (null: not here).</summary>
         public static UnityEngine.Vector3? Position(Vendor v) => v == Vendor.Merchant ? World.DungeonDirector.MerchantPosition
             : !World.DungeonDirector.InLobby ? (UnityEngine.Vector3?)null
-            : v == Vendor.Smith ? World.Lobby.AnvilSpot : World.Lobby.ShrineSpot;
+            : v == Vendor.Smith ? World.Lobby.AnvilSpot : v == Vendor.Yard ? World.Lobby.YardSpot : v == Vendor.Carriage ? World.Lobby.CarriageStall : World.Lobby.ShrineSpot;
 
         public static float Range(Vendor v) => v == Vendor.Merchant ? MerchantRange : StallRange;
 
@@ -92,8 +96,22 @@ namespace Deepbound.Progression
             if (camp && vendor == Vendor.Shrine)
                 list.Add(new Item { Name = "Brother Aldric's Prayer", Description = "He prays for you, loudly. The first blow that would down you leaves you at 1 health instead (once)",
                     Price = 45 + 15 * depth, Kind = ItemKind.Prayer, Seller = Vendor.Shrine });
+            float tier = World.DungeonDirector.Tier(depth);
             if (camp && vendor == Vendor.Smith)
+            {
                 list.Add(new Item { Name = "Sigil", Description = "Empower an ability one rank, here at the anvil", Price = 150 + 50 * depth, Kind = ItemKind.Sigil, Seller = Vendor.Smith });
+                list.Add(new Item { Name = "Commission another piece", Description = "Hobb puts away the piece he made you and forges a fresh one (a new roll)",
+                    Price = UnityEngine.Mathf.RoundToInt(30 + 15 * tier), Kind = ItemKind.Restock, Seller = Vendor.Smith });
+            }
+            if (camp && vendor == Vendor.Carriage)
+            {
+                list.Add(new Item { Name = "Scout's Map", Description = "Corwin's chart of the next floor: every room on your map from the start",
+                    Price = UnityEngine.Mathf.RoundToInt(40 + 20 * tier), Kind = ItemKind.Map, Seller = Vendor.Carriage });
+                list.Add(new Item { Name = "Smelling Salts", Description = "If you go down, you come round on your own 5 s later, at 30% health (once)",
+                    Price = UnityEngine.Mathf.RoundToInt(110 + 30 * tier), Kind = ItemKind.Salts, Seller = Vendor.Carriage });
+            }
+            if (camp && vendor == Vendor.Yard)
+                foreach (var d in Drills) list.Add(d);
             return list.ToArray();
         }
 
@@ -109,16 +127,26 @@ namespace Deepbound.Progression
             var list = new List<Item>(Current(vendor));
             if (vendor == Vendor.Smith && World.DungeonDirector.InLobby)
             {
-                var rng = new System.Random(seed * 31 + (int)clientId * 7919 + 5);
+                var buyerP = PlayerProgress.ForClient(clientId);
+                var rng = new System.Random(seed * 31 + (int)clientId * 7919 + 5 + (buyerP != null ? buyerP.StockRerolls.Value * 104729 : 0));
                 int id = rng.Next(1, 13);
                 double r = rng.NextDouble();
                 int quality = r < 0.2 ? 2 : r < 0.7 ? 1 : 0;
                 var gear = new Loot.GearItem((Loot.GearId)id, quality, depth);
                 list.Add(new Item { Name = Loot.Gear.Name(gear), Description = Loot.Gear.StatLine(gear) + ". " + Loot.Gear.Effect(gear.Kind), Price = 60 + 40 * quality + 25 * depth, Kind = ItemKind.Gear, Gear = gear, Seller = Vendor.Smith });
             }
+            var buyer = PlayerProgress.ForClient(clientId);
+            // Drills cost more each time you take one.
+            if (vendor == Vendor.Yard && buyer != null)
+                for (int i = 0; i < list.Count; i++)
+                    if (list[i].Kind == ItemKind.Drill)
+                    {
+                        var it = list[i];
+                        it.Price += DrillStep * buyer.DrillCount(it.Stat);
+                        list[i] = it;
+                    }
             // The peddler charges for the trip; a vendor you have hit charges you for that.
             float mult = !World.DungeonDirector.InLobby ? PeddlerMarkup : 1f;
-            var buyer = PlayerProgress.ForClient(clientId);
             if (buyer != null) mult *= buyer.PriceMultiplier(vendor);
             if (mult != 1f)
                 for (int i = 0; i < list.Count; i++)
@@ -129,6 +157,20 @@ namespace Deepbound.Progression
                 }
             return list.ToArray();
         }
+
+        /// <summary>
+        /// The training yard's drills: a stat for the run, each one dearer than the last (Cap = how many
+        /// times). Gold's long-term sink: there is always one more drill to pay for.
+        /// </summary>
+        public static readonly Item[] Drills =
+        {
+            new Item { Name = "Sword Drill", Description = "+2 ATT for the run", Price = 60, Kind = ItemKind.Drill, Stat = StatType.ATT, Amount = 2f, Cap = 6, Seller = Vendor.Yard },
+            new Item { Name = "Shield Drill", Description = "+1 DEF for the run", Price = 55, Kind = ItemKind.Drill, Stat = StatType.DEF, Amount = 1f, Cap = 6, Seller = Vendor.Yard },
+            new Item { Name = "Footwork", Description = "+3 DEX for the run (faster attacks)", Price = 50, Kind = ItemKind.Drill, Stat = StatType.DEX, Amount = 3f, Cap = 6, Seller = Vendor.Yard },
+            new Item { Name = "Endurance Run", Description = "+15 max HP for the run", Price = 50, Kind = ItemKind.Drill, Stat = StatType.HP, Amount = 15f, Cap = 6, Seller = Vendor.Yard },
+            new Item { Name = "Breathing", Description = "+10 max MP for the run", Price = 40, Kind = ItemKind.Drill, Stat = StatType.MP, Amount = 10f, Cap = 5, Seller = Vendor.Yard },
+        };
+        public const int DrillStep = 30;
 
         /// <summary>Deep in the dungeon, the peddler charges for the trip.</summary>
         public const float PeddlerMarkup = 1.35f;

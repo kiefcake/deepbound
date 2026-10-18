@@ -1,6 +1,7 @@
 using Deepbound.Art;
 using Deepbound.Combat;
 using UnityEngine;
+using Unity.Netcode;
 
 namespace Deepbound.Enemies
 {
@@ -67,13 +68,36 @@ namespace Deepbound.Enemies
                     () => Taunt("Traitors. All of you. Then I will do it myself."));
             }
             else
-                Transition("The Last Crown", "I was a king before your gods were born!", 2.2f);
+                Transition("The Last Crown", "I was a king before your gods were born!", 2.2f, () => nextBlades = Time.time + 2f);
         }
         private float WindupScale => Enraged ? 0.7f : 1f;
 
+        // ---- Crown of Blades: spectral swords wheel out of him while he keeps walking at you ----
+        private float nextBlades = -1f;
+        protected override ProjectileKind? QuickKind => ProjectileKind.Smite;
+
+        private void TickBlades()
+        {
+            if (nextBlades < 0f || Time.time < nextBlades || Immune || PatternRunning) return;
+            nextBlades = Time.time + 13f;
+            BladesRpc();
+            StartPattern(new Pattern
+            {
+                Arms = 5, Interval = 0.14f, Speed = 11f, Spin = 9f, FlipEvery = 2f, Damage = damage * 0.4f,
+                Kind = ProjectileKind.Smite, Duration = 4.2f, Range = 26f, Origin = t => transform.position + Vector3.up * 1.6f,
+            });
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BladesRpc()
+        {
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 4.4f, "CROWN OF BLADES", new Color(1f, 0.85f, 0.45f));
+            Sfx.Play(Sound.Swing, transform.position + Vector3.up * 2f, 1f, 0.5f);
+        }
+
         protected override void Update()
         {
-            if (IsServer && !IsDead) TickJudgement();
+            if (IsServer && !IsDead) { TickJudgement(); TickBlades(); }
             if (IsServer && !IsDead && slamming)
             {
                 agent.isStopped = true;

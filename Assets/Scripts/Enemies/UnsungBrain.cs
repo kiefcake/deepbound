@@ -9,7 +9,7 @@ namespace Deepbound.Enemies
 {
     /// <summary>
     /// The Unsung: what the Cardinal's hymn was sung to keep asleep, at the bottom of the Abyss
-    /// (reached only with all three Seals). A colossal floating ribcage under a three-eyed skull,
+    /// (on floor 10, the bottom of the Abyss; every Seal left unbroken makes it 15% tougher). A colossal floating ribcage under a three-eyed skull,
     /// ringed with orbiting bone. It fights in patterns, RotMG-style:
     ///
     /// <list type="bullet">
@@ -30,7 +30,7 @@ namespace Deepbound.Enemies
         public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.Unsung;
         public override string Hint => "Slip through the gaps in its rings, step out of the grasping dark, and break its wardens while someone keeps watching them.";
 
-        private const float BoltSpeed = 7f, SpiralSpeed = 7.5f;
+        private const float BoltSpeed = 9f, SpiralSpeed = 11.5f;
         private float nextRing, nextGrasp, nextSpiral, spiralAngle;
         private bool lastMorning;
 
@@ -68,10 +68,16 @@ namespace Deepbound.Enemies
                 case 1:
                     Survive("The Silence", "Hear it? Neither do I. Not one note.", "The light fails: weave through the spiral until it passes", 14f,
                         () => Taunt("Still here. Still small."));
-                    spiralAngle = Random.Range(0f, 360f);
-                    nextSpiral = Time.time + 0.8f;
                     grasps.Clear();
                     SilenceRpc(14f);
+                    // Three emitters wheel round it at different speeds and directions; one shoots at stragglers.
+                    for (int e = 0; e < 3; e++)
+                        StartPattern(new Pattern
+                        {
+                            Arms = 3, Interval = 0.13f, Speed = SpiralSpeed, Spin = e == 1 ? -10f : 12f, FlipEvery = e == 2 ? 2.6f : 0f,
+                            Damage = damage * 0.35f, Kind = ProjectileKind.ShadowBolt, Duration = 13.4f, AimedEvery = e == 0 ? 1.2f : 0f, Range = 30f,
+                            Origin = Orbit(3.2f + e * 1.4f, e == 1 ? -30f : 38f, e * 120f, 1.2f),
+                        });
                     break;
                 default:
                     Transition("The Last Morning", "The morning they waited for. It is mine.", 2.6f, () => lastMorning = true);
@@ -114,7 +120,7 @@ namespace Deepbound.Enemies
                 foreach (var p in PlayerLife.All)
                 {
                     if (p == null || !p.Targetable) continue;
-                    var at = p.transform.position;
+                    var at = PredictedFeet(p, 1.5f);
                     grasps.Add(new Grasp { At = at, When = Time.time + 1.5f });
                     GraspWarnRpc(at, 2.6f, 1.5f);
                 }
@@ -146,21 +152,9 @@ namespace Deepbound.Enemies
             BoltsRpc(origin, dirs.ToArray(), BoltSpeed * (lastMorning ? 1.25f : 1f));
         }
 
-        private void TickSpiral()
-        {
-            if (!InSurvival || Time.time < nextSpiral) return;
-            nextSpiral = Time.time + 0.12f;
-            const int arms = 5;
-            spiralAngle += 11f;
-            var origin = transform.position + Vector3.up * 1.2f;
-            var dirs = new Vector3[arms];
-            for (int i = 0; i < arms; i++)
-            {
-                dirs[i] = Quaternion.Euler(0f, spiralAngle + i * 360f / arms, 0f) * Vector3.forward;
-                Arrows.ServerFire(origin, dirs[i], damage * 0.4f, Team.Players, NetworkObjectId, SpiralSpeed);
-            }
-            BoltsRpc(origin, dirs, SpiralSpeed);
-        }
+        private void TickSpiral() { }
+
+        protected override ProjectileKind? QuickKind => null;
 
         private void ResolveGrasps()
         {
@@ -170,7 +164,11 @@ namespace Deepbound.Enemies
                 var at = grasps[i].At;
                 grasps.RemoveAt(i);
                 foreach (var v in CombatQuery.Circle(at, 2.6f, Team.Players))
+                {
                     v.ServerDamage(damage * 1.3f, at + Vector3.up, NetworkObjectId);
+                    // The dark under your feet gets into your head.
+                    if (v.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerMania(2f);
+                }
                 GraspFxRpc(at);
             }
         }
@@ -184,7 +182,7 @@ namespace Deepbound.Enemies
 
         [Rpc(SendTo.ClientsAndHost)]
         private void GraspWarnRpc(Vector3 at, float radius, float seconds) =>
-            Telegraph.Show(at, radius, seconds, null, new Color(0.55f, 0.25f, 1f, 0.4f));
+            Telegraph.Show(at, radius, seconds, null, Telegraph.Madness);
 
         [Rpc(SendTo.ClientsAndHost)]
         private void GraspFxRpc(Vector3 at)

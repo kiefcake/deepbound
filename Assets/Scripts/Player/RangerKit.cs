@@ -30,6 +30,8 @@ namespace Deepbound.Player
         public const float DrawMin = 0.15f, DrawFull = 0.85f, ArrowMinDamage = 12f, ArrowMaxDamage = 42f, ArrowSpeed = 34f;
         /// <summary>A snap shot carries 20 m; a full draw 34 m (x the anvil / Farsight range multiplier).</summary>
         public const float ArrowMinRange = 20f, ArrowMaxRange = 34f;
+        /// <summary>Arrows drop: a snap shot falls fast, a full draw flies flat.</summary>
+        public static float ArrowGravity(float charge) => Mathf.Lerp(7f, 2.5f, Mathf.Clamp01(charge));
         public static float ArrowRange(float charge, float mul) => Mathf.Lerp(ArrowMinRange, ArrowMaxRange, Mathf.Clamp01(charge)) * mul;
         public float AttackRange => ArrowRange(Mathf.Max(Charge, 1f), progress != null ? progress.RangeMultiplier : 1f);
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
@@ -204,7 +206,7 @@ namespace Deepbound.Player
                     MarkFxRpc(h.Center);
                 }
                 else CountMark(h);
-            }, pierce, ArrowRange(charge, RangeMul));
+            }, pierce, ArrowRange(charge, RangeMul), ArrowGravity(charge));
             ShotFxRpc(origin, direction, charge);
         }
 
@@ -278,7 +280,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void ShotFxRpc(Vector3 origin, Vector3 direction, float charge)
         {
-            Arrows.SpawnVisual(origin, direction, ProjectileKind.Arrow, ArrowSpeed * (0.7f + 0.3f * charge), ArrowRange(charge, RangeMul));
+            Arrows.SpawnVisual(origin, direction, ProjectileKind.Arrow, ArrowSpeed * (0.7f + 0.3f * charge), ArrowRange(charge, RangeMul), ArrowGravity(charge));
             Sfx.Play(Sound.Bow, origin, 0.6f + 0.4f * charge, 1.2f - 0.3f * charge);
             if (!IsOwner) player.Rig?.Play(RigAction.Draw, 0.2f);
         }

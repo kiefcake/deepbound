@@ -28,7 +28,7 @@ namespace Deepbound.Enemies
         {
             if (target == null) return;
             var origin = transform.position + Vector3.up * 1.6f + transform.forward * 0.4f;
-            var dir = target.Center - origin;
+            var dir = AimDir(origin, 15f);
             Arrows.ServerFire(origin, dir, damage, Team.Players, NetworkObjectId, 15f);
             BoltRpc(origin, dir);
         }

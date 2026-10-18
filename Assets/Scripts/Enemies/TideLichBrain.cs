@@ -108,47 +108,76 @@ namespace Deepbound.Enemies
 
         // ---- Phases ----
         protected override float[] PhaseGates => new[] { 0.6f, 0.35f };
-        private float spiralAngle, nextSpiral;
 
         protected override void OnPhaseGate(int index)
         {
             if (index == 0)
+            {
                 Transition("The Tide Turns", "The water remembers every drowned name. Yours is next.");
+                nextWhirl = Time.time + 6f;
+            }
             else
             {
-                Survive("The Drowning Deep", "Breathe while you still can.", "Survive the spiral: move with it, through its gaps", 12f, () => Taunt("Still breathing? Then drown slowly."));
-                spiralAngle = Random.Range(0f, 360f);
-                nextSpiral = Time.time + 0.6f;
+                Survive("The Drowning Deep", "Breathe while you still can.", "The spiral turns, reverses and follows the Lich: keep moving through its gaps", 12f, () => Taunt("Still breathing? Then drown slowly."));
                 pools.Clear();
                 volleyAt = -1f;
                 PlayActionRpc(RigAction.Cast, 12f);
+                // Two emitters circling the Lich, wheeling one way then the other, with aimed bolts at
+                // anyone who stands still: the gaps move, so you have to move with them.
+                int arms = scaledPlayers <= 1 ? 3 : 4;
+                for (int e = 0; e < 2; e++)
+                    StartPattern(new Pattern
+                    {
+                        Arms = arms, Interval = 0.1f, Speed = SpiralSpeed, Spin = 11f, FlipEvery = 3.2f, Damage = boltDamage * 0.5f,
+                        Kind = ProjectileKind.Frostbolt, Duration = 11.6f, AimedEvery = e == 0 ? 1.4f : 0f, Range = 30f,
+                        Origin = Orbit(2.6f, 45f, e * 180f, 1.15f),
+                    });
             }
         }
 
-        /// <summary>Survival: arms of slow bolts wheel out from the Lich. Strafe with the turn and slip the gaps.</summary>
+        /// <summary>
+        /// Survival: the Lich glides after the party while its spiral turns, so the pattern itself
+        /// travels. Wounded (after the first gate) it also throws short, fast whirls between attacks.
+        /// </summary>
         private void TickSpiral()
         {
-            if (!InSurvival || Time.time < nextSpiral) return;
-            nextSpiral = Time.time + 0.11f;
-            int arms = scaledPlayers <= 1 ? 3 : 4;
-            spiralAngle += 13f;
-            var origin = transform.position + Vector3.up * 1.15f;
-            var dirs = new Vector3[arms];
-            for (int i = 0; i < arms; i++)
+            if (InSurvival)
             {
-                dirs[i] = Quaternion.Euler(0f, spiralAngle + i * 360f / arms, 0f) * Vector3.forward;
-                Arrows.ServerFire(origin, dirs[i], boltDamage * 0.55f, Team.Players, NetworkObjectId, SpiralSpeed);
+                var nearest = NearestPlayer();
+                if (nearest != null && agent.enabled && agent.isOnNavMesh && FlatDistance(nearest.position) > 5f)
+                    agent.Move((nearest.position - transform.position).normalized * 1.8f * Time.deltaTime);
+                return;
             }
-            SpiralRpc(origin, dirs);
+            if (nextWhirl > 0f && Time.time >= nextWhirl && !PatternRunning && !Dormant && !Immune)
+            {
+                nextWhirl = Time.time + Mathf.Lerp(18f, 12f, Difficulty.Lead(scaledDepth));
+                PlayActionRpc(RigAction.Cast, 1f);
+                StartPattern(new Pattern
+                {
+                    Arms = 2, Interval = 0.08f, Speed = SpiralSpeed + 1f, Spin = 19f, Damage = boltDamage * 0.45f,
+                    Kind = ProjectileKind.Frostbolt, Duration = 2.6f, Origin = Orbit(1.6f, 120f, 0f, 1.15f),
+                });
+            }
         }
 
-        private const float SpiralSpeed = 8.5f;
-
-        [Rpc(SendTo.ClientsAndHost)]
-        private void SpiralRpc(Vector3 origin, Vector3[] dirs)
+        private Transform NearestPlayer()
         {
-            foreach (var d in dirs) Arrows.SpawnVisual(origin, d, ProjectileKind.Frostbolt, SpiralSpeed);
+            Transform best = null;
+            float bd = float.MaxValue;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || !p.Targetable) continue;
+                float d = (p.transform.position - transform.position).sqrMagnitude;
+                if (d < bd) { bd = d; best = p.transform; }
+            }
+            return best;
         }
+
+        private float nextWhirl = -1f;
+        private const float SpiralSpeed = 12.5f;
+
+        // Its volleys already reach; it does not need a quick shot as well.
+        protected override ProjectileKind? QuickKind => null;
 
         private float nextVolley, nextPool, nextBlink;
         private float volleyAt = -1f;
@@ -238,7 +267,7 @@ namespace Deepbound.Enemies
             if (target == null) return;
 
             var origin = transform.position + Vector3.up * 2.2f + transform.forward * 0.6f;
-            var aim = target.Center - origin;
+            var aim = AimDir(origin, Arrows.Speed);
             for (int i = 0; i < volleyCount; i++)
             {
                 float a = Mathf.Lerp(-volleySpread / 2f, volleySpread / 2f, volleyCount > 1 ? i / (float)(volleyCount - 1) : 0.5f);

@@ -22,9 +22,9 @@ namespace Deepbound.Art
             Color c;
             if (World.DungeonDirector.InLobby) c = new Color(1f, 0.6f, 0.3f) * 0.5f;
             else if (d == null) return;
-            else c = d.Depth == 0 ? new Color(0.6f, 0.6f, 0.62f) * 0.45f
-                : d.Depth == 1 ? new Color(0.5f, 0.85f, 0.75f) * 0.5f
-                : d.Depth == 2 ? new Color(0.65f, 0.55f, 1f) * 0.5f
+            else c = World.DungeonDirector.Act(d.Depth) == 0 ? new Color(0.6f, 0.6f, 0.62f) * 0.45f
+                : World.DungeonDirector.Act(d.Depth) == 1 ? new Color(0.5f, 0.85f, 0.75f) * 0.5f
+                : World.DungeonDirector.Act(d.Depth) == 2 ? new Color(0.65f, 0.55f, 1f) * 0.5f
                 : new Color(1f, 0.45f, 0.25f) * 0.6f;
             var p = cam.transform.position + Random.onUnitSphere * Random.Range(2.5f, 7f);
             if (p.y < cam.transform.position.y - 2.2f) p.y = cam.transform.position.y - 2.2f + Random.value;

@@ -39,6 +39,10 @@ namespace Deepbound.World
         public static readonly Vector3 GongFacing = Vector3.left;
 
         public static readonly Vector3 ShrineSpot = Origin + new Vector3(15.5f, 0f, -4f);
+        /// <summary>The training yard's drill board, on the plaza side of its fence.</summary>
+        public static readonly Vector3 YardSpot = Origin + new Vector3(-9.1f, 0f, -8.2f);
+        /// <summary>Where you talk to Corwin, beside his carriage.</summary>
+        public static readonly Vector3 CarriageStall = BoardingCenter + new Vector3(4.2f, 0f, -1.2f);
 
         /// <summary>Where each camp character stands (their struck-body, <see cref="CampFolk"/>).</summary>
         public static (FolkId id, Vector3 at)[] FolkBodies => new[]
@@ -408,6 +412,15 @@ namespace Deepbound.World
                 d.AddBox(o + new Vector3(-10.2f, 0.5f, z), new Vector3(0.14f, 1f, 0.14f), Mat.Wood);
             d.AddBox(o + new Vector3(-10.2f, 0.85f, -13.5f), new Vector3(0.08f, 0.1f, 8f), Mat.Wood);
             Props.WeaponRack(d, o + new Vector3(-15.8f, 0f, -13.5f), Quaternion.Euler(0f, 90f, 0f));
+            // The drill board: two posts, a chalked plank of drills, and an honesty box for the coin.
+            var board = YardSpot + new Vector3(-0.5f, 0f, 0f);
+            d.AddBox(board + new Vector3(0f, 0.85f, -0.55f), new Vector3(0.1f, 1.7f, 0.1f), Mat.Wood);
+            d.AddBox(board + new Vector3(0f, 0.85f, 0.55f), new Vector3(0.1f, 1.7f, 0.1f), Mat.Wood);
+            d.AddBox(board + new Vector3(0.02f, 1.3f, 0f), new Vector3(0.05f, 0.75f, 1.2f), Mat.Wood);
+            d.AddBox(board + new Vector3(0.05f, 1.3f, 0f), new Vector3(0.02f, 0.62f, 1.04f), Mat.Dark);
+            for (int i = 0; i < 5; i++) d.AddBox(board + new Vector3(0.065f, 1.52f - i * 0.11f, -0.1f + (i % 2) * 0.06f), new Vector3(0.01f, 0.025f, 0.6f + (i % 3) * 0.1f), Mat.Bone);
+            d.AddBox(board + new Vector3(0.12f, 0.75f, 0f), new Vector3(0.22f, 0.2f, 0.3f), Mat.Wood);
+            d.AddBox(board + new Vector3(0.12f, 0.86f, 0f), new Vector3(0.24f, 0.03f, 0.32f), Mat.Steel);
             Props.Brazier(lights, o + new Vector3(-11f, 0f, -18.5f), Fire, false);
             Props.Crate(d, o + new Vector3(14f, 0f, -14f), 1.2f, 12f);
             Props.Crate(d, o + new Vector3(15.2f, 0f, -12.8f), 0.9f, -8f);

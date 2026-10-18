@@ -28,7 +28,8 @@ namespace Deepbound.World
     /// </summary>
     public partial class DungeonDirector
     {
-        public static string GimmickHint(int depth) =>
+        public static string GimmickHint(int floor) => ActHint(Act(floor));
+        private static string ActHint(int depth) =>
             depth == 0 ? "Restless Bones: stamp out the bone piles before the dead rise again"
             : depth == 1 ? "The Mire: when the water thickens, it drags at your legs - get to high ground"
             : depth == 2 ? "Soul Lanterns: smash one to heal your party and stun the dead"
@@ -58,7 +59,7 @@ namespace Deepbound.World
         private void TickGimmicks()
         {
             if (Layout == null) return;
-            switch (Layout.Depth)
+            switch (Act(Layout.Depth))
             {
                 case 0: TickBones(); break;
                 case 1: TickTide(); break;
@@ -81,7 +82,7 @@ namespace Deepbound.World
         /// <summary>Server: a kill — if it was a plain skeleton on the Ossuary, it leaves a pile.</summary>
         private void OnKillForBones(Health target)
         {
-            if (Layout == null || Layout.Depth != 0 || skeletonPrefab == null) return;
+            if (Layout == null || Act(Layout.Depth) != 0 || skeletonPrefab == null) return;
             if (!target.TryGetComponent<EnemyBrain>(out var brain) || brain.GetType() != typeof(EnemyBrain)) return;
             if (brain.Elite.Value || risen.Contains(target.NetworkObjectId)) return;
             if (Layout.BossRoom.Contains(target.transform.position, 1f)) return;
@@ -164,7 +165,7 @@ namespace Deepbound.World
             get
             {
                 var nm = NetworkManager.Singleton;
-                if (Instance == null || nm == null || !nm.IsListening || Layout == null || Layout.Depth != 1) return 0f;
+                if (Instance == null || nm == null || !nm.IsListening || Layout == null || Act(Layout.Depth) != 1) return 0f;
                 float t = (float)(nm.ServerTime.Time - Instance.TideStart.Value);
                 if (t < 0f || t > TideSeconds) return 0f;
                 return Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(t / TideRise) * Mathf.Clamp01((TideSeconds - t) / TideRise));
@@ -176,13 +177,13 @@ namespace Deepbound.World
         {
             get
             {
-                if (Instance == null || Layout == null || Layout.Depth != 1) return -10f;
+                if (Instance == null || Layout == null || Act(Layout.Depth) != 1) return -10f;
                 var nm = NetworkManager.Singleton;
                 if (nm == null || !nm.IsListening) return -10f;
                 float t = (float)(nm.ServerTime.Time - Instance.TideStart.Value);
                 if (t < 0f || t > TideSeconds) return -10f;
                 float k = Mathf.Clamp01(t / TideRise) * Mathf.Clamp01((TideSeconds - t) / TideRise);
-                return Mathf.Lerp(DungeonTheme.ForDepth(1).WaterDepth, TidePeak, Mathf.SmoothStep(0f, 1f, k));
+                return Mathf.Lerp(DungeonTheme.ForAct(1).WaterDepth, TidePeak, Mathf.SmoothStep(0f, 1f, k));
             }
         }
 
@@ -211,19 +212,19 @@ namespace Deepbound.World
         /// <summary>Everyone: move the floor's water sheet with the tide.</summary>
         private void UpdateTideVisual()
         {
-            if (Layout == null || Layout.Depth != 1 || built == null) { tideWater = null; return; }
+            if (Layout == null || Act(Layout.Depth) != 1 || built == null) { tideWater = null; return; }
             if (tideWater == null) tideWater = built.transform.Find("Water");
             if (tideWater == null) return;
             float level = TideLevel;
             var p = tideWater.position;
-            p.y = level > -5f ? level : DungeonTheme.ForDepth(1).WaterDepth;
+            p.y = level > -5f ? level : DungeonTheme.ForAct(1).WaterDepth;
             tideWater.position = p;
             // Thickening: the clear green murk turns to an opaque brown-green mire, its ripples slowing to a crawl.
             float thick = Thickness;
             var rend = tideWater.GetComponent<Renderer>();
             if (rend != null)
             {
-                var baseCol = DungeonTheme.ForDepth(1).WaterColor;
+                var baseCol = DungeonTheme.ForAct(1).WaterColor;
                 ArtLibrary.Tint(rend, Color.Lerp(baseCol, new Color(0.13f, 0.12f, 0.05f, 0.97f), thick));
             }
             Art.WaterFlow.Sluggish = thick;
@@ -279,7 +280,7 @@ namespace Deepbound.World
             foreach (var room in rooms)
             {
                 var origin = room.Center + (DungeonLayout.InLowArea(room, room.Center) && room.Feature == RoomFeature.SunkenCourt ? Vector3.down * DungeonLayout.SunkenDepth : Vector3.zero);
-                LaunchWave(origin, 9f, Mathf.Max(room.Size.x, room.Size.y) * 0.75f, 16f + 6f * Layout.Depth, 2.2f);
+                LaunchWave(origin, 9f, Mathf.Max(room.Size.x, room.Size.y) * 0.75f, 16f + 6f * Tier(Layout.Depth), 2.2f);
             }
         }
 

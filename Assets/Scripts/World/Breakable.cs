@@ -33,7 +33,7 @@ namespace Deepbound.World
         {
             BuildVisual();
             if (!IsServer) return;
-            health.ServerSetMax(Type.Value == Kind.Urn ? 1f : Type.Value == Kind.RitualBrazier ? 60f + 20f * Mathf.Max(0, DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0) : 10f, refill: true);
+            health.ServerSetMax(Type.Value == Kind.Urn ? 1f : Type.Value == Kind.RitualBrazier ? 60f + 20f * DungeonDirector.Tier(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0) : 10f, refill: true);
             health.Died += _ => ServerBreak();
         }
 

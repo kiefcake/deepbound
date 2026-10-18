@@ -28,7 +28,8 @@ namespace Deepbound.Art
                     c.Floor = room.Center.y + 0.01f;
                 }
                 // The Drowned Vaults leak (and the Ossuary, a little).
-                int leaks = layout.Depth == 1 ? 3 : layout.Depth == 0 ? 1 : 0;
+                int act = World.DungeonDirector.Act(layout.Depth);
+                int leaks = act == 1 ? 3 : act == 0 ? 1 : 0;
                 for (int i = 0; i < leaks; i++)
                 {
                     var at = new Vector3(Mathf.Lerp(rect.xMin, rect.xMax, (float)rng.NextDouble()), room.Center.y + room.Height - 0.2f, Mathf.Lerp(rect.yMin, rect.yMax, (float)rng.NextDouble()));

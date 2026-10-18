@@ -9,7 +9,7 @@ namespace Deepbound.Progression
     /// </summary>
     public static class Deeds
     {
-        public enum Deed { Gravewarden = 0, TideLich = 1, HollowKing = 2, Cardinal = 3, Unsung = 4, SawAbyss = 5, FirstRun = 6 }
+        public enum Deed { Gravewarden = 0, TideLich = 1, HollowKing = 2, Cardinal = 3, Unsung = 4, SawAbyss = 5, FirstRun = 6, Warden = 7 }
 
         private const string BitsKey = "deepbound.deeds", WipesKey = "deepbound.wipes", WinsKey = "deepbound.wins";
         public static bool TestMode;

@@ -10,8 +10,19 @@ namespace Deepbound.Classes
     /// </summary>
     public static class AbilityRanks
     {
-        public const int MaxRank = 3;
-        public const float Rank2Potency = 1.3f, Rank3Cooldown = 0.75f;
+        /// <summary>Ranks 4 and 5 (two Sigils each) push further: +15% potency, then a further 15% off the cooldown.</summary>
+        public const int MaxRank = 5;
+        public const float Rank2Potency = 1.3f, Rank3Cooldown = 0.75f, Rank4Potency = 1.15f, Rank5Cooldown = 0.85f;
+
+        /// <summary>Sigils to go from <paramref name="rank"/> to the next.</summary>
+        public static int SigilCost(int rank) => rank >= 3 ? 2 : 1;
+
+        public static string NextRank(ClassId id, AbilitySlot slot, int rank) =>
+            rank <= 1 ? "Rank 2: " + Rank2(id, slot)
+            : rank == 2 ? "Rank 3: 25% shorter cooldown. " + Twist(id, slot)
+            : rank == 3 ? "Rank 4: 15% stronger again."
+            : rank == 4 ? "Rank 5: a further 15% off the cooldown."
+            : "Rank 5. " + Twist(id, slot);
 
         public static string Twist(ClassId id, AbilitySlot slot)
         {

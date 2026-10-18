@@ -112,7 +112,7 @@ namespace Deepbound.Loot
 
         public static string Name(GearItem item) => item.IsEmpty ? "Nothing" : QualityNames[item.Quality] + " " + BaseName(item.Kind);
 
-        private static float Power(GearItem item) => (1f + 0.6f * item.Depth) * QualityPower[item.Quality];
+        private static float Power(GearItem item) => (1f + 0.3f * item.Depth) * QualityPower[item.Quality];
 
         /// <summary>What this item adds to one stat (may be negative).</summary>
         public static float StatValue(GearItem item, StatType stat)

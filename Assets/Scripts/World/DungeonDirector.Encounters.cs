@@ -147,7 +147,7 @@ namespace Deepbound.World
             var face = b.Room.HoleFace(b.Hole);
             var outward = DungeonLayout.Room.HoleOutward(b.Hole);
             var across = Vector3.Cross(Vector3.up, outward);
-            int count = Mathf.RoundToInt((2 + layout.Depth) * Difficulty.SpawnCount(players));
+            int count = Mathf.RoundToInt((2 + Tier(layout.Depth)) * Difficulty.SpawnCount(players));
             bool brute = false, necro = true;
             for (int i = 0; i < count; i++)
             {
@@ -435,7 +435,7 @@ namespace Deepbound.World
                     if (Mathf.Abs(Vector3.Dot(d, along)) > 0.75f || Mathf.Abs(Vector3.Dot(d, trap.Across)) > DungeonLayout.CorridorWidth / 2f || Mathf.Abs(d.y) > 1.5f) continue;
                     if (burnedAt.TryGetValue(h, out float t) && Time.time - t < 0.5f) continue;
                     burnedAt[h] = Time.time;
-                    h.ServerDamage(h.Team == Team.Players ? 10f + 4f * Layout.Depth : 35f + 10f * Layout.Depth, trap.At);
+                    h.ServerDamage(h.Team == Team.Players ? 10f + 4f * Tier(Layout.Depth) : 35f + 10f * Tier(Layout.Depth), trap.At);
                     if (!h.IsAlive && h.Team == Team.Enemies) EnvKillRpc(h.Center, 1);
                 }
             }
@@ -511,12 +511,12 @@ namespace Deepbound.World
                         var push = Pendulum.SwingDirection(room, i, now);
                         if (h.Team == Team.Players)
                         {
-                            h.ServerDamage(18f + 7f * Layout.Depth, blade);
+                            h.ServerDamage(18f + 7f * Tier(Layout.Depth), blade);
                             if (h.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(push * 9f + Vector3.up * 3f);
                         }
                         else
                         {
-                            h.ServerDamage(80f + 25f * Layout.Depth, blade);
+                            h.ServerDamage(80f + 25f * Tier(Layout.Depth), blade);
                             if (h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerKnockback(push * 9f);
                             if (!h.IsAlive) EnvKillRpc(h.Center, 0);
                         }

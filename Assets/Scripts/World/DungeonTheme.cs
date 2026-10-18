@@ -85,6 +85,19 @@ namespace Deepbound.World
             },
         };
 
-        public static DungeonTheme ForDepth(int depth) => ByDepth[Mathf.Clamp(depth, 0, ByDepth.Length - 1)];
+        /// <summary>The theme of a floor: two floors to an act (see DungeonDirector.Act).</summary>
+        public static DungeonTheme ForDepth(int depth) => ForAct(DungeonDirector.Act(depth));
+        public static DungeonTheme ForAct(int act) => ByDepth[Mathf.Clamp(act, 0, ByDepth.Length - 1)];
+
+        /// <summary>Each act's two floors have a name of their own under the act's.</summary>
+        private static readonly string[] FloorNames =
+        {
+            "The Upper Crypts", "The Bone Pits",
+            "The Flooded Stair", "The Sunken Archive",
+            "The Broken Court", "The Empty Throne",
+            "The Nave", "The Choir Below",
+            "The Last Stair", "Where the Hymn Ends",
+        };
+        public static string FloorName(int depth) => FloorNames[Mathf.Clamp(depth, 0, FloorNames.Length - 1)];
     }
 }

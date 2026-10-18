@@ -28,6 +28,14 @@ namespace Deepbound.Combat
         public const float MaxRange = 30f;
         public static int LiveCount => instance != null ? instance.live.Count : 0;
 
+        /// <summary>
+        /// A player's shot loses bite with distance: full damage to 45% of its range, then down to
+        /// 60% at the very end. Enemy projectiles do not fall off.
+        /// </summary>
+        public const float FalloffStart = 0.45f, FalloffFloor = 0.6f;
+        public static float Falloff(float travelled, float range) =>
+            Mathf.Lerp(1f, FalloffFloor, Mathf.InverseLerp(range * FalloffStart, range, travelled));
+
         /// <summary>Server projectiles still in flight from one shooter (tests: other people's arrows do not count).</summary>
         public static int LiveFrom(ulong shooter)
         {
@@ -62,6 +70,8 @@ namespace Deepbound.Combat
             public System.Action<Health> OnHit;
             /// <summary>Passes through what it hits, hitting each target at most once.</summary>
             public bool Pierce;
+            /// <summary>Metres per second squared it drops (arrows and knives; spells fly true).</summary>
+            public float Gravity;
             public HashSet<Health> AlreadyHit;
         }
 
@@ -79,11 +89,12 @@ namespace Deepbound.Combat
 
         /// <summary>Server: fire an arrow that deals damage. Call the shooter's visual RPC alongside.</summary>
         public static void ServerFire(Vector3 origin, Vector3 direction, float damage, Team targets, ulong shooter,
-            float speed = Speed, System.Action<Health> onHit = null, bool pierce = false, float range = MaxRange)
+            float speed = Speed, System.Action<Health> onHit = null, bool pierce = false, float range = MaxRange, float gravity = 0f)
         {
             Instance.live.Add(new Arrow
             {
                 Range = range,
+                Gravity = gravity,
                 Position = origin, Velocity = direction.normalized * speed, Damage = damage,
                 Targets = targets, Shooter = shooter, ServerSide = true, OnHit = onHit,
                 Pierce = pierce, AlreadyHit = pierce ? new HashSet<Health>() : null,
@@ -91,11 +102,12 @@ namespace Deepbound.Combat
         }
 
         /// <summary>Any peer: fly a harmless visual copy.</summary>
-        public static void SpawnVisual(Vector3 origin, Vector3 direction, ProjectileKind kind = ProjectileKind.Arrow, float speed = Speed, float range = MaxRange)
+        public static void SpawnVisual(Vector3 origin, Vector3 direction, ProjectileKind kind = ProjectileKind.Arrow, float speed = Speed, float range = MaxRange, float gravity = 0f)
         {
             Instance.live.Add(new Arrow
             {
                 Range = range,
+                Gravity = gravity,
                 Position = origin, Velocity = direction.normalized * speed,
                 Visual = kind == ProjectileKind.Arrow ? BuildVisual(origin, direction)
                     : kind == ProjectileKind.Knife ? BuildKnife(origin, direction)
@@ -118,6 +130,11 @@ namespace Deepbound.Combat
             for (int i = live.Count - 1; i >= 0; i--)
             {
                 var a = live[i];
+                if (a.Gravity > 0f)
+                {
+                    a.Velocity += Vector3.down * a.Gravity * dt;
+                    if (a.Visual != null && a.Velocity.sqrMagnitude > 0.01f) a.Visual.rotation = Quaternion.LookRotation(a.Velocity);
+                }
                 var step = a.Velocity * dt;
                 bool done = false;
 
@@ -170,10 +187,12 @@ namespace Deepbound.Combat
                 if (!h.SegmentTouchesBody(from, to, ProjectileRadius)) continue;
                 if (a.Pierce && !a.AlreadyHit.Add(h)) continue;
 
+                // A player's shot past half its range hits softer.
+                float falloff = a.Targets == Team.Enemies ? Falloff(a.Travelled, a.Range > 0f ? a.Range : MaxRange) : 1f;
                 if (a.OnHit != null)
                 {
                     var spellZone = HitZones.Along(h, from - a.Velocity.normalized * 0.5f, to + a.Velocity.normalized * 0.5f, out var spellPoint);
-                    Health.SetZoneBoost(h, HitZones.Multiplier(h, spellZone, true));
+                    Health.SetZoneBoost(h, HitZones.Multiplier(h, spellZone, true) * falloff);
                     try { a.OnHit(h); }
                     finally { Health.SetZoneBoost(null, 1f); }
                     if (spellZone != HitZone.Body) ReportZone(a.Shooter, spellPoint, spellZone);
@@ -183,7 +202,7 @@ namespace Deepbound.Combat
                     // Where along its flight it struck: a head, a glowing weak point, or the body.
                     var zone = HitZones.Along(h, from - a.Velocity.normalized * 0.5f, to + a.Velocity.normalized * 0.5f, out var zonePoint);
                     if (zone == HitZone.Weak && h.TryGetComponent<Enemies.HoarderBrain>(out var hoarder)) hoarder.ServerSackHit();
-                    float mult = HitZones.Multiplier(h, zone, true);
+                    float mult = HitZones.Multiplier(h, zone, true) * falloff;
                     // "From" for blocking purposes is a point back along the flight path.
                     h.ServerDamage(a.Damage * mult, h.Center - a.Velocity.normalized * 3f, a.Shooter);
                     if (zone != HitZone.Body) ReportZone(a.Shooter, zonePoint, zone);
@@ -233,7 +252,7 @@ namespace Deepbound.Combat
             return root;
         }
 
-        private static Color BoltColor(ProjectileKind kind)
+        public static Color BoltColor(ProjectileKind kind)
         {
             bool fire = kind == ProjectileKind.Firebolt || kind == ProjectileKind.ShadowBolt || kind == ProjectileKind.Smite || kind == ProjectileKind.Spit;
             return kind == ProjectileKind.Spit ? new Color(0.45f, 0.85f, 0.15f)

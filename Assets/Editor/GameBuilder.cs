@@ -67,6 +67,10 @@ namespace Deepbound.EditorTools
             var frostWight = BuildEnemyPrefab("FrostWight", EnemyType.FrostWight, loot);
             var hexer = BuildEnemyPrefab("Hexer", EnemyType.Hexer, loot);
             var mourner = BuildEnemyPrefab("Mourner", EnemyType.Mourner, loot);
+            var entling = BuildEnemyPrefab("Entling", EnemyType.Entling, loot);
+            // The Wardens: one per act, at the end of the act's first floor.
+            var wardens = new GameObject[5];
+            for (int a = 0; a < wardens.Length; a++) wardens[a] = BuildEnemyPrefab("Warden" + a, EnemyType.Warden, loot, a);
             var dummy = BuildDummyPrefab();
             var chest = BuildObjectPrefab<Chest>("Chest", new Vector3(1.1f, 0.8f, 0.7f));
             var altar = BuildObjectPrefab<BloodAltar>("BloodAltar", new Vector3(1.4f, 0.9f, 1.0f));
@@ -112,6 +116,10 @@ namespace Deepbound.EditorTools
             dso.FindProperty("frostWightPrefab").objectReferenceValue = frostWight.GetComponent<NetworkObject>();
             dso.FindProperty("hexerPrefab").objectReferenceValue = hexer.GetComponent<NetworkObject>();
             dso.FindProperty("mournerPrefab").objectReferenceValue = mourner.GetComponent<NetworkObject>();
+            dso.FindProperty("entlingPrefab").objectReferenceValue = entling.GetComponent<NetworkObject>();
+            var wardenList = dso.FindProperty("wardenPrefabs");
+            wardenList.arraySize = wardens.Length;
+            for (int a = 0; a < wardens.Length; a++) wardenList.GetArrayElementAtIndex(a).objectReferenceValue = wardens[a].GetComponent<NetworkObject>();
             dso.FindProperty("reliquaryPrefab").objectReferenceValue = reliquary.GetComponent<NetworkObject>();
             dso.FindProperty("lorePagePrefab").objectReferenceValue = lorePage.GetComponent<NetworkObject>();
             dso.FindProperty("crackedWallPrefab").objectReferenceValue = crackedWall.GetComponent<NetworkObject>();
@@ -248,11 +256,19 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Warden, Entling }
 
-        private static GameObject BuildEnemyPrefab(string name, EnemyType type, GameObject loot)
+        // A Warden is a giant of its act's rank and file.
+        private static readonly Art.CharacterArt.SkeletonKind[] WardenKinds =
         {
-            float scale = type == EnemyType.HollowKing ? 1.75f : type == EnemyType.Gravewarden ? 2.0f : type == EnemyType.TideLich ? 1.45f : type == EnemyType.Cardinal ? 1.7f
+            Art.CharacterArt.SkeletonKind.Brute, Art.CharacterArt.SkeletonKind.FrostWight, Art.CharacterArt.SkeletonKind.Shieldbearer,
+            Art.CharacterArt.SkeletonKind.Hexer, Art.CharacterArt.SkeletonKind.Plaguebearer,
+        };
+        private static readonly float[] WardenScale = { 2.1f, 1.9f, 1.9f, 1.95f, 1.95f };
+
+        private static GameObject BuildEnemyPrefab(string name, EnemyType type, GameObject loot, int act = 0)
+        {
+            float scale = type == EnemyType.Warden ? WardenScale[act] : type == EnemyType.HollowKing ? 1.75f : type == EnemyType.Gravewarden ? 2.0f : type == EnemyType.TideLich ? 1.45f : type == EnemyType.Cardinal ? 1.7f
                 : type == EnemyType.Brute ? 1.45f : type == EnemyType.Plaguebearer ? 1.15f : type == EnemyType.Ghoul ? 0.92f : 1f;
             var root = new GameObject(name);
 
@@ -271,6 +287,7 @@ namespace Deepbound.EditorTools
             if (type == EnemyType.Gargoyle) { capsule.height = 2.7f; capsule.radius = 0.45f; capsule.center = new Vector3(0f, 1.35f, 0f); }
             if (type == EnemyType.Wraith) { capsule.height = 2.0f; capsule.center = new Vector3(0f, 1.1f, 0f); }
             if (type == EnemyType.Brute) capsule.radius = 0.45f * scale;
+            if (type == EnemyType.Entling) { capsule.height = 1.35f; capsule.radius = 0.32f; capsule.center = new Vector3(0f, 0.68f, 0f); }
 
             var agent = root.AddComponent<NavMeshAgent>();
             agent.radius = 0.4f * scale;
@@ -300,6 +317,8 @@ namespace Deepbound.EditorTools
                 case EnemyType.FrostWight: brain = root.AddComponent<FrostWightBrain>(); break;
                 case EnemyType.Hexer: brain = root.AddComponent<HexerBrain>(); break;
                 case EnemyType.Mourner: brain = root.AddComponent<MournerBrain>(); break;
+                case EnemyType.Warden: brain = root.AddComponent<WardenBrain>(); break;
+                case EnemyType.Entling: brain = root.AddComponent<EntlingBrain>(); break;
                 default: brain = root.AddComponent<EnemyBrain>(); break;
             }
 
@@ -384,7 +403,7 @@ namespace Deepbound.EditorTools
                     break;
                 case EnemyType.Gravewarden:
                     Kind(Art.CharacterArt.SkeletonKind.Gravewarden);
-                    Set("maxHealth", 1450f); Set("damage", 26f); Set("defense", 4f); Set("moveSpeed", 2.9f);
+                    Set("maxHealth", 1700f); Set("damage", 26f); Set("defense", 4f); Set("moveSpeed", 2.9f);
                     Set("attackRange", 3.6f); Set("recovery", 1.2f); Set("aggroRange", 20f); Set("leashRange", 60f);
                     break;
                 case EnemyType.TideLich:
@@ -404,6 +423,22 @@ namespace Deepbound.EditorTools
                     Set("maxHealth", 3700f); Set("damage", 32f); Set("defense", 6f); Set("moveSpeed", 2.9f);
                     Set("attackRange", 3.4f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 60f);
                     break;
+                case EnemyType.Entling:
+                    // Fragile and fast: kill it on the way in, or it holds you down.
+                    Kind(Art.CharacterArt.SkeletonKind.Entling);
+                    Set("maxHealth", 70f); Set("damage", 9f); Set("defense", 1f); Set("moveSpeed", 6f);
+                    Set("attackRange", 1.5f); Set("windup", 0.35f); Set("recovery", 0.6f); Set("aggroRange", 18f);
+                    break;
+                case EnemyType.Warden:
+                {
+                    // Lighter than the act's own boss on the floor after; health climbs with the floor's tier.
+                    so.FindProperty("act").intValue = act;
+                    Kind(WardenKinds[act]);
+                    float[] hp = { 900f, 1500f, 2000f, 2300f, 2700f }, dmg = { 22f, 24f, 26f, 28f, 30f }, def = { 4f, 4f, 6f, 5f, 6f }, spd = { 2.6f, 3.0f, 2.7f, 2.9f, 2.4f };
+                    Set("maxHealth", hp[act]); Set("damage", dmg[act]); Set("defense", def[act]); Set("moveSpeed", spd[act]);
+                    Set("attackRange", 3.3f); Set("recovery", 1.2f); Set("aggroRange", 20f); Set("leashRange", 60f);
+                    break;
+                }
                 case EnemyType.HollowKing:
                     Kind(Art.CharacterArt.SkeletonKind.King);
                     Set("maxHealth", 3080f); Set("damage", 30f); Set("defense", 6f); Set("moveSpeed", 3.1f);

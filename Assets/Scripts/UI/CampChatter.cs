@@ -248,8 +248,8 @@ namespace Deepbound.UI
                 var me = Me;
                 if (me != null && me.Grudge(FolkId.Silas) > 0) return "Still sore from earlier, friend. Still charging for it, too. Amends are cheaper than bruises.";
                 if (me != null && me.CatPeed.Value) return "You smell like the cat's opinion of you. Potion? I'd charge you double for the smell, but I am a kind man.";
-                if (Seals >= 1 && Seals < 3) return "That fragment you carry hums. Do not try to sell it to me. Please. Do not even put it on the table.";
-                if (Seals >= 3) return "Three of them. I'll be honest, friend: I don't sell anything for where you're going.";
+                if (Seals >= 1 && Seals < World.DungeonDirector.SealTotal) return "That fragment you carry hums. Do not try to sell it to me. Please. Do not even put it on the table.";
+                if (Seals >= World.DungeonDirector.SealTotal) return "All four of them. I'll be honest, friend: I don't sell anything for where you're going.";
                 if (Deeds.Has(Deeds.Deed.Unsung)) return "You came back from under the Cathedral. Everything in my shop is cheaper to a legend. Not by much.";
                 return null;
             });
@@ -328,7 +328,7 @@ namespace Deepbound.UI
             {
                 var me = Me;
                 if (me != null && me.Grudge(FolkId.Corwin) > 0) return "I'll drive you. I'll not talk to you. Get in the circle and keep your hands to yourself.";
-                if (Seals >= 3) return "Three Seals... The carriage won't go where that leads, friend. You'll be walking that part.";
+                if (Seals >= World.DungeonDirector.SealTotal) return "Four Seals... I'll take you as far as the road goes, friend. Below the Cathedral, you walk.";
                 if (Deeds.Wipes >= 1 && Deeds.Wipes < 3) return "I drove an empty carriage back up last time. Don't make me do that again.";
                 if (Deeds.Wipes >= 3) return "I've driven that carriage back empty " + Deeds.Wipes + " times now. I've started talking to the seats.";
                 if (Deeds.BossesFelled == 0 && Deeds.Wipes == 0) return "First time down? Keep your head, keep your potions, and pet the cat before you pick it up.";

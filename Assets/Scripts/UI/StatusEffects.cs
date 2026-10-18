@@ -51,6 +51,9 @@ namespace Deepbound.UI
             if (afflict != null)
             {
                 if (afflict.Poisoned) list.Add(Timed("☠", "Poisoned", "You are losing health over time. Holy Water cleanses it.", Bad, afflict.PoisonUntil.Value - now, 8f));
+                if (afflict.Manic) list.Add(Timed("\u2735", "Mania", "Madness has your legs: you run wild and cannot attack. Holy Water cleanses it.", new Color(0.85f, 0.4f, 1f), afflict.ManiaUntil.Value - now, 3f));
+                if (afflict.Entangled) list.Add(new Status { Glyph = "\u2618", Name = "Entangled", Text = "An Entling's roots hold your legs: you cannot move until it dies. You can still fight it.", Lasts = "Until the Entling dies", Color = new Color(0.55f, 0.85f, 0.35f) });
+                else if (afflict.Rooted) list.Add(Timed("\u2744", "Rooted", "Ice holds your feet: you cannot move, but you can still fight.", new Color(0.65f, 0.92f, 1f), afflict.RootUntil.Value - now, 2f));
                 if (afflict.Frostbitten) list.Add(Timed("❄", "Frostbitten", "-40% movement speed. Holy Water cleanses it.", new Color(0.6f, 0.85f, 1f), afflict.FrostUntil.Value - now, 6f));
                 if (afflict.Cursed) list.Add(Timed("✷", "Cursed", "-30% damage dealt and -50% healing received, until the Hexer that cursed you dies. Holy Water cleanses it.", new Color(0.75f, 0.45f, 1f), afflict.CurseUntil.Value - now, 20f));
             }
@@ -67,6 +70,10 @@ namespace Deepbound.UI
             if (ClericKit.InConsecration(pos)) list.Add(new Status { Glyph = "✦", Name = "Blessed", Text = "+20% damage while you stand in the Cleric's consecrated ground.", Lasts = "While you stand in it", Color = Good });
             if (health != null && ClericKit.IsInspired(health)) list.Add(new Status { Glyph = "★", Name = "Inspired", Text = "+15% damage while the Cleric's beam is on you.", Lasts = "While the beam holds", Color = Good });
             if (life != null && Time.time < life.VeiledUntil) list.Add(new Status { Glyph = "☁", Name = "Smoke Screen", Text = "The dead cannot see you while you stay in the smoke.", Lasts = "While you stay in it", Color = Good });
+            if (progress != null && progress.Salts.Value)
+                list.Add(new Status { Glyph = "\u2668", Name = "Smelling Salts", Text = "If you go down, you come round on your own " + (int)Player.PlayerLife.SaltsSeconds + " s later at 30% health.", Lasts = "Until used, or the run ends", Color = new Color(0.85f, 0.95f, 0.8f) });
+            if (progress != null && (progress.ScoutMap.Value || progress.MapRevealed.Value))
+                list.Add(new Status { Glyph = "\u2316", Name = "Scout's Map", Text = progress.MapRevealed.Value ? "Corwin's chart: this floor's rooms are all on your map." : "Corwin's chart of the next floor: it will be on your map from the start.", Lasts = progress.MapRevealed.Value ? "This floor" : "Next floor", Color = new Color(0.9f, 0.8f, 0.55f) });
             if (progress != null && progress.PrayedFor.Value)
                 list.Add(new Status { Glyph = "\u2629", Name = "Prayed For", Text = "Brother Aldric prayed for you (it cost you). The first blow that would down you leaves you standing at 1 health instead.", Lasts = "Until it saves you, or the run ends", Color = new Color(1f, 0.88f, 0.55f) });
             if (progress != null && progress.CatWhisker.Value) list.Add(new Status { Glyph = "❧", Name = "Cat Whisker", Text = "+1% chance to evade any hit outright. A gift from the cat, for petting it first.", Lasts = "This run", Color = Good });

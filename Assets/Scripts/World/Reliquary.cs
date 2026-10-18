@@ -39,7 +39,8 @@ namespace Deepbound.World
         public static (int gold, int embers, bool sigil) Reward(float integrity, int depth)
         {
             float k = Mathf.Max(0.25f, integrity / 100f);
-            return (Mathf.RoundToInt((90 + 45 * depth) * k), Mathf.RoundToInt((8 + 4 * depth) * k), integrity >= 70f);
+            float t = DungeonDirector.Tier(depth);
+            return (Mathf.RoundToInt((90 + 45 * t) * k), Mathf.RoundToInt((8 + 4 * t) * k), integrity >= 70f);
         }
 
         protected override void ServerCarrierHurt(float amount, bool knockedLoose)

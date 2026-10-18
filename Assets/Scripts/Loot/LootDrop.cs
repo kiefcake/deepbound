@@ -143,7 +143,7 @@ namespace Deepbound.Loot
 
             if (kind == LootKind.Gold)
             {
-                progress.ServerAddGold(Mathf.RoundToInt(Amount.Value * progress.GoldMultiplier));
+                PlayerProgress.ServerShareGold(progress, Mathf.RoundToInt(Amount.Value * progress.GoldMultiplier));
                 return true;
             }
             if (kind == LootKind.Relic) return progress.ServerAddRelic((Relic)Amount.Value);
@@ -170,7 +170,7 @@ namespace Deepbound.Loot
             }
             if (kind == LootKind.Embers)
             {
-                progress.ServerAddEmbers(Mathf.RoundToInt(Amount.Value * (progress.Wears(GearId.LanternOfTheLost) ? 1.4f : 1f) * (progress.Blessed(Blessing.Fortune) ? 1.5f : 1f)));
+                PlayerProgress.ServerShareEmbers(progress, Mathf.RoundToInt(Amount.Value * (progress.Wears(GearId.LanternOfTheLost) ? 1.4f : 1f) * (progress.Blessed(Blessing.Fortune) ? 1.5f : 1f)));
                 return true;
             }
             return false;

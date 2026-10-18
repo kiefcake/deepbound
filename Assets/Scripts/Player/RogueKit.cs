@@ -28,7 +28,7 @@ namespace Deepbound.Player
     public class RogueKit : NetworkBehaviour, IClassKit
     {
         public const float StabInterval = 0.26f, StabRange = 2.2f, StabArc = 75f, StabDamage = 13f, StabEnergy = 6f;
-        public const float FanCooldown = 1.8f, FanEnergy = 22f, FanDamage = 15f, FanSpeed = 30f, FanRange = 14f;
+        public const float FanCooldown = 1.8f, FanEnergy = 22f, FanDamage = 15f, FanSpeed = 30f, FanRange = 14f, FanGravity = 6f;
         public float AttackRange => StabRange * (progress != null ? progress.ReachMultiplier : 1f);
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
         private float Reach => StabRange * (progress != null ? progress.ReachMultiplier : 1f);
@@ -359,7 +359,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void FanFxRpc(Vector3 origin, Vector3 direction)
         {
-            for (int i = -1; i <= 1; i++) Arrows.SpawnVisual(origin, Quaternion.Euler(0f, i * 7f, 0f) * direction, ProjectileKind.Knife, FanSpeed, FanRange * RangeMul);
+            for (int i = -1; i <= 1; i++) Arrows.SpawnVisual(origin, Quaternion.Euler(0f, i * 7f, 0f) * direction, ProjectileKind.Knife, FanSpeed, FanRange * RangeMul, FanGravity);
             Sfx.Play(Sound.Bow, origin, 0.6f, 1.6f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
         }

@@ -39,22 +39,52 @@ namespace Deepbound.World
     /// </summary>
     public partial class DungeonDirector : NetworkBehaviour
     {
-        public const int FloorsPerRun = 4;
-        /// <summary>The secret fifth floor, below the Black Cathedral: reached only with all three Seals.</summary>
-        public const int AbyssDepth = 4;
+        /// <summary>
+        /// Ten floors in five acts of two (one theme each): the first floor of an act ends at a Warden,
+        /// the second at the act's own boss; the last act is the Abyss, and the Unsung waits on floor 10.
+        /// </summary>
+        public const int FloorsPerRun = 10;
+        public const int FinalDepth = FloorsPerRun - 1;
+        public const int ActCount = 5;
+        /// <summary>The first floor of the Abyss act (floors 9 and 10).</summary>
+        public const int AbyssDepth = 8;
 
-        /// <summary>Seal fragments the party has taken from champions this run (bit per floor 0-2).</summary>
+        /// <summary>Which act (and theme) a floor belongs to: 0 Ossuary, 1 Drowned Vaults, 2 Hollow Throne, 3 Black Cathedral, 4 Abyss.</summary>
+        public static int Act(int depth) => Mathf.Clamp(Mathf.Max(0, depth) / 2, 0, ActCount - 1);
+        /// <summary>The first floor of an act ends at a Warden; the second at the act's boss.</summary>
+        public static bool IsWardenFloor(int depth) => depth % 2 == 0;
+        /// <summary>
+        /// How deep a floor is for scaling (health, damage, gold, traps): half a step per floor, so ten
+        /// floors climb about as far as the old five did, and nothing runs away on floor 10.
+        /// </summary>
+        public static float Tier(int depth) => Mathf.Max(0, depth) * 0.5f;
+
+        /// <summary>Seal fragments the party has taken from champions this run (bit per act 0-3).</summary>
         public readonly NetworkVariable<byte> Seals = new NetworkVariable<byte>();
-        public const byte AllSeals = 0b111;
-        public int SealCount => (Seals.Value & 1) + ((Seals.Value >> 1) & 1) + ((Seals.Value >> 2) & 1);
-        /// <summary>The Cathedral's portal leads down, not home.</summary>
-        public bool ExitToAbyss => Floor.Value.y == FloorsPerRun - 1 && Seals.Value == AllSeals;
+        public const byte AllSeals = 0b1111;
+        public const int SealTotal = 4;
+        public int SealCount => (Seals.Value & 1) + ((Seals.Value >> 1) & 1) + ((Seals.Value >> 2) & 1) + ((Seals.Value >> 3) & 1);
+        /// <summary>Each Seal left unbroken makes the Unsung this much tougher.</summary>
+        public const float UnsungPerMissingSeal = 0.15f;
 
-        /// <summary>Server: a champion fell on floor <paramref name="depth"/>; floors 1-3 carry a fragment of the Seal.</summary>
+        /// <summary>Tests: spawn an Entling at a spot, scaled for this floor.</summary>
+        public EnemyBrain ServerDebugSpawnEntling(Vector3 at)
+        {
+            if (entlingPrefab == null) return null;
+            if (NavMesh.SamplePosition(at, out var hit, 3f, NavMesh.AllAreas)) at = hit.position;
+            var obj = Spawn(entlingPrefab, at, Quaternion.identity);
+            var b = obj.GetComponent<EnemyBrain>();
+            b.ServerScale(Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count), Layout != null ? Layout.Depth : 0);
+            spawned.Add(obj);
+            return b;
+        }
+
+        /// <summary>Server: a champion fell on floor <paramref name="depth"/>; each of the first four acts carries a fragment of the Seal.</summary>
         public void ServerSealFound(int depth)
         {
-            if (!IsServer || depth < 0 || depth > 2) return;
-            byte bit = (byte)(1 << depth);
+            int act = Act(depth);
+            if (!IsServer || depth < 0 || act > 3) return;
+            byte bit = (byte)(1 << act);
             if ((Seals.Value & bit) != 0) return;
             Seals.Value |= bit;
             SealRpc(SealCount);
@@ -63,7 +93,7 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void SealRpc(int count)
         {
-            UI.GameHud.ShowTitleCard("A FRAGMENT OF THE SEAL  (" + count + " / 3)", count >= 3 ? "All three. Beneath the Cathedral, something is listening." : "The champion carried it without knowing");
+            UI.GameHud.ShowTitleCard("A FRAGMENT OF THE SEAL  (" + count + " / " + SealTotal + ")", count >= SealTotal ? "All four. Whatever sleeps in the Abyss will wake weak." : "The champion carried it without knowing. Each one weakens what waits at the bottom");
             Art.Sfx.Play2D(Art.Sound.Relic, 0.9f);
             Art.Sfx.Play2D(Art.Sound.Summon, 0.5f);
         }
@@ -78,6 +108,10 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject necromancerPrefab;
         [SerializeField] private NetworkObject wraithPrefab;
         [SerializeField] private NetworkObject shieldbearerPrefab;
+        /// <summary>One Warden per act, at the end of the act's first floor.</summary>
+        [SerializeField] private NetworkObject[] wardenPrefabs;
+        /// <summary>Entlings: from floor 3 down, they root you to the spot until killed.</summary>
+        [SerializeField] private NetworkObject entlingPrefab;
         [SerializeField] private NetworkObject mimicPrefab;
         [SerializeField] private NetworkObject hoarderPrefab;
         [SerializeField] private NetworkObject gargoylePrefab;
@@ -225,8 +259,9 @@ namespace Deepbound.World
         public System.Collections.Generic.IEnumerable<EnemyBrain> AllEnemyPrefabs()
         {
             var all = new System.Collections.Generic.List<NetworkObject> { skeletonPrefab, archerPrefab, ghoulPrefab, brutePrefab, necromancerPrefab, wraithPrefab,
-                shieldbearerPrefab, mimicPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, mournerPrefab };
+                shieldbearerPrefab, mimicPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, mournerPrefab, entlingPrefab };
             if (bossPrefabs != null) all.AddRange(bossPrefabs);
+            if (wardenPrefabs != null) all.AddRange(wardenPrefabs);
             foreach (var p in all) if (p != null && p.TryGetComponent<EnemyBrain>(out var b)) yield return b;
         }
         [SerializeField] private NetworkObject dummyPrefab;
@@ -254,6 +289,21 @@ namespace Deepbound.World
 
         /// <summary>The merchant's stall, only at camp.</summary>
         public static Vector3? MerchantPosition => InLobby ? Lobby.MerchantSpot : Layout?.PeddlerSpot;
+
+        /// <summary>
+        /// The party's loot rule, set by the host at camp: shared (the default; gold and embers picked up
+        /// are split evenly across the party) or finders keepers.
+        /// </summary>
+        public readonly NetworkVariable<bool> FindersKeepers = new NetworkVariable<bool>();
+        public static bool ShareLoot => Instance == null || !Instance.FindersKeepers.Value;
+
+        /// <summary>Host → server: change the loot rule (at camp).</summary>
+        [Rpc(SendTo.Server)]
+        public void SetLootRuleRpc(bool findersKeepers)
+        {
+            if (Phase.Value != RunPhase.Lobby) return;
+            FindersKeepers.Value = findersKeepers;
+        }
 
         /// <summary>Host → server: change difficulty. Only honoured in the lobby.</summary>
         [Rpc(SendTo.Server)]
@@ -528,6 +578,7 @@ namespace Deepbound.World
                 if (p.TryGetComponent<PlayerProgress>(out var prog)) prog.ServerNewFloor();
             }
 
+            if (depth == AbyssDepth) AbyssArrivalRpc(SealCount);
             Debug.Log("[Director] Floor " + (depth + 1) + " started, seed " + seed + ", " + spawned.Count + " enemies.");
         }
 
@@ -670,7 +721,7 @@ namespace Deepbound.World
             if (candidates.Count > 0) candidates[UnityEngine.Random.Range(0, candidates.Count)].ServerMakeChampion();
 
             // From the second floor down, some of the statues by the walls are not statues.
-            if (gargoylePrefab != null && layout.Depth >= 1)
+            if (gargoylePrefab != null && Act(layout.Depth) >= 1)
             {
                 var grng = new System.Random(layout.Seed ^ 0x6a76);
                 foreach (var room in layout.Rooms)
@@ -687,7 +738,7 @@ namespace Deepbound.World
             }
 
             // From the second floor, a Mourner or two waits by a wall, weeping. Never in tests (it hunts whoever looks away).
-            if (mournerPrefab != null && layout.Depth >= 1 && !TestMode)
+            if (mournerPrefab != null && Act(layout.Depth) >= 1 && !TestMode)
             {
                 var mrng = new System.Random(layout.Seed ^ 0x3e0a);
                 int placed = 0;
@@ -729,7 +780,7 @@ namespace Deepbound.World
                     pface.y = 0f;
                     if (NavMesh.SamplePosition(pat, out var phit, 2f, NavMesh.AllAreas)) pat = phit.position;
                     var pobj = Instantiate(lorePagePrefab, pat, Quaternion.LookRotation(-pface));
-                    pobj.GetComponent<LorePage>().Index.Value = (byte)UI.Journal.PickFor(layout.Depth, prng);
+                    pobj.GetComponent<LorePage>().Index.Value = (byte)UI.Journal.PickFor(Act(layout.Depth), prng);
                     pobj.Spawn(destroyWithScene: true);
                     spawned.Add(pobj);
                 }
@@ -765,15 +816,27 @@ namespace Deepbound.World
             }
 
             var spawn = layout.BossSpawn;
-            var bossPrefab = bossPrefabs[Mathf.Clamp(layout.Depth, 0, bossPrefabs.Length - 1)];
+            int act = Act(layout.Depth);
+            var bossPrefab = IsWardenFloor(layout.Depth) && wardenPrefabs != null && act < wardenPrefabs.Length && wardenPrefabs[act] != null
+                ? wardenPrefabs[act] : bossPrefabs[Mathf.Clamp(act, 0, bossPrefabs.Length - 1)];
             var bossObj = Instantiate(bossPrefab, spawn, Quaternion.LookRotation(layout.BossRoom.Center - spawn + Vector3.back * 0.01f));
             bossObj.Spawn(destroyWithScene: true);
             boss = bossObj.GetComponent<BossBrain>();
-            // The Lich raises archers from the water; everyone else raises swordsmen.
-            boss.SetMinionPrefab(boss is TideLichBrain && archerPrefab != null ? archerPrefab
-                : (boss is CardinalBrain || boss is UnsungBrain) && wraithPrefab != null ? wraithPrefab : skeletonPrefab);
+            // The Lich raises archers from the water; everyone else raises swordsmen. Wardens call their act's dead.
+            if (boss is WardenBrain)
+                boss.SetMinionPrefab(act == 1 && frostWightPrefab != null ? frostWightPrefab : act == 2 && shieldbearerPrefab != null ? shieldbearerPrefab
+                    : act == 3 && wraithPrefab != null ? wraithPrefab : act == 4 && plaguebearerPrefab != null ? plaguebearerPrefab : skeletonPrefab);
+            else
+                boss.SetMinionPrefab(boss is TideLichBrain && archerPrefab != null ? archerPrefab
+                    : (boss is CardinalBrain || boss is UnsungBrain) && wraithPrefab != null ? wraithPrefab : skeletonPrefab);
             boss.SetGuardPrefab(boss is UnsungBrain && mournerPrefab != null ? mournerPrefab : shieldbearerPrefab);
             boss.ServerScaleBoss(players, layout.Depth);
+            // Every Seal the party failed to break makes the thing at the bottom stronger.
+            if (boss is UnsungBrain)
+            {
+                int missing = SealTotal - SealCount;
+                if (missing > 0) boss.Health.ServerSetMax(boss.Health.Max.Value * (1f + UnsungPerMissingSeal * missing), refill: true);
+            }
             boss.Dormant = portcullisPrefab != null; // waits on its throne until the party arrives
             spawned.Add(bossObj);
             bossSeen = true;
@@ -849,7 +912,7 @@ namespace Deepbound.World
 
                 int urns = 2 + rng.Next(3);
                 for (int i = 0; i < urns; i++) SpawnBreakable(Breakable.Kind.Urn, WallSpot(room, rng));
-                if (layout.Depth == 2 && room.Kind == RoomKind.Combat)
+                if (Act(layout.Depth) == 2 && room.Kind == RoomKind.Combat)
                     for (int i = 0; i < 2; i++) SpawnBreakable(Breakable.Kind.SoulLantern, WallSpot(room, rng));
                 if (room.Kind == RoomKind.Combat && rng.NextDouble() < 0.6)
                 {
@@ -922,13 +985,18 @@ namespace Deepbound.World
         private NetworkObject PickEnemy(int depth, DungeonTheme theme, ref bool hasBrute, ref bool hasNecro, out int pack)
         {
             pack = 1;
-            float brute = brutePrefab != null && !hasBrute ? 0.06f + 0.03f * depth : 0f;
-            float necro = necromancerPrefab != null && !hasNecro && depth >= 1 ? 0.06f + 0.03f * depth : 0f;
+            int act = Act(depth);
+            float tier = Tier(depth);
+            float brute = brutePrefab != null && !hasBrute ? 0.06f + 0.03f * tier : 0f;
+            float necro = necromancerPrefab != null && !hasNecro && act >= 1 ? 0.06f + 0.03f * tier : 0f;
             float ghoul = ghoulPrefab != null ? 0.22f : 0f;
             float archer = archerPrefab != null ? theme.ArcherChance : 0f;
-            float wraith = wraithPrefab != null ? 0.05f + 0.05f * depth : 0f;
+            float wraith = wraithPrefab != null ? 0.05f + 0.05f * tier : 0f;
             float r0 = UnityEngine.Random.value;
             if (r0 < wraith) return wraithPrefab;
+            // Entlings come in from the second act, in pairs sometimes.
+            float entling = entlingPrefab != null && act >= 1 ? 0.05f + 0.02f * tier : 0f;
+            if (UnityEngine.Random.value < entling) { pack = UnityEngine.Random.value < 0.35f ? 2 : 1; return entlingPrefab; }
 
             float roll = UnityEngine.Random.value;
             if ((roll -= brute) < 0f) { hasBrute = true; return brutePrefab; }
@@ -936,13 +1004,13 @@ namespace Deepbound.World
             if ((roll -= ghoul) < 0f) { pack = 2; return ghoulPrefab; }
             if ((roll -= archer) < 0f) return archerPrefab;
             // The afflicters: plague from the first floor, frost and hexes deeper down.
-            float plague = plaguebearerPrefab != null ? 0.06f + 0.02f * depth : 0f;
-            float frost = frostWightPrefab != null && depth >= 1 ? 0.07f + 0.02f * depth : 0f;
-            float hex = hexerPrefab != null && depth >= 1 ? 0.04f + 0.02f * depth : 0f;
+            float plague = plaguebearerPrefab != null ? 0.06f + 0.02f * tier : 0f;
+            float frost = frostWightPrefab != null && act >= 1 ? 0.07f + 0.02f * tier : 0f;
+            float hex = hexerPrefab != null && act >= 1 ? 0.04f + 0.02f * tier : 0f;
             if ((roll -= plague) < 0f) return plaguebearerPrefab;
             if ((roll -= frost) < 0f) return frostWightPrefab;
             if ((roll -= hex) < 0f) return hexerPrefab;
-            float shield = shieldbearerPrefab != null && depth >= 1 ? 0.1f + 0.03f * depth : shieldbearerPrefab != null ? 0.05f : 0f;
+            float shield = shieldbearerPrefab != null && act >= 1 ? 0.1f + 0.03f * tier : shieldbearerPrefab != null ? 0.05f : 0f;
             if ((roll -= shield) < 0f) return shieldbearerPrefab;
             return skeletonPrefab;
         }
@@ -989,7 +1057,7 @@ namespace Deepbound.World
                     {
                         ContractOnFloorCleared();
                         // No timer: a portal opens where the boss stood, and the party leaves when everyone steps in.
-                        ExitFinal.Value = Floor.Value.y >= AbyssDepth || (Floor.Value.y == FloorsPerRun - 1 && Seals.Value != AllSeals);
+                        ExitFinal.Value = Floor.Value.y >= FinalDepth;
                         EnterPhase(RunPhase.FloorCleared, 0f);
                         phaseTimer = double.MaxValue;
                         PhaseEndsAt.Value = 0;
@@ -1009,12 +1077,6 @@ namespace Deepbound.World
                         else if (now >= PhaseEndsAt.Value)
                         {
                             if (ExitFinal.Value) EnterPhase(RunPhase.RunComplete, CompleteDelay);
-                            else if (Floor.Value.y == FloorsPerRun - 1)
-                            {
-                                // The Seals break: straight down into the Abyss, no camp.
-                                SealsBreakRpc();
-                                StartFloor(AbyssDepth);
-                            }
                             else
                             {
                                 NextDepth.Value = Floor.Value.y + 1;
@@ -1046,11 +1108,13 @@ namespace Deepbound.World
         /// <summary>Where the way out opens: the boss's throne spot.</summary>
         public static Vector3 ExitPosition => Layout != null ? Layout.BossSpawn : Vector3.zero;
 
+        /// <summary>Arriving in the Abyss: how many Seals the party broke on the way down.</summary>
         [Rpc(SendTo.ClientsAndHost)]
-        private void SealsBreakRpc()
+        private void AbyssArrivalRpc(int seals)
         {
             Progression.Deeds.Add(Progression.Deeds.Deed.SawAbyss);
-            UI.GameHud.ShowTitleCard("THE SEALS BREAK", "Below the hymn, something has been waiting");
+            UI.GameHud.ShowTitleCard(seals >= SealTotal ? "THE SEALS ARE BROKEN" : "THE ABYSS  (" + seals + " / " + SealTotal + " SEALS)",
+                seals >= SealTotal ? "Below the hymn, something wakes weak and afraid" : "Every Seal you left whole is strength for what waits on the tenth floor");
             Art.Sfx.Play2D(Art.Sound.Slam, 1f);
         }
 
@@ -1105,7 +1169,7 @@ namespace Deepbound.World
             if (PlayerLife.All.Count == 0) return false;
             foreach (var p in PlayerLife.All)
             {
-                if (!p.Downed.Value) return false;
+                if (!p.Downed.Value || p.GettingUp) return false;
             }
             return true;
         }

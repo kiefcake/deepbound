@@ -29,26 +29,26 @@ namespace Deepbound.Enemies
                 var k = Classes.ClassDefinition.Knight.BaseStats;
                 var l = new Loadout
                 {
-                    // Anvil: nothing before floor 1; embers from each floor buy roughly one and a half levels.
-                    WeaponLevel = new[] { 0, 2, 3, 4 }[Mathf.Clamp(depth, 0, 3)],
+                    // Anvil: nothing before floor 1; then about a level a floor (embers are scarcer, levels dearer).
+                    WeaponLevel = Mathf.Clamp(depth, 0, World.Anvil.MaxLevel),
                     // Gear: a Fine armour piece and charm from the floor before (none on floor 1).
                     Armor = depth >= 1 ? new Loot.GearItem(Loot.GearId.OssuaryPlate, 1, depth - 1) : default,
                     Charm = depth >= 1 ? new Loot.GearItem(Loot.GearId.HuntersTooth, 1, depth - 1) : default,
                     // A rune once the first socket opens at +1.
                     Rune = depth >= 1,
-                    // Relics: about one a floor.
-                    Relics = depth,
+                    // Relics: about one every other floor (drops are rarer now; the shrine sells them).
+                    Relics = (depth + 1) / 2,
                 };
                 float gearAtt = Loot.Gear.StatValue(l.Armor, Core.StatType.ATT) + Loot.Gear.StatValue(l.Charm, Core.StatType.ATT);
                 float gearDef = Loot.Gear.StatValue(l.Armor, Core.StatType.DEF) + Loot.Gear.StatValue(l.Charm, Core.StatType.DEF);
                 float gearHp = Loot.Gear.StatValue(l.Armor, Core.StatType.HP) + Loot.Gear.StatValue(l.Charm, Core.StatType.HP);
-                // Gold at the merchant: Hearty Stew and Riveted Plate each floor, to their caps.
-                float shopHp = Mathf.Min(90f, 30f * depth), shopDef = Mathf.Min(6f, 2f * depth);
+                // Gold at camp: Hearty Stew, Riveted Plate and the training yard's drills, a little each floor.
+                float shopHp = Mathf.Min(150f, 20f * depth), shopDef = Mathf.Min(10f, 1.2f * depth);
                 l.Att = k[(int)Core.StatType.ATT] + 4f * l.WeaponLevel + gearAtt;
                 l.Def = k[(int)Core.StatType.DEF] + gearDef + shopDef;
                 l.Hp = k[(int)Core.StatType.HP] + gearHp + shopHp;
                 // Rune (~+5% on average) and relics (most are not raw damage: ~+6% each).
-                l.DamageMult = (l.Rune ? 1.05f : 1f) * (1f + 0.06f * l.Relics);
+                l.DamageMult = (l.Rune ? 1.05f : 1f) * (l.WeaponLevel >= 3 ? 1.04f : 1f) * (1f + 0.06f * l.Relics) * (l.WeaponLevel >= World.Anvil.AscendedLevel ? World.Anvil.AscendedDamage : 1f);
                 return l;
             }
 
@@ -70,12 +70,14 @@ namespace Deepbound.Enemies
             foreach (var b in prefabs)
             {
                 if (b == null) continue;
-                for (int depth = 0; depth <= World.DungeonDirector.AbyssDepth; depth++)
+                for (int depth = 0; depth <= World.DungeonDirector.FinalDepth; depth++)
                 {
-                    // A boss is only ever met on its own floor (the Unsung in the Abyss, below the last).
-                    int bossFloor = b is GravewardenBrain ? 0 : b is TideLichBrain ? 1 : b is HollowKingBrain ? 2 : b is CardinalBrain ? 3 : b is UnsungBrain ? World.DungeonDirector.AbyssDepth : -1;
-                    if (bossFloor < 0 && depth >= World.DungeonDirector.AbyssDepth) continue; // the rank and file: floors 1-4
+                    // A boss is only ever met on its own floor: act bosses on the second floor of their act, Wardens on the first.
+                    int bossFloor = b is GravewardenBrain ? 1 : b is TideLichBrain ? 3 : b is HollowKingBrain ? 5 : b is CardinalBrain ? 7 : b is UnsungBrain ? World.DungeonDirector.FinalDepth
+                        : b is WardenBrain w ? w.Act * 2 : -1;
                     if (bossFloor >= 0 && depth != bossFloor) continue;
+                    // The rank and file: every other floor is enough to read the curve.
+                    if (bossFloor < 0 && depth % 2 == 1) continue;
                     bool boss = b is BossBrain;
                     var kit = Loadout.For(depth);
                     float swing = SwingDamage * (0.5f + kit.Att / 50f) * kit.DamageMult * (boss && !kit.Charm.IsEmpty ? 1.25f : 1f); // Hunter's Tooth vs bosses
@@ -123,7 +125,7 @@ namespace Deepbound.Enemies
         public static string Format(List<Row> rows)
         {
             var sb = new StringBuilder();
-            for (int d = 0; d < 4; d++) sb.AppendLine("[Balance] loadout floor " + (d + 1) + ": " + Loadout.For(d));
+            for (int d = 0; d <= World.DungeonDirector.FinalDepth; d++) sb.AppendLine("[Balance] loadout floor " + (d + 1) + ": " + Loadout.For(d));
             sb.AppendLine("[Balance] enemy | floor | hp | hit | swings to kill | seconds | hits to down a knight | dps vs knight | flag");
             foreach (var r in rows)
                 sb.AppendLine("[Balance] " + r.Name + " | " + (r.Depth + 1) + " | " + r.Hp.ToString("F0") + " | " + r.Hit.ToString("F0") + " | " +
