@@ -259,6 +259,7 @@ namespace Deepbound.Networking
             // been carried back from a soul, so the host finishes the rest alone.
             if (!net.IsServer && local != null)
             {
+                local.ChatRpc("smoke chat from the client");
                 var myLife = local.GetComponent<PlayerLife>();
                 bool wasSoul = false;
                 float leaveBy = Time.time + seconds;
@@ -323,6 +324,10 @@ namespace Deepbound.Networking
                     rager.GetComponent<Health>().ServerDamage(1e6f, rager.transform.position); // out of the way of the next checks
                     yield return new WaitForSeconds(0.2f);
                 }
+
+                // Text chat: the client's line reaches the host.
+                for (int k = 0; k < 30 && !UI.ChatBox.Heard("smoke chat from the client"); k++) yield return new WaitForSeconds(0.1f);
+                Log("chat", "heard the client: " + UI.ChatBox.Heard("smoke chat from the client") + " (last: " + UI.ChatBox.Last + ")", UI.ChatBox.Heard("smoke chat from the client"));
 
                 // Shared loot: gold one player picks up is split across the party; a pack piece can be handed over.
                 var mate = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
@@ -1407,9 +1412,21 @@ namespace Deepbound.Networking
                 }
 
                 // Board: floor two, same run.
-                dc.ServerBoard();
-                float boardBy = Time.time + 10f;
-                while (dc.Phase.Value != RunPhase.Exploring && Time.time < boardBy) yield return null;
+                // Board the way players do: everyone sits on the carriage's tailgate, a countdown, the ride out.
+                int seatN = 0;
+                foreach (var pl in PlayerLife.All) if (pl != null) pl.Seat.Value = (sbyte)(seatN++ % CarriageRide.SeatCount);
+                float boardBy = Time.time + 18f;
+                bool rode = false, pinned = false;
+                while (dc.Phase.Value != RunPhase.Exploring && Time.time < boardBy)
+                {
+                    if (CarriageRide.Instance != null && CarriageRide.Instance.Riding)
+                    {
+                        rode = true;
+                        pinned |= Vector3.Distance(local.transform.position, CarriageRide.Instance.SeatPosition(local.GetComponent<PlayerLife>().Seat.Value >= 0 ? local.GetComponent<PlayerLife>().Seat.Value : 0)) < 0.6f;
+                    }
+                    yield return null;
+                }
+                Log("carriage ride", "seated " + seatN + ", rode out " + rode + ", rode on the seat " + pinned + ", floor started " + (dc.Phase.Value == RunPhase.Exploring), rode && dc.Phase.Value == RunPhase.Exploring);
                 yield return new WaitForSeconds(1.5f);
                 Log("contract live", DungeonDirector.ContractName((Contract)dc.ActiveContract.Value) + " " + (DungeonDirector.ContractStatus)dc.ContractState.Value + ", goal " + dc.ContractGoal.Value,
                     dc.ActiveContract.Value == 0 || dc.ContractState.Value == (byte)DungeonDirector.ContractStatus.Active);
@@ -1432,12 +1449,15 @@ namespace Deepbound.Networking
                 var deb2 = local.GetComponent<PlayerDebuffs>();
                 var hp2 = local.GetComponent<Health>();
                 var ent = DungeonDirector.Instance.ServerDebugSpawnEntling(local.transform.position + local.transform.forward * 5f);
+                if (ent != null) { ent.ServerDebugPlace(local.transform.position + local.transform.forward * 1.6f); ent.ServerAggroNearest(); }
                 bool held = false;
-                for (float t = 0f; t < 6f && ent != null && !held; t += 0.2f) { hp2.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); held = deb2.Entangled; }
+                for (float t = 0f; t < 9f && ent != null && !held; t += 0.2f) { hp2.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); held = deb2.Entangled; }
                 bool cantMove = deb2.Rooted && deb2.SpeedMultiplier == 0f;
                 if (ent != null) ent.GetComponent<Health>().ServerDamage(1e6f, ent.transform.position, local.NetworkObjectId);
                 yield return new WaitForSeconds(0.4f);
-                Log("entling", "held " + held + ", rooted " + cantMove + ", free after it died " + !deb2.Entangled, ent != null && held && cantMove && !deb2.Entangled);
+                Log("entling", "held " + held + ", rooted " + cantMove + ", free after it died " + !deb2.Entangled +
+                    (held ? "" : " (target " + (ent != null && ent.CurrentTarget != null ? ent.CurrentTarget.name : "none") + ", dist " + (ent != null ? Vector3.Distance(ent.transform.position, local.transform.position).ToString("F1") : "-") +
+                    ", targetable " + PlayerLife.CanTarget(local.GetComponent<Health>()) + ")"), ent != null && held && cantMove && !deb2.Entangled);
                 deb2.ServerMania(1f);
                 yield return new WaitForSeconds(0.2f);
                 bool manic = deb2.Manic && !local.GetComponent<PlayerLife>().CanAct;
@@ -1507,12 +1527,20 @@ namespace Deepbound.Networking
         {
             System.IO.Directory.CreateDirectory(dir);
             yield return new WaitForSeconds(2.5f);
+            UI.MenuBackdrop.DebugShow(0);
+            yield return new WaitForSeconds(1.5f);
             yield return Shot(dir, "0_menu");
+            UI.MenuBackdrop.DebugShow(1);
+            yield return new WaitForSeconds(3.2f);
+            yield return Shot(dir, "0_menu_battle");
 
             launcher.StartHost();
             yield return new WaitForSeconds(3f);
 
             var local = NetworkPlayer.Local;
+            // The photographer never dies (bosses wake when it walks into their rooms); the run summary at the end lifts this.
+            bool shotsImmortal = true;
+            if (local != null) local.GetComponent<Health>().IncomingModifiers.Insert(0, (d, f) => shotsImmortal && d < 1e5f ? 0f : d);
             if (local == null)
             {
                 Debug.Log("[Smoke] FAIL screenshots: no local player");
@@ -1817,16 +1845,37 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.4f);
                 yield return Shot(dir, "0s_tent_games");
                 lm.SetPitch(0f);
-                lm.Teleport(Lobby.BoardingCenter + Vector3.up * 0.1f, Quaternion.LookRotation(Vector3.back));
-                yield return new WaitForSeconds(0.3f);
-                UI.GameHud.BeginDeparture(DungeonDirector.DepartSeconds);
-                Art.TeleportBeam.On(local.transform, false, DungeonDirector.DepartSeconds);
-                yield return new WaitForSeconds(0.9f);
-                yield return Shot(dir, "0t_departure");
-                yield return new WaitForSeconds(1.2f);
+                // The carriage at the gate, the road out, then a seat on its back and the ride.
+                var ride = CarriageRide.Instance;
+                if (ride != null)
+                {
+                    var side = ride.transform.position + new Vector3(-6.5f, 0.1f, -2.5f);
+                    lm.Teleport(side, Quaternion.LookRotation(ride.transform.position + Vector3.forward * 1.5f - side));
+                    lm.SetPitch(4f);
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot(dir, "0w_carriage");
+                    var gateIn = Lobby.Origin + new Vector3(1.5f, 0.1f, Lobby.Radius - 3f);
+                    lm.Teleport(gateIn, Quaternion.LookRotation(Vector3.forward));
+                    lm.SetPitch(-2f);
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot(dir, "0w_forest_road");
+                    lm.SetPitch(0f);
+                    var me = local.GetComponent<PlayerLife>();
+                    lm.Teleport(ride.SeatGround(1) + Vector3.up * 0.1f, Quaternion.LookRotation(Vector3.back));
+                    yield return new WaitForSeconds(0.3f);
+                    me.Seat.Value = 1;
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot(dir, "0t_seated");
+                    DungeonDirector.Instance.ServerBoard();
+                    yield return new WaitForSeconds(3.6f);
+                    yield return Shot(dir, "0t_departure_gate");
+                    yield return new WaitForSeconds(2.2f);
+                    yield return Shot(dir, "0t_departure_road");
+                    for (float t = 0f; t < 6f && DungeonDirector.Instance.Phase.Value != RunPhase.Exploring; t += 0.2f) yield return new WaitForSeconds(0.2f);
+                }
             }
 
-            DungeonDirector.Instance.ServerStartRun();
+            if (DungeonDirector.Instance.Phase.Value != RunPhase.Exploring) DungeonDirector.Instance.ServerStartRun();
             yield return new WaitForSeconds(2.5f);
 
             var layout = DungeonDirector.Layout;
@@ -2143,7 +2192,7 @@ namespace Deepbound.Networking
                     }
 
                     // Line up one of each newer enemy type for a close look.
-                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain) })
+                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain), typeof(EntlingBrain) })
                     {
                         var e = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(b => b.GetType() == type && !b.IsDead);
                         if (e == null) continue;
@@ -2225,6 +2274,7 @@ namespace Deepbound.Networking
             yield return Shot(dir, "9a_guide_journal");
             UI.PauseMenu.SetOpen(false);
 
+            shotsImmortal = false;
             foreach (var p in PlayerLife.All) p.Health.ServerDamage(1e6f, p.transform.position);
             yield return new WaitForSeconds(1f);
             yield return Shot(dir, "9b_run_summary");

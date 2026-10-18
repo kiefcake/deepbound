@@ -124,6 +124,7 @@ namespace Deepbound.Player
                 gameObject.AddComponent<Wardrobe>().Init(this);
                 gameObject.AddComponent<AmbientMotes>();
                 gameObject.AddComponent<PauseMenu>();
+                gameObject.AddComponent<ChatBox>();
                 health.Hurt += OnLocalHurt;
 
                 DungeonDirector.ArenaBuilt += HandleArenaBuilt;
@@ -413,6 +414,23 @@ namespace Deepbound.Player
         // ------------------------------------------------------------------
 
         public void ViewModelSwing(float windup, float rest, float side) => viewAnim?.Swing(windup, rest, side);
+
+        // ---- Text chat (UI/ChatBox) ----
+        private float nextChatAt;
+
+        /// <summary>Owner → server: say something to the party.</summary>
+        [Rpc(SendTo.Server)]
+        public void ChatRpc(string text)
+        {
+            if (string.IsNullOrWhiteSpace(text) || Time.time < nextChatAt) return;
+            nextChatAt = Time.time + 0.4f;
+            text = text.Trim().Replace((char)10, ' ').Replace((char)13, ' ');
+            if (text.Length > ChatBox.MaxLength) text = text.Substring(0, ChatBox.MaxLength);
+            ChatShowRpc(name.Replace("(Clone)", "").Trim(), text);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ChatShowRpc(string who, string text) => ChatBox.Add(who, SlotColor, text);
         public void ViewModelBash() => viewAnim?.Bash();
 
         /// <summary>Owner: shake the camera (explosions, breaking walls, meteor strikes).</summary>
@@ -490,17 +508,22 @@ namespace Deepbound.Player
             private readonly Vector3 rRest, lRest;
             private readonly Quaternion rRot, lRot;
             private float rStab = -10f, lStab = -10f, throwAt = -10f, bob;
+            private readonly BladeTrail rTrail, lTrail;
 
             public DaggerViewAnimator(CharacterArt.ViewModel vm)
             {
                 this.vm = vm;
                 rRest = vm.SwordPivot.localPosition; rRot = vm.SwordPivot.localRotation;
                 lRest = vm.ShieldPivot.localPosition; lRot = vm.ShieldPivot.localRotation;
+                var steel = new Color(0.85f, 0.9f, 1f);
+                if (vm.TipR != null) rTrail = new BladeTrail(vm.Root, vm.TipR, vm.EdgeR, steel);
+                if (vm.TipL != null) lTrail = new BladeTrail(vm.Root, vm.TipL, vm.EdgeL, steel);
             }
 
             public void Swing(float windup, float rest, float side)
             {
-                if (side > 0f) rStab = Time.time; else lStab = Time.time;
+                if (side > 0f) { rStab = Time.time; rTrail?.Arm(0.13f); }
+                else { lStab = Time.time; lTrail?.Arm(0.13f); }
             }
 
             public void Bash() { }
@@ -514,21 +537,40 @@ namespace Deepbound.Player
                 var run = sprinting ? new Vector3(Mathf.Sin(bob) * 0.02f, Mathf.Abs(Mathf.Cos(bob)) * 0.025f, 0f) : Vector3.zero;
                 var down = downed ? new Vector3(0f, -0.4f, -0.1f) : Vector3.zero;
 
-                float r = Stab(rStab), l = Stab(lStab);
                 float t = Time.time - throwAt;
                 float flick = t < 0.25f ? Mathf.Sin(t / 0.25f * Mathf.PI) : 0f;
 
-                vm.SwordPivot.localPosition = rRest + run + down + new Vector3(-0.08f, 0.04f, 0.28f) * r + new Vector3(0f, 0.12f, 0.1f) * flick;
-                vm.SwordPivot.localRotation = rRot * Quaternion.Euler(-45f * r - 60f * flick, 0f, 0f);
-                vm.ShieldPivot.localPosition = lRest + run + down + new Vector3(0.08f, 0.04f, 0.28f) * l;
-                vm.ShieldPivot.localRotation = lRot * Quaternion.Euler(-45f * l, 0f, 0f);
+                // Each hand: a short cock back and twist, then a fast slashing thrust across and in,
+                // a hair of follow-through, and a quick recovery.
+                var (rp, re) = Cut(Time.time - rStab, 1f);
+                var (lp, le) = Cut(Time.time - lStab, -1f);
+                vm.SwordPivot.localPosition = rRest + run + down + rp + new Vector3(0f, 0.12f, 0.1f) * flick;
+                vm.SwordPivot.localRotation = rRot * Quaternion.Euler(re + new Vector3(-60f * flick, 0f, 0f));
+                vm.ShieldPivot.localPosition = lRest + run + down + lp;
+                vm.ShieldPivot.localRotation = lRot * Quaternion.Euler(le);
+                rTrail?.Update();
+                lTrail?.Update();
             }
 
-            private static float Stab(float start)
+            private static (Vector3 pos, Vector3 euler) Cut(float t, float s)
             {
-                float t = Time.time - start;
-                return t < 0.2f ? Mathf.Sin(t / 0.2f * Mathf.PI) : 0f;
+                const float Cock = 0.05f, Thrust = 0.09f, Hold = 0.04f, Back = 0.14f;
+                var cockP = new Vector3(0.05f * s, 0.05f, -0.1f);
+                var cockE = new Vector3(25f, 10f * s, 25f * s);
+                var hitP = new Vector3(-0.17f * s, 0.07f, 0.34f);
+                var hitE = new Vector3(-75f, -25f * s, -40f * s);
+                if (t < 0f || t > Cock + Thrust + Hold + Back) return (Vector3.zero, Vector3.zero);
+                if (t < Cock) { float k = Ease(t / Cock); return (cockP * k, cockE * k); }
+                t -= Cock;
+                if (t < Thrust) { float k = 1f - (1f - t / Thrust) * (1f - t / Thrust); return (Vector3.Lerp(cockP, hitP * 1.06f, k), Vector3.Lerp(cockE, hitE * 1.06f, k)); }
+                t -= Thrust;
+                if (t < Hold) { float k = Ease(t / Hold); return (Vector3.Lerp(hitP * 1.06f, hitP, k), Vector3.Lerp(hitE * 1.06f, hitE, k)); }
+                t -= Hold;
+                float b = Ease(t / Back);
+                return (Vector3.Lerp(hitP, Vector3.zero, b), Vector3.Lerp(hitE, Vector3.zero, b));
             }
+
+            private static float Ease(float t) { t = Mathf.Clamp01(t); return t * t * (3f - 2f * t); }
         }
 
         /// <summary>
@@ -617,7 +659,8 @@ namespace Deepbound.Player
             private float swingStart = -10f, swingWindup, swingRest, swingSide = 1f;
             private float bashStart = -10f, impactStart = -10f;
             private float block, bob;
-            private MaterialPropertyBlock slashBlock;
+            private readonly BladeTrail trail;
+            private float armedFor = -1f;
 
             public ViewModelAnimator(CharacterArt.ViewModel vm)
             {
@@ -626,11 +669,29 @@ namespace Deepbound.Player
                 swordRestRot = vm.SwordPivot.localRotation;
                 shieldRestPos = vm.ShieldPivot.localPosition;
                 shieldRestRot = vm.ShieldPivot.localRotation;
+                if (vm.TipR != null) trail = new BladeTrail(vm.Root, vm.TipR, vm.EdgeR, new Color(1f, 0.86f, 0.62f));
             }
 
             public void Swing(float windup, float rest, float side)
             {
                 swingStart = Time.time; swingWindup = windup; swingRest = rest; swingSide = side;
+            }
+
+            // The cut, as keys (offsets from the rest pose): coiled high over the shoulder, a fast
+            // diagonal stroke down and across the middle of the view, an overshoot, then home.
+            private static readonly Vector3 CoilP = new Vector3(0.17f, 0.25f, -0.13f), CoilE = new Vector3(-68f, 18f, 52f);
+            private static readonly Vector3 MidP = new Vector3(-0.08f, 0.04f, 0.2f), MidE = new Vector3(4f, -38f, -8f);
+            private static readonly Vector3 EndP = new Vector3(-0.52f, -0.21f, 0.12f), EndE = new Vector3(42f, -82f, -72f);
+            private const float CutTime = 0.13f, FollowTime = 0.07f;
+
+            private static Vector3 Mirror(Vector3 v, float side) => new Vector3(v.x * side, v.y, v.z * (side > 0f ? 1f : 0.9f));
+            private static Vector3 MirrorE(Vector3 e, float side) => new Vector3(e.x, e.y * side, e.z * side);
+
+            /// <summary>Quadratic Bezier through the mid key: the stroke curves, it does not go in a straight line.</summary>
+            private static Vector3 Bez(Vector3 a, Vector3 m, Vector3 b, float t)
+            {
+                var c = 2f * m - 0.5f * (a + b);
+                return Vector3.Lerp(Vector3.Lerp(a, c, t), Vector3.Lerp(c, b, t), t);
             }
 
             public void Bash() => bashStart = Time.time;
@@ -649,49 +710,54 @@ namespace Deepbound.Player
                 Quaternion rot = swordRestRot;
                 float t = Time.time - swingStart;
 
-                if (t < swingWindup)
+                float sd = swingSide;
+                var coilP = Mirror(CoilP, sd); var coilE = MirrorE(CoilE, sd);
+                var midP = Mirror(MidP, sd); var midE = MirrorE(MidE, sd);
+                var endP = Mirror(EndP, sd); var endE = MirrorE(EndE, sd);
+                Vector3 off = Vector3.zero, eul = Vector3.zero;
+                if (t >= 0f && t < swingWindup)
                 {
-                    // Draw back and up over the shoulder.
+                    // Coil: up and back over the shoulder, settling with a little tremble of held weight.
                     float k = Smooth(t / swingWindup);
-                    pos += new Vector3(0.12f * swingSide, 0.18f, -0.1f) * k;
-                    rot *= Quaternion.Euler(-50f * k, 0f, 45f * swingSide * k);
+                    float k2 = 1f - (1f - k) * (1f - k);
+                    off = coilP * k2;
+                    eul = coilE * k2 + new Vector3(Mathf.Sin(t * 60f) * 1.2f * k, 0f, 0f);
                 }
-                else if (t < swingWindup + swingRest)
+                else if (t >= swingWindup && t < swingWindup + swingRest)
                 {
-                    // Fast cut across the screen, then ease back to rest.
                     float s = t - swingWindup;
-                    float cut = Smooth(Mathf.Clamp01(s / 0.12f));
-                    float back = Smooth(Mathf.Clamp01((s - 0.12f) / Mathf.Max(0.01f, swingRest - 0.12f)));
-                    var from = new Vector3(0.12f * swingSide, 0.18f, -0.1f);
-                    var to = new Vector3(-0.45f * swingSide, -0.12f, 0.15f);
-                    var p = Vector3.Lerp(Vector3.Lerp(from, to, cut), Vector3.zero, back);
-                    pos += p;
-                    var euler = Vector3.Lerp(Vector3.Lerp(new Vector3(-50f, 0f, 45f * swingSide), new Vector3(30f, -70f * swingSide, -60f * swingSide), cut), Vector3.zero, back);
-                    rot *= Quaternion.Euler(euler);
-                }
-
-                // The slash arc wipes across with the cut and fades.
-                if (vm.Slash != null)
-                {
-                    float c = (t - swingWindup) / 0.2f;
-                    bool on = c >= 0f && c < 1f;
-                    vm.Slash.enabled = on;
-                    if (on)
+                    if (armedFor != swingStart) { armedFor = swingStart; trail?.Arm(CutTime + 0.01f); }
+                    if (s < CutTime)
                     {
-                        var pivot = vm.Slash.transform.parent;
-                        pivot.localScale = new Vector3(swingSide, 1f, 1f);
-                        pivot.localRotation = Quaternion.Euler(0f, 0f, 40f + Mathf.Lerp(-35f, 35f, Smooth(c)));
-                        slashBlock ??= new MaterialPropertyBlock();
-                        vm.Slash.GetPropertyBlock(slashBlock);
-                        float alpha = Mathf.Sin(c * Mathf.PI) * 0.38f;
-                        slashBlock.SetColor("_BaseColor", new Color(1f, 0.93f, 0.8f, alpha));
-                        vm.Slash.SetPropertyBlock(slashBlock);
+                        // The stroke: fast out of the coil, through the middle of the view, down and across.
+                        float k = s / CutTime;
+                        k = 1f - (1f - k) * (1f - k) * (1f - k);
+                        off = Bez(coilP, midP, endP, k);
+                        eul = Bez(coilE, midE, endE, k);
+                    }
+                    else if (s < CutTime + FollowTime)
+                    {
+                        // Follow-through: carried a little past by its own weight.
+                        float k = Mathf.Sin((s - CutTime) / FollowTime * Mathf.PI * 0.5f);
+                        off = Vector3.Lerp(endP, endP * 1.12f, k);
+                        eul = Vector3.Lerp(endE, endE * 1.1f, k);
+                    }
+                    else
+                    {
+                        // Recover to guard, with a soft settle.
+                        float k = Smooth((s - CutTime - FollowTime) / Mathf.Max(0.05f, swingRest - CutTime - FollowTime));
+                        float settle = Mathf.Sin(k * Mathf.PI) * 0.12f;
+                        off = Vector3.Lerp(endP * 1.12f, Vector3.zero, k) + new Vector3(0f, settle * 0.1f, 0f);
+                        eul = Vector3.Lerp(endE * 1.1f, Vector3.zero, k);
                     }
                 }
+                pos += off;
+                rot *= Quaternion.Euler(eul);
                 if (sprinting) pos += new Vector3(Mathf.Sin(bob) * 0.02f, Mathf.Abs(Mathf.Cos(bob)) * 0.025f, 0f);
                 if (downed) pos += new Vector3(0f, -0.35f, -0.1f);
                 vm.SwordPivot.localPosition = pos;
                 vm.SwordPivot.localRotation = rot;
+                trail?.Update();
 
                 // --- Shield ---
                 Vector3 spos = shieldRestPos + new Vector3(0.3f, 0.14f, -0.05f) * block;

@@ -42,7 +42,9 @@ namespace Deepbound.World
         /// <summary>The training yard's drill board, on the plaza side of its fence.</summary>
         public static readonly Vector3 YardSpot = Origin + new Vector3(-9.1f, 0f, -8.2f);
         /// <summary>Where you talk to Corwin, beside his carriage.</summary>
-        public static readonly Vector3 CarriageStall = BoardingCenter + new Vector3(4.2f, 0f, -1.2f);
+        public static readonly Vector3 CarriageStall = CarriageAt + new Vector3(1.9f, 0f, 2.4f);
+        /// <summary>The carriage: wagon centre, facing out of the gate (+z).</summary>
+        public static readonly Vector3 CarriageAt = Origin + new Vector3(0f, 0f, 19.5f);
 
         /// <summary>Where each camp character stands (their struck-body, <see cref="CampFolk"/>).</summary>
         public static (FolkId id, Vector3 at)[] FolkBodies => new[]
@@ -51,7 +53,7 @@ namespace Deepbound.World
             (FolkId.Hobb, AnvilSpot + Vector3.back * 1.4f),
             (FolkId.Aldric, ShrineSpot + Vector3.left * 1.2f),
             (FolkId.Vey, TailorSpot + Vector3.right * 0.6f),
-            (FolkId.Corwin, BoardingCenter + new Vector3(5.6f, 0.9f, 1f)),
+            (FolkId.Corwin, CarriageAt + new Vector3(0f, 0.9f, 2.2f)),
             (FolkId.Bones, BlackjackSpot + Vector3.back * 1f),
         };
 
@@ -109,6 +111,8 @@ namespace Deepbound.World
             BuildKeep(o, structure, dressing, lights);
             BuildGatehouse(o, structure, dressing, lights);
             BuildRoad(o, dressing, lights);
+            BuildForestRoad(o, root.transform, lights);
+            BuildCastleLife(o, dressing, lights);
             BuildStalls(o, dressing, lights);
             BuildTent(lights, dressing);
             BuildYard(o, dressing, lights);
@@ -131,14 +135,13 @@ namespace Deepbound.World
             }
             Props.Brazier(lights, fire, new Color(1f, 0.55f, 0.25f), true);
 
-            Props.Carriage(lights, dressing, BoardingCenter + new Vector3(6f, 0f, 1f), Quaternion.Euler(0f, 90f, 0f));
-            Props.BoardingCircle(lights, BoardingCenter, BoardingRadius);
+            // The carriage at the gate, facing out: sit on its tailgate to set off.
+            CarriageRide.Build(root.transform, CarriageAt, Vector3.forward);
 
             // The camp's people (the merchant has his own stall above).
             Props.Townsfolk(lights, AnvilSpot + Vector3.back * 1.4f, AnvilSpot + Vector3.left * 3f, Props.Folk.Smith);
             Props.Townsfolk(lights, ShrineSpot + Vector3.left * 1.2f, ShrineSpot + Vector3.left * 4f, Props.Folk.Priest);
             Props.Townsfolk(lights, TailorSpot + Vector3.right * 0.6f, TailorSpot + Vector3.right * 4f, Props.Folk.Tailor);
-            Props.Townsfolk(lights, BoardingCenter + new Vector3(5.6f, 0.9f, 1f), BoardingCenter, Props.Folk.Driver);
 
             structure.Build(root.transform, "LobbyStructure", collide: true);
             Art.AmbientLife.Ravens(lights, Origin, Radius, WallHeight);
@@ -153,11 +156,11 @@ namespace Deepbound.World
         public static void ApplyCastleAtmosphere()
         {
             DungeonBuilder.ApplyAtmosphere();
-            RenderSettings.ambientSkyColor = new Color(0.16f, 0.19f, 0.28f);
-            RenderSettings.ambientEquatorColor = new Color(0.1f, 0.1f, 0.14f);
-            RenderSettings.ambientGroundColor = new Color(0.05f, 0.045f, 0.05f);
-            RenderSettings.fogColor = new Color(0.035f, 0.045f, 0.08f);
-            RenderSettings.fogDensity = 0.012f;
+            RenderSettings.ambientSkyColor = new Color(0.25f, 0.27f, 0.38f);
+            RenderSettings.ambientEquatorColor = new Color(0.17f, 0.15f, 0.16f);
+            RenderSettings.ambientGroundColor = new Color(0.09f, 0.075f, 0.07f);
+            RenderSettings.fogColor = new Color(0.045f, 0.055f, 0.09f);
+            RenderSettings.fogDensity = 0.0095f;
             foreach (var cam in Camera.allCameras) cam.backgroundColor = RenderSettings.fogColor;
         }
 
@@ -196,7 +199,8 @@ namespace Deepbound.World
             var cone = MeshKit.Lathe("towerCone", new[] { new Vector2(0f, 0f), new Vector2(3.4f, 0f), new Vector2(0f, 6.5f) }, 12);
             for (int i = 0; i < 6; i++)
             {
-                float deg = 30f + i * 60f;
+                // Spaced so two flank the gate (at 90 degrees) instead of one standing in it.
+                float deg = i * 60f;
                 float a = deg * Mathf.Deg2Rad;
                 var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
                 var p = o + dir * (Radius + 0.6f);
@@ -260,9 +264,136 @@ namespace Deepbound.World
             s.AddBox(g + new Vector3(0f, 9.5f, 0f), new Vector3(4.8f, 5f, 3.6f), Mat.StoneWall);
             // The raised portcullis teeth, and the dark road beyond.
             for (int i = -2; i <= 2; i++) d.AddBox(g + new Vector3(i * 0.9f, 6.6f, -1.2f), new Vector3(0.14f, 1.4f, 0.14f), Mat.Steel);
-            d.AddBox(g + new Vector3(0f, 3.5f, 1.9f), new Vector3(4.8f, 7f, 0.2f), Mat.Dark);
+            // The arch's underside and the open road beyond (see BuildForestRoad).
+            d.AddBox(g + new Vector3(0f, 7.05f, 0f), new Vector3(4.8f, 0.1f, 3.6f), Mat.StoneWall);
             Props.WallTorch(lights, g + new Vector3(-2.3f, 3.2f, -1.85f), Vector3.back, true, Fire);
             Props.WallTorch(lights, g + new Vector3(2.3f, 3.2f, -1.85f), Vector3.back, false, Fire);
+        }
+
+        /// <summary>
+        /// Out through the open gate: a dirt road running north into a dark pine wood, two lanterns on
+        /// posts by the gate and then nothing but trees and fog. Players cannot walk out (an invisible
+        /// bar across the gate's mouth); the carriage drives through it on its way down.
+        /// </summary>
+        private static void BuildForestRoad(Vector3 o, Transform root, Transform lights)
+        {
+            var f = new MeshKit.Batcher();
+            float gateZ = Radius + 2.6f;
+            // Ground outside the walls, the road, and its verges.
+            f.AddBox(o + new Vector3(0f, -0.05f, gateZ + 45f), new Vector3(110f, 0.1f, 92f), Mat.Rubble);
+            f.AddBox(o + new Vector3(0f, -0.02f, gateZ + 40f), new Vector3(4.4f, 0.06f, 82f), Mat.Flagstone);
+            var rng = new System.Random(4021);
+            for (float z = gateZ + 1f; z < gateZ + 80f; z += 1.6f)
+                foreach (float s in new[] { -1f, 1f })
+                    f.AddBox(o + new Vector3(s * (2.3f + (float)rng.NextDouble() * 0.3f), 0.04f, z), new Vector3(0.5f, 0.1f + (float)rng.NextDouble() * 0.08f, 1.3f), Mat.Rubble,
+                        Quaternion.Euler(0f, (float)rng.NextDouble() * 20f - 10f, 0f));
+            // The wood: dark pines and dead trees on both sides, thinning away from the road, with the
+            // road swinging gently so the far end vanishes into the trees.
+            var trunk = MeshKit.Cylinder(0.22f, 0.14f, 1f, 6);
+            var cone = MeshKit.Lathe("pineTier", new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(0f, 1f) }, 7);
+            for (int i = 0; i < 260; i++)
+            {
+                float z = gateZ + 3f + (float)rng.NextDouble() * 85f;
+                float side = rng.NextDouble() < 0.5 ? -1f : 1f;
+                float x = side * (4.2f + (float)System.Math.Pow(rng.NextDouble(), 0.7) * 48f);
+                // Keep the castle's own moat of open ground clear.
+                if (z < gateZ + 6f && Mathf.Abs(x) < 12f) continue;
+                var p = o + new Vector3(x, 0f, z);
+                float h = 6f + (float)rng.NextDouble() * 7f;
+                f.Add(trunk, Mat.Wood, Matrix4x4.TRS(p, Quaternion.identity, new Vector3(1f, h * 0.45f, 1f)));
+                if (rng.NextDouble() < 0.78)
+                {
+                    float w = 1.6f + (float)rng.NextDouble() * 1.2f;
+                    for (int t = 0; t < 4; t++)
+                        f.Add(cone, Mat.Dark, Matrix4x4.TRS(p + Vector3.up * (h * 0.22f + t * h * 0.19f), Quaternion.Euler(0f, t * 37f, 0f), new Vector3(w * (1f - t * 0.2f), h * 0.3f, w * (1f - t * 0.2f))));
+                }
+                else
+                {
+                    // A dead tree: a bare trunk with a few crooked limbs.
+                    for (int k = 0; k < 4; k++)
+                        f.Add(trunk, Mat.Wood, Matrix4x4.TRS(p + Vector3.up * (h * 0.3f + k * h * 0.12f), Quaternion.Euler((float)rng.NextDouble() * 40f + 30f, k * 90f + (float)rng.NextDouble() * 40f, 0f), new Vector3(0.45f, h * 0.18f, 0.45f)));
+                }
+            }
+            // Two lanterns on posts where the road leaves the gate, a milestone, a crooked sign.
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var post = o + new Vector3(s * 3.1f, 0f, gateZ + 2.5f);
+                f.AddBox(post + Vector3.up * 1.3f, new Vector3(0.16f, 2.6f, 0.16f), Mat.Wood);
+                f.AddBox(post + new Vector3(-s * 0.3f, 2.5f, 0f), new Vector3(0.6f, 0.08f, 0.08f), Mat.Wood);
+                Props.WallTorch(lights, post + new Vector3(-s * 0.55f, 2.2f, 0f), Vector3.back, false, Fire);
+            }
+            f.AddBox(o + new Vector3(3.4f, 0.5f, gateZ + 9f), new Vector3(0.5f, 1f, 0.3f), Mat.StoneWall, Quaternion.Euler(0f, 0f, 6f));
+            f.AddBox(o + new Vector3(-3.6f, 1f, gateZ + 13f), new Vector3(0.12f, 2f, 0.12f), Mat.Wood, Quaternion.Euler(0f, 0f, -8f));
+            f.AddBox(o + new Vector3(-3.5f, 1.8f, gateZ + 13f), new Vector3(1.1f, 0.25f, 0.06f), Mat.Wood, Quaternion.Euler(0f, 20f, -10f));
+            f.Build(root, "ForestRoad", collide: false);
+            // You can look, but not leave: an invisible bar across the gate's mouth.
+            var bar = new GameObject("GateBarrier");
+            bar.transform.SetParent(root, false);
+            bar.transform.position = o + new Vector3(0f, 2f, Radius + 2.3f);
+            bar.AddComponent<BoxCollider>().size = new Vector3(5f, 4f, 0.4f);
+        }
+
+        /// <summary>
+        /// The castle lived in: lanterns along the wall walk and on the towers, a well on the plaza,
+        /// hay and barrels by the carriage, banners on the walls, and lit windows in the keep.
+        /// </summary>
+        private static void BuildCastleLife(Vector3 o, MeshKit.Batcher d, Transform lights)
+        {
+            // Lanterns on the inner face of the curtain wall, every 45 degrees (not at the gate).
+            for (int i = 0; i < 8; i++)
+            {
+                float deg = 22.5f + i * 45f;
+                if (Mathf.Abs(Mathf.DeltaAngle(deg, 90f)) < 20f) continue;
+                float a = deg * Mathf.Deg2Rad;
+                var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                Props.WallTorch(lights, o + dir * (Radius - 0.05f) + Vector3.up * 3.4f, -dir, false, Fire);
+                Props.Banner(lights, o + dir * (Radius - 0.05f) + Vector3.up * 7.6f, -dir, i % 2 == 0 ? new Color(0.45f, 0.08f, 0.08f) : new Color(0.12f, 0.12f, 0.3f));
+            }
+            // A well on the plaza, with a lantern on its frame.
+            var well = o + new Vector3(6.5f, 0f, -16.5f);
+            d.Add(MeshKit.Cylinder(1f, 1.05f, 0.85f, 16), Mat.StoneWall, Matrix4x4.Translate(well));
+            d.Add(MeshKit.Cylinder(0.82f, 0.82f, 0.05f, 16), Mat.Dark, Matrix4x4.Translate(well + Vector3.up * 0.8f));
+            foreach (float s in new[] { -0.9f, 0.9f }) d.AddBox(well + new Vector3(s, 1.4f, 0f), new Vector3(0.12f, 1.4f, 0.12f), Mat.Wood);
+            d.AddBox(well + new Vector3(0f, 2.15f, 0f), new Vector3(2f, 0.12f, 0.12f), Mat.Wood);
+            d.Add(MeshKit.Lathe("wellRoof", new[] { new Vector2(1.3f, 0f), new Vector2(0f, 0.8f) }, 4), Mat.Wood, Matrix4x4.TRS(well + Vector3.up * 2.2f, Quaternion.Euler(0f, 45f, 0f), Vector3.one));
+            Props.WallTorch(lights, well + new Vector3(0.95f, 1.8f, 0f), Vector3.right, false, Fire);
+            // Hay, barrels and a feed trough by the carriage.
+            foreach (var (x, z, yaw) in new[] { (-4.6f, 17.2f, 10f), (-4.9f, 18.6f, -14f), (4.7f, 21.6f, 30f) })
+            {
+                var bale = MeshKit.Part(lights, "HayBale", MeshKit.Box(new Vector3(0.9f, 0.5f, 0.55f)), Mat.Cloth, o + new Vector3(x, 0.25f, z), new Vector3(0f, yaw, 0f));
+                ArtLibrary.Tint(bale.GetComponent<Renderer>(), new Color(0.62f, 0.5f, 0.22f));
+                foreach (float bx in new[] { -0.25f, 0.25f })
+                {
+                    MeshKit.Part(bale.transform, "Twine", MeshKit.Box(new Vector3(0.03f, 0.52f, 0.57f)), Mat.Leather, new Vector3(bx, 0f, 0f));
+                }
+            }
+            Props.Barrel(d, o + new Vector3(4.4f, 0f, 18.2f));
+            Props.Barrel(d, o + new Vector3(5f, 0f, 17.4f));
+            d.AddBox(o + new Vector3(-4.2f, 0.4f, 22.5f), new Vector3(0.8f, 0.5f, 2.2f), Mat.Wood);
+            // Lit windows in the keep's front and the towers: warm squares high in the dark.
+            var keep = o + new Vector3(0f, 0f, -Radius + 3f);
+            foreach (var (x, y) in new[] { (-6.2f, 4.5f), (6.2f, 4.5f), (-6.2f, 12.5f), (6.2f, 12.5f), (-2.6f, 15.2f), (2.6f, 15.2f) })
+                d.AddBox(keep + new Vector3(x, y, 1.06f), new Vector3(0.7f, 1.3f, 0.1f), Mat.Flame);
+            // Hanging lanterns over the road between the stalls.
+            foreach (float z in new[] { -6f, 2f, 10f })
+            {
+                var at = o + new Vector3(0f, 4.2f, z);
+                foreach (float s in new[] { -1f, 1f }) d.AddBox(o + new Vector3(s * 4.1f, 2.3f, z), new Vector3(0.14f, 4.6f, 0.14f), Mat.Wood);
+                // A sagging rope of little lanterns between the poles.
+                for (int k = 0; k <= 8; k++)
+                {
+                    float u = k / 8f;
+                    float sag = Mathf.Sin(u * Mathf.PI) * 0.45f;
+                    var p = o + new Vector3(-4.1f + u * 8.2f, 4.6f - sag, z);
+                    if (k < 8) d.AddBox(p + new Vector3(0.51f, -Mathf.Cos(u * Mathf.PI) * 0.09f, 0f), new Vector3(1.03f, 0.025f, 0.025f), Mat.Leather, Quaternion.Euler(0f, 0f, -Mathf.Cos(u * Mathf.PI) * 10f));
+                    if (k > 0 && k < 8)
+                    {
+                        d.AddBox(p + Vector3.down * 0.12f, new Vector3(0.012f, 0.22f, 0.012f), Mat.Steel);
+                        d.AddBox(p + Vector3.down * 0.3f, new Vector3(0.12f, 0.16f, 0.12f), Mat.Flame);
+                    }
+                }
+                Props.WallTorch(lights, at, Vector3.back, false, new Color(1f, 0.75f, 0.4f));
+            }
         }
 
         /// <summary>The cobbled road from the bonfire to the gate, braziers along both sides.</summary>

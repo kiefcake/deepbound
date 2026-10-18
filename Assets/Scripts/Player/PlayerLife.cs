@@ -124,6 +124,75 @@ namespace Deepbound.Player
 
         private PlayerDebuffs debuffs;
 
+        // ---- The carriage: sit on its tailgate to say you are ready ----
+
+        /// <summary>Which carriage seat this player sits in (-1: on their feet).</summary>
+        public readonly NetworkVariable<sbyte> Seat = new NetworkVariable<sbyte>(-1);
+        private bool wasSeated;
+
+        /// <summary>Owner → server: sit in a carriage seat (at camp, before the carriage goes).</summary>
+        [Rpc(SendTo.Server)]
+        public void SitRpc(int seat)
+        {
+            var ride = World.CarriageRide.Instance;
+            if (ride == null || !DungeonDirector.InLobby || ride.Riding || seat < 0 || seat >= World.CarriageRide.SeatCount || Downed.Value) return;
+            foreach (var p in All) if (p != null && p != this && p.Seat.Value == seat) return;
+            if (Vector3.Distance(transform.position, ride.SeatGround(seat)) > 3.5f) return;
+            Seat.Value = (sbyte)seat;
+        }
+
+        /// <summary>Owner → server: get back down (not once the carriage is moving).</summary>
+        [Rpc(SendTo.Server)]
+        public void StandRpc()
+        {
+            var ride = World.CarriageRide.Instance;
+            if (ride != null && ride.Riding && DungeonDirector.InLobby) return;
+            Seat.Value = -1;
+        }
+
+        /// <summary>Owner: F at the back of the carriage sits you down (or stands you up); seated, you ride with it.</summary>
+        private void OwnerSeat()
+        {
+            var ride = World.CarriageRide.Instance;
+            var motor = GetComponent<FirstPersonMotor>();
+            bool seated = Seat.Value >= 0 && ride != null && (DungeonDirector.InLobby || ride.Riding);
+            if (seated)
+            {
+                if (!wasSeated) transform.rotation = Quaternion.Euler(0f, ride.SeatFacing.eulerAngles.y, 0f);
+                motor.PinTo(ride.SeatPosition(Seat.Value));
+            }
+            else if (wasSeated)
+            {
+                motor.Unpin(ride != null && DungeonDirector.InLobby ? ride.SeatGround(Mathf.Max(0, lastSeat)) : transform.position);
+            }
+            if (seated) lastSeat = Seat.Value;
+            wasSeated = seated;
+
+            var keyboard = Keyboard.current;
+            if (keyboard == null || !keyboard.fKey.wasPressedThisFrame || ride == null || !DungeonDirector.InLobby || ride.Riding || UI.GameHud.MenuOpen) return;
+            if (Seat.Value >= 0) { StandRpc(); return; }
+            int free = NearestFreeSeat(ride);
+            if (free >= 0) SitRpc(free);
+        }
+
+        private int lastSeat;
+
+        /// <summary>The closest unclaimed seat within reach of the back of the carriage, or -1.</summary>
+        public int NearestFreeSeat(World.CarriageRide ride)
+        {
+            int best = -1;
+            float bd = 2.6f;
+            for (int i = 0; i < World.CarriageRide.SeatCount; i++)
+            {
+                bool taken = false;
+                foreach (var p in All) if (p != null && p.Seat.Value == i) taken = true;
+                if (taken) continue;
+                float d = Vector3.Distance(transform.position, ride.SeatGround(i));
+                if (d < bd) { bd = d; best = i; }
+            }
+            return best;
+        }
+
         /// <summary>Server: this player's ground velocity, smoothed (shooters use it to lead their shots).</summary>
         public Vector3 ServerVelocity { get; private set; }
         private Vector3 velocitySampleAt;
@@ -246,6 +315,7 @@ namespace Deepbound.Player
         {
             if (IsOwner)
             {
+                OwnerSeat();
                 OwnerReviveInput();
                 OwnerDodgeInput();
             }

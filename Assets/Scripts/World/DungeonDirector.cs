@@ -409,6 +409,8 @@ namespace Deepbound.World
             ClearSettledContract();
             ApplyOmen(false);
             if (!keepRun) { NextDepth.Value = 0; Seals.Value = 0; }
+            foreach (var p in PlayerLife.All) if (p != null) p.Seat.Value = -1;
+            if (CarriageRide.Instance != null) CarriageRide.Instance.Park();
             Phase.Value = RunPhase.Lobby;
             PhaseEndsAt.Value = 0;
             Floor.Value = new Vector2Int(UnityEngine.Random.Range(1, int.MaxValue), LobbyDepth);
@@ -507,7 +509,7 @@ namespace Deepbound.World
         }
 
         /// <summary>Server: the carriage leaves — for the next floor of this run, or a new run.</summary>
-        public const float DepartSeconds = 2.6f;
+        public const float DepartSeconds = CarriageRide.RideSeconds;
         private float departAt = -1f;
 
         /// <summary>Server: the carriage goes. A beam of light takes the party first (a short cutscene), then the floor starts.</summary>
@@ -528,10 +530,10 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void DepartRpc()
         {
-            foreach (var p in PlayerLife.All)
-                if (p != null) Art.TeleportBeam.On(p.transform, false, DepartSeconds);
-            Art.Sfx.Play2D(Art.Sound.Relic, 0.9f);
-            Art.Sfx.Play2D(Art.Sound.Revive, 0.6f);
+            // The carriage rolls out through the gate with the party on its tailgate; the screen fades as the wood closes in.
+            if (CarriageRide.Instance != null) CarriageRide.Instance.Depart();
+            Art.Sfx.Play2D(Art.Sound.Creak, 0.9f);
+            Art.Sfx.Play2D(Art.Sound.Step, 0.6f);
             UI.GameHud.BeginDeparture(DepartSeconds);
         }
 
@@ -558,6 +560,7 @@ namespace Deepbound.World
             Phase.Value = RunPhase.Exploring;
             PhaseEndsAt.Value = 0;
             Floor.Value = new Vector2Int(seed, depth);
+            foreach (var p in PlayerLife.All) if (p != null) p.Seat.Value = -1;
 
             // NetworkVariable callbacks do not fire for the writer's own change on every
             // NGO version, so build explicitly; BuildLocal ignores a repeat.
@@ -1157,7 +1160,7 @@ namespace Deepbound.World
             int n = 0;
             foreach (var p in PlayerLife.All)
             {
-                if (p != null && Lobby.InBoardingCircle(p.transform.position)) n++;
+                if (p != null && p.Seat.Value >= 0) n++;
             }
             return n;
         }

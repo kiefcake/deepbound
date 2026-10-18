@@ -115,7 +115,8 @@ namespace Deepbound.Enemies
             // a heavy up to 25 swings; a boss, on its own floor, 50-160.
             bool boss = b is BossBrain;
             bool heavy = b is BruteBrain || b is GargoyleBrain || b is MimicBrain;
-            float maxSwings = boss ? 160f : heavy ? 25f : 12f, minSwings = boss ? 50f : 1.6f;
+            // A Warden is the lighter boss of its act (the first, on floor 1, lighter still).
+            float maxSwings = boss ? 160f : heavy ? 25f : 12f, minSwings = b is WardenBrain ? 30f : boss ? 50f : 1.6f;
             if (row.SwingsToKill > maxSwings) row.Flag = "TANKY";
             else if (row.SwingsToKill < minSwings) row.Flag = "FRAGILE";
             if (b.BaseDamage > 0f && row.HitsToDown < (boss ? 3f : 4f)) row.Flag = (row.Flag != null ? row.Flag + "+" : "") + "BRUTAL";

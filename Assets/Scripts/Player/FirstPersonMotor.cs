@@ -126,7 +126,7 @@ namespace Deepbound.Player
             }
 
             bool hasControl = HasControl;
-            bool canMove = hasControl && !Frozen;
+            bool canMove = hasControl && !Frozen && !Pinned;
 
             if (hasControl && !LookHeld) ApplyLook(ReadLookInput());
             MoveInput = canMove ? ReadMoveInput() : Vector2.zero;
@@ -138,7 +138,7 @@ namespace Deepbound.Player
             if (manic) { MoveInput = ManiaInput(); sprintKey = true; jumpKey = false; }
             if (debuffs != null && debuffs.Rooted) jumpKey = false;
 
-            ApplyMovement(MoveInput, canMove && (CanSprint || manic) && sprintKey, canMove && jumpKey);
+            if (controller.enabled) ApplyMovement(MoveInput, canMove && (CanSprint || manic) && sprintKey, canMove && jumpKey);
 
             // The world sways while madness has you.
             maniaRoll = Mathf.Lerp(maniaRoll, manic ? Mathf.Sin(Time.time * 4.3f) * 7f + Mathf.Sin(Time.time * 7.1f) * 3f : 0f, 1f - Mathf.Exp(-Time.deltaTime * 6f));
@@ -240,6 +240,27 @@ namespace Deepbound.Player
         {
             pitch = Mathf.Clamp(degrees, -maxPitch, maxPitch);
             if (cameraPivot != null) cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        }
+
+        /// <summary>Owner: riding something (the carriage seat). The body follows it; the head still turns.</summary>
+        public bool Pinned { get; private set; }
+
+        public void PinTo(Vector3 position)
+        {
+            if (controller.enabled) controller.enabled = false;
+            transform.position = position;
+            Pinned = true;
+            verticalVelocity = 0f;
+            impulse = Vector3.zero;
+        }
+
+        public void Unpin(Vector3 position)
+        {
+            if (!Pinned) return;
+            Pinned = false;
+            transform.position = position;
+            controller.enabled = true;
+            verticalVelocity = 0f;
         }
 
         public void Teleport(Vector3 position, Quaternion rotation)

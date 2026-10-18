@@ -296,7 +296,7 @@ namespace Deepbound.UI
             if (DungeonDirector.InLobby || DungeonDirector.Layout == null)
             {
                 bannerTitle = "THE LAST LANTERN";
-                bannerSub = "Gather at the carriage when your party is ready";
+                bannerSub = "Speak to Corwin, then sit on the back of the carriage when your party is ready";
                 bannerHint = "";
             }
             else
@@ -813,12 +813,12 @@ namespace Deepbound.UI
             string cls = ClassDefinition.For(progress.ClassId.Value).Name;
             string line2 = midRun
                 ? "Rest, trade and gamble.   The carriage goes down to floor " + (director.NextDepth.Value + 1) + "."
-                : cls + " (B to change)   ·   " + diff.Name + (host ? " difficulty ( [ / ] )" : " difficulty") +
+                : cls + " (B to change)   ·   " + diff.Name + " difficulty (" + (host ? "set it with Corwin" : "the host sets it with Corwin") + ")" +
                   (director.RunOmen != Omen.None ? "   ·   Omen: " + DungeonDirector.OmenName(director.RunOmen) : "");
             if (Unity.Netcode.NetworkManager.Singleton.ConnectedClientsIds.Count > 1 || PlayerLife.All.Count > 1)
                 line2 += "   ·   Loot: " + (director.FindersKeepers.Value ? "finders keepers" : "shared") + (host ? " (L)" : "");
             GUI.Label(new Rect(x, y + 24, pw, 18), line2, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
-            GUI.Label(new Rect(x, y + 41, pw, 18), "Gather in the golden circle at the gate   (" + aboard + " / " + total + " aboard)",
+            GUI.Label(new Rect(x, y + 41, pw, 18), "Talk to Corwin at the carriage, then take a seat on its back   (" + aboard + " / " + total + " seated)",
                 new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = aboard > 0 ? Gold : new Color(0.85f, 0.82f, 0.78f) } });
             if (counting)
             {
@@ -836,12 +836,12 @@ namespace Deepbound.UI
                 float bar = h * 0.12f * Mathf.SmoothStep(0f, 1f, Mathf.Min(1f, k * 3f));
                 Rect(0, 0, w, bar, Color.black);
                 Rect(0, h - bar, w, bar, Color.black);
-                Rect(0, 0, w, h, new Color(1f, 0.97f, 0.88f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.35f, 1f, k))));
-                if (k > 0.2f && k < 0.9f)
+                Rect(0, 0, w, h, new Color(0f, 0f, 0f, Mathf.SmoothStep(0f, 1f, Mathf.InverseLerp(0.7f, 0.97f, k))));
+                if (k > 0.45f && k < 0.98f)
                 {
-                    float ta = Mathf.Sin((k - 0.2f) / 0.7f * Mathf.PI);
-                    GUI.Label(new Rect(0, h * 0.5f - 20, w, 40), "INTO THE DEEP", new GUIStyle(big) { normal = { textColor = new Color(0.2f, 0.15f, 0.1f, ta) } });
-                    GUI.Label(new Rect(0, h * 0.5f + 26, w, 26), "\u201C" + HymnLine + "\u201D", new GUIStyle(center) { fontSize = 17, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.3f, 0.22f, 0.15f, ta) } });
+                    float ta = Mathf.Sin((k - 0.45f) / 0.53f * Mathf.PI);
+                    UiSkin.Shadowed(new Rect(0, h * 0.78f - 20, w, 40), "INTO THE DEEP", new GUIStyle(big) { normal = { textColor = new Color(0.95f, 0.85f, 0.6f, ta) } });
+                    GUI.Label(new Rect(0, h * 0.78f + 26, w, 26), "\u201C" + HymnLine + "\u201D", new GUIStyle(center) { fontSize = 17, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.85f, 0.78f, 0.62f, ta) } });
                 }
                 if (k >= 1f && !arrivingFromBeam) departStart = -1f;
                 return;
@@ -862,6 +862,17 @@ namespace Deepbound.UI
             fade = Mathf.MoveTowards(fade, 0f, Time.deltaTime * 0.8f);
             if (fade <= 0f) return;
             Rect(0, 0, w, h, new Color(0f, 0f, 0f, Mathf.SmoothStep(0f, 1f, fade)));
+        }
+
+        /// <summary>At the back of the carriage: F to sit (or stand).</summary>
+        private void DrawSeatPrompt(float w, float h)
+        {
+            var ride = CarriageRide.Instance;
+            if (ride == null || !DungeonDirector.InLobby || ride.Riding || shopOpen || forgeOpen || life.Downed.Value) return;
+            string text = null;
+            if (life.Seat.Value >= 0) text = "Seated on the carriage   -   F  stand up";
+            else if (life.NearestFreeSeat(ride) >= 0) text = "F  Sit on the back of the carriage (ready to go)";
+            if (text != null) GUI.Label(new Rect(0, h / 2f + 92, w, 24), text, center);
         }
 
         private bool NearMerchant() => NearVendor(Shop.Vendor.Merchant);
@@ -921,10 +932,7 @@ namespace Deepbound.UI
             var dir = DungeonDirector.Instance;
             if (keyboard != null && dir != null && DungeonDirector.InLobby && Unity.Netcode.NetworkManager.Singleton.IsHost)
             {
-                int cur = dir.DifficultyIndex.Value;
-                if (keyboard.rightBracketKey.wasPressedThisFrame) dir.SetDifficultyRpc((byte)Mathf.Min(cur + 1, Enemies.Difficulty.Settings.Length - 1));
-                if (keyboard.leftBracketKey.wasPressedThisFrame) dir.SetDifficultyRpc((byte)Mathf.Max(cur - 1, 0));
-                if (keyboard.lKey.wasPressedThisFrame && !MenuOpen) dir.SetLootRuleRpc(!dir.FindersKeepers.Value);
+                // Difficulty and the loot rule are set by talking to Corwin at the carriage (G).
             }
 
             // Class choice is a camp decision: number keys pick one, only in the lobby.
@@ -1346,7 +1354,7 @@ namespace Deepbound.UI
             var v = e.Rage.Value;
             if (v.Count == 0) return;
             bool boss = e is BossBrain;
-            float pw = 300f, x = w / 2f - pw / 2f, y = boss ? 82f : 62f;
+            float pw = 300f, x = w / 2f - pw / 2f, y = boss ? 116f : 62f; // a boss: below its bar, stance and hint lines
             var rows = new List<(ulong id, float t)>();
             float top = 1f;
             for (int i = 0; i < 4; i++) { v.Get(i, out var id, out var t); if (id != 0) { rows.Add((id, t)); top = Mathf.Max(top, t); } }
@@ -1371,7 +1379,7 @@ namespace Deepbound.UI
                 }
                 bool me = id == player.NetworkObjectId, hunted = id == v.Target;
                 GUI.Label(new Rect(x + 8, ry, 130, 18), name, new GUIStyle(small) { fontStyle = me ? FontStyle.Bold : FontStyle.Normal, normal = { textColor = me ? Color.white : new Color(0.82f, 0.8f, 0.75f) } });
-                var bar = new Rect(x + 140, ry + 4, pw - 200, 9);
+                var bar = new Rect(x + 140, ry + 4, pw - 220, 9);
                 Rect(bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2, new Color(0f, 0f, 0f, 0.8f));
                 Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(t / top), bar.height, new Color(col.r, col.g, col.b, 0.95f));
                 // The line a rival must cross to take its rage (a fifth over whoever it is hunting).
@@ -1380,7 +1388,7 @@ namespace Deepbound.UI
                     float line = Mathf.Clamp01(targetThreat * EnemyBrain.SwitchThreshold / top);
                     Rect(bar.x + bar.width * line - 1f, bar.y - 2f, 2f, bar.height + 4f, new Color(1f, 0.4f, 0.3f, 0.7f));
                 }
-                if (hunted) GUI.Label(new Rect(x + pw - 58, ry, 54, 18), "HUNTED", new GUIStyle(small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 0.35f, 0.3f) } });
+                if (hunted) GUI.Label(new Rect(x + pw - 76, ry, 72, 18), "HUNTED", new GUIStyle(small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 0.35f, 0.3f) } });
             }
             // A word for you: about to pull it, or already its prey.
             float mine = v.Of(player.NetworkObjectId);
@@ -1774,6 +1782,7 @@ namespace Deepbound.UI
 
         private void DrawMerchant(float w, float h)
         {
+            DrawSeatPrompt(w, h);
             if (forgeOpen) return;
             if (!shopOpen)
             {
@@ -1793,7 +1802,9 @@ namespace Deepbound.UI
             var vendor = shopVendor;
             float pw = 600, rowH = 38;
             var stock = Shop.For(progress.OwnerClientId, vendor);
-            float ph = 70 + stock.Length * rowH;
+            // Corwin also takes the party's orders: how hard a road, and how the spoils are shared.
+            float top = vendor == Shop.Vendor.Carriage ? 70f : 0f;
+            float ph = 70 + top + stock.Length * rowH;
             float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(Gold.r, Gold.g, Gold.b, 0.5f));
             Rect(x, y, pw, ph, new Color(0.04f, 0.035f, 0.03f, 0.94f));
@@ -1811,11 +1822,36 @@ namespace Deepbound.UI
                 GUI.enabled = true;
             }
             GUI.Label(new Rect(x + pw - 120, y + 10, 106, 24), progress.Gold.Value + " gold", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
+            if (top > 0f)
+            {
+                var dir = DungeonDirector.Instance;
+                bool host = Unity.Netcode.NetworkManager.Singleton.IsHost;
+                bool locked = dir == null || dir.RunInProgress;
+                var diff = Enemies.Difficulty.Level;
+                float dy = y + 56;
+                Rect(x + 10, dy - 2, pw - 20, top - 6, new Color(1f, 1f, 1f, 0.04f));
+                GUI.Label(new Rect(x + 16, dy + 4, 120, 22), "THE ROAD", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+                GUI.enabled = host && !locked && dir.DifficultyIndex.Value > 0;
+                if (GUI.Button(new Rect(x + 120, dy + 2, 28, 24), "<")) dir.SetDifficultyRpc((byte)(dir.DifficultyIndex.Value - 1));
+                GUI.enabled = true;
+                GUI.Label(new Rect(x + 152, dy + 4, 110, 22), diff.Name.ToUpperInvariant(), new GUIStyle(label) { alignment = TextAnchor.UpperCenter });
+                GUI.enabled = host && !locked && dir.DifficultyIndex.Value < Enemies.Difficulty.Settings.Length - 1;
+                if (GUI.Button(new Rect(x + 266, dy + 2, 28, 24), ">")) dir.SetDifficultyRpc((byte)(dir.DifficultyIndex.Value + 1));
+                GUI.enabled = true;
+                if (PlayerLife.All.Count > 1 && dir != null)
+                {
+                    GUI.enabled = host;
+                    if (GUI.Button(new Rect(x + pw - 214, dy + 2, 200, 24), "Loot: " + (dir.FindersKeepers.Value ? "finders keepers" : "shared"))) dir.SetLootRuleRpc(!dir.FindersKeepers.Value);
+                    GUI.enabled = true;
+                }
+                string note = locked ? "Set for this run. \"Same road as before, then.\"" : host ? diff.Blurb : diff.Blurb + "  (the host chooses)";
+                GUI.Label(new Rect(x + 16, dy + 30, pw - 32, 20), note, small);
+            }
 
             for (int i = 0; i < stock.Length; i++)
             {
                 var item = stock[i];
-                float ry = y + 60 + i * rowH;
+                float ry = y + 60 + top + i * rowH;
                 string reason = progress.CannotBuyReason(vendor, i);
 
                 var nameStyle = item.Kind == Shop.ItemKind.Relic ? new GUIStyle(label) { normal = { textColor = Relics.GemColor((Relic)(int)item.Amount) } }

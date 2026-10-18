@@ -166,6 +166,8 @@ namespace Deepbound.Art
             public Light SpellLight;
             /// <summary>The Knight's slash arc: a crescent in view space the animator wipes and fades during a cut.</summary>
             public Renderer Slash;
+            /// <summary>Marks on the main (R) and off-hand (L) blades: tip and a point down the edge, for blade trails.</summary>
+            public Transform TipR, EdgeR, TipL, EdgeL;
         }
 
         public static ViewModel BuildKnightViewModel(Transform camera, Color teamColor)
@@ -184,6 +186,8 @@ namespace Deepbound.Art
             ArtLibrary.Tint(sleeve.GetComponent<Renderer>(), teamColor * 0.8f);
             var grip = MeshKit.Pivot(swordPivot, "Grip", new Vector3(0f, 0.02f, 0.02f), new Vector3(-10f, 0f, 0f));
             BuildSword(grip, 0.62f);
+            var tipR = MeshKit.Pivot(grip, "TipMark", new Vector3(0f, 0.95f * 0.62f, 0f));
+            var edgeR = MeshKit.Pivot(grip, "EdgeMark", new Vector3(0f, 0.36f * 0.62f, 0f));
 
             var shieldPivot = MeshKit.Pivot(root, "ShieldHand", new Vector3(-0.55f, -0.5f, 0.7f), new Vector3(8f, 28f, 6f));
             var mount = MeshKit.Pivot(shieldPivot, "Mount", Vector3.zero, new Vector3(0f, 180f, 0f));
@@ -196,14 +200,8 @@ namespace Deepbound.Art
                 r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
 
-            // The slash: a thin crescent (a flat ring sector) hung in front of the view, invisible until a cut.
-            var slashPivot = MeshKit.Pivot(root, "SlashPivot", new Vector3(0f, -0.22f, 0.8f));
-            var slash = MeshKit.Part(slashPivot, "Slash", MeshKit.Lathe("slashArc", new[] { new Vector2(0.5f, 0f), new Vector2(0.455f, 0f) }, 16, false, 100f), Mat.Smoke,
-                Vector3.zero, new Vector3(-90f, 0f, 0f));
-            var slashR = slash.GetComponent<Renderer>();
-            slashR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            slashR.enabled = false;
-            return new ViewModel { Root = root, SwordPivot = swordPivot, ShieldPivot = shieldPivot, Slash = slashR };
+            // The cut is drawn by a blade trail following the sword's own tip (Art/BladeTrail).
+            return new ViewModel { Root = root, SwordPivot = swordPivot, ShieldPivot = shieldPivot, TipR = tipR, EdgeR = edgeR };
         }
 
         // ------------------------------------------------------------------
@@ -588,12 +586,15 @@ namespace Deepbound.Art
                 CasterArm(hand, leather, teamColor, true);
                 var grip = MeshKit.Pivot(hand, "Grip", new Vector3(0f, 0.01f, 0.02f), new Vector3(-10f, 0f, 0f));
                 BuildDagger(grip, 0.85f);
+                MeshKit.Pivot(grip, "TipMark", new Vector3(0f, 0.38f * 0.85f, 0f));
+                MeshKit.Pivot(grip, "EdgeMark", new Vector3(0f, 0.12f * 0.85f, 0f));
                 return hand;
             }
             var right = Hand("RightHand", new Vector3(0.3f, -0.36f, 0.5f), new Vector3(-25f, -10f, -15f));
             var left = Hand("LeftHand", new Vector3(-0.3f, -0.36f, 0.5f), new Vector3(-25f, 10f, 15f));
             foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            return new ViewModel { Root = root, SwordPivot = right, ShieldPivot = left };
+            return new ViewModel { Root = root, SwordPivot = right, ShieldPivot = left,
+                TipR = right.Find("Grip/TipMark"), EdgeR = right.Find("Grip/EdgeMark"), TipL = left.Find("Grip/TipMark"), EdgeL = left.Find("Grip/EdgeMark") };
         }
 
         private static Transform BuildSleeveArm(Transform torso, string name, float side, Color robe)
@@ -1578,8 +1579,8 @@ namespace Deepbound.Art
         /// </summary>
         private static HumanoidRig BuildEntling(Transform root)
         {
-            var bark = new Color(0.3f, 0.21f, 0.13f);
-            var moss = new Color(0.22f, 0.32f, 0.14f);
+            var bark = new Color(0.5f, 0.37f, 0.25f);
+            var moss = new Color(0.32f, 0.48f, 0.18f);
             var visual = MeshKit.Pivot(root, "EntlingVisual", Vector3.zero);
             var rig = visual.gameObject.AddComponent<HumanoidRig>();
             rig.GlowColor = new Color(1f, 0.7f, 0.2f);

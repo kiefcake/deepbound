@@ -50,9 +50,10 @@ namespace Deepbound.UI
                     if (it is SlotMachine || it is BlackjackTable) Offer("gamble2", "THE TENT: the Bone Reels pay big for three of a kind; at Deadman's Hand beat the skeleton dealer to 21. HIT or STAND in the table's panel.");
                     if (it is CampCat) Offer("cat", "The castle cat. F pets it (sometimes it has found something for you). G picks it up... ask it first.");
                 }
-                Offer("camp", "CAMP: Silas sells potions, Hobb at the anvil sells embers and gear, the shrine offers relics. Temper your weapon at the anvil, take a contract at the bounty board and set an omen at the stone. Board the carriage when ready.");
+                Offer("camp", "CAMP: Silas sells potions, Hobb at the anvil sells embers and gear, the shrine offers relics. Temper your weapon at the anvil, take a contract at the bounty board and set an omen at the stone. When ready, talk to Corwin at the carriage (difficulty) and sit on its back (F): when everyone is seated, it sets off.");
                 if (Vector3.Distance(me, Lobby.YardSpot) < 6f) Offer("drills", "THE DRILL BOARD: pay gold to train a stat for the run. Each drill costs more than the last.");
                 if (Vector3.Distance(me, Lobby.CarriageStall) < 6f) Offer("corwin", "CORWIN knows the way down: a SCOUT'S MAP charts the next floor; SMELLING SALTS get you up on your own once.");
+                if (PlayerLife.All.Count > 1) Offer("chat", "TEXT CHAT: press Enter to type to your party, Enter to send.");
                 if (PlayerLife.All.Count > 1) Offer("purse", "PARTY LOOT is shared by default: gold and embers anyone picks up are split evenly. In the inventory (I) you can give gold, even out the purse, or ctrl-click a piece to hand it to the nearest ally.");
                 return;
             }
