@@ -86,7 +86,33 @@ namespace Deepbound.World
         };
 
         /// <summary>The theme of a floor: two floors to an act (see DungeonDirector.Act).</summary>
-        public static DungeonTheme ForDepth(int depth) => ForAct(DungeonDirector.Act(depth));
+        public static DungeonTheme ForDepth(int depth) => DungeonDirector.IsWardenFloor(depth) ? ForAct(DungeonDirector.Act(depth)) : Deeper(DungeonDirector.Act(depth));
+
+        /// <summary>Which act a (possibly variant) theme belongs to; -1 for the originals (look them up).</summary>
+        public int ActIndex = -1;
+        private static readonly DungeonTheme[] deeper = new DungeonTheme[5];
+
+        /// <summary>
+        /// An act's second floor is the same place, further down: thicker fog, less light from above,
+        /// redder torches, darker stone. Same theme for everything else (gimmicks, dressing, enemies).
+        /// </summary>
+        private static DungeonTheme Deeper(int act)
+        {
+            act = Mathf.Clamp(act, 0, ByDepth.Length - 1);
+            if (deeper[act] != null) return deeper[act];
+            var t = (DungeonTheme)ByDepth[act].MemberwiseClone();
+            t.ActIndex = act;
+            t.FogDensity *= 1.15f;
+            t.Fog *= 0.75f;
+            t.AmbientSky *= 0.8f;
+            t.AmbientEquator *= 0.8f;
+            t.AmbientGround *= 0.85f;
+            t.TorchColor = Color.Lerp(t.TorchColor, new Color(1f, 0.35f, 0.2f), 0.2f);
+            t.StoneTint *= 0.88f;
+            t.FloorTint *= 0.9f;
+            t.ShaftColor *= 0.75f;
+            return deeper[act] = t;
+        }
         public static DungeonTheme ForAct(int act) => ByDepth[Mathf.Clamp(act, 0, ByDepth.Length - 1)];
 
         /// <summary>Each act's two floors have a name of their own under the act's.</summary>

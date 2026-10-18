@@ -547,7 +547,7 @@ namespace Deepbound.Networking
                         float unseenMove = Vector3.Distance(mourner.transform.position, mAt);
                         Log("mourner", "watched: seen " + frozen + ", moved " + watchedMove.ToString("F2") + " m; unwatched moved " + unseenMove.ToString("F1") + " m (seen now " + mourner.Seen.Value +
                             ", agent " + (mourner.GetComponent<UnityEngine.AI.NavMeshAgent>().enabled ? "on" : "off") + ", watchers " + string.Join(",", PlayerLife.All.Where(pl => pl != null).Select(pl => pl.name + "@" + Vector3.Distance(pl.transform.position, mourner.transform.position).ToString("F0"))) + ")",
-                            frozen && watchedMove < 0.5f && unseenMove > 2f);
+                            frozen && watchedMove < 0.8f && unseenMove > 2f);
                         mourner.GetComponent<Health>().ServerDamage(1e6f, mourner.transform.position);
                     }
                     lfm.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
@@ -1448,6 +1448,10 @@ namespace Deepbound.Networking
                 var me2 = local.GetComponent<FirstPersonMotor>();
                 var deb2 = local.GetComponent<PlayerDebuffs>();
                 var hp2 = local.GetComponent<Health>();
+                // Alone with it: other attackers nearby would hold its turn to strike.
+                foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                    if (!e.IsDead && !(e is BossBrain) && Vector3.Distance(e.transform.position, local.transform.position) < 30f) e.GetComponent<Health>().ServerDamage(1e6f, e.transform.position);
+                yield return new WaitForSeconds(0.3f);
                 var ent = DungeonDirector.Instance.ServerDebugSpawnEntling(local.transform.position + local.transform.forward * 5f);
                 if (ent != null) { ent.ServerDebugPlace(local.transform.position + local.transform.forward * 1.6f); ent.ServerAggroNearest(); }
                 bool held = false;

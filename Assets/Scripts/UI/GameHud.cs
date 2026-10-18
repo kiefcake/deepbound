@@ -255,6 +255,8 @@ namespace Deepbound.UI
 
         /// <summary>The descent cutscene holds the player still: while the beam takes them, and a moment after arriving.</summary>
         public static bool CutsceneFreeze => departStart >= 0f || UnityEngine.Time.time < freezeUntil;
+        /// <summary>The carriage ride out: no HUD, no hands, just the road.</summary>
+        public static bool Cinematic => departStart >= 0f;
 
         /// <summary>Lines of the Cardinal's hymn, one shown on each descent.</summary>
         private static readonly string[] Hymn =
@@ -972,6 +974,7 @@ namespace Deepbound.UI
             if (CharacterSelect.Open) return;
 
             float w = Screen.width, h = Screen.height;
+            if (Cinematic) { DrawFade(w, h); return; }
 
             DrawEnemyBars();
             DrawDamageNumbers();

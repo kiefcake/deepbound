@@ -187,7 +187,7 @@ MonoBehaviour:
   damage: 9
   defense: 1
   moveSpeed: 6
-  attackRange: 1.5
+  attackRange: 2
   attackArc: 100
   windup: 0.35
   recovery: 0.6

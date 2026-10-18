@@ -150,6 +150,11 @@ namespace Deepbound.Enemies
             agent.enabled = false;
         }
 
+        /// <summary>Extra size for the body (a Warden is a giant of its kind).</summary>
+        protected virtual float VisualScale => 1f;
+        /// <summary>Every peer, once the body is built and before it is merged: add a creature's own dressing.</summary>
+        protected virtual void DressRig(HumanoidRig rig) { }
+
         /// <summary>Walking dead climb out of the floor when they appear; spirits, statues and mimics do not.</summary>
         private static bool RisesFromGround(CharacterArt.SkeletonKind k) =>
             k != CharacterArt.SkeletonKind.Wraith && k != CharacterArt.SkeletonKind.Mimic && k != CharacterArt.SkeletonKind.Gargoyle && k != CharacterArt.SkeletonKind.Mourner && k != CharacterArt.SkeletonKind.Unsung;
@@ -158,6 +163,11 @@ namespace Deepbound.Enemies
         {
             CharacterArt.SkeletonVariant = (int)((NetworkObjectId * 2654435761UL) & 0x7FFFFFFF);
             Rig = CharacterArt.BuildSkeleton(transform, visualKind);
+            if (Rig != null)
+            {
+                if (VisualScale != 1f) Rig.transform.localScale *= VisualScale;
+                DressRig(Rig);
+            }
             // Fewer, bigger meshes: same look, a fraction of the draw calls.
             MeshKit.MergeRig(Rig);
             if (Rig != null) Rig.WatchViewer = true;

@@ -114,6 +114,7 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
+            if (GameHud.Cinematic) return;
             UiSkin.Apply();
             var layout = DungeonDirector.Layout;
             if (layout == null || player == null || CharacterSelect.Open || PauseMenu.Open) return;

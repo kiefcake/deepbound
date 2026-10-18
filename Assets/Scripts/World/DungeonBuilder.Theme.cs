@@ -36,6 +36,7 @@ namespace Deepbound.World
 
         private static int DepthOf(DungeonTheme t)
         {
+            if (t.ActIndex >= 0) return t.ActIndex;
             for (int i = 0; i < DungeonTheme.ByDepth.Length; i++) if (DungeonTheme.ByDepth[i] == t) return i;
             return 0;
         }

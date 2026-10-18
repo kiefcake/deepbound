@@ -36,7 +36,8 @@ namespace Deepbound.UI
         // Battle
         private HumanoidRig knight, rogue, ranger, cleric, king;
         private Transform beam;
-        private float nextSlam, slamAt = -1f, nextArrow, nextStab, nextBlades, bladesUntil, nextBlade, bladeAngle, nextCast;
+        private float nextSlam, slamAt = -1f, nextArrow, nextStab, nextBlades, bladesUntil, nextBlade, bladeAngle, nextCast, nextCleave, cleaveAt = -1f, shake;
+        private readonly List<(Vector3 at, float when)> arrowHits = new List<(Vector3, float)>();
 
         private void Start()
         {
@@ -179,7 +180,7 @@ namespace Deepbound.UI
             knight.Blocking = true;
             rogue = Hero(CharacterArt.BuildRogue, new Vector3(2.3f, 0f, 4.6f), kingAt, 2);
             ranger = Hero(CharacterArt.BuildRanger, new Vector3(-3.4f, 0f, -0.8f), kingAt, 3);
-            cleric = Hero(CharacterArt.BuildCleric, new Vector3(0.9f, 0f, -1.8f), new Vector3(-0.3f, 0f, 1.4f), 1);
+            cleric = Hero(CharacterArt.BuildCleric, new Vector3(-1.5f, 0f, -1.4f), new Vector3(-0.3f, 0f, 1.4f), 1);
 
             var kingRoot = new GameObject("King").transform;
             kingRoot.SetParent(set.transform, false);
@@ -271,7 +272,37 @@ namespace Deepbound.UI
             float a = Mathf.Lerp(-32f, 12f, t / SceneSeconds) * Mathf.Deg2Rad;
             var cam = o + new Vector3(Mathf.Sin(a) * 6.8f - 0.6f, 1.55f, -Mathf.Cos(a) * 6.8f + 1.4f);
             var focus = o + new Vector3(0f, 1.8f, 2.4f);
-            transform.SetPositionAndRotation(cam, Quaternion.LookRotation(focus - cam) * Quaternion.Euler(-4f, -16f, 0f));
+            shake = Mathf.MoveTowards(shake, 0f, Time.deltaTime * 2.5f);
+            var jolt = shake > 0f ? new Vector3(Mathf.Sin(Time.time * 53f), Mathf.Sin(Time.time * 41f), 0f) * shake * 0.6f : Vector3.zero;
+            transform.SetPositionAndRotation(cam, Quaternion.LookRotation(focus - cam) * Quaternion.Euler(-4f + jolt.y, -16f + jolt.x, 0f));
+            // Embers and grit always drifting through the hall.
+            if (Random.value < Time.deltaTime * 10f)
+                Vfx.Embers(o + new Vector3(Random.Range(-4f, 4f), 0.2f, Random.Range(-1f, 6f)), 1, new Color(1f, 0.55f, 0.25f), 0.8f, 0.03f, 2f);
+            // The King cleaves at the Knight, who takes it on the shield: sparks and a flash.
+            if (cleaveAt < 0f && Time.time >= nextCleave && slamAt < 0f)
+            {
+                nextCleave = Time.time + 3.1f;
+                cleaveAt = Time.time + 0.75f;
+                king.Play(RigAction.Windup, 0.75f);
+                Telegraph.ShowCone(king.transform.position, king.transform.forward, 150f, 4.2f, 0.75f, null);
+            }
+            if (cleaveAt > 0f && Time.time >= cleaveAt)
+            {
+                cleaveAt = -1f;
+                king.Play(RigAction.Swing, 0.35f);
+                knight.Play(RigAction.Stagger, 0.3f);
+                var shieldAt = knight.transform.position + Vector3.up * 1.3f + knight.transform.forward * 0.5f;
+                Vfx.Embers(shieldAt, 16, new Color(1f, 0.85f, 0.5f), 5f, 0.04f, 0.5f);
+                Vfx.Flash(shieldAt, new Color(1f, 0.85f, 0.55f), 3f, 4f, 0.15f);
+                shake = Mathf.Max(shake, 0.35f);
+            }
+            for (int i = arrowHits.Count - 1; i >= 0; i--)
+                if (Time.time >= arrowHits[i].when)
+                {
+                    Vfx.Embers(arrowHits[i].at, 6, new Color(1f, 0.9f, 0.7f), 2.5f, 0.03f, 0.35f);
+                    king.Flinch(arrowHits[i].at - king.transform.forward, 0.4f);
+                    arrowHits.RemoveAt(i);
+                }
 
             var kingPos = king.transform.position;
             // The slam: a red circle fills under the King, then breaks into a shockwave.
@@ -285,11 +316,12 @@ namespace Deepbound.UI
             if (slamAt > 0f && Time.time >= slamAt)
             {
                 slamAt = -1f;
-                ShockwaveRing.Spawn(kingPos, 9f, 12f, new Color(0.45f, 0.75f, 1f));
+                ShockwaveRing.Spawn(kingPos, 11f, 9f, new Color(0.18f, 0.32f, 0.55f));
                 Vfx.Ring(kingPos, 5.5f, new Color(1f, 0.6f, 0.3f), 0.4f);
                 Vfx.Flash(kingPos + Vector3.up, new Color(1f, 0.6f, 0.3f), 4f, 9f, 0.3f);
                 Vfx.Smoke(kingPos, 5, 2.5f, 1.4f);
                 knight.Flinch(kingPos, 0.8f);
+                shake = 1f;
                 rogue.Flinch(kingPos, 0.5f);
             }
             // The Crown of Blades: golden bolts wheeling out of him.
@@ -307,7 +339,9 @@ namespace Deepbound.UI
                 nextArrow = Time.time + 2.1f;
                 ranger.Play(RigAction.Draw, 0.9f);
                 var from = ranger.transform.position + Vector3.up * 1.5f + ranger.transform.forward * 0.5f;
-                Arrows.SpawnVisual(from, kingPos + Vector3.up * 2.4f - from, ProjectileKind.Arrow, 34f, 12f);
+                var hitAt = kingPos + Vector3.up * 2.4f;
+                Arrows.SpawnVisual(from, hitAt - from, ProjectileKind.Arrow, 34f, Vector3.Distance(from, hitAt) - 0.3f);
+                arrowHits.Add((hitAt, Time.time + Vector3.Distance(from, hitAt) / 34f));
             }
             // The Rogue cuts at his flank.
             if (Time.time >= nextStab)
@@ -316,7 +350,13 @@ namespace Deepbound.UI
                 rogue.Play(RigAction.Swing, 0.3f);
                 Vfx.Embers(kingPos + Vector3.up * 1.5f + (rogue.transform.position - kingPos).normalized * 0.7f, 4, new Color(1f, 0.85f, 0.6f), 3f, 0.03f, 0.3f);
             }
-            if (Time.time >= nextCast) { nextCast = Time.time + 3f; cleric.Play(RigAction.Cast, 1.2f); }
+            if (Time.time >= nextCast)
+            {
+                nextCast = Time.time + 3f;
+                cleric.Play(RigAction.Cast, 1.2f);
+                // The Aegis: a gold ring blooms round the Knight.
+                Vfx.Ring(knight.transform.position + Vector3.up * 0.1f, 1.4f, new Color(1f, 0.85f, 0.45f), 0.5f);
+            }
             // The beam from the Cleric's hand to the Knight's chest.
             var b0 = cleric.transform.position + Vector3.up * 1.3f + cleric.transform.forward * 0.4f;
             var b1 = knight.transform.position + Vector3.up * 1.2f;

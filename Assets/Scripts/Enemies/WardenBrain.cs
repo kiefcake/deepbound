@@ -63,6 +63,96 @@ namespace Deepbound.Enemies
         private float slamAt = -1f;
         private const float SlamRadius = 5.5f, SlamWindup = 1.3f;
 
+        // Built at each kind's own size (Brute 1.45, Plaguebearer 1.15, the rest 1): these make them giants.
+        private static readonly float[] Giant = { 1.45f, 1.9f, 1.9f, 1.95f, 1.5f };
+        protected override float VisualScale => Giant[Mathf.Clamp(act, 0, 4)];
+
+        /// <summary>Each Warden's own look on top of its kind: trophies, weed, a plume, a candle halo, plague sacs.</summary>
+        protected override void DressRig(HumanoidRig rig)
+        {
+            var t = rig.Torso; var head = rig.Head;
+            if (t == null || head == null) return;
+            Renderer Tint(GameObject g, Color c) { var r = g.GetComponent<Renderer>(); ArtLibrary.Tint(r, c); return r; }
+            switch (act)
+            {
+                case 0:
+                    // Marrowgut: a ridge of bone spikes down the back and a string of skulls across the chest.
+                    for (int i = 0; i < 6; i++)
+                        MeshKit.Part(t, "BackSpike", MeshKit.Lathe("wardenSpike", new[] { new Vector2(0.05f, 0f), new Vector2(0f, 0.32f) }, 5), Mat.Bone,
+                            new Vector3(0f, 0.12f + i * 0.09f, -0.2f), new Vector3(-55f, 0f, (i % 2 == 0 ? 10f : -10f)));
+                    for (int i = 0; i < 5; i++)
+                    {
+                        float a = -50f + i * 25f;
+                        var at = new Vector3(Mathf.Sin(a * Mathf.Deg2Rad) * 0.22f, 0.36f - Mathf.Abs(i - 2) * 0.03f, Mathf.Cos(a * Mathf.Deg2Rad) * 0.2f);
+                        MeshKit.Part(t, "TrophySkull", MeshKit.Ball(0.05f, 7, 5), Mat.Bone, at, default, new Vector3(1f, 1.1f, 1f));
+                        Tint(MeshKit.Part(t, "TrophyEye", MeshKit.Box(new Vector3(0.04f, 0.012f, 0.01f)), Mat.Dark, at + new Vector3(0f, 0.01f, 0.045f)), Color.white);
+                    }
+                    break;
+                case 1:
+                    // The Drowned Knight: weed hanging from shoulders and arms, barnacles, a corroded crest.
+                    for (int i = 0; i < 10; i++)
+                    {
+                        float x = -0.24f + i * 0.053f;
+                        Tint(MeshKit.Part(t, "Weed", MeshKit.Box(new Vector3(0.03f, 0.35f + (i % 3) * 0.12f, 0.01f)), Mat.Cloth, new Vector3(x, 0.45f - (i % 3) * 0.06f, (i % 2 == 0 ? 0.16f : -0.17f)), new Vector3(0f, 0f, (i % 2 == 0 ? 6f : -8f))),
+                            new Color(0.12f, 0.28f, 0.2f));
+                    }
+                    for (int i = 0; i < 8; i++)
+                        MeshKit.Part(t, "Barnacle", MeshKit.Ball(0.025f, 5, 4), Mat.Rubble, new Vector3(-0.18f + (i % 4) * 0.12f, 0.1f + (i / 4) * 0.3f, 0.17f), default, new Vector3(1f, 0.7f, 1f));
+                    Tint(MeshKit.Part(head, "Crest", MeshKit.Box(new Vector3(0.025f, 0.12f, 0.3f)), Mat.Steel, new Vector3(0f, 0.28f, -0.02f)), new Color(0.35f, 0.55f, 0.5f));
+                    break;
+                case 2:
+                    // Sir Aldous Vane: a tall crimson plume, gold pauldrons and the King's tabard.
+                    for (int i = 0; i < 5; i++)
+                        Tint(MeshKit.Part(head, "Plume", MeshKit.Box(new Vector3(0.05f, 0.3f - i * 0.03f, 0.06f)), Mat.Cloth, new Vector3(0f, 0.3f + i * 0.04f, -0.02f - i * 0.06f), new Vector3(-30f - i * 12f, 0f, 0f)),
+                            new Color(0.7f, 0.08f, 0.1f));
+                    foreach (float s in new[] { -1f, 1f })
+                        MeshKit.Part(t, "Pauldron", MeshKit.Ball(0.13f, 8, 6), Mat.Gold, new Vector3(s * 0.26f, 0.58f, 0f), default, new Vector3(1.1f, 0.6f, 1f));
+                    Tint(MeshKit.Part(t, "Tabard", MeshKit.Box(new Vector3(0.34f, 0.62f, 0.02f)), Mat.Cloth, new Vector3(0f, 0.22f, 0.19f)), new Color(0.32f, 0.08f, 0.36f));
+                    MeshKit.Part(t, "TabardCrown", MeshKit.Box(new Vector3(0.14f, 0.07f, 0.01f)), Mat.Gold, new Vector3(0f, 0.36f, 0.205f));
+                    break;
+                case 3:
+                {
+                    // The Choirmaster: no hood (a boss never hides its face under one); a choir circlet and
+                    // a slow halo of floating candles, an open hymnal in the off hand.
+                    var hood = head.Find("Hood");
+                    if (hood != null) DestroyImmediate(hood.gameObject);
+                    MeshKit.Part(head, "Circlet", MeshKit.Cylinder(0.14f, 0.14f, 0.03f, 12), Mat.Gold, new Vector3(0f, 0.2f, 0f));
+                    var halo = MeshKit.Pivot(head, "CandleHalo", new Vector3(0f, 0.42f, 0f));
+                    halo.gameObject.AddComponent<Art.Spin>().DegreesPerSecond = 25f;
+                    for (int i = 0; i < 7; i++)
+                    {
+                        float a = i * 360f / 7f * Mathf.Deg2Rad;
+                        var c = new Vector3(Mathf.Cos(a) * 0.32f, 0f, Mathf.Sin(a) * 0.32f);
+                        Tint(MeshKit.Part(halo, "Candle", MeshKit.Cylinder(0.018f, 0.018f, 0.1f, 6), Mat.Cloth, c), new Color(0.9f, 0.86f, 0.7f));
+                        var fl = MeshKit.Part(halo, "CandleFlame", MeshKit.Ball(0.016f, 5, 4), Mat.Glow, c + Vector3.up * 0.07f, default, new Vector3(1f, 1.6f, 1f));
+                        ArtLibrary.SetGlow(fl.GetComponent<Renderer>(), new Color(0.85f, 0.5f, 1f) * 1.4f);
+                    }
+                    if (rig.ArmL != null)
+                    {
+                        var book = MeshKit.Part(rig.ArmL, "Hymnal", MeshKit.Box(new Vector3(0.2f, 0.03f, 0.15f)), Mat.Leather, new Vector3(0.04f, -0.6f, 0.08f), new Vector3(20f, 0f, 0f));
+                        Tint(book, new Color(0.25f, 0.08f, 0.1f));
+                        MeshKit.Part(rig.ArmL, "Pages", MeshKit.Box(new Vector3(0.18f, 0.035f, 0.13f)), Mat.Bone, new Vector3(0.04f, -0.58f, 0.08f), new Vector3(20f, 0f, 0f));
+                    }
+                    break;
+                }
+                default:
+                {
+                    // Gorr: bloated, glowing plague sacs on its back and belly (the weak points), and a cloud of flies.
+                    foreach (var (at, r) in new[] { (new Vector3(-0.1f, 0.42f, -0.22f), 0.12f), (new Vector3(0.12f, 0.3f, -0.24f), 0.1f), (new Vector3(0f, 0.12f, 0.2f), 0.14f) })
+                    {
+                        var sac = MeshKit.Part(t, "PlagueSac", MeshKit.Ball(r, 9, 7), Mat.Glow, at);
+                        ArtLibrary.SetGlow(sac.GetComponent<Renderer>(), new Color(0.45f, 0.85f, 0.15f) * 0.9f);
+                    }
+                    WeakPoint.Add(t, new Vector3(0f, 0.12f, 0.24f), 0.1f, new Color(0.5f, 0.95f, 0.2f));
+                    var flies = MeshKit.Pivot(head, "Flies", new Vector3(0f, 0.3f, 0f));
+                    flies.gameObject.AddComponent<Art.Spin>().DegreesPerSecond = 160f;
+                    for (int i = 0; i < 9; i++)
+                        MeshKit.Part(flies, "Fly", MeshKit.Ball(0.01f, 4, 3), Mat.Dark, new Vector3(Mathf.Cos(i * 0.7f) * (0.2f + (i % 3) * 0.08f), (i % 4) * 0.06f, Mathf.Sin(i * 0.7f) * (0.2f + (i % 3) * 0.08f)));
+                    break;
+                }
+            }
+        }
+
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();

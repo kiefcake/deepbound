@@ -427,7 +427,7 @@ namespace Deepbound.EditorTools
                     // Fragile and fast: kill it on the way in, or it holds you down.
                     Kind(Art.CharacterArt.SkeletonKind.Entling);
                     Set("maxHealth", 70f); Set("damage", 9f); Set("defense", 1f); Set("moveSpeed", 6f);
-                    Set("attackRange", 1.5f); Set("windup", 0.35f); Set("recovery", 0.6f); Set("aggroRange", 18f);
+                    Set("attackRange", 2.0f); Set("windup", 0.35f); Set("recovery", 0.6f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Warden:
                 {
