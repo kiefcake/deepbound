@@ -1472,6 +1472,14 @@ namespace Deepbound.Networking
                 bool manic = deb2.Manic && !local.GetComponent<PlayerLife>().CanAct;
                 deb2.ServerCleanse();
                 Log("mania", "manic " + manic + ", cleansed " + !deb2.Manic, manic && !deb2.Manic);
+                // The Iron Psalter: madness slides off.
+                var pp2 = local.GetComponent<PlayerProgress>();
+                pp2.ServerAddRelic(Relic.IronPsalter);
+                yield return new WaitForSeconds(4f); // past the mania grace
+                deb2.ServerMania(1f);
+                yield return new WaitForSeconds(0.2f);
+                Log("iron psalter", "maddened " + deb2.Manic, !deb2.Manic);
+                deb2.ServerCleanse();
                 hp2.ServerSetFraction(1f);
             }
 
@@ -2040,6 +2048,25 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.5f);
                     }
                     Time.timeScale = 1f;
+                    // The Rogue's paired stabs, the same way.
+                    var pclass = local.GetComponent<PlayerProgress>();
+                    var was = pclass.ClassId.Value;
+                    pclass.ClassId.Value = Classes.ClassId.Rogue;
+                    yield return new WaitForSeconds(0.8f);
+                    Time.timeScale = 0.12f;
+                    foreach (float side in new[] { 1f, -1f })
+                    {
+                        local.ViewModelSwing(0.04f, 0.3f, side);
+                        for (int f = 0; f < 4; f++)
+                        {
+                            yield return new WaitForSeconds(0.035f);
+                            yield return Shot(dir, "2f_stab_" + (side > 0 ? "r" : "l") + f);
+                        }
+                        yield return new WaitForSeconds(0.3f);
+                    }
+                    Time.timeScale = 1f;
+                    pclass.ClassId.Value = was;
+                    yield return new WaitForSeconds(0.6f);
                 }
 
                 // Kill everything in the room so the loot it leaves is visible.
@@ -2147,6 +2174,18 @@ namespace Deepbound.Networking
 
             // One look at each later floor's theme.
             var shotFeatures = new System.Collections.Generic.HashSet<RoomFeature>(layout.Rooms.Select(r => r.Feature));
+            // An act's second floor: the same place, deeper and darker.
+            DungeonDirector.Instance.ServerDebugStartFloor(3);
+            yield return new WaitForSeconds(2.5f);
+            var deepRoom = DungeonDirector.Layout.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Combat);
+            if (deepRoom != null)
+            {
+                var df = deepRoom.Center + new Vector3(-deepRoom.Size.x * 0.4f, 0.1f, -deepRoom.Size.y * 0.4f);
+                motor.Teleport(df, Quaternion.LookRotation(deepRoom.Center - df));
+                yield return new WaitForSeconds(1.2f);
+                yield return Shot(dir, "5_floor4_deeper");
+            }
+
             // One floor per later act (each the act's first: a Warden waits at the end of it).
             for (int depth = 2; depth <= DungeonDirector.AbyssDepth; depth += 2)
             {

@@ -33,6 +33,13 @@ namespace Deepbound.Combat
         /// 60% at the very end. Enemy projectiles do not fall off.
         /// </summary>
         public const float FalloffStart = 0.45f, FalloffFloor = 0.6f;
+        private static bool LongShadow(ulong shooter)
+        {
+            var nm = Unity.Netcode.NetworkManager.Singleton;
+            return nm != null && nm.SpawnManager != null && nm.SpawnManager.SpawnedObjects.TryGetValue(shooter, out var o) &&
+                o.TryGetComponent<Progression.PlayerProgress>(out var p) && p.HasRelic(Loot.Relic.LongShadow);
+        }
+
         public static float Falloff(float travelled, float range) =>
             Mathf.Lerp(1f, FalloffFloor, Mathf.InverseLerp(range * FalloffStart, range, travelled));
 
@@ -188,7 +195,7 @@ namespace Deepbound.Combat
                 if (a.Pierce && !a.AlreadyHit.Add(h)) continue;
 
                 // A player's shot past half its range hits softer.
-                float falloff = a.Targets == Team.Enemies ? Falloff(a.Travelled, a.Range > 0f ? a.Range : MaxRange) : 1f;
+                float falloff = a.Targets == Team.Enemies && !LongShadow(a.Shooter) ? Falloff(a.Travelled, a.Range > 0f ? a.Range : MaxRange) : 1f;
                 if (a.OnHit != null)
                 {
                     var spellZone = HitZones.Along(h, from - a.Velocity.normalized * 0.5f, to + a.Velocity.normalized * 0.5f, out var spellPoint);

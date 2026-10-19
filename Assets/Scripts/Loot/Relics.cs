@@ -26,6 +26,10 @@ namespace Deepbound.Loot
         WraithChain = 13,
         WarlordsHorn = 14,
         WintersTooth = 15,
+        IronPsalter = 16,
+        LongShadow = 17,
+        PilgrimsPurse = 18,
+        RootbreakerCharm = 19,
     }
 
     /// <summary>
@@ -59,6 +63,10 @@ namespace Deepbound.Loot
                 case Relic.WraithChain: return "Wraith Chain";
                 case Relic.WarlordsHorn: return "Warlord's Horn";
                 case Relic.WintersTooth: return "Winter's Tooth";
+                case Relic.IronPsalter: return "Iron Psalter";
+                case Relic.LongShadow: return "Long Shadow";
+                case Relic.PilgrimsPurse: return "Pilgrim's Purse";
+                case Relic.RootbreakerCharm: return "Rootbreaker Charm";
                 default: return r.ToString();
             }
         }
@@ -83,6 +91,10 @@ namespace Deepbound.Loot
                 case Relic.WraithChain: return "Your kills burst in a ghostly nova that hurts enemies within 4 m.";
                 case Relic.WarlordsHorn: return "Your ultimate charges 50% faster, and casting it heals allies within 12 m by 25%.";
                 case Relic.WintersTooth: return "+25% damage to chilled enemies.";
+                case Relic.IronPsalter: return "You cannot be maddened, and frost roots let go twice as fast.";
+                case Relic.LongShadow: return "Your shots fly 15% further and keep their full bite to the end.";
+                case Relic.PilgrimsPurse: return "Every 10 gold you spend at camp comes back as an ember.";
+                case Relic.RootbreakerCharm: return "+50% damage while your feet are rooted or held.";
                 default: return "";
             }
         }
@@ -107,6 +119,10 @@ namespace Deepbound.Loot
                 case Relic.WraithChain: return new Color(0.55f, 0.75f, 1f);
                 case Relic.WarlordsHorn: return new Color(0.85f, 0.45f, 0.2f);
                 case Relic.WintersTooth: return new Color(0.75f, 0.95f, 1f);
+                case Relic.IronPsalter: return new Color(0.7f, 0.7f, 0.75f);
+                case Relic.LongShadow: return new Color(0.35f, 0.3f, 0.5f);
+                case Relic.PilgrimsPurse: return new Color(0.75f, 0.55f, 0.3f);
+                case Relic.RootbreakerCharm: return new Color(0.5f, 0.75f, 0.3f);
                 default: return Color.white;
             }
         }

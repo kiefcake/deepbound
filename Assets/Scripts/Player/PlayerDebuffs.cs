@@ -77,6 +77,7 @@ namespace Deepbound.Player
         public void ServerMania(float seconds)
         {
             if (!IsServer || life.Downed.Value || Now < maniaGraceUntil) return;
+            if (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasRelic(Loot.Relic.IronPsalter)) return;
             ManiaUntil.Value = Now + seconds;
             maniaGraceUntil = Now + seconds * 3f;
             AfflictedRpc(0);
@@ -99,6 +100,7 @@ namespace Deepbound.Player
         public void ServerRoot(float seconds)
         {
             if (!IsServer || life.Downed.Value || Now < rootGraceUntil) return;
+            if (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasRelic(Loot.Relic.IronPsalter)) seconds *= 0.5f;
             RootUntil.Value = Now + seconds;
             rootGraceUntil = Now + seconds * 2.5f;
             AfflictedRpc(1);

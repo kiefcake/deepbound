@@ -43,7 +43,11 @@ namespace Deepbound.Loot
             if (p.HasRelic(Relic.WintersTooth) && target.Chilled.Value) m *= Relics.Has(p, Relics.Synergy.DeepWinter) ? 1.5f : 1.25f;
             m *= Player.Ultimates.OutgoingMultiplier(p);
             if (p.TryGetComponent<Player.Emotes>(out var em) && em.Brothers) m *= 1.1f;
-            if (p.TryGetComponent<Player.PlayerDebuffs>(out var curse)) m *= curse.DamageMultiplier;
+            if (p.TryGetComponent<Player.PlayerDebuffs>(out var curse))
+            {
+                m *= curse.DamageMultiplier;
+                if (curse.Rooted && p.HasRelic(Relic.RootbreakerCharm)) m *= 1.5f;
+            }
             // Critical hits: a little luck, more with DEX.
             if (!World.DungeonDirector.TestMode && Random.value < 0.05f + p.Value(Core.StatType.DEX) / 650f + (p.WeaponLevel.Value >= World.Anvil.MasterworkLevel ? World.Anvil.MasterworkCrit : 0f))
             {

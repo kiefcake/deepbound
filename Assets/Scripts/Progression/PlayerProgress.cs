@@ -587,7 +587,7 @@ namespace Deepbound.Progression
         /// How far your attacks reach, as a multiple of the class's base range: every temper at the
         /// anvil adds 5%, a Farsight rune 25%. Any peer (it reads synced values), so visuals agree.
         /// </summary>
-        public float RangeMultiplier => 1f + 0.05f * WeaponLevel.Value + (HasRune(Loot.Rune.Farsight) ? 0.25f : 0f);
+        public float RangeMultiplier => 1f + 0.05f * WeaponLevel.Value + (HasRune(Loot.Rune.Farsight) ? 0.25f : 0f) + (HasRelic(Relic.LongShadow) ? 0.15f : 0f);
 
         /// <summary>Melee gains half as much reach from the same sources.</summary>
         public float ReachMultiplier => 1f + (RangeMultiplier - 1f) * 0.5f;
@@ -942,6 +942,7 @@ namespace Deepbound.Progression
             if (Embers.Value < cost || Gold.Value < gold) return false;
             Embers.Value -= cost;
             Gold.Value -= gold;
+            if (gold > 0 && HasRelic(Relic.PilgrimsPurse)) Embers.Value += gold / 10;
             WeaponLevel.Value++;
             ServerAddBonus(StatType.ATT, ClassDefinition.WeaponAttPerLevel);
             ServerAddBonus(StatType.DEX, ClassDefinition.WeaponDexPerLevel);
@@ -1170,6 +1171,7 @@ namespace Deepbound.Progression
             if (bought)
             {
                 Gold.Value -= item.Price;
+                if (HasRelic(Relic.PilgrimsPurse) && World.DungeonDirector.InLobby) ServerAddEmbers(item.Price / 10);
                 PurchasedRpc();
             }
         }
