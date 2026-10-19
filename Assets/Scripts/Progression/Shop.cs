@@ -58,7 +58,7 @@ namespace Deepbound.Progression
             : !World.DungeonDirector.InLobby ? (UnityEngine.Vector3?)null
             : v == Vendor.Smith ? World.Lobby.AnvilSpot : v == Vendor.Yard ? World.Lobby.YardSpot : v == Vendor.Carriage ? World.Lobby.CarriageStall : World.Lobby.ShrineSpot;
 
-        public static float Range(Vendor v) => v == Vendor.Merchant ? MerchantRange : StallRange;
+        public static float Range(Vendor v) => v == Vendor.Merchant ? MerchantRange : v == Vendor.Carriage ? 4.3f : StallRange;
 
         public static bool InReach(Vendor v, UnityEngine.Vector3 at, float slack = 0f)
         {

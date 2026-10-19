@@ -42,7 +42,7 @@ namespace Deepbound.World
         /// <summary>The training yard's drill board, on the plaza side of its fence.</summary>
         public static readonly Vector3 YardSpot = Origin + new Vector3(-9.1f, 0f, -8.2f);
         /// <summary>Where you talk to Corwin, beside his carriage.</summary>
-        public static readonly Vector3 CarriageStall = CarriageAt + new Vector3(1.9f, 0f, 2.4f);
+        public static Vector3 CarriageStall => CarriageAt + new Vector3(0f, 0f, 2.2f);
         /// <summary>The carriage: wagon centre, facing out of the gate (+z).</summary>
         public static readonly Vector3 CarriageAt = Origin + new Vector3(0f, 0f, 19.5f);
 

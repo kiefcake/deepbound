@@ -681,9 +681,14 @@ namespace Deepbound.Player
 
             // The cut, as keys (offsets from the rest pose): coiled high over the shoulder, a fast
             // diagonal stroke down and across the middle of the view, an overshoot, then home.
-            private static readonly Vector3 CoilP = new Vector3(0.17f, 0.25f, -0.13f), CoilE = new Vector3(-68f, 18f, 52f);
-            private static readonly Vector3 MidP = new Vector3(-0.08f, 0.04f, 0.2f), MidE = new Vector3(4f, -38f, -8f);
-            private static readonly Vector3 EndP = new Vector3(-0.52f, -0.21f, 0.12f), EndE = new Vector3(42f, -82f, -72f);
+            // (A blade runs along local +Y: +X pitch tips it forward, -Z roll tips it right, +Z roll left.)
+            private static readonly Vector3 CoilP = new Vector3(0.12f, 0.2f, -0.08f), CoilE = new Vector3(-35f, 10f, -30f);
+            private static readonly Vector3 MidP = new Vector3(-0.05f, 0.0f, 0.26f), MidE = new Vector3(35f, -20f, 30f);
+            private static readonly Vector3 EndP = new Vector3(-0.34f, -0.3f, 0.26f), EndE = new Vector3(70f, -40f, 75f);
+            // The backhand rises the other way: drawn low across to the left, cut up and out to the right.
+            private static readonly Vector3 CoilBP = new Vector3(-0.22f, -0.12f, 0f), CoilBE = new Vector3(30f, 25f, 70f);
+            private static readonly Vector3 MidBP = new Vector3(-0.02f, 0.06f, 0.26f), MidBE = new Vector3(-10f, 20f, 10f);
+            private static readonly Vector3 EndBP = new Vector3(0.22f, 0.22f, 0.2f), EndBE = new Vector3(-45f, 30f, -55f);
             private const float CutTime = 0.13f, FollowTime = 0.07f;
 
             private static Vector3 Mirror(Vector3 v, float side) => new Vector3(v.x * side, v.y, v.z * (side > 0f ? 1f : 0.9f));
@@ -713,9 +718,10 @@ namespace Deepbound.Player
                 float t = Time.time - swingStart;
 
                 float sd = swingSide;
-                var coilP = Mirror(CoilP, sd); var coilE = MirrorE(CoilE, sd);
-                var midP = Mirror(MidP, sd); var midE = MirrorE(MidE, sd);
-                var endP = Mirror(EndP, sd); var endE = MirrorE(EndE, sd);
+                bool fore = sd > 0f;
+                var coilP = fore ? CoilP : CoilBP; var coilE = fore ? CoilE : CoilBE;
+                var midP = fore ? MidP : MidBP; var midE = fore ? MidE : MidBE;
+                var endP = fore ? EndP : EndBP; var endE = fore ? EndE : EndBE;
                 Vector3 off = Vector3.zero, eul = Vector3.zero;
                 if (t >= 0f && t < swingWindup)
                 {

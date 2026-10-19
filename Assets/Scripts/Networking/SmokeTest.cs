@@ -1204,7 +1204,12 @@ namespace Deepbound.Networking
                     else Log("drills", "no drill board at camp", false);
 
                     // Corwin's smelling salts: go down, come round on your own.
-                    motor.Teleport(Lobby.CarriageStall + Vector3.back * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
+                    // Corwin answers from either side of his carriage.
+                    bool leftReach = Shop.InReach(Shop.Vendor.Carriage, Lobby.CarriageAt + new Vector3(-2.1f, 0f, 2.2f));
+                    bool rightReach = Shop.InReach(Shop.Vendor.Carriage, Lobby.CarriageAt + new Vector3(2.1f, 0f, 2.6f));
+                    bool notFromSeats = !Shop.InReach(Shop.Vendor.Carriage, CarriageRide.Instance != null ? CarriageRide.Instance.SeatGround(1) : Lobby.CarriageAt);
+                    Log("corwin reach", "left " + leftReach + ", right " + rightReach + ", not from the seats " + notFromSeats, leftReach && rightReach && notFromSeats);
+                    motor.Teleport(Lobby.CarriageAt + new Vector3(2.2f, 0.1f, 2.2f), local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
                     progress.ServerAddGold(400);
                     var cart = Shop.For(local.OwnerClientId, Shop.Vendor.Carriage);
@@ -1708,7 +1713,7 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "1b_merchant_struck");
             }
             // The other two stalls: Hobb at the anvil, the shrine's offerings.
-            foreach (var (vendor, spot, tag) in new[] { (Shop.Vendor.Smith, Lobby.AnvilSpot + Vector3.left * 2.2f, "1b_smith_panel"), (Shop.Vendor.Shrine, Lobby.ShrineSpot + Vector3.left * 2.4f, "1b_shrine_panel") })
+            foreach (var (vendor, spot, tag) in new[] { (Shop.Vendor.Smith, Lobby.AnvilSpot + Vector3.left * 2.2f, "1b_smith_panel"), (Shop.Vendor.Shrine, Lobby.ShrineSpot + Vector3.left * 2.4f, "1b_shrine_panel"), (Shop.Vendor.Carriage, Lobby.CarriageAt + new Vector3(2.2f, 0f, 2.2f), "1b_corwin_panel") })
             {
                 lobbyMotor.Teleport(spot + Vector3.up * 0.1f, Quaternion.LookRotation(Vector3.right));
                 yield return new WaitForSeconds(0.3f);
@@ -2021,6 +2026,20 @@ namespace Deepbound.Networking
                     local.ViewModelSwing(0.12f, 0.4f, 1f);
                     yield return new WaitForSeconds(0.2f);
                     yield return Shot(dir, "2d_swing_trail");
+                    // The whole cut in slow motion, frame by frame (forehand, then backhand).
+                    yield return new WaitForSeconds(0.6f);
+                    Time.timeScale = 0.12f;
+                    foreach (float side in new[] { 1f, -1f })
+                    {
+                        local.ViewModelSwing(Player.KnightKit.SwingWindup, Player.KnightKit.SwingStrike + 0.3f, side);
+                        for (int f = 0; f < 6; f++)
+                        {
+                            yield return new WaitForSeconds(0.05f);
+                            yield return Shot(dir, "2e_swing_" + (side > 0 ? "fore" : "back") + f);
+                        }
+                        yield return new WaitForSeconds(0.5f);
+                    }
+                    Time.timeScale = 1f;
                 }
 
                 // Kill everything in the room so the loot it leaves is visible.

@@ -317,17 +317,17 @@ namespace Deepbound.UI
                 return null;
             });
 
-            Add("Corwin, carriage driver", Lobby.BoardingCenter + new Vector3(5.6f, 2.6f, 1f), new[]
+            Add("Corwin, carriage driver", Lobby.CarriageAt + new Vector3(0f, 3.1f, 2.2f), new[]
             {
                 "I don't go down. The carriage goes down. I hold the reins and keep my eyes shut.",
-                "Stand in the gold circle when you're ready. Think of somewhere nice. It helps. Not much.",
+                "Tell me how hard a road you want (G), then find a seat on the back. Think of somewhere nice. It helps. Not much.",
                 "The horses won't look at the shaft either. Smart horses.",
-                "The light takes you down and the light brings you up. I just drive the bit in between.",
+                "Out the gate, down the old road, into the trees. After that it is not a road any more.",
                 "Forty years on this seat. Never once seen the bottom. Intend to keep it that way.",
             }, () =>
             {
                 var me = Me;
-                if (me != null && me.Grudge(FolkId.Corwin) > 0) return "I'll drive you. I'll not talk to you. Get in the circle and keep your hands to yourself.";
+                if (me != null && me.Grudge(FolkId.Corwin) > 0) return "I'll drive you. I'll not talk to you. Sit on the back and keep your hands to yourself.";
                 if (Seals >= World.DungeonDirector.SealTotal) return "Four Seals... I'll take you as far as the road goes, friend. Below the Cathedral, you walk.";
                 if (Deeds.Wipes >= 1 && Deeds.Wipes < 3) return "I drove an empty carriage back up last time. Don't make me do that again.";
                 if (Deeds.Wipes >= 3) return "I've driven that carriage back empty " + Deeds.Wipes + " times now. I've started talking to the seats.";
