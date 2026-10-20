@@ -84,8 +84,17 @@ namespace Deepbound.Loot
             pickupAllowedAt = Time.time + 0.35f;
         }
 
+        private Transform relicColumn;
+
         private void Update()
         {
+            // Standing in a relic's column of light tints the whole view: it steps aside when you are close.
+            if (relicColumn != null)
+            {
+                var cam = Art.ViewCamera.Current;
+                bool near = cam != null && new Vector2(cam.transform.position.x - transform.position.x, cam.transform.position.z - transform.position.z).sqrMagnitude < 2.2f * 2.2f;
+                if (relicColumn.gameObject.activeSelf == near) relicColumn.gameObject.SetActive(!near);
+            }
             if (visual != null)
             {
                 phase += Time.deltaTime;
@@ -303,6 +312,7 @@ namespace Deepbound.Loot
             beam.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             // A soft column of its light round the beam, a slow ring on the floor, and rising sparks.
             var column = MeshKit.Part(transform, "Column", MeshKit.Cylinder(0.45f, 0.2f, 7f, 12), Mat.Smoke, Vector3.zero);
+            relicColumn = column.transform;
             ArtLibrary.Tint(column.GetComponent<Renderer>(), new Color(color.r, color.g, color.b, 0.14f));
             column.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             var halo = MeshKit.Pivot(transform, "Halo", Vector3.up * 0.04f);

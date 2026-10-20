@@ -122,6 +122,7 @@ namespace Deepbound.World
             BuildRoad(o, dressing, lights);
             BuildForestRoad(o, root.transform, lights);
             BuildCastleLife(o, dressing, lights);
+            BuildPlaza(o, dressing, lights);
             BuildStalls(o, dressing, lights);
             BuildTent(lights, dressing);
             BuildYard(o, dressing, lights);
@@ -349,6 +350,104 @@ namespace Deepbound.World
         /// The castle lived in: lanterns along the wall walk and on the towers, a well on the plaza,
         /// hay and barrels by the carriage, banners on the walls, and lit windows in the keep.
         /// </summary>
+        /// <summary>
+        /// The courtyard's furniture (2026-10-20, when it was spread out to stop it feeling cramped): lamp
+        /// posts along both sides of the wider road, benches and planters round the bonfire, a cart and stacks
+        /// of crates and barrels between the stalls, grass and a dead tree in the corners, and banner poles.
+        /// It fills the space between the stations without crowding any of them.
+        /// </summary>
+        private static void BuildPlaza(Vector3 o, MeshKit.Batcher d, Transform lights)
+        {
+            var rng = new System.Random(7717);
+            var lamp = new Color(1f, 0.72f, 0.4f);
+            // Lamp posts along the road, every 9 m, alternating sides lit (to stay inside the light budget).
+            int k = 0;
+            for (float z = -22f; z <= 24f; z += 9f, k++)
+                foreach (float s in new[] { -1f, 1f })
+                {
+                    var foot = o + new Vector3(s * 4.6f, 0f, z);
+                    d.AddBox(foot + Vector3.up * 0.1f, new Vector3(0.4f, 0.2f, 0.4f), Mat.StoneWall);
+                    d.AddBox(foot + Vector3.up * 1.6f, new Vector3(0.12f, 3f, 0.12f), Mat.Steel);
+                    d.AddBox(foot + new Vector3(-s * 0.3f, 3.05f, 0f), new Vector3(0.65f, 0.08f, 0.08f), Mat.Steel);
+                    var lanternAt = foot + new Vector3(-s * 0.55f, 2.7f, 0f);
+                    d.AddBox(lanternAt, new Vector3(0.26f, 0.36f, 0.26f), Mat.Steel);
+                    var glass = MeshKit.Part(lights, "LampGlass", MeshKit.Box(new Vector3(0.2f, 0.28f, 0.2f)), Mat.Glow, lanternAt);
+                    ArtLibrary.SetGlow(glass.GetComponent<Renderer>(), lamp * 1.3f);
+                    glass.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    if ((k + (s > 0 ? 1 : 0)) % 2 == 0)
+                    {
+                        var l = new GameObject("LampLight").AddComponent<Light>();
+                        l.transform.SetParent(lights, false);
+                        l.transform.position = lanternAt;
+                        l.type = LightType.Point;
+                        l.color = lamp;
+                        l.range = 9f;
+                        l.intensity = 1.6f;
+                        l.shadows = LightShadows.None;
+                    }
+                }
+            // Benches and stone planters round the bonfire.
+            var fire = o + S(0f, 0f, -14f);
+            for (int i = 0; i < 6; i++)
+            {
+                float a = (i * 60f + 30f) * Mathf.Deg2Rad;
+                var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                var at = fire + dir * 5.2f;
+                var rot = Quaternion.LookRotation(-dir);
+                d.AddBox(at + Vector3.up * 0.42f, new Vector3(1.8f, 0.08f, 0.45f), Mat.Wood, rot);
+                foreach (float s in new[] { -0.7f, 0.7f }) d.AddBox(at + rot * new Vector3(s, 0.2f, 0f), new Vector3(0.12f, 0.4f, 0.4f), Mat.Wood, rot);
+                if (i % 2 == 0)
+                {
+                    var planter = fire + dir * 7.2f;
+                    d.Add(MeshKit.Cylinder(0.55f, 0.6f, 0.6f, 10), Mat.StoneWall, Matrix4x4.Translate(planter));
+                    var soil = MeshKit.Part(lights, "PlanterShrub", MeshKit.Ball(0.55f, 8, 6), Mat.Cloth, planter + Vector3.up * 0.75f, default, new Vector3(1f, 0.75f, 1f));
+                    ArtLibrary.Tint(soil.GetComponent<Renderer>(), new Color(0.12f, 0.2f, 0.09f));
+                }
+            }
+            // Crates, barrels and a hand cart between the stalls and the walls.
+            foreach (var (x, z) in new[] { (-12f, -2f), (11f, -11f), (-14f, 11f), (12.5f, 9f), (-4f, -21f), (7f, 18f) })
+            {
+                var at = o + S(x, 0f, z);
+                for (int n = 0; n < 3; n++)
+                {
+                    var p = at + new Vector3((float)rng.NextDouble() * 1.6f - 0.8f, 0f, (float)rng.NextDouble() * 1.6f - 0.8f);
+                    if (rng.NextDouble() < 0.5) Props.Crate(d, p, 0.7f + (float)rng.NextDouble() * 0.3f, (float)rng.NextDouble() * 90f);
+                    else Props.Barrel(d, p);
+                }
+            }
+            var cart = o + S(-7f, 0f, 14f);
+            var crot = Quaternion.Euler(0f, 35f, 0f);
+            d.AddBox(cart + Vector3.up * 0.75f, new Vector3(1.4f, 0.12f, 2.2f), Mat.Wood, crot);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                d.AddBox(cart + crot * new Vector3(s * 0.7f, 1f, 0f), new Vector3(0.08f, 0.45f, 2.2f), Mat.Wood, crot);
+                d.Add(MeshKit.Cylinder(0.45f, 0.45f, 0.1f, 12), Mat.Wood, Matrix4x4.TRS(cart + crot * new Vector3(s * 0.78f, 0.45f, -0.3f), crot * Quaternion.Euler(0f, 0f, 90f), Vector3.one));
+            }
+            d.AddBox(cart + crot * new Vector3(0f, 0.6f, 1.7f), new Vector3(0.08f, 0.08f, 1.4f), Mat.Wood, crot * Quaternion.Euler(-12f, 0f, 0f));
+            Props.Crate(d, cart + crot * new Vector3(0.2f, 0.81f, -0.4f), 0.6f, 20f);
+            // Patches of grass in the corners, a dead tree in the east.
+            foreach (var (x, z, r) in new[] { (-18f, -16f, 3.2f), (18f, -15f, 2.8f), (-19f, 4f, 2.5f), (19f, 1f, 3f) })
+            {
+                var g = MeshKit.Part(lights, "Grass", MeshKit.Cylinder(r, r, 0.03f, 14), Mat.Cloth, o + S(x, 0.015f, z));
+                ArtLibrary.Tint(g.GetComponent<Renderer>(), new Color(0.13f, 0.19f, 0.08f));
+            }
+            var tree = o + S(19f, 0f, 1f);
+            d.Add(MeshKit.Cylinder(0.35f, 0.2f, 4.2f, 7), Mat.Wood, Matrix4x4.Translate(tree + Vector3.up * 2.1f));
+            for (int i = 0; i < 5; i++)
+            {
+                float a = i * 72f + 15f;
+                d.Add(MeshKit.Cylinder(0.1f, 0.03f, 2f, 5), Mat.Wood, Matrix4x4.TRS(tree + Vector3.up * (2.6f + i * 0.35f), Quaternion.Euler(50f, a, 0f), Vector3.one));
+            }
+            // Banner poles flanking the road where it meets the plaza.
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var pole = o + S(s * 6.2f, 0f, -6f);
+                d.AddBox(pole + Vector3.up * 3f, new Vector3(0.14f, 6f, 0.14f), Mat.Wood);
+                d.AddBox(pole + new Vector3(0f, 5.8f, 0.6f), new Vector3(0.08f, 0.08f, 1.3f), Mat.Wood);
+                Props.Banner(lights, pole + new Vector3(0f, 5.7f, 0.65f), Vector3.right * s, s > 0 ? new Color(0.45f, 0.08f, 0.08f) : new Color(0.12f, 0.12f, 0.3f));
+            }
+        }
+
         private static void BuildCastleLife(Vector3 o, MeshKit.Batcher d, Transform lights)
         {
             // Lanterns on the inner face of the curtain wall, every 45 degrees (not at the gate).

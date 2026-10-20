@@ -398,7 +398,7 @@ namespace Deepbound.UI
                 float sum = 0f, first = Time.time;
                 foreach (var (t, a) in dummyHits) { sum += a; first = Mathf.Min(first, t); }
                 float span = Mathf.Max(1f, Time.time - first);
-                GUI.Label(new Rect(0, h / 2f + 64, w, 24), "TRAINING:  " + Mathf.RoundToInt(sum / span) + " damage per second",
+                GUI.Label(new Rect(0, h / 2f + 104, w, 24), "TRAINING:  " + Mathf.RoundToInt(sum / span) + " damage per second",
                     new GUIStyle(center) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
             }
             // The range's tally, when you are near the butts.
@@ -1677,8 +1677,8 @@ namespace Deepbound.UI
                 case RunPhase.FloorCleared:
                     title = director.ExitFinal.Value ? "THE DEPTHS ARE CLEARED" : "THE FLOOR IS CLEARED";
                     int at = DungeonDirector.PlayersAtExit(), all = PlayerLife.All.Count;
-                    sub = director.PhaseEndsAt.Value > 0 ? (director.ExitFinal.Value ? "Ending the run in " : "Leaving for the castle in ") + seconds + "..."
-                        : "Explore and loot at your leisure. When you are ready, everyone steps into the portal  (" + at + " / " + all + ")";
+                    sub = director.PhaseEndsAt.Value > 0 ? (director.ExitFinal.Value ? "Ending the run in " : "The lift rises in ") + seconds + "..."
+                        : "Explore and loot at your leisure. The GRAVE LIFT waits where the guardian stood: everyone into the cage to ride up  (" + at + " / " + all + ")";
                     break;
                 case RunPhase.Wiped: title = "YOUR PARTY HAS FALLEN"; sub = "The run is over. Returning to camp in " + seconds + "..."; break;
                 default: title = "THE DEPTHS ARE CLEARED"; sub = "Run complete! Returning to camp in " + seconds + "..."; break;
@@ -1698,11 +1698,11 @@ namespace Deepbound.UI
                 Rect(w * 0.25f, 88, w * 0.5f, 24, new Color(0f, 0f, 0f, 0.5f));
                 GUI.Label(new Rect(w * 0.25f, 88, w * 0.5f, 24), sub, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = Gold } });
             }
-            // A marker on the portal, through walls.
+            // A marker on the lift, through walls.
             var cam = player.Camera;
             var ps = cam.WorldToScreenPoint(DungeonDirector.ExitPosition + Vector3.up * 3.2f);
             if (ps.z > 0f)
-                GUI.Label(new Rect(ps.x - 100, h - ps.y - 10, 200, 20), "PORTAL  " + Mathf.RoundToInt(Vector3.Distance(player.transform.position, DungeonDirector.ExitPosition)) + "m",
+                GUI.Label(new Rect(ps.x - 100, h - ps.y - 10, 200, 20), "THE LIFT  " + Mathf.RoundToInt(Vector3.Distance(player.transform.position, DungeonDirector.ExitPosition)) + "m",
                     new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.6f, 0.9f, 1f) } });
         }
 

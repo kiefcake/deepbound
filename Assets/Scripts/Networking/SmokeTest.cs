@@ -2135,6 +2135,19 @@ namespace Deepbound.Networking
                 ap.ServerResetRun();
                 UI.PauseMenu.SetOpen(false);
 
+                // Close looks at the new folk faces: Hobb at his anvil, Vey at her stall.
+                foreach (var (tag, at) in new[] { ("1b_face_hobb", Lobby.AnvilSpot + Vector3.back * 1.4f), ("1b_face_vey", Lobby.TailorSpot + Vector3.right * 0.6f), ("1b_face_ysolde", Lobby.RunewrightSpot) })
+                {
+                    var fwd = Lobby.Origin - at;
+                    fwd.y = 0f;
+                    var camAt = at + fwd.normalized * 1.6f + Vector3.up * 0.1f;
+                    lobbyMotor.Teleport(camAt, Quaternion.LookRotation(at + Vector3.up * 1.5f - (camAt + Vector3.up * 1.6f)));
+                    lobbyMotor.SetPitch(4f);
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot(dir, tag);
+                }
+                lobbyMotor.SetPitch(0f);
+
                 // Sergeant Brann at the yard.
                 var brFrom = Lobby.YardSpot + new Vector3(2.4f, 0.1f, -2.4f);
                 lobbyMotor.Teleport(brFrom, Quaternion.LookRotation(Lobby.YardSpot + Vector3.up * 1.2f - brFrom));
