@@ -970,8 +970,44 @@ namespace Deepbound.UI
             return null;
         }
 
+        private RunPhase lastPhase;
+
+        /// <summary>The floor's guardian just fell: how long the floor took, and a record if it was quick.</summary>
+        private void WatchFloorTime()
+        {
+            var dd = DungeonDirector.Instance;
+            if (dd == null || Unity.Netcode.NetworkManager.Singleton == null) return;
+            var phase = dd.Phase.Value;
+            if (lastPhase == RunPhase.Exploring && phase == RunPhase.FloorCleared)
+            {
+                float took = (float)(Unity.Netcode.NetworkManager.Singleton.ServerTime.Time - dd.FloorBegan.Value);
+                bool best = Records.SubmitFloorTime(took);
+                Feed((best ? "NEW RECORD - fastest floor: " : "Floor cleared in ") + Records.Clock(took), best ? new Color(1f, 0.85f, 0.4f) : new Color(0.85f, 0.8f, 0.7f));
+            }
+            lastPhase = phase;
+        }
+
+        /// <summary>The Hall of Records slab at camp, read when you stand at it.</summary>
+        private void DrawRecords(float w, float h)
+        {
+            if (!DungeonDirector.InLobby || Vector3.Distance(player.transform.position, Lobby.RecordsSpot) > 3.4f) return;
+            var lines = Records.Lines;
+            float pw = 400f, ph = 46f + lines.Length * 22f;
+            var r = new Rect(w / 2f - pw / 2f, 96f, pw, ph);
+            UiSkin.Panel(r, 0.94f);
+            GUI.Label(new Rect(r.x, r.y + 8, pw, 24), "THE HALL OF RECORDS", new GUIStyle(center) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            var st = new GUIStyle(small) { alignment = TextAnchor.MiddleLeft, fontSize = 14, normal = { textColor = new Color(0.92f, 0.88f, 0.8f) } };
+            for (int i = 0; i < lines.Length; i++)
+            {
+                var parts = lines[i].Split(new[] { "  " }, System.StringSplitOptions.RemoveEmptyEntries);
+                GUI.Label(new Rect(r.x + 26, r.y + 38 + i * 22, pw - 52, 20), parts[0].Trim(), st);
+                GUI.Label(new Rect(r.x + 26, r.y + 38 + i * 22, pw - 52, 20), parts.Length > 1 ? parts[parts.Length - 1].Trim() : "", new GUIStyle(st) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            }
+        }
+
         private void Update()
         {
+            WatchFloorTime();
             hurtFlash = Mathf.MoveTowards(hurtFlash, 0f, Time.deltaTime * 1.5f);
             Heartbeat();
             StateGrade();
@@ -1066,6 +1102,7 @@ namespace Deepbound.UI
             DrawDamageNumbers();
             DrawCombos();
             DrawCampReadouts(w, h);
+            DrawRecords(w, h);
             DrawHidden(w, h);
             DrawPings(w, h);
             DrawVignette(w, h);

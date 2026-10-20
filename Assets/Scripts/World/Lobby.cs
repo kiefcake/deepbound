@@ -68,6 +68,8 @@ namespace Deepbound.World
 
         /// <summary>The bounty board, by the road near the gate: contracts for the next floor.</summary>
         public static readonly Vector3 BountySpot = Origin + S(-5.2f, 0f, 12.5f);
+        /// <summary>The Hall of Records slab, beside the bounty board.</summary>
+        public static readonly Vector3 RecordsSpot = BountySpot + new Vector3(0.6f, 0f, -3.1f);
         public static readonly Vector3 BountyFacing = Vector3.right;
         /// <summary>The Omen Stone, east of the boarding circle.</summary>
         public static readonly Vector3 OmenSpot = Origin + S(5.2f, 0f, 14.5f);
@@ -585,6 +587,15 @@ namespace Deepbound.World
             bl.range = 5f;
             bl.intensity = 1.5f;
 
+            // The Hall of Records: a carved slab on a plinth, gilded lines, a candle either side.
+            var rs = RecordsSpot;
+            d.AddBox(rs + new Vector3(0f, 0.2f, 0f), new Vector3(0.7f, 0.4f, 1.5f), Mat.StoneWall);
+            d.AddBox(rs + new Vector3(0f, 1.2f, 0f), new Vector3(0.22f, 1.7f, 1.2f), Mat.Marble);
+            d.AddBox(rs + new Vector3(0f, 2.1f, 0f), new Vector3(0.3f, 0.12f, 1.32f), Mat.StoneWall);
+            for (int ln = 0; ln < 5; ln++)
+                d.AddBox(rs + new Vector3(0.115f, 1.75f - ln * 0.2f, 0f), new Vector3(0.01f, 0.05f, 0.8f - (ln % 2) * 0.2f), Mat.Gold);
+            foreach (float z in new[] { -0.85f, 0.85f })
+                Props.AddFlame(lights, rs + new Vector3(0.1f, 0.48f, z), 0.25f, Fire, 0.7f, 3f, false);
             // The tailor (far west): bolts of dyed cloth on the counter, more on a rack behind.
             Stall(lights, d, TailorSpot + TailorFacing * 2.4f, TailorFacing, new Color(0.3f, 0.08f, 0.32f), new Color(0.8f, 0.72f, 0.55f));
             var bolts = new[] { new Color(0.42f, 0.04f, 0.05f), new Color(0.05f, 0.07f, 0.18f), new Color(0.26f, 0.07f, 0.36f), new Color(0.82f, 0.79f, 0.7f), new Color(0.04f, 0.2f, 0.2f) };

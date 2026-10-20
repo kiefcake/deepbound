@@ -704,8 +704,11 @@ namespace Deepbound.Networking
                     if (mourner != null)
                     {
                         mourner.ServerAggroNearest(); // this checks the watching rule, not whether it noticed you
+                        // Let its first watched check land (a spawn can glide a step before it), then measure.
+                        yield return new WaitForSeconds(0.3f);
+                        var settled = mourner.transform.position;
                         yield return new WaitForSeconds(1.2f);
-                        float watchedMove = Vector3.Distance(mourner.transform.position, mAt);
+                        float watchedMove = Vector3.Distance(mourner.transform.position, settled);
                         bool frozen = mourner.Seen.Value;
                         var lookAway = stand - mAt; lookAway.y = 0f;
                         lfm.Teleport(stand, Quaternion.LookRotation(lookAway));
@@ -1769,6 +1772,9 @@ namespace Deepbound.Networking
                         UI.Binds.Tick();
                         Log("gamepad", "A = jump " + jumpHeld + ", RT = attack " + attack + ", F prompt shows '" + hint + "'", jumpHeld && attack && hint == "X");
                     }
+                    // Records stay out of tests: nothing is read or written.
+                    Log("records", "test run beats nothing: " + (Progression.Records.SubmitRun(12345.0, 99, 999, 9999, true).Count == 0) + ", slab reads zeros " + (Progression.Records.Deepest == 0),
+                        Progression.Records.SubmitRun(12345.0, 99, 999, 9999, true).Count == 0 && Progression.Records.Deepest == 0 && !Progression.Records.SubmitFloorTime(60f));
                     // Key rebinding: moving Kick to K, then onto Q, swaps Ability 1 onto K; hints follow; reset restores.
                     UI.Binds.Set(UI.Bind.Kick, UnityEngine.InputSystem.Key.K);
                     bool movedK = UI.Binds.KeyOf(UI.Bind.Kick) == UnityEngine.InputSystem.Key.K && UI.Binds.Show("V") == "K";
@@ -2309,6 +2315,11 @@ namespace Deepbound.Networking
             lobbyMotor.Teleport(bFrom, Quaternion.LookRotation(Lobby.BountySpot + Vector3.up * 0.2f - bFrom));
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "1c_bounty_board");
+            // The Hall of Records slab beside it (its panel opens within reach).
+            var hallFrom = Lobby.RecordsSpot + Lobby.BountyFacing * 2.2f + Vector3.up * 0.1f;
+            lobbyMotor.Teleport(hallFrom, Quaternion.LookRotation(Lobby.RecordsSpot + Vector3.up * 0.6f - hallFrom));
+            yield return new WaitForSeconds(0.5f);
+            yield return Shot(dir, "1c_hall_of_records");
 
             var anvilObj = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
             if (anvilObj != null)

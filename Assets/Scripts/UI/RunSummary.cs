@@ -96,6 +96,9 @@ namespace Deepbound.UI
                 int bosses = ((won ? DungeonDirector.FloorsPerRun : Mathf.Max(0, d.Floor.Value.y)) + 1) / 2;
                 int got = Cosmetics.AwardRun(d.RunStartedAt.Value, bosses, me.Kills.Value, me.CombosTriggered.Value, won, d.DifficultyIndex.Value, DungeonDirector.OmenRenown(d.RunOmen));
                 if (got >= 0) renownEarned = got;
+                // The Hall of Records: anything this run beat is carved at camp (once per run).
+                foreach (var line in Records.SubmitRun(d.RunStartedAt.Value, floor, me.Kills.Value, me.GoldEarned.Value, won))
+                    GameHud.Feed("NEW RECORD - " + line, new Color(1f, 0.85f, 0.4f));
                 GUI.Label(new Rect(panel.x + 30, panel.yMax - 104, pw - 60, 28), Epitaph(me, won, floor),
                     new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic, wordWrap = true, normal = { textColor = new Color(0.85f, 0.8f, 0.72f) } });
                 GUI.Label(new Rect(panel.x, panel.yMax - 72, pw, 26),

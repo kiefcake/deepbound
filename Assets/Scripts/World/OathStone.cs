@@ -37,17 +37,24 @@ namespace Deepbound.World
         {
             visual = new GameObject("Stone").transform;
             visual.SetParent(transform, false);
-            MeshKit.Part(visual, "Block", MeshKit.Box(new Vector3(0.62f, 0.5f, 0.5f)), Mat.Marble, new Vector3(0f, 0.25f, 0f));
-            MeshKit.Part(visual, "Cap", MeshKit.Box(new Vector3(0.68f, 0.07f, 0.56f)), Mat.StoneWall, new Vector3(0f, 0.53f, 0f));
-            MeshKit.Part(visual, "Base", MeshKit.Box(new Vector3(0.68f, 0.06f, 0.56f)), Mat.StoneWall, new Vector3(0f, 0.03f, 0f));
-            foreach (float side in new[] { -1f, 1f })
+            // Pale carved stone, so it reads as the plates' twin and not a crate.
+            var block = MeshKit.Part(visual, "Block", MeshKit.Box(new Vector3(0.62f, 0.5f, 0.62f)), Mat.Marble, new Vector3(0f, 0.25f, 0f));
+            ArtLibrary.Tint(block.GetComponent<Renderer>(), new Color(0.86f, 0.88f, 0.92f));
+            MeshKit.Part(visual, "Cap", MeshKit.Box(new Vector3(0.68f, 0.07f, 0.68f)), Mat.StoneWall, new Vector3(0f, 0.53f, 0f));
+            MeshKit.Part(visual, "Base", MeshKit.Box(new Vector3(0.68f, 0.06f, 0.68f)), Mat.StoneWall, new Vector3(0f, 0.03f, 0f));
+            // A glowing hand carved on every face, matching the plates, and a ring on top.
+            for (int f = 0; f < 4; f++)
             {
-                // A glowing hand carved on each face, matching the plates.
-                var palm = MeshKit.Part(visual, "Palm", MeshKit.Box(new Vector3(0.2f, 0.22f, 0.02f)), Mat.Glow, new Vector3(0f, 0.27f, side * 0.255f));
-                ArtLibrary.SetGlow(palm.GetComponent<Renderer>(), MarkerColor * 1.1f);
+                var rot = Quaternion.Euler(0f, f * 90f, 0f);
+                var palm = MeshKit.Part(visual, "Palm", MeshKit.Box(new Vector3(0.2f, 0.22f, 0.02f)), Mat.Glow, rot * new Vector3(0f, 0.27f, 0.315f), new Vector3(0f, f * 90f, 0f));
+                ArtLibrary.SetGlow(palm.GetComponent<Renderer>(), MarkerColor * 1.4f);
                 palm.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                MeshKit.Part(visual, "Ring", MeshKit.Box(new Vector3(0.05f, 0.18f, 0.05f)), Mat.Steel, new Vector3(side * 0.33f, 0.3f, 0f));
             }
+            var ring = MeshKit.Part(visual, "TopRing", MeshKit.Cylinder(0.2f, 0.2f, 0.015f, 14), Mat.Glow, new Vector3(0f, 0.57f, 0f));
+            ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), MarkerColor);
+            ring.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            foreach (float side in new[] { -1f, 1f })
+                MeshKit.Part(visual, "Handle", MeshKit.Box(new Vector3(0.05f, 0.18f, 0.05f)), Mat.Steel, new Vector3(side * 0.34f, 0.3f, 0f));
         }
     }
 }
