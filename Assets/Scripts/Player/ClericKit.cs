@@ -144,7 +144,7 @@ namespace Deepbound.Player
             motor.SpeedMultiplier = progress.SpeedMultiplier;
             motor.CanSprint = true;
 
-            bool canAct = life.CanAct && motor.HasControl;
+            bool canAct = life.CanAct && motor.ActionsReady;
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
 

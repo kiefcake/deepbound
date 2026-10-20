@@ -161,6 +161,7 @@ namespace Deepbound.Enemies
 
         public override void OnNetworkSpawn()
         {
+            gameObject.AddComponent<StunDaze>().Init(this);
             CharacterArt.SkeletonVariant = (int)((NetworkObjectId * 2654435761UL) & 0x7FFFFFFF);
             Rig = CharacterArt.BuildSkeleton(transform, visualKind);
             if (Rig != null)
@@ -854,6 +855,20 @@ namespace Deepbound.Enemies
         }
 
         public bool IsStunned => Time.time < stunnedUntil;
+
+        /// <summary>
+        /// Server, at the top of a subclass's Update: stunned, it does nothing of its own (no casts, no
+        /// shots, no specials) and the base update holds it still. Returns true when it handled the frame.
+        /// Fixed 2026-10-20: subclasses used to keep casting and shooting through a stun.
+        /// </summary>
+        protected bool HeldByStun()
+        {
+            if (!IsServer || IsDead || !IsStunned) return false;
+            if (agent != null && agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
+            ServerTickThreat();
+            ServerSyncStatus();
+            return true;
+        }
 
         /// <summary>Per-type walk-speed scale (archers creep while repositioning).</summary>
         protected virtual float SpeedScale => 1f;

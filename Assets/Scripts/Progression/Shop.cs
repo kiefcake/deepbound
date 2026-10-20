@@ -132,11 +132,30 @@ namespace Deepbound.Progression
             {
                 var buyerP = PlayerProgress.ForClient(clientId);
                 var rng = new System.Random(seed * 31 + (int)clientId * 7919 + 5 + (buyerP != null ? buyerP.StockRerolls.Value * 104729 : 0));
-                int id = rng.Next(1, 13);
+                // The smith's trade is armour: a piece fitted for you.
+                var armours = Loot.Gear.RollableOf(Loot.GearSlot.Armor);
+                var id = armours[rng.Next(armours.Length)];
                 double r = rng.NextDouble();
                 int quality = r < 0.2 ? 2 : r < 0.7 ? 1 : 0;
-                var gear = new Loot.GearItem((Loot.GearId)id, quality, depth);
+                var gear = new Loot.GearItem(id, quality, depth);
                 list.Add(new Item { Name = Loot.Gear.Name(gear), Description = Loot.Gear.StatLine(gear) + ". " + Loot.Gear.Effect(gear.Kind), Price = 60 + 40 * quality + 25 * depth, Kind = ItemKind.Gear, Gear = gear, Seller = Vendor.Smith });
+            }
+            if (vendor == Vendor.Merchant && World.DungeonDirector.InLobby)
+            {
+                // Silas keeps a tray of pendants and charms: two, picked for you this visit.
+                var buyerM = PlayerProgress.ForClient(clientId);
+                var rng = new System.Random(seed * 17 + (int)clientId * 6007 + 11 + (buyerM != null ? buyerM.StockRerolls.Value * 7919 : 0));
+                var charms = new List<Loot.GearId>(Loot.Gear.RollableOf(Loot.GearSlot.Charm));
+                for (int k = 0; k < 2 && charms.Count > 0; k++)
+                {
+                    int pick = rng.Next(charms.Count);
+                    var id = charms[pick];
+                    charms.RemoveAt(pick);
+                    double r = rng.NextDouble();
+                    int quality = r < 0.15 ? 2 : r < 0.6 ? 1 : 0;
+                    var gear = new Loot.GearItem(id, quality, depth);
+                    list.Add(new Item { Name = "Pendant: " + Loot.Gear.Name(gear), Description = Loot.Gear.StatLine(gear) + ". " + Loot.Gear.Effect(gear.Kind), Price = 55 + 35 * quality + 20 * depth, Kind = ItemKind.Gear, Gear = gear, Seller = Vendor.Merchant });
+                }
             }
             var buyer = PlayerProgress.ForClient(clientId);
             // Drills cost more each time you take one.

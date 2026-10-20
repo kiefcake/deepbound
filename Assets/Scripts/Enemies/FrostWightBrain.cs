@@ -42,6 +42,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (HeldByStun()) return;
             if (IsServer && !IsDead && novaAt > 0f && Time.time >= novaAt)
             {
                 novaAt = -1f;

@@ -73,7 +73,7 @@ namespace Deepbound.Player
                 if (pressed && Time.time >= nextPing) { nextPing = Time.time + Cooldown; PingRpc(transform.position, NetworkObjectId, Kind.Help, ""); }
                 return;
             }
-            if (!motor.HasControl) { CloseWheel(); heldSince = -1f; return; }
+            if (!motor.ActionsReady) { CloseWheel(); heldSince = -1f; return; }
 
             if (pressed) { heldSince = Time.time; wheelAim = Vector2.zero; }
             if (heldSince >= 0f && held)

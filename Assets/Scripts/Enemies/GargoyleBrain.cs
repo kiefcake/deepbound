@@ -60,6 +60,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (HeldByStun()) return;
             // Everyone: stone stays still; awake it hovers and beats its wings.
             if (Rig != null)
             {

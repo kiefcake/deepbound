@@ -38,7 +38,7 @@ namespace Deepbound.Loot
         {
             // Into the pack, not onto you: wear it from the inventory (I) when you choose.
             if (!who.ServerStow(Item.Value)) return;
-            EquipFxRpc();
+            EquipFxRpc(Gear.Name(Item.Value));
             NetworkObject.Despawn();
         }
 
@@ -49,7 +49,7 @@ namespace Deepbound.Loot
             if (!user.TryGet(out var obj) || !obj.TryGetComponent<PlayerProgress>(out var who) || !Mine(who)) return;
             if (Vector3.Distance(obj.transform.position, transform.position) > Range + 1f) return;
             if (!who.ServerStow(Item.Value)) return;
-            EquipFxRpc();
+            EquipFxRpc(Gear.Name(Item.Value));
             NetworkObject.Despawn();
         }
 
@@ -66,7 +66,12 @@ namespace Deepbound.Loot
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void EquipFxRpc() => Sfx.Play(Sound.Block, transform.position + Vector3.up * 0.5f, 0.7f, 1.3f);
+        private void EquipFxRpc(string name)
+        {
+            Sfx.Play(Sound.Block, transform.position + Vector3.up * 0.5f, 0.7f, 1.3f);
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClientId == For.Value)
+                UI.GameHud.Pickup("gear" + name, 1, " " + name + "  (in your pack)", Gear.QualityColor(Item.Value.Quality));
+        }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void ScrapFxRpc()

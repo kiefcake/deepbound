@@ -925,12 +925,15 @@ namespace Deepbound.UI
         private bool NearVendor(Shop.Vendor v) => !life.Downed.Value && Shop.InReach(v, player.transform.position);
 
         /// <summary>The vendor whose stall you stand at (merchant or shrine; the smith trades through the forge), or null.</summary>
+        public Shop.Vendor? DebugStallHere() => StallHere();
+
         private Shop.Vendor? StallHere()
         {
             if (NearVendor(Shop.Vendor.Merchant)) return Shop.Vendor.Merchant;
             if (NearVendor(Shop.Vendor.Shrine)) return Shop.Vendor.Shrine;
             if (NearVendor(Shop.Vendor.Yard)) return Shop.Vendor.Yard;
             if (NearVendor(Shop.Vendor.Carriage)) return Shop.Vendor.Carriage;
+            if (NearVendor(Shop.Vendor.Runewright)) return Shop.Vendor.Runewright;
             return null;
         }
 
@@ -1032,6 +1035,7 @@ namespace Deepbound.UI
             DrawHidden(w, h);
             DrawPings(w, h);
             DrawVignette(w, h);
+            DrawAfflictions(w, h);
             DrawHitDirections(w, h);
             DrawThreats(w, h);
             DrawMicLight(w, h);
@@ -1064,6 +1068,7 @@ namespace Deepbound.UI
                 DrawMerchant(w, h);
             DrawRunewright(w, h);
             DrawFps(w);
+            if (!panel) DrawToasts(w, h);
             if (statsHeld) DrawStatSheet(w, h);
             // Last, so nothing (feed, tips, banners) draws over it.
             if (invOpen) DrawInventory(w, h);
@@ -1085,6 +1090,8 @@ namespace Deepbound.UI
                 if (dist > 30f) continue;
                 var sp = cam.WorldToScreenPoint(at);
                 if (sp.z <= 0f) continue;
+                // Only what you can actually see: a wall (or anything solid) between hides the tag.
+                if (Physics.Linecast(cam.transform.position, at, out var block, ~0, QueryTriggerInteraction.Ignore) && block.collider.GetComponentInParent<LootDrop>() == null && block.collider.GetComponentInParent<Player.NetworkPlayer>() == null) continue;
                 var relic = (Relic)d.Amount.Value;
                 var c = Relics.GemColor(relic);
                 float a = Mathf.Clamp01((30f - dist) / 8f);
@@ -1741,6 +1748,38 @@ namespace Deepbound.UI
 
         private GUIStyle feedStyle;
 
+        private class Toast { public string Key, Suffix; public int Amount; public Color Color; public float At; }
+        private static readonly List<Toast> toasts = new List<Toast>();
+
+        /// <summary>
+        /// Any peer: something you just picked up, shown under the crosshair at once (UI pass 2026-10-20).
+        /// The same kind within a moment adds up ("+12 gold" then "+30 gold"), up to four lines.
+        /// </summary>
+        public static void Pickup(string key, int amount, string suffix, Color color)
+        {
+            foreach (var t in toasts)
+                if (t.Key == key && UnityEngine.Time.time - t.At < 1.4f) { t.Amount += amount; t.At = UnityEngine.Time.time; return; }
+            toasts.Add(new Toast { Key = key, Amount = amount, Suffix = suffix, Color = color, At = UnityEngine.Time.time });
+            if (toasts.Count > 4) toasts.RemoveAt(0);
+        }
+
+        private void DrawToasts(float w, float h)
+        {
+            float y = h * 0.6f;
+            for (int i = toasts.Count - 1; i >= 0; i--)
+            {
+                var t = toasts[i];
+                float age = Time.time - t.At;
+                if (age > 1.8f) { toasts.RemoveAt(i); continue; }
+                float a = Mathf.Clamp01((1.8f - age) / 0.5f);
+                float pop = 1f + 0.25f * Mathf.Clamp01(1f - age / 0.15f);
+                string text = (t.Amount > 1 || t.Key == "gold" || t.Key == "embers" ? "+" + t.Amount : "+") + t.Suffix;
+                var st = new GUIStyle(center) { fontSize = Mathf.RoundToInt(17 * pop), fontStyle = FontStyle.Bold, normal = { textColor = new Color(t.Color.r, t.Color.g, t.Color.b, a) } };
+                UiSkin.Shadowed(new Rect(0, y - age * 14f, w, 26), text, st, a);
+                y += 24f;
+            }
+        }
+
         /// <summary>
         /// The feed (2026-10-20 UI pass): each line on its own dark pill with an accent in its colour,
         /// sliding in from the left; newest at the bottom, at most seven, faded out after six seconds.
@@ -2337,6 +2376,54 @@ namespace Deepbound.UI
                 vignetteTex.SetPixels32(px);
                 vignetteTex.Apply();
                 return vignetteTex;
+            }
+        }
+
+        private Player.PlayerDebuffs debuffs;
+        private bool wasPoison, wasFrost, wasCurse, wasMania, wasRoot;
+        private string afflictText;
+        private Color afflictColor;
+        private float afflictAt = -10f;
+
+        /// <summary>
+        /// Afflictions you cannot miss (2026-10-20): each tints the screen's edge in its own colour and
+        /// pulses, and the moment one takes hold its name lands big in the middle of the screen with
+        /// what to do about it.
+        /// </summary>
+        private void DrawAfflictions(float w, float h)
+        {
+            debuffs ??= player.GetComponent<Player.PlayerDebuffs>();
+            if (debuffs == null) return;
+            bool poison = debuffs.Poisoned, frost = debuffs.Frostbitten, curse = debuffs.Cursed, mania = debuffs.Manic, root = debuffs.Rooted;
+            void Alert(bool now, bool was, string text, Color c) { if (now && !was) { afflictText = text; afflictColor = c; afflictAt = Time.time; } }
+            Alert(poison, wasPoison, "POISONED  -  drink Holy Water or a potion", new Color(0.55f, 1f, 0.3f));
+            Alert(frost, wasFrost, "FROSTBITTEN  -  you are slowed", new Color(0.55f, 0.85f, 1f));
+            Alert(curse, wasCurse, "CURSED  -  less damage and healing (kill the Hexer)", new Color(0.75f, 0.45f, 1f));
+            Alert(mania, wasMania, "MANIA!  -  you cannot control your feet", new Color(1f, 0.4f, 0.9f));
+            Alert(root, wasRoot, debuffs.Entangled ? "ENTANGLED  -  kill the Entling holding you" : "ROOTED  -  your feet are frozen", new Color(0.75f, 0.9f, 0.55f));
+            wasPoison = poison; wasFrost = frost; wasCurse = curse; wasMania = mania; wasRoot = root;
+
+            var old = GUI.color;
+            void Edge(bool on, Color c, float rate)
+            {
+                if (!on) return;
+                float p = 0.45f + 0.25f * Mathf.Sin(Time.time * rate);
+                GUI.color = new Color(c.r, c.g, c.b, p);
+                GUI.DrawTexture(new Rect(0, 0, w, h), VignetteTex, ScaleMode.StretchToFill);
+            }
+            Edge(poison, new Color(0.25f, 0.75f, 0.1f), 3f);
+            Edge(frost, new Color(0.35f, 0.7f, 1f), 1.6f);
+            Edge(curse, new Color(0.45f, 0.15f, 0.7f), 2.2f);
+            Edge(mania, new Color(0.9f, 0.2f, 0.75f), 7f);
+            Edge(root, new Color(0.4f, 0.55f, 0.2f), 2f);
+            GUI.color = old;
+
+            float age = Time.time - afflictAt;
+            if (afflictText != null && age < 2.4f)
+            {
+                float a = Mathf.Clamp01((2.4f - age) / 0.6f);
+                float pop = 1f + 0.35f * Mathf.Clamp01(1f - age / 0.18f);
+                UiSkin.Shadowed(new Rect(0, h * 0.34f, w, 40), afflictText, new GUIStyle(big) { fontSize = Mathf.RoundToInt(28 * pop), normal = { textColor = new Color(afflictColor.r, afflictColor.g, afflictColor.b, a) } }, a);
             }
         }
 

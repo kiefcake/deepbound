@@ -3,40 +3,29 @@ using UnityEngine;
 namespace Deepbound.Art
 {
     /// <summary>
-    /// A melee swing's trail: a thin glowing crescent sweeping across in front of the swinger,
-    /// gone in a fifth of a second. Visual only, seen by everyone.
+    /// How others see a melee swing (replaced 2026-10-20: the glowing crescent is gone). A few motes of
+    /// dust and grit are flung along the arc the blade passes through, with a single bright glint at
+    /// its far end: enough to read the swing's reach and direction across a room, without a shape
+    /// hanging in the air. Visual only, seen by everyone.
     /// </summary>
-    public class SwingTrail : MonoBehaviour
+    public static class SwingTrail
     {
-        private Renderer rend;
-        private Color color;
-        private float born;
-        private const float Life = 0.2f;
-
-        /// <param name="side">+1 swings right-to-left, -1 left-to-right (the arc tilts with it).</param>
+        /// <param name="side">+1 swings right-to-left, -1 left-to-right.</param>
         public static void Spawn(Transform who, float radius, float arcDegrees, float side, Color color)
         {
-            var go = new GameObject("SwingTrail");
-            go.transform.position = who.position + Vector3.up * 1.3f;
-            go.transform.rotation = Quaternion.LookRotation(who.forward) * Quaternion.Euler(0f, 0f, side * 18f);
-            var t = go.AddComponent<SwingTrail>();
-            t.color = color;
-            t.born = Time.time;
-            var part = MeshKit.Part(go.transform, "Arc", MeshKit.Lathe("swingArc" + Mathf.RoundToInt(arcDegrees), new[]
+            var origin = who.position + Vector3.up * 1.25f;
+            int n = Mathf.Clamp(Mathf.RoundToInt(arcDegrees / 22f), 3, 8);
+            var dust = new Color(0.62f, 0.56f, 0.5f);
+            for (int i = 0; i < n; i++)
             {
-                new Vector2(0.82f, -0.025f), new Vector2(1f, 0f), new Vector2(0.82f, 0.025f),
-            }, 14, false, arcDegrees), Mat.Glow, Vector3.zero, new Vector3(0f, -arcDegrees / 2f, 0f), new Vector3(radius, 1f, radius));
-            t.rend = part.GetComponent<Renderer>();
-            t.rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            ArtLibrary.SetGlow(t.rend, color);
-            Destroy(go, Life);
-        }
-
-        private void Update()
-        {
-            float k = 1f - (Time.time - born) / Life;
-            ArtLibrary.SetGlow(rend, color * Mathf.Max(0f, k));
-            transform.localScale = Vector3.one * (1f + (1f - k) * 0.15f);
+                float t = n == 1 ? 0.5f : i / (float)(n - 1);
+                float yaw = side * Mathf.Lerp(arcDegrees / 2f, -arcDegrees / 2f, t);
+                var dir = Quaternion.AngleAxis(yaw, Vector3.up) * who.forward;
+                var at = origin + dir * radius * Random.Range(0.75f, 0.95f) + Vector3.up * Mathf.Lerp(0.15f, -0.25f, t) * side;
+                Vfx.Embers(at, 1, dust, 1.4f, 0.03f, 0.35f);
+            }
+            var far = origin + Quaternion.AngleAxis(-side * arcDegrees / 2f, Vector3.up) * who.forward * radius * 0.9f;
+            Vfx.Embers(far, 2, color, 2.2f, 0.025f, 0.18f);
         }
     }
 }

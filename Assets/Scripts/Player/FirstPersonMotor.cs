@@ -34,8 +34,18 @@ namespace Deepbound.Player
         [SerializeField] private float mouseSensitivity = 0.12f;
         [SerializeField] private float maxPitch = 85f;
 
+        [Header("Feel (2026-10-20 movement pass)")]
+        [SerializeField] private float groundAccel = 70f, groundDecel = 55f, airAccel = 16f;
+        /// <summary>A jump still counts this long after walking off a ledge, and a press this early before landing.</summary>
+        public const float CoyoteTime = 0.12f, JumpBuffer = 0.15f;
+
         private CharacterController controller;
         private float verticalVelocity;
+        private Vector3 planar;
+        private float lastGroundedAt = -10f, jumpPressedAt = -10f, landDip, bobPhase, lean, fovKick;
+        private bool wasGrounded, jumping;
+        private float fallSpeed;
+        private Camera viewCam;
         private float pitch;
         private Vector3 impulse;
         private float pivotRestHeight;
@@ -79,6 +89,15 @@ namespace Deepbound.Player
         /// <summary>True while the player has captured the mouse — i.e. is playing, not in a menu.</summary>
         public bool HasControl => Cursor.lockState == CursorLockMode.Locked;
 
+        /// <summary>
+        /// Attacks and abilities: control, and not in the quarter second after a menu closed or the
+        /// window was clicked back into (so the click that closes a menu never swings at a vendor).
+        /// </summary>
+        public bool ActionsReady => HasControl && Time.time >= actionsGraceUntil;
+        private float actionsGraceUntil;
+        private bool menuWasOpen;
+        public const float ActionGrace = 0.25f;
+
         /// <summary>Set while the ping wheel is open: the mouse picks a slice instead of turning the view.</summary>
         public static bool LookHeld;
 
@@ -113,17 +132,26 @@ namespace Deepbound.Player
             // stays reachable; clicking back into the window recaptures it.
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) SetCursorLocked(false);
 
-            // A menu (the merchant's shop) owns the cursor while it is open.
-            if (UI.GameHud.MenuOpen)
+            // A menu (the merchant's shop) owns the cursor while it is open; closing it takes the
+            // cursor straight back (no click needed), and the hands wait a moment before acting.
+            bool menuOpen = UI.GameHud.MenuOpen;
+            if (menuOpen)
             {
                 if (Cursor.lockState == CursorLockMode.Locked) SetCursorLocked(false);
+            }
+            else if (menuWasOpen && !UI.PauseMenu.Open && Application.isFocused)
+            {
+                SetCursorLocked(true);
+                actionsGraceUntil = Time.time + ActionGrace;
             }
             else if (Cursor.lockState != CursorLockMode.Locked &&
                 Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame &&
                 !NetworkLauncherHasFocus())
             {
                 SetCursorLocked(true);
+                actionsGraceUntil = Time.time + ActionGrace;
             }
+            menuWasOpen = menuOpen;
 
             bool hasControl = HasControl;
             bool canMove = hasControl && !Frozen && !Pinned;
@@ -132,6 +160,7 @@ namespace Deepbound.Player
             MoveInput = canMove ? ReadMoveInput() : Vector2.zero;
             bool sprintKey = keyboard != null && keyboard.leftShiftKey.isPressed;
             bool jumpKey = keyboard != null && keyboard.spaceKey.wasPressedThisFrame;
+            jumpHeldNow = keyboard != null && keyboard.spaceKey.isPressed;
             // Mania: your legs are not your own. Rooted: they are frozen to the floor.
             if (debuffs == null) debuffs = GetComponent<PlayerDebuffs>();
             bool manic = debuffs != null && debuffs.Manic && canMove;
@@ -142,17 +171,36 @@ namespace Deepbound.Player
 
             // The world sways while madness has you.
             maniaRoll = Mathf.Lerp(maniaRoll, manic ? Mathf.Sin(Time.time * 4.3f) * 7f + Mathf.Sin(Time.time * 7.1f) * 3f : 0f, 1f - Mathf.Exp(-Time.deltaTime * 6f));
-            if (cameraPivot != null && (manic || Mathf.Abs(maniaRoll) > 0.05f)) cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, maniaRoll);
+
+            // Camera feel: a lean into strafes, a gentle bob with your stride, a dip when you land
+            // hard, and a slightly wider view at a sprint. All scaled by the screen-shake setting.
+            float feel = Mathf.Clamp01(UI.Settings.ShakeScale);
+            float speedNow = new Vector2(planar.x, planar.z).magnitude;
+            bool grounded = controller.enabled && controller.isGrounded;
+            lean = Mathf.Lerp(lean, -MoveInput.x * 1.6f * feel, 1f - Mathf.Exp(-Time.deltaTime * 8f));
+            if (grounded && speedNow > 0.6f) bobPhase += Time.deltaTime * speedNow * 1.85f;
+            float bobK = grounded ? Mathf.Clamp01(speedNow / 7f) * feel : 0f;
+            float bobY = Mathf.Sin(bobPhase * 2f) * 0.032f * bobK;
+            float bobRoll = Mathf.Sin(bobPhase) * 0.45f * bobK;
+            landDip = Mathf.MoveTowards(landDip, 0f, Time.deltaTime * 0.9f);
+            if (cameraPivot != null) cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, maniaRoll + lean + bobRoll);
 
             if (cameraPivot != null)
             {
                 var p = cameraPivot.localPosition;
-                p.y = Mathf.Lerp(p.y, pivotRestHeight - CameraDrop - (IsSliding ? 0.7f : 0f), Time.deltaTime * (IsSliding ? 14f : 8f));
-                cameraPivot.localPosition = p;
+                p.y = Mathf.Lerp(p.y, pivotRestHeight - CameraDrop - (IsSliding ? 0.7f : 0f) - landDip, Time.deltaTime * (IsSliding ? 14f : 12f));
+                cameraPivot.localPosition = p + Vector3.up * (bobY - lastBobY);
+                lastBobY = bobY;
             }
+            // Sprint widens the view a touch (on top of the FOV setting).
+            viewCam ??= cameraPivot != null ? cameraPivot.GetComponentInChildren<Camera>() : null;
+            fovKick = Mathf.Lerp(fovKick, IsSprinting && speedNow > walkSpeed ? 5f * feel : 0f, 1f - Mathf.Exp(-Time.deltaTime * 6f));
+            if (viewCam != null) viewCam.fieldOfView = UI.Settings.FieldOfView + fovKick;
         }
 
         private PlayerDebuffs debuffs;
+        private bool jumpHeldNow;
+        private float lastBobY;
         private float maniaRoll, nextManiaTurn;
         private Vector3 maniaDir;
 
@@ -200,32 +248,72 @@ namespace Deepbound.Player
 
         private void ApplyMovement(Vector2 input, bool sprint, bool jump)
         {
-            if (controller.isGrounded)
+            bool grounded = controller.isGrounded;
+            if (grounded) lastGroundedAt = Time.time;
+            if (jump) jumpPressedAt = Time.time;
+
+            // Landing: a dip in the view by how hard you came down, and the thump of your boots.
+            if (grounded && !wasGrounded && fallSpeed > 5f)
+            {
+                landDip = Mathf.Clamp((fallSpeed - 5f) * 0.018f, 0.02f, 0.16f) * Mathf.Clamp01(UI.Settings.ShakeScale + 0.25f);
+                Art.Sfx.Play(Art.Sound.Step, transform.position, Mathf.Clamp01(fallSpeed / 14f) * 0.6f, 0.75f);
+            }
+            wasGrounded = grounded;
+            if (!grounded) fallSpeed = Mathf.Max(0f, -verticalVelocity);
+
+            if (grounded && verticalVelocity < 0f)
             {
                 // A small constant downward push keeps isGrounded true while walking down
                 // slopes; resetting to exactly zero makes it flicker every other frame.
-                if (verticalVelocity < 0f) verticalVelocity = -2f;
-                if (jump) verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+                verticalVelocity = -2f;
+                jumping = false;
             }
+            // Coyote time and a jump buffer: a press a moment early, or a moment after stepping off
+            // an edge, still jumps.
+            bool canJump = Time.time - lastGroundedAt <= CoyoteTime && !jumping;
+            if (canJump && Time.time - jumpPressedAt <= JumpBuffer)
+            {
+                verticalVelocity = Mathf.Sqrt(jumpHeight * -2f * gravity);
+                jumping = true;
+                jumpPressedAt = -10f;
+                lastGroundedAt = -10f;
+            }
+            // Let go of jump early for a short hop.
+            if (jumping && verticalVelocity > 0f && !jumpHeldNow) verticalVelocity *= Mathf.Exp(-Time.deltaTime * 14f);
 
             verticalVelocity += gravity * Time.deltaTime;
 
             // Sprint only counts moving forward-ish; sprinting sideways or backwards is not a thing.
             IsSprinting = sprint && input.y > 0.1f;
             float speed = (IsSprinting ? sprintSpeed : walkSpeed) * SpeedMultiplier;
-            Vector3 horizontal = (transform.right * input.x + transform.forward * input.y) * speed;
+            Vector3 wish = (transform.right * input.x + transform.forward * input.y) * speed;
             if (IsSliding)
             {
                 // Fast at first, easing off; steering is locked to the direction you slid.
                 float k = (slideUntil - Time.time) / SlideSeconds;
-                horizontal = slideDir * sprintSpeed * SpeedMultiplier * Mathf.Lerp(0.9f, 1.7f, k);
+                wish = slideDir * sprintSpeed * SpeedMultiplier * Mathf.Lerp(0.9f, 1.7f, k);
                 IsSprinting = true;
+                planar = wish;
+            }
+            else
+            {
+                // Quick to get going and to stop on the ground (it should feel responsive, not icy);
+                // in the air you keep your momentum and can only steer a little.
+                bool hasInput = wish.sqrMagnitude > 0.01f;
+                float rate = grounded ? (hasInput ? groundAccel : groundDecel) : airAccel;
+                // A slowing effect (frostbite, roots) applies at once, never "coasting" past it.
+                if (grounded && planar.magnitude > speed + 0.01f) planar = Vector3.ClampMagnitude(planar, Mathf.Max(speed, planar.magnitude - groundDecel * 2f * Time.deltaTime));
+                planar = Vector3.MoveTowards(planar, grounded || hasInput ? wish : planar, rate * Time.deltaTime);
+                if (SpeedMultiplier <= 0.001f) planar = Vector3.zero;
             }
 
             impulse = Vector3.MoveTowards(new Vector3(impulse.x, 0f, impulse.z), Vector3.zero, Time.deltaTime * 40f);
-            Vector3 velocity = horizontal + impulse + Vector3.up * verticalVelocity;
+            Vector3 velocity = planar + impulse + Vector3.up * verticalVelocity;
 
-            controller.Move(velocity * Time.deltaTime);
+            var flags = controller.Move(velocity * Time.deltaTime);
+            // Bumping a wall or ceiling kills the speed into it, so you do not "stick" and then shoot off.
+            if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f) verticalVelocity = 0f;
+            if ((flags & CollisionFlags.Sides) != 0) planar = Vector3.Lerp(planar, new Vector3(controller.velocity.x, 0f, controller.velocity.z), 0.5f);
         }
 
         /// <summary>
@@ -271,6 +359,8 @@ namespace Deepbound.Player
             controller.enabled = wasEnabled;
             verticalVelocity = 0f;
             impulse = Vector3.zero;
+            planar = Vector3.zero;
+            fallSpeed = 0f;
         }
 
         private static void SetCursorLocked(bool locked)

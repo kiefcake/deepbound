@@ -16,6 +16,7 @@ namespace Deepbound.Art
 
         public static void Spawn(Vector3 at, float radius, float seconds, Color? tint = null)
         {
+            at = Vfx.Floor(at);
             var go = new GameObject("SmokeCloud");
             go.transform.position = at;
             var c = go.AddComponent<SmokeCloud>();

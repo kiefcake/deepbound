@@ -54,6 +54,8 @@ namespace Deepbound.World
         {
             public int Id;
             public RoomKind Kind;
+            /// <summary>No enemies here (the peddler's room): no spawns, no mimic.</summary>
+            public bool Peaceful;
             public Vector2Int Cell;
             public Vector3 Center;
             /// <summary>Interior floor size in metres (x, z).</summary>
@@ -629,6 +631,9 @@ namespace Deepbound.World
                 var spot = room.Center + outward * (half - 1.4f) + new Vector3(-outward.z, 0f, outward.x) * 2.5f;
                 layout.PeddlerSpot = spot;
                 layout.PeddlerFacing = -outward;
+                // The peddler trades in peace: nothing hunts in his room.
+                room.Peaceful = true;
+                room.EnemySpawns.Clear();
                 return;
             }
         }

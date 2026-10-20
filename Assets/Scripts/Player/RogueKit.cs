@@ -113,7 +113,7 @@ namespace Deepbound.Player
             motor.SpeedMultiplier = progress.SpeedMultiplier * (life.Hidden.Value ? 1.3f : 1f);
             motor.CanSprint = true;
 
-            if (!life.CanAct || !motor.HasControl) return;
+            if (!life.CanAct || !motor.ActionsReady) return;
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
 

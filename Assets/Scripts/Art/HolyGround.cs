@@ -15,6 +15,7 @@ namespace Deepbound.Art
 
         public static void Spawn(Vector3 at, float radius, float seconds)
         {
+            at = Vfx.Floor(at);
             var go = new GameObject("HolyGround");
             go.transform.position = at + Vector3.up * 0.03f;
             var h = go.AddComponent<HolyGround>();

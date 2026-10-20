@@ -35,9 +35,62 @@ namespace Deepbound.Combat
         public static readonly Color Madness = new Color(0.8f, 0.3f, 1f, 0.4f);
 
         private static Mesh disc, ring, strip, coneFan, coneEdge;
-        private static Mesh Disc => disc ??= MeshKit.Cylinder(1f, 1f, 0.01f, 48);
+        private static Mesh Disc => disc ??= GridDisc(6, 48);
         private static Mesh Ring => ring ??= MeshKit.Lathe("telegraphRing", new[] { new Vector2(0.95f, 0f), new Vector2(1f, 0.02f), new Vector2(0.95f, 0.03f) }, 48, false);
-        private static Mesh Strip => strip ??= MeshKit.Box(new Vector3(1f, 0.01f, 1f));
+        private static Mesh Strip => strip ??= GridStrip(2, 16);
+
+        /// <summary>A flat unit disc in rings, so it can bend over uneven floor.</summary>
+        private static Mesh GridDisc(int rings, int seg)
+        {
+            var v = new List<Vector3> { Vector3.zero };
+            var t = new List<int>();
+            for (int r = 1; r <= rings; r++)
+                for (int i = 0; i < seg; i++)
+                {
+                    float a = i * Mathf.PI * 2f / seg;
+                    v.Add(new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a)) * (r / (float)rings));
+                }
+            for (int i = 0; i < seg; i++) { t.Add(0); t.Add(1 + i); t.Add(1 + (i + 1) % seg); }
+            for (int r = 1; r < rings; r++)
+                for (int i = 0; i < seg; i++)
+                {
+                    int a0 = 1 + (r - 1) * seg + i, a1 = 1 + (r - 1) * seg + (i + 1) % seg;
+                    int b0 = 1 + r * seg + i, b1 = 1 + r * seg + (i + 1) % seg;
+                    t.AddRange(new[] { a0, b0, b1, a0, b1, a1 });
+                }
+            var m = new Mesh { name = "telegraphGridDisc" };
+            m.SetVertices(v);
+            m.SetTriangles(t, 0);
+            var n = new Vector3[v.Count];
+            for (int i = 0; i < n.Length; i++) n[i] = Vector3.up;
+            m.normals = n;
+            m.RecalculateBounds();
+            return m;
+        }
+
+        /// <summary>A flat unit square (centred, -0.5..0.5) in a grid, long along Z.</summary>
+        private static Mesh GridStrip(int nx, int nz)
+        {
+            var v = new List<Vector3>();
+            var t = new List<int>();
+            for (int z = 0; z <= nz; z++)
+                for (int x = 0; x <= nx; x++)
+                    v.Add(new Vector3(x / (float)nx - 0.5f, 0f, z / (float)nz - 0.5f));
+            for (int z = 0; z < nz; z++)
+                for (int x = 0; x < nx; x++)
+                {
+                    int a = z * (nx + 1) + x, b = a + 1, c = a + nx + 1, d = c + 1;
+                    t.AddRange(new[] { a, c, d, a, d, b });
+                }
+            var m = new Mesh { name = "telegraphGridStrip" };
+            m.SetVertices(v);
+            m.SetTriangles(t, 0);
+            var n = new Vector3[v.Count];
+            for (int i = 0; i < n.Length; i++) n[i] = Vector3.up;
+            m.normals = n;
+            m.RecalculateBounds();
+            return m;
+        }
 
         /// <param name="source">Owner for cancelling. Null = an independent telegraph (several can exist at once).</param>
         public static void Show(Vector3 center, float radius, float duration, Object source, Color? tint = null)
@@ -117,6 +170,7 @@ namespace Deepbound.Combat
         private static Telegraph Make(string name, Vector3 at, Quaternion rot, float duration, Object source, Color tint)
         {
             var go = new GameObject(name);
+            at = Vfx.Floor(at);
             go.transform.SetPositionAndRotation(at + Vector3.up * 0.03f, rot);
             var t = go.AddComponent<Telegraph>();
             t.start = Time.time;
@@ -126,8 +180,79 @@ namespace Deepbound.Combat
             return t;
         }
 
+        // ---- Conforming to the floor (2026-10-20): circles and lanes used to float off steps and ramps ----
+        private const int FieldN = 13;
+        private float[] field;
+        private float fieldMinX, fieldMinZ, fieldStep;
+        private readonly List<(MeshFilter mf, Vector3[] base0, Vector3[] work)> conformed = new List<(MeshFilter, Vector3[], Vector3[])>();
+
+        private void SampleField()
+        {
+            float minX, maxX, minZ, maxZ;
+            if (shape == Shape.Line) { minX = -lineWidth / 2f; maxX = lineWidth / 2f; minZ = 0f; maxZ = lineLength; }
+            else if (shape == Shape.Cone) { minX = -radius; maxX = radius; minZ = -0.5f; maxZ = radius; }
+            else { minX = -radius; maxX = radius; minZ = -radius; maxZ = radius; }
+            fieldStep = Mathf.Max(maxX - minX, maxZ - minZ) / (FieldN - 1);
+            fieldMinX = minX; fieldMinZ = minZ;
+            field = new float[FieldN * FieldN];
+            float y0 = transform.position.y;
+            bool any = false;
+            for (int i = 0; i < FieldN; i++)
+                for (int j = 0; j < FieldN; j++)
+                {
+                    var w = transform.TransformPoint(new Vector3(minX + i * fieldStep, 0f, minZ + j * fieldStep));
+                    float h = 0f;
+                    var f = Vfx.Floor(new Vector3(w.x, y0 + 0.6f, w.z));
+                    if (Mathf.Abs(f.y - (y0 + 0.6f)) > 0.001f) h = Mathf.Clamp(f.y - y0 + 0.03f, -2f, 2f);
+                    field[i * FieldN + j] = h;
+                    if (Mathf.Abs(h) > 0.06f) any = true;
+                }
+            if (!any) field = null; // flat floor: nothing to bend
+        }
+
+        private float FieldAt(float x, float z)
+        {
+            float fx = Mathf.Clamp((x - fieldMinX) / fieldStep, 0f, FieldN - 1.001f), fz = Mathf.Clamp((z - fieldMinZ) / fieldStep, 0f, FieldN - 1.001f);
+            int i = (int)fx, j = (int)fz;
+            float u = fx - i, v = fz - j;
+            float a = field[i * FieldN + j], b = field[(i + 1) * FieldN + j], c = field[i * FieldN + j + 1], d = field[(i + 1) * FieldN + j + 1];
+            return Mathf.Lerp(Mathf.Lerp(a, b, u), Mathf.Lerp(c, d, u), v);
+        }
+
+        private void Conform(Renderer r)
+        {
+            if (r == null || !r.TryGetComponent<MeshFilter>(out var mf) || mf.sharedMesh == null) return;
+            var mesh = Instantiate(mf.sharedMesh);
+            mf.sharedMesh = mesh;
+            var v = mesh.vertices;
+            conformed.Add((mf, v, new Vector3[v.Length]));
+        }
+
+        private void Bend()
+        {
+            if (field == null) return;
+            foreach (var (mf, base0, work) in conformed)
+            {
+                if (mf == null) continue;
+                var t = mf.transform;
+                var ls = t.localScale;
+                if (ls.x < 0.0001f || ls.z < 0.0001f) continue;
+                for (int i = 0; i < base0.Length; i++)
+                {
+                    var b = base0[i];
+                    var local = t.localPosition + t.localRotation * Vector3.Scale(b, ls);
+                    float h = FieldAt(local.x, local.z);
+                    work[i] = new Vector3(b.x, b.y + (h - t.localPosition.y + 0.012f) / Mathf.Max(0.0001f, ls.y), b.z);
+                }
+                mf.sharedMesh.vertices = work;
+                mf.sharedMesh.RecalculateBounds();
+            }
+        }
+
         private void Finish()
         {
+            SampleField();
+            if (field != null) foreach (var r in GetComponentsInChildren<Renderer>()) Conform(r);
             if (zone != null) ArtLibrary.Tint(zone, new Color(color.r, color.g, color.b, color.a * 0.55f));
             ArtLibrary.Tint(fill.GetComponent<Renderer>(), new Color(color.r, color.g, color.b, Mathf.Min(0.75f, color.a * 1.4f)));
             ArtLibrary.SetGlow(sweep.GetComponent<Renderer>(), Rgb * 3.2f);
@@ -135,6 +260,8 @@ namespace Deepbound.Combat
             if (source != null) BySource[source] = this;
             Update();
         }
+
+        private void LateUpdate() => Bend();
 
         public static void Cancel(Object source)
         {

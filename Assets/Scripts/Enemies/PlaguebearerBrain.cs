@@ -48,6 +48,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (HeldByStun()) return;
             if (IsServer && cloudUntil > 0f)
             {
                 if (Time.time > cloudUntil) cloudUntil = -1f;

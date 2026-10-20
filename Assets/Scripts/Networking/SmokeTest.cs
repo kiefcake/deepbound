@@ -913,6 +913,15 @@ namespace Deepbound.Networking
                         }
                     }
                     Log("new rooms", "over 40 seeds: library " + lib + ", pyre " + pyre + ", gauntlet " + gaunt + ", spawns in shelves " + badSpawns, lib > 0 && pyre > 0 && gaunt > 0 && badSpawns == 0);
+                    int peddlers = 0, hostile = 0;
+                    for (int sd = 1; sd <= 40; sd++)
+                    {
+                        var gl = DungeonLayout.Generate(sd * 104729, 2 + sd % 6);
+                        foreach (var r in gl.Rooms) if (r.Peaceful) { peddlers++; if (r.EnemySpawns.Count > 0) hostile++; }
+                    }
+                    Log("peddler rooms peaceful", peddlers + " peddler rooms over 40 seeds, " + hostile + " with enemies", peddlers > 0 && hostile == 0);
+                    int roomTraps = FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Count(t => layout.RoomAt(t.transform.position, 0f) != null);
+                    Log("room traps", roomTraps + " spike traps inside rooms on this floor", true);
                 }
                 // The blood altar: three offerings fill the chalice; a relic for who bled, Bloodlust for all.
                 {
@@ -1325,11 +1334,16 @@ namespace Deepbound.Networking
                     var sStock = Shop.For(local.OwnerClientId, Shop.Vendor.Smith);
                     var hStock = Shop.For(local.OwnerClientId, Shop.Vendor.Shrine);
                     var yStock = Shop.For(local.OwnerClientId, Shop.Vendor.Runewright);
-                    bool split = !mStock.Any(it => it.Kind == Shop.ItemKind.Relic || it.Kind == Shop.ItemKind.Gear || it.Kind == Shop.ItemKind.Sigil || it.Kind == Shop.ItemKind.Embers)
+                    bool split = !mStock.Any(it => it.Kind == Shop.ItemKind.Relic || (it.Kind == Shop.ItemKind.Gear && Gear.SlotOf(it.Gear.Kind) != GearSlot.Charm) || it.Kind == Shop.ItemKind.Sigil || it.Kind == Shop.ItemKind.Embers)
                         && sStock.Any(it => it.Kind == Shop.ItemKind.Gear) && !sStock.Any(it => it.Kind == Shop.ItemKind.Sigil) && sStock.Any(it => it.Kind == Shop.ItemKind.Embers)
                         && yStock.Any(it => it.Kind == Shop.ItemKind.Sigil)
                         && hStock.Count(it => it.Kind == Shop.ItemKind.Relic) == 2 && hStock.Any(it => it.Name == "Holy Water") && !mStock.Any(it => it.Name == "Holy Water");
                     Log("vendors", "merchant " + mStock.Length + ", smith " + sStock.Length + ", shrine " + hStock.Length + ", runewright " + yStock.Length + " items", split);
+                    {
+                        int pendants = mStock.Count(it => it.Kind == Shop.ItemKind.Gear && Gear.SlotOf(it.Gear.Kind) == GearSlot.Charm);
+                        bool smithArmour = sStock.Where(it => it.Kind == Shop.ItemKind.Gear).All(it => Gear.SlotOf(it.Gear.Kind) == GearSlot.Armor);
+                        Log("pendants", "Silas sells " + pendants + " pendants, Hobb's gear is armour " + smithArmour, pendants == 2 && smithArmour);
+                    }
 
                     // Strike Silas: he takes no harm, holds a grudge, and charges for it until amends are paid.
                     var silas = FindObjectsByType<CampFolk>(FindObjectsSortMode.None).FirstOrDefault(f => f.Who.Value == (byte)FolkId.Silas);
@@ -1444,6 +1458,8 @@ namespace Deepbound.Networking
                     // Runes and sigils are Ysolde's craft: walk to her stones.
                     motor.Teleport(World.Lobby.RunewrightSpot + Vector3.back * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
+                    var stallHere = local.GetComponent<UI.GameHud>().DebugStallHere();
+                    Log("ysolde reachable", "G at her stones opens " + (stallHere.HasValue ? stallHere.Value.ToString() : "nothing"), stallHere == Shop.Vendor.Runewright);
                     // Runes: one in the bag, set it into the weapon's first socket.
                     int bagBefore = progress.RuneBagCount;
                     progress.ServerAddRune(Rune.Frost);

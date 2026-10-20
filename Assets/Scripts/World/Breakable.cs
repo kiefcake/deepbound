@@ -201,12 +201,22 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.Urn)
             {
-                var urn = MeshKit.Part(transform, "Urn", MeshKit.Lathe("urn", new[]
+                // Bigger since 2026-10-20 (the user: "make vases larger"): about knee-to-hip high, with a
+                // painted band, two handles and a lid, so they read as something to smash.
+                var vase = MeshKit.Pivot(transform, "Vase", Vector3.zero);
+                vase.localScale = Vector3.one * 1.65f;
+                var urn = MeshKit.Part(vase, "Urn", MeshKit.Lathe("urn", new[]
                 {
                     new Vector2(0f, 0f), new Vector2(0.16f, 0f), new Vector2(0.26f, 0.22f), new Vector2(0.24f, 0.45f),
                     new Vector2(0.12f, 0.6f), new Vector2(0.15f, 0.68f), new Vector2(0f, 0.68f),
-                }, 10, false), Mat.Rubble, Vector3.zero);
+                }, 12, false), Mat.Rubble, Vector3.zero);
                 ArtLibrary.Tint(urn.GetComponent<Renderer>(), new Color(1.25f, 0.75f, 0.48f));
+                var band = MeshKit.Part(vase, "Band", MeshKit.Cylinder(0.262f, 0.262f, 0.06f, 12), Mat.Cloth, new Vector3(0f, 0.3f, 0f));
+                ArtLibrary.Tint(band.GetComponent<Renderer>(), new Color(0.35f, 0.12f, 0.08f));
+                foreach (float s in new[] { -1f, 1f })
+                    MeshKit.Part(vase, "Handle", MeshKit.Lathe("urnHandle", new[] { new Vector2(0.05f, -0.02f), new Vector2(0.065f, 0f), new Vector2(0.05f, 0.02f) }, 8, false, 200f),
+                        Mat.Rubble, new Vector3(s * 0.2f, 0.52f, 0f), new Vector3(0f, s > 0 ? 0f : 180f, 90f), Vector3.one);
+                MeshKit.Part(vase, "Lid", MeshKit.Cylinder(0.13f, 0.15f, 0.04f, 10), Mat.Rubble, new Vector3(0f, 0.7f, 0f));
             }
             else
             {

@@ -93,6 +93,9 @@ namespace Deepbound.Loot
             GearId.BellringersHauberk, GearId.GravediggersCoat, GearId.RosaryOfAsh, GearId.WitchboneFetish,
         };
 
+        /// <summary>The rollable pieces for one slot (the smith sells armour, Silas pendants).</summary>
+        public static GearId[] RollableOf(GearSlot slot) => System.Array.FindAll(Rollable, id => SlotOf(id) == slot);
+
         /// <summary>The legendary a boss can drop, by its type.</summary>
         public static GearId LegendaryOf(Enemies.BossBrain boss) => boss is Enemies.GravewardenBrain ? GearId.WardensBulwark
             : boss is Enemies.TideLichBrain ? GearId.LichPhylactery

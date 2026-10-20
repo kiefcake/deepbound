@@ -916,7 +916,7 @@ namespace Deepbound.World
                     var chestRot = Quaternion.LookRotation(-back);
                     var chest = Spawn(chestPrefab, DropSpots.ClearForChest(room.Center + back * toBack, chestRot, room), chestRot);
                     // Some chests are hungry. Fewer on the first floor.
-                    if (mimicPrefab != null && !TestMode && rng.NextDouble() < (layout.Depth == 0 ? 0.12 : 0.2)) chest.GetComponent<Chest>().Mimic.Value = true;
+                    if (mimicPrefab != null && !TestMode && !room.Peaceful && rng.NextDouble() < (layout.Depth == 0 ? 0.12 : 0.2)) chest.GetComponent<Chest>().Mimic.Value = true;
                     chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
                 }
 
@@ -968,6 +968,32 @@ namespace Deepbound.World
                     var b = layout.Rooms[link.B];
                     if (a.Kind == RoomKind.Boss || b.Kind == RoomKind.Boss || a.Kind == RoomKind.Start) continue;
                     if (rng.NextDouble() < 0.4) Spawn(trapPrefab, layout.CorridorMidpoint(link) + Vector3.up * 0.005f, Quaternion.identity);
+                }
+                // Rooms too (2026-10-20): a row of two or three pressure plates across a plain fight
+                // room's floor, off the doorways, in about half of them. Lure the dead across.
+                foreach (var room in layout.Rooms)
+                {
+                    if (room.Kind != RoomKind.Combat || room.Peaceful) continue;
+                    var f = room.Feature;
+                    if (f != RoomFeature.None && f != RoomFeature.GreatHall && f != RoomFeature.Gallery && f != RoomFeature.Ritual && f != RoomFeature.Library) continue;
+                    if (rng.NextDouble() > 0.55) continue;
+                    var shelves = DungeonLayout.LibraryShelves(room);
+                    int rows = room.Size.x * room.Size.y > 600f && rng.NextDouble() < 0.5 ? 2 : 1;
+                    for (int r = 0; r < rows; r++)
+                    {
+                        bool alongX = rng.NextDouble() < 0.5;
+                        var start = room.Center + new Vector3((float)(rng.NextDouble() - 0.5) * (room.Size.x - 9f), 0f, (float)(rng.NextDouble() - 0.5) * (room.Size.y - 9f));
+                        int count = 2 + rng.Next(2);
+                        for (int k = 0; k < count; k++)
+                        {
+                            var at = start + (alongX ? Vector3.right : Vector3.forward) * (k * 2.7f);
+                            if (!room.Contains(at, -3f)) continue;
+                            if (shelves.Exists(q => { var g = q; g.xMin -= 1f; g.yMin -= 1f; g.xMax += 1f; g.yMax += 1f; return g.Contains(new Vector2(at.x, at.z)); })) continue;
+                            if (Vector3.Distance(new Vector3(at.x, 0f, at.z), new Vector3(room.Center.x, 0f, room.Center.z)) < 2.5f) continue;
+                            if (!NavMesh.SamplePosition(at, out var hit, 1.2f, NavMesh.AllAreas) || Mathf.Abs(hit.position.y) > 0.3f) continue;
+                            Spawn(trapPrefab, hit.position + Vector3.up * 0.005f, Quaternion.identity);
+                        }
+                    }
                 }
             }
         }

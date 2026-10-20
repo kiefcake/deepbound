@@ -49,6 +49,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (HeldByStun()) return;
             if (IsServer && !IsDead && curseAt > 0f && Time.time >= curseAt)
             {
                 curseAt = -1f;

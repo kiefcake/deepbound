@@ -68,6 +68,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (HeldByStun()) return;
             if (Rig != null) Rig.Blocking = ShieldUp;
             base.Update();
         }

@@ -40,6 +40,7 @@ namespace Deepbound.Loot
         }
 
         public static readonly Color EmberColor = new Color(1f, 0.42f, 0.12f);
+        public static readonly Color GoldColor = new Color(1f, 0.82f, 0.3f);
         public static readonly Color SigilColor = new Color(0.7f, 0.5f, 1f);
 
         public static string Name(LootKind kind)

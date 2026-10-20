@@ -96,7 +96,7 @@ namespace Deepbound.Player
         {
             if (!IsOwner) return;
             var kb = Keyboard.current;
-            if (kb == null || Time.time < readyAt || !life.CanAct || !motor.HasControl) return;
+            if (kb == null || Time.time < readyAt || !life.CanAct || !motor.ActionsReady) return;
             Kind? k = kb.digit1Key.wasPressedThisFrame ? Kind.Health : kb.digit2Key.wasPressedThisFrame ? Kind.Mana
                 : kb.digit3Key.wasPressedThisFrame ? Kind.Frost : kb.digit4Key.wasPressedThisFrame ? Kind.Holy : (Kind?)null;
             // Number keys pick a class at camp before a run; there the pouch stays shut.

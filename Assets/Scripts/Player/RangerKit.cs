@@ -113,7 +113,7 @@ namespace Deepbound.Player
             motor.SpeedMultiplier = progress.SpeedMultiplier * (drawStart >= 0f ? 0.6f : 1f);
             motor.CanSprint = drawStart < 0f;
 
-            bool canAct = life.CanAct && motor.HasControl;
+            bool canAct = life.CanAct && motor.ActionsReady;
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
             if (!canAct)

@@ -39,6 +39,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (HeldByStun()) return;
             // Everyone: the spectre hovers and sways.
             if (Rig != null) Rig.transform.localPosition = new Vector3(0f, 0.25f + Mathf.Sin(Time.time * 2.1f + NetworkObjectId) * 0.12f, 0f);
 

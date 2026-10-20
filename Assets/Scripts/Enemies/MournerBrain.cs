@@ -54,6 +54,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (HeldByStun()) return;
             if (Rig != null && IsDead && !Rig.enabled) Rig.enabled = true;
 
             // Everyone: the grinding of stone while it moves unseen.

@@ -87,6 +87,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (HeldByStun()) return;
             // Everyone: it floats, and its bone rings turn.
             if (Rig != null)
             {

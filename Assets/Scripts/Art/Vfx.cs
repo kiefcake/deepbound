@@ -177,6 +177,27 @@ namespace Deepbound.Art
         }
 
         /// <summary>The floor under a point (for rings and spikes under a body), or the point itself.</summary>
+        /// <summary>
+        /// The walkable floor under <paramref name="p"/> (2026-10-20): prefers the level's own floor
+        /// (structure) to the tops of props and bodies, so ground circles never sit up on a crate or
+        /// a shoulder. Searches from just above down to 3 m below; returns p if nothing is found.
+        /// </summary>
+        public static Vector3 Floor(Vector3 p)
+        {
+            var hits = Physics.RaycastAll(p + Vector3.up * 0.9f, Vector3.down, 4f, ~(1 << 2), QueryTriggerInteraction.Ignore);
+            if (hits.Length == 0) return p;
+            System.Array.Sort(hits, (a, b) => a.distance.CompareTo(b.distance));
+            RaycastHit? best = null;
+            foreach (var h in hits)
+            {
+                if (h.normal.y < 0.55f || h.collider.GetComponentInParent<Combat.Health>() != null) continue;
+                var root = h.collider.transform.root;
+                if (h.collider.name.Contains("Structure") || root.name.Contains("Structure") || h.collider.transform.parent != null && h.collider.transform.parent.name.Contains("Structure")) return h.point;
+                if (best == null) best = h;
+            }
+            return best.HasValue ? best.Value.point : p;
+        }
+
         public static Vector3 Ground(Vector3 p) =>
             Physics.Raycast(p + Vector3.up * 0.2f, Vector3.down, out var hit, 4f, ~(1 << 2), QueryTriggerInteraction.Ignore) ? hit.point : p;
 

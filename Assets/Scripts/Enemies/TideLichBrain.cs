@@ -196,6 +196,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (HeldByStun()) return;
             if (IsServer && !IsDead) TickSpiral();
             if (IsServer && !IsDead && !InSurvival) TickMaelstrom();
             if (IsServer && !IsDead)

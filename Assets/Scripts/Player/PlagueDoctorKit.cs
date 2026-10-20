@@ -114,7 +114,7 @@ namespace Deepbound.Player
             Reagents = Mathf.Min(ReagentMax, Reagents + ReagentRegen * Time.deltaTime);
             motor.SpeedMultiplier = progress.SpeedMultiplier;
             motor.CanSprint = true;
-            if (!life.CanAct || !motor.HasControl) return;
+            if (!life.CanAct || !motor.ActionsReady) return;
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
 

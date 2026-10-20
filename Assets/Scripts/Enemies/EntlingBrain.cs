@@ -53,6 +53,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (HeldByStun()) return;
             if (IsServer && !IsDead && held != null)
             {
                 var hp = held.GetComponent<Health>();

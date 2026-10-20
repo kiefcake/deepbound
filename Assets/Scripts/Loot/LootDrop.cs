@@ -81,7 +81,7 @@ namespace Deepbound.Loot
             bornAt = Time.time;
             // A short delay so loot visibly lands before it vanishes into whoever was
             // standing on the corpse.
-            pickupAllowedAt = Time.time + 0.6f;
+            pickupAllowedAt = Time.time + 0.35f;
         }
 
         private void Update()
@@ -179,6 +179,18 @@ namespace Deepbound.Loot
         [Rpc(SendTo.ClientsAndHost)]
         private void PickedUpRpc(ulong playerObjectId)
         {
+            // Whoever took it sees it at once, under the crosshair.
+            if (NetworkPlayer.Local != null && NetworkPlayer.Local.NetworkObjectId == playerObjectId)
+            {
+                var k = Kind.Value;
+                if (k == LootKind.Gold) UI.GameHud.Pickup("gold", Amount.Value, " gold", LootInfo.GoldColor);
+                else if (k == LootKind.Embers) UI.GameHud.Pickup("embers", Amount.Value, " embers", LootInfo.EmberColor);
+                else if (k == LootKind.Sigil) UI.GameHud.Pickup("sigil", 1, " Sigil", LootInfo.SigilColor);
+                else if (k == LootKind.Rune) UI.GameHud.Pickup("rune" + Amount.Value, 1, " " + Runes.Name((Rune)Amount.Value), Runes.Color((Rune)Amount.Value));
+                else if (k == LootKind.Relic) UI.GameHud.Pickup("relic" + Amount.Value, 1, " " + Relics.Name((Relic)Amount.Value), Relics.GemColor((Relic)Amount.Value));
+                else if (k == LootKind.PotionHP) UI.GameHud.Pickup("hp", Mathf.Max(1, Amount.Value), " Health Potion", new Color(1f, 0.35f, 0.35f));
+                else if (k == LootKind.PotionMP) UI.GameHud.Pickup("mp", Mathf.Max(1, Amount.Value), " Mana Potion", new Color(0.45f, 0.6f, 1f));
+            }
             // Relics announce themselves; gold and embers just make their noise.
             var at = transform.position + Vector3.up * 0.4f;
             if (Kind.Value == LootKind.Gold) Sfx.Play(Sound.Coins, at, 0.6f);

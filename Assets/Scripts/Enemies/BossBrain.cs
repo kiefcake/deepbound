@@ -434,7 +434,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
-            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); TickPatterns(); TickQuickShots(); TickHunt(); TickStrikes(); }
+            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); TickPatterns(); TickStrikes(); if (!IsStunned) { TickQuickShots(); TickHunt(); } }
             if (IsServer && !IsDead && Dormant)
             {
                 if (agent.enabled && agent.isOnNavMesh) agent.isStopped = true;

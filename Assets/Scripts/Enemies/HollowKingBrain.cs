@@ -97,6 +97,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            if (HeldByStun()) return;
             if (IsServer && !IsDead) { TickJudgement(); TickBlades(); }
             if (IsServer && !IsDead && slamming)
             {

@@ -35,7 +35,7 @@ namespace Deepbound.Player
         {
             if (!IsOwner) return;
             var keyboard = Keyboard.current;
-            if (keyboard == null || !keyboard.vKey.wasPressedThisFrame || Time.time < ReadyAt || !life.CanAct || !motor.HasControl) return;
+            if (keyboard == null || !keyboard.vKey.wasPressedThisFrame || Time.time < ReadyAt || !life.CanAct || !motor.ActionsReady) return;
             ReadyAt = Time.time + Cooldown;
             bool slide = motor.IsSliding;
             motor.AddImpulse(transform.forward * (slide ? 1f : 3f));
