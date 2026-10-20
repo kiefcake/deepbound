@@ -228,6 +228,30 @@ namespace Deepbound.UI
         private Vector2 journalScroll;
         private int journalOpen = -1;
 
+        private Vector2 bestiaryScroll;
+
+        /// <summary>Two columns of the dead you have met (bosses after), "???" for the rest.</summary>
+        private void DrawBestiary(Rect panel, float colW, GUIStyle titleStyle, GUIStyle bodyStyle)
+        {
+            var view = new Rect(panel.x + 20, panel.y + 58, panel.width - 40, panel.height - 124);
+            float rowH = 62f;
+            int rows = (Bestiary.Entries.Length + 1) / 2;
+            var content = new Rect(0, 0, view.width - 20, rows * rowH);
+            bestiaryScroll = GUI.BeginScrollView(view, bestiaryScroll, content);
+            float cw = (content.width - 20f) / 2f;
+            for (int i = 0; i < Bestiary.Entries.Length; i++)
+            {
+                var e = Bestiary.Entries[i];
+                bool seen = Bestiary.Seen(i);
+                var r = new Rect((i % 2) * (cw + 20f), (i / 2) * rowH, cw, rowH - 6);
+                UiSkin.Rect(r, new Color(1f, 1f, 1f, seen ? 0.05f : 0.02f));
+                if (seen) UiSkin.Rect(new Rect(r.x, r.y, 3, r.height), e.Boss ? new Color(0.9f, 0.3f, 0.22f) : UiSkin.Gold);
+                GUI.Label(new Rect(r.x + 10, r.y + 3, r.width - 14, 20), seen ? e.Name.ToUpperInvariant() : "???", new GUIStyle(titleStyle) { normal = { textColor = seen ? (e.Boss ? new Color(0.95f, 0.45f, 0.35f) : UiSkin.Gold) : new Color(0.5f, 0.48f, 0.45f) } });
+                GUI.Label(new Rect(r.x + 10, r.y + 22, r.width - 14, r.height - 24), seen ? e.Text : (e.Boss ? "A guardian you have not faced." : "Not yet met."), new GUIStyle(bodyStyle) { fontSize = 12, normal = { textColor = seen ? bodyStyle.normal.textColor : new Color(0.5f, 0.48f, 0.45f) } });
+            }
+            GUI.EndScrollView();
+        }
+
         private void DrawJournal(Rect panel, float colW, GUIStyle titleStyle, GUIStyle bodyStyle)
         {
             string[] floors = { "THE OSSUARY", "THE DROWNED VAULTS", "THE HOLLOW THRONE", "THE BLACK CATHEDRAL", "EULOGIES" };
@@ -262,12 +286,13 @@ namespace Deepbound.UI
             float pw = Mathf.Min(980f, w - 60f), ph = Mathf.Min(600f, h - 60f);
             var panel = new Rect(w / 2f - pw / 2f, h / 2f - ph / 2f, pw, ph);
             UiSkin.Panel(panel, 0.96f);
-            string[] titles = { "GUIDE: PROGRESSION", "GUIDE: THE DUNGEON", "JOURNAL  (" + Journal.Count + " / " + Journal.Entries.Length + " pages)" };
+            string[] titles = { "GUIDE: PROGRESSION", "GUIDE: THE DUNGEON", "JOURNAL  (" + Journal.Count + " / " + Journal.Entries.Length + " pages)", "BESTIARY  (" + Bestiary.SeenCount + " / " + Bestiary.Entries.Length + " met)" };
             GUI.Label(new Rect(panel.x, panel.y + 12, pw, 40), titles[guidePage], new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
             float colW = (pw - 72f) / 2f;
             var titleStyle = new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, fontSize = 14, normal = { textColor = UiSkin.Gold } };
             var bodyStyle = new GUIStyle(UiSkin.Body) { fontSize = 14, wordWrap = true };
             if (guidePage == 2) DrawJournal(panel, colW, titleStyle, bodyStyle);
+            else if (guidePage == 3) DrawBestiary(panel, colW, titleStyle, bodyStyle);
             else for (int c = 0; c < 2; c++)
             {
                 float x = panel.x + 24 + c * (colW + 24), y = panel.y + 64;
@@ -279,8 +304,8 @@ namespace Deepbound.UI
                     y += 20 + bh + 14;
                 }
             }
-            string[] next = { "THE DUNGEON >", "JOURNAL >", "PROGRESSION >" };
-            if (GUI.Button(new Rect(panel.x + pw / 2f - 280, panel.yMax - 56, 180, 40), next[guidePage], UiSkin.Button)) guidePage = (guidePage + 1) % 3;
+            string[] next = { "THE DUNGEON >", "JOURNAL >", "BESTIARY >", "PROGRESSION >" };
+            if (GUI.Button(new Rect(panel.x + pw / 2f - 280, panel.yMax - 56, 180, 40), next[guidePage], UiSkin.Button)) guidePage = (guidePage + 1) % 4;
             if (GUI.Button(new Rect(panel.x + pw / 2f + 100, panel.yMax - 56, 180, 40), "BACK", UiSkin.Button)) guide = false;
         }
     }

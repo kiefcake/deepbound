@@ -989,6 +989,8 @@ namespace Deepbound.Networking
                             ow.ServerConjure(local.transform.position);
                             for (float t = 0f; t < 3.2f; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
                             Log("orbweaver", "orbs " + ow.OrbsAlive + ", volleys " + ow.VolleysFired, ow.VolleysFired > 0);
+                            bool first = UI.Bestiary.See(ow), again = UI.Bestiary.See(ow);
+                            Log("bestiary", "first sight new " + first + ", second sight new " + again + ", " + UI.Bestiary.SeenCount + " / " + UI.Bestiary.Entries.Length + " met", (first || UI.Bestiary.SeenCount > 0) && !again);
                             ow.GetComponent<Health>().ServerDamage(1e6f, ow.transform.position);
                             yield return new WaitForSeconds(0.2f);
                             Log("orbweaver death pops its orbs", "orbs left " + ow.OrbsAlive, ow.OrbsAlive == 0);

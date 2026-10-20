@@ -2290,10 +2290,23 @@ namespace Deepbound.UI
             }
         }
 
+        private float nextBestiaryCheck;
+
         private void DrawEnemyBars()
         {
             var cam = player.Camera;
             if (cam == null) return;
+            // The Bestiary fills in when a creature is close and on screen (and once more for a boss in its intro).
+            if (Event.current.type == EventType.Repaint && Time.time >= nextBestiaryCheck)
+            {
+                nextBestiaryCheck = Time.time + 0.5f;
+                foreach (var e in EnemyBrain.All)
+                {
+                    if (e == null || e.IsDead) continue;
+                    var sp = cam.WorldToViewportPoint(e.transform.position + Vector3.up);
+                    if (sp.z > 0f && sp.z < 16f && sp.x > 0.1f && sp.x < 0.9f && sp.y > 0.05f && sp.y < 0.95f) Bestiary.See(e);
+                }
+            }
 
             foreach (var hp in Health.All)
             {

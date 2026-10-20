@@ -402,6 +402,7 @@ namespace Deepbound.Art
 
             rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.93f, 0f));
             BuildLegs(rig, 0.11f, 0.93f, Mat.Leather, Mat.Leather, 0.15f);
+            TintLegs(rig, new Color(0.24f, 0.22f, 0.22f), new Color(0.16f, 0.12f, 0.1f));
 
             rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", Vector3.zero);
             var jerkin = MeshKit.Part(rig.Torso, "Jerkin", MeshKit.Lathe("rogueChest", new[]
@@ -470,6 +471,7 @@ namespace Deepbound.Art
 
             rig.Hips = MeshKit.Pivot(visual, "Hips", new Vector3(0f, 0.94f, 0f));
             BuildLegs(rig, 0.11f, 0.94f, Mat.Leather, Mat.Leather, 0.15f);
+            TintLegs(rig, new Color(0.32f, 0.36f, 0.22f), new Color(0.3f, 0.2f, 0.12f));
             rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", Vector3.zero);
             var jerkin = MeshKit.Part(rig.Torso, "Jerkin", MeshKit.Lathe("rogueChest", new[]
             {
@@ -1750,6 +1752,21 @@ namespace Deepbound.Art
             rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
             rig.StrideLength = 0.7f;
             return rig;
+        }
+
+        /// <summary>Different leg tones per class (trousers, then boots), so leather legs are not all one brown.</summary>
+        private static void TintLegs(HumanoidRig rig, Color legs, Color boots)
+        {
+            foreach (var leg in new[] { rig.LegL, rig.LegR })
+            {
+                if (leg == null) continue;
+                foreach (var r in leg.GetComponentsInChildren<Renderer>())
+                {
+                    var n = r.gameObject.name;
+                    if (n == "Thigh") ArtLibrary.Tint(r, legs);
+                    else if (n == "Boot" || n == "Toe" || n == "BootCuff") ArtLibrary.Tint(r, boots);
+                }
+            }
         }
 
         private static void BuildLegs(HumanoidRig rig, float spacing, float hipHeight, string armour, string under, float width)

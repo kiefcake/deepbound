@@ -31,10 +31,10 @@ namespace Deepbound.Art
             starRenderers = new Renderer[6];
             for (int i = 0; i < 3; i++)
             {
-                var star = MeshKit.Pivot(stars, "Star" + i, Quaternion.Euler(0f, i * 120f, 0f) * Vector3.forward * 0.42f);
+                var star = MeshKit.Pivot(stars, "Star" + i, Quaternion.Euler(0f, i * 120f, 0f) * Vector3.forward * 0.5f);
                 for (int k = 0; k < 2; k++)
                 {
-                    var p = MeshKit.Part(star, "Ray", MeshKit.Box(new Vector3(0.16f, 0.035f, 0.02f)), Mat.Glow, Vector3.zero, new Vector3(0f, 0f, 45f + k * 90f));
+                    var p = MeshKit.Part(star, "Ray", MeshKit.Box(new Vector3(0.24f, 0.05f, 0.025f)), Mat.Glow, Vector3.zero, new Vector3(0f, 0f, 45f + k * 90f));
                     var r = p.GetComponent<Renderer>();
                     r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                     ArtLibrary.SetGlow(r, Star * 1.6f);

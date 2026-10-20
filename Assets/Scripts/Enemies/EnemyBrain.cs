@@ -159,8 +159,24 @@ namespace Deepbound.Enemies
         private static bool RisesFromGround(CharacterArt.SkeletonKind k) =>
             k != CharacterArt.SkeletonKind.Wraith && k != CharacterArt.SkeletonKind.Mimic && k != CharacterArt.SkeletonKind.Gargoyle && k != CharacterArt.SkeletonKind.Mourner && k != CharacterArt.SkeletonKind.Unsung;
 
+        /// <summary>Every live enemy (any peer), for the Bestiary and other look-ups.</summary>
+        public static readonly List<EnemyBrain> All = new List<EnemyBrain>();
+
+        public override void OnNetworkDespawn()
+        {
+            All.Remove(this);
+            base.OnNetworkDespawn();
+        }
+
+        public override void OnDestroy()
+        {
+            All.Remove(this);
+            base.OnDestroy();
+        }
+
         public override void OnNetworkSpawn()
         {
+            if (!All.Contains(this)) All.Add(this);
             gameObject.AddComponent<StunDaze>().Init(this);
             CharacterArt.SkeletonVariant = (int)((NetworkObjectId * 2654435761UL) & 0x7FFFFFFF);
             Rig = CharacterArt.BuildSkeleton(transform, visualKind);
