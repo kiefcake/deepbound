@@ -198,6 +198,13 @@ namespace Deepbound.UI
                     for (float gx = r.x + scale * 4f; gx < r.xMax - 1f; gx += scale * 4f) UiSkin.Rect(new Rect(gx, r.y, 1f, r.height), grid);
                     for (float gy = r.y + scale * 4f; gy < r.yMax - 1f; gy += scale * 4f) UiSkin.Rect(new Rect(r.x, gy, r.width, 1f), grid);
                 }
+                // The special rooms say what they are (on the big map, or a big enough mini-map).
+                if (room.Special && (large || r.width > 26f))
+                {
+                    string label = room.Feature == RoomFeature.Treasury ? "TREASURY" : room.Feature == RoomFeature.Beggar ? "BEGGAR"
+                        : room.Feature == RoomFeature.Proving ? "PROVING" : room.Feature == RoomFeature.Armoury ? "ARMOURY" : "MIRROR";
+                    GUI.Label(new Rect(r.x - 20f, r.center.y - 9f, r.width + 40f, 18f), label, new GUIStyle(UiSkin.Small) { fontSize = large ? 12 : 9, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 0.88f, 0.55f, 0.9f) } });
+                }
                 // Raised ground: lighter blocks.
                 foreach (var (rr, top) in room.Raised) UiSkin.Rect(WorldRect(rr.center.x, rr.center.y, rr.width, rr.height), new Color(1f, 1f, 1f, 0.06f + 0.03f * top));
                 // Features: the chasm's pit, a sunken court or flooded cistern.

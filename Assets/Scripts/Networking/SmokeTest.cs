@@ -2462,6 +2462,21 @@ namespace Deepbound.Networking
             motor.Teleport(bp, Quaternion.LookRotation(layout.BossSpawn - bp));
             yield return new WaitForSeconds(2.4f);
             yield return Shot(dir, "3_boss_room"); yield return SamplePerf("3_boss_room");
+            {
+                // Every arena device in one frame: a healing pylon, a ballista, a lit sanctum brazier, a winch and its chandelier.
+                var dd = DungeonDirector.Instance;
+                var side = Vector3.Cross(Vector3.up, (layout.BossSpawn - bp).normalized);
+                var row = bp + (layout.BossSpawn - bp).normalized * 5f;
+                dd.ServerDebugPylon(row - side * 3f);
+                var balS = dd.ServerDebugEngine(ArenaEngine.Kind.Ballista, row - side * 1f, Vector3.zero);
+                var brS = dd.ServerDebugEngine(ArenaEngine.Kind.Brazier, row + side * 1f, Vector3.zero);
+                var wiS = dd.ServerDebugEngine(ArenaEngine.Kind.Winch, row + side * 3f, row + side * 3f + (layout.BossSpawn - bp).normalized * 4f);
+                if (brS != null) brS.Lit.Value = true;
+                motor.SetPitch(-6f);
+                yield return new WaitForSeconds(1.2f);
+                yield return Shot(dir, "3b_arena_devices");
+                motor.SetPitch(0f);
+            }
 
             // Turn round to see a corridor mouth from inside the boss room.
             motor.Teleport(bp, Quaternion.LookRotation(bp - layout.BossSpawn));

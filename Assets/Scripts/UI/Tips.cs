@@ -104,6 +104,7 @@ namespace Deepbound.UI
                 var b = h.GetComponent<EnemyBrain>();
                 if (d < 9f && b != null && (b.Status.Value & 4) != 0) Offer("tell", "A red ! over an enemy means it is about to strike. Dodge (Ctrl), block, or step out of reach.");
                 if (b is BossBrain bb && bb.Immune) Offer("phases", "The boss is IMMUNE for now. A WARDED boss stays immune until its guards die; SURVIVE means dodge until the timer runs out. The boss bar says which.");
+                if (b is OrbweaverBrain) Offer("orbweaver", "An ORBWEAVER: it hangs back and conjures orbs that fire patterns - spirals, rings with a gap, aimed bursts. Watch the gap, and kill the Orbweaver: its orbs die with it.");
                 if (b is MournerBrain) Offer("mourner", "A MOURNER: it only moves while no one is looking at it. Keep your eyes on it, back away facing it, and listen for stone scraping behind you.");
                 if (b is GravewardenBrain) Offer("warden", "THE GRAVEWARDEN: its shield blocks from the front. Hit it right after each Mace Sweep (OPENING), from behind, or while it is dazed from charging into stone.");
                 if (b is ShieldbearerBrain sb && sb.ShieldUp) Offer("shield", "SHIELDBEARER: its shield blocks from the front. KICK it (V) or Shield Bash to knock the shield aside, or get behind it.");

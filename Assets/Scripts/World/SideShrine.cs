@@ -204,7 +204,7 @@ namespace Deepbound.World
             bool mine = NetworkPlayer.Local != null && NetworkPlayer.Local.TryGetComponent<PlayerProgress>(out var me) && HasUsed(me);
             bool dim = Spent.Value || (Type.Value != Kind.Beggar && Type.Value != Kind.Bell && mine);
             if (gem != null) gem.gameObject.SetActive(!dim || Type.Value == Kind.Whetstone);
-            if (glow != null) glow.intensity = dim ? 0.3f : 2.2f;
+            if (glow != null) glow.intensity = dim ? 0.3f : (Type.Value == Kind.Pedestal ? 3.4f : 2.4f);
             if (Spent.Value && Type.Value == Kind.Beggar)
                 if (vis != null) foreach (Transform c in vis) if (c.name.StartsWith("Beggar")) c.gameObject.SetActive(false);
         }
@@ -260,7 +260,7 @@ namespace Deepbound.World
                     gem = MeshKit.Pivot(vis, "Gem", Vector3.up * 1.45f);
                     var g = MeshKit.Part(gem, "Stone", MeshKit.Lathe("relicGem", new[] { new Vector2(0f, -0.14f), new Vector2(0.1f, 0f), new Vector2(0f, 0.16f) }, 6), Mat.Glow, Vector3.zero, Vector3.zero, Vector3.one * 1.5f);
                     ArtLibrary.SetGlow(g.GetComponent<Renderer>(), c * 1.4f);
-                    glow = AddLight(c, 4f, 1.5f);
+                    glow = AddLight(c, 6.5f, 1.6f);
                     break;
                 }
                 case Kind.Beggar:

@@ -212,6 +212,9 @@ namespace Deepbound.World
             return e;
         }
 
+        /// <summary>Tests: a healing pylon at a spot.</summary>
+        public void ServerDebugPylon(Vector3 at) { if (breakablePrefab != null) SpawnBreakable(Breakable.Kind.HealPylon, at); }
+
         /// <summary>Tests: an arena device at a spot.</summary>
         public ArenaEngine ServerDebugEngine(ArenaEngine.Kind kind, Vector3 at, Vector3 target) => arenaEnginePrefab != null ? SpawnEngine(kind, at, at + Vector3.forward, target) : null;
 
