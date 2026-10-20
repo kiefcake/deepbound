@@ -753,6 +753,8 @@ namespace Deepbound.World
             // NetworkVariable callbacks do not fire for the writer's own change on every
             // NGO version, so build explicitly; BuildLocal ignores a repeat.
             BuildLocal(Floor.Value);
+            // The Tallyman's clock, sized to the floor just built.
+            TallyArriveAfter.Value = TallyBaseSeconds + TallyPerRoom * Layout.Rooms.Count;
 
             BakeNavMesh();
             SpawnObjects(Layout);

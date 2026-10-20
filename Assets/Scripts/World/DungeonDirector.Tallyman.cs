@@ -11,7 +11,14 @@ namespace Deepbound.World
     /// </summary>
     public partial class DungeonDirector
     {
-        public const float TallyWarnSeconds = 420f, TallyArriveSeconds = 540f;
+        /// <summary>He comes after 7 minutes plus 20 s for every room (a big floor takes longer to clear
+        /// properly); the bell tolls <see cref="TallyBellLead"/> before.</summary>
+        public const float TallyBaseSeconds = 420f, TallyPerRoom = 20f, TallyBellLead = 120f;
+
+        /// <summary>Seconds after the floor began that he arrives (synced for the HUD's count).</summary>
+        public readonly NetworkVariable<float> TallyArriveAfter = new NetworkVariable<float>(540f);
+        public float TallyArriveSeconds => TallyArriveAfter.Value;
+        public float TallyWarnSeconds => TallyArriveAfter.Value - TallyBellLead;
 
         [SerializeField] private NetworkObject tallymanPrefab;
 

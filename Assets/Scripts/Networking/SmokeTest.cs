@@ -1273,6 +1273,8 @@ namespace Deepbound.Networking
                             }
                             else Log("abyssal eye", "no prefab", false);
                         }
+                        Log("tallyman clock", "arrives after " + dd.TallyArriveSeconds.ToString("F0") + " s for " + DungeonDirector.Layout.Rooms.Count + " rooms, bell at " + dd.TallyWarnSeconds.ToString("F0"),
+                            Mathf.Approximately(dd.TallyArriveSeconds, DungeonDirector.TallyBaseSeconds + DungeonDirector.TallyPerRoom * DungeonDirector.Layout.Rooms.Count));
                         // The Tallyman walks to you, drains you on touch, and leaves when dismissed.
                         var tally = dd.ServerDebugTally(local.transform.position + local.transform.forward * 7f);
                         if (tally != null)

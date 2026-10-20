@@ -1595,7 +1595,7 @@ namespace Deepbound.UI
             var tm = Tallyman.Active;
             if (dd.TallyStage.Value == 1 && dd.Phase.Value == RunPhase.Exploring && !dd.BossSealed)
             {
-                double left = dd.FloorBegan.Value + DungeonDirector.TallyArriveSeconds - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time;
+                double left = dd.FloorBegan.Value + dd.TallyArriveSeconds - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time;
                 if (left <= 0) return;
                 int sec = Mathf.CeilToInt((float)left);
                 var st = new GUIStyle(center) { fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = new Color(green.r, green.g, green.b, 0.6f + 0.3f * Mathf.Sin(Time.time * 2f)) } };
