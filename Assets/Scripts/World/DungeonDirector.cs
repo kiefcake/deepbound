@@ -112,6 +112,8 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject[] wardenPrefabs;
         /// <summary>Entlings: from floor 3 down, they root you to the spot until killed.</summary>
         [SerializeField] private NetworkObject entlingPrefab;
+        /// <summary>Orbweavers: from the first act's second floor, they conjure bullet-pattern orbs.</summary>
+        [SerializeField] private NetworkObject orbweaverPrefab;
         [SerializeField] private NetworkObject mimicPrefab;
         [SerializeField] private NetworkObject hoarderPrefab;
         [SerializeField] private NetworkObject gargoylePrefab;
@@ -153,6 +155,16 @@ namespace Deepbound.World
                 points[i] = p;
             }
             RiseFxRpc(points);
+        }
+
+        /// <summary>Server: like <see cref="ServerSpawnPack"/>, returning the brains it raised (the proving bell waits on them).</summary>
+        public System.Collections.Generic.List<EnemyBrain> ServerSpawnPackList(Vector3 around, int count, bool elite)
+        {
+            int before = spawned.Count;
+            ServerSpawnPack(around, count, elite);
+            var list = new System.Collections.Generic.List<EnemyBrain>();
+            for (int i = before; i < spawned.Count; i++) if (spawned[i] != null && spawned[i].TryGetComponent<EnemyBrain>(out var b)) list.Add(b);
+            return list;
         }
 
         /// <summary>Server: a pack of the floor's dead around a point (the Wheel's cruel turn).</summary>
@@ -260,7 +272,7 @@ namespace Deepbound.World
         public System.Collections.Generic.IEnumerable<EnemyBrain> AllEnemyPrefabs()
         {
             var all = new System.Collections.Generic.List<NetworkObject> { skeletonPrefab, archerPrefab, ghoulPrefab, brutePrefab, necromancerPrefab, wraithPrefab,
-                shieldbearerPrefab, mimicPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, mournerPrefab, entlingPrefab };
+                shieldbearerPrefab, mimicPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, mournerPrefab, entlingPrefab, orbweaverPrefab };
             if (bossPrefabs != null) all.AddRange(bossPrefabs);
             if (wardenPrefabs != null) all.AddRange(wardenPrefabs);
             foreach (var p in all) if (p != null && p.TryGetComponent<EnemyBrain>(out var b)) yield return b;
@@ -423,7 +435,7 @@ namespace Deepbound.World
                 "skeleton" => skeletonPrefab, "archer" => archerPrefab, "ghoul" => ghoulPrefab, "brute" => brutePrefab,
                 "necromancer" => necromancerPrefab, "wraith" => wraithPrefab, "shieldbearer" => shieldbearerPrefab, "gargoyle" => gargoylePrefab,
                 "plaguebearer" => plaguebearerPrefab, "frostwight" => frostWightPrefab, "hexer" => hexerPrefab, "mourner" => mournerPrefab,
-                "entling" => entlingPrefab, "mimic" => mimicPrefab, "hoarder" => hoarderPrefab, _ => null,
+                "entling" => entlingPrefab, "orbweaver" => orbweaverPrefab, "mimic" => mimicPrefab, "hoarder" => hoarderPrefab, _ => null,
             };
             if (prefab == null) return null;
             if (NavMesh.SamplePosition(at, out var hit, 4f, NavMesh.AllAreas)) at = hit.position;
@@ -467,7 +479,7 @@ namespace Deepbound.World
             // Between floors the party keeps its run and rests; after a run, everything goes.
             foreach (var p in PlayerLife.All)
             {
-                if (p.TryGetComponent<PlayerProgress>(out var blessed)) blessed.ServerClearBlessing();
+                if (p.TryGetComponent<PlayerProgress>(out var blessed)) { blessed.ServerClearBlessing(); blessed.ServerSetMirrorCursed(false); }
                 if (keepRun && p.TryGetComponent<PlayerProgress>(out var sore)) sore.ServerEaseGrudges();
                 if (!keepRun && p.TryGetComponent<PlayerProgress>(out var progress) && progress.Stats != null) progress.ServerResetRun();
                 p.ServerRevive(1f);
@@ -906,7 +918,7 @@ namespace Deepbound.World
 
             foreach (var room in layout.Rooms)
             {
-                if (room.Kind == RoomKind.Side && chestPrefab != null)
+                if (room.Kind == RoomKind.Side && chestPrefab != null && !room.Special)
                 {
                     int entry = 0;
                     for (int s = 0; s < 4; s++) if (room.Doors[s]) entry = s;
@@ -1072,6 +1084,8 @@ namespace Deepbound.World
             float plague = plaguebearerPrefab != null ? 0.06f + 0.02f * tier : 0f;
             float frost = frostWightPrefab != null && act >= 1 ? 0.07f + 0.02f * tier : 0f;
             float hex = hexerPrefab != null && act >= 1 ? 0.04f + 0.02f * tier : 0f;
+            float orb = orbweaverPrefab != null && depth >= 1 ? 0.04f + 0.015f * tier : 0f;
+            if ((roll -= orb) < 0f) return orbweaverPrefab;
             if ((roll -= plague) < 0f) return plaguebearerPrefab;
             if ((roll -= frost) < 0f) return frostWightPrefab;
             if ((roll -= hex) < 0f) return hexerPrefab;

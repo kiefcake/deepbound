@@ -457,6 +457,89 @@ namespace Deepbound.World
         }
 
         // ------------------------------------------------------------------
+        // Elevation (2026-10-20): a terrace, a ziggurat
+        // ------------------------------------------------------------------
+
+        private static void DressTerrace(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
+        {
+            foreach (var (rr, top) in room.Raised)
+            {
+                // A parapet along the open edges, broken where the ramps arrive; braziers at its ends.
+                var c = new Vector3(rr.center.x, top, rr.center.y);
+                bool longX = rr.width >= rr.height;
+                float len = longX ? rr.width : rr.height;
+                var frontDir = (room.Center - new Vector3(rr.center.x, 0f, rr.center.y));
+                frontDir = longX ? new Vector3(0f, 0f, Mathf.Sign(frontDir.z)) : new Vector3(Mathf.Sign(frontDir.x), 0f, 0f);
+                var front = c + frontDir * ((longX ? rr.height : rr.width) / 2f - 0.2f);
+                var along = longX ? Vector3.right : Vector3.forward;
+                for (float t = -len / 2f + 0.6f; t < len / 2f - 0.6f; t += 1.2f)
+                {
+                    var p = front + along * t;
+                    bool atRamp = room.Ramps.Exists(rp => Vector3.Distance(new Vector3(rp.high.x, 0f, rp.high.z), new Vector3(p.x, 0f, p.z)) < 1.8f);
+                    if (atRamp) continue;
+                    b.AddBox(p + Vector3.up * 0.45f, longX ? new Vector3(1.1f, 0.9f, 0.4f) : new Vector3(0.4f, 0.9f, 1.1f), Mat.StoneWall);
+                    if (rng.NextDouble() < 0.35) b.AddBox(p + Vector3.up * 1.0f, longX ? new Vector3(0.5f, 0.2f, 0.45f) : new Vector3(0.45f, 0.2f, 0.5f), Mat.StoneWall);
+                }
+                foreach (float s in new[] { -1f, 1f }) Props.Brazier(lights, front - frontDir * 0.9f + along * (s * (len / 2f - 1.2f)), theme.TorchColor, false);
+                // Banners on the wall above the terrace.
+                for (float t = -len / 2f + 3f; t < len / 2f - 2f; t += 6f)
+                    b.AddBox(c - frontDir * ((longX ? rr.height : rr.width) / 2f - 0.15f) + along * t + Vector3.up * 2.6f, longX ? new Vector3(1.1f, 2.4f, 0.05f) : new Vector3(0.05f, 2.4f, 1.1f), Mat.Cloth);
+            }
+            DressRoom(room, b, lights, rng);
+        }
+
+        private static void DressZiggurat(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
+        {
+            // A great brazier on the summit, bones heaped on the tiers, and four standing torches round the base.
+            if (room.FeatureSpots.Count > 0) Props.Brazier(lights, room.FeatureSpots[0], theme.TorchColor, true);
+            for (int i = 0; i < room.Raised.Count; i++)
+            {
+                var (rr, top) = room.Raised[i];
+                for (int k = 0; k < 4; k++)
+                {
+                    float a = (k * 90f + 45f) * Mathf.Deg2Rad;
+                    var p = new Vector3(rr.center.x, top, rr.center.y) + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (rr.width * 0.5f - 0.6f) * 1.41f * 0.7f;
+                    if (rng.NextDouble() < 0.5) b.AddBox(p + Vector3.up * 0.12f, new Vector3(0.5f, 0.24f, 0.3f), Mat.Bone, Quaternion.Euler(0f, (float)rng.NextDouble() * 180f, 0f));
+                }
+            }
+            var baseR = room.Raised.Count > 0 ? room.Raised[0].r : new Rect(room.Center.x, room.Center.z, 1f, 1f);
+            foreach (var (sx, sz) in new[] { (1f, 1f), (-1f, 1f), (1f, -1f), (-1f, -1f) })
+                Props.Brazier(lights, new Vector3(baseR.center.x + sx * (baseR.width / 2f + 1.6f), 0f, baseR.center.y + sz * (baseR.height / 2f + 1.6f)), theme.TorchColor, false);
+        }
+
+        // ------------------------------------------------------------------
+        // Special side rooms: carpet, candles and a mood for each
+        // ------------------------------------------------------------------
+
+        private static void DressSpecial(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
+        {
+            var c = room.Center;
+            var mood = room.Feature == RoomFeature.Treasury ? new Color(1f, 0.85f, 0.5f)
+                : room.Feature == RoomFeature.Mirror ? new Color(0.6f, 0.35f, 1f)
+                : room.Feature == RoomFeature.Proving ? new Color(1f, 0.6f, 0.3f)
+                : room.Feature == RoomFeature.Armoury ? new Color(1f, 0.7f, 0.4f) : theme.TorchColor;
+            // A long carpet from the door to the feature.
+            int entry = 0;
+            for (int s = 0; s < 4; s++) if (room.Doors[s]) entry = s;
+            bool alongX = entry == 1 || entry == 3;
+            b.AddBox(c + Vector3.up * 0.012f, alongX ? new Vector3(room.Size.x - 2f, 0.02f, 2.2f) : new Vector3(2.2f, 0.02f, room.Size.y - 2f), Mat.Cloth);
+            Props.Candelabra(lights, b, c + new Vector3(2.8f, 0f, 2.8f), mood);
+            Props.Candelabra(lights, b, c + new Vector3(-2.8f, 0f, -2.8f), mood);
+            if (room.Feature == RoomFeature.Armoury)
+            {
+                // Racks of old weapons along the walls.
+                for (int k = 0; k < 6; k++)
+                {
+                    float t = -room.Size.x / 2f + 2f + k * (room.Size.x - 4f) / 5f;
+                    b.AddBox(new Vector3(c.x + t, 1f, c.z + room.Size.y / 2f - 0.3f), new Vector3(0.08f, 2f, 0.1f), Mat.Steel, Quaternion.Euler(0f, 0f, (k % 2 == 0 ? 6f : -6f)));
+                }
+            }
+            if (room.Feature == RoomFeature.Treasury)
+                for (int k = 0; k < 10; k++)
+                    b.AddBox(c + new Vector3(((float)rng.NextDouble() - 0.5f) * (room.Size.x - 3f), 0.03f, ((float)rng.NextDouble() - 0.5f) * (room.Size.y - 3f)), new Vector3(0.12f, 0.03f, 0.12f), Mat.Gold);
+        }
+
+        // ------------------------------------------------------------------
         // Ritual chamber
         // ------------------------------------------------------------------
 

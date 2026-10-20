@@ -920,6 +920,81 @@ namespace Deepbound.Networking
                         foreach (var r in gl.Rooms) if (r.Peaceful) { peddlers++; if (r.EnemySpawns.Count > 0) hostile++; }
                     }
                     Log("peddler rooms peaceful", peddlers + " peddler rooms over 40 seeds, " + hostile + " with enemies", peddlers > 0 && hostile == 0);
+                    {
+                        int tre = 0, beg = 0, pro = 0, arm = 0, mir = 0, ter = 0, zig = 0, specialHostile = 0;
+                        for (int sd = 1; sd <= 40; sd++)
+                        {
+                            var gl = DungeonLayout.Generate(sd * 15485863, 1 + sd % 8);
+                            foreach (var r in gl.Rooms)
+                            {
+                                switch (r.Feature)
+                                {
+                                    case RoomFeature.Treasury: tre++; break;
+                                    case RoomFeature.Beggar: beg++; break;
+                                    case RoomFeature.Proving: pro++; break;
+                                    case RoomFeature.Armoury: arm++; break;
+                                    case RoomFeature.Mirror: mir++; break;
+                                    case RoomFeature.Terrace: ter++; break;
+                                    case RoomFeature.Ziggurat: zig++; break;
+                                }
+                                if (r.Special && r.Feature != RoomFeature.Treasury && r.EnemySpawns.Count > 0) specialHostile++;
+                            }
+                        }
+                        Log("special rooms", "over 40 seeds: treasury " + tre + ", beggar " + beg + ", proving " + pro + ", armoury " + arm + ", mirror " + mir + ", terrace " + ter + ", ziggurat " + zig + "; special rooms with enemies " + specialHostile,
+                            tre > 0 && beg > 0 && pro > 0 && arm > 0 && mir > 0 && ter > 0 && zig > 0 && specialHostile == 0);
+                    }
+                    {
+                        // The special rooms' furniture does what it says.
+                        var sp = local.GetComponent<PlayerProgress>();
+                        var dd = DungeonDirector.Instance;
+                        var near = local.transform.position + local.transform.forward * 1.5f;
+                        int relicsBefore = sp.RelicCount;
+                        Relic offered = Relic.FrostCharm;
+                        for (int t = 0; t < 40; t++) { var r = Relics.Random(); if (!sp.HasRelic(r)) { offered = r; break; } }
+                        var ped = dd.ServerDebugShrine(SideShrine.Kind.Pedestal, near, (int)offered);
+                        var ped2 = dd.ServerDebugShrine(SideShrine.Kind.Pedestal, near + Vector3.right * 2f, (int)Relic.FrostCharm);
+                        yield return new WaitForSeconds(0.2f);
+                        ped.ServerDebugUse(sp);
+                        int afterOne = sp.RelicCount;
+                        ped2.ServerDebugUse(sp);
+                        yield return new WaitForSeconds(0.1f);
+                        Log("treasury pedestals", "relics " + relicsBefore + " -> " + afterOne + " -> " + sp.RelicCount + " (one each)", afterOne == relicsBefore + 1 && sp.RelicCount == afterOne);
+                        int lvl0 = sp.WeaponLevel.Value;
+                        var whet = dd.ServerDebugShrine(SideShrine.Kind.Whetstone, near + Vector3.left * 2f);
+                        yield return new WaitForSeconds(0.1f);
+                        int emb0 = sp.Embers.Value;
+                        whet.ServerDebugUse(sp);
+                        yield return new WaitForSeconds(0.1f);
+                        Log("armoury whetstone", "weapon +" + lvl0 + " -> +" + sp.WeaponLevel.Value + ", embers " + emb0 + " -> " + sp.Embers.Value, sp.WeaponLevel.Value == lvl0 + 1 || sp.Embers.Value > emb0);
+                        var mirror = dd.ServerDebugShrine(SideShrine.Kind.Mirror, near + Vector3.left * 4f);
+                        yield return new WaitForSeconds(0.1f);
+                        float max0 = local.GetComponent<Health>().Max.Value;
+                        mirror.ServerDebugUse(sp);
+                        yield return new WaitForSeconds(0.1f);
+                        Log("dark mirror", "max hp " + max0.ToString("F0") + " -> " + local.GetComponent<Health>().Max.Value.ToString("F0") + ", cursed " + sp.MirrorCursed.Value, sp.MirrorCursed.Value && local.GetComponent<Health>().Max.Value < max0);
+                        sp.ServerSetMirrorCursed(false);
+                        var beggar = dd.ServerDebugShrine(SideShrine.Kind.Beggar, near + Vector3.right * 4f);
+                        yield return new WaitForSeconds(0.1f);
+                        sp.ServerAddGold(2000);
+                        int gives = 0;
+                        while (!beggar.Spent.Value && gives < 20) { beggar.ServerDebugUse(sp); gives++; }
+                        Log("beggar", "paid out after " + gives + " coins, spent " + beggar.Spent.Value, beggar.Spent.Value);
+                        foreach (var x in new[] { ped, ped2, whet, mirror, beggar }) if (x != null && x.IsSpawned) x.NetworkObject.Despawn();
+                        // An Orbweaver conjures an orb that fires patterns.
+                        var ow = dd.ServerDebugSpawn("orbweaver", local.transform.position + local.transform.forward * 9f, false) as OrbweaverBrain;
+                        if (ow != null)
+                        {
+                            yield return new WaitForSeconds(0.3f);
+                            ow.ServerConjure(local.transform.position);
+                            for (float t = 0f; t < 3.2f; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                            Log("orbweaver", "orbs " + ow.OrbsAlive + ", volleys " + ow.VolleysFired, ow.VolleysFired > 0);
+                            ow.GetComponent<Health>().ServerDamage(1e6f, ow.transform.position);
+                            yield return new WaitForSeconds(0.2f);
+                            Log("orbweaver death pops its orbs", "orbs left " + ow.OrbsAlive, ow.OrbsAlive == 0);
+                        }
+                        else Log("orbweaver", "no prefab", false);
+                        local.GetComponent<Health>().ServerSetFraction(1f);
+                    }
                     int roomTraps = FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Count(t => layout.RoomAt(t.transform.position, 0f) != null);
                     Log("room traps", roomTraps + " spike traps inside rooms on this floor", true);
                 }

@@ -68,6 +68,7 @@ namespace Deepbound.EditorTools
             var hexer = BuildEnemyPrefab("Hexer", EnemyType.Hexer, loot);
             var mourner = BuildEnemyPrefab("Mourner", EnemyType.Mourner, loot);
             var entling = BuildEnemyPrefab("Entling", EnemyType.Entling, loot);
+            var orbweaver = BuildEnemyPrefab("Orbweaver", EnemyType.Orbweaver, loot);
             // The Wardens: one per act, at the end of the act's first floor.
             var wardens = new GameObject[5];
             for (int a = 0; a < wardens.Length; a++) wardens[a] = BuildEnemyPrefab("Warden" + a, EnemyType.Warden, loot, a);
@@ -81,6 +82,7 @@ namespace Deepbound.EditorTools
             var gate = BuildPortcullisPrefab();
             var lever = BuildObjectPrefab<Lever>("Lever", new Vector3(0.5f, 1.8f, 0.3f));
             var fountain = BuildObjectPrefab<Fountain>("Fountain", new Vector3(2.6f, 0.7f, 2.6f));
+            var sideShrine = BuildObjectPrefab<SideShrine>("SideShrine", new Vector3(0.9f, 1.1f, 0.9f));
             var soulSkull = BuildObjectPrefab<SoulSkull>("SoulSkull", Vector3.zero);
             var reliquary = BuildObjectPrefab<Reliquary>("Reliquary", Vector3.zero);
             var lorePage = BuildObjectPrefab<LorePage>("LorePage", new Vector3(0.6f, 1.1f, 0.5f));
@@ -103,6 +105,7 @@ namespace Deepbound.EditorTools
             dso.FindProperty("portcullisPrefab").objectReferenceValue = gate.GetComponent<NetworkObject>();
             dso.FindProperty("leverPrefab").objectReferenceValue = lever.GetComponent<NetworkObject>();
             dso.FindProperty("fountainPrefab").objectReferenceValue = fountain.GetComponent<NetworkObject>();
+            dso.FindProperty("sideShrinePrefab").objectReferenceValue = sideShrine.GetComponent<NetworkObject>();
             dso.FindProperty("soulSkullPrefab").objectReferenceValue = soulSkull.GetComponent<NetworkObject>();
             dso.FindProperty("sarcophagusPrefab").objectReferenceValue = sarcophagus.GetComponent<NetworkObject>();
             dso.FindProperty("anvilPrefab").objectReferenceValue = anvil.GetComponent<NetworkObject>();
@@ -117,6 +120,7 @@ namespace Deepbound.EditorTools
             dso.FindProperty("hexerPrefab").objectReferenceValue = hexer.GetComponent<NetworkObject>();
             dso.FindProperty("mournerPrefab").objectReferenceValue = mourner.GetComponent<NetworkObject>();
             dso.FindProperty("entlingPrefab").objectReferenceValue = entling.GetComponent<NetworkObject>();
+            dso.FindProperty("orbweaverPrefab").objectReferenceValue = orbweaver.GetComponent<NetworkObject>();
             var wardenList = dso.FindProperty("wardenPrefabs");
             wardenList.arraySize = wardens.Length;
             for (int a = 0; a < wardens.Length; a++) wardenList.GetArrayElementAtIndex(a).objectReferenceValue = wardens[a].GetComponent<NetworkObject>();
@@ -258,7 +262,7 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Warden, Entling }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Warden, Entling, Orbweaver }
 
         // A Warden is a giant of its act's rank and file.
         private static readonly Art.CharacterArt.SkeletonKind[] WardenKinds =
@@ -321,6 +325,7 @@ namespace Deepbound.EditorTools
                 case EnemyType.Mourner: brain = root.AddComponent<MournerBrain>(); break;
                 case EnemyType.Warden: brain = root.AddComponent<WardenBrain>(); break;
                 case EnemyType.Entling: brain = root.AddComponent<EntlingBrain>(); break;
+                case EnemyType.Orbweaver: brain = root.AddComponent<OrbweaverBrain>(); break;
                 default: brain = root.AddComponent<EnemyBrain>(); break;
             }
 
@@ -424,6 +429,12 @@ namespace Deepbound.EditorTools
                     Kind(Art.CharacterArt.SkeletonKind.Cardinal);
                     Set("maxHealth", 3700f); Set("damage", 32f); Set("defense", 6f); Set("moveSpeed", 2.9f);
                     Set("attackRange", 3.4f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 60f);
+                    break;
+                case EnemyType.Orbweaver:
+                    // A caster that hangs back behind its orbs: fragile, so reach it.
+                    Kind(Art.CharacterArt.SkeletonKind.Orbweaver);
+                    Set("maxHealth", 105f); Set("damage", 12f); Set("defense", 0f); Set("moveSpeed", 3.1f);
+                    Set("attackRange", 14f); Set("windup", 0.7f); Set("recovery", 1.6f); Set("aggroRange", 20f);
                     break;
                 case EnemyType.Entling:
                     // Fragile and fast: kill it on the way in, or it holds you down.

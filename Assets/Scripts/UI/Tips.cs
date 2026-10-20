@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet",
+            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -119,6 +119,12 @@ namespace Deepbound.UI
             {
                 if (room.Feature == RoomFeature.Pendulums) Offer("pendulum", "PENDULUM HALL: the blades cut the dead as well as you. Time your crossing - and kick enemies into them.");
                 if (room.Feature == RoomFeature.Ritual && DungeonDirector.InRitualWard(room.Center)) Offer("ritual", "RITUAL CHAMBER: the violet braziers ward the dead and raise more. Smash all three.");
+                if (room.Feature == RoomFeature.Treasury) Offer("treasury", "THE TREASURY: three relics on pedestals. Each of you may take ONE - choose well, the rest stay for your friends.");
+                if (room.Feature == RoomFeature.Beggar) Offer("beggar", "A BEGGAR: give him gold (F). Every coin makes it likelier he pays you back - a relic, potions, a Sigil or a fat purse.");
+                if (room.Feature == RoomFeature.Proving) Offer("proving", "THE PROVING BELL: ring it and two waves of the dead come. Clear them for gear for everyone, a Sigil and gold.");
+                if (room.Feature == RoomFeature.Armoury) Offer("armoury", "THE ARMOURY: each of you may sharpen your weapon once on the whetstone - a free temper.");
+                if (room.Feature == RoomFeature.Mirror) Offer("mirror", "THE DARK MIRROR: a relic and gold for whoever touches it... and it keeps a fifth of their health until camp.");
+                if (room.Feature == RoomFeature.Terrace || room.Feature == RoomFeature.Ziggurat) Offer("highground", "HIGH GROUND: take the ramps up. Archers up top see everything - and anything you knock off the edge has a long way to fall.");
                 if (room.Feature == RoomFeature.Library) Offer("library", "LIBRARY: the shelves block sight both ways. Archers lose you behind them - and the dead can wait round any corner.");
                 if (room.Feature == RoomFeature.Pyre) Offer("pyre", "PYRE HALL: the fire erupts on a beat. When the red ring fills, get out past it - and leave the dead inside.");
                 if (room.Feature == RoomFeature.Gauntlet) Offer("gauntlet", "SPIKE GAUNTLET: a wave of spikes runs down the hall. Rows glow before they fire: step between them, and let the dead walk in.");

@@ -27,6 +27,34 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject portcullisPrefab;
         [SerializeField] private NetworkObject leverPrefab;
         [SerializeField] private NetworkObject fountainPrefab;
+        /// <summary>The special side rooms' furniture (pedestals, beggar, bell, whetstone, mirror).</summary>
+        [SerializeField] private NetworkObject sideShrinePrefab;
+
+        /// <summary>Server: one special-room piece, its kind set before it spawns (so every peer builds the right look).</summary>
+        private void SpawnShrine(SideShrine.Kind kind, DungeonLayout.Room room, Vector3 at, int choice, int group)
+        {
+            var face = room.Center - at;
+            face.y = 0f;
+            var obj = Instantiate(sideShrinePrefab, at, face.sqrMagnitude > 0.01f ? Quaternion.LookRotation(face) : Quaternion.identity);
+            var s = obj.GetComponent<SideShrine>();
+            s.Type.Value = kind;
+            s.Choice.Value = choice;
+            s.Group.Value = group;
+            obj.Spawn(destroyWithScene: true);
+        }
+
+        /// <summary>Tests: spawn a special-room piece near a spot.</summary>
+        public SideShrine ServerDebugShrine(SideShrine.Kind kind, Vector3 at, int choice = 0)
+        {
+            if (sideShrinePrefab == null || Layout == null) return null;
+            var obj = Instantiate(sideShrinePrefab, at, Quaternion.identity);
+            var s = obj.GetComponent<SideShrine>();
+            s.Type.Value = kind;
+            s.Choice.Value = choice;
+            s.Group.Value = 9999;
+            obj.Spawn(destroyWithScene: true);
+            return s;
+        }
         [SerializeField] private NetworkObject soulSkullPrefab;
 
         /// <summary>Server: a player bled out; leave their Soul Skull where they fell.</summary>
@@ -302,6 +330,19 @@ namespace Deepbound.World
                     case RoomFeature.Fountain when fountainPrefab != null && room.FeatureSpots.Count > 0:
                         Spawn(fountainPrefab, room.FeatureSpots[0], Quaternion.identity);
                         break;
+                    case RoomFeature.Treasury when sideShrinePrefab != null:
+                    {
+                        // Three different relics, one group.
+                        var picks = new List<Relic>();
+                        for (int tries = 0; tries < 40 && picks.Count < room.FeatureSpots.Count; tries++) { var r = Relics.Random(); if (!picks.Contains(r)) picks.Add(r); }
+                        for (int k = 0; k < room.FeatureSpots.Count && k < picks.Count; k++)
+                            SpawnShrine(SideShrine.Kind.Pedestal, room, room.FeatureSpots[k], (int)picks[k], room.Id);
+                        break;
+                    }
+                    case RoomFeature.Beggar when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Beggar, room, room.FeatureSpots[0], 0, room.Id); break;
+                    case RoomFeature.Proving when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Bell, room, room.FeatureSpots[0], 0, room.Id); break;
+                    case RoomFeature.Armoury when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Whetstone, room, room.FeatureSpots[0], 0, room.Id); break;
+                    case RoomFeature.Mirror when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Mirror, room, room.FeatureSpots[0], 0, room.Id); break;
                 }
             }
         }

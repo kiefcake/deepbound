@@ -120,6 +120,14 @@ namespace Deepbound.World
             else if (room.Feature == RoomFeature.Cistern) BuildLowFloor(room, DungeonLayout.CisternDepth, 1.8f, structure, dressing, Mat.Rubble);
             else structure.AddBox(c + Vector3.down * FloorThickness / 2f, new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), floorMat);
             structure.AddBox(c + Vector3.up * (h + FloorThickness / 2f), new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), Mat.StoneWall);
+            // Raised ground (terraces, ziggurat tiers) and the ramps up onto it.
+            foreach (var (rr, top) in room.Raised)
+            {
+                var rc = new Vector3(rr.center.x, 0f, rr.center.y);
+                structure.AddBox(rc + Vector3.up * (top / 2f - 0.02f), new Vector3(rr.width, top, rr.height), Mat.StoneWall);
+                structure.AddBox(rc + Vector3.up * (top - 0.03f), new Vector3(rr.width - 0.1f, 0.08f, rr.height - 0.1f), Mat.Flagstone);
+            }
+            foreach (var (low, high, rw) in room.Ramps) Ramp(low, high, rw, structure, dressing);
 
             for (int side = 0; side < 4; side++) BuildWall(room, side, structure);
 
@@ -152,6 +160,10 @@ namespace Deepbound.World
                 case RoomFeature.Library: DressLibrary(room, dressing, lights, rng); return;
                 case RoomFeature.Pyre: DressPyre(room, dressing, lights, rng); return;
                 case RoomFeature.Gauntlet: DressGauntlet(room, dressing, lights, rng); return;
+                case RoomFeature.Terrace: DressTerrace(room, dressing, lights, rng); return;
+                case RoomFeature.Ziggurat: DressZiggurat(room, dressing, lights, rng); return;
+                case RoomFeature.Treasury: case RoomFeature.Beggar: case RoomFeature.Proving: case RoomFeature.Armoury: case RoomFeature.Mirror:
+                    DressSpecial(room, dressing, lights, rng); return;
             }
 
             switch (room.Kind)

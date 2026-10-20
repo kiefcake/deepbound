@@ -185,6 +185,10 @@ namespace Deepbound.UI
                 var fill = boss ? Color.Lerp(floor, new Color(0.45f, 0.1f, 0.08f), 0.55f)
                     : room.Kind == RoomKind.Start ? Color.Lerp(floor, new Color(0.25f, 0.36f, 0.22f), 0.4f)
                     : room.Feature == RoomFeature.Vault ? Color.Lerp(floor, new Color(0.45f, 0.36f, 0.15f), 0.4f)
+                    : room.Feature == RoomFeature.Treasury ? Color.Lerp(floor, new Color(0.55f, 0.45f, 0.15f), 0.45f)
+                    : room.Feature == RoomFeature.Mirror ? Color.Lerp(floor, new Color(0.35f, 0.15f, 0.45f), 0.45f)
+                    : room.Feature == RoomFeature.Proving ? Color.Lerp(floor, new Color(0.5f, 0.25f, 0.1f), 0.45f)
+                    : room.Feature == RoomFeature.Beggar || room.Feature == RoomFeature.Armoury ? Color.Lerp(floor, new Color(0.35f, 0.3f, 0.2f), 0.4f)
                     : floor;
                 UiSkin.Rect(r, fill);
                 // Flagstone hint: a faint grid every 4 m.
@@ -194,6 +198,8 @@ namespace Deepbound.UI
                     for (float gx = r.x + scale * 4f; gx < r.xMax - 1f; gx += scale * 4f) UiSkin.Rect(new Rect(gx, r.y, 1f, r.height), grid);
                     for (float gy = r.y + scale * 4f; gy < r.yMax - 1f; gy += scale * 4f) UiSkin.Rect(new Rect(r.x, gy, r.width, 1f), grid);
                 }
+                // Raised ground: lighter blocks.
+                foreach (var (rr, top) in room.Raised) UiSkin.Rect(WorldRect(rr.center.x, rr.center.y, rr.width, rr.height), new Color(1f, 1f, 1f, 0.06f + 0.03f * top));
                 // Features: the chasm's pit, a sunken court or flooded cistern.
                 if (room.Feature == RoomFeature.Chasm && room.Pit.width > 0f)
                     UiSkin.Rect(WorldRect(room.Pit.center.x, room.Pit.center.y, room.Pit.width, room.Pit.height), new Color(0f, 0f, 0f, 0.92f));

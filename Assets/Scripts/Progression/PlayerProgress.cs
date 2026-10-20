@@ -998,6 +998,29 @@ namespace Deepbound.Progression
             UI.GameHud.Feed(name + "'s " + ClassDefinition.WeaponName(ClassId.Value) + " takes the path of the " + WeaponPaths.Name(ClassId.Value, path), LootInfo.EmberColor);
         }
 
+        /// <summary>Server: the armoury's whetstone, a temper with no cost. False if the weapon cannot rise (a path to choose, or the cap).</summary>
+        public bool ServerFreeTemper()
+        {
+            if (!IsServer || CannotTemperReason() != null && WeaponLevel.Value >= World.Anvil.MaxLevel) return false;
+            if (WeaponLevel.Value >= World.Anvil.MaxLevel || (WeaponLevel.Value >= WeaponPaths.PathLevel && WeaponPath.Value == 0)) return false;
+            WeaponLevel.Value++;
+            ServerAddBonus(StatType.ATT, ClassDefinition.WeaponAttPerLevel);
+            ServerAddBonus(StatType.DEX, ClassDefinition.WeaponDexPerLevel);
+            WeaponUpgradedRpc(WeaponLevel.Value);
+            return true;
+        }
+
+        /// <summary>The dark mirror's price: a fifth of your max health, until you are back at camp.</summary>
+        public readonly NetworkVariable<bool> MirrorCursed = new NetworkVariable<bool>();
+        public const float MirrorHealth = 0.8f;
+
+        public void ServerSetMirrorCursed(bool on)
+        {
+            if (!IsServer || MirrorCursed.Value == on) return;
+            MirrorCursed.Value = on;
+            ApplyToHealth(refill: false);
+        }
+
         /// <summary>Server: spend embers on the next anvil level. False if it cannot.</summary>
         public bool ServerUpgradeWeapon()
         {
@@ -1317,6 +1340,7 @@ namespace Deepbound.Progression
             if (HasRelic(Relic.BloodPact)) hp *= 0.75f;
             if (Blessed(Blessing.Vigor)) hp *= 1.25f;
             if (CatPeed.Value) hp *= CatPeeHealth;
+            if (MirrorCursed.Value) hp *= MirrorHealth;
             health.ServerSetMax(hp, refill);
             health.Defense = Stats.GetValue(StatType.DEF);
         }

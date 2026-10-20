@@ -686,7 +686,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling, Orbweaver }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -722,6 +722,7 @@ namespace Deepbound.Art
                 : kind == SkeletonKind.Ghoul || kind == SkeletonKind.Plaguebearer ? new Color(0.6f, 1f, 0.2f)
                 : kind == SkeletonKind.FrostWight ? new Color(0.55f, 0.85f, 1f)
                 : kind == SkeletonKind.Hexer ? new Color(0.7f, 0.3f, 1f)
+                : kind == SkeletonKind.Orbweaver ? new Color(1f, 0.62f, 0.2f)
                 : kind == SkeletonKind.Necromancer ? new Color(0.75f, 0.35f, 1f)
                 : kind == SkeletonKind.Brute ? new Color(1f, 0.4f, 0.1f)
                 : new Color(1f, 0.25f, 0.1f);
@@ -949,6 +950,15 @@ namespace Deepbound.Art
             else if (kind == SkeletonKind.Hexer)
             {
                 BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.14f, 0.2f, 0.1f), new Color(0.65f, 0.25f, 0.95f), false);
+            }
+            else if (kind == SkeletonKind.Orbweaver)
+            {
+                // A robed caster in rust and soot with amber eyes; a small orb hangs over its open hand.
+                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.24f, 0.13f, 0.08f), new Color(1f, 0.62f, 0.2f), false);
+                var hand = MeshKit.Part(rig.ArmL, "OrbInHand", MeshKit.Ball(0.09f, 8, 6), Mat.Glow, new Vector3(0f, -0.72f, 0.12f));
+                ArtLibrary.SetGlow(hand.GetComponent<Renderer>(), new Color(1f, 0.62f, 0.2f) * 1.3f);
+                var ring = MeshKit.Part(rig.ArmL, "OrbRing", MeshKit.Lathe("orbRingSmall", new[] { new Vector2(0.15f, -0.01f), new Vector2(0.17f, 0f), new Vector2(0.15f, 0.01f) }, 16, false), Mat.Glow, new Vector3(0f, -0.72f, 0.12f), new Vector3(70f, 0f, 0f));
+                ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), new Color(1f, 0.62f, 0.2f));
             }
             else if (kind == SkeletonKind.Ghoul)
             {

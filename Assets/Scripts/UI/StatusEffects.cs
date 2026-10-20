@@ -75,6 +75,8 @@ namespace Deepbound.UI
             var flagT = player.GetComponent<FlagellantKit>();
             if (flagT != null && flagT.Zealous) list.Add(Timed("\u271D", "Zeal", "Faster, harder flail swings. You paid for it in blood.", Good, (float)(flagT.ZealEnds.Value - now), FlagellantKit.ZealSeconds));
             if (flagT != null && flagT.Martyr) list.Add(Timed("\u2620", "Martyrdom", "You cannot fall below 1 health. Hit 30% harder, heal for a quarter of it.", Good, (float)(flagT.MartyrEnds.Value - now), 8f));
+            if (progress != null && progress.MirrorCursed.Value)
+                list.Add(new Status { Glyph = "\u25C8", Name = "The Mirror's Price", Text = "Your reflection keeps a fifth of your max health.", Lasts = "Until you are back at camp", Color = Bad });
             if (progress != null && progress.Bloodlust)
                 list.Add(Timed("\u2620", "Bloodlust", "+15% damage. The blood altar answered your offering.", Good, (float)(progress.BloodlustEnds.Value - now), World.BloodAltar.BloodlustSeconds));
             if (progress != null && progress.Salts.Value)

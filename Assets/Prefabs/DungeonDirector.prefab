@@ -76,6 +76,7 @@ MonoBehaviour:
   portcullisPrefab: {fileID: 718576205680989572, guid: 8705e581428d22d4aa7f589d23300b11, type: 3}
   leverPrefab: {fileID: 3093957043763054616, guid: 25e590880c995b944afa9a190517e20e, type: 3}
   fountainPrefab: {fileID: 7715955194514988750, guid: 175a93a42b3f5ae4f8d57f7ee7dcf047, type: 3}
+  sideShrinePrefab: {fileID: 8455111179139271921, guid: 34349eb1608a97e4ababe238d594952a, type: 3}
   soulSkullPrefab: {fileID: 2749980807616642887, guid: 9d23c8acc5cae7e42b89372e6848278a, type: 3}
   sarcophagusPrefab: {fileID: 450747277759864904, guid: ba5736d10dcde4a4d9af9adbdbab1f2b, type: 3}
   crackedWallPrefab: {fileID: 3855241515496535436, guid: 943bd248e66bc7e4faabab7fd6969047, type: 3}
@@ -93,6 +94,7 @@ MonoBehaviour:
   - {fileID: 5810608347931029524, guid: 8c8ab7ea71416274385eea651c58bf84, type: 3}
   - {fileID: 3237325445595210370, guid: ffce1296f8149f349bd358ebf686b6e9, type: 3}
   entlingPrefab: {fileID: 695369655124008559, guid: 80364f47367451142b6e392b07269b25, type: 3}
+  orbweaverPrefab: {fileID: 4591463457241889542, guid: 335df18dc79bd1446b233cfecc3423f6, type: 3}
   mimicPrefab: {fileID: 57016346618195320, guid: b43ed699c2fdba84d987d5ce62a3d452, type: 3}
   hoarderPrefab: {fileID: 4366552995233553530, guid: a7d697832657ad549ae0a28dfa3a3b4d, type: 3}
   gargoylePrefab: {fileID: 486367888570501251, guid: 81da41a3b76a7a642a8bcc1007264e5e, type: 3}
