@@ -44,35 +44,35 @@ namespace Deepbound.Classes
         /// party does the killing.
         /// </summary>
         public static readonly ClassDefinition Knight = Make("Knight", "Tank",
-            hp: 240, mp: 100, att: 20, def: 6, spd: 45, dex: 45, vit: 40, wis: 20);
+            hp: 240, mp: 100, att: 20, def: 6, spd: 44, dex: 45, vit: 40, wis: 20);
 
         /// <summary>
         /// The Mage: burst and control. Fragile, no armour, a deep mana pool; all of its
         /// damage is ranged, and its best damage needs setting up (chill, then fire).
         /// </summary>
         public static readonly ClassDefinition Mage = Make("Mage", "Burst / Control",
-            hp: 160, mp: 120, att: 26, def: 0, spd: 52, dex: 50, vit: 25, wis: 45);
+            hp: 160, mp: 120, att: 26, def: 0, spd: 49, dex: 50, vit: 25, wis: 45);
 
         /// <summary>
         /// The Cleric: the healer. Middling everything, the deepest mana and WIS pools; it
         /// keeps the party standing rather than ending fights.
         /// </summary>
         public static readonly ClassDefinition Cleric = Make("Cleric", "Healer / Support",
-            hp: 195, mp: 140, att: 16, def: 3, spd: 48, dex: 45, vit: 35, wis: 50);
+            hp: 195, mp: 140, att: 16, def: 3, spd: 47, dex: 45, vit: 35, wis: 50);
 
         /// <summary>
         /// The Rogue: assassin. Fast and fragile with the highest DEX; its damage is huge
         /// from behind and ordinary from the front, so it lives on positioning.
         /// </summary>
         public static readonly ClassDefinition Rogue = Make("Rogue", "Assassin",
-            hp: 175, mp: 80, att: 24, def: 2, spd: 58, dex: 60, vit: 30, wis: 20);
+            hp: 175, mp: 80, att: 24, def: 2, spd: 62, dex: 60, vit: 30, wis: 20);
 
         /// <summary>
         /// The Ranger: marksman and controller. Long range, good DEX, light armour; it makes
         /// the party's damage better (Hunter's Mark) and keeps enemies where it wants them.
         /// </summary>
         public static readonly ClassDefinition Ranger = Make("Ranger", "Marksman / Control",
-            hp: 180, mp: 90, att: 24, def: 2, spd: 52, dex: 55, vit: 30, wis: 25);
+            hp: 180, mp: 90, att: 24, def: 2, spd: 54, dex: 55, vit: 30, wis: 25);
 
         public static readonly ClassDefinition[] ById = { Knight, Mage, Cleric, Rogue, Ranger };
 

@@ -149,6 +149,9 @@ namespace Deepbound.World
                 case RoomFeature.Crypt: DressCrypt(room, dressing, lights, rng); return;
                 case RoomFeature.Vault: DressVault(room, dressing, lights, rng); return;
                 case RoomFeature.Fountain: return; // the fountain is a networked object
+                case RoomFeature.Library: DressLibrary(room, dressing, lights, rng); return;
+                case RoomFeature.Pyre: DressPyre(room, dressing, lights, rng); return;
+                case RoomFeature.Gauntlet: DressGauntlet(room, dressing, lights, rng); return;
             }
 
             switch (room.Kind)

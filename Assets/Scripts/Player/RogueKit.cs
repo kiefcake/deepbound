@@ -19,7 +19,7 @@ namespace Deepbound.Player
     /// <item><b>RMB — Fan of Knives.</b> Three thrown knives in a narrow spread.</item>
     /// <item><b>Q — Shadowstep.</b> Vanish and reappear behind the enemy under your crosshair,
     ///   facing its back.</item>
-    /// <item><b>E — Smoke Bomb.</b> Disappear for four seconds: every enemy loses you, you move
+    /// <item><b>E — Smoke Bomb.</b> Disappear for seven seconds: every enemy loses you, you move
     ///   faster, and your first strike out of the smoke deals double damage and stuns.</item>
     /// </list>
     /// Energy refills quickly; the Rogue is limited by cooldowns and nerve, not by resource.
@@ -33,7 +33,7 @@ namespace Deepbound.Player
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
         private float Reach => StabRange * (progress != null ? progress.ReachMultiplier : 1f);
         public const float StepCooldown = 9f, StepRange = 13f;
-        public const float SmokeCooldown = 18f, SmokeSeconds = 4f;
+        public const float SmokeCooldown = 18f, SmokeSeconds = 7f;
         public const float AmbushMultiplier = 1.5f, OpenerMultiplier = 2f, OpenerStun = 1.2f;
         public const float EnergyMax = 100f, EnergyRegen = 26f;
 
@@ -390,7 +390,7 @@ namespace Deepbound.Player
 
         /// <summary>Owner: how long the current smoke lasts, for the HUD's countdown.</summary>
         public float HiddenDuration => hiddenFor;
-        private float hiddenFor = 4f;
+        private float hiddenFor = SmokeSeconds;
 
         [Rpc(SendTo.ClientsAndHost)]
         private void LostYouRpc(Vector3[] at)

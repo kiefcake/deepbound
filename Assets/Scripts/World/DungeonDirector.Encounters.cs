@@ -408,6 +408,7 @@ namespace Deepbound.World
             TickFalls();
             TickBreaches();
             TickPendulums();
+            TickRoomHazards();
             TickRitual();
             TickGimmicks();
             TickFlameJets();
@@ -526,6 +527,86 @@ namespace Deepbound.World
             }
         }
 
+        // ------------------------------------------------------------------
+        // Pyre halls and spike gauntlets (2026-10-20): beats on the server clock, like the pendulums
+        // ------------------------------------------------------------------
+
+        private readonly Dictionary<int, float> pyrePhase = new Dictionary<int, float>();
+        private readonly Dictionary<Health, float> hazardHitAt = new Dictionary<Health, float>();
+        private float nextCoreBurn;
+
+        private bool Occupied(DungeonLayout.Room room)
+        {
+            foreach (var p in PlayerLife.All) if (p != null && room.Contains(p.transform.position, 1f)) return true;
+            return false;
+        }
+
+        private void HazardHit(Health h, Vector3 from, float playerDamage, float enemyDamage, Vector3 push, byte how, float rehit)
+        {
+            if (hazardHitAt.TryGetValue(h, out float t) && Time.time - t < rehit) return;
+            hazardHitAt[h] = Time.time;
+            if (h.Team == Team.Players)
+            {
+                h.ServerDamage(playerDamage, from);
+                if (push.sqrMagnitude > 0.01f && h.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(push);
+            }
+            else
+            {
+                h.ServerDamage(enemyDamage, from);
+                if (push.sqrMagnitude > 0.01f && h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerKnockback(new Vector3(push.x, 0f, push.z));
+                if (!h.IsAlive) EnvKillRpc(h.Center, how);
+            }
+        }
+
+        private void TickRoomHazards()
+        {
+            if (Layout == null) return;
+            double now = Pendulum.Clock;
+            float tier = Tier(Layout.Depth);
+            bool coreTick = Time.time >= nextCoreBurn;
+            if (coreTick) nextCoreBurn = Time.time + 0.5f;
+            foreach (var room in Layout.Rooms)
+            {
+                if (room.Feature == RoomFeature.Pyre)
+                {
+                    float ph = PyreFire.Phase(room, now);
+                    float last = pyrePhase.TryGetValue(room.Id, out var lp) ? lp : ph;
+                    pyrePhase[room.Id] = ph;
+                    if (!Occupied(room)) continue;
+                    var c = room.Center;
+                    foreach (var h in new List<Health>(Health.All))
+                    {
+                        if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
+                        var flat = h.transform.position - c;
+                        flat.y = 0f;
+                        float dist = flat.magnitude;
+                        if (ph < last && dist < PyreFire.EruptRadius && h.transform.position.y < c.y + 2.5f)
+                            HazardHit(h, c, 30f + 10f * tier, 120f + 30f * tier, flat.normalized * 9f + Vector3.up * 3f, 1, 0.2f);
+                        else if (coreTick && dist < PyreFire.CoreRadius)
+                        {
+                            if (h.Team == Team.Players) h.ServerDamage(8f + 3f * tier, c);
+                            else { h.ServerDamage(30f + 10f * tier, c); if (!h.IsAlive) EnvKillRpc(h.Center, 1); }
+                        }
+                    }
+                }
+                else if (room.Feature == RoomFeature.Gauntlet)
+                {
+                    if (!Occupied(room)) continue;
+                    int n = SpikeGauntlet.Rows(room);
+                    for (int i = 0; i < n; i++)
+                    {
+                        if (!SpikeGauntlet.Up(room, i, now)) continue;
+                        foreach (var h in new List<Health>(Health.All))
+                        {
+                            if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
+                            if (!SpikeGauntlet.OnRow(room, i, h.transform.position - Vector3.up * 0.05f)) continue;
+                            HazardHit(h, h.transform.position, 18f + 6f * tier, 70f + 20f * tier, Vector3.up * 5f, 0, SpikeGauntlet.UpSeconds + 0.1f);
+                        }
+                    }
+                }
+            }
+        }
+
         [Rpc(SendTo.ClientsAndHost)]
         private void BladeHitFxRpc(Vector3 at)
         {
@@ -617,7 +698,15 @@ namespace Deepbound.World
                 bossSealed = true;
                 boss.Dormant = false;
                 SetGates(bossGates, true);
-                BossIntroRpc(boss.DisplayName.ToUpperInvariant(), boss.Epithet, boss.Hint);
+                bool hallowed = Hallowed.Value;
+                if (hallowed)
+                {
+                    // The Reliquary's song reached the guardian: it wakes weakened and burned by it.
+                    var bh = boss.GetComponent<Combat.Health>();
+                    bh.ServerSetFraction(HallowedHealth);
+                    bh.IncomingModifiers.Insert(0, (dmg, from) => dmg * HallowedVulnerability);
+                }
+                BossIntroRpc(boss.DisplayName.ToUpperInvariant(), boss.Epithet, hallowed ? "HALLOWED by the Reliquary: it wakes at " + Mathf.RoundToInt(HallowedHealth * 100f) + "% and takes +10% damage.  " + boss.Hint : boss.Hint);
             }
         }
 

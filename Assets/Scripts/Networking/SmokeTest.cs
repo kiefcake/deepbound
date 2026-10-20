@@ -519,6 +519,7 @@ namespace Deepbound.Networking
                     Log("reliquary", "speed x" + speedMul.ToString("F2") + ", integrity after a hit " + integ.ToString("F0") + "%, still carried " + stillCarried +
                         ", delivered " + (Reliquary.Current == null) + ", gold " + goldBefore + " -> " + lprog.Gold.Value,
                         speedMul < 0.75f && integ < 100f && stillCarried && Reliquary.Current == null && lprog.Gold.Value > goldBefore);
+                    Log("reliquary hallows", "floor hallowed " + DungeonDirector.Instance.Hallowed.Value, DungeonDirector.Instance.Hallowed.Value);
                     lfm2.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                     lh.ServerSetFraction(1f);
                 }
@@ -812,12 +813,71 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.5f);
                         foreach (var pl in PlayerLife.All) if (pl != null && !pl.Downed.Value) pl.Health.ServerSetFraction(1f);
                     }
-                    Log("wheel of fate", "spun " + wheelT.Spun.Value + ", prompt now " + (wheelT.Prompt(local.GetComponent<PlayerProgress>()) ?? "none"), wheelT.Spun.Value);
+                    Log("wheel of fate", "fate " + wheelT.LastFate + ", spun " + wheelT.Spun.Value + ", prompt now " + (wheelT.Prompt(local.GetComponent<PlayerProgress>()) ?? "none"), wheelT.Spun.Value || wheelT.LastFate == FateWheel.Fate.Again);
+                    // The new fates do what they say.
+                    {
+                        var wp = local.GetComponent<PlayerProgress>();
+                        var wf = local.GetComponent<Flasks>();
+                        var wu = local.GetComponent<Ultimates>();
+                        int hp0 = wf.Count(Flasks.Kind.Health);
+                        wu.Charge.Value = 0f;
+                        wheelT.ServerDebugFate(FateWheel.Fate.Apothecary, wp);
+                        yield return new WaitForSeconds(FateWheel.SpinSecondsPublic + 0.5f);
+                        wheelT.ServerDebugFate(FateWheel.Fate.Fury, wp);
+                        yield return new WaitForSeconds(FateWheel.SpinSecondsPublic + 0.5f);
+                        wheelT.ServerDebugFate(FateWheel.Fate.Foresight, wp);
+                        yield return new WaitForSeconds(FateWheel.SpinSecondsPublic + 0.5f);
+                        bool potion = wf.Count(Flasks.Kind.Health) == Mathf.Min(Flasks.Max, hp0 + 1);
+                        Log("wheel fates", FateWheel.FateCount + " fates; apothecary potion " + potion + ", fury charge " + wu.Charge.Value + ", foresight map " + wp.MapRevealed.Value,
+                            FateWheel.FateCount >= 16 && potion && wu.Ready && wp.MapRevealed.Value);
+                        wp.MapRevealed.Value = false;
+                        wu.Charge.Value = 0f;
+                    }
                     foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
                         if (!(e is BossBrain) && Vector3.Distance(e.transform.position, wheelT.transform.position) < 8f) e.GetComponent<Health>().ServerDamage(1e6f, wheelT.transform.position);
                     foreach (var pl in PlayerLife.All) { if (pl.Downed.Value) pl.ServerRevive(1f); pl.Health.ServerSetFraction(1f); }
                 }
                 Log("feature rooms", features, layout.Rooms.Any(r => r.Feature == RoomFeature.GreatHall) && layout.Rooms.Any(r => r.Feature == RoomFeature.Chasm));
+                {
+                    // The new rooms turn up across seeds, and shelves never sit on a spawn.
+                    int lib = 0, pyre = 0, gaunt = 0, badSpawns = 0;
+                    for (int sd = 1; sd <= 40; sd++)
+                    {
+                        var gl = DungeonLayout.Generate(sd * 7919, 2 + sd % 6);
+                        foreach (var r in gl.Rooms)
+                        {
+                            if (r.Feature == RoomFeature.Library) { lib++; foreach (var sp in r.EnemySpawns) if (DungeonLayout.LibraryShelves(r).Exists(q => q.Contains(new Vector2(sp.x, sp.z)))) badSpawns++; }
+                            if (r.Feature == RoomFeature.Pyre) pyre++;
+                            if (r.Feature == RoomFeature.Gauntlet) gaunt++;
+                        }
+                    }
+                    Log("new rooms", "over 40 seeds: library " + lib + ", pyre " + pyre + ", gauntlet " + gaunt + ", spawns in shelves " + badSpawns, lib > 0 && pyre > 0 && gaunt > 0 && badSpawns == 0);
+                }
+                // The blood altar: three offerings fill the chalice; a relic for who bled, Bloodlust for all.
+                {
+                    var altarT = FindObjectsByType<BloodAltar>(FindObjectsSortMode.None).FirstOrDefault(a => !a.Spent.Value);
+                    if (altarT != null)
+                    {
+                        var ap2 = local.GetComponent<PlayerProgress>();
+                        var ah = local.GetComponent<Health>();
+                        fm.Teleport(altarT.transform.position + altarT.transform.forward * 1.6f + Vector3.up * 0.1f, Quaternion.LookRotation(-altarT.transform.forward));
+                        foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                            if (!(e is BossBrain) && Vector3.Distance(e.transform.position, altarT.transform.position) < 16f) e.GetComponent<Health>().ServerDamage(1e6f, altarT.transform.position);
+                        yield return new WaitForSeconds(0.3f);
+                        int relics0 = ap2.RelicCount, emb0 = ap2.Embers.Value;
+                        for (int k = 0; k < BloodAltar.Offerings; k++)
+                        {
+                            ah.ServerSetFraction(1f);
+                            altarT.UseRpc(local.NetworkObject);
+                            yield return new WaitForSeconds(0.75f);
+                        }
+                        bool bled = ah.Fraction < 0.95f;
+                        ah.ServerSetFraction(1f);
+                        Log("blood altar", "chalice " + altarT.Filled.Value + "/" + BloodAltar.Offerings + ", spent " + altarT.Spent.Value + ", bloodlust " + ap2.Bloodlust + ", relics " + relics0 + " -> " + ap2.RelicCount + ", embers " + emb0 + " -> " + ap2.Embers.Value + ", bled " + bled,
+                            altarT.Spent.Value && ap2.Bloodlust && ap2.RelicCount > relics0 && ap2.Embers.Value > emb0);
+                    }
+                    else Log("blood altar", "none on this floor", false);
+                }
 
                 var sarc = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None).FirstOrDefault(x => x.IsSpawned && x.HasOccupant && !x.Opened.Value && !x.Scheduled);
                 if (sarc != null)

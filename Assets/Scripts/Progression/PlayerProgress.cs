@@ -650,11 +650,17 @@ namespace Deepbound.Progression
         /// <summary>Melee gains half as much reach from the same sources.</summary>
         public float ReachMultiplier => 1f + (RangeMultiplier - 1f) * 0.5f;
 
+        /// <summary>Server time the blood altar's Bloodlust (+15% damage) ends.</summary>
+        public readonly NetworkVariable<double> BloodlustEnds = new NetworkVariable<double>();
+        public bool Bloodlust => NetworkManager != null && BloodlustEnds.Value > NetworkManager.ServerTime.Time;
+        public const float BloodlustDamage = 1.15f;
+
         public float AttackMultiplier
         {
             get
             {
                 float m = 0.5f + Value(StatType.ATT) / 50f;
+                if (Bloodlust) m *= BloodlustDamage;
                 if (WeaponLevel.Value >= World.Anvil.AscendedLevel) m *= World.Anvil.AscendedDamage;
                 if (HasRelic(Relic.BerserkersBrand) && health.Fraction < 0.5f) m *= 1.4f;
                 if (HasRelic(Relic.BloodPact)) m *= 1.3f;

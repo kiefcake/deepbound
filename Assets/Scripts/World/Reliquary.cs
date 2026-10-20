@@ -12,10 +12,17 @@ namespace Deepbound.World
     /// them. It sings as it goes, and the dead come to the song (<see cref="HymnInterval"/>).
     /// Every hit the carrier takes chips its <see cref="Integrity"/>; the reward, paid to the whole
     /// party, scales with how intact it arrives.
+    /// Reworked 2026-10-20 so it is always worth the haul: while it is carried its hymn MENDS the
+    /// escort (allies within <see cref="AuraRadius"/>); delivered, it raises every fallen player,
+    /// pays gold and embers, gives a relic each from 50% intact and a Sigil each from 70%, and
+    /// HALLOWS the floor: its boss or Warden wakes weakened (<see cref="DungeonDirector.Hallowed"/>).
     /// </summary>
     public class Reliquary : Carryable
     {
         public const float HymnInterval = 4f, HymnRadius = 14f;
+        /// <summary>The hymn mends allies near the carrier (not the carrier): this fraction of max health a second.</summary>
+        public const float AuraRadius = 6f, AuraHeal = 0.012f;
+        private float nextAura;
 
         /// <summary>0..100: how intact it is. The payout scales with it (never below a quarter).</summary>
         public readonly NetworkVariable<float> Integrity = new NetworkVariable<float>(100f);
@@ -38,10 +45,13 @@ namespace Deepbound.World
         /// <summary>What each player gets for a delivery at this integrity, on this floor.</summary>
         public static (int gold, int embers, bool sigil) Reward(float integrity, int depth)
         {
-            float k = Mathf.Max(0.25f, integrity / 100f);
+            float k = Mathf.Max(0.35f, integrity / 100f);
             float t = DungeonDirector.Tier(depth);
-            return (Mathf.RoundToInt((90 + 45 * t) * k), Mathf.RoundToInt((8 + 4 * t) * k), integrity >= 70f);
+            return (Mathf.RoundToInt((120 + 55 * t) * k), Mathf.RoundToInt((12 + 5 * t) * k), integrity >= 70f);
         }
+
+        /// <summary>From this integrity every player also gets a relic they lack.</summary>
+        public const float RelicIntegrity = 50f;
 
         protected override void ServerCarrierHurt(float amount, bool knockedLoose)
         {
@@ -51,6 +61,13 @@ namespace Deepbound.World
 
         protected override void ServerCarriedTick(NetworkObject carrier)
         {
+            if (Time.time >= nextAura)
+            {
+                nextAura = Time.time + 0.5f;
+                foreach (var p in PlayerLife.All)
+                    if (p != null && p.NetworkObject != carrier && !p.Downed.Value && p.Health.IsAlive && Vector3.Distance(p.transform.position, carrier.transform.position) < AuraRadius)
+                        p.Health.ServerHeal(p.Health.Max.Value * AuraHeal * 0.5f);
+            }
             if (Time.time < nextHymn) return;
             nextHymn = Time.time + HymnInterval;
             // The song carries: idle dead within earshot turn on the carrier.
@@ -61,14 +78,25 @@ namespace Deepbound.World
         protected override void ServerDelivered(NetworkObject carrier, DungeonLayout layout)
         {
             var (gold, embers, sigil) = Reward(Integrity.Value, layout.Depth);
+            bool relic = Integrity.Value >= RelicIntegrity;
             foreach (var p in PlayerLife.All)
             {
                 if (p == null || !p.TryGetComponent<PlayerProgress>(out var prog)) continue;
+                if (p.Downed.Value && !p.Soul.Value) p.ServerRevive(0.5f);
                 prog.ServerAddGold(gold);
                 prog.ServerAddEmbers(embers);
                 if (sigil) prog.ServerAddSigil();
+                if (relic)
+                    for (int tries = 0; tries < 30; tries++)
+                    {
+                        var r = Loot.Relics.Random();
+                        if (prog.HasRelic(r)) continue;
+                        prog.ServerAddRelic(r);
+                        break;
+                    }
             }
-            DeliveredRpc(Mathf.RoundToInt(Integrity.Value), gold, embers, sigil);
+            if (DungeonDirector.Instance != null) DungeonDirector.Instance.Hallowed.Value = true;
+            DeliveredRpc(Mathf.RoundToInt(Integrity.Value), gold, embers, sigil, relic);
             Debug.Log("[Reliquary] delivered at " + Mathf.RoundToInt(Integrity.Value) + "%: " + gold + " gold, " + embers + " embers each");
             if (NetworkObject.IsSpawned) NetworkObject.Despawn();
         }
@@ -78,17 +106,19 @@ namespace Deepbound.World
         {
             Sfx.Play(Sound.Relic, transform.position, 0.6f, 0.7f);
             Vfx.Embers(transform.position + Vector3.up * 0.4f, 6, MarkerColor, 1.5f, 0.04f, 0.6f);
+            // The mending circle round the carrier, so the escort knows where to stand.
+            Vfx.Ring(transform.position - Vector3.up * 0.8f, AuraRadius, new Color(1f, 0.85f, 0.45f), 0.25f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void CrackFxRpc() => Sfx.Play(Sound.Shatter, transform.position, 0.5f, 1.6f);
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void DeliveredRpc(int integrity, int gold, int embers, bool sigil)
+        private void DeliveredRpc(int integrity, int gold, int embers, bool sigil, bool relic)
         {
             Sfx.Play2D(Sound.Relic, 1f);
             Sfx.Play2D(Sound.Coins, 0.8f);
-            UI.GameHud.ShowTitleCard("THE RELIQUARY IS SAFE", "Intact " + integrity + "%:  +" + gold + " gold, +" + embers + " embers" + (sigil ? ", a Sigil" : "") + " each");
+            UI.GameHud.ShowTitleCard("THE RELIQUARY IS SAFE", "Intact " + integrity + "%:  +" + gold + " gold, +" + embers + " embers" + (sigil ? ", a Sigil" : "") + (relic ? ", a relic" : "") + " each.  The fallen rise, and this floor's guardian is HALLOWED (weakened)");
         }
 
         protected override void VisualTick(bool carried)

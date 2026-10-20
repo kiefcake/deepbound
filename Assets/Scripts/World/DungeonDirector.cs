@@ -156,7 +156,7 @@ namespace Deepbound.World
         }
 
         /// <summary>Server: a pack of the floor's dead around a point (the Wheel's cruel turn).</summary>
-        public void ServerSpawnPack(Vector3 around, int count, bool elite)
+        public void ServerSpawnPack(Vector3 around, int count, bool elite, bool champion = false)
         {
             if (Layout == null) return;
             int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
@@ -171,7 +171,8 @@ namespace Deepbound.World
                 var brain = obj.GetComponent<EnemyBrain>();
                 brain.ServerScale(players, Layout.Depth);
                 if (brain is NecromancerBrain nb) nb.SetMinionPrefab(skeletonPrefab);
-                if (elite && i == 0) brain.ServerMakeElite();
+                if (champion && i == 0) brain.ServerMakeChampion();
+                else if (elite && i == 0) brain.ServerMakeElite();
                 spawned.Add(obj);
                 points.Add(at);
             }
@@ -295,6 +296,13 @@ namespace Deepbound.World
         /// are split evenly across the party) or finders keepers.
         /// </summary>
         public readonly NetworkVariable<bool> FindersKeepers = new NetworkVariable<bool>();
+
+        /// <summary>
+        /// The Reliquary reached the waystone this floor: the floor's guardian (boss or Warden) wakes
+        /// HALLOWED, at <see cref="HallowedHealth"/> of its health and taking more damage all fight.
+        /// </summary>
+        public readonly NetworkVariable<bool> Hallowed = new NetworkVariable<bool>();
+        public const float HallowedHealth = 0.75f, HallowedVulnerability = 1.1f;
         public static bool ShareLoot => Instance == null || !Instance.FindersKeepers.Value;
 
         /// <summary>Host → server: change the loot rule (at camp).</summary>
@@ -588,6 +596,7 @@ namespace Deepbound.World
             PhaseEndsAt.Value = 0;
             Floor.Value = new Vector2Int(seed, depth);
             foreach (var p in PlayerLife.All) if (p != null) p.Seat.Value = -1;
+            Hallowed.Value = false;
 
             // NetworkVariable callbacks do not fire for the writer's own change on every
             // NGO version, so build explicitly; BuildLocal ignores a repeat.
@@ -882,7 +891,7 @@ namespace Deepbound.World
             if (breakablePrefab == null) return;
             var rng = new System.Random(layout.Seed ^ 0x5eed);
             DungeonLayout.Room altarRoom = null;
-            if (altarPrefab != null && rng.NextDouble() < 0.5)
+            if (altarPrefab != null && (TestMode || rng.NextDouble() < 0.5))
             {
                 var combat = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat);
                 if (combat.Count > 0) altarRoom = combat[rng.Next(combat.Count)];

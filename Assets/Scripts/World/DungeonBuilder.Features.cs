@@ -348,6 +348,115 @@ namespace Deepbound.World
         }
 
         // ------------------------------------------------------------------
+        // Library: shelf aisles that break line of sight
+        // ------------------------------------------------------------------
+
+        private static void DressLibrary(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
+        {
+            float shelfH = Mathf.Min(room.Height - 2.5f, 5.2f);
+            foreach (var r in DungeonLayout.LibraryShelves(room))
+            {
+                var c = new Vector3(r.center.x, 0f, r.center.y);
+                var size = new Vector3(r.width, shelfH, r.height);
+                bool longX = r.width > r.height;
+                // The case: back board, sides, shelves; then rows of books, a ladder now and then.
+                b.AddBox(c + Vector3.up * shelfH / 2f, new Vector3(size.x * (longX ? 1f : 0.35f), shelfH, size.z * (longX ? 0.35f : 1f)), Mat.Wood);
+                for (float y = 0.4f; y < shelfH - 0.3f; y += 0.85f)
+                {
+                    b.AddBox(c + Vector3.up * y, new Vector3(size.x + (longX ? 0f : 0.05f), 0.06f, size.z + (longX ? 0.05f : 0f)), Mat.Wood);
+                    foreach (float face in new[] { -1f, 1f })
+                    {
+                        var off = longX ? new Vector3(0f, 0f, face * 0.22f) : new Vector3(face * 0.22f, 0f, 0f);
+                        float run = longX ? size.x - 0.2f : size.z - 0.2f;
+                        for (float u = -run / 2f; u < run / 2f - 0.3f; u += 0.5f + (float)rng.NextDouble() * 0.6f)
+                        {
+                            float bw = 0.3f + (float)rng.NextDouble() * 0.3f, bh = 0.5f + (float)rng.NextDouble() * 0.22f;
+                            var at = c + off + Vector3.up * (y + 0.03f + bh / 2f) + (longX ? new Vector3(u + bw / 2f, 0f, 0f) : new Vector3(0f, 0f, u + bw / 2f));
+                            b.AddBox(at, longX ? new Vector3(bw, bh, 0.2f) : new Vector3(0.2f, bh, bw), rng.NextDouble() < 0.5 ? Mat.Leather : Mat.Cloth);
+                        }
+                    }
+                }
+                foreach (float end in new[] { -0.5f, 0.5f })
+                    b.AddBox(c + Vector3.up * shelfH / 2f + (longX ? new Vector3(end * size.x, 0f, 0f) : new Vector3(0f, 0f, end * size.z)), longX ? new Vector3(0.1f, shelfH + 0.1f, 0.75f) : new Vector3(0.75f, shelfH + 0.1f, 0.1f), Mat.Wood);
+                if (rng.NextDouble() < 0.35)
+                {
+                    var face = longX ? new Vector3(0f, 0f, 0.55f) : new Vector3(0.55f, 0f, 0f);
+                    b.AddBox(c + face + Vector3.up * shelfH * 0.45f, new Vector3(0.5f, shelfH * 0.9f, 0.05f), Mat.Wood, Quaternion.Euler(longX ? -12f : 0f, longX ? 0f : 90f, longX ? 0f : 12f));
+                }
+            }
+            // Reading desks in the central aisle, scattered pages, and candles hung in the air.
+            bool ax = room.Size.x >= room.Size.y;
+            float len = ax ? room.Size.x : room.Size.y;
+            for (float t = -len / 2f + 6f; t <= len / 2f - 6f; t += 7f)
+            {
+                if (Mathf.Abs(t) < DungeonLayout.CorridorWidth / 2f + 1.8f) continue;
+                var at = room.Center + (ax ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t));
+                b.AddBox(at + Vector3.up * 0.55f, new Vector3(1.1f, 0.08f, 0.7f), Mat.Wood, Quaternion.Euler(0f, ax ? 0f : 90f, 0f));
+                b.AddBox(at + Vector3.up * 0.27f, new Vector3(0.12f, 0.55f, 0.12f), Mat.Wood);
+                b.AddBox(at + Vector3.up * 0.62f, new Vector3(0.4f, 0.05f, 0.3f), Mat.Bone, Quaternion.Euler(0f, (float)rng.NextDouble() * 40f - 20f, 0f));
+                Props.Candles(lights, at + Vector3.up * 0.6f + (ax ? new Vector3(0.38f, 0f, 0.2f) : new Vector3(0.2f, 0f, 0.38f)), theme.TorchColor);
+            }
+            for (int i = 0; i < 14; i++)
+            {
+                var p = room.Center + new Vector3(((float)rng.NextDouble() - 0.5f) * (room.Size.x - 4f), 0.012f, ((float)rng.NextDouble() - 0.5f) * (room.Size.y - 4f));
+                b.AddBox(p, new Vector3(0.22f, 0.01f, 0.3f), Mat.Bone, Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f));
+            }
+            for (int i = 0; i < 6; i++)
+            {
+                var p = room.Center + new Vector3(((float)rng.NextDouble() - 0.5f) * (room.Size.x - 6f), room.Height * 0.62f + (float)rng.NextDouble(), ((float)rng.NextDouble() - 0.5f) * (room.Size.y - 6f));
+                Props.AddFlame(lights, p, 0.6f, theme.TorchColor, i % 2 == 0 ? 0.9f : 0f, 6f, false);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Pyre hall: a great fire on a beat
+        // ------------------------------------------------------------------
+
+        private static void DressPyre(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
+        {
+            PyreFire.Build(lights, room);
+            // Scorched flagstones in a wide ring, soot up the walls, and gibbets of the burned.
+            b.AddBox(room.Center + Vector3.up * 0.011f, new Vector3(PyreFire.EruptRadius * 1.6f, 0.01f, PyreFire.EruptRadius * 1.6f), Mat.Dark, Quaternion.Euler(0f, 45f, 0f));
+            b.AddBox(room.Center + Vector3.up * 0.012f, new Vector3(PyreFire.EruptRadius * 1.6f, 0.01f, PyreFire.EruptRadius * 1.6f), Mat.Dark);
+            for (int i = 0; i < 4; i++)
+            {
+                float a = (i * 90f + 45f) * Mathf.Deg2Rad;
+                var at = room.Center + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * (Mathf.Min(room.Size.x, room.Size.y) / 2f - 2.2f);
+                b.AddBox(at + Vector3.up * 1.8f, new Vector3(0.18f, 3.6f, 0.18f), Mat.Wood);
+                b.AddBox(at + new Vector3(0f, 3.5f, 0f) + (room.Center - at).normalized * 0.4f, new Vector3(0.9f, 0.14f, 0.14f), Mat.Wood, Quaternion.LookRotation(room.Center - at) * Quaternion.Euler(0f, 90f, 0f));
+                b.AddBox(at + new Vector3(0f, 2.6f, 0f) + (room.Center - at).normalized * 0.8f, new Vector3(0.5f, 1.1f, 0.5f), Mat.Steel);
+                Props.Brazier(lights, at + (room.Center - at).normalized * 1.6f, theme.TorchColor, false);
+            }
+        }
+
+        // ------------------------------------------------------------------
+        // Gauntlet: a wave of spikes down the hall
+        // ------------------------------------------------------------------
+
+        private static void DressGauntlet(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
+        {
+            SpikeGauntlet.Build(lights, room);
+            // Bloodied grates at each end, and chains hanging over the rows.
+            bool ax = SpikeGauntlet.AlongX(room);
+            float wid = ax ? room.Size.y : room.Size.x;
+            for (int i = 0; i < SpikeGauntlet.Rows(room); i += 2)
+            {
+                var c = SpikeGauntlet.RowCenter(room, i);
+                foreach (float s in new[] { -0.3f, 0.3f })
+                {
+                    var at = c + (ax ? new Vector3(0f, 0f, s * wid) : new Vector3(s * wid, 0f, 0f));
+                    b.AddBox(at + Vector3.up * (room.Height - 1.4f), new Vector3(0.05f, 2.8f, 0.05f), Mat.Steel);
+                    b.AddBox(at + Vector3.up * (room.Height - 2.9f), new Vector3(0.22f, 0.22f, 0.22f), Mat.Steel, Quaternion.Euler(45f, 45f, 0f));
+                }
+            }
+            for (int i = 0; i < 8; i++)
+            {
+                var p = room.Center + new Vector3(((float)rng.NextDouble() - 0.5f) * (room.Size.x - 3f), 0.06f, ((float)rng.NextDouble() - 0.5f) * (room.Size.y - 3f));
+                b.AddBox(p, new Vector3(0.6f + (float)rng.NextDouble() * 0.6f, 0.012f, 0.5f), Mat.Dark, Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, 0f));
+            }
+        }
+
+        // ------------------------------------------------------------------
         // Ritual chamber
         // ------------------------------------------------------------------
 

@@ -70,6 +70,8 @@ namespace Deepbound.UI
             if (ClericKit.InConsecration(pos)) list.Add(new Status { Glyph = "✦", Name = "Blessed", Text = "+20% damage while you stand in the Cleric's consecrated ground.", Lasts = "While you stand in it", Color = Good });
             if (health != null && ClericKit.IsInspired(health)) list.Add(new Status { Glyph = "★", Name = "Inspired", Text = "+15% damage while the Cleric's beam is on you.", Lasts = "While the beam holds", Color = Good });
             if (life != null && Time.time < life.VeiledUntil) list.Add(new Status { Glyph = "☁", Name = "Smoke Screen", Text = "The dead cannot see you while you stay in the smoke.", Lasts = "While you stay in it", Color = Good });
+            if (progress != null && progress.Bloodlust)
+                list.Add(Timed("\u2620", "Bloodlust", "+15% damage. The blood altar answered your offering.", Good, (float)(progress.BloodlustEnds.Value - now), World.BloodAltar.BloodlustSeconds));
             if (progress != null && progress.Salts.Value)
                 list.Add(new Status { Glyph = "\u2668", Name = "Smelling Salts", Text = "If you go down, you come round on your own " + (int)Player.PlayerLife.SaltsSeconds + " s later at 30% health.", Lasts = "Until used, or the run ends", Color = new Color(0.85f, 0.95f, 0.8f) });
             if (progress != null && (progress.ScoutMap.Value || progress.MapRevealed.Value))

@@ -119,6 +119,9 @@ namespace Deepbound.UI
             {
                 if (room.Feature == RoomFeature.Pendulums) Offer("pendulum", "PENDULUM HALL: the blades cut the dead as well as you. Time your crossing - and kick enemies into them.");
                 if (room.Feature == RoomFeature.Ritual && DungeonDirector.InRitualWard(room.Center)) Offer("ritual", "RITUAL CHAMBER: the violet braziers ward the dead and raise more. Smash all three.");
+                if (room.Feature == RoomFeature.Library) Offer("library", "LIBRARY: the shelves block sight both ways. Archers lose you behind them - and the dead can wait round any corner.");
+                if (room.Feature == RoomFeature.Pyre) Offer("pyre", "PYRE HALL: the fire erupts on a beat. When the red ring fills, get out past it - and leave the dead inside.");
+                if (room.Feature == RoomFeature.Gauntlet) Offer("gauntlet", "SPIKE GAUNTLET: a wave of spikes runs down the hall. Rows glow before they fire: step between them, and let the dead walk in.");
                 if (room.Feature == RoomFeature.Cistern) Offer("cistern", "CISTERN: the water slows everyone - but frost freezes anything standing in it.");
             }
             if (Object.FindObjectsByType<FateWheel>(FindObjectsSortMode.None).Any(w => !w.Spun.Value && Vector3.Distance(w.transform.position, me) < 9f))

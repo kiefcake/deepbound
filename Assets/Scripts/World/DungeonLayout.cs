@@ -13,7 +13,7 @@ namespace Deepbound.World
     /// chamber (braziers empower the room's dead until smashed). Side rooms can be a
     /// Vault or a Fountain.
     /// </summary>
-    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual }
+    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet }
 
     /// <summary>A hollow section of wall with a niche behind it.</summary>
     public class WallHole
@@ -413,7 +413,7 @@ namespace Deepbound.World
 
             // Every other combat room gets one of the newer mechanics, shuffled, no repeats
             // until all have been used.
-            var extras = new List<RoomFeature> { RoomFeature.Gallery, RoomFeature.SunkenCourt, RoomFeature.Cistern, RoomFeature.Pendulums, RoomFeature.Ritual };
+            var extras = new List<RoomFeature> { RoomFeature.Gallery, RoomFeature.SunkenCourt, RoomFeature.Cistern, RoomFeature.Pendulums, RoomFeature.Ritual, RoomFeature.Library, RoomFeature.Pyre, RoomFeature.Gauntlet };
             for (int i = extras.Count - 1; i > 0; i--)
             {
                 int j = rng.Next(i + 1);
@@ -511,6 +511,21 @@ namespace Deepbound.World
                         room.FeatureSpots.Add(room.Center + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)));
                     }
                     break;
+                case RoomFeature.Library:
+                    room.Size = new Vector2(Mathf.Max(room.Size.x, 24f), Mathf.Max(room.Size.y, 24f));
+                    room.Height = 9f;
+                    break;
+                case RoomFeature.Pyre:
+                    room.Size = new Vector2(Mathf.Max(room.Size.x, 24f), Mathf.Max(room.Size.y, 24f));
+                    room.Height = 11f;
+                    room.FeatureSpots.Add(room.Center);
+                    break;
+                case RoomFeature.Gauntlet:
+                    // Long and narrow-ish: the wave runs down the long axis.
+                    if (room.Size.x >= room.Size.y) room.Size = new Vector2(Mathf.Max(room.Size.x, 26f), Mathf.Clamp(room.Size.y, 14f, 20f));
+                    else room.Size = new Vector2(Mathf.Clamp(room.Size.x, 14f, 20f), Mathf.Max(room.Size.y, 26f));
+                    room.Height = 7f;
+                    break;
                 case RoomFeature.Ritual:
                     room.Size = new Vector2(Mathf.Max(room.Size.x, 20f), Mathf.Max(room.Size.y, 20f));
                     room.Height = 8f;
@@ -521,6 +536,31 @@ namespace Deepbound.World
                     }
                     break;
             }
+        }
+
+        /// <summary>
+        /// A library's shelves (in plan, x/z): rows across the long axis with a central aisle, a
+        /// gap at each wall, and the cross aisle through the side doors left open.
+        /// </summary>
+        public static List<Rect> LibraryShelves(Room room)
+        {
+            var list = new List<Rect>();
+            if (room.Feature != RoomFeature.Library) return list;
+            bool alongX = room.Size.x >= room.Size.y;
+            float len = alongX ? room.Size.x : room.Size.y, wid = alongX ? room.Size.y : room.Size.x;
+            for (float t = -len / 2f + 4f; t <= len / 2f - 4f; t += 3.6f)
+            {
+                if (Mathf.Abs(t) < CorridorWidth / 2f + 1.8f) continue;
+                foreach (int s in new[] { -1, 1 })
+                {
+                    float a0 = s < 0 ? -wid / 2f + 1.8f : 2.2f, a1 = s < 0 ? -2.2f : wid / 2f - 1.8f;
+                    if (a1 - a0 < 1.5f) continue;
+                    list.Add(alongX
+                        ? new Rect(room.Center.x + t - 0.35f, room.Center.z + a0, 0.7f, a1 - a0)
+                        : new Rect(room.Center.x + a0, room.Center.z + t - 0.35f, a1 - a0, 0.7f));
+                }
+            }
+            return list;
         }
 
         /// <summary>Inside a sunken court's pit or a cistern's basin (in plan)?</summary>
@@ -549,8 +589,10 @@ namespace Deepbound.World
                     float x = (float)(rng.NextDouble() - 0.5) * (room.Size.x - 4f);
                     float z = (float)(rng.NextDouble() - 0.5) * (room.Size.y - 4f);
                     var p = room.Center + new Vector3(x, 0.1f, z);
-                    // Never inside the pit.
+                    // Never inside the pit, the pyre, or a bookshelf.
                     if (room.Feature == RoomFeature.Chasm && room.Pit.Contains(new Vector2(p.x, p.z), true)) continue;
+                    if (room.Feature == RoomFeature.Pyre && Vector3.Distance(new Vector3(p.x, 0f, p.z), new Vector3(room.Center.x, 0f, room.Center.z)) < PyreFire.CoreRadius + 1.2f) continue;
+                    if (room.Feature == RoomFeature.Library && LibraryShelves(room).Exists(r => { var g = r; g.xMin -= 0.6f; g.yMin -= 0.6f; g.xMax += 0.6f; g.yMax += 0.6f; return g.Contains(new Vector2(p.x, p.z)); })) continue;
                     if (room.Feature == RoomFeature.SunkenCourt && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -SunkenDepth + 0.1f;
                     if (room.Feature == RoomFeature.Cistern && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -CisternDepth + 0.1f;
                     room.EnemySpawns.Add(p);
