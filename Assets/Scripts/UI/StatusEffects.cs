@@ -70,6 +70,11 @@ namespace Deepbound.UI
             if (ClericKit.InConsecration(pos)) list.Add(new Status { Glyph = "✦", Name = "Blessed", Text = "+20% damage while you stand in the Cleric's consecrated ground.", Lasts = "While you stand in it", Color = Good });
             if (health != null && ClericKit.IsInspired(health)) list.Add(new Status { Glyph = "★", Name = "Inspired", Text = "+15% damage while the Cleric's beam is on you.", Lasts = "While the beam holds", Color = Good });
             if (life != null && Time.time < life.VeiledUntil) list.Add(new Status { Glyph = "☁", Name = "Smoke Screen", Text = "The dead cannot see you while you stay in the smoke.", Lasts = "While you stay in it", Color = Good });
+            var debT = player.GetComponent<PlayerDebuffs>();
+            if (debT != null && debT.Warded) list.Add(Timed("\u2695", "Plague Mask", "Warded: no new poison, frostbite, curses, mania or roots.", Good, (float)(debT.WardUntil.Value - now), PlagueDoctorKit.MaskWard));
+            var flagT = player.GetComponent<FlagellantKit>();
+            if (flagT != null && flagT.Zealous) list.Add(Timed("\u271D", "Zeal", "Faster, harder flail swings. You paid for it in blood.", Good, (float)(flagT.ZealEnds.Value - now), FlagellantKit.ZealSeconds));
+            if (flagT != null && flagT.Martyr) list.Add(Timed("\u2620", "Martyrdom", "You cannot fall below 1 health. Hit 30% harder, heal for a quarter of it.", Good, (float)(flagT.MartyrEnds.Value - now), 8f));
             if (progress != null && progress.Bloodlust)
                 list.Add(Timed("\u2620", "Bloodlust", "+15% damage. The blood altar answered your offering.", Good, (float)(progress.BloodlustEnds.Value - now), World.BloodAltar.BloodlustSeconds));
             if (progress != null && progress.Salts.Value)

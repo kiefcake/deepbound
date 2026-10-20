@@ -53,22 +53,27 @@ namespace Deepbound.Player
             life = GetComponent<PlayerLife>();
         }
 
+        /// <summary>Server time the Plague Mask's ward ends: no new afflictions until then.</summary>
+        public readonly NetworkVariable<double> WardUntil = new NetworkVariable<double>();
+        public bool Warded => Now < WardUntil.Value;
+        public void ServerWard(float seconds) { if (IsServer) WardUntil.Value = System.Math.Max(WardUntil.Value, Now + seconds); }
+
         public void ServerPoison(float seconds, float dps)
         {
-            if (!IsServer || life.Downed.Value) return;
+            if (!IsServer || life.Downed.Value || Warded) return;
             poisonDps = Mathf.Max(poisonDps * (Poisoned ? 1f : 0f), dps);
             PoisonUntil.Value = System.Math.Max(PoisonUntil.Value, Now + seconds);
         }
 
         public void ServerFrostbite(float seconds)
         {
-            if (!IsServer || life.Downed.Value) return;
+            if (!IsServer || life.Downed.Value || Warded) return;
             FrostUntil.Value = System.Math.Max(FrostUntil.Value, Now + seconds);
         }
 
         public void ServerCurse(float seconds, ulong source)
         {
-            if (!IsServer || life.Downed.Value) return;
+            if (!IsServer || life.Downed.Value || Warded) return;
             CurseUntil.Value = Now + seconds;
             CurseSource.Value = source;
         }
@@ -76,7 +81,7 @@ namespace Deepbound.Player
         /// <summary>Server: madness takes you for <paramref name="seconds"/> (then a grace of twice as long).</summary>
         public void ServerMania(float seconds)
         {
-            if (!IsServer || life.Downed.Value || Now < maniaGraceUntil) return;
+            if (!IsServer || life.Downed.Value || Now < maniaGraceUntil || Warded) return;
             if (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasRelic(Loot.Relic.IronPsalter)) return;
             ManiaUntil.Value = Now + seconds;
             maniaGraceUntil = Now + seconds * 3f;
@@ -99,7 +104,7 @@ namespace Deepbound.Player
         /// <summary>Server: ice locks your feet for <paramref name="seconds"/>.</summary>
         public void ServerRoot(float seconds)
         {
-            if (!IsServer || life.Downed.Value || Now < rootGraceUntil) return;
+            if (!IsServer || life.Downed.Value || Now < rootGraceUntil || Warded) return;
             if (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasRelic(Loot.Relic.IronPsalter)) seconds *= 0.5f;
             RootUntil.Value = Now + seconds;
             rootGraceUntil = Now + seconds * 2.5f;

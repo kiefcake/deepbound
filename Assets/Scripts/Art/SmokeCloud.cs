@@ -14,7 +14,7 @@ namespace Deepbound.Art
         private float[] phase, size;
         private float age, life, radius;
 
-        public static void Spawn(Vector3 at, float radius, float seconds)
+        public static void Spawn(Vector3 at, float radius, float seconds, Color? tint = null)
         {
             var go = new GameObject("SmokeCloud");
             go.transform.position = at;
@@ -40,7 +40,8 @@ namespace Deepbound.Art
                 var rend = ball.GetComponent<Renderer>();
                 // Translucent layers: overlapping puffs build the cloud's density in the middle.
                 float shade = Random.Range(0.1f, 0.2f);
-                ArtLibrary.Tint(rend, new Color(shade, shade * 0.9f, shade * 1.2f, Random.Range(0.22f, 0.38f)));
+                var col = tint.HasValue ? tint.Value * Random.Range(0.75f, 1.1f) : new Color(shade, shade * 0.9f, shade * 1.2f);
+                ArtLibrary.Tint(rend, new Color(col.r, col.g, col.b, Random.Range(0.22f, 0.38f) * (tint.HasValue ? 0.7f : 1f)));
                 rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 ball.transform.localScale = Vector3.zero;
                 c.puffs[i] = ball.transform;

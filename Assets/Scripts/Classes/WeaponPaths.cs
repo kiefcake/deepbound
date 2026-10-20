@@ -18,6 +18,8 @@ namespace Deepbound.Classes
                 case ClassId.Cleric: return path == 1 ? "Zealot" : "Shepherd";
                 case ClassId.Rogue: return path == 1 ? "Assassin" : "Duelist";
                 case ClassId.Ranger: return path == 1 ? "Sharpshooter" : "Trapper";
+                case ClassId.Flagellant: return path == 1 ? "Zealot" : "Penitent";
+                case ClassId.PlagueDoctor: return path == 1 ? "Pestilence" : "Physician";
                 default: return path == 1 ? "Cleave" : "Riposte";
             }
         }
@@ -35,6 +37,12 @@ namespace Deepbound.Classes
                 case ClassId.Rogue: return path == 1
                     ? "Ambush hits from behind deal x2.0 instead of x1.5."
                     : "Stabs strike two enemies, and hit 25% harder from the front.";
+                case ClassId.Flagellant: return path == 1
+                    ? "Crashes hit 30% harder and burst half again as wide."
+                    : "Penance heals twice as much from every hit.";
+                case ClassId.PlagueDoctor: return path == 1
+                    ? "Vials splash 40% wider, and blight burns 40% hotter."
+                    : "Tonics heal 40% more, shield for 20, and come back sooner.";
                 case ClassId.Ranger: return path == 1
                     ? "Full-draw arrows deal 40% more damage."
                     : "Keep three bear traps out, and set them 40% more often.";
@@ -57,6 +65,12 @@ namespace Deepbound.Classes
                 case ClassId.Rogue: return path == 1
                     ? "Killing an enemy from behind resets Shadowstep."
                     : "Fan of Knives throws five knives.";
+                case ClassId.Flagellant: return path == 1
+                    ? "Crashes stun everything they burst on."
+                    : "Scourge heals allies within 6 m for the health it costs you.";
+                case ClassId.PlagueDoctor: return path == 1
+                    ? "A blighted death spreads it to everything near, not just the nearest."
+                    : "Tonics also cleanse afflictions.";
                 case ClassId.Ranger: return path == 1
                     ? "A full-draw hit marks its target at once."
                     : "Volley rains nine waves over a wider circle.";

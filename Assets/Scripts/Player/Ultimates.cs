@@ -60,6 +60,8 @@ namespace Deepbound.Player
                 case ClassId.Cleric: return "Hymn of Return";
                 case ClassId.Rogue: return "Death From Shadow";
                 case ClassId.Ranger: return "Rain of Arrows";
+                case ClassId.Flagellant: return "Martyrdom";
+                case ClassId.PlagueDoctor: return "Black Death";
                 default: return "Rallying Banner";
             }
         }
@@ -72,6 +74,8 @@ namespace Deepbound.Player
                 case ClassId.Cleric: return "Raise every downed ally within 18 m; heal the party to at least 70% and shield it.";
                 case ClassId.Rogue: return "Step behind the enemy you aim at and strike: a huge backstab that leaves it Exposed.";
                 case ClassId.Ranger: return "A storm of arrows on the crosshair for 4 s, chilling all it hits.";
+                case ClassId.Flagellant: return "For 8 s you cannot fall below 1 health, hit 30% harder and heal for a quarter of it. Then you mend 30%.";
+                case ClassId.PlagueDoctor: return "A vast plague cloud at the crosshair for 8 s: everything inside rots and takes 25% more damage.";
                 default: return "Plant a war banner: allies near it take 35% less damage and deal 20% more for 8 s.";
             }
         }
@@ -227,6 +231,8 @@ namespace Deepbound.Player
                 case ClassId.Cleric: Hymn(); break;
                 case ClassId.Rogue: DeathFromShadow(targetId, att); break;
                 case ClassId.Ranger: StartCoroutine(RainOfArrows(aim, att)); break;
+                case ClassId.Flagellant: GetComponent<FlagellantKit>().ServerMartyrdom(8f); break;
+                case ClassId.PlagueDoctor: GetComponent<PlagueDoctorKit>().ServerBlackDeath(aim); break;
                 default:
                     var at = transform.position;
                     banners.Add(new Banner { At = at, Until = Time.time + 8f });
@@ -325,6 +331,8 @@ namespace Deepbound.Player
             : cls == ClassId.Cleric ? new Color(1f, 0.88f, 0.5f)
             : cls == ClassId.Rogue ? new Color(0.65f, 0.45f, 1f)
             : cls == ClassId.Ranger ? new Color(0.55f, 0.95f, 0.5f)
+            : cls == ClassId.Flagellant ? new Color(0.9f, 0.15f, 0.12f)
+            : cls == ClassId.PlagueDoctor ? new Color(0.45f, 0.9f, 0.25f)
             : new Color(0.95f, 0.3f, 0.2f);
 
         [Rpc(SendTo.ClientsAndHost)]

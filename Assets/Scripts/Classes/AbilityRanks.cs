@@ -43,6 +43,12 @@ namespace Deepbound.Classes
                 case ClassId.Rogue: return q
                     ? "Shadowstep arms your opener: the next hit within 2 s deals double and stuns."
                     : "Smoke Bomb stuns every enemy within 5 m for 1.5 s.";
+                case ClassId.Flagellant: return q
+                    ? "Chains drag everything within 3 m of the target along with it."
+                    : "The leap's crash hurls enemies back and stuns them half again as long.";
+                case ClassId.PlagueDoctor: return q
+                    ? "Miasma clouds are half again as wide."
+                    : "The mask's breath steadies the party: Bloodlust (+15% damage) for 6 s.";
                 case ClassId.Ranger: return q
                     ? "Bear traps mark whatever they catch."
                     : "Volley chills everything it hits.";
@@ -61,6 +67,8 @@ namespace Deepbound.Classes
                 case ClassId.Cleric: return q ? "Consecrate heals and burns 30% more." : "Aegis shields 30% more.";
                 case ClassId.Rogue: return q ? "Shadowstep reaches 30% further." : "Smoke lasts 30% longer.";
                 case ClassId.Ranger: return q ? "Traps bite 30% harder." : "Volley hits 30% harder.";
+                case ClassId.Flagellant: return q ? "Chains reach and bite 30% further and harder." : "The leap's crash hits 30% harder.";
+                case ClassId.PlagueDoctor: return q ? "Miasma rots 30% harder." : "The mask heals 30% more.";
                 default: return q ? "Bash hits 30% harder and stuns longer." : "War Cry lasts 30% longer and reaches further.";
             }
         }

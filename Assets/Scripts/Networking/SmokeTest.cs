@@ -190,6 +190,67 @@ namespace Deepbound.Networking
                 var trap = FindObjectsByType<BearTrap>(FindObjectsSortMode.None).FirstOrDefault();
                 Log("ranger trap", "trap " + (trap != null) + ", sprung " + (trap != null && trap.Sprung.Value), trap != null && trap.Sprung.Value);
 
+                // Flagellant: swings heal (Penance) and build Fervor, the third crashes; Scourge costs blood for Zeal; the leap spends Fervor.
+                progressMe.ClassId.Value = Classes.ClassId.Flagellant;
+                yield return new WaitForSeconds(0.5f);
+                {
+                    var flag = me.GetComponent<FlagellantKit>();
+                    var fh = me.GetComponent<Health>();
+                    dummy.ServerSetFraction(1f);
+                    me.GetComponent<FirstPersonMotor>().Teleport(dummy.transform.position + Vector3.right * 1.6f, Quaternion.LookRotation(Vector3.left));
+                    yield return new WaitForSeconds(0.2f);
+                    fh.ServerSetFraction(0.5f);
+                    float hp0 = fh.Current.Value, d0 = dummy.Current.Value;
+                    for (int i = 0; i < 3; i++)
+                    {
+                        flag.ServerSwing(me.transform.position + Vector3.up * 1.5f, dummy.Center - (me.transform.position + Vector3.up * 1.5f), 1f);
+                        yield return new WaitForSeconds(0.1f);
+                    }
+                    float fervor = flag.Fervor.Value;
+                    bool healed = fh.Current.Value > hp0, hurt = dummy.Current.Value < d0;
+                    fh.ServerSetFraction(1f);
+                    flag.ServerScourge();
+                    yield return new WaitForSeconds(0.1f);
+                    bool paid = fh.Fraction < 0.95f, zeal = flag.Zealous;
+                    float d1 = dummy.Current.Value;
+                    flag.ServerLeapCrash(dummy.transform.position);
+                    yield return new WaitForSeconds(0.1f);
+                    Log("flagellant", "swings hurt " + hurt + ", penance healed " + healed + ", fervor " + fervor.ToString("F0") + ", scourge paid " + paid + " zeal " + zeal + ", leap dealt " + (d1 - dummy.Current.Value).ToString("F0") + " fervor now " + flag.Fervor.Value.ToString("F0"),
+                        hurt && healed && fervor > 0f && paid && zeal && dummy.Current.Value < d1 && flag.Fervor.Value < 1f);
+                    bool chained = flag.ServerChain(dummy);
+                    Log("flagellant chains", "chain landed " + chained, chained);
+                    fh.ServerSetFraction(1f);
+                }
+
+                // Plague Doctor: a vial blights; a tonic heals; the mask cleanses and wards.
+                progressMe.ClassId.Value = Classes.ClassId.PlagueDoctor;
+                yield return new WaitForSeconds(0.5f);
+                {
+                    var pd = me.GetComponent<PlagueDoctorKit>();
+                    var ph = me.GetComponent<Health>();
+                    var pdb = me.GetComponent<PlayerDebuffs>();
+                    dummy.ServerSetFraction(1f);
+                    float d0 = dummy.Current.Value;
+                    pd.ServerSplash(dummy.transform.position);
+                    bool blighted = dummy.Blighted.Value;
+                    yield return new WaitForSeconds(1.2f);
+                    bool rotting = dummy.Current.Value < d0;
+                    ph.ServerSetFraction(0.5f);
+                    float h0 = ph.Current.Value;
+                    int healedN = pd.ServerTonic(me.transform.position);
+                    bool tonic = ph.Current.Value > h0;
+                    pdb.ServerPoison(6f, 4f);
+                    bool poisoned = pdb.Poisoned;
+                    int masked = pd.ServerMask();
+                    pdb.ServerPoison(6f, 4f);
+                    Log("plague doctor", "vial blighted " + blighted + " rotting " + rotting + ", tonic healed " + healedN + " (" + tonic + "), poisoned " + poisoned + " -> mask cleansed " + !pdb.Poisoned + ", warded " + pdb.Warded,
+                        blighted && rotting && tonic && poisoned && masked > 0 && !pdb.Poisoned && pdb.Warded);
+                    pd.ServerMiasma(dummy.transform.position);
+                    yield return new WaitForSeconds(0.7f);
+                    Log("plague miasma", "dummy blighted in the cloud " + dummy.Blighted.Value, dummy.Blighted.Value);
+                    ph.ServerSetFraction(1f);
+                }
+
                 progressMe.ClassId.Value = Classes.ClassId.Mage;
                 yield return new WaitForSeconds(0.3f);
                 DungeonDirector.Instance.ServerStartRun();

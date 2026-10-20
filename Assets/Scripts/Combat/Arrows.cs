@@ -19,7 +19,7 @@ namespace Deepbound.Combat
     /// so a Knight's block stops them from the front.
     /// </summary>
     /// <summary>What a projectile looks like. APPEND ONLY: sent in RPCs.</summary>
-    public enum ProjectileKind : byte { Arrow = 0, Firebolt = 1, Frostbolt = 2, ShadowBolt = 3, Smite = 4, Knife = 5, Spit = 6 }
+    public enum ProjectileKind : byte { Arrow = 0, Firebolt = 1, Frostbolt = 2, ShadowBolt = 3, Smite = 4, Knife = 5, Spit = 6, Vial = 7, Tonic = 8 }
 
     public class Arrows : MonoBehaviour
     {
@@ -75,6 +75,8 @@ namespace Deepbound.Combat
             public bool ServerSide;
             /// <summary>Server: replaces the default damage on hit (for chill, shatter and the like).</summary>
             public System.Action<Health> OnHit;
+            /// <summary>Server: where it ended (a hit, a wall, or spent): vials shatter there.</summary>
+            public System.Action<Vector3> OnEnd;
             /// <summary>Passes through what it hits, hitting each target at most once.</summary>
             public bool Pierce;
             /// <summary>Metres per second squared it drops (arrows and knives; spells fly true).</summary>
@@ -96,10 +98,11 @@ namespace Deepbound.Combat
 
         /// <summary>Server: fire an arrow that deals damage. Call the shooter's visual RPC alongside.</summary>
         public static void ServerFire(Vector3 origin, Vector3 direction, float damage, Team targets, ulong shooter,
-            float speed = Speed, System.Action<Health> onHit = null, bool pierce = false, float range = MaxRange, float gravity = 0f)
+            float speed = Speed, System.Action<Health> onHit = null, bool pierce = false, float range = MaxRange, float gravity = 0f, System.Action<Vector3> onEnd = null)
         {
             Instance.live.Add(new Arrow
             {
+                OnEnd = onEnd,
                 Range = range,
                 Gravity = gravity,
                 Position = origin, Velocity = direction.normalized * speed, Damage = damage,
@@ -175,6 +178,7 @@ namespace Deepbound.Combat
 
                 if (done)
                 {
+                    if (a.ServerSide && a.OnEnd != null) { try { a.OnEnd(a.Position); } catch (System.Exception e) { Debug.LogException(e); } }
                     if (a.Burst.a > 0f && a.Visual != null) Art.BoltFx.Burst(a.Position, a.Burst);
                     if (a.Visual != null) Destroy(a.Visual.gameObject);
                     live.RemoveAt(i);
@@ -231,7 +235,7 @@ namespace Deepbound.Combat
         /// <summary>A spell bolt: a glowing core, a lit halo and a trailing tail.</summary>
         private static Transform BuildBolt(Vector3 origin, Vector3 direction, ProjectileKind kind)
         {
-            bool fire = kind == ProjectileKind.Firebolt || kind == ProjectileKind.ShadowBolt || kind == ProjectileKind.Smite || kind == ProjectileKind.Spit;
+            bool fire = kind == ProjectileKind.Firebolt || kind == ProjectileKind.ShadowBolt || kind == ProjectileKind.Smite || kind == ProjectileKind.Spit || kind == ProjectileKind.Vial || kind == ProjectileKind.Tonic;
             var color = BoltColor(kind);
 
             var root = new GameObject(kind.ToString()).transform;
@@ -263,6 +267,8 @@ namespace Deepbound.Combat
         {
             bool fire = kind == ProjectileKind.Firebolt || kind == ProjectileKind.ShadowBolt || kind == ProjectileKind.Smite || kind == ProjectileKind.Spit;
             return kind == ProjectileKind.Spit ? new Color(0.45f, 0.85f, 0.15f)
+                : kind == ProjectileKind.Vial ? new Color(0.55f, 1f, 0.35f)
+                : kind == ProjectileKind.Tonic ? new Color(1f, 0.5f, 0.6f)
                 : kind == ProjectileKind.Smite ? new Color(1f, 0.85f, 0.4f)
                 : kind == ProjectileKind.ShadowBolt ? new Color(0.7f, 0.3f, 1f)
                 : fire ? new Color(1f, 0.45f, 0.12f) : new Color(0.45f, 0.8f, 1f);

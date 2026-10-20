@@ -16,7 +16,7 @@ namespace Deepbound.Art
     /// through the silhouette (League-style kit clarity), so each build exaggerates its
     /// defining shapes — the Knight's pauldrons and shield, the King's crown and greatsword.
     /// </summary>
-    public static class CharacterArt
+    public static partial class CharacterArt
     {
         // ------------------------------------------------------------------
         // Knight

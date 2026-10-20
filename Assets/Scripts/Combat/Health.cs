@@ -48,6 +48,31 @@ namespace Deepbound.Combat
         public readonly NetworkVariable<bool> Marked = new NetworkVariable<bool>();
         public const float MarkedMultiplier = 1.25f;
         private float markedUntil;
+
+        /// <summary>
+        /// BLIGHT (the Plague Doctor's poison, 2026-10-20): damage over time credited to whoever
+        /// laid it, and a blighted creature takes <see cref="BlightedMultiplier"/> from everyone.
+        /// </summary>
+        public readonly NetworkVariable<bool> Blighted = new NetworkVariable<bool>();
+        public const float BlightedMultiplier = 1.1f;
+        private float blightUntil, blightDps, nextBlightTick;
+        private ulong blightSource = ulong.MaxValue;
+        /// <summary>Server: who laid the blight (for credit, and for Contagion).</summary>
+        public ulong BlightSource => blightSource;
+        /// <summary>Server: raised when a blighted creature dies (the Plague Doctor's Contagion).</summary>
+        public static System.Action<Health, ulong> BlightedDied;
+        /// <summary>Server: is this spot inside a Black Death cloud (set by the Plague Doctor)?</summary>
+        public static System.Func<Vector3, bool> InPlagueCloud;
+
+        public void ServerBlight(float seconds, float dps, ulong source)
+        {
+            if (!IsServer || !IsAlive) return;
+            blightUntil = Mathf.Max(blightUntil, Time.time + seconds);
+            blightDps = Mathf.Max(blightDps * (Blighted.Value ? 1f : 0f), dps);
+            blightSource = source;
+            if (!Blighted.Value) nextBlightTick = Time.time + 0.5f;
+            Blighted.Value = true;
+        }
         private Transform markIcon;
         private float shieldUntil;
         private GameObject shieldBubble;
@@ -258,6 +283,8 @@ namespace Deepbound.Combat
             // matters, but the rank and file can always still hurt you.
             float dealt = Mathf.Max(amount - Defense * DefenseWeight, amount * MinDamageFraction);
             if (Marked.Value) dealt *= MarkedMultiplier;
+            if (Blighted.Value) dealt *= BlightedMultiplier;
+            if (Team == Team.Enemies && InPlagueCloud != null && InPlagueCloud(transform.position)) dealt *= 1.25f;
             foreach (var modifier in IncomingModifiers) dealt = modifier(dealt, attackerPosition);
             if (dealt <= 0f) return 0f;
             if (Team == Team.Players && (attackerPosition - transform.position).sqrMagnitude > 0.25f) HurtFromRpc(attackerPosition);
@@ -282,6 +309,7 @@ namespace Deepbound.Combat
             DamagedServer?.Invoke(lost, attackerId);
             ServerAnyDamaged?.Invoke(this, lost, attackerId);
 
+            if (Current.Value <= 0f && Blighted.Value) { Blighted.Value = false; BlightedDied?.Invoke(this, blightSource); }
             if (Current.Value <= 0f) Died?.Invoke(this);
             return dealt;
         }
@@ -334,6 +362,16 @@ namespace Deepbound.Combat
             if (IsServer && Chilled.Value && (Time.time >= chilledUntil || !IsAlive)) Chilled.Value = false;
             if (IsServer && Shield.Value > 0f && (Time.time >= shieldUntil || !IsAlive)) Shield.Value = 0f;
             if (IsServer && Marked.Value && (Time.time >= markedUntil || !IsAlive)) Marked.Value = false;
+            if (IsServer && Blighted.Value)
+            {
+                if (!IsAlive || Time.time >= blightUntil) { Blighted.Value = false; blightDps = 0f; }
+                else if (Time.time >= nextBlightTick)
+                {
+                    nextBlightTick = Time.time + 0.5f;
+                    var src = blightSource;
+                    ServerDamage(blightDps * 0.5f, transform.position, src);
+                }
+            }
 
             bool marked = Marked.Value && IsAlive;
             if (marked && markIcon == null) markIcon = BuildMarkIcon();

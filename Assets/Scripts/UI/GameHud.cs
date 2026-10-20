@@ -1629,7 +1629,15 @@ namespace Deepbound.UI
             var style = new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 1f, 1f, a * 0.85f) } };
             GUI.Label(new Rect(w - 330, 262, 310, 190),
                 "WASD move  ·  Shift sprint  ·  Space jump\n" +
-                (progress.ClassId.Value == ClassId.Ranger
+                (progress.ClassId.Value == ClassId.Flagellant
+                    ? "LMB Flail (every third swing CRASHES)  ·  RMB Scourge yourself for Zeal\n" +
+                      "Lower health = harder hits; every hit heals you\n" +
+                      "Q  Chains (drag them in)  ·  E  Penitent Leap\n"
+                    : progress.ClassId.Value == ClassId.PlagueDoctor
+                    ? "LMB lob Vials (blight)  ·  RMB Tonic (heals allies where it bursts)\n" +
+                      "Blighted dead take +10% from all, and spread it\n" +
+                      "Q  Miasma cloud  ·  E  Plague Mask (cleanse the party)\n"
+                    : progress.ClassId.Value == ClassId.Ranger
                     ? "LMB hold to draw, release to shoot\n" +
                       "3 hits mark a target (+25% for all)  ·  RMB leap back\n" +
                       "Q  Bear Trap  ·  E  Volley at the crosshair\n"
@@ -2029,7 +2037,7 @@ namespace Deepbound.UI
             }
             // Reach: the class's attack range now, and how much the anvil and runes have stretched it.
             float rangeNow = player.ActiveKit.AttackRange;
-            bool melee = progress.ClassId.Value == Classes.ClassId.Knight || progress.ClassId.Value == Classes.ClassId.Rogue;
+            bool melee = progress.ClassId.Value == Classes.ClassId.Knight || progress.ClassId.Value == Classes.ClassId.Rogue || progress.ClassId.Value == Classes.ClassId.Flagellant;
             float bonus = (melee ? progress.ReachMultiplier : progress.RangeMultiplier) - 1f;
             GUI.Label(new Rect(x + 12, gy, 70, 20), "RANGE", small);
             GUI.Label(new Rect(x + 80, gy, pw - 90, 20), rangeNow.ToString(melee ? "F1" : "F0") + " m" + (melee ? " reach" : "") + (bonus > 0.001f ? "  (+" + Mathf.RoundToInt(bonus * 100f) + "%)" : "  (anvil, Farsight +)"),
@@ -2149,6 +2157,7 @@ namespace Deepbound.UI
             if (DungeonDirector.InRitualWard(brain != null ? brain.transform.position : hp.transform.position)) Tag("RITUAL WARD", "B266FF");
             if (hp.Chilled.Value) Tag("CHILL", "8CD9FF");
             if (hp.Marked.Value) Tag("MARK", "FF5A4D");
+            if (hp.Blighted.Value) Tag("BLIGHT", "8CFF59");
             if (brain != null && (brain.Status.Value & 1) != 0) Tag("STUN", "FFD94D");
             if (brain is MournerBrain mo && mo.Seen.Value) Tag("WATCHED", "B8C4D6");
             if (brain != null && (brain.Status.Value & 2) != 0) Tag("TAUNT", "FF8C59");

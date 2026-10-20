@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Deepbound.Classes
 {
     /// <summary>APPEND ONLY: synced as a byte and will be saved with cosmetics.</summary>
-    public enum ClassId : byte { Knight = 0, Mage = 1, Cleric = 2, Rogue = 3, Ranger = 4 }
+    public enum ClassId : byte { Knight = 0, Mage = 1, Cleric = 2, Rogue = 3, Ranger = 4, Flagellant = 5, PlagueDoctor = 6 }
 
     /// <summary>
     /// A class's base stats. Plain data; <see cref="Build"/> turns it into a run-scoped
@@ -74,10 +74,42 @@ namespace Deepbound.Classes
         public static readonly ClassDefinition Ranger = Make("Ranger", "Marksman / Control",
             hp: 180, mp: 90, att: 24, def: 2, spd: 54, dex: 55, vit: 30, wis: 25);
 
-        public static readonly ClassDefinition[] ById = { Knight, Mage, Cleric, Rogue, Ranger };
+        /// <summary>
+        /// The Flagellant: a penitent bruiser. Big health, little armour; hits harder the more it
+        /// bleeds, heals from every hit, and spends its own health for Zeal.
+        /// </summary>
+        public static readonly ClassDefinition Flagellant = Make("Flagellant", "Bruiser / Lifesteal",
+            hp: 225, mp: 100, att: 24, def: 2, spd: 51, dex: 46, vit: 42, wis: 18);
+
+        /// <summary>
+        /// The Plague Doctor: an alchemist. Lobs vials that blight the dead (poison, and they take
+        /// more damage from everyone), tonics that heal, a mask that cleanses the party.
+        /// </summary>
+        public static readonly ClassDefinition PlagueDoctor = Make("Plague Doctor", "Afflicter / Support",
+            hp: 185, mp: 120, att: 20, def: 2, spd: 50, dex: 48, vit: 32, wis: 42);
+
+        public static readonly ClassDefinition[] ById = { Knight, Mage, Cleric, Rogue, Ranger, Flagellant, PlagueDoctor };
 
         /// <summary>One line per kit slot, for the character select screen.</summary>
-        public static (string key, string name, string desc)[] Kit(ClassId id) => id == ClassId.Ranger
+        public static (string key, string name, string desc)[] Kit(ClassId id) => id == ClassId.Flagellant
+            ? new[]
+            {
+                ("PASSIVE", "Mortification", "The more wounded you are, the harder you hit (up to +40%). Every hit heals you a little."),
+                ("LMB", "Flail", "Heavy swinging arcs. Every third swing is an overhead CRASH that bursts where it lands."),
+                ("RMB", "Scourge", "Lash yourself: lose 10% health, gain Fervor and ZEAL (faster, harder swings) for 5 s."),
+                ("Q", "Chains of Penance", "Drag the enemy under your crosshair to you, stunned. Too heavy to move? It drags you."),
+                ("E", "Penitent Leap", "Leap at the crosshair and crash down. Spends all your Fervor for damage."),
+            }
+            : id == ClassId.PlagueDoctor
+            ? new[]
+            {
+                ("PASSIVE", "Contagion", "Vials BLIGHT the dead: poison, and +10% damage from everyone. A blighted death spreads it."),
+                ("LMB", "Vial", "Lob vials in an arc; they shatter in a small splash where they land."),
+                ("RMB", "Tonic", "Lob a tonic: a healing mist for every ally where it bursts, you included."),
+                ("Q", "Miasma", "A lingering plague cloud at your crosshair that rots anything inside."),
+                ("E", "Plague Mask", "Cleanse every ally nearby, heal them, and ward them against afflictions for 4 s."),
+            }
+            : id == ClassId.Ranger
             ? new[]
             {
                 ("PASSIVE", "Hunter's Mark", "Three hits on one enemy mark it: +25% damage from everyone."),
@@ -123,7 +155,11 @@ namespace Deepbound.Classes
             };
 
         /// <summary>How the class plays with the others (see <see cref="Combos"/>).</summary>
-        public static string ComboLine(ClassId id) => id == ClassId.Mage
+        public static string ComboLine(ClassId id) => id == ClassId.Flagellant
+            ? "Chains pull stragglers into the Knight's and Mage's reach; crashes Shatter chill. Your Scourge heals allies at Penitent mastery."
+            : id == ClassId.PlagueDoctor
+            ? "Blight makes the dead take +10% from everyone and spreads on death. The Mask cleanses curses, poison and mania off the party."
+            : id == ClassId.Mage
             ? "Frost chills for everyone's heavy hits to Shatter. Your fire Shatters for x1.75; Meteor feasts on stunned crowds."
             : id == ClassId.Cleric
             ? "Consecrate Blesses allies inside (+20% damage); the ally in your Mending Beam is Inspired (+15%). A broken Aegis shield bursts."
@@ -134,7 +170,9 @@ namespace Deepbound.Classes
             : "Bash stuns (Exposed: +25% for all) and Shatters chill. War Cry Distracts enemies: +15% damage from everyone else.";
 
         /// <summary>Difficulty hint for the class picker.</summary>
-        public static string Difficulty(ClassId id) => id == ClassId.Mage ? "Hard - fragile, rewards combos and positioning"
+        public static string Difficulty(ClassId id) => id == ClassId.Flagellant ? "Medium - live dangerously low, heal by hitting"
+            : id == ClassId.PlagueDoctor ? "Medium - lead your vials, mind your friends"
+            : id == ClassId.Mage ? "Hard - fragile, rewards combos and positioning"
             : id == ClassId.Cleric ? "Medium - watch your party, not just the enemy"
             : id == ClassId.Rogue ? "Hard - all about getting behind things"
             : id == ClassId.Ranger ? "Medium - keep your distance, aim your draws"
@@ -149,7 +187,9 @@ namespace Deepbound.Classes
         }
 
         /// <summary>The class's own weapon: never found, only tempered at the anvil.</summary>
-        public static string WeaponName(ClassId id) => id == ClassId.Mage ? "Staff"
+        public static string WeaponName(ClassId id) => id == ClassId.Flagellant ? "Flail"
+            : id == ClassId.PlagueDoctor ? "Alembic"
+            : id == ClassId.Mage ? "Staff"
             : id == ClassId.Cleric ? "Mace"
             : id == ClassId.Rogue ? "Daggers"
             : id == ClassId.Ranger ? "Longbow"
@@ -161,7 +201,11 @@ namespace Deepbound.Classes
         public static ClassDefinition For(ClassId id) => ById[Mathf.Clamp((int)id, 0, ById.Length - 1)];
 
         /// <summary>One line for the class picker.</summary>
-        public static string Pitch(ClassId id) => id == ClassId.Ranger
+        public static string Pitch(ClassId id) => id == ClassId.Flagellant
+            ? "Flagellant: bleed for power, crash into the crowd, heal by hitting. Strongest near death."
+            : id == ClassId.PlagueDoctor
+            ? "Plague Doctor: rot the dead with vials and miasma, patch your friends with tonics."
+            : id == ClassId.Ranger
             ? "Ranger: mark the target, trap the path, rain arrows. The party hits harder with you."
             : id == ClassId.Rogue
             ? "Rogue: vanish, step behind them, strike. Deadly from behind, fragile in front."

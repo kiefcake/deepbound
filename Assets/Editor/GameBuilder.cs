@@ -213,6 +213,8 @@ namespace Deepbound.EditorTools
             root.AddComponent<MageKit>();
             root.AddComponent<ClericKit>();
             root.AddComponent<RogueKit>();
+            root.AddComponent<FlagellantKit>();
+            root.AddComponent<PlagueDoctorKit>();
             root.AddComponent<Ultimates>();
             root.AddComponent<Kick>();
             root.AddComponent<Flasks>();

@@ -109,6 +109,8 @@ namespace Deepbound.UI
                     : (ClassId)i == ClassId.Cleric ? CharacterArt.BuildCleric(table, color)
                     : (ClassId)i == ClassId.Rogue ? CharacterArt.BuildRogue(table, color)
                     : (ClassId)i == ClassId.Ranger ? CharacterArt.BuildRanger(table, color)
+                    : (ClassId)i == ClassId.Flagellant ? CharacterArt.BuildFlagellant(table, color)
+                    : (ClassId)i == ClassId.PlagueDoctor ? CharacterArt.BuildPlagueDoctor(table, color)
                     : CharacterArt.BuildKnight(table, color);
                 rig.Blocking = (ClassId)i == ClassId.Knight;
                 turntables[i] = table;

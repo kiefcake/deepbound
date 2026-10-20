@@ -663,7 +663,8 @@ namespace Deepbound.Enemies
         /// most; the Rogue works unnoticed until it strikes. (Healing raises rage too, see ServerHealThreat.)
         /// </summary>
         public static float ClassThreat(Classes.ClassId c) => c == Classes.ClassId.Knight ? 2.6f : c == Classes.ClassId.Rogue ? 0.7f
-            : c == Classes.ClassId.Ranger ? 0.85f : c == Classes.ClassId.Cleric ? 0.9f : 1f;
+            : c == Classes.ClassId.Ranger ? 0.85f : c == Classes.ClassId.Cleric ? 0.9f
+            : c == Classes.ClassId.Flagellant ? 1.6f : c == Classes.ClassId.PlagueDoctor ? 0.9f : 1f;
 
         /// <summary>How well this one leads a moving target: by depth, sharper for elites and bosses.</summary>
         protected float LeadSkill => Mathf.Clamp01(Difficulty.Lead(depthForLoot) + (Elite.Value ? 0.25f : 0f) + (IsBoss ? 0.15f : 0f));
@@ -894,6 +895,15 @@ namespace Deepbound.Enemies
         public virtual void ServerKnockback(Vector3 velocity)
         {
             if (!Heavy) knockback += velocity;
+        }
+
+        /// <summary>Server: drag this enemy to a spot (the Flagellant's chain). False if it is too heavy to move.</summary>
+        public bool ServerYank(Vector3 to)
+        {
+            if (Heavy || IsBoss || IsDead || agent == null) return false;
+            if (!NavMesh.SamplePosition(to, out var hit, 2.5f, NavMesh.AllAreas)) return false;
+            agent.Warp(hit.position);
+            return true;
         }
 
         private void OnDamagedServer(float amount, ulong attackerId)

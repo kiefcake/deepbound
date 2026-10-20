@@ -19,6 +19,8 @@ GameObject:
   - component: {fileID: 2423411484194795684}
   - component: {fileID: 6161924381247032627}
   - component: {fileID: 345429375793335220}
+  - component: {fileID: 3316241997295257077}
+  - component: {fileID: 1430323494587033521}
   - component: {fileID: 4928741835429381105}
   - component: {fileID: 5594889991321821081}
   - component: {fileID: 2211125422673540453}
@@ -243,6 +245,32 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 278cf79bae6843e429f278b707f809c2, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.RogueKit
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &3316241997295257077
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 539545562963582333}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 8e645a9711427784b830994c1f7d5e59, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.FlagellantKit
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &1430323494587033521
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 539545562963582333}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: a61e02c47ea34b74789c2a3b88cc0aa2, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.PlagueDoctorKit
   ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &4928741835429381105
 MonoBehaviour:

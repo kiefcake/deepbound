@@ -173,6 +173,16 @@ namespace Deepbound.Player
                 viewModel = CharacterArt.BuildRogueViewModel(playerCamera.transform, SlotColor);
                 viewAnim = new DaggerViewAnimator(viewModel);
             }
+            else if (cls == ClassId.Flagellant)
+            {
+                viewModel = CharacterArt.BuildFlagellantViewModel(playerCamera.transform, SlotColor);
+                viewAnim = new ViewModelAnimator(viewModel);
+            }
+            else if (cls == ClassId.PlagueDoctor)
+            {
+                viewModel = CharacterArt.BuildPlagueDoctorViewModel(playerCamera.transform, SlotColor);
+                viewAnim = new MageViewAnimator(viewModel, new Color(0.55f, 1f, 0.35f), new Color(1f, 0.55f, 0.6f));
+            }
             else if (cleric)
             {
                 viewModel = CharacterArt.BuildClericViewModel(playerCamera.transform, SlotColor);
@@ -230,6 +240,8 @@ namespace Deepbound.Player
                     : cls == ClassId.Cleric ? CharacterArt.BuildCleric(root, slot)
                     : cls == ClassId.Rogue ? CharacterArt.BuildRogue(root, slot)
                     : cls == ClassId.Ranger ? CharacterArt.BuildRanger(root, slot)
+                    : cls == ClassId.Flagellant ? CharacterArt.BuildFlagellant(root, slot)
+                    : cls == ClassId.PlagueDoctor ? CharacterArt.BuildPlagueDoctor(root, slot)
                     : CharacterArt.BuildKnight(root, slot);
             }
             finally
