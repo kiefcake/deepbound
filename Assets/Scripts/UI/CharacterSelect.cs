@@ -76,6 +76,14 @@ namespace Deepbound.UI
             Open = open;
             if (open && stage == null) BuildStage();
             if (stage != null) stage.SetActive(open);
+            // The previews render to textures; at a render scale below 1 (Low/Medium graphics) URP's
+            // Forward+ light tiles no longer line up with them and the portraits come out in dark
+            // blocks. Full scale while the screen is open, the preset back when it closes.
+            if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline is UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset urp)
+            {
+                if (open) urp.renderScale = 1f;
+                else Settings.ApplyGraphics();
+            }
         }
 
         // ------------------------------------------------------------------

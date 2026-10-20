@@ -308,8 +308,11 @@ namespace Deepbound.UI
             GUI.Label(new Rect(frame.center.x - 15f, frame.y - 4f, 30f, 18f), "N", new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = UiSkin.Gold } });
             if (!large)
             {
-                string place = "FLOOR " + (layout.Depth + 1) + (layout.Depth >= DungeonDirector.AbyssDepth ? " (ABYSS)" : "");
-                GUI.Label(new Rect(frame.x, frame.yMax + 6f, frame.width, 18), place + "   ·   M  map", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperRight });
+                string place = "FLOOR " + (layout.Depth + 1) + (layout.Depth >= DungeonDirector.AbyssDepth ? " (ABYSS)" : "") + "  ·  " + DungeonTheme.FloorName(layout.Depth);
+                // A dark strip under the frame, so the caption reads over bright rooms.
+                UiSkin.Rect(new Rect(frame.x, frame.yMax + 4f, frame.width, 20f), new Color(0f, 0f, 0f, 0.55f));
+                GUI.Label(new Rect(frame.x + 6f, frame.yMax + 5f, frame.width - 12f, 18), place, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperLeft, clipping = TextClipping.Clip, wordWrap = false, normal = { textColor = UiSkin.Gold } });
+                GUI.Label(new Rect(frame.x, frame.yMax + 5f, frame.width - 6f, 18), "M map", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperRight, wordWrap = false });
             }
             else DrawLegend(layout, frame);
         }

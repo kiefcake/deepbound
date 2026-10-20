@@ -1636,13 +1636,21 @@ namespace Deepbound.Networking
                         hh.ServerSetFraction(1f);
                         float h0 = hh.Current.Value;
                         int thrown0 = hunter.HuntsThrown;
+                        // No shield in the way (the Wheel's Mending can leave one): this checks the strike lands.
+                        hh.Shield.Value = 0f;
+                        // Count the boss's blows on this player (health alone can be masked by a heal in the same second).
+                        int blows = 0;
+                        ulong hunterId = hunter.NetworkObjectId;
+                        System.Action<Health, float, ulong> countBlows = (t, d, f) => { if (t == hh && f == hunterId) blows++; };
+                        Health.ServerAnyDamaged += countBlows;
                         hunter.ServerHuntNow();
                         yield return new WaitForSeconds(1.0f);
-                        bool struck = hh.Current.Value < h0;
+                        Health.ServerAnyDamaged -= countBlows;
+                        bool struck = blows > 0 || hh.Current.Value < h0;
                         hh.ServerSetFraction(1f);
                         hunter.ServerHuntNow();
                         yield return new WaitForSeconds(0.2f);
-                        Log("boss hunts", "hunts " + thrown0 + " -> " + hunter.HuntsThrown + ", a standing player was struck " + struck + ", tell x" + Difficulty.Tell(dc.Floor.Value.y).ToString("F2") + ", summons solo " + Difficulty.SummonCount(4, 1) + " / four " + Difficulty.SummonCount(4, 4),
+                        Log("boss hunts", "hunts " + thrown0 + " -> " + hunter.HuntsThrown + ", a standing player was struck " + struck + " (strike " + Vector3.Distance(hunter.LastStrikeAt, local.transform.position).ToString("F1") + " m off, targetable " + local.GetComponent<PlayerLife>().Targetable + ", hp " + h0.ToString("F0") + " -> " + hh.Current.Value.ToString("F0") + ")" + ", tell x" + Difficulty.Tell(dc.Floor.Value.y).ToString("F2") + ", summons solo " + Difficulty.SummonCount(4, 1) + " / four " + Difficulty.SummonCount(4, 4),
                             hunter.HuntsThrown == thrown0 + 2 && struck && Difficulty.SummonCount(4, 1) < Difficulty.SummonCount(4, 4));
                         yield return new WaitForSeconds(1.4f);
                         hh.ServerSetFraction(1f);

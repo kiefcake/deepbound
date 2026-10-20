@@ -47,7 +47,7 @@ namespace Deepbound.Art
             var chest = MeshKit.Part(rig.Torso, "Chest", MeshKit.Lathe("flagChest", new[]
             {
                 new Vector2(0.2f, 0f), new Vector2(0.23f, 0.18f), new Vector2(0.27f, 0.4f), new Vector2(0.25f, 0.54f), new Vector2(0.1f, 0.62f),
-            }, 9), Mat.Leather, Vector3.zero, new Vector3(8f, 0f, 0f), new Vector3(1f, 1f, 0.8f));
+            }, 9), Mat.Marble, Vector3.zero, new Vector3(8f, 0f, 0f), new Vector3(1f, 1f, 0.8f));
             ArtLibrary.Tint(chest.GetComponent<Renderer>(), PaleSkin);
             for (int i = 0; i < 6; i++)
             {
@@ -64,9 +64,9 @@ namespace Deepbound.Art
             MeshKit.Part(rig.Torso, "PenanceMarkH", MeshKit.Box(new Vector3(0.09f, 0.025f, 0.015f)), Mat.Gold, new Vector3(0f, 0.33f, 0.222f));
 
             rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.62f, 0.03f));
-            var head = MeshKit.Part(rig.Head, "Scalp", MeshKit.Ball(0.125f, 9, 7), Mat.Leather, new Vector3(0f, 0.14f, 0.01f));
+            var head = MeshKit.Part(rig.Head, "Scalp", MeshKit.Ball(0.125f, 9, 7), Mat.Marble, new Vector3(0f, 0.14f, 0.01f));
             ArtLibrary.Tint(head.GetComponent<Renderer>(), PaleSkin * 0.95f);
-            MeshKit.Part(rig.Head, "Brow", MeshKit.Box(new Vector3(0.2f, 0.035f, 0.05f)), Mat.Leather, new Vector3(0f, 0.17f, 0.1f));
+            MeshKit.Part(rig.Head, "Brow", MeshKit.Box(new Vector3(0.2f, 0.035f, 0.05f)), Mat.Marble, new Vector3(0f, 0.17f, 0.1f));
             MeshKit.Part(rig.Head, "Shadow", MeshKit.Box(new Vector3(0.17f, 0.05f, 0.03f)), Mat.Dark, new Vector3(0f, 0.135f, 0.11f));
             var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.014f, 6, 4), Mat.Glow, new Vector3(-0.04f, 0.14f, 0.12f));
             var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.014f, 6, 4), Mat.Glow, new Vector3(0.04f, 0.14f, 0.12f));
@@ -97,13 +97,13 @@ namespace Deepbound.Art
         private static Transform BuildBareArm(Transform torso, string name, float side)
         {
             var shoulder = MeshKit.Pivot(torso, name, new Vector3(0.29f * side, 0.5f, 0f));
-            var upper = MeshKit.Part(shoulder, "Upper", MeshKit.Cylinder(0.08f, 0.095f, 0.34f, 8), Mat.Leather, new Vector3(0f, -0.18f, 0f));
+            var upper = MeshKit.Part(shoulder, "Upper", MeshKit.Cylinder(0.08f, 0.095f, 0.34f, 8), Mat.Marble, new Vector3(0f, -0.18f, 0f));
             ArtLibrary.Tint(upper.GetComponent<Renderer>(), PaleSkin);
-            var fore = MeshKit.Part(shoulder, "Fore", MeshKit.Cylinder(0.065f, 0.08f, 0.26f, 8), Mat.Leather, new Vector3(0f, -0.46f, 0f));
+            var fore = MeshKit.Part(shoulder, "Fore", MeshKit.Cylinder(0.065f, 0.08f, 0.26f, 8), Mat.Marble, new Vector3(0f, -0.46f, 0f));
             ArtLibrary.Tint(fore.GetComponent<Renderer>(), PaleSkin * 0.95f);
             MeshKit.Part(shoulder, "Wrap", MeshKit.Cylinder(0.075f, 0.075f, 0.1f, 8), Mat.Leather, new Vector3(0f, -0.55f, 0f));
             MeshKit.Part(shoulder, "Spike", MeshKit.Lathe("flagSpike", new[] { new Vector2(0.03f, 0f), new Vector2(0f, 0.07f) }, 4), Mat.Steel, new Vector3(0.07f * side, -0.55f, 0f), new Vector3(0f, 0f, -90f * side));
-            var hand = MeshKit.Part(shoulder, "Hand", MeshKit.Ball(0.065f, 6, 4), Mat.Leather, new Vector3(0f, -0.62f, 0.01f));
+            var hand = MeshKit.Part(shoulder, "Hand", MeshKit.Ball(0.065f, 6, 4), Mat.Marble, new Vector3(0f, -0.62f, 0.01f));
             ArtLibrary.Tint(hand.GetComponent<Renderer>(), PaleSkin * 0.9f);
             return shoulder;
         }
@@ -146,10 +146,10 @@ namespace Deepbound.Art
             Transform BareHand(string name, Vector3 pos, Vector3 euler)
             {
                 var hand = MeshKit.Pivot(root, name, pos, euler);
-                var fist = MeshKit.Part(hand, "Fist", MeshKit.Ball(0.065f, 8, 6), Mat.Leather, Vector3.zero, Vector3.zero, new Vector3(1f, 0.85f, 1.2f));
+                var fist = MeshKit.Part(hand, "Fist", MeshKit.Ball(0.065f, 8, 6), Mat.Marble, Vector3.zero, Vector3.zero, new Vector3(1f, 0.85f, 1.2f));
                 ArtLibrary.Tint(fist.GetComponent<Renderer>(), PaleSkin * 0.9f);
                 MeshKit.Part(hand, "Wrap", MeshKit.Cylinder(0.07f, 0.065f, 0.12f, 8), Mat.Leather, new Vector3(0f, -0.03f, -0.09f), new Vector3(-100f, 0f, 0f));
-                var fore = MeshKit.Part(hand, "Forearm", MeshKit.Cylinder(0.065f, 0.085f, 0.4f, 8), Mat.Leather, new Vector3(0f, -0.08f, -0.32f), new Vector3(-100f, 0f, 0f));
+                var fore = MeshKit.Part(hand, "Forearm", MeshKit.Cylinder(0.065f, 0.085f, 0.4f, 8), Mat.Marble, new Vector3(0f, -0.08f, -0.32f), new Vector3(-100f, 0f, 0f));
                 ArtLibrary.Tint(fore.GetComponent<Renderer>(), PaleSkin);
                 for (int i = 0; i < 3; i++)
                 {
@@ -189,14 +189,14 @@ namespace Deepbound.Art
             var skirt = MeshKit.Part(rig.Hips, "CoatSkirt", MeshKit.Lathe("pdSkirt", new[]
             {
                 new Vector2(0.34f, -0.86f), new Vector2(0.28f, -0.45f), new Vector2(0.22f, 0f), new Vector2(0.2f, 0.06f),
-            }, 10, true, 320f), Mat.Leather, Vector3.zero, new Vector3(0f, 20f, 0f));
+            }, 10, true, 320f), Mat.Cloth, Vector3.zero, new Vector3(0f, 20f, 0f));
             ArtLibrary.Tint(skirt.GetComponent<Renderer>(), coat);
 
             rig.Torso = MeshKit.Pivot(rig.Hips, "Torso", Vector3.zero);
             var body = MeshKit.Part(rig.Torso, "Coat", MeshKit.Lathe("pdCoat", new[]
             {
                 new Vector2(0.2f, 0f), new Vector2(0.22f, 0.2f), new Vector2(0.23f, 0.42f), new Vector2(0.21f, 0.56f), new Vector2(0.1f, 0.62f),
-            }, 10), Mat.Leather, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.82f));
+            }, 10), Mat.Cloth, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.82f));
             ArtLibrary.Tint(body.GetComponent<Renderer>(), coat);
             for (int i = 0; i < 5; i++)
                 MeshKit.Part(rig.Torso, "Button" + i, MeshKit.Ball(0.016f, 5, 3), Mat.Gold, new Vector3(0.04f, 0.1f + i * 0.1f, 0.19f));

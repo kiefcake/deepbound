@@ -566,15 +566,40 @@ namespace Deepbound.World
         {
             var c = RunewrightSpot + new Vector3(0.8f, 0f, 0.2f);
             var glow = new Color(0.45f, 0.85f, 1f);
+            // Six tall, tapering menhirs in a broken ring (an open side facing the road), runes cut on
+            // both faces so they glow from outside the ring too; a lintel across the tallest pair.
+            var menhir = MeshKit.Lathe("menhir", new[]
+            {
+                new Vector2(0.42f, 0f), new Vector2(0.46f, 0.3f), new Vector2(0.4f, 1.4f), new Vector2(0.3f, 2.4f), new Vector2(0.12f, 2.8f), new Vector2(0f, 2.86f),
+            }, 7);
+            var tops = new Vector3[6];
             for (int i = 0; i < 6; i++)
             {
-                float a = (20f + i * 52f) * Mathf.Deg2Rad;
+                float a = (35f + i * 58f) * Mathf.Deg2Rad;
                 var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-                var p = c + dir * 2.4f;
-                float h = 1.6f + (i % 3) * 0.35f;
-                d.AddBox(p + Vector3.up * h / 2f, new Vector3(0.55f, h, 0.32f), Mat.StoneWall, Quaternion.LookRotation(-dir) * Quaternion.Euler(0f, 0f, (i % 2 == 0 ? 3f : -4f)));
-                var rune = MeshKit.Part(lights, "StandingRune", MeshKit.Box(new Vector3(0.18f, 0.28f, 0.02f)), Mat.Glow, p - dir * 0.17f + Vector3.up * (h * 0.62f), Quaternion.LookRotation(-dir).eulerAngles);
-                ArtLibrary.SetGlow(rune.GetComponent<Renderer>(), glow * 1.3f);
+                var p = c + dir * 3.1f;
+                float k = 0.85f + (i % 3) * 0.14f;
+                var rot = Quaternion.LookRotation(-dir) * Quaternion.Euler(i % 2 == 0 ? 3f : -4f, 0f, i % 2 == 0 ? 2f : -3f);
+                d.Add(menhir, Mat.StoneWall, Matrix4x4.TRS(p, rot, new Vector3(1f, k, 0.62f)));
+                tops[i] = p + Vector3.up * 2.86f * k;
+                for (int f = -1; f <= 1; f += 2)
+                {
+                    var rune = MeshKit.Part(lights, "StandingRune", MeshKit.Box(new Vector3(0.16f, 0.5f, 0.02f)), Mat.Glow, p + dir * (f * 0.27f) + Vector3.up * (1.5f * k), (rot * Quaternion.Euler(0f, f > 0 ? 180f : 0f, 0f)).eulerAngles);
+                    ArtLibrary.SetGlow(rune.GetComponent<Renderer>(), glow * 1.25f);
+                    var bar = MeshKit.Part(lights, "StandingRuneBar", MeshKit.Box(new Vector3(0.3f, 0.05f, 0.02f)), Mat.Glow, p + dir * (f * 0.27f) + Vector3.up * (1.62f * k), (rot * Quaternion.Euler(0f, f > 0 ? 180f : 0f, 25f)).eulerAngles);
+                    ArtLibrary.SetGlow(bar.GetComponent<Renderer>(), glow * 1.1f);
+                }
+            }
+            var lintelMid = (tops[1] + tops[2]) / 2f;
+            d.AddBox(lintelMid + Vector3.up * 0.1f, new Vector3(0.5f, 0.38f, Vector3.Distance(tops[1], tops[2]) + 0.6f), Mat.StoneWall, Quaternion.LookRotation(tops[2] - tops[1]));
+            // A ring of runes cut in the turf between the stones, glowing faintly.
+            var ring = MeshKit.Part(lights, "RuneRing", MeshKit.Lathe("runeRing", new[] { new Vector2(2.35f, 0f), new Vector2(2.45f, 0.01f), new Vector2(2.55f, 0f) }, 40, false), Mat.Glow, c + Vector3.up * 0.02f);
+            ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), glow * 0.7f);
+            for (int i = 0; i < 16; i++)
+            {
+                float a = i * 22.5f * Mathf.Deg2Rad;
+                var mark = MeshKit.Part(lights, "RingRune", MeshKit.Box(new Vector3(0.08f, 0.012f, 0.22f)), Mat.Glow, c + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 2.1f + Vector3.up * 0.02f, new Vector3(0f, -i * 22.5f + (i % 2) * 30f, 0f));
+                ArtLibrary.SetGlow(mark.GetComponent<Renderer>(), glow * 0.9f);
             }
             // The rune table: a slab on two stones, with rune tiles laid out and a candle.
             d.AddBox(RunewrightSpot + new Vector3(0.9f, 0.4f, -0.2f), new Vector3(0.3f, 0.8f, 0.3f), Mat.StoneWall);
@@ -588,11 +613,19 @@ namespace Deepbound.World
             Props.Candles(lights, RunewrightSpot + new Vector3(0.95f, 0.88f, 0.75f), new Color(0.6f, 0.85f, 1f));
             var l = new GameObject("RuneLight").AddComponent<Light>();
             l.transform.SetParent(lights, false);
-            l.transform.position = c + Vector3.up * 1.6f;
+            l.transform.position = c + Vector3.up * 2.4f;
             l.type = LightType.Point;
             l.color = glow;
-            l.intensity = 1.6f;
-            l.range = 7f;
+            l.intensity = 2.8f;
+            l.range = 10f;
+            // A cold key light on Ysolde herself, so she is not a silhouette against the stones.
+            var key = new GameObject("YsoldeLight").AddComponent<Light>();
+            key.transform.SetParent(lights, false);
+            key.transform.position = RunewrightSpot + new Vector3(-1.2f, 2.2f, -1.4f);
+            key.type = LightType.Point;
+            key.color = new Color(0.75f, 0.85f, 1f);
+            key.intensity = 1.4f;
+            key.range = 5f;
         }
 
         /// <summary>Steps, flanking braziers and a backing wall for the shrine.</summary>

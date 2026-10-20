@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell",
+            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -78,7 +78,7 @@ namespace Deepbound.UI
             Offer("pingwheel", "PINGS: tap Z (or middle mouse) to mark what you aim at. HOLD it for the wheel: Danger, On my way, Need help, Look.");
             var relic = Reliquary.Current;
             if (relic != null && !relic.Carried && Vector3.Distance(relic.transform.position, me) < 10f)
-                Offer("reliquary", "A RELIQUARY. Carry it (F) to the waystone in the start room for gold, embers and maybe a Sigil for everyone. The carrier is slow and cannot fight, its hymn draws the dead, and every hit cracks it.");
+                Offer("reliquary", "A RELIQUARY. Carry it (F) to the waystone in the start room: it raises the fallen, pays everyone, and HALLOWS the floor (its boss wakes weakened). Its hymn heals whoever walks beside the carrier. The carrier is slow and cannot fight, its hymn draws the dead, and every hit cracks it.");
             var progT = player.GetComponent<Progression.PlayerProgress>();
             if (progT != null && progT.BagCount > 0)
                 Offer("inventory", "Gear you pick up goes in your PACK. Press I for the inventory: click to wear, shift-click to drop. Scrap it at Hobb's anvil.");
@@ -125,7 +125,9 @@ namespace Deepbound.UI
                 if (room.Feature == RoomFeature.Cistern) Offer("cistern", "CISTERN: the water slows everyone - but frost freezes anything standing in it.");
             }
             if (Object.FindObjectsByType<FateWheel>(FindObjectsSortMode.None).Any(w => !w.Spun.Value && Vector3.Distance(w.transform.position, me) < 9f))
-                Offer("wheel", "WHEEL OF FATE: one spin for the whole party. It usually gives... usually.");
+                Offer("wheel", "WHEEL OF FATE: one spin for the whole party, sixteen fates. It usually gives... usually.");
+                if (Object.FindObjectsByType<BloodAltar>(FindObjectsSortMode.None).Any(b => !b.Spent.Value && Vector3.Distance(b.transform.position, me) < 9f))
+                    Offer("altar", "BLOOD ALTAR: three offerings fill the chalice (F, a fifth of your health each). Bleed together: a relic for each who bled, Bloodlust for all.");
             int act = DungeonDirector.Act(layout.Depth);
             if (act == 0) Offer("bones", "THE OSSUARY: fallen skeletons pull themselves together. Walk over a bone pile to stamp it out.");
             if (act == 1) Offer("tide", "THE DROWNED VAULTS: when the water thickens it halves your speed (the dead barely slow). Get onto stairs, balconies or stones.");

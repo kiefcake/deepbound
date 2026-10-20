@@ -94,6 +94,8 @@ namespace Deepbound.Enemies
         /// <summary>HP fractions, highest first, at which <see cref="OnPhaseGate"/> fires.</summary>
         protected virtual float[] PhaseGates => System.Array.Empty<float>();
         public int GateCount => PhaseGates.Length;
+        /// <summary>Any peer: the phase gates (for the boss bar's notches).</summary>
+        public float[] Gates => PhaseGates;
         protected virtual void OnPhaseGate(int index) { }
 
         private int gatesPassed;
@@ -733,6 +735,8 @@ namespace Deepbound.Enemies
 
         /// <summary>Tests: how many hunts it has thrown.</summary>
         public int HuntsThrown { get; private set; }
+        /// <summary>Tests: where the last hunting strike was aimed.</summary>
+        public Vector3 LastStrikeAt { get; private set; }
 
         private void TickHunt()
         {
@@ -764,6 +768,7 @@ namespace Deepbound.Enemies
                 {
                     if (p == null || !p.Targetable) continue;
                     var at = PredictedFeet(p, tell + 0.1f);
+                    LastStrikeAt = at;
                     strikes.Add(new Strike { At = at, When = Time.time + tell, Radius = StrikeRadius, Damage = damage * 0.55f });
                     TintedCircleRpc(at, StrikeRadius, tell, Telegraph.Harm);
                 }

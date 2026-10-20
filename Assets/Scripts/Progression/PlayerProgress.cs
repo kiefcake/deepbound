@@ -190,7 +190,7 @@ namespace Deepbound.Progression
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void SigilRpc() => UI.GameHud.Feed(name + " found a Sigil  -  empower an ability at the anvil", LootInfo.SigilColor);
+        private void SigilRpc() => UI.GameHud.Feed(name + " found a Sigil  -  rank an ability at Ysolde's stones", LootInfo.SigilColor);
 
         /// <summary>Owner → server: spend a Sigil on Q or E, at the anvil.</summary>
         [Rpc(SendTo.Server)]
@@ -541,7 +541,7 @@ namespace Deepbound.Progression
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void RuneFoundRpc(byte r) => UI.GameHud.Feed(name + " found a " + Runes.Name((Rune)r) + "  -  set it at the anvil", Runes.Color((Rune)r));
+        private void RuneFoundRpc(byte r) => UI.GameHud.Feed(name + " found a " + Runes.Name((Rune)r) + "  -  set it at Ysolde's stones", Runes.Color((Rune)r));
 
         /// <summary>
         /// Owner → server: set a rune from the bag into the first open empty socket, or, if

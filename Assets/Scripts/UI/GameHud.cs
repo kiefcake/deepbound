@@ -65,11 +65,35 @@ namespace Deepbound.UI
         /// <summary>A big centred announcement: a boss's name as its arena seals, an ambush.</summary>
         private static Color cardColor = new Color(0.9f, 0.3f, 0.2f);
 
+        private static readonly Queue<(string title, string sub, Color color)> cardQueue = new Queue<(string, string, Color)>();
+
+        /// <summary>
+        /// Shows now, or queues behind the card on screen (at most three wait), so two announcements
+        /// never print over each other. Cards also wait for a boss intro to finish.
+        /// </summary>
         public static void ShowTitleCard(string title, string subtitle, Color? color = null)
         {
-            cardColor = color ?? new Color(0.9f, 0.3f, 0.2f);
+            var c = color ?? new Color(0.9f, 0.3f, 0.2f);
+            bool busy = (cardTitle != null && UnityEngine.Time.time < cardUntil - 0.6f) || BossIntroShowing;
+            if (busy)
+            {
+                if (cardQueue.Count < 3) cardQueue.Enqueue((title, subtitle, c));
+                return;
+            }
+            cardColor = c;
             cardTitle = title;
             cardSub = subtitle;
+            cardUntil = UnityEngine.Time.time + 3.5f;
+        }
+
+        private static void NextTitleCard()
+        {
+            if (cardQueue.Count == 0 || BossIntroShowing) return;
+            if (cardTitle != null && UnityEngine.Time.time < cardUntil - 0.6f) return;
+            var (t, s, c) = cardQueue.Dequeue();
+            cardColor = c;
+            cardTitle = t;
+            cardSub = s;
             cardUntil = UnityEngine.Time.time + 3.5f;
         }
 
@@ -168,6 +192,10 @@ namespace Deepbound.UI
             // The name tracks in: wide letter-spacing that settles.
             float spread = Mathf.Lerp(1.12f, 1f, Mathf.Clamp01((t - 0.35f) / 1.2f));
             int nameSize = Mathf.RoundToInt(Mathf.Clamp(w / 22f, 34f, 60f));
+            {
+                var probe = new GUIStyle(big) { fontSize = nameSize };
+                while (nameSize > 26 && probe.CalcSize(new GUIContent(introName)).x * spread > w * 0.6f) { nameSize -= 2; probe.fontSize = nameSize; }
+            }
             UiSkin.Shadowed(new Rect(-w * (spread - 1f) / 2f, y, w * spread, nameSize + 12), introName,
                 new GUIStyle(big) { fontSize = nameSize, normal = { textColor = new Color(0.92f, 0.32f, 0.22f) } }, text);
             float line = Mathf.Min(w * 0.36f, 460f) * Mathf.Clamp01((t - 0.5f) / 0.6f);
@@ -185,11 +213,20 @@ namespace Deepbound.UI
 
         private void DrawTitleCard(float w, float h)
         {
+            NextTitleCard();
+            // The floor banner owns the upper screen while it shows: cards drop below it.
             if (cardTitle == null || Time.time > cardUntil) return;
             float a = Mathf.Clamp01((cardUntil - Time.time) / 1f) * Mathf.Clamp01((3.5f - (cardUntil - Time.time)) * 4f);
-            Rect(0, h * 0.3f - 12, w, 96, new Color(0f, 0f, 0f, 0.55f * a));
-            UiSkin.Shadowed(new Rect(0, h * 0.3f - 4, w, 54), cardTitle, new GUIStyle(big) { fontSize = 44, normal = { textColor = cardColor } }, a);
-            GUI.Label(new Rect(0, h * 0.3f + 50, w, 26), cardSub, new GUIStyle(center) { fontSize = 17, normal = { textColor = new Color(1f, 1f, 1f, a) } });
+            float cy = Time.time < bannerUntil && bannerTitle != null ? h * 0.42f : h * 0.3f;
+            // Shrink a long title to fit the middle of the screen (clear of the minimap).
+            int size = 44;
+            var st = new GUIStyle(big) { fontSize = size, normal = { textColor = cardColor } };
+            while (size > 24 && st.CalcSize(new GUIContent(cardTitle)).x > w * 0.62f) { size -= 2; st.fontSize = size; }
+            Rect(0, cy - 12, w, 96, new Color(0f, 0f, 0f, 0.55f * a));
+            Rect(w * 0.3f, cy - 12, w * 0.4f, 1, new Color(Gold.r, Gold.g, Gold.b, 0.6f * a));
+            Rect(w * 0.3f, cy + 83, w * 0.4f, 1, new Color(Gold.r, Gold.g, Gold.b, 0.6f * a));
+            UiSkin.Shadowed(new Rect(0, cy - 4, w, 54), cardTitle, st, a);
+            GUI.Label(new Rect(w * 0.15f, cy + 50, w * 0.7f, 26), cardSub, new GUIStyle(center) { fontSize = 17, wordWrap = true, normal = { textColor = new Color(1f, 1f, 1f, a) } });
         }
 
         /// <summary>Adds a line to the event feed (potions drunk, and so on). Any peer.</summary>
@@ -622,7 +659,7 @@ namespace Deepbound.UI
 
             // ---- Runes waiting for a socket ----
             float ry = gy + 2 * (cell * 0.8f + gap) + 8;
-            GUI.Label(new Rect(gx, ry, 400, 22), "RUNES IN THE BAG (" + progress.RuneBagCount + ")  -  set them at the anvil", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            GUI.Label(new Rect(gx, ry, 400, 22), "RUNES IN THE BAG (" + progress.RuneBagCount + ")  -  set or meld them at Ysolde's stones", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
             ry += 22;
             for (int i = 0; i < progress.RuneBagCount && i < 6; i++)
             {
@@ -798,7 +835,7 @@ namespace Deepbound.UI
             fpsSmoothed = Mathf.Lerp(fpsSmoothed, 1f / Mathf.Max(0.0001f, Time.unscaledDeltaTime), 0.05f);
             if (!Settings.ShowFps) return;
             var c = fpsSmoothed >= 55f ? new Color(0.6f, 1f, 0.6f) : fpsSmoothed >= 30f ? new Color(1f, 0.85f, 0.4f) : new Color(1f, 0.4f, 0.35f);
-            GUI.Label(new Rect(w - 220, 248, 206, 20), Mathf.RoundToInt(fpsSmoothed) + " fps  (" + (1000f / fpsSmoothed).ToString("F1") + " ms)",
+            GUI.Label(new Rect(w - 220, Screen.height - 20, 206, 18), Mathf.RoundToInt(fpsSmoothed) + " fps  (" + (1000f / fpsSmoothed).ToString("F1") + " ms)",
                 new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = c } });
         }
 
@@ -1012,15 +1049,21 @@ namespace Deepbound.UI
             DrawBossIntro(w, h);
             DrawTaunt(w, h);
             DrawPage(w, h);
+            // A panel open (forge, stones, shop, journal, sheet, pack): the camp banner, tips, contract and
+            // feed step aside, so nothing is drawn across the panel you are reading (UI pass 2026-10-20).
+            bool panel = shopOpen || forgeOpen || runeOpen || invOpen || statsHeld || pageShown >= 0;
             if (!statsHeld && !invOpen) DrawControlsHint(w, h);
-            DrawFeed(h);
+            if (!panel)
+            {
+                Tips.Draw(w, h);
+                DrawContract();
+                DrawLobby(w, h);
+                DrawFeed(h);
+            }
             DrawForge(w, h);
                 DrawMerchant(w, h);
             DrawRunewright(w, h);
             DrawFps(w);
-            Tips.Draw(w, h);
-            DrawContract();
-            DrawLobby(w, h);
             if (statsHeld) DrawStatSheet(w, h);
             // Last, so nothing (feed, tips, banners) draws over it.
             if (invOpen) DrawInventory(w, h);
@@ -1216,8 +1259,19 @@ namespace Deepbound.UI
             }
             GUI.Label(new Rect(x + 8, y + 1, bw, 22), Mathf.CeilToInt(hp) + " / " + Mathf.CeilToInt(max), label);
 
+            // Low health: the frame pulses red, faster the lower it goes.
+            float frac = hp / max;
+            if (frac < 0.3f && health.IsAlive)
+            {
+                float beat = 0.5f + 0.5f * Mathf.Sin(Time.time * Mathf.Lerp(9f, 5f, frac / 0.3f));
+                var pc = new Color(1f, 0.15f, 0.1f, 0.35f + 0.5f * beat);
+                Rect(x - 8, y - 10, bw + 16, 2, pc); Rect(x - 8, y + 84, bw + 16, 2, pc);
+                Rect(x - 8, y - 10, 2, 96, pc); Rect(x + bw + 6, y - 10, 2, 96, pc);
+            }
             var kit = player.ActiveKit;
             Bar(x, y + 32, bw, 12, kit.ResourceMax > 0f ? kit.Resource / kit.ResourceMax : 0f, kit.ResourceColor);
+            GUI.Label(new Rect(x + 6, y + 29, bw - 12, 16), kit.ResourceName.ToUpperInvariant() + "  " + Mathf.FloorToInt(kit.Resource) + " / " + Mathf.RoundToInt(kit.ResourceMax),
+                new GUIStyle(small) { fontSize = 10, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(1f, 1f, 1f, 0.85f) } });
             string cls = progress.Class.Name.ToUpperInvariant();
             string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
             GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Floor " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun + (CurrentDepth() >= DungeonDirector.AbyssDepth ? " (ABYSS)" : ""))
@@ -1351,7 +1405,15 @@ namespace Deepbound.UI
             {
                 float k = Mathf.Clamp01(remaining / cooldown);
                 Rect(x, y + size * (1f - k), size, size * k, new Color(0f, 0f, 0f, 0.65f));
-                GUI.Label(new Rect(x, y, size, size), Mathf.CeilToInt(remaining).ToString(), new GUIStyle(big) { fontSize = 22 });
+                // A thin progress line along the bottom edge, and tenths in the last three seconds.
+                Rect(x + 2, y + size - 4, (size - 4) * (1f - k), 2, new Color(1f, 0.82f, 0.45f, 0.85f));
+                GUI.Label(new Rect(x, y, size, size), remaining < 3f ? remaining.ToString("0.0") : Mathf.CeilToInt(remaining).ToString(), new GUIStyle(big) { fontSize = remaining < 3f ? 18 : 22 });
+            }
+            else if (!unaffordable && cooldown > 0f)
+            {
+                // Ready: a faint warm rim, so a glance tells ready from cooling.
+                var rc = new Color(1f, 0.8f, 0.45f, 0.35f);
+                Rect(x, y, size, 1, rc); Rect(x, y + size - 1, size, 1, rc);
             }
         }
 
@@ -1453,6 +1515,19 @@ namespace Deepbound.UI
             var stance = boss.CurrentStance;
             var barColor = boss.Immune ? new Color(0.35f, 0.45f, 0.62f) : stance == BossBrain.Stance.Armored ? new Color(0.45f, 0.45f, 0.5f) : new Color(0.55f, 0.08f, 0.1f);
             Bar(x, y + 24, bw, 14, boss.Health.Fraction, barColor, Trail(ref bossTrail, ref bossHold, boss.Health.Fraction));
+            // Where its phases turn: a notch at each gate (lit gold once passed).
+            foreach (float g in boss.Gates)
+            {
+                bool passed = boss.Health.Fraction < g;
+                Rect(x + bw * g - 1, y + 21, 2, 20, passed ? new Color(1f, 0.82f, 0.4f, 0.9f) : new Color(1f, 1f, 1f, 0.55f));
+            }
+            // Gold trim top and bottom, the percentage, and the party it is sized for.
+            Rect(x - 3, y + 20, bw + 6, 1, new Color(0.8f, 0.62f, 0.3f, 0.8f));
+            Rect(x - 3, y + 41, bw + 6, 1, new Color(0.8f, 0.62f, 0.3f, 0.8f));
+            GUI.Label(new Rect(x, y + 23, bw - 6, 16), Mathf.CeilToInt(boss.Health.Fraction * 100f) + "%", new GUIStyle(small) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(1f, 1f, 1f, 0.9f) } });
+            int party = 0;
+            foreach (var pl in Player.PlayerLife.All) if (pl != null) party++;
+            GUI.Label(new Rect(x + 6, y + 23, bw, 16), party <= 1 ? "SOLO" : "PARTY OF " + party, new GUIStyle(small) { fontSize = 10, alignment = TextAnchor.MiddleLeft, normal = { textColor = new Color(1f, 1f, 1f, 0.6f) } });
             // Phase name on the right of the title row.
             string phase = boss.PhaseName.Value.ToString();
             if (phase.Length > 0)
@@ -1555,12 +1630,12 @@ namespace Deepbound.UI
             if (target == null)
             {
                 var use = Interactable.Nearest(player.AimOrigin, player.AimForward, progress);
-                if (use != null && !statsHeld) GUI.Label(new Rect(0, h / 2f + 40, w, 24), "F   " + use.Prompt(progress), center);
+                if (use != null && !statsHeld) PromptLine(w, h, "F   " + use.Prompt(progress));
                 if (use is GearDrop gear && !statsHeld) DrawGearCard(gear.Item.Value, w / 2f - 180, h / 2f + 70, true);
                 return;
             }
 
-            GUI.Label(new Rect(0, h / 2f + 40, w, 24), "Hold F to revive " + target.name, center);
+            PromptLine(w, h, "Hold F to revive " + target.name);
             ProgressBar(w, h / 2f + 68, target.ReviveProgress.Value / PlayerLife.ReviveSeconds, new Color(0.6f, 0.9f, 1f));
         }
 
@@ -1664,18 +1739,68 @@ namespace Deepbound.UI
                 "Hit enemies from behind for +35%", style);
         }
 
+        private GUIStyle feedStyle;
+
+        /// <summary>
+        /// The feed (2026-10-20 UI pass): each line on its own dark pill with an accent in its colour,
+        /// sliding in from the left; newest at the bottom, at most seven, faded out after six seconds.
+        /// Kept to the left third so it never runs under title cards or loot cards in the middle.
+        /// </summary>
         private void DrawFeed(float h)
         {
-            float y = h * 0.55f;
-            for (int i = FeedLines.Count - 1; i >= 0; i--)
+            feedStyle ??= new GUIStyle(label) { fontSize = 14, alignment = TextAnchor.MiddleLeft, wordWrap = false, clipping = TextClipping.Clip };
+            float maxW = Mathf.Min(460f, Screen.width * 0.34f);
+            float y = h * 0.6f;
+            int shown = 0;
+            for (int i = FeedLines.Count - 1; i >= 0 && shown < 7; i--)
             {
                 var line = FeedLines[i];
                 float age = Time.time - line.Time;
                 if (age > 6f) continue;
+                shown++;
                 float a = Mathf.Clamp01((6f - age) / 1f);
-                GUI.Label(new Rect(24, y, 500, 22), line.Text, new GUIStyle(label) { normal = { textColor = new Color(line.Color.r, line.Color.g, line.Color.b, a) } });
-                y -= 22;
+                float slide = 1f - Mathf.Pow(1f - Mathf.Clamp01(age / 0.22f), 3f);
+                float tw = Mathf.Min(maxW, feedStyle.CalcSize(new GUIContent(line.Text)).x + 22f);
+                float x = 18f - (1f - slide) * 60f;
+                Rect(x, y, tw, 22, new Color(0.03f, 0.025f, 0.02f, 0.62f * a));
+                Rect(x, y, 3, 22, new Color(line.Color.r, line.Color.g, line.Color.b, 0.9f * a));
+                var st = new GUIStyle(feedStyle) { normal = { textColor = new Color(line.Color.r, line.Color.g, line.Color.b, a) } };
+                GUI.Label(new Rect(x + 10, y, tw - 12, 22), line.Text, st);
+                y -= 25;
             }
+        }
+
+        /// <summary>
+        /// An interaction prompt under the crosshair (UI pass 2026-10-20): the key in a gold badge and
+        /// the action on a dark backing, instead of bare text over the world. Understands "F   ...",
+        /// "Hold F ..." and "Press G to ..." so every caller keeps its wording.
+        /// </summary>
+        private void PromptLine(float w, float h, string text, float dy = 40f)
+        {
+            if (string.IsNullOrEmpty(text)) return;
+            string key = null, body = text;
+            if (text.StartsWith("F   ")) { key = "F"; body = text.Substring(4); }
+            else if (text.StartsWith("Hold F ")) { key = "F"; body = "Hold: " + text.Substring(7); }
+            else if (text.StartsWith("Press ") && text.Length > 8 && text[7] == ' ')
+            {
+                key = text.Substring(6, 1);
+                body = text.Substring(8);
+                if (body.StartsWith("to ")) body = body.Substring(3);
+                if (body.Length > 0) body = char.ToUpperInvariant(body[0]) + body.Substring(1);
+            }
+            var st = new GUIStyle(center) { fontSize = 15, wordWrap = false, alignment = TextAnchor.MiddleLeft };
+            float tw = Mathf.Min(w * 0.7f, st.CalcSize(new GUIContent(body)).x + 16f);
+            float badge = key != null ? 30f : 0f;
+            float total = tw + badge + 12f;
+            float x = w / 2f - total / 2f, y = h / 2f + dy;
+            Rect(x, y - 2, total, 28, new Color(0.02f, 0.02f, 0.02f, 0.62f));
+            Rect(x, y + 25, total, 1, new Color(Gold.r, Gold.g, Gold.b, 0.45f));
+            if (key != null)
+            {
+                UiSkin.Panel(new Rect(x + 4, y + 1, 24, 22), 0.95f);
+                GUI.Label(new Rect(x + 4, y + 1, 24, 22), key, new GUIStyle(center) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = Gold } });
+            }
+            GUI.Label(new Rect(x + badge + 8f, y, tw, 24), body, st);
         }
 
         private Anvil NearAnvil() => life.Downed.Value ? null : Anvil.Near(player.transform.position);
@@ -1692,7 +1817,7 @@ namespace Deepbound.UI
                 var stall = StallHere();
                 if (stall == null || Vector3.Distance(player.transform.position, NearAnvil().transform.position) <
                     Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value))
-                    GUI.Label(new Rect(0, h / 2f + 40, w, 24), DungeonDirector.InLobby ? "Press G to use the anvil (Hobb tempers, refines and scraps; sells plate and gear)" : "Press G to use the anvil", center);
+                    PromptLine(w, h, DungeonDirector.InLobby ? "Press G to use the anvil (Hobb tempers, refines and scraps; sells plate and gear)" : "Press G to use the anvil");
                 return;
             }
 
@@ -1895,7 +2020,7 @@ namespace Deepbound.UI
                     : stall == Shop.Vendor.Runewright ? "Press G to visit Ysolde (runes, melding, sigils, ability ranks)"
                     : stall == Shop.Vendor.Carriage ? "Press G to talk to Corwin (maps of the way down, smelling salts)"
                     : DungeonDirector.InLobby ? "Press G to trade with Silas (potions and provisions)" : "Press G to trade with the peddler";
-                GUI.Label(new Rect(0, h / 2f + (stall == Shop.Vendor.Shrine ? 64 : 40), w, 24), who, center);
+                PromptLine(w, h, who, stall == Shop.Vendor.Shrine ? 70f : 40f);
                 return;
             }
 

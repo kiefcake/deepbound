@@ -16,7 +16,7 @@ namespace Deepbound.Loot
         PotionAll = 9, // one potion's worth of every stat; boss-only
         Relic = 10,    // Amount carries the Relic id
         Embers = 11,   // weapon upgrade material
-        Sigil = 12,    // ability rank-up, spent at the anvil
+        Sigil = 12,    // ability rank-up, spent at Ysolde's stones
         Rune = 13,     // weapon enchantment; Amount carries the Rune id
     }
 
