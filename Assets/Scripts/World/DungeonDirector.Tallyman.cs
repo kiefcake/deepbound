@@ -87,7 +87,7 @@ namespace Deepbound.World
         private void TallyBellRpc()
         {
             UI.GameHud.ShowTitleCard("A FAR BELL TOLLS", "Something below is keeping count. Do not linger on this floor", new Color(0.62f, 1f, 0.7f));
-            Art.Sfx.Play2D(Art.Sound.Slam, 0.5f);
+            Art.Sfx.Play2D(Art.Sound.Toll, 0.8f);
             UI.GameHud.Feed("The bell: two minutes until the Tallyman comes for the late. Find the guardian.", new Color(0.62f, 1f, 0.7f));
         }
 

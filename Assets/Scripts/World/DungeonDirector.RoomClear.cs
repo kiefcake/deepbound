@@ -87,7 +87,8 @@ namespace Deepbound.World
             var me = Player.NetworkPlayer.Local;
             if (me == null || Vector3.Distance(me.transform.position, at) > 34f) return;
             UI.GameHud.RoomCleared(reward);
-            Art.Sfx.Play2D(reward ? Art.Sound.Coins : Art.Sound.KillTick, reward ? 0.55f : 0.7f);
+            Art.Sfx.Play2D(Art.Sound.Cleared, 0.55f);
+            if (reward) Art.Sfx.Play2D(Art.Sound.Coins, 0.4f);
             if (reward) Art.Vfx.Ring(at + Vector3.up * 0.05f, 1.6f, new Color(1f, 0.85f, 0.45f), 0.6f);
         }
     }

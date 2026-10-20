@@ -760,7 +760,7 @@ namespace Deepbound.Enemies
             Rig?.Play(RigAction.Cast, 1.05f);
             if (style == 2) Vfx.Ring(feet, reach * 1.4f, tint, 1f);
             if (style == 5) Vfx.Flash(transform.position + Vector3.up * height * 0.6f, tint, 4f, 14f, 1f);
-            Sfx.Play(style == 4 ? Sound.Slam : Sound.Summon, transform.position + Vector3.up * height * 0.5f, 0.8f, style == 5 ? 0.5f : 0.7f);
+            Sfx.Play(style == 4 ? Sound.Toll : Sound.Summon, transform.position + Vector3.up * height * 0.5f, 0.8f, style == 5 ? 0.5f : 0.7f);
             yield return new WaitForSeconds(1.05f);
             if (this == null || IsDead) yield break;
 

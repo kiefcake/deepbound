@@ -37,7 +37,7 @@ namespace Deepbound.World
         private Vector3[] corners;
         private int corner;
         private float repathAt, drainAt, leftAt = -1f, stepAt, whisperAt;
-        private float stride;
+        private float stride, tollAt;
         private Transform vis, legL, legR, armL, armR, lantern, head;
         private Light lanternLight;
         private Transform mist;
@@ -60,6 +60,7 @@ namespace Deepbound.World
             }
             transform.position = Pos.Value;
             lastPos = transform.position;
+            tollAt = Time.time + 8f;
             Build();
         }
 
@@ -209,6 +210,12 @@ namespace Deepbound.World
             // Heavy, slow footfalls and a murmur from the ledger, near enough to hear.
             var cam = ViewCamera.Current;
             float near = cam != null ? Vector3.Distance(cam.transform.position, transform.position) : 99f;
+            // Wherever you are, his bell: a toll every so often, louder as he comes closer.
+            if (!Leaving.Value && Time.time >= tollAt)
+            {
+                tollAt = Time.time + 18f;
+                Sfx.Play2D(Sound.Toll, Mathf.Lerp(0.25f, 0.7f, Mathf.InverseLerp(60f, 8f, near)));
+            }
             if (near < 30f && !Leaving.Value)
             {
                 if (walk > 0.3f && Time.time >= stepAt) { stepAt = Time.time + Mathf.PI / Mathf.Max(0.5f, pace * 2.2f); Sfx.Play(Sound.Step, transform.position, 0.9f, 0.55f); }

@@ -32,7 +32,7 @@ namespace Deepbound.Player
     public class FlagellantKit : NetworkBehaviour, IClassKit
     {
         public const float SwingWindup = 0.2f, SwingStrike = 0.14f, SwingRecovery = 0.36f;
-        public const float SwingRange = 2.6f, SwingArc = 120f, SwingDamage = 27f;
+        public const float SwingRange = 2.6f, SwingArc = 120f, SwingDamage = 22f; // 27 -> 22 (2026-10-20 class DPS table: it out-hit the Rogue from the front at full health)
         public const int CrashEvery = 3;
         public const float CrashMultiplier = 1.6f, CrashRadius = 1.7f;
         public const float ScourgeCooldown = 6f, ScourgeCost = 0.1f, ScourgeFervor = 30f, ZealSeconds = 5f, ZealAttackTime = 0.7f, ZealDamage = 1.15f;

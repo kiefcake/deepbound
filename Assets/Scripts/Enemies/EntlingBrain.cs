@@ -81,7 +81,8 @@ namespace Deepbound.Enemies
         {
             if (held == null) return;
             held.ServerReleaseRoots(NetworkObjectId);
-            LatchRpc(held.NetworkObjectId, false);
+            // Despawning (the floor ending) cannot send RPCs; the cages notice their Entling is gone.
+            if (IsSpawned) LatchRpc(held.NetworkObjectId, false);
             held = null;
         }
 

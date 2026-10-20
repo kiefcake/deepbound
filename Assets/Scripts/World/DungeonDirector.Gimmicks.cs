@@ -287,7 +287,8 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void BellTollRpc()
         {
-            Sfx.Play2D(Sound.Slam, 0.9f);
+            Sfx.Play2D(Sound.Toll, 1f);
+            Sfx.Play2D(Sound.Slam, 0.35f);
             UI.GameHud.Feed("The bell tolls...", new Color(1f, 0.75f, 0.45f));
             var local = NetworkPlayer.Local;
             if (local != null) local.AddShake(0.25f);

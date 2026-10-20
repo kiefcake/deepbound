@@ -27,7 +27,8 @@ namespace Deepbound.World
 
         public int RoomId { get; set; } = -1;
 
-        private Transform vis, line;
+        private Transform vis, line, coffer;
+        private Renderer cofferLock;
         private Renderer[] runeA, runeB;
         private Renderer lineRenderer;
         private bool built;
@@ -101,6 +102,11 @@ namespace Deepbound.World
             Glow(runeA, Kept.Value ? 1.2f : (p & 1) != 0 ? 1.8f * pulse : 0.35f);
             Glow(runeB, Kept.Value ? 1.2f : (p & 2) != 0 ? 1.8f * pulse : 0.35f);
             float k = Kept.Value ? 1f : Held.Value / HoldSeconds;
+            if (coffer != null)
+            {
+                if (coffer.gameObject.activeSelf == Kept.Value) coffer.gameObject.SetActive(!Kept.Value);
+                if (cofferLock != null && !Kept.Value) ArtLibrary.SetGlow(cofferLock, Oath * (0.9f + k * 2f + Mathf.Sin(Time.time * 2.5f) * 0.25f));
+            }
             line.gameObject.SetActive(k > 0.01f && !Kept.Value);
             if (k > 0.01f)
             {
@@ -135,6 +141,29 @@ namespace Deepbound.World
             lineRenderer = line.GetComponent<Renderer>();
             lineRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             line.gameObject.SetActive(false);
+            BuildCoffer();
+        }
+
+        /// <summary>The sealed coffer at the back: what the oath opens (the real chest takes its place).</summary>
+        private void BuildCoffer()
+        {
+            coffer = new GameObject("Coffer").transform;
+            coffer.SetParent(vis, false);
+            coffer.position = Vfx.Floor(Coffer.Value);
+            var face = (PlateA.Value + PlateB.Value) / 2f - coffer.position;
+            face.y = 0f;
+            if (face.sqrMagnitude > 0.01f) coffer.rotation = Quaternion.LookRotation(face);
+            MeshKit.Part(coffer, "Plinth", MeshKit.Box(new Vector3(1.6f, 0.25f, 1.1f)), Mat.StoneWall, new Vector3(0f, 0.125f, 0f));
+            MeshKit.Part(coffer, "Body", MeshKit.Box(new Vector3(1.2f, 0.62f, 0.75f)), Mat.Marble, new Vector3(0f, 0.56f, 0f));
+            MeshKit.Part(coffer, "Lid", MeshKit.Box(new Vector3(1.28f, 0.14f, 0.82f)), Mat.StoneWall, new Vector3(0f, 0.94f, 0f));
+            // Two chains crossed over it, and a lock carved with the same hand as the plates.
+            foreach (float side in new[] { -1f, 1f })
+                MeshKit.Part(coffer, "Chain", MeshKit.Box(new Vector3(0.05f, 0.05f, 0.95f)), Mat.Steel, new Vector3(side * 0.32f, 1.02f, 0f), new Vector3(0f, side * 22f, 0f));
+            MeshKit.Part(coffer, "Hasp", MeshKit.Box(new Vector3(0.24f, 0.28f, 0.06f)), Mat.Steel, new Vector3(0f, 0.72f, 0.4f));
+            var lockGlow = MeshKit.Part(coffer, "Lock", MeshKit.Box(new Vector3(0.12f, 0.14f, 0.02f)), Mat.Glow, new Vector3(0f, 0.72f, 0.44f));
+            lockGlow.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            cofferLock = lockGlow.GetComponent<Renderer>();
+            ArtLibrary.SetGlow(cofferLock, Oath * 1.2f);
         }
 
         private Renderer[] BuildPlate(Vector3 at, string tag)

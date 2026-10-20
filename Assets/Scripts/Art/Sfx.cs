@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak, Heartbeat, KillTick, Creak }
+    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak, Heartbeat, KillTick, Creak, Toll, Cleared }
 
     /// <summary>
     /// Every sound in the game, synthesised at startup. Like the art, nothing is
@@ -88,6 +88,8 @@ namespace Deepbound.Art
                 case Sound.Heartbeat: data = Mix(Thump(0.16f, 70f, 42f), Delay(Thump(0.14f, 62f, 40f), 0.22f)); break;
                 case Sound.Creak: data = Creak(0.75f); break;
                 case Sound.KillTick: data = Mix(Clang(0.18f, new[] { 1760f, 2637f }), Burst(0.03f, 0.3f)); break;
+                case Sound.Toll: data = Toll(3.6f, 98f); break;
+                case Sound.Cleared: data = Mix(Chime(0.7f, new[] { 659f, 988f }), Delay(Chime(0.6f, new[] { 1318f }), 0.09f), Clang(0.25f, new[] { 2637f })); break;
                 default: data = new float[Rate / 10]; break;
             }
 
@@ -149,6 +151,30 @@ namespace Deepbound.Art
         }
 
         /// <summary>Inharmonic decaying partials: struck metal.</summary>
+        /// <summary>
+        /// A great church bell: the hum, prime, minor-third tierce, quint and nominal of a real bell's
+        /// partials, each with its own slow decay, two close copies of the hum beating against each
+        /// other, and a hard strike on top. The far bell before the Tallyman.
+        /// </summary>
+        private static float[] Toll(float seconds, float hz)
+        {
+            var d = new float[(int)(seconds * Rate)];
+            float[] ratio = { 0.5f, 0.503f, 1f, 1.2f, 1.5f, 2f, 2.51f, 3.01f };
+            float[] decay = { 0.55f, 0.55f, 0.9f, 1.3f, 1.7f, 1.6f, 2.6f, 3.4f };
+            float[] level = { 0.55f, 0.45f, 0.8f, 0.6f, 0.35f, 0.7f, 0.3f, 0.22f };
+            for (int i = 0; i < d.Length; i++)
+            {
+                float time = (float)i / Rate;
+                float s = 0f;
+                for (int p = 0; p < ratio.Length; p++)
+                    s += Mathf.Sin(2f * Mathf.PI * hz * ratio[p] * time) * Mathf.Exp(-time * decay[p]) * level[p];
+                // The clapper: a brief bright knock.
+                s += N() * Mathf.Exp(-time * 60f) * 0.4f;
+                d[i] = s * Mathf.Clamp01(time * 400f);
+            }
+            return d;
+        }
+
         private static float[] Clang(float seconds, float[] partials)
         {
             var d = new float[(int)(seconds * Rate)];

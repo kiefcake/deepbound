@@ -68,6 +68,74 @@ namespace Deepbound.Networking
             }
         }
 
+        /// <summary>
+        /// Class DPS (balance pass, players' side), run windowed: <c>-classdps</c>. Every class holds its
+        /// main attack on a training dummy for six seconds through a virtual pad's right trigger (which
+        /// also proves each class attacks on a pad). Logged as [ClassDps] rows, then quits.
+        /// </summary>
+        public void ClassDps(NetworkLauncher launcher) => StartCoroutine(ClassDpsSequence(launcher));
+
+        private IEnumerator ClassDpsSequence(NetworkLauncher launcher)
+        {
+            launcher.StartHost();
+            yield return new WaitForSeconds(3f);
+            var me = NetworkPlayer.Local;
+            if (me != null) yield return ClassDpsTable(me, me.GetComponent<PlayerProgress>());
+            yield return new WaitForSeconds(0.5f);
+            Application.Quit();
+        }
+
+        private IEnumerator ClassDpsTable(NetworkPlayer me, PlayerProgress progressMe)
+        {
+            var dummy = FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None).Select(d => d.GetComponent<Health>()).OrderBy(d => d.transform.position.z).FirstOrDefault();
+            if (dummy == null) { Log("class dps", "no training dummy", false); yield break; }
+            var motor = me.GetComponent<FirstPersonMotor>();
+            var hp = me.GetComponent<Health>();
+            var pad = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Gamepad>();
+            float dealt = 0f;
+            System.Action<Health, float, ulong> count = (h, amount, from) => { if (h == dummy && from == me.NetworkObjectId) dealt += amount; };
+            Health.ServerAnyDamaged += count;
+            var rows = new System.Collections.Generic.List<string>();
+            bool allHit = true;
+            foreach (Classes.ClassId id in System.Enum.GetValues(typeof(Classes.ClassId)))
+            {
+                progressMe.ClassId.Value = id;
+                yield return new WaitForSeconds(0.4f);
+                bool melee = id == Classes.ClassId.Knight || id == Classes.ClassId.Rogue || id == Classes.ClassId.Flagellant;
+                float range = melee ? 1.7f : 7f;
+                var at = dummy.transform.position + Vector3.back * (range + dummy.BodyRadius);
+                at.y = me.transform.position.y;
+                motor.Teleport(at, Quaternion.LookRotation(Vector3.forward));
+                var eye = at + Vector3.up * 1.6f;
+                motor.SetPitch(Mathf.Atan2(eye.y - dummy.Center.y, Vector3.Distance(new Vector3(eye.x, 0f, eye.z), new Vector3(dummy.Center.x, 0f, dummy.Center.z))) * Mathf.Rad2Deg);
+                foreach (var kit in me.GetComponents<IClassKit>()) kit.RestoreResource(1f);
+                yield return new WaitForSeconds(0.4f);
+                dealt = 0f;
+                // Hold and release the trigger: a long draw for the Ranger, quick presses for swings.
+                float hold = id == Classes.ClassId.Ranger ? 1.0f : 0.4f;
+                float t0 = Time.time;
+                while (Time.time - t0 < 6f)
+                {
+                    UnityEngine.InputSystem.InputSystem.QueueStateEvent(pad, new UnityEngine.InputSystem.LowLevel.GamepadState { rightTrigger = 1f });
+                    float until = Time.time + hold;
+                    while (Time.time < until) { hp.ServerSetFraction(1f); Cursor.lockState = CursorLockMode.Locked; yield return null; }
+                    UnityEngine.InputSystem.InputSystem.QueueStateEvent(pad, new UnityEngine.InputSystem.LowLevel.GamepadState());
+                    // Keep "focus" through the release too: the Ranger looses on it.
+                    float rel = Time.time + 0.08f;
+                    while (Time.time < rel) { Cursor.lockState = CursorLockMode.Locked; yield return null; }
+                }
+                yield return new WaitForSeconds(0.6f);
+                float dps = dealt / 6f;
+                rows.Add(id + " " + dps.ToString("F1"));
+                Debug.Log("[ClassDps] " + id + " | " + (melee ? "melee" : "ranged") + " | " + dealt.ToString("F0") + " in 6 s | " + dps.ToString("F1") + " dps");
+                if (dealt <= 0f) allHit = false;
+            }
+            Health.ServerAnyDamaged -= count;
+            UnityEngine.InputSystem.InputSystem.RemoveDevice(pad);
+            motor.SetPitch(0f);
+            Log("class dps", string.Join(", ", rows), allHit);
+        }
+
         private IEnumerator Sequence(float seconds)
         {
             StartCoroutine(Guardian());
@@ -2768,6 +2836,30 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(1f);
                         yield return Shot(dir, "1c_feature_Gallery_balcony");
                     }
+                }
+                // The third floor: a staged oath in the start room (one plate held, the line half drawn),
+                // then the ROOM CLEARED stamp and a floor event's badge.
+                if (depth == 2)
+                {
+                    var oathSr = l.StartRoom;
+                    var pa = oathSr.Center + Vector3.left * 3f;
+                    var pb = oathSr.Center + Vector3.right * 3f;
+                    var staged = DungeonDirector.Instance.ServerDebugOath(pa, pb, oathSr.Center + Vector3.forward * 4f);
+                    var view = oathSr.Center + Vector3.back * 4.5f + Vector3.up * 0.1f;
+                    motor.Teleport(view, Quaternion.LookRotation(oathSr.Center - view));
+                    motor.SetPitch(22f);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot(dir, "1d_oath_plates");
+                    motor.SetPitch(0f);
+                    if (staged != null && staged.IsSpawned) staged.NetworkObject.Despawn();
+                    foreach (var st in Carryable.All.OfType<OathStone>().ToList()) if (st != null && st.IsSpawned) st.NetworkObject.Despawn();
+                    UI.GameHud.RoomCleared(true);
+                    DungeonDirector.Instance.ServerDebugEvent(FloorEvent.Gilded);
+                    UI.StatusEffects.DebugHover = 0;
+                    yield return new WaitForSeconds(0.3f);
+                    yield return Shot(dir, "1d_room_cleared_event");
+                    UI.StatusEffects.DebugHover = -1;
+                    DungeonDirector.Instance.ServerDebugEvent(FloorEvent.None);
                 }
                 // An Oath room, if this floor has one: the two plates and the stone, from the door.
                 var oathRoom = l.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Oath);
