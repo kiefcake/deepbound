@@ -15,6 +15,12 @@ namespace Deepbound.World
     /// </summary>
     public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat }
 
+    /// <summary>Boss arena shapes: a colonnade (cover), a raised dais under the throne, or broken ruins.</summary>
+    public enum BossArena : byte { Colonnade = 0, Dais = 1, Ruins = 2 }
+
+    /// <summary>Boss arena quirks: healing pylons, ballistas, a chandelier on a winch, sanctum braziers, or none.</summary>
+    public enum BossQuirk : byte { None = 0, Pylons = 1, Ballistas = 2, Chandelier = 3, Sanctum = 4 }
+
     /// <summary>A hollow section of wall with a niche behind it.</summary>
     public class WallHole
     {
@@ -56,6 +62,9 @@ namespace Deepbound.World
             public RoomKind Kind;
             /// <summary>No enemies here (the peddler's room): no spawns, no mimic.</summary>
             public bool Peaceful;
+            /// <summary>Boss rooms: the arena's shape and its quirk (see <see cref="BossArena"/>, <see cref="BossQuirk"/>).</summary>
+            public BossArena Arena;
+            public BossQuirk Quirk;
             /// <summary>Raised ground (terraces, ziggurat tiers): a plan rectangle and its top height.</summary>
             public readonly List<(Rect r, float h)> Raised = new List<(Rect, float)>();
             /// <summary>Ramps up onto raised ground: low end, high end, width.</summary>
@@ -143,7 +152,10 @@ namespace Deepbound.World
         public Room BossRoom { get; private set; }
 
         public Vector3 PlayerSpawn => StartRoom.Center;
-        public Vector3 BossSpawn => BossRoom.Center + new Vector3(0f, 0f, BossRoom.Size.y * 0.2f);
+        public Vector3 BossSpawn
+        {
+            get { var p = BossRoom.Center + new Vector3(0f, 0f, BossRoom.Size.y * 0.2f); p.y = BossRoom.RaisedAt(p); return p; }
+        }
 
         /// <summary>The start room's waystone (the Shrine of Return): the first wall with no door.</summary>
         public Vector3 WaystonePosition
@@ -266,7 +278,8 @@ namespace Deepbound.World
             layout.BossRoom = previous;
 
             // Side rooms: branch off main-path rooms (not start or boss) into free cells.
-            int sideCount = 2 + (depth > 1 ? 1 : 0);
+            // More side rooms since 2026-10-20: they hold the special rooms (treasury, beggar, proving, armoury, mirror).
+            int sideCount = 3 + (depth > 1 ? 1 : 0) + (depth > 4 ? 1 : 0);
             var mainRooms = new List<Room>(layout.Rooms);
             for (int s = 0, tries = 0; s < sideCount && tries < 50; tries++)
             {
@@ -283,9 +296,25 @@ namespace Deepbound.World
             }
 
             AssignFeatures(layout, rng);
+            // The guardian's arena: a shape and a quirk of its own (the first floor's always has ballistas).
+            var arena = layout.BossRoom;
+            if (arena != null)
+            {
+                arena.Arena = (BossArena)rng.Next(3);
+                arena.Quirk = depth == 0 ? BossQuirk.Ballistas : (BossQuirk)rng.Next(5);
+                if (arena.Arena == BossArena.Dais)
+                {
+                    float half = 6f, th = 0.6f;
+                    var bc = arena.Center + new Vector3(0f, 0f, arena.Size.y * 0.2f);
+                    arena.Raised.Add((new Rect(bc.x - half, bc.z - half, half * 2f, half * 2f), th));
+                    foreach (var dir in new[] { Vector3.left, Vector3.right, Vector3.back, Vector3.forward })
+                        arena.Ramps.Add((bc + dir * (half + 2.2f), bc + dir * half + Vector3.up * th, 3.2f));
+                }
+            }
+            PlacePeddler(layout, rng);
+            AssignSpecialRooms(layout, rng);
             PlaceEnemySpawns(layout, rng, depth);
             PlaceFlameTraps(layout, rng);
-            PlacePeddler(layout, rng);
             return layout;
         }
 
@@ -483,28 +512,6 @@ namespace Deepbound.World
                 fountain.Feature = RoomFeature.Fountain;
                 fountain.FeatureSpots.Add(fountain.Center);
             }
-            // The other side rooms (2026-10-20): most become one of the special rooms, no repeats a floor.
-            var specials = new List<RoomFeature> { RoomFeature.Treasury, RoomFeature.Beggar, RoomFeature.Proving, RoomFeature.Armoury, RoomFeature.Mirror };
-            for (int i = specials.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (specials[i], specials[j]) = (specials[j], specials[i]); }
-            int nextSpecial = 0;
-            foreach (var side in sides)
-            {
-                if (side == vault || side == fountain || nextSpecial >= specials.Count) continue;
-                if (rng.NextDouble() > 0.9) continue;
-                side.Feature = specials[nextSpecial++];
-                int entry = 0;
-                for (int s = 0; s < 4; s++) if (side.Doors[s]) entry = s;
-                var back = -new Vector3(Dir[entry].x, 0f, Dir[entry].y);
-                float toBack = (entry == 0 || entry == 2 ? side.Size.y : side.Size.x) / 2f - 2.2f;
-                if (side.Feature == RoomFeature.Treasury)
-                {
-                    // Three pedestals in a shallow arc before the back wall.
-                    var across = new Vector3(-back.z, 0f, back.x);
-                    for (int k = -1; k <= 1; k++) side.FeatureSpots.Add(side.Center + back * (toBack - Mathf.Abs(k) * 1.2f) + across * (k * 2.6f));
-                }
-                else if (side.Feature == RoomFeature.Proving) side.FeatureSpots.Add(side.Center + back * toBack * 0.4f);
-                else side.FeatureSpots.Add(side.Center + back * toBack);
-            }
         }
 
         public const float BalconyHeight = 2.8f, BalconyDepth = 3.2f, SunkenDepth = 1.8f, CisternDepth = 0.6f, TerraceHeight = 1.8f, ZigguratStep = 0.8f;
@@ -661,6 +668,7 @@ namespace Deepbound.World
             foreach (var room in layout.Rooms)
             {
                 if (room.Kind == RoomKind.Start || room.Kind == RoomKind.Boss) continue;
+                if (room.Peaceful) continue;
                 // Crypt dead come out of the sarcophagi; vaults, fountains and most special rooms are rewards
                 // (the treasury keeps its two guards; the proving room's dead come with the bell).
                 if (room.Feature == RoomFeature.Crypt || room.Feature == RoomFeature.Vault || room.Feature == RoomFeature.Fountain) continue;
@@ -695,6 +703,37 @@ namespace Deepbound.World
                     float t = (float)(rng.NextDouble() - 0.5) * (alongX ? room.Size.x : room.Size.y) * 0.4f;
                     room.EnemySpawns.Add(room.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)) + Vector3.up * (BalconyHeight + 0.1f));
                 }
+            }
+        }
+
+        /// <summary>
+        /// The special side rooms (2026-10-20): after the vault, the fountain and the peddler have their
+        /// rooms, most of the rest become a treasury, beggar, proving room, armoury or mirror (no repeats).
+        /// </summary>
+        private static void AssignSpecialRooms(DungeonLayout layout, System.Random rng)
+        {
+            var sides = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side);
+            // The other side rooms (2026-10-20): most become one of the special rooms, no repeats a floor.
+            var specials = new List<RoomFeature> { RoomFeature.Treasury, RoomFeature.Beggar, RoomFeature.Proving, RoomFeature.Armoury, RoomFeature.Mirror };
+            for (int i = specials.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (specials[i], specials[j]) = (specials[j], specials[i]); }
+            int nextSpecial = 0;
+            foreach (var side in sides)
+            {
+                if (side.Feature != RoomFeature.None || side.Peaceful || nextSpecial >= specials.Count) continue;
+                if (rng.NextDouble() > 0.9) continue;
+                side.Feature = specials[nextSpecial++];
+                int entry = 0;
+                for (int s = 0; s < 4; s++) if (side.Doors[s]) entry = s;
+                var back = -new Vector3(Dir[entry].x, 0f, Dir[entry].y);
+                float toBack = (entry == 0 || entry == 2 ? side.Size.y : side.Size.x) / 2f - 2.2f;
+                if (side.Feature == RoomFeature.Treasury)
+                {
+                    // Three pedestals in a shallow arc before the back wall.
+                    var across = new Vector3(-back.z, 0f, back.x);
+                    for (int k = -1; k <= 1; k++) side.FeatureSpots.Add(side.Center + back * (toBack - Mathf.Abs(k) * 1.2f) + across * (k * 2.6f));
+                }
+                else if (side.Feature == RoomFeature.Proving) side.FeatureSpots.Add(side.Center + back * toBack * 0.4f);
+                else side.FeatureSpots.Add(side.Center + back * toBack);
             }
         }
 

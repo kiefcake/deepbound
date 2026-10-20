@@ -16,7 +16,7 @@ namespace Deepbound.World
     [RequireComponent(typeof(Health))]
     public class Breakable : NetworkBehaviour
     {
-        public enum Kind : byte { Urn, PowderBarrel, RitualBrazier, SoulLantern }
+        public enum Kind : byte { Urn, PowderBarrel, RitualBrazier, SoulLantern, HealPylon }
 
         public readonly NetworkVariable<Kind> Type = new NetworkVariable<Kind>();
         [SerializeField] private NetworkObject lootPrefab;
@@ -32,15 +32,61 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             BuildVisual();
+            if (Type.Value == Kind.HealPylon && TryGetComponent<CapsuleCollider>(out var cap))
+            {
+                cap.radius = 0.55f; cap.height = 2.8f; cap.center = new Vector3(0f, 1.4f, 0f);
+                health.InvalidateBody();
+            }
             if (!IsServer) return;
-            health.ServerSetMax(Type.Value == Kind.Urn ? 1f : Type.Value == Kind.RitualBrazier ? 60f + 20f * DungeonDirector.Tier(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0) : 10f, refill: true);
+            int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
+            float tier = DungeonDirector.Tier(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
+            health.ServerSetMax(Type.Value == Kind.Urn ? 1f : Type.Value == Kind.RitualBrazier ? 60f + 20f * tier
+                : Type.Value == Kind.HealPylon ? (140f + 70f * tier) * (1f + 0.4f * (players - 1)) : 10f, refill: true);
             health.Died += _ => ServerBreak();
+        }
+
+        /// <summary>A pylon pours this fraction of the boss's health back into it every second.</summary>
+        public const float PylonHeal = 0.008f;
+        private Transform beam;
+        private float nextPylonTick;
+
+        private void Update()
+        {
+            if (Type.Value != Kind.HealPylon || broken) return;
+            var boss = Enemies.BossBrain.Active;
+            bool feeding = boss != null && !boss.IsDead && !boss.Dormant && boss.Health.Fraction < 0.999f;
+            if (IsServer && feeding && Time.time >= nextPylonTick)
+            {
+                nextPylonTick = Time.time + 0.5f;
+                boss.Health.ServerHeal(boss.Health.Max.Value * PylonHeal * 0.5f);
+            }
+            // The beam: a thin green-gold line from the crystal to the boss's chest, pulsing.
+            if (beam == null)
+            {
+                beam = MeshKit.Part(transform, "PylonBeam", MeshKit.Box(new Vector3(0.06f, 0.06f, 1f)), Mat.Glow, Vector3.zero).transform;
+                beam.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            beam.gameObject.SetActive(feeding);
+            if (!feeding) return;
+            var from = transform.position + Vector3.up * 2.4f;
+            var to = boss.Health.Center;
+            beam.position = (from + to) / 2f;
+            beam.rotation = Quaternion.LookRotation(to - from);
+            float pulse = 0.7f + 0.3f * Mathf.Sin(Time.time * 6f);
+            beam.localScale = new Vector3(pulse, pulse, Vector3.Distance(from, to));
+            ArtLibrary.SetGlow(beam.GetComponent<Renderer>(), new Color(0.5f, 1f, 0.55f) * (1.2f * pulse));
         }
 
         private void ServerBreak()
         {
             if (broken) return;
             broken = true;
+            if (Type.Value == Kind.HealPylon)
+            {
+                PylonFxRpc();
+                NetworkObject.Despawn();
+                return;
+            }
             if (Type.Value == Kind.RitualBrazier)
             {
                 RitualFxRpc();
@@ -69,6 +115,16 @@ namespace Deepbound.World
                 FuseFxRpc();
                 Invoke(nameof(Explode), FuseSeconds);
             }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PylonFxRpc()
+        {
+            var at = transform.position + Vector3.up * 2.4f;
+            Sfx.Play(Sound.Shatter, at, 1f, 0.6f);
+            Vfx.Flash(at, new Color(0.5f, 1f, 0.55f), 5f, 8f, 0.4f);
+            Vfx.Embers(at, 20, new Color(0.5f, 1f, 0.55f), 6f, 0.06f, 0.8f);
+            UI.GameHud.ShowCombo(at + Vector3.up * 0.5f, "PYLON BROKEN", new Color(0.6f, 1f, 0.6f));
         }
 
         private void Explode()
@@ -197,6 +253,27 @@ namespace Deepbound.World
                 l.range = 8f;
                 l.intensity = 2.6f;
                 l.shadows = LightShadows.None;
+                return;
+            }
+            if (Type.Value == Kind.HealPylon)
+            {
+                // A black stone obelisk with a green-gold crystal on top, humming.
+                MeshKit.Part(transform, "Obelisk", MeshKit.Lathe("pylon", new[] { new Vector2(0.5f, 0f), new Vector2(0.42f, 0.3f), new Vector2(0.3f, 2f), new Vector2(0.12f, 2.25f), new Vector2(0f, 2.3f) }, 6), Mat.Dark, Vector3.zero);
+                var crystal = MeshKit.Part(transform, "PylonCrystal", MeshKit.Lathe("pylonCrystal", new[] { new Vector2(0f, -0.25f), new Vector2(0.18f, 0f), new Vector2(0f, 0.3f) }, 6), Mat.Glow, Vector3.up * 2.55f);
+                ArtLibrary.SetGlow(crystal.GetComponent<Renderer>(), new Color(0.5f, 1f, 0.55f) * 1.4f);
+                for (int i = 0; i < 4; i++)
+                {
+                    var rune = MeshKit.Part(transform, "PylonRune", MeshKit.Box(new Vector3(0.12f, 0.3f, 0.02f)), Mat.Glow, Quaternion.Euler(0f, i * 90f, 0f) * new Vector3(0f, 1.1f, 0.36f), new Vector3(0f, i * 90f, 0f));
+                    ArtLibrary.SetGlow(rune.GetComponent<Renderer>(), new Color(0.5f, 1f, 0.55f) * 0.9f);
+                }
+                var pl = new GameObject("PylonLight").AddComponent<Light>();
+                pl.transform.SetParent(transform, false);
+                pl.transform.localPosition = Vector3.up * 2.6f;
+                pl.type = LightType.Point;
+                pl.color = new Color(0.5f, 1f, 0.55f);
+                pl.range = 6f;
+                pl.intensity = 2f;
+                pl.shadows = LightShadows.None;
                 return;
             }
             if (Type.Value == Kind.Urn)

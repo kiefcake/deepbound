@@ -76,6 +76,8 @@ namespace Deepbound.World
             base.OnNetworkSpawn();
             All.Add(this);
             BuildVisual();
+            Type.OnValueChanged += (_, __) => Rebuild();
+            Choice.OnValueChanged += (_, __) => Rebuild();
             Used.OnValueChanged += (_, __) => Refresh();
             Spent.OnValueChanged += (_, __) => Refresh();
             Refresh();
@@ -204,7 +206,7 @@ namespace Deepbound.World
             if (gem != null) gem.gameObject.SetActive(!dim || Type.Value == Kind.Whetstone);
             if (glow != null) glow.intensity = dim ? 0.3f : 2.2f;
             if (Spent.Value && Type.Value == Kind.Beggar)
-                foreach (Transform c in transform) if (c.name.StartsWith("Beggar")) c.gameObject.SetActive(false);
+                if (vis != null) foreach (Transform c in vis) if (c.name.StartsWith("Beggar")) c.gameObject.SetActive(false);
         }
 
         private void Update()
@@ -222,7 +224,7 @@ namespace Deepbound.World
         private Light AddLight(Color c, float range, float y)
         {
             var l = new GameObject("ShrineLight").AddComponent<Light>();
-            l.transform.SetParent(transform, false);
+            l.transform.SetParent(vis, false);
             l.transform.localPosition = Vector3.up * y;
             l.type = LightType.Point;
             l.color = c;
@@ -232,18 +234,30 @@ namespace Deepbound.World
             return l;
         }
 
+        private Transform vis;
+
+        /// <summary>Any peer: (re)build the look for the current kind (values arrive just after spawn).</summary>
+        private void Rebuild()
+        {
+            if (vis != null) Destroy(vis.gameObject);
+            BuildVisual();
+            Refresh();
+        }
+
         private void BuildVisual()
         {
+            vis = new GameObject("Visual").transform;
+            vis.SetParent(transform, false);
             switch (Type.Value)
             {
                 case Kind.Pedestal:
                 {
-                    MeshKit.Part(transform, "Plinth", MeshKit.Lathe("pedestal", new[]
+                    MeshKit.Part(vis, "Plinth", MeshKit.Lathe("pedestal", new[]
                     {
                         new Vector2(0.42f, 0f), new Vector2(0.42f, 0.12f), new Vector2(0.24f, 0.2f), new Vector2(0.2f, 0.9f), new Vector2(0.34f, 1f), new Vector2(0.34f, 1.08f), new Vector2(0f, 1.08f),
                     }, 10), Mat.Marble, Vector3.zero);
                     var c = Relics.GemColor((Relic)Choice.Value);
-                    gem = MeshKit.Pivot(transform, "Gem", Vector3.up * 1.45f);
+                    gem = MeshKit.Pivot(vis, "Gem", Vector3.up * 1.45f);
                     var g = MeshKit.Part(gem, "Stone", MeshKit.Lathe("relicGem", new[] { new Vector2(0f, -0.14f), new Vector2(0.1f, 0f), new Vector2(0f, 0.16f) }, 6), Mat.Glow, Vector3.zero, Vector3.zero, Vector3.one * 1.5f);
                     ArtLibrary.SetGlow(g.GetComponent<Renderer>(), c * 1.4f);
                     glow = AddLight(c, 4f, 1.5f);
@@ -252,18 +266,18 @@ namespace Deepbound.World
                 case Kind.Beggar:
                 {
                     // A hunched, hooded figure on a rag, a bowl in front of him.
-                    var rag = MeshKit.Part(transform, "BeggarRag", MeshKit.Box(new Vector3(1.4f, 0.03f, 1f)), Mat.Cloth, new Vector3(0f, 0.015f, 0f));
+                    var rag = MeshKit.Part(vis, "BeggarRag", MeshKit.Box(new Vector3(1.4f, 0.03f, 1f)), Mat.Cloth, new Vector3(0f, 0.015f, 0f));
                     ArtLibrary.Tint(rag.GetComponent<Renderer>(), new Color(0.3f, 0.24f, 0.18f));
-                    var body = MeshKit.Part(transform, "BeggarBody", MeshKit.Lathe("beggarBody", new[] { new Vector2(0.42f, 0f), new Vector2(0.38f, 0.35f), new Vector2(0.26f, 0.7f), new Vector2(0.12f, 0.85f), new Vector2(0f, 0.88f) }, 9), Mat.Cloth, Vector3.zero, new Vector3(12f, 0f, 0f));
+                    var body = MeshKit.Part(vis, "BeggarBody", MeshKit.Lathe("beggarBody", new[] { new Vector2(0.42f, 0f), new Vector2(0.38f, 0.35f), new Vector2(0.26f, 0.7f), new Vector2(0.12f, 0.85f), new Vector2(0f, 0.88f) }, 9), Mat.Cloth, Vector3.zero, new Vector3(12f, 0f, 0f));
                     ArtLibrary.Tint(body.GetComponent<Renderer>(), new Color(0.22f, 0.19f, 0.16f));
-                    MeshKit.Part(transform, "BeggarFace", MeshKit.Ball(0.13f, 8, 6), Mat.Dark, new Vector3(0f, 0.8f, 0.14f));
+                    MeshKit.Part(vis, "BeggarFace", MeshKit.Ball(0.13f, 8, 6), Mat.Dark, new Vector3(0f, 0.8f, 0.14f));
                     foreach (float x in new[] { -0.04f, 0.04f })
                     {
-                        var eye = MeshKit.Part(transform, "BeggarEye", MeshKit.Ball(0.014f, 5, 3), Mat.Glow, new Vector3(x, 0.82f, 0.25f));
+                        var eye = MeshKit.Part(vis, "BeggarEye", MeshKit.Ball(0.014f, 5, 3), Mat.Glow, new Vector3(x, 0.82f, 0.25f));
                         ArtLibrary.SetGlow(eye.GetComponent<Renderer>(), new Color(1f, 0.8f, 0.45f) * 0.8f);
                     }
-                    MeshKit.Part(transform, "BeggarBowl", MeshKit.Lathe("bowl", new[] { new Vector2(0f, 0f), new Vector2(0.14f, 0.02f), new Vector2(0.17f, 0.09f) }, 10, false), Mat.Wood, new Vector3(0f, 0.02f, 0.55f));
-                    gem = MeshKit.Pivot(transform, "BeggarCoin", new Vector3(0.03f, 0.06f, 0.55f));
+                    MeshKit.Part(vis, "BeggarBowl", MeshKit.Lathe("bowl", new[] { new Vector2(0f, 0f), new Vector2(0.14f, 0.02f), new Vector2(0.17f, 0.09f) }, 10, false), Mat.Wood, new Vector3(0f, 0.02f, 0.55f));
+                    gem = MeshKit.Pivot(vis, "BeggarCoin", new Vector3(0.03f, 0.06f, 0.55f));
                     MeshKit.Part(gem, "Coin", MeshKit.Cylinder(0.035f, 0.035f, 0.01f, 10), Mat.Gold, Vector3.zero);
                     glow = AddLight(new Color(1f, 0.7f, 0.4f), 4f, 1.4f);
                     break;
@@ -271,9 +285,9 @@ namespace Deepbound.World
                 case Kind.Bell:
                 {
                     // A bronze bell hung from a black timber frame.
-                    foreach (float x in new[] { -0.9f, 0.9f }) MeshKit.Part(transform, "Post", MeshKit.Box(new Vector3(0.18f, 2.6f, 0.18f)), Mat.Wood, new Vector3(x, 1.3f, 0f));
-                    MeshKit.Part(transform, "Beam", MeshKit.Box(new Vector3(2.1f, 0.2f, 0.22f)), Mat.Wood, new Vector3(0f, 2.55f, 0f));
-                    gem = MeshKit.Pivot(transform, "Bell", new Vector3(0f, 2.45f, 0f));
+                    foreach (float x in new[] { -0.9f, 0.9f }) MeshKit.Part(vis, "Post", MeshKit.Box(new Vector3(0.18f, 2.6f, 0.18f)), Mat.Wood, new Vector3(x, 1.3f, 0f));
+                    MeshKit.Part(vis, "Beam", MeshKit.Box(new Vector3(2.1f, 0.2f, 0.22f)), Mat.Wood, new Vector3(0f, 2.55f, 0f));
+                    gem = MeshKit.Pivot(vis, "Bell", new Vector3(0f, 2.45f, 0f));
                     MeshKit.Part(gem, "Bronze", MeshKit.Lathe("bell", new[] { new Vector2(0f, 0f), new Vector2(0.12f, -0.02f), new Vector2(0.2f, -0.3f), new Vector2(0.34f, -0.7f), new Vector2(0.4f, -0.78f), new Vector2(0.36f, -0.8f) }, 14), Mat.Gold, Vector3.zero);
                     MeshKit.Part(gem, "Clapper", MeshKit.Ball(0.07f, 6, 4), Mat.Steel, new Vector3(0f, -0.68f, 0f));
                     glow = AddLight(new Color(1f, 0.75f, 0.4f), 6f, 2f);
@@ -282,22 +296,22 @@ namespace Deepbound.World
                 case Kind.Whetstone:
                 {
                     // A treadle grindstone and a rack of old blades.
-                    MeshKit.Part(transform, "Frame", MeshKit.Box(new Vector3(1.1f, 0.7f, 0.5f)), Mat.Wood, new Vector3(0f, 0.35f, 0f));
-                    gem = MeshKit.Pivot(transform, "Stone", new Vector3(0f, 0.95f, 0f));
+                    MeshKit.Part(vis, "Frame", MeshKit.Box(new Vector3(1.1f, 0.7f, 0.5f)), Mat.Wood, new Vector3(0f, 0.35f, 0f));
+                    gem = MeshKit.Pivot(vis, "Stone", new Vector3(0f, 0.95f, 0f));
                     MeshKit.Part(gem, "Wheel", MeshKit.Cylinder(0.42f, 0.42f, 0.16f, 16), Mat.StoneWall, Vector3.zero, new Vector3(0f, 0f, 90f));
                     for (int i = 0; i < 4; i++)
-                        MeshKit.Part(transform, "OldBlade", MeshKit.Box(new Vector3(0.06f, 1f, 0.015f)), Mat.Steel, new Vector3(-0.9f + i * 0.12f, 0.6f, -0.3f), new Vector3(0f, 0f, 8f - i * 4f));
+                        MeshKit.Part(vis, "OldBlade", MeshKit.Box(new Vector3(0.06f, 1f, 0.015f)), Mat.Steel, new Vector3(-0.9f + i * 0.12f, 0.6f, -0.3f), new Vector3(0f, 0f, 8f - i * 4f));
                     glow = AddLight(new Color(1f, 0.6f, 0.3f), 5f, 1.6f);
                     break;
                 }
                 case Kind.Mirror:
                 {
                     // A tall black-framed mirror whose glass shows a violet nothing.
-                    MeshKit.Part(transform, "Frame", MeshKit.Box(new Vector3(1.1f, 2.2f, 0.12f)), Mat.Dark, new Vector3(0f, 1.25f, 0f));
-                    gem = MeshKit.Pivot(transform, "Glass", new Vector3(0f, 1.25f, 0.07f));
+                    MeshKit.Part(vis, "Frame", MeshKit.Box(new Vector3(1.1f, 2.2f, 0.12f)), Mat.Dark, new Vector3(0f, 1.25f, 0f));
+                    gem = MeshKit.Pivot(vis, "Glass", new Vector3(0f, 1.25f, 0.07f));
                     var glass = MeshKit.Part(gem, "Pane", MeshKit.Box(new Vector3(0.9f, 1.95f, 0.02f)), Mat.Glow, Vector3.zero);
                     ArtLibrary.SetGlow(glass.GetComponent<Renderer>(), new Color(0.35f, 0.12f, 0.55f) * 0.8f);
-                    MeshKit.Part(transform, "Crest", MeshKit.Lathe("mirrorCrest", new[] { new Vector2(0.18f, 0f), new Vector2(0f, 0.3f) }, 4), Mat.Gold, new Vector3(0f, 2.4f, 0f));
+                    MeshKit.Part(vis, "Crest", MeshKit.Lathe("mirrorCrest", new[] { new Vector2(0.18f, 0f), new Vector2(0f, 0.3f) }, 4), Mat.Gold, new Vector3(0f, 2.4f, 0f));
                     glow = AddLight(new Color(0.6f, 0.3f, 1f), 5f, 1.4f);
                     break;
                 }

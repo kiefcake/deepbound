@@ -647,18 +647,44 @@ namespace Deepbound.World
         private static void DressBossRoom(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights)
         {
             var c = room.Center;
-            // Ring of pillars — cover from the slam, and a circle to fight around.
-            for (int i = 0; i < 8; i++)
+            var rng = new System.Random(room.DecorSeed);
+            switch (room.Arena)
             {
-                float a = i * Mathf.PI / 4f + Mathf.PI / 8f;
-                Props.Pillar(b, c + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 9.5f, room.Height);
+                case BossArena.Colonnade:
+                    // Ring of pillars: cover from the slam and the patterns, and a circle to fight around.
+                    for (int i = 0; i < 8; i++)
+                    {
+                        float a = i * Mathf.PI / 4f + Mathf.PI / 8f;
+                        Props.Pillar(b, c + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 9.5f, room.Height);
+                    }
+                    break;
+                case BossArena.Dais:
+                    // The raised dais is structure (see BuildRoom); four tall pillars mark its corners.
+                    foreach (var (rr, top) in room.Raised)
+                        foreach (var (sx, sz) in new[] { (1f, 1f), (-1f, 1f), (1f, -1f), (-1f, -1f) })
+                            Props.Pillar(b, new Vector3(rr.center.x + sx * (rr.width / 2f - 0.6f), top, rr.center.y + sz * (rr.height / 2f - 0.6f)), room.Height - top);
+                    break;
+                case BossArena.Ruins:
+                    // Broken columns and heaps of fallen masonry: uneven cover, a field to weave through.
+                    for (int i = 0; i < 7; i++)
+                    {
+                        float a = (i * 51f + 20f) * Mathf.Deg2Rad;
+                        float r = 6.5f + (float)rng.NextDouble() * 5f;
+                        var p = c + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * r;
+                        float h = 1.4f + (float)rng.NextDouble() * 3.5f;
+                        Props.Pillar(b, p, h);
+                        b.AddBox(p + new Vector3(1.2f, 0.35f, 0.4f), new Vector3(1.6f, 0.7f, 1.1f), Mat.StoneWall, Quaternion.Euler(0f, (float)rng.NextDouble() * 90f, 12f));
+                    }
+                    break;
             }
 
             // Throne at the far wall from whichever door the party enters by.
             int entry = 0;
             for (int s = 0; s < 4; s++) if (room.Doors[s]) entry = s;
             var back = -new Vector3(DungeonLayout.Dir[entry].x, 0f, DungeonLayout.Dir[entry].y);
-            Props.Throne(b, c + back * (room.Size.y / 2f - 2.5f), Quaternion.LookRotation(-back));
+            var throneAt = c + back * (room.Size.y / 2f - 2.5f);
+            throneAt.y = room.RaisedAt(throneAt);
+            Props.Throne(b, throneAt, Quaternion.LookRotation(-back));
 
             var cold = new Color(0.35f, 0.65f, 1f);
             Props.Brazier(lights, c + new Vector3(5f, 0f, 5f), cold, true);

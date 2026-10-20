@@ -290,6 +290,14 @@ namespace Deepbound.UI
         private float whiteFade, letterboxUntil;
 
         private static float freezeUntil;
+        private static float fadeOutStart = -1f, fadeOutLength = 1f;
+
+        /// <summary>The grave lift's climb: the screen goes to black over <paramref name="seconds"/>.</summary>
+        public static void BeginFadeOut(float seconds)
+        {
+            fadeOutStart = UnityEngine.Time.time;
+            fadeOutLength = Mathf.Max(0.1f, seconds);
+        }
 
         /// <summary>The descent cutscene holds the player still: while the beam takes them, and a moment after arriving.</summary>
         public static bool CutsceneFreeze => departStart >= 0f || UnityEngine.Time.time < freezeUntil;
@@ -874,6 +882,12 @@ namespace Deepbound.UI
 
         private void DrawFade(float w, float h)
         {
+            if (fadeOutStart >= 0f)
+            {
+                float k = Mathf.Clamp01((Time.time - fadeOutStart) / fadeOutLength);
+                if (Time.time - fadeOutStart > fadeOutLength + 3f) fadeOutStart = -1f;
+                else Rect(0, 0, w, h, new Color(0f, 0f, 0f, k * k));
+            }
             // Departing: bars close in and the light takes the screen.
             if (departStart >= 0f)
             {

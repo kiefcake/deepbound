@@ -37,10 +37,11 @@ namespace Deepbound.World
             face.y = 0f;
             var obj = Instantiate(sideShrinePrefab, at, face.sqrMagnitude > 0.01f ? Quaternion.LookRotation(face) : Quaternion.identity);
             var s = obj.GetComponent<SideShrine>();
+            obj.Spawn(destroyWithScene: true);
             s.Type.Value = kind;
             s.Choice.Value = choice;
             s.Group.Value = group;
-            obj.Spawn(destroyWithScene: true);
+            spawned.Add(obj);
         }
 
         /// <summary>Tests: spawn a special-room piece near a spot.</summary>
@@ -49,10 +50,10 @@ namespace Deepbound.World
             if (sideShrinePrefab == null || Layout == null) return null;
             var obj = Instantiate(sideShrinePrefab, at, Quaternion.identity);
             var s = obj.GetComponent<SideShrine>();
+            obj.Spawn(destroyWithScene: true);
             s.Type.Value = kind;
             s.Choice.Value = choice;
             s.Group.Value = 9999;
-            obj.Spawn(destroyWithScene: true);
             return s;
         }
         [SerializeField] private NetworkObject soulSkullPrefab;
@@ -726,6 +727,7 @@ namespace Deepbound.World
         private void TickBossArena()
         {
             if (boss == null || Layout == null) return;
+            if (bossSealed && Layout.BossRoom != null && Layout.BossRoom.Quirk == BossQuirk.Sanctum) TickSanctum();
             if (bossSealed)
             {
                 if (boss.IsDead) SetGates(bossGates, false);
@@ -747,7 +749,19 @@ namespace Deepbound.World
                     bh.ServerSetFraction(HallowedHealth);
                     bh.IncomingModifiers.Insert(0, (dmg, from) => dmg * HallowedVulnerability);
                 }
-                BossIntroRpc(boss.DisplayName.ToUpperInvariant(), boss.Epithet, hallowed ? "HALLOWED by the Reliquary: it wakes at " + Mathf.RoundToInt(HallowedHealth * 100f) + "% and takes +10% damage.  " + boss.Hint : boss.Hint);
+                // The sanctum: each lit brazier opens the guardian up a little more.
+                if (Layout.BossRoom.Quirk == BossQuirk.Sanctum)
+                    boss.GetComponent<Combat.Health>().IncomingModifiers.Insert(0, (dmg, from) => dmg * (1f + ArenaEngine.SanctumPerBrazier * ArenaEngine.LitBraziers));
+                nextSnuff = Time.time + 15f;
+                string quirk = Layout.BossRoom.Quirk switch
+                {
+                    BossQuirk.Pylons => "  PYLONS heal it: break them.",
+                    BossQuirk.Ballistas => "  BALLISTAS stand ready: loose them (F).",
+                    BossQuirk.Chandelier => "  A CHANDELIER hangs over the lit circle: lure it under, cut the chain (F).",
+                    BossQuirk.Sanctum => "  Light the SANCTUM braziers: each one makes it take more damage.",
+                    _ => "",
+                };
+                BossIntroRpc(boss.DisplayName.ToUpperInvariant(), boss.Epithet, (hallowed ? "HALLOWED by the Reliquary: it wakes at " + Mathf.RoundToInt(HallowedHealth * 100f) + "% and takes +10% damage.  " : "") + boss.Hint + quirk);
             }
         }
 

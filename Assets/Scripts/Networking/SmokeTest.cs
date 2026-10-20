@@ -39,7 +39,7 @@ namespace Deepbound.Networking
             StartCoroutine(Sequence(seconds));
             // Watchdog: if the sequence throws, the coroutine dies silently and the
             // process would idle forever. Fail loudly instead.
-            Invoke(nameof(Timeout), seconds * 4f);
+            Invoke(nameof(Timeout), seconds * 6f);
         }
 
         private void Timeout()
@@ -667,7 +667,8 @@ namespace Deepbound.Networking
             if (net.IsServer && local != null)
             {
                 // Dungeon objects: a chest per side room; open one; blow up a barrel.
-                int sideRooms = layout.Rooms.Count(r => r.Kind == RoomKind.Side);
+                // Special rooms (treasury, beggar...) are their own reward: no chest.
+                int sideRooms = layout.Rooms.Count(r => r.Kind == RoomKind.Side && !r.Special);
                 var chests = FindObjectsByType<Chest>(FindObjectsSortMode.None);
                 int urns = FindObjectsByType<Breakable>(FindObjectsSortMode.None).Count(b => b.Type.Value == Breakable.Kind.Urn);
                 Log("dungeon objects", chests.Length + " chests for " + sideRooms + " side rooms, " + urns + " urns, " +
@@ -1180,6 +1181,28 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.3f);
                 Log("boss asleep until the party is in", "dormant " + wasDormant + ", hp " + hpBefore.ToString("F0") + " -> " + boss.Health.Current.Value.ToString("F0") + ", sealed " + DungeonDirector.Instance.BossSealed,
                     !wasDormant || (Mathf.Approximately(hpBefore, boss.Health.Current.Value) && boss.Dormant && !DungeonDirector.Instance.BossSealed));
+                {
+                    // Arena machinery: a ballista bolt and a dropped chandelier both hurt the guardian.
+                    var bq = layout.BossRoom;
+                    Log("arena", "shape " + bq.Arena + ", quirk " + bq.Quirk, true);
+                    bool wasAsleep = boss.Dormant;
+                    boss.Dormant = false;
+                    boss.ServerDebugResetPhases();
+                    var sp3 = local.GetComponent<PlayerProgress>();
+                    var bal = DungeonDirector.Instance.ServerDebugEngine(ArenaEngine.Kind.Ballista, boss.transform.position + boss.transform.forward * 8f, Vector3.zero);
+                    yield return new WaitForSeconds(0.3f);
+                    float b0 = boss.Health.Current.Value;
+                    if (bal != null) bal.ServerDebugUse(sp3);
+                    yield return new WaitForSeconds(0.8f);
+                    float b1 = boss.Health.Current.Value;
+                    var winch = DungeonDirector.Instance.ServerDebugEngine(ArenaEngine.Kind.Winch, boss.transform.position + boss.transform.right * 6f, boss.transform.position);
+                    yield return new WaitForSeconds(0.3f);
+                    if (winch != null) winch.ServerDebugUse(sp3);
+                    yield return new WaitForSeconds(1.3f);
+                    float b2 = boss.Health.Current.Value;
+                    Log("arena machinery", "ballista " + b0.ToString("F0") + " -> " + b1.ToString("F0") + ", chandelier -> " + b2.ToString("F0") + ", stunned " + boss.IsStunned, bal != null && winch != null && b1 < b0 && b2 < b1);
+                    boss.Dormant = wasAsleep;
+                }
                 boss.Health.ServerDamage(1e6f, boss.transform.position);
                 yield return new WaitForSeconds(1f);
                 var phase = DungeonDirector.Instance.Phase.Value;
@@ -1734,10 +1757,12 @@ namespace Deepbound.Networking
                         ulong hunterId = hunter.NetworkObjectId;
                         System.Action<Health, float, ulong> countBlows = (t, d, f) => { if (t == hh && f == hunterId) blows++; };
                         Health.ServerAnyDamaged += countBlows;
+                        int hits0 = hunter.StrikeHits;
                         hunter.ServerHuntNow();
                         yield return new WaitForSeconds(1.0f);
                         Health.ServerAnyDamaged -= countBlows;
-                        bool struck = blows > 0 || hh.Current.Value < h0;
+                        bool struck = blows > 0 || hh.Current.Value < h0 || hunter.StrikeHits > hits0;
+                        Debug.Log("[Smoke] hunt strike hits " + (hunter.StrikeHits - hits0) + ", last dealt " + hunter.LastStrikeDealt + ", blows " + blows);
                         hh.ServerSetFraction(1f);
                         hunter.ServerHuntNow();
                         yield return new WaitForSeconds(0.2f);

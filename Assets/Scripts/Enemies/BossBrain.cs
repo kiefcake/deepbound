@@ -434,7 +434,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
-            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); TickPatterns(); TickStrikes(); if (!IsStunned) { TickQuickShots(); TickHunt(); } }
+            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); TickPatterns(); if (!IsStunned) TickQuickShots(); }
             if (IsServer && !IsDead && Dormant)
             {
                 if (agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
@@ -451,7 +451,13 @@ namespace Deepbound.Enemies
         // Phases tick here, not in Update: subclasses return early from Update while they wind up.
         protected virtual void LateUpdate()
         {
-            if (IsServer && !IsDead && IsSpawned) TickPhases();
+            if (IsServer && !IsDead && IsSpawned)
+            {
+                TickPhases();
+                // Hunts and their strikes tick here too: subclasses return early from Update mid-attack.
+                TickStrikes();
+                if (!IsStunned) TickHunt();
+            }
             TickBubble();
         }
 
@@ -737,6 +743,9 @@ namespace Deepbound.Enemies
         public int HuntsThrown { get; private set; }
         /// <summary>Tests: where the last hunting strike was aimed.</summary>
         public Vector3 LastStrikeAt { get; private set; }
+        /// <summary>Tests: strikes that caught a player, and what the last one dealt.</summary>
+        public int StrikeHits { get; private set; }
+        public float LastStrikeDealt { get; private set; }
 
         private void TickHunt()
         {
@@ -820,7 +829,8 @@ namespace Deepbound.Enemies
                     }
                     else hit = to.magnitude <= s.Radius + 0.3f;
                     if (!hit) continue;
-                    p.Health.ServerDamage(s.Damage, s.At + Vector3.up, NetworkObjectId);
+                    StrikeHits++;
+                    LastStrikeDealt = p.Health.ServerDamage(s.Damage, s.At + Vector3.up, NetworkObjectId);
                     KnockPlayer(p.Health, (s.Line ? s.Dir * 3f : to.normalized * 4f) + Vector3.up * 4f);
                 }
                 StrikeFxRpc(s.At, s.Line ? s.Dir : Vector3.zero, s.Line);

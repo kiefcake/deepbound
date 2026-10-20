@@ -157,6 +157,73 @@ namespace Deepbound.World
             RiseFxRpc(points);
         }
 
+        [SerializeField] private NetworkObject arenaEnginePrefab;
+        private float nextSnuff;
+
+        /// <summary>Server: the arena's quirk (2026-10-20): healing pylons, ballistas, a chandelier, sanctum braziers.</summary>
+        private void SpawnArenaQuirk(DungeonLayout layout, int players)
+        {
+            var room = layout.BossRoom;
+            if (room == null) return;
+            var c = room.Center;
+            int entry = 0;
+            for (int s = 0; s < 4; s++) if (room.Doors[s]) entry = s;
+            var toDoor = new Vector3(DungeonLayout.Dir[entry].x, 0f, DungeonLayout.Dir[entry].y);
+            var across = new Vector3(-toDoor.z, 0f, toDoor.x);
+            switch (room.Quirk)
+            {
+                case BossQuirk.Pylons when breakablePrefab != null:
+                {
+                    int n = players >= 3 ? 4 : 3;
+                    for (int i = 0; i < n; i++)
+                    {
+                        float a = (i * 360f / n + 30f) * Mathf.Deg2Rad;
+                        var at = c + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 11.5f;
+                        if (NavMesh.SamplePosition(at, out var hit, 2f, NavMesh.AllAreas)) at = hit.position;
+                        SpawnBreakable(Breakable.Kind.HealPylon, at);
+                    }
+                    break;
+                }
+                case BossQuirk.Ballistas when arenaEnginePrefab != null:
+                    foreach (float s in new[] { -1f, 1f })
+                        SpawnEngine(ArenaEngine.Kind.Ballista, c + toDoor * 11f + across * (s * 11f), c, Vector3.zero);
+                    break;
+                case BossQuirk.Chandelier when arenaEnginePrefab != null:
+                    SpawnEngine(ArenaEngine.Kind.Winch, c + across * (room.Size.x / 2f - 1.4f), c, c);
+                    break;
+                case BossQuirk.Sanctum when arenaEnginePrefab != null:
+                    foreach (var (sx, sz) in new[] { (1f, 1f), (-1f, 1f), (1f, -1f), (-1f, -1f) })
+                        SpawnEngine(ArenaEngine.Kind.Brazier, c + new Vector3(sx * 10.5f, 0f, sz * 10.5f), c, Vector3.zero);
+                    break;
+            }
+        }
+
+        private ArenaEngine SpawnEngine(ArenaEngine.Kind kind, Vector3 at, Vector3 face, Vector3 target)
+        {
+            if (NavMesh.SamplePosition(at, out var hit, 2.5f, NavMesh.AllAreas)) at = hit.position;
+            var look = face - at;
+            look.y = 0f;
+            var obj = Instantiate(arenaEnginePrefab, at, look.sqrMagnitude > 0.01f ? Quaternion.LookRotation(look) : Quaternion.identity);
+            var e = obj.GetComponent<ArenaEngine>();
+            obj.Spawn(destroyWithScene: true);
+            e.Type.Value = kind;
+            e.Target.Value = target;
+            spawned.Add(obj);
+            return e;
+        }
+
+        /// <summary>Tests: an arena device at a spot.</summary>
+        public ArenaEngine ServerDebugEngine(ArenaEngine.Kind kind, Vector3 at, Vector3 target) => arenaEnginePrefab != null ? SpawnEngine(kind, at, at + Vector3.forward, target) : null;
+
+        /// <summary>Server: the sanctum's boss puts out a burning brazier every so often.</summary>
+        private void TickSanctum()
+        {
+            if (boss == null || boss.IsDead || boss.Dormant || Time.time < nextSnuff) return;
+            nextSnuff = Time.time + 22f;
+            var lit = ArenaEngine.All.FindAll(e => e != null && e.Type.Value == ArenaEngine.Kind.Brazier && e.Lit.Value);
+            if (lit.Count > 0) lit[UnityEngine.Random.Range(0, lit.Count)].ServerSnuff();
+        }
+
         /// <summary>Server: like <see cref="ServerSpawnPack"/>, returning the brains it raised (the proving bell waits on them).</summary>
         public System.Collections.Generic.List<EnemyBrain> ServerSpawnPackList(Vector3 around, int count, bool elite)
         {
@@ -891,6 +958,7 @@ namespace Deepbound.World
             boss.Dormant = portcullisPrefab != null; // waits on its throne until the party arrives
             spawned.Add(bossObj);
             bossSeen = true;
+            SpawnArenaQuirk(layout, players);
         }
 
         /// <summary>
@@ -985,7 +1053,7 @@ namespace Deepbound.World
                 // room's floor, off the doorways, in about half of them. Lure the dead across.
                 foreach (var room in layout.Rooms)
                 {
-                    if (room.Kind != RoomKind.Combat || room.Peaceful) continue;
+                    if (TestMode || room.Kind != RoomKind.Combat || room.Peaceful) continue;
                     var f = room.Feature;
                     if (f != RoomFeature.None && f != RoomFeature.GreatHall && f != RoomFeature.Gallery && f != RoomFeature.Ritual && f != RoomFeature.Library) continue;
                     if (rng.NextDouble() > 0.55) continue;
@@ -1153,17 +1221,15 @@ namespace Deepbound.World
                     if (PlayersAtExit() == PlayerLife.All.Count && PlayerLife.All.Count > 0)
                     {
                         if (PhaseEndsAt.Value <= 0) PhaseEndsAt.Value = now + ExitDelay;
-                        else if (now >= PhaseEndsAt.Value)
+                        else if (now >= PhaseEndsAt.Value && !ascending)
                         {
-                            if (ExitFinal.Value) EnterPhase(RunPhase.RunComplete, CompleteDelay);
-                            else
-                            {
-                                NextDepth.Value = Floor.Value.y + 1;
-                                EnterLobby(keepRun: true);
-                            }
+                            // The grave lift takes up its chains: everyone rises into the dark, then camp.
+                            ascending = true;
+                            AscendRpc();
+                            StartCoroutine(AfterAscent());
                         }
                     }
-                    else if (PhaseEndsAt.Value > 0) PhaseEndsAt.Value = 0;
+                    else if (PhaseEndsAt.Value > 0 && !ascending) PhaseEndsAt.Value = 0;
                     break;
 
                 default:
@@ -1177,6 +1243,28 @@ namespace Deepbound.World
                         else EnterLobby();
                     }
                     break;
+            }
+        }
+
+        private bool ascending;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void AscendRpc()
+        {
+            Art.ExitPortal.Ascend();
+            UI.GameHud.BeginFadeOut(Art.ExitPortal.AscendSeconds);
+        }
+
+        private System.Collections.IEnumerator AfterAscent()
+        {
+            yield return new WaitForSeconds(Art.ExitPortal.AscendSeconds + 0.2f);
+            ascending = false;
+            if (Phase.Value != RunPhase.FloorCleared) yield break;
+            if (ExitFinal.Value) EnterPhase(RunPhase.RunComplete, CompleteDelay);
+            else
+            {
+                NextDepth.Value = Floor.Value.y + 1;
+                EnterLobby(keepRun: true);
             }
         }
 
