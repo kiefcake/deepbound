@@ -66,6 +66,8 @@ namespace Deepbound.World
                 case 3: TickBell(); break;
                 case 4: TickSilence(); break;
             }
+            // Gravebound elites leave bones on any floor.
+            if (Act(Layout.Depth) != 0 && bonePiles.Count > 0) TickBones();
             TickWaves();
         }
 
@@ -73,11 +75,37 @@ namespace Deepbound.World
         // Floor 1: Restless Bones
         // ------------------------------------------------------------------
 
-        private struct BonePile { public int Id; public Vector3 At; public float RiseAt; }
+        private struct BonePile { public int Id; public Vector3 At; public float RiseAt; public NetworkObject Prefab; }
         private readonly List<BonePile> bonePiles = new List<BonePile>();
         private readonly HashSet<ulong> risen = new HashSet<ulong>();
         private int nextPileId;
         private const float PileRiseSeconds = 7f, StompRadius = 1.6f;
+        public const float GraveboundRiseSeconds = 6f;
+
+        /// <summary>Server, for tests: bone piles waiting to rise.</summary>
+        public int BonePileCount => bonePiles.Count;
+
+        /// <summary>
+        /// Server: a Gravebound elite fell (2026-10-20). Its bones pile up and rise as one of its kind (not an
+        /// elite, at full strength for the floor) after <see cref="GraveboundRiseSeconds"/>, unless stamped.
+        /// Works on every floor, not only the Ossuary.
+        /// </summary>
+        public void ServerGravebound(EnemyBrain brain)
+        {
+            if (Layout == null || brain == null) return;
+            NetworkObject prefab = null;
+            foreach (var p in AllEnemyPrefabNetworkObjects())
+                if (p != null && p.TryGetComponent<EnemyBrain>(out var b) && b.GetType() == brain.GetType()) { prefab = p; break; }
+            if (prefab == null) prefab = skeletonPrefab;
+            var at = brain.transform.position;
+            int id = nextPileId++;
+            bonePiles.Add(new BonePile { Id = id, At = at, RiseAt = Time.time + GraveboundRiseSeconds, Prefab = prefab });
+            BonePileRpc(id, at, GraveboundRiseSeconds);
+            GraveboundRpc(at + Vector3.up * 1.6f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void GraveboundRpc(Vector3 at) => UI.GameHud.ShowCombo(at, "IT WILL RISE - STAMP ITS BONES", new Color(0.75f, 0.8f, 0.7f));
 
         /// <summary>Server: a kill — if it was a plain skeleton on the Ossuary, it leaves a pile.</summary>
         private void OnKillForBones(Health target)
@@ -117,7 +145,7 @@ namespace Deepbound.World
                 BonePileGoneRpc(pile.Id, false);
                 var at = pile.At;
                 if (NavMesh.SamplePosition(at, out var hit, 2f, NavMesh.AllAreas)) at = hit.position;
-                var obj = Spawn(skeletonPrefab, at, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
+                var obj = Spawn(pile.Prefab != null ? pile.Prefab : skeletonPrefab, at, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
                 obj.GetComponent<EnemyBrain>().ServerScale(Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count), Layout.Depth);
                 risen.Add(obj.NetworkObjectId);
                 spawned.Add(obj);

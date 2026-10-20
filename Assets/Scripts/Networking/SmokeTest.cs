@@ -666,6 +666,8 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     float speedMul = lprog.SpeedMultiplier;
                     var lh = local.GetComponent<Health>();
+                    float relShield = lh.Shield.Value;
+                    lh.Shield.Value = 0f; // a camp check's Aegis can still be up: the hit must reach the carrier
                     lh.ServerDamage(lh.Max.Value * 0.06f, local.transform.position + local.transform.forward * 2f);
                     yield return new WaitForSeconds(0.2f);
                     float integ = relT.Integrity.Value;
@@ -677,7 +679,7 @@ namespace Deepbound.Networking
                     lh.IncomingModifiers.Insert(0, shieldT);
                     for (float t = 0f; t < 6f && Reliquary.Current != null; t += 0.1f) { lh.ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
                     lh.IncomingModifiers.Remove(shieldT);
-                    Log("reliquary", "speed x" + speedMul.ToString("F2") + ", integrity after a hit " + integ.ToString("F0") + "%, still carried " + stillCarried +
+                    Log("reliquary", "shield before the hit " + relShield.ToString("F0") + ", speed x" + speedMul.ToString("F2") + ", integrity after a hit " + integ.ToString("F0") + "%, still carried " + stillCarried +
                         ", delivered " + (Reliquary.Current == null) + ", gold " + goldBefore + " -> " + lprog.Gold.Value,
                         speedMul < 0.75f && integ < 100f && stillCarried && Reliquary.Current == null && lprog.Gold.Value > goldBefore);
                     Log("reliquary hallows", "floor hallowed " + DungeonDirector.Instance.Hallowed.Value, DungeonDirector.Instance.Hallowed.Value);
@@ -1170,6 +1172,33 @@ namespace Deepbound.Networking
                             }
                             else Log("oath plates", "no prefab", false);
                         }
+                        // New elite affixes: Frenzied speeds up below half; Gravebound leaves bones that a stamp scatters.
+                        {
+                            var frAt = local.transform.position + local.transform.forward * 6f;
+                            var fr = dd.ServerDebugSpawn("skeleton", frAt, false);
+                            var gb = dd.ServerDebugSpawn("skeleton", frAt + Vector3.right * 3f, false);
+                            if (fr != null && gb != null)
+                            {
+                                fr.ServerMakeElite(EliteAffix.Frenzied);
+                                gb.ServerMakeElite(EliteAffix.Gravebound);
+                                yield return new WaitForSeconds(0.2f);
+                                bool calm = !fr.Frenzied;
+                                var frh = fr.GetComponent<Health>();
+                                frh.ServerSetFraction(0.4f);
+                                bool frenzied = fr.Frenzied;
+                                int piles0 = dd.BonePileCount;
+                                var gbAt = gb.transform.position;
+                                gb.GetComponent<Health>().ServerDamage(1e6f, gbAt, local.NetworkObjectId);
+                                yield return new WaitForSeconds(0.3f);
+                                bool pile = dd.BonePileCount == piles0 + 1;
+                                local.GetComponent<FirstPersonMotor>().Teleport(gbAt + Vector3.up * 0.1f, local.transform.rotation);
+                                yield return new WaitForSeconds(0.6f);
+                                bool scattered = dd.BonePileCount == piles0;
+                                Log("elite affixes", "frenzy only below half " + (calm && frenzied) + ", gravebound bones " + pile + ", stamped out " + scattered, calm && frenzied && pile && scattered);
+                                if (fr.IsSpawned) fr.NetworkObject.Despawn();
+                            }
+                            else Log("elite affixes", "no skeleton", false);
+                        }
                         // A Choir Acolyte's hymn wards a skeleton beside it; a hard hit mid-song breaks the next one.
                         {
                             var acAt = local.transform.position + local.transform.forward * 7f;
@@ -1177,12 +1206,14 @@ namespace Deepbound.Networking
                             var mate = dd.ServerDebugSpawn("skeleton", acAt + Vector3.right * 2f, false);
                             if (ac != null && mate != null)
                             {
-                                ac.ServerStun(0.01f);
+                                // Stand the skeleton right beside wherever the acolyte ended up (spawns snap to the navmesh).
+                                mate.ServerDebugPlace(ac.transform.position + ac.transform.right * 1.5f);
                                 mate.ServerStun(20f);
                                 yield return new WaitForSeconds(0.2f);
                                 ac.ServerBeginHymn();
                                 for (float t = 0f; t < ChoirAcolyteBrain.HymnSeconds + 1f && ac.HymnsSung == 0; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
                                 bool warded = mate.GetComponent<Health>().Shield.Value > 0f;
+                                string choirWhy = "dist " + Vector3.Distance(mate.transform.position, ac.transform.position).ToString("F1") + ", mate alive " + !mate.IsDead + ", shield " + mate.GetComponent<Health>().Shield.Value.ToString("F0");
                                 yield return new WaitForSeconds(0.2f);
                                 var achp = ac.GetComponent<Health>();
                                 // Force the next hymn now and break it.
@@ -1191,7 +1222,7 @@ namespace Deepbound.Networking
                                 yield return new WaitForSeconds(0.3f);
                                 achp.ServerDamage(achp.Max.Value * 0.3f, ac.transform.position + Vector3.forward, local.NetworkObjectId);
                                 yield return new WaitForSeconds(0.3f);
-                                Log("choir acolyte", "hymn sung " + ac.HymnsSung + ", skeleton warded " + warded + ", broken " + ac.HymnsBroken, ac.HymnsSung >= 1 && warded && ac.HymnsBroken >= 1);
+                                Log("choir acolyte", "hymn sung " + ac.HymnsSung + ", skeleton warded " + warded + ", broken " + ac.HymnsBroken + " (" + choirWhy + ")", ac.HymnsSung >= 1 && warded && ac.HymnsBroken >= 1);
                                 foreach (var x in new EnemyBrain[] { ac, mate }) if (x != null && x.IsSpawned) x.NetworkObject.Despawn();
                             }
                             else Log("choir acolyte", "no prefab", false);
@@ -1218,7 +1249,8 @@ namespace Deepbound.Networking
                                 eyeB.ServerLockOn(hp9);
                                 for (float t = 0f; t < 2.5f && eyeB.BeamsFired == 0; t += 0.1f) { hp9.ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
                                 float onLine = eyeB.LastBeamDealt;
-                                Log("abyssal eye", "beams " + eyeB.BeamsFired + ", dealt on the line " + onLine.ToString("F0"), eyeB.BeamsFired >= 1 && onLine > 0f);
+                                string eyeWhy = "shield " + hp9.Shield.Value.ToString("F0") + ", dist " + Vector3.Distance(eyeB.transform.position, local.transform.position).ToString("F1") + ", dy " + (eyeB.transform.position.y - local.transform.position.y).ToString("F1") + ", targetable " + local.GetComponent<PlayerLife>().Targetable;
+                                Log("abyssal eye", "beams " + eyeB.BeamsFired + ", dealt on the line " + onLine.ToString("F0") + " (" + eyeWhy + ")", eyeB.BeamsFired >= 1 && onLine > 0f);
                                 if (eyeB.IsSpawned) eyeB.NetworkObject.Despawn();
                             }
                             else Log("abyssal eye", "no prefab", false);

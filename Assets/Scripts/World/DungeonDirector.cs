@@ -400,6 +400,10 @@ namespace Deepbound.World
         /// <summary>One boss per floor, by depth: the Gravewarden, the Tide Lich, the Hollow King, the Pale Cardinal.</summary>
         [SerializeField] private NetworkObject[] bossPrefabs;
 
+        /// <summary>The rank-and-file prefabs (not bosses or Wardens), as network objects.</summary>
+        private System.Collections.Generic.IEnumerable<NetworkObject> AllEnemyPrefabNetworkObjects() => new[] { skeletonPrefab, archerPrefab, ghoulPrefab, brutePrefab, necromancerPrefab, wraithPrefab,
+                shieldbearerPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, entlingPrefab, orbweaverPrefab, acolytePrefab, abyssEyePrefab };
+
         /// <summary>Every enemy prefab the director can spawn (balance report).</summary>
         public System.Collections.Generic.IEnumerable<EnemyBrain> AllEnemyPrefabs()
         {

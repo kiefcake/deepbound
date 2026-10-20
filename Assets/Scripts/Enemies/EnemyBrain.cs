@@ -228,6 +228,31 @@ namespace Deepbound.Enemies
             health.ServerSetMax(maxHealth * hpScale, refill: true);
         }
 
+        /// <summary>
+        /// Frenzied (2026-10-20): below half health it attacks far faster (wind-ups and recoveries x0.6), and
+        /// says so once. Burst it down from high, or stun it when it turns.
+        /// </summary>
+        public const float FrenzyPace = 0.6f;
+        private bool frenzyAnnounced;
+        public bool Frenzied => AffixKind == EliteAffix.Frenzied && health != null && health.Fraction < 0.5f;
+        protected float Pace
+        {
+            get
+            {
+                if (!Frenzied) return 1f;
+                if (!frenzyAnnounced && IsServer) { frenzyAnnounced = true; FrenzyRpc(); }
+                return FrenzyPace;
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void FrenzyRpc()
+        {
+            Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.6f, 0.8f, 1.4f);
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.4f, "FRENZY!", new Color(1f, 0.3f, 0.22f));
+            Vfx.Ring(transform.position + Vector3.up * 0.05f, 1.6f, new Color(1f, 0.3f, 0.22f), 0.5f);
+        }
+
         /// <summary>Server: promote to elite. Call after <see cref="ServerScale"/>.</summary>
         public void ServerMakeElite(EliteAffix forced = EliteAffix.None)
         {
@@ -531,12 +556,12 @@ namespace Deepbound.Enemies
         protected virtual void BeginAttack()
         {
             currentMove = PickMove();
-            float w = windup * (currentMove == Move.Heavy ? 1.7f : currentMove == Move.Sweep ? 1.25f : 1f);
+            float w = windup * Pace * (currentMove == Move.Heavy ? 1.7f : currentMove == Move.Sweep ? 1.25f : 1f);
             flurryLeft = currentMove == Move.Flurry ? 1 : 0;
             attacking = true;
             agent.isStopped = true;
             strikeAt = Time.time + w;
-            busyUntil = strikeAt + recovery * (currentMove == Move.Heavy ? 1.3f : 1f);
+            busyUntil = strikeAt + recovery * Pace * (currentMove == Move.Heavy ? 1.3f : 1f);
             PlayActionRpc(RigAction.Windup, w);
         }
 
@@ -560,7 +585,7 @@ namespace Deepbound.Enemies
                 flurryLeft--;
                 attacking = true;
                 strikeAt = Time.time + 0.32f;
-                busyUntil = strikeAt + recovery;
+                busyUntil = strikeAt + recovery * Pace;
                 PlayActionRpc(RigAction.Windup, 0.32f);
             }
         }
@@ -1032,6 +1057,8 @@ namespace Deepbound.Enemies
         {
             if (AffixKind == EliteAffix.Volatile) StartCoroutine(VolatileBlast());
             if (AffixKind == EliteAffix.Splitting) World.DungeonDirector.Instance?.ServerSpawnSplit(transform.position, scaledPlayersBase, depthForLoot);
+            // Gravebound: its bones gather to rise again, unless someone stamps them out.
+            if (AffixKind == EliteAffix.Gravebound) World.DungeonDirector.Instance?.ServerGravebound(this);
             IsDead = true;
             attacking = false;
             agent.isStopped = true;
