@@ -1779,7 +1779,8 @@ namespace Deepbound.UI
 
         private void DrawToasts(float w, float h)
         {
-            float y = h * 0.6f;
+            // To the right of the crosshair, clear of gear cards (below) and prompts (under the crosshair).
+            float y = h * 0.42f, x = w / 2f + 70f;
             for (int i = toasts.Count - 1; i >= 0; i--)
             {
                 var t = toasts[i];
@@ -1788,8 +1789,8 @@ namespace Deepbound.UI
                 float a = Mathf.Clamp01((1.8f - age) / 0.5f);
                 float pop = 1f + 0.25f * Mathf.Clamp01(1f - age / 0.15f);
                 string text = (t.Amount > 1 || t.Key == "gold" || t.Key == "embers" ? "+" + t.Amount : "+") + t.Suffix;
-                var st = new GUIStyle(center) { fontSize = Mathf.RoundToInt(17 * pop), fontStyle = FontStyle.Bold, normal = { textColor = new Color(t.Color.r, t.Color.g, t.Color.b, a) } };
-                UiSkin.Shadowed(new Rect(0, y - age * 14f, w, 26), text, st, a);
+                var st = new GUIStyle(center) { fontSize = Mathf.RoundToInt(16 * pop), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft, normal = { textColor = new Color(t.Color.r, t.Color.g, t.Color.b, a) } };
+                UiSkin.Shadowed(new Rect(x, y - age * 12f, w / 2f - 90f, 26), text, st, a);
                 y += 24f;
             }
         }
@@ -2421,7 +2422,7 @@ namespace Deepbound.UI
             void Edge(bool on, Color c, float rate)
             {
                 if (!on) return;
-                float p = 0.45f + 0.25f * Mathf.Sin(Time.time * rate);
+                float p = 0.3f + 0.18f * Mathf.Sin(Time.time * rate);
                 GUI.color = new Color(c.r, c.g, c.b, p);
                 GUI.DrawTexture(new Rect(0, 0, w, h), VignetteTex, ScaleMode.StretchToFill);
             }
@@ -2432,8 +2433,10 @@ namespace Deepbound.UI
             Edge(root, new Color(0.4f, 0.55f, 0.2f), 2f);
             GUI.color = old;
 
+            // Never over a boss's name card: the callout waits for the intro to finish.
+            if (BossIntroShowing && afflictText != null && Time.time - afflictAt < 2.4f) afflictAt = Time.time;
             float age = Time.time - afflictAt;
-            if (afflictText != null && age < 2.4f)
+            if (afflictText != null && age < 2.4f && !BossIntroShowing)
             {
                 float a = Mathf.Clamp01((2.4f - age) / 0.6f);
                 float pop = 1f + 0.35f * Mathf.Clamp01(1f - age / 0.18f);

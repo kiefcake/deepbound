@@ -52,7 +52,7 @@ namespace Deepbound.EditorTools
             BakeSurface("Gold", lit, (x, y) => Tint(BrushedMetal(x, y), new Color(1f, 0.78f, 0.35f)), 0.7f, 1f, 0.5f);
             BakeSurface("Bone", lit, BoneSurface, 0.25f, 0f, 1.4f);
             BakeSurface("Cloth", lit, ClothWeave, 0.08f, 0f, 0.45f);
-            BakeSurface("Leather", lit, LeatherSurface, 0.3f, 0f, 1.0f);
+            BakeSurface("Leather", lit, LeatherSurface, 0.32f, 0f, 0.4f);
             BakeSurface("Rubble", lit, Rubble, 0.08f, 0f, 3f);
             BakeSurface("Marble", lit, Marble, 0.18f, 0f, 0.5f);
 
@@ -369,14 +369,20 @@ namespace Deepbound.EditorTools
             return c;
         }
 
+        /// <summary>
+        /// Leather (rebaked 2026-10-20: the old 30-cell Voronoi read as cobblestones, so the Rogue and Ranger
+        /// looked made of rock): a fine pore grain, long soft creases and a little wear, with gentle relief.
+        /// </summary>
         private static Color LeatherSurface(float u, float v)
         {
-            Voronoi(u * 30f, v * 30f, 30, out float d1, out float d2, out float id);
-            float pores = Mathf.Clamp01((d2 - d1) * 6f);
-            float n = Fbm(u, v, 5f, 5f, 3, 71) * 0.15f;
-            float tone = 0.3f + n + id * 0.03f;
-            var c = new Color(tone, tone * 0.62f, tone * 0.38f) * (0.85f + pores * 0.15f);
-            c.a = pores;
+            Voronoi(u * 90f, v * 90f, 90, out float d1, out float d2, out float id);
+            float pores = Mathf.Clamp01((d2 - d1) * 3.5f);
+            float grain = Fbm(u, v, 22f, 22f, 3, 71);
+            float crease = Fbm(u, v, 3f, 10f, 3, 73);
+            float wear = Mathf.Clamp01((Fbm(u, v, 6f, 6f, 3, 74) - 0.55f) * 3f);
+            float tone = 0.31f + (grain - 0.5f) * 0.05f + (crease - 0.5f) * 0.07f + wear * 0.05f;
+            var c = new Color(tone, tone * 0.62f, tone * 0.38f) * (0.95f + pores * 0.05f);
+            c.a = 0.5f + (crease - 0.5f) * 0.6f + pores * 0.08f + (grain - 0.5f) * 0.1f;
             return c;
         }
 

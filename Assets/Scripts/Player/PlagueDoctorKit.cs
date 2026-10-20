@@ -30,8 +30,8 @@ namespace Deepbound.Player
     [RequireComponent(typeof(Health))]
     public class PlagueDoctorKit : NetworkBehaviour, IClassKit
     {
-        public const float VialInterval = 0.55f, VialCost = 7f, VialDamage = 13f, VialSpeed = 19f, VialRange = 20f, VialGravity = 9f, SplashRadius = 1.7f;
-        public const float BlightSeconds = 4f, BlightDps = 7f;
+        public const float VialInterval = 0.55f, VialCost = 7f, VialDamage = 15f, VialSpeed = 19f, VialRange = 20f, VialGravity = 9f, SplashRadius = 1.7f;
+        public const float BlightSeconds = 4f, BlightDps = 9f;
         public const float TonicCooldown = 7f, TonicCost = 25f, TonicRadius = 3f, TonicHeal = 0.2f;
         public const float MiasmaCooldown = 12f, MiasmaRadius = 4f, MiasmaSeconds = 6f, MiasmaDps = 9f;
         public const float MaskCooldown = 18f, MaskRadius = 8f, MaskHeal = 0.1f, MaskWard = 4f;
