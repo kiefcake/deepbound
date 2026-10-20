@@ -320,8 +320,8 @@ namespace Deepbound.World
                 ArtLibrary.Tint(page.GetComponent<Renderer>(), new Color(0.78f, 0.72f, 0.58f));
             }
             // A low grave-mist round his feet.
-            var fog = MeshKit.Part(transform, "Mist", MeshKit.Cylinder(1.3f, 0.9f, 0.18f, 18), Mat.Smoke, Vector3.up * 0.02f);
-            ArtLibrary.Tint(fog.GetComponent<Renderer>(), new Color(0.55f, 0.9f, 0.6f, 0.22f));
+            var fog = MeshKit.Part(transform, "Mist", MeshKit.Cylinder(1.1f, 0.5f, 0.3f, 18), Mat.Smoke, Vector3.up * 0.02f);
+            ArtLibrary.Tint(fog.GetComponent<Renderer>(), new Color(0.55f, 0.9f, 0.6f, 0.1f));
             fog.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mist = fog.transform;
             MeshKit.MergeParts(vis);

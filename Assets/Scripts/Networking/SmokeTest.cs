@@ -446,6 +446,37 @@ namespace Deepbound.Networking
                 }
 
                 var fm = local.GetComponent<FirstPersonMotor>();
+                // Dragging: the host takes the downed client by the collar and hauls it a few metres.
+                var dragged = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
+                if (dragged != null)
+                {
+                    var hostLife = local.GetComponent<PlayerLife>();
+                    fm.Teleport(dragged.transform.position + Vector3.right * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
+                    dragged.Health.ServerDamage(1e6f, dragged.transform.position + Vector3.forward);
+                    yield return new WaitForSeconds(0.4f);
+                    float speedBefore = local.GetComponent<PlayerProgress>().SpeedMultiplier;
+                    dragged.DragRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.3f);
+                    bool holding = dragged.BeingDragged && !hostLife.CanAct && local.GetComponent<PlayerProgress>().SpeedMultiplier < speedBefore;
+                    var startAt = dragged.transform.position;
+                    // Walk away in short steps (the drag breaks past 4 m), giving the client time to follow.
+                    var away = local.transform.position - startAt;
+                    away.y = 0f;
+                    away = away.sqrMagnitude > 0.01f ? away.normalized : Vector3.right;
+                    for (int st = 0; st < 8; st++)
+                    {
+                        fm.Teleport(local.transform.position + away * 0.5f, Quaternion.LookRotation(away));
+                        yield return new WaitForSeconds(0.25f);
+                    }
+                    yield return new WaitForSeconds(0.5f);
+                    float moved = Vector3.Distance(dragged.transform.position, startAt);
+                    dragged.DragRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.3f);
+                    Log("drag the downed", "held " + holding + ", body moved " + moved.ToString("F1") + " m, let go " + !dragged.BeingDragged, holding && moved > 2f && !dragged.BeingDragged);
+                    dragged.ServerRevive(1f);
+                    yield return new WaitForSeconds(0.3f);
+                }
                 // Bleed-out: a downed ally who bleeds out leaves a soul skull; F-revive no longer works,
                 // but carrying the skull to the start room's waystone brings them back.
                 var otherLife = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
@@ -998,6 +1029,29 @@ namespace Deepbound.Networking
                         }
                         else Log("orbweaver", "no prefab", false);
                         local.GetComponent<Health>().ServerSetFraction(1f);
+                        // Room clears: kill everything raised in the rooms, and each room counts as cleared.
+                        {
+                            int clearedBefore = dd.RoomsClearedCount;
+                            int clearRoom = dd.ServerDebugClearOneRoom();
+                            for (float t = 0f; t < 2f && clearRoom >= 0 && !dd.RoomIsCleared(clearRoom); t += 0.25f) yield return new WaitForSeconds(0.25f);
+                            Log("room cleared", "room " + clearRoom + " cleared " + (clearRoom >= 0 && dd.RoomIsCleared(clearRoom)) + ", rooms cleared " + clearedBefore + " -> " + dd.RoomsClearedCount,
+                                clearRoom < 0 ? clearedBefore > 0 : dd.RoomIsCleared(clearRoom));
+                        }
+                        // A patrol: an elite and its band, heading for the second room of its route.
+                        {
+                            // Two room centres, the farthest from the player, so the band marches undisturbed.
+                            var far2 = DungeonDirector.Layout.Rooms.Where(r => r.Kind == RoomKind.Combat)
+                                .OrderByDescending(r => Vector3.Distance(r.Center, local.transform.position)).Take(2).ToList();
+                            var pr0 = far2.Count > 0 && UnityEngine.AI.NavMesh.SamplePosition(far2[0].Center, out var ph0, 6f, UnityEngine.AI.NavMesh.AllAreas) ? ph0.position : local.transform.position + Vector3.forward * 30f;
+                            var pr1 = far2.Count > 1 && UnityEngine.AI.NavMesh.SamplePosition(far2[1].Center, out var ph1, 6f, UnityEngine.AI.NavMesh.AllAreas) ? ph1.position : pr0 + Vector3.right * 12f;
+                            var band = dd.ServerSpawnPatrol(new System.Collections.Generic.List<Vector3> { pr0, pr1 }, 3);
+                            yield return new WaitForSeconds(0.5f);
+                            bool marching = band.Count == 3 && band.All(b => b.OnPatrol && b.Patrolling.Value) && band[0].Elite.Value;
+                            bool heading = band.Count > 0 && Vector3.Distance(band[0].PatrolGoal, pr1) < 3.5f;
+                            Log("patrol", band.Count + " in the band, marching " + marching + ", leader heading on " + heading, marching && heading);
+                            foreach (var b in band) if (b != null && b.IsSpawned) b.NetworkObject.Despawn();
+                            yield return new WaitForSeconds(0.2f);
+                        }
                         // An oath: the player stands on one plate, the Oath Stone is set on the other.
                         {
                             var pa = local.transform.position;
@@ -1599,9 +1653,10 @@ namespace Deepbound.Networking
                     UI.Binds.Set(UI.Bind.Kick, UnityEngine.InputSystem.Key.Q);
                     bool swapped = UI.Binds.KeyOf(UI.Bind.AbilityQ) == UnityEngine.InputSystem.Key.K;
                     string rekeyed = UI.Binds.Rekey("Q  Blink  ·  V kick");
+                    bool prose = UI.Binds.Rekey("KICK it (V) or bash") == "KICK it (Q) or bash";
                     UI.Binds.ResetAll();
                     Log("key rebinding", "kick K " + movedK + ", swap onto Q " + swapped + ", hint '" + rekeyed + "', reset " + UI.Binds.Label(UI.Bind.Kick) + "/" + UI.Binds.Label(UI.Bind.AbilityQ),
-                        movedK && swapped && rekeyed == "K  Blink  ·  Q kick" && !UI.Binds.AnyChanged);
+                        movedK && swapped && prose && rekeyed == "K  Blink  ·  Q kick" && !UI.Binds.AnyChanged);
                     // Runes: one in the bag, set it into the weapon's first socket.
                     int bagBefore = progress.RuneBagCount;
                     progress.ServerAddRune(Rune.Frost);
@@ -2659,6 +2714,17 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(1f);
                         yield return Shot(dir, "1c_feature_Gallery_balcony");
                     }
+                }
+                // An Oath room, if this floor has one: the two plates and the stone, from the door.
+                var oathRoom = l.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Oath);
+                if (oathRoom != null && oathRoom.FeatureSpots.Count >= 4)
+                {
+                    var ofrom = oathRoom.FeatureSpots[2] + (oathRoom.FeatureSpots[2] - oathRoom.FeatureSpots[3]).normalized * 1.5f + Vector3.up * 0.1f;
+                    motor.Teleport(ofrom, Quaternion.LookRotation(oathRoom.FeatureSpots[3] - ofrom));
+                    motor.SetPitch(12f);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot(dir, "1d_oath_room_floor" + (depth + 1));
+                    motor.SetPitch(0f);
                 }
                 foreach (var room in l.Rooms)
                 {

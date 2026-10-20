@@ -71,6 +71,25 @@ namespace Deepbound.UI
         /// Shows now, or queues behind the card on screen (at most three wait), so two announcements
         /// never print over each other. Cards also wait for a boss intro to finish.
         /// </summary>
+        private static float clearedAt = -10f;
+        private static bool clearedReward;
+
+        /// <summary>A quick CLEARED stamp under the crosshair when the last of a room's dead falls.</summary>
+        public static void RoomCleared(bool reward) { clearedAt = Time.time; clearedReward = reward; }
+
+        private void DrawRoomCleared(float w, float h)
+        {
+            float t = Time.time - clearedAt;
+            if (t > 1.8f || BossIntroShowing) return;
+            float a = Mathf.Clamp01(t * 6f) * Mathf.Clamp01((1.8f - t) / 0.5f);
+            float s = 1f + Mathf.Max(0f, 0.25f - t) * 1.2f;
+            var st = new GUIStyle(center) { fontSize = Mathf.RoundToInt(22 * s), fontStyle = FontStyle.Bold, normal = { textColor = new Color(Gold.r, Gold.g, Gold.b, a) } };
+            float y = h * 0.3f;
+            Rect(w / 2f - 110, y - 2, 220, 1, new Color(Gold.r, Gold.g, Gold.b, a * 0.6f));
+            GUI.Label(new Rect(0, y, w, 30), "ROOM CLEARED", st);
+            if (clearedReward) GUI.Label(new Rect(0, y + 28, w, 20), "something was left behind", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 0.9f, 0.7f, a * 0.85f) } });
+        }
+
         public static void ShowTitleCard(string title, string subtitle, Color? color = null)
         {
             var c = color ?? new Color(0.9f, 0.3f, 0.2f);
@@ -980,6 +999,7 @@ namespace Deepbound.UI
             if (runeOpen && !NearVendor(Shop.Vendor.Runewright)) runeOpen = false;
             // G (when no station is near) stows the gear you are looking at.
             if (keyboard != null && Binds.Down(Bind.Interact) && !near && anvil == null && !MenuOpen &&
+                PlayerLife.DownedNear(player.transform.position, life) == null && !PlayerLife.IsDragging(player.NetworkObjectId) &&
                 Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is GearDrop stow && !progress.BagFull)
                 stow.StowRpc(player.NetworkObject);
             if (keyboard != null && Binds.Down(Bind.Scrap) && !MenuOpen &&
@@ -1060,6 +1080,7 @@ namespace Deepbound.UI
             DrawAbilities(w, h);
             DrawBoss(w);
             DrawTally(w, h);
+            DrawRoomCleared(w, h);
             DrawRage(w);
             DrawRevive(w, h);
             DrawPhase(w, h);
@@ -1665,7 +1686,8 @@ namespace Deepbound.UI
                 }
                 Rect(0, 0, w, h, new Color(0.35f, 0f, 0f, 0.25f));
                 GUI.Label(new Rect(0, h / 2f - 70, w, 40), "YOU ARE DOWN", big);
-                GUI.Label(new Rect(0, h / 2f - 30, w, 24), "A teammate must hold F next to you to revive you", center);
+                var dragger = life.BeingDragged && Unity.Netcode.NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(life.DraggedBy.Value, out var dob) ? dob.name : null;
+                GUI.Label(new Rect(0, h / 2f - 30, w, 24), dragger != null ? dragger + " is dragging you to safety (you bleed slower)" : "A teammate must hold F next to you to revive you, or drag you clear (G)", center);
                 ProgressBar(w, h / 2f + 4, life.ReviveProgress.Value / PlayerLife.ReviveSeconds, new Color(0.6f, 0.9f, 1f));
                 if (life.Bleed.Value > 0f)
                 {
@@ -1686,6 +1708,11 @@ namespace Deepbound.UI
                 if (sk.Ritual.Value > 0f) ProgressBar(w, h / 2f + 124, sk.Ritual.Value / sk.DeliverSeconds, sk.MarkerColor);
             }
 
+            var hauled = PlayerLife.DraggedByPlayer(player.NetworkObjectId);
+            if (hauled != null)
+                GUI.Label(new Rect(0, h / 2f + 96, w, 24), "Dragging " + hauled.name + " (" + Binds.Label(Bind.Interact) + " lets go; stop and hold " + Binds.Label(Bind.Use) + " to revive)",
+                    new GUIStyle(center) { normal = { textColor = new Color(0.6f, 0.9f, 1f) } });
+
             var target = PlayerLife.DownedNear(player.transform.position, life);
             if (target == null)
             {
@@ -1696,6 +1723,7 @@ namespace Deepbound.UI
             }
 
             PromptLine(w, h, "Hold F to revive " + target.name);
+            if (hauled == null && !target.BeingDragged) PromptLine(w, h, "Press G to drag " + target.name + " clear", 100f);
             ProgressBar(w, h / 2f + 68, target.ReviveProgress.Value / PlayerLife.ReviveSeconds, new Color(0.6f, 0.9f, 1f));
         }
 

@@ -781,9 +781,66 @@ namespace Deepbound.Enemies
         private bool IdleWanders => !IsBoss && visualKind != CharacterArt.SkeletonKind.Archer && visualKind != CharacterArt.SkeletonKind.Gargoyle &&
             visualKind != CharacterArt.SkeletonKind.Mourner && visualKind != CharacterArt.SkeletonKind.Mimic;
 
+        // ---- Patrols (2026-10-20): a band of the dead that walks between rooms ----
+
+        private Vector3[] patrol;
+        private int patrolIndex, patrolStep = 1;
+        private EnemyBrain patrolLeader;
+        private Vector3 patrolOffset;
+
+        /// <summary>Server: on a patrol (its post walks the route; a cleared room is not always safe).</summary>
+        public bool OnPatrol => patrol != null;
+        /// <summary>Every peer: this one marches with a patrol (for the tip and the minimap).</summary>
+        public readonly NetworkVariable<bool> Patrolling = new NetworkVariable<bool>();
+        public bool PatrolSynced => Patrolling.Value;
+        /// <summary>Server, for tests: where the patrol is heading.</summary>
+        public Vector3 PatrolGoal => home;
+
+        /// <summary>
+        /// Server: walk <paramref name="route"/> back and forth, or (with a <paramref name="leader"/>) keep
+        /// <paramref name="offset"/> from the leader's post; if the leader dies, carry on alone.
+        /// </summary>
+        public void ServerSetPatrol(Vector3[] route, EnemyBrain leader, Vector3 offset)
+        {
+            if (route == null || route.Length < 2) return;
+            patrol = route;
+            patrolLeader = leader;
+            patrolOffset = offset;
+            patrolIndex = 0;
+            patrolStep = 1;
+            home = route[0] + offset;
+            Patrolling.Value = true;
+        }
+
+        private void TickPatrol()
+        {
+            if (patrolLeader != null && (patrolLeader.IsDead || !patrolLeader.IsSpawned)) patrolLeader = null;
+            if (patrolLeader != null)
+            {
+                home = patrolLeader.home + patrolOffset;
+                return;
+            }
+            if (FlatDistance(home) > 2.5f) return;
+            if (patrolIndex + patrolStep < 0 || patrolIndex + patrolStep >= patrol.Length) patrolStep = -patrolStep;
+            patrolIndex += patrolStep;
+            home = patrol[patrolIndex] + patrolOffset;
+        }
+
         private void ReturnHome()
         {
             agent.isStopped = false;
+            if (patrol != null)
+            {
+                // On the march: an unhurried walk to the next room, the band keeping together.
+                TickPatrol();
+                agent.speed *= 0.5f;
+                if (Time.time >= repathAt)
+                {
+                    repathAt = Time.time + 0.6f;
+                    agent.SetDestination(home);
+                }
+                return;
+            }
             if (FlatDistance(home) > 4f || !IdleWanders)
             {
                 if (FlatDistance(home) > 1f && Time.time >= repathAt)

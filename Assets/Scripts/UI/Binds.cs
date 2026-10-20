@@ -132,10 +132,15 @@ namespace Deepbound.UI
         /// Rewrites the key names in a fixed hint ("Q  Blink", "F   Pick up") to the current
         /// bindings. Leaves the text alone while nothing is rebound.
         /// </summary>
+        private static readonly System.Text.RegularExpressions.Regex BracketKey =
+            new System.Text.RegularExpressions.Regex(@"\((Q|E|R|F|G|V|M|Z|H|I|X|B|T|Tab|TAB|Ctrl|CTRL|Shift|SHIFT|Space|SPACE|[1-4])\)");
+
         public static string Rekey(string text)
         {
             if (string.IsNullOrEmpty(text) || !AnyChanged) return text;
             text = HintKey.Replace(text, m => Show(m.Value));
+            // Prose names keys in brackets: "KICK it (V)", "Holy Water (4)".
+            text = BracketKey.Replace(text, m => "(" + Show(m.Groups[1].Value) + ")");
             return text.Replace("WASD", Label(Bind.MoveForward) + Label(Bind.MoveLeft) + Label(Bind.MoveBack) + Label(Bind.MoveRight));
         }
     }

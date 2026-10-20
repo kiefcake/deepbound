@@ -503,6 +503,7 @@ namespace Deepbound.World
         {
             TickBossArena();
             TickAmbush();
+            TickRoomClears();
             TickVault();
             TickFalls();
             TickBreaches();

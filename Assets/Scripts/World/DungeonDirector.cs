@@ -227,6 +227,64 @@ namespace Deepbound.World
             if (lit.Count > 0) lit[UnityEngine.Random.Range(0, lit.Count)].ServerSnuff();
         }
 
+        /// <summary>A walk of 3-4 linked combat rooms (not the ambush room), as navmesh points at their centres, or null.</summary>
+        private System.Collections.Generic.List<Vector3> PatrolRoute(DungeonLayout layout, System.Random rng)
+        {
+            bool Walkable(DungeonLayout.Room r) => r.Kind == RoomKind.Combat && !IsAmbushRoom(r) && r.Feature != RoomFeature.Chasm;
+            var pool = layout.Rooms.FindAll(r => Walkable(r) && r.Id >= 2);
+            if (pool.Count == 0) return null;
+            var at = pool[rng.Next(pool.Count)];
+            var rooms = new System.Collections.Generic.List<DungeonLayout.Room> { at };
+            for (int step = 0; step < 3; step++)
+            {
+                var next = new System.Collections.Generic.List<DungeonLayout.Room>();
+                foreach (var link in layout.Links)
+                {
+                    var other = link.A == at.Id ? layout.Rooms[link.B] : link.B == at.Id ? layout.Rooms[link.A] : null;
+                    if (other != null && Walkable(other) && !rooms.Contains(other)) next.Add(other);
+                }
+                if (next.Count == 0) break;
+                at = next[rng.Next(next.Count)];
+                rooms.Add(at);
+            }
+            if (rooms.Count < 2) return null;
+            var route = new System.Collections.Generic.List<Vector3>();
+            foreach (var r in rooms)
+            {
+                var c = r.Center + Vector3.up * r.RaisedAt(r.Center);
+                if (NavMesh.SamplePosition(c, out var hit, 6f, NavMesh.AllAreas)) route.Add(hit.position);
+            }
+            return route.Count >= 2 ? route : null;
+        }
+
+        /// <summary>Server: a patrol of skeletons led by an elite, walking <paramref name="route"/> back and forth.</summary>
+        public System.Collections.Generic.List<EnemyBrain> ServerSpawnPatrol(System.Collections.Generic.List<Vector3> route, int count)
+        {
+            var band = new System.Collections.Generic.List<EnemyBrain>();
+            if (Layout == null || skeletonPrefab == null || route == null || route.Count < 2) return band;
+            int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
+            var points = route.ToArray();
+            var heading = points[1] - points[0];
+            heading.y = 0f;
+            var rot = heading.sqrMagnitude > 0.01f ? Quaternion.LookRotation(heading) : Quaternion.identity;
+            EnemyBrain leader = null;
+            for (int i = 0; i < count; i++)
+            {
+                // A loose column: the leader in front, the rest two by two behind it.
+                var offset = i == 0 ? Vector3.zero : rot * new Vector3(((i - 1) % 2 == 0 ? -1f : 1f) * 1.1f, 0f, -1.6f * ((i + 1) / 2));
+                var at = points[0] + offset;
+                if (NavMesh.SamplePosition(at, out var hit, 3f, NavMesh.AllAreas)) at = hit.position;
+                var obj = Spawn(skeletonPrefab, at, rot);
+                var brain = obj.GetComponent<EnemyBrain>();
+                brain.ServerScale(players, Layout.Depth);
+                if (i == 0) { brain.ServerMakeElite(); leader = brain; }
+                brain.ServerSetPatrol(points, i == 0 ? null : leader, offset);
+                spawned.Add(obj);
+                band.Add(brain);
+            }
+            return band;
+        }
+
         /// <summary>Server: like <see cref="ServerSpawnPack"/>, returning the brains it raised (the proving bell waits on them).</summary>
         public System.Collections.Generic.List<EnemyBrain> ServerSpawnPackList(Vector3 around, int count, bool elite)
         {
@@ -680,6 +738,7 @@ namespace Deepbound.World
             foreach (var p in PlayerLife.All) if (p != null) p.Seat.Value = -1;
             Hallowed.Value = false;
             ResetTally();
+            ResetRoomClears();
 
             // NetworkVariable callbacks do not fire for the writer's own change on every
             // NGO version, so build explicitly; BuildLocal ignores a repeat.
@@ -839,6 +898,7 @@ namespace Deepbound.World
                         if (brain is NecromancerBrain necro) necro.SetMinionPrefab(skeletonPrefab);
                         if (UnityEngine.Random.value < eliteChance) brain.ServerMakeElite();
                         spawned.Add(obj);
+                        NoteSpawnRoom(brain, room);
                     }
                 }
             }
@@ -849,6 +909,18 @@ namespace Deepbound.World
                 if (o != null && o.TryGetComponent<EnemyBrain>(out var cb) && !(cb is BossBrain) && !(cb is HoarderBrain) && !(cb is WraithBrain) && !(cb is GargoyleBrain) && !(cb is MournerBrain) &&
                     layout.RoomAt(o.transform.position)?.Kind == RoomKind.Combat) candidates.Add(cb);
             if (candidates.Count > 0) candidates[UnityEngine.Random.Range(0, candidates.Count)].ServerMakeChampion();
+
+            // From the second floor, a patrol or two walks between the combat rooms (never in tests).
+            if (!TestMode && layout.Depth >= 1)
+            {
+                var prng = new System.Random(layout.Seed ^ 0x9a7e);
+                int patrols = (prng.NextDouble() < 0.75 ? 1 : 0) + (layout.Depth >= 5 && prng.NextDouble() < 0.5 ? 1 : 0);
+                for (int i = 0; i < patrols; i++)
+                {
+                    var route = PatrolRoute(layout, prng);
+                    if (route != null) ServerSpawnPatrol(route, 3 + (players > 2 ? 1 : 0));
+                }
+            }
 
             // From the second floor down, some of the statues by the walls are not statues.
             if (gargoylePrefab != null && Act(layout.Depth) >= 1)

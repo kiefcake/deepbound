@@ -120,7 +120,75 @@ namespace Deepbound.Player
             base.OnDestroy();
         }
 
-        public bool CanAct => !Downed.Value && !World.Carryable.IsCarrying(NetworkObjectId) && !(debuffs != null && debuffs.Manic);
+        public bool CanAct => !Downed.Value && !World.Carryable.IsCarrying(NetworkObjectId) && !IsDragging(NetworkObjectId) && !(debuffs != null && debuffs.Manic);
+
+        // ---- Dragging a downed ally to safety (2026-10-20, Dark and Darker / R.E.P.O.) ----
+
+        public const float DragSpeed = 0.55f, DragGap = 1.15f, DragBreak = 4f;
+
+        /// <summary>Who is hauling this downed player along by the collar (MaxValue: nobody). Server-written.</summary>
+        public readonly NetworkVariable<ulong> DraggedBy = new NetworkVariable<ulong>(ulong.MaxValue);
+        public bool BeingDragged => DraggedBy.Value != ulong.MaxValue;
+
+        /// <summary>The downed player this one is dragging, or null.</summary>
+        public static PlayerLife DraggedByPlayer(ulong id)
+        {
+            foreach (var p in All) if (p != null && p.DraggedBy.Value == id) return p;
+            return null;
+        }
+
+        public static bool IsDragging(ulong id) => DraggedByPlayer(id) != null;
+
+        /// <summary>Any player → server, on the downed one: take hold (G), or let go if already holding.</summary>
+        [Rpc(SendTo.Server, RequireOwnership = false)]
+        public void DragRpc(NetworkObjectReference whoRef)
+        {
+            if (!whoRef.TryGet(out var o) || !o.TryGetComponent<PlayerLife>(out var r)) return;
+            if (DraggedBy.Value == r.NetworkObjectId) { DraggedBy.Value = ulong.MaxValue; DragFxRpc(false); return; }
+            if (!Downed.Value || Soul.Value || r == this || r.Downed.Value || BeingDragged || IsDragging(r.NetworkObjectId) || World.Carryable.IsCarrying(r.NetworkObjectId)) return;
+            if (Vector3.Distance(r.transform.position, transform.position) > ReviveRange + 0.5f) return;
+            DraggedBy.Value = r.NetworkObjectId;
+            DragFxRpc(true);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void DragFxRpc(bool grab) => Sfx.Play(grab ? Sound.Block : Sound.Step, transform.position + Vector3.up * 0.3f, 0.6f, grab ? 0.7f : 0.8f);
+
+        private PlayerLife Dragger()
+        {
+            if (!BeingDragged || NetworkManager == null || !NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(DraggedBy.Value, out var o)) return null;
+            return o.GetComponent<PlayerLife>();
+        }
+
+        /// <summary>Server: let go when the dragger falls, wanders off or this player gets up.</summary>
+        private void ServerTickDrag()
+        {
+            if (!BeingDragged) return;
+            var d = Dragger();
+            if (!Downed.Value || Soul.Value || d == null || d.Downed.Value || Vector3.Distance(d.transform.position, transform.position) > DragBreak)
+                DraggedBy.Value = ulong.MaxValue;
+        }
+
+        private bool wasDragged;
+
+        /// <summary>Owner of the downed body: follow a step behind the dragger, feet first.</summary>
+        private void OwnerDragged()
+        {
+            var d = Dragger();
+            bool dragged = d != null && Downed.Value;
+            if (dragged)
+            {
+                var back = d.transform.forward;
+                back.y = 0f;
+                var at = d.transform.position - back.normalized * DragGap;
+                motor.PinTo(at);
+                var face = d.transform.position - at;
+                face.y = 0f;
+                if (face.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(face);
+            }
+            else if (wasDragged) motor.Unpin(transform.position + Vector3.up * 0.1f);
+            wasDragged = dragged;
+        }
 
         private PlayerDebuffs debuffs;
 
@@ -316,11 +384,13 @@ namespace Deepbound.Player
             if (IsOwner)
             {
                 OwnerSeat();
+                if (motor != null) OwnerDragged();
                 OwnerReviveInput();
                 OwnerDodgeInput();
             }
             if (!IsServer) return;
             TrackVelocity();
+            ServerTickDrag();
             if (!Downed.Value)
             {
                 ServerRegen();
@@ -342,7 +412,8 @@ namespace Deepbound.Player
             // Bleeding out: only while someone is still standing to save you, and not while they try.
             if (!beingRevived && !DungeonDirector.TestMode && AnyAllyStanding())
             {
-                bleedCarry += Time.deltaTime;
+                // Dragged to safety, the bleeding slows to half.
+                bleedCarry += Time.deltaTime * (BeingDragged ? 0.5f : 1f);
                 if (Bleed.Value + bleedCarry >= BleedOutSeconds) { bleedCarry = 0f; ServerBleedOut(); return; }
                 // Synced in quarter-second steps, not every frame.
                 if (bleedCarry >= 0.25f) { Bleed.Value += bleedCarry; bleedCarry = 0f; }
@@ -404,6 +475,14 @@ namespace Deepbound.Player
             var keyboard = Keyboard.current;
             if (Downed.Value || keyboard == null) return;
             var target = DownedNear(transform.position, this);
+
+            // G takes hold of a downed teammate's collar, or lets go.
+            if (UI.Binds.Down(UI.Bind.Interact) && !UI.GameHud.MenuOpen && motor != null && motor.HasControl)
+            {
+                var dragging = DraggedByPlayer(NetworkObjectId);
+                if (dragging != null) dragging.DragRpc(NetworkObject);
+                else if (target != null && !World.Carryable.IsCarrying(NetworkObjectId)) target.DragRpc(NetworkObject);
+            }
 
             // F is contextual: a downed teammate takes priority over a chest or altar.
             if (target == null)
