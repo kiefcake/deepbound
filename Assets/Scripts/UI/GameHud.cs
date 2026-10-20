@@ -990,7 +990,11 @@ namespace Deepbound.UI
         /// <summary>The Hall of Records slab at camp, read when you stand at it.</summary>
         private void DrawRecords(float w, float h)
         {
-            if (!DungeonDirector.InLobby || Vector3.Distance(player.transform.position, Lobby.RecordsSpot) > 3.4f) return;
+            if (!DungeonDirector.InLobby) return;
+            // Only when you stand at it and look at it: it is by the road, and people walk past.
+            var toSlab = Lobby.RecordsSpot - player.transform.position;
+            toSlab.y = 0f;
+            if (toSlab.magnitude > 2.6f || Vector3.Dot(player.transform.forward, toSlab.normalized) < 0.55f) return;
             var lines = Records.Lines;
             float pw = 400f, ph = 46f + lines.Length * 22f;
             var r = new Rect(w / 2f - pw / 2f, 96f, pw, ph);

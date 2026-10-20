@@ -65,7 +65,8 @@ namespace Deepbound.UI
             ("AT CAMP", "Trade is split by craft: SILAS sells potions and provisions, HOBB at the anvil tempers weapons, scraps gear, refines armour and sells embers, plate and a piece fitted for you, YSOLDE at the standing stones does runes, sigils and ability ranks (and melds runes), and the SHRINE offers holy water, relics and Brother Aldric's paid PRAYER (it catches one blow that would down you). Take a CONTRACT at the bounty board for the next floor. Turn the OMEN STONE before a run for a harder descent and more Renown. Spin the WHEEL OF FATE when you find one: it usually gives. From floor 2 a PEDDLER sometimes trades in a side room, at a markup. SERGEANT BRANN in the training yard sells drills (a stat for the run, dearer each time), MISTER BONES deals blackjack for up to four players (bets 5-100; win 300 in one visit and he cuts you off until the next floor), and CORWIN at the carriage sells a SCOUT'S MAP of the next floor and SMELLING SALTS (get up on your own once). From +6 the anvil wants gold as well as embers; it goes to +10 (+8 ASCENDED, +10 MASTERWORK, a third rune socket at +6). Sigils take abilities to rank 8. All cosmetics at the tailor are free for now. The host has a DEVELOPER MENU on F1."),
             ("RELIC SYNERGIES", "Some pairs awaken more: Frost Charm + Winter's Tooth, Vampiric Fang + Blood Pact, Thunder Sigil + Echo Stone, Executioner's Coin + Berserker's Brand, Phoenix Feather + Heart of the Deep."),
         };
-        private int guidePage;
+        private int guidePage, lastGuidePage = -1;
+        private Vector2 guideScroll;
 
         /// <summary>A checkbox that shows its state (a gold square inside a box), label beside it. <paramref name="radio"/>: round-ish, for one-of choices.</summary>
         private static bool Check(bool on, string label, bool radio = false)
@@ -350,27 +351,51 @@ namespace Deepbound.UI
 
         private void DrawGuide(float w, float h)
         {
-            float pw = Mathf.Min(980f, w - 60f), ph = Mathf.Min(600f, h - 60f);
+            float pw = Mathf.Min(1040f, w - 60f), ph = Mathf.Min(720f, h - 40f);
             var panel = new Rect(w / 2f - pw / 2f, h / 2f - ph / 2f, pw, ph);
             UiSkin.Panel(panel, 0.96f);
             string[] titles = { "GUIDE: PROGRESSION", "GUIDE: THE DUNGEON", "JOURNAL  (" + Journal.Count + " / " + Journal.Entries.Length + " pages)", "BESTIARY  (" + Bestiary.SeenCount + " / " + Bestiary.Entries.Length + " met)" };
             GUI.Label(new Rect(panel.x, panel.y + 12, pw, 40), titles[guidePage], new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
-            float colW = (pw - 72f) / 2f;
+            float colW = (pw - 92f) / 2f;
             var titleStyle = new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, fontSize = 14, normal = { textColor = UiSkin.Gold } };
             var bodyStyle = new GUIStyle(UiSkin.Body) { fontSize = 14, wordWrap = true };
+            if (guidePage != lastGuidePage) { guideScroll = Vector2.zero; lastGuidePage = guidePage; }
             if (guidePage == 2) DrawJournal(panel, colW, titleStyle, bodyStyle);
             else if (guidePage == 3) DrawBestiary(panel, colW, titleStyle, bodyStyle);
-            else for (int c = 0; c < 2; c++)
+            else
             {
-                float x = panel.x + 24 + c * (colW + 24), y = panel.y + 64;
-                foreach (var (title, body) in guidePage == 0 ? (c == 0 ? GuideLeft : GuideRight) : (c == 0 ? DungeonLeft : DungeonRight))
+                // The two columns scroll (the wheel, or the bar) inside the panel, above the buttons.
+                var view = new Rect(panel.x + 16, panel.y + 58, pw - 32, ph - 58 - 72);
+                var sections = new[] { guidePage == 0 ? GuideLeft : DungeonLeft, guidePage == 0 ? GuideRight : DungeonRight };
+                float tallest = 0f;
+                var texts = new string[2][];
+                for (int c = 0; c < 2; c++)
                 {
-                    GUI.Label(new Rect(x, y, colW, 20), title, titleStyle);
-                    string text = Binds.Rekey(body);
-                    float bh = bodyStyle.CalcHeight(new GUIContent(text), colW);
-                    GUI.Label(new Rect(x, y + 20, colW, bh), text, bodyStyle);
-                    y += 20 + bh + 14;
+                    texts[c] = new string[sections[c].Length];
+                    float y = 6f;
+                    for (int i = 0; i < sections[c].Length; i++)
+                    {
+                        texts[c][i] = Binds.Rekey(sections[c][i].body);
+                        y += 20 + bodyStyle.CalcHeight(new GUIContent(texts[c][i]), colW) + 14;
+                    }
+                    tallest = Mathf.Max(tallest, y);
                 }
+                var content = new Rect(0, 0, view.width - 20, tallest);
+                guideScroll = GUI.BeginScrollView(view, guideScroll, content);
+                for (int c = 0; c < 2; c++)
+                {
+                    float x = 8 + c * (colW + 24), y = 6f;
+                    for (int i = 0; i < sections[c].Length; i++)
+                    {
+                        GUI.Label(new Rect(x, y, colW, 20), sections[c][i].title, titleStyle);
+                        float bh = bodyStyle.CalcHeight(new GUIContent(texts[c][i]), colW);
+                        GUI.Label(new Rect(x, y + 20, colW, bh), texts[c][i], bodyStyle);
+                        y += 20 + bh + 14;
+                    }
+                }
+                GUI.EndScrollView();
+                if (tallest > view.height && guideScroll.y < tallest - view.height - 4f)
+                    GUI.Label(new Rect(view.x, view.yMax - 2, view.width, 18), "scroll for more", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic, normal = { textColor = UiSkin.Gold } });
             }
             string[] next = { "THE DUNGEON >", "JOURNAL >", "BESTIARY >", "PROGRESSION >" };
             if (GUI.Button(new Rect(panel.x + pw / 2f - 280, panel.yMax - 56, 180, 40), next[guidePage], UiSkin.Button)) guidePage = (guidePage + 1) % 4;
