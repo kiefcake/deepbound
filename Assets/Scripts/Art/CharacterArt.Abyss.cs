@@ -35,8 +35,9 @@ namespace Deepbound.Art
                 }
 
             rig.Head = MeshKit.Pivot(rig.Torso, "Eye", Vector3.zero);
-            var ball = MeshKit.Part(rig.Head, "Ball", MeshKit.Ball(0.45f, 14, 10), Mat.Bone, Vector3.zero);
-            ArtLibrary.Tint(ball.GetComponent<Renderer>(), new Color(0.86f, 0.8f, 0.78f));
+            // Faintly self-lit: a sick pale glow, so it reads in the Abyss's dark.
+            var ball = MeshKit.Part(rig.Head, "Ball", MeshKit.Ball(0.45f, 14, 10), Mat.Glow, Vector3.zero);
+            ArtLibrary.SetGlow(ball.GetComponent<Renderer>(), new Color(0.82f, 0.74f, 0.72f) * 0.38f);
             // Bloodshot veins across the white.
             for (int v = 0; v < 6; v++)
             {
@@ -51,9 +52,9 @@ namespace Deepbound.Art
             // Heavy lids, half closed over the top and bottom.
             foreach (float s in new[] { 1f, -1f })
             {
-                // A dome over each half, tipped back so its front lip opens over the iris.
-                var lid = MeshKit.Part(rig.Head, s > 0 ? "LidTop" : "LidBottom", MeshKit.Lathe("eyeLid", new[] { new Vector2(0.47f, 0f), new Vector2(0.49f, 0.12f), new Vector2(0.4f, 0.3f), new Vector2(0.2f, 0.44f), new Vector2(0f, 0.48f) }, 16),
-                    Mat.Leather, Vector3.zero, new Vector3(s > 0 ? -32f : 148f, 0f, 0f));
+                // A heavy cap over the top and the bottom third, tipped back a little: the bloodshot white shows between.
+                var lid = MeshKit.Part(rig.Head, s > 0 ? "LidTop" : "LidBottom", MeshKit.Lathe("eyeLidCap", new[] { new Vector2(0.41f, 0.25f), new Vector2(0.44f, 0.29f), new Vector2(0.34f, 0.39f), new Vector2(0.18f, 0.46f), new Vector2(0f, 0.49f) }, 16),
+                    Mat.Leather, Vector3.zero, new Vector3(s > 0 ? -18f : 162f, 0f, 0f));
                 ArtLibrary.Tint(lid.GetComponent<Renderer>(), flesh * 0.85f);
             }
             WeakPoint.Add(rig.Head, new Vector3(0f, 0f, 0.43f), 0.12f, AbyssViolet);

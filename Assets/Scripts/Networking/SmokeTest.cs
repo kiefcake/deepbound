@@ -1198,7 +1198,17 @@ namespace Deepbound.Networking
                         }
                         // An Abyssal Eye's beam hits a player standing on its line, and misses one who stepped off.
                         {
-                            var eyeAt = local.transform.position + local.transform.forward * 8f;
+                            // A spot 7 m out with nothing between it and the player (its beam stops at walls).
+                            var eyeAt = local.transform.position + local.transform.forward * 7f;
+                            for (int ed = 0; ed < 8; ed++)
+                            {
+                                var cand = local.transform.position + Quaternion.Euler(0f, ed * 45f, 0f) * local.transform.forward * 7f;
+                                if (!UnityEngine.AI.NavMesh.SamplePosition(cand, out var eh, 1f, UnityEngine.AI.NavMesh.AllAreas)) continue;
+                                bool blocked = false;
+                                foreach (var hit in Physics.RaycastAll(eh.position + Vector3.up * 1.75f, (local.transform.position + Vector3.up * 1.2f) - (eh.position + Vector3.up * 1.75f), 7.2f, ~0, QueryTriggerInteraction.Ignore))
+                                    if (hit.collider.GetComponentInParent<Health>() == null) { blocked = true; break; }
+                                if (!blocked) { eyeAt = eh.position; break; }
+                            }
                             var eyeB = dd.ServerDebugSpawn("eye", eyeAt, false) as AbyssEyeBrain;
                             if (eyeB != null)
                             {
