@@ -1381,7 +1381,7 @@ namespace Deepbound.UI
                 Rect(x - 3, y - 3, size + 6, 2, c); Rect(x - 3, y + size + 1, size + 6, 2, c);
                 Rect(x - 3, y - 3, 2, size + 6, c); Rect(x + size + 1, y - 3, 2, size + 6, c);
             }
-            GUI.Label(new Rect(x, y + 6, size, 20), Binds.Label(Bind.Ultimate), center);
+            GUI.Label(new Rect(x, y + 6, size, 20), Binds.Live(Bind.Ultimate), center);
             string label = ult.Ready ? "READY" : Mathf.FloorToInt(k * 100f) + "%";
             GUI.Label(new Rect(x - 10, y + size - 22, size + 20, 18), label, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = ult.Ready ? FontStyle.Bold : FontStyle.Normal });
         }
@@ -1710,7 +1710,7 @@ namespace Deepbound.UI
 
             var hauled = PlayerLife.DraggedByPlayer(player.NetworkObjectId);
             if (hauled != null)
-                GUI.Label(new Rect(0, h / 2f + 96, w, 24), "Dragging " + hauled.name + " (" + Binds.Label(Bind.Interact) + " lets go; stop and hold " + Binds.Label(Bind.Use) + " to revive)",
+                GUI.Label(new Rect(0, h / 2f + 96, w, 24), "Dragging " + hauled.name + " (" + Binds.Live(Bind.Interact) + " lets go; stop and hold " + Binds.Live(Bind.Use) + " to revive)",
                     new GUIStyle(center) { normal = { textColor = new Color(0.6f, 0.9f, 1f) } });
 
             var target = PlayerLife.DownedNear(player.transform.position, life);

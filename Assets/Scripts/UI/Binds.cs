@@ -59,9 +59,95 @@ namespace Deepbound.UI
             return k == Key.None ? null : kb[k];
         }
 
-        public static bool Down(Bind b) { var c = Control(b); return c != null && c.wasPressedThisFrame; }
-        public static bool Held(Bind b) { var c = Control(b); return c != null && c.isPressed; }
-        public static bool Up(Bind b) { var c = Control(b); return c != null && c.wasReleasedThisFrame; }
+        public static bool Down(Bind b) { var c = Control(b); var p = Pad(b); return (c != null && c.wasPressedThisFrame) || (p != null && p.wasPressedThisFrame); }
+        public static bool Held(Bind b) { var c = Control(b); var p = Pad(b); return (c != null && c.isPressed) || (p != null && p.isPressed); }
+        public static bool Up(Bind b) { var c = Control(b); var p = Pad(b); return (c != null && c.wasReleasedThisFrame) || (p != null && p.wasReleasedThisFrame); }
+
+        // ---- Gamepad (2026-10-20): play with a pad; the menus still want the mouse ----
+        //   left stick move, right stick look, A jump, B dodge (slide at a sprint), X use, Y talk/trade,
+        //   LB / RB abilities, RT attack, LT secondary (block, frostbolt, beam...), L3 sprint (toggle),
+        //   R3 kick, d-pad up ultimate, left health potion, right mana potion, down holy water,
+        //   View the map, Start pauses.
+
+        /// <summary>The pad button for an action, or null (unmapped, or no pad).</summary>
+        public static ButtonControl Pad(Bind b)
+        {
+            var g = Gamepad.current;
+            if (g == null) return null;
+            switch (b)
+            {
+                case Bind.Jump: return g.buttonSouth;
+                case Bind.Dodge: return g.buttonEast;
+                case Bind.Use: return g.buttonWest;
+                case Bind.Interact: return g.buttonNorth;
+                case Bind.AbilityQ: return g.leftShoulder;
+                case Bind.AbilityE: return g.rightShoulder;
+                case Bind.Ultimate: return g.dpad.up;
+                case Bind.Kick: return g.rightStickButton;
+                case Bind.Potion1: return g.dpad.left;
+                case Bind.Potion2: return g.dpad.right;
+                case Bind.Potion4: return g.dpad.down;
+                case Bind.Map: return g.selectButton;
+                default: return null;
+            }
+        }
+
+        /// <summary>True while the pad is what you last played with: hints name pad buttons.</summary>
+        public static bool PadActive { get; private set; }
+
+        /// <summary>Each frame (the local motor): which device did the player last touch?</summary>
+        public static void Tick()
+        {
+            var g = Gamepad.current;
+            if (g == null) { PadActive = false; return; }
+            if ((g.leftStick.ReadValue().sqrMagnitude > 0.1f || g.rightStick.ReadValue().sqrMagnitude > 0.1f || g.rightTrigger.isPressed || g.leftTrigger.isPressed
+                || g.buttonSouth.isPressed || g.buttonEast.isPressed || g.buttonWest.isPressed || g.buttonNorth.isPressed || g.leftShoulder.isPressed || g.rightShoulder.isPressed))
+                PadActive = true;
+            else if ((Keyboard.current != null && Keyboard.current.anyKey.wasPressedThisFrame) || (Mouse.current != null && (Mouse.current.delta.ReadValue().sqrMagnitude > 9f || Mouse.current.leftButton.wasPressedThisFrame)))
+                PadActive = false;
+        }
+
+        private static string PadLabel(Bind b)
+        {
+            switch (b)
+            {
+                case Bind.Jump: return "A";
+                case Bind.Dodge: return "B";
+                case Bind.Use: return "X";
+                case Bind.Interact: return "Y";
+                case Bind.AbilityQ: return "LB";
+                case Bind.AbilityE: return "RB";
+                case Bind.Ultimate: return "UP";
+                case Bind.Kick: return "R3";
+                case Bind.Sprint: return "L3";
+                case Bind.Potion1: return "LEFT";
+                case Bind.Potion2: return "RIGHT";
+                case Bind.Potion4: return "DOWN";
+                case Bind.Map: return "VIEW";
+                default: return null;
+            }
+        }
+
+        /// <summary>The main attack: left mouse or the right trigger.</summary>
+        public static bool PrimaryHeld => (Mouse.current != null && Mouse.current.leftButton.isPressed) || (Gamepad.current != null && Gamepad.current.rightTrigger.isPressed);
+        public static bool PrimaryDown => (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) || (Gamepad.current != null && Gamepad.current.rightTrigger.wasPressedThisFrame);
+        /// <summary>The secondary: right mouse or the left trigger.</summary>
+        public static bool SecondaryHeld => (Mouse.current != null && Mouse.current.rightButton.isPressed) || (Gamepad.current != null && Gamepad.current.leftTrigger.isPressed);
+        public static bool SecondaryDown => (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame) || (Gamepad.current != null && Gamepad.current.leftTrigger.wasPressedThisFrame);
+        public static bool PadSprintDown => Gamepad.current != null && Gamepad.current.leftStickButton.wasPressedThisFrame;
+        public static bool PauseDown => Gamepad.current != null && Gamepad.current.startButton.wasPressedThisFrame;
+
+        public static Vector2 PadMove => Gamepad.current != null ? Gamepad.current.leftStick.ReadValue() : Vector2.zero;
+        public static Vector2 PadLook
+        {
+            get
+            {
+                if (Gamepad.current == null) return Vector2.zero;
+                var v = Gamepad.current.rightStick.ReadValue();
+                // A gentle curve: fine aim near the centre, a fast turn at full tilt.
+                return v * v.magnitude;
+            }
+        }
 
         /// <summary>Set a binding. A key already used elsewhere swaps over, so nothing is left unbound.</summary>
         public static void Set(Bind b, Key k)
@@ -121,9 +207,16 @@ namespace Deepbound.UI
         public static string Show(string defaultLabel)
         {
             if (string.IsNullOrEmpty(defaultLabel)) return defaultLabel;
+            if (PadActive && defaultLabel == "LMB") return "RT";
+            if (PadActive && defaultLabel == "RMB") return "LT";
             var b = ForDefaultLabel(defaultLabel);
-            return b.HasValue ? Label(b.Value) : defaultLabel;
+            if (!b.HasValue) return defaultLabel;
+            if (PadActive) { var p = PadLabel(b.Value); if (p != null) return p; }
+            return Label(b.Value);
         }
+
+        /// <summary>The live label for an action: the pad button while the pad is in use, else the key.</summary>
+        public static string Live(Bind b) => PadActive && PadLabel(b) != null ? PadLabel(b) : Label(b);
 
         private static readonly System.Text.RegularExpressions.Regex HintKey =
             new System.Text.RegularExpressions.Regex(@"(?<=^|\n|\u00b7  |   |, |/ )(Q|E|R|F|G|V|M|Z|H|I|X|B|T|Tab|TAB|CTRL|Shift|SHIFT|Space|SPACE|[1-4])(?=  | / | [a-z]| \(|$)", System.Text.RegularExpressions.RegexOptions.Multiline);
@@ -137,7 +230,7 @@ namespace Deepbound.UI
 
         public static string Rekey(string text)
         {
-            if (string.IsNullOrEmpty(text) || !AnyChanged) return text;
+            if (string.IsNullOrEmpty(text) || (!AnyChanged && !PadActive)) return text;
             text = HintKey.Replace(text, m => Show(m.Value));
             // Prose names keys in brackets: "KICK it (V)", "Holy Water (4)".
             text = BracketKey.Replace(text, m => "(" + Show(m.Groups[1].Value) + ")");

@@ -156,9 +156,13 @@ namespace Deepbound.Player
             bool hasControl = HasControl;
             bool canMove = hasControl && !Frozen && !Pinned;
 
-            if (hasControl && !LookHeld) ApplyLook(ReadLookInput());
+            if (hasControl && !LookHeld) { ApplyLook(ReadLookInput()); ApplyPadLook(); }
             MoveInput = canMove ? ReadMoveInput() : Vector2.zero;
-            bool sprintKey = keyboard != null && UI.Binds.Held(UI.Bind.Sprint);
+            // L3 latches a sprint until you stop pushing forward (holding a stick in is tiring).
+            UI.Binds.Tick();
+            if (UI.Binds.PadSprintDown) padSprint = !padSprint;
+            if (MoveInput.y < 0.2f) padSprint = false;
+            bool sprintKey = (keyboard != null && UI.Binds.Held(UI.Bind.Sprint)) || padSprint;
             bool jumpKey = keyboard != null && UI.Binds.Down(UI.Bind.Jump);
             jumpHeldNow = keyboard != null && UI.Binds.Held(UI.Bind.Jump);
             // Mania: your legs are not your own. Rooted: they are frozen to the floor.
@@ -199,7 +203,20 @@ namespace Deepbound.Player
         }
 
         private PlayerDebuffs debuffs;
-        private bool jumpHeldNow;
+        private bool jumpHeldNow, padSprint;
+
+        /// <summary>Degrees a second at full stick, scaled by the sensitivity setting.</summary>
+        public const float PadTurnSpeed = 190f;
+
+        private void ApplyPadLook()
+        {
+            var v = UI.Binds.PadLook;
+            if (v.sqrMagnitude < 1e-4f) return;
+            float k = PadTurnSpeed * UI.Settings.MouseSensitivity * Time.deltaTime;
+            transform.Rotate(0f, v.x * k, 0f);
+            pitch = Mathf.Clamp(pitch - v.y * k * 0.7f, -maxPitch, maxPitch);
+            if (cameraPivot != null) cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+        }
         private float lastBobY;
         private float maniaRoll, nextManiaTurn;
         private Vector3 maniaDir;
@@ -225,6 +242,7 @@ namespace Deepbound.Player
             var input = new Vector2(
                 (UI.Binds.Held(UI.Bind.MoveRight) ? 1f : 0f) - (UI.Binds.Held(UI.Bind.MoveLeft) ? 1f : 0f),
                 (UI.Binds.Held(UI.Bind.MoveForward) ? 1f : 0f) - (UI.Binds.Held(UI.Bind.MoveBack) ? 1f : 0f));
+            input += UI.Binds.PadMove;
 
             // Without this, diagonal movement is ~41% faster than straight movement.
             return Vector2.ClampMagnitude(input, 1f);

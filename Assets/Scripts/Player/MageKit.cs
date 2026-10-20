@@ -113,7 +113,7 @@ namespace Deepbound.Player
             float rate = progress.AttackTimeMultiplier;
 
             // --- LMB held: Firebolt ---
-            if (mouse != null && mouse.leftButton.isPressed && Time.time >= nextCast && Mana >= FireboltMana)
+            if (UI.Binds.PrimaryHeld && Time.time >= nextCast && Mana >= FireboltMana)
             {
                 Mana -= FireboltMana;
                 nextCast = Time.time + FireboltInterval * rate;
@@ -121,7 +121,7 @@ namespace Deepbound.Player
                 BoltRpc(player.AimOrigin + player.AimForward * 0.6f, player.AimForward, false);
             }
             // --- RMB: Frostbolt ---
-            else if (mouse != null && mouse.rightButton.isPressed && Time.time >= nextCast && Time.time >= frostReadyAt && Mana >= FrostboltMana)
+            else if (UI.Binds.SecondaryHeld && Time.time >= nextCast && Time.time >= frostReadyAt && Mana >= FrostboltMana)
             {
                 Mana -= FrostboltMana;
                 nextCast = Time.time + FrostboltInterval * rate;

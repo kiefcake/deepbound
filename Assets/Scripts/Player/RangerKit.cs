@@ -123,8 +123,8 @@ namespace Deepbound.Player
             }
 
             // --- LMB: draw while held, loose on release ---
-            if (mouse != null && mouse.leftButton.wasPressedThisFrame) drawStart = Time.time;
-            if (mouse != null && drawStart >= 0f && !mouse.leftButton.isPressed)
+            if (UI.Binds.PrimaryDown) drawStart = Time.time;
+            if (drawStart >= 0f && !UI.Binds.PrimaryHeld)
             {
                 float held = Time.time - drawStart;
                 drawStart = -1f;
@@ -137,7 +137,7 @@ namespace Deepbound.Player
             }
 
             // --- RMB: Disengage ---
-            if (mouse != null && mouse.rightButton.wasPressedThisFrame && Time.time >= disengageReadyAt && Focus >= DisengageFocus)
+            if (UI.Binds.SecondaryDown && Time.time >= disengageReadyAt && Focus >= DisengageFocus)
             {
                 Focus -= DisengageFocus;
                 disengageReadyAt = Time.time + DisengageCooldown * progress.CooldownMultiplier;

@@ -150,7 +150,7 @@ namespace Deepbound.Player
 
             // --- RMB held: Mending Beam ---
             ulong wantBeam = 0;
-            if (canAct && mouse != null && mouse.rightButton.isPressed && Mana > 0.5f)
+            if (canAct && UI.Binds.SecondaryHeld && Mana > 0.5f)
             {
                 var ally = AllyUnderCrosshair();
                 wantBeam = ally != null ? ally.NetworkObjectId : NetworkObjectId;
@@ -165,7 +165,7 @@ namespace Deepbound.Player
             if (!canAct) return;
 
             // --- LMB held: Smite ---
-            if (wantBeam == 0 && mouse != null && mouse.leftButton.isPressed && Time.time >= nextSmite && Mana >= SmiteMana)
+            if (wantBeam == 0 && UI.Binds.PrimaryHeld && Time.time >= nextSmite && Mana >= SmiteMana)
             {
                 Mana -= SmiteMana;
                 nextSmite = Time.time + SmiteInterval * progress.AttackTimeMultiplier;

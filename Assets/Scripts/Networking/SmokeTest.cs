@@ -57,13 +57,14 @@ namespace Deepbound.Networking
         {
             while (true)
             {
-                yield return new WaitForSeconds(0.5f);
+                // Every frame: a ghoul pack can take a Knight from half to the floor between half-second checks.
+                yield return null;
                 var net = NetworkManager.Singleton;
                 if (net == null || !net.IsServer) continue;
                 var me = NetworkPlayer.Local;
                 if (me == null) continue;
                 var life = me.GetComponent<PlayerLife>();
-                if (life != null && !life.Downed.Value && life.Health.IsAlive && life.Health.Fraction < 0.35f) life.Health.ServerSetFraction(0.8f);
+                if (life != null && !life.Downed.Value && life.Health.IsAlive && life.Health.Fraction < 0.4f) life.Health.ServerSetFraction(0.8f);
             }
         }
 
@@ -1012,6 +1013,10 @@ namespace Deepbound.Networking
                         int gives = 0;
                         while (!beggar.Spent.Value && gives < 20) { beggar.ServerDebugUse(sp); gives++; }
                         Log("beggar", "paid out after " + gives + " coins, spent " + beggar.Spent.Value, beggar.Spent.Value);
+                        // The beggar's payout lands wherever the test stood him (sometimes in a wall): clear it.
+                        if (beggar != null)
+                            foreach (var ld in FindObjectsByType<LootDrop>(FindObjectsSortMode.None))
+                                if (ld != null && ld.IsSpawned && Vector3.Distance(ld.transform.position, beggar.transform.position) < 6f) ld.NetworkObject.Despawn();
                         foreach (var x in new[] { ped, ped2, whet, mirror, beggar }) if (x != null && x.IsSpawned) x.NetworkObject.Despawn();
                         // An Orbweaver conjures an orb that fires patterns.
                         var ow = dd.ServerDebugSpawn("orbweaver", local.transform.position + local.transform.forward * 9f, false) as OrbweaverBrain;
@@ -1305,20 +1310,19 @@ namespace Deepbound.Networking
                     boss.Dormant = false;
                     boss.ServerDebugResetPhases();
                     var sp3 = local.GetComponent<PlayerProgress>();
-                    // A spot 8 m out with a clear line to the boss (pillars and the dais must not eat the bolt).
-                    var balAt = boss.transform.position + boss.transform.forward * 8f;
-                    for (int dirI = 0; dirI < 8; dirI++)
+                    // Ballista spots round the boss until a bolt lands (a pylon, pillar or the dais can eat one).
+                    float b0 = boss.Health.Current.Value, bTry = b0;
+                    ArenaEngine bal = null;
+                    for (int dirI = 0; dirI < 8 && bTry >= b0; dirI++)
                     {
-                        var cand = boss.transform.position + Quaternion.Euler(0f, dirI * 45f, 0f) * boss.transform.forward * 8f;
-                        if (!Physics.Linecast(cand + Vector3.up * 1.3f, boss.Health.Center, ~0, QueryTriggerInteraction.Ignore) ||
-                            Physics.Linecast(cand + Vector3.up * 1.3f, boss.Health.Center, out var lh, ~0, QueryTriggerInteraction.Ignore) && lh.collider.GetComponentInParent<BossBrain>() == boss)
-                        { balAt = cand; break; }
+                        if (bal != null && bal.IsSpawned) bal.NetworkObject.Despawn();
+                        var cand = boss.transform.position + Quaternion.Euler(0f, dirI * 45f, 0f) * boss.transform.forward * 6f;
+                        bal = DungeonDirector.Instance.ServerDebugEngine(ArenaEngine.Kind.Ballista, cand, Vector3.zero);
+                        yield return new WaitForSeconds(0.2f);
+                        if (bal != null) bal.ServerDebugUse(sp3);
+                        yield return new WaitForSeconds(0.5f);
+                        bTry = boss.Health.Current.Value;
                     }
-                    var bal = DungeonDirector.Instance.ServerDebugEngine(ArenaEngine.Kind.Ballista, balAt, Vector3.zero);
-                    yield return new WaitForSeconds(0.3f);
-                    float b0 = boss.Health.Current.Value;
-                    if (bal != null) bal.ServerDebugUse(sp3);
-                    yield return new WaitForSeconds(0.8f);
                     float b1 = boss.Health.Current.Value;
                     var winch = DungeonDirector.Instance.ServerDebugEngine(ArenaEngine.Kind.Winch, boss.transform.position + boss.transform.right * 6f, boss.transform.position);
                     yield return new WaitForSeconds(0.3f);
@@ -1683,6 +1687,20 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     var stallHere = local.GetComponent<UI.GameHud>().DebugStallHere();
                     Log("ysolde reachable", "G at her stones opens " + (stallHere.HasValue ? stallHere.Value.ToString() : "nothing"), stallHere == Shop.Vendor.Runewright);
+                    // A gamepad: a virtual pad pressing A jumps (Jump held), RT attacks, and the hints turn to pad buttons.
+                    {
+                        var vpad = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Gamepad>();
+                        UnityEngine.InputSystem.InputSystem.QueueStateEvent(vpad, new UnityEngine.InputSystem.LowLevel.GamepadState { rightTrigger = 1f }.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.South));
+                        yield return null;
+                        yield return null;
+                        bool jumpHeld = UI.Binds.Held(UI.Bind.Jump), attack = UI.Binds.PrimaryHeld;
+                        UI.Binds.Tick();
+                        string hint = UI.Binds.Show("F");
+                        UnityEngine.InputSystem.InputSystem.RemoveDevice(vpad);
+                        yield return null;
+                        UI.Binds.Tick();
+                        Log("gamepad", "A = jump " + jumpHeld + ", RT = attack " + attack + ", F prompt shows '" + hint + "'", jumpHeld && attack && hint == "X");
+                    }
                     // Key rebinding: moving Kick to K, then onto Q, swaps Ability 1 onto K; hints follow; reset restores.
                     UI.Binds.Set(UI.Bind.Kick, UnityEngine.InputSystem.Key.K);
                     bool movedK = UI.Binds.KeyOf(UI.Bind.Kick) == UnityEngine.InputSystem.Key.K && UI.Binds.Show("V") == "K";

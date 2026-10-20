@@ -118,7 +118,7 @@ namespace Deepbound.Player
             var keyboard = Keyboard.current;
 
             // --- LMB held: Twin Daggers ---
-            if (mouse != null && mouse.leftButton.isPressed && Time.time >= nextStab && Energy >= StabEnergy)
+            if (UI.Binds.PrimaryHeld && Time.time >= nextStab && Energy >= StabEnergy)
             {
                 Energy -= StabEnergy;
                 side = -side;
@@ -129,7 +129,7 @@ namespace Deepbound.Player
             }
 
             // --- RMB: Fan of Knives ---
-            if (mouse != null && mouse.rightButton.wasPressedThisFrame && Time.time >= fanReadyAt && Energy >= FanEnergy)
+            if (UI.Binds.SecondaryDown && Time.time >= fanReadyAt && Energy >= FanEnergy)
             {
                 Energy -= FanEnergy;
                 fanReadyAt = Time.time + FanCooldown;

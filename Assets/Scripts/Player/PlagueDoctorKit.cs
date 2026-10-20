@@ -119,7 +119,7 @@ namespace Deepbound.Player
             var keyboard = Keyboard.current;
 
             // --- LMB held: Vials ---
-            if (mouse != null && mouse.leftButton.isPressed && Time.time >= nextVial && Reagents >= VialCost)
+            if (UI.Binds.PrimaryHeld && Time.time >= nextVial && Reagents >= VialCost)
             {
                 Reagents -= VialCost;
                 nextVial = Time.time + VialInterval * progress.AttackTimeMultiplier;
@@ -129,7 +129,7 @@ namespace Deepbound.Player
             }
 
             // --- RMB: Tonic ---
-            if (mouse != null && mouse.rightButton.wasPressedThisFrame && Time.time >= tonicReadyAt && Reagents >= TonicCost)
+            if (UI.Binds.SecondaryDown && Time.time >= tonicReadyAt && Reagents >= TonicCost)
             {
                 Reagents -= TonicCost;
                 tonicReadyAt = Time.time + TonicCooldown * (progress.OnPath(2) ? 0.85f : 1f);

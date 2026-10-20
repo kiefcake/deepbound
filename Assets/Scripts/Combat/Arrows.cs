@@ -65,6 +65,8 @@ namespace Deepbound.Combat
         {
             public Vector3 Position, Velocity;
             public float Travelled, Damage;
+            /// <summary>Visual only: flies through walls (a siege bolt that punches through rubble).</summary>
+            public bool Ghost;
             public ulong Shooter;
             public Team Targets;
             public Transform Visual;
@@ -112,10 +114,11 @@ namespace Deepbound.Combat
         }
 
         /// <summary>Any peer: fly a harmless visual copy.</summary>
-        public static void SpawnVisual(Vector3 origin, Vector3 direction, ProjectileKind kind = ProjectileKind.Arrow, float speed = Speed, float range = MaxRange, float gravity = 0f)
+        public static void SpawnVisual(Vector3 origin, Vector3 direction, ProjectileKind kind = ProjectileKind.Arrow, float speed = Speed, float range = MaxRange, float gravity = 0f, bool throughWalls = false)
         {
             Instance.live.Add(new Arrow
             {
+                Ghost = throughWalls,
                 Range = range,
                 Gravity = gravity,
                 Position = origin, Velocity = direction.normalized * speed,
@@ -148,7 +151,7 @@ namespace Deepbound.Combat
                 var step = a.Velocity * dt;
                 bool done = false;
 
-                if (Physics.Raycast(a.Position, step.normalized, out var wall, step.magnitude, ~0, QueryTriggerInteraction.Ignore) &&
+                if (!a.Ghost && Physics.Raycast(a.Position, step.normalized, out var wall, step.magnitude, ~0, QueryTriggerInteraction.Ignore) &&
                     wall.collider.GetComponentInParent<Health>() == null)
                 {
                     // Stick in the wall for a moment, then vanish (bolts burst instead).

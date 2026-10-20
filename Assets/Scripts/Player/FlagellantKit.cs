@@ -136,7 +136,7 @@ namespace Deepbound.Player
             var keyboard = Keyboard.current;
 
             // --- LMB: Flail ---
-            if (canAct && mouse != null && mouse.leftButton.isPressed && Time.time >= swingBusyUntil)
+            if (canAct && UI.Binds.PrimaryHeld && Time.time >= swingBusyUntil)
             {
                 side = -side;
                 swingPending = true;
@@ -153,7 +153,7 @@ namespace Deepbound.Player
             }
 
             // --- RMB: Scourge ---
-            if (canAct && mouse != null && mouse.rightButton.wasPressedThisFrame && Time.time >= scourgeReadyAt && health.Fraction >= 0.25f)
+            if (canAct && UI.Binds.SecondaryDown && Time.time >= scourgeReadyAt && health.Fraction >= 0.25f)
             {
                 scourgeReadyAt = Time.time + ScourgeCooldown;
                 player.ViewModelBash();

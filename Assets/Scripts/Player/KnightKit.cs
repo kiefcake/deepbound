@@ -130,7 +130,7 @@ namespace Deepbound.Player
             var keyboard = Keyboard.current;
 
             // --- Block (hold RMB) ---
-            bool wantBlock = canAct && mouse != null && mouse.rightButton.isPressed && Stamina > 0f && !swingPending;
+            bool wantBlock = canAct && UI.Binds.SecondaryHeld && Stamina > 0f && !swingPending;
             if (Blocking.Value != wantBlock) Blocking.Value = wantBlock;
 
             // --- Stamina ---
@@ -148,7 +148,7 @@ namespace Deepbound.Player
             motor.SpeedMultiplier = (wantBlock ? 0.5f : 1f) * progress.SpeedMultiplier;
 
             // --- Swing (LMB) ---
-            if (canAct && !wantBlock && mouse != null && mouse.leftButton.wasPressedThisFrame &&
+            if (canAct && !wantBlock && UI.Binds.PrimaryDown &&
                 Time.time >= swingBusyUntil && Stamina >= SwingStamina)
             {
                 Stamina -= SwingStamina;

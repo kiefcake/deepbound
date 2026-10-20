@@ -99,12 +99,8 @@ namespace Deepbound.World
                     var dir = boss.Health.Center - from;
                     float dmg = boss.Health.Max.Value * BallistaShare;
                     ulong shooter = who.NetworkObjectId;
-                    Arrows.ServerFire(from, dir, 0f, Team.Enemies, shooter, 42f, h =>
-                    {
-                        if (h == null) return;
-                        h.ServerDamage(h.TryGetComponent<BossBrain>(out _) ? dmg : dmg * 0.25f, from, shooter);
-                        BoltHitRpc(h.Center);
-                    }, false, 60f);
+                    // A siege bolt punches through rubble and pillars: it always reaches the boss, after its flight.
+                    StartCoroutine(ServerBoltLands(boss, dmg, from, shooter, dir.magnitude / 42f));
                     LooseRpc(from, dir);
                     break;
                 }
@@ -147,10 +143,19 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void LooseRpc(Vector3 from, Vector3 dir)
         {
-            Arrows.SpawnVisual(from, dir, ProjectileKind.Arrow, 42f, 60f);
+            // It flies only as far as the boss, through whatever is in the way.
+            Arrows.SpawnVisual(from, dir, ProjectileKind.Arrow, 42f, dir.magnitude + 0.5f, 0f, throughWalls: true);
             Sfx.Play(Sound.Bow, from, 1f, 0.45f);
             Sfx.Play(Sound.Slam, from, 0.7f, 1.3f);
             if (arm != null) arm.localRotation = Quaternion.Euler(-25f, 0f, 0f);
+        }
+
+        private System.Collections.IEnumerator ServerBoltLands(BossBrain boss, float dmg, Vector3 from, ulong shooter, float flight)
+        {
+            yield return new WaitForSeconds(flight);
+            if (boss == null || boss.IsDead || boss.Health == null) yield break;
+            boss.Health.ServerDamage(dmg, from, shooter);
+            BoltHitRpc(boss.Health.Center);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
