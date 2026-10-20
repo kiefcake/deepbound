@@ -69,7 +69,7 @@ namespace Deepbound.UI
             if (player == null) return;
             var keyboard = Keyboard.current;
             bool near = Near;
-            if (keyboard != null && near && keyboard.gKey.wasPressedThisFrame && !CharacterSelect.Open && !PauseMenu.Open) Open = !Open;
+            if (keyboard != null && near && Binds.Down(Bind.Interact) && !CharacterSelect.Open && !PauseMenu.Open) Open = !Open;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) Open = false;
             if (keyboard != null && Open && keyboard.tabKey.wasPressedThisFrame) SwitchTab((Cosmetics.Kind)(((int)tab + 1) % 3));
             if (!near) Open = false;

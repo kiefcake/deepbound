@@ -161,7 +161,7 @@ namespace Deepbound.Player
             }
 
             // --- Q: Chains of Penance ---
-            if (canAct && keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= chainReadyAt)
+            if (canAct && keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= chainReadyAt)
             {
                 var target = AimedEnemy(ChainRange * progress.Potency(AbilitySlot.Q) * progress.RangeMultiplier);
                 if (target == null) UI.GameHud.Feed("No enemy in reach of the chain", new Color(0.8f, 0.75f, 0.7f));
@@ -174,7 +174,7 @@ namespace Deepbound.Player
             }
 
             // --- E: Penitent Leap ---
-            if (canAct && keyboard != null && keyboard.eKey.wasPressedThisFrame && Time.time >= leapReadyAt)
+            if (canAct && keyboard != null && UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= leapReadyAt)
             {
                 leapReadyAt = Time.time + LeapCooldown * progress.CooldownFor(AbilitySlot.E);
                 var to = LeapTarget();

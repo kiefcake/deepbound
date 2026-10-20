@@ -922,7 +922,7 @@ namespace Deepbound.Networking
                     }
                     Log("peddler rooms peaceful", peddlers + " peddler rooms over 40 seeds, " + hostile + " with enemies", peddlers > 0 && hostile == 0);
                     {
-                        int tre = 0, beg = 0, pro = 0, arm = 0, mir = 0, ter = 0, zig = 0, specialHostile = 0;
+                        int tre = 0, beg = 0, pro = 0, arm = 0, mir = 0, ter = 0, zig = 0, oat = 0, specialHostile = 0;
                         for (int sd = 1; sd <= 40; sd++)
                         {
                             var gl = DungeonLayout.Generate(sd * 15485863, 1 + sd % 8);
@@ -937,12 +937,13 @@ namespace Deepbound.Networking
                                     case RoomFeature.Mirror: mir++; break;
                                     case RoomFeature.Terrace: ter++; break;
                                     case RoomFeature.Ziggurat: zig++; break;
+                                    case RoomFeature.Oath: oat++; break;
                                 }
                                 if (r.Special && r.Feature != RoomFeature.Treasury && r.EnemySpawns.Count > 0) specialHostile++;
                             }
                         }
-                        Log("special rooms", "over 40 seeds: treasury " + tre + ", beggar " + beg + ", proving " + pro + ", armoury " + arm + ", mirror " + mir + ", terrace " + ter + ", ziggurat " + zig + "; special rooms with enemies " + specialHostile,
-                            tre > 0 && beg > 0 && pro > 0 && arm > 0 && mir > 0 && ter > 0 && zig > 0 && specialHostile == 0);
+                        Log("special rooms", "over 40 seeds: treasury " + tre + ", beggar " + beg + ", proving " + pro + ", armoury " + arm + ", mirror " + mir + ", terrace " + ter + ", ziggurat " + zig + ", oath " + oat + "; special rooms with enemies " + specialHostile,
+                            tre > 0 && beg > 0 && pro > 0 && arm > 0 && mir > 0 && ter > 0 && zig > 0 && oat > 0 && specialHostile == 0);
                     }
                     {
                         // The special rooms' furniture does what it says.
@@ -996,6 +997,38 @@ namespace Deepbound.Networking
                             Log("orbweaver death pops its orbs", "orbs left " + ow.OrbsAlive, ow.OrbsAlive == 0);
                         }
                         else Log("orbweaver", "no prefab", false);
+                        local.GetComponent<Health>().ServerSetFraction(1f);
+                        // An oath: the player stands on one plate, the Oath Stone is set on the other.
+                        {
+                            var pa = local.transform.position;
+                            var pb = pa + local.transform.right * 4f;
+                            var oath = dd.ServerDebugOath(pa, pb, pa + local.transform.forward * 3f);
+                            if (oath != null)
+                            {
+                                yield return new WaitForSeconds(0.3f);
+                                var stoneO = Carryable.All.OfType<OathStone>().LastOrDefault();
+                                bool alone = oath.Pressed.Value == 1;
+                                int keptBefore = dd.OathsKept;
+                                if (stoneO != null) { stoneO.ServerDebugCarry(sp); yield return new WaitForSeconds(0.2f); stoneO.ServerDrop(pb); }
+                                for (float t = 0f; t < 3f && !oath.Kept.Value; t += 0.2f) yield return new WaitForSeconds(0.2f);
+                                Log("oath plates", "one plate alone " + alone + ", stone " + (stoneO != null) + ", kept " + oath.Kept.Value + ", coffer " + (dd.OathsKept - keptBefore), alone && oath.Kept.Value && dd.OathsKept == keptBefore + 1);
+                                if (stoneO != null && stoneO.IsSpawned) stoneO.NetworkObject.Despawn();
+                            }
+                            else Log("oath plates", "no prefab", false);
+                        }
+                        // The Tallyman walks to you, drains you on touch, and leaves when dismissed.
+                        var tally = dd.ServerDebugTally(local.transform.position + local.transform.forward * 7f);
+                        if (tally != null)
+                        {
+                            float startD = Vector3.Distance(tally.Pos.Value, local.transform.position);
+                            for (float t = 0f; t < 5f && tally.DamageDealt <= 0f; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                            float endD = Vector3.Distance(tally.Pos.Value, local.transform.position);
+                            Log("tallyman", "closed " + startD.ToString("F1") + " -> " + endD.ToString("F1") + " m, drained " + tally.DamageDealt.ToString("F0") + ", speed " + tally.Speed.ToString("F1"), endD < startD && tally.DamageDealt > 0f);
+                            dd.ServerDebugDismissTally();
+                            for (float t = 0f; t < 4f && World.Tallyman.Active != null; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                            Log("tallyman leaves", "gone " + (World.Tallyman.Active == null), World.Tallyman.Active == null);
+                        }
+                        else Log("tallyman", "no prefab", false);
                         local.GetComponent<Health>().ServerSetFraction(1f);
                     }
                     int roomTraps = FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Count(t => layout.RoomAt(t.transform.position, 0f) != null);
@@ -1560,6 +1593,15 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     var stallHere = local.GetComponent<UI.GameHud>().DebugStallHere();
                     Log("ysolde reachable", "G at her stones opens " + (stallHere.HasValue ? stallHere.Value.ToString() : "nothing"), stallHere == Shop.Vendor.Runewright);
+                    // Key rebinding: moving Kick to K, then onto Q, swaps Ability 1 onto K; hints follow; reset restores.
+                    UI.Binds.Set(UI.Bind.Kick, UnityEngine.InputSystem.Key.K);
+                    bool movedK = UI.Binds.KeyOf(UI.Bind.Kick) == UnityEngine.InputSystem.Key.K && UI.Binds.Show("V") == "K";
+                    UI.Binds.Set(UI.Bind.Kick, UnityEngine.InputSystem.Key.Q);
+                    bool swapped = UI.Binds.KeyOf(UI.Bind.AbilityQ) == UnityEngine.InputSystem.Key.K;
+                    string rekeyed = UI.Binds.Rekey("Q  Blink  ·  V kick");
+                    UI.Binds.ResetAll();
+                    Log("key rebinding", "kick K " + movedK + ", swap onto Q " + swapped + ", hint '" + rekeyed + "', reset " + UI.Binds.Label(UI.Bind.Kick) + "/" + UI.Binds.Label(UI.Bind.AbilityQ),
+                        movedK && swapped && rekeyed == "K  Blink  ·  Q kick" && !UI.Binds.AnyChanged);
                     // Runes: one in the bag, set it into the weapon's first socket.
                     int bagBefore = progress.RuneBagCount;
                     progress.ServerAddRune(Rune.Frost);
@@ -2672,6 +2714,20 @@ namespace Deepbound.Networking
                         foreach (var mn in new[] { far, near }) if (mn != null) mn.GetComponent<Health>().ServerDamage(1e6f, mn.transform.position);
                     }
 
+                    // The Tallyman, walking in out of the dark (the screenshot player takes no damage).
+                    if (depth == 2)
+                    {
+                        var tfromC = room.Center + Vector3.up * 0.1f;
+                        motor.Teleport(tfromC, Quaternion.LookRotation(Vector3.forward));
+                        var tm = DungeonDirector.Instance.ServerDebugTally(room.Center + Vector3.forward * 8f, stay: true);
+                        yield return new WaitForSeconds(0.9f);
+                        yield return Shot(dir, "7_Tallyman_far");
+                        yield return new WaitForSeconds(0.9f);
+                        yield return Shot(dir, "7_Tallyman_near");
+                        DungeonDirector.Instance.ServerDebugDismissTally();
+                        yield return new WaitForSeconds(3f);
+                    }
+
                     var archer = FindObjectsByType<ArcherBrain>(FindObjectsSortMode.None).FirstOrDefault();
                     if (archer != null)
                     {
@@ -2720,6 +2776,9 @@ namespace Deepbound.Networking
             UI.PauseMenu.DebugShowOptions(local.GetComponent<UI.PauseMenu>() ?? FindFirstObjectByType<UI.PauseMenu>());
             yield return null;
             yield return Shot(dir, "9c_options");
+            UI.PauseMenu.DebugShowControls(local.GetComponent<UI.PauseMenu>() ?? FindFirstObjectByType<UI.PauseMenu>());
+            yield return null;
+            yield return Shot(dir, "9c_controls");
             UI.PauseMenu.DebugShowGuide(local.GetComponent<UI.PauseMenu>() ?? FindFirstObjectByType<UI.PauseMenu>());
             yield return null;
             yield return Shot(dir, "9a_guide");

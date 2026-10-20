@@ -36,6 +36,7 @@ namespace Deepbound.UI
             new Entry { Type = "HollowKingBrain", Name = "The Hollow King", Text = "Cleaves and slams; share his Judgement by standing together in the circle.", Boss = true },
             new Entry { Type = "CardinalBrain", Name = "The Pale Cardinal", Text = "Judgement pillars land where you are going. Break the choir's wards.", Boss = true },
             new Entry { Type = "UnsungBrain", Name = "The Unsung", Text = "What waits on the tenth floor. Every Seal you broke weakens it.", Boss = true },
+            new Entry { Type = "Tallyman", Name = "The Tallyman", Text = "Comes for those who linger on a floor. Cannot be fought: outrun him and seal yourselves in with the guardian.", Boss = true },
         };
 
         private const string Key = "db.bestiary";
@@ -46,10 +47,11 @@ namespace Deepbound.UI
         public static int SeenCount { get { int n = 0; for (int i = 0; i < Entries.Length; i++) if (Seen(i)) n++; return n; } }
 
         /// <summary>Note a creature met. True the first time.</summary>
-        public static bool See(Enemies.EnemyBrain brain)
+        public static bool See(Enemies.EnemyBrain brain) => brain != null && See(brain.GetType().Name);
+
+        /// <summary>Note a creature met by its type name (for the few that are not EnemyBrains).</summary>
+        public static bool See(string type)
         {
-            if (brain == null) return false;
-            string type = brain.GetType().Name;
             for (int i = 0; i < Entries.Length; i++)
             {
                 if (Entries[i].Type != type) continue;

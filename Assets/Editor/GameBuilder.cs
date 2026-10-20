@@ -84,6 +84,9 @@ namespace Deepbound.EditorTools
             var fountain = BuildObjectPrefab<Fountain>("Fountain", new Vector3(2.6f, 0.7f, 2.6f));
             var sideShrine = BuildObjectPrefab<SideShrine>("SideShrine", new Vector3(0.9f, 1.1f, 0.9f));
             var arenaEngine = BuildObjectPrefab<ArenaEngine>("ArenaEngine", new Vector3(1.2f, 1.4f, 1.4f));
+            var tallyman = BuildObjectPrefab<Tallyman>("Tallyman", Vector3.zero);
+            var oathPlates = BuildObjectPrefab<OathPlates>("OathPlates", Vector3.zero);
+            var oathStone = BuildObjectPrefab<OathStone>("OathStone", Vector3.zero);
             var soulSkull = BuildObjectPrefab<SoulSkull>("SoulSkull", Vector3.zero);
             var reliquary = BuildObjectPrefab<Reliquary>("Reliquary", Vector3.zero);
             var lorePage = BuildObjectPrefab<LorePage>("LorePage", new Vector3(0.6f, 1.1f, 0.5f));
@@ -108,6 +111,9 @@ namespace Deepbound.EditorTools
             dso.FindProperty("fountainPrefab").objectReferenceValue = fountain.GetComponent<NetworkObject>();
             dso.FindProperty("sideShrinePrefab").objectReferenceValue = sideShrine.GetComponent<NetworkObject>();
             dso.FindProperty("arenaEnginePrefab").objectReferenceValue = arenaEngine.GetComponent<NetworkObject>();
+            dso.FindProperty("tallymanPrefab").objectReferenceValue = tallyman.GetComponent<NetworkObject>();
+            dso.FindProperty("oathPlatesPrefab").objectReferenceValue = oathPlates.GetComponent<NetworkObject>();
+            dso.FindProperty("oathStonePrefab").objectReferenceValue = oathStone.GetComponent<NetworkObject>();
             dso.FindProperty("soulSkullPrefab").objectReferenceValue = soulSkull.GetComponent<NetworkObject>();
             dso.FindProperty("sarcophagusPrefab").objectReferenceValue = sarcophagus.GetComponent<NetworkObject>();
             dso.FindProperty("anvilPrefab").objectReferenceValue = anvil.GetComponent<NetworkObject>();

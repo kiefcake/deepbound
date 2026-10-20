@@ -61,8 +61,8 @@ namespace Deepbound.Player
             if (!IsOwner || debugHold) return;
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
-            bool pressed = (mouse != null && mouse.middleButton.wasPressedThisFrame) || (keyboard != null && keyboard.zKey.wasPressedThisFrame);
-            bool held = (mouse != null && mouse.middleButton.isPressed) || (keyboard != null && keyboard.zKey.isPressed);
+            bool pressed = (mouse != null && mouse.middleButton.wasPressedThisFrame) || (keyboard != null && UI.Binds.Down(UI.Bind.Ping));
+            bool held = (mouse != null && mouse.middleButton.isPressed) || (keyboard != null && UI.Binds.Held(UI.Bind.Ping));
             var motor = GetComponent<FirstPersonMotor>();
             var life = GetComponent<PlayerLife>();
 

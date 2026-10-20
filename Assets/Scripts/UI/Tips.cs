@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver",
+            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "tallyman", "oath",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -115,6 +115,9 @@ namespace Deepbound.UI
                     Offer("weak", "That GLOWING SPOT is a weak point: aim there for double damage. Headshots deal extra too.");
             }
 
+            if (World.Tallyman.Active != null && !World.Tallyman.Active.Leaving.Value)
+                Offer("tallyman", "THE TALLYMAN comes for parties that linger. He cannot be hurt or stopped: sprint away (he gets faster), and get into the guardian's arena - when it seals, he leaves.");
+
             var room = layout.RoomAt(me, 0f);
             if (room != null)
             {
@@ -124,6 +127,7 @@ namespace Deepbound.UI
                 if (room.Feature == RoomFeature.Beggar) Offer("beggar", "A BEGGAR: give him gold (F). Every coin makes it likelier he pays you back - a relic, potions, a Sigil or a fat purse.");
                 if (room.Feature == RoomFeature.Proving) Offer("proving", "THE PROVING BELL: ring it and two waves of the dead come. Clear them for gear for everyone, a Sigil and gold.");
                 if (room.Feature == RoomFeature.Armoury) Offer("armoury", "THE ARMOURY: each of you may sharpen your weapon once on the whetstone - a free temper.");
+                if (room.Feature == RoomFeature.Oath) Offer("oath", "THE OATH ROOM: two plates must be held down at once. Stand on one each - or, alone, carry the Oath Stone (F) onto one and stand on the other.");
                 if (room.Feature == RoomFeature.Mirror) Offer("mirror", "THE DARK MIRROR: a relic and gold for whoever touches it... and it keeps a fifth of their health until camp.");
                 if (room.Feature == RoomFeature.Terrace || room.Feature == RoomFeature.Ziggurat) Offer("highground", "HIGH GROUND: take the ramps up. Archers up top see everything - and anything you knock off the edge has a long way to fall.");
                 if (room.Feature == RoomFeature.Library) Offer("library", "LIBRARY: the shelves block sight both ways. Archers lose you behind them - and the dead can wait round any corner.");

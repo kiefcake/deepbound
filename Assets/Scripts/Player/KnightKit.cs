@@ -170,7 +170,7 @@ namespace Deepbound.Player
             }
 
             // --- Q: Shield Bash ---
-            if (canAct && keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= BashReadyAt)
+            if (canAct && keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= BashReadyAt)
             {
                 BashReadyAt = Time.time + BashCooldown * progress.CooldownFor(AbilitySlot.Q);
                 var forward = transform.forward;
@@ -180,7 +180,7 @@ namespace Deepbound.Player
             }
 
             // --- E: War Cry ---
-            if (canAct && keyboard != null && keyboard.eKey.wasPressedThisFrame && Time.time >= WarCryReadyAt)
+            if (canAct && keyboard != null && UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= WarCryReadyAt)
             {
                 WarCryReadyAt = Time.time + WarCryCooldown * progress.CooldownFor(AbilitySlot.E);
                 WarCryRpc();

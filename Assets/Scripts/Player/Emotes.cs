@@ -33,7 +33,7 @@ namespace Deepbound.Player
         {
             if (!IsOwner) return;
             var kb = Keyboard.current;
-            if (kb == null || !kb.hKey.wasPressedThisFrame || Time.time < readyAt || life.Downed.Value) return;
+            if (kb == null || !UI.Binds.Down(UI.Bind.Emote) || Time.time < readyAt || life.Downed.Value) return;
             readyAt = Time.time + 1.5f;
             RaiseRpc();
         }

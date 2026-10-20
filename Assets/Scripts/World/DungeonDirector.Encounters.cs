@@ -44,6 +44,53 @@ namespace Deepbound.World
             spawned.Add(obj);
         }
 
+        [SerializeField] private NetworkObject oathPlatesPrefab, oathStonePrefab;
+
+        /// <summary>Server: the Oath Room's plates (placed after spawn) and its stone.</summary>
+        private OathPlates SpawnOath(DungeonLayout.Room room, Vector3? a = null, Vector3? b = null, Vector3? stone = null, Vector3? coffer = null)
+        {
+            var obj = Instantiate(oathPlatesPrefab, room != null ? room.Center : (a ?? Vector3.zero), Quaternion.identity);
+            obj.Spawn(destroyWithScene: true);
+            spawned.Add(obj);
+            var plates = obj.GetComponent<OathPlates>();
+            plates.RoomId = room != null ? room.Id : -1;
+            plates.ServerSetup(a ?? room.FeatureSpots[0], b ?? room.FeatureSpots[1], coffer ?? room.FeatureSpots[3]);
+            if (oathStonePrefab != null)
+            {
+                var s = Instantiate(oathStonePrefab, Art.Vfx.Floor(stone ?? room.FeatureSpots[2]), Quaternion.identity);
+                s.Spawn(destroyWithScene: true);
+                spawned.Add(s);
+            }
+            return plates;
+        }
+
+        /// <summary>Server: the oath is kept. The coffer opens: a chest, a Sigil and gold for the party.</summary>
+        public void ServerOathKept(OathPlates plates)
+        {
+            var at = plates.Coffer.Value;
+            var room = plates.RoomId >= 0 && Layout != null && plates.RoomId < Layout.Rooms.Count ? Layout.Rooms[plates.RoomId] : Layout?.RoomAt(at, 0f);
+            var face = (room != null ? room.Center : plates.transform.position) - at;
+            face.y = 0f;
+            var rot = face.sqrMagnitude > 0.01f ? Quaternion.LookRotation(face) : Quaternion.identity;
+            if (chestPrefab != null)
+            {
+                var chest = Spawn(chestPrefab, room != null ? DropSpots.ClearForChest(at, rot, room) : at, rot);
+                chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
+                spawned.Add(chest);
+            }
+            var front = at + rot * Vector3.forward * 1.6f;
+            ServerDropLoot(front, LootKind.Sigil, 1);
+            for (int i = 0; i < 4; i++) ServerDropLoot(front + Quaternion.Euler(0f, i * 90f, 0f) * Vector3.forward * 0.9f, LootKind.Gold, 15 + 8 * (int)Tier(Floor.Value.y));
+            OathsKept++;
+        }
+
+        /// <summary>Server, for tests: oaths kept this session.</summary>
+        public int OathsKept { get; private set; }
+
+        /// <summary>Tests: an oath right here (plates a and b, the stone beside a).</summary>
+        public OathPlates ServerDebugOath(Vector3 a, Vector3 b, Vector3 coffer) =>
+            oathPlatesPrefab == null ? null : SpawnOath(null, a, b, a + (b - a).normalized * -2f, coffer);
+
         /// <summary>Tests: spawn a special-room piece near a spot.</summary>
         public SideShrine ServerDebugShrine(SideShrine.Kind kind, Vector3 at, int choice = 0)
         {
@@ -254,13 +301,22 @@ namespace Deepbound.World
             if (portcullisPrefab == null) return;
             foreach (var g in SpawnGates(layout.BossRoom)) bossGates.Add(g);
 
-            // A combat room at least two steps from the start, so the first fight is not an ambush.
+            var room = PickAmbushRoom(layout);
+            if (room == null) return;
+            ambush = new Ambush { Room = room };
+            ambush.Gates.AddRange(SpawnGates(ambush.Room));
+        }
+
+        /// <summary>
+        /// The ambush room, from the seed alone: a combat room at least two steps from the start, so the first
+        /// fight is not an ambush. Objects placed earlier (the Wheel of Fate) ask too, to stay out of it.
+        /// </summary>
+        private static DungeonLayout.Room PickAmbushRoom(DungeonLayout layout)
+        {
             var rng = new System.Random(layout.Seed ^ 0xA3B);
             var candidates = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && r.Id >= 2 &&
                 (r.Feature == RoomFeature.None || r.Feature == RoomFeature.GreatHall || r.Feature == RoomFeature.Gallery || r.Feature == RoomFeature.SunkenCourt));
-            if (candidates.Count == 0) return;
-            ambush = new Ambush { Room = candidates[rng.Next(candidates.Count)] };
-            ambush.Gates.AddRange(SpawnGates(ambush.Room));
+            return candidates.Count == 0 ? null : candidates[rng.Next(candidates.Count)];
         }
 
         private bool IsAmbushRoom(DungeonLayout.Room room) => ambush != null && ambush.Room == room;
@@ -344,6 +400,7 @@ namespace Deepbound.World
                     case RoomFeature.Proving when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Bell, room, room.FeatureSpots[0], 0, room.Id); break;
                     case RoomFeature.Armoury when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Whetstone, room, room.FeatureSpots[0], 0, room.Id); break;
                     case RoomFeature.Mirror when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Mirror, room, room.FeatureSpots[0], 0, room.Id); break;
+                    case RoomFeature.Oath when oathPlatesPrefab != null && room.FeatureSpots.Count >= 4: SpawnOath(room); break;
                 }
             }
         }

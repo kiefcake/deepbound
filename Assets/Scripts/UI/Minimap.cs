@@ -87,7 +87,7 @@ namespace Deepbound.UI
             }
 
             var keyboard = Keyboard.current;
-            if (keyboard != null && keyboard.mKey.wasPressedThisFrame) large = !large;
+            if (keyboard != null && Binds.Down(Bind.Map)) large = !large;
         }
 
         private bool Neighbour(DungeonLayout layout, DungeonLayout.Room room)
@@ -187,6 +187,7 @@ namespace Deepbound.UI
                     : room.Feature == RoomFeature.Vault ? Color.Lerp(floor, new Color(0.45f, 0.36f, 0.15f), 0.4f)
                     : room.Feature == RoomFeature.Treasury ? Color.Lerp(floor, new Color(0.55f, 0.45f, 0.15f), 0.45f)
                     : room.Feature == RoomFeature.Mirror ? Color.Lerp(floor, new Color(0.35f, 0.15f, 0.45f), 0.45f)
+                    : room.Feature == RoomFeature.Oath ? Color.Lerp(floor, new Color(0.2f, 0.3f, 0.5f), 0.45f)
                     : room.Feature == RoomFeature.Proving ? Color.Lerp(floor, new Color(0.5f, 0.25f, 0.1f), 0.45f)
                     : room.Feature == RoomFeature.Beggar || room.Feature == RoomFeature.Armoury ? Color.Lerp(floor, new Color(0.35f, 0.3f, 0.2f), 0.4f)
                     : floor;
@@ -202,7 +203,7 @@ namespace Deepbound.UI
                 if (room.Special && (large || r.width > 26f))
                 {
                     string label = room.Feature == RoomFeature.Treasury ? "TREASURY" : room.Feature == RoomFeature.Beggar ? "BEGGAR"
-                        : room.Feature == RoomFeature.Proving ? "PROVING" : room.Feature == RoomFeature.Armoury ? "ARMOURY" : "MIRROR";
+                        : room.Feature == RoomFeature.Proving ? "PROVING" : room.Feature == RoomFeature.Armoury ? "ARMOURY" : room.Feature == RoomFeature.Oath ? "OATH" : "MIRROR";
                     GUI.Label(new Rect(r.x - 20f, r.center.y - 9f, r.width + 40f, 18f), label, new GUIStyle(UiSkin.Small) { fontSize = large ? 12 : 9, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 0.88f, 0.55f, 0.9f) } });
                 }
                 // Raised ground: lighter blocks.
@@ -325,7 +326,7 @@ namespace Deepbound.UI
                 // A dark strip under the frame, so the caption reads over bright rooms.
                 UiSkin.Rect(new Rect(frame.x, frame.yMax + 4f, frame.width, 20f), new Color(0f, 0f, 0f, 0.55f));
                 GUI.Label(new Rect(frame.x + 6f, frame.yMax + 5f, frame.width - 12f, 18), place, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperLeft, clipping = TextClipping.Clip, wordWrap = false, normal = { textColor = UiSkin.Gold } });
-                GUI.Label(new Rect(frame.x, frame.yMax + 5f, frame.width - 6f, 18), "M map", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperRight, wordWrap = false });
+                GUI.Label(new Rect(frame.x, frame.yMax + 5f, frame.width - 6f, 18), Binds.Label(Bind.Map) + " map", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperRight, wordWrap = false });
             }
             else DrawLegend(layout, frame);
         }

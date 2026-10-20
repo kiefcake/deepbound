@@ -158,9 +158,9 @@ namespace Deepbound.Player
 
             if (hasControl && !LookHeld) ApplyLook(ReadLookInput());
             MoveInput = canMove ? ReadMoveInput() : Vector2.zero;
-            bool sprintKey = keyboard != null && keyboard.leftShiftKey.isPressed;
-            bool jumpKey = keyboard != null && keyboard.spaceKey.wasPressedThisFrame;
-            jumpHeldNow = keyboard != null && keyboard.spaceKey.isPressed;
+            bool sprintKey = keyboard != null && UI.Binds.Held(UI.Bind.Sprint);
+            bool jumpKey = keyboard != null && UI.Binds.Down(UI.Bind.Jump);
+            jumpHeldNow = keyboard != null && UI.Binds.Held(UI.Bind.Jump);
             // Mania: your legs are not your own. Rooted: they are frozen to the floor.
             if (debuffs == null) debuffs = GetComponent<PlayerDebuffs>();
             bool manic = debuffs != null && debuffs.Manic && canMove;
@@ -223,8 +223,8 @@ namespace Deepbound.Player
             if (keyboard == null) return Vector2.zero;
 
             var input = new Vector2(
-                (keyboard.dKey.isPressed ? 1f : 0f) - (keyboard.aKey.isPressed ? 1f : 0f),
-                (keyboard.wKey.isPressed ? 1f : 0f) - (keyboard.sKey.isPressed ? 1f : 0f));
+                (UI.Binds.Held(UI.Bind.MoveRight) ? 1f : 0f) - (UI.Binds.Held(UI.Bind.MoveLeft) ? 1f : 0f),
+                (UI.Binds.Held(UI.Bind.MoveForward) ? 1f : 0f) - (UI.Binds.Held(UI.Bind.MoveBack) ? 1f : 0f));
 
             // Without this, diagonal movement is ~41% faster than straight movement.
             return Vector2.ClampMagnitude(input, 1f);

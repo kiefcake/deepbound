@@ -13,7 +13,7 @@ namespace Deepbound.World
     /// chamber (braziers empower the room's dead until smashed). Side rooms can be a
     /// Vault or a Fountain.
     /// </summary>
-    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat }
+    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath }
 
     /// <summary>Boss arena shapes: a colonnade (cover), a raised dais under the throne, or broken ruins.</summary>
     public enum BossArena : byte { Colonnade = 0, Dais = 1, Ruins = 2 }
@@ -79,7 +79,7 @@ namespace Deepbound.World
             }
 
             /// <summary>A side room with one of the special features (treasury, beggar, proving bell, armoury, mirror).</summary>
-            public bool Special => Feature == RoomFeature.Treasury || Feature == RoomFeature.Beggar || Feature == RoomFeature.Proving || Feature == RoomFeature.Armoury || Feature == RoomFeature.Mirror;
+            public bool Special => Feature == RoomFeature.Treasury || Feature == RoomFeature.Beggar || Feature == RoomFeature.Proving || Feature == RoomFeature.Armoury || Feature == RoomFeature.Mirror || Feature == RoomFeature.Oath;
             public Vector2Int Cell;
             public Vector3 Center;
             /// <summary>Interior floor size in metres (x, z).</summary>
@@ -714,7 +714,7 @@ namespace Deepbound.World
         {
             var sides = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side);
             // The other side rooms (2026-10-20): most become one of the special rooms, no repeats a floor.
-            var specials = new List<RoomFeature> { RoomFeature.Treasury, RoomFeature.Beggar, RoomFeature.Proving, RoomFeature.Armoury, RoomFeature.Mirror };
+            var specials = new List<RoomFeature> { RoomFeature.Treasury, RoomFeature.Beggar, RoomFeature.Proving, RoomFeature.Armoury, RoomFeature.Mirror, RoomFeature.Oath };
             for (int i = specials.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (specials[i], specials[j]) = (specials[j], specials[i]); }
             int nextSpecial = 0;
             foreach (var side in sides)
@@ -733,6 +733,16 @@ namespace Deepbound.World
                     for (int k = -1; k <= 1; k++) side.FeatureSpots.Add(side.Center + back * (toBack - Mathf.Abs(k) * 1.2f) + across * (k * 2.6f));
                 }
                 else if (side.Feature == RoomFeature.Proving) side.FeatureSpots.Add(side.Center + back * toBack * 0.4f);
+                else if (side.Feature == RoomFeature.Oath)
+                {
+                    // Two plates at either side, the Oath Stone by the door, the coffer at the back.
+                    var across = new Vector3(-back.z, 0f, back.x);
+                    float halfAcross = (entry == 0 || entry == 2 ? side.Size.x : side.Size.y) / 2f - 2.4f;
+                    side.FeatureSpots.Add(side.Center + across * halfAcross + back * 0.5f);
+                    side.FeatureSpots.Add(side.Center - across * halfAcross + back * 0.5f);
+                    side.FeatureSpots.Add(side.Center - back * (toBack * 0.55f) + across * 1.6f);
+                    side.FeatureSpots.Add(side.Center + back * toBack);
+                }
                 else side.FeatureSpots.Add(side.Center + back * toBack);
             }
         }

@@ -679,6 +679,7 @@ namespace Deepbound.World
             Floor.Value = new Vector2Int(seed, depth);
             foreach (var p in PlayerLife.All) if (p != null) p.Seat.Value = -1;
             Hallowed.Value = false;
+            ResetTally();
 
             // NetworkVariable callbacks do not fire for the writer's own change on every
             // NGO version, so build explicitly; BuildLocal ignores a repeat.
@@ -722,6 +723,14 @@ namespace Deepbound.World
             foreach (var i in FindObjectsByType<Interactable>(FindObjectsSortMode.None))
             {
                 if (i.NetworkObject.IsSpawned) i.NetworkObject.Despawn();
+            }
+            foreach (var o in FindObjectsByType<OathPlates>(FindObjectsSortMode.None))
+            {
+                if (o.NetworkObject.IsSpawned) o.NetworkObject.Despawn();
+            }
+            foreach (var t in FindObjectsByType<Tallyman>(FindObjectsSortMode.None))
+            {
+                if (t.NetworkObject.IsSpawned) t.NetworkObject.Despawn();
             }
             foreach (var a in FindObjectsByType<Anvil>(FindObjectsSortMode.None))
             {
@@ -983,7 +992,8 @@ namespace Deepbound.World
             DungeonLayout.Room wheelRoom = null;
             if (fateWheelPrefab != null && (rng.NextDouble() < 0.55 || TestMode))
             {
-                var pool = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && r != altarRoom && r.Feature != RoomFeature.Chasm && r.Feature != RoomFeature.Crypt);
+                var ambushRoom = portcullisPrefab != null ? PickAmbushRoom(layout) : null;
+                var pool = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && r != altarRoom && r != ambushRoom && r.Feature != RoomFeature.Chasm && r.Feature != RoomFeature.Crypt);
                 if (pool.Count > 0) wheelRoom = pool[rng.Next(pool.Count)];
             }
 
@@ -1199,6 +1209,7 @@ namespace Deepbound.World
                 case RunPhase.Exploring:
                     if (Layout == null) break;
                     TickEncounters();
+                    TickTally(now);
                     if (PartyWiped())
                     {
                         EnterPhase(RunPhase.Wiped, WipeDelay);

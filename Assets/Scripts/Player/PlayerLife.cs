@@ -169,7 +169,7 @@ namespace Deepbound.Player
             wasSeated = seated;
 
             var keyboard = Keyboard.current;
-            if (keyboard == null || !keyboard.fKey.wasPressedThisFrame || ride == null || !DungeonDirector.InLobby || ride.Riding || UI.GameHud.MenuOpen) return;
+            if (keyboard == null || !UI.Binds.Down(UI.Bind.Use) || ride == null || !DungeonDirector.InLobby || ride.Riding || UI.GameHud.MenuOpen) return;
             if (Seat.Value >= 0) { StandRpc(); return; }
             int free = NearestFreeSeat(ride);
             if (free >= 0) SitRpc(free);
@@ -372,7 +372,7 @@ namespace Deepbound.Player
         {
             var keyboard = Keyboard.current;
             if (Downed.Value || keyboard == null || motor == null || !motor.HasControl || Time.time < DodgeReadyAt) return;
-            if (!keyboard.leftCtrlKey.wasPressedThisFrame && !keyboard.cKey.wasPressedThisFrame) return;
+            if (!UI.Binds.Down(UI.Bind.Dodge) && !UI.Binds.Down(UI.Bind.Slide)) return;
 
             var input = motor.MoveInput;
             // Dodging while sprinting forward is a slide instead: low and fast, and a kick
@@ -408,7 +408,7 @@ namespace Deepbound.Player
             // F is contextual: a downed teammate takes priority over a chest or altar.
             if (target == null)
             {
-                if (keyboard.fKey.wasPressedThisFrame && motor != null && motor.HasControl)
+                if (UI.Binds.Down(UI.Bind.Use) && motor != null && motor.HasControl)
                 {
                     var cam = GetComponent<NetworkPlayer>();
                     var use = World.Interactable.Nearest(cam.AimOrigin, cam.AimForward, progress);
@@ -417,7 +417,7 @@ namespace Deepbound.Player
                 return;
             }
 
-            if (!keyboard.fKey.isPressed || Time.time < reviveSendAt) return;
+            if (!UI.Binds.Held(UI.Bind.Use) || Time.time < reviveSendAt) return;
             reviveSendAt = Time.time + 0.2f;
             target.ReviveHoldRpc(NetworkObject);
         }

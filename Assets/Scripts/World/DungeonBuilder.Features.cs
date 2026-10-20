@@ -516,6 +516,7 @@ namespace Deepbound.World
             var c = room.Center;
             var mood = room.Feature == RoomFeature.Treasury ? new Color(1f, 0.85f, 0.5f)
                 : room.Feature == RoomFeature.Mirror ? new Color(0.6f, 0.35f, 1f)
+                : room.Feature == RoomFeature.Oath ? new Color(0.55f, 0.75f, 1f)
                 : room.Feature == RoomFeature.Proving ? new Color(1f, 0.6f, 0.3f)
                 : room.Feature == RoomFeature.Armoury ? new Color(1f, 0.7f, 0.4f) : theme.TorchColor;
             // A long carpet from the door to the feature.

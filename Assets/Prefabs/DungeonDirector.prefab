@@ -77,9 +77,12 @@ MonoBehaviour:
   leverPrefab: {fileID: 3093957043763054616, guid: 25e590880c995b944afa9a190517e20e, type: 3}
   fountainPrefab: {fileID: 7715955194514988750, guid: 175a93a42b3f5ae4f8d57f7ee7dcf047, type: 3}
   sideShrinePrefab: {fileID: 8455111179139271921, guid: 34349eb1608a97e4ababe238d594952a, type: 3}
+  oathPlatesPrefab: {fileID: 4409106194734617444, guid: cdf9f065114f89e4d8b4facedd09ed71, type: 3}
+  oathStonePrefab: {fileID: 5573254022764479217, guid: 67b57669a662afa4e9045208034e98b3, type: 3}
   soulSkullPrefab: {fileID: 2749980807616642887, guid: 9d23c8acc5cae7e42b89372e6848278a, type: 3}
   sarcophagusPrefab: {fileID: 450747277759864904, guid: ba5736d10dcde4a4d9af9adbdbab1f2b, type: 3}
   crackedWallPrefab: {fileID: 3855241515496535436, guid: 943bd248e66bc7e4faabab7fd6969047, type: 3}
+  tallymanPrefab: {fileID: 219130841370759467, guid: 38df321217aacd44fa6b98aeb2245b02, type: 3}
   skeletonPrefab: {fileID: 6347288401934167848, guid: 193fe9095fca3fe4d9657fe22d9dd2d8, type: 3}
   archerPrefab: {fileID: 1189994025091854638, guid: c9a59dea8caf8604bac5f21df48c4056, type: 3}
   ghoulPrefab: {fileID: 7136521967555521536, guid: 5972763f0fdc1cb41a1279040eaf44d5, type: 3}

@@ -138,13 +138,13 @@ namespace Deepbound.Player
             }
 
             // --- Q: Shadowstep ---
-            if (keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= stepReadyAt && TryShadowstep())
+            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= stepReadyAt && TryShadowstep())
             {
                 stepReadyAt = Time.time + StepCooldown * progress.CooldownFor(AbilitySlot.Q);
             }
 
             // --- E: Smoke Bomb ---
-            if (keyboard != null && keyboard.eKey.wasPressedThisFrame && Time.time >= smokeReadyAt)
+            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= smokeReadyAt)
             {
                 smokeReadyAt = Time.time + SmokeCooldown * progress.CooldownFor(AbilitySlot.E);
                 SmokeRpc();

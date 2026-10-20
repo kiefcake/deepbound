@@ -193,7 +193,7 @@ namespace Deepbound.Player
                 case 2: return false; // off
                 case 1:               // push to talk
                     var k = Keyboard.current;
-                    return k != null && k.tKey.isPressed && !PauseMenu.Open;
+                    return k != null && UI.Binds.Held(UI.Bind.PushToTalk) && !PauseMenu.Open;
                 default:              // open mic, voice-activated, with a short hang so words are not clipped
                     // The gate tracks the room's noise floor (hiss, fans, hum) and opens only well above it,
                     // so a quiet mic never streams static.

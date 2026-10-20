@@ -148,14 +148,14 @@ namespace Deepbound.Player
             }
 
             // --- Q: Bear Trap at the crosshair ---
-            if (keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= trapReadyAt && TryAimFloor(TrapRange * RangeMul, out var trapAt))
+            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= trapReadyAt && TryAimFloor(TrapRange * RangeMul, out var trapAt))
             {
                 trapReadyAt = Time.time + TrapCooldown * progress.CooldownFor(AbilitySlot.Q) * (progress.OnPath(2) ? 0.6f : 1f);
                 TrapRpc(trapAt);
             }
 
             // --- E: Volley at the crosshair ---
-            if (keyboard != null && keyboard.eKey.wasPressedThisFrame && Time.time >= volleyReadyAt && Focus >= VolleyFocus && TryAimFloor(30f, out var volleyAt))
+            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= volleyReadyAt && Focus >= VolleyFocus && TryAimFloor(30f, out var volleyAt))
             {
                 Focus -= VolleyFocus;
                 volleyReadyAt = Time.time + VolleyCooldown * progress.CooldownFor(AbilitySlot.E);

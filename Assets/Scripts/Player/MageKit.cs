@@ -131,13 +131,13 @@ namespace Deepbound.Player
             }
 
             // --- Q: Blink ---
-            if (keyboard != null && keyboard.qKey.wasPressedThisFrame && Time.time >= blinkReadyAt && TryBlink())
+            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= blinkReadyAt && TryBlink())
             {
                 blinkReadyAt = Time.time + BlinkCooldown * progress.CooldownFor(AbilitySlot.Q);
             }
 
             // --- E: Meteor at the crosshair ---
-            if (keyboard != null && keyboard.eKey.wasPressedThisFrame && Time.time >= meteorReadyAt && Mana >= MeteorMana &&
+            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= meteorReadyAt && Mana >= MeteorMana &&
                 TryAimGround(out var spot))
             {
                 Mana -= MeteorMana;

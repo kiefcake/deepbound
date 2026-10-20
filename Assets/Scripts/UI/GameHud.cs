@@ -702,7 +702,7 @@ namespace Deepbound.UI
             float x = 270f, y = h - 142f;
             Rect(x, y, 58, 18, new Color(0f, 0f, 0f, on ? 0.6f : 0.35f));
             Rect(x + 4, y + 5, 8, 8, on ? new Color(0.4f, 1f, 0.5f) : new Color(0.4f, 0.4f, 0.4f));
-            GUI.Label(new Rect(x + 16, y, 44, 18), Settings.VoiceMode == 1 ? "T talk" : "MIC", small);
+            GUI.Label(new Rect(x + 16, y, 44, 18), Settings.VoiceMode == 1 ? Binds.Label(Bind.PushToTalk) + " talk" : "MIC", small);
         }
 
         // ---- Death recap: what put you down (newest hit's source, then damage by source). ----
@@ -965,24 +965,24 @@ namespace Deepbound.UI
             // G uses whichever station is closer: a stall or the anvil.
             bool anvilFirst = anvil != null && (!near || Vector3.Distance(player.transform.position, anvil.transform.position) <
                 Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value));
-            bool catFirst = keyboard != null && keyboard.gKey.wasPressedThisFrame && !MenuOpen &&
+            bool catFirst = keyboard != null && Binds.Down(Bind.Interact) && !MenuOpen &&
                 Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is CampCat;
             if (catFirst) ((CampCat)Interactable.Nearest(player.AimOrigin, player.AimForward, progress)).PickUpRpc(player.NetworkObject);
-            else if (keyboard != null && keyboard.gKey.wasPressedThisFrame)
+            else if (keyboard != null && Binds.Down(Bind.Interact))
             {
                 if (shopOpen && shopVendor == Shop.Vendor.Smith) { shopOpen = false; forgeOpen = false; }
                 else if (anvilFirst) { forgeOpen = !forgeOpen; shopOpen = false; }
                 else if (near && stall.Value == Shop.Vendor.Runewright) { runeOpen = !runeOpen; shopOpen = false; forgeOpen = false; }
                 else if (near) { shopOpen = !shopOpen; forgeOpen = false; runeOpen = false; shopVendor = stall.Value; }
             }
-            if (keyboard != null && keyboard.iKey.wasPressedThisFrame && !shopOpen && !forgeOpen && !runeOpen && !CharacterSelect.Open && !PauseMenu.Open && !Wardrobe.Open) invOpen = !invOpen;
+            if (keyboard != null && Binds.Down(Bind.Inventory) && !shopOpen && !forgeOpen && !runeOpen && !CharacterSelect.Open && !PauseMenu.Open && !Wardrobe.Open) invOpen = !invOpen;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = forgeOpen = invOpen = runeOpen = false;
             if (runeOpen && !NearVendor(Shop.Vendor.Runewright)) runeOpen = false;
             // G (when no station is near) stows the gear you are looking at.
-            if (keyboard != null && keyboard.gKey.wasPressedThisFrame && !near && anvil == null && !MenuOpen &&
+            if (keyboard != null && Binds.Down(Bind.Interact) && !near && anvil == null && !MenuOpen &&
                 Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is GearDrop stow && !progress.BagFull)
                 stow.StowRpc(player.NetworkObject);
-            if (keyboard != null && keyboard.xKey.wasPressedThisFrame && !MenuOpen &&
+            if (keyboard != null && Binds.Down(Bind.Scrap) && !MenuOpen &&
                 Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is GearDrop scrap)
             {
                 if (anvil != null) scrap.ScrapRpc(player.NetworkObject);
@@ -993,7 +993,7 @@ namespace Deepbound.UI
             bool inspect = keyboard != null && keyboard.leftAltKey.isPressed && !life.Downed.Value;
             MenuOpen = shopOpen || forgeOpen || invOpen || runeOpen || DevMenu.Open || inspect || BlackjackTable.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
             InventoryOpen = invOpen;
-            statsHeld = DebugShowStats || (keyboard != null && keyboard.tabKey.isPressed && !Wardrobe.Open);
+            statsHeld = DebugShowStats || (keyboard != null && Binds.Held(Bind.Stats) && !Wardrobe.Open);
 
             // The host sets difficulty at camp.
             var dir = DungeonDirector.Instance;
@@ -1059,6 +1059,7 @@ namespace Deepbound.UI
             DrawVitals(w, h);
             DrawAbilities(w, h);
             DrawBoss(w);
+            DrawTally(w, h);
             DrawRage(w);
             DrawRevive(w, h);
             DrawPhase(w, h);
@@ -1317,7 +1318,7 @@ namespace Deepbound.UI
             for (int i = 0; i < abilities.Count; i++)
             {
                 var a = abilities[i];
-                Ability(x + (size + gap) * i, y, size, a.Key, a.Name, a.Remaining, a.Cooldown, a.Active, a.Unaffordable);
+                Ability(x + (size + gap) * i, y, size, Binds.Show(a.Key), a.Name, a.Remaining, a.Cooldown, a.Active, a.Unaffordable);
             }
             DrawUltimate(x + (size + gap) * abilities.Count, y, size);
 
@@ -1359,7 +1360,7 @@ namespace Deepbound.UI
                 Rect(x - 3, y - 3, size + 6, 2, c); Rect(x - 3, y + size + 1, size + 6, 2, c);
                 Rect(x - 3, y - 3, 2, size + 6, c); Rect(x + size + 1, y - 3, 2, size + 6, c);
             }
-            GUI.Label(new Rect(x, y + 6, size, 20), "R", center);
+            GUI.Label(new Rect(x, y + 6, size, 20), Binds.Label(Bind.Ultimate), center);
             string label = ult.Ready ? "READY" : Mathf.FloorToInt(k * 100f) + "%";
             GUI.Label(new Rect(x - 10, y + size - 22, size + 20, 18), label, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = ult.Ready ? FontStyle.Bold : FontStyle.Normal });
         }
@@ -1518,6 +1519,44 @@ namespace Deepbound.UI
             else if (v.Target != player.NetworkObjectId && targetThreat > 0f && mine > targetThreat * EnemyBrain.SwitchThreshold * 0.85f) warn = "Careful: you are about to pull its rage";
             if (warn != null)
                 GUI.Label(new Rect(x, y + ph + 2f, pw, 18), warn, new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.6f, 0.3f) } });
+        }
+
+        /// <summary>
+        /// The Tallyman (2026-10-20): after the bell, a countdown to his coming; once he is here, how far
+        /// off he is (red when close) and a green mark where he walks, through walls, within 45 m.
+        /// </summary>
+        private void DrawTally(float w, float h)
+        {
+            var dd = DungeonDirector.Instance;
+            if (dd == null || DungeonDirector.InLobby || BossIntroShowing || Unity.Netcode.NetworkManager.Singleton == null) return;
+            var green = new Color(0.62f, 1f, 0.7f);
+            var tm = Tallyman.Active;
+            if (dd.TallyStage.Value == 1 && dd.Phase.Value == RunPhase.Exploring && !dd.BossSealed)
+            {
+                double left = dd.FloorBegan.Value + DungeonDirector.TallyArriveSeconds - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time;
+                if (left <= 0) return;
+                int sec = Mathf.CeilToInt((float)left);
+                var st = new GUIStyle(center) { fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = new Color(green.r, green.g, green.b, 0.6f + 0.3f * Mathf.Sin(Time.time * 2f)) } };
+                GUI.Label(new Rect(0, 8, w, 22), "THE COUNT   " + sec / 60 + ":" + (sec % 60).ToString("00"), st);
+                return;
+            }
+            if (tm == null || tm.Leaving.Value) return;
+            float d = Vector3.Distance(player.transform.position, tm.transform.position);
+            bool close = d < 12f;
+            if (d < 20f) Bestiary.See("Tallyman");
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * (close ? 9f : 3f));
+            var col = close ? Color.Lerp(new Color(1f, 0.3f, 0.25f), Color.white, pulse * 0.3f) : green;
+            var big = new GUIStyle(center) { fontSize = 17, fontStyle = FontStyle.Bold, normal = { textColor = col } };
+            Rect(w / 2f - 130, 6, 260, 26, new Color(0f, 0f, 0f, 0.55f));
+            GUI.Label(new Rect(0, 8, w, 22), "THE TALLYMAN   " + Mathf.RoundToInt(d) + " m", big);
+            if (close) Rect(0, 0, w, h, new Color(0.1f, 0.4f, 0.2f, 0.06f + 0.06f * pulse));
+            var cam = player.Camera;
+            if (cam == null || d > 45f) return;
+            var sp = cam.WorldToScreenPoint(tm.transform.position + Vector3.up * 3.1f);
+            if (sp.z <= 0f) return;
+            float y = h - sp.y;
+            Rect(sp.x - 5, y - 5, 10, 10, new Color(col.r, col.g, col.b, 0.85f));
+            Rect(sp.x - 3, y - 3, 6, 6, new Color(0f, 0f, 0f, 0.8f));
         }
 
         private void DrawBoss(float w)
@@ -1723,7 +1762,7 @@ namespace Deepbound.UI
             if (age > 25f) return;
             float a = Mathf.Clamp01((25f - age) / 3f);
             var style = new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 1f, 1f, a * 0.85f) } };
-            GUI.Label(new Rect(w - 330, 262, 310, 190),
+            GUI.Label(new Rect(w - 330, 262, 310, 190), Binds.Rekey(
                 "WASD move  ·  Shift sprint  ·  Space jump\n" +
                 (progress.ClassId.Value == ClassId.Flagellant
                     ? "LMB Flail (every third swing CRASHES)  ·  RMB Scourge yourself for Zeal\n" +
@@ -1757,7 +1796,7 @@ namespace Deepbound.UI
                 "R ultimate (when charged)\n" +
                 "1 / 2  drink Health / Mana   3 / 4  throw Frost / Holy\n" +
                 "M map  ·  Z ping  ·  H high five  ·  Esc free mouse\n" +
-                "Hit enemies from behind for +35%", style);
+                "Hit enemies from behind for +35%"), style);
         }
 
         private GUIStyle feedStyle;
@@ -1842,6 +1881,7 @@ namespace Deepbound.UI
                 if (body.StartsWith("to ")) body = body.Substring(3);
                 if (body.Length > 0) body = char.ToUpperInvariant(body[0]) + body.Substring(1);
             }
+            if (key != null) key = Binds.Show(key);
             var st = new GUIStyle(center) { fontSize = 15, wordWrap = false, alignment = TextAnchor.MiddleLeft };
             float tw = Mathf.Min(w * 0.7f, st.CalcSize(new GUIContent(body)).x + 16f);
             float badge = key != null ? 30f : 0f;

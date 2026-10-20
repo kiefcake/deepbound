@@ -15,11 +15,17 @@ namespace Deepbound.UI
 
         /// <summary>For the screenshot run.</summary>
         public static void SetOpen(bool open) => Open = open;
-        private bool options, guide;
+        private bool options, guide, controls;
+        private Bind? capturing;
 
         /// <summary>For the screenshot run.</summary>
         public static void DebugShowGuide(PauseMenu menu, int page = 0) { Open = true; menu.guide = true; menu.guidePage = page; }
-        public static void DebugShowOptions(PauseMenu menu) { Open = true; menu.guide = false; menu.options = true; }
+        public static void DebugShowOptions(PauseMenu menu) { Open = true; menu.guide = false; menu.options = true; menu.controls = false; }
+        public static void DebugShowControls(PauseMenu menu) { Open = true; menu.guide = false; menu.options = true; menu.controls = true; }
+
+        /// <summary>Keys that can never be bound: menus, chat, the free cursor and the developer keys.</summary>
+        private static bool Reserved(Key k) => k == Key.Escape || k == Key.Enter || k == Key.NumpadEnter || k == Key.Slash || k == Key.Backquote
+            || k == Key.F1 || k == Key.LeftAlt || k == Key.RightAlt || k == Key.LeftMeta || k == Key.RightMeta || k == Key.ContextMenu || k == Key.None;
 
         // The Guide: every progression system and combo on one page, in plain words.
         private static readonly (string title, string body)[] GuideLeft =
@@ -45,17 +51,17 @@ namespace Deepbound.UI
         {
             ("EVERY CLASS", "R: your ultimate, charged by fighting. V: kick (dodge while sprinting to slide, then kick for a SLIDE KICK). The POTION POUCH holds up to 5 of each: 1 Health Potion (mends 45% over 3 s), 2 Mana Potion, 3 Frost Flask and 4 Holy Water (thrown). There is no natural regeneration: potions drop from the dead and from chests; Silas sells them at camp (Holy Water comes from the shrine). Hits sometimes CRIT. HEADSHOTS deal +50% with ranged attacks (+25% aimed melee); glowing WEAK POINTS (the Brute's back, a lich's phylactery, a Gargoyle's heart, the Hoarder's sack, every boss) deal double. H: high five a nearby ally who does the same for +10% damage. A downed ally BLEEDS OUT after 40 s: then carry their glowing SOUL SKULL to the waystone in the start room to bring them back. SEVEN CLASSES: Knight (tank), Mage (burst), Cleric (healer), Rogue (assassin, the fastest), Ranger (marksman), FLAGELLANT (bruiser: harder hits and lifesteal the more hurt you are, Scourge yourself for Zeal, Chains drag enemies in, Penitent Leap spends Fervor) and PLAGUE DOCTOR (afflicter/support: vials BLIGHT the dead so they take +10% from everyone, Tonics heal, Miasma rots, the Plague Mask cleanses and wards the party)."),
             ("THE DEAD", "A red ! over an enemy means it is about to strike (larger and redder when it is close to you). !! is a heavy blow: sidestep it. <!> is a wide sweep: back off. >> is a lunge along a marked line: dodge sideways. WRAITHS are ethereal until chilled, stunned, marked or consecrated. SHIELDBEARERS block from the front: flank them, or KICK (or Shield Bash) the shield aside for a few seconds. GARGOYLES pose as statues from floor 2 and dive along a marked line. MIMICS breathe when you are not looking. MOURNERS (floor 2+) move only while nobody looks at them: keep someone facing them, and listen for scraping stone. BONE HOARDERS run with a sack of gold. AFFLICTERS: Plaguebearers poison (and burst into a cloud), Frost Wights frostbite (slow), Hexers curse (less damage and healing until the Hexer dies). Holy Water cleanses. Deeper down they get smarter: they lead their shots (keep changing direction), bosses answer kiting with fast bursts, and ENTLINGS sprint in and root you until killed. Afflictions: POISON, FROSTBITE, CURSE, MANIA (you run wild for a moment and cannot attack) and ROOTED (your feet are frozen; you can still fight). Holy Water cleanses all but an Entling's roots."),
-            ("ROOMS", "Kick the dead into chasms and pendulum blades. A VAULT opens when three glowing levers, bolted to walls in different rooms, are all pulled. Smash a ritual chamber's violet braziers to lift its ward. Frost freezes anything standing in water. Balconies and pits reward high ground. Corridor flame traps fire on a beat. Most floors hide a RELIQUARY in a side room: haul it to the waystone for the whole party, guarding the carrier (hits crack it, and its hymn draws the dead). LIBRARIES: shelves block sight both ways. PYRE HALLS: the great fire erupts on a beat; when the red ring fills, get out past it and leave the dead inside. SPIKE GAUNTLETS: a wave of spikes runs down the hall; rows glow before they fire. BLOOD ALTARS want three offerings from the party (a fifth of your health each, embers back each time): when the chalice brims, everyone who bled gets a relic and everyone gets BLOODLUST (+15% damage for 90 s). The RELIQUARY's hymn mends whoever walks near its carrier; delivered, it raises the fallen, pays everyone (a relic each from 50% intact, a Sigil from 70%) and HALLOWS the floor: its boss wakes at 75% health and takes 10% more damage. SPECIAL ROOMS off the main path (like Isaac's): a TREASURY of three relics (one each), a BEGGAR who pays back the generous, a PROVING BELL (two waves, then gear for everyone), an ARMOURY whetstone (a free temper each) and a DARK MIRROR (a relic and gold for a fifth of your health until camp). TERRACES and ZIGGURATS give high ground: take the ramps. Spike plates hide in some rooms too. The peddler's room is always peaceful."),
+            ("ROOMS", "Kick the dead into chasms and pendulum blades. A VAULT opens when three glowing levers, bolted to walls in different rooms, are all pulled. Smash a ritual chamber's violet braziers to lift its ward. Frost freezes anything standing in water. Balconies and pits reward high ground. Corridor flame traps fire on a beat. Most floors hide a RELIQUARY in a side room: haul it to the waystone for the whole party, guarding the carrier (hits crack it, and its hymn draws the dead). LIBRARIES: shelves block sight both ways. PYRE HALLS: the great fire erupts on a beat; when the red ring fills, get out past it and leave the dead inside. SPIKE GAUNTLETS: a wave of spikes runs down the hall; rows glow before they fire. BLOOD ALTARS want three offerings from the party (a fifth of your health each, embers back each time): when the chalice brims, everyone who bled gets a relic and everyone gets BLOODLUST (+15% damage for 90 s). The RELIQUARY's hymn mends whoever walks near its carrier; delivered, it raises the fallen, pays everyone (a relic each from 50% intact, a Sigil from 70%) and HALLOWS the floor: its boss wakes at 75% health and takes 10% more damage. SPECIAL ROOMS off the main path (like Isaac's): a TREASURY of three relics (one each), a BEGGAR who pays back the generous, a PROVING BELL (two waves, then gear for everyone), an ARMOURY whetstone (a free temper each) a DARK MIRROR (a relic and gold for a fifth of your health until camp) and an OATH ROOM (hold both plates at once - two of you, or one and the Oath Stone - and its coffer opens). TERRACES and ZIGGURATS give high ground: take the ramps. Spike plates hide in some rooms too. The peddler's room is always peaceful."),
         };
         private static readonly (string title, string body)[] DungeonRight =
         {
             ("BOSS PHASES", "Bosses change phase at set health; no burst skips one. Between phases they are briefly INVULNERABLE. WARDED: kill the guards that shield them. SURVIVE: they are immune while a pattern plays out; dodge until the timer ends. ARMORED: a third of your damage gets through. From floor 2 every boss also HUNTS: chains of red circles walk after each of you where you are going (keep changing direction, do not strafe in one line), and fans of lances aimed ahead of you. Tells get shorter the deeper you go. Alone, it comes at you more often; with a party, everyone is hunted and it calls more guards. Bosses gather themselves before a big blow: they crouch, glow and draw embers in. Every guardian's arena has a shape (colonnade, dais or ruins) and often a QUIRK: PYLONS that heal it (break them), BALLISTAS (F, then reload), a CHANDELIER over a lit circle (lure it under, cut the chain) or SANCTUM braziers (each one lit: it takes more damage; it snuffs them). When it falls, the GRAVE LIFT comes down on chains: gather in the cage to ride up to camp. Stunned enemies sway with stars round their heads."),
-            ("THE DESCENT", "Ten floors in five acts of two: Ossuary, Drowned Vaults, Hollow Throne, Black Cathedral, then the Abyss. The first floor of an act ends at a WARDEN, the second at the act's master; the Unsung waits on floor 10. After every floor the carriage takes you back to camp."),
+            ("THE DESCENT", "Ten floors in five acts of two: Ossuary, Drowned Vaults, Hollow Throne, Black Cathedral, then the Abyss. The first floor of an act ends at a WARDEN, the second at the act's master; the Unsung waits on floor 10. After every floor the carriage takes you back to camp. DO NOT LINGER: about seven minutes into a floor a far bell tolls, and two minutes later THE TALLYMAN walks in. He cannot be hurt or stopped, he gets faster, and his touch drains a quarter of your life a second. Sprint, and seal yourselves into the guardian's arena: then he leaves."),
             ("THE SEALS", "Each act's CHAMPION (a named elite) carries a fragment of an old Seal in the first four acts. Every Seal you break weakens the Unsung at the bottom; every one you leave makes it 15% tougher."),
             ("FLOORS", "Ossuary: stamp out bone piles before they rise. Drowned Vaults: every so often the water thickens to a mire that halves your speed - get onto stairs, balconies or stones. Hollow Throne: smash soul lanterns to heal and stun. Black Cathedral: jump the bell's shockwave. The Abyss (with all three Seals): the light fails now and then - stay together."),
             ("INVENTORY", "I opens it. Gear you pick up goes into your PACK (8 slots); wearing a piece sends the old one back to it. In the pack: click to wear, right-click to scrap for embers (only at Hobb's anvil), shift-click to drop. Right-click worn gear to take it off. Everything is lost when the run ends. With friends: loot is SHARED by default (gold and embers split evenly; the host toggles it with L at camp). Give gold or even out the purse in the inventory, and ctrl-click a pack piece to hand it to the nearest ally."),
             ("PINGS", "Tap Z or middle mouse: mark the enemy, loot or spot you aim at. Hold it for the wheel and flick the mouse: up DANGER, right ON MY WAY, down NEED HELP (pinned to you), left LOOK. Downed, a tap calls for help."),
-            ("VOICE", "Proximity voice: anyone within about 30 m hears you, muffled through walls. Shouting wakes the dead within 10 m, statues too. The bled-out can only whisper. Push to talk (T) or turn it off in Options. TEXT CHAT: press Enter, type, Enter to send (Esc cancels); the game ignores your keys while you type."),
+            ("VOICE", "Proximity voice: anyone within about 30 m hears you, muffled through walls. Shouting wakes the dead within 10 m, statues too. The bled-out can only whisper. Push to talk (T) or turn it off in Options. Every key can be moved in Options > Controls. TEXT CHAT: press Enter, type, Enter to send (Esc cancels); the game ignores your keys while you type."),
             ("AT CAMP", "Trade is split by craft: SILAS sells potions and provisions, HOBB at the anvil tempers weapons, scraps gear, refines armour and sells embers, plate and a piece fitted for you, YSOLDE at the standing stones does runes, sigils and ability ranks (and melds runes), and the SHRINE offers holy water, relics and Brother Aldric's paid PRAYER (it catches one blow that would down you). Take a CONTRACT at the bounty board for the next floor. Turn the OMEN STONE before a run for a harder descent and more Renown. Spin the WHEEL OF FATE when you find one: it usually gives. From floor 2 a PEDDLER sometimes trades in a side room, at a markup. SERGEANT BRANN in the training yard sells drills (a stat for the run, dearer each time), MISTER BONES deals blackjack for up to four players (bets 5-100; win 300 in one visit and he cuts you off until the next floor), and CORWIN at the carriage sells a SCOUT'S MAP of the next floor and SMELLING SALTS (get up on your own once). From +6 the anvil wants gold as well as embers; it goes to +10 (+8 ASCENDED, +10 MASTERWORK, a third rune socket at +6). Sigils take abilities to rank 8. All cosmetics at the tailor are free for now. The host has a DEVELOPER MENU on F1."),
             ("RELIC SYNERGIES", "Some pairs awaken more: Frost Charm + Winter's Tooth, Vampiric Fang + Blood Pact, Thunder Sigil + Echo Stone, Executioner's Coin + Berserker's Brand, Phoenix Feather + Heart of the Deep."),
         };
@@ -100,10 +106,23 @@ namespace Deepbound.UI
         private void Update()
         {
             var keyboard = Keyboard.current;
+            if (capturing.HasValue && keyboard != null)
+            {
+                // Waiting for a key: the first one pressed takes the binding; Esc gives up.
+                if (keyboard.escapeKey.wasPressedThisFrame) { capturing = null; return; }
+                foreach (var key in keyboard.allKeys)
+                {
+                    if (key == null || !key.wasPressedThisFrame || Reserved(key.keyCode)) continue;
+                    Binds.Set(capturing.Value, key.keyCode);
+                    capturing = null;
+                    break;
+                }
+                return;
+            }
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame && !OtherMenuOpenLastFrame)
             {
                 Open = !Open;
-                options = guide = false;
+                options = guide = controls = false;
             }
         }
 
@@ -151,6 +170,11 @@ namespace Deepbound.UI
                 DrawGuide(w, h);
                 return;
             }
+            if (options && controls)
+            {
+                DrawControls(w, h);
+                return;
+            }
             var area = options ? new Rect(w / 2f - 390, h / 2f - 335, 780, 680) : new Rect(w / 2f - 180, h / 2f - 200, 360, 410);
             UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
             GUILayout.BeginArea(area);
@@ -193,7 +217,10 @@ namespace Deepbound.UI
                 GUILayout.EndVertical();
                 GUILayout.EndHorizontal();
                 GUILayout.Space(18);
+                GUILayout.BeginHorizontal();
+                if (GUILayout.Button("CONTROLS", UiSkin.Button, GUILayout.Height(42))) controls = true;
                 if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(42))) options = false;
+                GUILayout.EndHorizontal();
             }
             else
             {
@@ -222,6 +249,46 @@ namespace Deepbound.UI
                 GUILayout.Label("The dungeon does not pause for you.", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
             }
             GUILayout.EndArea();
+        }
+
+        /// <summary>
+        /// Options > Controls (2026-10-20): every gameplay key in two columns. Click one, press the new key
+        /// (Esc cancels); a key already in use swaps with it, so nothing is ever left unbound.
+        /// </summary>
+        private void DrawControls(float w, float h)
+        {
+            var area = new Rect(w / 2f - 390, h / 2f - 330, 780, 660);
+            UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
+            GUI.Label(new Rect(area.x, area.y, area.width, 40), "CONTROLS", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
+            GUI.Label(new Rect(area.x, area.y + 40, area.width, 20), capturing.HasValue ? "Press a key for " + LabelOf(capturing.Value).ToUpperInvariant() + "   (Esc cancels)" : "Click an action, then press its new key. Mouse buttons, Esc, Enter (chat) and Alt (free cursor) stay put.",
+                new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = capturing.HasValue ? UiSkin.Gold : UiSkin.Small.normal.textColor } });
+            int n = Binds.Defaults.Length, half = (n + 1) / 2;
+            float colW = 370f, rowH = 34f, top = area.y + 74f;
+            var label = new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleLeft, fontSize = 15 };
+            var keyStyle = new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 15 };
+            for (int i = 0; i < n; i++)
+            {
+                var d = Binds.Defaults[i];
+                var r = new Rect(area.x + (i < half ? 0f : colW + 40f), top + (i < half ? i : i - half) * rowH, colW, rowH - 4f);
+                bool live = capturing == d.bind, hover = r.Contains(Event.current.mousePosition);
+                UiSkin.Rect(r, new Color(1f, 1f, 1f, live ? 0.12f : hover ? 0.07f : 0.03f));
+                GUI.Label(new Rect(r.x + 10, r.y, r.width - 120, r.height), d.label, label);
+                var key = new Rect(r.xMax - 104, r.y + 3, 96, r.height - 6);
+                UiSkin.Panel(key, live ? 1f : 0.85f);
+                bool changed = Binds.KeyOf(d.bind) != d.key;
+                GUI.Label(key, live ? (Mathf.Repeat(Time.unscaledTime, 0.8f) < 0.5f ? "..." : "") : Binds.Label(d.bind),
+                    new GUIStyle(keyStyle) { normal = { textColor = live || changed ? UiSkin.Gold : Color.white } });
+                if (GUI.Button(r, GUIContent.none, GUIStyle.none)) capturing = live ? (Bind?)null : d.bind;
+            }
+            float by = area.yMax - 46f;
+            if (GUI.Button(new Rect(area.x, by, 250, 42), "RESET TO DEFAULTS", UiSkin.Button)) { Binds.ResetAll(); capturing = null; }
+            if (GUI.Button(new Rect(area.xMax - 250, by, 250, 42), "BACK", UiSkin.Button)) { controls = false; capturing = null; }
+        }
+
+        private static string LabelOf(Bind b)
+        {
+            foreach (var d in Binds.Defaults) if (d.bind == b) return d.label;
+            return b.ToString();
         }
 
         // The journal: the pages found so far, by floor; the rest are blanks to find.
