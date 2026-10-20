@@ -187,7 +187,10 @@ namespace Deepbound.Enemies
                 judgeAt = -1f;
                 judged = null;
                 var inside = new System.Collections.Generic.List<Health>(CombatQuery.Circle(judgeSpot, JudgeRadius, Team.Players));
-                float share = JudgeDamage * Difficulty.Level.Damage / Mathf.Max(1, inside.Count);
+                // A shared blow is meant to be split: alone there is no one to share it with, so it lands
+                // lighter (45% with one player, the full weight with four).
+                float partyWeight = Mathf.Lerp(0.45f, 1f, (StandingParty - 1) / 3f);
+                float share = JudgeDamage * Difficulty.Level.Damage * partyWeight / Mathf.Max(1, inside.Count);
                 foreach (var v in inside) v.ServerDamage(share, judgeSpot + Vector3.up, NetworkObjectId);
                 JudgementFallsRpc(judgeSpot, inside.Count);
                 Debug.Log("[Boss] Hollow King judgement shared by " + inside.Count);
