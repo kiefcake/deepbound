@@ -55,6 +55,11 @@ namespace Deepbound.Player
 
         /// <summary>The aura this player wears (<see cref="Cosmetics.Auras"/>): motes drifting up around them.</summary>
         public readonly NetworkVariable<byte> Aura = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        /// <summary>Heraldry: the colour that replaces the party colour on your tabard, plume, sash... (cosmetic, owner-written).</summary>
+        public readonly NetworkVariable<byte> Heraldry = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+
+        /// <summary>The colour your body and hands are dressed in: your heraldry, else your party colour.</summary>
+        public Color DressColor => Cosmetics.HeraldryColor(Heraldry.Value) ?? SlotColor;
         private float nextMote;
         public Color SlotColor => SlotColors[(int)(OwnerClientId % (ulong)SlotColors.Length)];
         public Camera Camera => playerCamera;
@@ -98,10 +103,12 @@ namespace Deepbound.Player
             BuildVisuals();
             progress.ClassId.OnValueChanged += (_, __) => BuildVisuals();
             CloakDye.OnValueChanged += (_, __) => BuildVisuals();
+            Heraldry.OnValueChanged += (_, __) => BuildVisuals();
             if (IsOwner)
             {
                 CloakDye.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Cloak);
                 Aura.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Aura);
+                Heraldry.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Heraldry);
             }
             progress.WeaponLevel.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket0.OnValueChanged += (_, __) => RefreshWeaponGlow();
@@ -148,7 +155,7 @@ namespace Deepbound.Player
 
             var cls = progress.ClassId.Value;
             bool mage = cls == ClassId.Mage, cleric = cls == ClassId.Cleric, rogue = cls == ClassId.Rogue, ranger = cls == ClassId.Ranger;
-            Rig = BuildBody(cls, transform, SlotColor, CloakDye.Value);
+            Rig = BuildBody(cls, transform, DressColor, CloakDye.Value);
             MeshKit.MergeRig(Rig);
 
             if (!IsOwner)
@@ -160,37 +167,37 @@ namespace Deepbound.Player
 
             if (mage)
             {
-                viewModel = CharacterArt.BuildMageViewModel(playerCamera.transform, SlotColor);
+                viewModel = CharacterArt.BuildMageViewModel(playerCamera.transform, DressColor);
                 viewAnim = new MageViewAnimator(viewModel, new Color(1f, 0.5f, 0.15f), new Color(0.45f, 0.8f, 1f));
             }
             else if (ranger)
             {
-                viewModel = CharacterArt.BuildRangerViewModel(playerCamera.transform, SlotColor);
+                viewModel = CharacterArt.BuildRangerViewModel(playerCamera.transform, DressColor);
                 viewAnim = new BowViewAnimator(viewModel);
             }
             else if (rogue)
             {
-                viewModel = CharacterArt.BuildRogueViewModel(playerCamera.transform, SlotColor);
+                viewModel = CharacterArt.BuildRogueViewModel(playerCamera.transform, DressColor);
                 viewAnim = new DaggerViewAnimator(viewModel);
             }
             else if (cls == ClassId.Flagellant)
             {
-                viewModel = CharacterArt.BuildFlagellantViewModel(playerCamera.transform, SlotColor);
+                viewModel = CharacterArt.BuildFlagellantViewModel(playerCamera.transform, DressColor);
                 viewAnim = new ViewModelAnimator(viewModel);
             }
             else if (cls == ClassId.PlagueDoctor)
             {
-                viewModel = CharacterArt.BuildPlagueDoctorViewModel(playerCamera.transform, SlotColor);
+                viewModel = CharacterArt.BuildPlagueDoctorViewModel(playerCamera.transform, DressColor);
                 viewAnim = new MageViewAnimator(viewModel, new Color(0.55f, 1f, 0.35f), new Color(1f, 0.55f, 0.6f));
             }
             else if (cleric)
             {
-                viewModel = CharacterArt.BuildClericViewModel(playerCamera.transform, SlotColor);
+                viewModel = CharacterArt.BuildClericViewModel(playerCamera.transform, DressColor);
                 viewAnim = new MageViewAnimator(viewModel, new Color(1f, 0.85f, 0.45f), new Color(1f, 0.95f, 0.75f));
             }
             else
             {
-                viewModel = CharacterArt.BuildKnightViewModel(playerCamera.transform, SlotColor);
+                viewModel = CharacterArt.BuildKnightViewModel(playerCamera.transform, DressColor);
                 viewAnim = new ViewModelAnimator(viewModel);
             }
             RefreshWeaponGlow();

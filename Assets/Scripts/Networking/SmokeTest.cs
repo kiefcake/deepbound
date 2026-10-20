@@ -1934,14 +1934,14 @@ namespace Deepbound.Networking
             // A tour of the castle: the road from the bonfire, the stalls, the tent, the gong, the gate.
             var tour = new (string name, Vector3 at, Vector3 look, float pitch)[]
             {
-                ("0j_castle_road", Lobby.Origin + new Vector3(0f, 0.1f, -17f), Lobby.Origin + new Vector3(0f, 2f, 10f), -8f),
-                ("0k_castle_stalls", Lobby.Origin + new Vector3(0f, 0.1f, -10f), Lobby.Origin + new Vector3(-5f, 1.5f, -5f), 0f),
-                ("0l_castle_tent", Lobby.Origin + new Vector3(-2f, 0.1f, 6f), Lobby.TentCenter + Vector3.up * 1.5f, 0f),
-                ("0m_castle_gong", Lobby.Origin + new Vector3(3f, 0.1f, 6f), Lobby.GongSpot + Vector3.up * 2f, 0f),
-                ("0n_castle_gate", Lobby.Origin + new Vector3(-4f, 0.1f, 8f), Lobby.BoardingCenter + new Vector3(2f, 3f, 6f), -10f),
-                ("0o_castle_keep", Lobby.Origin + new Vector3(3f, 0.1f, 2f), Lobby.Origin + new Vector3(0f, 9f, -24f), -18f),
-                ("0q_castle_shrine", Lobby.Origin + new Vector3(10.5f, 0.1f, -4f), Lobby.ShrineSpot + Vector3.up * 1.5f, 0f),
-                ("0r_castle_range", Lobby.Origin + new Vector3(8.5f, 0.1f, 11f), Lobby.RangeCenter + Vector3.up * 1.2f, 0f),
+                ("0j_castle_road", Lobby.Origin + Lobby.S(0f, 0.1f, -17f), Lobby.Origin + Lobby.S(0f, 2f, 10f), -8f),
+                ("0k_castle_stalls", Lobby.Origin + Lobby.S(0f, 0.1f, -10f), Lobby.Origin + Lobby.S(-5f, 1.5f, -5f), 0f),
+                ("0l_castle_tent", Lobby.Origin + Lobby.S(-2f, 0.1f, 6f), Lobby.TentCenter + Vector3.up * 1.5f, 0f),
+                ("0m_castle_gong", Lobby.Origin + Lobby.S(3f, 0.1f, 6f), Lobby.GongSpot + Vector3.up * 2f, 0f),
+                ("0n_castle_gate", Lobby.Origin + Lobby.S(-4f, 0.1f, 8f), Lobby.BoardingCenter + new Vector3(2f, 3f, 6f), -10f),
+                ("0o_castle_keep", Lobby.Origin + Lobby.S(3f, 0.1f, 2f), Lobby.Origin + Lobby.S(0f, 9f, -24f), -18f),
+                ("0q_castle_shrine", Lobby.Origin + Lobby.S(10.5f, 0.1f, -4f), Lobby.ShrineSpot + Vector3.up * 1.5f, 0f),
+                ("0r_castle_range", Lobby.Origin + Lobby.S(8.5f, 0.1f, 11f), Lobby.RangeCenter + Vector3.up * 1.2f, 0f),
             };
             foreach (var (tname, tat, tlook, tpitch) in tour)
             {
@@ -2021,7 +2021,7 @@ namespace Deepbound.Networking
             {
                 local.GetComponent<UI.GameHud>().DebugCloseMenus();
                 var rv = raven.transform.position;
-                if (rv.y > Lobby.Origin.y + 2f) rv = Lobby.Origin + new Vector3(0.3f, 0.02f, 2.6f);
+                if (rv.y > Lobby.Origin.y + 2f) rv = Lobby.Origin + Lobby.S(0.3f, 0.02f, 2.6f);
                 raven.DebugHold(rv);
                 var stand = rv + new Vector3(2.2f, 0f, 0.4f);
                 lobbyMotor.Teleport(stand + Vector3.up * 0.1f, Quaternion.LookRotation(Vector3.ProjectOnPlane(rv - stand, Vector3.up)));
@@ -2142,7 +2142,7 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "1b_drillmaster");
 
                 // A relic on the ground: the beacon and its name.
-                var rFrom = Lobby.Origin + new Vector3(4f, 0.1f, -10f);
+                var rFrom = Lobby.Origin + Lobby.S(4f, 0.1f, -10f);
                 lobbyMotor.Teleport(rFrom, Quaternion.LookRotation(Vector3.forward));
                 DungeonDirector.Instance.ServerDropLoot(rFrom + new Vector3(0f, 0f, 6f), LootKind.Relic, (int)Relic.LongShadow, null, false);
                 yield return new WaitForSeconds(0.9f);
@@ -2150,7 +2150,7 @@ namespace Deepbound.Networking
                 foreach (var ld in FindObjectsByType<LootDrop>(FindObjectsSortMode.None)) if (ld.NetworkObject.IsSpawned && ld.Kind.Value == LootKind.Relic) ld.NetworkObject.Despawn();
 
                 // Gear: a drop on the floor with its comparison card, then the Tab sheet.
-                var gFrom = Lobby.Origin + new Vector3(0f, 0.1f, -8f);
+                var gFrom = Lobby.Origin + Lobby.S(0f, 0.1f, -8f);
                 lobbyMotor.Teleport(gFrom, Quaternion.LookRotation(Vector3.forward));
                 ap.ServerEquip(new GearItem(GearId.OssuaryPlate, 0, 0));
                 ap.ServerEquip(new GearItem(GearId.HuntersTooth, 1, 0));

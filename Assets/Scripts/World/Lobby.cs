@@ -17,37 +17,41 @@ namespace Deepbound.World
     public static class Lobby
     {
         public static readonly Vector3 Origin = new Vector3(0f, 300f, 0f);
-        public const float Radius = 26f;
+        /// <summary>The courtyard's radius (26 m until 2026-10-20: the camp was cramped).</summary>
+        public const float Radius = 35f;
+        /// <summary>Every camp position is spread out by this from the plaza's centre (sizes stay as they were).</summary>
+        public const float Spread = 1.35f;
+        public static Vector3 S(float x, float y, float z) => new Vector3(x * Spread, y, z * Spread);
         private const float WallHeight = 9f, WallThick = 1.6f;
 
         // The road runs south (spawn) to north (gate).
-        public static readonly Vector3 BoardingCenter = Origin + new Vector3(0f, 0f, 18f);
+        public static readonly Vector3 BoardingCenter = Origin + S(0f, 0f, 18f);
         public const float BoardingRadius = 3.2f;
 
         // Stalls along the road.
-        public static readonly Vector3 MerchantSpot = Origin + new Vector3(-7.4f, 0f, -5f);
-        public static readonly Vector3 AnvilSpot = Origin + new Vector3(5.6f, 0f, -5f);
+        public static readonly Vector3 MerchantSpot = Origin + S(-7.4f, 0f, -5f);
+        public static readonly Vector3 AnvilSpot = Origin + S(5.6f, 0f, -5f);
         public static readonly Vector3 AnvilFacing = Vector3.left;
-        public static readonly Vector3 TentCenter = Origin + new Vector3(-9.5f, 0f, 6f);
+        public static readonly Vector3 TentCenter = Origin + S(-9.5f, 0f, 6f);
         public static readonly Vector3 DiceSpot = TentCenter + new Vector3(1.4f, 0f, -1.2f);
         public static readonly Vector3 CofferSpot = TentCenter + new Vector3(1.6f, 0f, 1.6f);
         public static readonly Vector3 TentFacing = Vector3.right;
         /// <summary>The bone reels, against the tent's back wall, and the card table by its south wall.</summary>
         public static readonly Vector3 SlotSpot = TentCenter + new Vector3(-2.9f, 0f, 0.3f);
         public static readonly Vector3 BlackjackSpot = TentCenter + new Vector3(-0.6f, 0f, -2.5f);
-        public static readonly Vector3 GongSpot = Origin + new Vector3(8.5f, 0f, 6f);
+        public static readonly Vector3 GongSpot = Origin + S(8.5f, 0f, 6f);
         public static readonly Vector3 GongFacing = Vector3.left;
 
-        public static readonly Vector3 ShrineSpot = Origin + new Vector3(15.5f, 0f, -4f);
+        public static readonly Vector3 ShrineSpot = Origin + S(15.5f, 0f, -4f);
         /// <summary>The training yard's drill board, on the plaza side of its fence.</summary>
-        public static readonly Vector3 YardSpot = Origin + new Vector3(-9.1f, 0f, -8.2f);
+        public static readonly Vector3 YardSpot = Origin + S(-9.1f, 0f, -8.2f);
         /// <summary>Ysolde the runewright's stones, between the shrine and the gong: runes, sigils, abilities.</summary>
-        public static readonly Vector3 RunewrightSpot = Origin + new Vector3(12.6f, 0f, 3.2f);
+        public static readonly Vector3 RunewrightSpot = Origin + S(12.6f, 0f, 3.2f);
 
         /// <summary>Where you talk to Corwin, beside his carriage.</summary>
         public static Vector3 CarriageStall => CarriageAt + new Vector3(0f, 0f, 2.2f);
         /// <summary>The carriage: wagon centre, facing out of the gate (+z).</summary>
-        public static readonly Vector3 CarriageAt = Origin + new Vector3(0f, 0f, 19.5f);
+        public static readonly Vector3 CarriageAt = Origin + S(0f, 0f, 19.5f);
 
         /// <summary>Where each camp character stands (their struck-body, <see cref="CampFolk"/>).</summary>
         public static (FolkId id, Vector3 at)[] FolkBodies => new[]
@@ -63,36 +67,36 @@ namespace Deepbound.World
         };
 
         /// <summary>The bounty board, by the road near the gate: contracts for the next floor.</summary>
-        public static readonly Vector3 BountySpot = Origin + new Vector3(-5.2f, 0f, 12.5f);
+        public static readonly Vector3 BountySpot = Origin + S(-5.2f, 0f, 12.5f);
         public static readonly Vector3 BountyFacing = Vector3.right;
         /// <summary>The Omen Stone, east of the boarding circle.</summary>
-        public static readonly Vector3 OmenSpot = Origin + new Vector3(5.2f, 0f, 14.5f);
+        public static readonly Vector3 OmenSpot = Origin + S(5.2f, 0f, 14.5f);
 
         /// <summary>The tailor, west of the merchant: cloak dyes for Renown (local, see <c>UI.Wardrobe</c>).</summary>
-        public static readonly Vector3 TailorSpot = Origin + new Vector3(-14.6f, 0f, -4f);
+        public static readonly Vector3 TailorSpot = Origin + S(-14.6f, 0f, -4f);
         public static readonly Vector3 TailorFacing = Vector3.right;
-        public static readonly Vector3 MannequinSpot = Origin + new Vector3(-11.4f, 0f, -0.9f);
+        public static readonly Vector3 MannequinSpot = Origin + S(-11.4f, 0f, -0.9f);
 
         /// <summary>The archery range in the north-east: three targets on rails, a shooting line at x = 10.</summary>
         public static readonly Vector3[] TargetSpots =
         {
-            Origin + new Vector3(15.5f, 0f, 11f),
-            Origin + new Vector3(17.5f, 0f, 11.5f),
-            Origin + new Vector3(19.5f, 0f, 10.5f),
+            Origin + S(15.5f, 0f, 11f),
+            Origin + S(17.5f, 0f, 11.5f),
+            Origin + S(19.5f, 0f, 10.5f),
         };
-        public static readonly Vector3 RangeCenter = Origin + new Vector3(15f, 0f, 11f);
+        public static readonly Vector3 RangeCenter = Origin + S(15f, 0f, 11f);
 
         /// <summary>The training yard, west of the bonfire plaza.</summary>
         public static readonly Vector3[] DummySpots =
         {
-            Origin + new Vector3(-13f, 0f, -16f),
-            Origin + new Vector3(-13f, 0f, -11f),
+            Origin + S(-13f, 0f, -16f),
+            Origin + S(-13f, 0f, -11f),
         };
 
         public static Vector3 SpawnFor(ulong clientId)
         {
             float angle = clientId * Mathf.PI * 0.5f + Mathf.PI * 0.25f;
-            return Origin + new Vector3(0f, 0f, -14f) + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 2.6f + Vector3.up * 0.1f;
+            return Origin + S(0f, 0f, -14f) + new Vector3(Mathf.Cos(angle), 0f, Mathf.Sin(angle)) * 2.6f + Vector3.up * 0.1f;
         }
 
         public static bool InBoardingCircle(Vector3 p)
@@ -126,7 +130,7 @@ namespace Deepbound.World
             BuildSky(lights);
 
             // The bonfire on the plaza where everyone arrives.
-            var fire = o + new Vector3(0f, 0f, -14f);
+            var fire = o + S(0f, 0f, -14f);
             for (int i = 0; i < 12; i++)
             {
                 float a = i * Mathf.PI * 2f / 12f;
@@ -358,7 +362,7 @@ namespace Deepbound.World
                 Props.Banner(lights, o + dir * (Radius - 0.05f) + Vector3.up * 7.6f, -dir, i % 2 == 0 ? new Color(0.45f, 0.08f, 0.08f) : new Color(0.12f, 0.12f, 0.3f));
             }
             // A well on the plaza, with a lantern on its frame.
-            var well = o + new Vector3(6.5f, 0f, -16.5f);
+            var well = o + S(6.5f, 0f, -16.5f);
             d.Add(MeshKit.Cylinder(1f, 1.05f, 0.85f, 16), Mat.StoneWall, Matrix4x4.Translate(well));
             d.Add(MeshKit.Cylinder(0.82f, 0.82f, 0.05f, 16), Mat.Dark, Matrix4x4.Translate(well + Vector3.up * 0.8f));
             foreach (float s in new[] { -0.9f, 0.9f }) d.AddBox(well + new Vector3(s, 1.4f, 0f), new Vector3(0.12f, 1.4f, 0.12f), Mat.Wood);
@@ -368,16 +372,16 @@ namespace Deepbound.World
             // Hay, barrels and a feed trough by the carriage.
             foreach (var (x, z, yaw) in new[] { (-4.6f, 17.2f, 10f), (-4.9f, 18.6f, -14f), (4.7f, 21.6f, 30f) })
             {
-                var bale = MeshKit.Part(lights, "HayBale", MeshKit.Box(new Vector3(0.9f, 0.5f, 0.55f)), Mat.Cloth, o + new Vector3(x, 0.25f, z), new Vector3(0f, yaw, 0f));
+                var bale = MeshKit.Part(lights, "HayBale", MeshKit.Box(new Vector3(0.9f, 0.5f, 0.55f)), Mat.Cloth, o + S(x, 0.25f, z), new Vector3(0f, yaw, 0f));
                 ArtLibrary.Tint(bale.GetComponent<Renderer>(), new Color(0.62f, 0.5f, 0.22f));
                 foreach (float bx in new[] { -0.25f, 0.25f })
                 {
                     MeshKit.Part(bale.transform, "Twine", MeshKit.Box(new Vector3(0.03f, 0.52f, 0.57f)), Mat.Leather, new Vector3(bx, 0f, 0f));
                 }
             }
-            Props.Barrel(d, o + new Vector3(4.4f, 0f, 18.2f));
-            Props.Barrel(d, o + new Vector3(5f, 0f, 17.4f));
-            d.AddBox(o + new Vector3(-4.2f, 0.4f, 22.5f), new Vector3(0.8f, 0.5f, 2.2f), Mat.Wood);
+            Props.Barrel(d, o + S(4.4f, 0f, 18.2f));
+            Props.Barrel(d, o + S(5f, 0f, 17.4f));
+            d.AddBox(o + S(-4.2f, 0.4f, 22.5f), new Vector3(0.8f, 0.5f, 2.2f), Mat.Wood);
             // Lit windows in the keep's front and the towers: warm squares high in the dark.
             var keep = o + new Vector3(0f, 0f, -Radius + 3f);
             foreach (var (x, y) in new[] { (-6.2f, 4.5f), (6.2f, 4.5f), (-6.2f, 12.5f), (6.2f, 12.5f), (-2.6f, 15.2f), (2.6f, 15.2f) })
@@ -385,15 +389,15 @@ namespace Deepbound.World
             // Hanging lanterns over the road between the stalls.
             foreach (float z in new[] { -6f, 2f, 10f })
             {
-                var at = o + new Vector3(0f, 4.2f, z);
-                foreach (float s in new[] { -1f, 1f }) d.AddBox(o + new Vector3(s * 4.1f, 2.3f, z), new Vector3(0.14f, 4.6f, 0.14f), Mat.Wood);
+                var at = o + S(0f, 4.2f, z);
+                foreach (float s in new[] { -1f, 1f }) d.AddBox(o + S(s * 4.1f, 2.3f, z), new Vector3(0.14f, 4.6f, 0.14f), Mat.Wood);
                 // A sagging rope of little lanterns between the poles.
                 for (int k = 0; k <= 8; k++)
                 {
                     float u = k / 8f;
                     float sag = Mathf.Sin(u * Mathf.PI) * 0.45f;
-                    var p = o + new Vector3(-4.1f + u * 8.2f, 4.6f - sag, z);
-                    if (k < 8) d.AddBox(p + new Vector3(0.51f, -Mathf.Cos(u * Mathf.PI) * 0.09f, 0f), new Vector3(1.03f, 0.025f, 0.025f), Mat.Leather, Quaternion.Euler(0f, 0f, -Mathf.Cos(u * Mathf.PI) * 10f));
+                    var p = o + S(-4.1f + u * 8.2f, 4.6f - sag, z);
+                    if (k < 8) d.AddBox(p + new Vector3(0.51f, -Mathf.Cos(u * Mathf.PI) * 0.09f, 0f), new Vector3(1.03f * Spread, 0.025f, 0.025f), Mat.Leather, Quaternion.Euler(0f, 0f, -Mathf.Cos(u * Mathf.PI) * 10f));
                     if (k > 0 && k < 8)
                     {
                         d.AddBox(p + Vector3.down * 0.12f, new Vector3(0.012f, 0.22f, 0.012f), Mat.Steel);
@@ -407,13 +411,13 @@ namespace Deepbound.World
         /// <summary>The cobbled road from the bonfire to the gate, braziers along both sides.</summary>
         private static void BuildRoad(Vector3 o, MeshKit.Batcher d, Transform lights)
         {
-            d.AddBox(o + new Vector3(0f, 0.02f, 3f), new Vector3(4.2f, 0.04f, 38f), Mat.Rubble);
-            d.AddBox(o + new Vector3(-2.2f, 0.06f, 3f), new Vector3(0.3f, 0.12f, 38f), Mat.StoneWall);
-            d.AddBox(o + new Vector3(2.2f, 0.06f, 3f), new Vector3(0.3f, 0.12f, 38f), Mat.StoneWall);
+            d.AddBox(o + S(0f, 0.02f, 3f), new Vector3(5.9f, 0.04f, 38f * Spread), Mat.Rubble);
+            d.AddBox(o + S(-2.2f, 0.06f, 3f), new Vector3(0.3f, 0.12f, 38f * Spread), Mat.StoneWall);
+            d.AddBox(o + S(2.2f, 0.06f, 3f), new Vector3(0.3f, 0.12f, 38f * Spread), Mat.StoneWall);
             for (float z = -9f; z <= 15f; z += 8f)
             {
-                Props.Brazier(lights, o + new Vector3(-3.2f, 0f, z), Fire, false);
-                Props.Brazier(lights, o + new Vector3(3.2f, 0f, z), Fire, z > 10f);
+                Props.Brazier(lights, o + S(-3.2f, 0f, z), Fire, false);
+                Props.Brazier(lights, o + S(3.2f, 0f, z), Fire, z > 10f);
             }
         }
 
@@ -447,12 +451,12 @@ namespace Deepbound.World
         private static void BuildStalls(Vector3 o, MeshKit.Batcher d, Transform lights)
         {
             // Merchant (west), behind his own table of wares.
-            Stall(lights, d, o + new Vector3(-4.8f, 0f, -5f), Vector3.right, new Color(0.55f, 0.12f, 0.12f), new Color(0.85f, 0.75f, 0.5f));
+            Stall(lights, d, o + S(-4.8f, 0f, -5f), Vector3.right, new Color(0.55f, 0.12f, 0.12f), new Color(0.85f, 0.75f, 0.5f));
             Props.Merchant(lights, MerchantSpot, MerchantSpot + Vector3.right * 3f, d);
 
             // Blacksmith (east): forge with a chimney and a quench barrel beside the anvil.
-            Stall(lights, d, o + new Vector3(4.8f, 0f, -5f), Vector3.left, new Color(0.2f, 0.2f, 0.24f), new Color(0.6f, 0.35f, 0.15f));
-            var forge = o + new Vector3(8.2f, 0f, -6.6f);
+            Stall(lights, d, o + S(4.8f, 0f, -5f), Vector3.left, new Color(0.2f, 0.2f, 0.24f), new Color(0.6f, 0.35f, 0.15f));
+            var forge = o + S(8.2f, 0f, -6.6f);
             d.AddBox(forge + Vector3.up * 0.7f, new Vector3(1.8f, 1.4f, 1.4f), Mat.StoneWall);
             d.AddBox(forge + Vector3.up * 1.42f, new Vector3(1.4f, 0.05f, 1f), Mat.Flame);
             d.AddBox(forge + new Vector3(0f, 3.4f, -0.3f), new Vector3(0.8f, 4f, 0.8f), Mat.StoneWall);
@@ -463,8 +467,8 @@ namespace Deepbound.World
             forgeLight.color = new Color(1f, 0.45f, 0.15f);
             forgeLight.range = 7f;
             forgeLight.intensity = 3f;
-            Props.Barrel(d, o + new Vector3(6.8f, 0f, -3.2f));
-            Props.WeaponRack(d, o + new Vector3(8.6f, 0f, -3.4f), Quaternion.Euler(0f, -90f, 0f));
+            Props.Barrel(d, o + S(6.8f, 0f, -3.2f));
+            Props.WeaponRack(d, o + S(8.6f, 0f, -3.4f), Quaternion.Euler(0f, -90f, 0f));
 
             // The bounty board: a timber frame with a little roof, notices pinned to it (networked).
             var bs = BountySpot;
@@ -546,19 +550,19 @@ namespace Deepbound.World
         private static void BuildYard(Vector3 o, MeshKit.Batcher d, Transform lights)
         {
             // Straw under the dummies, a fence on the plaza side, and spare arms.
-            d.AddBox(o + new Vector3(-13f, 0.02f, -13.5f), new Vector3(5f, 0.03f, 9f), Mat.Wood);
+            d.AddBox(o + S(-13f, 0.02f, -13.5f), new Vector3(5f, 0.03f, 9f), Mat.Wood);
             for (float z = -17.5f; z <= -9.5f; z += 2f)
-                d.AddBox(o + new Vector3(-10.2f, 0.5f, z), new Vector3(0.14f, 1f, 0.14f), Mat.Wood);
-            d.AddBox(o + new Vector3(-10.2f, 0.85f, -13.5f), new Vector3(0.08f, 0.1f, 8f), Mat.Wood);
-            Props.WeaponRack(d, o + new Vector3(-15.8f, 0f, -13.5f), Quaternion.Euler(0f, 90f, 0f));
+                d.AddBox(o + S(-10.2f, 0.5f, z), new Vector3(0.14f, 1f, 0.14f), Mat.Wood);
+            d.AddBox(o + S(-10.2f, 0.85f, -13.5f), new Vector3(0.08f, 0.1f, 8f), Mat.Wood);
+            Props.WeaponRack(d, o + S(-15.8f, 0f, -13.5f), Quaternion.Euler(0f, 90f, 0f));
             // Sergeant Brann's corner: a stool, a bucket and a rack of practice swords by the yard fence.
             d.AddBox(YardSpot + new Vector3(-0.9f, 0.25f, 0.8f), new Vector3(0.4f, 0.5f, 0.4f), Mat.Wood);
             d.Add(MeshKit.Cylinder(0.18f, 0.15f, 0.32f, 10), Mat.Wood, Matrix4x4.Translate(YardSpot + new Vector3(-0.9f, 0f, -0.8f)));
             for (int i = 0; i < 4; i++) d.AddBox(YardSpot + new Vector3(-1.05f, 0.6f, -0.3f + i * 0.18f), new Vector3(0.04f, 1.2f, 0.03f), Mat.Wood, Quaternion.Euler(0f, 0f, 10f));
-            Props.Brazier(lights, o + new Vector3(-11f, 0f, -18.5f), Fire, false);
-            Props.Crate(d, o + new Vector3(14f, 0f, -14f), 1.2f, 12f);
-            Props.Crate(d, o + new Vector3(15.2f, 0f, -12.8f), 0.9f, -8f);
-            Props.Barrel(d, o + new Vector3(13.8f, 0f, -12.2f));
+            Props.Brazier(lights, o + S(-11f, 0f, -18.5f), Fire, false);
+            Props.Crate(d, o + S(14f, 0f, -14f), 1.2f, 12f);
+            Props.Crate(d, o + S(15.2f, 0f, -12.8f), 0.9f, -8f);
+            Props.Barrel(d, o + S(13.8f, 0f, -12.2f));
         }
 
         /// <summary>Ysolde's ring of standing stones: tall slabs cut with glowing runes, a low rune table at her side.</summary>
@@ -651,21 +655,21 @@ namespace Deepbound.World
                 d.AddBox(t + new Vector3(0.5f, 0.03f, 0f), new Vector3(0.12f, 0.06f, 7.6f), Mat.Wood);
             }
             // The shooting line: a low rail at x = 10, with a sign post.
-            var line = Origin + new Vector3(10f, 0f, 11f);
+            var line = Origin + S(10f, 0f, 11f);
             d.AddBox(line + new Vector3(0f, 0.55f, 0f), new Vector3(0.1f, 0.1f, 6f), Mat.Wood);
             for (int i = -1; i <= 1; i++) d.AddBox(line + new Vector3(0f, 0.3f, i * 2.9f), new Vector3(0.12f, 0.6f, 0.12f), Mat.Wood);
             d.AddBox(line + new Vector3(0f, 1.2f, -3.4f), new Vector3(0.1f, 2.4f, 0.1f), Mat.Wood);
             d.AddBox(line + new Vector3(0f, 2.2f, -3.4f), new Vector3(0.08f, 0.5f, 1f), Mat.Wood);
             // Hay bales stacked behind the targets to catch the misses.
             for (int i = 0; i < 5; i++)
-                d.AddBox(Origin + new Vector3(21.2f, 0.45f + (i % 2) * 0.9f, 7.5f + i * 1.6f), new Vector3(1f, 0.9f, 1.5f), Mat.Wood, Quaternion.Euler(0f, 12f * (i % 3), 0f));
+                d.AddBox(Origin + S(21.2f, 0.45f + (i % 2) * 0.9f, 7.5f + i * 1.6f), new Vector3(1f, 0.9f, 1.5f), Mat.Wood, Quaternion.Euler(0f, 12f * (i % 3), 0f));
             Props.Brazier(lights, line + new Vector3(-0.8f, 0f, 3.6f), Fire, false);
         }
 
         /// <summary>No roof: a pale moon and a scatter of stars over the walls.</summary>
         private static void BuildSky(Transform lights)
         {
-            var moonAt = Origin + new Vector3(28f, 42f, 50f);
+            var moonAt = Origin + S(28f, 42f, 50f);
             var moon = MeshKit.Part(lights, "Moon", MeshKit.Ball(4f, 16, 12), Mat.Glow, moonAt);
             ArtLibrary.SetGlow(moon.GetComponent<Renderer>(), new Color(0.9f, 0.9f, 1f) * 1.15f);
             moon.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
@@ -725,7 +729,7 @@ namespace Deepbound.World
             sky.Center = Origin;
             var moonlight = new GameObject("Moonlight").AddComponent<Light>();
             moonlight.transform.SetParent(lights, false);
-            moonlight.transform.position = Origin + new Vector3(0f, 40f, 10f);
+            moonlight.transform.position = Origin + S(0f, 40f, 10f);
             moonlight.type = LightType.Point;
             moonlight.color = new Color(0.55f, 0.65f, 1f);
             moonlight.range = 90f;

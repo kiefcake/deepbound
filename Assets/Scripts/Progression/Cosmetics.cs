@@ -16,7 +16,7 @@ namespace Deepbound.Progression
     /// </summary>
     public static class Cosmetics
     {
-        public enum Kind { Cloak, Aura }
+        public enum Kind { Cloak, Aura, Heraldry }
 
         public struct Item
         {
@@ -53,11 +53,36 @@ namespace Deepbound.Progression
             new Item { Name = "Last Rites", Cloak = new Color(1f, 0.82f, 0.4f), Cost = 280, NeedsBoss = 3 },
         };
 
-        public static Item[] Of(Kind kind) => kind == Kind.Aura ? Auras : Dyes;
+        /// <summary>
+        /// Heraldry (2026-10-20): the colour of your tabard, plume, sash, hat band and every other piece
+        /// in the party colour, on any class. Index 0 is "your party colour". Append only.
+        /// </summary>
+        public static readonly Item[] Heraldries =
+        {
+            new Item { Name = "Party Colour", Cost = 0, NeedsBoss = -1 },
+            new Item { Name = "Oxblood", Cloak = new Color(0.55f, 0.08f, 0.08f), Cost = 40, NeedsBoss = -1 },
+            new Item { Name = "Forest Green", Cloak = new Color(0.12f, 0.38f, 0.16f), Cost = 40, NeedsBoss = -1 },
+            new Item { Name = "Azure", Cloak = new Color(0.16f, 0.36f, 0.8f), Cost = 40, NeedsBoss = -1 },
+            new Item { Name = "Saffron", Cloak = new Color(0.92f, 0.62f, 0.12f), Cost = 60, NeedsBoss = -1 },
+            new Item { Name = "Plum", Cloak = new Color(0.42f, 0.14f, 0.45f), Cost = 60, NeedsBoss = -1 },
+            new Item { Name = "Ivory", Cloak = new Color(0.86f, 0.83f, 0.74f), Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Charcoal", Cloak = new Color(0.16f, 0.16f, 0.18f), Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Teal", Cloak = new Color(0.08f, 0.5f, 0.5f), Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Rose", Cloak = new Color(0.82f, 0.36f, 0.48f), Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Ember Orange", Cloak = new Color(0.9f, 0.36f, 0.08f), Cost = 120, NeedsBoss = 0 },
+            new Item { Name = "Sea Glass", Cloak = new Color(0.45f, 0.82f, 0.75f), Cost = 160, NeedsBoss = 1 },
+            new Item { Name = "Royal Gold", Cloak = new Color(0.85f, 0.68f, 0.2f), Cost = 220, NeedsBoss = 2 },
+            new Item { Name = "Cathedral Purple", Cloak = new Color(0.3f, 0.1f, 0.6f), Cost = 300, NeedsBoss = 3 },
+        };
+
+        public static Item[] Of(Kind kind) => kind == Kind.Aura ? Auras : kind == Kind.Heraldry ? Heraldries : Dyes;
+
+        /// <summary>The heraldry colour, or null for the party colour.</summary>
+        public static Color? HeraldryColor(int i) => i > 0 && i < Heraldries.Length ? Heraldries[i].Cloak : (Color?)null;
 
         private const string KeyRenown = "db.renown", KeyBosses = "db.bosses", KeyLastRun = "db.lastRun", KeyRuns = "db.runs";
-        private static string KeyOwned(Kind k) => k == Kind.Aura ? "db.auras" : "db.dyes";
-        private static string KeyWorn(Kind k) => k == Kind.Aura ? "db.aura" : "db.cloak";
+        private static string KeyOwned(Kind k) => k == Kind.Aura ? "db.auras" : k == Kind.Heraldry ? "db.heraldries" : "db.dyes";
+        private static string KeyWorn(Kind k) => k == Kind.Aura ? "db.aura" : k == Kind.Heraldry ? "db.heraldry" : "db.cloak";
 
         /// <summary>Set by the smoke/screenshot tests: nothing is read from or written to the real save.</summary>
         public static bool TestMode;

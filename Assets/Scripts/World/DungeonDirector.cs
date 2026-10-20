@@ -579,7 +579,7 @@ namespace Deepbound.World
             Put(cofferPrefab, Lobby.CofferSpot, Lobby.TentFacing);
             Put(slotMachinePrefab, Lobby.SlotSpot, Lobby.TentFacing);
             Put(blackjackPrefab, Lobby.BlackjackSpot, Vector3.back);
-            Put(catPrefab, Lobby.Origin + new Vector3(0.6f, 0f, -8f), Vector3.forward);
+            Put(catPrefab, Lobby.Origin + Lobby.S(0.6f, 0f, -8f), Vector3.forward);
             Put(gongPrefab, Lobby.GongSpot, Lobby.GongFacing);
             Put(shrinePrefab, Lobby.ShrineSpot, Vector3.left);
             Put(omenStonePrefab, Lobby.OmenSpot, Vector3.left);

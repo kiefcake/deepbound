@@ -16,8 +16,8 @@ namespace Deepbound.World
     {
         private static readonly Vector3[] Route =
         {
-            new Vector3(0.6f, 0f, -8f), new Vector3(-2.2f, 0f, -2.5f), new Vector3(-4.6f, 0f, 5.6f), new Vector3(-1.5f, 0f, 9.5f),
-            new Vector3(2.4f, 0f, 13f), new Vector3(3.2f, 0f, 4f), new Vector3(3.6f, 0f, -3.2f),
+            Lobby.S(0.6f, 0f, -8f), Lobby.S(-2.2f, 0f, -2.5f), Lobby.S(-4.6f, 0f, 5.6f), Lobby.S(-1.5f, 0f, 9.5f),
+            Lobby.S(2.4f, 0f, 13f), Lobby.S(3.2f, 0f, 4f), Lobby.S(3.6f, 0f, -3.2f),
         };
         private const float WalkSpeed = 0.9f, SitSeconds = 7f;
 

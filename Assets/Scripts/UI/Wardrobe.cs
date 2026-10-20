@@ -4,15 +4,17 @@ using Deepbound.Progression;
 using Deepbound.World;
 using UnityEngine;
 using UnityEngine.InputSystem;
+using UnityEngine.Rendering.Universal;
 
 namespace Deepbound.UI
 {
     /// <summary>
-    /// The camp tailor: spend Renown on cloak dyes and auras, and wear them. Entirely local
-    /// — the wardrobe is saved on this machine — except what you wear, which the party sees
-    /// through <see cref="NetworkPlayer.CloakDye"/> and <see cref="NetworkPlayer.Aura"/>. A
-    /// mannequin at the stall wears your class in whatever you are pointing at, since you
-    /// never see your own back.
+    /// The camp tailor (reworked 2026-10-20): cloak dyes, HERALDRY (the colour of your tabard, plume and
+    /// sash, on every class) and auras. A live portrait of your own character, turning on a lit stand,
+    /// sits beside the list and shows whatever you point at, front and back, so you can see it on you
+    /// before you wear it. Entirely local (saved on this machine) except what you wear, which the
+    /// party sees through <see cref="NetworkPlayer.CloakDye"/>, <see cref="NetworkPlayer.Heraldry"/>
+    /// and <see cref="NetworkPlayer.Aura"/>. The mannequin at the stall still wears it in the world.
     /// </summary>
     public class Wardrobe : MonoBehaviour
     {
@@ -23,12 +25,22 @@ namespace Deepbound.UI
         private PlayerProgress progress;
         private PlayerLife life;
         private GameObject mannequin;
-        private int mannequinDye = -1, previewIndex = -1;
+        private int mannequinDye = -1, mannequinHeraldry = -1, previewIndex = -1;
         private Classes.ClassId mannequinClass;
         private Cosmetics.Kind tab = Cosmetics.Kind.Cloak;
         private Vector2 scroll;
         private string flash;
-        private float flashUntil, nextMote;
+        private float flashUntil, nextMote, spin, spinTarget = 200f;
+        private bool wasOpen;
+
+        // The portrait stage, far below the camp.
+        private static readonly Vector3 StageAt = new Vector3(0f, -1300f, 0f);
+        private GameObject stage;
+        private Transform turntable;
+        private Camera stageCam;
+        private RenderTexture portrait;
+        private int portraitDye = -1, portraitHeraldry = -1;
+        private Classes.ClassId portraitClass = (Classes.ClassId)255;
 
         public void Init(NetworkPlayer owner)
         {
@@ -41,6 +53,8 @@ namespace Deepbound.UI
         {
             Open = false;
             if (mannequin != null) Destroy(mannequin);
+            if (stage != null) Destroy(stage);
+            if (portrait != null) portrait.Release();
         }
 
         public void DebugOpen(bool open) => Open = open;
@@ -48,7 +62,7 @@ namespace Deepbound.UI
         private bool Near => DungeonDirector.InLobby && life != null && !life.Downed.Value &&
                              Vector3.Distance(player.transform.position, Lobby.TailorSpot) <= Range;
 
-        private int WornNow(Cosmetics.Kind kind) => kind == Cosmetics.Kind.Aura ? player.Aura.Value : player.CloakDye.Value;
+        private int WornNow(Cosmetics.Kind kind) => kind == Cosmetics.Kind.Aura ? player.Aura.Value : kind == Cosmetics.Kind.Heraldry ? player.Heraldry.Value : player.CloakDye.Value;
 
         private void Update()
         {
@@ -57,20 +71,42 @@ namespace Deepbound.UI
             bool near = Near;
             if (keyboard != null && near && keyboard.gKey.wasPressedThisFrame && !CharacterSelect.Open && !PauseMenu.Open) Open = !Open;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) Open = false;
-            if (keyboard != null && Open && keyboard.tabKey.wasPressedThisFrame) SwitchTab();
+            if (keyboard != null && Open && keyboard.tabKey.wasPressedThisFrame) SwitchTab((Cosmetics.Kind)(((int)tab + 1) % 3));
             if (!near) Open = false;
             if (!Open) previewIndex = -1;
+            if (Open != wasOpen)
+            {
+                wasOpen = Open;
+                // The portrait renders to a texture: full render scale while it shows (see CharacterSelect).
+                if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset urp)
+                {
+                    if (Open) urp.renderScale = 1f;
+                    else Settings.ApplyGraphics();
+                }
+            }
             UpdateMannequin();
+            UpdatePortrait();
         }
 
-        private void SwitchTab()
+        private void SwitchTab(Cosmetics.Kind to)
         {
-            tab = tab == Cosmetics.Kind.Cloak ? Cosmetics.Kind.Aura : Cosmetics.Kind.Cloak;
+            tab = to;
             scroll = Vector2.zero;
             previewIndex = -1;
         }
 
-        /// <summary>The dress form at the stall: your class, in the dye and aura you are hovering (or wearing).</summary>
+        private (int dye, int heraldry, int aura) Shown()
+        {
+            bool previewing = previewIndex >= 0;
+            int dye = previewing && tab == Cosmetics.Kind.Cloak ? previewIndex : player.CloakDye.Value;
+            int heraldry = previewing && tab == Cosmetics.Kind.Heraldry ? previewIndex : player.Heraldry.Value;
+            int aura = previewing && tab == Cosmetics.Kind.Aura ? previewIndex : player.Aura.Value;
+            return (dye, heraldry, aura);
+        }
+
+        private Color DressFor(int heraldry) => Cosmetics.HeraldryColor(heraldry) ?? player.SlotColor;
+
+        /// <summary>The dress form at the stall: your class, in the dye, heraldry and aura you are hovering (or wearing).</summary>
         private void UpdateMannequin()
         {
             if (!DungeonDirector.InLobby)
@@ -80,27 +116,93 @@ namespace Deepbound.UI
                 mannequinDye = -1;
                 return;
             }
-            // It turns slowly on its stand, so the cloak (always on the back) gets seen.
             if (mannequin != null) mannequin.transform.Rotate(0f, 30f * Time.deltaTime, 0f);
-            bool previewing = previewIndex >= 0;
-            int dye = previewing && tab == Cosmetics.Kind.Cloak ? previewIndex : player.CloakDye.Value;
-            int aura = previewing && tab == Cosmetics.Kind.Aura ? previewIndex : player.Aura.Value;
+            var (dye, heraldry, aura) = Shown();
             var auraColor = Cosmetics.AuraColor(aura);
             if (mannequin != null && auraColor.HasValue && Time.time >= nextMote)
             {
                 nextMote = Time.time + 0.09f;
                 Vfx.Mote(Lobby.MannequinSpot + Vector3.up * 0.1f, auraColor.Value);
+                if (turntable != null && Open) Vfx.Mote(turntable.position + Vector3.up * 0.1f, auraColor.Value);
             }
 
             var cls = progress.ClassId.Value;
-            if (mannequin != null && dye == mannequinDye && cls == mannequinClass) return;
+            if (mannequin != null && dye == mannequinDye && heraldry == mannequinHeraldry && cls == mannequinClass) return;
             Quaternion? old = mannequin != null ? mannequin.transform.rotation : (Quaternion?)null;
             if (mannequin != null) Destroy(mannequin);
             mannequin = new GameObject("TailorMannequin");
             mannequin.transform.SetPositionAndRotation(Lobby.MannequinSpot, old ?? Quaternion.LookRotation(Lobby.TailorFacing));
-            NetworkPlayer.BuildBody(cls, mannequin.transform, player.SlotColor, dye);
+            NetworkPlayer.BuildBody(cls, mannequin.transform, DressFor(heraldry), dye);
             mannequinDye = dye;
+            mannequinHeraldry = heraldry;
             mannequinClass = cls;
+        }
+
+        // ------------------------------------------------------------------
+        // The portrait
+        // ------------------------------------------------------------------
+
+        private void BuildStage()
+        {
+            stage = new GameObject("WardrobeStage");
+            var b = new MeshKit.Batcher();
+            b.AddBox(StageAt + Vector3.down * 0.2f, new Vector3(8f, 0.4f, 8f), Mat.Flagstone);
+            b.Add(MeshKit.Cylinder(1.1f, 1.2f, 0.25f, 16), Mat.Wood, Matrix4x4.Translate(StageAt));
+            b.AddBox(StageAt + new Vector3(0f, 3f, 2.6f), new Vector3(8f, 6f, 0.5f), Mat.StoneWall);
+            b.Build(stage.transform, "WardrobeFloor", collide: false);
+            // A hanging curtain behind, in deep red, and a gilt frame.
+            var curtain = MeshKit.Part(stage.transform, "Curtain", MeshKit.Box(new Vector3(3.6f, 4f, 0.05f)), Mat.Cloth, StageAt + new Vector3(0f, 2f, 2.3f));
+            ArtLibrary.Tint(curtain.GetComponent<Renderer>(), new Color(0.35f, 0.06f, 0.08f));
+            turntable = new GameObject("Turntable").transform;
+            turntable.SetParent(stage.transform, false);
+            turntable.position = StageAt + Vector3.up * 0.25f;
+            void Light(Vector3 at, Color c, float i)
+            {
+                var l = new GameObject("WardrobeLight").AddComponent<Light>();
+                l.transform.SetParent(stage.transform, false);
+                l.transform.position = at;
+                l.type = LightType.Point;
+                l.color = c;
+                l.range = 8f;
+                l.intensity = i;
+            }
+            Light(StageAt + new Vector3(-2f, 3f, -2.5f), new Color(1f, 0.75f, 0.5f), 9f);
+            Light(StageAt + new Vector3(2.2f, 2.5f, 1.5f), new Color(0.5f, 0.6f, 1f), 6f);
+            Light(StageAt + new Vector3(1.5f, 1.4f, -2.2f), new Color(1f, 0.88f, 0.75f), 3f);
+            portrait = new RenderTexture(420, 560, 24) { name = "WardrobePortrait" };
+            stageCam = new GameObject("WardrobeCam").AddComponent<Camera>();
+            stageCam.transform.SetParent(stage.transform, false);
+            stageCam.transform.SetPositionAndRotation(StageAt + new Vector3(0f, 1.15f, -4.1f), Quaternion.Euler(2f, 0f, 0f));
+            stageCam.fieldOfView = 34f;
+            stageCam.targetTexture = portrait;
+            stageCam.clearFlags = CameraClearFlags.SolidColor;
+            stageCam.backgroundColor = new Color(0.03f, 0.03f, 0.04f);
+            stageCam.gameObject.AddComponent<UniversalAdditionalCameraData>().renderPostProcessing = true;
+        }
+
+        private void UpdatePortrait()
+        {
+            if (!Open)
+            {
+                if (stage != null && stage.activeSelf) stage.SetActive(false);
+                return;
+            }
+            if (stage == null) BuildStage();
+            if (!stage.activeSelf) stage.SetActive(true);
+            var (dye, heraldry, _) = Shown();
+            var cls = progress.ClassId.Value;
+            if (dye != portraitDye || heraldry != portraitHeraldry || cls != portraitClass)
+            {
+                foreach (Transform c in turntable) Destroy(c.gameObject);
+                NetworkPlayer.BuildBody(cls, turntable, DressFor(heraldry), dye);
+                portraitDye = dye;
+                portraitHeraldry = heraldry;
+                portraitClass = cls;
+            }
+            // It turns slowly; the buttons swing it to the front or the back.
+            spinTarget += 22f * Time.deltaTime;
+            spin = Mathf.LerpAngle(spin, spinTarget, 1f - Mathf.Exp(-Time.deltaTime * 4f));
+            turntable.rotation = Quaternion.Euler(0f, spin, 0f);
         }
 
         private void OnGUI()
@@ -111,31 +213,41 @@ namespace Deepbound.UI
             if (!Open)
             {
                 if (Near && !CharacterSelect.Open)
-                    UiSkin.Shadowed(new Rect(0, h / 2f + 40, w, 24), "Press G to visit the tailor   ·   Renown " + Cosmetics.Renown,
+                    UiSkin.Shadowed(new Rect(0, h / 2f + 40, w, 24), "Press G to visit the tailor   ·   cloaks, heraldry and auras" + (Cosmetics.AllFree ? "  (all free for now)" : "   ·   Renown " + Cosmetics.Renown),
                         new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
                 return;
             }
 
             GUI.depth = -3;
             var items = Cosmetics.Of(tab);
-            int longest = Mathf.Max(Cosmetics.Dyes.Length, Cosmetics.Auras.Length);
-            float pw = 560f, rowH = 46f, ph = Mathf.Min(h - 80f, 186f + longest * rowH);
-            var panel = new Rect(w - pw - 30f, h / 2f - ph / 2f, pw, ph);
+            int longest = Mathf.Max(Cosmetics.Dyes.Length, Mathf.Max(Cosmetics.Auras.Length, Cosmetics.Heraldries.Length));
+            float pw = 520f, rowH = 46f, ph = Mathf.Min(h - 80f, 186f + longest * rowH);
+            float portraitW = Mathf.Min(360f, w - pw - 90f), total = pw + 20f + portraitW;
+            var panel = new Rect(w / 2f - total / 2f + portraitW + 20f, h / 2f - ph / 2f, pw, ph);
+            var shot = new Rect(w / 2f - total / 2f, panel.y, portraitW, ph);
+
+            // The portrait: you, turning, in what you are pointing at.
+            UiSkin.Panel(shot, 0.95f);
+            if (portrait != null) GUI.DrawTexture(new Rect(shot.x + 10, shot.y + 10, shot.width - 20, shot.height - 64), portrait, ScaleMode.ScaleAndCrop);
+            if (GUI.Button(new Rect(shot.x + 10, shot.yMax - 46, shot.width / 2f - 15, 34), "Front", UiSkin.Button)) spinTarget = Mathf.Round((spinTarget - 200f) / 360f) * 360f + 200f;
+            if (GUI.Button(new Rect(shot.x + shot.width / 2f + 5, shot.yMax - 46, shot.width / 2f - 15, 34), "Back", UiSkin.Button)) spinTarget = Mathf.Round((spinTarget - 20f) / 360f) * 360f + 20f;
+
             UiSkin.Panel(panel, 0.95f);
-            UiSkin.Shadowed(new Rect(panel.x, panel.y + 10, pw, 40), "The Tailor", new GUIStyle(UiSkin.Title) { fontSize = 30 });
-            GUI.Label(new Rect(panel.x, panel.y + 50, pw, 22), "RENOWN  " + Cosmetics.Renown + "      ·      earned at the end of every run",
+            UiSkin.Shadowed(new Rect(panel.x, panel.y + 10, pw, 40), "Mistress Vey, Tailor", new GUIStyle(UiSkin.Title) { fontSize = 28 });
+            GUI.Label(new Rect(panel.x, panel.y + 50, pw, 22), Cosmetics.AllFree ? "EVERYTHING IS FREE FOR NOW  ·  pick and wear" : "RENOWN  " + Cosmetics.Renown + "      ·      earned at the end of every run",
                 new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14, normal = { textColor = UiSkin.Gold } });
 
-            // Tabs.
-            string[] names = { "CLOAKS", "AURAS" };
-            for (int t = 0; t < 2; t++)
+            string[] names = { "CLOAKS", "AURAS", "HERALDRY" };
+            Cosmetics.Kind[] order = { Cosmetics.Kind.Cloak, Cosmetics.Kind.Heraldry, Cosmetics.Kind.Aura };
+            for (int t = 0; t < 3; t++)
             {
-                var r = new Rect(panel.x + pw / 2f - 170 + t * 175, panel.y + 76, 165, 30);
-                bool on = (int)tab == t;
-                if (GUI.Button(r, names[t], new GUIStyle(UiSkin.Button) { fontStyle = on ? FontStyle.Bold : FontStyle.Normal, normal = { textColor = on ? UiSkin.Gold : new Color(0.7f, 0.67f, 0.62f) } }) && !on) SwitchTab();
+                var k = order[t];
+                var r = new Rect(panel.x + pw / 2f - 240 + t * 162, panel.y + 76, 152, 30);
+                bool on = tab == k;
+                if (GUI.Button(r, names[(int)k], new GUIStyle(UiSkin.Button) { fontStyle = on ? FontStyle.Bold : FontStyle.Normal, normal = { textColor = on ? UiSkin.Gold : new Color(0.7f, 0.67f, 0.62f) } }) && !on) SwitchTab(k);
             }
-            GUI.Label(new Rect(panel.x, panel.y + 108, pw, 20), "Your party sees what you wear. The mannequin shows what you point at.   (Tab switches)",
-                new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+            string blurb = tab == Cosmetics.Kind.Cloak ? "The cloak on your back, and its trim." : tab == Cosmetics.Kind.Heraldry ? "Your colours: tabard, plume, sash, hat band - on every class." : "Motes that drift up around you.";
+            GUI.Label(new Rect(panel.x, panel.y + 108, pw, 20), blurb + "   (Tab switches)", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
 
             var view = new Rect(panel.x + 16, panel.y + 134, pw - 32, ph - 176);
             var content = new Rect(0, 0, view.width - 20, items.Length * rowH);
@@ -151,15 +263,22 @@ namespace Deepbound.UI
                 var item = items[i];
                 if (tab == Cosmetics.Kind.Cloak)
                 {
-                    // Swatch: the cloak, a trim stripe along its hem.
                     var cloak = i == 0 ? player.SlotColor * 0.6f : item.Cloak;
                     cloak.a = 1f;
                     UiSkin.Rect(new Rect(row.x + 8, row.y + 6, 38, 28), cloak);
                     if (i > 0) UiSkin.Rect(new Rect(row.x + 8, row.y + 28, 38, 6), item.Trim);
                 }
+                else if (tab == Cosmetics.Kind.Heraldry)
+                {
+                    // A little shield in the colour, with a gold chevron.
+                    var col = i == 0 ? player.SlotColor : item.Cloak;
+                    col.a = 1f;
+                    UiSkin.Rect(new Rect(row.x + 12, row.y + 5, 30, 24), col);
+                    UiSkin.Rect(new Rect(row.x + 18, row.y + 29, 18, 5), col);
+                    UiSkin.Rect(new Rect(row.x + 12, row.y + 15, 30, 3), UiSkin.Gold);
+                }
                 else
                 {
-                    // Swatch: a scatter of motes on black.
                     UiSkin.Rect(new Rect(row.x + 8, row.y + 6, 38, 28), new Color(0.03f, 0.03f, 0.04f));
                     if (i > 0)
                         for (int m = 0; m < 6; m++)
@@ -168,7 +287,7 @@ namespace Deepbound.UI
 
                 GUI.Label(new Rect(row.x + 58, row.y + 4, 260, 22), item.Name, new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Bold });
                 bool owns = Cosmetics.Owns(tab, i), unlocked = Cosmetics.Unlocked(tab, i);
-                string sub = i == 0 ? (tab == Cosmetics.Kind.Cloak ? "Each class's own colours" : "Nothing about you") : owns ? "Owned"
+                string sub = i == 0 ? (tab == Cosmetics.Kind.Cloak ? "Each class's own colours" : tab == Cosmetics.Kind.Heraldry ? "Your party colour" : "Nothing about you") : owns ? (Cosmetics.AllFree ? "Free" : "Owned")
                     : !unlocked ? "Fell " + BossName(item.NeedsBoss) + " to unlock" : item.Cost + " Renown";
                 GUI.Label(new Rect(row.x + 58, row.y + 22, 300, 18), sub, new GUIStyle(UiSkin.Small) { normal = { textColor = !unlocked ? new Color(0.7f, 0.45f, 0.4f) : UiSkin.Small.normal.textColor } });
 
@@ -202,6 +321,7 @@ namespace Deepbound.UI
         {
             if (!Cosmetics.Wear(kind, i)) return;
             if (kind == Cosmetics.Kind.Aura) player.Aura.Value = (byte)i;
+            else if (kind == Cosmetics.Kind.Heraldry) player.Heraldry.Value = (byte)i;
             else player.CloakDye.Value = (byte)i;
             Sfx.Play(Sound.Purchase, player.transform.position + Vector3.up, 0.6f, 1.2f);
             Say("Now wearing " + Cosmetics.Of(kind)[i].Name);

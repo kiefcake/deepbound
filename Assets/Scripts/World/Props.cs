@@ -195,16 +195,9 @@ namespace Deepbound.World
                 : folk == Folk.Tailor ? new Color(0.42f, 0.14f, 0.4f) : folk == Folk.Sergeant ? new Color(0.38f, 0.22f, 0.16f)
                 : folk == Folk.Runewright ? new Color(0.14f, 0.2f, 0.3f) : new Color(0.12f, 0.12f, 0.16f);
             float bulk = folk == Folk.Smith || folk == Folk.Sergeant ? 1.2f : 1f;
-            var body = MeshKit.Part(root, "Body", MeshKit.Lathe("folkBody", new[]
-            {
-                new Vector2(0.3f, 0f), new Vector2(0.28f, 0.6f), new Vector2(0.24f, 1.1f), new Vector2(0.27f, 1.35f), new Vector2(0.12f, 1.48f), new Vector2(0f, 1.5f),
-            }, 10), Mat.Cloth, Vector3.zero, default, new Vector3(bulk, 1f, bulk * 0.85f));
-            ArtLibrary.Tint(body.GetComponent<Renderer>(), coat);
-            var head = MeshKit.Part(root, "Head", MeshKit.Ball(0.13f, 10, 8), Mat.Leather, new Vector3(0f, 1.62f, 0.02f));
-            ArtLibrary.Tint(head.GetComponent<Renderer>(), skin);
+            FolkFigure(root, folk, coat, skin, bulk);
             foreach (float s in new[] { -1f, 1f })
             {
-                MeshKit.Part(root, "Eye", MeshKit.Ball(0.016f, 5, 4), Mat.Dark, new Vector3(s * 0.045f, 1.65f, 0.13f));
                 if (folk == Folk.Priest)
                 {
                     // Hands pressed together in prayer at the chest: upper arm down and forward, forearm up to the hands.
@@ -217,10 +210,18 @@ namespace Deepbound.World
                     ArtLibrary.Tint(palm.GetComponent<Renderer>(), skin);
                     continue;
                 }
-                var arm = MeshKit.Part(root, "Arm", MeshKit.Cylinder(0.06f * bulk, 0.05f, 0.62f, 6), Mat.Cloth, new Vector3(s * 0.3f * bulk, 0.8f, 0.02f), new Vector3(0f, 0f, s * 6f));
-                ArtLibrary.Tint(arm.GetComponent<Renderer>(), coat * 0.9f);
-                var hand = MeshKit.Part(root, "Hand", MeshKit.Ball(0.05f, 6, 4), Mat.Leather, new Vector3(s * 0.31f * bulk, 0.78f, 0.04f));
+                // Arms that hang from the shoulders (they used to float below them), bent a little at the elbow.
+                var sh = new Vector3(s * 0.27f * bulk, 1.39f, 0f);
+                var el = new Vector3(s * 0.31f * bulk, 1.07f, 0.02f);
+                var wr = new Vector3(s * 0.31f * bulk, 0.83f, 0.08f);
+                ArtLibrary.Tint(Limb(root, "UpperArm", sh, el, 0.058f * bulk).GetComponent<Renderer>(), coat * 0.9f);
+                ArtLibrary.Tint(Limb(root, "Forearm", el, wr, 0.05f * bulk).GetComponent<Renderer>(), coat * 0.85f);
+                var cuff = MeshKit.Part(root, "Cuff", MeshKit.Cylinder(0.058f * bulk, 0.058f * bulk, 0.05f, 8), Mat.Cloth, Vector3.Lerp(el, wr, 0.85f));
+                ArtLibrary.Tint(cuff.GetComponent<Renderer>(), coat * 0.6f);
+                var hand = MeshKit.Part(root, "Hand", MeshKit.Ball(0.05f, 8, 6), Mat.Leather, wr + new Vector3(0f, -0.04f, 0.01f), default, new Vector3(0.8f, 1.15f, 1f));
                 ArtLibrary.Tint(hand.GetComponent<Renderer>(), skin);
+                var thumb = MeshKit.Part(root, "Thumb", MeshKit.Box(new Vector3(0.02f, 0.045f, 0.02f)), Mat.Leather, wr + new Vector3(-s * 0.025f, -0.03f, 0.04f), new Vector3(-20f, 0f, s * 20f));
+                ArtLibrary.Tint(thumb.GetComponent<Renderer>(), skin);
             }
             switch (folk)
             {
@@ -317,8 +318,101 @@ namespace Deepbound.World
                 var coals = MeshKit.Part(root, "Coals", MeshKit.Ball(0.03f, 6, 4), Mat.Glow, censerAt + Vector3.up * 0.2f);
                 ArtLibrary.SetGlow(coals.GetComponent<Renderer>(), new Color(1f, 0.5f, 0.2f) * 1.2f);
             }
-            var idle = Art.FolkIdle.Attach(root, neckY, "Head", "Eye", "Beard", "Tonsure", "Hair", "Brim", "Hat");
+            var idle = Art.FolkIdle.Attach(root, neckY, "Head", "Eye", "Beard", "Tonsure", "Hair", "Brim", "Hat",
+                "EyeWhite", "Pupil", "Brow", "Nose", "Mouth", "Ear", "Jaw", "Helm", "HelmBrim", "Moustache", "Circlet", "CircletStone");
             if (folk == Folk.Priest) { idle.RestPitch = 26f; idle.Prays = true; idle.PrayAt = root.TransformPoint(new Vector3(0f, 1.2f - 0.42f, 0.32f)); idle.IncenseAt = root.TransformPoint(new Vector3(0.55f, 0.25f, 0.3f)); }
+        }
+
+        /// <summary>
+        /// The camp folk's figure (rebuilt 2026-10-20, the user: "improve npc design"): legs and boots under a
+        /// tunic (or a long robe for the priest, the tailor, the runewright and the driver), a shaped torso
+        /// with a belt, a collar and shoulders, a neck, and a face with ears, a nose, brows, eyes with whites
+        /// and pupils, and a mouth. The trade details are added by <see cref="Townsfolk"/>.
+        /// </summary>
+        private static void FolkFigure(Transform root, Folk folk, Color coat, Color skin, float bulk)
+        {
+            bool robed = folk == Folk.Priest || folk == Folk.Tailor || folk == Folk.Runewright || folk == Folk.Driver;
+            var hair = folk == Folk.Priest ? new Color(0.62f, 0.62f, 0.6f) : folk == Folk.Runewright ? new Color(0.8f, 0.8f, 0.84f)
+                : folk == Folk.Sergeant ? new Color(0.28f, 0.17f, 0.1f) : folk == Folk.Smith ? new Color(0.32f, 0.2f, 0.11f) : new Color(0.12f, 0.08f, 0.06f);
+            var trousers = new Color(0.2f, 0.17f, 0.14f);
+            var boots = new Color(0.17f, 0.11f, 0.07f);
+            if (robed)
+            {
+                var skirt = MeshKit.Part(root, "Body", MeshKit.Lathe("folkRobe", new[]
+                {
+                    new Vector2(0.31f, 0f), new Vector2(0.28f, 0.35f), new Vector2(0.235f, 0.8f), new Vector2(0.22f, 0.95f), new Vector2(0f, 0.96f),
+                }, 12), Mat.Cloth, Vector3.zero, default, new Vector3(bulk, 1f, bulk * 0.85f));
+                ArtLibrary.Tint(skirt.GetComponent<Renderer>(), coat * 0.92f);
+                var hem = MeshKit.Part(root, "Hem", MeshKit.Cylinder(0.315f * bulk, 0.315f * bulk, 0.05f, 12), Mat.Cloth, new Vector3(0f, 0.04f, 0f), default, new Vector3(1f, 1f, 0.85f));
+                ArtLibrary.Tint(hem.GetComponent<Renderer>(), coat * 0.55f);
+                // Toes of shoes peeping out under the hem.
+                foreach (float s in new[] { -1f, 1f })
+                {
+                    var toe = MeshKit.Part(root, "Shoe", MeshKit.Ball(0.06f, 8, 6), Mat.Leather, new Vector3(s * 0.1f, 0.03f, 0.25f), default, new Vector3(1f, 0.55f, 1.4f));
+                    ArtLibrary.Tint(toe.GetComponent<Renderer>(), boots);
+                }
+            }
+            else
+            {
+                foreach (float s in new[] { -1f, 1f })
+                {
+                    float x = s * 0.11f * bulk;
+                    var thigh = MeshKit.Part(root, "Thigh", MeshKit.Cylinder(0.085f * bulk, 0.07f, 0.42f, 8), Mat.Cloth, new Vector3(x, 0.68f, 0f));
+                    ArtLibrary.Tint(thigh.GetComponent<Renderer>(), trousers);
+                    var shin = MeshKit.Part(root, "Shin", MeshKit.Cylinder(0.068f, 0.06f, 0.36f, 8), Mat.Cloth, new Vector3(x, 0.3f, 0.01f));
+                    ArtLibrary.Tint(shin.GetComponent<Renderer>(), trousers * 0.9f);
+                    var boot = MeshKit.Part(root, "Boot", MeshKit.Box(new Vector3(0.13f, 0.13f, 0.25f)), Mat.Leather, new Vector3(x, 0.065f, 0.04f));
+                    ArtLibrary.Tint(boot.GetComponent<Renderer>(), boots);
+                    var bootTop = MeshKit.Part(root, "BootCuff", MeshKit.Cylinder(0.08f, 0.08f, 0.12f, 8), Mat.Leather, new Vector3(x, 0.2f, 0f));
+                    ArtLibrary.Tint(bootTop.GetComponent<Renderer>(), boots * 1.1f);
+                }
+                var tunic = MeshKit.Part(root, "Body", MeshKit.Lathe("folkTunic", new[]
+                {
+                    new Vector2(0.27f, 0.62f), new Vector2(0.255f, 0.78f), new Vector2(0.235f, 0.95f), new Vector2(0f, 0.96f),
+                }, 12), Mat.Cloth, Vector3.zero, default, new Vector3(bulk, 1f, bulk * 0.85f));
+                ArtLibrary.Tint(tunic.GetComponent<Renderer>(), coat * 0.95f);
+            }
+            var torso = MeshKit.Part(root, "Torso", MeshKit.Lathe("folkTorso", new[]
+            {
+                new Vector2(0.225f, 0.9f), new Vector2(0.25f, 1.08f), new Vector2(0.275f, 1.3f), new Vector2(0.245f, 1.42f), new Vector2(0.12f, 1.49f), new Vector2(0f, 1.5f),
+            }, 12), Mat.Cloth, Vector3.zero, default, new Vector3(bulk, 1f, bulk * 0.78f));
+            ArtLibrary.Tint(torso.GetComponent<Renderer>(), coat);
+            // Front placket with buttons, a belt and buckle, a collar, and rounded shoulders.
+            var placket = MeshKit.Part(root, "Placket", MeshKit.Box(new Vector3(0.05f, 0.5f, 0.012f)), Mat.Cloth, new Vector3(0f, 1.18f, 0.205f * bulk));
+            ArtLibrary.Tint(placket.GetComponent<Renderer>(), coat * 0.7f);
+            for (int i = 0; i < 4; i++) MeshKit.Part(root, "Button", MeshKit.Ball(0.012f, 5, 3), Mat.Gold, new Vector3(0f, 1.0f + i * 0.11f, 0.214f * bulk));
+            var belt = MeshKit.Part(root, "Belt", MeshKit.Cylinder(0.24f * bulk, 0.24f * bulk, 0.06f, 12), Mat.Leather, new Vector3(0f, 0.95f, 0f), default, new Vector3(1f, 1f, 0.8f));
+            ArtLibrary.Tint(belt.GetComponent<Renderer>(), new Color(0.22f, 0.14f, 0.08f));
+            MeshKit.Part(root, "Buckle", MeshKit.Box(new Vector3(0.06f, 0.05f, 0.015f)), Mat.Gold, new Vector3(0f, 0.95f, 0.195f * bulk));
+            var collar = MeshKit.Part(root, "Collar", MeshKit.Cylinder(0.13f, 0.11f, 0.06f, 10), Mat.Cloth, new Vector3(0f, 1.47f, 0f));
+            ArtLibrary.Tint(collar.GetComponent<Renderer>(), coat * 0.7f);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var shoulder = MeshKit.Part(root, "Shoulder", MeshKit.Ball(0.09f * bulk, 8, 6), Mat.Cloth, new Vector3(s * 0.25f * bulk, 1.4f, 0f));
+                ArtLibrary.Tint(shoulder.GetComponent<Renderer>(), coat * 0.95f);
+            }
+            var neck = MeshKit.Part(root, "NeckSkin", MeshKit.Cylinder(0.055f, 0.06f, 0.1f, 8), Mat.Leather, new Vector3(0f, 1.52f, 0.01f));
+            ArtLibrary.Tint(neck.GetComponent<Renderer>(), skin * 0.95f);
+
+            // The head and face.
+            var head = MeshKit.Part(root, "Head", MeshKit.Ball(0.13f, 12, 10), Mat.Leather, new Vector3(0f, 1.63f, 0.02f), default, new Vector3(0.94f, 1.08f, 1f));
+            ArtLibrary.Tint(head.GetComponent<Renderer>(), skin);
+            var jaw = MeshKit.Part(root, "Jaw", MeshKit.Ball(0.095f, 10, 8), Mat.Leather, new Vector3(0f, 1.56f, 0.05f), default, new Vector3(1f, 0.7f, 0.95f));
+            ArtLibrary.Tint(jaw.GetComponent<Renderer>(), skin * 0.97f);
+            var nose = MeshKit.Part(root, "Nose", MeshKit.Lathe("folkNose", new[] { new Vector2(0.022f, 0f), new Vector2(0.016f, 0.03f), new Vector2(0f, 0.045f) }, 6), Mat.Leather, new Vector3(0f, 1.61f, 0.135f), new Vector3(80f, 0f, 0f));
+            ArtLibrary.Tint(nose.GetComponent<Renderer>(), skin * 0.93f);
+            var mouth = MeshKit.Part(root, "Mouth", MeshKit.Box(new Vector3(0.05f, 0.008f, 0.01f)), Mat.Cloth, new Vector3(0f, 1.565f, 0.13f));
+            ArtLibrary.Tint(mouth.GetComponent<Renderer>(), new Color(0.42f, 0.18f, 0.16f));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var ear = MeshKit.Part(root, "Ear", MeshKit.Ball(0.03f, 6, 5), Mat.Leather, new Vector3(s * 0.122f, 1.625f, 0.01f), default, new Vector3(0.45f, 1f, 0.75f));
+                ArtLibrary.Tint(ear.GetComponent<Renderer>(), skin * 0.93f);
+                var white = MeshKit.Part(root, "EyeWhite", MeshKit.Ball(0.02f, 8, 6), Mat.Bone, new Vector3(s * 0.044f, 1.655f, 0.113f), default, new Vector3(1.15f, 0.75f, 0.6f));
+                ArtLibrary.Tint(white.GetComponent<Renderer>(), new Color(0.92f, 0.9f, 0.84f));
+                MeshKit.Part(root, "Pupil", MeshKit.Ball(0.011f, 6, 4), Mat.Dark, new Vector3(s * 0.044f, 1.655f, 0.124f));
+                var brow = MeshKit.Part(root, "Brow", MeshKit.Box(new Vector3(0.055f, 0.013f, 0.016f)), Mat.Cloth, new Vector3(s * 0.046f, 1.685f, 0.118f), new Vector3(0f, 0f, s * -9f));
+                ArtLibrary.Tint(brow.GetComponent<Renderer>(), hair * 0.8f);
+            }
         }
 
         /// <summary>A cylinder limb from <paramref name="a"/> to <paramref name="b"/> (local to <paramref name="parent"/>).</summary>

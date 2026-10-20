@@ -62,6 +62,10 @@ namespace Deepbound.Art
             ArtLibrary.Tint(tabard.GetComponent<Renderer>(), teamColor);
             MeshKit.Part(rig.Torso, "PenanceMark", MeshKit.Box(new Vector3(0.025f, 0.14f, 0.015f)), Mat.Gold, new Vector3(0f, 0.29f, 0.222f));
             MeshKit.Part(rig.Torso, "PenanceMarkH", MeshKit.Box(new Vector3(0.09f, 0.025f, 0.015f)), Mat.Gold, new Vector3(0f, 0.33f, 0.222f));
+            // A ragged sackcloth cape off the shoulders (and so a cloak the tailor's dyes can colour).
+            var cape = sack * 0.7f;
+            cape.a = 1f;
+            GothicKit.Cloak(rig.Torso, cape, 0.95f, 0.14f, teamColor * 0.6f, tattered: true);
 
             rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.62f, 0.03f));
             var head = MeshKit.Part(rig.Head, "Scalp", MeshKit.Ball(0.125f, 9, 7), Mat.Marble, new Vector3(0f, 0.14f, 0.01f));
