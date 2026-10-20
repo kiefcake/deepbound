@@ -135,7 +135,7 @@ namespace Deepbound.Enemies
             foreach (var p in Player.PlayerLife.All)
             {
                 if (p == null || !p.Targetable) continue;
-                var dir = p.transform.position - transform.position;
+                var dir = PredictedFeet(p, RendWindup) - transform.position;
                 dir.y = 0f;
                 if (dir.sqrMagnitude < 0.5f || dir.magnitude > RendLength + 4f) continue;
                 dir.Normalize();
@@ -169,7 +169,7 @@ namespace Deepbound.Enemies
         }
 
         [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
-        private void RendWarnRpc(Vector3 from, Vector3 dir) => Telegraph.ShowLine(from, dir, RendLength, RendWidth, RendWindup, null);
+        private void RendWarnRpc(Vector3 from, Vector3 dir) { Telegraph.ShowLine(from, dir, RendLength, RendWidth, RendWindup, null); Gather(RendWindup, 1f); }
 
         [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
         private void RendFxRpc(Vector3 from, Vector3 dir)
@@ -250,7 +250,8 @@ namespace Deepbound.Enemies
 
         private void BeginChargeWindup()
         {
-            chargeDir = target.transform.position - transform.position;
+            // Aimed where its quarry is going, not where it stands.
+            chargeDir = (target.TryGetComponent<Player.PlayerLife>(out var quarry) ? PredictedFeet(quarry, Tell(chargeWindup)) : target.transform.position) - transform.position;
             chargeDir.y = 0f;
             chargeDir.Normalize();
 
@@ -260,13 +261,13 @@ namespace Deepbound.Enemies
             if (NavMesh.Raycast(from, from + chargeDir * chargeMaxLength, out var hit, NavMesh.AllAreas)) chargeLength = hit.distance;
 
             charge = ChargeState.Windup;
-            chargeAt = Time.time + chargeWindup;
+            chargeAt = Time.time + Tell(chargeWindup);
             nextCharge = Time.time + (Enraged ? chargeCooldown * 0.5f : chargeCooldown);
             trampled.Clear();
 
             Debug.Log("[Boss] Gravewarden charge wind-up, lane " + chargeLength.ToString("F1") + "m");
-            PlayActionRpc(RigAction.Windup, chargeWindup);
-            LineTelegraphRpc(from, chargeDir, chargeLength + 1f, 2.6f, chargeWindup);
+            PlayActionRpc(RigAction.Windup, Tell(chargeWindup));
+            LineTelegraphRpc(from, chargeDir, chargeLength + 1f, 2.6f, Tell(chargeWindup));
         }
 
         private void BeginRun()

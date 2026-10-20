@@ -432,7 +432,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
-            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); TickPatterns(); TickQuickShots(); }
+            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); TickPatterns(); TickQuickShots(); TickHunt(); TickStrikes(); }
             if (IsServer && !IsDead && Dormant)
             {
                 if (agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
@@ -603,6 +603,7 @@ namespace Deepbound.Enemies
         private void ConeTelegraphRpc(Vector3 apex, Vector3 dir, float angle, float radius, float seconds)
         {
             if (Rig != null) Telegraph.ShowCone(apex, dir, angle, radius, seconds, Rig);
+            Gather(seconds, 0.5f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -642,6 +643,7 @@ namespace Deepbound.Enemies
             SummonFxRpc();
 
             if (minionPrefab == null) return raised;
+            count = Difficulty.SummonCount(count, StandingParty);
             for (int i = 0; i < count; i++)
             {
                 float a = i * Mathf.PI * 2f / count;
@@ -673,15 +675,175 @@ namespace Deepbound.Enemies
         protected void CircleTelegraphRpc(Vector3 center, float radius, float duration, bool keyed)
         {
             Telegraph.Show(center, radius, duration, keyed ? this : null);
+            Gather(duration, 1f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        protected void TintedCircleRpc(Vector3 center, float radius, float duration, Color tint) => Telegraph.Show(center, radius, duration, null, tint);
+        protected void TintedCircleRpc(Vector3 center, float radius, float duration, Color tint)
+        {
+            Telegraph.Show(center, radius, duration, null, tint);
+            Gather(duration, 0.8f);
+        }
 
         [Rpc(SendTo.ClientsAndHost)]
         protected void LineTelegraphRpc(Vector3 start, Vector3 direction, float length, float width, float duration)
         {
             Telegraph.ShowLine(start, direction, length, width, duration, this);
+            Gather(duration, 1f);
+        }
+
+        /// <summary>Any peer: the boss crouches, draws embers in and swells a core of light for <paramref name="seconds"/>.</summary>
+        protected void Gather(float seconds, float k)
+        {
+            if (Rig == null) return;
+            BossWindup.For(gameObject, Rig, health != null ? health.CenterHeight * 2f : 2f).Anticipate(seconds, k);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        protected void GatherRpc(float seconds, float k) => Gather(seconds, k);
+
+        // ------------------------------------------------------------------
+        // Party-aware pressure (2026-10-20): every boss and Warden hunts EVERY standing player
+        // with predicted strikes from floor 2, tells shorten with depth, and a soloist gets a
+        // faster rhythm (one target, so it comes to you more often) while a party gets more
+        // targets and more summons to split onto.
+        // ------------------------------------------------------------------
+
+        /// <summary>Server: how many players it can hunt right now.</summary>
+        protected int StandingParty
+        {
+            get { int n = 0; foreach (var p in PlayerLife.All) if (p != null && p.Targetable) n++; return Mathf.Max(1, n); }
+        }
+
+        /// <summary>A tell's length here: shorter on deeper floors and when furious.</summary>
+        protected float Tell(float seconds) => seconds * Difficulty.Tell(scaledDepth) * (furious ? 0.85f : 1f);
+
+        /// <summary>Hunt cadence factor: alone, it comes more often.</summary>
+        protected float Cadence => StandingParty <= 1 ? 0.8f : 1f;
+
+        /// <summary>Bosses that should not hunt (none yet) override this.</summary>
+        protected virtual bool Hunts => true;
+
+        public const float StrikeRadius = 2.2f, LanceLength = 24f, LanceWidth = 1.7f;
+
+        private struct Strike { public Vector3 At, Dir; public float When, Radius, Damage; public bool Line; }
+        private readonly List<Strike> strikes = new List<Strike>();
+        private float nextHunt = -1f;
+        private int huntKind;
+
+        /// <summary>Tests: how many hunts it has thrown.</summary>
+        public int HuntsThrown { get; private set; }
+
+        private void TickHunt()
+        {
+            if (!Hunts || scaledDepth < 1 || Dormant || Immune || CurrentStance == Stance.Transition) return;
+            if (nextHunt < 0f) { nextHunt = Time.time + 7f; return; }
+            if (Time.time < nextHunt) return;
+            nextHunt = Time.time + Mathf.Lerp(15f, 8.5f, Difficulty.Lead(scaledDepth)) * Cadence;
+            ServerHuntNow();
+        }
+
+        /// <summary>Server: throw the next hunt now (tests call this too).</summary>
+        public void ServerHuntNow()
+        {
+            HuntsThrown++;
+            if (huntKind++ % 2 == 0) StartCoroutine(HuntingStrikes());
+            else ServerLanceFan();
+        }
+
+        /// <summary>A chain of predicted circles that walks after each player: keep changing direction.</summary>
+        private System.Collections.IEnumerator HuntingStrikes()
+        {
+            int count = scaledDepth >= 6 ? 4 : 3;
+            float tell = Tell(0.85f);
+            GatherRpc(tell, 0.7f);
+            PlayActionRpc(RigAction.Cast, 0.6f);
+            for (int k = 0; k < count && !IsDead; k++)
+            {
+                foreach (var p in PlayerLife.All)
+                {
+                    if (p == null || !p.Targetable) continue;
+                    var at = PredictedFeet(p, tell + 0.1f);
+                    strikes.Add(new Strike { At = at, When = Time.time + tell, Radius = StrikeRadius, Damage = damage * 0.55f });
+                    TintedCircleRpc(at, StrikeRadius, tell, Telegraph.Harm);
+                }
+                yield return new WaitForSeconds(0.42f);
+            }
+        }
+
+        /// <summary>A fan of lances at each player, aimed where they are going.</summary>
+        public void ServerLanceFan()
+        {
+            float tell = Tell(1.0f);
+            int lines = scaledDepth >= 4 ? 5 : 3;
+            float spread = scaledDepth >= 4 ? 15f : 22f;
+            PlayActionRpc(RigAction.Slam, tell + 0.2f);
+            var from = transform.position + Vector3.up * 0.05f;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || !p.Targetable) continue;
+                var to = PredictedFeet(p, tell) - from;
+                to.y = 0f;
+                if (to.sqrMagnitude < 0.5f) to = transform.forward;
+                to.Normalize();
+                for (int i = 0; i < lines; i++)
+                {
+                    var dir = Quaternion.Euler(0f, (i - (lines - 1) / 2f) * spread, 0f) * to;
+                    strikes.Add(new Strike { At = from, Dir = dir, When = Time.time + tell, Damage = damage * 0.65f, Line = true });
+                    LineTelegraphRpc(from, dir, LanceLength, LanceWidth, tell);
+                }
+            }
+        }
+
+        private void TickStrikes()
+        {
+            for (int i = strikes.Count - 1; i >= 0; i--)
+            {
+                var s = strikes[i];
+                if (Time.time < s.When) continue;
+                strikes.RemoveAt(i);
+                foreach (var p in PlayerLife.All)
+                {
+                    if (p == null || !p.Targetable) continue;
+                    var to = p.transform.position - s.At;
+                    to.y = 0f;
+                    bool hit;
+                    if (s.Line)
+                    {
+                        float along = Vector3.Dot(to, s.Dir);
+                        hit = along >= 0f && along <= LanceLength && (to - s.Dir * along).magnitude <= LanceWidth * 0.5f + 0.3f;
+                    }
+                    else hit = to.magnitude <= s.Radius + 0.3f;
+                    if (!hit) continue;
+                    p.Health.ServerDamage(s.Damage, s.At + Vector3.up, NetworkObjectId);
+                    KnockPlayer(p.Health, (s.Line ? s.Dir * 3f : to.normalized * 4f) + Vector3.up * 4f);
+                }
+                StrikeFxRpc(s.At, s.Line ? s.Dir : Vector3.zero, s.Line);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void StrikeFxRpc(Vector3 at, Vector3 dir, bool line)
+        {
+            var c = Rig != null ? Rig.GlowColor : new Color(1f, 0.4f, 0.2f);
+            if (line)
+            {
+                for (float d = 1.5f; d < LanceLength; d += 2.5f)
+                {
+                    var p = at + dir * d;
+                    Vfx.Embers(p + Vector3.up * 0.2f, 3, c, 3f, 0.05f, 0.4f);
+                }
+                Vfx.Flash(at + dir * 4f + Vector3.up, c, 3f, 8f, 0.25f);
+                Sfx.Play(Sound.Slam, at + dir * 6f, 0.7f, 1.2f);
+            }
+            else
+            {
+                Vfx.Ring(at + Vector3.up * 0.05f, StrikeRadius, c, 0.3f);
+                Vfx.Embers(at + Vector3.up * 0.3f, 8, c, 4f, 0.06f, 0.5f);
+                Sfx.Play(Sound.Slam, at, 0.55f, 1.3f);
+            }
+            var local = NetworkPlayer.Local;
+            if (local != null && Vector3.Distance(local.transform.position, at) < 7f) local.AddShake(0.2f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

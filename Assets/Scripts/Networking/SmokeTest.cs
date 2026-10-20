@@ -1626,6 +1626,28 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(2f);
                 Log("act two", "floor " + (dc.Floor.Value.y + 1) + " is act " + (DungeonDirector.Act(dc.Floor.Value.y) + 1) + " (" + DungeonTheme.ForDepth(dc.Floor.Value.y).Name + "), boss " +
                     (BossBrain.Active != null ? BossBrain.Active.DisplayName : "none"), DungeonDirector.Act(dc.Floor.Value.y) == 1 && BossBrain.Active is WardenBrain);
+                {
+                    // Hunting strikes: predicted circles walk after every standing player; a lance fan follows.
+                    var hunter = BossBrain.Active;
+                    var hh = local.GetComponent<Health>();
+                    if (hunter != null)
+                    {
+                        foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None)) if (!(e is BossBrain) && Vector3.Distance(e.transform.position, local.transform.position) < 20f) e.GetComponent<Health>().ServerDamage(1e6f, e.transform.position);
+                        hh.ServerSetFraction(1f);
+                        float h0 = hh.Current.Value;
+                        int thrown0 = hunter.HuntsThrown;
+                        hunter.ServerHuntNow();
+                        yield return new WaitForSeconds(1.0f);
+                        bool struck = hh.Current.Value < h0;
+                        hh.ServerSetFraction(1f);
+                        hunter.ServerHuntNow();
+                        yield return new WaitForSeconds(0.2f);
+                        Log("boss hunts", "hunts " + thrown0 + " -> " + hunter.HuntsThrown + ", a standing player was struck " + struck + ", tell x" + Difficulty.Tell(dc.Floor.Value.y).ToString("F2") + ", summons solo " + Difficulty.SummonCount(4, 1) + " / four " + Difficulty.SummonCount(4, 4),
+                            hunter.HuntsThrown == thrown0 + 2 && struck && Difficulty.SummonCount(4, 1) < Difficulty.SummonCount(4, 4));
+                        yield return new WaitForSeconds(1.4f);
+                        hh.ServerSetFraction(1f);
+                    }
+                }
                 dc.ServerDebugTide();
                 yield return new WaitForSeconds(0.3f);
                 var floorSpot = DungeonDirector.Layout.StartRoom.Center + Vector3.up * 0.05f;
@@ -1655,8 +1677,10 @@ namespace Deepbound.Networking
                 deb2.ServerMania(1f);
                 yield return new WaitForSeconds(0.2f);
                 bool manic = deb2.Manic && !local.GetComponent<PlayerLife>().CanAct;
+                // The Iron Psalter (a relic the blood altar may have given) makes you immune to mania.
+                bool psalter = local.GetComponent<PlayerProgress>().HasRelic(Relic.IronPsalter);
                 deb2.ServerCleanse();
-                Log("mania", "manic " + manic + ", cleansed " + !deb2.Manic, manic && !deb2.Manic);
+                Log("mania", (psalter ? "immune (Iron Psalter), " : "") + "manic " + manic + ", cleansed " + !deb2.Manic, (manic || psalter) && !deb2.Manic);
                 // The Iron Psalter: madness slides off.
                 var pp2 = local.GetComponent<PlayerProgress>();
                 pp2.ServerAddRelic(Relic.IronPsalter);

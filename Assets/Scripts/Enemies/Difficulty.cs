@@ -66,6 +66,18 @@ namespace Deepbound.Enemies
         /// </summary>
         public static float Lead(int depth) => Mathf.Clamp01((depth - 1) / 5f);
 
+        /// <summary>
+        /// How long boss tells last, as a fraction of their base: full on the first floors, down to
+        /// 72% by floor 9 (play-test 2026-10-20: the circles and lanes were far too easy to step out of).
+        /// </summary>
+        public static float Tell(int depth) => Mathf.Lerp(1f, 0.72f, Mathf.Clamp01(depth / 8f));
+
+        /// <summary>
+        /// A boss's minion count for a party of <paramref name="players"/>: fewer alone (0.7x), more
+        /// with four (1.15x), so a soloist is not buried and a party has something to split onto.
+        /// </summary>
+        public static int SummonCount(int baseCount, int players) => Mathf.Clamp(Mathf.RoundToInt(baseCount * (0.55f + 0.15f * Mathf.Max(1, players))), 1, baseCount * 2);
+
         /// <summary>Chance a regular enemy spawns as an elite.</summary>
         public static float EliteChance(int depth, int players) => 0.11f + 0.05f * World.DungeonDirector.Tier(depth) + 0.02f * Extra(players) + Level.EliteBonus;
 

@@ -329,11 +329,11 @@ namespace Deepbound.Enemies
 
         private void BeginSlam()
         {
-            slamAt = Time.time + SlamWindup;
+            slamAt = Time.time + Tell(SlamWindup);
             busyUntil = slamAt + 1f;
-            PlayActionRpc(act == 1 || act == 4 ? RigAction.Cast : RigAction.Slam, SlamWindup + 0.3f);
-            if (act == 1 || act == 4) TintedKeyedCircleRpc(transform.position, SlamRadius, SlamWindup, act == 1 ? Telegraph.Frost : Telegraph.Poison);
-            else CircleTelegraphRpc(transform.position, SlamRadius, SlamWindup, true);
+            PlayActionRpc(act == 1 || act == 4 ? RigAction.Cast : RigAction.Slam, Tell(SlamWindup) + 0.3f);
+            if (act == 1 || act == 4) TintedKeyedCircleRpc(transform.position, SlamRadius, Tell(SlamWindup), act == 1 ? Telegraph.Frost : Telegraph.Poison);
+            else CircleTelegraphRpc(transform.position, SlamRadius, Tell(SlamWindup), true);
         }
 
         private void ResolveSlam()
@@ -356,7 +356,7 @@ namespace Deepbound.Enemies
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void TintedKeyedCircleRpc(Vector3 at, float radius, float seconds, Color tint) => Telegraph.Show(at, radius, seconds, this, tint);
+        private void TintedKeyedCircleRpc(Vector3 at, float radius, float seconds, Color tint) { Telegraph.Show(at, radius, seconds, this, tint); Gather(seconds, 1f); }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void SlamFxRpc(Vector3 at, float radius, int kind)
@@ -436,17 +436,18 @@ namespace Deepbound.Enemies
 
         private void BeginChargeWindup()
         {
-            chargeDir = target.transform.position - transform.position;
+            // Aimed where its quarry is going, not where it stands.
+            chargeDir = (target.TryGetComponent<PlayerLife>(out var quarry) ? PredictedFeet(quarry, Tell(1.1f)) : target.transform.position) - transform.position;
             chargeDir.y = 0f;
             chargeDir.Normalize();
             var from = transform.position;
             chargeLength = 16f;
             if (NavMesh.Raycast(from, from + chargeDir * chargeLength, out var hit, NavMesh.AllAreas)) chargeLength = hit.distance;
             charge = 1;
-            chargeAt = Time.time + 1.1f;
+            chargeAt = Time.time + Tell(1.1f);
             trampled.Clear();
-            PlayActionRpc(RigAction.Windup, 1.1f);
-            LineTelegraphRpc(from, chargeDir, chargeLength + 1f, 2.6f, 1.1f);
+            PlayActionRpc(RigAction.Windup, Tell(1.1f));
+            LineTelegraphRpc(from, chargeDir, chargeLength + 1f, 2.6f, Tell(1.1f));
         }
 
         private void StepCharge()

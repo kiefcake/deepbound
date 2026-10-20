@@ -128,8 +128,9 @@ namespace Deepbound.Enemies
         private void AddPillar(Vector3 at)
         {
             if (UnityEngine.AI.NavMesh.SamplePosition(at, out var hit, 2f, UnityEngine.AI.NavMesh.AllAreas)) at = hit.position;
-            pillars.Add(new Pillar { At = at, When = Time.time + judgementWindup });
-            JudgementWarnRpc(at, judgementRadius, judgementWindup);
+            pillars.Add(new Pillar { At = at, When = Time.time + Tell(judgementWindup) });
+            JudgementWarnRpc(at, judgementRadius, Tell(judgementWindup));
+            GatherRpc(Tell(judgementWindup), 0.6f);
         }
 
         private void ResolvePillars()

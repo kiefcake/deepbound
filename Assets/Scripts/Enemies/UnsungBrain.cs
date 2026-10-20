@@ -120,9 +120,10 @@ namespace Deepbound.Enemies
                 foreach (var p in PlayerLife.All)
                 {
                     if (p == null || !p.Targetable) continue;
-                    var at = PredictedFeet(p, 1.5f);
-                    grasps.Add(new Grasp { At = at, When = Time.time + 1.5f });
-                    GraspWarnRpc(at, 2.6f, 1.5f);
+                    float gw = Tell(1.5f);
+                    var at = PredictedFeet(p, gw);
+                    grasps.Add(new Grasp { At = at, When = Time.time + gw });
+                    GraspWarnRpc(at, 2.6f, gw);
                 }
                 PlayActionRpc(RigAction.Cast, 0.9f);
                 castUntil = Time.time + 0.9f;

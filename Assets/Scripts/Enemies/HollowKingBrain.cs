@@ -70,7 +70,7 @@ namespace Deepbound.Enemies
             else
                 Transition("The Last Crown", "I was a king before your gods were born!", 2.2f, () => nextBlades = Time.time + 2f);
         }
-        private float WindupScale => Enraged ? 0.7f : 1f;
+        private float WindupScale => (Enraged ? 0.7f : 1f) * Tell(1f);
 
         // ---- Crown of Blades: spectral swords wheel out of him while he keeps walking at you ----
         private float nextBlades = -1f;

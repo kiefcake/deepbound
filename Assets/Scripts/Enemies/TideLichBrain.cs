@@ -287,10 +287,11 @@ namespace Deepbound.Enemies
             foreach (var p in PlayerLife.All)
             {
                 if (p == null || !p.Targetable) continue;
-                var c = p.transform.position;
-                pools.Add(new Pool { Center = c, At = Time.time + poolWindup });
+                float pw = Tell(poolWindup);
+                var c = PredictedFeet(p, pw);
+                pools.Add(new Pool { Center = c, At = Time.time + pw });
                 Debug.Log("[Boss] Tide Lich pool under " + p.name);
-                CircleTelegraphRpc(c, poolRadius, poolWindup, false);
+                CircleTelegraphRpc(c, poolRadius, pw, false);
             }
         }
 
