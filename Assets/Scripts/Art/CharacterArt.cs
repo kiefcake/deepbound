@@ -688,7 +688,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling, Orbweaver, ChoirAcolyte }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling, Orbweaver, ChoirAcolyte, AbyssEye }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -706,6 +706,7 @@ namespace Deepbound.Art
         {
             if (kind == SkeletonKind.Wraith) return BuildWraith(root);
             if (kind == SkeletonKind.Mimic) return BuildMimic(root);
+            if (kind == SkeletonKind.AbyssEye) return BuildAbyssEye(root);
             if (kind == SkeletonKind.Gargoyle) return BuildGargoyle(root);
             if (kind == SkeletonKind.Mourner) return BuildMourner(root);
             if (kind == SkeletonKind.Unsung) return BuildUnsung(root);

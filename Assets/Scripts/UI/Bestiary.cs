@@ -36,7 +36,8 @@ namespace Deepbound.UI
             new Entry { Type = "HollowKingBrain", Name = "The Hollow King", Text = "Cleaves and slams; share his Judgement by standing together in the circle.", Boss = true },
             new Entry { Type = "CardinalBrain", Name = "The Pale Cardinal", Text = "Judgement pillars land where you are going. Break the choir's wards.", Boss = true },
             new Entry { Type = "UnsungBrain", Name = "The Unsung", Text = "What waits on the tenth floor. Every Seal you broke weakens it.", Boss = true },
-            new Entry { Type = "ChoirAcolyteBrain", Name = "Choir Acolyte", Text = "Hangs back and sings: a golden circle fills, then every one of the dead in it is WARDED. Stun it or hit it hard mid-hymn to break the song." },
+            new Entry { Type = "ChoirAcolyteBrain", Name = "Choir Acolyte", Text = "Hangs back and sings: a golden circle fills, then every one of the dead in it is SHIELDED. Stun it or hit it hard mid-hymn to break the song." },
+            new Entry { Type = "AbyssEyeBrain", Name = "Abyssal Eye", Text = "Floats and stares. When it locks on, a violet line is drawn on the floor: step off it before the beam. The eye is its head; the iris a weak point." },
             new Entry { Type = "Tallyman", Name = "The Tallyman", Text = "Comes for those who linger on a floor. Cannot be fought: outrun him and seal yourselves in with the guardian.", Boss = true },
         };
 

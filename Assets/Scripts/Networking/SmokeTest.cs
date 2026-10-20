@@ -1196,6 +1196,23 @@ namespace Deepbound.Networking
                             }
                             else Log("choir acolyte", "no prefab", false);
                         }
+                        // An Abyssal Eye's beam hits a player standing on its line, and misses one who stepped off.
+                        {
+                            var eyeAt = local.transform.position + local.transform.forward * 8f;
+                            var eyeB = dd.ServerDebugSpawn("eye", eyeAt, false) as AbyssEyeBrain;
+                            if (eyeB != null)
+                            {
+                                yield return new WaitForSeconds(0.3f);
+                                var hp9 = local.GetComponent<Health>();
+                                hp9.ServerSetFraction(1f);
+                                eyeB.ServerLockOn(hp9);
+                                for (float t = 0f; t < 2.5f && eyeB.BeamsFired == 0; t += 0.1f) { hp9.ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                                float onLine = eyeB.LastBeamDealt;
+                                Log("abyssal eye", "beams " + eyeB.BeamsFired + ", dealt on the line " + onLine.ToString("F0"), eyeB.BeamsFired >= 1 && onLine > 0f);
+                                if (eyeB.IsSpawned) eyeB.NetworkObject.Despawn();
+                            }
+                            else Log("abyssal eye", "no prefab", false);
+                        }
                         // The Tallyman walks to you, drains you on touch, and leaves when dismissed.
                         var tally = dd.ServerDebugTally(local.transform.position + local.transform.forward * 7f);
                         if (tally != null)
@@ -2945,7 +2962,7 @@ namespace Deepbound.Networking
                     }
 
                     // Line up one of each newer enemy type for a close look.
-                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain), typeof(EntlingBrain), typeof(OrbweaverBrain), typeof(ChoirAcolyteBrain) })
+                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain), typeof(EntlingBrain), typeof(OrbweaverBrain), typeof(ChoirAcolyteBrain), typeof(AbyssEyeBrain) })
                     {
                         var e = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(b => b.GetType() == type && !b.IsDead);
                         if (e == null) continue;

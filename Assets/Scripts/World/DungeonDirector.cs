@@ -135,6 +135,8 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject plaguebearerPrefab, frostWightPrefab, hexerPrefab;
         /// <summary>The Black Cathedral's choristers (act 4 on, the Abyss too).</summary>
         [SerializeField] private NetworkObject acolytePrefab;
+        /// <summary>The Abyss's floating eyes (the last act).</summary>
+        [SerializeField] private NetworkObject abyssEyePrefab;
         [SerializeField] private NetworkObject fateWheelPrefab;
         [SerializeField] private NetworkObject bountyNoticePrefab;
         [SerializeField] private NetworkObject omenStonePrefab;
@@ -402,7 +404,7 @@ namespace Deepbound.World
         public System.Collections.Generic.IEnumerable<EnemyBrain> AllEnemyPrefabs()
         {
             var all = new System.Collections.Generic.List<NetworkObject> { skeletonPrefab, archerPrefab, ghoulPrefab, brutePrefab, necromancerPrefab, wraithPrefab,
-                shieldbearerPrefab, mimicPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, mournerPrefab, entlingPrefab, orbweaverPrefab, acolytePrefab };
+                shieldbearerPrefab, mimicPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, mournerPrefab, entlingPrefab, orbweaverPrefab, acolytePrefab, abyssEyePrefab };
             if (bossPrefabs != null) all.AddRange(bossPrefabs);
             if (wardenPrefabs != null) all.AddRange(wardenPrefabs);
             foreach (var p in all) if (p != null && p.TryGetComponent<EnemyBrain>(out var b)) yield return b;
@@ -565,7 +567,7 @@ namespace Deepbound.World
                 "skeleton" => skeletonPrefab, "archer" => archerPrefab, "ghoul" => ghoulPrefab, "brute" => brutePrefab,
                 "necromancer" => necromancerPrefab, "wraith" => wraithPrefab, "shieldbearer" => shieldbearerPrefab, "gargoyle" => gargoylePrefab,
                 "plaguebearer" => plaguebearerPrefab, "frostwight" => frostWightPrefab, "hexer" => hexerPrefab, "mourner" => mournerPrefab,
-                "entling" => entlingPrefab, "orbweaver" => orbweaverPrefab, "mimic" => mimicPrefab, "hoarder" => hoarderPrefab, "acolyte" => acolytePrefab, _ => null,
+                "entling" => entlingPrefab, "orbweaver" => orbweaverPrefab, "mimic" => mimicPrefab, "hoarder" => hoarderPrefab, "acolyte" => acolytePrefab, "eye" => abyssEyePrefab, _ => null,
             };
             if (prefab == null) return null;
             if (NavMesh.SamplePosition(at, out var hit, 4f, NavMesh.AllAreas)) at = hit.position;
@@ -578,7 +580,7 @@ namespace Deepbound.World
             return b;
         }
 
-        public static readonly string[] DebugSpawnKinds = { "skeleton", "archer", "ghoul", "brute", "necromancer", "wraith", "shieldbearer", "gargoyle", "plaguebearer", "frostwight", "hexer", "mourner", "entling", "mimic", "hoarder", "orbweaver", "acolyte" };
+        public static readonly string[] DebugSpawnKinds = { "skeleton", "archer", "ghoul", "brute", "necromancer", "wraith", "shieldbearer", "gargoyle", "plaguebearer", "frostwight", "hexer", "mourner", "entling", "mimic", "hoarder", "orbweaver", "acolyte", "eye" };
 
         private void EnterLobby(bool keepRun = false)
         {
@@ -1246,6 +1248,9 @@ namespace Deepbound.World
             // The Black Cathedral sings: choristers from act 4, warding the dead around them.
             float choir = acolytePrefab != null && act >= 3 ? 0.08f + 0.01f * tier : 0f;
             if ((roll -= choir) < 0f) return acolytePrefab;
+            // The Abyss stares back.
+            float eye = abyssEyePrefab != null && act >= 4 ? 0.12f : 0f;
+            if ((roll -= eye) < 0f) return abyssEyePrefab;
             if ((roll -= plague) < 0f) return plaguebearerPrefab;
             if ((roll -= frost) < 0f) return frostWightPrefab;
             if ((roll -= hex) < 0f) return hexerPrefab;

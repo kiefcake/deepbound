@@ -9,7 +9,7 @@ namespace Deepbound.Enemies
     /// The Choir Acolyte (2026-10-20, the Black Cathedral's own dead): a pale chorister with a censer that
     /// hangs back behind the others and sings. Every so often it stands still and raises a HYMN (a golden
     /// circle fills under it for <see cref="HymnSeconds"/>); if the hymn finishes, every one of the dead in
-    /// the circle is WARDED with a shield of a quarter of its health. Stun it, or hit it hard
+    /// the circle is SHIELDED for a quarter of a quarter of its health. Stun it, or hit it hard
     /// (<see cref="BreakFraction"/> of its health) while it sings, and the hymn breaks. It throws a feeble
     /// spark when it has nothing to sing for.
     /// </summary>
@@ -147,7 +147,7 @@ namespace Deepbound.Enemies
             foreach (var p in warded)
             {
                 Vfx.Ring(p - Vector3.up * 0.9f, 0.9f, Gilt, 0.5f);
-                UI.GameHud.ShowCombo(p + Vector3.up * 1.2f, "WARDED", Gilt);
+                UI.GameHud.ShowCombo(p + Vector3.up * 1.2f, "SHIELDED", Gilt);
             }
         }
     }

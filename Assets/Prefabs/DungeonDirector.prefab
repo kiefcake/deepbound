@@ -108,6 +108,7 @@ MonoBehaviour:
   frostWightPrefab: {fileID: 2523612389223368176, guid: 9ae6b7eeef2aa36498d6d2e3ef5d3d2c, type: 3}
   hexerPrefab: {fileID: 9099394919089818623, guid: 1a478868dedba2047aaa69623444d732, type: 3}
   acolytePrefab: {fileID: 2261373335432661186, guid: c6dbd86c0b184264ba54308f8bd2ec79, type: 3}
+  abyssEyePrefab: {fileID: 436945408862097884, guid: bab2d226deb87ee4185b939de9bed426, type: 3}
   fateWheelPrefab: {fileID: 5332673811175829373, guid: f3cf4823e8237f04f855c69286e7b9d8, type: 3}
   bountyNoticePrefab: {fileID: 3915093814716477257, guid: 534f8b4084fc56a4bbd049eccaba92ad, type: 3}
   omenStonePrefab: {fileID: 382665563209428435, guid: 65d7f993c336c7d43b5975cc5e24fa6e, type: 3}
