@@ -188,6 +188,7 @@ namespace Deepbound.UI
                     : room.Feature == RoomFeature.Treasury ? Color.Lerp(floor, new Color(0.55f, 0.45f, 0.15f), 0.45f)
                     : room.Feature == RoomFeature.Mirror ? Color.Lerp(floor, new Color(0.35f, 0.15f, 0.45f), 0.45f)
                     : room.Feature == RoomFeature.Oath ? Color.Lerp(floor, new Color(0.2f, 0.3f, 0.5f), 0.45f)
+                    : room.Feature == RoomFeature.Lightless ? Color.Lerp(floor, Color.black, 0.6f)
                     : room.Feature == RoomFeature.Proving ? Color.Lerp(floor, new Color(0.5f, 0.25f, 0.1f), 0.45f)
                     : room.Feature == RoomFeature.Beggar || room.Feature == RoomFeature.Armoury ? Color.Lerp(floor, new Color(0.35f, 0.3f, 0.2f), 0.4f)
                     : floor;

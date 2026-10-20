@@ -1027,7 +1027,7 @@ namespace Deepbound.Networking
                     }
                     Log("peddler rooms peaceful", peddlers + " peddler rooms over 40 seeds, " + hostile + " with enemies", peddlers > 0 && hostile == 0);
                     {
-                        int tre = 0, beg = 0, pro = 0, arm = 0, mir = 0, ter = 0, zig = 0, oat = 0, specialHostile = 0;
+                        int tre = 0, beg = 0, pro = 0, arm = 0, mir = 0, ter = 0, zig = 0, oat = 0, dark = 0, specialHostile = 0;
                         for (int sd = 1; sd <= 40; sd++)
                         {
                             var gl = DungeonLayout.Generate(sd * 15485863, 1 + sd % 8);
@@ -1043,12 +1043,13 @@ namespace Deepbound.Networking
                                     case RoomFeature.Terrace: ter++; break;
                                     case RoomFeature.Ziggurat: zig++; break;
                                     case RoomFeature.Oath: oat++; break;
+                                    case RoomFeature.Lightless: dark++; break;
                                 }
                                 if (r.Special && r.Feature != RoomFeature.Treasury && r.EnemySpawns.Count > 0) specialHostile++;
                             }
                         }
-                        Log("special rooms", "over 40 seeds: treasury " + tre + ", beggar " + beg + ", proving " + pro + ", armoury " + arm + ", mirror " + mir + ", terrace " + ter + ", ziggurat " + zig + ", oath " + oat + "; special rooms with enemies " + specialHostile,
-                            tre > 0 && beg > 0 && pro > 0 && arm > 0 && mir > 0 && ter > 0 && zig > 0 && oat > 0 && specialHostile == 0);
+                        Log("special rooms", "over 40 seeds: treasury " + tre + ", beggar " + beg + ", proving " + pro + ", armoury " + arm + ", mirror " + mir + ", terrace " + ter + ", ziggurat " + zig + ", oath " + oat + ", lightless " + dark + "; special rooms with enemies " + specialHostile,
+                            tre > 0 && beg > 0 && pro > 0 && arm > 0 && mir > 0 && ter > 0 && zig > 0 && oat > 0 && dark > 0 && specialHostile == 0);
                     }
                     {
                         // The special rooms' furniture does what it says.
@@ -1153,6 +1154,23 @@ namespace Deepbound.Networking
                             Log("patrol", band.Count + " in the band, marching " + marching + ", leader heading on " + heading, marching && heading);
                             foreach (var b in band) if (b != null && b.IsSpawned) b.NetworkObject.Despawn();
                             yield return new WaitForSeconds(0.2f);
+                        }
+                        // A hand torch: carrying it lights the way and empties your hands.
+                        {
+                            var torch = dd.ServerDebugTorch(local.transform.position + local.transform.forward * 1.5f);
+                            if (torch != null)
+                            {
+                                yield return new WaitForSeconds(0.2f);
+                                torch.ServerDebugCarry(sp);
+                                yield return new WaitForSeconds(0.2f);
+                                bool lit = torch.Lit, hands = !local.GetComponent<PlayerLife>().CanAct;
+                                torch.ServerDrop(local.transform.position);
+                                yield return new WaitForSeconds(0.1f);
+                                bool free = local.GetComponent<PlayerLife>().CanAct;
+                                Log("hand torch", "lit " + lit + ", hands full while carried " + hands + ", free once set down " + free, lit && hands && free);
+                                if (torch.IsSpawned) torch.NetworkObject.Despawn();
+                            }
+                            else Log("hand torch", "no prefab", false);
                         }
                         // An oath: the player stands on one plate, the Oath Stone is set on the other.
                         {

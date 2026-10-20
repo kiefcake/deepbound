@@ -142,8 +142,10 @@ namespace Deepbound.World
                 dressing.AddBox(pos, beamsAlongX ? new Vector3(w, 0.5f, 0.4f) : new Vector3(0.4f, 0.5f, d), Mat.Wood);
             }
 
-            PlaceWallTorches(room, lights, rng);
-            if (room.Kind != RoomKind.Start) PlaceLightShafts(room, lights, dressing, rng);
+            // A lightless hall has no torches, shafts or braziers: only the torch you carry.
+            bool dark = room.Feature == RoomFeature.Lightless;
+            if (!dark) PlaceWallTorches(room, lights, rng);
+            if (room.Kind != RoomKind.Start && !dark) PlaceLightShafts(room, lights, dressing, rng);
 
             switch (room.Feature)
             {
@@ -386,7 +388,7 @@ namespace Deepbound.World
 
             if (rng.NextDouble() < 0.5) Props.BonePile(b, c + new Vector3((float)rng.NextDouble() * 4f - 2f, 0f, (float)rng.NextDouble() * 4f - 2f), rng);
             GothicDressing(room, b, lights, rng);
-            if (room.Kind == RoomKind.Combat && rng.NextDouble() < 0.4) Props.Brazier(lights, c, theme.BrazierColor, true);
+            if (room.Kind == RoomKind.Combat && room.Feature != RoomFeature.Lightless && rng.NextDouble() < 0.4) Props.Brazier(lights, c, theme.BrazierColor, true);
         }
 
         // ------------------------------------------------------------------

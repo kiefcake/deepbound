@@ -13,7 +13,7 @@ namespace Deepbound.World
     /// chamber (braziers empower the room's dead until smashed). Side rooms can be a
     /// Vault or a Fountain.
     /// </summary>
-    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath }
+    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless }
 
     /// <summary>Boss arena shapes: a colonnade (cover), a raised dais under the throne, or broken ruins.</summary>
     public enum BossArena : byte { Colonnade = 0, Dais = 1, Ruins = 2 }
@@ -461,6 +461,8 @@ namespace Deepbound.World
             // Every other combat room gets one of the newer mechanics, shuffled, no repeats
             // until all have been used.
             var extras = new List<RoomFeature> { RoomFeature.Gallery, RoomFeature.SunkenCourt, RoomFeature.Cistern, RoomFeature.Pendulums, RoomFeature.Ritual, RoomFeature.Library, RoomFeature.Pyre, RoomFeature.Gauntlet, RoomFeature.Terrace, RoomFeature.Ziggurat };
+            // From the second floor, a hall with no light but the one you carry.
+            if (layout.Depth >= 1) extras.Add(RoomFeature.Lightless);
             for (int i = extras.Count - 1; i > 0; i--)
             {
                 int j = rng.Next(i + 1);
@@ -567,6 +569,21 @@ namespace Deepbound.World
                     room.Height = 11f;
                     room.FeatureSpots.Add(room.Center);
                     break;
+                case RoomFeature.Lightless:
+                {
+                    // The torch just inside a doorway (off to one side of it), a chest at the far wall.
+                    room.Height = 7f;
+                    int door = 0;
+                    for (int s = 0; s < 4; s++) if (room.Doors[s]) { door = s; break; }
+                    var d = Dir[door];
+                    var inward = -new Vector3(d.x, 0f, d.y);
+                    var across = new Vector3(-inward.z, 0f, inward.x);
+                    float half = (door == 0 || door == 2 ? room.Size.y : room.Size.x) / 2f;
+                    room.FeatureSpots.Add(room.Center - inward * (half - 2.4f) + across * 1.8f);
+                    int far = (door + 2) % 4;
+                    room.FeatureSpots.Add(room.Center + inward * (half - 1.8f) + (room.Doors[far] ? across * 3.5f : Vector3.zero));
+                    break;
+                }
                 case RoomFeature.Gauntlet:
                     // Long and narrow-ish: the wave runs down the long axis.
                     if (room.Size.x >= room.Size.y) room.Size = new Vector2(Mathf.Max(room.Size.x, 26f), Mathf.Clamp(room.Size.y, 14f, 20f));

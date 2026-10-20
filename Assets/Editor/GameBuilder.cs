@@ -89,6 +89,7 @@ namespace Deepbound.EditorTools
             var tallyman = BuildObjectPrefab<Tallyman>("Tallyman", Vector3.zero);
             var oathPlates = BuildObjectPrefab<OathPlates>("OathPlates", Vector3.zero);
             var oathStone = BuildObjectPrefab<OathStone>("OathStone", Vector3.zero);
+            var handTorch = BuildObjectPrefab<HandTorch>("HandTorch", Vector3.zero);
             var soulSkull = BuildObjectPrefab<SoulSkull>("SoulSkull", Vector3.zero);
             var reliquary = BuildObjectPrefab<Reliquary>("Reliquary", Vector3.zero);
             var lorePage = BuildObjectPrefab<LorePage>("LorePage", new Vector3(0.6f, 1.1f, 0.5f));
@@ -116,6 +117,7 @@ namespace Deepbound.EditorTools
             dso.FindProperty("tallymanPrefab").objectReferenceValue = tallyman.GetComponent<NetworkObject>();
             dso.FindProperty("oathPlatesPrefab").objectReferenceValue = oathPlates.GetComponent<NetworkObject>();
             dso.FindProperty("oathStonePrefab").objectReferenceValue = oathStone.GetComponent<NetworkObject>();
+            dso.FindProperty("handTorchPrefab").objectReferenceValue = handTorch.GetComponent<NetworkObject>();
             dso.FindProperty("soulSkullPrefab").objectReferenceValue = soulSkull.GetComponent<NetworkObject>();
             dso.FindProperty("sarcophagusPrefab").objectReferenceValue = sarcophagus.GetComponent<NetworkObject>();
             dso.FindProperty("anvilPrefab").objectReferenceValue = anvil.GetComponent<NetworkObject>();

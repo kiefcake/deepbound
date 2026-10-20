@@ -79,6 +79,7 @@ MonoBehaviour:
   sideShrinePrefab: {fileID: 8455111179139271921, guid: 34349eb1608a97e4ababe238d594952a, type: 3}
   oathPlatesPrefab: {fileID: 4409106194734617444, guid: cdf9f065114f89e4d8b4facedd09ed71, type: 3}
   oathStonePrefab: {fileID: 5573254022764479217, guid: 67b57669a662afa4e9045208034e98b3, type: 3}
+  handTorchPrefab: {fileID: 5584030808820263033, guid: 88bb802d46d50c3418b6632cdae46951, type: 3}
   soulSkullPrefab: {fileID: 2749980807616642887, guid: 9d23c8acc5cae7e42b89372e6848278a, type: 3}
   sarcophagusPrefab: {fileID: 450747277759864904, guid: ba5736d10dcde4a4d9af9adbdbab1f2b, type: 3}
   crackedWallPrefab: {fileID: 3855241515496535436, guid: 943bd248e66bc7e4faabab7fd6969047, type: 3}

@@ -44,7 +44,10 @@ namespace Deepbound.World
             spawned.Add(obj);
         }
 
-        [SerializeField] private NetworkObject oathPlatesPrefab, oathStonePrefab;
+        [SerializeField] private NetworkObject oathPlatesPrefab, oathStonePrefab, handTorchPrefab;
+
+        /// <summary>Tests: a hand torch here.</summary>
+        public HandTorch ServerDebugTorch(Vector3 at) => handTorchPrefab == null ? null : Spawn(handTorchPrefab, at, Quaternion.identity).GetComponent<HandTorch>();
 
         /// <summary>Server: the Oath Room's plates (placed after spawn) and its stone.</summary>
         private OathPlates SpawnOath(DungeonLayout.Room room, Vector3? a = null, Vector3? b = null, Vector3? stone = null, Vector3? coffer = null)
@@ -384,6 +387,20 @@ namespace Deepbound.World
                         ritualSummons = 0;
                         break;
 
+                    case RoomFeature.Lightless when handTorchPrefab != null && room.FeatureSpots.Count >= 2:
+                    {
+                        Spawn(handTorchPrefab, Art.Vfx.Floor(room.FeatureSpots[0]), Quaternion.identity);
+                        if (chestPrefab != null)
+                        {
+                            var face = room.Center - room.FeatureSpots[1];
+                            face.y = 0f;
+                            var rot = face.sqrMagnitude > 0.01f ? Quaternion.LookRotation(face) : Quaternion.identity;
+                            var dark = Spawn(chestPrefab, DropSpots.ClearForChest(room.FeatureSpots[1], rot, room), rot);
+                            dark.GetComponent<Chest>().SetLootPrefab(lootPrefab);
+                            spawned.Add(dark);
+                        }
+                        break;
+                    }
                     case RoomFeature.Fountain when fountainPrefab != null && room.FeatureSpots.Count > 0:
                         Spawn(fountainPrefab, room.FeatureSpots[0], Quaternion.identity);
                         break;
