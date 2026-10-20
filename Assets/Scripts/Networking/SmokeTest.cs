@@ -1076,8 +1076,13 @@ namespace Deepbound.Networking
                         float max0 = local.GetComponent<Health>().Max.Value;
                         mirror.ServerDebugUse(sp);
                         yield return new WaitForSeconds(0.1f);
-                        Log("dark mirror", "max hp " + max0.ToString("F0") + " -> " + local.GetComponent<Health>().Max.Value.ToString("F0") + ", cursed " + sp.MirrorCursed.Value, sp.MirrorCursed.Value && local.GetComponent<Health>().Max.Value < max0);
+                        // Its relic may itself add health: compare cursed against the same kit uncursed.
+                        float maxCursed = local.GetComponent<Health>().Max.Value;
+                        bool wasCursed = sp.MirrorCursed.Value;
                         sp.ServerSetMirrorCursed(false);
+                        yield return new WaitForSeconds(0.1f);
+                        float maxClean = local.GetComponent<Health>().Max.Value;
+                        Log("dark mirror", "max hp " + max0.ToString("F0") + " -> " + maxCursed.ToString("F0") + " cursed (" + maxClean.ToString("F0") + " without the curse), cursed " + wasCursed, wasCursed && maxCursed < maxClean * 0.9f);
                         var beggar = dd.ServerDebugShrine(SideShrine.Kind.Beggar, near + Vector3.right * 4f);
                         yield return new WaitForSeconds(0.1f);
                         sp.ServerAddGold(2000);
@@ -1164,6 +1169,32 @@ namespace Deepbound.Networking
                                 if (stoneO != null && stoneO.IsSpawned) stoneO.NetworkObject.Despawn();
                             }
                             else Log("oath plates", "no prefab", false);
+                        }
+                        // A Choir Acolyte's hymn wards a skeleton beside it; a hard hit mid-song breaks the next one.
+                        {
+                            var acAt = local.transform.position + local.transform.forward * 7f;
+                            var ac = dd.ServerDebugSpawn("acolyte", acAt, false) as ChoirAcolyteBrain;
+                            var mate = dd.ServerDebugSpawn("skeleton", acAt + Vector3.right * 2f, false);
+                            if (ac != null && mate != null)
+                            {
+                                ac.ServerStun(0.01f);
+                                mate.ServerStun(20f);
+                                yield return new WaitForSeconds(0.2f);
+                                ac.ServerBeginHymn();
+                                for (float t = 0f; t < ChoirAcolyteBrain.HymnSeconds + 1f && ac.HymnsSung == 0; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                                bool warded = mate.GetComponent<Health>().Shield.Value > 0f;
+                                yield return new WaitForSeconds(0.2f);
+                                var achp = ac.GetComponent<Health>();
+                                // Force the next hymn now and break it.
+                                ac.ServerDebugResetHymn();
+                                ac.ServerBeginHymn();
+                                yield return new WaitForSeconds(0.3f);
+                                achp.ServerDamage(achp.Max.Value * 0.3f, ac.transform.position + Vector3.forward, local.NetworkObjectId);
+                                yield return new WaitForSeconds(0.3f);
+                                Log("choir acolyte", "hymn sung " + ac.HymnsSung + ", skeleton warded " + warded + ", broken " + ac.HymnsBroken, ac.HymnsSung >= 1 && warded && ac.HymnsBroken >= 1);
+                                foreach (var x in new EnemyBrain[] { ac, mate }) if (x != null && x.IsSpawned) x.NetworkObject.Despawn();
+                            }
+                            else Log("choir acolyte", "no prefab", false);
                         }
                         // The Tallyman walks to you, drains you on touch, and leaves when dismissed.
                         var tally = dd.ServerDebugTally(local.transform.position + local.transform.forward * 7f);
@@ -2914,7 +2945,7 @@ namespace Deepbound.Networking
                     }
 
                     // Line up one of each newer enemy type for a close look.
-                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain), typeof(EntlingBrain) })
+                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain), typeof(EntlingBrain), typeof(OrbweaverBrain), typeof(ChoirAcolyteBrain) })
                     {
                         var e = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(b => b.GetType() == type && !b.IsDead);
                         if (e == null) continue;

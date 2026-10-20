@@ -688,7 +688,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling, Orbweaver }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling, Orbweaver, ChoirAcolyte }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -725,6 +725,7 @@ namespace Deepbound.Art
                 : kind == SkeletonKind.FrostWight ? new Color(0.55f, 0.85f, 1f)
                 : kind == SkeletonKind.Hexer ? new Color(0.7f, 0.3f, 1f)
                 : kind == SkeletonKind.Orbweaver ? new Color(1f, 0.62f, 0.2f)
+                : kind == SkeletonKind.ChoirAcolyte ? new Color(1f, 0.82f, 0.4f)
                 : kind == SkeletonKind.Necromancer ? new Color(0.75f, 0.35f, 1f)
                 : kind == SkeletonKind.Brute ? new Color(1f, 0.4f, 0.1f)
                 : new Color(1f, 0.25f, 0.1f);
@@ -961,6 +962,19 @@ namespace Deepbound.Art
                 ArtLibrary.SetGlow(hand.GetComponent<Renderer>(), new Color(1f, 0.62f, 0.2f) * 1.3f);
                 var ring = MeshKit.Part(rig.ArmL, "OrbRing", MeshKit.Lathe("orbRingSmall", new[] { new Vector2(0.15f, -0.01f), new Vector2(0.17f, 0f), new Vector2(0.15f, 0.01f) }, 16, false), Mat.Glow, new Vector3(0f, -0.72f, 0.12f), new Vector3(70f, 0f, 0f));
                 ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), new Color(1f, 0.62f, 0.2f));
+            }
+            else if (kind == SkeletonKind.ChoirAcolyte)
+            {
+                // A chorister in a pale, soot-hemmed surplice with gilt eyes, swinging a smoking censer.
+                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.62f, 0.58f, 0.48f), new Color(1f, 0.82f, 0.4f), false);
+                var censer = MeshKit.Pivot(rig.ArmL, "Censer", new Vector3(0f, -0.66f, 0.08f));
+                MeshKit.Part(censer, "Chain", MeshKit.Box(new Vector3(0.012f, 0.3f, 0.012f)), Mat.Steel, new Vector3(0f, -0.15f, 0f));
+                MeshKit.Part(censer, "Pot", MeshKit.Lathe("censerPot", new[] { new Vector2(0f, -0.08f), new Vector2(0.07f, -0.06f), new Vector2(0.08f, 0f), new Vector2(0.05f, 0.05f), new Vector2(0f, 0.08f) }, 10), Mat.Gold, new Vector3(0f, -0.38f, 0f));
+                var coal = MeshKit.Part(censer, "Coal", MeshKit.Ball(0.04f, 6, 4), Mat.Glow, new Vector3(0f, -0.36f, 0f));
+                ArtLibrary.SetGlow(coal.GetComponent<Renderer>(), new Color(1f, 0.6f, 0.25f) * 1.4f);
+                // A stiff white choir collar (open at the front, the ruff of a cathedral singer).
+                var collar = MeshKit.Part(rig.Torso, "ChoirCollar", MeshKit.Lathe("choirCollar", new[] { new Vector2(0.17f, 0f), new Vector2(0.26f, 0.05f), new Vector2(0.25f, 0.08f) }, 14, true, 300f), Mat.Cloth, new Vector3(0f, 0.55f, 0f), new Vector3(0f, 30f, 0f));
+                ArtLibrary.Tint(collar.GetComponent<Renderer>(), new Color(0.92f, 0.9f, 0.84f));
             }
             else if (kind == SkeletonKind.Ghoul)
             {

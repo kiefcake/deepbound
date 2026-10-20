@@ -69,6 +69,7 @@ namespace Deepbound.EditorTools
             var mourner = BuildEnemyPrefab("Mourner", EnemyType.Mourner, loot);
             var entling = BuildEnemyPrefab("Entling", EnemyType.Entling, loot);
             var orbweaver = BuildEnemyPrefab("Orbweaver", EnemyType.Orbweaver, loot);
+            var acolyte = BuildEnemyPrefab("ChoirAcolyte", EnemyType.ChoirAcolyte, loot);
             // The Wardens: one per act, at the end of the act's first floor.
             var wardens = new GameObject[5];
             for (int a = 0; a < wardens.Length; a++) wardens[a] = BuildEnemyPrefab("Warden" + a, EnemyType.Warden, loot, a);
@@ -129,6 +130,7 @@ namespace Deepbound.EditorTools
             dso.FindProperty("mournerPrefab").objectReferenceValue = mourner.GetComponent<NetworkObject>();
             dso.FindProperty("entlingPrefab").objectReferenceValue = entling.GetComponent<NetworkObject>();
             dso.FindProperty("orbweaverPrefab").objectReferenceValue = orbweaver.GetComponent<NetworkObject>();
+            dso.FindProperty("acolytePrefab").objectReferenceValue = acolyte.GetComponent<NetworkObject>();
             var wardenList = dso.FindProperty("wardenPrefabs");
             wardenList.arraySize = wardens.Length;
             for (int a = 0; a < wardens.Length; a++) wardenList.GetArrayElementAtIndex(a).objectReferenceValue = wardens[a].GetComponent<NetworkObject>();
@@ -270,7 +272,7 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Warden, Entling, Orbweaver }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Warden, Entling, Orbweaver, ChoirAcolyte }
 
         // A Warden is a giant of its act's rank and file.
         private static readonly Art.CharacterArt.SkeletonKind[] WardenKinds =
@@ -334,6 +336,7 @@ namespace Deepbound.EditorTools
                 case EnemyType.Warden: brain = root.AddComponent<WardenBrain>(); break;
                 case EnemyType.Entling: brain = root.AddComponent<EntlingBrain>(); break;
                 case EnemyType.Orbweaver: brain = root.AddComponent<OrbweaverBrain>(); break;
+                case EnemyType.ChoirAcolyte: brain = root.AddComponent<ChoirAcolyteBrain>(); break;
                 default: brain = root.AddComponent<EnemyBrain>(); break;
             }
 
@@ -365,6 +368,12 @@ namespace Deepbound.EditorTools
                     Kind(Art.CharacterArt.SkeletonKind.FrostWight);
                     Set("maxHealth", 130f); Set("damage", 15f); Set("defense", 3f); Set("moveSpeed", 3.2f);
                     Set("attackRange", 2.2f); Set("windup", 0.6f); Set("recovery", 1.1f); Set("aggroRange", 15f);
+                    break;
+                case EnemyType.ChoirAcolyte:
+                    // Fragile and slow to anger; it hangs back behind the others and sings.
+                    Kind(Art.CharacterArt.SkeletonKind.ChoirAcolyte);
+                    Set("maxHealth", 100f); Set("damage", 7f); Set("defense", 0f); Set("moveSpeed", 3.1f);
+                    Set("attackRange", 12f); Set("windup", 0.8f); Set("recovery", 2.2f); Set("aggroRange", 17f);
                     break;
                 case EnemyType.Hexer:
                     Kind(Art.CharacterArt.SkeletonKind.Hexer);
