@@ -439,6 +439,7 @@ namespace Deepbound.Progression
             if (killed)
             {
                 Kills.Value++;
+                World.DungeonDirector.ServerOnPlayerKill(GetComponent<Combat.Health>());
                 // Multi-kills: kills in quick succession are called out to the party.
                 if (Time.time - lastKillAt > 1.6f) killChain = 0;
                 lastKillAt = Time.time;

@@ -23,14 +23,14 @@ namespace Deepbound.World
         /// <summary>Server, for tests: rooms cleared this floor.</summary>
         public int RoomsClearedCount => roomsCleared.Count;
 
-        /// <summary>Server, for tests: kill the dead raised in one room not yet cleared; its id, or -1.</summary>
+        /// <summary>Server, for tests: remove the dead raised in one room not yet cleared (no loot); its id, or -1.</summary>
         public int ServerDebugClearOneRoom()
         {
             int pick = -1;
             foreach (var kv in spawnRoom) if (!roomsCleared.Contains(kv.Value) && kv.Key != null && !kv.Key.IsDead) { pick = kv.Value; break; }
             if (pick < 0) return -1;
             foreach (var kv in spawnRoom)
-                if (kv.Value == pick && kv.Key != null && !kv.Key.IsDead) kv.Key.GetComponent<Combat.Health>().ServerDamage(1e6f, kv.Key.transform.position);
+                if (kv.Value == pick && kv.Key != null && kv.Key.IsSpawned) kv.Key.NetworkObject.Despawn();
             return pick;
         }
 
@@ -70,7 +70,7 @@ namespace Deepbound.World
         {
             var at = room.Center + Vector3.up * room.RaisedAt(room.Center);
             int reward = -1;
-            if (Random.value < RoomClearRewardChance)
+            if (Random.value < EventClearChance)
             {
                 reward = Random.Range(0, 3);
                 int tier = Mathf.RoundToInt(Tier(Floor.Value.y));

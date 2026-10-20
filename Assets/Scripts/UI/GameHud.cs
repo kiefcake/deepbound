@@ -1782,6 +1782,14 @@ namespace Deepbound.UI
             GUI.Label(new Rect(0, h * 0.18f + 44, w, 26), bannerSub, new GUIStyle(center) { fontSize = 18, normal = { textColor = new Color(1f, 1f, 1f, a) } });
             if (!string.IsNullOrEmpty(bannerHint))
                 GUI.Label(new Rect(0, h * 0.18f + 72, w, 22), bannerHint, new GUIStyle(center) { fontSize = 15, fontStyle = FontStyle.Italic, normal = { textColor = new Color(gold.r, gold.g, gold.b, a * 0.9f) } });
+            // This floor's event, read live (it may land a moment after the banner).
+            var ev = DungeonDirector.CurrentEvent;
+            if (ev != FloorEvent.None)
+            {
+                var ec = DungeonDirector.EventColor(ev);
+                GUI.Label(new Rect(0, h * 0.18f + 98, w, 26), DungeonDirector.EventName(ev).ToUpperInvariant() + "  -  " + DungeonDirector.EventText(ev),
+                    new GUIStyle(center) { fontSize = 17, fontStyle = FontStyle.Bold, normal = { textColor = new Color(ec.r, ec.g, ec.b, a) } });
+            }
         }
 
         private void DrawControlsHint(float w, float h)

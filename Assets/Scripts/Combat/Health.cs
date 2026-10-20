@@ -114,6 +114,8 @@ namespace Deepbound.Combat
 
         /// <summary>The run's omen: Glass Bones scales all damage, Famine scales healing on players.</summary>
         public static float OmenDamageScale = 1f, OmenPlayerHealScale = 1f;
+        /// <summary>The floor event's extra hurt for players (Blood Tithe), set by the director.</summary>
+        public static float FloorPlayerDamageScale = 1f;
 
         /// <summary>Raised on the server after any damage is applied, with the attacker's object id.</summary>
         public event Action<float, ulong> DamagedServer;
@@ -276,6 +278,7 @@ namespace Deepbound.Combat
             LastHitFrom = attackerId;
             if (zoneBoostTarget == this) amount *= zoneBoost;
             amount *= OmenDamageScale;
+            if (Team == Team.Players) amount *= FloorPlayerDamageScale;
             LastHitAt = attackerPosition;
             if (ServerOutgoingMultiplier != null && attackerId != ulong.MaxValue) amount *= ServerOutgoingMultiplier(this, attackerId);
 

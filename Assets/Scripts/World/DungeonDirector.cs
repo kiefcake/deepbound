@@ -373,7 +373,7 @@ namespace Deepbound.World
         }
 
         /// <summary>Server: a small pile of embers (Ember Locket).</summary>
-        public void ServerDropEmbers(Vector3 at, int amount) => ServerDropLoot(at, LootKind.Embers, Mathf.RoundToInt(amount * OmenEmbers));
+        public void ServerDropEmbers(Vector3 at, int amount) => ServerDropLoot(at, LootKind.Embers, Mathf.RoundToInt(amount * OmenEmbers * EventEmbers));
 
         /// <summary>Server: one loot drop of a given kind at a point.</summary>
         /// <summary>
@@ -583,6 +583,7 @@ namespace Deepbound.World
             ClearSpawned();
             ClearSettledContract();
             ApplyOmen(false);
+            ClearFloorEvent();
             if (!keepRun) { NextDepth.Value = 0; Seals.Value = 0; }
             foreach (var p in PlayerLife.All) if (p != null) p.Seat.Value = -1;
             if (CarriageRide.Instance != null) CarriageRide.Instance.Park();
@@ -739,6 +740,7 @@ namespace Deepbound.World
             Hallowed.Value = false;
             ResetTally();
             ResetRoomClears();
+            RollFloorEvent(depth);
 
             // NetworkVariable callbacks do not fire for the writer's own change on every
             // NGO version, so build explicitly; BuildLocal ignores a repeat.
@@ -878,7 +880,7 @@ namespace Deepbound.World
 
                 // More players, more bodies: scale the room's head count, cycling through its
                 // spawn points with a little jitter for the extras.
-                int count = Mathf.Max(2, Mathf.RoundToInt(room.EnemySpawns.Count * Difficulty.RoomCrowd * Difficulty.SpawnCount(players) * Difficulty.Level.SpawnMultiplier * OmenCrowd));
+                int count = Mathf.Max(2, Mathf.RoundToInt(room.EnemySpawns.Count * Difficulty.RoomCrowd * Difficulty.SpawnCount(players) * Difficulty.Level.SpawnMultiplier * OmenCrowd * EventCrowd));
                 bool hasBrute = false, hasNecro = false;
 
                 for (int i = 0; i < count; i++)
@@ -914,7 +916,7 @@ namespace Deepbound.World
             if (!TestMode && layout.Depth >= 1)
             {
                 var prng = new System.Random(layout.Seed ^ 0x9a7e);
-                int patrols = (prng.NextDouble() < 0.75 ? 1 : 0) + (layout.Depth >= 5 && prng.NextDouble() < 0.5 ? 1 : 0);
+                int patrols = (prng.NextDouble() < 0.75 ? 1 : 0) + (layout.Depth >= 5 && prng.NextDouble() < 0.5 ? 1 : 0) + EventPatrols;
                 for (int i = 0; i < patrols; i++)
                 {
                     var route = PatrolRoute(layout, prng);

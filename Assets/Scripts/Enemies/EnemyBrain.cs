@@ -1044,7 +1044,7 @@ namespace Deepbound.Enemies
             }
             if (!NoLoot && lootPrefab != null)
             {
-                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.5f * World.DungeonDirector.Tier(depthForLoot)) * Difficulty.Level.Gold * World.DungeonDirector.OmenGold);
+                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.5f * World.DungeonDirector.Tier(depthForLoot)) * Difficulty.Level.Gold * World.DungeonDirector.OmenGold * World.DungeonDirector.EventGold);
                 // Gear, rolled for each player: always from a boss, sometimes from an elite.
                 if (this is BossBrain)
                 {

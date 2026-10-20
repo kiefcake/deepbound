@@ -88,6 +88,9 @@ namespace Deepbound.UI
             if (progress != null && progress.CatWhisker.Value) list.Add(new Status { Glyph = "❧", Name = "Cat Whisker", Text = "+1% chance to evade any hit outright. A gift from the cat, for petting it first.", Lasts = "This run", Color = Good });
             if (progress != null && progress.CatPeed.Value) list.Add(new Status { Glyph = "☂", Name = "Peed On", Text = "-5% max health. The cat's opinion of being picked up without asking.", Lasts = "This run", Color = Bad });
             var dir = DungeonDirector.Instance;
+            var floorEvent = DungeonDirector.CurrentEvent;
+            if (floorEvent != FloorEvent.None)
+                list.Add(new Status { Glyph = "!", Name = DungeonDirector.EventName(floorEvent), Text = "This floor: " + DungeonDirector.EventText(floorEvent) + ".", Lasts = "This floor", Color = DungeonDirector.EventColor(floorEvent) });
             if (dir != null && dir.RunOmen != Omen.None && (dir.RunInProgress || DungeonDirector.InLobby))
                 list.Add(new Status { Glyph = "☾", Name = "Omen: " + DungeonDirector.OmenName(dir.RunOmen), Text = DungeonDirector.OmenText(dir.RunOmen) + ". +35% Renown.", Lasts = "This run", Color = DungeonDirector.OmenColor(dir.RunOmen) });
             if (progress != null && DungeonDirector.InLobby)

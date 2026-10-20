@@ -1029,6 +1029,25 @@ namespace Deepbound.Networking
                         }
                         else Log("orbweaver", "no prefab", false);
                         local.GetComponent<Health>().ServerSetFraction(1f);
+                        // Floor events: Blood Tithe makes blows hurt more and kills mend.
+                        {
+                            var hl = local.GetComponent<Health>();
+                            hl.ServerSetFraction(1f);
+                            float before = hl.Current.Value;
+                            hl.ServerDamage(40f, local.transform.position + Vector3.forward);
+                            float plain = before - hl.Current.Value;
+                            hl.ServerSetFraction(1f);
+                            dd.ServerDebugEvent(FloorEvent.BloodTithe);
+                            hl.ServerDamage(40f, local.transform.position + Vector3.forward);
+                            float tithe = before - hl.Current.Value;
+                            float hurt = hl.Current.Value;
+                            DungeonDirector.ServerOnPlayerKill(hl);
+                            bool mended = hl.Current.Value > hurt;
+                            dd.ServerDebugEvent(FloorEvent.None);
+                            hl.ServerSetFraction(1f);
+                            Log("floor event", "blood tithe hit " + plain.ToString("F1") + " -> " + tithe.ToString("F1") + ", kill mends " + mended + ", back to none " + (DungeonDirector.CurrentEvent == FloorEvent.None),
+                                (plain <= 0f || tithe > plain) && mended && DungeonDirector.CurrentEvent == FloorEvent.None);
+                        }
                         // Room clears: kill everything raised in the rooms, and each room counts as cleared.
                         {
                             int clearedBefore = dd.RoomsClearedCount;
