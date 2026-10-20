@@ -57,14 +57,14 @@ namespace Deepbound.Enemies
             fireAt = Time.time + LockSeconds * Difficulty.Tell(World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.Floor.Value.y : 0);
             busyUntil = fireAt + 0.4f;
             beamFrom = EyeAt;
-            // Aim where they are going, along the floor, so a sidestep is the answer.
+            // Aim where they are going (at their chest, up or down a ramp too); the floor line shows its path,
+            // so a sidestep is the answer.
             var aim = AimDir(beamFrom, 40f);
-            var flat = new Vector3(aim.x, 0f, aim.z);
-            beamDir = flat.sqrMagnitude > 0.01f ? flat.normalized : transform.forward;
-            var face = beamDir; face.y = 0f;
-            if (face.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(face);
+            beamDir = aim.sqrMagnitude > 0.01f ? aim.normalized : transform.forward;
+            var flat = new Vector3(beamDir.x, 0f, beamDir.z);
+            if (flat.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(flat);
             float len = BeamReach(beamFrom, beamDir);
-            LockRpc(new Vector3(transform.position.x, transform.position.y, transform.position.z), beamDir, len, fireAt - Time.time);
+            LockRpc(transform.position, flat.sqrMagnitude > 0.01f ? flat.normalized : transform.forward, len * flat.magnitude, fireAt - Time.time);
         }
 
         private static float BeamReach(Vector3 from, Vector3 dir)
@@ -88,12 +88,13 @@ namespace Deepbound.Enemies
                 BeamsFired++;
                 float len = BeamReach(beamFrom, beamDir);
                 // The beam slopes from the eye down to chest height along its length.
-                var end = beamFrom + beamDir * len + Vector3.down * 0.6f;
+                var end = beamFrom + beamDir * len;
                 LastBeamDealt = 0f;
                 foreach (var p in Player.PlayerLife.All)
                 {
                     if (p == null || p.Downed.Value || p.Health == null || !p.Health.IsAlive) continue;
-                    if (!p.Health.SegmentTouchesBody(beamFrom, end, BeamWidth) && !p.Health.SegmentTouchesBody(beamFrom + Vector3.down * 1.1f, end + Vector3.down * 0.8f, BeamWidth)) continue;
+                    // The beam and a band under it (a slide does not duck it).
+                    if (!p.Health.SegmentTouchesBody(beamFrom, end, BeamWidth) && !p.Health.SegmentTouchesBody(beamFrom + Vector3.down * 0.7f, end + Vector3.down * 0.7f, BeamWidth)) continue;
                     LastBeamDealt += p.Health.ServerDamage(damage * BeamMultiplier, beamFrom, NetworkObjectId);
                 }
                 BeamRpc(beamFrom, end);

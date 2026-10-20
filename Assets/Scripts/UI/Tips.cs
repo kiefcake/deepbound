@@ -119,7 +119,7 @@ namespace Deepbound.UI
             }
 
             if (World.Tallyman.Active != null && !World.Tallyman.Active.Leaving.Value)
-                Offer("tallyman", "THE TALLYMAN comes for parties that linger. He cannot be hurt or stopped: sprint away (he gets faster), and get into the guardian's arena - when it seals, he leaves.");
+                Offer("tallyman", "THE TALLYMAN comes for parties that linger. He cannot be hurt: sprint away (he gets faster), throw HOLY WATER (4) to hold him for a moment, and get into the guardian's arena - when it seals, he leaves.");
 
             var room = layout.RoomAt(me, 0f);
             if (room != null)

@@ -18,6 +18,8 @@ namespace Deepbound.World
     /// </summary>
     public class Tallyman : NetworkBehaviour
     {
+        /// <summary>Holy Water holds him this long (the one counter he has).</summary>
+        public const float RepelSeconds = 3f;
         public const float BaseSpeed = 3.5f, MaxSpeed = 5.7f, SpeedGrowth = 0.012f, Reach = 1.7f, DrainPerSecond = 0.25f;
 
         public static Tallyman Active { get; private set; }
@@ -75,6 +77,26 @@ namespace Deepbound.World
             base.OnDestroy();
         }
 
+        /// <summary>Synced: server time until which he reels from holy water and cannot move or touch.</summary>
+        public readonly NetworkVariable<double> RepelledUntil = new NetworkVariable<double>();
+        public bool Repelled => Now < RepelledUntil.Value;
+
+        /// <summary>Server: holy water splashed on him.</summary>
+        public void ServerRepel(float seconds)
+        {
+            if (!IsServer || Leaving.Value) return;
+            RepelledUntil.Value = Now + seconds;
+            RepelRpc(transform.position + Vector3.up * 2.6f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RepelRpc(Vector3 at)
+        {
+            Sfx.Play(Sound.Shatter, at, 0.8f, 0.7f);
+            Vfx.Ring(transform.position + Vector3.up * 0.05f, 2.2f, new Color(1f, 0.9f, 0.6f), 0.6f);
+            UI.GameHud.ShowCombo(at, "REPELLED", new Color(1f, 0.9f, 0.6f));
+        }
+
         /// <summary>Server: tip the hat and go (the arena sealed, the floor ended).</summary>
         public void ServerLeave()
         {
@@ -113,6 +135,7 @@ namespace Deepbound.World
                 if (Time.time - leftAt > 2.6f) NetworkObject.Despawn();
                 return;
             }
+            if (Repelled) return;
             var target = Nearest();
             if (target == null) return;
             var at = Pos.Value;
@@ -194,7 +217,9 @@ namespace Deepbound.World
             armL.localRotation = Quaternion.Euler(-55f + s * 4f * walk, 0f, -6f);
             armR.localRotation = Quaternion.Euler(-28f - s * 10f * walk, 0f, 8f);
             lantern.localRotation = Quaternion.Euler(s * 14f * walk + Mathf.Sin(Time.time * 1.7f) * 4f, 0f, Mathf.Cos(stride * 0.5f) * 8f * walk);
-            head.localRotation = Quaternion.Euler(8f + Mathf.Sin(Time.time * 0.6f) * 3f, Mathf.Sin(Time.time * 0.45f) * 14f, Mathf.Sin(Time.time * 0.8f) * 5f);
+            head.localRotation = Repelled ? Quaternion.Euler(-28f, 0f, Mathf.Sin(Time.time * 9f) * 6f)
+                : Quaternion.Euler(8f + Mathf.Sin(Time.time * 0.6f) * 3f, Mathf.Sin(Time.time * 0.45f) * 14f, Mathf.Sin(Time.time * 0.8f) * 5f);
+            if (Repelled) armR.localRotation = Quaternion.Euler(-95f, 0f, 20f);
             float bob = Mathf.Abs(Mathf.Cos(stride)) * 0.05f * walk;
 
             float sink = 0f;
@@ -204,7 +229,7 @@ namespace Deepbound.World
                 sink = Mathf.Clamp01((Time.time - leftAt) / 2.4f);
             }
             vis.localPosition = new Vector3(0f, bob - sink * 2.9f, 0f);
-            if (lanternLight != null) lanternLight.intensity = (2.2f + Mathf.Sin(Time.time * 7f) * 0.2f) * (1f - sink);
+            if (lanternLight != null) lanternLight.intensity = (2.2f + Mathf.Sin(Time.time * 7f) * 0.2f) * (1f - sink) * (Repelled ? 0.35f : 1f);
             if (mist != null) mist.localScale = new Vector3(1f + Mathf.Sin(Time.time * 0.9f) * 0.08f, 1f, 1f + Mathf.Cos(Time.time * 0.7f) * 0.08f) * (1f - sink * 0.6f);
 
             // Heavy, slow footfalls and a murmur from the ledger, near enough to hear.

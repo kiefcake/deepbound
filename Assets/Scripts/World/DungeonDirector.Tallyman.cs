@@ -94,7 +94,7 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void TallyArriveRpc()
         {
-            UI.GameHud.ShowTitleCard("THE TALLYMAN", "You lingered. He cannot be fought: run, and seal yourselves in with the guardian", new Color(0.62f, 1f, 0.7f));
+            UI.GameHud.ShowTitleCard("THE TALLYMAN", "You lingered. He cannot be fought: run (holy water holds him), and seal yourselves in with the guardian", new Color(0.62f, 1f, 0.7f));
             Art.Sfx.Play2D(Art.Sound.Summon, 0.9f);
         }
     }

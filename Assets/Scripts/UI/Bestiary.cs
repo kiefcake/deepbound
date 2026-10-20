@@ -38,7 +38,7 @@ namespace Deepbound.UI
             new Entry { Type = "UnsungBrain", Name = "The Unsung", Text = "What waits on the tenth floor. Every Seal you broke weakens it.", Boss = true },
             new Entry { Type = "ChoirAcolyteBrain", Name = "Choir Acolyte", Text = "Hangs back and sings: a golden circle fills, then every one of the dead in it is SHIELDED. Stun it or hit it hard mid-hymn to break the song." },
             new Entry { Type = "AbyssEyeBrain", Name = "Abyssal Eye", Text = "Floats and stares. When it locks on, a violet line is drawn on the floor: step off it before the beam. The eye is its head; the iris a weak point." },
-            new Entry { Type = "Tallyman", Name = "The Tallyman", Text = "Comes for those who linger on a floor. Cannot be fought: outrun him and seal yourselves in with the guardian.", Boss = true },
+            new Entry { Type = "Tallyman", Name = "The Tallyman", Text = "Comes for those who linger on a floor. Cannot be fought: outrun him (holy water holds him a moment) and seal yourselves in with the guardian.", Boss = true },
         };
 
         private const string Key = "db.bestiary";

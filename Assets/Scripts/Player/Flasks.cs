@@ -206,6 +206,9 @@ namespace Deepbound.Player
                         foe.ServerDamage(24f * att, at, NetworkObjectId);
                         if (foe.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.8f);
                     }
+                    // Holy water is the one thing the Tallyman flinches from.
+                    var tally = World.Tallyman.Active;
+                    if (tally != null && Vector3.Distance(tally.transform.position, at) <= 4.5f) tally.ServerRepel(World.Tallyman.RepelSeconds);
                     foreach (var ally in CombatQuery.Circle(at, 4f, Team.Players).ToArray())
                     {
                         if (ally.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerCleanse();

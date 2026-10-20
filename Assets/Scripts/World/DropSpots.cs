@@ -37,6 +37,8 @@ namespace Deepbound.World
             }
             // 2. Onto floor someone can walk to (not the top of a shelf, a ledge or a wall).
             if (NavMesh.SamplePosition(want, out var nh, 2.5f, NavMesh.AllAreas)) want = nh.position;
+            // Died somewhere no one walks (a breach tunnel, a perch): the nearest floor anyone can reach.
+            else if (NavMesh.SamplePosition(want, out var far, 9f, NavMesh.AllAreas)) want = far.position;
             // 3. Out of props (a crate, a statue): nudge round in a small ring until it is clear.
             if (Blocked(want, 0.22f))
                 for (int ring = 1; ring <= 4; ring++)

@@ -1231,6 +1231,11 @@ namespace Deepbound.Networking
                             for (float t = 0f; t < 5f && tally.DamageDealt <= 0f; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
                             float endD = Vector3.Distance(tally.Pos.Value, local.transform.position);
                             Log("tallyman", "closed " + startD.ToString("F1") + " -> " + endD.ToString("F1") + " m, drained " + tally.DamageDealt.ToString("F0") + ", speed " + tally.Speed.ToString("F1"), endD < startD && tally.DamageDealt > 0f);
+                            // Holy water holds him: he does not move while repelled.
+                            tally.ServerRepel(1.5f);
+                            var heldAt = tally.Pos.Value;
+                            yield return new WaitForSeconds(1f);
+                            Log("tallyman repelled", "repelled " + tally.Repelled + ", moved " + Vector3.Distance(heldAt, tally.Pos.Value).ToString("F2") + " m", Vector3.Distance(heldAt, tally.Pos.Value) < 0.05f);
                             dd.ServerDebugDismissTally();
                             for (float t = 0f; t < 4f && World.Tallyman.Active != null; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
                             Log("tallyman leaves", "gone " + (World.Tallyman.Active == null), World.Tallyman.Active == null);
