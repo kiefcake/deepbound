@@ -31,18 +31,15 @@ namespace Deepbound.Loot
         public override string Prompt(PlayerProgress who)
         {
             if (!Mine(who) || Item.Value.IsEmpty) return null;
-            var current = who.Equipped(Gear.SlotOf(Item.Value.Kind));
-            if (current.IsEmpty) return "Equip " + Gear.Name(Item.Value);
-            return who.BagFull ? "Swap for " + Gear.Name(Item.Value) + " (pack full)" : "Equip " + Gear.Name(Item.Value) + " (old piece to your pack)";
+            return who.BagFull ? Gear.Name(Item.Value) + "  (pack full: wear or drop something, I)" : "Take " + Gear.Name(Item.Value) + " (into your pack, I to wear)";
         }
 
         protected override void ServerUse(PlayerProgress who)
         {
-            var old = who.ServerEquip(Item.Value);
+            // Into the pack, not onto you: wear it from the inventory (I) when you choose.
+            if (!who.ServerStow(Item.Value)) return;
             EquipFxRpc();
-            // What you took off goes in the pack while there is room; otherwise it stays here.
-            if (old.IsEmpty || who.ServerStow(old)) NetworkObject.Despawn();
-            else Item.Value = old;
+            NetworkObject.Despawn();
         }
 
         /// <summary>Owner → server: put this piece in your pack without wearing it.</summary>
@@ -62,6 +59,7 @@ namespace Deepbound.Loot
         {
             if (!user.TryGet(out var obj) || !obj.TryGetComponent<PlayerProgress>(out var who) || !Mine(who)) return;
             if (Vector3.Distance(obj.transform.position, transform.position) > Range + 1f) return;
+            if (World.Anvil.Near(obj.transform.position) == null) return; // smith's work
             who.ServerAddEmbers(Gear.ScrapValue(Item.Value));
             ScrapFxRpc();
             NetworkObject.Despawn();

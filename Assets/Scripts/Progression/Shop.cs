@@ -41,22 +41,24 @@ namespace Deepbound.Progression
         /// relics. Down in the dungeon the travelling peddler carries only potions, marked up.
         /// </summary>
         /// <remarks>Yard: the training yard's drill board (stats for gold). Carriage: Corwin, at the carriage (maps, salts).</remarks>
-        public enum Vendor : byte { Merchant = 0, Smith = 1, Shrine = 2, Yard = 3, Carriage = 4 }
+        public enum Vendor : byte { Merchant = 0, Smith = 1, Shrine = 2, Yard = 3, Carriage = 4, Runewright = 5 }
 
         public static string VendorTitle(Vendor v) => v == Vendor.Smith ? "HOBB'S WARES" : v == Vendor.Shrine ? "THE SHRINE'S OFFERINGS"
-            : v == Vendor.Yard ? "THE TRAINING YARD" : v == Vendor.Carriage ? "CORWIN, THE DRIVER"
+            : v == Vendor.Yard ? "SERGEANT BRANN, DRILLMASTER" : v == Vendor.Carriage ? "CORWIN, THE DRIVER" : v == Vendor.Runewright ? "YSOLDE, RUNEWRIGHT"
             : World.DungeonDirector.InLobby ? "SILAS CRANE, MERCHANT" : "THE PEDDLER";
 
         public static string VendorLine(Vendor v) => v == Vendor.Smith ? "\"Embers, plate and a blade's worth of sense. Pay up.\""
             : v == Vendor.Shrine ? "\"Blessed things, for a gift to the shrine. The dead respect a full font.\""
-            : v == Vendor.Yard ? "Drills chalked on the board, an honesty box nailed under them. Each costs more than the last."
+            : v == Vendor.Yard ? "\"Pay up and fall in. Every drill's dearer than the last, because every drill's harder.\""
+            : v == Vendor.Runewright ? "\"Runes, sigils and the stuff that makes them sing. Mind the stones; they bite.\""
             : v == Vendor.Carriage ? "\"I've driven folk to the door of every floor. I know a thing or two about the way down.\""
             : World.DungeonDirector.InLobby ? "\"Coin for courage, friend. It all spends the same down there.\"" : "\"Long way down to carry glass. Prices reflect it.\"";
 
         /// <summary>Where a vendor stands right now (null: not here).</summary>
         public static UnityEngine.Vector3? Position(Vendor v) => v == Vendor.Merchant ? World.DungeonDirector.MerchantPosition
             : !World.DungeonDirector.InLobby ? (UnityEngine.Vector3?)null
-            : v == Vendor.Smith ? World.Lobby.AnvilSpot : v == Vendor.Yard ? World.Lobby.YardSpot : v == Vendor.Carriage ? World.Lobby.CarriageStall : World.Lobby.ShrineSpot;
+            : v == Vendor.Smith ? World.Lobby.AnvilSpot : v == Vendor.Yard ? World.Lobby.YardSpot : v == Vendor.Carriage ? World.Lobby.CarriageStall
+            : v == Vendor.Runewright ? World.Lobby.RunewrightSpot : World.Lobby.ShrineSpot;
 
         public static float Range(Vendor v) => v == Vendor.Merchant ? MerchantRange : v == Vendor.Carriage ? 4.3f : StallRange;
 
@@ -99,7 +101,6 @@ namespace Deepbound.Progression
             float tier = World.DungeonDirector.Tier(depth);
             if (camp && vendor == Vendor.Smith)
             {
-                list.Add(new Item { Name = "Sigil", Description = "Empower an ability one rank, here at the anvil", Price = 150 + 50 * depth, Kind = ItemKind.Sigil, Seller = Vendor.Smith });
                 list.Add(new Item { Name = "Commission another piece", Description = "Hobb puts away the piece he made you and forges a fresh one (a new roll)",
                     Price = UnityEngine.Mathf.RoundToInt(30 + 15 * tier), Kind = ItemKind.Restock, Seller = Vendor.Smith });
             }
@@ -112,6 +113,8 @@ namespace Deepbound.Progression
             }
             if (camp && vendor == Vendor.Yard)
                 foreach (var d in Drills) list.Add(d);
+            if (camp && vendor == Vendor.Runewright)
+                list.Add(new Item { Name = "Sigil", Description = "Empower an ability one rank, here at the stones", Price = 150 + 50 * depth, Kind = ItemKind.Sigil, Seller = Vendor.Runewright });
             return list.ToArray();
         }
 

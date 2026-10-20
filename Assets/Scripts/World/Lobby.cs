@@ -41,6 +41,9 @@ namespace Deepbound.World
         public static readonly Vector3 ShrineSpot = Origin + new Vector3(15.5f, 0f, -4f);
         /// <summary>The training yard's drill board, on the plaza side of its fence.</summary>
         public static readonly Vector3 YardSpot = Origin + new Vector3(-9.1f, 0f, -8.2f);
+        /// <summary>Ysolde the runewright's stones, between the shrine and the gong: runes, sigils, abilities.</summary>
+        public static readonly Vector3 RunewrightSpot = Origin + new Vector3(12.6f, 0f, 3.2f);
+
         /// <summary>Where you talk to Corwin, beside his carriage.</summary>
         public static Vector3 CarriageStall => CarriageAt + new Vector3(0f, 0f, 2.2f);
         /// <summary>The carriage: wagon centre, facing out of the gate (+z).</summary>
@@ -55,6 +58,8 @@ namespace Deepbound.World
             (FolkId.Vey, TailorSpot + Vector3.right * 0.6f),
             (FolkId.Corwin, CarriageAt + new Vector3(0f, 0.9f, 2.2f)),
             (FolkId.Bones, BlackjackSpot + Vector3.back * 1f),
+            (FolkId.Brann, YardSpot),
+            (FolkId.Ysolde, RunewrightSpot),
         };
 
         /// <summary>The bounty board, by the road near the gate: contracts for the next floor.</summary>
@@ -142,6 +147,9 @@ namespace Deepbound.World
             Props.Townsfolk(lights, AnvilSpot + Vector3.back * 1.4f, AnvilSpot + Vector3.left * 3f, Props.Folk.Smith);
             Props.Townsfolk(lights, ShrineSpot + Vector3.left * 1.2f, ShrineSpot + Vector3.left * 4f, Props.Folk.Priest);
             Props.Townsfolk(lights, TailorSpot + Vector3.right * 0.6f, TailorSpot + Vector3.right * 4f, Props.Folk.Tailor);
+            Props.Townsfolk(lights, YardSpot, YardSpot + Vector3.right * 4f, Props.Folk.Sergeant);
+            Props.Townsfolk(lights, RunewrightSpot, RunewrightSpot + new Vector3(-4f, 0f, -1f), Props.Folk.Runewright);
+            BuildRuneStones(dressing, lights);
 
             structure.Build(root.transform, "LobbyStructure", collide: true);
             Art.AmbientLife.Ravens(lights, Origin, Radius, WallHeight);
@@ -543,19 +551,48 @@ namespace Deepbound.World
                 d.AddBox(o + new Vector3(-10.2f, 0.5f, z), new Vector3(0.14f, 1f, 0.14f), Mat.Wood);
             d.AddBox(o + new Vector3(-10.2f, 0.85f, -13.5f), new Vector3(0.08f, 0.1f, 8f), Mat.Wood);
             Props.WeaponRack(d, o + new Vector3(-15.8f, 0f, -13.5f), Quaternion.Euler(0f, 90f, 0f));
-            // The drill board: two posts, a chalked plank of drills, and an honesty box for the coin.
-            var board = YardSpot + new Vector3(-0.5f, 0f, 0f);
-            d.AddBox(board + new Vector3(0f, 0.85f, -0.55f), new Vector3(0.1f, 1.7f, 0.1f), Mat.Wood);
-            d.AddBox(board + new Vector3(0f, 0.85f, 0.55f), new Vector3(0.1f, 1.7f, 0.1f), Mat.Wood);
-            d.AddBox(board + new Vector3(0.02f, 1.3f, 0f), new Vector3(0.05f, 0.75f, 1.2f), Mat.Wood);
-            d.AddBox(board + new Vector3(0.05f, 1.3f, 0f), new Vector3(0.02f, 0.62f, 1.04f), Mat.Dark);
-            for (int i = 0; i < 5; i++) d.AddBox(board + new Vector3(0.065f, 1.52f - i * 0.11f, -0.1f + (i % 2) * 0.06f), new Vector3(0.01f, 0.025f, 0.6f + (i % 3) * 0.1f), Mat.Bone);
-            d.AddBox(board + new Vector3(0.12f, 0.75f, 0f), new Vector3(0.22f, 0.2f, 0.3f), Mat.Wood);
-            d.AddBox(board + new Vector3(0.12f, 0.86f, 0f), new Vector3(0.24f, 0.03f, 0.32f), Mat.Steel);
+            // Sergeant Brann's corner: a stool, a bucket and a rack of practice swords by the yard fence.
+            d.AddBox(YardSpot + new Vector3(-0.9f, 0.25f, 0.8f), new Vector3(0.4f, 0.5f, 0.4f), Mat.Wood);
+            d.Add(MeshKit.Cylinder(0.18f, 0.15f, 0.32f, 10), Mat.Wood, Matrix4x4.Translate(YardSpot + new Vector3(-0.9f, 0f, -0.8f)));
+            for (int i = 0; i < 4; i++) d.AddBox(YardSpot + new Vector3(-1.05f, 0.6f, -0.3f + i * 0.18f), new Vector3(0.04f, 1.2f, 0.03f), Mat.Wood, Quaternion.Euler(0f, 0f, 10f));
             Props.Brazier(lights, o + new Vector3(-11f, 0f, -18.5f), Fire, false);
             Props.Crate(d, o + new Vector3(14f, 0f, -14f), 1.2f, 12f);
             Props.Crate(d, o + new Vector3(15.2f, 0f, -12.8f), 0.9f, -8f);
             Props.Barrel(d, o + new Vector3(13.8f, 0f, -12.2f));
+        }
+
+        /// <summary>Ysolde's ring of standing stones: tall slabs cut with glowing runes, a low rune table at her side.</summary>
+        private static void BuildRuneStones(MeshKit.Batcher d, Transform lights)
+        {
+            var c = RunewrightSpot + new Vector3(0.8f, 0f, 0.2f);
+            var glow = new Color(0.45f, 0.85f, 1f);
+            for (int i = 0; i < 6; i++)
+            {
+                float a = (20f + i * 52f) * Mathf.Deg2Rad;
+                var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                var p = c + dir * 2.4f;
+                float h = 1.6f + (i % 3) * 0.35f;
+                d.AddBox(p + Vector3.up * h / 2f, new Vector3(0.55f, h, 0.32f), Mat.StoneWall, Quaternion.LookRotation(-dir) * Quaternion.Euler(0f, 0f, (i % 2 == 0 ? 3f : -4f)));
+                var rune = MeshKit.Part(lights, "StandingRune", MeshKit.Box(new Vector3(0.18f, 0.28f, 0.02f)), Mat.Glow, p - dir * 0.17f + Vector3.up * (h * 0.62f), Quaternion.LookRotation(-dir).eulerAngles);
+                ArtLibrary.SetGlow(rune.GetComponent<Renderer>(), glow * 1.3f);
+            }
+            // The rune table: a slab on two stones, with rune tiles laid out and a candle.
+            d.AddBox(RunewrightSpot + new Vector3(0.9f, 0.4f, -0.2f), new Vector3(0.3f, 0.8f, 0.3f), Mat.StoneWall);
+            d.AddBox(RunewrightSpot + new Vector3(0.9f, 0.4f, 0.7f), new Vector3(0.3f, 0.8f, 0.3f), Mat.StoneWall);
+            d.AddBox(RunewrightSpot + new Vector3(0.9f, 0.84f, 0.25f), new Vector3(0.75f, 0.08f, 1.3f), Mat.StoneWall);
+            for (int i = 0; i < 5; i++)
+            {
+                var tile = MeshKit.Part(lights, "RuneTile", MeshKit.Box(new Vector3(0.1f, 0.02f, 0.13f)), Mat.Glow, RunewrightSpot + new Vector3(0.85f + (i % 2) * 0.15f, 0.9f, -0.15f + i * 0.2f), new Vector3(0f, i * 17f, 0f));
+                ArtLibrary.SetGlow(tile.GetComponent<Renderer>(), glow * (0.7f + 0.15f * i));
+            }
+            Props.Candles(lights, RunewrightSpot + new Vector3(0.95f, 0.88f, 0.75f), new Color(0.6f, 0.85f, 1f));
+            var l = new GameObject("RuneLight").AddComponent<Light>();
+            l.transform.SetParent(lights, false);
+            l.transform.position = c + Vector3.up * 1.6f;
+            l.type = LightType.Point;
+            l.color = glow;
+            l.intensity = 1.6f;
+            l.range = 7f;
         }
 
         /// <summary>Steps, flanking braziers and a backing wall for the shrine.</summary>

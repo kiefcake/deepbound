@@ -175,7 +175,7 @@ namespace Deepbound.World
             Art.FolkIdle.Attach(root, 1.36f, "Hood", "Face", "EyeL", "EyeR");
         }
 
-        public enum Folk { Smith, Priest, Tailor, Driver }
+        public enum Folk { Smith, Priest, Tailor, Driver, Sergeant, Runewright }
 
         /// <summary>
         /// The camp's people: a simple standing figure with a bare face (no hoods), dressed by trade:
@@ -192,8 +192,9 @@ namespace Deepbound.World
             if (facing.sqrMagnitude > 0.01f) root.rotation = Quaternion.LookRotation(facing);
             var skin = new Color(0.78f, 0.62f, 0.5f);
             Color coat = folk == Folk.Smith ? new Color(0.35f, 0.28f, 0.22f) : folk == Folk.Priest ? new Color(0.42f, 0.42f, 0.45f)
-                : folk == Folk.Tailor ? new Color(0.42f, 0.14f, 0.4f) : new Color(0.12f, 0.12f, 0.16f);
-            float bulk = folk == Folk.Smith ? 1.25f : 1f;
+                : folk == Folk.Tailor ? new Color(0.42f, 0.14f, 0.4f) : folk == Folk.Sergeant ? new Color(0.38f, 0.22f, 0.16f)
+                : folk == Folk.Runewright ? new Color(0.14f, 0.2f, 0.3f) : new Color(0.12f, 0.12f, 0.16f);
+            float bulk = folk == Folk.Smith || folk == Folk.Sergeant ? 1.2f : 1f;
             var body = MeshKit.Part(root, "Body", MeshKit.Lathe("folkBody", new[]
             {
                 new Vector2(0.3f, 0f), new Vector2(0.28f, 0.6f), new Vector2(0.24f, 1.1f), new Vector2(0.27f, 1.35f), new Vector2(0.12f, 1.48f), new Vector2(0f, 1.5f),
@@ -242,6 +243,38 @@ namespace Deepbound.World
                     ArtLibrary.Tint(purse.GetComponent<Renderer>(), new Color(0.45f, 0.3f, 0.15f));
                     MeshKit.Part(root, "PurseTie", MeshKit.Cylinder(0.025f, 0.025f, 0.02f, 8), Mat.Gold, new Vector3(0.24f, 0.9f, 0.18f));
                     break;
+                case Folk.Sergeant:
+                {
+                    // A drillmaster: a dented kettle helm, a mail collar, a scar of a moustache and a wooden practice sword.
+                    MeshKit.Part(root, "Helm", MeshKit.Cylinder(0.14f, 0.15f, 0.12f, 12), Mat.Steel, new Vector3(0f, 1.72f, 0f));
+                    MeshKit.Part(root, "HelmBrim", MeshKit.Cylinder(0.22f, 0.22f, 0.02f, 14), Mat.Steel, new Vector3(0f, 1.67f, 0f));
+                    MeshKit.Part(root, "Mail", MeshKit.Cylinder(0.2f, 0.26f, 0.14f, 10), Mat.Steel, new Vector3(0f, 1.38f, 0f));
+                    var tache = MeshKit.Part(root, "Moustache", MeshKit.Box(new Vector3(0.12f, 0.025f, 0.03f)), Mat.Cloth, new Vector3(0f, 1.57f, 0.12f));
+                    ArtLibrary.Tint(tache.GetComponent<Renderer>(), new Color(0.25f, 0.16f, 0.1f));
+                    MeshKit.Part(root, "PracticeSword", MeshKit.Box(new Vector3(0.05f, 0.85f, 0.02f)), Mat.Wood, new Vector3(0.34f, 0.78f, 0.12f), new Vector3(8f, 0f, -6f));
+                    MeshKit.Part(root, "SwordGuard", MeshKit.Box(new Vector3(0.18f, 0.03f, 0.04f)), Mat.Wood, new Vector3(0.33f, 1.18f, 0.12f));
+                    break;
+                }
+                case Folk.Runewright:
+                {
+                    // The runewright: a deep-blue robe, silver hair in a long braid, a circlet set with a cold stone,
+                    // and runes glowing on her palms.
+                    var hairY = MeshKit.Part(root, "Hair", MeshKit.Ball(0.135f, 10, 8), Mat.Cloth, new Vector3(0f, 1.66f, -0.02f));
+                    ArtLibrary.Tint(hairY.GetComponent<Renderer>(), new Color(0.78f, 0.78f, 0.82f));
+                    var braid = MeshKit.Part(root, "Braid", MeshKit.Cylinder(0.035f, 0.02f, 0.6f, 6), Mat.Cloth, new Vector3(0f, 1.3f, -0.15f));
+                    ArtLibrary.Tint(braid.GetComponent<Renderer>(), new Color(0.75f, 0.75f, 0.8f));
+                    MeshKit.Part(root, "Circlet", MeshKit.Cylinder(0.14f, 0.14f, 0.02f, 12), Mat.Gold, new Vector3(0f, 1.71f, 0f));
+                    var stone = MeshKit.Part(root, "CircletStone", MeshKit.Ball(0.022f, 6, 4), Mat.Glow, new Vector3(0f, 1.71f, 0.14f));
+                    ArtLibrary.SetGlow(stone.GetComponent<Renderer>(), new Color(0.4f, 0.8f, 1f) * 1.6f);
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        var palm = MeshKit.Part(root, "PalmRune", MeshKit.Box(new Vector3(0.05f, 0.05f, 0.005f)), Mat.Glow, new Vector3(s * 0.31f, 0.8f, 0.09f), new Vector3(0f, 0f, 45f));
+                        ArtLibrary.SetGlow(palm.GetComponent<Renderer>(), new Color(0.45f, 0.85f, 1f) * 1.5f);
+                    }
+                    var rsash = MeshKit.Part(root, "Sash", MeshKit.Box(new Vector3(0.08f, 0.9f, 0.03f)), Mat.Cloth, new Vector3(0f, 0.95f, 0.27f));
+                    ArtLibrary.Tint(rsash.GetComponent<Renderer>(), new Color(0.6f, 0.7f, 0.9f));
+                    break;
+                }
                 case Folk.Tailor:
                     var bun = MeshKit.Part(root, "Hair", MeshKit.Ball(0.11f, 8, 6), Mat.Cloth, new Vector3(0f, 1.7f, -0.06f));
                     ArtLibrary.Tint(bun.GetComponent<Renderer>(), new Color(0.12f, 0.08f, 0.06f));

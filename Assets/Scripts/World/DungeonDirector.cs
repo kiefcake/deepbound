@@ -403,6 +403,33 @@ namespace Deepbound.World
         // ------------------------------------------------------------------
 
         /// <param name="keepRun">True between floors: the party keeps everything and heals up.</param>
+        /// <summary>Server (developer menu): back to camp, keeping the run.</summary>
+        public void ServerDebugCamp() { if (IsServer) EnterLobby(keepRun: true); }
+
+        /// <summary>Server (developer menu): spawn one of the rank and file by name at a spot.</summary>
+        public EnemyBrain ServerDebugSpawn(string kind, Vector3 at, bool elite)
+        {
+            if (!IsServer) return null;
+            NetworkObject prefab = kind switch
+            {
+                "skeleton" => skeletonPrefab, "archer" => archerPrefab, "ghoul" => ghoulPrefab, "brute" => brutePrefab,
+                "necromancer" => necromancerPrefab, "wraith" => wraithPrefab, "shieldbearer" => shieldbearerPrefab, "gargoyle" => gargoylePrefab,
+                "plaguebearer" => plaguebearerPrefab, "frostwight" => frostWightPrefab, "hexer" => hexerPrefab, "mourner" => mournerPrefab,
+                "entling" => entlingPrefab, "mimic" => mimicPrefab, "hoarder" => hoarderPrefab, _ => null,
+            };
+            if (prefab == null) return null;
+            if (NavMesh.SamplePosition(at, out var hit, 4f, NavMesh.AllAreas)) at = hit.position;
+            var obj = Spawn(prefab, at, Quaternion.identity);
+            var b = obj.GetComponent<EnemyBrain>();
+            b.ServerScale(Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count), Layout != null ? Layout.Depth : 0);
+            if (elite) b.ServerMakeElite();
+            b.ServerAggroNearest();
+            spawned.Add(obj);
+            return b;
+        }
+
+        public static readonly string[] DebugSpawnKinds = { "skeleton", "archer", "ghoul", "brute", "necromancer", "wraith", "shieldbearer", "gargoyle", "plaguebearer", "frostwight", "hexer", "mourner", "entling", "mimic", "hoarder" };
+
         private void EnterLobby(bool keepRun = false)
         {
             ClearSpawned();

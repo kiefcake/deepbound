@@ -125,6 +125,7 @@ namespace Deepbound.Player
                 gameObject.AddComponent<AmbientMotes>();
                 gameObject.AddComponent<PauseMenu>();
                 gameObject.AddComponent<ChatBox>();
+                gameObject.AddComponent<DevMenu>();
                 health.Hurt += OnLocalHurt;
 
                 DungeonDirector.ArenaBuilt += HandleArenaBuilt;

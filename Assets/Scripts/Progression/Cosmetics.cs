@@ -69,9 +69,12 @@ namespace Deepbound.Progression
         public static int Worn(Kind kind) => TestMode ? 0 : Mathf.Clamp(PlayerPrefs.GetInt(KeyWorn(kind), 0), 0, Of(kind).Length - 1);
         public static int Equipped => Worn(Kind.Cloak);
 
-        public static bool Owns(Kind kind, int i) => i == 0 || (PlayerPrefs.GetInt(KeyOwned(kind), 0) & (1 << i)) != 0;
+        /// <summary>For now (the user's call, 2026-10-20) every dye and aura is free and unlocked.</summary>
+        public const bool AllFree = true;
+
+        public static bool Owns(Kind kind, int i) => AllFree || i == 0 || (PlayerPrefs.GetInt(KeyOwned(kind), 0) & (1 << i)) != 0;
         public static bool BossFelled(int depth) => (BossMask & (1 << depth)) != 0;
-        public static bool Unlocked(Kind kind, int i) => Of(kind)[i].NeedsBoss < 0 || BossFelled(Of(kind)[i].NeedsBoss);
+        public static bool Unlocked(Kind kind, int i) => AllFree || Of(kind)[i].NeedsBoss < 0 || BossFelled(Of(kind)[i].NeedsBoss);
 
         /// <summary>The colours to dress a cloak in, or null for the class's own.</summary>
         public static Item? Get(int dye) => dye > 0 && dye < Dyes.Length ? Dyes[dye] : (Item?)null;

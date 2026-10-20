@@ -24,7 +24,20 @@ namespace Deepbound.Loot
         public static readonly int[] SocketLevels = { 1, 3, 6 };
         public static int SocketsAt(int weaponLevel) => weaponLevel >= 6 ? 3 : weaponLevel >= 3 ? 2 : weaponLevel >= 1 ? 1 : 0;
 
-        public static string Name(Rune r)
+        // ---- Tiers: a rune byte is its kind (low four bits) and its tier (I, II, III) above that ----
+        public const int MaxTier = 2;
+        public static Rune Kind(Rune r) => (Rune)((byte)r & 15);
+        public static int Tier(Rune r) => ((byte)r >> 4) & 3;
+        public static Rune Make(Rune kind, int tier) => (Rune)((byte)Kind(kind) | (Mathf.Clamp(tier, 0, MaxTier) << 4));
+        /// <summary>How hard a tier hits: I x1, II x1.5, III x2.</summary>
+        public static float Power(int tier) => 1f + 0.5f * Mathf.Clamp(tier, 0, MaxTier);
+        public static string TierName(int tier) => tier == 2 ? " III" : tier == 1 ? " II" : "";
+        /// <summary>Embers Ysolde asks to meld three runes of one tier into one of the next.</summary>
+        public static int MeldCost(int tier) => 25 + 35 * tier;
+
+        public static string Name(Rune r) => BaseName(Kind(r)) + (Kind(r) == Rune.None ? "" : TierName(Tier(r)));
+
+        private static string BaseName(Rune r)
         {
             switch (r)
             {
@@ -41,20 +54,29 @@ namespace Deepbound.Loot
 
         public static string Describe(Rune r)
         {
-            switch (r)
+            float p = Power(Tier(r));
+            switch (Kind(r))
             {
-                case Rune.Frost: return "Hits have a 15% chance to chill (sets up Shatter).";
-                case Rune.Storm: return "Hits have a 10% chance to stun briefly (Exposed).";
-                case Rune.Hunter: return "Every fifth hit on the same enemy marks it.";
-                case Rune.Holy: return "Hits heal the most wounded ally nearby for 8% of the damage.";
-                case Rune.Ember: return "Kills explode, burning enemies within 2.5 m.";
-                case Rune.Keen: return "+15% damage to enemies above 80% health.";
-                case Rune.Farsight: return "+25% range on your attacks and abilities (melee reach a little longer).";
+                case Rune.Frost: return "Hits have a " + Mathf.RoundToInt(15 * p) + "% chance to chill (sets up Shatter).";
+                case Rune.Storm: return "Hits have a " + Mathf.RoundToInt(10 * p) + "% chance to stun briefly (Exposed).";
+                case Rune.Hunter: return "Every " + HunterHits(Tier(r)) + "th hit on the same enemy marks it.";
+                case Rune.Holy: return "Hits heal the most wounded ally nearby for " + Mathf.RoundToInt(8 * p) + "% of the damage.";
+                case Rune.Ember: return "Kills explode for " + Mathf.RoundToInt(20 * p) + ", burning enemies within " + (2.5f + 0.5f * Tier(r)).ToString("0.#") + " m.";
+                case Rune.Keen: return "+" + Mathf.RoundToInt(15 * p) + "% damage to enemies above 80% health.";
+                case Rune.Farsight: return "+" + Mathf.RoundToInt(25 * p) + "% range on your attacks and abilities (melee reach a little longer).";
                 default: return "";
             }
         }
 
+        public static int HunterHits(int tier) => 5 - Mathf.Clamp(tier, 0, MaxTier);
+
         public static Color Color(Rune r)
+        {
+            var c = BaseColor(Kind(r));
+            return Tier(r) > 0 ? UnityEngine.Color.Lerp(c, UnityEngine.Color.white, 0.18f * Tier(r)) : c;
+        }
+
+        private static Color BaseColor(Rune r)
         {
             switch (r)
             {
@@ -87,7 +109,7 @@ namespace Deepbound.Loot
 
         /// <summary>Keen: applied before damage, through the outgoing multiplier.</summary>
         public static float OutgoingMultiplier(Health target, PlayerProgress p) =>
-            p.HasRune(Rune.Keen) && target.Fraction > 0.8f ? 1.15f : 1f;
+            p.HasRune(Rune.Keen) && target.Fraction > 0.8f ? 1f + 0.15f * Power(p.RuneTier(Rune.Keen)) : 1f;
 
         private static void OnDamaged(Health target, float dealt, ulong attackerId)
         {
@@ -101,13 +123,13 @@ namespace Deepbound.Loot
             {
                 if (target.IsAlive)
                 {
-                    if (p.HasRune(Rune.Frost) && UnityEngine.Random.value < 0.15f) target.ServerChill(3f);
-                    if (p.HasRune(Rune.Storm) && UnityEngine.Random.value < 0.1f && target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(0.7f);
+                    if (p.HasRune(Rune.Frost) && UnityEngine.Random.value < 0.15f * Power(p.RuneTier(Rune.Frost))) target.ServerChill(3f);
+                    if (p.HasRune(Rune.Storm) && UnityEngine.Random.value < 0.1f * Power(p.RuneTier(Rune.Storm)) && target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(0.7f);
                     if (p.HasRune(Rune.Hunter))
                     {
                         hunterCounts.TryGetValue(attackerId, out var c);
                         c = c.target == target.NetworkObjectId ? (c.target, c.hits + 1) : (target.NetworkObjectId, 1);
-                        if (c.hits >= 5)
+                        if (c.hits >= HunterHits(p.RuneTier(Rune.Hunter)))
                         {
                             c.hits = 0;
                             target.ServerMark(4f);
@@ -120,13 +142,14 @@ namespace Deepbound.Loot
                     Health worst = null;
                     foreach (var ally in CombatQuery.Circle(p.transform.position, 10f, Team.Players))
                         if (ally.IsAlive && ally.Fraction < 1f && (worst == null || ally.Fraction < worst.Fraction)) worst = ally;
-                    if (worst != null) worst.ServerHeal(dealt * 0.08f);
+                    if (worst != null) worst.ServerHeal(dealt * 0.08f * Power(p.RuneTier(Rune.Holy)));
                 }
                 if (!target.IsAlive && p.HasRune(Rune.Ember))
                 {
                     var at = target.transform.position;
-                    foreach (var foe in new List<Health>(CombatQuery.Circle(at, 2.5f, Team.Enemies)))
-                        foe.ServerDamage(20f * p.AttackMultiplier, at, attackerId);
+                    int et = p.RuneTier(Rune.Ember);
+                    foreach (var foe in new List<Health>(CombatQuery.Circle(at, 2.5f + 0.5f * et, Team.Enemies)))
+                        foe.ServerDamage(20f * Power(et) * p.AttackMultiplier, at, attackerId);
                     World.DungeonDirector.Instance?.EmberBurstFxRpc(at);
                 }
             }

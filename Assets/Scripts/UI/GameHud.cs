@@ -36,7 +36,7 @@ namespace Deepbound.UI
         /// <summary>True while a menu wants the cursor (the merchant's shop). The motor reads this.</summary>
         public static bool MenuOpen { get; private set; }
 
-        private bool shopOpen, forgeOpen, invOpen;
+        private bool shopOpen, forgeOpen, invOpen, runeOpen;
 
         /// <summary>Tests and screenshots: open the inventory panel.</summary>
         public void DebugOpenInventory(bool open) => invOpen = open;
@@ -46,7 +46,8 @@ namespace Deepbound.UI
         public void DebugOpenForge() => forgeOpen = true;
 
         /// <summary>Screenshots only: stage the merchant's panel open.</summary>
-        public void DebugCloseMenus() { shopOpen = forgeOpen = invOpen = false; }
+        public void DebugCloseMenus() { shopOpen = forgeOpen = invOpen = runeOpen = false; }
+        public void DebugOpenRunewright() { runeOpen = true; shopOpen = forgeOpen = false; }
         public void DebugOpenShop(Shop.Vendor vendor = Shop.Vendor.Merchant) { shopOpen = true; forgeOpen = false; shopVendor = vendor; }
         /// <summary>Which vendor's stall the open shop panel belongs to.</summary>
         private Shop.Vendor shopVendor;
@@ -229,7 +230,7 @@ namespace Deepbound.UI
         private void LateUpdate()
         {
             // Esc closes the shop or class screen first; only a second Esc pauses.
-            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open;
+            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || runeOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open;
         }
 
         private void OnDestroy()
@@ -610,7 +611,12 @@ namespace Deepbound.UI
                     if (click && button == 0 && ev.control && party) { progress.BagGiftRpc(i); ev.Use(); }
                     else if (click && button == 0 && ev.shift) { progress.BagDropRpc(i); ev.Use(); }
                     else if (click && button == 0) { progress.BagEquipRpc(i); Art.Sfx.Play2D(Art.Sound.Block, 0.4f); ev.Use(); }
-                    else if (click && button == 1) { progress.BagScrapRpc(i); ev.Use(); }
+                    else if (click && button == 1)
+                    {
+                        if (NearAnvil() != null) progress.BagScrapRpc(i);
+                        else Feed("Only Hobb scraps gear: bring it to his anvil at camp.", new Color(1f, 0.75f, 0.45f));
+                        ev.Use();
+                    }
                 }
             }
 
@@ -637,7 +643,7 @@ namespace Deepbound.UI
             }
 
             GUI.Label(new Rect(px, py + ph - 22, pw, 20),
-                "Pack: click to wear   right-click to scrap   shift-click to drop" + (party ? "   ctrl-click to give to the nearest ally" : "") + "      Worn: right-click to take off      I / Esc close",
+                "Pack: click to wear   right-click to scrap (at Hobb's anvil)   shift-click to drop" + (party ? "   ctrl-click to give to the nearest ally" : "") + "      Worn: right-click to take off      I / Esc close",
                 new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
         }
 
@@ -912,21 +918,26 @@ namespace Deepbound.UI
             {
                 if (shopOpen && shopVendor == Shop.Vendor.Smith) { shopOpen = false; forgeOpen = false; }
                 else if (anvilFirst) { forgeOpen = !forgeOpen; shopOpen = false; }
-                else if (near) { shopOpen = !shopOpen; forgeOpen = false; shopVendor = stall.Value; }
+                else if (near && stall.Value == Shop.Vendor.Runewright) { runeOpen = !runeOpen; shopOpen = false; forgeOpen = false; }
+                else if (near) { shopOpen = !shopOpen; forgeOpen = false; runeOpen = false; shopVendor = stall.Value; }
             }
-            if (keyboard != null && keyboard.iKey.wasPressedThisFrame && !shopOpen && !forgeOpen && !CharacterSelect.Open && !PauseMenu.Open && !Wardrobe.Open) invOpen = !invOpen;
-            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = forgeOpen = invOpen = false;
+            if (keyboard != null && keyboard.iKey.wasPressedThisFrame && !shopOpen && !forgeOpen && !runeOpen && !CharacterSelect.Open && !PauseMenu.Open && !Wardrobe.Open) invOpen = !invOpen;
+            if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = forgeOpen = invOpen = runeOpen = false;
+            if (runeOpen && !NearVendor(Shop.Vendor.Runewright)) runeOpen = false;
             // G (when no station is near) stows the gear you are looking at.
             if (keyboard != null && keyboard.gKey.wasPressedThisFrame && !near && anvil == null && !MenuOpen &&
                 Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is GearDrop stow && !progress.BagFull)
                 stow.StowRpc(player.NetworkObject);
             if (keyboard != null && keyboard.xKey.wasPressedThisFrame && !MenuOpen &&
                 Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is GearDrop scrap)
-                scrap.ScrapRpc(player.NetworkObject);
+            {
+                if (anvil != null) scrap.ScrapRpc(player.NetworkObject);
+                else Feed("Only Hobb scraps gear: carry it to his anvil at camp (or take it into your pack with F).", new Color(1f, 0.75f, 0.45f));
+            }
             if (shopOpen && !NearVendor(shopVendor)) shopOpen = false;
             if (anvil == null) forgeOpen = false;
             bool inspect = keyboard != null && keyboard.leftAltKey.isPressed && !life.Downed.Value;
-            MenuOpen = shopOpen || forgeOpen || invOpen || inspect || BlackjackTable.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
+            MenuOpen = shopOpen || forgeOpen || invOpen || runeOpen || DevMenu.Open || inspect || BlackjackTable.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
             InventoryOpen = invOpen;
             statsHeld = DebugShowStats || (keyboard != null && keyboard.tabKey.isPressed && !Wardrobe.Open);
 
@@ -977,6 +988,7 @@ namespace Deepbound.UI
             if (Cinematic) { DrawFade(w, h); return; }
 
             DrawEnemyBars();
+            DrawRelicTags();
             DrawDamageNumbers();
             DrawCombos();
             DrawCampReadouts(w, h);
@@ -1004,6 +1016,7 @@ namespace Deepbound.UI
             DrawFeed(h);
             DrawForge(w, h);
                 DrawMerchant(w, h);
+            DrawRunewright(w, h);
             DrawFps(w);
             Tips.Draw(w, h);
             DrawContract();
@@ -1015,6 +1028,28 @@ namespace Deepbound.UI
         }
 
         // ------------------------------------------------------------------
+
+        /// <summary>Relics on the ground carry their name in their own colour, readable across a room.</summary>
+        private void DrawRelicTags()
+        {
+            var cam = Art.ViewCamera.Current;
+            if (cam == null) return;
+            foreach (var d in LootDrop.All)
+            {
+                if (d == null || d.Kind.Value != LootKind.Relic) continue;
+                var at = d.transform.position + Vector3.up * 1.4f;
+                float dist = Vector3.Distance(cam.transform.position, at);
+                if (dist > 30f) continue;
+                var sp = cam.WorldToScreenPoint(at);
+                if (sp.z <= 0f) continue;
+                var relic = (Relic)d.Amount.Value;
+                var c = Relics.GemColor(relic);
+                float a = Mathf.Clamp01((30f - dist) / 8f);
+                var r = new Rect(sp.x - 160f, Screen.height - sp.y - 30f, 320f, 22f);
+                UiSkin.Shadowed(r, "RELIC:  " + Relics.Name(relic), new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(Mathf.Lerp(c.r, 1f, 0.3f), Mathf.Lerp(c.g, 1f, 0.3f), Mathf.Lerp(c.b, 1f, 0.3f), a) } }, a);
+                if (dist < 9f) GUI.Label(new Rect(r.x, r.y + 20f, r.width, 18f), Relics.Describe(relic), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 1f, 1f, 0.8f * a) } });
+            }
+        }
 
         /// <summary>Standing on a potion you cannot carry: say why, so it does not look like a bug.</summary>
         private void DrawPouchFull()
@@ -1649,7 +1684,7 @@ namespace Deepbound.UI
                 var stall = StallHere();
                 if (stall == null || Vector3.Distance(player.transform.position, NearAnvil().transform.position) <
                     Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value))
-                    GUI.Label(new Rect(0, h / 2f + 40, w, 24), DungeonDirector.InLobby ? "Press G to use the anvil (Hobb sells embers, plate and gear here)" : "Press G to use the anvil", center);
+                    GUI.Label(new Rect(0, h / 2f + 40, w, 24), DungeonDirector.InLobby ? "Press G to use the anvil (Hobb tempers, refines and scraps; sells plate and gear)" : "Press G to use the anvil", center);
                 return;
             }
 
@@ -1729,18 +1764,49 @@ namespace Deepbound.UI
                 GUI.enabled = true;
             }
 
-            // Right column: abilities (Sigils), then runes.
+            // Right column: Hobb's scrap bench. What you are carrying, broken down for embers.
             float rx = x + leftW + 4, rw = pw - leftW - 20;
             Rect(rx - 10, y + 40, 1, ph - 56, new Color(1f, 1f, 1f, 0.08f));
             float ay = y + 44;
-            GUI.Label(new Rect(rx, ay, rw, 20), "ABILITIES  -  a Sigil empowers one rank", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = LootInfo.SigilColor } });
+            GUI.Label(new Rect(rx, ay, rw, 20), "SCRAP  -  break down pack gear for embers", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = ember } });
+            if (progress.BagCount == 0) GUI.Label(new Rect(rx, ay + 24, rw, 40), "Nothing in your pack. Gear you pick up goes there (I to look).", new GUIStyle(small) { wordWrap = true });
+            for (int i = 0; i < progress.BagCount; i++)
+            {
+                var item = progress.BagItem(i);
+                float ry2 = ay + 24 + i * 30;
+                GUI.Label(new Rect(rx, ry2 + 4, rw - 112, 20), Gear.Name(item), new GUIStyle(small) { normal = { textColor = Gear.QualityColor(item.Quality) } });
+                if (GUI.Button(new Rect(rx + rw - 108, ry2, 108, 24), "Scrap  +" + Gear.ScrapValue(item))) progress.BagScrapRpc(i);
+            }
+            GUI.Label(new Rect(rx, y + ph - 70, rw, 40), "Runes, sigils and ability ranks are Ysolde's work: find her at the standing stones.", new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.6f, 0.85f, 1f) } });
+            if (!string.IsNullOrEmpty(GUI.tooltip)) GUI.Label(new Rect(x + 16, y + ph - 26, pw - 32, 20), GUI.tooltip, new GUIStyle(small) { normal = { textColor = Gold } });
+        }
+
+        // ---- Ysolde the runewright (G at the standing stones): ability ranks, runes, melding ----
+        private void DrawRunewright(float w, float h)
+        {
+            if (!runeOpen) return;
+            var id = progress.ClassId.Value;
+            int level = progress.WeaponLevel.Value;
+            float pw = 900, ph = 520;
+            float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
+            var blue = new Color(0.45f, 0.85f, 1f);
+            Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(blue.r, blue.g, blue.b, 0.45f));
+            Rect(x, y, pw, ph, new Color(0.03f, 0.04f, 0.06f, 0.95f));
+            GUI.Label(new Rect(x + 16, y + 12, pw, 24), "YSOLDE'S STONES", new GUIStyle(label) { normal = { textColor = blue } });
+            if (GUI.Button(new Rect(x + 230, y + 10, 190, 24), "Buy a Sigil (her wares)")) { runeOpen = false; shopOpen = true; shopVendor = Shop.Vendor.Runewright; }
+            GUI.Label(new Rect(x + pw - 300, y + 12, 284, 24), progress.Sigils.Value + " sigils    " + progress.Embers.Value + " embers", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = blue } });
+            const float leftW = 440f;
+            // Left: abilities (Sigils). Right: runes in the weapon, the bag, and melding.
+            float rx = x + 16, rw = leftW - 32;
+            float ay = y + 44;
+            GUI.Label(new Rect(rx, ay, rw, 20), "ABILITIES  -  Sigils empower a rank (up to 8)", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = LootInfo.SigilColor } });
             foreach (var slot in new[] { AbilitySlot.Q, AbilitySlot.E })
             {
                 float ry = ay + 22 + (int)slot * 88;
                 int rank = progress.Rank(slot);
-                GUI.Label(new Rect(rx, ry, rw - 84, 22), slot + "  " + ClassDefinition.AbilityName(id, slot), label);
+                GUI.Label(new Rect(rx, ry, rw - AbilityRanks.MaxRank * 13 - 8, 22), slot + "  " + ClassDefinition.AbilityName(id, slot), label);
                 for (int r = 0; r < AbilityRanks.MaxRank; r++)
-                    Rect(rx + rw - 76 + r * 15, ry + 6, 11, 12, r < rank ? LootInfo.SigilColor : new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.2f));
+                    Rect(rx + rw - AbilityRanks.MaxRank * 13 + r * 13, ry + 6, 10, 12, r < rank ? LootInfo.SigilColor : new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.2f));
                 string nextText = AbilityRanks.NextRank(id, slot, rank);
                 GUI.Label(new Rect(rx, ry + 21, rw, 34), nextText, new GUIStyle(small) { wordWrap = true });
                 int sigilCost = AbilityRanks.SigilCost(rank);
@@ -1780,13 +1846,35 @@ namespace Deepbound.UI
                 if (GUI.Button(bRect, new GUIContent("Set " + Runes.Name(r).Replace(" Rune", ""), Runes.Describe(r)))) progress.SocketRuneRpc((byte)r);
                 GUI.enabled = true;
             }
+
+            // Melding: three alike (kind and tier) become one of the next tier.
+            float mx = x + leftW + 10, mw = pw - leftW - 26, my = y + 44;
+            Rect(mx - 12, y + 40, 1, ph - 56, new Color(1f, 1f, 1f, 0.08f));
+            GUI.Label(new Rect(mx, my, mw, 20), "MELD  -  three of a rune become one of the next tier (II, III)", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = blue } });
+            var seenRunes = new System.Collections.Generic.HashSet<Rune>();
+            int rows = 0;
+            for (int i = 0; i < progress.RuneBagCount; i++)
+            {
+                var r = progress.RuneInBag(i);
+                if (!seenRunes.Add(r)) continue;
+                int have = progress.RuneCount(r), tier = Runes.Tier(r);
+                float ry2 = my + 24 + rows * 44;
+                rows++;
+                GUI.Label(new Rect(mx, ry2, mw - 150, 20), Runes.Name(r) + "  x" + have, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Runes.Color(r) } });
+                GUI.Label(new Rect(mx, ry2 + 18, mw - 150, 20), tier >= Runes.MaxTier ? "Already as strong as runes get." : "Next: " + Runes.Describe(Runes.Make(r, tier + 1)), new GUIStyle(small) { fontSize = 11, wordWrap = true });
+                int cost = Runes.MeldCost(tier);
+                GUI.enabled = tier < Runes.MaxTier && have >= 3 && progress.Embers.Value >= cost;
+                if (GUI.Button(new Rect(mx + mw - 146, ry2 + 4, 146, 26), tier >= Runes.MaxTier ? "Tier III" : have < 3 ? "Need 3 (" + have + ")" : "Meld  (" + cost + " embers)")) progress.MeldRunesRpc((byte)r);
+                GUI.enabled = true;
+            }
+            if (rows == 0) GUI.Label(new Rect(mx, my + 24, mw, 40), "No runes in your bag. Elites and chests drop them; bring three alike.", new GUIStyle(small) { wordWrap = true });
             if (!string.IsNullOrEmpty(GUI.tooltip)) GUI.Label(new Rect(x + 16, y + ph - 26, pw - 32, 20), GUI.tooltip, new GUIStyle(small) { normal = { textColor = Gold } });
         }
 
         private void DrawMerchant(float w, float h)
         {
             DrawSeatPrompt(w, h);
-            if (forgeOpen) return;
+            if (forgeOpen || runeOpen) return;
             if (!shopOpen)
             {
                 var stall = StallHere();
@@ -1795,7 +1883,8 @@ namespace Deepbound.UI
                 if (nearAnvil != null && Vector3.Distance(player.transform.position, nearAnvil.transform.position) <
                     Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value)) return;
                 string who = stall == Shop.Vendor.Shrine ? "Press G for the shrine's offerings (holy water, relics, Aldric's prayer)"
-                    : stall == Shop.Vendor.Yard ? "Press G for the drill board (train a stat for gold)"
+                    : stall == Shop.Vendor.Yard ? "Press G to talk to Sergeant Brann (drills: a stat for gold)"
+                    : stall == Shop.Vendor.Runewright ? "Press G to visit Ysolde (runes, melding, sigils, ability ranks)"
                     : stall == Shop.Vendor.Carriage ? "Press G to talk to Corwin (maps of the way down, smelling salts)"
                     : DungeonDirector.InLobby ? "Press G to trade with Silas (potions and provisions)" : "Press G to trade with the peddler";
                 GUI.Label(new Rect(0, h / 2f + (stall == Shop.Vendor.Shrine ? 64 : 40), w, 24), who, center);
@@ -1814,6 +1903,7 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x + 14, y + 10, pw, 24), Shop.VendorTitle(vendor), new GUIStyle(label) { normal = { textColor = Gold } });
             GUI.Label(new Rect(x + 14, y + 30, pw - 28, 20), Shop.VendorLine(vendor), small);
             if (vendor == Shop.Vendor.Smith && GUI.Button(new Rect(x + pw - 300, y + 8, 160, 24), "Back to the anvil")) { shopOpen = false; forgeOpen = true; }
+            if (vendor == Shop.Vendor.Runewright && GUI.Button(new Rect(x + pw - 300, y + 8, 160, 24), "Back to the stones")) { shopOpen = false; runeOpen = true; }
             // Struck this vendor? It shows in the prices, and coin can mend it.
             int amends = progress.AmendsCost(vendor);
             if (amends > 0)

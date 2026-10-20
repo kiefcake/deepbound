@@ -273,6 +273,7 @@ namespace Deepbound.Loot
         private void BuildRelicVisual(Relic relic)
         {
             var color = Relics.GemColor(relic);
+            visual.localScale = Vector3.one * 1.7f;
             var gem = MeshKit.Part(visual, "Gem", MeshKit.Lathe("relicGem", new[]
             {
                 new Vector2(0f, -0.14f), new Vector2(0.1f, 0f), new Vector2(0f, 0.16f),
@@ -285,10 +286,24 @@ namespace Deepbound.Loot
             }
             MeshKit.Part(visual, "Ring", MeshKit.Cylinder(0.14f, 0.14f, 0.025f, 12), Mat.Gold, new Vector3(0f, -0.17f, 0f));
 
-            var beam = MeshKit.Part(transform, "Beam", MeshKit.Cylinder(0.05f, 0.02f, 6f, 8), Mat.Glow, Vector3.zero);
-            ArtLibrary.SetGlow(beam.GetComponent<Renderer>(), color * 1.2f);
+            var beam = MeshKit.Part(transform, "Beam", MeshKit.Cylinder(0.07f, 0.03f, 11f, 8), Mat.Glow, Vector3.zero);
+            ArtLibrary.SetGlow(beam.GetComponent<Renderer>(), color * 1.4f);
             beam.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            AddLight(color, 4f);
+            // A soft column of its light round the beam, a slow ring on the floor, and rising sparks.
+            var column = MeshKit.Part(transform, "Column", MeshKit.Cylinder(0.45f, 0.2f, 7f, 12), Mat.Smoke, Vector3.zero);
+            ArtLibrary.Tint(column.GetComponent<Renderer>(), new Color(color.r, color.g, color.b, 0.14f));
+            column.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var halo = MeshKit.Pivot(transform, "Halo", Vector3.up * 0.04f);
+            for (int i = 0; i < 12; i++)
+            {
+                float a = i * 30f * Mathf.Deg2Rad;
+                var dash = MeshKit.Part(halo, "HaloDash", MeshKit.Box(new Vector3(0.22f, 0.01f, 0.05f)), Mat.Glow, new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.95f, new Vector3(0f, -i * 30f, 0f));
+                ArtLibrary.SetGlow(dash.GetComponent<Renderer>(), color * 1.3f);
+                dash.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            halo.gameObject.AddComponent<Art.Spin>().DegreesPerSecond = 40f;
+            gameObject.AddComponent<Art.RelicSparks>().Color = color;
+            AddLight(color, 6f);
         }
 
         private void AddLight(Color color, float intensity)

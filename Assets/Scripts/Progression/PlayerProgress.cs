@@ -115,17 +115,17 @@ namespace Deepbound.Progression
         }
 
         /// <summary>A vendor's mark-up for you: +25% per grudge level.</summary>
-        public float PriceMultiplier(Shop.Vendor vendor) => vendor == Shop.Vendor.Yard ? 1f : 1f + 0.25f * Grudge(VendorFolk(vendor));
+        public float PriceMultiplier(Shop.Vendor vendor) => 1f + 0.25f * Grudge(VendorFolk(vendor));
 
         /// <summary>Who stands behind a vendor's counter right now (the peddler, off camp).</summary>
         public static World.FolkId VendorFolk(Shop.Vendor vendor) => vendor == Shop.Vendor.Smith ? World.FolkId.Hobb : vendor == Shop.Vendor.Shrine ? World.FolkId.Aldric
-            : vendor == Shop.Vendor.Carriage ? World.FolkId.Corwin
+            : vendor == Shop.Vendor.Carriage ? World.FolkId.Corwin : vendor == Shop.Vendor.Yard ? World.FolkId.Brann : vendor == Shop.Vendor.Runewright ? World.FolkId.Ysolde
             : World.DungeonDirector.InLobby ? World.FolkId.Silas : World.FolkId.Peddler;
 
         /// <summary>What it costs to make amends with a vendor (0: nothing to mend).</summary>
         public int AmendsCost(Shop.Vendor vendor)
         {
-            return vendor == Shop.Vendor.Yard ? 0 : Grudge(VendorFolk(vendor)) * 30;
+            return Grudge(VendorFolk(vendor)) * 30;
         }
 
         /// <summary>Owner → server: pay a vendor to forget it (at their stall).</summary>
@@ -172,13 +172,15 @@ namespace Deepbound.Progression
         public int BoughtRank(AbilitySlot slot) => slot == AbilitySlot.Q ? RankQ.Value : RankE.Value;
 
         /// <summary>Rank 2 and up: 30% stronger.</summary>
-        public float Potency(AbilitySlot slot) => (Rank(slot) >= 2 ? AbilityRanks.Rank2Potency : 1f) * (Rank(slot) >= 4 ? AbilityRanks.Rank4Potency : 1f);
+        public float Potency(AbilitySlot slot) => (Rank(slot) >= 2 ? AbilityRanks.Rank2Potency : 1f) * (Rank(slot) >= 4 ? AbilityRanks.Rank4Potency : 1f)
+            * (Rank(slot) >= 6 ? AbilityRanks.Rank6Potency : 1f) * (Rank(slot) >= 8 ? AbilityRanks.Rank8Potency : 1f);
 
         /// <summary>Rank 3: the twist.</summary>
         public bool Twist(AbilitySlot slot) => Rank(slot) >= 3;
 
         /// <summary>Q/E cooldown scale: relics and gear, and a quarter off at rank 3.</summary>
-        public float CooldownFor(AbilitySlot slot) => CooldownMultiplier * (Twist(slot) ? AbilityRanks.Rank3Cooldown : 1f) * (Rank(slot) >= 5 ? AbilityRanks.Rank5Cooldown : 1f);
+        public float CooldownFor(AbilitySlot slot) => CooldownMultiplier * (Twist(slot) ? AbilityRanks.Rank3Cooldown : 1f) * (Rank(slot) >= 5 ? AbilityRanks.Rank5Cooldown : 1f)
+            * (Rank(slot) >= 7 ? AbilityRanks.Rank7Cooldown : 1f) * (Rank(slot) >= 8 ? AbilityRanks.Rank8Cooldown : 1f);
 
         public void ServerAddSigil()
         {
@@ -194,15 +196,14 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void EmpowerRpc(byte slot)
         {
-            var anvil = World.Anvil.Near(transform.position);
-            if (anvil == null || slot > 1) return;
+            if (!AtRunewright || slot > 1) return;
             var rank = slot == 0 ? RankQ : RankE;
             if (rank.Value >= AbilityRanks.MaxRank || Rank((AbilitySlot)slot) >= AbilityRanks.MaxRank) return;
             int cost = AbilityRanks.SigilCost(Rank((AbilitySlot)slot));
             if (Sigils.Value < cost) return;
             Sigils.Value -= cost;
             rank.Value++;
-            anvil.ForgeFxRpc(rank.Value + 2);
+            MeldedFxRpc();
             EmpoweredRpc(slot, rank.Value);
         }
 
@@ -210,11 +211,10 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void MeltSigilRpc()
         {
-            var anvil = World.Anvil.Near(transform.position);
-            if (anvil == null || Sigils.Value < 1 || Rank(AbilitySlot.Q) < AbilityRanks.MaxRank || Rank(AbilitySlot.E) < AbilityRanks.MaxRank) return;
+            if (!AtRunewright || Sigils.Value < 1 || Rank(AbilitySlot.Q) < AbilityRanks.MaxRank || Rank(AbilitySlot.E) < AbilityRanks.MaxRank) return;
             Sigils.Value--;
             Embers.Value += 30;
-            anvil.ForgeFxRpc(1);
+            MeldedFxRpc();
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -270,6 +270,8 @@ namespace Deepbound.Progression
         }
 
         private bool CanManagePack(int i) => IsServer && i >= 0 && i < bag.Count && !GetComponent<Player.PlayerLife>().Downed.Value;
+        /// <summary>Scrapping is smith's work: only at the anvil.</summary>
+        private bool AtAnvil => World.Anvil.Near(transform.position) != null;
 
         /// <summary>Owner → server: wear a piece from the pack; what was worn takes its place.</summary>
         [Rpc(SendTo.Server)]
@@ -286,7 +288,7 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void BagScrapRpc(int i)
         {
-            if (!CanManagePack(i)) return;
+            if (!CanManagePack(i) || !AtAnvil) return;
             var item = bag[i];
             bag.RemoveAt(i);
             ServerAddEmbers(Gear.ScrapValue(item));
@@ -470,7 +472,64 @@ namespace Deepbound.Progression
         public readonly NetworkVariable<byte> Socket2 = new NetworkVariable<byte>();
 
         public Rune Socketed(int socket) => (Rune)(socket == 0 ? Socket0.Value : socket == 1 ? Socket1.Value : Socket2.Value);
-        public bool HasRune(Rune r) => Socketed(0) == r || Socketed(1) == r || Socketed(2) == r;
+        /// <summary>Is a rune of this kind (any tier) set in the weapon?</summary>
+        public bool HasRune(Rune r) => RuneTier(r) >= 0;
+        /// <summary>The best tier of this kind set in the weapon, or -1.</summary>
+        public int RuneTier(Rune kind)
+        {
+            int best = -1;
+            kind = Runes.Kind(kind);
+            for (int s = 0; s < Runes.MaxSockets; s++)
+            {
+                var r = Socketed(s);
+                if (r != Rune.None && Runes.Kind(r) == kind) best = Mathf.Max(best, Runes.Tier(r));
+            }
+            return best;
+        }
+
+        /// <summary>How many of exactly this rune (kind and tier) are in the bag.</summary>
+        public int RuneCount(Rune r)
+        {
+            int n = 0;
+            foreach (var b in runeBag) if (b == (byte)r) n++;
+            return n;
+        }
+
+        /// <summary>At Ysolde's stones (runes, sigils, ability ranks are her work).</summary>
+        public bool AtRunewright => Shop.InReach(Shop.Vendor.Runewright, transform.position, 1f);
+
+        /// <summary>Owner -> server: meld three of one rune into one of the next tier, for embers.</summary>
+        [Rpc(SendTo.Server)]
+        public void MeldRunesRpc(byte rune)
+        {
+            var r = (Rune)rune;
+            int tier = Runes.Tier(r);
+            if (!AtRunewright || r == Rune.None || tier >= Runes.MaxTier || RuneCount(r) < 3) return;
+            int cost = Runes.MeldCost(tier);
+            if (Embers.Value < cost) return;
+            Embers.Value -= cost;
+            for (int k = 0; k < 3; k++) runeBag.RemoveAt(runeBag.IndexOf(rune));
+            var made = Runes.Make(r, tier + 1);
+            runeBag.Add((byte)made);
+            MeldedRpc((byte)made);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void MeldedFxRpc()
+        {
+            Art.Sfx.Play(Art.Sound.Relic, World.Lobby.RunewrightSpot + Vector3.up, 0.6f, 1.6f);
+            Art.Vfx.Embers(World.Lobby.RunewrightSpot + new Vector3(0.9f, 1f, 0.25f), 10, new Color(0.45f, 0.85f, 1f), 2f, 0.04f, 0.7f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void MeldedRpc(byte made)
+        {
+            var r = (Rune)made;
+            UI.GameHud.Feed(name + " melded three runes into a " + Runes.Name(r), Runes.Color(r));
+            Art.Sfx.Play(Art.Sound.Relic, World.Lobby.RunewrightSpot + Vector3.up, 0.9f, 1.3f);
+            Art.Vfx.Ring(World.Lobby.RunewrightSpot + new Vector3(0.8f, 0.05f, 0.2f), 2.4f, Runes.Color(r), 0.6f);
+            UI.CampChatter.Say(World.FolkId.Ysolde, "Three into one. Feel how heavy it is? That's the good kind of heavy.", 5f);
+        }
         public int RuneBagCount => runeBag.Count;
         public Rune RuneInBag(int i) => (Rune)runeBag[i];
 
@@ -491,17 +550,16 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Server)]
         public void SocketRuneRpc(byte rune)
         {
-            var anvil = World.Anvil.Near(transform.position);
             int sockets = Runes.SocketsAt(WeaponLevel.Value);
             int bagIndex = runeBag.IndexOf(rune);
-            if (anvil == null || sockets == 0 || bagIndex < 0) return;
+            if (!AtRunewright || sockets == 0 || bagIndex < 0) return;
             int target = 0;
             for (int s = 0; s < sockets; s++) if (Socketed(s) == Rune.None) { target = s; break; }
             var socket = target == 0 ? Socket0 : target == 1 ? Socket1 : Socket2;
             runeBag.RemoveAt(bagIndex);
             if (socket.Value != 0) runeBag.Add(socket.Value);
             socket.Value = rune;
-            anvil.ForgeFxRpc(2);
+            MeldedFxRpc();
         }
         private NetworkList<byte> relics;
 
@@ -587,7 +645,7 @@ namespace Deepbound.Progression
         /// How far your attacks reach, as a multiple of the class's base range: every temper at the
         /// anvil adds 5%, a Farsight rune 25%. Any peer (it reads synced values), so visuals agree.
         /// </summary>
-        public float RangeMultiplier => 1f + 0.05f * WeaponLevel.Value + (HasRune(Loot.Rune.Farsight) ? 0.25f : 0f) + (HasRelic(Relic.LongShadow) ? 0.15f : 0f);
+        public float RangeMultiplier => 1f + 0.05f * WeaponLevel.Value + (HasRune(Loot.Rune.Farsight) ? 0.25f * Runes.Power(RuneTier(Loot.Rune.Farsight)) : 0f) + (HasRelic(Relic.LongShadow) ? 0.15f : 0f);
 
         /// <summary>Melee gains half as much reach from the same sources.</summary>
         public float ReachMultiplier => 1f + (RangeMultiplier - 1f) * 0.5f;

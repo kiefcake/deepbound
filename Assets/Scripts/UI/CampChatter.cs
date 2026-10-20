@@ -49,6 +49,10 @@ namespace Deepbound.UI
                     "*The dealer folds its hands. It will not deal to {0} until tempers cool.*", "*It sweeps the cards away and simply stares at you.*" },
             new[] { "Hey! I walked all this way with glass on my back! That'll cost you.", "Another one? The prices down here just got deeper, {0}.",
                     "I've survived worse than you on the way down. Prices up.", "You're paying double now. Hit me again and I'll charge for breathing." },
+            new[] { "Good! Again! ...Not on ME, recruit. Drills cost more for you now.", "Discipline, {0}! That's a fine on top of the fee.",
+                    "I've had sergeants bigger than you cry, {0}. Double fees.", "Twenty laps. And double. Out of my yard." },
+            new[] { "The stones felt that, {0}. So will your purse.", "You strike a runewright? Bold. Expensive, but bold.",
+                    "I could write your name in a rune that itches forever, {0}. Prices up instead. For now.", "*Ysolde traces something in the air at you. Your teeth ache.*" },
         };
 
         private static readonly string[] Forgive =
@@ -58,6 +62,8 @@ namespace Deepbound.UI
             "Your coin has washed you clean, {0}. Mostly my coin now. Go in peace.",
             "", "", "",
             "Fine, fine. Paid in full. The glass forgives you, {0}.",
+            "Fine paid. Fall back in, {0}. And keep your elbows in the drill.",
+            "The stones are calm again, {0}. So am I. Mostly.",
         };
 
         // What a bystander says when someone else gets hit. {0} is the one who swung.
@@ -69,6 +75,9 @@ namespace Deepbound.UI
             "Barbaric. Simply barbaric.",
             "I saw nothing. I never see anything. That's why I still drive.",
             "*The dealer's jaw clacks: something like a laugh.*",
+            "",
+            "Sloppy footwork, {0}. Again, and on the dead next time.",
+            "The stones remember that, {0}. So do I.",
         };
 
         private readonly List<(float at, FolkId who, string text)> pending = new List<(float, FolkId, string)>();
@@ -103,6 +112,7 @@ namespace Deepbound.UI
         {
             "Not near the glassware!", "Ha! Felt that one in my teeth.", "Not on holy ground, please.",
             "Smoke! On the silk!", "Whoa! Whoa! Easy, horses!", "*The dealer brushes ash off the cards.*",
+            "", "Down! Everyone down! ...Good reflexes. Drill passed.", "*The standing stones flare blue all at once.*",
         };
 
         /// <summary>Any peer: a camp character was struck by <paramref name="attacker"/> (grudge now <paramref name="level"/>).</summary>
@@ -153,12 +163,16 @@ namespace Deepbound.UI
             "Darling, no. We do not slap hands. We nod. Like so.",
             "*Corwin tips his hat. He keeps both hands on the reins.*",
             "*The dealer raises one bony palm and meets yours, very gently. Click.*",
+            "",
+            "Ha! Good grip. Now give me twenty.",
+            "*Ysolde touches your palm with two cold fingers. A rune glows there, then fades.*",
         };
         private static readonly string[] WaveCold =
         {
             "Hands where I can see them, friend. After last time.", "Oh, now you want to be friends? Pay for the dent first.",
             "Make amends first, child. Then we may be friendly.", "Absolutely not. Not after the velvet.",
             "*Corwin flinches, then pretends he didn't.*", "*The dealer keeps its hands folded.*",
+            "", "Pay your fine first, recruit.", "Not until the stones forgive you.",
         };
 
         /// <summary>Any peer: <paramref name="who"/> raised a hand near a camp character (H with no ally about).</summary>
@@ -197,7 +211,8 @@ namespace Deepbound.UI
                 if (d.sqrMagnitude < bd) { bd = d.sqrMagnitude; best = i; }
             }
             string[] bystander = { "The cat's worth more than your gold, " + who + ".", "Kick the dog next, why don't you. We haven't got a dog.",
-                "Leave the poor creature be.", "Monster. Absolute monster.", "Even the horses saw that.", "*The dealer slowly shakes its skull.*" };
+                "Leave the poor creature be.", "Monster. Absolute monster.", "Even the horses saw that.", "*The dealer slowly shakes its skull.*",
+                "", "Twenty laps for that, " + who + ".", "The cat is under my protection, " + who + ". You will not like my protection." };
             if (best >= 0) SayLater((FolkId)best, bystander[best], 2f);
         }
 
@@ -344,6 +359,39 @@ namespace Deepbound.UI
                 "*It points one finger at the shoe, then at you, then at the shaft. Nobody knows what it means.*",
             }, () => Me != null && Me.Grudge(FolkId.Bones) >= 3 ? "*The dealer keeps one empty hand raised toward you. Not yet.*"
                 : Deeds.Has(Deeds.Deed.Unsung) ? "*The dealer stops shuffling. For the first time anyone can remember, it bows.*" : null);
+
+            // The peddler has no voice at camp (he is off down the shaft); a silent placeholder keeps the order.
+            Add("", Vector3.down * 9999f, new[] { "" }, () => null);
+
+            Add("Sergeant Brann, drillmaster", Lobby.YardSpot + Vector3.up * 2.2f, new[]
+            {
+                "Feet apart! Weight forward! You'll thank me when something with three arms comes at you.",
+                "Every drill costs more than the last. That's not greed, recruit. That's interest.",
+                "I trained half the delvers in this yard. The other half I buried in it.",
+                "Swing, step, block. Swing, step, block. The dead don't get bored. Neither do I.",
+                "Gold for sweat. Best trade in the castle.",
+            }, () =>
+            {
+                var me = Me;
+                if (me != null && me.Grudge(FolkId.Brann) > 0) return "You owe this yard a fine, recruit. Pay it and fall in.";
+                if (FloorsDone >= 6) return "You've gone deeper than most I've trained. Don't let it go to your head. Go to your feet.";
+                return null;
+            });
+
+            Add("Ysolde, runewright", Lobby.RunewrightSpot + Vector3.up * 2.1f, new[]
+            {
+                "Bring me three of a kind and I'll make one worth all three. The stones like a good bargain.",
+                "A Sigil is a promise an ability makes to you. I just help it keep its word.",
+                "Runes don't wear out. People do. Mind which one you look after.",
+                "The stones hum louder when someone comes back from below. They're humming now.",
+                "Set a rune crooked and it sings off key for the rest of the run. I set them straight.",
+            }, () =>
+            {
+                var me = Me;
+                if (me != null && me.Grudge(FolkId.Ysolde) > 0) return "The stones are still angry with you. Make amends.";
+                if (me != null && me.RuneBagCount >= 3) return "You're carrying runes I could meld, you know. Three alike and I'll make one better.";
+                return null;
+            });
         }
 
         private void Add(string name, Vector3 head, string[] idle, System.Func<string> news)

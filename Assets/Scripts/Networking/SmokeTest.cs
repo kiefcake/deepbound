@@ -473,9 +473,11 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     bool swapped = ip.Armor.Value.Equals(spare) && (wornBefore.IsEmpty ? ip.BagCount == n0 - 1 : ip.BagCount == n0);
                     int embers0 = ip.Embers.Value;
+                    // Down here there is no anvil: scrapping is Hobb's work, so the pack refuses.
+                    int bagHeld = ip.BagCount;
                     ip.BagScrapRpc(ip.BagCount - 1);
                     yield return new WaitForSeconds(0.2f);
-                    bool scrapped = ip.Embers.Value > embers0;
+                    bool scrapped = ip.BagCount == bagHeld && ip.Embers.Value == embers0;
                     int drops0 = FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
                     ip.UnequipRpc(0);
                     yield return new WaitForSeconds(0.2f);
@@ -483,10 +485,12 @@ namespace Deepbound.Networking
                     ip.BagDropRpc(ip.BagCount - 1);
                     yield return new WaitForSeconds(0.3f);
                     bool dropped = FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length > drops0;
-                    Log("inventory", "stowed " + stowed + ", wore from pack " + swapped + ", scrapped " + scrapped + ", took off " + off + ", dropped " + dropped,
+                    Log("inventory", "stowed " + stowed + ", wore from pack " + swapped + ", no scrapping away from the anvil " + scrapped + ", took off " + off + ", dropped " + dropped,
                         stowed && swapped && scrapped && off && dropped);
                     foreach (var gd in FindObjectsByType<GearDrop>(FindObjectsSortMode.None)) if (gd.NetworkObject.IsSpawned && gd.For.Value == local.OwnerClientId) gd.NetworkObject.Despawn();
-                    while (ip.BagCount > 0) { ip.BagScrapRpc(0); yield return null; }
+                    for (int guard = 0; ip.BagCount > 0 && guard < 40; guard++) { ip.BagDropRpc(0); yield return null; }
+                    yield return new WaitForSeconds(0.2f);
+                    foreach (var gd in FindObjectsByType<GearDrop>(FindObjectsSortMode.None)) if (gd.NetworkObject.IsSpawned && gd.For.Value == local.OwnerClientId) gd.NetworkObject.Despawn();
                     if (!wornBefore.IsEmpty) ip.ServerEquip(wornBefore);
                 }
 
@@ -1057,6 +1061,25 @@ namespace Deepbound.Networking
                         Log("blackjack rules", "seated " + seated + ", dealt " + dealt + ", deal again " + again + ", split " + split + "/" + splitDone + ", double " + doubled,
                             seated && dealt && again && split && splitDone && doubled);
                         bjOk = seated && dealt && again;
+                        // The house limit is 100, and a big winner is cut off until the next floor.
+                        bjT.InsuranceRpc(local.NetworkObject, false);
+                        bjT.StandRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.2f);
+                        gp.ServerAddGold(600);
+                        bjT.DealRpc(local.NetworkObject, 500);
+                        yield return new WaitForSeconds(0.3f);
+                        int stake = bjT.ServerStake(gp);
+                        bjT.InsuranceRpc(local.NetworkObject, false);
+                        bjT.StandRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.3f);
+                        bjT.ServerDebugWinnings(gp, BlackjackTable.CutOff);
+                        int g4 = gp.Gold.Value;
+                        bjT.DealRpc(local.NetworkObject, 20);
+                        yield return new WaitForSeconds(0.3f);
+                        bool cut = bjT.CutOffFor(gp) && gp.Gold.Value == g4;
+                        bjT.ServerDebugWinnings(gp, 0);
+                        Log("blackjack limits", "a 500 bet staked " + stake + " (max " + BlackjackTable.MaxBet + "), cut off after " + BlackjackTable.CutOff + " won " + cut,
+                            stake == BlackjackTable.MaxBet && cut);
                     }
                     int solid = 0;
                     foreach (var bc in FindObjectsByType<BoxCollider>(FindObjectsSortMode.None)) if (bc.GetComponent<MeshRenderer>() != null && bc.GetComponentInParent<Unity.Netcode.NetworkObject>() == null) solid++;
@@ -1128,7 +1151,13 @@ namespace Deepbound.Networking
                     var ddef = local.GetComponent<Health>().Defense;
                     var gearDrop = GearDrop.ServerSpawn(new GearItem(GearId.OssuaryPlate, 1, 0), local.OwnerClientId, local.transform.position + local.transform.forward * 1.2f);
                     yield return new WaitForSeconds(0.2f);
+                    int packBefore = progress.BagCount;
+                    var armorBefore = progress.Armor.Value;
                     gearDrop.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.2f);
+                    bool intoPack = progress.BagCount == packBefore + 1 && progress.Armor.Value.Equals(armorBefore);
+                    Log("pickup to pack", "pack " + packBefore + " -> " + progress.BagCount + ", worn unchanged " + progress.Armor.Value.Equals(armorBefore), intoPack);
+                    progress.BagEquipRpc(progress.BagCount - 1);
                     yield return new WaitForSeconds(0.2f);
                     Log("gear equip", "armor " + Gear.Name(progress.Armor.Value) + ", DEF " + ddef + " -> " + local.GetComponent<Health>().Defense,
                         progress.Armor.Value.Kind == GearId.OssuaryPlate && local.GetComponent<Health>().Defense > ddef);
@@ -1148,21 +1177,38 @@ namespace Deepbound.Networking
                         motor.Teleport(keep, local.transform.rotation);
                         yield return new WaitForSeconds(0.1f);
                     }
+                    var anvilJ = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
+                    var keepJ = local.transform.position;
+                    if (anvilJ != null) motor.Teleport(anvilJ.transform.position + anvilJ.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
                     int embersBefore = progress.Embers.Value;
                     var junk = GearDrop.ServerSpawn(new GearItem(GearId.Bloodstone, 0, 0), local.OwnerClientId, local.transform.position + local.transform.forward * 1.2f);
                     yield return new WaitForSeconds(0.2f);
                     junk.ScrapRpc(local.NetworkObject);
                     yield return new WaitForSeconds(0.2f);
                     Log("gear scrap", "embers " + embersBefore + " -> " + progress.Embers.Value, progress.Embers.Value > embersBefore);
+                    {
+                        progress.ServerStow(new GearItem(GearId.LuckyKnucklebone, 0, 0));
+                        yield return new WaitForSeconds(0.1f);
+                        int e0 = progress.Embers.Value, n0 = progress.BagCount;
+                        progress.BagScrapRpc(n0 - 1);
+                        yield return new WaitForSeconds(0.2f);
+                        Log("scrap at the anvil", "pack " + n0 + " -> " + progress.BagCount + ", embers " + e0 + " -> " + progress.Embers.Value,
+                            progress.BagCount == n0 - 1 && progress.Embers.Value > e0);
+                    }
+                    motor.Teleport(keepJ, local.transform.rotation);
+                    yield return new WaitForSeconds(0.1f);
 
                     // Camp trade is split by craft: each vendor sells only its own share.
                     var mStock = Shop.For(local.OwnerClientId, Shop.Vendor.Merchant);
                     var sStock = Shop.For(local.OwnerClientId, Shop.Vendor.Smith);
                     var hStock = Shop.For(local.OwnerClientId, Shop.Vendor.Shrine);
+                    var yStock = Shop.For(local.OwnerClientId, Shop.Vendor.Runewright);
                     bool split = !mStock.Any(it => it.Kind == Shop.ItemKind.Relic || it.Kind == Shop.ItemKind.Gear || it.Kind == Shop.ItemKind.Sigil || it.Kind == Shop.ItemKind.Embers)
-                        && sStock.Any(it => it.Kind == Shop.ItemKind.Gear) && sStock.Any(it => it.Kind == Shop.ItemKind.Sigil) && sStock.Any(it => it.Kind == Shop.ItemKind.Embers)
+                        && sStock.Any(it => it.Kind == Shop.ItemKind.Gear) && !sStock.Any(it => it.Kind == Shop.ItemKind.Sigil) && sStock.Any(it => it.Kind == Shop.ItemKind.Embers)
+                        && yStock.Any(it => it.Kind == Shop.ItemKind.Sigil)
                         && hStock.Count(it => it.Kind == Shop.ItemKind.Relic) == 2 && hStock.Any(it => it.Name == "Holy Water") && !mStock.Any(it => it.Name == "Holy Water");
-                    Log("vendors", "merchant " + mStock.Length + ", smith " + sStock.Length + ", shrine " + hStock.Length + " items", split);
+                    Log("vendors", "merchant " + mStock.Length + ", smith " + sStock.Length + ", shrine " + hStock.Length + ", runewright " + yStock.Length + " items", split);
 
                     // Strike Silas: he takes no harm, holds a grudge, and charges for it until amends are paid.
                     var silas = FindObjectsByType<CampFolk>(FindObjectsSortMode.None).FirstOrDefault(f => f.Who.Value == (byte)FolkId.Silas);
@@ -1274,6 +1320,9 @@ namespace Deepbound.Networking
                     motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
 
+                    // Runes and sigils are Ysolde's craft: walk to her stones.
+                    motor.Teleport(World.Lobby.RunewrightSpot + Vector3.back * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
                     // Runes: one in the bag, set it into the weapon's first socket.
                     int bagBefore = progress.RuneBagCount;
                     progress.ServerAddRune(Rune.Frost);
@@ -1283,7 +1332,20 @@ namespace Deepbound.Networking
                     Log("rune socket", "socket 1: " + Runes.Name(progress.Socketed(0)) + ", bag " + progress.RuneBagCount,
                         progress.Socketed(0) == Rune.Frost && progress.RuneBagCount == bagBefore);
 
-                    // Sigils: rank Q twice at the anvil; the cooldown scale drops at rank 3.
+                    // Melding: three Ember runes and the embers make one Ember II.
+                    {
+                        for (int k = 0; k < 3; k++) progress.ServerAddRune(Rune.Ember);
+                        progress.ServerAddEmbers(Runes.MeldCost(0));
+                        yield return new WaitForSeconds(0.1f);
+                        int plain = progress.RuneCount(Rune.Ember), tier2Before = progress.RuneCount(Runes.Make(Rune.Ember, 1));
+                        progress.MeldRunesRpc((byte)Rune.Ember);
+                        yield return new WaitForSeconds(0.2f);
+                        int tier2 = progress.RuneCount(Runes.Make(Rune.Ember, 1));
+                        Log("rune meld", "Ember " + plain + " -> " + progress.RuneCount(Rune.Ember) + ", " + Runes.Name(Runes.Make(Rune.Ember, 1)) + " " + tier2Before + " -> " + tier2,
+                            tier2 == tier2Before + 1 && progress.RuneCount(Rune.Ember) == plain - 3);
+                    }
+
+                    // Sigils: rank Q twice at the stones; the cooldown scale drops at rank 3.
                     float cdBefore = progress.CooldownFor(Classes.AbilitySlot.Q);
                     int sigilsBefore = progress.Sigils.Value;
                     progress.ServerAddSigil();
@@ -1302,7 +1364,9 @@ namespace Deepbound.Networking
                         progress.Rank(Classes.AbilitySlot.E) == Mathf.Min(3, eBefore + 1));
                     if (!oldCharm.IsEmpty) progress.ServerEquip(oldCharm);
 
-                    // +3 needs a path; choose Cleave and check the swing now reaches wider.
+                    // +3 needs a path; choose Cleave and check the swing now reaches wider. Tempering is back at the anvil.
+                    motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
                         progress.ServerAddEmbers(Anvil.Cost(2));
                         progress.TemperRpc();
                         yield return new WaitForSeconds(0.2f);
@@ -1776,13 +1840,45 @@ namespace Deepbound.Networking
                 ap.ServerEquip(new GearItem(GearId.ThornhideJerkin, 0, 0));
                 ap.ServerEquip(new GearItem(GearId.LichPhylactery, 3, 0));
                 yield return new WaitForSeconds(0.3f);
-                ap.SocketRuneRpc((byte)Rune.Storm);
-                yield return new WaitForSeconds(0.2f);
                 local.GetComponent<UI.GameHud>().DebugOpenForge();
                 yield return null;
                 yield return Shot(dir, "1b_forge_panel");
+                UI.PauseMenu.SetOpen(false);
+
+                // Ysolde's stones: the ring, then her panel with a rune set and three to meld.
+                var yFrom = Lobby.RunewrightSpot + new Vector3(-3.2f, 0.1f, -3.4f);
+                lobbyMotor.Teleport(yFrom, Quaternion.LookRotation(Lobby.RunewrightSpot + Vector3.up * 1.2f - yFrom));
+                lobbyMotor.SetPitch(8f);
+                yield return new WaitForSeconds(0.6f);
+                yield return Shot(dir, "1b_runewright");
+                lobbyMotor.SetPitch(0f);
+                var yNear = Lobby.RunewrightSpot + new Vector3(0f, 0.1f, -1.4f);
+                lobbyMotor.Teleport(yNear, Quaternion.LookRotation(Lobby.RunewrightSpot - yNear));
+                yield return new WaitForSeconds(0.3f);
+                ap.ServerAddRune(Rune.Frost);
+                ap.ServerAddRune(Rune.Frost);
+                ap.ServerAddRune(Rune.Frost);
+                ap.SocketRuneRpc((byte)Rune.Storm);
+                yield return new WaitForSeconds(0.2f);
+                local.GetComponent<UI.GameHud>().DebugOpenRunewright();
+                yield return null;
+                yield return Shot(dir, "1b_runewright_panel");
                 ap.ServerResetRun();
                 UI.PauseMenu.SetOpen(false);
+
+                // Sergeant Brann at the yard.
+                var brFrom = Lobby.YardSpot + new Vector3(2.4f, 0.1f, -2.4f);
+                lobbyMotor.Teleport(brFrom, Quaternion.LookRotation(Lobby.YardSpot + Vector3.up * 1.2f - brFrom));
+                yield return new WaitForSeconds(0.5f);
+                yield return Shot(dir, "1b_drillmaster");
+
+                // A relic on the ground: the beacon and its name.
+                var rFrom = Lobby.Origin + new Vector3(4f, 0.1f, -10f);
+                lobbyMotor.Teleport(rFrom, Quaternion.LookRotation(Vector3.forward));
+                DungeonDirector.Instance.ServerDropLoot(rFrom + new Vector3(0f, 0f, 6f), LootKind.Relic, (int)Relic.LongShadow, null, false);
+                yield return new WaitForSeconds(0.9f);
+                yield return Shot(dir, "1d_relic_beacon");
+                foreach (var ld in FindObjectsByType<LootDrop>(FindObjectsSortMode.None)) if (ld.NetworkObject.IsSpawned && ld.Kind.Value == LootKind.Relic) ld.NetworkObject.Despawn();
 
                 // Gear: a drop on the floor with its comparison card, then the Tab sheet.
                 var gFrom = Lobby.Origin + new Vector3(0f, 0.1f, -8f);

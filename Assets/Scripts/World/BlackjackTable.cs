@@ -25,7 +25,11 @@ namespace Deepbound.World
     /// </summary>
     public class BlackjackTable : Interactable
     {
-        public const int MinBet = 5, MaxBet = 500, Decks = 6, MaxHands = 4;
+        public const int MinBet = 5, MaxBet = 100, Decks = 6, MaxHands = 4;
+        /// <summary>Win this much in one camp visit and the dealer stops dealing to you until you come back from the next floor.</summary>
+        public const int CutOff = 300;
+        /// <summary>Four stools: four players can sit and play at once, each against the dealer.</summary>
+        public const int Stools = 4;
         public enum Phase : byte { Betting, Insurance, Playing, Done }
 
         private class Seat
@@ -39,6 +43,8 @@ namespace Deepbound.World
             public bool SplitAces;
             public string Result = "";
             public float LastAction;
+            /// <summary>Net winnings this camp visit, and which visit (the next depth when it was counted).</summary>
+            public int NetThisVisit, Visit = -1;
         }
 
         private readonly Dictionary<ulong, Seat> seats = new Dictionary<ulong, Seat>();
@@ -57,12 +63,13 @@ namespace Deepbound.World
         private string seenResult = "";
         private int betChoice = 20;
 
-        public override float Range => 2.6f;
+        public override float Range => 3.4f;
 
         public override string Prompt(PlayerProgress who)
         {
             if (who.IsOwner && LocalOpen && localTable == this) return null;
-            return who.Gold.Value < MinBet ? "Deadman's Hand: you need " + MinBet + " gold" : "Sit at Deadman's Hand (blackjack)";
+            if (CutOffFor(who)) return "Deadman's Hand: the dealer has cut you off until the next floor";
+            return who.Gold.Value < MinBet ? "Deadman's Hand: you need " + MinBet + " gold" : "Sit at Deadman's Hand (blackjack, up to " + Stools + " players)";
         }
 
         // ------------------------------------------------------------------
@@ -129,15 +136,40 @@ namespace Deepbound.World
             if (!TryGet(player, out var who, out var seat) || (seat.Phase != Phase.Betting && seat.Phase != Phase.Done)) return;
             // Strike the dealer and it will not deal to you until the grudge eases.
             if (who.Grudge(FolkId.Bones) >= 3) { RefusedRpc(who.name); return; }
+            // Won too much this visit: the house has seen enough of you until the next floor.
+            if (CutOffFor(who)) { CutOffRpc(who.name); return; }
             bet = Mathf.Clamp(bet, MinBet, MaxBet);
             if (who.Gold.Value < bet) return;
             ServerDeal(who, seat, bet, null);
+        }
+
+        private static int Visit => DungeonDirector.Instance != null ? DungeonDirector.Instance.NextDepth.Value : 0;
+
+        /// <summary>Server: is this player cut off for the rest of this camp visit?</summary>
+        public bool CutOffFor(PlayerProgress who) => seats.TryGetValue(who.NetworkObjectId, out var seat) && seat.Visit == Visit && seat.NetThisVisit >= CutOff;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void CutOffRpc(string who)
+        {
+            UI.CampChatter.Say(FolkId.Bones, "*The dealer gathers " + who + "'s cards, taps the table twice and points down the shaft. Come back after the next floor.*", 6f);
+            if (NetworkPlayer.Local != null && NetworkPlayer.Local.name == who) UI.GameHud.Feed("Mister Bones has cut you off: you've won " + CutOff + "+ gold this visit. Come back after the next floor.", new Color(1f, 0.75f, 0.4f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void RefusedRpc(string who) => UI.CampChatter.Say(FolkId.Bones, "*The dealer slides " + who + "'s chips back across the felt. Not tonight.*", 5f);
 
         /// <summary>Server (tests): deal with chosen cards (player's first two, then dealer's two).</summary>
+        /// <summary>Tests: set this visit's net winnings at the table.</summary>
+        public void ServerDebugWinnings(PlayerProgress who, int net)
+        {
+            if (!seats.TryGetValue(who.NetworkObjectId, out var seat)) seats[who.NetworkObjectId] = seat = new Seat();
+            seat.Visit = Visit;
+            seat.NetThisVisit = net;
+        }
+
+        /// <summary>Tests: the stake of the hand in play.</summary>
+        public int ServerStake(PlayerProgress who) => seats.TryGetValue(who.NetworkObjectId, out var s) ? s.LastBet : 0;
+
         public void ServerDebugDeal(PlayerProgress who, int bet, byte[] cards)
         {
             if (!seats.TryGetValue(who.NetworkObjectId, out var seat)) seats[who.NetworkObjectId] = seat = new Seat();
@@ -319,6 +351,9 @@ namespace Deepbound.World
             }
             who.ServerAddGold(paid);
             int net = paid - staked;
+            if (seat.Visit != Visit) { seat.Visit = Visit; seat.NetThisVisit = 0; }
+            seat.NetThisVisit += net;
+            if (seat.NetThisVisit >= CutOff) CutOffRpc(who.name);
             lines.Append(net > 0 ? "  +" + net + " gold" : net < 0 ? "  " + net + " gold" : "  even");
             seat.Result = lines.ToString();
             seat.Phase = Phase.Done;
@@ -341,7 +376,31 @@ namespace Deepbound.World
             bool holeHidden = seat.Phase == Phase.Insurance || seat.Phase == Phase.Playing;
             SeatRpc((byte)seat.Phase, lengths.ToArray(), cards.ToArray(), flags.ToArray(), seat.Bets.ToArray(), seat.House.ToArray(), holeHidden,
                 seat.Active, seat.Insurance, seat.Result, seat.LastBet, RpcTarget.Single(who.OwnerClientId, RpcTargetUse.Temp));
+            BroadcastTable();
         }
+
+        /// <summary>Server: everyone at the table sees who else is playing and how they stand.</summary>
+        private void BroadcastTable()
+        {
+            var sb = new System.Text.StringBuilder();
+            int n = 0;
+            foreach (var kv in seats)
+            {
+                if (n >= Stools || !NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(kv.Key, out var o) || o == null) continue;
+                var st = kv.Value;
+                string state = st.Phase == Phase.Playing || st.Phase == Phase.Insurance ? (st.Hands.Count > 0 ? "playing " + Total(st.Hands[Mathf.Min(st.Active, st.Hands.Count - 1)]) : "playing")
+                    : st.Phase == Phase.Done ? (st.Result.Contains("+") ? "won" : st.Result.Contains("-") ? "lost" : "even") : "betting";
+                if (st.Visit == Visit && st.NetThisVisit >= CutOff) state = "cut off";
+                sb.Append(n > 0 ? "   ·   " : "").Append(o.name.Replace("(Clone)", "").Trim()).Append(": ").Append(state);
+                n++;
+            }
+            TableRpc(sb.ToString());
+        }
+
+        private string tableLine = "";
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void TableRpc(string line) => tableLine = line;
 
         [Rpc(SendTo.SpecifiedInParams)]
         private void SeatRpc(byte phase, byte[] lengths, byte[] cards, byte[] flags, int[] bets, byte[] house, bool holeHidden, int active, int insurance, string result, int lastBet, RpcParams p = default)
@@ -513,7 +572,9 @@ namespace Deepbound.World
             if (Button(cx + 35, by + 10, 60, "MAX", max >= MinBet)) betChoice = Mathf.Max(MinBet, max);
             bool can = prog.Gold.Value >= betChoice && betChoice >= MinBet;
             if (Button(cx + 105, by + 10, 220, can ? (seenPhase == Phase.Done ? "DEAL AGAIN" : "DEAL") : "NOT ENOUGH GOLD", can)) DealRpc(local.NetworkObject, betChoice);
-            GUI.Label(new Rect(px, by + 60, pw, 18), "Bets from " + MinBet + " to " + MaxBet + " gold", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(px, by + 60, pw, 18), "Bets from " + MinBet + " to " + MaxBet + " gold   ·   win " + CutOff + " in one visit and the dealer cuts you off until the next floor", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+            if (!string.IsNullOrEmpty(tableLine))
+                GUI.Label(new Rect(px, by + 80, pw, 18), "AT THE TABLE:  " + tableLine, new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = UI.UiSkin.Gold } });
         }
 
         private void DrawRow(float x, float y, string who, byte[] cards, bool holeHidden, float spacing, bool active)
@@ -545,11 +606,18 @@ namespace Deepbound.World
             base.OnNetworkSpawn();
             if (IsServer) Shuffle(announce: false);
             // A long felt table, candles, and the dealer: a skeleton waiting with the shoe.
-            MeshKit.Part(transform, "Top", MeshKit.Box(new Vector3(1.8f, 0.08f, 1.0f)), Mat.Wood, Vector3.up * 0.88f);
-            var felt = MeshKit.Part(transform, "Felt", MeshKit.Box(new Vector3(1.6f, 0.02f, 0.82f)), Mat.Cloth, Vector3.up * 0.93f);
+            MeshKit.Part(transform, "Top", MeshKit.Box(new Vector3(2.6f, 0.08f, 1.1f)), Mat.Wood, Vector3.up * 0.88f);
+            var felt = MeshKit.Part(transform, "Felt", MeshKit.Box(new Vector3(2.4f, 0.02f, 0.92f)), Mat.Cloth, Vector3.up * 0.93f);
+            for (int st = 0; st < Stools; st++)
+            {
+                float sx = -0.96f + st * 0.64f;
+                MeshKit.Part(transform, "Stool", MeshKit.Cylinder(0.17f, 0.15f, 0.06f, 10), Mat.Wood, new Vector3(sx, 0.62f, -0.95f));
+                MeshKit.Part(transform, "StoolLeg", MeshKit.Cylinder(0.04f, 0.05f, 0.6f, 6), Mat.Wood, new Vector3(sx, 0.3f, -0.95f));
+                var chips = MeshKit.Part(transform, "Chips", MeshKit.Cylinder(0.04f, 0.04f, 0.03f, 8), Mat.Gold, new Vector3(sx, 0.95f, -0.3f));
+            }
             ArtLibrary.Tint(felt.GetComponent<Renderer>(), new Color(0.1f, 0.28f, 0.14f));
-            foreach (float x in new[] { -0.8f, 0.8f })
-                foreach (float z in new[] { -0.4f, 0.4f })
+            foreach (float x in new[] { -1.2f, 1.2f })
+                foreach (float z in new[] { -0.45f, 0.45f })
                     MeshKit.Part(transform, "Leg", MeshKit.Box(new Vector3(0.08f, 0.86f, 0.08f)), Mat.Wood, new Vector3(x, 0.43f, z));
             MeshKit.Part(transform, "Shoe", MeshKit.Box(new Vector3(0.18f, 0.1f, 0.3f)), Mat.Wood, new Vector3(0.55f, 0.99f, 0.25f));
             for (int i = 0; i < 3; i++)
