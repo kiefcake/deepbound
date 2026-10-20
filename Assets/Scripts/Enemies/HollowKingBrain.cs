@@ -28,6 +28,7 @@ namespace Deepbound.Enemies
 
         public override string DisplayName => "Ossric, the Hollow King";
         public override string Epithet => "Sovereign of the Empty Throne";
+        protected override byte EntranceStyle => 3;
         public override string LastWords => "The morning... was it always this cold? Take the crown. It was never mine.";
         public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.HollowKing;
         public override string Hint => "When a player is marked by the crown, everyone stands in the circle to share the blow.";

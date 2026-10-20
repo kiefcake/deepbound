@@ -35,6 +35,7 @@ namespace Deepbound.Enemies
 
         public override string DisplayName => "The Tide Lich";
         public override string Epithet => "Who Drowned the Vaults";
+        protected override byte EntranceStyle => 2;
         public override string LastWords => "The water... finally... collects.";
         public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.TideLich;
         public override string Hint => "Keep moving off the pools it lays, and fight the whirlpool's pull toward the centre.";

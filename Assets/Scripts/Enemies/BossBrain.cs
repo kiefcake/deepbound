@@ -434,7 +434,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
-            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); TickPatterns(); if (!IsStunned) TickQuickShots(); }
+            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); TickPatterns(); if (!IsStunned && !InEntrance) TickQuickShots(); }
             if (IsServer && !IsDead && Dormant)
             {
                 if (agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
@@ -456,7 +456,7 @@ namespace Deepbound.Enemies
                 TickPhases();
                 // Hunts and their strikes tick here too: subclasses return early from Update mid-attack.
                 TickStrikes();
-                if (!IsStunned) TickHunt();
+                if (!IsStunned && !InEntrance) TickHunt();
             }
             TickBubble();
         }
@@ -709,6 +709,78 @@ namespace Deepbound.Enemies
 
         [Rpc(SendTo.ClientsAndHost)]
         protected void GatherRpc(float seconds, float k) => Gather(seconds, k);
+
+        // ------------------------------------------------------------------
+        // Entrances (2026-10-20): when the arena seals, the guardian rises to meet you. A gather, a
+        // roar and a ring of force (harmless), each boss in its own way, and it holds still for
+        // EntranceSeconds while its name is on screen, so the first blow never lands under the title.
+        // ------------------------------------------------------------------
+
+        public const float EntranceSeconds = 2.4f;
+
+        /// <summary>0 roar, 1 shield slam, 2 tide, 3 crown, 4 bell, 5 the abyss.</summary>
+        protected virtual byte EntranceStyle => 0;
+
+        /// <summary>Server: the arena has sealed.</summary>
+        public void ServerEntrance()
+        {
+            heldUntil = Time.time + EntranceSeconds;
+            // Face the party as it stands up.
+            Vector3 sum = Vector3.zero; int n = 0;
+            foreach (var p in Player.PlayerLife.All) if (p != null && !p.Downed.Value) { sum += p.transform.position; n++; }
+            if (n > 0)
+            {
+                var to = sum / n - transform.position;
+                to.y = 0f;
+                if (to.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(to);
+            }
+            EntranceRpc(EntranceStyle);
+        }
+
+        /// <summary>Server, for tests: entrances played.</summary>
+        public static int EntrancesPlayed { get; private set; }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void EntranceRpc(byte style)
+        {
+            EntrancesPlayed++;
+            StartCoroutine(Entrance(style));
+        }
+
+        private System.Collections.IEnumerator Entrance(byte style)
+        {
+            var feet = transform.position + Vector3.up * 0.05f;
+            float height = health != null ? health.CenterHeight * 2f : 3f;
+            float reach = Mathf.Max(3f, (health != null ? health.BodyRadius : 1f) * 3f);
+            Color tint = style == 1 ? new Color(0.85f, 0.75f, 0.6f) : style == 2 ? new Color(0.4f, 0.75f, 1f) : style == 3 ? new Color(1f, 0.82f, 0.35f)
+                : style == 4 ? new Color(1f, 0.55f, 0.25f) : style == 5 ? new Color(0.6f, 0.4f, 1f) : new Color(0.9f, 0.35f, 0.3f);
+
+            // Gather: crouch, the core lights, embers drawn in.
+            Gather(1.05f, 1f);
+            Rig?.Play(RigAction.Cast, 1.05f);
+            if (style == 2) Vfx.Ring(feet, reach * 1.4f, tint, 1f);
+            if (style == 5) Vfx.Flash(transform.position + Vector3.up * height * 0.6f, tint, 4f, 14f, 1f);
+            Sfx.Play(style == 4 ? Sound.Slam : Sound.Summon, transform.position + Vector3.up * height * 0.5f, 0.8f, style == 5 ? 0.5f : 0.7f);
+            yield return new WaitForSeconds(1.05f);
+            if (this == null || IsDead) yield break;
+
+            // Release: the signature blow.
+            switch (style)
+            {
+                case 1: Rig?.Play(RigAction.Bash, 0.7f); break;
+                case 3: case 4: Rig?.Play(RigAction.Slam, 0.9f); break;
+                default: Rig?.Play(RigAction.Cast, 0.9f); break;
+            }
+            Sfx.Play(Sound.WarCry, transform.position + Vector3.up * height * 0.7f, 1f, style == 5 ? 0.45f : 0.6f);
+            if (style == 1 || style == 3 || style == 4) Sfx.Play(Sound.Slam, feet, 1f, 0.6f);
+            for (int r = 0; r < 3; r++) Vfx.Ring(feet, reach * (1.2f + r * 0.9f), tint, 0.5f + r * 0.18f);
+            Vfx.Smoke(feet, 10, reach * 0.8f, 1.6f);
+            Vfx.Embers(transform.position + Vector3.up * height * 0.6f, 24, tint, 7f, 0.09f, 1.1f);
+            if (style == 3 || style == 4) Vfx.Flash(transform.position + Vector3.up * height, tint, 3f, 16f, 0.5f);
+            var cam = ViewCamera.Current;
+            if (cam != null && Vector3.Distance(cam.transform.position, transform.position) < 30f)
+                Player.NetworkPlayer.Local?.AddShake(0.35f);
+        }
 
         // ------------------------------------------------------------------
         // Party-aware pressure (2026-10-20): every boss and Warden hunts EVERY standing player

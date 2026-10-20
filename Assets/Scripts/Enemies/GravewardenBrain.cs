@@ -48,6 +48,7 @@ namespace Deepbound.Enemies
 
         public override string DisplayName => "The Gravewarden";
         public override string Epithet => "Keeper of the First Door";
+        protected override byte EntranceStyle => 1;
         public override string LastWords => "The door... is open. Forgive me. I held it as long as I could.";
         public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.Gravewarden;
         public override string Hint => "Its shield turns blows from the front. Strike after each sweep, from behind, or when it charges into stone.";

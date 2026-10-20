@@ -325,8 +325,12 @@ namespace Deepbound.UI
                 string place = "FLOOR " + (layout.Depth + 1) + (layout.Depth >= DungeonDirector.AbyssDepth ? " (ABYSS)" : "") + "  ·  " + DungeonTheme.FloorName(layout.Depth);
                 // A dark strip under the frame, so the caption reads over bright rooms.
                 UiSkin.Rect(new Rect(frame.x, frame.yMax + 4f, frame.width, 20f), new Color(0f, 0f, 0f, 0.55f));
-                GUI.Label(new Rect(frame.x + 6f, frame.yMax + 5f, frame.width - 12f, 18), place, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperLeft, clipping = TextClipping.Clip, wordWrap = false, normal = { textColor = UiSkin.Gold } });
-                GUI.Label(new Rect(frame.x, frame.yMax + 5f, frame.width - 6f, 18), Binds.Label(Bind.Map) + " map", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperRight, wordWrap = false });
+                // The key hint on the right; the place name gets what is left (clipped, never under the hint).
+                var hintStyle = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperRight, wordWrap = false };
+                string hint = Binds.Label(Bind.Map) + " map";
+                float hintW = hintStyle.CalcSize(new GUIContent(hint)).x;
+                GUI.Label(new Rect(frame.x + 6f, frame.yMax + 5f, frame.width - 20f - hintW, 18), place, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperLeft, clipping = TextClipping.Clip, wordWrap = false, normal = { textColor = UiSkin.Gold } });
+                GUI.Label(new Rect(frame.x, frame.yMax + 5f, frame.width - 6f, 18), hint, hintStyle);
             }
             else DrawLegend(layout, frame);
         }

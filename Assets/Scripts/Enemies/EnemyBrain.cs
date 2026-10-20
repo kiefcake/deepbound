@@ -934,9 +934,13 @@ namespace Deepbound.Enemies
         /// shots, no specials) and the base update holds it still. Returns true when it handled the frame.
         /// Fixed 2026-10-20: subclasses used to keep casting and shooting through a stun.
         /// </summary>
+        /// <summary>Server: held still until then (a boss's entrance), like a stun but with no EXPOSED.</summary>
+        protected float heldUntil;
+        public bool InEntrance => Time.time < heldUntil;
+
         protected bool HeldByStun()
         {
-            if (!IsServer || IsDead || !IsStunned) return false;
+            if (!IsServer || IsDead || (!IsStunned && !InEntrance)) return false;
             if (agent != null && agent.enabled && agent.isOnNavMesh) agent.isStopped = true;
             ServerTickThreat();
             ServerSyncStatus();

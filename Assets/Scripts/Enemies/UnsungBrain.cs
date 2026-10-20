@@ -26,6 +26,7 @@ namespace Deepbound.Enemies
     {
         public override string DisplayName => "The Unsung";
         public override string Epithet => "That Which the Hymn Was For";
+        protected override byte EntranceStyle => 5;
         public override string LastWords => "So this... is what a song is for.";
         public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.Unsung;
         public override string Hint => "Slip through the gaps in its rings, step out of the grasping dark, and break its wardens while someone keeps watching them.";

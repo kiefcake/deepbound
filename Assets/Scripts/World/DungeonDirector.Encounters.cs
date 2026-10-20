@@ -819,6 +819,7 @@ namespace Deepbound.World
                     BossQuirk.Sanctum => "  Light the SANCTUM braziers: each one makes it take more damage.",
                     _ => "",
                 };
+                boss.ServerEntrance();
                 BossIntroRpc(boss.DisplayName.ToUpperInvariant(), boss.Epithet, (hallowed ? "HALLOWED by the Reliquary: it wakes at " + Mathf.RoundToInt(HallowedHealth * 100f) + "% and takes +10% damage.  " : "") + boss.Hint + quirk);
             }
         }

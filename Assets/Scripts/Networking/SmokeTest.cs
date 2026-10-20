@@ -1290,6 +1290,14 @@ namespace Deepbound.Networking
                 Log("boss asleep until the party is in", "dormant " + wasDormant + ", hp " + hpBefore.ToString("F0") + " -> " + boss.Health.Current.Value.ToString("F0") + ", sealed " + DungeonDirector.Instance.BossSealed,
                     !wasDormant || (Mathf.Approximately(hpBefore, boss.Health.Current.Value) && boss.Dormant && !DungeonDirector.Instance.BossSealed));
                 {
+                    // The entrance: it rises to meet you and holds still under its title.
+                    int played = BossBrain.EntrancesPlayed;
+                    boss.ServerEntrance();
+                    yield return new WaitForSeconds(0.2f);
+                    Log("boss entrance", "held " + boss.InEntrance + ", played " + (BossBrain.EntrancesPlayed - played), boss.InEntrance && BossBrain.EntrancesPlayed > played);
+                    yield return new WaitForSeconds(BossBrain.EntranceSeconds);
+                }
+                {
                     // Arena machinery: a ballista bolt and a dropped chandelier both hurt the guardian.
                     var bq = layout.BossRoom;
                     Log("arena", "shape " + bq.Arena + ", quirk " + bq.Quirk, true);
@@ -1297,7 +1305,16 @@ namespace Deepbound.Networking
                     boss.Dormant = false;
                     boss.ServerDebugResetPhases();
                     var sp3 = local.GetComponent<PlayerProgress>();
-                    var bal = DungeonDirector.Instance.ServerDebugEngine(ArenaEngine.Kind.Ballista, boss.transform.position + boss.transform.forward * 8f, Vector3.zero);
+                    // A spot 8 m out with a clear line to the boss (pillars and the dais must not eat the bolt).
+                    var balAt = boss.transform.position + boss.transform.forward * 8f;
+                    for (int dirI = 0; dirI < 8; dirI++)
+                    {
+                        var cand = boss.transform.position + Quaternion.Euler(0f, dirI * 45f, 0f) * boss.transform.forward * 8f;
+                        if (!Physics.Linecast(cand + Vector3.up * 1.3f, boss.Health.Center, ~0, QueryTriggerInteraction.Ignore) ||
+                            Physics.Linecast(cand + Vector3.up * 1.3f, boss.Health.Center, out var lh, ~0, QueryTriggerInteraction.Ignore) && lh.collider.GetComponentInParent<BossBrain>() == boss)
+                        { balAt = cand; break; }
+                    }
+                    var bal = DungeonDirector.Instance.ServerDebugEngine(ArenaEngine.Kind.Ballista, balAt, Vector3.zero);
                     yield return new WaitForSeconds(0.3f);
                     float b0 = boss.Health.Current.Value;
                     if (bal != null) bal.ServerDebugUse(sp3);
