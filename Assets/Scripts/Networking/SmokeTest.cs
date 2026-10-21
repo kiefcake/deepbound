@@ -1204,14 +1204,14 @@ namespace Deepbound.Networking
                                 var frh = fr.GetComponent<Health>();
                                 frh.ServerSetFraction(0.4f);
                                 bool frenzied = fr.Frenzied;
-                                int piles0 = dd.BonePileCount;
+                                int piles0 = dd.GraveboundPileCount;
                                 var gbAt = gb.transform.position;
                                 gb.GetComponent<Health>().ServerDamage(1e6f, gbAt, local.NetworkObjectId);
                                 yield return new WaitForSeconds(0.3f);
-                                bool pile = dd.BonePileCount == piles0 + 1;
+                                bool pile = dd.GraveboundPileCount == piles0 + 1;
                                 local.GetComponent<FirstPersonMotor>().Teleport(gbAt + Vector3.up * 0.1f, local.transform.rotation);
                                 yield return new WaitForSeconds(0.6f);
-                                bool scattered = dd.BonePileCount == piles0;
+                                bool scattered = dd.GraveboundPileCount == piles0;
                                 Log("elite affixes", "frenzy only below half " + (calm && frenzied) + ", gravebound bones " + pile + ", stamped out " + scattered, calm && frenzied && pile && scattered);
                                 if (fr.IsSpawned) fr.NetworkObject.Despawn();
                             }
@@ -1225,9 +1225,11 @@ namespace Deepbound.Networking
                             if (ac != null && mate != null)
                             {
                                 // Stand the skeleton right beside wherever the acolyte ended up (spawns snap to the navmesh).
-                                mate.ServerDebugPlace(ac.transform.position + ac.transform.right * 1.5f);
+                                // Let both settle onto the navmesh, then stand the skeleton beside the acolyte.
+                                yield return new WaitForSeconds(0.3f);
                                 mate.ServerStun(20f);
-                                yield return new WaitForSeconds(0.2f);
+                                mate.ServerDebugPlace(ac.transform.position + ac.transform.right * 1.5f);
+                                yield return new WaitForSeconds(0.1f);
                                 ac.ServerBeginHymn();
                                 for (float t = 0f; t < ChoirAcolyteBrain.HymnSeconds + 1f && ac.HymnsSung == 0; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
                                 bool warded = mate.GetComponent<Health>().Shield.Value > 0f;
@@ -1254,7 +1256,10 @@ namespace Deepbound.Networking
                                 var cand = local.transform.position + Quaternion.Euler(0f, ed * 45f, 0f) * local.transform.forward * 7f;
                                 if (!UnityEngine.AI.NavMesh.SamplePosition(cand, out var eh, 1f, UnityEngine.AI.NavMesh.AllAreas)) continue;
                                 bool blocked = false;
-                                foreach (var hit in Physics.RaycastAll(eh.position + Vector3.up * 1.75f, (local.transform.position + Vector3.up * 1.2f) - (eh.position + Vector3.up * 1.75f), 7.2f, ~0, QueryTriggerInteraction.Ignore))
+                                // The same line the beam takes: eye height to the body's centre, and a little past it.
+                                var eyeFrom = eh.position + Vector3.up * 1.75f;
+                                var toBody = local.GetComponent<Health>().Center - eyeFrom;
+                                foreach (var hit in Physics.RaycastAll(eyeFrom, toBody, toBody.magnitude + 1f, ~0, QueryTriggerInteraction.Ignore))
                                     if (hit.collider.GetComponentInParent<Health>() == null) { blocked = true; break; }
                                 if (!blocked) { eyeAt = eh.position; break; }
                             }
@@ -1267,7 +1272,7 @@ namespace Deepbound.Networking
                                 eyeB.ServerLockOn(hp9);
                                 for (float t = 0f; t < 2.5f && eyeB.BeamsFired == 0; t += 0.1f) { hp9.ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
                                 float onLine = eyeB.LastBeamDealt;
-                                string eyeWhy = "shield " + hp9.Shield.Value.ToString("F0") + ", dist " + Vector3.Distance(eyeB.transform.position, local.transform.position).ToString("F1") + ", dy " + (eyeB.transform.position.y - local.transform.position.y).ToString("F1") + ", targetable " + local.GetComponent<PlayerLife>().Targetable;
+                                string eyeWhy = "shield " + hp9.Shield.Value.ToString("F0") + ", dist " + Vector3.Distance(eyeB.transform.position, local.transform.position).ToString("F1") + ", dy " + (eyeB.transform.position.y - local.transform.position.y).ToString("F1") + ", targetable " + local.GetComponent<PlayerLife>().Targetable + ", beam " + eyeB.LastBeamLength.ToString("F1") + " m stopped by " + AbyssEyeBrain.LastBlocker;
                                 Log("abyssal eye", "beams " + eyeB.BeamsFired + ", dealt on the line " + onLine.ToString("F0") + " (" + eyeWhy + ")", eyeB.BeamsFired >= 1 && onLine > 0f);
                                 if (eyeB.IsSpawned) eyeB.NetworkObject.Despawn();
                             }

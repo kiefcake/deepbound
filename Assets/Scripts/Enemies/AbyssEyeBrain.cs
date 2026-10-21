@@ -23,6 +23,9 @@ namespace Deepbound.Enemies
         /// <summary>Server, for tests.</summary>
         public int BeamsFired { get; private set; }
         public float LastBeamDealt { get; private set; }
+        /// <summary>Server, for tests: the last beam's reach and what stopped it.</summary>
+        public float LastBeamLength { get; private set; }
+        public static string LastBlocker { get; private set; } = "";
 
         public override void OnNetworkSpawn()
         {
@@ -71,8 +74,9 @@ namespace Deepbound.Enemies
         {
             // To the first wall or prop (bodies do not stop it).
             float best = BeamLength;
+            LastBlocker = "nothing";
             foreach (var hit in Physics.RaycastAll(from, dir, BeamLength, ~0, QueryTriggerInteraction.Ignore))
-                if (hit.distance < best && hit.collider.GetComponentInParent<Health>() == null) best = hit.distance;
+                if (hit.distance < best && hit.collider.GetComponentInParent<Health>() == null) { best = hit.distance; LastBlocker = hit.collider.name + " (" + hit.collider.GetType().Name + ")"; }
             return best;
         }
 
@@ -87,6 +91,7 @@ namespace Deepbound.Enemies
                 fireAt = -1f;
                 BeamsFired++;
                 float len = BeamReach(beamFrom, beamDir);
+                LastBeamLength = len;
                 // The beam slopes from the eye down to chest height along its length.
                 var end = beamFrom + beamDir * len;
                 LastBeamDealt = 0f;

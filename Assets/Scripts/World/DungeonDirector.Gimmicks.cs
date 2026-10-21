@@ -84,6 +84,8 @@ namespace Deepbound.World
 
         /// <summary>Server, for tests: bone piles waiting to rise.</summary>
         public int BonePileCount => bonePiles.Count;
+        /// <summary>Server, for tests: Gravebound piles waiting to rise.</summary>
+        public int GraveboundPileCount { get { int n = 0; foreach (var p in bonePiles) if (p.Prefab != null) n++; return n; } }
 
         /// <summary>
         /// Server: a Gravebound elite fell (2026-10-20). Its bones pile up and rise as one of its kind (not an

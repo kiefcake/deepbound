@@ -25,7 +25,6 @@ namespace Deepbound.World
         public readonly NetworkVariable<int> ContractProgress = new NetworkVariable<int>();
         public readonly NetworkVariable<int> ContractGoal = new NetworkVariable<int>();
         private float contractStartedAt;
-        public const float SwiftSeconds = 420f;
 
         public static string ContractName(Contract c) =>
             c == Contract.Slayer ? "Slayer" : c == Contract.ChampionHunt ? "Champion Hunt" : c == Contract.Untouchable ? "Untouchable"
@@ -36,7 +35,7 @@ namespace Deepbound.World
             : c == Contract.ChampionHunt ? "Kill the next floor's champion"
             : c == Contract.Untouchable ? "Clear the next floor with nobody going down"
             : c == Contract.TreasureHunt ? "Find a secret wall on the next floor"
-            : c == Contract.SwiftBlade ? "Kill the next boss within " + (int)(SwiftSeconds / 60f) + " minutes of arriving"
+            : c == Contract.SwiftBlade ? "Kill the next floor's guardian before the far bell tolls"
             : "";
 
         public static bool HardContract(Contract c) => c == Contract.Untouchable || c == Contract.SwiftBlade || c == Contract.ChampionHunt;
@@ -95,7 +94,8 @@ namespace Deepbound.World
         private void TickContract()
         {
             if (ContractState.Value != (byte)ContractStatus.Active) return;
-            if ((Contract)ActiveContract.Value == Contract.SwiftBlade && Time.time - contractStartedAt > SwiftSeconds) FailContract();
+            // Swift Blade: beat the bell (the Tallyman's warning, which comes later on a bigger floor).
+            if ((Contract)ActiveContract.Value == Contract.SwiftBlade && Time.time - contractStartedAt > TallyWarnSeconds) FailContract();
         }
 
         /// <summary>Server: the floor's boss fell — settle what is still open.</summary>
