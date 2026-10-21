@@ -62,8 +62,35 @@ namespace Deepbound.UI
             }
             GUILayout.EndArea();
 
+            if (page == Page.Main) DrawWhatsNew(w, h, fade);
+
             GUI.Label(new Rect(w - 330, h - 34, 310, 24), "1-4 player co-op  ·  prototype build",
                 new GUIStyle(UiSkin.Small) { alignment = TextAnchor.LowerRight });
+        }
+
+        /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
+        private static readonly string[] WhatsNew =
+        {
+            "THE TALLYMAN hunts those who linger (holy water holds him)",
+            "OATH ROOMS, LIGHTLESS HALLS, patrols, room-clear rewards",
+            "FLOOR EVENTS: Gilded Halls, The Swarm, Blood Tithe...",
+            "New dead: Choir Acolyte, Abyssal Eye; Frenzied, Gravebound",
+            "Drag a downed friend clear (G); pointers to the fallen",
+            "Bosses make an entrance; the grave lift carries you up",
+            "DAILY DESCENT (Corwin) and the HALL OF RECORDS (camp)",
+            "Rebind keys (Options > Controls), gamepads, colour-blind mode",
+        };
+
+        private static void DrawWhatsNew(float w, float h, float fade)
+        {
+            float cw = 500f, ch = 44f + WhatsNew.Length * 22f;
+            var r = new Rect(w - cw - 40f, h - ch - 70f, cw, ch);
+            UiSkin.Rect(r, new Color(0f, 0f, 0f, 0.55f * fade));
+            UiSkin.Rect(new Rect(r.x, r.y, 3, r.height), new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, fade));
+            GUI.Label(new Rect(r.x + 16, r.y + 10, cw - 24, 22), "NEW IN THIS BUILD", new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, fontSize = 14, normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, fade) } });
+            var st = new GUIStyle(UiSkin.Small) { fontSize = 13, wordWrap = false, clipping = TextClipping.Clip, normal = { textColor = new Color(0.9f, 0.86f, 0.78f, fade) } };
+            for (int i = 0; i < WhatsNew.Length; i++)
+                GUI.Label(new Rect(r.x + 16, r.y + 36 + i * 22, cw - 24, 20), "-  " + WhatsNew[i], st);
         }
 
         private void DrawMain()
