@@ -1170,62 +1170,105 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
+            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             if (player == null) return;
             UiSkin.Apply();
             EnsureStyles();
             if (CharacterSelect.Open) return;
 
             float w = Screen.width, h = Screen.height;
+            UiTimer.Begin();
             if (Cinematic) { DrawFade(w, h); return; }
 
             DrawEnemyBars();
+            UiTimer.Mark("DrawEnemyBars");
             DrawRelicTags();
+            UiTimer.Mark("DrawRelicTags");
             DrawDamageNumbers();
+            UiTimer.Mark("DrawDamageNumbers");
             DrawCombos();
+            UiTimer.Mark("DrawCombos");
             DrawCampReadouts(w, h);
+            UiTimer.Mark("DrawCampReadouts");
             DrawRecords(w, h);
+            UiTimer.Mark("DrawRecords");
             DrawHidden(w, h);
+            UiTimer.Mark("DrawHidden");
             DrawPings(w, h);
+            UiTimer.Mark("DrawPings");
             DrawVignette(w, h);
+            UiTimer.Mark("DrawVignette");
             DrawAfflictions(w, h);
+            UiTimer.Mark("DrawAfflictions");
             DrawHitDirections(w, h);
+            UiTimer.Mark("DrawHitDirections");
             DrawThreats(w, h);
+            UiTimer.Mark("DrawThreats");
             DrawMicLight(w, h);
+            UiTimer.Mark("DrawMicLight");
             DrawSouls(w, h);
+            UiTimer.Mark("DrawSouls");
             DrawAllies(w, h);
+            UiTimer.Mark("DrawAllies");
             DrawCrosshair(w, h);
+            UiTimer.Mark("DrawCrosshair");
             DrawVitals(w, h);
+            UiTimer.Mark("DrawVitals");
             DrawAbilities(w, h);
+            UiTimer.Mark("DrawAbilities");
             DrawBoss(w);
+            UiTimer.Mark("DrawBoss");
             DrawTally(w, h);
+            UiTimer.Mark("DrawTally");
             DrawRoomCleared(w, h);
+            UiTimer.Mark("DrawRoomCleared");
             DrawRage(w);
+            UiTimer.Mark("DrawRage");
             DrawRevive(w, h);
+            UiTimer.Mark("DrawRevive");
             DrawPhase(w, h);
+            UiTimer.Mark("DrawPhase");
             DrawBanner(w, h);
+            UiTimer.Mark("DrawBanner");
             DrawTitleCard(w, h);
+            UiTimer.Mark("DrawTitleCard");
             DrawBossIntro(w, h);
+            UiTimer.Mark("DrawBossIntro");
             DrawTaunt(w, h);
+            UiTimer.Mark("DrawTaunt");
             DrawPage(w, h);
+            UiTimer.Mark("DrawPage");
             // A panel open (forge, stones, shop, journal, sheet, pack): the camp banner, tips, contract and
             // feed step aside, so nothing is drawn across the panel you are reading (UI pass 2026-10-20).
             bool panel = shopOpen || forgeOpen || runeOpen || invOpen || statsHeld || pageShown >= 0;
             if (!panel && !MenuOpen) DrawControlsHint(w, h);
+            UiTimer.Mark("DrawControlsHint");
             if (!panel)
             {
                 Tips.Draw(w, h);
+                UiTimer.Mark("Tips.Draw");
                 DrawContract();
+                UiTimer.Mark("DrawContract");
                 DrawLobby(w, h);
+                UiTimer.Mark("DrawLobby");
                 DrawFeed(h);
+                UiTimer.Mark("DrawFeed");
             }
             DrawForge(w, h);
+            UiTimer.Mark("DrawForge");
                 DrawMerchant(w, h);
+                UiTimer.Mark("DrawMerchant");
             DrawRunewright(w, h);
+            UiTimer.Mark("DrawRunewright");
             DrawFps(w);
+            UiTimer.Mark("DrawFps");
             if (!panel) DrawToasts(w, h);
+            UiTimer.Mark("DrawToasts");
             if (statsHeld) DrawStatSheet(w, h);
+            UiTimer.Mark("DrawStatSheet");
             // Last, so nothing (feed, tips, banners) draws over it.
             if (invOpen) DrawInventory(w, h);
+            UiTimer.Mark("DrawInventory");
             DrawFade(w, h);
         }
 
@@ -1478,8 +1521,9 @@ namespace Deepbound.UI
                     Rect(sx + 8, y - 25, 10, 14, bc);
                     Rect(sx + 11, y - 29, 4, 4, n > 0 ? new Color(0.6f, 0.45f, 0.3f) : new Color(0.3f, 0.25f, 0.2f));
                     if (kind == Flasks.Kind.Health && belt.Healing) Rect(sx + 2, y - 7, (bw - 4) * Mathf.PingPong(Time.time * 2f, 1f), 2, c);
-                    GUI.Label(new Rect(sx + 22, y - 30, bw - 24, 24), (k + 1) + "  " + n + "/" + Flasks.Max,
-                        new GUIStyle(small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft, normal = { textColor = n > 0 ? Color.white : new Color(0.6f, 0.6f, 0.6f) } });
+                    EnsureBarStyles();
+                    pouchSt.normal.textColor = n > 0 ? Color.white : new Color(0.6f, 0.6f, 0.6f);
+                    GUI.Label(new Rect(sx + 22, y - 30, bw - 24, 24), (k + 1) + "  " + n + "/" + Flasks.Max, pouchSt);
                 }
             }
         }
@@ -1501,10 +1545,25 @@ namespace Deepbound.UI
             }
             GUI.Label(new Rect(x, y + 6, size, 20), Binds.Live(Bind.Ultimate), center);
             string label = ult.Ready ? "READY" : Mathf.FloorToInt(k * 100f) + "%";
-            GUI.Label(new Rect(x - 10, y + size - 22, size + 20, 18), label, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = ult.Ready ? FontStyle.Bold : FontStyle.Normal });
+            EnsureBarStyles();
+            ultSt.fontStyle = ult.Ready ? FontStyle.Bold : FontStyle.Normal;
+            GUI.Label(new Rect(x - 10, y + size - 22, size + 20, 18), label, ultSt);
         }
 
         private static Font glyphFont;
+        // The ability bar is drawn every frame: its styles are made once and re-coloured in place
+        // (a new GUIStyle per label per pass was most of the bar's cost).
+        private GUIStyle glyphSt, abilityNameSt, cdSmallSt, cdBigSt, pouchSt, ultSt;
+        private void EnsureBarStyles()
+        {
+            if (glyphSt != null) return;
+            glyphSt = new GUIStyle(GUI.skin.label) { font = glyphFont, fontSize = 28, alignment = TextAnchor.MiddleCenter };
+            abilityNameSt = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter };
+            cdSmallSt = new GUIStyle(big) { fontSize = 18 };
+            cdBigSt = new GUIStyle(big) { fontSize = 22 };
+            pouchSt = new GUIStyle(small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft };
+            ultSt = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter };
+        }
         private readonly Dictionary<string, float> readyFlash = new Dictionary<string, float>();
         private readonly Dictionary<string, float> lastRemaining = new Dictionary<string, float>();
 
@@ -1540,7 +1599,9 @@ namespace Deepbound.UI
             if (glyphFont == null) { try { glyphFont = Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI Symbol", "Arial Unicode MS", "Arial" }, 26); } catch { } }
             bool cooling = remaining > 0f && cooldown > 0f;
             var glyphCol = unaffordable ? new Color(0.5f, 0.6f, 0.9f, 0.5f) : cooling ? new Color(0.7f, 0.65f, 0.55f, 0.35f) : new Color(0.95f, 0.8f, 0.5f, 0.7f);
-            GUI.Label(new Rect(x, y + 13, size, size - 30), GlyphFor(name), new GUIStyle(GUI.skin.label) { font = glyphFont, fontSize = 28, alignment = TextAnchor.MiddleCenter, normal = { textColor = glyphCol } });
+            EnsureBarStyles();
+            glyphSt.normal.textColor = glyphCol;
+            GUI.Label(new Rect(x, y + 13, size, size - 30), GlyphFor(name), glyphSt);
             // A flash when it comes off cooldown.
             if (lastRemaining.TryGetValue(name, out var was) && was > 0f && remaining <= 0f && cooldown > 0f) readyFlash[name] = Time.time;
             lastRemaining[name] = remaining;
@@ -1560,7 +1621,7 @@ namespace Deepbound.UI
             }
             if (unaffordable) Rect(x, y, size, size, new Color(0.1f, 0.15f, 0.4f, 0.45f));
             GUI.Label(new Rect(x, y + 6, size, 20), key, center);
-            GUI.Label(new Rect(x, y + size - 22, size, 18), name, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+            GUI.Label(new Rect(x, y + size - 22, size, 18), name, abilityNameSt);
 
             if (remaining > 0f && cooldown > 0f)
             {
@@ -1568,7 +1629,7 @@ namespace Deepbound.UI
                 Rect(x, y + size * (1f - k), size, size * k, new Color(0f, 0f, 0f, 0.65f));
                 // A thin progress line along the bottom edge, and tenths in the last three seconds.
                 Rect(x + 2, y + size - 4, (size - 4) * (1f - k), 2, new Color(1f, 0.82f, 0.45f, 0.85f));
-                GUI.Label(new Rect(x, y, size, size), remaining < 3f ? remaining.ToString("0.0") : Mathf.CeilToInt(remaining).ToString(), new GUIStyle(big) { fontSize = remaining < 3f ? 18 : 22 });
+                GUI.Label(new Rect(x, y, size, size), remaining < 3f ? remaining.ToString("0.0") : Mathf.CeilToInt(remaining).ToString(), remaining < 3f ? cdSmallSt : cdBigSt);
             }
             else if (!unaffordable && cooldown > 0f)
             {

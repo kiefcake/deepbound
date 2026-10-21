@@ -172,8 +172,16 @@ namespace Deepbound.Player
             if (IsOwner) PingRpc(point, kind == Kind.Help ? NetworkObjectId : 0, kind, "");
         }
 
-        private void OnGUI()
+                private void OnGUI()
         {
+            Deepbound.UI.UiTimer.Begin();
+            OnGUIBody();
+            Deepbound.UI.UiTimer.Mark("PingWheel");
+        }
+
+        private void OnGUIBody()
+        {
+            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             if (!IsOwner || !wheelOpen) return;
             float w = Screen.width, h = Screen.height;
             var c = new Vector2(w / 2f, h / 2f);

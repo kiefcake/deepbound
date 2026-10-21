@@ -142,8 +142,16 @@ namespace Deepbound.World
         }
 
         /// <summary>The result, big and plain: three symbol tiles and what they paid. Shown to anyone near the machine.</summary>
-        private void OnGUI()
+                private void OnGUI()
         {
+            Deepbound.UI.UiTimer.Begin();
+            OnGUIBody();
+            Deepbound.UI.UiTimer.Mark("Slots");
+        }
+
+        private void OnGUIBody()
+        {
+            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             if (Time.time > cardUntil) return;
             var local = Player.NetworkPlayer.Local;
             if (local == null || Vector3.Distance(local.transform.position, transform.position) > 7f) return;

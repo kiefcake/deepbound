@@ -112,8 +112,16 @@ namespace Deepbound.UI
             return room != null && explored.Contains(room.Id);
         }
 
-        private void OnGUI()
+                private void OnGUI()
         {
+            UiTimer.Begin();
+            OnGUIBody();
+            UiTimer.Mark("Minimap");
+        }
+
+        private void OnGUIBody()
+        {
+            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             if (GameHud.Cinematic) return;
             UiSkin.Apply();
             var layout = DungeonDirector.Layout;

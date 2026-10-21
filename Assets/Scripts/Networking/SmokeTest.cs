@@ -3585,6 +3585,19 @@ namespace Deepbound.Networking
             long gcBytes = 0;
             var gcRec = Unity.Profiling.ProfilerRecorder.StartNew(Unity.Profiling.ProfilerCategory.Memory, "GC Allocated In Frame");
             var timings = new FrameTiming[1];
+            // Where the main thread goes (markers only report in development builds).
+            string[] markerNames = { "Update.ScriptRunBehaviourUpdate", "PreLateUpdate.ScriptRunBehaviourLateUpdate", "FixedUpdate.PhysicsFixedUpdate", "PostLateUpdate.UpdateCustomRenderPipeline",
+                "PostLateUpdate.FinishFrameRendering", "GUI.Repaint", "GUIUtility.ProcessEvent", "PreLateUpdate.DirectorUpdateAnimationBegin", "Update.ScriptRunDelayedDynamicFrameRate", "PostLateUpdate.UpdateAllRenderers", "Inl_RenderCameraStack", "Culling" };
+            var handles = new System.Collections.Generic.List<Unity.Profiling.LowLevel.Unsafe.ProfilerRecorderHandle>();
+            Unity.Profiling.LowLevel.Unsafe.ProfilerRecorderHandle.GetAvailable(handles);
+            var markers = new System.Collections.Generic.List<(string, Unity.Profiling.ProfilerRecorder)>();
+            foreach (var hnd in handles)
+            {
+                var desc = Unity.Profiling.LowLevel.Unsafe.ProfilerRecorderHandle.GetDescription(hnd);
+                if (System.Array.IndexOf(markerNames, desc.Name) >= 0) markers.Add((desc.Name, Unity.Profiling.ProfilerRecorder.StartNew(desc.Category, desc.Name)));
+            }
+            var markerSum = new double[markers.Count];
+            UI.UiTimer.Reset();
             for (int i = 0; i < 90; i++)
             {
                 yield return null;
@@ -3594,8 +3607,14 @@ namespace Deepbound.Networking
                 FrameTimingManager.CaptureFrameTimings();
                 if (FrameTimingManager.GetLatestTimings(1, timings) > 0) { cpu += timings[0].cpuMainThreadFrameTime; gpu += timings[0].gpuFrameTime; timed++; }
                 if (gcRec.Valid) gcBytes += gcRec.LastValue;
+                for (int m = 0; m < markers.Count; m++) if (markers[m].Item2.Valid) markerSum[m] += markers[m].Item2.LastValue;
             }
             gcRec.Dispose();
+            var parts = new System.Collections.Generic.List<string>();
+            for (int m = 0; m < markers.Count; m++) { if (markerSum[m] > 0) parts.Add(markers[m].Item1 + " " + (markerSum[m] / 90.0 / 1e6).ToString("F2")); markers[m].Item2.Dispose(); }
+            if (parts.Count > 0) Debug.Log("[PerfMarkers] " + name + ": " + string.Join(", ", parts));
+            if (UI.UiTimer.Totals.Count > 0)
+                Debug.Log("[PerfHud] " + name + ": " + string.Join(", ", UI.UiTimer.Totals.OrderByDescending(kv => kv.Value).Take(14).Select(kv => kv.Key + " " + (kv.Value / 90.0).ToString("F2"))));
             Debug.Log("[PerfSample] " + name + " mean " + (sum / 90f * 1000f).ToString("F1") + " ms (" + (90f / sum).ToString("F0") + " fps), best " + (best * 1000f).ToString("F1") + ", worst " + (worst * 1000f).ToString("F1") +
                 ", cpu " + (timed > 0 ? (cpu / timed).ToString("F1") : "?") + " gpu " + (timed > 0 ? (gpu / timed).ToString("F1") : "?") + " ms, spikes>25ms " + spikes + ", gc " + (gcBytes / 90 / 1024) + " KB/frame" +
                 ", renderers " + FindObjectsByType<Renderer>(FindObjectsSortMode.None).Count(r => r.isVisible) + " visible, lights " + FindObjectsByType<Light>(FindObjectsSortMode.None).Count(l => l.isActiveAndEnabled) +

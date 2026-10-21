@@ -480,8 +480,16 @@ namespace Deepbound.World
         }
         private static string RankName(byte c) { int r = Rank(c); return r == 1 ? "A" : r == 11 ? "J" : r == 12 ? "Q" : r == 13 ? "K" : r.ToString(); }
 
-        private void OnGUI()
+                private void OnGUI()
         {
+            Deepbound.UI.UiTimer.Begin();
+            OnGUIBody();
+            Deepbound.UI.UiTimer.Mark("Blackjack");
+        }
+
+        private void OnGUIBody()
+        {
+            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             if (localTable != this || !LocalOpen) return;
             UI.UiSkin.Apply();
             GUI.depth = -15;

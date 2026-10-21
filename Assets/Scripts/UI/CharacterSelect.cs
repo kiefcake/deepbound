@@ -168,6 +168,7 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
+            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             UiSkin.Apply();
             if (!Open || progress == null) return;
             float w = Screen.width, h = Screen.height;

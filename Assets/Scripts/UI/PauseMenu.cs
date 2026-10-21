@@ -222,7 +222,14 @@ namespace Deepbound.UI
             UiSkin.Rect(new Rect(tx - 1, r.y - 2, 2, r.height + 4), new Color(1f, 0.85f, 0.4f));
         }
 
-        private void OnGUI()
+                private void OnGUI()
+        {
+            UiTimer.Begin();
+            OnGUIBody();
+            UiTimer.Mark("PauseMenu");
+        }
+
+        private void OnGUIBody()
         {
             UiSkin.Apply();
             if (!Open) return;

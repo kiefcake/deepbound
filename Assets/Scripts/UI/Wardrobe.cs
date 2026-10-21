@@ -214,8 +214,16 @@ namespace Deepbound.UI
             turntable.rotation = Quaternion.Euler(0f, spin, 0f);
         }
 
-        private void OnGUI()
+                private void OnGUI()
         {
+            UiTimer.Begin();
+            OnGUIBody();
+            UiTimer.Mark("Wardrobe");
+        }
+
+        private void OnGUIBody()
+        {
+            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             if (player == null || !DungeonDirector.InLobby) return;
             UiSkin.Apply();
             float w = Screen.width, h = Screen.height;

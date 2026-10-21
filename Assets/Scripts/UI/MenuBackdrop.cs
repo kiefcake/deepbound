@@ -370,6 +370,7 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
+            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             if (set == null || !set.activeSelf) return;
             GUI.depth = 5; // behind the title and menu
             var cam = GetComponent<Camera>();

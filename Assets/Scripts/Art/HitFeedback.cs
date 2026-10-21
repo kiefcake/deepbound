@@ -13,6 +13,9 @@ namespace Deepbound.Art
         private static readonly int BaseColorId = Shader.PropertyToID("_BaseColor");
         private readonly List<Renderer> renderers = new List<Renderer>();
         private readonly List<Color> originals = new List<Color>();
+        // Renderers that had no property block of their own: cleared again after the flash, so they
+        // go back onto the SRP Batcher (a block left behind takes them off it for good).
+        private readonly List<bool> hadBlock = new List<bool>();
         private MaterialPropertyBlock block;
         private float flash;
         private bool cached;
@@ -32,16 +35,18 @@ namespace Deepbound.Art
             cached = true;
             renderers.Clear();
             originals.Clear();
+            hadBlock.Clear();
             block ??= new MaterialPropertyBlock();
             foreach (var r in GetComponentsInChildren<Renderer>())
             {
                 // Glowing parts (eyes, gems, flames) already read as light; leave them.
-                if (r.sharedMaterial == null || r.sharedMaterial == ArtLibrary.Get(Mat.Glow)) continue;
+                if (r.sharedMaterial == null || ArtLibrary.Is(r.sharedMaterial, Mat.Glow)) continue;
                 r.GetPropertyBlock(block);
                 var c = block.HasColor(BaseColorId) ? block.GetColor(BaseColorId)
                     : r.sharedMaterial.HasProperty(BaseColorId) ? r.sharedMaterial.GetColor(BaseColorId) : Color.white;
                 renderers.Add(r);
                 originals.Add(c);
+                hadBlock.Add(r.HasPropertyBlock());
             }
         }
 
@@ -57,7 +62,12 @@ namespace Deepbound.Art
                 block.SetColor(BaseColorId, Color.Lerp(originals[i], new Color(3f, 3f, 3f, 1f), k));
                 r.SetPropertyBlock(block);
             }
-            if (flash <= 0f) enabled = false;
+            if (flash <= 0f)
+            {
+                for (int i = 0; i < renderers.Count; i++)
+                    if (renderers[i] != null && !hadBlock[i]) renderers[i].SetPropertyBlock(null);
+                enabled = false;
+            }
         }
     }
 

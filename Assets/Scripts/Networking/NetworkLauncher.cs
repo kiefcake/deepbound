@@ -246,6 +246,7 @@ namespace Deepbound.Networking
 
         private void OnGUI()
         {
+            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             bool connected = Net.IsClient || Net.IsServer;
 
             // Not connected: the title screen owns the screen.

@@ -1287,7 +1287,7 @@ namespace Deepbound.Art
             var flesh = new Color(0.55f, 0.62f, 0.5f);
             foreach (var r in rig.GetComponentsInChildren<Renderer>())
             {
-                if (r.sharedMaterial == ArtLibrary.Get(Mat.Bone)) ArtLibrary.Tint(r, flesh);
+                if (ArtLibrary.Is(r.sharedMaterial, Mat.Bone)) ArtLibrary.Tint(r, flesh);
             }
             for (int i = 0; i < 2; i++)
             {
@@ -1314,7 +1314,7 @@ namespace Deepbound.Art
             var old = new Color(0.62f, 0.55f, 0.45f);
             foreach (var r in rig.GetComponentsInChildren<Renderer>())
             {
-                if (r.sharedMaterial == ArtLibrary.Get(Mat.Bone)) ArtLibrary.Tint(r, old);
+                if (ArtLibrary.Is(r.sharedMaterial, Mat.Bone)) ArtLibrary.Tint(r, old);
             }
             for (int i = 0; i < 2; i++)
             {

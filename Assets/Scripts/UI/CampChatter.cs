@@ -420,8 +420,16 @@ namespace Deepbound.UI
             }
         }
 
-        private void OnGUI()
+                private void OnGUI()
         {
+            UiTimer.Begin();
+            OnGUIBody();
+            UiTimer.Mark("CampChatter");
+        }
+
+        private void OnGUIBody()
+        {
+            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             var me = NetworkPlayer.Local;
             var cam = Art.ViewCamera.Current;
             if (me == null || cam == null || PauseMenu.Open || GameHud.MenuOpen) return;

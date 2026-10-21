@@ -19,6 +19,7 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
+            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             UiSkin.Apply();
             if (DebugEpilogueAt >= 0f) { GUI.depth = -6; DrawEpilogue(Screen.width, Screen.height, DebugEpilogueAt); return; }
             var d = DungeonDirector.Instance;

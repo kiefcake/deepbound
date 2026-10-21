@@ -145,8 +145,8 @@ namespace Deepbound.UI
         /// <summary>Text with a soft dark drop shadow, for titles over 3D scenes.</summary>
         public static void Shadowed(Rect r, string text, GUIStyle style, float alpha = 1f)
         {
-            var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, 0.75f * alpha) } };
-            for (int i = 1; i <= 3; i++) GUI.Label(new Rect(r.x + i, r.y + i, r.width, r.height), text, shadow);
+            var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, 0.85f * alpha) } };
+            GUI.Label(new Rect(r.x + 2, r.y + 2, r.width, r.height), text, shadow);
             var main = new GUIStyle(style);
             main.normal.textColor = new Color(style.normal.textColor.r, style.normal.textColor.g, style.normal.textColor.b, alpha);
             GUI.Label(r, text, main);

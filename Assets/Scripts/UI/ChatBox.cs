@@ -78,8 +78,16 @@ namespace Deepbound.UI
         }
         private void OnApplicationFocus(bool focus) { if (!focus && Typing) Close(); }
 
-        private void OnGUI()
+                private void OnGUI()
         {
+            UiTimer.Begin();
+            OnGUIBody();
+            UiTimer.Mark("ChatBox");
+        }
+
+        private void OnGUIBody()
+        {
+            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             if (NetworkPlayer.Local == null) return;
             UiSkin.Apply();
             float w = Screen.width, h = Screen.height;
