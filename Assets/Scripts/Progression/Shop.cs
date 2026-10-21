@@ -106,11 +106,11 @@ namespace Deepbound.Progression
             }
             if (camp && vendor == Vendor.Carriage)
             {
-                list.Add(new Item { Name = "Scout's Map", Description = "Corwin's chart of the next floor: every room on your map from the start",
+                list.Add(new Item { Name = "Scout's Map", Description = "Every room of the next floor on your map from the start",
                     Price = UnityEngine.Mathf.RoundToInt(40 + 20 * tier), Kind = ItemKind.Map, Seller = Vendor.Carriage });
-                list.Add(new Item { Name = "Smelling Salts", Description = "If you go down, you come round on your own 5 s later, at 30% health (once)",
+                list.Add(new Item { Name = "Smelling Salts", Description = "Go down? Come round on your own 5 s later at 30% (once)",
                     Price = UnityEngine.Mathf.RoundToInt(110 + 30 * tier), Kind = ItemKind.Salts, Seller = Vendor.Carriage });
-                list.Add(new Item { Name = "Climbing Rope", Description = "From floor 2: at the start room's waystone, the party climbs back to camp. The run goes on; that floor starts over",
+                list.Add(new Item { Name = "Climbing Rope", Description = "From floor 2: F at the waystone retreats the party to camp",
                     Price = UnityEngine.Mathf.RoundToInt(60 + 20 * tier), Kind = ItemKind.Rope, Seller = Vendor.Carriage });
             }
             if (camp && vendor == Vendor.Yard)

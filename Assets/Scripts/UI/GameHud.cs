@@ -2262,7 +2262,7 @@ namespace Deepbound.UI
             }
 
             var vendor = shopVendor;
-            float pw = 600, rowH = 38;
+            float pw = 720, rowH = 38;
             var stock = Shop.For(progress.OwnerClientId, vendor);
             // Corwin also takes the party's orders: how hard a road, and how the spoils are shared.
             float top = vendor == Shop.Vendor.Carriage ? 70f : 0f;
