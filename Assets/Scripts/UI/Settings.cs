@@ -141,8 +141,10 @@ namespace Deepbound.UI
         public static void ApplyGraphics()
         {
             int q = GraphicsQuality;
-            QualitySettings.vSyncCount = VSync ? 1 : 0;
-            Application.targetFrameRate = VSync ? -1 : 240;
+            // -uncapped (perf measurement runs): no VSync, no frame cap, whatever the player saved.
+            bool uncapped = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-uncapped") >= 0;
+            QualitySettings.vSyncCount = VSync && !uncapped ? 1 : 0;
+            Application.targetFrameRate = uncapped ? -1 : VSync ? -1 : 240;
             if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline is UnityEngine.Rendering.Universal.UniversalRenderPipelineAsset urp)
             {
                 baseShadowDistance ??= urp.shadowDistance;

@@ -67,6 +67,10 @@ namespace Deepbound.UI
         };
         private int guidePage, lastGuidePage = -1;
         private Vector2 guideScroll;
+        private string guideCacheKey;
+        private string[][] guideTexts;
+        private float[][] guideHeights;
+        private float guideTallest;
 
         /// <summary>A checkbox that shows its state (a gold square inside a box), label beside it. <paramref name="radio"/>: round-ish, for one-of choices.</summary>
         private static bool Check(bool on, string label, bool radio = false)
@@ -424,19 +428,30 @@ namespace Deepbound.UI
                 // The two columns scroll (the wheel, or the bar) inside the panel, above the buttons.
                 var view = new Rect(panel.x + 16, panel.y + 58, pw - 32, ph - 58 - 72);
                 var sections = new[] { guidePage == 0 ? GuideLeft : DungeonLeft, guidePage == 0 ? GuideRight : DungeonRight };
-                float tallest = 0f;
-                var texts = new string[2][];
-                for (int c = 0; c < 2; c++)
+                // Measuring a page of wrapped text is costly: do it once per page, width and key state.
+                string key = guidePage + "|" + colW + "|" + Binds.AnyChanged + "|" + Binds.PadActive;
+                if (key != guideCacheKey)
                 {
-                    texts[c] = new string[sections[c].Length];
-                    float y = 6f;
-                    for (int i = 0; i < sections[c].Length; i++)
+                    guideCacheKey = key;
+                    guideTexts = new string[2][];
+                    guideHeights = new float[2][];
+                    guideTallest = 0f;
+                    for (int c = 0; c < 2; c++)
                     {
-                        texts[c][i] = Binds.Rekey(sections[c][i].body);
-                        y += 20 + bodyStyle.CalcHeight(new GUIContent(texts[c][i]), colW) + 14;
+                        guideTexts[c] = new string[sections[c].Length];
+                        guideHeights[c] = new float[sections[c].Length];
+                        float y = 6f;
+                        for (int i = 0; i < sections[c].Length; i++)
+                        {
+                            guideTexts[c][i] = Binds.Rekey(sections[c][i].body);
+                            guideHeights[c][i] = bodyStyle.CalcHeight(new GUIContent(guideTexts[c][i]), colW);
+                            y += 20 + guideHeights[c][i] + 14;
+                        }
+                        guideTallest = Mathf.Max(guideTallest, y);
                     }
-                    tallest = Mathf.Max(tallest, y);
                 }
+                var texts = guideTexts;
+                float tallest = guideTallest;
                 var content = new Rect(0, 0, view.width - 20, tallest);
                 guideScroll = GUI.BeginScrollView(view, guideScroll, content);
                 for (int c = 0; c < 2; c++)
@@ -445,7 +460,7 @@ namespace Deepbound.UI
                     for (int i = 0; i < sections[c].Length; i++)
                     {
                         GUI.Label(new Rect(x, y, colW, 20), sections[c][i].title, titleStyle);
-                        float bh = bodyStyle.CalcHeight(new GUIContent(texts[c][i]), colW);
+                        float bh = guideHeights[c][i];
                         GUI.Label(new Rect(x, y + 20, colW, bh), texts[c][i], bodyStyle);
                         y += 20 + bh + 14;
                     }
