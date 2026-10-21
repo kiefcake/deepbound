@@ -688,7 +688,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling, Orbweaver, ChoirAcolyte, AbyssEye }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling, Orbweaver, ChoirAcolyte, AbyssEye, BonePiper }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -727,6 +727,7 @@ namespace Deepbound.Art
                 : kind == SkeletonKind.Hexer ? new Color(0.7f, 0.3f, 1f)
                 : kind == SkeletonKind.Orbweaver ? new Color(1f, 0.62f, 0.2f)
                 : kind == SkeletonKind.ChoirAcolyte ? new Color(1f, 0.82f, 0.4f)
+                : kind == SkeletonKind.BonePiper ? new Color(0.4f, 1f, 0.9f)
                 : kind == SkeletonKind.Necromancer ? new Color(0.75f, 0.35f, 1f)
                 : kind == SkeletonKind.Brute ? new Color(1f, 0.4f, 0.1f)
                 : new Color(1f, 0.25f, 0.1f);
@@ -976,6 +977,42 @@ namespace Deepbound.Art
                 // A stiff white choir collar (open at the front, the ruff of a cathedral singer).
                 var collar = MeshKit.Part(rig.Torso, "ChoirCollar", MeshKit.Lathe("choirCollar", new[] { new Vector2(0.17f, 0f), new Vector2(0.26f, 0.05f), new Vector2(0.25f, 0.08f) }, 14, true, 300f), Mat.Cloth, new Vector3(0f, 0.55f, 0f), new Vector3(0f, 30f, 0f));
                 ArtLibrary.Tint(collar.GetComponent<Renderer>(), new Color(0.92f, 0.9f, 0.84f));
+            }
+            else if (kind == SkeletonKind.BonePiper)
+            {
+                // A wandering piper: bare bones, a wide-brimmed hat with a pale feather, a ragged shawl,
+                // and a bagpipe of bone under its arm. The bag glows at the seams: its weak point.
+                var soul = new Color(0.4f, 1f, 0.9f);
+                rig.GlowRenderers = new[] { eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>() };
+                GothicKit.Cloak(rig.Torso, new Color(0.2f, 0.3f, 0.3f), 0.75f, 0.12f, null, tattered: true);
+                var felt = new Color(0.16f, 0.13f, 0.12f);
+                ArtLibrary.Tint(MeshKit.Part(rig.Head, "HatBrim", MeshKit.Cylinder(0.27f, 0.27f, 0.018f, 16), Mat.Leather, new Vector3(0f, 0.2f, 0f), new Vector3(-6f, 0f, 4f)).GetComponent<Renderer>(), felt);
+                ArtLibrary.Tint(MeshKit.Part(rig.Head, "HatCrown", MeshKit.Cylinder(0.13f, 0.1f, 0.13f, 12), Mat.Leather, new Vector3(0f, 0.27f, 0f), new Vector3(-6f, 0f, 4f)).GetComponent<Renderer>(), felt);
+                ArtLibrary.Tint(MeshKit.Part(rig.Head, "HatBand", MeshKit.Cylinder(0.132f, 0.128f, 0.025f, 12), Mat.Cloth, new Vector3(0f, 0.225f, 0f), new Vector3(-6f, 0f, 4f)).GetComponent<Renderer>(), new Color(0.15f, 0.45f, 0.42f));
+                ArtLibrary.Tint(MeshKit.Part(rig.Head, "Feather", MeshKit.Box(new Vector3(0.03f, 0.26f, 0.008f)), Mat.Cloth, new Vector3(0.12f, 0.33f, -0.04f), new Vector3(-25f, 20f, -30f)).GetComponent<Renderer>(), new Color(0.88f, 0.9f, 0.86f));
+                // The bag, under the left arm, with three bone drones over the shoulder.
+                var bag = MeshKit.Part(rig.Torso, "PipeBag", MeshKit.Ball(0.17f, 10, 8), Mat.Leather, new Vector3(-0.22f, 0.36f, 0.06f), new Vector3(0f, 0f, 15f), new Vector3(0.8f, 1f, 1.1f));
+                ArtLibrary.Tint(bag.GetComponent<Renderer>(), new Color(0.36f, 0.26f, 0.2f));
+                WeakPoint.Add(rig.Torso, new Vector3(-0.24f, 0.36f, 0.14f), 0.08f, soul);
+                for (int i = 0; i < 3; i++)
+                {
+                    float len = 0.42f + i * 0.12f;
+                    var drone = MeshKit.Pivot(rig.Torso, "Drone" + i, new Vector3(-0.2f + i * 0.035f, 0.44f, 0.02f - i * 0.03f), new Vector3(-28f - i * 6f, 0f, 12f - i * 6f));
+                    MeshKit.Part(drone, "DroneBone", MeshKit.Cylinder(0.018f, 0.014f, len, 6), Mat.Bone, new Vector3(0f, len * 0.5f, 0f));
+                    MeshKit.Part(drone, "DroneKnob", MeshKit.Ball(0.03f, 6, 4), Mat.Bone, new Vector3(0f, len, 0f));
+                    var mouth = MeshKit.Part(drone, "DroneGlow", MeshKit.Ball(0.018f, 6, 4), Mat.Glow, new Vector3(0f, len + 0.025f, 0f));
+                    ArtLibrary.SetGlow(mouth.GetComponent<Renderer>(), soul * 1.2f);
+                }
+                // The chanter, from its teeth down to its fingers, with glowing finger holes.
+                var chanter = MeshKit.Pivot(rig.Head, "Chanter", new Vector3(0f, 0.03f, 0.13f), new Vector3(58f, 0f, 0f));
+                MeshKit.Part(chanter, "ChanterBone", MeshKit.Cylinder(0.016f, 0.024f, 0.34f, 6), Mat.Bone, new Vector3(0f, 0.17f, 0f));
+                for (int i = 0; i < 4; i++)
+                {
+                    var hole = MeshKit.Part(chanter, "Hole", MeshKit.Ball(0.009f, 5, 3), Mat.Glow, new Vector3(0f, 0.1f + i * 0.055f, 0.02f));
+                    ArtLibrary.SetGlow(hole.GetComponent<Renderer>(), soul * 1.3f);
+                }
+                var bell = MeshKit.Part(chanter, "ChanterBell", MeshKit.Cylinder(0.025f, 0.045f, 0.05f, 8), Mat.Bone, new Vector3(0f, 0.35f, 0f));
+                rig.StrideLength = 1.05f;
             }
             else if (kind == SkeletonKind.Ghoul)
             {

@@ -71,16 +71,16 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
+            "THE BONE PIPER plays bullet patterns: Rose, Scissors, March...",
+            "GRAZE: shots that slip past you close charge your ultimate",
+            "Cloak PATTERNS at the tailor (skulls, bones), brighter dyes",
             "THE TALLYMAN hunts those who linger (holy water holds him)",
-            "OATH ROOMS, LIGHTLESS HALLS, patrols, room-clear rewards",
-            "FLOOR EVENTS: Gilded Halls, The Swarm, Blood Tithe...",
             "New dead: Choir Acolyte, Abyssal Eye; Frenzied, Gravebound",
             "Drag a downed friend clear (G); pointers to the fallen",
             "Bosses make an entrance; the grave lift carries you up",
             "DAILY DESCENT (Corwin) and the HALL OF RECORDS (camp)",
             "Rebind keys (Options > Controls), gamepads, colour-blind mode",
             "Corwin's CLIMBING ROPE; TORMENT once you finish a descent",
-            "Shelter behind a blocking Knight; the cat turns up far below",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)

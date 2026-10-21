@@ -71,6 +71,7 @@ namespace Deepbound.EditorTools
             var orbweaver = BuildEnemyPrefab("Orbweaver", EnemyType.Orbweaver, loot);
             var acolyte = BuildEnemyPrefab("ChoirAcolyte", EnemyType.ChoirAcolyte, loot);
             var abyssEye = BuildEnemyPrefab("AbyssEye", EnemyType.AbyssEye, loot);
+            var bonePiper = BuildEnemyPrefab("BonePiper", EnemyType.BonePiper, loot);
             // The Wardens: one per act, at the end of the act's first floor.
             var wardens = new GameObject[5];
             for (int a = 0; a < wardens.Length; a++) wardens[a] = BuildEnemyPrefab("Warden" + a, EnemyType.Warden, loot, a);
@@ -137,6 +138,7 @@ namespace Deepbound.EditorTools
             dso.FindProperty("orbweaverPrefab").objectReferenceValue = orbweaver.GetComponent<NetworkObject>();
             dso.FindProperty("acolytePrefab").objectReferenceValue = acolyte.GetComponent<NetworkObject>();
             dso.FindProperty("abyssEyePrefab").objectReferenceValue = abyssEye.GetComponent<NetworkObject>();
+            dso.FindProperty("bonePiperPrefab").objectReferenceValue = bonePiper.GetComponent<NetworkObject>();
             var wardenList = dso.FindProperty("wardenPrefabs");
             wardenList.arraySize = wardens.Length;
             for (int a = 0; a < wardens.Length; a++) wardenList.GetArrayElementAtIndex(a).objectReferenceValue = wardens[a].GetComponent<NetworkObject>();
@@ -278,7 +280,7 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Warden, Entling, Orbweaver, ChoirAcolyte, AbyssEye }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Warden, Entling, Orbweaver, ChoirAcolyte, AbyssEye, BonePiper }
 
         // A Warden is a giant of its act's rank and file.
         private static readonly Art.CharacterArt.SkeletonKind[] WardenKinds =
@@ -344,6 +346,7 @@ namespace Deepbound.EditorTools
                 case EnemyType.Orbweaver: brain = root.AddComponent<OrbweaverBrain>(); break;
                 case EnemyType.ChoirAcolyte: brain = root.AddComponent<ChoirAcolyteBrain>(); break;
                 case EnemyType.AbyssEye: brain = root.AddComponent<AbyssEyeBrain>(); break;
+                case EnemyType.BonePiper: brain = root.AddComponent<BonePiperBrain>(); break;
                 default: brain = root.AddComponent<EnemyBrain>(); break;
             }
 
@@ -459,6 +462,12 @@ namespace Deepbound.EditorTools
                     Kind(Art.CharacterArt.SkeletonKind.Cardinal);
                     Set("maxHealth", 3700f); Set("damage", 32f); Set("defense", 6f); Set("moveSpeed", 2.9f);
                     Set("attackRange", 3.4f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 60f);
+                    break;
+                case EnemyType.BonePiper:
+                    // Stands still to play: punish it then. Its tunes do the damage, not its bones.
+                    Kind(Art.CharacterArt.SkeletonKind.BonePiper);
+                    Set("maxHealth", 120f); Set("damage", 13f); Set("defense", 1f); Set("moveSpeed", 3.0f);
+                    Set("attackRange", 13f); Set("windup", 0.6f); Set("recovery", 1.4f); Set("aggroRange", 21f);
                     break;
                 case EnemyType.Orbweaver:
                     // A caster that hangs back behind its orbs: fragile, so reach it.

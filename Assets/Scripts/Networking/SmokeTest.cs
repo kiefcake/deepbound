@@ -1148,6 +1148,32 @@ namespace Deepbound.Networking
                             Log("orbweaver death pops its orbs", "orbs left " + ow.OrbsAlive, ow.OrbsAlive == 0);
                         }
                         else Log("orbweaver", "no prefab", false);
+                        // A Bone Piper plays every tune; a note slipping past close is a graze.
+                        var bp = dd.ServerDebugSpawn("piper", local.transform.position + local.transform.forward * 9f, false) as BonePiperBrain;
+                        if (bp != null)
+                        {
+                            var progG = local.GetComponent<PlayerProgress>();
+                            int grazes0 = progG.Grazes;
+                            yield return new WaitForSeconds(0.3f);
+                            int v0 = bp.VolleysFired;
+                            var songs = new System.Collections.Generic.List<string>();
+                            foreach (BonePiperBrain.Song sg in System.Enum.GetValues(typeof(BonePiperBrain.Song)))
+                            {
+                                int before = bp.VolleysFired;
+                                bp.ServerBeginSong(sg);
+                                for (float t = 0f; t < 3.4f; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                                if (bp.VolleysFired > before) songs.Add(sg.ToString());
+                            }
+                            Log("bone piper", "tunes played " + string.Join(", ", songs) + ", volleys " + (bp.VolleysFired - v0), songs.Count == 4);
+                            // A graze: a note fired to pass just beside the player's body.
+                            var me = local.transform.position + Vector3.up * 1.2f;
+                            var side = local.transform.right * 0.75f;
+                            Arrows.ServerFire(me + side - local.transform.forward * 4f, local.transform.forward, 1f, Team.Players, bp.NetworkObjectId, 12f, null, false, 8f);
+                            yield return new WaitForSeconds(0.9f);
+                            Log("graze", "grazes " + grazes0 + " -> " + progG.Grazes, progG.Grazes > grazes0);
+                            bp.GetComponent<Health>().ServerDamage(1e6f, bp.transform.position);
+                        }
+                        else Log("bone piper", "no prefab", false);
                         local.GetComponent<Health>().ServerSetFraction(1f);
                         // Floor events: Blood Tithe makes blows hurt more and kills mend.
                         {
@@ -3230,7 +3256,7 @@ namespace Deepbound.Networking
                     }
 
                     // Line up one of each newer enemy type for a close look.
-                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain), typeof(EntlingBrain), typeof(OrbweaverBrain), typeof(ChoirAcolyteBrain), typeof(AbyssEyeBrain) })
+                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain), typeof(EntlingBrain), typeof(OrbweaverBrain), typeof(ChoirAcolyteBrain), typeof(AbyssEyeBrain), typeof(BonePiperBrain) })
                     {
                         var e = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(b => b.GetType() == type && !b.IsDead);
                         if (e == null) continue;
@@ -3239,6 +3265,32 @@ namespace Deepbound.Networking
                         motor.Teleport(ep, Quaternion.LookRotation(e.transform.position - ep));
                         yield return new WaitForSeconds(0.5f);
                         yield return Shot(dir, "7_" + type.Name + "_floor" + (depth + 1));
+                    }
+
+                    // The Bone Piper: a close look, then each tune in full flight.
+                    if (depth == 1)
+                    {
+                        var pFrom = room.Center + new Vector3(0f, 0.1f, -6f);
+                        var piper = DungeonDirector.Instance.ServerDebugSpawn("piper", room.Center + new Vector3(0f, 0f, 3f), false) as BonePiperBrain;
+                        if (piper != null)
+                        {
+                            piper.ServerStun(2f);
+                            var close = piper.transform.position + Vector3.forward * -2.6f + Vector3.up * 0.1f;
+                            motor.Teleport(close, Quaternion.LookRotation(piper.transform.position - close));
+                            yield return new WaitForSeconds(0.6f);
+                            yield return Shot(dir, "7_BonePiper_close");
+                            yield return new WaitForSeconds(1.6f);
+                            motor.Teleport(pFrom, Quaternion.LookRotation(piper.transform.position - pFrom));
+                            float[] at = { 1.05f, 1.2f, 1.0f, 1.25f };
+                            foreach (BonePiperBrain.Song sg in System.Enum.GetValues(typeof(BonePiperBrain.Song)))
+                            {
+                                piper.ServerBeginSong(sg);
+                                yield return new WaitForSeconds(at[(int)sg]);
+                                yield return Shot(dir, "7_BonePiper_" + sg);
+                                yield return new WaitForSeconds(2.2f);
+                            }
+                            piper.GetComponent<Health>().ServerDamage(1e6f, piper.transform.position);
+                        }
                     }
 
                     // The Mourner (never spawned in tests): one weeping far off, one caught reaching up close.

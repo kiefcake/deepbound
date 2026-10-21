@@ -125,6 +125,9 @@ namespace Deepbound.Player
             if (obj.TryGetComponent<Ultimates>(out var u)) u.Add(dealt * PerDamageDealt);
         }
 
+        /// <summary>Server: charge from elsewhere (grazes).</summary>
+        public void ServerAddCharge(float amount) { if (IsServer) Add(amount); }
+
         private void Add(float amount)
         {
             if (DungeonDirector.InLobby) return;

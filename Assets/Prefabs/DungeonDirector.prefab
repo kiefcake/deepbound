@@ -111,6 +111,7 @@ MonoBehaviour:
   acolytePrefab: {fileID: 2261373335432661186, guid: c6dbd86c0b184264ba54308f8bd2ec79, type: 3}
   shaftCatPrefab: {fileID: 7736194991897977138, guid: d36112bde4e7bd54b8253fe29152a8fb, type: 3}
   abyssEyePrefab: {fileID: 436945408862097884, guid: bab2d226deb87ee4185b939de9bed426, type: 3}
+  bonePiperPrefab: {fileID: 2089347321912224805, guid: 276bb5f6daaadfb4780be9e8e65862a9, type: 3}
   fateWheelPrefab: {fileID: 5332673811175829373, guid: f3cf4823e8237f04f855c69286e7b9d8, type: 3}
   bountyNoticePrefab: {fileID: 3915093814716477257, guid: 534f8b4084fc56a4bbd049eccaba92ad, type: 3}
   omenStonePrefab: {fileID: 382665563209428435, guid: 65d7f993c336c7d43b5975cc5e24fa6e, type: 3}

@@ -1302,6 +1302,32 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Owner)]
         private void GearBoughtRpc(int seed) => gearBoughtSeed = seed;
 
+        private float grazeStreakUntil, nextGrazeCharge;
+        private int grazeStreak;
+        /// <summary>Tests: grazes this session.</summary>
+        public int Grazes { get; private set; }
+        public const float GrazeCharge = 1.2f;
+
+        /// <summary>Server: an enemy shot slipped past you (<see cref="Combat.Arrows.GrazeRadius"/>): ult charge and a streak.</summary>
+        public void ServerGraze(Vector3 at)
+        {
+            var life = GetComponent<Player.PlayerLife>();
+            if (life != null && (life.Downed.Value || !life.Targetable)) return;
+            Grazes++;
+            grazeStreak = Time.time < grazeStreakUntil ? grazeStreak + 1 : 1;
+            grazeStreakUntil = Time.time + 2.2f;
+            // The charge is capped at about seven a second, so a wall of notes cannot fill the bar on its own.
+            if (Time.time >= nextGrazeCharge && TryGetComponent<Player.Ultimates>(out var u))
+            {
+                nextGrazeCharge = Time.time + 0.14f;
+                u.ServerAddCharge(GrazeCharge * (grazeStreak >= 10 ? 1.5f : 1f));
+            }
+            GrazeRpc(at, (byte)Mathf.Min(255, grazeStreak));
+        }
+
+        [Rpc(SendTo.Owner, Delivery = RpcDelivery.Unreliable)]
+        private void GrazeRpc(Vector3 at, byte streak) => UI.GameHud.Graze(at, streak);
+
         /// <summary>Server → owner: one of your hits landed (or killed). Unreliable: a lost marker is no loss.</summary>
         [Rpc(SendTo.Owner, Delivery = RpcDelivery.Unreliable)]
         public void HitMarkRpc(bool kill, bool heavy) => UI.GameHud.HitMark(kill, heavy);

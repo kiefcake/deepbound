@@ -449,6 +449,17 @@ namespace Deepbound.UI
         private static readonly List<ComboText> combos = new List<ComboText>();
 
         /// <summary>Float a combo's name over a point (any peer).</summary>
+        /// <summary>The owner: a shot grazed you. A soft tick and a little streak counter by the crosshair.</summary>
+        public static void Graze(Vector3 at, int streak)
+        {
+            var cam = Art.ViewCamera.Current;
+            Art.Sfx.Play(Art.Sound.Graze, cam != null ? cam.transform.position : at, 0.32f, 1f + Mathf.Min(streak, 12) * 0.035f);
+            if (cam == null) return;
+            var p = cam.transform.position + cam.transform.forward * 2.6f - cam.transform.up * 0.55f + cam.transform.right * 0.5f;
+            if (streak == 1 || streak % 5 == 0)
+                ShowCombo(p, streak >= 5 ? "GRAZE x" + streak : "GRAZE", streak >= 10 ? new Color(1f, 0.92f, 0.5f) : new Color(0.75f, 0.95f, 1f));
+        }
+
         public static void ShowCombo(Vector3 at, string text, Color color) =>
             combos.Add(new ComboText { World = at, Text = text, Color = color, Time = UnityEngine.Time.time });
 

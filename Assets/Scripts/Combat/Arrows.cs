@@ -19,7 +19,7 @@ namespace Deepbound.Combat
     /// so a Knight's block stops them from the front.
     /// </summary>
     /// <summary>What a projectile looks like. APPEND ONLY: sent in RPCs.</summary>
-    public enum ProjectileKind : byte { Arrow = 0, Firebolt = 1, Frostbolt = 2, ShadowBolt = 3, Smite = 4, Knife = 5, Spit = 6, Vial = 7, Tonic = 8 }
+    public enum ProjectileKind : byte { Arrow = 0, Firebolt = 1, Frostbolt = 2, ShadowBolt = 3, Smite = 4, Knife = 5, Spit = 6, Vial = 7, Tonic = 8, Soul = 9, Seedpod = 10 }
 
     public class Arrows : MonoBehaviour
     {
@@ -84,7 +84,18 @@ namespace Deepbound.Combat
             /// <summary>Metres per second squared it drops (arrows and knives; spells fly true).</summary>
             public float Gravity;
             public HashSet<Health> AlreadyHit;
+            /// <summary>Server: this enemy shot has already grazed someone.</summary>
+            public bool Grazed;
+            /// <summary>Visual: a soul note fades out at the end of its flight (no puff, no burst).</summary>
+            public bool Quiet;
         }
+
+        /// <summary>
+        /// GRAZING (2026-10-21, bullet hell): an enemy shot that passes within this of a player's body
+        /// without touching it is a graze. Grazes charge the ultimate and build a streak (<see cref="Progression.PlayerProgress.ServerGraze"/>),
+        /// so weaving through a pattern pays more than standing well clear of it.
+        /// </summary>
+        public const float GrazeRadius = 0.6f;
 
         private static Arrows instance;
         private readonly List<Arrow> live = new List<Arrow>();
@@ -124,8 +135,10 @@ namespace Deepbound.Combat
                 Position = origin, Velocity = direction.normalized * speed,
                 Visual = kind == ProjectileKind.Arrow ? BuildVisual(origin, direction)
                     : kind == ProjectileKind.Knife ? BuildKnife(origin, direction)
+                    : kind == ProjectileKind.Soul ? BuildSoul(origin, direction)
                     : BuildBolt(origin, direction, kind),
-                Burst = kind == ProjectileKind.Arrow || kind == ProjectileKind.Knife ? Color.clear : BoltColor(kind),
+                Quiet = kind == ProjectileKind.Soul,
+                Burst = kind == ProjectileKind.Arrow || kind == ProjectileKind.Knife || kind == ProjectileKind.Soul ? Color.clear : BoltColor(kind),
             });
         }
 
@@ -168,6 +181,7 @@ namespace Deepbound.Combat
                 else
                 {
                     if (a.ServerSide && TryHit(ref a, a.Position, a.Position + step)) done = true;
+                    else if (a.ServerSide && !a.Grazed && a.Targets == Team.Players) TryGraze(ref a, a.Position, a.Position + step);
                     a.Position += step;
                     a.Travelled += step.magnitude;
                     if (a.Visual != null) a.Visual.position = a.Position;
@@ -175,7 +189,7 @@ namespace Deepbound.Combat
                     {
                         done = true;
                         // Spent: an arrow or knife falls with a puff of dust; a bolt fizzles out (its burst, below).
-                        if (a.Visual != null && a.Burst.a <= 0f) Art.Vfx.Embers(a.Position, 3, new Color(0.6f, 0.55f, 0.48f), 1.2f, 0.03f, 0.4f);
+                        if (a.Visual != null && a.Burst.a <= 0f && !a.Quiet) Art.Vfx.Embers(a.Position, 3, new Color(0.6f, 0.55f, 0.48f), 1.2f, 0.03f, 0.4f);
                     }
                 }
 
@@ -228,6 +242,35 @@ namespace Deepbound.Combat
             return false;
         }
 
+        private static void TryGraze(ref Arrow a, Vector3 from, Vector3 to)
+        {
+            foreach (var h in Health.All)
+            {
+                if (h == null || h.Team != Team.Players || !h.IsAlive) continue;
+                if (!h.SegmentTouchesBody(from, to, GrazeRadius)) continue;
+                a.Grazed = true;
+                if (h.TryGetComponent<Progression.PlayerProgress>(out var p)) p.ServerGraze(to);
+                return;
+            }
+        }
+
+        /// <summary>A soul note (the Bone Piper's): a pale bright core in a soft halo. No light of its own: there are dozens.</summary>
+        private static Transform BuildSoul(Vector3 origin, Vector3 direction)
+        {
+            var color = BoltColor(ProjectileKind.Soul);
+            var root = new GameObject("Soul").transform;
+            root.SetPositionAndRotation(origin, Quaternion.LookRotation(direction));
+            var core = MeshKit.Part(root, "Core", MeshKit.Ball(0.1f, 8, 6), Mat.Glow, Vector3.zero);
+            ArtLibrary.SetGlow(core.GetComponent<Renderer>(), Color.Lerp(color, Color.white, 0.45f) * 2.1f);
+            var halo = MeshKit.Part(root, "Halo", MeshKit.Ball(0.2f, 10, 7), Mat.Smoke, Vector3.zero);
+            ArtLibrary.Tint(halo.GetComponent<Renderer>(), new Color(color.r, color.g, color.b, 0.32f));
+            var tail = MeshKit.Part(root, "Tail", MeshKit.Lathe("soulTail", new[] { new Vector2(0f, 0f), new Vector2(0.06f, 0.06f), new Vector2(0f, 0.42f) }, 6, false),
+                Mat.Glow, new Vector3(0f, 0f, -0.04f), new Vector3(-90f, 0f, 0f));
+            ArtLibrary.SetGlow(tail.GetComponent<Renderer>(), color * 1.1f);
+            foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            return root;
+        }
+
         private static float DistanceToSegment(Vector3 p, Vector3 a, Vector3 b)
         {
             var ab = b - a;
@@ -238,7 +281,7 @@ namespace Deepbound.Combat
         /// <summary>A spell bolt: a glowing core, a lit halo and a trailing tail.</summary>
         private static Transform BuildBolt(Vector3 origin, Vector3 direction, ProjectileKind kind)
         {
-            bool fire = kind == ProjectileKind.Firebolt || kind == ProjectileKind.ShadowBolt || kind == ProjectileKind.Smite || kind == ProjectileKind.Spit || kind == ProjectileKind.Vial || kind == ProjectileKind.Tonic;
+            bool fire = kind == ProjectileKind.Firebolt || kind == ProjectileKind.ShadowBolt || kind == ProjectileKind.Smite || kind == ProjectileKind.Spit || kind == ProjectileKind.Vial || kind == ProjectileKind.Tonic || kind == ProjectileKind.Seedpod;
             var color = BoltColor(kind);
 
             var root = new GameObject(kind.ToString()).transform;
@@ -259,6 +302,7 @@ namespace Deepbound.Combat
             light.color = color;
             light.range = 5f;
             light.intensity = 3f;
+            if (kind == ProjectileKind.Seedpod) root.localScale = Vector3.one * 2.2f;
             var fx = root.gameObject.AddComponent<Art.BoltFx>();
             fx.Color = color;
             fx.Core = core.transform;
@@ -269,7 +313,8 @@ namespace Deepbound.Combat
         public static Color BoltColor(ProjectileKind kind)
         {
             bool fire = kind == ProjectileKind.Firebolt || kind == ProjectileKind.ShadowBolt || kind == ProjectileKind.Smite || kind == ProjectileKind.Spit;
-            return kind == ProjectileKind.Spit ? new Color(0.45f, 0.85f, 0.15f)
+            return kind == ProjectileKind.Soul || kind == ProjectileKind.Seedpod ? new Color(0.4f, 1f, 0.9f)
+                : kind == ProjectileKind.Spit ? new Color(0.45f, 0.85f, 0.15f)
                 : kind == ProjectileKind.Vial ? new Color(0.55f, 1f, 0.35f)
                 : kind == ProjectileKind.Tonic ? new Color(1f, 0.5f, 0.6f)
                 : kind == ProjectileKind.Smite ? new Color(1f, 0.85f, 0.4f)

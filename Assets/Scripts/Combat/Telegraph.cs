@@ -28,11 +28,16 @@ namespace Deepbound.Combat
         private Color color;
 
         /// <summary>Friendly area effects (a Mage's Meteor) are blue, so players do not dodge their own team's spells.</summary>
-        public static readonly Color Friendly = new Color(0.25f, 0.6f, 1f, 0.4f);
-        public static readonly Color Harm = new Color(1f, 0.15f, 0.05f, 0.4f);
-        public static readonly Color Frost = new Color(0.45f, 0.8f, 1f, 0.4f);
-        public static readonly Color Poison = new Color(0.45f, 0.95f, 0.2f, 0.4f);
-        public static readonly Color Madness = new Color(0.8f, 0.3f, 1f, 0.4f);
+        // Toned down 2026-10-21 (the user: "enemy AoE is way too visible ... the player should see it but
+        // not only it"): fainter zones and fills, a dimmer rim and sweep, a softer landing flash. The rim
+        // still beats faster and blinks just before the hit, so the timing reads as clearly as before.
+        public static readonly Color Friendly = new Color(0.25f, 0.6f, 1f, 0.24f);
+        public static readonly Color Harm = new Color(1f, 0.15f, 0.05f, 0.24f);
+        public static readonly Color Frost = new Color(0.45f, 0.8f, 1f, 0.24f);
+        public static readonly Color Poison = new Color(0.45f, 0.95f, 0.2f, 0.24f);
+        public static readonly Color Madness = new Color(0.8f, 0.3f, 1f, 0.24f);
+        /// <summary>How bright rims, sweeps and the landing flash are (1 = the old, loud look).</summary>
+        public const float Glow = 0.5f;
 
         private static Mesh disc, ring, strip, coneFan, coneEdge;
         private static Mesh Disc => disc ??= GridDisc(6, 48);
@@ -103,7 +108,7 @@ namespace Deepbound.Combat
             // The rim, plus faint inner rings so a big circle still reads as a circle from inside it.
             t.rim = MeshKit.Part(t.transform, "Edge", Ring, Mat.Glow, Vector3.zero, Vector3.zero, new Vector3(radius, 1f, radius)).GetComponent<Renderer>();
             var inner = MeshKit.Part(t.transform, "Inner", Ring, Mat.Glow, Vector3.up * 0.002f, Vector3.zero, new Vector3(radius * 0.5f, 1f, radius * 0.5f)).GetComponent<Renderer>();
-            ArtLibrary.SetGlow(inner, (Color)t.Rgb * 0.6f);
+            ArtLibrary.SetGlow(inner, (Color)t.Rgb * 0.6f * Glow);
             t.fill = MeshKit.Part(t.transform, "Fill", Disc, Mat.Telegraph, Vector3.up * 0.01f, Vector3.zero, Vector3.zero).transform;
             t.sweep = MeshKit.Part(t.transform, "Sweep", Ring, Mat.Glow, Vector3.up * 0.015f, Vector3.zero, Vector3.zero).transform;
             t.Finish();
@@ -132,7 +137,7 @@ namespace Deepbound.Combat
                 foreach (float s in new[] { -1f, 1f })
                 {
                     var c = MeshKit.Part(t.transform, "Chevron", Strip, Mat.Glow, new Vector3(s * width * 0.18f, 0.004f, z), new Vector3(0f, s * -35f, 0f), new Vector3(0.06f, 1f, width * 0.42f)).GetComponent<Renderer>();
-                    ArtLibrary.SetGlow(c, (Color)t.Rgb * 0.7f);
+                    ArtLibrary.SetGlow(c, (Color)t.Rgb * 0.7f * Glow);
                 }
             t.fill = MeshKit.Part(t.transform, "Fill", Strip, Mat.Telegraph, new Vector3(0f, 0.01f, 0f), Vector3.zero, Vector3.zero).transform;
             t.sweep = MeshKit.Part(t.transform, "Sweep", Strip, Mat.Glow, new Vector3(0f, 0.015f, 0f), Vector3.zero, new Vector3(width, 1f, 0.12f)).transform;
@@ -271,9 +276,9 @@ namespace Deepbound.Combat
         {
             SampleField();
             if (field != null) foreach (var r in GetComponentsInChildren<Renderer>()) Conform(r);
-            if (zone != null) ArtLibrary.Tint(zone, new Color(color.r, color.g, color.b, color.a * 0.55f));
-            ArtLibrary.Tint(fill.GetComponent<Renderer>(), new Color(color.r, color.g, color.b, Mathf.Min(0.75f, color.a * 1.4f)));
-            ArtLibrary.SetGlow(sweep.GetComponent<Renderer>(), Rgb * 3.2f);
+            if (zone != null) ArtLibrary.Tint(zone, new Color(color.r, color.g, color.b, color.a * 0.5f));
+            ArtLibrary.Tint(fill.GetComponent<Renderer>(), new Color(color.r, color.g, color.b, Mathf.Min(0.42f, color.a * 1.35f)));
+            ArtLibrary.SetGlow(sweep.GetComponent<Renderer>(), Rgb * 3.2f * Glow);
             foreach (var r in GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             if (source != null) BySource[source] = this;
             Update();
@@ -307,8 +312,8 @@ namespace Deepbound.Combat
             // The rim beats faster as the hit nears, then blinks white.
             float rate = Mathf.Lerp(3f, 16f, k);
             float pulse = 0.6f + 0.4f * Mathf.Sin((Time.time - start) * rate);
-            var c = k > 0.82f && Mathf.Repeat((Time.time - start) * 14f, 1f) < 0.5f ? Color.Lerp(Rgb, Color.white, 0.75f) : Rgb;
-            var glow = c * (2.2f + 1.6f * pulse);
+            var c = k > 0.82f && Mathf.Repeat((Time.time - start) * 14f, 1f) < 0.5f ? Color.Lerp(Rgb, Color.white, 0.6f) : Rgb;
+            var glow = c * (2.2f + 1.6f * pulse) * Glow * (0.85f + 0.3f * k);
             if (rim != null) ArtLibrary.SetGlow(rim, glow);
             if (rims != null) foreach (var r in rims) ArtLibrary.SetGlow(r, glow);
 
@@ -328,14 +333,14 @@ namespace Deepbound.Combat
             switch (shape)
             {
                 case Shape.Circle:
-                    Vfx.Ring(p, radius, Rgb, 0.3f);
-                    Vfx.Flash(p + Vector3.up * 0.3f, Rgb, 3f, Mathf.Min(12f, radius * 1.8f), 0.18f);
+                    Vfx.Ring(p, radius, Rgb * 0.7f, 0.3f);
+                    Vfx.Flash(p + Vector3.up * 0.3f, Rgb, 3f * Glow, Mathf.Min(9f, radius * 1.4f), 0.15f);
                     break;
                 case Shape.Line:
-                    for (float z = lineLength * 0.25f; z <= lineLength; z += Mathf.Max(3f, lineLength * 0.5f)) Vfx.Flash(p + transform.forward * z + Vector3.up * 0.3f, Rgb, 2.5f, 4f, 0.15f);
+                    for (float z = lineLength * 0.25f; z <= lineLength; z += Mathf.Max(3f, lineLength * 0.5f)) Vfx.Flash(p + transform.forward * z + Vector3.up * 0.3f, Rgb, 2.5f * Glow, 3.5f, 0.12f);
                     break;
                 case Shape.Cone:
-                    Vfx.Flash(p + transform.forward * radius * 0.5f + Vector3.up * 0.3f, Rgb, 2.5f, radius * 1.4f, 0.15f);
+                    Vfx.Flash(p + transform.forward * radius * 0.5f + Vector3.up * 0.3f, Rgb, 2.5f * Glow, radius * 1.1f, 0.12f);
                     break;
             }
         }

@@ -3,7 +3,7 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak, Heartbeat, KillTick, Creak, Toll, Cleared }
+    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak, Heartbeat, KillTick, Creak, Toll, Cleared, Pipe, Graze }
 
     /// <summary>
     /// Every sound in the game, synthesised at startup. Like the art, nothing is
@@ -90,6 +90,8 @@ namespace Deepbound.Art
                 case Sound.KillTick: data = Mix(Clang(0.18f, new[] { 1760f, 2637f }), Burst(0.03f, 0.3f)); break;
                 case Sound.Toll: data = Toll(3.6f, 98f); break;
                 case Sound.Cleared: data = Mix(Chime(0.7f, new[] { 659f, 988f }), Delay(Chime(0.6f, new[] { 1318f }), 0.09f), Clang(0.25f, new[] { 2637f })); break;
+                case Sound.Pipe: data = Pipe(0.42f, 587f); break;
+                case Sound.Graze: data = Mix(Chime(0.12f, new[] { 3136f }), Whoosh(0.1f, 5000f, 2500f)); break;
                 default: data = new float[Rate / 10]; break;
             }
 
@@ -324,6 +326,23 @@ namespace Deepbound.Art
                 float t = (float)(i - off) / (d.Length - off);
                 phase += 2f * Mathf.PI * Mathf.Lerp(260f, 140f, t) / Rate;
                 d[i] = Mathf.Sin(phase) * Mathf.Sin(t * Mathf.PI) * 0.7f;
+            }
+            return d;
+        }
+
+        /// <summary>A breathy reed note: a few harmonics with vibrato over a little filtered breath.</summary>
+        private static float[] Pipe(float seconds, float hz)
+        {
+            var d = new float[(int)(seconds * Rate)];
+            float phase = 0f, lp = 0f;
+            for (int i = 0; i < d.Length; i++)
+            {
+                float t = (float)i / Rate;
+                float env = Mathf.Min(1f, t / 0.03f) * Mathf.Clamp01((seconds - t) / 0.18f);
+                phase += 2f * Mathf.PI * hz * (1f + 0.006f * Mathf.Sin(2f * Mathf.PI * 5.5f * t)) / Rate;
+                float tone = Mathf.Sin(phase) + 0.35f * Mathf.Sin(2f * phase) + 0.18f * Mathf.Sin(3f * phase) + 0.08f * Mathf.Sin(5f * phase);
+                lp += (N() - lp) * 0.25f;
+                d[i] = env * (tone * 0.55f + lp * 0.25f);
             }
             return d;
         }
