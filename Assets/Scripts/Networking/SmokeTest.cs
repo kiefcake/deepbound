@@ -609,6 +609,9 @@ namespace Deepbound.Networking
                     var ph = local.GetComponent<Health>();
                     if (pouch != null)
                     {
+                        // No stray blow may land while it mends (that read as a weak potion).
+                        System.Func<float, Vector3, float> potionWard = (d, f) => 0f;
+                        ph.IncomingModifiers.Insert(0, potionWard);
                         ph.ServerSetFraction(0.4f);
                         yield return new WaitForSeconds(1.5f);
                         bool noRegen = ph.Fraction <= 0.401f;
@@ -619,6 +622,7 @@ namespace Deepbound.Networking
                         float after = ph.Fraction;
                         Log("potion pouch", "no regen " + noRegen + ", capped at " + pouch.Count(Flasks.Kind.Health) + "+1, hp 40% -> " + Mathf.RoundToInt(after * 100f) + "%",
                             noRegen && capped && after >= 0.8f && pouch.Count(Flasks.Kind.Health) == Flasks.Max - 1);
+                        ph.IncomingModifiers.Remove(potionWard);
                         ph.ServerSetFraction(1f);
                     }
                 }
