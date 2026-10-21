@@ -241,6 +241,9 @@ secret:
 4. **The cat.** It goes down the shaft at night. It comes back.
 5. **The Last Morning.** Cathedra was certain it would come. It has not. Every guardian, in its
    way, is waiting for it. What happens when the party is the one that brings it?
+   (Answered 2026-10-20, the victory epilogue in `UI/RunSummary.EpilogueLines`: with the Unsung
+   fallen there is no song beneath Cathedra, the bones lie still, the Hollow King bows, and a grey
+   light climbs the walls of Ravenhold. The party brought it.)
 
 ---
 

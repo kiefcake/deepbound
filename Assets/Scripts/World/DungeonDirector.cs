@@ -98,7 +98,7 @@ namespace Deepbound.World
             Art.Sfx.Play2D(Art.Sound.Summon, 0.5f);
         }
         // Long enough to read the run summary before returning to camp.
-        private const float DescendDelay = 8f, WipeDelay = 14f, CompleteDelay = 18f, BoardingDelay = 3f;
+        private const float DescendDelay = 8f, WipeDelay = 14f, CompleteDelay = 32f, BoardingDelay = 3f;
         private const int LobbyDepth = -1;
 
         [SerializeField] private NetworkObject skeletonPrefab;

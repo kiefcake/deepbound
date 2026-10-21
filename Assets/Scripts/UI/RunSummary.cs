@@ -20,12 +20,15 @@ namespace Deepbound.UI
         private void OnGUI()
         {
             UiSkin.Apply();
+            if (DebugEpilogueAt >= 0f) { GUI.depth = -6; DrawEpilogue(Screen.width, Screen.height, DebugEpilogueAt); return; }
             var d = DungeonDirector.Instance;
             if (d == null || (d.Phase.Value != RunPhase.Wiped && d.Phase.Value != RunPhase.RunComplete)) return;
             float w = Screen.width, h = Screen.height;
             GUI.depth = -5;
 
             bool won = d.Phase.Value == RunPhase.RunComplete;
+            // A victory opens on the epilogue: the Last Morning, over black, before the table.
+            if (won && DrawEpilogue(Screen.width, Screen.height, (float)(NetworkManager.Singleton.ServerTime.Time - d.RunEndedAt.Value))) return;
             int floor = Mathf.Max(0, d.Floor.Value.y) + 1;
             double seconds = d.RunEndedAt.Value - d.RunStartedAt.Value;
             string time = seconds > 0 ? ((int)(seconds / 60)).ToString() + "m " + ((int)(seconds % 60)).ToString("00") + "s" : "-";
@@ -120,6 +123,55 @@ namespace Deepbound.UI
         }
 
         /// <summary>The camp's verdict on your run, in one line, from the most notable thing you did.</summary>
+        /// <summary>The ending (2026-10-20): the lore's open thread answered. The party brought the Last Morning.</summary>
+        public static readonly string[] EpilogueLines =
+        {
+            "The Unsung falls, and for the first time in four hundred years there is no song beneath Cathedra.",
+            "In the Ossuary the restless bones lie still. In the drowned vaults the water runs clear.",
+            "On the Empty Throne the Hollow King lowers his head, and does not lift it again.",
+            "Up the shaft, past the grave lift's chains, a grey light is climbing the walls of Ravenhold.",
+            "It is morning. The Last Morning. You brought it.",
+        };
+
+        public const float EpilogueSeconds = 14f;
+
+        /// <summary>For the screenshot run: draw the epilogue at this time (seconds in), -1 off.</summary>
+        public static float DebugEpilogueAt = -1f;
+
+        /// <summary>True while the epilogue holds the screen.</summary>
+        private static bool DrawEpilogue(float w, float h, float t)
+        {
+            if (t < 0f || t > EpilogueSeconds) return false;
+            UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, Mathf.Clamp01(t * 1.5f)));
+            // Dawn: a pale band rising at the bottom as the lines go by.
+            float dawn = Mathf.Clamp01((t - 7f) / 6f);
+            // Soft, in strips that fade upward, warmest at the horizon.
+            const int strips = 24;
+            float band = h * 0.45f * dawn;
+            for (int i = 0; i < strips; i++)
+            {
+                float k = (i + 1f) / strips;
+                UiSkin.Rect(new Rect(0, h - band * k, w, band / strips + 1f), new Color(0.62f, 0.52f, 0.4f, 0.22f * dawn * (1f - k) * (1f - k)));
+            }
+            var style = new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, wordWrap = true, fontSize = 20, fontStyle = FontStyle.Italic };
+            float y = h * 0.28f;
+            for (int i = 0; i < EpilogueLines.Length; i++)
+            {
+                float a = Mathf.Clamp01((t - 0.8f - i * 1.9f) / 1.2f);
+                if (a <= 0f) break;
+                bool last = i == EpilogueLines.Length - 1;
+                var c = last ? new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, a) : new Color(0.88f, 0.84f, 0.76f, a);
+                GUI.Label(new Rect(w * 0.15f, y + i * 44f, w * 0.7f, 40), EpilogueLines[i], new GUIStyle(style) { normal = { textColor = c }, fontStyle = last ? FontStyle.BoldAndItalic : FontStyle.Italic });
+            }
+            float title = Mathf.Clamp01((t - 11f) / 1.5f);
+            if (title > 0f)
+            {
+                UiSkin.Shadowed(new Rect(0, h * 0.72f, w, 60), "DEEPBOUND", new GUIStyle(UiSkin.Title) { fontSize = 46, normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, title) } });
+                GUI.Label(new Rect(0, h * 0.72f + 62, w, 24), "Thank you for playing.", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 15, normal = { textColor = new Color(0.85f, 0.8f, 0.72f, title) } });
+            }
+            return true;
+        }
+
         private static string Epitaph(PlayerProgress me, bool won, int floor)
         {
             string name = me.name;
