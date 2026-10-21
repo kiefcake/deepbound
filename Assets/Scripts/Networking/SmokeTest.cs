@@ -1331,6 +1331,8 @@ namespace Deepbound.Networking
                                 yield return new WaitForSeconds(0.3f);
                                 var hp9 = local.GetComponent<Health>();
                                 hp9.ServerSetFraction(1f);
+                                // It drifts while it waits: put it back on the clear spot right before it locks on.
+                                eyeB.ServerDebugPlace(eyeAt);
                                 eyeB.ServerLockOn(hp9);
                                 for (float t = 0f; t < 2.5f && eyeB.BeamsFired == 0; t += 0.1f) { hp9.ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
                                 float onLine = eyeB.LastBeamDealt;

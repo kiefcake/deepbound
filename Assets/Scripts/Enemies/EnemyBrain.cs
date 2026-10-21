@@ -178,6 +178,7 @@ namespace Deepbound.Enemies
         {
             if (!All.Contains(this)) All.Add(this);
             gameObject.AddComponent<StunDaze>().Init(this);
+            if (!IsBoss) gameObject.AddComponent<EnemyMurmur>().Init(this);
             CharacterArt.SkeletonVariant = (int)((NetworkObjectId * 2654435761UL) & 0x7FFFFFFF);
             Rig = CharacterArt.BuildSkeleton(transform, visualKind);
             if (Rig != null)
