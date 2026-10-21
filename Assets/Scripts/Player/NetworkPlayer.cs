@@ -57,6 +57,8 @@ namespace Deepbound.Player
         public readonly NetworkVariable<byte> Aura = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         /// <summary>Heraldry: the colour that replaces the party colour on your tabard, plume, sash... (cosmetic, owner-written).</summary>
         public readonly NetworkVariable<byte> Heraldry = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        /// <summary>The pattern sewn on your cloak (<see cref="Cosmetics.Patterns"/>; cosmetic, owner-written).</summary>
+        public readonly NetworkVariable<byte> Pattern = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
         /// <summary>The colour your body and hands are dressed in: your heraldry, else your party colour.</summary>
         public Color DressColor => Cosmetics.HeraldryColor(Heraldry.Value) ?? SlotColor;
@@ -104,11 +106,13 @@ namespace Deepbound.Player
             progress.ClassId.OnValueChanged += (_, __) => BuildVisuals();
             CloakDye.OnValueChanged += (_, __) => BuildVisuals();
             Heraldry.OnValueChanged += (_, __) => BuildVisuals();
+            Pattern.OnValueChanged += (_, __) => BuildVisuals();
             if (IsOwner)
             {
                 CloakDye.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Cloak);
                 Aura.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Aura);
                 Heraldry.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Heraldry);
+                Pattern.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Pattern);
             }
             progress.WeaponLevel.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket0.OnValueChanged += (_, __) => RefreshWeaponGlow();
@@ -155,7 +159,7 @@ namespace Deepbound.Player
 
             var cls = progress.ClassId.Value;
             bool mage = cls == ClassId.Mage, cleric = cls == ClassId.Cleric, rogue = cls == ClassId.Rogue, ranger = cls == ClassId.Ranger;
-            Rig = BuildBody(cls, transform, DressColor, CloakDye.Value);
+            Rig = BuildBody(cls, transform, DressColor, CloakDye.Value, Pattern.Value);
             MeshKit.MergeRig(Rig);
 
             if (!IsOwner)
@@ -236,11 +240,12 @@ namespace Deepbound.Player
         }
 
         /// <summary>A class's third-person body, in a cloak dye (also used by the tailor's mannequin).</summary>
-        public static HumanoidRig BuildBody(ClassId cls, Transform root, Color slot, int dye)
+        public static HumanoidRig BuildBody(ClassId cls, Transform root, Color slot, int dye, int pattern = 0)
         {
             var d = Cosmetics.Get(dye);
             GothicKit.CloakOverride = d?.Cloak;
             GothicKit.TrimOverride = d?.Trim;
+            GothicKit.PatternOverride = Cosmetics.PatternOf(pattern);
             try
             {
                 return cls == ClassId.Mage ? CharacterArt.BuildMage(root, slot)
@@ -255,6 +260,7 @@ namespace Deepbound.Player
             {
                 GothicKit.CloakOverride = null;
                 GothicKit.TrimOverride = null;
+                GothicKit.PatternOverride = null;
             }
         }
 

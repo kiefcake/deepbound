@@ -624,14 +624,20 @@ namespace Deepbound.UI
             cy += 22;
             string hoverText = null;
             bool party = PlayerLife.All.Count > 1;
-            for (int i = 0; i < progress.RelicCount && cy < py + ph - (party ? 150 : 20); i++)
+            // Two columns once the list grows (a long run gathers a lot), hover for what each does.
+            int relCols = progress.RelicCount > 8 ? 2 : 1;
+            float relColW = 300f / relCols, relTop = cy;
+            int relRows = (progress.RelicCount + relCols - 1) / relCols;
+            for (int i = 0; i < progress.RelicCount; i++)
             {
                 var rel = progress.RelicAt(i);
-                var rr = new Rect(cx, cy, 300, 18);
-                GUI.Label(rr, Relics.Name(rel), new GUIStyle(small) { normal = { textColor = rr.Contains(mouse) ? Color.white : new Color(0.85f, 0.8f, 0.7f) } });
+                float rcy = relTop + (i % relRows) * 18;
+                if (rcy > py + ph - (party ? 150 : 20)) continue;
+                var rr = new Rect(cx + (i / relRows) * relColW, rcy, relColW - 4, 18);
+                GUI.Label(rr, Relics.Name(rel), new GUIStyle(small) { wordWrap = false, clipping = TextClipping.Clip, normal = { textColor = rr.Contains(mouse) ? Color.white : Relics.GemColor(rel) } });
                 if (rr.Contains(mouse)) hoverText = Relics.Name(rel) + ": " + Relics.Describe(rel);
-                cy += 18;
             }
+            cy = relTop + relRows * 18;
 
             // ---- The party purse: give gold, or even it out ----
             if (party)
@@ -2165,93 +2171,130 @@ namespace Deepbound.UI
         }
 
         // ---- Ysolde the runewright (G at the standing stones): ability ranks, runes, melding ----
+        private int runeSocketPick = -1;
+        private Vector2 runeScroll;
+
+        /// <summary>
+        /// Ysolde's stones (rebuilt 2026-10-21 after the user's screenshot: a big rune bag spilled far out of
+        /// the panel). Left: the two abilities and the weapon's sockets (click one to choose where the next
+        /// rune goes). Right: ONE row per kind of rune you hold (not one button per rune), with its count,
+        /// what it does, what the next tier would do, and Set / Meld, in a scrolling list that never leaves
+        /// the panel.
+        /// </summary>
         private void DrawRunewright(float w, float h)
         {
             if (!runeOpen) return;
             var id = progress.ClassId.Value;
             int level = progress.WeaponLevel.Value;
-            float pw = 900, ph = 520;
-            float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
+            float pw = Mathf.Min(1060f, w - 60f), ph = Mathf.Min(680f, h - 120f);
+            float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f - 20f;
             var blue = new Color(0.45f, 0.85f, 1f);
-            Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(blue.r, blue.g, blue.b, 0.45f));
-            Rect(x, y, pw, ph, new Color(0.03f, 0.04f, 0.06f, 0.95f));
-            GUI.Label(new Rect(x + 16, y + 12, pw, 24), "YSOLDE'S STONES", new GUIStyle(label) { normal = { textColor = blue } });
-            if (GUI.Button(new Rect(x + 230, y + 10, 190, 24), "Buy a Sigil (her wares)")) { runeOpen = false; shopOpen = true; shopVendor = Shop.Vendor.Runewright; }
-            GUI.Label(new Rect(x + pw - 300, y + 12, 284, 24), progress.Sigils.Value + " sigils    " + progress.Embers.Value + " embers", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = blue } });
-            const float leftW = 440f;
-            // Left: abilities (Sigils). Right: runes in the weapon, the bag, and melding.
-            float rx = x + 16, rw = leftW - 32;
-            float ay = y + 44;
-            GUI.Label(new Rect(rx, ay, rw, 20), "ABILITIES  -  Sigils empower a rank (up to 8)", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = LootInfo.SigilColor } });
+            UiSkin.Panel(new Rect(x - 4, y - 4, pw + 8, ph + 8), 0.97f);
+            Rect(x, y, pw, 3, new Color(blue.r, blue.g, blue.b, 0.8f));
+            var head = new GUIStyle(label) { fontSize = 20, fontStyle = FontStyle.Bold, normal = { textColor = blue } };
+            var section = new GUIStyle(small) { fontSize = 13, fontStyle = FontStyle.Bold, wordWrap = false };
+            var body = new GUIStyle(small) { fontSize = 13, wordWrap = true };
+            GUI.Label(new Rect(x + 20, y + 14, 300, 28), "YSOLDE'S STONES", head);
+            GUI.Label(new Rect(x + pw - 340, y + 16, 320, 24), progress.Sigils.Value + " sigils      " + progress.Embers.Value + " embers",
+                new GUIStyle(label) { fontSize = 16, alignment = TextAnchor.MiddleRight, normal = { textColor = blue } });
+            if (GUI.Button(new Rect(x + pw - 540, y + 14, 180, 28), "Buy a Sigil")) { runeOpen = false; shopOpen = true; shopVendor = Shop.Vendor.Runewright; }
+
+            float leftW = Mathf.Round(pw * 0.42f);
+            float lx = x + 20, lw = leftW - 32, ly = y + 58;
+
+            // ---- Abilities ----
+            GUI.Label(new Rect(lx, ly, lw, 20), "ABILITIES  -  a Sigil raises a rank (up to " + AbilityRanks.MaxRank + ")", new GUIStyle(section) { normal = { textColor = LootInfo.SigilColor } });
+            ly += 26;
             foreach (var slot in new[] { AbilitySlot.Q, AbilitySlot.E })
             {
-                float ry = ay + 22 + (int)slot * 88;
                 int rank = progress.Rank(slot);
-                GUI.Label(new Rect(rx, ry, rw - AbilityRanks.MaxRank * 13 - 8, 22), slot + "  " + ClassDefinition.AbilityName(id, slot), label);
+                var card = new Rect(lx, ly, lw, 104);
+                Rect(card.x, card.y, card.width, card.height, new Color(1f, 1f, 1f, 0.04f));
+                GUI.Label(new Rect(card.x + 12, card.y + 8, lw - 150, 22), Binds.Live(slot == AbilitySlot.Q ? Bind.AbilityQ : Bind.AbilityE) + "   " + ClassDefinition.AbilityName(id, slot),
+                    new GUIStyle(label) { fontSize = 16, fontStyle = FontStyle.Bold });
                 for (int r = 0; r < AbilityRanks.MaxRank; r++)
-                    Rect(rx + rw - AbilityRanks.MaxRank * 13 + r * 13, ry + 6, 10, 12, r < rank ? LootInfo.SigilColor : new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.2f));
-                string nextText = AbilityRanks.NextRank(id, slot, rank);
-                GUI.Label(new Rect(rx, ry + 21, rw, 34), nextText, new GUIStyle(small) { wordWrap = true });
+                    Rect(card.xMax - 12 - (AbilityRanks.MaxRank - r) * 14, card.y + 13, 10, 12, r < rank ? LootInfo.SigilColor : new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.2f));
+                GUI.Label(new Rect(card.x + 12, card.y + 34, lw - 24, 36), AbilityRanks.NextRank(id, slot, rank), body);
                 int sigilCost = AbilityRanks.SigilCost(rank);
-                GUI.enabled = rank < AbilityRanks.MaxRank && progress.Sigils.Value >= sigilCost;
-                if (GUI.Button(new Rect(rx, ry + 56, rw, 24), rank >= AbilityRanks.MaxRank ? "Max rank" : progress.Sigils.Value >= sigilCost ? "Empower  (" + sigilCost + (sigilCost == 1 ? " sigil)" : " sigils)") : "Needs " + sigilCost + (sigilCost == 1 ? " Sigil" : " Sigils")))
+                bool maxed = rank >= AbilityRanks.MaxRank;
+                GUI.enabled = !maxed && progress.Sigils.Value >= sigilCost;
+                if (GUI.Button(new Rect(card.x + 12, card.yMax - 32, lw - 24, 26), maxed ? "Mastered" : progress.Sigils.Value >= sigilCost ? "Empower  (" + sigilCost + (sigilCost == 1 ? " sigil)" : " sigils)") : "Needs " + sigilCost + (sigilCost == 1 ? " Sigil" : " Sigils")))
                     progress.EmpowerRpc((byte)slot);
                 GUI.enabled = true;
+                ly += 112;
             }
-
             if (progress.Rank(AbilitySlot.Q) >= AbilityRanks.MaxRank && progress.Rank(AbilitySlot.E) >= AbilityRanks.MaxRank && progress.Sigils.Value > 0)
             {
-                // Both abilities maxed: a spare Sigil is still worth something.
-                if (GUI.Button(new Rect(rx, ay + 22 + 2 * 88 - 6, rw, 22), "Melt a spare Sigil into 30 embers")) progress.MeltSigilRpc();
-            }
-            float uy = ay + 22 + 2 * 88 + 18;
-            int sockets = Runes.SocketsAt(level);
-            GUI.Label(new Rect(rx, uy, rw, 20), "RUNES  -  sockets open at +1, +3 and +6", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
-            for (int sIdx = 0; sIdx < Runes.MaxSockets; sIdx++)
-            {
-                float sy = uy + 22 + sIdx * 34;
-                var r = progress.Socketed(sIdx);
-                bool open = sIdx < sockets;
-                Rect(rx, sy + 3, 10, 10, open ? (r == Rune.None ? new Color(1f, 1f, 1f, 0.25f) : Runes.Color(r)) : new Color(1f, 1f, 1f, 0.06f));
-                GUI.Label(new Rect(rx + 16, sy - 2, rw - 16, 18), open ? Runes.Name(r) : "Locked  (weapon +" + Runes.SocketLevels[sIdx] + ")",
-                    new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.5f) } });
-                if (open && r != Rune.None) GUI.Label(new Rect(rx + 16, sy + 14, rw - 16, 18), Runes.Describe(r), small);
-            }
-            float by = uy + 22 + Runes.MaxSockets * 34 + 2;
-            int bag = progress.RuneBagCount;
-            if (bag == 0) GUI.Label(new Rect(rx, by, rw, 18), "No unset runes. Elites and chests drop them.", small);
-            for (int i = 0; i < bag; i++)
-            {
-                var r = progress.RuneInBag(i);
-                var bx = rx + (i % 2) * (rw / 2f + 2);
-                var bRect = new Rect(bx, by + (i / 2) * 28, rw / 2f - 2, 24);
-                GUI.enabled = sockets > 0;
-                if (GUI.Button(bRect, new GUIContent("Set " + Runes.Name(r).Replace(" Rune", ""), Runes.Describe(r)))) progress.SocketRuneRpc((byte)r);
-                GUI.enabled = true;
+                if (GUI.Button(new Rect(lx, ly, lw, 26), "Melt a spare Sigil into 30 embers")) progress.MeltSigilRpc();
+                ly += 32;
             }
 
-            // Melding: three alike (kind and tier) become one of the next tier.
-            float mx = x + leftW + 10, mw = pw - leftW - 26, my = y + 44;
-            Rect(mx - 12, y + 40, 1, ph - 56, new Color(1f, 1f, 1f, 0.08f));
-            GUI.Label(new Rect(mx, my, mw, 20), "MELD  -  three of a rune become one of the next tier (II, III)", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = blue } });
-            var seenRunes = new System.Collections.Generic.HashSet<Rune>();
-            int rows = 0;
-            for (int i = 0; i < progress.RuneBagCount; i++)
+            // ---- Weapon sockets ----
+            ly += 6;
+            int sockets = Runes.SocketsAt(level);
+            GUI.Label(new Rect(lx, ly, lw, 20), "YOUR WEAPON  -  sockets open at +1, +3 and +6", new GUIStyle(section) { normal = { textColor = Gold } });
+            ly += 24;
+            if (runeSocketPick >= sockets) runeSocketPick = -1;
+            for (int sIdx = 0; sIdx < Runes.MaxSockets; sIdx++)
             {
-                var r = progress.RuneInBag(i);
-                if (!seenRunes.Add(r)) continue;
-                int have = progress.RuneCount(r), tier = Runes.Tier(r);
-                float ry2 = my + 24 + rows * 44;
-                rows++;
-                GUI.Label(new Rect(mx, ry2, mw - 150, 20), Runes.Name(r) + "  x" + have, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Runes.Color(r) } });
-                GUI.Label(new Rect(mx, ry2 + 18, mw - 150, 20), tier >= Runes.MaxTier ? "Already as strong as runes get." : "Next: " + Runes.Describe(Runes.Make(r, tier + 1)), new GUIStyle(small) { fontSize = 11, wordWrap = true });
-                int cost = Runes.MeldCost(tier);
-                GUI.enabled = tier < Runes.MaxTier && have >= 3 && progress.Embers.Value >= cost;
-                if (GUI.Button(new Rect(mx + mw - 146, ry2 + 4, 146, 26), tier >= Runes.MaxTier ? "Tier III" : have < 3 ? "Need 3 (" + have + ")" : "Meld  (" + cost + " embers)")) progress.MeldRunesRpc((byte)r);
-                GUI.enabled = true;
+                var r = progress.Socketed(sIdx);
+                bool open = sIdx < sockets;
+                var row = new Rect(lx, ly, lw, 46);
+                bool picked = open && runeSocketPick == sIdx;
+                Rect(row.x, row.y, row.width, row.height, new Color(1f, 1f, 1f, picked ? 0.12f : 0.04f));
+                if (picked) Rect(row.x, row.y, 3, row.height, Gold);
+                Rect(row.x + 12, row.y + 10, 12, 12, open ? (r == Rune.None ? new Color(1f, 1f, 1f, 0.25f) : Runes.Color(r)) : new Color(1f, 1f, 1f, 0.06f));
+                GUI.Label(new Rect(row.x + 32, row.y + 4, lw - 44, 20), open ? (r == Rune.None ? "Empty socket" : Runes.Name(r)) : "Locked  (weapon +" + Runes.SocketLevels[sIdx] + ")",
+                    new GUIStyle(label) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.55f) } });
+                string under = !open ? "" : r != Rune.None ? Runes.Describe(r) : picked ? "The next rune you set goes here." : "Click to choose this socket.";
+                GUI.Label(new Rect(row.x + 32, row.y + 23, lw - 44, 20), under, new GUIStyle(body) { wordWrap = false, clipping = TextClipping.Clip });
+                if (open && GUI.Button(row, GUIContent.none, GUIStyle.none)) runeSocketPick = picked ? -1 : sIdx;
+                ly += 50;
             }
-            if (rows == 0) GUI.Label(new Rect(mx, my + 24, mw, 40), "No runes in your bag. Elites and chests drop them; bring three alike.", new GUIStyle(small) { wordWrap = true });
-            if (!string.IsNullOrEmpty(GUI.tooltip)) GUI.Label(new Rect(x + 16, y + ph - 26, pw - 32, 20), GUI.tooltip, new GUIStyle(small) { normal = { textColor = Gold } });
+
+            // ---- The rune bag: one row per kind, set or meld from it ----
+            float rx = x + leftW + 8, rw = pw - leftW - 28, ry = y + 58;
+            Rect(rx - 14, y + 54, 1, ph - 70, new Color(1f, 1f, 1f, 0.08f));
+            GUI.Label(new Rect(rx, ry, rw, 20), "YOUR RUNES  -  SET one in your weapon, or MELD three alike into the next tier (II, III)", new GUIStyle(section) { normal = { textColor = blue } });
+            ry += 26;
+            var kinds = new System.Collections.Generic.List<Rune>();
+            for (int i = 0; i < progress.RuneBagCount; i++) { var r = progress.RuneInBag(i); if (!kinds.Contains(r)) kinds.Add(r); }
+            kinds.Sort((a, b) => Runes.Kind(a) != Runes.Kind(b) ? Runes.Kind(a).CompareTo(Runes.Kind(b)) : Runes.Tier(b).CompareTo(Runes.Tier(a)));
+            float rowH = 76f;
+            var view = new Rect(rx, ry, rw, y + ph - 46 - ry);
+            if (kinds.Count == 0)
+                GUI.Label(new Rect(rx, ry, rw, 40), "No runes in your bag. Elites and chests drop them; three alike meld into a stronger one.", body);
+            else
+            {
+                var content = new Rect(0, 0, rw - 18, kinds.Count * rowH);
+                runeScroll = GUI.BeginScrollView(view, runeScroll, content);
+                for (int k = 0; k < kinds.Count; k++)
+                {
+                    var r = kinds[k];
+                    int have = progress.RuneCount(r), tier = Runes.Tier(r);
+                    var row = new Rect(0, k * rowH, content.width, rowH - 6);
+                    Rect(row.x, row.y, row.width, row.height, new Color(1f, 1f, 1f, k % 2 == 0 ? 0.05f : 0.03f));
+                    Rect(row.x, row.y, 3, row.height, Runes.Color(r));
+                    float bw = 150f, textW = row.width - bw - 28;
+                    GUI.Label(new Rect(row.x + 14, row.y + 6, textW, 22), Runes.Name(r) + "   x" + have, new GUIStyle(label) { fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = Runes.Color(r) } });
+                    GUI.Label(new Rect(row.x + 14, row.y + 28, textW, 20), Runes.Describe(r), new GUIStyle(body) { wordWrap = false, clipping = TextClipping.Clip });
+                    GUI.Label(new Rect(row.x + 14, row.y + 47, textW, 20), tier >= Runes.MaxTier ? "As strong as runes get." : "Tier " + (tier == 0 ? "II" : "III") + ": " + Runes.Describe(Runes.Make(r, tier + 1)),
+                        new GUIStyle(body) { wordWrap = false, clipping = TextClipping.Clip, normal = { textColor = new Color(0.62f, 0.68f, 0.75f) } });
+                    float bx = row.xMax - bw - 8;
+                    GUI.enabled = sockets > 0;
+                    string setLabel = sockets == 0 ? "No socket yet" : runeSocketPick >= 0 ? "Set in socket " + (runeSocketPick + 1) : "Set";
+                    if (GUI.Button(new Rect(bx, row.y + 6, bw, 28), setLabel)) progress.SocketRuneRpc((byte)r, (sbyte)runeSocketPick);
+                    int cost = Runes.MeldCost(tier);
+                    GUI.enabled = tier < Runes.MaxTier && have >= 3 && progress.Embers.Value >= cost;
+                    string meld = tier >= Runes.MaxTier ? "Top tier" : have < 3 ? "Meld: need 3 (" + have + ")" : "Meld  (" + cost + " embers)";
+                    if (GUI.Button(new Rect(bx, row.y + 38, bw, 28), meld)) progress.MeldRunesRpc((byte)r);
+                    GUI.enabled = true;
+                }
+                GUI.EndScrollView();
+                if (content.height > view.height)
+                    GUI.Label(new Rect(rx, view.yMax + 2, rw, 18), kinds.Count + " kinds of rune  -  scroll for more", new GUIStyle(small) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Italic, normal = { textColor = blue } });
+            }
+            GUI.Label(new Rect(x + 20, y + ph - 26, pw - 40, 20), "G or Esc to close", new GUIStyle(small) { normal = { textColor = new Color(0.6f, 0.58f, 0.55f) } });
         }
 
         private void DrawMerchant(float w, float h)
@@ -2356,19 +2399,50 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>Owned relics as gem-coloured chips above the health bar.</summary>
+        /// <summary>
+        /// Owned relics as gem-coloured chips above the health bar (2026-10-21: at most eight, then "+N";
+        /// hover one, with the cursor free (Alt), for its name and what it does; Tab lists them all).
+        /// </summary>
         private void DrawRelicRow(float x, float y)
         {
-            for (int i = 0; i < progress.RelicCount; i++)
+            const int maxChips = 8;
+            int n = progress.RelicCount, shown = n > maxChips ? maxChips - 1 : n;
+            bool cursorFree = Cursor.lockState != CursorLockMode.Locked;
+            var mouse = Event.current.mousePosition;
+            int hover = -1;
+            for (int i = 0; i < shown; i++)
             {
                 var r = progress.RelicAt(i);
                 var c = Relics.GemColor(r);
                 float cx = x + i * 30;
-                Rect(cx - 1, y - 1, 26, 26, new Color(Gold.r, Gold.g, Gold.b, 0.8f));
-                Rect(cx, y, 24, 24, new Color(0.04f, 0.035f, 0.03f, 0.9f));
-                Rect(cx + 5, y + 5, 14, 14, c);
-                GUI.Label(new Rect(cx, y + 3, 24, 20), Relics.Name(r).Substring(0, 1), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold });
+                var chip = new Rect(cx, y, 24, 24);
+                if (cursorFree && chip.Contains(mouse)) hover = i;
+                Rect(cx - 1, y - 1, 26, 26, new Color(c.r, c.g, c.b, hover == i ? 1f : 0.7f));
+                Rect(cx, y, 24, 24, new Color(0.04f, 0.035f, 0.03f, 0.92f));
+                // A cut gem: a diamond of the relic's colour with a bright facet.
+                var keep = GUI.matrix;
+                GUIUtility.RotateAroundPivot(45f, chip.center);
+                Rect(chip.center.x - 6, chip.center.y - 6, 12, 12, c);
+                Rect(chip.center.x - 6, chip.center.y - 6, 5, 5, new Color(1f, 1f, 1f, 0.45f));
+                GUI.matrix = keep;
             }
+            if (n > shown)
+            {
+                float cx = x + shown * 30;
+                Rect(cx - 1, y - 1, 34, 26, new Color(Gold.r, Gold.g, Gold.b, 0.7f));
+                Rect(cx, y, 32, 24, new Color(0.04f, 0.035f, 0.03f, 0.92f));
+                GUI.Label(new Rect(cx, y + 2, 32, 20), "+" + (n - shown), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            }
+            if (hover < 0) return;
+            var hr = progress.RelicAt(hover);
+            var body = new GUIStyle(small) { wordWrap = true, fontSize = 13 };
+            const float tw = 300f;
+            float th = 34f + body.CalcHeight(new GUIContent(Relics.Describe(hr)), tw - 20f);
+            float tx = x + hover * 30, ty = y - th - 8f;
+            Rect(tx - 1, ty - 1, tw + 2, th + 2, new Color(Relics.GemColor(hr).r, Relics.GemColor(hr).g, Relics.GemColor(hr).b, 0.9f));
+            Rect(tx, ty, tw, th, new Color(0.04f, 0.035f, 0.03f, 0.96f));
+            GUI.Label(new Rect(tx + 10, ty + 6, tw - 20, 20), Relics.Name(hr).ToUpperInvariant(), new GUIStyle(small) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = Relics.GemColor(hr) } });
+            GUI.Label(new Rect(tx + 10, ty + 26, tw - 20, th - 28), Relics.Describe(hr), body);
         }
 
         private void DrawStatSheet(float w, float h)
@@ -2385,15 +2459,20 @@ namespace Deepbound.UI
             // Relics, with what they do, to the left of the stat sheet.
             if (progress.RelicCount > 0)
             {
-                float rw = 380, rh = 40 + progress.RelicCount * 34;
-                float rx = w - 300 - 24 - rw - 12, ry = h / 2f - rh / 2f;
+                // One column for a few, two when the run has gathered many (it must stay on screen).
+                int count = progress.RelicCount, cols = count > 9 ? 2 : 1, perCol = (count + cols - 1) / cols;
+                float colW = 380, rw = colW * cols, relRowH = Mathf.Min(34f, (h - 140f) / Mathf.Max(1, perCol));
+                float rh = 40 + perCol * relRowH;
+                float rx = w - 300 - 24 - rw - 12, ry = Mathf.Max(20f, h / 2f - rh / 2f);
                 Rect(rx, ry, rw, rh, Panel);
-                GUI.Label(new Rect(rx + 12, ry + 10, rw, 22), "RELICS", new GUIStyle(label) { normal = { textColor = Gold } });
-                for (int i = 0; i < progress.RelicCount; i++)
+                GUI.Label(new Rect(rx + 12, ry + 10, rw, 22), "RELICS  (" + count + ")", new GUIStyle(label) { normal = { textColor = Gold } });
+                var desc = new GUIStyle(small) { wordWrap = false, clipping = TextClipping.Clip };
+                for (int i = 0; i < count; i++)
                 {
                     var r = progress.RelicAt(i);
-                    GUI.Label(new Rect(rx + 12, ry + 36 + i * 34, rw, 20), Relics.Name(r), new GUIStyle(label) { normal = { textColor = Relics.GemColor(r) } });
-                    GUI.Label(new Rect(rx + 12, ry + 53 + i * 34, rw - 20, 18), Relics.Describe(r), small);
+                    float cx = rx + 12 + (i / perCol) * colW, cy = ry + 36 + (i % perCol) * relRowH;
+                    GUI.Label(new Rect(cx, cy, colW - 20, 20), Relics.Name(r), new GUIStyle(label) { fontSize = 14, normal = { textColor = Relics.GemColor(r) } });
+                    if (relRowH >= 30f) GUI.Label(new Rect(cx, cy + 17, colW - 24, 18), Relics.Describe(r), desc);
                 }
             }
 

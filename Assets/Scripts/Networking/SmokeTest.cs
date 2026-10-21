@@ -2148,6 +2148,14 @@ namespace Deepbound.Networking
                 Log("tailor dye", "dye " + npT.CloakDye.Value + ", rebuilt " + (npT.Rig != rigBefore) + ", cloak " + (cloakR != null) + ", renown for a clear " +
                     Progression.Cosmetics.RenownFor(4, 120, 30, true, 1), npT.Rig != rigBefore && cloakR != null && Progression.Cosmetics.RenownFor(4, 120, 30, true, 1) > 0);
                 npT.CloakDye.Value = 0;
+                // A pattern sews its motif on the cloak's back.
+                int patBefore = npT.Pattern.Value;
+                npT.Pattern.Value = 2;
+                yield return new WaitForSeconds(0.3f);
+                int patParts = npT.Rig != null ? npT.Rig.GetComponentsInChildren<Transform>(true).Count(t => t.name.StartsWith("Pattern")) : 0;
+                var mergedOk = npT.Rig != null && npT.Rig.GetComponentsInChildren<Renderer>().Length > 0;
+                Log("cloak pattern", "pattern " + Progression.Cosmetics.Patterns[npT.Pattern.Value].Name + ", motif pivots " + patParts, patParts >= 2 && mergedOk);
+                npT.Pattern.Value = (byte)patBefore;
                 npT.Aura.Value = 2;
                 yield return new WaitForSeconds(0.3f);
                 Log("tailor aura", "aura " + npT.Aura.Value + " (" + Progression.Cosmetics.Auras[npT.Aura.Value].Name + "), cardinal legendary " + Gear.Name(new GearItem(GearId.CardinalVestments, 3, 3)),
@@ -2564,7 +2572,40 @@ namespace Deepbound.Networking
             local.GetComponent<UI.Wardrobe>().DebugOpen(true);
             yield return null;
             yield return Shot(dir, "1c_tailor_panel");
+            local.GetComponent<UI.Wardrobe>().DebugTab(Progression.Cosmetics.Kind.Pattern);
+            local.GetComponent<NetworkPlayer>().Pattern.Value = 2;
+            yield return new WaitForSeconds(1.2f);
+            yield return Shot(dir, "1c_tailor_patterns");
+            local.GetComponent<UI.Wardrobe>().DebugTab(Progression.Cosmetics.Kind.Cloak);
             local.GetComponent<UI.Wardrobe>().DebugOpen(false);
+            local.GetComponent<NetworkPlayer>().Pattern.Value = 0;
+            // Every pattern on a row of backs, in a spread of the brighter dyes.
+            {
+                var fwd = tLook.normalized;
+                var right = Vector3.Cross(Vector3.up, fwd);
+                var rowAt = tFrom + fwd * 2.8f - Vector3.up * 0.1f;
+                lobbyMotor.Teleport(tFrom, Quaternion.LookRotation(fwd));
+                var shown = new System.Collections.Generic.List<GameObject>();
+                var cls = new[] { Classes.ClassId.Knight, Classes.ClassId.Mage, Classes.ClassId.Cleric, Classes.ClassId.Rogue, Classes.ClassId.Ranger };
+                int[] dyes = { 2, 5, 13, 8, 11, 3, 9, 6, 14, 12 };
+                for (int pass = 0; pass < 2; pass++)
+                {
+                    foreach (var g in shown) Destroy(g);
+                    shown.Clear();
+                    for (int k = 0; k < 5; k++)
+                    {
+                        int pat = 1 + pass * 5 + k;
+                        if (pat >= Progression.Cosmetics.Patterns.Length) break;
+                        var body = new GameObject("PatternDemo" + pat);
+                        body.transform.SetPositionAndRotation(rowAt + right * (k - 2f) * 0.95f, Quaternion.LookRotation(fwd));
+                        NetworkPlayer.BuildBody(cls[k], body.transform, new Color(0.3f, 0.5f, 0.9f), dyes[(pat - 1) % dyes.Length], pat);
+                        shown.Add(body);
+                    }
+                    yield return new WaitForSeconds(0.4f);
+                    yield return Shot(dir, "1c_patterns_" + (pass + 1));
+                }
+                foreach (var g in shown) Destroy(g);
+            }
             local.GetComponent<NetworkPlayer>().CloakDye.Value = 0;
             local.GetComponent<NetworkPlayer>().Aura.Value = 0;
 
@@ -2618,6 +2659,10 @@ namespace Deepbound.Networking
                 ap.ServerAddRune(Rune.Frost);
                 ap.ServerAddRune(Rune.Frost);
                 ap.SocketRuneRpc((byte)Rune.Storm);
+                // A big bag, as a long run collects (the user's screenshot had eighteen of a kind): it must fit.
+                foreach (var rk in new[] { Rune.Frost, Rune.Storm, Rune.Holy, Rune.Keen, Rune.Farsight })
+                    for (int n = 0; n < 6; n++) ap.ServerAddRune(Runes.Make(rk, n % 3 == 0 ? 1 : 0));
+                ap.ServerAddRune(Runes.Make(Rune.Frost, 2));
                 yield return new WaitForSeconds(0.2f);
                 local.GetComponent<UI.GameHud>().DebugOpenRunewright();
                 yield return null;
@@ -2684,6 +2729,9 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "1e_ping_wheel");
                 wheelPings.DebugShowWheel(false, Vector2.zero);
                 lobbyMotor.SetPitch(0f);
+                // A long run's haul of relics (the user's screenshot had twenty): the row, sheet and pack must cope.
+                for (int ri = 0; ri < 18; ri++) ap.ServerAddRelic((Relic)ri);
+                yield return null;
                 UI.GameHud.DebugShowStats = true;
                 yield return null;
                 yield return Shot(dir, "1e_stat_sheet");

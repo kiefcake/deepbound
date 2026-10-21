@@ -12,11 +12,11 @@ namespace Deepbound.UI
     {
         private static Font bookFont, titleFont;
 
-        /// <summary>Body text: a book serif.</summary>
-        public static Font BookFont => bookFont ??= Font.CreateDynamicFontFromOSFont(new[] { "Palatino Linotype", "Book Antiqua", "Georgia", "Times New Roman" }, 16);
+        /// <summary>Body text: a clean sans (2026-10-21, the user: away from the gothic look).</summary>
+        public static Font BookFont => bookFont ??= Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI", "Tahoma", "Arial" }, 16);
 
-        /// <summary>Titles: blackletter if installed, else the book serif.</summary>
-        public static Font TitleFont => titleFont ??= Font.CreateDynamicFontFromOSFont(new[] { "Old English Text MT", "Palatino Linotype", "Georgia" }, 32);
+        /// <summary>Titles: the same clean face, semibold.</summary>
+        public static Font TitleFont => titleFont ??= Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI Semibold", "Segoe UI", "Arial" }, 32);
 
         /// <summary>Call at the top of every OnGUI: styles that do not name a font use the book serif.</summary>
         public static void Apply()

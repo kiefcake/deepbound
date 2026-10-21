@@ -566,13 +566,15 @@ namespace Deepbound.Progression
         /// both are full, into the first socket (its old rune goes back into the bag).
         /// </summary>
         [Rpc(SendTo.Server)]
-        public void SocketRuneRpc(byte rune)
+        public void SocketRuneRpc(byte rune, sbyte socketIndex = -1)
         {
             int sockets = Runes.SocketsAt(WeaponLevel.Value);
             int bagIndex = runeBag.IndexOf(rune);
             if (!AtRunewright || sockets == 0 || bagIndex < 0) return;
+            // Into the socket the player picked; else the first empty one; else the first.
             int target = 0;
-            for (int s = 0; s < sockets; s++) if (Socketed(s) == Rune.None) { target = s; break; }
+            if (socketIndex >= 0 && socketIndex < sockets) target = socketIndex;
+            else for (int s = 0; s < sockets; s++) if (Socketed(s) == Rune.None) { target = s; break; }
             var socket = target == 0 ? Socket0 : target == 1 ? Socket1 : Socket2;
             runeBag.RemoveAt(bagIndex);
             if (socket.Value != 0) runeBag.Add(socket.Value);

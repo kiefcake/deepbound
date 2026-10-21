@@ -16,7 +16,7 @@ namespace Deepbound.Progression
     /// </summary>
     public static class Cosmetics
     {
-        public enum Kind { Cloak, Aura, Heraldry }
+        public enum Kind { Cloak, Aura, Heraldry, Pattern }
 
         public struct Item
         {
@@ -24,65 +24,103 @@ namespace Deepbound.Progression
             public Color Cloak, Trim;   // for an aura, Cloak is the mote colour
             public int Cost;
             public int NeedsBoss;       // -1 = none; otherwise the depth of the boss that must have been felled
+            public Motif Motif;         // patterns only
+            public bool Glows, Gilded;  // patterns only: the motif glows / is gold leaf
         }
 
-        /// <summary>Index 0 is "your class's own colours" (no override). Append only: indices are saved and synced.</summary>
+        /// <summary>
+        /// Index 0 is "your class's own colours" (no override). Append only: indices are saved and synced.
+        /// Brightened 2026-10-21 (the user: "make the accessory colours brighter"): the cloth bake and the
+        /// dungeon's dim light ate the old near-black dyes, so every dye now reads at a glance.
+        /// </summary>
         public static readonly Item[] Dyes =
         {
             new Item { Name = "Class Colours", Cost = 0, NeedsBoss = -1 },
-            new Item { Name = "Ashen Grey", Cloak = new Color(0.3f, 0.29f, 0.28f), Trim = new Color(0.7f, 0.7f, 0.72f), Cost = 40, NeedsBoss = -1 },
-            new Item { Name = "Blood Crimson", Cloak = new Color(0.42f, 0.04f, 0.05f), Trim = new Color(0.8f, 0.6f, 0.25f), Cost = 60, NeedsBoss = -1 },
-            new Item { Name = "Midnight", Cloak = new Color(0.05f, 0.07f, 0.18f), Trim = new Color(0.65f, 0.68f, 0.75f), Cost = 80, NeedsBoss = -1 },
-            new Item { Name = "Royal Violet", Cloak = new Color(0.26f, 0.07f, 0.36f), Trim = new Color(0.85f, 0.65f, 0.25f), Cost = 100, NeedsBoss = -1 },
-            new Item { Name = "Bone White", Cloak = new Color(0.82f, 0.79f, 0.7f), Trim = new Color(0.5f, 0.06f, 0.06f), Cost = 120, NeedsBoss = -1 },
-            new Item { Name = "Raven Black", Cloak = new Color(0.035f, 0.035f, 0.045f), Trim = new Color(0.55f, 0.05f, 0.06f), Cost = 150, NeedsBoss = -1 },
-            new Item { Name = "Warden's Ember", Cloak = new Color(0.32f, 0.11f, 0.04f), Trim = new Color(1f, 0.5f, 0.15f), Cost = 120, NeedsBoss = 0 },
-            new Item { Name = "Drowned Teal", Cloak = new Color(0.04f, 0.2f, 0.2f), Trim = new Color(0.35f, 0.85f, 0.7f), Cost = 160, NeedsBoss = 1 },
-            new Item { Name = "Hollow Gold", Cloak = new Color(0.45f, 0.33f, 0.08f), Trim = new Color(0.45f, 0.7f, 1f), Cost = 220, NeedsBoss = 2 },
-            new Item { Name = "Cardinal's Scarlet", Cloak = new Color(0.55f, 0.02f, 0.04f), Trim = new Color(1f, 0.82f, 0.4f), Cost = 300, NeedsBoss = 3 },
+            new Item { Name = "Ashen Grey", Cloak = new Color(0.58f, 0.57f, 0.55f), Trim = new Color(0.92f, 0.92f, 0.95f), Cost = 40, NeedsBoss = -1 },
+            new Item { Name = "Blood Crimson", Cloak = new Color(0.78f, 0.08f, 0.1f), Trim = new Color(1f, 0.78f, 0.3f), Cost = 60, NeedsBoss = -1 },
+            new Item { Name = "Midnight", Cloak = new Color(0.14f, 0.24f, 0.62f), Trim = new Color(0.82f, 0.87f, 1f), Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Royal Violet", Cloak = new Color(0.52f, 0.18f, 0.78f), Trim = new Color(1f, 0.8f, 0.3f), Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Bone White", Cloak = new Color(0.97f, 0.94f, 0.84f), Trim = new Color(0.8f, 0.1f, 0.1f), Cost = 120, NeedsBoss = -1 },
+            new Item { Name = "Raven Black", Cloak = new Color(0.13f, 0.13f, 0.17f), Trim = new Color(0.95f, 0.14f, 0.16f), Cost = 150, NeedsBoss = -1 },
+            new Item { Name = "Warden's Ember", Cloak = new Color(0.82f, 0.32f, 0.08f), Trim = new Color(1f, 0.72f, 0.25f), Cost = 120, NeedsBoss = 0 },
+            new Item { Name = "Drowned Teal", Cloak = new Color(0.06f, 0.55f, 0.52f), Trim = new Color(0.55f, 1f, 0.88f), Cost = 160, NeedsBoss = 1 },
+            new Item { Name = "Hollow Gold", Cloak = new Color(0.92f, 0.68f, 0.16f), Trim = new Color(0.5f, 0.8f, 1f), Cost = 220, NeedsBoss = 2 },
+            new Item { Name = "Cardinal's Scarlet", Cloak = new Color(0.95f, 0.07f, 0.09f), Trim = new Color(1f, 0.9f, 0.5f), Cost = 300, NeedsBoss = 3 },
+            new Item { Name = "Plague Green", Cloak = new Color(0.36f, 0.66f, 0.14f), Trim = new Color(0.95f, 0.92f, 0.78f), Cost = 120, NeedsBoss = -1 },
+            new Item { Name = "Frost Blue", Cloak = new Color(0.45f, 0.72f, 1f), Trim = new Color(0.95f, 0.97f, 1f), Cost = 140, NeedsBoss = -1 },
+            new Item { Name = "Grave Rose", Cloak = new Color(0.92f, 0.42f, 0.6f), Trim = new Color(0.98f, 0.95f, 0.88f), Cost = 140, NeedsBoss = -1 },
+            new Item { Name = "Candle Yellow", Cloak = new Color(1f, 0.84f, 0.3f), Trim = new Color(0.45f, 0.12f, 0.08f), Cost = 160, NeedsBoss = -1 },
         };
 
         /// <summary>Motes that drift up around you. Index 0 is none. Append only.</summary>
         public static readonly Item[] Auras =
         {
             new Item { Name = "No Aura", Cost = 0, NeedsBoss = -1 },
-            new Item { Name = "Cinders", Cloak = new Color(1f, 0.45f, 0.12f), Cost = 90, NeedsBoss = -1 },
-            new Item { Name = "Grave Mist", Cloak = new Color(0.55f, 0.8f, 0.55f), Cost = 120, NeedsBoss = -1 },
-            new Item { Name = "Frostbreath", Cloak = new Color(0.55f, 0.85f, 1f), Cost = 140, NeedsBoss = 1 },
-            new Item { Name = "Hollow Starlight", Cloak = new Color(0.65f, 0.55f, 1f), Cost = 200, NeedsBoss = 2 },
-            new Item { Name = "Last Rites", Cloak = new Color(1f, 0.82f, 0.4f), Cost = 280, NeedsBoss = 3 },
+            new Item { Name = "Cinders", Cloak = new Color(1f, 0.5f, 0.15f), Cost = 90, NeedsBoss = -1 },
+            new Item { Name = "Grave Mist", Cloak = new Color(0.6f, 1f, 0.6f), Cost = 120, NeedsBoss = -1 },
+            new Item { Name = "Frostbreath", Cloak = new Color(0.6f, 0.9f, 1f), Cost = 140, NeedsBoss = 1 },
+            new Item { Name = "Hollow Starlight", Cloak = new Color(0.75f, 0.65f, 1f), Cost = 200, NeedsBoss = 2 },
+            new Item { Name = "Last Rites", Cloak = new Color(1f, 0.86f, 0.45f), Cost = 280, NeedsBoss = 3 },
         };
 
         /// <summary>
         /// Heraldry (2026-10-20): the colour of your tabard, plume, sash, hat band and every other piece
-        /// in the party colour, on any class. Index 0 is "your party colour". Append only.
+        /// in the party colour, on any class. Index 0 is "your party colour". Append only. Brightened 2026-10-21.
         /// </summary>
         public static readonly Item[] Heraldries =
         {
             new Item { Name = "Party Colour", Cost = 0, NeedsBoss = -1 },
-            new Item { Name = "Oxblood", Cloak = new Color(0.55f, 0.08f, 0.08f), Cost = 40, NeedsBoss = -1 },
-            new Item { Name = "Forest Green", Cloak = new Color(0.12f, 0.38f, 0.16f), Cost = 40, NeedsBoss = -1 },
-            new Item { Name = "Azure", Cloak = new Color(0.16f, 0.36f, 0.8f), Cost = 40, NeedsBoss = -1 },
-            new Item { Name = "Saffron", Cloak = new Color(0.92f, 0.62f, 0.12f), Cost = 60, NeedsBoss = -1 },
-            new Item { Name = "Plum", Cloak = new Color(0.42f, 0.14f, 0.45f), Cost = 60, NeedsBoss = -1 },
-            new Item { Name = "Ivory", Cloak = new Color(0.86f, 0.83f, 0.74f), Cost = 80, NeedsBoss = -1 },
-            new Item { Name = "Charcoal", Cloak = new Color(0.16f, 0.16f, 0.18f), Cost = 80, NeedsBoss = -1 },
-            new Item { Name = "Teal", Cloak = new Color(0.08f, 0.5f, 0.5f), Cost = 80, NeedsBoss = -1 },
-            new Item { Name = "Rose", Cloak = new Color(0.82f, 0.36f, 0.48f), Cost = 100, NeedsBoss = -1 },
-            new Item { Name = "Ember Orange", Cloak = new Color(0.9f, 0.36f, 0.08f), Cost = 120, NeedsBoss = 0 },
-            new Item { Name = "Sea Glass", Cloak = new Color(0.45f, 0.82f, 0.75f), Cost = 160, NeedsBoss = 1 },
-            new Item { Name = "Royal Gold", Cloak = new Color(0.85f, 0.68f, 0.2f), Cost = 220, NeedsBoss = 2 },
-            new Item { Name = "Cathedral Purple", Cloak = new Color(0.3f, 0.1f, 0.6f), Cost = 300, NeedsBoss = 3 },
+            new Item { Name = "Oxblood", Cloak = new Color(0.8f, 0.12f, 0.12f), Cost = 40, NeedsBoss = -1 },
+            new Item { Name = "Forest Green", Cloak = new Color(0.22f, 0.66f, 0.28f), Cost = 40, NeedsBoss = -1 },
+            new Item { Name = "Azure", Cloak = new Color(0.25f, 0.52f, 1f), Cost = 40, NeedsBoss = -1 },
+            new Item { Name = "Saffron", Cloak = new Color(1f, 0.76f, 0.2f), Cost = 60, NeedsBoss = -1 },
+            new Item { Name = "Plum", Cloak = new Color(0.68f, 0.26f, 0.74f), Cost = 60, NeedsBoss = -1 },
+            new Item { Name = "Ivory", Cloak = new Color(0.98f, 0.95f, 0.86f), Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Charcoal", Cloak = new Color(0.32f, 0.32f, 0.36f), Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Teal", Cloak = new Color(0.12f, 0.76f, 0.72f), Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Rose", Cloak = new Color(1f, 0.5f, 0.66f), Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Ember Orange", Cloak = new Color(1f, 0.5f, 0.12f), Cost = 120, NeedsBoss = 0 },
+            new Item { Name = "Sea Glass", Cloak = new Color(0.55f, 0.97f, 0.86f), Cost = 160, NeedsBoss = 1 },
+            new Item { Name = "Royal Gold", Cloak = new Color(1f, 0.82f, 0.3f), Cost = 220, NeedsBoss = 2 },
+            new Item { Name = "Cathedral Purple", Cloak = new Color(0.55f, 0.24f, 0.95f), Cost = 300, NeedsBoss = 3 },
+            new Item { Name = "Bone", Cloak = new Color(0.93f, 0.89f, 0.76f), Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Lime", Cloak = new Color(0.62f, 0.92f, 0.2f), Cost = 100, NeedsBoss = -1 },
         };
 
-        public static Item[] Of(Kind kind) => kind == Kind.Aura ? Auras : kind == Kind.Heraldry ? Heraldries : Dyes;
+        /// <summary>
+        /// Patterns (2026-10-21, the user: "add some patterns that fit the game theme, like a skeleton head or
+        /// bone print"): a motif sewn on the back of your cloak, on any class and any dye (built by
+        /// <see cref="Art.GothicKit"/>). Cloak = the motif's colour, Trim = its eye sockets and seams;
+        /// Motif picks the shape. Index 0 is a plain cloak. Append only.
+        /// </summary>
+        public static readonly Item[] Patterns =
+        {
+            new Item { Name = "Plain Cloak", Cost = 0, NeedsBoss = -1 },
+            new Item { Name = "Death's Head", Cloak = new Color(0.96f, 0.93f, 0.84f), Trim = new Color(0.05f, 0.04f, 0.04f), Motif = Motif.Skull, Cost = 60, NeedsBoss = -1 },
+            new Item { Name = "Skull and Crossbones", Cloak = new Color(0.96f, 0.93f, 0.84f), Trim = new Color(0.05f, 0.04f, 0.04f), Motif = Motif.Crossbones, Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Bone Print", Cloak = new Color(0.95f, 0.92f, 0.82f), Trim = new Color(0.05f, 0.04f, 0.04f), Motif = Motif.BonePrint, Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Ribcage", Cloak = new Color(0.95f, 0.92f, 0.82f), Trim = new Color(0.05f, 0.04f, 0.04f), Motif = Motif.Ribcage, Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Skull Hem", Cloak = new Color(0.96f, 0.93f, 0.84f), Trim = new Color(0.05f, 0.04f, 0.04f), Motif = Motif.SkullHem, Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Grave Glow", Cloak = new Color(0.45f, 1f, 0.5f), Trim = new Color(0.02f, 0.06f, 0.03f), Motif = Motif.Skull, Glows = true, Cost = 140, NeedsBoss = 0 },
+            new Item { Name = "Gilded Jolly Roger", Cloak = new Color(1f, 0.82f, 0.36f), Trim = new Color(0.08f, 0.05f, 0.02f), Motif = Motif.Crossbones, Gilded = true, Cost = 220, NeedsBoss = 2 },
+            new Item { Name = "Abyssal Spine", Cloak = new Color(0.72f, 0.45f, 1f), Trim = new Color(0.04f, 0.02f, 0.06f), Motif = Motif.Ribcage, Glows = true, Cost = 300, NeedsBoss = 3 },
+            new Item { Name = "Black Bone Print", Cloak = new Color(0.08f, 0.08f, 0.1f), Trim = new Color(0.85f, 0.1f, 0.1f), Motif = Motif.BonePrint, Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Ember Skull", Cloak = new Color(1f, 0.55f, 0.2f), Trim = new Color(0.1f, 0.03f, 0.01f), Motif = Motif.Skull, Glows = true, Cost = 180, NeedsBoss = 1 },
+        };
+
+        public enum Motif { None, Skull, Crossbones, BonePrint, Ribcage, SkullHem }
+
+        public static Item[] Of(Kind kind) => kind == Kind.Aura ? Auras : kind == Kind.Heraldry ? Heraldries : kind == Kind.Pattern ? Patterns : Dyes;
+
+        /// <summary>The pattern to sew on a cloak, or null for a plain one.</summary>
+        public static Item? PatternOf(int i) => i > 0 && i < Patterns.Length ? Patterns[i] : (Item?)null;
 
         /// <summary>The heraldry colour, or null for the party colour.</summary>
         public static Color? HeraldryColor(int i) => i > 0 && i < Heraldries.Length ? Heraldries[i].Cloak : (Color?)null;
 
         private const string KeyRenown = "db.renown", KeyBosses = "db.bosses", KeyLastRun = "db.lastRun", KeyRuns = "db.runs";
-        private static string KeyOwned(Kind k) => k == Kind.Aura ? "db.auras" : k == Kind.Heraldry ? "db.heraldries" : "db.dyes";
-        private static string KeyWorn(Kind k) => k == Kind.Aura ? "db.aura" : k == Kind.Heraldry ? "db.heraldry" : "db.cloak";
+        private static string KeyOwned(Kind k) => k == Kind.Aura ? "db.auras" : k == Kind.Heraldry ? "db.heraldries" : k == Kind.Pattern ? "db.patterns" : "db.dyes";
+        private static string KeyWorn(Kind k) => k == Kind.Aura ? "db.aura" : k == Kind.Heraldry ? "db.heraldry" : k == Kind.Pattern ? "db.pattern" : "db.cloak";
 
         /// <summary>Set by the smoke/screenshot tests: nothing is read from or written to the real save.</summary>
         public static bool TestMode;
