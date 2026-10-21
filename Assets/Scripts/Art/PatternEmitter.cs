@@ -49,7 +49,7 @@ namespace Deepbound.Art
             color = c;
             core = MeshKit.Part(transform, "Core", MeshKit.Ball(0.3f, 12, 8), Mat.Glow, Vector3.zero).transform;
             coreR = core.GetComponent<Renderer>();
-            ArtLibrary.SetGlow(coreR, c * 1.6f);
+            ArtLibrary.SetGlow(coreR, c * 1.05f);
             var halo = MeshKit.Part(transform, "Halo", MeshKit.Ball(0.55f, 12, 8), Mat.Smoke, Vector3.zero);
             ArtLibrary.Tint(halo.GetComponent<Renderer>(), new Color(c.r, c.g, c.b, 0.16f));
             spokes = MeshKit.Pivot(transform, "Spokes", Vector3.zero);
@@ -103,7 +103,7 @@ namespace Deepbound.Art
             float fade = Mathf.Clamp01(1f - (since - FadeAfter) / 0.5f);
             if (fade < 1f)
             {
-                ArtLibrary.SetGlow(coreR, color * 1.6f * fade);
+                ArtLibrary.SetGlow(coreR, color * 1.05f * fade);
                 ArtLibrary.SetGlow(lineR, color * 0.7f * fade);
                 ArtLibrary.SetGlow(markR, color * 0.9f * fade);
                 foreach (var r in spokeR) if (r != null) ArtLibrary.SetGlow(r, color * 1.2f * fade);

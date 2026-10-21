@@ -1397,7 +1397,8 @@ namespace Deepbound.Networking
                                 // It drifts while it waits: put it back on the clear spot right before it locks on.
                                 eyeB.ServerDebugPlace(eyeAt);
                                 eyeB.ServerLockOn(hp9);
-                                for (float t = 0f; t < 2.5f && eyeB.BeamsFired == 0; t += 0.1f) { hp9.ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                                // Hold it on the clear spot while it locks on (it drifts toward the player otherwise).
+                                for (float t = 0f; t < 2.5f && eyeB.BeamsFired == 0; t += 0.1f) { hp9.ServerSetFraction(1f); eyeB.ServerDebugPlace(eyeAt); yield return new WaitForSeconds(0.1f); }
                                 float onLine = eyeB.LastBeamDealt;
                                 string eyeWhy = "shield " + hp9.Shield.Value.ToString("F0") + ", dist " + Vector3.Distance(eyeB.transform.position, local.transform.position).ToString("F1") + ", dy " + (eyeB.transform.position.y - local.transform.position.y).ToString("F1") + ", targetable " + local.GetComponent<PlayerLife>().Targetable + ", beam " + eyeB.LastBeamLength.ToString("F1") + " m stopped by " + AbyssEyeBrain.LastBlocker;
                                 Log("abyssal eye", "beams " + eyeB.BeamsFired + ", dealt on the line " + onLine.ToString("F0") + " (" + eyeWhy + ")", eyeB.BeamsFired >= 1 && onLine > 0f);
