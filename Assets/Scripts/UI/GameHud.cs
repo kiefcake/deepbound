@@ -820,6 +820,9 @@ namespace Deepbound.UI
                 var world = p.transform.position + Vector3.up * 2.25f;
                 var screen = cam.WorldToScreenPoint(world);
                 float dist = Vector3.Distance(cam.transform.position, world);
+                bool offScreen = screen.z <= 0f || screen.x < 0f || screen.x > w || screen.y < 0f || screen.y > h;
+                // A fallen friend you cannot see: a pointer on the screen's edge, toward them.
+                if (p.Downed.Value && (offScreen || dist > 60f)) { DrawDownedPointer(w, h, cam, world, p, dist); continue; }
                 if (screen.z <= 0f || dist > 60f) continue;
                 float y = h - screen.y;
                 bool downed = p.Downed.Value;
@@ -852,6 +855,42 @@ namespace Deepbound.UI
                 Rect(screen.x - bw / 2f - 1, y, bw + 2, 6, new Color(0f, 0f, 0f, 0.7f * a));
                 Rect(screen.x - bw / 2f, y + 1, bw * p.Health.Fraction, 4, new Color(0.3f, 0.85f, 0.35f, a));
             }
+        }
+
+        /// <summary>
+        /// A downed ally out of sight (behind you, round a corner, far off): a pulsing red marker clamped to the
+        /// screen edge in their direction, with their name and distance (2026-10-20).
+        /// </summary>
+        private void DrawDownedPointer(float w, float h, Camera cam, Vector3 world, PlayerLife p, float dist)
+        {
+            // A bled-out friend is wherever their soul skull is (someone may be carrying it).
+            if (p.Soul.Value)
+            {
+                var skull = SoulSkull.For(p.NetworkObjectId);
+                if (skull != null) { world = skull.transform.position + Vector3.up * 0.5f; dist = Vector3.Distance(cam.transform.position, world); }
+            }
+            var local = cam.transform.InverseTransformPoint(world);
+            var dir = new Vector2(local.x, local.y);
+            if (local.z < 0f && dir.sqrMagnitude < 0.01f) dir = Vector2.down;
+            if (dir.sqrMagnitude < 1e-4f) dir = Vector2.up;
+            dir.Normalize();
+            var c = new Vector2(w / 2f, h / 2f);
+            float rx = w / 2f - 70f, ry = h / 2f - 60f;
+            float k = Mathf.Min(rx / Mathf.Max(Mathf.Abs(dir.x), 1e-3f), ry / Mathf.Max(Mathf.Abs(dir.y), 1e-3f));
+            var at = c + new Vector2(dir.x, -dir.y) * k;
+            float pulse = 0.6f + 0.4f * Mathf.Sin(Time.time * 6f);
+            var red = new Color(1f, 0.3f, 0.25f, pulse);
+            // An arrowhead (a rotated square) pointing out, and the label just inside it.
+            float ang = Mathf.Atan2(-dir.y, dir.x) * Mathf.Rad2Deg;
+            var keep = GUI.matrix;
+            GUIUtility.RotateAroundPivot(ang + 45f, at);
+            Rect(at.x - 8, at.y - 8, 16, 16, red);
+            Rect(at.x - 5, at.y - 5, 10, 10, new Color(0.15f, 0.02f, 0.02f, 0.9f));
+            GUI.matrix = keep;
+            var inward = (c - at).normalized;
+            var lp = at + inward * 34f;
+            string text = p.name + (p.Soul.Value ? "  SOUL  " : "  DOWN  ") + Mathf.RoundToInt(dist) + "m";
+            GUI.Label(new Rect(lp.x - 90, lp.y - 9, 180, 18), text, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = red } });
         }
 
         private float fpsSmoothed = 60f;
