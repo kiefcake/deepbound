@@ -104,8 +104,67 @@ namespace Deepbound.UI
 
         private void OnDestroy() => Open = false;
 
+        // ---- Gamepad (2026-10-20): the main list, the guide's pages and Back work on a pad ----
+        private int padFocus;
+        /// <summary>For tests: is the guide showing?</summary>
+        public bool GuideShowing => Open && guide;
+        private float padRepeatAt;
+
+        private void PadNavigate()
+        {
+            var g = Gamepad.current;
+            if (g == null || !Open || capturing.HasValue) return;
+            bool back = g.buttonEast.wasPressedThisFrame, ok = g.buttonSouth.wasPressedThisFrame;
+            if (guide)
+            {
+                if (back) guide = false;
+                else if (ok || g.rightShoulder.wasPressedThisFrame) guidePage = (guidePage + 1) % 4;
+                else if (g.leftShoulder.wasPressedThisFrame) guidePage = (guidePage + 3) % 4;
+                // The right stick scrolls a long page.
+                guideScroll.y = Mathf.Max(0f, guideScroll.y - g.rightStick.ReadValue().y * 900f * Time.unscaledDeltaTime);
+                return;
+            }
+            if (options)
+            {
+                if (back) { if (controls) controls = false; else options = false; }
+                return;
+            }
+            float v = g.dpad.ReadValue().y + g.leftStick.ReadValue().y;
+            if (Mathf.Abs(v) > 0.5f && Time.unscaledTime >= padRepeatAt)
+            {
+                padRepeatAt = Time.unscaledTime + 0.22f;
+                padFocus = (padFocus + (v < 0f ? 1 : 4)) % 5;
+            }
+            else if (Mathf.Abs(v) <= 0.5f) padRepeatAt = 0f;
+            if (back) { Choose(0); return; }
+            if (ok) Choose(padFocus);
+        }
+
+        private void Choose(int i)
+        {
+            switch (i)
+            {
+                case 0: Open = false; Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; break;
+                case 1: guide = true; break;
+                case 2: options = true; break;
+                case 3: Open = false; NetworkManager.Singleton.Shutdown(); break;
+                case 4: Application.Quit(); break;
+            }
+        }
+
+        /// <summary>A gold frame on the pad's focused button (drawn over the last layout rect).</summary>
+        private void PadFrame(int i)
+        {
+            if (!Binds.PadActive || i != padFocus || Event.current.type != EventType.Repaint) return;
+            var r = GUILayoutUtility.GetLastRect();
+            var c = UiSkin.Gold;
+            UiSkin.Rect(new Rect(r.x - 3, r.y - 3, r.width + 6, 3), c); UiSkin.Rect(new Rect(r.x - 3, r.yMax, r.width + 6, 3), c);
+            UiSkin.Rect(new Rect(r.x - 3, r.y, 3, r.height), c); UiSkin.Rect(new Rect(r.xMax, r.y, 3, r.height), c);
+        }
+
         private void Update()
         {
+            PadNavigate();
             var keyboard = Keyboard.current;
             if (capturing.HasValue && keyboard != null)
             {
@@ -227,24 +286,20 @@ namespace Deepbound.UI
             }
             else
             {
-                if (GUILayout.Button("RESUME", UiSkin.ButtonBig, GUILayout.Height(54)))
-                {
-                    Open = false;
-                    Cursor.lockState = CursorLockMode.Locked;
-                    Cursor.visible = false;
-                }
+                if (GUILayout.Button("RESUME", UiSkin.ButtonBig, GUILayout.Height(54))) Choose(0);
+                PadFrame(0);
                 GUILayout.Space(8);
-                if (GUILayout.Button("GUIDE", UiSkin.Button, GUILayout.Height(44))) guide = true;
+                if (GUILayout.Button("GUIDE", UiSkin.Button, GUILayout.Height(44))) Choose(1);
+                PadFrame(1);
                 GUILayout.Space(8);
-                if (GUILayout.Button("OPTIONS", UiSkin.Button, GUILayout.Height(44))) options = true;
+                if (GUILayout.Button("OPTIONS", UiSkin.Button, GUILayout.Height(44))) Choose(2);
+                PadFrame(2);
                 GUILayout.Space(8);
-                if (GUILayout.Button("LEAVE PARTY", UiSkin.Button, GUILayout.Height(44)))
-                {
-                    Open = false;
-                    NetworkManager.Singleton.Shutdown();
-                }
+                if (GUILayout.Button("LEAVE PARTY", UiSkin.Button, GUILayout.Height(44))) Choose(3);
+                PadFrame(3);
                 GUILayout.Space(8);
-                if (GUILayout.Button("QUIT GAME", UiSkin.Button, GUILayout.Height(44))) Application.Quit();
+                if (GUILayout.Button("QUIT GAME", UiSkin.Button, GUILayout.Height(44))) Choose(4);
+                PadFrame(4);
                 GUILayout.Space(10);
                 var net = NetworkManager.Singleton;
                 string party = net == null ? "" : (net.IsHost ? "You are hosting" : "In a party") + "   ·   " + (net.IsServer ? net.ConnectedClientsIds.Count : Player.PlayerLife.All.Count) + " in the party";

@@ -1919,10 +1919,30 @@ namespace Deepbound.Networking
                         bool jumpHeld = UI.Binds.Held(UI.Bind.Jump), attack = UI.Binds.PrimaryHeld;
                         UI.Binds.Tick();
                         string hint = UI.Binds.Show("F");
+                        // The pause menu on a pad: down to GUIDE, A opens it, B backs out, B again resumes.
+                        var pm = FindFirstObjectByType<UI.PauseMenu>();
+                        bool padMenu = false;
+                        if (pm != null)
+                        {
+                            UnityEngine.InputSystem.InputSystem.QueueStateEvent(vpad, new UnityEngine.InputSystem.LowLevel.GamepadState());
+                            yield return null;
+                            UI.PauseMenu.SetOpen(true);
+                            yield return null;
+                            UnityEngine.InputSystem.InputSystem.QueueStateEvent(vpad, new UnityEngine.InputSystem.LowLevel.GamepadState().WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.DpadDown));
+                            yield return null; yield return null;
+                            UnityEngine.InputSystem.InputSystem.QueueStateEvent(vpad, new UnityEngine.InputSystem.LowLevel.GamepadState());
+                            yield return null;
+                            UnityEngine.InputSystem.InputSystem.QueueStateEvent(vpad, new UnityEngine.InputSystem.LowLevel.GamepadState().WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.South));
+                            yield return null; yield return null;
+                            padMenu = pm.GuideShowing;
+                            UnityEngine.InputSystem.InputSystem.QueueStateEvent(vpad, new UnityEngine.InputSystem.LowLevel.GamepadState());
+                            yield return null;
+                            UI.PauseMenu.SetOpen(false);
+                        }
                         UnityEngine.InputSystem.InputSystem.RemoveDevice(vpad);
                         yield return null;
                         UI.Binds.Tick();
-                        Log("gamepad", "A = jump " + jumpHeld + ", RT = attack " + attack + ", F prompt shows '" + hint + "'", jumpHeld && attack && hint == "X");
+                        Log("gamepad", "A = jump " + jumpHeld + ", RT = attack " + attack + ", F prompt shows '" + hint + "', pause menu down+A opens the guide " + padMenu, jumpHeld && attack && hint == "X" && padMenu);
                     }
                     // The daily descent: the same seed for a day and depth, a new one for the next depth or day.
                     Log("daily seeds", "today d3 " + DungeonDirector.DailySeed(20261020, 3) + " again " + DungeonDirector.DailySeed(20261020, 3) + ", d4 " + DungeonDirector.DailySeed(20261020, 4) + ", tomorrow " + DungeonDirector.DailySeed(20261021, 3),
