@@ -19,7 +19,7 @@ namespace Deepbound.World
         public readonly NetworkVariable<bool> Woken = new NetworkVariable<bool>();
 
         private Transform cat, body, head;
-        private float wokeAt = -1f;
+        private float wokeAt = -1f, nextMote;
 
         public override float Range => 2.2f;
 
@@ -67,8 +67,9 @@ namespace Deepbound.World
             if (cat == null) return;
             if (wokeAt < 0f)
             {
-                // Asleep: slow breathing.
+                // Asleep: slow breathing, and a pale mote drifting up now and then.
                 body.localScale = new Vector3(1f, 1f + Mathf.Sin(Time.time * 1.8f) * 0.04f, 1f);
+                if (Time.time >= nextMote) { nextMote = Time.time + 1.4f; Vfx.Speck(transform.position + new Vector3(0.12f, 0.35f, 0.08f), new Color(0.9f, 0.85f, 0.7f)); }
                 return;
             }
             float t = Time.time - wokeAt;
@@ -106,6 +107,9 @@ namespace Deepbound.World
                 float a = Mathf.Deg2Rad * (200f + i * 22f);
                 Fur(MeshKit.Part(body, "Tail" + i, MeshKit.Ball(0.026f - i * 0.0012f, 6, 5), Mat.Cloth, new Vector3(Mathf.Cos(a) * 0.16f, -0.04f + i * 0.002f, Mathf.Sin(a) * 0.15f)));
             }
+            // Curled on a pale scrap of sacking (a black cat on black stone would vanish).
+            var rag = MeshKit.Part(transform, "Sacking", MeshKit.Cylinder(0.42f, 0.4f, 0.03f, 12), Mat.Cloth, new Vector3(0.02f, 0.015f, 0f), new Vector3(0f, 20f, 0f), new Vector3(1.15f, 1f, 0.85f));
+            ArtLibrary.Tint(rag.GetComponent<Renderer>(), new Color(0.72f, 0.64f, 0.5f));
             // A little dust and a cobweb thread on it: it has come a long way down.
             var web = MeshKit.Part(body, "Cobweb", MeshKit.Box(new Vector3(0.12f, 0.003f, 0.003f)), Mat.Bone, new Vector3(0f, 0.09f, 0f), new Vector3(0f, 30f, 8f));
             ArtLibrary.Tint(web.GetComponent<Renderer>(), new Color(0.85f, 0.85f, 0.85f, 0.6f));

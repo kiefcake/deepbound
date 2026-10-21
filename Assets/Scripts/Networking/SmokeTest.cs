@@ -3028,7 +3028,7 @@ namespace Deepbound.Networking
                     if (staged != null && staged.IsSpawned) staged.NetworkObject.Despawn();
                     foreach (var st in Carryable.All.OfType<OathStone>().ToList()) if (st != null && st.IsSpawned) st.NetworkObject.Despawn();
                     // The castle cat, asleep far below camp.
-                    var napAt = oathSr.Center + Vector3.right * 1.5f;
+                    var napAt = oathSr.Center + Vector3.right * 3.6f + Vector3.forward * 3.2f;
                     var nap = DungeonDirector.Instance.ServerDebugShaftCat(napAt);
                     var napView = napAt + new Vector3(-1.4f, 0.1f, -1.4f);
                     motor.Teleport(napView, Quaternion.LookRotation(napAt - napView));
