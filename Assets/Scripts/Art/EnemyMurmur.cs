@@ -14,6 +14,7 @@ namespace Deepbound.Art
 
         private Enemies.EnemyBrain brain;
         private float nextAt;
+        private static float globalNext;
         private Sound sound = Sound.Rattle;
         private float pitch = 0.85f, volume = 0.28f, height = 1.2f;
 
@@ -42,6 +43,9 @@ namespace Deepbound.Art
             if (brain.IsDead) return;
             var cam = ViewCamera.Current;
             if (cam == null || Vector3.Distance(cam.transform.position, transform.position) > Earshot) return;
+            // A crowded room murmurs, it does not chatter: one at a time across the whole level.
+            if (Time.time < globalNext) return;
+            globalNext = Time.time + 0.7f;
             Sfx.Play(sound, transform.position + Vector3.up * height, volume, pitch * Random.Range(0.92f, 1.08f));
         }
     }
