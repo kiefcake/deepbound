@@ -79,6 +79,8 @@ namespace Deepbound.UI
             "Bosses make an entrance; the grave lift carries you up",
             "DAILY DESCENT (Corwin) and the HALL OF RECORDS (camp)",
             "Rebind keys (Options > Controls), gamepads, colour-blind mode",
+            "Corwin's CLIMBING ROPE; TORMENT once you finish a descent",
+            "Shelter behind a blocking Knight; the cat turns up far below",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)
