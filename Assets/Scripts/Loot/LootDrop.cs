@@ -138,12 +138,14 @@ namespace Deepbound.Loot
 
                 if (TryApply(life.GetComponent<PlayerProgress>()))
                 {
-                    PickedUpRpc(life.NetworkObjectId);
+                    if (!crumbled) PickedUpRpc(life.NetworkObjectId);
                     NetworkObject.Despawn();
                     return;
                 }
             }
         }
+
+        private bool crumbled;
 
         private bool TryApply(PlayerProgress progress)
         {
@@ -155,7 +157,19 @@ namespace Deepbound.Loot
                 PlayerProgress.ServerShareGold(progress, Mathf.RoundToInt(Amount.Value * progress.GoldMultiplier));
                 return true;
             }
-            if (kind == LootKind.Relic) return progress.ServerAddRelic((Relic)Amount.Value);
+            if (kind == LootKind.Relic)
+            {
+                if (progress.ServerAddRelic((Relic)Amount.Value)) return true;
+                // One of each per player: a relic everyone already carries used to lie there for ever with its
+                // beam lit (the autoplay run stood on one for ten minutes). It breaks down into embers instead.
+                foreach (var pl in PlayerLife.All)
+                    if (pl != null && pl.TryGetComponent<PlayerProgress>(out var other) && !other.HasRelic((Relic)Amount.Value)) return false;
+                int embers = 15 + 10 * Mathf.Max(0, World.DungeonDirector.Layout != null ? World.DungeonDirector.Layout.Depth : 0);
+                PlayerProgress.ServerShareEmbers(progress, embers);
+                crumbled = true;
+                World.DungeonDirector.Instance?.ServerFeedAll("A second " + Relics.Name((Relic)Amount.Value) + " crumbles into " + embers + " embers (you already carry one)", LootInfo.EmberColor);
+                return true;
+            }
             if (kind == LootKind.PotionHP || kind == LootKind.PotionMP)
             {
                 // Into the pouch while it has room; a full pouch leaves it on the floor for someone else.

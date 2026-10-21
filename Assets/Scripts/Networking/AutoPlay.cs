@@ -36,6 +36,8 @@ namespace Deepbound.Networking
         private StreamWriter log;
         private float started;
         private int floorNo = -1;
+        /// <summary>-autodepth N: start at floor N with a loadout like a run's by then (to see the deep floors sooner).</summary>
+        private int startFloor;
 
         private NetworkPlayer me;
         private FirstPersonMotor motor;
@@ -50,6 +52,8 @@ namespace Deepbound.Networking
         private int downs, kills, shotNo, saves, savesFloor;
         private float bossHpMark = -1f, bossHpAt, nextBlock;
         private bool pendingHeal;
+        private float lootOnSince = -1f;
+        private readonly HashSet<ulong> ignoredLoot = new HashSet<ulong>();
         private string lastHeard;
         private readonly List<string> problems = new List<string>();
 
@@ -59,6 +63,8 @@ namespace Deepbound.Networking
             launcher = owner;
             int c = System.Array.IndexOf(args, "-autoclass");
             if (c >= 0 && c + 1 < args.Length && System.Enum.TryParse<Classes.ClassId>(args[c + 1], true, out var parsed)) cls = parsed;
+            int ad = System.Array.IndexOf(args, "-autodepth");
+            if (ad >= 0 && ad + 1 < args.Length && int.TryParse(args[ad + 1], out var d0)) startFloor = Mathf.Clamp(d0, 1, DungeonDirector.FloorsPerRun) - 1;
             // Never touch the real save; the dungeon still behaves as in play (DungeonDirector.TestMode stays off).
             Cosmetics.TestMode = true;
             UI.Journal.TestMode = true;
@@ -142,7 +148,22 @@ namespace Deepbound.Networking
             L("== RUN START as " + cls + " ==");
             yield return Shot("camp_start");
 
-            for (int f = 0; f < DungeonDirector.FloorsPerRun; f++)
+            if (startFloor > 0)
+            {
+                // A run's worth of kit by this floor (roughly what runs 4 and 5 had).
+                for (int i = 0; i < Mathf.Min(10, Mathf.RoundToInt(startFloor * 1.5f)); i++) prog.ServerFreeTemper();
+                prog.RankQ.Value = (byte)Mathf.Min(8, 1 + startFloor / 2 + 1);
+                prog.RankE.Value = (byte)Mathf.Min(8, 1 + startFloor / 2);
+                for (int i = 0; i < startFloor; i++) prog.ServerAddRelic(Relics.Random());
+                prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Armor)[0], (byte)Mathf.Min(2, startFloor / 3), (byte)startFloor));
+                prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Charm)[0], (byte)Mathf.Min(2, startFloor / 3), (byte)startFloor));
+                prog.Gold.Value = 150 * startFloor;
+                L("== starting at floor " + (startFloor + 1) + " with a loadout ==");
+                Status("loadout");
+                DungeonDirector.Instance.ServerDebugStartFloor(startFloor);
+                yield return Floor();
+            }
+            for (int f = startFloor > 0 ? startFloor + 1 : 0; f < DungeonDirector.FloorsPerRun; f++)
             {
                 yield return Camp();
                 yield return Floor();
@@ -408,6 +429,13 @@ namespace Deepbound.Networking
                 else if (loot != null)
                 {
                     goal = loot.transform.position; goalWhat = "loot";
+                    // Standing on it and it stays (a full pouch, someone else's): leave it.
+                    if (Vector3.Distance(Flat(loot.transform.position), Flat(me.transform.position)) < 0.8f)
+                    {
+                        if (lootOnSince < 0f) lootOnSince = Time.time;
+                        else if (Time.time - lootOnSince > 2.5f) { ignoredLoot.Add(loot.NetworkObjectId); lootOnSince = -1f; L("left loot it cannot take (" + loot.name + ")"); }
+                    }
+                    else lootOnSince = -1f;
                     yield return StepToward(loot.transform.position, 0.3f);
                 }
                 else if (chest != null)
@@ -458,7 +486,7 @@ namespace Deepbound.Networking
 
             // The grave lift: step in and wait.
             yield return new WaitForSeconds(3f);
-            for (float t = 0f; t < 25f && !DungeonDirector.InLobby && dd.Phase.Value == RunPhase.FloorCleared; t += 0.2f)
+            for (float t0 = Time.time; Time.time - t0 < 90f && !DungeonDirector.InLobby && dd.Phase.Value == RunPhase.FloorCleared;)
             {
                 if (Vector3.Distance(Flat(me.transform.position), Flat(DungeonDirector.ExitPosition)) > 1.2f) yield return StepToward(DungeonDirector.ExitPosition, 0.5f);
                 else yield return new WaitForSeconds(0.2f);
@@ -500,7 +528,7 @@ namespace Deepbound.Networking
             float bd = within;
             foreach (var l in FindObjectsByType<LootDrop>(FindObjectsSortMode.None))
             {
-                if (l == null || !l.IsSpawned) continue;
+                if (l == null || !l.IsSpawned || ignoredLoot.Contains(l.NetworkObjectId)) continue;
                 float d = Vector3.Distance(l.transform.position, me.transform.position);
                 if (d < bd && Reachable(l.transform.position, new NavMeshPath())) { bd = d; best = l; }
             }

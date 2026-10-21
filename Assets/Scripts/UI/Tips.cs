@@ -198,7 +198,8 @@ namespace Deepbound.UI
             float pw = Mathf.Min(620f, w - 40f);
             var style = new GUIStyle(UiSkin.Body) { fontSize = 15, wordWrap = true, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.95f, 0.92f, 0.85f, a) } };
             float ph = style.CalcHeight(new GUIContent(current), pw - 40f) + 34f;
-            var r = new Rect(w / 2f - pw / 2f, 104f, pw, ph);
+            // Below the floor banner, the boss bar and the rage meter (at 104 it sat on top of them).
+            var r = new Rect(w / 2f - pw / 2f, 176f, pw, ph);
             UiSkin.Panel(r, 0.85f * a);
             GUI.Label(new Rect(r.x + 20, r.y + 6, pw - 40, 18), "TIP", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, a) } });
             GUI.Label(new Rect(r.x + 20, r.y + 24, pw - 40, ph - 30), Binds.Rekey(current), style);

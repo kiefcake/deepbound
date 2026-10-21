@@ -160,6 +160,9 @@ namespace Deepbound.Progression
                 }
             }
             var buyer = PlayerProgress.ForClient(clientId);
+            // Only the Mage and the Cleric spend mana: Breathing (+MP) is no drill for anyone else.
+            if (vendor == Vendor.Yard && buyer != null && buyer.ClassId.Value != Classes.ClassId.Mage && buyer.ClassId.Value != Classes.ClassId.Cleric)
+                list.RemoveAll(it => it.Kind == ItemKind.Drill && it.Stat == StatType.MP);
             // Drills cost more each time you take one.
             if (vendor == Vendor.Yard && buyer != null)
                 for (int i = 0; i < list.Count; i++)

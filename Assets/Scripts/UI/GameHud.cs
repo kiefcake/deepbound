@@ -2603,7 +2603,15 @@ namespace Deepbound.UI
                 var stat = (StatType)i;
                 float ry = y + 40 + i * rowH;
                 float value = progress.Value(stat), baseValue = progress.Class.BaseStats[i];
-                GUI.Label(new Rect(x + 12, ry, 50, 22), Stats.ShortName(stat), label);
+                string shortName = Stats.ShortName(stat);
+                // Only the Mage and the Cleric run on mana: the others see their own resource here.
+                var kitNow = player.ActiveKit;
+                if (stat == StatType.MP && kitNow != null && kitNow.ResourceName != "Mana")
+                {
+                    shortName = kitNow.ResourceName.Substring(0, Mathf.Min(3, kitNow.ResourceName.Length)).ToUpperInvariant();
+                    value = baseValue = kitNow.ResourceMax;
+                }
+                GUI.Label(new Rect(x + 12, ry, 50, 22), shortName, label);
                 GUI.Label(new Rect(x + 60, ry, 60, 22), Mathf.RoundToInt(value).ToString(), label);
 
                 var c = LootInfo.StatColor(stat);

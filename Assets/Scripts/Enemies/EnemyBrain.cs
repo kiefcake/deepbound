@@ -82,7 +82,7 @@ namespace Deepbound.Enemies
         public bool IsChampion => Title.Value.Length > 0;
         private bool championAnnounced;
 
-        private static readonly string[] ChampionNames = { "Grimbold", "Morwen", "Aldric", "Hesk", "Vorn", "Ysolde", "Bram", "Cael", "Odo", "Sabine", "Tormund", "Wenna" };
+        private static readonly string[] ChampionNames = { "Grimbold", "Morwen", "Osric", "Hesk", "Vorn", "Ilsa", /* not Aldric or Ysolde: those are camp folk */ "Bram", "Cael", "Odo", "Sabine", "Tormund", "Wenna" };
         private static readonly string[] ChampionEpithets = { "the Unburied", "Gravefist", "the Hollow", "Bonegnawer", "the Patient", "Ashenhand", "the Tithe-Taker", "Oathbreaker", "the Pale", "Marrowgrin" };
 
         /// <summary>Server: make this the floor's champion — an elite with a name, more of everything, and a hoard.</summary>
@@ -1056,6 +1056,8 @@ namespace Deepbound.Enemies
 
         protected virtual void OnDied(Health _)
         {
+            // Once only: the autoplay run saw a champion's death (card, hoard) twice in the same moment.
+            if (IsDead) return;
             if (AffixKind == EliteAffix.Volatile) StartCoroutine(VolatileBlast());
             if (AffixKind == EliteAffix.Splitting) World.DungeonDirector.Instance?.ServerSpawnSplit(transform.position, scaledPlayersBase, depthForLoot);
             // Gravebound: its bones gather to rise again, unless someone stamps them out.
