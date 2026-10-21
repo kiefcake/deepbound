@@ -515,6 +515,28 @@ namespace Deepbound.Networking
                 }
 
                 var fm = local.GetComponent<FirstPersonMotor>();
+                // Sheltered: behind a blocking Knight, blows from the front land at half strength.
+                var behind = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
+                if (behind != null)
+                {
+                    var hp0 = local.GetComponent<PlayerProgress>();
+                    var classBefore = hp0.ClassId.Value;
+                    hp0.ClassId.Value = Classes.ClassId.Knight;
+                    var kk = local.GetComponent<KnightKit>();
+                    kk.DebugHoldBlock = true;
+                    yield return new WaitForSeconds(0.2f);
+                    var front = local.transform.position + local.transform.forward * 5f;
+                    var rear = local.transform.position - local.transform.forward * 5f;
+                    var spotBehind = local.transform.position - local.transform.forward * 1.5f;
+                    // Ask the question directly at the spot behind (the client owns its own position).
+                    var was = behind.transform.position;
+                    behind.transform.position = spotBehind;
+                    bool fromFront = KnightKit.ShelterFor(behind, front), fromRear = KnightKit.ShelterFor(behind, rear);
+                    behind.transform.position = was;
+                    kk.DebugHoldBlock = false;
+                    hp0.ClassId.Value = classBefore;
+                    Log("sheltered", "blow from the front sheltered " + fromFront + ", from behind " + fromRear, fromFront && !fromRear);
+                }
                 // Dragging: the host takes the downed client by the collar and hauls it a few metres.
                 var dragged = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
                 if (dragged != null)

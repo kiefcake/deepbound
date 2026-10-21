@@ -88,8 +88,49 @@ namespace Deepbound.Player
             }
         }
 
+        /// <summary>
+        /// Sheltered (2026-10-20, co-op glue): an ally within <see cref="ShelterRange"/> behind a Knight who is
+        /// blocking takes <see cref="ShelterScale"/> from blows that come at the Knight's front. Stand behind
+        /// the shield.
+        /// </summary>
+        public const float ShelterRange = 3.2f, ShelterScale = 0.5f;
+
+        public bool ShieldRaised => Active && Blocking.Value && life != null && !life.Downed.Value;
+
+        /// <summary>Server: is this player sheltered from a blow from <paramref name="attacker"/>?</summary>
+        public static bool ShelterFor(PlayerLife who, Vector3 attacker)
+        {
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || p == who || !p.TryGetComponent<KnightKit>(out var k) || !k.ShieldRaised) continue;
+                var kp = k.transform.position;
+                var toMe = who.transform.position - kp; toMe.y = 0f;
+                if (toMe.magnitude > ShelterRange) continue;
+                var toFoe = attacker - kp; toFoe.y = 0f;
+                // The blow comes at the shield's face, and I am on the other side of it.
+                if (Vector3.Angle(k.transform.forward, toFoe) < 75f && Vector3.Dot(k.transform.forward, toMe) < 0.2f)
+                {
+                    k.ShelterFxRpc(who.transform.position + Vector3.up * 2f);
+                    return true;
+                }
+            }
+            return false;
+        }
+
+        private float lastShelterFx;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ShelterFxRpc(Vector3 at)
+        {
+            if (Time.time - lastShelterFx < 1.2f) return;
+            lastShelterFx = Time.time;
+            UI.GameHud.ShowCombo(at, "SHELTERED", new Color(0.7f, 0.85f, 1f));
+        }
+
         private float AttackMultiplier => progress.AttackMultiplier;
         private bool riposteReady;
+        /// <summary>Tests: hold the shield up as if RMB were down.</summary>
+        public bool DebugHoldBlock { get; set; }
 
         /// <summary>True when the player's chosen class is the Knight. Otherwise this kit sleeps.</summary>
         private bool Active => progress.ClassId.Value == ClassId.Knight;
@@ -130,7 +171,7 @@ namespace Deepbound.Player
             var keyboard = Keyboard.current;
 
             // --- Block (hold RMB) ---
-            bool wantBlock = canAct && UI.Binds.SecondaryHeld && Stamina > 0f && !swingPending;
+            bool wantBlock = (canAct && UI.Binds.SecondaryHeld && Stamina > 0f && !swingPending) || DebugHoldBlock;
             if (Blocking.Value != wantBlock) Blocking.Value = wantBlock;
 
             // --- Stamina ---

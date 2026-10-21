@@ -103,6 +103,8 @@ namespace Deepbound.Player
                     EvadedRpc();
                     return 0f;
                 });
+                // Behind a blocking Knight's shield, blows from the front land at half strength.
+                Health.IncomingModifiers.Add((dmg, from) => dmg > 0f && KnightKit.ShelterFor(this, from) ? dmg * KnightKit.ShelterScale : dmg);
             }
             Downed.OnValueChanged += HandleDownedChanged;
         }
