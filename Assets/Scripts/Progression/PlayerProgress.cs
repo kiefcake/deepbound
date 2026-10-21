@@ -1306,7 +1306,7 @@ namespace Deepbound.Progression
         private int grazeStreak;
         /// <summary>Tests: grazes this session.</summary>
         public int Grazes { get; private set; }
-        public const float GrazeCharge = 1.2f;
+        public const float GrazeCharge = 0.6f;
 
         /// <summary>Server: an enemy shot slipped past you (<see cref="Combat.Arrows.GrazeRadius"/>): ult charge and a streak.</summary>
         public void ServerGraze(Vector3 at)
@@ -1316,10 +1316,10 @@ namespace Deepbound.Progression
             Grazes++;
             grazeStreak = Time.time < grazeStreakUntil ? grazeStreak + 1 : 1;
             grazeStreakUntil = Time.time + 2.2f;
-            // The charge is capped at about seven a second, so a wall of notes cannot fill the bar on its own.
+            // The charge is capped at five a second, so a wall of notes cannot fill the bar on its own.
             if (Time.time >= nextGrazeCharge && TryGetComponent<Player.Ultimates>(out var u))
             {
-                nextGrazeCharge = Time.time + 0.14f;
+                nextGrazeCharge = Time.time + 0.2f;
                 u.ServerAddCharge(GrazeCharge * (grazeStreak >= 10 ? 1.5f : 1f));
             }
             GrazeRpc(at, (byte)Mathf.Min(255, grazeStreak));

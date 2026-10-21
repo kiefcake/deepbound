@@ -89,9 +89,10 @@ namespace Deepbound.Art
 
         private static Vector3 CloakPoint(Vector3 drop, float y, float phi, float top, float length, float flare, float lift)
         {
+            // The sheet is a lathe swept 0..170 deg, squashed on its own Z, then turned 95 deg: do the same.
             float r = CloakRadius(y, top, length, flare) + lift;
-            float a = phi * Mathf.Deg2Rad;
-            return drop + new Vector3(Mathf.Sin(a) * r, y, -Mathf.Cos(a) * r * 0.82f);
+            float a = (85f + phi) * Mathf.Deg2Rad;
+            return drop + Quaternion.Euler(0f, 95f, 0f) * new Vector3(Mathf.Sin(a) * r, y, Mathf.Cos(a) * r * 0.82f);
         }
 
         /// <summary>A pivot on the cloak's outside, +Z out of the cloth, +Y up along it.</summary>
@@ -112,7 +113,8 @@ namespace Deepbound.Art
         {
             var r = part.GetComponent<Renderer>();
             if (socket) { ArtLibrary.Tint(r, pat.Trim); return; }
-            if (pat.Glows) ArtLibrary.SetGlow(r, pat.Cloak * 1.6f);
+            // Modest glow: brighter blooms over the eye sockets and the skull loses its face.
+            if (pat.Glows) ArtLibrary.SetGlow(r, pat.Cloak * 0.95f);
             else ArtLibrary.Tint(r, pat.Cloak);
             r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
@@ -127,8 +129,8 @@ namespace Deepbound.Art
             Paint(MeshKit.Part(at, "PatCheek", MeshKit.Box(new Vector3(0.72f * s, 0.3f * s, 0.05f * s)), m, new Vector3(0f, -0.22f * s, 0f)), pat, false);
             Paint(MeshKit.Part(at, "PatJaw", MeshKit.Box(new Vector3(0.5f * s, 0.2f * s, 0.05f * s)), m, new Vector3(0f, -0.42f * s, 0f)), pat, false);
             foreach (float side in new[] { -1f, 1f })
-                Paint(MeshKit.Part(at, "PatEye", MeshKit.Ball(0.15f * s, 8, 5), Mat.Dark, new Vector3(0.19f * side, -0.02f * s, 0.06f * s), Vector3.zero, new Vector3(1f, 1.1f, 0.25f)), pat, true);
-            Paint(MeshKit.Part(at, "PatNose", MeshKit.Box(new Vector3(0.09f * s, 0.09f * s, 0.02f * s)), Mat.Dark, new Vector3(0f, -0.2f * s, 0.035f * s), new Vector3(0f, 0f, 45f)), pat, true);
+                Paint(MeshKit.Part(at, "PatEye", MeshKit.Ball(0.15f * s, 8, 5), Mat.Dark, new Vector3(0.19f * s * side, -0.02f * s, 0.1f * s), Vector3.zero, new Vector3(1.05f, 1.15f, 0.25f)), pat, true);
+            Paint(MeshKit.Part(at, "PatNose", MeshKit.Box(new Vector3(0.09f * s, 0.09f * s, 0.02f * s)), Mat.Dark, new Vector3(0f, -0.2f * s, 0.06f * s), new Vector3(0f, 0f, 45f)), pat, true);
             for (int i = -1; i <= 1; i++)
                 Paint(MeshKit.Part(at, "PatTooth", MeshKit.Box(new Vector3(0.025f * s, 0.16f * s, 0.02f * s)), Mat.Dark, new Vector3(i * 0.12f * s, -0.42f * s, 0.03f * s)), pat, true);
         }

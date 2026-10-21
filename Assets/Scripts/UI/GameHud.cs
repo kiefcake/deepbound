@@ -642,13 +642,14 @@ namespace Deepbound.UI
             for (int i = 0; i < progress.RelicCount; i++)
             {
                 var rel = progress.RelicAt(i);
-                float rcy = relTop + (i % relRows) * 18;
+                float rcy = relTop + (i % relRows) * 20;
                 if (rcy > py + ph - (party ? 150 : 20)) continue;
-                var rr = new Rect(cx + (i / relRows) * relColW, rcy, relColW - 4, 18);
-                GUI.Label(rr, Relics.Name(rel), new GUIStyle(small) { wordWrap = false, clipping = TextClipping.Clip, normal = { textColor = rr.Contains(mouse) ? Color.white : Relics.GemColor(rel) } });
+                var rr = new Rect(cx + (i / relRows) * relColW, rcy, relColW - 4, 20);
+                var relSt = new GUIStyle(small) { wordWrap = false, normal = { textColor = rr.Contains(mouse) ? Color.white : UiSkin.Readable(Relics.GemColor(rel)) } };
+                GUI.Label(rr, UiSkin.Fit(Relics.Name(rel), relSt, rr.width), relSt);
                 if (rr.Contains(mouse)) hoverText = Relics.Name(rel) + ": " + Relics.Describe(rel);
             }
-            cy = relTop + relRows * 18;
+            cy = relTop + relRows * 20;
 
             // ---- The party purse: give gold, or even it out ----
             if (party)
@@ -2258,7 +2259,8 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(row.x + 32, row.y + 4, lw - 44, 20), open ? (r == Rune.None ? "Empty socket" : Runes.Name(r)) : "Locked  (weapon +" + Runes.SocketLevels[sIdx] + ")",
                     new GUIStyle(label) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.55f) } });
                 string under = !open ? "" : r != Rune.None ? Runes.Describe(r) : picked ? "The next rune you set goes here." : "Click to choose this socket.";
-                GUI.Label(new Rect(row.x + 32, row.y + 23, lw - 44, 20), under, new GUIStyle(body) { wordWrap = false, clipping = TextClipping.Clip });
+                var underSt = new GUIStyle(body) { wordWrap = false };
+                GUI.Label(new Rect(row.x + 32, row.y + 23, lw - 44, 20), UiSkin.Fit(under, underSt, lw - 44), underSt);
                 if (open && GUI.Button(row, GUIContent.none, GUIStyle.none)) runeSocketPick = picked ? -1 : sIdx;
                 ly += 50;
             }
@@ -2288,9 +2290,10 @@ namespace Deepbound.UI
                     Rect(row.x, row.y, 3, row.height, Runes.Color(r));
                     float bw = 150f, textW = row.width - bw - 28;
                     GUI.Label(new Rect(row.x + 14, row.y + 6, textW, 22), Runes.Name(r) + "   x" + have, new GUIStyle(label) { fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = Runes.Color(r) } });
-                    GUI.Label(new Rect(row.x + 14, row.y + 28, textW, 20), Runes.Describe(r), new GUIStyle(body) { wordWrap = false, clipping = TextClipping.Clip });
-                    GUI.Label(new Rect(row.x + 14, row.y + 47, textW, 20), tier >= Runes.MaxTier ? "As strong as runes get." : "Tier " + (tier == 0 ? "II" : "III") + ": " + Runes.Describe(Runes.Make(r, tier + 1)),
-                        new GUIStyle(body) { wordWrap = false, clipping = TextClipping.Clip, normal = { textColor = new Color(0.62f, 0.68f, 0.75f) } });
+                    var rdSt = new GUIStyle(body) { wordWrap = false };
+                    GUI.Label(new Rect(row.x + 14, row.y + 28, textW, 20), UiSkin.Fit(Runes.Describe(r), rdSt, textW), rdSt);
+                    var nextSt = new GUIStyle(body) { wordWrap = false, normal = { textColor = new Color(0.62f, 0.68f, 0.75f) } };
+                    GUI.Label(new Rect(row.x + 14, row.y + 47, textW, 20), UiSkin.Fit(tier >= Runes.MaxTier ? "As strong as runes get." : "Tier " + (tier == 0 ? "II" : "III") + ": " + Runes.Describe(Runes.Make(r, tier + 1)), nextSt, textW), nextSt);
                     float bx = row.xMax - bw - 8;
                     GUI.enabled = sockets > 0;
                     string setLabel = sockets == 0 ? "No socket yet" : runeSocketPick >= 0 ? "Set in socket " + (runeSocketPick + 1) : "Set";
@@ -2452,7 +2455,7 @@ namespace Deepbound.UI
             float tx = x + hover * 30, ty = y - th - 8f;
             Rect(tx - 1, ty - 1, tw + 2, th + 2, new Color(Relics.GemColor(hr).r, Relics.GemColor(hr).g, Relics.GemColor(hr).b, 0.9f));
             Rect(tx, ty, tw, th, new Color(0.04f, 0.035f, 0.03f, 0.96f));
-            GUI.Label(new Rect(tx + 10, ty + 6, tw - 20, 20), Relics.Name(hr).ToUpperInvariant(), new GUIStyle(small) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = Relics.GemColor(hr) } });
+            GUI.Label(new Rect(tx + 10, ty + 6, tw - 20, 20), Relics.Name(hr).ToUpperInvariant(), new GUIStyle(small) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Readable(Relics.GemColor(hr)) } });
             GUI.Label(new Rect(tx + 10, ty + 26, tw - 20, th - 28), Relics.Describe(hr), body);
         }
 
@@ -2472,18 +2475,18 @@ namespace Deepbound.UI
             {
                 // One column for a few, two when the run has gathered many (it must stay on screen).
                 int count = progress.RelicCount, cols = count > 9 ? 2 : 1, perCol = (count + cols - 1) / cols;
-                float colW = 380, rw = colW * cols, relRowH = Mathf.Min(34f, (h - 140f) / Mathf.Max(1, perCol));
+                float colW = 380, rw = colW * cols, relRowH = Mathf.Min(38f, (h - 140f) / Mathf.Max(1, perCol));
                 float rh = 40 + perCol * relRowH;
                 float rx = w - 300 - 24 - rw - 12, ry = Mathf.Max(20f, h / 2f - rh / 2f);
                 Rect(rx, ry, rw, rh, Panel);
                 GUI.Label(new Rect(rx + 12, ry + 10, rw, 22), "RELICS  (" + count + ")", new GUIStyle(label) { normal = { textColor = Gold } });
-                var desc = new GUIStyle(small) { wordWrap = false, clipping = TextClipping.Clip };
+                var desc = new GUIStyle(small) { wordWrap = false };
                 for (int i = 0; i < count; i++)
                 {
                     var r = progress.RelicAt(i);
                     float cx = rx + 12 + (i / perCol) * colW, cy = ry + 36 + (i % perCol) * relRowH;
-                    GUI.Label(new Rect(cx, cy, colW - 20, 20), Relics.Name(r), new GUIStyle(label) { fontSize = 14, normal = { textColor = Relics.GemColor(r) } });
-                    if (relRowH >= 30f) GUI.Label(new Rect(cx, cy + 17, colW - 24, 18), Relics.Describe(r), desc);
+                    GUI.Label(new Rect(cx, cy - 2, colW - 20, 22), Relics.Name(r), new GUIStyle(label) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Readable(Relics.GemColor(r)) } });
+                    if (relRowH >= 30f) GUI.Label(new Rect(cx, cy + 17, colW - 24, 20), UiSkin.Fit(Relics.Describe(r), desc, colW - 24), desc);
                 }
             }
 

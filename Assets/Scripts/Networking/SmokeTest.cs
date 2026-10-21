@@ -3268,7 +3268,7 @@ namespace Deepbound.Networking
                     }
 
                     // The Bone Piper: a close look, then each tune in full flight.
-                    if (depth == 1)
+                    if (depth == 4)
                     {
                         var pFrom = room.Center + new Vector3(0f, 0.1f, -6f);
                         var piper = DungeonDirector.Instance.ServerDebugSpawn("piper", room.Center + new Vector3(0f, 0f, 3f), false) as BonePiperBrain;

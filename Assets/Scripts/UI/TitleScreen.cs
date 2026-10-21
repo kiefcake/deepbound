@@ -90,9 +90,9 @@ namespace Deepbound.UI
             UiSkin.Rect(r, new Color(0f, 0f, 0f, 0.55f * fade));
             UiSkin.Rect(new Rect(r.x, r.y, 3, r.height), new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, fade));
             GUI.Label(new Rect(r.x + 16, r.y + 10, cw - 24, 22), "NEW IN THIS BUILD", new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, fontSize = 14, normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, fade) } });
-            var st = new GUIStyle(UiSkin.Small) { fontSize = 13, wordWrap = false, clipping = TextClipping.Clip, normal = { textColor = new Color(0.9f, 0.86f, 0.78f, fade) } };
+            var st = new GUIStyle(UiSkin.Small) { fontSize = 13, wordWrap = false, normal = { textColor = new Color(0.9f, 0.86f, 0.78f, fade) } };
             for (int i = 0; i < WhatsNew.Length; i++)
-                GUI.Label(new Rect(r.x + 16, r.y + 36 + i * 22, cw - 24, 20), "-  " + WhatsNew[i], st);
+                GUI.Label(new Rect(r.x + 16, r.y + 36 + i * 22, cw - 24, 22), UiSkin.Fit("-  " + WhatsNew[i], st, cw - 28), st);
         }
 
         private void DrawMain()

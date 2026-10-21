@@ -260,9 +260,9 @@ namespace Deepbound.Combat
             var color = BoltColor(ProjectileKind.Soul);
             var root = new GameObject("Soul").transform;
             root.SetPositionAndRotation(origin, Quaternion.LookRotation(direction));
-            var core = MeshKit.Part(root, "Core", MeshKit.Ball(0.1f, 8, 6), Mat.Glow, Vector3.zero);
-            ArtLibrary.SetGlow(core.GetComponent<Renderer>(), Color.Lerp(color, Color.white, 0.45f) * 2.1f);
-            var halo = MeshKit.Part(root, "Halo", MeshKit.Ball(0.2f, 10, 7), Mat.Smoke, Vector3.zero);
+            var core = MeshKit.Part(root, "Core", MeshKit.Ball(0.085f, 8, 6), Mat.Glow, Vector3.zero);
+            ArtLibrary.SetGlow(core.GetComponent<Renderer>(), Color.Lerp(color, Color.white, 0.35f) * 1.8f);
+            var halo = MeshKit.Part(root, "Halo", MeshKit.Ball(0.16f, 10, 7), Mat.Smoke, Vector3.zero);
             ArtLibrary.Tint(halo.GetComponent<Renderer>(), new Color(color.r, color.g, color.b, 0.32f));
             var tail = MeshKit.Part(root, "Tail", MeshKit.Lathe("soulTail", new[] { new Vector2(0f, 0f), new Vector2(0.06f, 0.06f), new Vector2(0f, 0.42f) }, 6, false),
                 Mat.Glow, new Vector3(0f, 0f, -0.04f), new Vector3(-90f, 0f, 0f));

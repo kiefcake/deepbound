@@ -16,12 +16,20 @@ namespace Deepbound.UI
         public static Font BookFont => bookFont ??= Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI", "Tahoma", "Arial" }, 16);
 
         /// <summary>Titles: the same clean face, semibold.</summary>
-        public static Font TitleFont => titleFont ??= Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI Semibold", "Segoe UI", "Arial" }, 32);
+        /// A second OS font of the same family ("Segoe UI Semibold") shared the body font's atlas and drew
+        /// nothing or the wrong words (the title screen lost DEEPBOUND): titles are the body face in bold.
+        public static Font TitleFont => BookFont;
 
         /// <summary>Call at the top of every OnGUI: styles that do not name a font use the book serif.</summary>
         public static void Apply()
         {
-            if (GUI.skin.font != BookFont) GUI.skin.font = BookFont;
+            if (GUI.skin.font != BookFont)
+            {
+                GUI.skin.font = BookFont;
+                // Segoe sits lower in its line than the old serif: never cut off descenders (g, p, y).
+                GUI.skin.label.clipping = TextClipping.Overflow;
+                GUI.skin.button.clipping = TextClipping.Overflow;
+            }
         }
 
         public static readonly Color Gold = new Color(0.92f, 0.74f, 0.36f);
@@ -36,7 +44,7 @@ namespace Deepbound.UI
 
         private static GUIStyle MakeTitle()
         {
-            var s = MakeLabel(72, TextAnchor.MiddleCenter, Gold, FontStyle.Normal);
+            var s = MakeLabel(72, TextAnchor.MiddleCenter, Gold, FontStyle.Bold);
             s.font = TitleFont;
             return s;
         }
@@ -111,6 +119,29 @@ namespace Deepbound.UI
                 Rect(new Rect(r.x + r.width * i / notches, r.y, 1f, r.height), new Color(0f, 0f, 0f, 0.35f));
         }
 
+        /// <summary>Text cut to fit a width on one line, ending "..." when it had to be shortened.</summary>
+        public static string Fit(string text, GUIStyle style, float width)
+        {
+            if (string.IsNullOrEmpty(text) || style.CalcSize(new GUIContent(text)).x <= width) return text;
+            int lo = 0, hi = text.Length;
+            while (lo < hi)
+            {
+                int mid = (lo + hi + 1) / 2;
+                if (style.CalcSize(new GUIContent(text.Substring(0, mid) + "...")).x <= width) lo = mid; else hi = mid - 1;
+            }
+            return text.Substring(0, lo).TrimEnd(' ', ',', '.', ':') + "...";
+        }
+
+        /// <summary>A colour pushed light enough to read as text on the dark panels.</summary>
+        public static Color Readable(Color c, float minLum = 0.64f)
+        {
+            float lum = 0.3f * c.r + 0.59f * c.g + 0.11f * c.b;
+            if (lum >= minLum) return c;
+            var o = Color.Lerp(c, Color.white, Mathf.Clamp01((minLum - lum) / Mathf.Max(0.01f, 1f - lum)));
+            o.a = c.a;
+            return o;
+        }
+
         /// <summary>Text with a soft dark drop shadow, for titles over 3D scenes.</summary>
         public static void Shadowed(Rect r, string text, GUIStyle style, float alpha = 1f)
         {
@@ -123,7 +154,7 @@ namespace Deepbound.UI
 
         private static GUIStyle MakeButton(int size)
         {
-            var s = new GUIStyle(GUI.skin.button) { fontSize = size, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter };
+            var s = new GUIStyle(GUI.skin.button) { fontSize = size, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, clipping = TextClipping.Overflow };
             // Buttons are little framed plaques: a gold-ruled border baked into a 3x3 texture.
             s.normal.background = Framed(new Color(0.09f, 0.065f, 0.05f, 0.95f), new Color(0.55f, 0.42f, 0.2f, 0.9f));
             s.hover.background = Framed(new Color(0.28f, 0.17f, 0.08f, 0.97f), new Color(0.95f, 0.75f, 0.36f, 1f));
@@ -137,7 +168,7 @@ namespace Deepbound.UI
 
         private static GUIStyle MakeLabel(int size, TextAnchor anchor, Color color, FontStyle fs, bool wrap = false)
         {
-            var s = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = anchor, fontStyle = fs, wordWrap = wrap, richText = true };
+            var s = new GUIStyle(GUI.skin.label) { fontSize = size, alignment = anchor, fontStyle = fs, wordWrap = wrap, richText = true, clipping = TextClipping.Overflow };
             s.normal.textColor = color;
             return s;
         }

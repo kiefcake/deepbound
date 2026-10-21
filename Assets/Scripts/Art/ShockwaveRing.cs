@@ -27,7 +27,7 @@ namespace Deepbound.Art
             s.ring = MeshKit.Part(go.transform, "Wall", wall, Mat.Glow, Vector3.up * 0.02f).transform;
             s.rend = s.ring.GetComponent<Renderer>();
             s.rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            ArtLibrary.SetGlow(s.rend, color * 2f);
+            ArtLibrary.SetGlow(s.rend, color * 1.3f);
             s.ring.localScale = new Vector3(0.1f, 1f, 0.1f);
             Destroy(go, maxRadius / speed + 0.1f);
         }
@@ -38,7 +38,7 @@ namespace Deepbound.Art
             float r = Mathf.Max(0.1f, age * speed);
             float k = Mathf.Clamp01(1f - r / maxRadius);
             ring.localScale = new Vector3(r, 0.6f + 0.6f * k, r);
-            ArtLibrary.SetGlow(rend, color * (0.6f + 1.6f * k));
+            ArtLibrary.SetGlow(rend, color * (0.45f + 1.0f * k));
             if (Time.time >= nextDust)
             {
                 nextDust = Time.time + 0.06f;
