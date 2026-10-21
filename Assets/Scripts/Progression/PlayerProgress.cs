@@ -708,6 +708,13 @@ namespace Deepbound.Progression
             return true;
         }
 
+        /// <summary>Server, for tests: take a relic away again.</summary>
+        public void ServerDebugRemoveRelic(Relic r)
+        {
+            if (!IsServer) return;
+            for (int i = relics.Count - 1; i >= 0; i--) if (relics[i] == (byte)r) relics.RemoveAt(i);
+        }
+
         /// <summary>Server, each floor: once-per-floor relics recharge.</summary>
         public void ServerNewFloor()
         {

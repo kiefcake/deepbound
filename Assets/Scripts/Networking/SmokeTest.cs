@@ -1200,6 +1200,8 @@ namespace Deepbound.Networking
                         }
                         // A hand torch: carrying it lights the way and empties your hands.
                         {
+                            // A relic found earlier might already be Lamplighter's Oil (it lets the bearer fight): not yet.
+                            sp.ServerDebugRemoveRelic(Relic.LamplightersOil);
                             var torch = dd.ServerDebugTorch(local.transform.position + local.transform.forward * 1.5f);
                             if (torch != null)
                             {
