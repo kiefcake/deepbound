@@ -149,6 +149,14 @@ namespace Deepbound.UI
             {
                 baseShadowDistance ??= urp.shadowDistance;
                 urp.renderScale = q == 0 ? 0.7f : q == 1 ? 0.85f : 1f;
+                // Below full resolution, upscale with FSR 1 (sharper than bilinear, nearly free), lightly sharpened.
+                try
+                {
+                    urp.upscalingFilter = urp.renderScale < 0.99f ? UnityEngine.Rendering.Universal.UpscalingFilterSelection.FSR : UnityEngine.Rendering.Universal.UpscalingFilterSelection.Auto;
+                    urp.fsrOverrideSharpness = true;
+                    urp.fsrSharpness = 0.75f;
+                }
+                catch { /* older pipeline: keep the default filter */ }
                 urp.shadowDistance = q == 0 ? 0f : q == 1 ? Mathf.Min(baseShadowDistance.Value, 25f) : baseShadowDistance.Value;
                 // The SSAO renderer feature, found by type on the active renderer.
                 try
