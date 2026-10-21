@@ -1012,6 +1012,9 @@ namespace Deepbound.UI
         }
 
         private RunPhase lastPhase;
+        private double floorTimesRun = -1;
+        /// <summary>This run's floor clear times (seconds), in order, as this machine saw them.</summary>
+        public static readonly List<float> FloorTimes = new List<float>();
 
         /// <summary>The floor's guardian just fell: how long the floor took, and a record if it was quick.</summary>
         private void WatchFloorTime()
@@ -1022,6 +1025,8 @@ namespace Deepbound.UI
             if (lastPhase == RunPhase.Exploring && phase == RunPhase.FloorCleared)
             {
                 float took = (float)(Unity.Netcode.NetworkManager.Singleton.ServerTime.Time - dd.FloorBegan.Value);
+                if (floorTimesRun != dd.RunStartedAt.Value) { floorTimesRun = dd.RunStartedAt.Value; FloorTimes.Clear(); }
+                FloorTimes.Add(took);
                 bool best = Records.SubmitFloorTime(took);
                 Feed((best ? "NEW RECORD - fastest floor: " : "Floor cleared in ") + Records.Clock(took), best ? new Color(1f, 0.85f, 0.4f) : new Color(0.85f, 0.8f, 0.7f));
             }

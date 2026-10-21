@@ -32,7 +32,7 @@ namespace Deepbound.UI
             int left = Mathf.Max(0, Mathf.CeilToInt((float)(d.PhaseEndsAt.Value - NetworkManager.Singleton.ServerTime.Time)));
 
             UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.6f));
-            float pw = Mathf.Min(900f, w - 60f), ph = 270f + PlayerLife.All.Count * 62f;
+            float pw = Mathf.Min(900f, w - 60f), ph = 290f + PlayerLife.All.Count * 62f;
             // Remember how it ended (once a run): the camp will mention it.
             if (recordedRun != d.RunStartedAt.Value)
             {
@@ -49,10 +49,19 @@ namespace Deepbound.UI
                     : "Fell on floor " + floor + " of " + DungeonDirector.FloorsPerRun + (floor - 1 >= DungeonDirector.AbyssDepth ? ", in the Abyss" : "")) + "   ·   Run time " + time,
                 new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
 
+            // How long each floor took (as this machine saw the guardians fall).
+            if (GameHud.FloorTimes.Count > 0)
+            {
+                var parts = new System.Collections.Generic.List<string>();
+                for (int i = 0; i < GameHud.FloorTimes.Count; i++) parts.Add((i + 1) + "  " + Records.Clock(GameHud.FloorTimes[i]));
+                GUI.Label(new Rect(panel.x, panel.y + 88, pw, 20), "Floors:   " + string.Join("   ·   ", parts),
+                    new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.8f, 0.76f, 0.68f) } });
+            }
+
             // Table.
             string[] headers = { "PLAYER", "CLASS", "KILLS", "DAMAGE", "COMBOS", "GOLD", "RELICS", "REVIVES", "DOWNED" };
             float[] cols = { 0.03f, 0.19f, 0.32f, 0.42f, 0.54f, 0.64f, 0.73f, 0.82f, 0.91f };
-            float ty = panel.y + 110;
+            float ty = panel.y + 128;
             for (int c = 0; c < headers.Length; c++)
                 GUI.Label(new Rect(panel.x + pw * cols[c], ty, 120, 20), headers[c], new GUIStyle(UiSkin.Small) { normal = { textColor = UiSkin.Gold }, fontStyle = FontStyle.Bold });
             ty += 26;
