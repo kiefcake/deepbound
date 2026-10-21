@@ -80,7 +80,78 @@ namespace Deepbound.Networking
                 L("   [" + kind + "] " + text);
             };
             PlayerLife.DownedRecap += (killer, lines) => L("!! DOWNED by " + killer + " | " + (lines ?? "").Replace("\n", "; ").Replace("\t", " "));
-            StartCoroutine(Main());
+            StartCoroutine(System.Array.IndexOf(args, "-navcheck") >= 0 ? NavCheck() : Main());
+        }
+
+        /// <summary>
+        /// -navcheck: build each floor and check every room can be walked to from the start room on the
+        /// navmesh (what the dead and the bot walk on). An unreachable room is a room the dead cannot
+        /// follow you into, or a guardian no one can get to.
+        /// </summary>
+        private IEnumerator NavCheck()
+        {
+            launcher.StartHost();
+            for (float t = 0f; t < 15f && NetworkPlayer.Local == null; t += 0.2f) yield return new WaitForSeconds(0.2f);
+            yield return new WaitForSeconds(2f);
+            var dd = DungeonDirector.Instance;
+            int bad = 0;
+            for (int depth = 0; depth < DungeonDirector.FloorsPerRun; depth++)
+            {
+                for (int seed = 0; seed < (System.Environment.GetCommandLineArgs().Contains("-navquick") ? 1 : 3); seed++)
+                {
+                    dd.ServerDebugStartFloor(depth);
+                    yield return new WaitForSeconds(2.5f);
+                    var layout = DungeonDirector.Layout;
+                    floorNo = depth;
+                    if (layout == null) { L("no layout"); continue; }
+                    var start = layout.StartRoom.Center;
+                    var path = new NavMeshPath();
+                    var lost = new List<string>();
+                    foreach (var room in layout.Rooms)
+                    {
+                        if (!NavMesh.SamplePosition(room.Center, out var c, 4f, NavMesh.AllAreas)) { lost.Add(room.Id + " " + room.Kind + "/" + room.Feature + " (no navmesh at its centre)"); continue; }
+                        if (!NavMesh.SamplePosition(start, out var s0, 4f, NavMesh.AllAreas)) continue;
+                        if (!NavMesh.CalculatePath(s0.position, c.position, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete)
+                        {
+                            var end = path.corners.Length > 0 ? path.corners[path.corners.Length - 1] : s0.position;
+                            var near = Physics.OverlapSphere(end + Vector3.up, 2.5f, ~0, QueryTriggerInteraction.Ignore).Select(x => x.name).Distinct().Take(6);
+                            var obs = FindObjectsByType<NavMeshObstacle>(FindObjectsSortMode.None).Where(o => o.enabled && Vector3.Distance(o.transform.position, end) < 6f).Select(o => o.name);
+                            lost.Add(room.Id + " " + room.Kind + "/" + room.Feature + " (" + path.status + ", the way ends at " + Fmt(end) + " near " + string.Join(", ", near) + (obs.Any() ? "; obstacles " + string.Join(", ", obs) : "") + ")");
+                        }
+                    }
+                    // The guardian's spot and the lift's (a dais is raised: its ramps must join the floor).
+                    foreach (var (what, at) in new[] { ("boss spot", layout.BossSpawn), ("lift spot", layout.LiftSpot) })
+                    {
+                        if (!NavMesh.SamplePosition(start, out var sa, 4f, NavMesh.AllAreas)) continue;
+                        bool onMesh = NavMesh.SamplePosition(at, out var ta, 1.5f, NavMesh.AllAreas);
+                        bool ok = onMesh && NavMesh.CalculatePath(sa.position, ta.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete;
+                        if (!ok) lost.Add(what + " in a " + layout.BossRoom.Arena + " arena (" + (onMesh ? path.status.ToString() : "no navmesh within 1.5 m of " + at.ToString("F1")) + ")");
+                    }
+                    L("floor " + (depth + 1) + " seed " + layout.Seed + ": " + layout.Rooms.Count + " rooms, " + (lost.Count == 0 ? "all reachable" : lost.Count + " UNREACHABLE: " + string.Join(" | ", lost)));
+                    if (lost.Count > 0)
+                    {
+                        bad++;
+                        // Look at where the way ends, toward the room it was trying to reach.
+                        foreach (var room in layout.Rooms)
+                        {
+                            if (room.Feature == RoomFeature.Vault) continue;
+                            if (!NavMesh.SamplePosition(room.Center, out var c2, 4f, NavMesh.AllAreas) || !NavMesh.SamplePosition(start, out var s2, 4f, NavMesh.AllAreas)) continue;
+                            if (NavMesh.CalculatePath(s2.position, c2.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete) continue;
+                            var end = path.corners.Length > 0 ? path.corners[path.corners.Length - 1] : s2.position;
+                            L("   route to " + room.Feature + " room " + room.Id + " (centre " + room.Center.x.ToString("F0") + "," + room.Center.y.ToString("F1") + "," + room.Center.z.ToString("F0") + ", size " + room.Size.x.ToString("F0") + "x" + room.Size.y.ToString("F0") + ", balconies " + string.Join("/", room.Balconies) + ", doors " + string.Join("", room.Doors.Select(dd2 => dd2 ? "1" : "0")) + "), target " + c2.position.ToString("F1") + ": " + string.Join(" > ", path.corners.Select(k => k.ToString("F1"))));
+                            var look = Flat(room.Center) - Flat(end);
+                            motor = NetworkPlayer.Local.GetComponent<FirstPersonMotor>();
+                            motor.Teleport(end - look.normalized * 1.5f + Vector3.up * 0.1f, Quaternion.LookRotation(look.sqrMagnitude > 0.01f ? look : Vector3.forward));
+                            yield return new WaitForSeconds(0.8f);
+                            yield return Shot("nav_F" + (depth + 1) + "_" + seed + "_" + room.Feature);
+                            break;
+                        }
+                    }
+                }
+            }
+            L("== NAVCHECK: " + bad + " floors with unreachable rooms ==");
+            log.Close();
+            Application.Quit(0);
         }
 
         private void Update()
@@ -460,7 +531,7 @@ namespace Deepbound.Networking
                 if ((me.transform.position - lastPos).sqrMagnitude > 1f) { lastPos = me.transform.position; stuckSince = Time.time; }
                 else if (Time.time - stuckSince > 12f)
                 {
-                    Problem("stuck for 12 s going for " + goalWhat + " at " + Fmt(goal) + " from " + Fmt(me.transform.position));
+                    Problem("stuck for 12 s going for " + goalWhat + " at " + Fmt(goal) + " from " + Fmt(me.transform.position) + " | " + WhyStuck(goal));
                     if (target != null) skip.Add(target.NetworkObjectId);
                     stuckSince = Time.time;
                 }
@@ -546,6 +617,21 @@ namespace Deepbound.Networking
                 if (d < bd && Reachable(c.transform.position, new NavMeshPath())) { bd = d; best = c; }
             }
             return best;
+        }
+
+        /// <summary>Why the way on fails: the path's state, where it ends, and what stands near us.</summary>
+        private string WhyStuck(Vector3? goal)
+        {
+            if (!goal.HasValue) return "no goal";
+            var path = new NavMeshPath();
+            bool fromOk = NavMesh.SamplePosition(me.transform.position, out var a, 2f, NavMesh.AllAreas);
+            bool toOk = NavMesh.SamplePosition(goal.Value, out var b, 3f, NavMesh.AllAreas);
+            string st = !fromOk ? "I am off the navmesh" : !toOk ? "goal off the navmesh" :
+                NavMesh.CalculatePath(a.position, b.position, NavMesh.AllAreas, path) ? path.status + " (ends " + Fmt(path.corners.Length > 0 ? path.corners[path.corners.Length - 1] : (Vector3?)null) + ")" : "no path";
+            var near = Physics.OverlapSphere(me.transform.position + Vector3.up, 2.2f, ~0, QueryTriggerInteraction.Ignore)
+                .Where(c => c.transform.root != me.transform.root).Select(c => c.name + (c.GetComponentInParent<NetworkObject>() is NetworkObject no ? "<" + no.name + ">" : "")).Distinct().Take(6);
+            var obstacles = FindObjectsByType<NavMeshObstacle>(FindObjectsSortMode.None).Where(o => o.enabled && Vector3.Distance(o.transform.position, me.transform.position) < 6f).Select(o => o.name + (o.carving ? "(carves)" : ""));
+            return st + "; near: " + string.Join(", ", near) + "; obstacles: " + string.Join(", ", obstacles);
         }
 
         private bool Reachable(Vector3 to, NavMeshPath path)
