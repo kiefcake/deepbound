@@ -22,6 +22,52 @@ namespace Deepbound.Enemies
 
         protected override bool UsesMoveSet => false;
         public bool Holding => held != null;
+        /// <summary>The one it is after (tests).</summary>
+        public Health Quarry => target;
+
+        private static readonly System.Collections.Generic.List<EntlingBrain> Live = new System.Collections.Generic.List<EntlingBrain>();
+
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+            if (IsServer) Live.Add(this);
+        }
+
+        /// <summary>Someone else's: another living Entling is after this player or already holds them.</summary>
+        private bool Claimed(Health p)
+        {
+            foreach (var e in Live)
+            {
+                if (e == null || e == this || e.IsDead) continue;
+                if (e.target == p || (e.held != null && e.held.gameObject == p.gameObject)) return true;
+            }
+            return false;
+        }
+
+        private bool RootedByAnother(Health p) =>
+            p.TryGetComponent<PlayerDebuffs>(out var d) && d.RootedBy.Value != ulong.MaxValue && d.RootedBy.Value != NetworkObjectId;
+
+        /// <summary>
+        /// One each (2026-10-21, the user: "entlings should target a player each if possible"): a pack of
+        /// Entlings spreads out, each going for a player no other Entling is after or holding, nearest first.
+        /// Only when every standing player is spoken for do two share one, by the usual rules.
+        /// </summary>
+        protected override Health PickTarget()
+        {
+            if (held != null) return target;
+            bool Usable(Health p) => p != null && PlayerLife.CanTarget(p) && FlatDistance(p.transform.position) < leashRange;
+            if (Usable(target) && !RootedByAnother(target) && !Claimed(target)) return target;
+            Health best = null;
+            float bestDist = target != null ? leashRange : aggroRange * 1.6f;
+            foreach (var pl in PlayerLife.All)
+            {
+                if (pl == null || !pl.Targetable || !Usable(pl.Health) || RootedByAnother(pl.Health) || Claimed(pl.Health)) continue;
+                float d = FlatDistance(pl.transform.position);
+                if (d < bestDist) { bestDist = d; best = pl.Health; }
+            }
+            if (best != null) { ServerAddThreat(best.NetworkObjectId, 1f); return best; }
+            return base.PickTarget();
+        }
 
         protected override void BeginAttack()
         {
@@ -88,12 +134,14 @@ namespace Deepbound.Enemies
 
         protected override void OnDied(Health h)
         {
+            Live.Remove(this);
             Release();
             base.OnDied(h);
         }
 
         public override void OnNetworkDespawn()
         {
+            Live.Remove(this);
             if (IsServer) Release();
             base.OnNetworkDespawn();
         }

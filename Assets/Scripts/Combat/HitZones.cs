@@ -13,7 +13,7 @@ namespace Deepbound.Combat
     /// </summary>
     public static class HitZones
     {
-        private struct Cache { public Transform Head; public WeakPoint[] Weak; public bool Boss; }
+        private struct Cache { public Transform Head; public WeakPoint[] Weak; public bool Boss; public Vector3 HeadLocal; public float HeadRadius; }
         private static readonly Dictionary<Health, Cache> cache = new Dictionary<Health, Cache>();
 
         private static Cache For(Health h)
@@ -26,16 +26,60 @@ namespace Deepbound.Combat
                 Weak = h.GetComponentsInChildren<WeakPoint>(),
                 Boss = h.GetComponent<Enemies.BossBrain>() != null,
             };
+            if (c.Head != null) MeasureHead(c.Head, out c.HeadLocal, out c.HeadRadius);
             cache[h] = c;
             return c;
         }
 
-        /// <summary>The head sphere's centre and radius in world space.</summary>
-        private static void HeadSphere(Transform head, out Vector3 center, out float radius)
+        /// <summary>
+        /// The head as built (2026-10-21, "fix all headshot hitboxes"): one skeleton-sized sphere used to
+        /// stand in for every creature, so an eye that IS its head, a gargoyle's snout or a boss's big skull
+        /// were all off. Measure the parts hung straight on the head pivot (skull, face, helm, hat; not a
+        /// chanter or a held thing on its own pivot) and fit a sphere to them, in the head's own space.
+        /// </summary>
+        private static void MeasureHead(Transform head, out Vector3 local, out float radius)
         {
-            float s = Mathf.Max(0.5f, head.lossyScale.y);
-            center = head.position + head.up * 0.12f * s;
-            radius = Mathf.Max(0.14f, 0.17f * s);
+            bool any = false;
+            var min = Vector3.positiveInfinity; var max = Vector3.negativeInfinity;
+            foreach (var mf in head.GetComponentsInChildren<MeshFilter>())
+            {
+                if (mf.sharedMesh == null) continue;
+                var parent = mf.transform.parent;
+                if (parent != head && (parent == null || parent.parent != head || !parent.name.Contains("Jaw"))) continue;
+                var b = mf.sharedMesh.bounds;
+                for (int i = 0; i < 8; i++)
+                {
+                    var corner = b.center + Vector3.Scale(b.extents, new Vector3((i & 1) == 0 ? -1 : 1, (i & 2) == 0 ? -1 : 1, (i & 4) == 0 ? -1 : 1));
+                    var p = head.InverseTransformPoint(mf.transform.TransformPoint(corner));
+                    min = Vector3.Min(min, p); max = Vector3.Max(max, p);
+                    any = true;
+                }
+            }
+            if (!any) { local = new Vector3(0f, 0.12f, 0f); radius = 0.17f; return; }
+            local = (min + max) * 0.5f;
+            var ext = (max - min) * 0.5f;
+            // A sphere a touch rounder than the average half-size: a hat brim widens it a little, as it should.
+            radius = Mathf.Clamp((ext.x + ext.y + ext.z) / 3f * 1.08f, 0.1f, 0.9f);
+        }
+
+        /// <summary>Does a path pass through the head or a weak point (a hit there counts even if it misses the body capsule)?</summary>
+        public static bool Touches(Health target, Vector3 from, Vector3 to, float pad)
+        {
+            if (target.Team != Team.Enemies) return false;
+            var c = For(target);
+            foreach (var w in c.Weak)
+                if (w != null && w.gameObject.activeInHierarchy && DistanceToSegment(w.transform.position, from, to) <= w.WorldRadius + pad) return true;
+            if (c.Head == null) return false;
+            HeadSphere(c, out var hc, out float hr);
+            return DistanceToSegment(hc, from, to) <= hr + pad;
+        }
+
+        /// <summary>The head sphere's centre and radius in world space.</summary>
+        private static void HeadSphere(Cache c, out Vector3 center, out float radius)
+        {
+            var sc = c.Head.lossyScale;
+            center = c.Head.TransformPoint(c.HeadLocal);
+            radius = Mathf.Max(0.12f, c.HeadRadius * (Mathf.Abs(sc.x) + Mathf.Abs(sc.y) + Mathf.Abs(sc.z)) / 3f);
         }
 
         /// <summary>The zone a straight path from <paramref name="from"/> to <paramref name="to"/> passes through first.</summary>
@@ -44,7 +88,8 @@ namespace Deepbound.Combat
             point = target.Center;
             if (target.Team != Team.Enemies) return HitZone.Body;
             var c = For(target);
-            const float slack = 0.08f;
+            // The shot's own radius plus a little for the server seeing the head a beat away from where you saw it.
+            const float slack = 0.12f;
             foreach (var w in c.Weak)
             {
                 if (w == null || !w.gameObject.activeInHierarchy) continue;
@@ -52,7 +97,7 @@ namespace Deepbound.Combat
             }
             if (c.Head != null)
             {
-                HeadSphere(c.Head, out var hc, out float hr);
+                HeadSphere(c, out var hc, out float hr);
                 if (DistanceToSegment(hc, from, to) <= hr + slack) { point = hc; return HitZone.Head; }
             }
             return HitZone.Body;

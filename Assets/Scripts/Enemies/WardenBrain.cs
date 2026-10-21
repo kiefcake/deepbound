@@ -201,7 +201,7 @@ namespace Deepbound.Enemies
                     {
                         Arms = 4, Interval = 0.12f, Speed = 10.5f, Spin = 13f, FlipEvery = 2.5f, Kind = ProjectileKind.Spit, Duration = 7.6f, AimedEvery = 1.5f, Range = 24f,
                         Damage = damage * 0.35f, Origin = Orbit(1.8f, 60f, 0f, 1.6f),
-                        OnHit = hit => { hit.ServerDamage(damage * 0.35f, transform.position, NetworkObjectId); if (hit.TryGetComponent<PlayerDebuffs>(out var d)) d.ServerPoison(3f, 3f + 1.5f * scaledDepth); },
+                        OnHit = hit => { hit.ServerDamage(damage * 0.35f * PatternDamageScale, transform.position, NetworkObjectId); if (hit.TryGetComponent<PlayerDebuffs>(out var d)) d.ServerPoison(3f, 3f + 1.5f * scaledDepth); },
                     });
                     break;
             }

@@ -645,7 +645,7 @@ namespace Deepbound.Enemies
         private void LungeWarnRpc(Vector3 from, Vector3 dir, float length, float seconds) =>
             Telegraph.ShowLine(from, dir, length, 1.2f, seconds, this);
 
-        protected Health PickTarget()
+        protected virtual Health PickTarget()
         {
             if (taunter != null && Time.time < tauntUntil && PlayerLife.CanTarget(taunter)) return taunter;
 

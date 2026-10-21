@@ -483,7 +483,12 @@ namespace Deepbound.Enemies
             public System.Action<Health> OnHit;
             public float Duration = 6f;
             internal float Started, NextAt, NextAimed, Angle;
+            internal byte Id;
         }
+
+        /// <summary>Boss bullet patterns hit harder (2026-10-21, the user): every pattern's bolts and aimed shots.</summary>
+        public const float PatternDamageScale = 1.5f;
+        private byte nextPatternId;
 
         private readonly List<Pattern> patterns = new List<Pattern>();
 
@@ -494,6 +499,8 @@ namespace Deepbound.Enemies
             p.NextAimed = Time.time + (p.AimedEvery > 0f ? p.AimedEvery * 0.6f : float.MaxValue);
             p.Angle = Random.Range(0f, 360f);
             p.Origin ??= _ => transform.position + Vector3.up * 1.3f;
+            p.Damage *= PatternDamageScale;
+            p.Id = nextPatternId++;
             patterns.Add(p);
             return p;
         }
@@ -524,7 +531,7 @@ namespace Deepbound.Enemies
                         var dir = Quaternion.Euler(0f, p.Angle + a * 360f / p.Arms, 0f) * Vector3.forward;
                         Arrows.ServerFire(origin, dir, p.OnHit != null ? 0f : p.Damage, Team.Players, NetworkObjectId, p.Speed, p.OnHit, false, p.Range);
                     }
-                    PatternVolleyRpc(origin, p.Angle, (byte)p.Arms, p.Speed, (byte)p.Kind, p.Range);
+                    PatternVolleyRpc(origin, p.Angle, (byte)p.Arms, p.Speed, (byte)p.Kind, p.Range, p.Id);
                 }
                 if (Time.time >= p.NextAimed)
                 {
@@ -543,8 +550,9 @@ namespace Deepbound.Enemies
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void PatternVolleyRpc(Vector3 origin, float angle, byte arms, float speed, byte kind, float range)
+        private void PatternVolleyRpc(Vector3 origin, float angle, byte arms, float speed, byte kind, float range, byte id)
         {
+            PatternEmitter.Volley(this, id, origin, angle, arms, Arrows.BoltColor((ProjectileKind)kind));
             for (int a = 0; a < arms; a++)
                 Arrows.SpawnVisual(origin, Quaternion.Euler(0f, angle + a * 360f / arms, 0f) * Vector3.forward, (ProjectileKind)kind, speed, range);
         }

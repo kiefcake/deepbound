@@ -1402,7 +1402,7 @@ namespace Deepbound.World
         public const float ExitRadius = 3.2f, ExitDelay = 3f;
 
         /// <summary>Where the way out opens: the boss's throne spot.</summary>
-        public static Vector3 ExitPosition => Layout != null ? Layout.BossSpawn : Vector3.zero;
+        public static Vector3 ExitPosition => Layout != null ? Layout.LiftSpot : Vector3.zero;
 
         /// <summary>Arriving in the Abyss: how many Seals the party broke on the way down.</summary>
         [Rpc(SendTo.ClientsAndHost)]

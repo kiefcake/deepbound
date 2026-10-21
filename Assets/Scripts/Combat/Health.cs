@@ -136,6 +136,10 @@ namespace Deepbound.Combat
         // ---- The body, as hit tests see it: the creature's own collider shape. ----
         private float bodyRadius = 0.4f, bodyLow = 0f, bodyHigh = 1.8f;
         private bool bodyCached;
+        // A box-shaped body (a wall plug, a gong, a target) is tested as the real box, not a capsule
+        // (2026-10-21: shots at a secret wall's edges and corners passed straight through it).
+        private bool bodyIsBox;
+        private Vector3 boxCenter, boxHalf;
 
         private void CacheBody()
         {
@@ -157,6 +161,9 @@ namespace Deepbound.Combat
                 bodyRadius = Mathf.Max(box.size.x, box.size.z) * 0.5f;
                 bodyLow = box.center.y - box.size.y / 2f;
                 bodyHigh = box.center.y + box.size.y / 2f;
+                bodyIsBox = true;
+                boxCenter = box.center;
+                boxHalf = box.size * 0.5f;
             }
             else { bodyRadius = 0.4f; bodyLow = 0f; bodyHigh = centerHeight * 2f; }
         }
@@ -171,6 +178,15 @@ namespace Deepbound.Combat
         public float DistanceToBody(Vector3 p)
         {
             if (!bodyCached) CacheBody();
+            if (bodyIsBox)
+            {
+                // Signed distance to the oriented box (in the box's own space; these props are unscaled).
+                var q = transform.InverseTransformPoint(p) - boxCenter;
+                q = new Vector3(Mathf.Abs(q.x) - boxHalf.x, Mathf.Abs(q.y) - boxHalf.y, Mathf.Abs(q.z) - boxHalf.z);
+                float outside = Vector3.Max(q, Vector3.zero).magnitude;
+                float inside = Mathf.Min(Mathf.Max(q.x, Mathf.Max(q.y, q.z)), 0f);
+                return outside + inside;
+            }
             float lo = transform.position.y + bodyLow + bodyRadius, hi = transform.position.y + bodyHigh - bodyRadius;
             if (hi < lo) hi = lo;
             var axis = new Vector3(transform.position.x, Mathf.Clamp(p.y, lo, hi), transform.position.z);

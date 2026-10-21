@@ -15,7 +15,7 @@ namespace Deepbound.World
     /// </summary>
     public class SpikeTrap : NetworkBehaviour
     {
-        private const float Radius = 1.25f, Delay = 0.55f, Damage = 32f, Rearm = 2.5f;
+        private const float Radius = 1.25f, Delay = 0.55f, Damage = 50f, Rearm = 2.5f;
 
         private Transform spikes;
         private Renderer plateGlow;
@@ -65,7 +65,7 @@ namespace Deepbound.World
                 if (Mathf.Abs(d.y) > 1f) continue;
                 d.y = 0f;
                 if (d.magnitude > Radius) continue;
-                h.ServerDamage(Damage * (1f + 0.2f * DungeonDirector.Tier(depth)) * (h.Team == Team.Enemies ? 1.5f : 1f), transform.position + Vector3.down, NetworkObjectId);
+                h.ServerDamage(Damage * (1f + 0.2f * DungeonDirector.Tier(depth)) * (h.Team == Team.Enemies ? 2f : 1f), transform.position + Vector3.down, NetworkObjectId);
             }
             FireRpc();
         }

@@ -553,7 +553,8 @@ namespace Deepbound.World
                     if (Mathf.Abs(Vector3.Dot(d, along)) > 0.75f || Mathf.Abs(Vector3.Dot(d, trap.Across)) > DungeonLayout.CorridorWidth / 2f || Mathf.Abs(d.y) > 1.5f) continue;
                     if (burnedAt.TryGetValue(h, out float t) && Time.time - t < 0.5f) continue;
                     burnedAt[h] = Time.time;
-                    h.ServerDamage(h.Team == Team.Players ? 10f + 4f * Tier(Layout.Depth) : 35f + 10f * Tier(Layout.Depth), trap.At);
+                    // Traps hit hard (2026-10-21, the user: "damage on traps to go up"), on both sides.
+                    h.ServerDamage(h.Team == Team.Players ? 16f + 6f * Tier(Layout.Depth) : 50f + 15f * Tier(Layout.Depth), trap.At);
                     if (!h.IsAlive && h.Team == Team.Enemies) EnvKillRpc(h.Center, 1);
                 }
             }
@@ -629,12 +630,12 @@ namespace Deepbound.World
                         var push = Pendulum.SwingDirection(room, i, now);
                         if (h.Team == Team.Players)
                         {
-                            h.ServerDamage(18f + 7f * Tier(Layout.Depth), blade);
+                            h.ServerDamage(30f + 10f * Tier(Layout.Depth), blade);
                             if (h.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(push * 9f + Vector3.up * 3f);
                         }
                         else
                         {
-                            h.ServerDamage(80f + 25f * Tier(Layout.Depth), blade);
+                            h.ServerDamage(110f + 35f * Tier(Layout.Depth), blade);
                             if (h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerKnockback(push * 9f);
                             if (!h.IsAlive) EnvKillRpc(h.Center, 0);
                         }
@@ -698,7 +699,7 @@ namespace Deepbound.World
                         flat.y = 0f;
                         float dist = flat.magnitude;
                         if (ph < last && dist < PyreFire.EruptRadius && h.transform.position.y < c.y + 2.5f)
-                            HazardHit(h, c, 30f + 10f * tier, 120f + 30f * tier, flat.normalized * 9f + Vector3.up * 3f, 1, 0.2f);
+                            HazardHit(h, c, 46f + 15f * tier, 160f + 40f * tier, flat.normalized * 9f + Vector3.up * 3f, 1, 0.2f);
                         else if (coreTick && dist < PyreFire.CoreRadius)
                         {
                             if (h.Team == Team.Players) h.ServerDamage(8f + 3f * tier, c);
@@ -717,7 +718,7 @@ namespace Deepbound.World
                         {
                             if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
                             if (!SpikeGauntlet.OnRow(room, i, h.transform.position - Vector3.up * 0.05f)) continue;
-                            HazardHit(h, h.transform.position, 18f + 6f * tier, 70f + 20f * tier, Vector3.up * 5f, 0, SpikeGauntlet.UpSeconds + 0.1f);
+                            HazardHit(h, h.transform.position, 30f + 9f * tier, 100f + 28f * tier, Vector3.up * 5f, 0, SpikeGauntlet.UpSeconds + 0.1f);
                         }
                     }
                 }

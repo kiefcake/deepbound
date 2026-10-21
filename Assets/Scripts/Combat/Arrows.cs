@@ -212,7 +212,7 @@ namespace Deepbound.Combat
             foreach (var h in Health.All)
             {
                 if (h == null || !CombatQuery.Matches(h, a.Targets) || !h.IsAlive) continue;
-                if (!h.SegmentTouchesBody(from, to, ProjectileRadius)) continue;
+                if (!h.SegmentTouchesBody(from, to, ProjectileRadius) && !HitZones.Touches(h, from, to, ProjectileRadius)) continue;
                 if (a.Pierce && !a.AlreadyHit.Add(h)) continue;
 
                 // A player's shot past half its range hits softer.

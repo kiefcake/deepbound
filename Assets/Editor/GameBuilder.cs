@@ -188,6 +188,8 @@ namespace Deepbound.EditorTools
         {
             // Spread garbage collection over frames instead of stopping the world for it.
             PlayerSettings.gcIncremental = true;
+            // CPU/GPU frame timings for the perf samples (FrameTimingManager); a negligible cost.
+            PlayerSettings.enableFrameTimingStats = true;
             Build();
 
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions

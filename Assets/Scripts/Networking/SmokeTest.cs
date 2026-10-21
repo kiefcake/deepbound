@@ -568,6 +568,22 @@ namespace Deepbound.Networking
                     dragged.ServerRevive(1f);
                     yield return new WaitForSeconds(0.3f);
                 }
+                // Entlings spread out: two of them, two players, one each.
+                {
+                    var entMate = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject && pl.Targetable);
+                    if (entMate != null)
+                    {
+                        var entMid = (local.transform.position + entMate.transform.position) / 2f;
+                        var e1 = DungeonDirector.Instance.ServerDebugSpawn("entling", entMid + Vector3.forward * 6f, false) as EntlingBrain;
+                        var e2 = DungeonDirector.Instance.ServerDebugSpawn("entling", entMid + Vector3.forward * 6.5f, false) as EntlingBrain;
+                        yield return new WaitForSeconds(0.6f);
+                        string q1 = e1 != null && e1.Quarry != null ? e1.Quarry.name : "none", q2 = e2 != null && e2.Quarry != null ? e2.Quarry.name : "none";
+                        Log("entlings one each", "first after " + q1 + ", second after " + q2, e1 != null && e2 != null && e1.Quarry != null && e2.Quarry != null && e1.Quarry != e2.Quarry);
+                        if (e1 != null && e1.IsSpawned) e1.NetworkObject.Despawn();
+                        if (e2 != null && e2.IsSpawned) e2.NetworkObject.Despawn();
+                        yield return new WaitForSeconds(0.2f);
+                    }
+                }
                 // Bleed-out: a downed ally who bleeds out leaves a soul skull; F-revive no longer works,
                 // but carrying the skull to the start room's waystone brings them back.
                 var otherLife = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
@@ -841,7 +857,26 @@ namespace Deepbound.Networking
                 bool hadSecret = secret != null;
                 if (secret != null)
                 {
-                    secret.GetComponent<Health>().ServerDamage(1000f, secret.transform.position - secret.transform.forward, local.NetworkObjectId);
+                    // Real shots from the room at its middle and its four corners: every one must land.
+                    var sh = secret.GetComponent<Health>();
+                    var st = secret.transform;
+                    int landed = 0;
+                    var aims = new[] { new Vector2(0f, 1.4f), new Vector2(-1.05f, 0.25f), new Vector2(1.05f, 0.25f), new Vector2(-1.05f, 2.6f), new Vector2(1.05f, 2.6f) };
+                    foreach (var aimAt in aims)
+                    {
+                        float before = sh.Current.Value;
+                        var target = st.position + st.right * aimAt.x + Vector3.up * aimAt.y;
+                        // Close in, square on: props in the room (a sarcophagus, once) must not stand in the way.
+                        var from = target - st.forward * 2.2f;
+                        string first = Physics.Raycast(from, (target - from).normalized, out var fh, 8f, ~0, QueryTriggerInteraction.Ignore) ? fh.collider.name + "@" + fh.distance.ToString("F1") : "nothing";
+                        Arrows.ServerFire(from, target - from, 5f, Team.Enemies, local.NetworkObjectId, 21f, null, false, 12f);
+                        yield return new WaitForSeconds(0.45f);
+                        if (secret == null || !secret.IsSpawned || sh.Current.Value < before) landed++;
+                        else Debug.Log("[Smoke] wall shot missed at " + aimAt + ", first thing on the line: " + first);
+                        if (secret == null || !secret.IsSpawned) break;
+                    }
+                    Log("secret wall takes shots", landed + " of " + aims.Length + " shots landed (hp " + sh.Current.Value.ToString("F0") + ")", landed == aims.Length);
+                    if (secret != null && secret.IsSpawned) sh.ServerDamage(1000f, secret.transform.position - secret.transform.forward, local.NetworkObjectId);
                     yield return new WaitForSeconds(0.3f);
                 }
                 bool secretGone = hadSecret && (secret == null || !secret.IsSpawned);
@@ -1244,6 +1279,8 @@ namespace Deepbound.Networking
                                 yield return new WaitForSeconds(0.2f);
                                 torch.ServerDebugCarry(sp);
                                 yield return new WaitForSeconds(0.2f);
+                                // A stray blow can knock it loose (the room is not always empty): pick it up again once.
+                                if (!torch.Carried) { torch.ServerDebugCarry(sp); yield return new WaitForSeconds(0.15f); }
                                 bool lit = torch.Lit, hands = !local.GetComponent<PlayerLife>().CanAct;
                                 torch.ServerDrop(local.transform.position);
                                 yield return new WaitForSeconds(0.1f);
@@ -2163,6 +2200,34 @@ namespace Deepbound.Networking
                         Log("test of might", "record " + gongT.Record.Value + " by " + gongT.RecordHolder.Value + ", hp unchanged " + (gongT.GetComponent<Health>().Current.Value == hpG),
                             gongT.Record.Value >= 77f && gongT.GetComponent<Health>().Current.Value == hpG);
                     }
+                }
+
+                // Headshots: a shot at the head each creature shows counts as a headshot, and one well above it does not.
+                {
+                    var heads = new System.Collections.Generic.List<string>();
+                    bool allOk = true;
+                    foreach (var kind in new[] { "skeleton", "brute", "wraith", "eye", "piper", "ghoul", "hexer" })
+                    {
+                        var e = DungeonDirector.Instance.ServerDebugSpawn(kind, local.transform.position + local.transform.forward * 7f + local.transform.right * 3f, false);
+                        if (e == null) continue;
+                        yield return new WaitForSeconds(0.15f);
+                        e.ServerStun(3f);
+                        var rig = e.GetComponentInChildren<Deepbound.Art.HumanoidRig>();
+                        var eh = e.GetComponent<Health>();
+                        if (rig == null || rig.Head == null) { e.NetworkObject.Despawn(); continue; }
+                        // Where the head is drawn: the middle of what hangs on the head pivot.
+                        var rs = rig.Head.GetComponentsInChildren<Renderer>().Where(r => r.transform.parent == rig.Head).ToArray();
+                        var drawn = rs.Length > 0 ? rs.Select(r => r.bounds).Aggregate((a, b) => { a.Encapsulate(b); return a; }) : new Bounds(rig.Head.position, Vector3.one * 0.2f);
+                        var eye = drawn.center - e.transform.forward * -6f + Vector3.up * 0.3f;
+                        var zone = HitZones.Along(eh, eye, drawn.center + (drawn.center - eye).normalized * 0.5f, out _);
+                        var over = drawn.center + Vector3.up * (drawn.extents.y + 0.45f);
+                        var zoneOver = HitZones.Along(eh, eye, over + (over - eye).normalized * 0.5f, out _);
+                        bool ok = zone != HitZone.Body && zoneOver == HitZone.Body;
+                        allOk &= ok;
+                        heads.Add(kind + (ok ? " ok" : " " + zone + "/" + zoneOver));
+                        e.NetworkObject.Despawn();
+                    }
+                    Log("headshot hitboxes", string.Join(", ", heads), allOk && heads.Count >= 5);
                 }
 
                 // Joining by address: ports, pasted junk and host names.
@@ -3516,13 +3581,23 @@ namespace Deepbound.Networking
         {
             yield return new WaitForSeconds(1f);
             float sum = 0f, worst = 0f, best = 1f;
+            double cpu = 0, gpu = 0; int timed = 0, spikes = 0;
+            long gcBytes = 0;
+            var gcRec = Unity.Profiling.ProfilerRecorder.StartNew(Unity.Profiling.ProfilerCategory.Memory, "GC Allocated In Frame");
+            var timings = new FrameTiming[1];
             for (int i = 0; i < 90; i++)
             {
                 yield return null;
                 float dt = Time.unscaledDeltaTime;
                 sum += dt; worst = Mathf.Max(worst, dt); best = Mathf.Min(best, dt);
+                if (dt > 0.025f) spikes++;
+                FrameTimingManager.CaptureFrameTimings();
+                if (FrameTimingManager.GetLatestTimings(1, timings) > 0) { cpu += timings[0].cpuMainThreadFrameTime; gpu += timings[0].gpuFrameTime; timed++; }
+                if (gcRec.Valid) gcBytes += gcRec.LastValue;
             }
+            gcRec.Dispose();
             Debug.Log("[PerfSample] " + name + " mean " + (sum / 90f * 1000f).ToString("F1") + " ms (" + (90f / sum).ToString("F0") + " fps), best " + (best * 1000f).ToString("F1") + ", worst " + (worst * 1000f).ToString("F1") +
+                ", cpu " + (timed > 0 ? (cpu / timed).ToString("F1") : "?") + " gpu " + (timed > 0 ? (gpu / timed).ToString("F1") : "?") + " ms, spikes>25ms " + spikes + ", gc " + (gcBytes / 90 / 1024) + " KB/frame" +
                 ", renderers " + FindObjectsByType<Renderer>(FindObjectsSortMode.None).Count(r => r.isVisible) + " visible, lights " + FindObjectsByType<Light>(FindObjectsSortMode.None).Count(l => l.isActiveAndEnabled) +
                 ", top: " + string.Join(", ", FindObjectsByType<Renderer>(FindObjectsSortMode.None).Where(r => r.isVisible)
                     .GroupBy(r => (r.transform.parent != null ? r.transform.parent.name + "/" : "") + r.name).OrderByDescending(g => g.Count()).Take(10).Select(g => g.Key + " x" + g.Count())));

@@ -157,6 +157,26 @@ namespace Deepbound.World
             get { var p = BossRoom.Center + new Vector3(0f, 0f, BossRoom.Size.y * 0.2f); p.y = BossRoom.RaisedAt(p); return p; }
         }
 
+        /// <summary>
+        /// Where the grave lift comes down after the guardian (2026-10-21, "fix off center elevator spawns"):
+        /// the middle of the arena, or of the dais when there is one. The boss's own spot is pushed toward
+        /// world +Z whatever door you came in by, so the lift used to land lopsided.
+        /// </summary>
+        public Vector3 LiftSpot
+        {
+            get
+            {
+                if (BossRoom.Arena == BossArena.Dais && BossRoom.Raised.Count > 0)
+                {
+                    var (r, top) = BossRoom.Raised[0];
+                    return new Vector3(r.center.x, top, r.center.y);
+                }
+                var p = BossRoom.Center;
+                p.y = BossRoom.RaisedAt(p);
+                return p;
+            }
+        }
+
         /// <summary>The start room's waystone (the Shrine of Return): the first wall with no door.</summary>
         public Vector3 WaystonePosition
         {
