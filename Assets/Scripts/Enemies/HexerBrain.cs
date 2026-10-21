@@ -76,12 +76,17 @@ namespace Deepbound.Enemies
             Sfx.Play(Sound.Whisper, origin, 0.5f, 1.2f);
         }
 
+        private static float nextCurseFeed;
+
         [Rpc(SendTo.ClientsAndHost)]
         private void CurseWarnRpc(ulong who)
         {
             Sfx.Play(Sound.Whisper, transform.position + Vector3.up * 1.6f, 1f, 0.5f);
-            if (NetworkPlayer.Local != null && NetworkPlayer.Local.NetworkObjectId == who)
+            if (NetworkPlayer.Local != null && NetworkPlayer.Local.NetworkObjectId == who && Time.time >= nextCurseFeed)
+            {
+                nextCurseFeed = Time.time + 30f;
                 UI.GameHud.Feed("A Hexer is cursing you - break its line of sight!", new Color(0.75f, 0.45f, 1f));
+            }
         }
 
         [Rpc(SendTo.ClientsAndHost)]

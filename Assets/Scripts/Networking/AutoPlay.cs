@@ -172,6 +172,19 @@ namespace Deepbound.Networking
             Status("at camp");
             if (floorNo >= 0) yield return Shot("camp_after_F" + (floorNo + 1));
 
+            // The pack: wear anything better than what is on (higher quality).
+            for (int i = prog.BagCount - 1; i >= 0; i--)
+            {
+                var g = prog.BagItem(i);
+                var worn = prog.Equipped(Gear.SlotOf((GearId)g.Id));
+                if (g.Quality > worn.Quality || worn.IsEmpty)
+                {
+                    L("wearing " + Gear.Name(g) + " from the pack (was " + Gear.Name(worn) + ")");
+                    prog.BagEquipRpc(i);
+                    yield return new WaitForSeconds(0.3f);
+                }
+            }
+
             // Hobb: temper while it can.
             yield return WalkTo(Lobby.AnvilSpot + Vector3.back * 1.6f, 1.2f);
             for (int i = 0; i < 6; i++)
@@ -227,6 +240,11 @@ namespace Deepbound.Networking
                 }
             }
 
+            // Spare gold: Brann's drills (cheapest first), then a relic at the shrine.
+            yield return SpendAt(Shop.Vendor.Yard, Lobby.YardSpot, it => it.Kind == Shop.ItemKind.Drill, 4, 120);
+            yield return SpendAt(Shop.Vendor.Shrine, Lobby.ShrineSpot, it => it.Kind == Shop.ItemKind.Relic, 1, 100);
+            L("gold left at camp: " + prog.Gold.Value);
+
             // Board: a seat on the carriage; it leaves when everyone sits.
             var ride = CarriageRide.Instance;
             if (ride == null) { Problem("no carriage at camp"); yield break; }
@@ -237,6 +255,25 @@ namespace Deepbound.Networking
             yield return Shot("carriage_F" + (floorNo + 2));
             for (float t = 0f; t < 45f && DungeonDirector.InLobby; t += 0.5f) yield return new WaitForSeconds(0.5f);
             if (DungeonDirector.InLobby) { Problem("the carriage never left (seat " + life.Seat.Value + ")"); }
+        }
+
+        private IEnumerator SpendAt(Shop.Vendor vendor, Vector3 at, System.Func<Shop.Item, bool> want, int maxBuys, int keep)
+        {
+            var stock = Shop.For(me.OwnerClientId, vendor);
+            if (!stock.Any(want)) yield break;
+            yield return WalkTo(at + Vector3.back * 1.6f, 1.2f);
+            for (int n = 0; n < maxBuys; n++)
+            {
+                stock = Shop.For(me.OwnerClientId, vendor);
+                int best = -1;
+                for (int i = 0; i < stock.Length; i++)
+                    if (want(stock[i]) && prog.CannotBuyReason(vendor, i) == null && prog.Gold.Value - stock[i].Price >= keep && (best < 0 || stock[i].Price < stock[best].Price)) best = i;
+                if (best < 0) break;
+                int g0 = prog.Gold.Value;
+                prog.BuyRpc(vendor, best);
+                yield return new WaitForSeconds(0.3f);
+                L((prog.Gold.Value < g0 ? "bought " : "failed to buy ") + stock[best].Name + " (" + stock[best].Price + ") from " + vendor);
+            }
         }
 
         private string Status(string where)
@@ -319,6 +356,13 @@ namespace Deepbound.Networking
                     float want = melee ? edge + reach * 0.75f : Mathf.Min(reach * 0.7f, 10f) + edge;
                     float flatDist = Vector3.Distance(Flat(target.transform.position), Flat(me.transform.position));
                     bool clear = CombatQuery.ClearLine(me.transform.position + Vector3.up * 1.6f, target);
+                    // Hits not landing for a while (a shield, a guard): go round behind it, as a player would.
+                    bool flank = boss != null && target == boss.GetComponent<Health>() && bossHpMark >= 0f && Time.time - bossHpAt > 6f;
+                    if (flank)
+                    {
+                        var behind = target.transform.position - target.transform.forward * (edge + reach * 0.6f);
+                        if (Vector3.Distance(Flat(me.transform.position), Flat(behind)) > 1.2f) { yield return StepToward(behind, 0.6f); continue; }
+                    }
                     if (flatDist > want || !clear) yield return StepToward(target.transform.position, want * 0.9f);
                     else if (melee && flatDist < edge + 0.6f)
                     {

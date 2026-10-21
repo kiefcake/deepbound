@@ -83,7 +83,7 @@ namespace Deepbound.UI
                 Offer("reliquary", "A RELIQUARY. Carry it (F) to the waystone in the start room: it raises the fallen, pays everyone, and HALLOWS the floor (its boss wakes weakened). Its hymn heals whoever walks beside the carrier. The carrier is slow and cannot fight, its hymn draws the dead, and every hit cracks it.");
             var progT = player.GetComponent<Progression.PlayerProgress>();
             if (progT != null && progT.BagCount > 0)
-                Offer("inventory", "Gear you pick up goes in your PACK. Press I for the inventory: click to wear, shift-click to drop. Scrap it at Hobb's anvil.");
+                Offer("inventory", "Gear you pick up goes straight on if that slot is empty, otherwise into your PACK. Press I for the inventory: click a piece to wear it, shift-click to drop. Scrap spares at Hobb's anvil.");
             foreach (var it in Interactable.All)
                 if (it is Lever lv && !lv.Pulled.Value && Vector3.Distance(lv.transform.position, me) < 9f)
                     Offer("levers", "A VAULT LEVER. Three are bolted to walls in different rooms on this floor; pull all three (they stay down) to open the vault.");

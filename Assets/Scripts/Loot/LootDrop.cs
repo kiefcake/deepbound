@@ -197,8 +197,7 @@ namespace Deepbound.Loot
                 else if (k == LootKind.Sigil) UI.GameHud.Pickup("sigil", 1, " Sigil", LootInfo.SigilColor);
                 else if (k == LootKind.Rune) UI.GameHud.Pickup("rune" + Amount.Value, 1, " " + Runes.Name((Rune)Amount.Value), Runes.Color((Rune)Amount.Value));
                 else if (k == LootKind.Relic) UI.GameHud.Pickup("relic" + Amount.Value, 1, " " + Relics.Name((Relic)Amount.Value), Relics.GemColor((Relic)Amount.Value));
-                else if (k == LootKind.PotionHP) UI.GameHud.Pickup("hp", Mathf.Max(1, Amount.Value), " Health Potion", new Color(1f, 0.35f, 0.35f));
-                else if (k == LootKind.PotionMP) UI.GameHud.Pickup("mp", Mathf.Max(1, Amount.Value), " Mana Potion", new Color(0.45f, 0.6f, 1f));
+                // Potions: the pouch says it, with the count (Flasks.AddedRpc).
             }
             // Relics announce themselves; gold and embers just make their noise.
             var at = transform.position + Vector3.up * 0.4f;

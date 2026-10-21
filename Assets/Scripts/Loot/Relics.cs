@@ -98,7 +98,7 @@ namespace Deepbound.Loot
                 case Relic.WarlordsHorn: return "Your ultimate charges 50% faster, and casting it heals allies within 12 m by 25%.";
                 case Relic.WintersTooth: return "+25% damage to chilled enemies.";
                 case Relic.IronPsalter: return "You cannot be maddened, and frost roots let go twice as fast.";
-                case Relic.LongShadow: return "Your shots fly 15% further and keep their full bite to the end.";
+                case Relic.LongShadow: return "Shots fly 15% further and keep their full bite to the end; melee reaches a little further too.";
                 case Relic.PilgrimsPurse: return "Every 10 gold you spend at camp comes back as an ember.";
                 case Relic.RootbreakerCharm: return "+50% damage while your feet are rooted or held.";
                 case Relic.TallymansLedger: return "The far bell, and the Tallyman, come three minutes later for your party.";

@@ -47,7 +47,9 @@ namespace Deepbound.Loot
                 return;
             }
             if (!who.ServerStow(item)) return;
-            EquipFxRpc(Gear.Name(item), false);
+            // Better than what is worn: say so, or a Legendary sits forgotten in the pack.
+            var worn = who.Equipped(Gear.SlotOf((GearId)item.Id));
+            EquipFxRpc(Gear.Name(item), false, item.Quality > worn.Quality);
             NetworkObject.Despawn();
         }
 
@@ -75,11 +77,11 @@ namespace Deepbound.Loot
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void EquipFxRpc(string name, bool worn)
+        private void EquipFxRpc(string name, bool worn, bool better = false)
         {
             Sfx.Play(Sound.Block, transform.position + Vector3.up * 0.5f, 0.7f, 1.3f);
             if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClientId == For.Value)
-                UI.GameHud.Pickup("gear" + name, 1, " " + name + (worn ? "  (now wearing)" : "  (in your pack)"), Gear.QualityColor(Item.Value.Quality));
+                UI.GameHud.Pickup("gear" + name, 1, " " + name + (worn ? "  (now wearing)" : better ? "  (in your pack - better than yours: I to wear it)" : "  (in your pack)"), Gear.QualityColor(Item.Value.Quality));
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -124,7 +126,7 @@ namespace Deepbound.Loot
             {
                 string who = "Someone";
                 if (NetworkManager.Singleton.ConnectedClients.TryGetValue(forClient, out var cl) && cl.PlayerObject != null) who = cl.PlayerObject.name;
-                DungeonDirector.Instance.ServerFeedAll(who + " found a LEGENDARY: " + Gear.Name(item) + "!", Gear.QualityColor(3));
+                DungeonDirector.Instance.ServerFeedAll(who + " found a LEGENDARY: " + Gear.BaseName(item.Kind) + "!", Gear.QualityColor(3));
             }
             return drop;
         }
@@ -199,7 +201,7 @@ namespace Deepbound.Loot
                     fanfarePlayed = true;
                     Sfx.Play2D(Sound.Relic, 1f);
                     Sfx.Play(Sound.Revive, transform.position + Vector3.up, 0.9f, 1.25f);
-                    UI.GameHud.ShowTitleCard("LEGENDARY", Gear.Name(item));
+                    UI.GameHud.ShowTitleCard("LEGENDARY", Gear.BaseName(item.Kind));
                 }
             }
 

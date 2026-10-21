@@ -79,7 +79,8 @@ namespace Deepbound.Player
         private void AddedRpc(byte kind, byte now)
         {
             var k = (Kind)kind;
-            UI.GameHud.Feed("+1 " + FullName(k) + "  (" + now + " / " + Max + ")", ColorOf(k));
+            // One toast with the count (it used to be a feed line and a pickup toast for the same bottle).
+            UI.GameHud.Pickup("potion" + kind, 1, " " + FullName(k) + "  (" + now + " / " + Max + ")", ColorOf(k));
             Sfx.Play2D(Sound.Potion, 0.5f);
         }
 

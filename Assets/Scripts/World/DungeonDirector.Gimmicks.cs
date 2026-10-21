@@ -228,10 +228,16 @@ namespace Deepbound.World
             TideWarnRpc();
         }
 
+        private int tideCardFloor = int.MinValue;
+
         [Rpc(SendTo.ClientsAndHost)]
         private void TideWarnRpc()
         {
-            UI.GameHud.ShowTitleCard("THE WATER THICKENS", "It drags at your legs: get to high ground", new Color(0.55f, 0.75f, 0.45f));
+            // The full card the first time on a floor; after that a feed line and the sound (a card every 45 s
+            // was a dozen cards a floor in the autoplay run).
+            int floor = Floor.Value.y;
+            if (tideCardFloor != floor) { tideCardFloor = floor; UI.GameHud.ShowTitleCard("THE WATER THICKENS", "It drags at your legs: get to high ground", new Color(0.55f, 0.75f, 0.45f)); }
+            else UI.GameHud.Feed("The water thickens - get to high ground", new Color(0.55f, 0.75f, 0.45f));
             Sfx.Play2D(Sound.Splash, 1f);
             Sfx.Play2D(Sound.Whisper, 0.6f);
         }

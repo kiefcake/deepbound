@@ -58,8 +58,11 @@ namespace Deepbound.Enemies
         /// <summary>Per-hit damage: only +8% per extra player.</summary>
         public static float Damage(int players) => 1f + 0.08f * Extra(players);
 
-        /// <summary>Enemy count per room: +30% per extra player.</summary>
-        public static float SpawnCount(int players) => 1f + 0.3f * Extra(players);
+        /// <summary>
+        /// Enemy count per room: a solo player faces 80% of the crowd, +30% per extra player (2026-10-21:
+        /// the autoplay run killed 100 on one solo floor and could not reach the guardian in 11 minutes).
+        /// </summary>
+        public static float SpawnCount(int players) => 0.8f + 0.3f * Extra(players);
 
         // --- Depth (0 = first floor) ---
 
