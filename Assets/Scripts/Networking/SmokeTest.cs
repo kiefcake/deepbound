@@ -1896,6 +1896,10 @@ namespace Deepbound.Networking
                         UI.Binds.Tick();
                         Log("gamepad", "A = jump " + jumpHeld + ", RT = attack " + attack + ", F prompt shows '" + hint + "'", jumpHeld && attack && hint == "X");
                     }
+                    // The daily descent: the same seed for a day and depth, a new one for the next depth or day.
+                    Log("daily seeds", "today d3 " + DungeonDirector.DailySeed(20261020, 3) + " again " + DungeonDirector.DailySeed(20261020, 3) + ", d4 " + DungeonDirector.DailySeed(20261020, 4) + ", tomorrow " + DungeonDirector.DailySeed(20261021, 3),
+                        DungeonDirector.DailySeed(20261020, 3) == DungeonDirector.DailySeed(20261020, 3) && DungeonDirector.DailySeed(20261020, 3) != DungeonDirector.DailySeed(20261020, 4)
+                        && DungeonDirector.DailySeed(20261020, 3) != DungeonDirector.DailySeed(20261021, 3) && DungeonDirector.DailySeed(20261020, 3) > 0);
                     // Records stay out of tests: nothing is read or written.
                     Log("records", "test run beats nothing: " + (Progression.Records.SubmitRun(12345.0, 99, 999, 9999, true).Count == 0) + ", slab reads zeros " + (Progression.Records.Deepest == 0),
                         Progression.Records.SubmitRun(12345.0, 99, 999, 9999, true).Count == 0 && Progression.Records.Deepest == 0 && !Progression.Records.SubmitFloorTime(60f));

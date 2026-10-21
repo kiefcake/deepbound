@@ -10,7 +10,7 @@ namespace Deepbound.Progression
     /// </summary>
     public static class Records
     {
-        private const string KeyDeep = "db.rec.deep", KeyKills = "db.rec.kills", KeyGold = "db.rec.gold", KeyFast = "db.rec.fast", KeyWins = "db.rec.wins", KeyRun = "db.rec.run";
+        private const string KeyDeep = "db.rec.deep", KeyKills = "db.rec.kills", KeyGold = "db.rec.gold", KeyFast = "db.rec.fast", KeyWins = "db.rec.wins", KeyRun = "db.rec.run", KeyDailyDate = "db.rec.dailydate", KeyDailyFloor = "db.rec.dailyfloor";
 
         private static bool Test => Cosmetics.TestMode;
         public static int Deepest => Test ? 0 : PlayerPrefs.GetInt(KeyDeep, 0);
@@ -26,8 +26,11 @@ namespace Deepbound.Progression
             return s / 60 + ":" + (s % 60).ToString("00");
         }
 
+        /// <summary>Today's best daily floor (0 if none today).</summary>
+        public static int DailyBest(int today) => Test || PlayerPrefs.GetInt(KeyDailyDate, 0) != today ? 0 : PlayerPrefs.GetInt(KeyDailyFloor, 0);
+
         /// <summary>A run has ended (once per run key): the records it beat, as lines for the feed.</summary>
-        public static List<string> SubmitRun(double runKey, int floorReached, int kills, int gold, bool won)
+        public static List<string> SubmitRun(double runKey, int floorReached, int kills, int gold, bool won, int dailyDate = 0)
         {
             var beaten = new List<string>();
             if (Test) return beaten;
@@ -38,6 +41,12 @@ namespace Deepbound.Progression
             if (kills > BestKills) { PlayerPrefs.SetInt(KeyKills, kills); beaten.Add("most kills in a run: " + kills); }
             if (gold > BestGold) { PlayerPrefs.SetInt(KeyGold, gold); beaten.Add("most gold in a run: " + gold); }
             if (won) { PlayerPrefs.SetInt(KeyWins, Wins + 1); beaten.Add("victories: " + (Wins)); }
+            if (dailyDate != 0 && floorReached > DailyBest(dailyDate))
+            {
+                PlayerPrefs.SetInt(KeyDailyDate, dailyDate);
+                PlayerPrefs.SetInt(KeyDailyFloor, floorReached);
+                beaten.Add("today's daily descent: floor " + floorReached);
+            }
             PlayerPrefs.Save();
             return beaten;
         }
@@ -61,6 +70,7 @@ namespace Deepbound.Progression
             "Most kills in a run  " + (BestKills > 0 ? BestKills.ToString() : "-"),
             "Most gold in a run   " + (BestGold > 0 ? BestGold.ToString() : "-"),
             "Victories            " + Wins,
+            "Today's daily        " + (DailyBest(World.DungeonDirector.Today) > 0 ? "floor " + DailyBest(World.DungeonDirector.Today) : "-"),
         };
     }
 }

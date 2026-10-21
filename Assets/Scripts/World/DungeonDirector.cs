@@ -740,7 +740,7 @@ namespace Deepbound.World
         {
             ClearSpawned();
 
-            int seed = UnityEngine.Random.Range(1, int.MaxValue);
+            int seed = FloorSeed(depth);
             Phase.Value = RunPhase.Exploring;
             PhaseEndsAt.Value = 0;
             Floor.Value = new Vector2Int(seed, depth);

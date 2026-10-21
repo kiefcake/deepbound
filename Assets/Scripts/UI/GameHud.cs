@@ -373,6 +373,8 @@ namespace Deepbound.UI
                 int act = DungeonDirector.Act(depth);
                 bannerSub = (act < FloorNames.Length ? FloorNames[act] : "The Deep") + (DungeonDirector.IsWardenFloor(depth) ? "  ·  a Warden bars the way down" : "  ·  the act's master waits below");
                 bannerHint = DungeonDirector.GimmickHint(depth);
+                var dd0 = DungeonDirector.Instance;
+                if (dd0 != null && dd0.DailyRun.Value) bannerSub += "  ·  DAILY DESCENT " + DungeonDirector.DateLabel(dd0.DailyDate.Value);
             }
         }
 
@@ -2300,7 +2302,14 @@ namespace Deepbound.UI
                     GUI.enabled = true;
                 }
                 string note = locked ? "Set for this run. \"Same road as before, then.\"" : host ? diff.Blurb : diff.Blurb + "  (the host chooses)";
-                GUI.Label(new Rect(x + 16, dy + 30, pw - 32, 20), note, small);
+                GUI.Label(new Rect(x + 16, dy + 30, pw - 250, 20), note, small);
+                // The daily road: today's floors, the same for everyone who plays today.
+                if (dir != null)
+                {
+                    GUI.enabled = host && !locked;
+                    if (GUI.Button(new Rect(x + pw - 214, dy + 30, 200, 22), "Daily descent: " + (dir.DailyRun.Value ? "ON" : "off"))) dir.SetDailyRpc(!dir.DailyRun.Value);
+                    GUI.enabled = true;
+                }
             }
 
             for (int i = 0; i < stock.Length; i++)
