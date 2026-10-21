@@ -309,6 +309,23 @@ namespace Deepbound.UI
                 var net = NetworkManager.Singleton;
                 string party = net == null ? "" : (net.IsHost ? "You are hosting" : "In a party") + "   ·   " + (net.IsServer ? net.ConnectedClientsIds.Count : Player.PlayerLife.All.Count) + " in the party";
                 GUILayout.Label(party, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+                // Hosting: where friends connect, with Copy buttons (2026-10-21).
+                if (net != null && net.IsHost)
+                {
+                    var mid = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, wordWrap = true };
+                    string line = Networking.PortMapper.Line;
+                    if (!string.IsNullOrEmpty(line)) GUILayout.Label(line, new GUIStyle(mid) { normal = { textColor = Networking.PortMapper.Current == Networking.PortMapper.State.Open && !Networking.PortMapper.SharedAddress ? UiSkin.Gold : mid.normal.textColor } });
+                    var launcherNow = FindAnyObjectByType<Networking.NetworkLauncher>();
+                    string portTag = launcherNow != null && launcherNow.Port != 7777 ? ":" + launcherNow.Port : "";
+                    string lan = Networking.PortMapper.LocalIp ?? Networking.PortMapper.GuessLocalIp(null);
+                    GUILayout.BeginHorizontal();
+                    if (Networking.PortMapper.Current == Networking.PortMapper.State.Open && !Networking.PortMapper.SharedAddress && !string.IsNullOrEmpty(Networking.PortMapper.ExternalIp)
+                        && GUILayout.Button("Copy internet address", UiSkin.Button, GUILayout.Height(30)))
+                        GUIUtility.systemCopyBuffer = Networking.PortMapper.ExternalIp + portTag;
+                    if (!string.IsNullOrEmpty(lan) && GUILayout.Button("Copy home address (" + lan + ")", UiSkin.Button, GUILayout.Height(30)))
+                        GUIUtility.systemCopyBuffer = lan + portTag;
+                    GUILayout.EndHorizontal();
+                }
                 GUILayout.Label("The dungeon does not pause for you.", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
             }
             GUILayout.EndArea();

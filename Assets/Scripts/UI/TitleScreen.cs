@@ -25,6 +25,7 @@ namespace Deepbound.UI
         {
             launcher = owner;
             shownAt = Time.time;
+            if (!NetworkLauncher.TestRun) address = PlayerPrefs.GetString(NetworkLauncher.LastAddressKey, address);
             Settings.Apply();
         }
 
@@ -110,11 +111,16 @@ namespace Deepbound.UI
         private void DrawJoin()
         {
             GUILayout.Label("JOIN A PARTY", UiSkin.Heading);
-            GUILayout.Label("Your friend's address (they will see it when they host on the same network):", UiSkin.Small);
+            GUILayout.Label("Your friend's address. When they host, their pause menu (Esc) shows it with a Copy button.", UiSkin.Small);
             GUILayout.Space(6);
             address = GUILayout.TextField(address, UiSkin.Field, GUILayout.Height(40));
             GUILayout.Space(8);
             if (GUILayout.Button("CONNECT", UiSkin.ButtonBig, GUILayout.Height(52))) launcher.StartClient(address);
+            GUILayout.Space(4);
+            if (GUILayout.Button("Paste", UiSkin.Button, GUILayout.Height(30)) && !string.IsNullOrEmpty(GUIUtility.systemCopyBuffer)) address = GUIUtility.systemCopyBuffer.Trim();
+            GUILayout.Space(4);
+            GUILayout.Label("Same house: their 192.168... address. Over the internet: the address their pause menu shows (their router opens the port by itself if it allows it). " +
+                            "If that fails, both install Tailscale or Radmin VPN and use the address it gives. You both need the same build.", new GUIStyle(UiSkin.Small) { wordWrap = true });
             GUILayout.Space(6);
             if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(38))) page = Page.Main;
         }

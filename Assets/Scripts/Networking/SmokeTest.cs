@@ -2165,6 +2165,16 @@ namespace Deepbound.Networking
                     }
                 }
 
+                // Joining by address: ports, pasted junk and host names.
+                {
+                    bool a1 = NetworkLauncher.ParseAddress(" 203.0.113.7:7790 ", out var ip1, out var p1, out _);
+                    bool a2 = NetworkLauncher.ParseAddress("http://192.168.1.20/", out var ip2, out var p2, out _);
+                    bool a3 = NetworkLauncher.ParseAddress("localhost", out var ip3, out _, out _);
+                    bool a4 = !NetworkLauncher.ParseAddress("1.2.3.4:99999", out _, out _, out var why4);
+                    Log("join address parsing", ip1 + ":" + p1 + ", " + ip2 + ":" + p2 + ", localhost -> " + ip3 + ", bad port says '" + why4 + "', build " + NetworkLauncher.BuildId,
+                        a1 && ip1 == "203.0.113.7" && p1 == 7790 && a2 && ip2 == "192.168.1.20" && p2 == 7777 && a3 && ip3 == "127.0.0.1" && a4);
+                }
+
                 // The tailor: wearing a dye rebuilds the body with it.
                 var npT = local.GetComponent<NetworkPlayer>();
                 var rigBefore = npT.Rig;
