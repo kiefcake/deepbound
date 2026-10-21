@@ -1900,6 +1900,13 @@ namespace Deepbound.Networking
                     Log("daily seeds", "today d3 " + DungeonDirector.DailySeed(20261020, 3) + " again " + DungeonDirector.DailySeed(20261020, 3) + ", d4 " + DungeonDirector.DailySeed(20261020, 4) + ", tomorrow " + DungeonDirector.DailySeed(20261021, 3),
                         DungeonDirector.DailySeed(20261020, 3) == DungeonDirector.DailySeed(20261020, 3) && DungeonDirector.DailySeed(20261020, 3) != DungeonDirector.DailySeed(20261020, 4)
                         && DungeonDirector.DailySeed(20261020, 3) != DungeonDirector.DailySeed(20261021, 3) && DungeonDirector.DailySeed(20261020, 3) > 0);
+                    // Colour-blind telegraphs: red and green move apart; blue stays (a test override, the player's setting untouched).
+                    {
+                        Telegraph.ForceColorBlind = true;
+                        var red = Telegraph.Accessible(Telegraph.Harm); var green = Telegraph.Accessible(Telegraph.Poison); var blue = Telegraph.Accessible(Telegraph.Friendly);
+                        Telegraph.ForceColorBlind = false;
+                        Log("colour-blind telegraphs", "harm " + red + ", poison " + green, red.b > 0.6f && green.b < 0.3f && green.r > 0.9f && blue == Telegraph.Friendly);
+                    }
                     // Records stay out of tests: nothing is read or written.
                     Log("records", "test run beats nothing: " + (Progression.Records.SubmitRun(12345.0, 99, 999, 9999, true).Count == 0) + ", slab reads zeros " + (Progression.Records.Deepest == 0),
                         Progression.Records.SubmitRun(12345.0, 99, 999, 9999, true).Count == 0 && Progression.Records.Deepest == 0 && !Progression.Records.SubmitFloorTime(60f));

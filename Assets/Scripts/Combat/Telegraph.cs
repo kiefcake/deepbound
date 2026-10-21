@@ -167,8 +167,26 @@ namespace Deepbound.Combat
 
         private Color Rgb => new Color(color.r, color.g, color.b);
 
+        /// <summary>
+        /// The colour-blind option (2026-10-20): red (danger) and green (poison) are the pair most people with
+        /// colour blindness cannot tell apart, so red becomes magenta and green becomes yellow. Others stay.
+        /// </summary>
+        /// <summary>Tests: treat the option as on without touching the player's settings.</summary>
+        public static bool ForceColorBlind;
+
+        public static Color Accessible(Color c)
+        {
+            if (!ForceColorBlind && !UI.Settings.ColorBlind) return c;
+            Color.RGBToHSV(c, out float h, out float s, out float v);
+            if (s < 0.35f) return c;
+            if (h < 0.06f || h > 0.94f) return new Color(0.95f, 0.2f, 0.8f, c.a);
+            if (h > 0.18f && h < 0.45f) return new Color(1f, 0.88f, 0.15f, c.a);
+            return c;
+        }
+
         private static Telegraph Make(string name, Vector3 at, Quaternion rot, float duration, Object source, Color tint)
         {
+            tint = Accessible(tint);
             var go = new GameObject(name);
             at = Vfx.Floor(at);
             go.transform.SetPositionAndRotation(at + Vector3.up * 0.03f, rot);

@@ -200,6 +200,7 @@ namespace Deepbound.UI
                 GUILayout.Space(8);
                 Settings.DamageNumbers = Check(Settings.DamageNumbers, "Damage numbers");
                 Settings.ReduceFlashing = Check(Settings.ReduceFlashing, "Reduce flashing effects");
+                Settings.ColorBlind = Check(Settings.ColorBlind, "Colour-blind telegraphs (red -> magenta, green -> yellow)");
                 Settings.ShowTips = Check(Settings.ShowTips, "Show tips");
                 Settings.ShowFps = Check(Settings.ShowFps, "Show frame rate");
                 if (GUILayout.Button("Show all tips again", UiSkin.Button, GUILayout.Height(30))) Settings.ResetTips();

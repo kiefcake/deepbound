@@ -47,6 +47,9 @@ namespace Deepbound.UI
 
         public static bool DamageNumbers { get => (numbers ??= Load(NumbersKey, 1f)) > 0.5f; set { numbers = value ? 1f : 0f; Save(NumbersKey, numbers.Value); } }
         public static bool ReduceFlashing { get => (reduceFlash ??= Load(FlashKey, 0f)) > 0.5f; set { reduceFlash = value ? 1f : 0f; Save(FlashKey, reduceFlash.Value); } }
+        /// <summary>Colour-blind telegraphs: red danger becomes magenta, green poison becomes yellow.</summary>
+        public static bool ColorBlind { get => (colorBlind ??= Load("deepbound.colorblind", 0f)) > 0.5f; set { colorBlind = value ? 1f : 0f; Save("deepbound.colorblind", colorBlind.Value); } }
+        private static float? colorBlind;
         public static bool ShowFps { get => (fps ??= Load(FpsKey, 0f)) > 0.5f; set { fps = value ? 1f : 0f; Save(FpsKey, fps.Value); } }
         public static bool ShowTips { get => (tips ??= Load(TipsKey, 1f)) > 0.5f; set { tips = value ? 1f : 0f; Save(TipsKey, tips.Value); } }
 
