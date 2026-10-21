@@ -1845,6 +1845,25 @@ namespace Deepbound.UI
                 Rect(w * 0.25f, 88, w * 0.5f, 24, new Color(0f, 0f, 0f, 0.5f));
                 GUI.Label(new Rect(w * 0.25f, 88, w * 0.5f, 24), sub, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = Gold } });
             }
+            // At the cage: inside, who it is waiting for; close by, step in.
+            if (director.Phase.Value == RunPhase.FloorCleared && director.PhaseEndsAt.Value <= 0)
+            {
+                var flat = player.transform.position - DungeonDirector.ExitPosition;
+                flat.y = 0f;
+                if (flat.magnitude <= DungeonDirector.ExitRadius)
+                {
+                    var missing = new List<string>();
+                    foreach (var p in PlayerLife.All)
+                    {
+                        if (p == null) continue;
+                        var d = p.transform.position - DungeonDirector.ExitPosition;
+                        d.y = 0f;
+                        if (d.magnitude > DungeonDirector.ExitRadius) missing.Add(p.name);
+                    }
+                    if (missing.Count > 0) PromptLine(w, h, "In the lift - waiting for " + string.Join(", ", missing), 70f);
+                }
+                else if (flat.magnitude <= DungeonDirector.ExitRadius + 6f) PromptLine(w, h, "Step into the cage to ride up", 70f);
+            }
             // A marker on the lift, through walls.
             var cam = player.Camera;
             var ps = cam.WorldToScreenPoint(DungeonDirector.ExitPosition + Vector3.up * 3.2f);
