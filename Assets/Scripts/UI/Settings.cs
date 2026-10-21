@@ -50,6 +50,9 @@ namespace Deepbound.UI
         /// <summary>Colour-blind telegraphs: red danger becomes magenta, green poison becomes yellow.</summary>
         public static bool ColorBlind { get => (colorBlind ??= Load("deepbound.colorblind", 0f)) > 0.5f; set { colorBlind = value ? 1f : 0f; Save("deepbound.colorblind", colorBlind.Value); } }
         private static float? colorBlind;
+        /// <summary>Sprint latches on a press (until you stop pushing forward) instead of being held.</summary>
+        public static bool ToggleSprint { get => (toggleSprint ??= Load("deepbound.togglesprint", 0f)) > 0.5f; set { toggleSprint = value ? 1f : 0f; Save("deepbound.togglesprint", toggleSprint.Value); } }
+        private static float? toggleSprint;
         public static bool ShowFps { get => (fps ??= Load(FpsKey, 0f)) > 0.5f; set { fps = value ? 1f : 0f; Save(FpsKey, fps.Value); } }
         public static bool ShowTips { get => (tips ??= Load(TipsKey, 1f)) > 0.5f; set { tips = value ? 1f : 0f; Save(TipsKey, tips.Value); } }
 

@@ -160,9 +160,9 @@ namespace Deepbound.Player
             MoveInput = canMove ? ReadMoveInput() : Vector2.zero;
             // L3 latches a sprint until you stop pushing forward (holding a stick in is tiring).
             UI.Binds.Tick();
-            if (UI.Binds.PadSprintDown) padSprint = !padSprint;
+            if (UI.Binds.PadSprintDown || (UI.Settings.ToggleSprint && UI.Binds.Down(UI.Bind.Sprint))) padSprint = !padSprint;
             if (MoveInput.y < 0.2f) padSprint = false;
-            bool sprintKey = (keyboard != null && UI.Binds.Held(UI.Bind.Sprint)) || padSprint;
+            bool sprintKey = (keyboard != null && !UI.Settings.ToggleSprint && UI.Binds.Held(UI.Bind.Sprint)) || padSprint;
             bool jumpKey = keyboard != null && UI.Binds.Down(UI.Bind.Jump);
             jumpHeldNow = keyboard != null && UI.Binds.Held(UI.Bind.Jump);
             // Mania: your legs are not your own. Rooted: they are frozen to the floor.
