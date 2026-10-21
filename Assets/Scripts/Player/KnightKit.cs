@@ -188,8 +188,9 @@ namespace Deepbound.Player
             motor.CanSprint = Stamina > 5f && !wantBlock;
             motor.SpeedMultiplier = (wantBlock ? 0.5f : 1f) * progress.SpeedMultiplier;
 
-            // --- Swing (LMB) ---
-            if (canAct && !wantBlock && UI.Binds.PrimaryDown &&
+            // --- Swing (LMB) --- held, it keeps swinging (2026-10-21: every other class repeats on hold; the
+            // Knight alone needed a click per swing). Stamina still paces it.
+            if (canAct && !wantBlock && UI.Binds.PrimaryHeld &&
                 Time.time >= swingBusyUntil && Stamina >= SwingStamina)
             {
                 Stamina -= SwingStamina;

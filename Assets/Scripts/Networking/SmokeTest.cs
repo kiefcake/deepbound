@@ -172,7 +172,7 @@ namespace Deepbound.Networking
                 float before = dummy.Current.Value;
                 mage.ServerBolt(from, dummy.Center - from, false);
                 yield return new WaitForSeconds(0.5f);
-                // Relics: Thunder Sigil procs on the 6th hit; Vampiric Fang heals the attacker.
+                // Relics: Thunder Idol procs on the 6th hit; Vampiric Fang heals the attacker.
                 progressMe.ServerAddRelic(Relic.ThunderSigil);
                 progressMe.ServerAddRelic(Relic.VampiricFang);
                 var meHp = me.GetComponent<Health>();
@@ -1837,8 +1837,10 @@ namespace Deepbound.Networking
                     var armorBefore = progress.Armor.Value;
                     gearDrop.UseRpc(local.NetworkObject);
                     yield return new WaitForSeconds(0.2f);
-                    bool intoPack = progress.BagCount == packBefore + 1 && progress.Armor.Value.Equals(armorBefore);
-                    Log("pickup to pack", "pack " + packBefore + " -> " + progress.BagCount + ", worn unchanged " + progress.Armor.Value.Equals(armorBefore), intoPack);
+                    // An empty armour slot takes it straight on; a filled one sends it to the pack.
+                    bool intoPack = armorBefore.IsEmpty ? (progress.BagCount == packBefore && progress.Armor.Value.Id == (byte)GearId.OssuaryPlate)
+                        : (progress.BagCount == packBefore + 1 && progress.Armor.Value.Equals(armorBefore));
+                    Log("pickup to pack", (armorBefore.IsEmpty ? "empty slot, now wearing " + Gear.Name(progress.Armor.Value) : "pack " + packBefore + " -> " + progress.BagCount + ", worn unchanged " + progress.Armor.Value.Equals(armorBefore)), intoPack);
                     progress.BagEquipRpc(progress.BagCount - 1);
                     yield return new WaitForSeconds(0.2f);
                     Log("gear equip", "armor " + Gear.Name(progress.Armor.Value) + ", DEF " + ddef + " -> " + local.GetComponent<Health>().Defense,

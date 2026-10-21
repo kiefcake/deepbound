@@ -73,7 +73,7 @@ namespace Deepbound.Networking
             Transport.ConnectTimeoutMS = 1000;
 
             var cl = Environment.GetCommandLineArgs();
-            TestRun = Application.isBatchMode || Array.Exists(cl, a => a == "-smoketest" || a == "-shots" || a == "-bosstest" || a == "-classdps" || a == "-noupnp");
+            TestRun = Application.isBatchMode || Array.Exists(cl, a => a == "-smoketest" || a == "-shots" || a == "-bosstest" || a == "-classdps" || a == "-noupnp" || a == "-autoplay");
 
             ApplyCommandLine(Environment.GetCommandLineArgs());
             ApplyWindowMode(Environment.GetCommandLineArgs());
@@ -162,6 +162,9 @@ namespace Deepbound.Networking
             if (bossTest >= 0 && bossTest + 1 < args.Length) gameObject.AddComponent<SmokeTest>().BossTest(args[bossTest + 1], this);
 
             if (Array.IndexOf(args, "-classdps") >= 0) gameObject.AddComponent<SmokeTest>().ClassDps(this);
+
+            int auto = Array.IndexOf(args, "-autoplay");
+            if (auto >= 0 && auto + 1 < args.Length) gameObject.AddComponent<AutoPlay>().Run(args[auto + 1], this, args);
 
             int shots = Array.IndexOf(args, "-shots");
             if (shots >= 0 && shots + 1 < args.Length) gameObject.AddComponent<SmokeTest>().Screenshots(args[shots + 1], this);

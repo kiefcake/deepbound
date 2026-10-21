@@ -1171,7 +1171,7 @@ namespace Deepbound.Enemies
         private void PoiseBreakRpc()
         {
             Sfx.Play(Sound.Bash, transform.position + Vector3.up * 1.2f, 0.9f, 1.2f);
-            UI.GameHud.Feed("Wind-up broken!", new Color(1f, 0.85f, 0.4f));
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.2f, "BROKEN", new Color(1f, 0.85f, 0.4f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

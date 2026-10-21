@@ -38,7 +38,7 @@ namespace Deepbound.Loot
     /// <summary>
     /// Relics: the run's "fun items". Where potions are steady numeric growth, each relic
     /// changes how you play — a reason to take risks (Blood Pact), to stick together
-    /// (Thorned Mail on the tank), or to build around a combo (Frost Charm on anyone
+    /// (Briar Crown on the tank), or to build around a combo (Frost Shard on anyone
     /// partied with a Mage). One of each per player; a duplicate stays on the floor for a
     /// teammate. Lost when the run ends, like everything else.
     /// </summary>
@@ -51,15 +51,15 @@ namespace Deepbound.Loot
             switch (r)
             {
                 case Relic.VampiricFang: return "Vampiric Fang";
-                case Relic.ThunderSigil: return "Thunder Sigil";
+                case Relic.ThunderSigil: return "Thunder Idol"; // renamed 2026-10-21: "Sigil" is the ability currency
                 case Relic.BerserkersBrand: return "Berserker's Brand";
                 case Relic.BoneWard: return "Bone Ward";
                 case Relic.PhoenixFeather: return "Phoenix Feather";
                 case Relic.GildedSkull: return "Gilded Skull";
-                case Relic.FrostCharm: return "Frost Charm";
+                case Relic.FrostCharm: return "Frost Shard";
                 case Relic.EchoStone: return "Echo Stone";
                 case Relic.GhostLantern: return "Ghost Lantern";
-                case Relic.ThornedMail: return "Thorned Mail";
+                case Relic.ThornedMail: return "Briar Crown";
                 case Relic.HeartOfTheDeep: return "Heart of the Deep";
                 case Relic.BloodPact: return "Blood Pact";
                 case Relic.ExecutionersCoin: return "Executioner's Coin";
@@ -69,7 +69,7 @@ namespace Deepbound.Loot
                 case Relic.IronPsalter: return "Iron Psalter";
                 case Relic.LongShadow: return "Long Shadow";
                 case Relic.PilgrimsPurse: return "Pilgrim's Purse";
-                case Relic.RootbreakerCharm: return "Rootbreaker Charm";
+                case Relic.RootbreakerCharm: return "Rootbreaker Knot";
                 case Relic.TallymansLedger: return "Tallyman's Ledger";
                 case Relic.LamplightersOil: return "Lamplighter's Oil";
                 case Relic.ChoristersBell: return "Chorister's Bell";

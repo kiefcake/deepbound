@@ -36,9 +36,18 @@ namespace Deepbound.Loot
 
         protected override void ServerUse(PlayerProgress who)
         {
-            // Into the pack, not onto you: wear it from the inventory (I) when you choose.
-            if (!who.ServerStow(Item.Value)) return;
-            EquipFxRpc(Gear.Name(Item.Value));
+            // An empty slot puts it straight on (the autoplay run, 2026-10-21: a new player picked up a coat
+            // and a charm and still wore nothing). Otherwise into the pack: swap from the inventory (I).
+            var item = Item.Value;
+            if (who.Equipped(Gear.SlotOf((GearId)item.Id)).IsEmpty)
+            {
+                who.ServerEquip(item);
+                EquipFxRpc(Gear.Name(item), true);
+                NetworkObject.Despawn();
+                return;
+            }
+            if (!who.ServerStow(item)) return;
+            EquipFxRpc(Gear.Name(item), false);
             NetworkObject.Despawn();
         }
 
@@ -49,7 +58,7 @@ namespace Deepbound.Loot
             if (!user.TryGet(out var obj) || !obj.TryGetComponent<PlayerProgress>(out var who) || !Mine(who)) return;
             if (Vector3.Distance(obj.transform.position, transform.position) > Range + 1f) return;
             if (!who.ServerStow(Item.Value)) return;
-            EquipFxRpc(Gear.Name(Item.Value));
+            EquipFxRpc(Gear.Name(Item.Value), false);
             NetworkObject.Despawn();
         }
 
@@ -66,11 +75,11 @@ namespace Deepbound.Loot
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void EquipFxRpc(string name)
+        private void EquipFxRpc(string name, bool worn)
         {
             Sfx.Play(Sound.Block, transform.position + Vector3.up * 0.5f, 0.7f, 1.3f);
             if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClientId == For.Value)
-                UI.GameHud.Pickup("gear" + name, 1, " " + name + "  (in your pack)", Gear.QualityColor(Item.Value.Quality));
+                UI.GameHud.Pickup("gear" + name, 1, " " + name + (worn ? "  (now wearing)" : "  (in your pack)"), Gear.QualityColor(Item.Value.Quality));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

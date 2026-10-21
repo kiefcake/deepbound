@@ -970,7 +970,7 @@ namespace Deepbound.Progression
             UI.GameHud.Feed(name + " rises from the ashes!", Relics.GemColor(Relic.PhoenixFeather));
         }
 
-        /// <summary>Thunder Sigil: draws a jagged bolt through each struck enemy.</summary>
+        /// <summary>Thunder Idol: draws a jagged bolt through each struck enemy.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         public void LightningFxRpc(Vector3[] points)
         {

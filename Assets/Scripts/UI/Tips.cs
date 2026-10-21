@@ -24,15 +24,15 @@ namespace Deepbound.UI
         private static string current;
         private static float shownAt = -100f, nextCheck;
         private const float Duration = 7f;
-        private static readonly System.Collections.Generic.Queue<(string key, string text)> queue = new System.Collections.Generic.Queue<(string, string)>();
+        private static readonly System.Collections.Generic.Queue<(string key, string text, bool camp)> queue = new System.Collections.Generic.Queue<(string, string, bool)>();
+        /// <summary>Seconds of quiet after a tip before the next one (they used to arrive back to back).</summary>
+        private const float Gap = 9f;
 
         private static void Offer(string key, string text)
         {
-            if (!Settings.ShowTips || sessionSeen.Contains(key) || Settings.TipSeen(key)) return;
+            if (!Settings.ShowTips || sessionSeen.Contains(key) || (Settings.TipSeen(key) && !Progression.Cosmetics.TestMode)) return;
             sessionSeen.Add(key);
-            // Automated tests show tips but never mark them seen in the real save.
-            if (!DungeonDirector.TestMode) Settings.MarkTipSeen(key);
-            queue.Enqueue((key, text));
+            queue.Enqueue((key, text, DungeonDirector.InLobby));
         }
 
         /// <summary>Owner, from the HUD: look around for anything worth a first-time tip.</summary>
@@ -50,7 +50,7 @@ namespace Deepbound.UI
                     if (it is SlotMachine || it is BlackjackTable) Offer("gamble2", "THE TENT: the Bone Reels pay big for three of a kind; at Deadman's Hand beat the skeleton dealer to 21. HIT or STAND in the table's panel.");
                     if (it is CampCat) Offer("cat", "The castle cat. F pets it (sometimes it has found something for you). G picks it up... ask it first.");
                 }
-                Offer("camp", "CAMP: Silas sells potions, Hobb at the anvil sells embers and gear, the shrine offers relics. Temper your weapon at the anvil, take a contract at the bounty board and set an omen at the stone. When ready, talk to Corwin at the carriage (difficulty) and sit on its back (F): when everyone is seated, it sets off.");
+                Offer("camp", "CAMP (G at each stall): Silas sells potions and charms, Hobb tempers your weapon with embers and sells armour, Ysolde ranks abilities with Sigils and sets runes, the shrine offers relics. When ready, sit on the back of Corwin's carriage (F): it leaves when everyone is seated.");
                 if (Vector3.Distance(me, Lobby.YardSpot) < 6f) Offer("drills", "SERGEANT BRANN drills you for gold (G): a stat for the run. Each drill costs more than the last.");
                 if (Vector3.Distance(me, Lobby.RunewrightSpot) < 6f) Offer("runewright", "YSOLDE'S STONES (G): set runes, rank abilities with Sigils, and MELD three of the same rune into a stronger one.");
                 if (Vector3.Distance(me, Lobby.CarriageStall) < 6f) Offer("corwin", "CORWIN knows the way down: a SCOUT'S MAP charts the next floor; SMELLING SALTS get you up on your own once.");
@@ -68,14 +68,16 @@ namespace Deepbound.UI
                 if (pl.Downed.Value && !pl.Soul.Value) Offer("bleed", "An ally is DOWN: hold F beside them before they bleed out (40 s). If they do, carry their soul skull to the waystone in the start room.");
                 if (pl.Soul.Value) Offer("soul", "A SOUL SKULL glows where an ally bled out. F to carry it (you move slower and cannot fight) to the start room's waystone. A heavy hit knocks it loose.");
             }
-            if (PlayerVoice.MicAvailable && Settings.VoiceMode != 2)
+            // Voice and pings are for a party: alone they mean nothing.
+            bool party = PlayerLife.All.Count > 1;
+            if (party && PlayerVoice.MicAvailable && Settings.VoiceMode != 2)
                 Offer("voice", "PROXIMITY VOICE is on: players near you hear you, muffled through walls. SHOUTING wakes the dead nearby. Options has push-to-talk (T).");
             if (DungeonDirector.IsWardenFloor(layout.Depth)) Offer("warden", "Each act's first floor ends at a WARDEN, the second at the act's master. Ten floors in all; the Unsung waits at the bottom.");
             var myKit = player.ActiveKit;
             if (myKit != null && myKit.AttackRange > 6f) Offer("falloff", "RANGED shots lose bite past half their range (60% at the very end), and arrows and knives DROP: aim a little high at distance.");
             if (Object.FindObjectsByType<EntlingBrain>(FindObjectsSortMode.None).Any(e => !e.IsDead && Vector3.Distance(e.transform.position, me) < 16f))
                 Offer("entling", "ENTLINGS sprint at you and root you to the spot: you cannot move until it dies. Kill it on the way in, or turn and cut it off you.");
-            Offer("pingwheel", "PINGS: tap Z (or middle mouse) to mark what you aim at. HOLD it for the wheel: Danger, On my way, Need help, Look.");
+            if (party) Offer("pingwheel", "PINGS: tap Z (or middle mouse) to mark what you aim at. HOLD it for the wheel: Danger, On my way, Need help, Look.");
             var relic = Reliquary.Current;
             if (relic != null && !relic.Carried && Vector3.Distance(relic.transform.position, me) < 10f)
                 Offer("reliquary", "A RELIQUARY. Carry it (F) to the waystone in the start room: it raises the fallen, pays everyone, and HALLOWS the floor (its boss wakes weakened). Its hymn heals whoever walks beside the carrier. The carrier is slow and cannot fight, its hymn draws the dead, and every hit cracks it.");
@@ -85,8 +87,13 @@ namespace Deepbound.UI
             foreach (var it in Interactable.All)
                 if (it is Lever lv && !lv.Pulled.Value && Vector3.Distance(lv.transform.position, me) < 9f)
                     Offer("levers", "A VAULT LEVER. Three are bolted to walls in different rooms on this floor; pull all three (they stay down) to open the vault.");
-            if (player.GetComponent<Health>().Fraction < 0.5f)
-                Offer("potions", "You do not heal on your own down here. Press 1 to drink a Health Potion (your pouch holds 5); the dead drop more.");
+            // Taught on the first real wound, while there is still a potion to drink.
+            if (player.GetComponent<Health>().Fraction < 0.7f)
+            {
+                var pouch = player.GetComponent<Flasks>();
+                if (pouch != null && pouch.Count(Flasks.Kind.Health) > 0)
+                    Offer("potions", "You do not heal on your own down here. Press 1 to drink a Health Potion (your pouch holds 5); the dead drop more, and Silas sells them at camp.");
+            }
             foreach (var it in Interactable.All)
                 if (it is LorePage && Vector3.Distance(it.transform.position, me) < 8f)
                     Offer("lore", "A JOURNAL PAGE on a lectern. Press F to read it; every page you find is kept in your Journal (Esc > Guide), run after run.");
@@ -164,11 +171,25 @@ namespace Deepbound.UI
                 if (current != null) shownAt = Time.time;
                 return;
             }
-            if (current == null || Time.time - shownAt > Duration)
+            if (current != null && Time.time - shownAt > Duration) current = null;
+            if (current == null)
             {
-                current = null;
-                if (queue.Count == 0) return;
-                current = queue.Dequeue().text;
+                if (queue.Count == 0 || Time.time - shownAt < Duration + Gap) return;
+                // A tip offered at camp means nothing in the dungeon (and the other way round): drop stale ones.
+                (string key, string text, bool camp) next = default;
+                bool found = false;
+                while (queue.Count > 0)
+                {
+                    next = queue.Dequeue();
+                    if (next.camp == DungeonDirector.InLobby) { found = true; break; }
+                    sessionSeen.Remove(next.key);
+                }
+                if (!found) return;
+                current = next.text;
+                // Seen once it is shown (not when offered: a stale one dropped above can come back in its place).
+                // Automated tests show tips but never mark them seen in the real save.
+                if (!DungeonDirector.TestMode && !Progression.Cosmetics.TestMode) Settings.MarkTipSeen(next.key);
+                GameHud.Heard?.Invoke("tip", current);
                 shownAt = Time.time;
                 Sfx.Play2D(Sound.Relic, 0.3f);
             }

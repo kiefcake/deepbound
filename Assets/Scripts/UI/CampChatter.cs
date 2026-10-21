@@ -235,6 +235,7 @@ namespace Deepbound.UI
         /// <summary>Make a speaker say something now (over whatever they were saying).</summary>
         public static void Say(FolkId who, string text, float seconds)
         {
+            GameHud.Heard?.Invoke("folk", who + ": " + text);
             if (instance == null || (int)who >= instance.speakers.Count) return;
             var s = instance.speakers[(int)who];
             s.Current = text;

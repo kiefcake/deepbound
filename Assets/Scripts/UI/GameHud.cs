@@ -90,8 +90,12 @@ namespace Deepbound.UI
             if (clearedReward) GUI.Label(new Rect(0, y + 28, w, 20), "something was left behind", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 0.9f, 0.7f, a * 0.85f) } });
         }
 
+        /// <summary>Everything the HUD tells the player in words (feed, cards, pickups, tips, folk): the autoplay log listens.</summary>
+        public static System.Action<string, string> Heard;
+
         public static void ShowTitleCard(string title, string subtitle, Color? color = null)
         {
+            Heard?.Invoke("card", title + (string.IsNullOrEmpty(subtitle) ? "" : " | " + subtitle));
             var c = color ?? new Color(0.9f, 0.3f, 0.2f);
             bool busy = (cardTitle != null && UnityEngine.Time.time < cardUntil - 0.6f) || BossIntroShowing;
             if (busy)
@@ -251,6 +255,7 @@ namespace Deepbound.UI
         /// <summary>Adds a line to the event feed (potions drunk, and so on). Any peer.</summary>
         public static void Feed(string text, Color color)
         {
+            Heard?.Invoke("feed", text);
             FeedLines.Add(new FeedLine { Text = text, Color = color, Time = UnityEngine.Time.time });
             if (FeedLines.Count > 6) FeedLines.RemoveAt(0);
         }
@@ -949,7 +954,7 @@ namespace Deepbound.UI
             if (Unity.Netcode.NetworkManager.Singleton.ConnectedClientsIds.Count > 1 || PlayerLife.All.Count > 1)
                 line2 += "   ·   Loot: " + (director.FindersKeepers.Value ? "finders keepers" : "shared") + (host ? " (L)" : "");
             GUI.Label(new Rect(x, y + 24, pw, 18), line2, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
-            GUI.Label(new Rect(x, y + 41, pw, 18), "Talk to Corwin at the carriage, then take a seat on its back   (" + aboard + " / " + total + " seated)",
+            GUI.Label(new Rect(x, y + 41, pw, 18), "Sit on the back of Corwin's carriage (F) to set off  -  G on Corwin for difficulty and supplies   (" + aboard + " / " + total + " seated)",
                 new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = aboard > 0 ? Gold : new Color(0.85f, 0.82f, 0.78f) } });
             if (counting)
             {
@@ -2045,6 +2050,7 @@ namespace Deepbound.UI
         /// </summary>
         public static void Pickup(string key, int amount, string suffix, Color color)
         {
+            Heard?.Invoke("pickup", "+" + amount + suffix);
             foreach (var t in toasts)
                 if (t.Key == key && UnityEngine.Time.time - t.At < 1.4f) { t.Amount += amount; t.At = UnityEngine.Time.time; return; }
             toasts.Add(new Toast { Key = key, Amount = amount, Suffix = suffix, Color = color, At = UnityEngine.Time.time });
