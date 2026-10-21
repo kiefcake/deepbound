@@ -120,7 +120,20 @@ namespace Deepbound.Player
             base.OnDestroy();
         }
 
-        public bool CanAct => !Downed.Value && !World.Carryable.IsCarrying(NetworkObjectId) && !IsDragging(NetworkObjectId) && !(debuffs != null && debuffs.Manic);
+        public bool CanAct => !Downed.Value && !HandsFull && !IsDragging(NetworkObjectId) && !(debuffs != null && debuffs.Manic);
+
+        /// <summary>Carrying something in both hands (Lamplighter's Oil lets a torch-bearer fight).</summary>
+        private bool HandsFull
+        {
+            get
+            {
+                if (!World.Carryable.IsCarrying(NetworkObjectId)) return false;
+                if (progress == null || !progress.HasRelic(Loot.Relic.LamplightersOil)) return true;
+                foreach (var c in World.Carryable.All)
+                    if (c != null && c.Carrier.Value == NetworkObjectId && !(c is World.HandTorch)) return true;
+                return false;
+            }
+        }
 
         // ---- Dragging a downed ally to safety (2026-10-20, Dark and Darker / R.E.P.O.) ----
 

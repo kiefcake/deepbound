@@ -1172,6 +1172,13 @@ namespace Deepbound.Networking
                                 yield return new WaitForSeconds(0.1f);
                                 bool free = local.GetComponent<PlayerLife>().CanAct;
                                 Log("hand torch", "lit " + lit + ", hands full while carried " + hands + ", free once set down " + free, lit && hands && free);
+                                // Lamplighter's Oil: the torch-bearer can fight.
+                                sp.ServerAddRelic(Relic.LamplightersOil);
+                                torch.ServerDebugCarry(sp);
+                                yield return new WaitForSeconds(0.2f);
+                                bool oiled = local.GetComponent<PlayerLife>().CanAct;
+                                torch.ServerDrop(local.transform.position);
+                                Log("lamplighter's oil", "fights with the torch " + oiled, oiled);
                                 if (torch.IsSpawned) torch.NetworkObject.Despawn();
                             }
                             else Log("hand torch", "no prefab", false);

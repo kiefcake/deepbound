@@ -13,7 +13,15 @@ namespace Deepbound.World
     {
         /// <summary>He comes after 7 minutes plus 20 s for every room (a big floor takes longer to clear
         /// properly); the bell tolls <see cref="TallyBellLead"/> before.</summary>
-        public const float TallyBaseSeconds = 420f, TallyPerRoom = 20f, TallyBellLead = 120f;
+        public const float TallyBaseSeconds = 420f, TallyPerRoom = 20f, TallyBellLead = 120f, TallyLedgerDelay = 180f;
+
+        /// <summary>Server: does anyone in the party carry this relic?</summary>
+        public static bool AnyoneHolds(Loot.Relic r)
+        {
+            foreach (var p in PlayerLife.All)
+                if (p != null && p.TryGetComponent<Progression.PlayerProgress>(out var prog) && prog.HasRelic(r)) return true;
+            return false;
+        }
 
         /// <summary>Seconds after the floor began that he arrives (synced for the HUD's count).</summary>
         public readonly NetworkVariable<float> TallyArriveAfter = new NetworkVariable<float>(540f);

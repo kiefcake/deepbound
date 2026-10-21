@@ -79,6 +79,11 @@ namespace Deepbound.World
                 else ServerDropLoot(at, LootKind.Embers, 3 + tier);
             }
             RoomClearedRpc(at, reward >= 0);
+            // The Chorister's Bell: a room won is a breath taken.
+            foreach (var p in Player.PlayerLife.All)
+                if (p != null && !p.Downed.Value && p.TryGetComponent<Progression.PlayerProgress>(out var prog) && prog.HasRelic(Relic.ChoristersBell)
+                    && Vector3.Distance(p.transform.position, at) < 40f)
+                    p.Health.ServerHeal(p.Health.Max.Value * 0.12f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

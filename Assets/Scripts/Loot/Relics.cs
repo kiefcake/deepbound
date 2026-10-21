@@ -30,6 +30,9 @@ namespace Deepbound.Loot
         LongShadow = 17,
         PilgrimsPurse = 18,
         RootbreakerCharm = 19,
+        TallymansLedger = 20,
+        LamplightersOil = 21,
+        ChoristersBell = 22,
     }
 
     /// <summary>
@@ -67,6 +70,9 @@ namespace Deepbound.Loot
                 case Relic.LongShadow: return "Long Shadow";
                 case Relic.PilgrimsPurse: return "Pilgrim's Purse";
                 case Relic.RootbreakerCharm: return "Rootbreaker Charm";
+                case Relic.TallymansLedger: return "Tallyman's Ledger";
+                case Relic.LamplightersOil: return "Lamplighter's Oil";
+                case Relic.ChoristersBell: return "Chorister's Bell";
                 default: return r.ToString();
             }
         }
@@ -95,6 +101,9 @@ namespace Deepbound.Loot
                 case Relic.LongShadow: return "Your shots fly 15% further and keep their full bite to the end.";
                 case Relic.PilgrimsPurse: return "Every 10 gold you spend at camp comes back as an ember.";
                 case Relic.RootbreakerCharm: return "+50% damage while your feet are rooted or held.";
+                case Relic.TallymansLedger: return "The far bell, and the Tallyman, come three minutes later for your party.";
+                case Relic.LamplightersOil: return "You can fight while you carry the hand torch.";
+                case Relic.ChoristersBell: return "Each room cleared mends you 12%.";
                 default: return "";
             }
         }
@@ -123,6 +132,9 @@ namespace Deepbound.Loot
                 case Relic.LongShadow: return new Color(0.35f, 0.3f, 0.5f);
                 case Relic.PilgrimsPurse: return new Color(0.75f, 0.55f, 0.3f);
                 case Relic.RootbreakerCharm: return new Color(0.5f, 0.75f, 0.3f);
+                case Relic.TallymansLedger: return new Color(0.62f, 1f, 0.7f);
+                case Relic.LamplightersOil: return new Color(1f, 0.7f, 0.35f);
+                case Relic.ChoristersBell: return new Color(1f, 0.85f, 0.45f);
                 default: return Color.white;
             }
         }
