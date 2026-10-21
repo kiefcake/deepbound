@@ -1981,6 +1981,12 @@ namespace Deepbound.Networking
                         Telegraph.ForceColorBlind = false;
                         Log("colour-blind telegraphs", "harm " + red + ", poison " + green, red.b > 0.6f && green.b < 0.3f && green.r > 0.9f && blue == Telegraph.Friendly);
                     }
+                    // The climbing rope: not on the first floor, not without one.
+                    {
+                        var rp = local.GetComponent<PlayerProgress>();
+                        bool noRope = !rp.CanUseRope;
+                        Log("climbing rope", "unusable without a rope or at camp " + noRope + ", retreat allowed here " + DungeonDirector.Instance.CanRetreat, noRope);
+                    }
                     // Records stay out of tests: nothing is read or written.
                     Log("records", "test run beats nothing: " + (Progression.Records.SubmitRun(12345.0, 99, 999, 9999, true).Count == 0) + ", slab reads zeros " + (Progression.Records.Deepest == 0),
                         Progression.Records.SubmitRun(12345.0, 99, 999, 9999, true).Count == 0 && Progression.Records.Deepest == 0 && !Progression.Records.SubmitFloorTime(60f));
@@ -2269,6 +2275,28 @@ namespace Deepbound.Networking
                 while (tp.WeaponLevel.Value < World.Anvil.MaxLevel && guard++ < 12) tp.ServerUpgradeWeapon();
                 Log("anvil to +10", "level " + tp.WeaponLevel.Value + ", sockets " + Runes.SocketsAt(tp.WeaponLevel.Value) + ", gold spent " + (goldBefore - tp.Gold.Value) + ", attack x" + multBefore.ToString("F2") + " -> x" + tp.AttackMultiplier.ToString("F2"),
                     tp.WeaponLevel.Value == World.Anvil.MaxLevel && Runes.SocketsAt(tp.WeaponLevel.Value) == 3 && goldBefore - tp.Gold.Value > 0);
+            }
+
+            // The climbing rope: from the waystone the party goes back to camp, and the same depth waits for them.
+            if (net.IsServer && local != null && DungeonDirector.Instance.Floor.Value.y >= 1)
+            {
+                var rd = DungeonDirector.Instance;
+                int depthNow = rd.Floor.Value.y;
+                rd.ServerDebugStartFloor(depthNow);
+                yield return new WaitForSeconds(2f);
+                var rpr = local.GetComponent<PlayerProgress>();
+                rpr.Rope.Value = true;
+                var rway = DungeonDirector.Layout.WaystonePosition;
+                local.GetComponent<FirstPersonMotor>().Teleport(rway + (DungeonDirector.Layout.StartRoom.Center - rway).normalized * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
+                yield return new WaitForSeconds(0.3f);
+                bool could = rpr.CanUseRope;
+                rpr.UseRopeRpc();
+                for (float t = 0f; t < 5f && !DungeonDirector.InLobby; t += 0.2f) yield return new WaitForSeconds(0.2f);
+                yield return new WaitForSeconds(0.5f);
+                Log("climbing rope", "could " + could + ", in camp " + DungeonDirector.InLobby + ", next depth " + rd.NextDepth.Value + " (was " + depthNow + "), rope used " + !rpr.Rope.Value,
+                    could && DungeonDirector.InLobby && rd.NextDepth.Value == depthNow && !rpr.Rope.Value);
+                rd.ServerDebugStartFloor(depthNow);
+                yield return new WaitForSeconds(2f);
             }
 
             // Wipe the party and check the run summary has something to show.

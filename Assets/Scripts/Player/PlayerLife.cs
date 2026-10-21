@@ -507,6 +507,7 @@ namespace Deepbound.Player
                     var cam = GetComponent<NetworkPlayer>();
                     var use = World.Interactable.Nearest(cam.AimOrigin, cam.AimForward, progress);
                     if (use != null) use.UseRpc(NetworkObject);
+                    else if (progress != null && progress.CanUseRope) progress.UseRopeRpc();
                 }
                 return;
             }

@@ -14,7 +14,7 @@ namespace Deepbound.Progression
     public static class Shop
     {
         /// <summary>Value 1 was the retired stat potion.</summary>
-        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7, Prayer = 8, Drill = 9, Map = 10, Salts = 11, Restock = 12 }
+        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7, Prayer = 8, Drill = 9, Map = 10, Salts = 11, Restock = 12, Rope = 13 }
 
         public struct Item
         {
@@ -110,6 +110,8 @@ namespace Deepbound.Progression
                     Price = UnityEngine.Mathf.RoundToInt(40 + 20 * tier), Kind = ItemKind.Map, Seller = Vendor.Carriage });
                 list.Add(new Item { Name = "Smelling Salts", Description = "If you go down, you come round on your own 5 s later, at 30% health (once)",
                     Price = UnityEngine.Mathf.RoundToInt(110 + 30 * tier), Kind = ItemKind.Salts, Seller = Vendor.Carriage });
+                list.Add(new Item { Name = "Climbing Rope", Description = "From floor 2: at the start room's waystone, the party climbs back to camp. The run goes on; that floor starts over",
+                    Price = UnityEngine.Mathf.RoundToInt(60 + 20 * tier), Kind = ItemKind.Rope, Seller = Vendor.Carriage });
             }
             if (camp && vendor == Vendor.Yard)
                 foreach (var d in Drills) list.Add(d);

@@ -1805,6 +1805,7 @@ namespace Deepbound.UI
             {
                 var use = Interactable.Nearest(player.AimOrigin, player.AimForward, progress);
                 if (use != null && !statsHeld) PromptLine(w, h, "F   " + use.Prompt(progress));
+                else if (use == null && !statsHeld && progress.CanUseRope) PromptLine(w, h, "F   Climb the rope back to camp  (the run goes on; this floor starts over)");
                 if (use is GearDrop gear && !statsHeld) DrawGearCard(gear.Item.Value, w / 2f - 180, h / 2f + 70, true);
                 return;
             }

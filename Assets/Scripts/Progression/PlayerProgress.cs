@@ -66,6 +66,23 @@ namespace Deepbound.Progression
         public readonly NetworkVariable<bool> MapRevealed = new NetworkVariable<bool>();
         /// <summary>Smelling salts: going down, you come round on your own (once).</summary>
         public readonly NetworkVariable<bool> Salts = new NetworkVariable<bool>();
+        /// <summary>A climbing rope from Corwin: one retreat to camp from a floor's waystone.</summary>
+        public readonly NetworkVariable<bool> Rope = new NetworkVariable<bool>();
+
+        public const float RopeRange = 3.2f;
+
+        /// <summary>Owner: can I climb out here, now?</summary>
+        public bool CanUseRope => Rope.Value && World.DungeonDirector.Instance != null && World.DungeonDirector.Instance.CanRetreat && World.DungeonDirector.Layout != null
+            && Vector3.Distance(transform.position, World.DungeonDirector.Layout.WaystonePosition) <= RopeRange;
+
+        /// <summary>Owner → server: climb the rope (the whole party goes up).</summary>
+        [Rpc(SendTo.Server)]
+        public void UseRopeRpc()
+        {
+            if (!CanUseRope) return;
+            Rope.Value = false;
+            World.DungeonDirector.Instance.ServerRetreat(name);
+        }
         /// <summary>How many times Hobb has re-forged your piece this run (it reseeds his offer).</summary>
         public readonly NetworkVariable<byte> StockRerolls = new NetworkVariable<byte>();
 
@@ -1192,6 +1209,7 @@ namespace Deepbound.Progression
                 case Shop.ItemKind.Drill: return DrillCount(item.Stat) >= (int)item.Cap ? "Mastered" : null;
                 case Shop.ItemKind.Map: return ScoutMap.Value ? "Already have it" : null;
                 case Shop.ItemKind.Salts: return Salts.Value ? "Already carrying some" : null;
+                case Shop.ItemKind.Rope: return Rope.Value ? "Already carrying one" : null;
                 case Shop.ItemKind.Restock: return null;
                 default: return Bonus(item.Stat) + item.Amount > item.Cap + 0.01f ? "Sold out" : null;
             }
@@ -1250,6 +1268,10 @@ namespace Deepbound.Progression
                     break;
                 case Shop.ItemKind.Salts:
                     Salts.Value = true;
+                    bought = true;
+                    break;
+                case Shop.ItemKind.Rope:
+                    Rope.Value = true;
                     bought = true;
                     break;
                 case Shop.ItemKind.Restock:
@@ -1321,7 +1343,7 @@ namespace Deepbound.Progression
             Grudges.Value = 0;
             PrayedFor.Value = false;
             Drills.Value = 0;
-            ScoutMap.Value = MapRevealed.Value = Salts.Value = false;
+            ScoutMap.Value = MapRevealed.Value = Salts.Value = Rope.Value = false;
             StockRerolls.Value = 0;
             Socket0.Value = Socket1.Value = Socket2.Value = 0;
             Charm.Value = default;

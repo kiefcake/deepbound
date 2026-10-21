@@ -45,6 +45,35 @@ namespace Deepbound.World
             DailyDate.Value = Today;
         }
 
+        /// <summary>
+        /// The climbing rope (2026-10-20, an extraction choice): from floor 2, before the guardian's arena
+        /// seals, a rope-holder at the waystone takes the party back to camp, run intact. The floor is lost:
+        /// the carriage will take you to the same depth again, by a new road.
+        /// </summary>
+        public bool CanRetreat => Phase.Value == RunPhase.Exploring && Floor.Value.y >= 1 && !BossSealed;
+
+        public void ServerRetreat(string who)
+        {
+            if (!CanRetreat) return;
+            RetreatRpc(who);
+            StartCoroutine(AfterRetreat());
+        }
+
+        private System.Collections.IEnumerator AfterRetreat()
+        {
+            yield return new WaitForSeconds(1.6f);
+            NextDepth.Value = Floor.Value.y;
+            EnterLobby(keepRun: true);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RetreatRpc(string who)
+        {
+            UI.GameHud.BeginFadeOut(1.5f);
+            Art.Sfx.Play2D(Art.Sound.Rattle, 0.8f);
+            UI.GameHud.Feed(who + " throws the rope: the party climbs back to camp. This floor will be another road next time.", new Color(0.85f, 0.75f, 0.55f));
+        }
+
         /// <summary>Server: this floor's seed (the daily road, or a fresh one).</summary>
         private int FloorSeed(int depth) => DailyRun.Value ? DailySeed(DailyDate.Value != 0 ? DailyDate.Value : Today, depth) : UnityEngine.Random.Range(1, int.MaxValue);
     }
