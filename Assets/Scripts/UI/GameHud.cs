@@ -1174,7 +1174,7 @@ namespace Deepbound.UI
             // A panel open (forge, stones, shop, journal, sheet, pack): the camp banner, tips, contract and
             // feed step aside, so nothing is drawn across the panel you are reading (UI pass 2026-10-20).
             bool panel = shopOpen || forgeOpen || runeOpen || invOpen || statsHeld || pageShown >= 0;
-            if (!statsHeld && !invOpen) DrawControlsHint(w, h);
+            if (!panel && !MenuOpen) DrawControlsHint(w, h);
             if (!panel)
             {
                 Tips.Draw(w, h);
