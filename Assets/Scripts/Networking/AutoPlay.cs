@@ -52,6 +52,7 @@ namespace Deepbound.Networking
         private int downs, kills, shotNo, saves, savesFloor;
         private float bossHpMark = -1f, bossHpAt, nextBlock;
         private bool pendingHeal;
+        private int bossHits; private float bossDealt;
         private float lootOnSince = -1f;
         private readonly HashSet<ulong> ignoredLoot = new HashSet<ulong>();
         private string lastHeard;
@@ -201,7 +202,7 @@ namespace Deepbound.Networking
                     takenBy.TryGetValue(who, out var v);
                     takenBy[who] = v + amount;
                 }
-                else if (from == me.NetworkObjectId) { dealt += amount; if (!h.IsAlive && h.Team == Team.Enemies) kills++; }
+                else if (from == me.NetworkObjectId) { dealt += amount; if (BossBrain.Active != null && h == BossBrain.Active.GetComponent<Health>()) { bossHits++; bossDealt += amount; } if (!h.IsAlive && h.Team == Team.Enemies) kills++; }
             };
 
             // A bot cannot dodge like a person: a blow that would put it down leaves it at 1 HP instead,
@@ -455,7 +456,8 @@ namespace Deepbound.Networking
                         var behind = target.transform.position - target.transform.forward * (edge + reach * 0.6f);
                         if (Vector3.Distance(Flat(me.transform.position), Flat(behind)) > 1.2f) { yield return StepToward(behind, 0.6f); continue; }
                     }
-                    if (flatDist > want || !clear) yield return StepToward(target.transform.position, want * 0.9f);
+                    // In melee reach a clipped line (a crate edge, a rail) is no reason to stand there: swing.
+                    if (flatDist > want || (!clear && !melee)) yield return StepToward(target.transform.position, want * 0.9f);
                     else if (melee && flatDist < edge + 0.6f)
                     {
                         // Too close (inside its reach and ours is wasted): step back out to the edge.
@@ -492,7 +494,8 @@ namespace Deepbound.Networking
                                 string blocker = Physics.Linecast(eye, bh.Center, out var lh, ~0, QueryTriggerInteraction.Ignore) ? lh.collider.name + "/" + (lh.collider.GetComponentInParent<Health>() != null) : "none";
                                 float before = bh.Current.Value;
                                 float d = bh.ServerDamage(10f, me.transform.position, me.NetworkObjectId);
-                                Problem("guardian at " + (bh.Fraction * 100f).ToString("F0") + "% has not lost health in 30 s of attacking: in swing arc " + inArc + ", flat dist " + new Vector2(to.x, to.z).magnitude.ToString("F1") + " (body r " + bh.BodyRadius.ToString("F1") + "), vertical " + to.y.ToString("F1") + " (centre h " + bh.CenterHeight.ToString("F1") + "), clear line " + clear + " (" + blocker + "), dormant " + boss.Dormant + ", immune " + boss.Immune + ", a test hit of 10 dealt " + d.ToString("F1") + ", my " + (me.ActiveKit != null ? me.ActiveKit.ResourceName + " " + me.ActiveKit.Resource.ToString("F0") + "/" + me.ActiveKit.ResourceMax.ToString("F0") : "?") + ", can act " + life.CanAct);
+                                Problem("guardian at " + (bh.Fraction * 100f).ToString("F0") + "% has not lost health in 30 s of attacking: in swing arc " + inArc + ", flat dist " + new Vector2(to.x, to.z).magnitude.ToString("F1") + " (body r " + bh.BodyRadius.ToString("F1") + "), vertical " + to.y.ToString("F1") + " (centre h " + bh.CenterHeight.ToString("F1") + "), clear line " + clear + " (" + blocker + "), dormant " + boss.Dormant + ", immune " + boss.Immune + ", a test hit of 10 dealt " + d.ToString("F1") + ", my " + (me.ActiveKit != null ? me.ActiveKit.ResourceName + " " + me.ActiveKit.Resource.ToString("F0") + "/" + me.ActiveKit.ResourceMax.ToString("F0") : "?") + ", can act " + life.CanAct + ", my hits on it in that time " + bossHits + " for " + bossDealt.ToString("F0"));
+                                bossHits = 0; bossDealt = 0f;
                             }
                         }
                     }
@@ -664,7 +667,10 @@ namespace Deepbound.Networking
                 float step = speed * Time.deltaTime;
                 if (flatTo.magnitude <= step) { pos = next; corner++; continue; }
                 pos += flatTo.normalized * step;
-                if (NavMesh.SamplePosition(pos, out var on, 1.5f, NavMesh.AllAreas)) pos.y = on.position.y;
+                // Follow the path's own height: snapping to the nearest navmesh could hop onto a ledge no one could
+                // walk onto (an island), which is not something a player can do.
+                float segT = Mathf.InverseLerp(0f, Flat(next - path.corners[corner - 1]).magnitude, Flat(pos - path.corners[corner - 1]).magnitude);
+                pos.y = Mathf.Lerp(path.corners[corner - 1].y, next.y, segT);
                 var look = Flat(to) - Flat(pos);
                 motor.Teleport(pos + Vector3.up * 0.05f, look.sqrMagnitude > 0.01f ? Quaternion.LookRotation(look) : me.transform.rotation);
                 motor.SetPitch(0f);
