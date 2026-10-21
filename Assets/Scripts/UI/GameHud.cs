@@ -1028,6 +1028,7 @@ namespace Deepbound.UI
                 if (floorTimesRun != dd.RunStartedAt.Value) { floorTimesRun = dd.RunStartedAt.Value; FloorTimes.Clear(); }
                 FloorTimes.Add(took);
                 bool best = Records.SubmitFloorTime(took);
+                if (dd.DailyRun.Value) Deeds.Earn(Deeds.Deed.DailyFloor, "A daily descent");
                 Feed((best ? "NEW RECORD - fastest floor: " : "Floor cleared in ") + Records.Clock(took), best ? new Color(1f, 0.85f, 0.4f) : new Color(0.85f, 0.8f, 0.7f));
             }
             lastPhase = phase;
@@ -1042,7 +1043,8 @@ namespace Deepbound.UI
             toSlab.y = 0f;
             if (toSlab.magnitude > 2.6f || Vector3.Dot(player.transform.forward, toSlab.normalized) < 0.55f) return;
             var lines = Records.Lines;
-            float pw = 400f, ph = 46f + lines.Length * 22f;
+            int deedRows = (Deeds.Listed.Length + 1) / 2;
+            float pw = 460f, ph = 46f + lines.Length * 22f + 34f + deedRows * 19f;
             var r = new Rect(w / 2f - pw / 2f, 96f, pw, ph);
             UiSkin.Panel(r, 0.94f);
             GUI.Label(new Rect(r.x, r.y + 8, pw, 24), "THE HALL OF RECORDS", new GUIStyle(center) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
@@ -1052,6 +1054,17 @@ namespace Deepbound.UI
                 var parts = lines[i].Split(new[] { "  " }, System.StringSplitOptions.RemoveEmptyEntries);
                 GUI.Label(new Rect(r.x + 26, r.y + 38 + i * 22, pw - 52, 20), parts[0].Trim(), st);
                 GUI.Label(new Rect(r.x + 26, r.y + 38 + i * 22, pw - 52, 20), parts.Length > 1 ? parts[parts.Length - 1].Trim() : "", new GUIStyle(st) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            }
+            // Deeds: done in gold, the rest faint, so the list is also a list of what is left to do.
+            float dy = r.y + 40 + lines.Length * 22f;
+            GUI.Label(new Rect(r.x + 26, dy, pw - 52, 20), "DEEDS   " + Deeds.ListedDone + " / " + Deeds.Listed.Length, new GUIStyle(st) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            var ds = new GUIStyle(st) { fontSize = 12 };
+            for (int i = 0; i < Deeds.Listed.Length; i++)
+            {
+                var (deed, name) = Deeds.Listed[i];
+                bool done = Deeds.Has(deed);
+                float cx = r.x + 26 + (i % 2) * ((pw - 52) / 2f), cy = dy + 24 + (i / 2) * 19f;
+                GUI.Label(new Rect(cx, cy, (pw - 52) / 2f, 18), (done ? "+  " : "-  ") + name, new GUIStyle(ds) { normal = { textColor = done ? new Color(0.95f, 0.85f, 0.5f) : new Color(0.66f, 0.62f, 0.57f) } });
             }
         }
 

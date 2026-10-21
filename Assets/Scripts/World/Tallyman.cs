@@ -95,6 +95,7 @@ namespace Deepbound.World
             Sfx.Play(Sound.Shatter, at, 0.8f, 0.7f);
             Vfx.Ring(transform.position + Vector3.up * 0.05f, 2.2f, new Color(1f, 0.9f, 0.6f), 0.6f);
             UI.GameHud.ShowCombo(at, "REPELLED", new Color(1f, 0.9f, 0.6f));
+            Progression.Deeds.Earn(Progression.Deeds.Deed.RepelledTallyman, "Held back the Tallyman");
         }
 
         /// <summary>Server: tip the hat and go (the arena sealed, the floor ended).</summary>
@@ -102,6 +103,15 @@ namespace Deepbound.World
         {
             if (!IsServer || Leaving.Value) return;
             Leaving.Value = true;
+            var dd = DungeonDirector.Instance;
+            if (dd != null && dd.BossSealed && !ServerStay) OutranRpc();
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void OutranRpc()
+        {
+            UI.GameHud.Feed("The Tallyman closes his ledger and goes. You outran him.", new Color(0.62f, 1f, 0.7f));
+            Progression.Deeds.Earn(Progression.Deeds.Deed.OutranTallyman, "Outran the Tallyman");
         }
 
         private static bool Huntable(PlayerLife p) => p != null && !p.Downed.Value && !p.Soul.Value && p.Health != null && p.Health.IsAlive;

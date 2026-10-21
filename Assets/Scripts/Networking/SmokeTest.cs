@@ -726,6 +726,16 @@ namespace Deepbound.Networking
                     float reach = Mathf.Min(9f, (longX ? farRoom.Size.x : farRoom.Size.y) / 2f - 3.5f);
                     var mAt = farRoom.Center + (longX ? Vector3.right : Vector3.forward) * reach;
                     if (UnityEngine.AI.NavMesh.SamplePosition(mAt, out var mh, 3f, UnityEngine.AI.NavMesh.AllAreas)) mAt = mh.position;
+                    // A pillar or a raised floor between the two would mean nobody watches it: find a clear line.
+                    foreach (var dirM in new[] { Vector3.right, Vector3.left, Vector3.forward, Vector3.back })
+                    {
+                        var cand = farRoom.Center + dirM * reach;
+                        if (!UnityEngine.AI.NavMesh.SamplePosition(cand, out var ch2, 3f, UnityEngine.AI.NavMesh.AllAreas)) continue;
+                        bool blockedM = false;
+                        foreach (var hit in Physics.RaycastAll(stand + Vector3.up * 1.5f, (ch2.position + Vector3.up * 1.2f) - (stand + Vector3.up * 1.5f), Vector3.Distance(stand, ch2.position), ~0, QueryTriggerInteraction.Ignore))
+                            if (hit.collider.GetComponentInParent<Health>() == null) { blockedM = true; break; }
+                        if (!blockedM) { mAt = ch2.position; break; }
+                    }
                     lfm.Teleport(stand, Quaternion.LookRotation(mAt - stand));
                     yield return new WaitForSeconds(0.3f);
                     var mourner = DungeonDirector.Instance.ServerDebugSpawnMourner(mAt, stand - mAt) as MournerBrain;

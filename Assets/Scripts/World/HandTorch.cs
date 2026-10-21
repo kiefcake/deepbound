@@ -16,6 +16,7 @@ namespace Deepbound.World
         public const float LightRange = 11f;
 
         private Light flame;
+        private bool torchDeed;
         private Transform flameRoot;
 
         public override string ItemName => "the hand torch";
@@ -40,6 +41,11 @@ namespace Deepbound.World
         protected override void VisualTick(bool carried)
         {
             if (visual != null) visual.localRotation = carried ? Quaternion.Euler(-12f, 0f, 8f) : Quaternion.identity;
+            if (carried && !torchDeed && Player.NetworkPlayer.Local != null && Carrier.Value == Player.NetworkPlayer.Local.NetworkObjectId)
+            {
+                torchDeed = true;
+                Progression.Deeds.Earn(Progression.Deeds.Deed.Torchbearer, "Carried the light");
+            }
             if (flame != null) flame.intensity = 2.4f + Mathf.Sin(Time.time * 11f) * 0.2f + Mathf.Sin(Time.time * 4.3f) * 0.15f;
         }
 

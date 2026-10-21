@@ -84,6 +84,7 @@ namespace Deepbound.World
             Sfx.Play(Sound.Relic, at, 1f, 0.8f);
             Vfx.Ring(at + Vector3.up * 0.05f, 3f, Oath, 0.8f);
             UI.GameHud.Feed("The oath is kept: the coffer opens.", Oath);
+            Progression.Deeds.Earn(Progression.Deeds.Deed.KeptOath, "Kept an oath");
         }
 
         private void Draw()
