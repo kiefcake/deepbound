@@ -135,6 +135,10 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject plaguebearerPrefab, frostWightPrefab, hexerPrefab;
         /// <summary>The Black Cathedral's choristers (act 4 on, the Abyss too).</summary>
         [SerializeField] private NetworkObject acolytePrefab;
+        [SerializeField] private NetworkObject shaftCatPrefab;
+
+        /// <summary>Tests: the cat, here.</summary>
+        public ShaftCat ServerDebugShaftCat(Vector3 at) => shaftCatPrefab == null ? null : Spawn(shaftCatPrefab, at, Quaternion.identity).GetComponent<ShaftCat>();
         /// <summary>The Abyss's floating eyes (the last act).</summary>
         [SerializeField] private NetworkObject abyssEyePrefab;
         [SerializeField] private NetworkObject fateWheelPrefab;
@@ -978,6 +982,20 @@ namespace Deepbound.World
                 pd.GetComponent<CampFolk>().Who.Value = (byte)FolkId.Peddler;
                 pd.Spawn(destroyWithScene: true);
                 spawned.Add(pd);
+            }
+
+            // Now and then the castle cat is down here, asleep in a quiet side room (never in tests).
+            if (shaftCatPrefab != null && !TestMode && layout.Depth >= 1 && UnityEngine.Random.value < ShaftCat.SpawnChance)
+            {
+                var quiet = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side && !r.Special && !r.Peaceful && r.Feature == RoomFeature.None);
+                if (quiet.Count > 0)
+                {
+                    var crng = new System.Random(layout.Seed ^ 0xca7);
+                    var room = quiet[crng.Next(quiet.Count)];
+                    var cat = room.Center + new Vector3((float)crng.NextDouble() * 4f - 2f, 0f, (float)crng.NextDouble() * 4f - 2f);
+                    if (NavMesh.SamplePosition(cat, out var chit, 2f, NavMesh.AllAreas)) cat = chit.position;
+                    spawned.Add(Spawn(shaftCatPrefab, cat, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f)));
+                }
             }
 
             // Every floor: one journal page on a lectern, by a side-room wall (a combat room's if there are none).

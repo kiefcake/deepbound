@@ -1159,6 +1159,23 @@ namespace Deepbound.Networking
                             foreach (var b in band) if (b != null && b.IsSpawned) b.NetworkObject.Despawn();
                             yield return new WaitForSeconds(0.2f);
                         }
+                        // The castle cat, far below camp: petting it mends you, then it leaves.
+                        {
+                            var kit = dd.ServerDebugShaftCat(local.transform.position + local.transform.forward * 1.2f);
+                            if (kit != null)
+                            {
+                                yield return new WaitForSeconds(0.2f);
+                                var kh = local.GetComponent<Health>();
+                                kh.ServerSetFraction(0.5f);
+                                kit.ServerDebugUse(sp);
+                                yield return new WaitForSeconds(0.2f);
+                                bool mended = kh.Fraction > 0.7f;
+                                for (float t = 0f; t < 4f && kit != null && kit.IsSpawned; t += 0.2f) yield return new WaitForSeconds(0.2f);
+                                Log("shaft cat", "mended " + mended + ", gone after " + (kit == null || !kit.IsSpawned), mended && (kit == null || !kit.IsSpawned));
+                                kh.ServerSetFraction(1f);
+                            }
+                            else Log("shaft cat", "no prefab", false);
+                        }
                         // A hand torch: carrying it lights the way and empties your hands.
                         {
                             var torch = dd.ServerDebugTorch(local.transform.position + local.transform.forward * 1.5f);
@@ -3010,6 +3027,16 @@ namespace Deepbound.Networking
                     motor.SetPitch(0f);
                     if (staged != null && staged.IsSpawned) staged.NetworkObject.Despawn();
                     foreach (var st in Carryable.All.OfType<OathStone>().ToList()) if (st != null && st.IsSpawned) st.NetworkObject.Despawn();
+                    // The castle cat, asleep far below camp.
+                    var napAt = oathSr.Center + Vector3.right * 1.5f;
+                    var nap = DungeonDirector.Instance.ServerDebugShaftCat(napAt);
+                    var napView = napAt + new Vector3(-1.4f, 0.1f, -1.4f);
+                    motor.Teleport(napView, Quaternion.LookRotation(napAt - napView));
+                    motor.SetPitch(38f);
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot(dir, "1d_shaft_cat");
+                    motor.SetPitch(0f);
+                    if (nap != null && nap.IsSpawned) nap.NetworkObject.Despawn();
                     UI.GameHud.RoomCleared(true);
                     DungeonDirector.Instance.ServerDebugEvent(FloorEvent.Gilded);
                     UI.StatusEffects.DebugHover = 0;
