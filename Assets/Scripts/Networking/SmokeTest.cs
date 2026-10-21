@@ -1999,6 +1999,15 @@ namespace Deepbound.Networking
                         bool noRope = !rp.CanUseRope;
                         Log("climbing rope", "unusable without a rope or at camp " + noRope + ", retreat allowed here " + DungeonDirector.Instance.CanRetreat, noRope);
                     }
+                    // Torment stays shut until a descent is finished (tests have no wins).
+                    {
+                        var tdd = DungeonDirector.Instance;
+                        byte before = tdd.DifficultyIndex.Value;
+                        tdd.SetDifficultyRpc((byte)Difficulty.TormentIndex);
+                        bool shut = tdd.DifficultyIndex.Value < Difficulty.TormentIndex;
+                        tdd.SetDifficultyRpc(before);
+                        Log("torment locked", "asked for Torment, got " + Difficulty.Settings[tdd.DifficultyIndex.Value].Name + " first; locked " + shut, shut || Difficulty.TormentUnlocked);
+                    }
                     // Records stay out of tests: nothing is read or written.
                     Log("records", "test run beats nothing: " + (Progression.Records.SubmitRun(12345.0, 99, 999, 9999, true).Count == 0) + ", slab reads zeros " + (Progression.Records.Deepest == 0),
                         Progression.Records.SubmitRun(12345.0, 99, 999, 9999, true).Count == 0 && Progression.Records.Deepest == 0 && !Progression.Records.SubmitFloorTime(60f));

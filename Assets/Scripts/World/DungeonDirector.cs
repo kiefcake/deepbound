@@ -470,7 +470,9 @@ namespace Deepbound.World
         public void SetDifficultyRpc(byte index)
         {
             if (Phase.Value != RunPhase.Lobby || RunInProgress) return;
-            DifficultyIndex.Value = (byte)Mathf.Clamp(index, 0, Difficulty.Settings.Length - 1);
+            int i = Mathf.Clamp(index, 0, Difficulty.Settings.Length - 1);
+            if (i >= Difficulty.TormentIndex && !Difficulty.TormentUnlocked) i = Difficulty.TormentIndex - 1;
+            DifficultyIndex.Value = (byte)i;
         }
 
         /// <summary>Server time the current run began (boarding the carriage), for the summary.</summary>
@@ -758,7 +760,8 @@ namespace Deepbound.World
             // NGO version, so build explicitly; BuildLocal ignores a repeat.
             BuildLocal(Floor.Value);
             // The Tallyman's clock, sized to the floor just built.
-            TallyArriveAfter.Value = TallyBaseSeconds + TallyPerRoom * Layout.Rooms.Count + (AnyoneHolds(Relic.TallymansLedger) ? TallyLedgerDelay : 0f);
+            TallyArriveAfter.Value = TallyBaseSeconds + TallyPerRoom * Layout.Rooms.Count + (AnyoneHolds(Relic.TallymansLedger) ? TallyLedgerDelay : 0f)
+                - (DifficultyIndex.Value >= Difficulty.TormentIndex ? Difficulty.TormentTallySooner : 0f);
 
             BakeNavMesh();
             SpawnObjects(Layout);

@@ -2311,7 +2311,8 @@ namespace Deepbound.UI
                 if (GUI.Button(new Rect(x + 120, dy + 2, 28, 24), "<")) dir.SetDifficultyRpc((byte)(dir.DifficultyIndex.Value - 1));
                 GUI.enabled = true;
                 GUI.Label(new Rect(x + 152, dy + 4, 110, 22), diff.Name.ToUpperInvariant(), new GUIStyle(label) { alignment = TextAnchor.UpperCenter });
-                GUI.enabled = host && !locked && dir.DifficultyIndex.Value < Enemies.Difficulty.Settings.Length - 1;
+                int maxDiff = Enemies.Difficulty.TormentUnlocked ? Enemies.Difficulty.Settings.Length - 1 : Enemies.Difficulty.TormentIndex - 1;
+                GUI.enabled = host && !locked && dir.DifficultyIndex.Value < maxDiff;
                 if (GUI.Button(new Rect(x + 266, dy + 2, 28, 24), ">")) dir.SetDifficultyRpc((byte)(dir.DifficultyIndex.Value + 1));
                 GUI.enabled = true;
                 if (PlayerLife.All.Count > 1 && dir != null)
@@ -2321,6 +2322,7 @@ namespace Deepbound.UI
                     GUI.enabled = true;
                 }
                 string note = locked ? "Set for this run. \"Same road as before, then.\"" : host ? diff.Blurb : diff.Blurb + "  (the host chooses)";
+                if (!locked && host && !Enemies.Difficulty.TormentUnlocked && dir.DifficultyIndex.Value == Enemies.Difficulty.TormentIndex - 1) note += "  (Finish a descent to open TORMENT.)";
                 GUI.Label(new Rect(x + 16, dy + 30, pw - 250, 20), note, small);
                 // The daily road: today's floors, the same for everyone who plays today.
                 if (dir != null)

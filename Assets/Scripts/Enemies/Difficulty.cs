@@ -27,7 +27,14 @@ namespace Deepbound.Enemies
             new Setting { Name = "Normal", Blurb = "The descent as intended.", Health = 1f, Damage = 1f, SpawnMultiplier = 1f, EliteBonus = 0f, Gold = 1f },
             new Setting { Name = "Hard", Blurb = "Tougher dead, more elites, richer spoils.", Health = 1.4f, Damage = 1.3f, SpawnMultiplier = 1.15f, EliteBonus = 0.08f, Gold = 1.5f },
             new Setting { Name = "Nightmare", Blurb = "For parties that never fall. Double gold.", Health = 1.9f, Damage = 1.6f, SpawnMultiplier = 1.3f, EliteBonus = 0.15f, Gold = 2f },
+            new Setting { Name = "Torment", Blurb = "For those who brought the Last Morning. The Tallyman comes early.", Health = 2.5f, Damage = 2f, SpawnMultiplier = 1.45f, EliteBonus = 0.25f, Gold = 2.6f },
         };
+
+        /// <summary>Torment (index 3) opens once this machine's player has finished a descent.</summary>
+        public const int TormentIndex = 3;
+        public static bool TormentUnlocked => Progression.Deeds.Wins >= 1;
+        /// <summary>How much sooner the Tallyman comes on Torment.</summary>
+        public const float TormentTallySooner = 120f;
 
         /// <summary>The current setting (read from the director; Normal when there is none).</summary>
         public static Setting Level
