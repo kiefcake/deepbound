@@ -1540,9 +1540,13 @@ namespace Deepbound.Networking
             }
 
             // After the boss the party goes home to camp, run intact; spend there, then ride down.
+            // (The local player rides the grave lift up: pinned to its floor, then let go at camp.)
             float campBy = Time.time + 20f;
-            while (net.IsServer && DungeonDirector.Instance.Phase.Value != RunPhase.Lobby && Time.time < campBy) yield return null;
+            bool rodeLift = false;
+            while (net.IsServer && DungeonDirector.Instance.Phase.Value != RunPhase.Lobby && Time.time < campBy) { rodeLift |= Art.ExitPortal.LocalRiding; yield return null; }
             yield return new WaitForSeconds(1f);
+            if (net.IsServer && local != null)
+                Log("grave lift ride", "rode up " + rodeLift + ", free at camp " + !local.GetComponent<FirstPersonMotor>().Pinned, rodeLift && !local.GetComponent<FirstPersonMotor>().Pinned);
             if (net.IsServer && local != null)
             {
                 var dc = DungeonDirector.Instance;

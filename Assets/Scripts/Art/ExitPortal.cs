@@ -17,6 +17,11 @@ namespace Deepbound.Art
         private Transform cage, lantern;
         private Light glow;
         private float born, ascendAt = -1f, ceiling = 9f, nextClank;
+        /// <summary>The local player is aboard and rising with the cage (pinned to its floor).</summary>
+        private Player.FirstPersonMotor riding;
+
+        /// <summary>For tests: is the local player riding the cage up?</summary>
+        public static bool LocalRiding => current != null && current.riding != null;
         private static readonly Color Lamp = new Color(1f, 0.78f, 0.45f);
 
         public static void Spawn(Vector3 at, Transform levelRoot)
@@ -40,6 +45,34 @@ namespace Deepbound.Art
             Sfx.Play(Sound.Slam, current.transform.position + Vector3.up * 2f, 0.7f, 0.5f);
             var local = Player.NetworkPlayer.Local;
             if (local != null) local.AddShake(0.35f);
+        }
+
+        /// <summary>Owner: whoever stands in the cage when the chains take up rides up in it.</summary>
+        private void RideUp()
+        {
+            var local = Player.NetworkPlayer.Local;
+            if (local == null) return;
+            var motor = local.GetComponent<Player.FirstPersonMotor>();
+            if (motor == null) return;
+            var flat = local.transform.position - transform.position;
+            flat.y = 0f;
+            if (riding == null)
+            {
+                if (flat.magnitude > World.DungeonDirector.ExitRadius + 0.3f) return;
+                riding = motor;
+            }
+            // Stay inside the bars, standing on the planks as they climb.
+            float r = World.DungeonDirector.ExitRadius - 0.5f;
+            if (flat.magnitude > r) flat = flat.normalized * r;
+            motor.PinTo(transform.position + flat + Vector3.up * (cage.localPosition.y + 0.15f));
+        }
+
+        private void OnDestroy()
+        {
+            // The level is gone (camp is being built): let go of the rider where they are.
+            if (riding != null) riding.Unpin(riding.transform.position);
+            riding = null;
+            if (current == this) current = null;
         }
 
         private void Build()
@@ -104,6 +137,7 @@ namespace Deepbound.Art
                 if (k < 1f && Time.time >= nextClank) { nextClank = Time.time + 0.45f; Sfx.Play(Sound.Rattle, cage.position + Vector3.up * 2f, 0.45f, 0.6f); }
             }
             cage.localPosition = Vector3.up * y;
+            if (ascendAt > 0f) RideUp();
             if (lantern != null) lantern.localRotation = Quaternion.Euler(Mathf.Sin(Time.time * 1.7f) * 6f, 0f, Mathf.Cos(Time.time * 1.3f) * 5f);
             if (glow != null) glow.intensity = 2.6f + Mathf.Sin(Time.time * 9f) * 0.15f;
         }
