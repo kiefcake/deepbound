@@ -39,6 +39,24 @@ namespace Deepbound.World
                 b.AddBox(c + rot * new Vector3(sx * (h - t / 2f + 0.01f), 0f, sz * (h - t / 2f + 0.01f)), new Vector3(t, size + 0.01f, t), Mat.Wood, rot);
             }
             b.AddBox(c + Vector3.up * (h - t / 2f + 0.005f), new Vector3(size + 0.02f, t, size + 0.02f) * 1f, Mat.Wood, rot);
+
+            // Plank seams on each face, a cross-brace on two of them and iron corner caps: a plain box read as a block.
+            float seam = size * 0.025f;
+            for (int f = 0; f < 4; f++)
+            {
+                var fr = rot * Quaternion.Euler(0f, f * 90f, 0f);
+                var face = c + fr * new Vector3(0f, 0f, h + 0.004f);
+                for (int k = -1; k <= 1; k += 2)
+                    b.AddBox(face + Vector3.up * (k * size * 0.17f), new Vector3(size - 2f * t, seam, 0.01f), Mat.Dark, fr);
+                if ((f & 1) == 0)
+                    b.AddBox(face + fr * new Vector3(0f, 0f, 0.012f), new Vector3((size - 2f * t) * 1.32f, t * 0.7f, 0.02f), Mat.Wood, fr * Quaternion.Euler(0f, 0f, 45f));
+            }
+            float cap = t * 1.25f;
+            for (int i = 0; i < 4; i++)
+            {
+                float sx = (i & 1) == 0 ? -1 : 1, sz = (i & 2) == 0 ? -1 : 1;
+                b.AddBox(c + rot * new Vector3(sx * (h - cap / 2f + 0.02f), h - cap / 2f + 0.02f, sz * (h - cap / 2f + 0.02f)), Vector3.one * cap, Mat.Steel, rot);
+            }
         }
 
         public static void Barrel(MeshKit.Batcher b, Vector3 floor)

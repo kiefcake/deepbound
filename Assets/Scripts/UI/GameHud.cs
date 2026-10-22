@@ -256,6 +256,19 @@ namespace Deepbound.UI
         public static void Feed(string text, Color color)
         {
             Heard?.Invoke("feed", text);
+            const string bestiary = "New in your Bestiary: ";
+            if (text.StartsWith(bestiary) && FeedLines.Count > 0)
+            {
+                var last = FeedLines[FeedLines.Count - 1];
+                if (last.Text.StartsWith(bestiary) && UnityEngine.Time.time - last.Time < 4f)
+                {
+                    string name = text.Substring(bestiary.Length).Replace("  (Esc > Guide)", "");
+                    last.Text = last.Text.Replace("  (Esc > Guide)", "") + ", " + name + "  (Esc > Guide)";
+                    last.Time = UnityEngine.Time.time;
+                    FeedLines[FeedLines.Count - 1] = last;
+                    return;
+                }
+            }
             FeedLines.Add(new FeedLine { Text = text, Color = color, Time = UnityEngine.Time.time });
             if (FeedLines.Count > 6) FeedLines.RemoveAt(0);
         }
@@ -938,8 +951,9 @@ namespace Deepbound.UI
             int total = PlayerLife.All.Count, aboard = DungeonDirector.PlayersAboard();
             bool counting = director.PhaseEndsAt.Value > 0;
             bool midRun = director.RunInProgress;
-            float pw = 560, x = w / 2f - pw / 2f, y = 10;
+            float pw = Mathf.Min(680f, w - 360f), x = w / 2f - pw / 2f, y = 10;
             Rect(x, y, pw, counting ? 84 : 62, Panel);
+            var bannerLine = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, wordWrap = false };
 
             string title = midRun ? "CASTLE RAVENHOLD   ·   FLOOR " + director.NextDepth.Value + " CLEARED" : "CASTLE RAVENHOLD";
             GUI.Label(new Rect(x, y + 4, pw, 22), title, new GUIStyle(center) { normal = { textColor = Gold } });
@@ -953,9 +967,9 @@ namespace Deepbound.UI
                   (director.RunOmen != Omen.None ? "   ·   Omen: " + DungeonDirector.OmenName(director.RunOmen) : "");
             if (Unity.Netcode.NetworkManager.Singleton.ConnectedClientsIds.Count > 1 || PlayerLife.All.Count > 1)
                 line2 += "   ·   Loot: " + (director.FindersKeepers.Value ? "finders keepers" : "shared") + (host ? " (L)" : "");
-            GUI.Label(new Rect(x, y + 24, pw, 18), line2, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
-            GUI.Label(new Rect(x, y + 41, pw, 18), "Sit on the back of Corwin's carriage (F) to set off  -  G on Corwin for difficulty and supplies   (" + aboard + " / " + total + " seated)",
-                new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = aboard > 0 ? Gold : new Color(0.85f, 0.82f, 0.78f) } });
+            GUI.Label(new Rect(x + 10, y + 24, pw - 20, 18), UiSkin.Fit(line2, bannerLine, pw - 20), bannerLine);
+            var seatLine = new GUIStyle(bannerLine) { normal = { textColor = aboard > 0 ? Gold : new Color(0.85f, 0.82f, 0.78f) } };
+            GUI.Label(new Rect(x + 10, y + 41, pw - 20, 18), UiSkin.Fit(Binds.Rekey("Sit on Corwin's carriage (F) to set off   ·   G on Corwin: difficulty and supplies   ·   " + aboard + " / " + total + " seated"), seatLine, pw - 20), seatLine);
             if (counting)
             {
                 int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
@@ -1483,8 +1497,11 @@ namespace Deepbound.UI
                 new GUIStyle(small) { fontSize = 10, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(1f, 1f, 1f, 0.85f) } });
             string cls = progress.Class.Name.ToUpperInvariant();
             string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
-            GUI.Label(new Rect(x, y + 46, bw, 20), (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Floor " + (CurrentDepth() + 1) + " / " + DungeonDirector.FloorsPerRun + (CurrentDepth() >= DungeonDirector.AbyssDepth ? " (ABYSS)" : ""))
-                + (DungeonDirector.Instance != null && DungeonDirector.Instance.SealCount > 0 ? "  ·  Seals " + DungeonDirector.Instance.SealCount + "/" + DungeonDirector.SealTotal : "") + "  ·  " + weapon, small);
+            var infoLine = new GUIStyle(small) { wordWrap = false };
+            string info = (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Floor " + (CurrentDepth() + 1) + "/" + DungeonDirector.FloorsPerRun + (CurrentDepth() >= DungeonDirector.AbyssDepth ? " Abyss" : ""))
+                + (DungeonDirector.Instance != null && DungeonDirector.Instance.SealCount > 0 ? "  ·  Seals " + DungeonDirector.Instance.SealCount + "/" + DungeonDirector.SealTotal : "") + "  ·  " + weapon;
+            // One line: it wrapped over the embers line below once a run had seals and a longer weapon name.
+            GUI.Label(new Rect(x, y + 46, bw, 20), UiSkin.Fit(info, infoLine, bw), infoLine);
             GUI.Label(new Rect(x, y + 64, bw, 20), progress.Embers.Value + " embers", new GUIStyle(small) { normal = { textColor = LootInfo.EmberColor } });
             if (progress.Sigils.Value > 0)
                 GUI.Label(new Rect(x + 90, y + 64, bw, 20), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil" : " sigils"), new GUIStyle(small) { normal = { textColor = LootInfo.SigilColor } });
@@ -1982,17 +1999,18 @@ namespace Deepbound.UI
             if (Time.time > bannerUntil || bannerTitle == null || BossIntroShowing) return;
             float a = Mathf.Clamp01((bannerUntil - Time.time) / 1.5f) * Mathf.Clamp01(1f - fade * 1.5f);
             var gold = new Color(Gold.r, Gold.g, Gold.b, a);
-            GUI.Label(new Rect(0, h * 0.18f, w, 44), bannerTitle, new GUIStyle(big) { normal = { textColor = gold } });
-            GUI.Label(new Rect(0, h * 0.18f + 44, w, 26), bannerSub, new GUIStyle(center) { fontSize = 18, normal = { textColor = new Color(1f, 1f, 1f, a) } });
+            // Drop shadows: the floor banner sat straight on lit brick and the gold hint line vanished into it.
+            UiSkin.Shadowed(new Rect(0, h * 0.18f, w, 44), bannerTitle, new GUIStyle(big) { normal = { textColor = gold } }, a);
+            UiSkin.Shadowed(new Rect(0, h * 0.18f + 44, w, 26), bannerSub, new GUIStyle(center) { fontSize = 18, normal = { textColor = Color.white } }, a);
             if (!string.IsNullOrEmpty(bannerHint))
-                GUI.Label(new Rect(0, h * 0.18f + 72, w, 22), bannerHint, new GUIStyle(center) { fontSize = 15, fontStyle = FontStyle.Italic, normal = { textColor = new Color(gold.r, gold.g, gold.b, a * 0.9f) } });
+                UiSkin.Shadowed(new Rect(0, h * 0.18f + 72, w, 22), bannerHint, new GUIStyle(center) { fontSize = 15, fontStyle = FontStyle.Italic, normal = { textColor = new Color(1f, 0.8f, 0.45f) } }, a * 0.95f);
             // This floor's event, read live (it may land a moment after the banner).
             var ev = DungeonDirector.CurrentEvent;
             if (ev != FloorEvent.None)
             {
                 var ec = DungeonDirector.EventColor(ev);
-                GUI.Label(new Rect(0, h * 0.18f + 98, w, 26), DungeonDirector.EventName(ev).ToUpperInvariant() + "  -  " + DungeonDirector.EventText(ev),
-                    new GUIStyle(center) { fontSize = 17, fontStyle = FontStyle.Bold, normal = { textColor = new Color(ec.r, ec.g, ec.b, a) } });
+                UiSkin.Shadowed(new Rect(0, h * 0.18f + 98, w, 26), DungeonDirector.EventName(ev).ToUpperInvariant() + "  -  " + DungeonDirector.EventText(ev),
+                    new GUIStyle(center) { fontSize = 17, fontStyle = FontStyle.Bold, normal = { textColor = ec } }, a);
             }
         }
 
@@ -2001,8 +2019,10 @@ namespace Deepbound.UI
             float age = Time.time - spawnTime;
             if (age > 25f) return;
             float a = Mathf.Clamp01((25f - age) / 3f);
-            var style = new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 1f, 1f, a * 0.85f) } };
-            GUI.Label(new Rect(w - 330, 262, 310, 190), Binds.Rekey(
+            var style = new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 1f, 1f, a * 0.9f) } };
+            UiSkin.Rect(new Rect(w - 380, 254, 370, 206), new Color(0f, 0f, 0f, 0.5f * a));
+            UiSkin.Rect(new Rect(w - 12, 254, 2, 206), new Color(Gold.r, Gold.g, Gold.b, 0.6f * a));
+            GUI.Label(new Rect(w - 370, 262, 350, 190), Binds.Rekey(
                 "WASD move  ·  Shift sprint  ·  Space jump\n" +
                 (progress.ClassId.Value == ClassId.Flagellant
                     ? "LMB Flail (every third swing CRASHES)  ·  RMB Scourge yourself for Zeal\n" +
