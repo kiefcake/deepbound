@@ -36,7 +36,12 @@ namespace Deepbound.Player
     public class Ultimates : NetworkBehaviour
     {
         public const float ChargeMax = 100f;
-        private const float PerDamageDealt = 0.055f, PerDamageTaken = 0.3f, PerSecond = 0.45f;
+        // Damage is measured against the floor's own scale (deeper hits and health are bigger), taken counts for
+        // less, and nothing charges for a while after a cast: on floor 6 the autoplay Knight cast every ~12 s.
+        private const float PerDamageDealt = 0.055f, PerDamageTaken = 0.15f, PerSecond = 0.45f, LockAfterCast = 20f;
+        private float lockedUntil;
+        private static float DepthScaleHealth => Enemies.Difficulty.DepthHealth(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
+        private static float DepthScaleDamage => Enemies.Difficulty.DepthDamage(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
 
         public readonly NetworkVariable<float> Charge = new NetworkVariable<float>();
 
@@ -116,13 +121,13 @@ namespace Deepbound.Player
         {
             if (target.Team == Team.Players)
             {
-                if (target.TryGetComponent<Ultimates>(out var victim)) victim.Add(dealt * PerDamageTaken);
+                if (target.TryGetComponent<Ultimates>(out var victim)) victim.Add(dealt * PerDamageTaken / DepthScaleDamage);
                 return;
             }
             if (target.Team != Team.Enemies) return;
             var net = NetworkManager.Singleton;
             if (net == null || !net.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj)) return;
-            if (obj.TryGetComponent<Ultimates>(out var u)) u.Add(dealt * PerDamageDealt);
+            if (obj.TryGetComponent<Ultimates>(out var u)) u.Add(dealt * PerDamageDealt / DepthScaleHealth);
         }
 
         /// <summary>Server: charge from elsewhere (grazes).</summary>
@@ -130,7 +135,7 @@ namespace Deepbound.Player
 
         private void Add(float amount)
         {
-            if (DungeonDirector.InLobby) return;
+            if (DungeonDirector.InLobby || Time.time < lockedUntil) return;
             if (progress.HasRelic(Relic.WarlordsHorn)) amount *= 1.5f;
             if (progress.Wears(GearId.RosaryOfAsh)) amount *= 1.35f;
             Charge.Value = Mathf.Min(ChargeMax, Charge.Value + amount);
@@ -223,6 +228,7 @@ namespace Deepbound.Player
             if (!Ready || !life.CanAct) return;
             if (Vector3.Distance(aim, transform.position) > 34f) aim = transform.position + transform.forward * 4f;
             Charge.Value = 0f;
+            lockedUntil = Time.time + LockAfterCast;
             var cls = progress.ClassId.Value;
             if (progress.HasRelic(Relic.WarlordsHorn))
                 foreach (var ally in CombatQuery.Circle(transform.position, 12f, Team.Players).ToArray())
@@ -326,7 +332,8 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Relic, transform.position + Vector3.up * 1.5f, 1f, 0.8f);
             Vfx.Flash(transform.position + Vector3.up * 1.6f, c, 6f, 8f, 0.5f);
             Vfx.Ring(transform.position, 3f, c, 0.45f);
-            UI.GameHud.Feed(name + ": " + Name((ClassId)cls).ToUpperInvariant() + "!", c);
+            // Your own ultimate needs no feed line (it filled the feed); an ally's does.
+            if (!IsOwner) UI.GameHud.Feed(name + ": " + Name((ClassId)cls).ToUpperInvariant() + "!", c);
         }
 
         public static Color UltColor(ClassId cls) =>

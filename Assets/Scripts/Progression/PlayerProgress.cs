@@ -559,7 +559,7 @@ namespace Deepbound.Progression
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void RuneFoundRpc(byte r) => UI.GameHud.Feed(name + " found a " + Runes.Name((Rune)r) + "  -  set it at Ysolde's stones", Runes.Color((Rune)r));
+        private void RuneFoundRpc(byte r) => UI.GameHud.Feed(name + " found " + ("AEIOU".IndexOf(char.ToUpperInvariant(Runes.Name((Rune)r)[0])) >= 0 ? "an " : "a ") + Runes.Name((Rune)r) + "  -  set it at Ysolde's stones", Runes.Color((Rune)r));
 
         /// <summary>
         /// Owner → server: set a rune from the bag into the first open empty socket, or, if

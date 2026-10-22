@@ -255,7 +255,13 @@ namespace Deepbound.Networking
             if (startFloor > 0)
             {
                 // A run's worth of kit by this floor (roughly what runs 4 and 5 had).
-                for (int i = 0; i < Mathf.Min(10, Mathf.RoundToInt(startFloor * 1.5f)); i++) prog.ServerFreeTemper();
+                for (int i = 0; i < Mathf.Min(10, Mathf.RoundToInt(startFloor * 1.5f)); i++)
+                {
+                    var why = prog.CannotTemperReason();
+                    if (why != null && why.ToLowerInvariant().Contains("path")) { prog.ChoosePathRpc(0); yield return new WaitForSeconds(0.2f); }
+                    prog.ServerFreeTemper();
+                    yield return null;
+                }
                 prog.RankQ.Value = (byte)Mathf.Min(8, 1 + startFloor / 2 + 1);
                 prog.RankE.Value = (byte)Mathf.Min(8, 1 + startFloor / 2);
                 for (int i = 0; i < startFloor; i++) prog.ServerAddRelic(Relics.Random());

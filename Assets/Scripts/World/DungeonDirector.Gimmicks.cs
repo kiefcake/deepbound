@@ -228,7 +228,7 @@ namespace Deepbound.World
             TideWarnRpc();
         }
 
-        private int tideCardFloor = int.MinValue;
+        private int tideCardFloor = int.MinValue, bellFeedFloor = int.MinValue, silenceFeedFloor = int.MinValue;
 
         [Rpc(SendTo.ClientsAndHost)]
         private void TideWarnRpc()
@@ -296,7 +296,7 @@ namespace Deepbound.World
         private void SilenceRpc(float seconds)
         {
             Art.TheSilence.Begin(seconds);
-            UI.GameHud.Feed("The light fails...", new Color(0.6f, 0.45f, 1f));
+            if (silenceFeedFloor != Floor.Value.y) { silenceFeedFloor = Floor.Value.y; UI.GameHud.Feed("The light fails - it comes back in a few seconds", new Color(0.6f, 0.45f, 1f)); }
         }
 
         private void TickBell()
@@ -325,7 +325,8 @@ namespace Deepbound.World
         {
             Sfx.Play2D(Sound.Toll, 1f);
             Sfx.Play2D(Sound.Slam, 0.35f);
-            UI.GameHud.Feed("The bell tolls...", new Color(1f, 0.75f, 0.45f));
+            // Said once a floor; after that the bell itself is the warning (a line every 42 s was a dozen a floor).
+            if (bellFeedFloor != Floor.Value.y) { bellFeedFloor = Floor.Value.y; UI.GameHud.Feed("The bell tolls - jump its shockwave", new Color(1f, 0.75f, 0.45f)); }
             var local = NetworkPlayer.Local;
             if (local != null) local.AddShake(0.25f);
         }

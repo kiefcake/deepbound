@@ -204,7 +204,9 @@ namespace Deepbound.Enemies
         {
             if (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(who, out var obj)) return;
             bool me = Player.NetworkPlayer.Local != null && obj.gameObject == Player.NetworkPlayer.Local.gameObject;
-            UI.GameHud.Feed((me ? "YOU are" : obj.name + " is") + " judged by the Crown. Stand together to share the blow!", new Color(0.55f, 0.75f, 1f));
+            // Alone there is no one to share it with: then it is a blow to block or dodge.
+            bool alone = Player.PlayerLife.All.Count <= 1;
+            UI.GameHud.Feed((me ? "YOU are" : obj.name + " is") + " judged by the Crown. " + (alone ? "Block or dodge as it falls!" : "Stand together to share the blow!"), new Color(0.55f, 0.75f, 1f));
             UI.GameHud.ShowCombo(obj.transform.position + Vector3.up * 2.6f, "JUDGED", new Color(0.55f, 0.75f, 1f));
             Sfx.Play(Sound.Summon, obj.transform.position + Vector3.up * 2f, 1f, 1.3f);
             if (me) Sfx.Play2D(Sound.WarCry, 0.6f);

@@ -67,8 +67,10 @@ namespace Deepbound.Enemies
         // --- Depth (0 = first floor) ---
 
         // Ten floors: everything climbs by the floor's tier (half a step a floor, see DungeonDirector.Tier).
-        public static float DepthHealth(int depth) => 1f + 0.45f * World.DungeonDirector.Tier(depth);
-        public static float DepthDamage(int depth) => 1f + 0.3f * World.DungeonDirector.Tier(depth);
+        // Past the second act it climbs faster (2026-10-22, autoplay: a +10 Knight with 16 relics cleared floors 9-10 in
+        // four to five minutes and the Unsung in under two; the first six floors are unchanged).
+        public static float DepthHealth(int depth) { float t = World.DungeonDirector.Tier(depth); return 1f + 0.45f * t + 0.16f * Mathf.Pow(Mathf.Max(0f, t - 2.5f), 2f); }
+        public static float DepthDamage(int depth) { float t = World.DungeonDirector.Tier(depth); return 1f + 0.3f * t + 0.1f * Mathf.Pow(Mathf.Max(0f, t - 2.5f), 2f); }
 
         /// <summary>
         /// How well the dead lead a moving target and how many tricks a boss uses: nothing on the first
