@@ -167,15 +167,21 @@ namespace Deepbound.World
                 float half = (alongX ? room.Size.y : room.Size.x) / 2f;
                 var wallLine = c + outward * half;
 
-                // Split around a doorway on this wall.
+                // Split around a doorway on this wall, and around a hollow wall too: the stairs and posts were
+                // built across a breach's mouth and sealed its tunnel (2026-10-22, the navmesh check).
+                var gaps = new System.Collections.Generic.List<(float c, float half)>();
+                if (room.Doors[side]) gaps.Add((0f, DungeonLayout.CorridorWidth / 2f + 0.9f));
+                var hole = room.HoleOn(side);
+                if (hole != null) gaps.Add((hole.Along, WallHole.Width / 2f + 0.9f));
+                gaps.Sort((p, q) => p.c.CompareTo(q.c));
                 var segments = new System.Collections.Generic.List<(float a, float b)>();
-                if (room.Doors[side])
+                float cursor = -wallLen / 2f;
+                foreach (var (gc, gh) in gaps)
                 {
-                    float gap = DungeonLayout.CorridorWidth / 2f + 0.9f;
-                    segments.Add((-wallLen / 2f, -gap));
-                    segments.Add((gap, wallLen / 2f));
+                    if (gc - gh > cursor) segments.Add((cursor, gc - gh));
+                    cursor = Mathf.Max(cursor, gc + gh);
                 }
-                else segments.Add((-wallLen / 2f, wallLen / 2f));
+                if (cursor < wallLen / 2f) segments.Add((cursor, wallLen / 2f));
 
                 foreach (var (s0, s1) in segments)
                 {

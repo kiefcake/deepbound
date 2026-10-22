@@ -294,6 +294,10 @@ namespace Deepbound.World
             var across = alongX ? Vector3.right : Vector3.forward;
 
             b.AddBox(mid + Vector3.down * FloorThickness / 2f, S(w, FloorThickness, depth), breach ? Mat.Rubble : Mat.Flagstone);
+            // The opening's own floor, through the wall's thickness: without it there was a 0.8 m hole between
+            // the room and the niche, so the navmesh never joined them (2026-10-22, the autoplay run: breach
+            // dead stuck in their tunnel, and whoever followed them in could not path back out).
+            b.AddBox(wallMid + Vector3.down * FloorThickness / 2f, S(WallHole.Width + 0.4f, FloorThickness, WallThickness + 0.2f), breach ? Mat.Rubble : Mat.Flagstone);
             b.AddBox(mid + Vector3.up * (hh + 0.2f), S(w, 0.4f, depth), Mat.StoneWall);
             b.AddBox(start + outward * (depth + 0.4f) + Vector3.up * hh / 2f, S(w + 0.8f, hh + 0.4f, 0.8f), Mat.StoneWall);
             b.AddBox(mid + across * (w / 2f + 0.4f) + Vector3.up * hh / 2f, S(0.8f, hh + 0.4f, depth), Mat.StoneWall);

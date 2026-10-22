@@ -120,6 +120,38 @@ namespace Deepbound.Networking
                             lost.Add(room.Id + " " + room.Kind + "/" + room.Feature + " (" + path.status + ", the way ends at " + Fmt(end) + " near " + string.Join(", ", near) + (obs.Any() ? "; obstacles " + string.Join(", ", obs) : "") + ")");
                         }
                     }
+                    // Hollow walls, once broken: the niche behind must join the room (breach dead come out of it).
+                    foreach (var cw in FindObjectsByType<CrackedWall>(FindObjectsSortMode.None)) if (cw != null && cw.IsSpawned) cw.NetworkObject.Despawn();
+                    yield return new WaitForSeconds(0.6f);
+                    foreach (var room in layout.Rooms)
+                        foreach (var hole in room.Holes)
+                        {
+                            var inNiche = room.HoleFace(hole) + DungeonLayout.Room.HoleOutward(hole) * 1.5f;
+                            if (!NavMesh.SamplePosition(start, out var sn, 4f, NavMesh.AllAreas)) continue;
+                            bool on = NavMesh.SamplePosition(inNiche, out var tn, 1.5f, NavMesh.AllAreas);
+                            if (!on || !NavMesh.CalculatePath(sn.position, tn.position, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete)
+                            {
+                                var endN = path.corners.Length > 0 ? path.corners[path.corners.Length - 1] : sn.position;
+                                lost.Add((hole.Breach ? "breach" : "secret") + " niche off " + room.Feature + " room " + room.Id + " (" + (on ? path.status.ToString() : "no navmesh inside") + ", way ends " + endN.ToString("F1") + ", niche " + inNiche.ToString("F1") + ", near the opening: " + string.Join(", ", Physics.OverlapSphere(room.HoleFace(hole) + Vector3.up, 2.2f, ~0, QueryTriggerInteraction.Ignore).Select(x => x.name).Distinct().Take(6)) + ")");
+                            }
+                        }
+                    // Pockets: walkable patches inside a room that cannot reach the rest (enemies and the bot trapped).
+                    foreach (var room in layout.Rooms)
+                    {
+                        if (room.Feature == RoomFeature.Vault || room.Feature == RoomFeature.Chasm) continue;
+                        if (!NavMesh.SamplePosition(start, out var sp, 4f, NavMesh.AllAreas)) break;
+                        int pockets = 0; string first = null;
+                        for (float gx = -room.Size.x / 2f + 1f; gx < room.Size.x / 2f; gx += 2f)
+                            for (float gz = -room.Size.y / 2f + 1f; gz < room.Size.y / 2f; gz += 2f)
+                            {
+                                var q = room.Center + new Vector3(gx, 0.3f, gz);
+                                if (!NavMesh.SamplePosition(q, out var qh, 0.6f, NavMesh.AllAreas)) continue;
+                                if (NavMesh.CalculatePath(qh.position, sp.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete) continue;
+                                pockets++;
+                                if (first == null) first = qh.position.ToString("F1") + " near " + string.Join(", ", Physics.OverlapSphere(qh.position + Vector3.up, 1.6f, ~0, QueryTriggerInteraction.Ignore).Select(x => x.name).Distinct().Take(5));
+                            }
+                        if (pockets > 0) lost.Add("pocket in " + room.Feature + " room " + room.Id + ": " + pockets + " cut-off points, e.g. " + first);
+                    }
                     // The guardian's spot and the lift's (a dais is raised: its ramps must join the floor).
                     foreach (var (what, at) in new[] { ("boss spot", layout.BossSpawn), ("lift spot", layout.LiftSpot) })
                     {
@@ -647,7 +679,7 @@ namespace Deepbound.Networking
         /// <summary>Walk (at a run's pace, over the navmesh) toward a point for one short stretch.</summary>
         private IEnumerator StepToward(Vector3 to, float stopAt)
         {
-            if (!NavMesh.SamplePosition(me.transform.position, out var a, 2f, NavMesh.AllAreas) || !NavMesh.SamplePosition(to, out var b, 3f, NavMesh.AllAreas))
+            if (!NavMesh.SamplePosition(me.transform.position, out var a, 0.9f, NavMesh.AllAreas) || !NavMesh.SamplePosition(to, out var b, 3f, NavMesh.AllAreas))
             {
                 yield return null;
                 yield break;

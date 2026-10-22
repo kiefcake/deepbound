@@ -415,9 +415,11 @@ namespace Deepbound.World
                     if (sides.Count == 0) continue;
                     int side = sides[rng.Next(sides.Count)];
                     float wallLen = (side == 0 || side == 2) ? room.Size.x : room.Size.y;
+                    // A gallery's balcony stairs land in the corners: keep the hole clear of them (it was sealed once).
+                    float cornerKeep = room.Balconies.Count > 0 ? Mathf.Min(wallLen / 2f - 0.5f, BalconyDepth + 2.2f + 1.2f + WallHole.Width / 2f) : 3f;
                     float along = room.Doors[side]
-                        ? (rng.Next(2) == 0 ? -1f : 1f) * Mathf.Lerp(doorClear, wallLen / 2f - 2.5f, (float)rng.NextDouble())
-                        : ((float)rng.NextDouble() * 2f - 1f) * (wallLen / 2f - 3f);
+                        ? (rng.Next(2) == 0 ? -1f : 1f) * Mathf.Lerp(doorClear, Mathf.Max(doorClear, wallLen / 2f - Mathf.Max(2.5f, cornerKeep)), (float)rng.NextDouble())
+                        : ((float)rng.NextDouble() * 2f - 1f) * Mathf.Max(0f, wallLen / 2f - cornerKeep);
                     room.Holes.Add(new WallHole { Side = side, Along = along, Breach = breach });
                     n++;
                 }

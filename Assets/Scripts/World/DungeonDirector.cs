@@ -883,6 +883,9 @@ namespace Deepbound.World
             var surface = built.AddComponent<NavMeshSurface>();
             surface.collectObjects = CollectObjects.Children;
             surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+            // No little islands on prop tops (tables, crates, plinths): an enemy put there at spawn could never
+            // walk off, and paths begun beside one started on it (2026-10-22, autoplay: enemies "left" no one could reach).
+            surface.minRegionArea = 6f;
             surface.BuildNavMesh();
         }
 
@@ -1114,7 +1117,21 @@ namespace Deepbound.World
                     // The back wall's distance depends on which way the room runs (it used to always use its depth).
                     float toBack = (entry == 0 || entry == 2 ? room.Size.y : room.Size.x) / 2f - 1.5f;
                     var chestRot = Quaternion.LookRotation(-back);
-                    var chest = Spawn(chestPrefab, DropSpots.ClearForChest(room.Center + back * toBack, chestRot, room), chestRot);
+                    var chestAt = room.Center + back * toBack;
+                    // Not in front of a hollow wall on the back wall: the chest sealed the niche once (the navmesh check).
+                    int backSide = (entry + 2) % 4;
+                    var backHole = room.HoleOn(backSide);
+                    if (backHole != null)
+                    {
+                        bool alongX = backSide == 0 || backSide == 2;
+                        float wallHalf = (alongX ? room.Size.x : room.Size.y) / 2f;
+                        float clear = WallHole.Width / 2f + 1.8f;
+                        float t = backHole.Along + (backHole.Along > 0f ? -clear : clear);
+                        if (Mathf.Abs(t) > wallHalf - 1.2f) t = backHole.Along + (backHole.Along > 0f ? clear : -clear);
+                        t = Mathf.Clamp(t, -wallHalf + 1.2f, wallHalf - 1.2f);
+                        chestAt += alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t);
+                    }
+                    var chest = Spawn(chestPrefab, DropSpots.ClearForChest(chestAt, chestRot, room), chestRot);
                     // Some chests are hungry. Fewer on the first floor.
                     if (mimicPrefab != null && !TestMode && !room.Peaceful && rng.NextDouble() < (layout.Depth == 0 ? 0.12 : 0.2)) chest.GetComponent<Chest>().Mimic.Value = true;
                     chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
