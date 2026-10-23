@@ -35,7 +35,7 @@ namespace Deepbound.Loot
             if (target.Team != Team.Enemies) return 1f;
             var p = Attacker(attackerId);
             if (p == null) return 1f;
-            float m = Classes.Combos.ServerMultiplier(target, p) * Runes.OutgoingMultiplier(target, p);
+            float m = Classes.Combos.ServerMultiplier(target, p) * Runes.OutgoingMultiplier(target, p) * Edges.OutgoingMultiplier(target, p);
             if (p.Wears(GearId.HuntersTooth) && target.TryGetComponent<EnemyBrain>(out var brain) && (brain.Elite.Value || brain is BossBrain)) m *= 1.25f;
             if (p.ServerConsumeDodgeStrike()) m *= 1.6f;
             if (p.Blessed(Blessing.Wrath)) m *= 1.15f;
@@ -78,6 +78,7 @@ namespace Deepbound.Loot
                 }
                 return;
             }
+            if (p.HasEdge(Edge.Momentum)) p.ServerMomentumUntil = Time.time + Edges.MomentumSeconds;
             if (p.Wears(GearId.Bloodstone)) p.GetComponent<Health>().ServerHeal(p.GetComponent<Health>().Max.Value * 0.04f);
             if (p.Wears(GearId.CardinalVestments)) p.ServerJudgement(target.transform.position);
             if (p.Wears(GearId.EmberLocket) && Random.value < 0.3f && World.DungeonDirector.Instance != null)

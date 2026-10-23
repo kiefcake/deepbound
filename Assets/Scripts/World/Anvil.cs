@@ -21,6 +21,15 @@ namespace Deepbound.World
         public const int AscendedLevel = 8, MasterworkLevel = 10;
         public const float AscendedDamage = 1.1f, MasterworkCrit = 0.08f;
 
+        /// <summary>
+        /// Past +10 (2026-10-23): up to five hones, +3% damage each, for embers and gold. A full run
+        /// reached +10 by floor 9 and then sat on 500-700 embers and 2000 gold with nothing to buy.
+        /// </summary>
+        public const int MaxHones = 5;
+        public const float HoneDamage = 0.03f;
+        public static int HoneEmbers(int hones) => 90 + 30 * hones;
+        public static int HoneGold(int hones) => 100 + 50 * hones;
+
         /// <summary>Gold to go from <paramref name="level"/> to the next (none below +6).</summary>
         public static int GoldCost(int level) => level >= 5 && level < MaxLevel ? 60 + 40 * (level - 5) : 0;
 

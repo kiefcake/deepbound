@@ -235,6 +235,8 @@ namespace Deepbound.UI
             string weapon = Classes.ClassDefinition.WeaponName(id) + " +" + prog.WeaponLevel.Value;
             if (prog.WeaponPath.Value != 0) weapon += " (" + Classes.WeaponPaths.Name(id, prog.WeaponPath.Value) + ")";
             parts.Add(weapon);
+            for (int e = 0; e < Edges.Slots; e++)
+                if (prog.EdgeAt(e) != Edge.None) parts.Add(Edges.Name(prog.EdgeAt(e)));
             foreach (var slot in new[] { Loot.GearSlot.Armor, Loot.GearSlot.Charm })
                 if (!prog.Equipped(slot).IsEmpty) parts.Add(Loot.Gear.BaseName(prog.Equipped(slot).Kind));
             for (int i = 0; i < Loot.Runes.MaxSockets; i++)

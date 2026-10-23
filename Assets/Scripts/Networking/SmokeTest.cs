@@ -2405,9 +2405,33 @@ namespace Deepbound.Networking
                 int goldBefore = tp.Gold.Value;
                 float multBefore = tp.AttackMultiplier;
                 int guard = 0;
-                while (tp.WeaponLevel.Value < World.Anvil.MaxLevel && guard++ < 12) tp.ServerUpgradeWeapon();
+                var offered = new System.Collections.Generic.List<Progression.Edge>();
+                while (tp.WeaponLevel.Value < World.Anvil.MaxLevel && guard++ < 16)
+                {
+                    if (tp.OpenEdgeSlot >= 0)
+                    {
+                        var o = tp.EdgeOffer(tp.OpenEdgeSlot);
+                        offered.AddRange(o);
+                        tp.ServerChooseEdge(o[1]);
+                    }
+                    tp.ServerUpgradeWeapon();
+                }
                 Log("anvil to +10", "level " + tp.WeaponLevel.Value + ", sockets " + Runes.SocketsAt(tp.WeaponLevel.Value) + ", gold spent " + (goldBefore - tp.Gold.Value) + ", attack x" + multBefore.ToString("F2") + " -> x" + tp.AttackMultiplier.ToString("F2"),
                     tp.WeaponLevel.Value == World.Anvil.MaxLevel && Runes.SocketsAt(tp.WeaponLevel.Value) == 3 && goldBefore - tp.Gold.Value > 0);
+
+                // Edges: three forged on the way (all different), a wrong pick refused; then hones past +10.
+                bool edgesOk = true;
+                for (int s = 0; s < Progression.Edges.Slots; s++)
+                    for (int s2 = s + 1; s2 < Progression.Edges.Slots; s2++)
+                        if (tp.EdgeAt(s) == Progression.Edge.None || tp.EdgeAt(s) == tp.EdgeAt(s2)) edgesOk = false;
+                if (tp.EdgeAt(Progression.Edges.Slots - 1) == Progression.Edge.None) edgesOk = false;
+                bool refused = !tp.ServerChooseEdge(Progression.Edge.Stalwart);
+                float preHone = tp.AttackMultiplier;
+                int hones = 0;
+                while (tp.ServerHone()) hones++;
+                Log("edges and hones", "forged " + Progression.Edges.Name(tp.EdgeAt(0)) + ", " + Progression.Edges.Name(tp.EdgeAt(1)) + ", " + Progression.Edges.Name(tp.EdgeAt(2))
+                    + " (offered " + offered.Count + "), extra pick refused " + refused + ", hones " + hones + ", attack x" + preHone.ToString("F2") + " -> x" + tp.AttackMultiplier.ToString("F2"),
+                    edgesOk && refused && offered.Count == 9 && hones == World.Anvil.MaxHones && tp.AttackMultiplier > preHone * 1.14f && tp.CannotTemperReason() != null);
             }
 
             // The climbing rope: from the waystone the party goes back to camp, and the same depth waits for them.
@@ -2747,6 +2771,16 @@ namespace Deepbound.Networking
                 local.GetComponent<UI.GameHud>().DebugOpenForge();
                 yield return null;
                 yield return Shot(dir, "1b_forge_panel");
+                // At +5: an edge to choose (three cards), then one forged and +7 open.
+                if (ap.WeaponPath.Value == 0) ap.ChoosePathRpc(1);
+                yield return new WaitForSeconds(0.2f);
+                for (int i = 0; i < 4 && ap.WeaponLevel.Value < 5; i++) ap.ServerFreeTemper();
+                yield return new WaitForSeconds(0.3f);
+                yield return Shot(dir, "1b_forge_edges");
+                if (ap.OpenEdgeSlot >= 0) ap.ServerChooseEdge(ap.EdgeOffer(ap.OpenEdgeSlot)[0]);
+                for (int i = 0; i < 2; i++) ap.ServerFreeTemper();
+                yield return new WaitForSeconds(0.3f);
+                yield return Shot(dir, "1b_forge_edges2");
                 UI.PauseMenu.SetOpen(false);
 
                 // Ysolde's stones: the ring, then her panel with a rune set and three to meld.

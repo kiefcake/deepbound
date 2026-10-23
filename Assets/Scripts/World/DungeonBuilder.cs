@@ -368,8 +368,15 @@ namespace Deepbound.World
                 if (rng.NextDouble() < 0.35) continue;
                 float sx = (corner & 1) == 0 ? -1f : 1f, sz = (corner & 2) == 0 ? -1f : 1f;
                 var p = c + new Vector3(sx * (hx - 1.3f), 0f, sz * (hz - 1.3f));
+                int kind = rng.Next(4);
+                // Never in front of a hollow wall: a rubble heap there ate shots meant for a secret cache
+                // (2026-10-23 smoke test; the "unbreakable wall" the user hit), and crates boxed breach dead in.
+                bool byHole = false;
+                foreach (var hole in room.Holes)
+                    if (Vector3.Distance(room.HoleFace(hole), p) < WallHole.Width / 2f + 2.6f) byHole = true;
+                if (byHole) continue;
 
-                switch (rng.Next(4))
+                switch (kind)
                 {
                     case 0:
                         Props.Crate(b, p, 1.1f, rng.Next(-20, 20));

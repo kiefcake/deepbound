@@ -139,7 +139,8 @@ namespace Deepbound.Player
         private IEnumerator Mend()
         {
             const int ticks = 12;
-            float each = life.Health.Max.Value * HealFraction / ticks;
+            float each = life.Health.Max.Value * HealFraction / ticks
+                * (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasEdge(Progression.Edge.SecondWind) ? Progression.Edges.SecondWindHeal : 1f);
             healingUntil = Time.time + HealSeconds;
             for (int i = 0; i < ticks; i++)
             {

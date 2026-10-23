@@ -2180,7 +2180,7 @@ namespace Deepbound.UI
             int level = progress.WeaponLevel.Value, path = progress.WeaponPath.Value;
             string weapon = ClassDefinition.WeaponName(id);
             const float leftW = 620f;
-            float pw = leftW + 340, ph = 500;
+            float pw = leftW + 340, ph = 584;
             float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
             var ember = LootInfo.EmberColor;
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(ember.r, ember.g, ember.b, 0.5f));
@@ -2193,18 +2193,36 @@ namespace Deepbound.UI
             // Level pips and the temper button.
             GUI.Label(new Rect(x + 16, y + 44, 200, 24), weapon + " +" + level, new GUIStyle(label) { fontSize = 20 });
             for (int i = 0; i < Anvil.MaxLevel; i++)
-                Rect(x + 180 + i * 17 + (i >= 5 ? 6 : 0), y + 50, 13, 14, i < level ? (i >= Anvil.AscendedLevel - 1 ? new Color(1f, 0.85f, 0.45f) : ember) : new Color(ember.r, ember.g, ember.b, 0.18f));
-            string reason = progress.CannotTemperReason();
-            string next = level >= Anvil.MaxLevel ? "Fully tempered"
+            {
+                float px = x + 180 + i * 17 + (i >= 5 ? 6 : 0);
+                Rect(px, y + 50, 13, 14, i < level ? (i >= Anvil.AscendedLevel - 1 ? new Color(1f, 0.85f, 0.45f) : ember) : new Color(ember.r, ember.g, ember.b, 0.18f));
+                // A notch under the levels that bring a choice (path, edges), so the road ahead reads at a glance.
+                int lv = i + 1;
+                if (lv == WeaponPaths.PathLevel || Edges.SlotAt(lv) >= 0)
+                    Rect(px + 3, y + 66, 7, 3, new Color(1f, 0.55f, 0.3f, lv <= level ? 0.95f : 0.5f));
+            }
+            for (int i = 0; i < Anvil.MaxHones && level >= Anvil.MaxLevel; i++)
+                Rect(x + 180 + Anvil.MaxLevel * 17 + 12 + i * 11, y + 53, 8, 8, i < progress.Hones.Value ? new Color(1f, 0.92f, 0.7f) : new Color(1f, 0.92f, 0.7f, 0.2f));
+            bool honing = level >= Anvil.MaxLevel;
+            string reason = honing ? progress.CannotHoneReason() : progress.CannotTemperReason();
+            int hones = progress.Hones.Value;
+            string next = honing
+                ? (hones >= Anvil.MaxHones ? "Honed to the limit: +" + Mathf.RoundToInt(Anvil.MaxHones * Anvil.HoneDamage * 100f) + "% damage"
+                    : "Hone " + (hones + 1) + "/" + Anvil.MaxHones + ":  +" + Mathf.RoundToInt(Anvil.HoneDamage * 100f) + "% damage (now +" + Mathf.RoundToInt(hones * Anvil.HoneDamage * 100f) + "%)")
                 : "Temper to +" + (level + 1) + ":  +" + ClassDefinition.WeaponAttPerLevel + " ATT, +" + ClassDefinition.WeaponDexPerLevel + " DEX, +5% range" +
+                  (Edges.SlotAt(level + 1) >= 0 ? ", an EDGE" : "") +
                   (level + 1 == WeaponPaths.MasteryLevel && path != 0 ? ", path mastery" : "") +
                   (level + 1 == Runes.SocketLevels[2] ? ", a 3rd rune socket" : "") +
                   (level + 1 == Anvil.AscendedLevel ? ", ASCENDED (+10% dmg)" : "") +
                   (level + 1 == Anvil.MasterworkLevel ? ", MASTERWORK (+8% crit)" : "");
-            GUI.Label(new Rect(x + 16, y + 76, leftW - 230, 20), next, small);
+            GUI.Label(new Rect(x + 16, y + 80, leftW - 32, 20), UiSkin.Fit(next, new GUIStyle(small) { wordWrap = false }, leftW - 32), new GUIStyle(small) { wordWrap = false });
             GUI.enabled = reason == null;
             int goldCost = Anvil.GoldCost(level);
-            if (GUI.Button(new Rect(x + leftW - 216, y + 46, 200, 30), reason ?? ("Temper  (" + Anvil.Cost(level) + " embers" + (goldCost > 0 ? ", " + goldCost + "g)" : ")")))) progress.TemperRpc();
+            if (honing)
+            {
+                if (GUI.Button(new Rect(x + leftW - 216, y + 46, 200, 30), reason ?? ("Hone  (" + Anvil.HoneEmbers(hones) + " embers, " + Anvil.HoneGold(hones) + "g)"))) progress.HoneRpc();
+            }
+            else if (GUI.Button(new Rect(x + leftW - 216, y + 46, 200, 30), reason ?? ("Temper  (" + Anvil.Cost(level) + " embers" + (goldCost > 0 ? ", " + goldCost + "g)" : ")")))) progress.TemperRpc();
             GUI.enabled = true;
 
             // The two paths.
@@ -2234,12 +2252,41 @@ namespace Deepbound.UI
                 }
             }
 
-            // Under the paths: refine or attune the gear you are wearing, so a favourite keeps up.
-            GUI.Label(new Rect(x + 16, y + 328, leftW - 32, 20), "GEAR  -  refine quality, or attune it to this floor", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            // Edges: at +5, +7 and +9 one of three is forged in (all three slots shown, so the road is plain).
+            int openEdge = progress.OpenEdgeSlot;
+            float ey = y + 326;
+            GUI.Label(new Rect(x + 16, ey, leftW - 32, 20), openEdge >= 0 ? "FORGE AN EDGE  (+" + Edges.Levels[openEdge] + ")  -  choose one; tempering waits"
+                : "EDGES  -  at +" + Edges.Levels[0] + ", +" + Edges.Levels[1] + " and +" + Edges.Levels[2] + " forge one of three into the weapon",
+                new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = openEdge >= 0 ? new Color(1f, 0.6f, 0.35f) : Gold } });
+            var offer = openEdge >= 0 ? progress.EdgeOffer(openEdge) : null;
+            if (offer != null && openEdge > 0)
+            {
+                string forged = "";
+                for (int s = 0; s < openEdge; s++) forged += (s > 0 ? ", " : "") + Edges.Name(progress.EdgeAt(s));
+                GUI.Label(new Rect(x + 16, ey, leftW - 32, 20), "forged: " + forged, new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 0.85f, 0.7f, 0.8f) } });
+            }
+            float ecw = (leftW - 32 - 20) / 3f, ech = 108;
+            for (int i = 0; i < 3; i++)
+            {
+                float ecx = x + 16 + i * (ecw + 10), ecy = ey + 22;
+                var e = offer != null ? offer[i] : progress.EdgeAt(i);
+                bool empty = e == Edge.None;
+                var ec = empty ? new Color(1f, 1f, 1f, 0.12f) : Edges.Color(e);
+                Rect(ecx - 2, ecy - 2, ecw + 4, ech + 4, offer != null ? new Color(ec.r, ec.g, ec.b, 0.75f) : new Color(ec.r, ec.g, ec.b, empty ? 1f : 0.45f));
+                Rect(ecx, ecy, ecw, ech, new Color(0.08f, 0.06f, 0.05f, 0.97f));
+                GUI.Label(new Rect(ecx + 8, ecy + 6, ecw - 16, 20), empty ? "+" + Edges.Levels[i] + "  -  not yet" : Edges.Name(e).ToUpperInvariant(),
+                    new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = false, normal = { textColor = empty ? new Color(1f, 1f, 1f, 0.4f) : UiSkin.Readable(ec) } });
+                GUI.Label(new Rect(ecx + 8, ecy + 26, ecw - 16, 50), empty ? "Temper to +" + Edges.Levels[i] + " to choose." : Edges.Describe(e),
+                    new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.9f, 0.88f, 0.85f, empty ? 0.5f : 1f) } });
+                if (offer != null && !empty && GUI.Button(new Rect(ecx + 8, ecy + ech - 30, ecw - 16, 24), "Forge " + Edges.Name(e))) progress.ChooseEdgeRpc((byte)e);
+            }
+
+            // Under the edges: refine or attune the gear you are wearing, so a favourite keeps up.
+            GUI.Label(new Rect(x + 16, y + 464, leftW - 32, 20), "GEAR  -  refine quality, or attune it to this floor", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
             int floorDepth = DungeonDirector.GearDepth;
             foreach (var gslot in new[] { GearSlot.Armor, GearSlot.Charm })
             {
-                float gy = y + 350 + (int)gslot * 34;
+                float gy = y + 486 + (int)gslot * 34;
                 var g = progress.Equipped(gslot);
                 GUI.Label(new Rect(x + 16, gy + 4, 250, 20), g.IsEmpty ? gslot + ": nothing worn" : Gear.Name(g) + "  (floor " + (g.Depth + 1) + ")",
                     new GUIStyle(small) { normal = { textColor = g.IsEmpty ? new Color(1f, 1f, 1f, 0.4f) : Gear.QualityColor(g.Quality) } });
@@ -2577,7 +2624,7 @@ namespace Deepbound.UI
                 }
             }
 
-            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70 + 88 + 22;
+            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70 + 88 + 22 + 22;
             float x = w - pw - 24, y = h / 2f - ph / 2f;
             Rect(x, y, pw, ph, Panel);
             // The two gear slots, at the foot of the sheet; hover-free: full cards sit left of it.
@@ -2607,6 +2654,13 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x + 80, gy, pw - 90, 20), rangeNow.ToString(melee ? "F1" : "F0") + " m" + (melee ? " reach" : "") + (bonus > 0.001f ? "  (+" + Mathf.RoundToInt(bonus * 100f) + "%)" : "  (anvil, Farsight +)"),
                 new GUIStyle(small) { normal = { textColor = bonus > 0.001f ? new Color(0.5f, 0.95f, 0.9f) : new Color(1f, 1f, 1f, 0.6f) } });
             gy += 22;
+            string edgeList = "";
+            for (int s = 0; s < Edges.Slots; s++)
+                if (progress.EdgeAt(s) != Edge.None) edgeList += (edgeList.Length > 0 ? ", " : "") + Edges.Name(progress.EdgeAt(s));
+            GUI.Label(new Rect(x + 12, gy, 70, 20), "EDGES", small);
+            var edgeStyle = new GUIStyle(small) { wordWrap = false, normal = { textColor = edgeList.Length > 0 ? new Color(1f, 0.6f, 0.35f) : new Color(1f, 1f, 1f, 0.4f) } };
+            GUI.Label(new Rect(x + 80, gy, pw - 90, 20), UiSkin.Fit(edgeList.Length > 0 ? edgeList : "none yet (anvil +" + Edges.Levels[0] + ")", edgeStyle, pw - 90), edgeStyle);
+            gy += 22;
             foreach (var slot in new[] { AbilitySlot.Q, AbilitySlot.E })
             {
                 GUI.Label(new Rect(x + 12, gy, 70, 20), slot.ToString(), small);
@@ -2614,7 +2668,8 @@ namespace Deepbound.UI
                     new GUIStyle(small) { normal = { textColor = progress.Rank(slot) > 1 ? LootInfo.SigilColor : new Color(1f, 1f, 1f, 0.6f) } });
                 gy += 22;
             }
-            GUI.Label(new Rect(x + 12, y + 10, pw, 22), progress.Class.Name.ToUpperInvariant() + "  -  " + ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value,
+            GUI.Label(new Rect(x + 12, y + 10, pw, 22), progress.Class.Name.ToUpperInvariant() + "  -  " + ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value
+                + (progress.Hones.Value > 0 ? "  (honed " + progress.Hones.Value + ")" : ""),
                 new GUIStyle(label) { normal = { textColor = Gold } });
 
             // Each stat: its value, a bar against a generous ceiling, and what this run has added.

@@ -194,6 +194,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Progression.PlayerProgress
   ShowTopMostFoldoutHeaderGroup: 1
+  ServerMomentumUntil: 0
 --- !u!114 &1213986218560098150
 MonoBehaviour:
   m_ObjectHideFlags: 0

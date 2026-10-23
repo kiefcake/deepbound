@@ -258,7 +258,8 @@ namespace Deepbound.Networking
                 for (int i = 0; i < Mathf.Min(10, Mathf.RoundToInt(startFloor * 1.5f)); i++)
                 {
                     var why = prog.CannotTemperReason();
-                    if (why != null && why.ToLowerInvariant().Contains("path")) { prog.ChoosePathRpc(0); yield return new WaitForSeconds(0.2f); }
+                    if (why != null && why.ToLowerInvariant().Contains("path")) { prog.ChoosePathRpc((byte)Random.Range(1, 3)); yield return new WaitForSeconds(0.2f); }
+                    if (prog.OpenEdgeSlot >= 0) { prog.ServerChooseEdge(prog.EdgeOffer(prog.OpenEdgeSlot)[0]); yield return null; }
                     prog.ServerFreeTemper();
                     yield return null;
                 }
@@ -323,10 +324,26 @@ namespace Deepbound.Networking
                 string why = prog.CannotTemperReason();
                 if (why != null && why.ToLowerInvariant().Contains("path"))
                 {
-                    prog.ChoosePathRpc((byte)Random.Range(0, 2));
+                    prog.ChoosePathRpc((byte)Random.Range(1, 3));
                     yield return new WaitForSeconds(0.3f);
                     L("chose a weapon path (" + why + ")");
                     why = prog.CannotTemperReason();
+                }
+                if (prog.OpenEdgeSlot >= 0)
+                {
+                    var pick = prog.EdgeOffer(prog.OpenEdgeSlot)[Random.Range(0, Progression.Edges.OfferSize)];
+                    prog.ChooseEdgeRpc((byte)pick);
+                    yield return new WaitForSeconds(0.3f);
+                    L("forged the " + Progression.Edges.Name(pick) + " edge");
+                    why = prog.CannotTemperReason();
+                }
+                if (prog.WeaponLevel.Value >= Anvil.MaxLevel)
+                {
+                    if (prog.CannotHoneReason() != null) break;
+                    prog.HoneRpc();
+                    yield return new WaitForSeconds(0.4f);
+                    L("honed (" + prog.Hones.Value + ")");
+                    continue;
                 }
                 int cost = Anvil.Cost(prog.WeaponLevel.Value), gold = Anvil.GoldCost(prog.WeaponLevel.Value);
                 if (why != null || prog.Embers.Value < cost || prog.Gold.Value < gold)

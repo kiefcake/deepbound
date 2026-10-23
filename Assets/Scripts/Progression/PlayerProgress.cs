@@ -246,6 +246,97 @@ namespace Deepbound.Progression
 
         public bool OnPath(int path) => WeaponPath.Value == path;
 
+        /// <summary>Forged edges (see <see cref="Edges"/>), one byte per slot: slot s in bits 8s..8s+7.</summary>
+        public readonly NetworkVariable<int> EdgeBits = new NetworkVariable<int>();
+
+        /// <summary>Hones past +10 (see <see cref="World.Anvil.MaxHones"/>).</summary>
+        public readonly NetworkVariable<byte> Hones = new NetworkVariable<byte>();
+
+        /// <summary>Server: when Momentum's bonus runs out (Time.time).</summary>
+        public float ServerMomentumUntil;
+
+        public Edge EdgeAt(int slot) => (Edge)((EdgeBits.Value >> (8 * slot)) & 0xFF);
+
+        public bool HasEdge(Edge e)
+        {
+            for (int s = 0; s < Edges.Slots; s++) if (EdgeAt(s) == e) return true;
+            return false;
+        }
+
+        /// <summary>The first edge slot the weapon has reached but not filled, or -1.</summary>
+        public int OpenEdgeSlot
+        {
+            get
+            {
+                for (int s = 0; s < Edges.Slots; s++)
+                    if (WeaponLevel.Value >= Edges.Levels[s] && EdgeAt(s) == Edge.None) return s;
+                return -1;
+            }
+        }
+
+        private int RunSeed => World.DungeonDirector.Instance != null ? (int)(World.DungeonDirector.Instance.RunStartedAt.Value * 10.0) : 0;
+
+        /// <summary>The three edges on offer for <paramref name="slot"/> (any peer: the same seed on both sides).</summary>
+        public Edge[] EdgeOffer(int slot) => Edges.Offer(RunSeed, OwnerClientId, slot, EdgeBits.Value);
+
+        /// <summary>Owner -> server: forge one of the offered edges (at the anvil).</summary>
+        [Rpc(SendTo.Server)]
+        public void ChooseEdgeRpc(byte edge)
+        {
+            if (World.Anvil.Near(transform.position) == null) return;
+            ServerChooseEdge((Edge)edge);
+        }
+
+        /// <summary>Server: fill the open edge slot with <paramref name="e"/> if it is on offer.</summary>
+        public bool ServerChooseEdge(Edge e)
+        {
+            int slot = OpenEdgeSlot;
+            if (!IsServer || slot < 0 || System.Array.IndexOf(EdgeOffer(slot), e) < 0) return false;
+            EdgeBits.Value |= (int)e << (8 * slot);
+            EdgeChosenRpc((byte)e);
+            return true;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void EdgeChosenRpc(byte e)
+        {
+            Art.Sfx.Play(Art.Sound.Relic, transform.position + Vector3.up, 0.7f, 1.05f);
+            UI.GameHud.Feed(name + " forges the " + Edges.Name((Edge)e).ToUpperInvariant() + " edge: " + Edges.Describe((Edge)e), Edges.Color((Edge)e));
+        }
+
+        /// <summary>Why the weapon cannot be honed now, or null.</summary>
+        public string CannotHoneReason()
+        {
+            if (WeaponLevel.Value < World.Anvil.MaxLevel) return "Temper to +" + World.Anvil.MaxLevel + " first";
+            if (Hones.Value >= World.Anvil.MaxHones) return "Honed to the limit";
+            if (OpenEdgeSlot >= 0) return "Choose an edge first";
+            if (Embers.Value < World.Anvil.HoneEmbers(Hones.Value)) return "Not enough embers";
+            if (Gold.Value < World.Anvil.HoneGold(Hones.Value)) return "Not enough gold";
+            return null;
+        }
+
+        /// <summary>Owner -> server: hone a +10 weapon at the anvil you stand by.</summary>
+        [Rpc(SendTo.Server)]
+        public void HoneRpc()
+        {
+            var anvil = World.Anvil.Near(transform.position);
+            if (anvil != null && ServerHone()) anvil.ForgeFxRpc(WeaponLevel.Value + Hones.Value);
+        }
+
+        public bool ServerHone()
+        {
+            if (!IsServer || CannotHoneReason() != null) return false;
+            Embers.Value -= World.Anvil.HoneEmbers(Hones.Value);
+            Gold.Value -= World.Anvil.HoneGold(Hones.Value);
+            Hones.Value++;
+            HonedRpc(Hones.Value);
+            return true;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void HonedRpc(byte hones) =>
+            UI.GameHud.Feed(name + " hones their " + ClassDefinition.WeaponName(ClassId.Value) + " (" + hones + "/" + World.Anvil.MaxHones + "): +" + Mathf.RoundToInt(hones * World.Anvil.HoneDamage * 100f) + "% damage", LootInfo.EmberColor);
+
         /// <summary>The shrine's blessing for the current floor (see <see cref="Blessings"/>).</summary>
         public readonly NetworkVariable<byte> ActiveBlessing = new NetworkVariable<byte>();
         public bool Blessed(Blessing b) => ActiveBlessing.Value == (byte)b;
@@ -635,6 +726,7 @@ namespace Deepbound.Progression
             Combos.EnsureServerHooks();
             health.IncomingModifiers.Add(RelicDefense);
             health.IncomingModifiers.Add(GearDefense);
+            health.IncomingModifiers.Add(EdgeDefense);
 
             Stats = Class.Build();
             for (int i = 0; i < Core.Stats.Count; i++) bonuses.Add(0f);
@@ -682,6 +774,7 @@ namespace Deepbound.Progression
                 float m = 0.5f + Value(StatType.ATT) / 50f;
                 if (Bloodlust) m *= BloodlustDamage;
                 if (WeaponLevel.Value >= World.Anvil.AscendedLevel) m *= World.Anvil.AscendedDamage;
+                m *= 1f + World.Anvil.HoneDamage * Hones.Value;
                 if (HasRelic(Relic.BerserkersBrand) && health.Fraction < 0.5f) m *= 1.4f;
                 if (HasRelic(Relic.BloodPact)) m *= 1.3f;
                 return m;
@@ -696,7 +789,8 @@ namespace Deepbound.Progression
             * (Player.PlayerLife.IsDragging(NetworkObjectId) ? Player.PlayerLife.DragSpeed : 1f);
 
         /// <summary>Q and E cooldowns scale by this (Echo Stone).</summary>
-        public float CooldownMultiplier => (HasRelic(Relic.EchoStone) ? 0.7f : 1f) * (Wears(GearId.CrackedHourglass) ? 0.82f : 1f) * (Blessed(Blessing.Swiftness) ? 0.85f : 1f);
+        public float CooldownMultiplier => (HasRelic(Relic.EchoStone) ? 0.7f : 1f) * (Wears(GearId.CrackedHourglass) ? 0.82f : 1f) * (Blessed(Blessing.Swiftness) ? 0.85f : 1f)
+            * (HasEdge(Edge.Quickening) ? Edges.QuickeningCooldown : 1f);
 
         public float GoldMultiplier => (HasRelic(Relic.GildedSkull) ? 1.6f : 1f) * (Blessed(Blessing.Fortune) ? 1.5f : 1f);
 
@@ -795,6 +889,8 @@ namespace Deepbound.Progression
             }
             return damage;
         }
+
+        private float EdgeDefense(float damage, Vector3 attackerPosition) => HasEdge(Edge.Stalwart) ? damage * Edges.StalwartTaken : damage;
 
         private float GearDefense(float damage, Vector3 attackerPosition)
         {
@@ -996,6 +1092,7 @@ namespace Deepbound.Progression
         {
             if (WeaponLevel.Value >= World.Anvil.MaxLevel) return "Fully tempered";
             if (WeaponLevel.Value >= WeaponPaths.PathLevel && WeaponPath.Value == 0) return "Choose a path first";
+            if (OpenEdgeSlot >= 0) return "Choose an edge first";
             if (Embers.Value < World.Anvil.Cost(WeaponLevel.Value)) return "Not enough embers";
             if (Gold.Value < World.Anvil.GoldCost(WeaponLevel.Value)) return "Not enough gold";
             return null;
@@ -1030,7 +1127,7 @@ namespace Deepbound.Progression
         public bool ServerFreeTemper()
         {
             if (!IsServer || CannotTemperReason() != null && WeaponLevel.Value >= World.Anvil.MaxLevel) return false;
-            if (WeaponLevel.Value >= World.Anvil.MaxLevel || (WeaponLevel.Value >= WeaponPaths.PathLevel && WeaponPath.Value == 0)) return false;
+            if (WeaponLevel.Value >= World.Anvil.MaxLevel || (WeaponLevel.Value >= WeaponPaths.PathLevel && WeaponPath.Value == 0) || OpenEdgeSlot >= 0) return false;
             WeaponLevel.Value++;
             ServerAddBonus(StatType.ATT, ClassDefinition.WeaponAttPerLevel);
             ServerAddBonus(StatType.DEX, ClassDefinition.WeaponDexPerLevel);
@@ -1072,6 +1169,7 @@ namespace Deepbound.Progression
             UI.GameHud.Feed(name + " tempered their " + weapon + " to +" + level, LootInfo.EmberColor);
             if (level == WeaponPaths.MasteryLevel && WeaponPath.Value != 0)
                 UI.GameHud.Feed(WeaponPaths.Name(ClassId.Value, WeaponPath.Value) + " mastery: " + WeaponPaths.Mastery(ClassId.Value, WeaponPath.Value), LootInfo.EmberColor);
+            if (Edges.SlotAt(level) >= 0 && IsOwner) UI.GameHud.Feed("An EDGE opens in your " + weapon + " at +" + level + ": forge one of three at the anvil", Edges.Color(Edge.Momentum));
             if (level == Runes.SocketLevels[2]) UI.GameHud.Feed("A third rune socket opens in the " + weapon, LootInfo.EmberColor);
             if (level == World.Anvil.AscendedLevel) UI.GameHud.Feed(name + "'s " + weapon + " is ASCENDED: +10% damage", new Color(1f, 0.85f, 0.45f));
             if (level == World.Anvil.MasterworkLevel) UI.GameHud.Feed(name + "'s " + weapon + " is a MASTERWORK: +8% critical chance", new Color(1f, 0.92f, 0.7f));
@@ -1360,6 +1458,9 @@ namespace Deepbound.Progression
             Embers.Value = 0;
             WeaponLevel.Value = 0;
             WeaponPath.Value = 0;
+            EdgeBits.Value = 0;
+            Hones.Value = 0;
+            ServerMomentumUntil = 0f;
             ActiveBlessing.Value = 0;
             Sigils.Value = 0;
             RankQ.Value = RankE.Value = 1;

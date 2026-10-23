@@ -184,7 +184,7 @@ namespace Deepbound.UI
                 {
                     int to = Mathf.Clamp(N(1, Anvil.MaxLevel), 0, Anvil.MaxLevel);
                     if (to >= WeaponPaths.PathLevel && p.WeaponPath.Value == 0) p.WeaponPath.Value = 1;
-                    for (int g = 0; g < 12 && p.WeaponLevel.Value < to; g++) { p.ServerAddEmbers(400); p.ServerAddGold(300); p.ServerUpgradeWeapon(); }
+                    for (int g = 0; g < 12 && p.WeaponLevel.Value < to; g++) { p.ServerAddEmbers(400); p.ServerAddGold(300); if (p.OpenEdgeSlot >= 0) p.ServerChooseEdge(p.EdgeOffer(p.OpenEdgeSlot)[0]); p.ServerUpgradeWeapon(); }
                     Print("Weapon +" + p.WeaponLevel.Value);
                     break;
                 }
