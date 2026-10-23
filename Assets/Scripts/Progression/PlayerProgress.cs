@@ -792,7 +792,7 @@ namespace Deepbound.Progression
         public float CooldownMultiplier => (HasRelic(Relic.EchoStone) ? 0.7f : 1f) * (Wears(GearId.CrackedHourglass) ? 0.82f : 1f) * (Blessed(Blessing.Swiftness) ? 0.85f : 1f)
             * (HasEdge(Edge.Quickening) ? Edges.QuickeningCooldown : 1f);
 
-        public float GoldMultiplier => (HasRelic(Relic.GildedSkull) ? 1.6f : 1f) * (Blessed(Blessing.Fortune) ? 1.5f : 1f);
+        public float GoldMultiplier => (HasRelic(Relic.GildedSkull) ? 1.6f : 1f) * (Blessed(Blessing.Fortune) ? 1.5f : 1f) * (HasRelic(Relic.TallymansLedger) ? 1.2f : 1f);
 
         // ---- Relics ----
 
@@ -890,7 +890,13 @@ namespace Deepbound.Progression
             return damage;
         }
 
-        private float EdgeDefense(float damage, Vector3 attackerPosition) => HasEdge(Edge.Stalwart) ? damage * Edges.StalwartTaken : damage;
+        private float EdgeDefense(float damage, Vector3 attackerPosition)
+        {
+            if (HasEdge(Edge.Stalwart)) damage *= Edges.StalwartTaken;
+            // Iron Psalter: bolts, spit and hexes from across the room glance off the hymns.
+            if (HasRelic(Relic.IronPsalter) && Vector3.Distance(attackerPosition, transform.position) >= 5f) damage *= 0.85f;
+            return damage;
+        }
 
         private float GearDefense(float damage, Vector3 attackerPosition)
         {
@@ -1496,7 +1502,7 @@ namespace Deepbound.Progression
         private void ApplyToHealth(bool refill)
         {
             float hp = Stats.GetValue(StatType.HP);
-            if (HasRelic(Relic.HeartOfTheDeep)) hp += 70f;
+            if (HasRelic(Relic.HeartOfTheDeep)) hp *= 1.25f;
             if (HasRelic(Relic.BloodPact)) hp *= 0.75f;
             if (Blessed(Blessing.Vigor)) hp *= 1.25f;
             if (CatPeed.Value) hp *= CatPeeHealth;

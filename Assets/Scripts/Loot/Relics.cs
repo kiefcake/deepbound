@@ -91,18 +91,18 @@ namespace Deepbound.Loot
                 case Relic.EchoStone: return "Ability cooldowns are 30% shorter.";
                 case Relic.GhostLantern: return "+15% move speed, and dodge recovers twice as fast.";
                 case Relic.ThornedMail: return "Melee attackers take 40% of their damage back.";
-                case Relic.HeartOfTheDeep: return "+70 maximum health.";
+                case Relic.HeartOfTheDeep: return "+25% maximum health.";
                 case Relic.BloodPact: return "+30% damage, but -25% maximum health.";
                 case Relic.ExecutionersCoin: return "+50% damage to enemies below 30% health.";
                 case Relic.WraithChain: return "Your kills burst in a ghostly nova that hurts enemies within 4 m.";
                 case Relic.WarlordsHorn: return "Your ultimate charges 50% faster, and casting it heals allies within 12 m by 25%.";
                 case Relic.WintersTooth: return "+25% damage to chilled enemies.";
-                case Relic.IronPsalter: return "You cannot be maddened, and frost roots let go twice as fast.";
+                case Relic.IronPsalter: return "You cannot be maddened, curses last half as long, and blows from 5 m or more hurt 15% less.";
                 case Relic.LongShadow: return "Shots fly 15% further and keep their full bite to the end; melee reaches a little further too.";
                 case Relic.PilgrimsPurse: return "Every 10 gold you spend at camp comes back as an ember.";
-                case Relic.RootbreakerCharm: return "+50% damage while your feet are rooted or held.";
-                case Relic.TallymansLedger: return "The far bell, and the Tallyman, come three minutes later for your party.";
-                case Relic.LamplightersOil: return "You can fight while you carry the hand torch.";
+                case Relic.RootbreakerCharm: return "+50% damage while rooted or held; frost roots let go twice as fast and an Entling loses its grip after 3 s.";
+                case Relic.TallymansLedger: return "+20% gold, and the far bell and the Tallyman come three minutes later for your party.";
+                case Relic.LamplightersOil: return "You can fight while carrying anything: the hand torch, a reliquary or a soul skull.";
                 case Relic.ChoristersBell: return "Each room cleared mends you 12%.";
                 default: return "";
             }

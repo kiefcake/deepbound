@@ -599,6 +599,8 @@ namespace Deepbound.Networking
                     bool noFRevive = PlayerLife.DownedNear(otherLife.transform.position, local.GetComponent<PlayerLife>()) == null;
                     if (skullT != null)
                     {
+                        // Lamplighter's Oil (a relic a shrine or altar may have handed out) frees the carrier's hands.
+                        local.GetComponent<PlayerProgress>().ServerDebugRemoveRelic(Relic.LamplightersOil);
                         skullT.ServerDebugCarry(local.GetComponent<PlayerProgress>());
                         yield return new WaitForSeconds(0.2f);
                         bool slowed = SoulSkull.IsCarrying(local.NetworkObjectId) && !local.GetComponent<PlayerLife>().CanAct;
@@ -1293,6 +1295,8 @@ namespace Deepbound.Networking
                                 bool oiled = local.GetComponent<PlayerLife>().CanAct;
                                 torch.ServerDrop(local.transform.position);
                                 Log("lamplighter's oil", "fights with the torch " + oiled, oiled);
+                                // It now frees the hands for any burden: later carry checks expect full hands.
+                                sp.ServerDebugRemoveRelic(Relic.LamplightersOil);
                                 if (torch.IsSpawned) torch.NetworkObject.Despawn();
                             }
                             else Log("hand torch", "no prefab", false);

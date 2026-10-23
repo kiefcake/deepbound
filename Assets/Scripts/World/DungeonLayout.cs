@@ -475,7 +475,13 @@ namespace Deepbound.World
                     for (float t = -len / 2f + 3f; t <= len / 2f - 3f; t += 5f)
                     {
                         if (crypt.Doors[side] && Mathf.Abs(t) < CorridorWidth + 1f) continue;
-                        crypt.FeatureSpots.Add(crypt.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)));
+                        var spot = crypt.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t));
+                        // Nor in front of a hollow wall, on any side (a sarcophagus once shielded a secret cache's corner).
+                        bool blocks = false;
+                        foreach (var hollow in crypt.Holes)
+                            if (Vector3.Distance(crypt.HoleFace(hollow), spot) < WallHole.Width / 2f + 2.8f) blocks = true;
+                        if (blocks) continue;
+                        crypt.FeatureSpots.Add(spot);
                     }
                 }
             }

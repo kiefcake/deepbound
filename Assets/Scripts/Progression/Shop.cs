@@ -192,9 +192,9 @@ namespace Deepbound.Progression
         public static readonly Item[] Drills =
         {
             new Item { Name = "Sword Drill", Description = "+2 ATT for the run", Price = 60, Kind = ItemKind.Drill, Stat = StatType.ATT, Amount = 2f, Cap = 6, Seller = Vendor.Yard },
-            new Item { Name = "Shield Drill", Description = "+1 DEF for the run", Price = 55, Kind = ItemKind.Drill, Stat = StatType.DEF, Amount = 1f, Cap = 6, Seller = Vendor.Yard },
+            new Item { Name = "Shield Drill", Description = "+2 DEF for the run", Price = 55, Kind = ItemKind.Drill, Stat = StatType.DEF, Amount = 2f, Cap = 6, Seller = Vendor.Yard },
             new Item { Name = "Footwork", Description = "+3 DEX for the run (faster attacks)", Price = 50, Kind = ItemKind.Drill, Stat = StatType.DEX, Amount = 3f, Cap = 6, Seller = Vendor.Yard },
-            new Item { Name = "Endurance Run", Description = "+15 max HP for the run", Price = 50, Kind = ItemKind.Drill, Stat = StatType.HP, Amount = 15f, Cap = 6, Seller = Vendor.Yard },
+            new Item { Name = "Endurance Run", Description = "+25 max HP for the run", Price = 50, Kind = ItemKind.Drill, Stat = StatType.HP, Amount = 25f, Cap = 6, Seller = Vendor.Yard },
             new Item { Name = "Breathing", Description = "+10 max MP for the run", Price = 40, Kind = ItemKind.Drill, Stat = StatType.MP, Amount = 10f, Cap = 5, Seller = Vendor.Yard },
         };
         public const int DrillStep = 30;
@@ -209,12 +209,10 @@ namespace Deepbound.Progression
             new Item { Name = "Health Potion", Description = "For the pouch (1): mends 45% of your health over 3 s. Carry up to 5", Price = 18, Kind = ItemKind.Potion, Amount = 0f },
             new Item { Name = "Mana Potion", Description = "For the pouch (2): refills 70% of your mana, stamina, focus or energy. Up to 5", Price = 15, Kind = ItemKind.Potion, Amount = 1f },
             new Item { Name = "Frost Flask", Description = "For the pouch (3): thrown, chills everything it splashes. Up to 5", Price = 25, Kind = ItemKind.Potion, Amount = 2f },
-            new Item { Name = "Hearty Stew", Description = "+30 max HP for the run (max +90)", Price = 55, Kind = ItemKind.Bonus, Stat = StatType.HP, Amount = 30f, Cap = 90f },
             new Item { Name = "Swift Boots", Description = "+5 SPD for the run (max +10)", Price = 50, Kind = ItemKind.Bonus, Stat = StatType.SPD, Amount = 5f, Cap = 10f },
             // Hobb: what the anvil eats, and plate.
             new Item { Name = "Ember Pouch", Description = "10 embers for the anvil", Price = 45, Kind = ItemKind.Embers, Amount = 10f, Seller = Vendor.Smith },
             new Item { Name = "Ember Sack", Description = "25 embers for the anvil", Price = 100, Kind = ItemKind.Embers, Amount = 25f, Seller = Vendor.Smith },
-            new Item { Name = "Riveted Plate", Description = "+2 DEF for the run (max +6)", Price = 60, Kind = ItemKind.Bonus, Stat = StatType.DEF, Amount = 2f, Cap = 6f, Seller = Vendor.Smith },
             // The shrine: holy water from the font.
             new Item { Name = "Holy Water", Description = "For the pouch (4): thrown, stuns the dead, cleanses and mends allies. Up to 5", Price = 30, Kind = ItemKind.Potion, Amount = 3f, Seller = Vendor.Shrine },
         };

@@ -18,7 +18,7 @@ namespace Deepbound.Classes
                 case ClassId.Cleric: return path == 1 ? "Zealot" : "Shepherd";
                 case ClassId.Rogue: return path == 1 ? "Assassin" : "Duelist";
                 case ClassId.Ranger: return path == 1 ? "Sharpshooter" : "Trapper";
-                case ClassId.Flagellant: return path == 1 ? "Zealot" : "Penitent";
+                case ClassId.Flagellant: return path == 1 ? "Fanatic" : "Penitent";
                 case ClassId.PlagueDoctor: return path == 1 ? "Pestilence" : "Physician";
                 default: return path == 1 ? "Cleave" : "Riposte";
             }

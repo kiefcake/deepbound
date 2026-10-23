@@ -193,8 +193,7 @@ namespace Deepbound.Loot
             }
             if (kind == LootKind.Embers)
             {
-                PlayerProgress.ServerShareEmbers(progress, Mathf.RoundToInt(Amount.Value * (progress.Wears(GearId.LanternOfTheLost) ? 1.4f : 1f) * (progress.Blessed(Blessing.Fortune) ? 1.5f : 1f)
-                    * (progress.HasEdge(Edge.EmberTongue) ? Edges.EmberTongueEmbers : 1f)));
+                PlayerProgress.ServerShareEmbers(progress, Mathf.RoundToInt(Amount.Value * (progress.Wears(GearId.LanternOfTheLost) ? 1.4f : 1f) * (progress.Blessed(Blessing.Fortune) ? 1.5f : 1f)));
                 return true;
             }
             return false;

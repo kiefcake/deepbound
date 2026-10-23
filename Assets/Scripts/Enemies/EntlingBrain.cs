@@ -85,7 +85,7 @@ namespace Deepbound.Enemies
             if (!target.TryGetComponent<PlayerDebuffs>(out var deb) || deb.RootedBy.Value != ulong.MaxValue) return;
             // Latch on: beside the player, facing them, roots round their legs.
             held = deb;
-            holdUntil = Time.time + HoldLimit;
+            holdUntil = Time.time + (target.TryGetComponent<Progression.PlayerProgress>(out var tp) && tp.HasRelic(Deepbound.Loot.Relic.RootbreakerCharm) ? 3f : HoldLimit);
             nextSqueeze = Time.time + 1f;
             deb.ServerHoldRoots(NetworkObjectId);
             var side = transform.position - target.transform.position;

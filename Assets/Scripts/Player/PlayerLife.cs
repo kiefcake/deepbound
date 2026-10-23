@@ -130,10 +130,8 @@ namespace Deepbound.Player
             get
             {
                 if (!World.Carryable.IsCarrying(NetworkObjectId)) return false;
-                if (progress == null || !progress.HasRelic(Loot.Relic.LamplightersOil)) return true;
-                foreach (var c in World.Carryable.All)
-                    if (c != null && c.Carrier.Value == NetworkObjectId && !(c is World.HandTorch)) return true;
-                return false;
+                // Lamplighter's Oil: a sure grip on whatever you carry, and a hand free to fight.
+                return progress == null || !progress.HasRelic(Loot.Relic.LamplightersOil);
             }
         }
 

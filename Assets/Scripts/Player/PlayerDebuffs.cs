@@ -74,6 +74,7 @@ namespace Deepbound.Player
         public void ServerCurse(float seconds, ulong source)
         {
             if (!IsServer || life.Downed.Value || Warded) return;
+            if (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasRelic(Loot.Relic.IronPsalter)) seconds *= 0.5f;
             CurseUntil.Value = Now + seconds;
             CurseSource.Value = source;
         }
@@ -105,7 +106,7 @@ namespace Deepbound.Player
         public void ServerRoot(float seconds)
         {
             if (!IsServer || life.Downed.Value || Now < rootGraceUntil || Warded) return;
-            if (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasRelic(Loot.Relic.IronPsalter)) seconds *= 0.5f;
+            if (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasRelic(Loot.Relic.RootbreakerCharm)) seconds *= 0.5f;
             RootUntil.Value = Now + seconds;
             rootGraceUntil = Now + seconds * 2.5f;
             AfflictedRpc(1);

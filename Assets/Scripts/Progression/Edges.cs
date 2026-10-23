@@ -7,8 +7,8 @@ namespace Deepbound.Progression
     /// <summary>APPEND ONLY: synced packed in <see cref="PlayerProgress.EdgeBits"/>. 0 = none.</summary>
     public enum Edge : byte
     {
-        None = 0, Momentum = 1, Cleaver = 2, Duelist = 3, Opportunist = 4,
-        Stalwart = 5, Quickening = 6, EmberTongue = 7, SecondWind = 8,
+        None = 0, Momentum = 1, Cleaver = 2, LoneWolf = 3, Opportunist = 4,
+        Stalwart = 5, Quickening = 6, Desperation = 7, SecondWind = 8,
     }
 
     /// <summary>
@@ -26,11 +26,12 @@ namespace Deepbound.Progression
 
         public const float MomentumDamage = 1.2f, MomentumSeconds = 4f;
         public const float CleaverPerFoe = 0.05f, CleaverMax = 0.2f, CleaverRadius = 6f;
-        public const float DuelistDamage = 1.18f, DuelistRadius = 10f;
+        public const float LoneWolfDamage = 1.18f, LoneWolfRadius = 10f;
         public const float OpportunistDamage = 1.2f;
         public const float StalwartTaken = 0.88f;
         public const float QuickeningCooldown = 0.88f;
-        public const float EmberTongueEmbers = 1.35f;
+        /// <summary>Desperation: +1% damage per 3% of health missing, up to +25%.</summary>
+        public const float DesperationMax = 0.25f;
         public const float SecondWindHeal = 1.5f;
 
         public static string Name(Edge e)
@@ -39,11 +40,11 @@ namespace Deepbound.Progression
             {
                 case Edge.Momentum: return "Momentum";
                 case Edge.Cleaver: return "Cleaver";
-                case Edge.Duelist: return "Duelist";
+                case Edge.LoneWolf: return "Lone Wolf";
                 case Edge.Opportunist: return "Opportunist";
                 case Edge.Stalwart: return "Stalwart";
                 case Edge.Quickening: return "Quickening";
-                case Edge.EmberTongue: return "Ember Tongue";
+                case Edge.Desperation: return "Desperation";
                 case Edge.SecondWind: return "Second Wind";
                 default: return "";
             }
@@ -55,11 +56,11 @@ namespace Deepbound.Progression
             {
                 case Edge.Momentum: return "A kill gives +20% damage for 4 s (each kill renews it).";
                 case Edge.Cleaver: return "+5% damage for each other enemy within 6 m of you (up to +20%).";
-                case Edge.Duelist: return "+18% damage with no other enemy within 10 m.";
+                case Edge.LoneWolf: return "+18% damage with no other enemy within 10 m.";
                 case Edge.Opportunist: return "+20% damage to stunned, chilled, marked or taunted enemies.";
                 case Edge.Stalwart: return "Take 12% less damage from everything.";
                 case Edge.Quickening: return "Your abilities recharge 12% faster.";
-                case Edge.EmberTongue: return "Embers you pick up are worth 35% more.";
+                case Edge.Desperation: return "+1% damage for every 3% of health you are missing (up to +25%).";
                 case Edge.SecondWind: return "Health Potions mend 50% more.";
                 default: return "";
             }
@@ -69,7 +70,7 @@ namespace Deepbound.Progression
         {
             switch (e)
             {
-                case Edge.Momentum: case Edge.Cleaver: case Edge.Duelist: case Edge.Opportunist: return new Color(1f, 0.55f, 0.3f);
+                case Edge.Momentum: case Edge.Cleaver: case Edge.LoneWolf: case Edge.Opportunist: case Edge.Desperation: return new Color(1f, 0.55f, 0.3f);
                 case Edge.Stalwart: case Edge.SecondWind: return new Color(0.7f, 0.85f, 1f);
                 default: return new Color(1f, 0.85f, 0.4f);
             }
@@ -107,7 +108,9 @@ namespace Deepbound.Progression
             if (p.HasEdge(Edge.Momentum) && Time.time < p.ServerMomentumUntil) m *= MomentumDamage;
             if (p.HasEdge(Edge.Opportunist) && (target.Chilled.Value || target.Marked.Value
                 || target.TryGetComponent<EnemyBrain>(out var b) && (b.IsStunned || b.Taunter != null))) m *= OpportunistDamage;
-            if (p.HasEdge(Edge.Cleaver) || p.HasEdge(Edge.Duelist))
+            if (p.HasEdge(Edge.Desperation) && p.TryGetComponent<Health>(out var mine))
+                m *= 1f + Mathf.Min(DesperationMax, (1f - mine.Fraction) / 3f);
+            if (p.HasEdge(Edge.Cleaver) || p.HasEdge(Edge.LoneWolf))
             {
                 var me = p.transform.position;
                 int near = 0, close = 0;
@@ -115,11 +118,11 @@ namespace Deepbound.Progression
                 {
                     if (h == null || h == target || h.Team != Team.Enemies || !h.IsAlive) continue;
                     float d = (h.transform.position - me).sqrMagnitude;
-                    if (d < DuelistRadius * DuelistRadius) close++;
+                    if (d < LoneWolfRadius * LoneWolfRadius) close++;
                     if (d < CleaverRadius * CleaverRadius) near++;
                 }
                 if (p.HasEdge(Edge.Cleaver)) m *= 1f + Mathf.Min(CleaverMax, CleaverPerFoe * near);
-                if (p.HasEdge(Edge.Duelist) && close == 0) m *= DuelistDamage;
+                if (p.HasEdge(Edge.LoneWolf) && close == 0) m *= LoneWolfDamage;
             }
             return m;
         }

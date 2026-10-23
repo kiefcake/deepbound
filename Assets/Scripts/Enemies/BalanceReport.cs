@@ -42,7 +42,7 @@ namespace Deepbound.Enemies
                 float gearAtt = Loot.Gear.StatValue(l.Armor, Core.StatType.ATT) + Loot.Gear.StatValue(l.Charm, Core.StatType.ATT);
                 float gearDef = Loot.Gear.StatValue(l.Armor, Core.StatType.DEF) + Loot.Gear.StatValue(l.Charm, Core.StatType.DEF);
                 float gearHp = Loot.Gear.StatValue(l.Armor, Core.StatType.HP) + Loot.Gear.StatValue(l.Charm, Core.StatType.HP);
-                // Gold at camp: Hearty Stew, Riveted Plate and the training yard's drills, a little each floor.
+                // Gold at camp: the training yard's drills, a little each floor.
                 float shopHp = Mathf.Min(150f, 20f * depth), shopDef = Mathf.Min(10f, 1.2f * depth);
                 l.Att = k[(int)Core.StatType.ATT] + 4f * l.WeaponLevel + gearAtt;
                 l.Def = k[(int)Core.StatType.DEF] + gearDef + shopDef;
