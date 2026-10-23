@@ -58,6 +58,7 @@ namespace Deepbound.World
 
         private void TickGimmicks()
         {
+            TickBoneChoir();
             if (Layout == null) return;
             switch (Act(Layout.Depth))
             {

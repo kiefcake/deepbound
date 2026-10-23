@@ -156,6 +156,7 @@ namespace Deepbound.Classes
             bool boss = target.TryGetComponent<BossBrain>(out _);
             float dmg = ShockFlat * (p != null ? p.AttackMultiplier : 1f) + target.Max.Value * (boss ? ShockBossFraction : ShockFraction);
             Popup(target, ComboKind.ThermalShock, p);
+            World.DungeonDirector.Instance?.ThermalShockFxRpc(target.Center);
             target.ServerDamage(dmg, target.Center, by);
         }
 

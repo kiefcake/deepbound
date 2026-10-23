@@ -373,6 +373,18 @@ namespace Deepbound.World
             Art.Vfx.Embers(at, 10, new Color(1f, 0.5f, 0.15f), 5f, 0.06f, 0.6f);
         }
 
+        /// <summary>Thermal Shock: frost and fire meet in a crack of steam, pale blue shards and orange sparks.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        public void ThermalShockFxRpc(Vector3 at)
+        {
+            Art.Sfx.Play(Art.Sound.Shatter, at, 1f, 0.85f);
+            Art.Sfx.Play(Art.Sound.Fire, at, 0.6f, 1.5f);
+            Art.Vfx.Ring(at + Vector3.down * 0.8f, 2.2f, new Color(1f, 0.55f, 0.85f), 0.45f);
+            Art.Vfx.Embers(at, 10, new Color(0.65f, 0.88f, 1f), 6f, 0.07f, 0.6f);
+            Art.Vfx.Embers(at, 10, new Color(1f, 0.55f, 0.2f), 6f, 0.06f, 0.6f);
+            Art.Vfx.Smoke(at, 3, 1.2f, 1f);
+        }
+
         [Rpc(SendTo.ClientsAndHost)]
         public void AegisBurstFxRpc(Vector3 at)
         {
@@ -901,7 +913,7 @@ namespace Deepbound.World
         {
             int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
 
-            float eliteChance = Difficulty.EliteChance(layout.Depth, players) * OmenElites;
+            float eliteChance = Mathf.Min(0.6f, Difficulty.EliteChance(layout.Depth, players) * OmenElites * EventElites);
             var theme = DungeonTheme.ForDepth(layout.Depth);
 
             foreach (var room in layout.Rooms)

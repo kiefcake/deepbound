@@ -515,6 +515,13 @@ namespace Deepbound.Networking
                     float want = melee ? edge + reach * 0.75f : Mathf.Min(reach * 0.7f, 10f) + edge;
                     float flatDist = Vector3.Distance(Flat(target.transform.position), Flat(me.transform.position));
                     bool clear = CombatQuery.ClearLine(me.transform.position + Vector3.up * 1.6f, target);
+                    // A sleeping guardian wakes only when the party is in its arena: a bow from the doorway does nothing
+                    // (run 13, the Ranger, shot a dormant boss from outside for eight minutes).
+                    if (boss != null && target == boss.GetComponent<Health>() && boss.Dormant && !layout.BossRoom.Contains(me.transform.position, -1.5f))
+                    {
+                        yield return StepToward(layout.BossRoom.Center, 2f);
+                        continue;
+                    }
                     // Hits not landing for a while (a shield, a guard): go round behind it, as a player would.
                     bool flank = boss != null && target == boss.GetComponent<Health>() && bossHpMark >= 0f && Time.time - bossHpAt > 6f;
                     if (flank)
@@ -664,9 +671,11 @@ namespace Deepbound.Networking
                 if (b == null || (!allowBoss && b is BossBrain)) continue;
                 if (b is MournerBrain || b is GargoyleBrain g && !g.Woken.Value) continue;
                 float d = Vector3.Distance(h.transform.position, me.transform.position);
-                if (d >= dist) continue;
+                // A player kills the healer first: a Necromancer within 16 m counts as much closer than it is.
+                float rank = b is NecromancerBrain && d < 16f ? d * 0.3f : d;
+                if (rank >= dist) continue;
                 if (d > 6f && !Reachable(h.transform.position, path)) continue;
-                best = h; dist = d;
+                best = h; dist = rank;
             }
             return best;
         }

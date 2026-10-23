@@ -614,7 +614,8 @@ namespace Deepbound.Networking
                             yield return new WaitForSeconds(0.1f);
                         }
                         yield return new WaitForSeconds(0.3f);
-                        Log("soul skull", "down " + wentDown + ", skull " + (skullT != null) + ", F-revive blocked " + noFRevive + ", carrying slows " + slowed + ", returned " + !otherLife.Downed.Value,
+                        string skullWhy = skullT != null ? ", carried " + skullT.Carried + ", rite " + skullT.Ritual.Value.ToString("F1") + ", " + Vector3.Distance(skullT.transform.position, layout.WaystonePosition).ToString("F1") + " m from the waystone, me " + Vector3.Distance(local.transform.position, layout.WaystonePosition).ToString("F1") + " m" : "";
+                        Log("soul skull", "down " + wentDown + ", skull " + (skullT != null) + ", F-revive blocked " + noFRevive + ", carrying slows " + slowed + ", returned " + !otherLife.Downed.Value + skullWhy,
                             wentDown && noFRevive && slowed && !otherLife.Downed.Value && SoulSkull.For(otherLife.NetworkObjectId) == null);
                     }
                     else Log("soul skull", "no skull spawned (down " + wentDown + ")", false);
@@ -726,7 +727,8 @@ namespace Deepbound.Networking
                     for (float t = 0f; t < 6f && Reliquary.Current != null; t += 0.1f) { lh.ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
                     lh.IncomingModifiers.Remove(shieldT);
                     Log("reliquary", "shield before the hit " + relShield.ToString("F0") + ", speed x" + speedMul.ToString("F2") + ", integrity after a hit " + integ.ToString("F0") + "%, still carried " + stillCarried +
-                        ", delivered " + (Reliquary.Current == null) + ", gold " + goldBefore + " -> " + lprog.Gold.Value,
+                        ", delivered " + (Reliquary.Current == null) + ", gold " + goldBefore + " -> " + lprog.Gold.Value
+                        + (Reliquary.Current != null ? " (carried " + Reliquary.Current.Carried + ", rite " + Reliquary.Current.Ritual.Value.ToString("F1") + ", me " + Vector3.Distance(local.transform.position, layout.WaystonePosition).ToString("F1") + " m from the waystone)" : ""),
                         speedMul < 0.75f && integ < 100f && stillCarried && Reliquary.Current == null && lprog.Gold.Value > goldBefore);
                     Log("reliquary hallows", "floor hallowed " + DungeonDirector.Instance.Hallowed.Value, DungeonDirector.Instance.Hallowed.Value);
                     lfm2.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
@@ -1242,6 +1244,18 @@ namespace Deepbound.Networking
                             bool mended = hl.Current.Value > hurt;
                             dd.ServerDebugEvent(FloorEvent.None);
                             hl.ServerSetFraction(1f);
+                            // Embertide: a player's blow leaves the dead smouldering.
+                            var tideFoe = Health.All.FirstOrDefault(hh => hh != null && hh.Team == Team.Enemies && hh.IsAlive && !hh.TryGetComponent<BossBrain>(out _) && !hh.Chilled.Value);
+                            if (tideFoe != null)
+                            {
+                                dd.ServerDebugEvent(FloorEvent.Embertide);
+                                tideFoe.ServerSetFraction(1f);
+                                tideFoe.ServerDamage(1f, local.transform.position, local.NetworkObjectId);
+                                yield return null;
+                                bool smoulders = tideFoe.Scorched.Value;
+                                dd.ServerDebugEvent(FloorEvent.None);
+                                Log("embertide", "struck foe scorched " + smoulders + ", player damage x" + Health.FloorPlayerDamageScale.ToString("F2") + " after", smoulders && Mathf.Approximately(Health.FloorPlayerDamageScale, 1f));
+                            }
                             Log("floor event", "blood tithe hit " + plain.ToString("F1") + " -> " + tithe.ToString("F1") + ", kill mends " + mended + ", back to none " + (DungeonDirector.CurrentEvent == FloorEvent.None),
                                 (plain <= 0f || tithe > plain) && mended && DungeonDirector.CurrentEvent == FloorEvent.None);
                         }

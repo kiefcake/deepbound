@@ -80,6 +80,9 @@ namespace Deepbound.Enemies
         /// <summary>A named champion's title ("Grimbold the Unburied"); empty for everyone else.</summary>
         public readonly NetworkVariable<Unity.Collections.FixedString64Bytes> Title = new NetworkVariable<Unity.Collections.FixedString64Bytes>();
         public bool IsChampion => Title.Value.Length > 0;
+
+        /// <summary>Server: when this elite next sings in the Bone Choir (a floor event).</summary>
+        [System.NonSerialized] public float ChoirReadyAt;
         private bool championAnnounced;
 
         private static readonly string[] ChampionNames = { "Grimbold", "Morwen", "Osric", "Hesk", "Vorn", "Ilsa", /* not Aldric or Ysolde: those are camp folk */ "Bram", "Cael", "Odo", "Sabine", "Tormund", "Wenna" };
@@ -1080,7 +1083,7 @@ namespace Deepbound.Enemies
             }
             if (!NoLoot && lootPrefab != null)
             {
-                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.3f * World.DungeonDirector.Tier(depthForLoot)) /* gold: gentler with depth (2026-10-21, 2,200 gold by floor 4) */ * Difficulty.Level.Gold * World.DungeonDirector.OmenGold * World.DungeonDirector.EventGold,
+                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.3f * World.DungeonDirector.Tier(depthForLoot)) /* gold: gentler with depth (2026-10-21, 2,200 gold by floor 4) */ * Difficulty.Level.Gold * World.DungeonDirector.OmenGold * World.DungeonDirector.EventGold * (Elite.Value ? World.DungeonDirector.EventEliteLoot : 1f),
                     this is BossBrain || IsChampion || this is HoarderBrain || this is MimicBrain ? Difficulty.FixedLootShare(Difficulty.Party) : Difficulty.KillLootShare(Difficulty.Party));
                 // Gear, rolled for each player: always from a boss, sometimes from an elite.
                 if (this is BossBrain)

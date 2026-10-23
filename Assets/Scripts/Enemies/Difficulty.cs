@@ -81,7 +81,9 @@ namespace Deepbound.Enemies
         // Past the second act it climbs faster (2026-10-22, autoplay: a +10 Knight with 16 relics cleared floors 9-10 in
         // four to five minutes and the Unsung in under two; the first six floors are unchanged).
         public static float DepthHealth(int depth) { float t = World.DungeonDirector.Tier(depth); return 1f + 0.45f * t + 0.16f * Mathf.Pow(Mathf.Max(0f, t - 2.5f), 2f); }
-        public static float DepthDamage(int depth) { float t = World.DungeonDirector.Tier(depth); return 1f + 0.3f * t + 0.1f * Mathf.Pow(Mathf.Max(0f, t - 2.5f), 2f); }
+        // Damage climbs a little harder (2026-10-23, autoplay run 12: with the boss heal fixed, a bot that cannot dodge came
+        // through floors 3-10 with 0-7 close calls a floor): +6% by floor 5, +14% by floor 10.
+        public static float DepthDamage(int depth) { float t = World.DungeonDirector.Tier(depth); return 1f + 0.35f * t + 0.14f * Mathf.Pow(Mathf.Max(0f, t - 2.5f), 2f); }
 
         /// <summary>
         /// How well the dead lead a moving target and how many tricks a boss uses: nothing on the first
