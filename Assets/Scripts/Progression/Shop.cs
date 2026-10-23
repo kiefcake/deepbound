@@ -160,7 +160,8 @@ namespace Deepbound.Progression
                 foreach (var relic in new[] { a, b })
                 {
                     bool owned = buyerS != null && buyerS.HasRelic(relic);
-                    list.Add(new Item { Name = Relics.Name(relic) + (owned ? "  (empower to" + Relics.TierName(buyerS.RelicTier(relic) + 1) + ")" : ""), Description = Relics.Describe(relic),
+                    bool full = buyerS != null && !owned && buyerS.RelicCount >= Relics.MaxCarried;
+                    list.Add(new Item { Name = Relics.Name(relic) + (owned ? "  (empower to" + Relics.TierName(buyerS.RelicTier(relic) + 1) + ")" : full ? "  (tray full: empowers your weakest)" : ""), Description = Relics.Describe(relic),
                         Price = 140 + 45 * depth, Kind = ItemKind.Relic, Amount = (int)relic, Seller = Vendor.Shrine });
                 }
                 list.Add(new Item { Name = "Ask for other relics", Description = "Aldric brings out two different relics for you", Price = UnityEngine.Mathf.RoundToInt(35 + 15 * World.DungeonDirector.Tier(depth)),

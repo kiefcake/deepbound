@@ -841,8 +841,12 @@ namespace Deepbound.Progression
             kit?.ShaveCooldowns(seconds);
         }
 
-        public float GoldMultiplier => (HasRelic(Relic.GildedSkull) ? 1f + 0.6f * RelicPower(Relic.GildedSkull) : 1f) * (Blessed(Blessing.Fortune) ? 1.5f : 1f)
-            * (HasRelic(Relic.TallymansLedger) ? 1f + 0.2f * RelicPower(Relic.TallymansLedger) : 1f);
+        /// <summary>
+        /// Gold found: the bonuses ADD (2026-10-23, the autoplay run: a Gilded Skull III, the Ledger and Fortune
+        /// multiplied to x3 and a solo run ended on 15,000 gold), and gold relics grow half as much per tier.
+        /// </summary>
+        public float GoldMultiplier => 1f + (HasRelic(Relic.GildedSkull) ? 0.6f + 0.3f * RelicTier(Relic.GildedSkull) : 0f) + (Blessed(Blessing.Fortune) ? 0.5f : 0f)
+            + (HasRelic(Relic.TallymansLedger) ? 0.2f + 0.1f * RelicTier(Relic.TallymansLedger) : 0f);
 
         // ---- Relics ----
 
@@ -1173,7 +1177,7 @@ namespace Deepbound.Progression
             var relic = (Relic)r;
             Art.Sfx.Play(Art.Sound.Relic, transform.position + Vector3.up, 0.9f, 1.15f);
             UI.GameHud.Feed(fedBy == r
-                ? name + "'s " + Relics.Name(relic) + " grows stronger: " + Relics.Name(relic) + Relics.TierName(tier) + " (+" + (tier * 50) + "%)"
+                ? name + "'s " + Relics.Name(relic) + " grows stronger: " + Relics.Name(relic) + Relics.TierName(tier) + " (+" + Relics.TierPercent(tier) + "%)"
                 : Relics.Name((Relic)fedBy) + " feeds " + name + "'s " + Relics.Name(relic) + ": now " + Relics.Name(relic) + Relics.TierName(tier) + " (the tray holds " + Relics.MaxCarried + ")",
                 Relics.GemColor(relic));
         }

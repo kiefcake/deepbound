@@ -735,6 +735,14 @@ namespace Deepbound.World
             if (!IsServer) return;
             RunStartedAt.Value = NetworkManager.ServerTime.Time;
             Classes.Combos.ResetRun();
+            // A lone delver has nobody to drag them up (2026-10-23, the solo loop): one set of Smelling Salts to start.
+            if (Player.PlayerLife.All.Count == 1)
+                foreach (var pl in Player.PlayerLife.All)
+                    if (pl != null && pl.TryGetComponent<Progression.PlayerProgress>(out var solo) && !solo.Salts.Value)
+                    {
+                        solo.Salts.Value = true;
+                        ServerFeedAll("Corwin presses a twist of Smelling Salts into your hand: \"Nobody to carry you out. Take these.\"", new Color(0.85f, 0.8f, 0.6f));
+                    }
             StartFloor(0);
         }
 

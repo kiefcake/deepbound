@@ -665,7 +665,7 @@ namespace Deepbound.UI
                 var rr = new Rect(cx + (i / relRows) * relColW, rcy, relColW - 4, 20);
                 var relSt = new GUIStyle(small) { wordWrap = false, normal = { textColor = rr.Contains(mouse) ? Color.white : UiSkin.Readable(Relics.GemColor(rel)) } };
                 GUI.Label(rr, UiSkin.Fit(progress.RelicLabel(i), relSt, rr.width), relSt);
-                if (rr.Contains(mouse)) hoverText = progress.RelicLabel(i) + ": " + Relics.Describe(rel) + (progress.RelicTierAt(i) > 0 ? "  (empowered: +" + progress.RelicTierAt(i) * 50 + "% to its numbers)" : "");
+                if (rr.Contains(mouse)) hoverText = progress.RelicLabel(i) + ": " + Relics.Describe(rel) + (progress.RelicTierAt(i) > 0 ? "  (empowered: +" + Relics.TierPercent(progress.RelicTierAt(i)) + "% to its numbers)" : "");
             }
             cy = relTop + relRows * 20;
 
@@ -2592,7 +2592,7 @@ namespace Deepbound.UI
             var hr = progress.RelicAt(hover);
             var body = new GUIStyle(small) { wordWrap = true, fontSize = 13 };
             const float tw = 300f;
-            string hrText = Relics.Describe(hr) + (progress.RelicTierAt(hover) > 0 ? "  Empowered: +" + progress.RelicTierAt(hover) * 50 + "% to its numbers." : "");
+            string hrText = Relics.Describe(hr) + (progress.RelicTierAt(hover) > 0 ? "  Empowered: +" + Relics.TierPercent(progress.RelicTierAt(hover)) + "% to its numbers." : "");
             float th = 34f + body.CalcHeight(new GUIContent(hrText), tw - 20f);
             float tx = x + hover * 30, ty = y - th - 8f;
             Rect(tx - 1, ty - 1, tw + 2, th + 2, new Color(Relics.GemColor(hr).r, Relics.GemColor(hr).g, Relics.GemColor(hr).b, 0.9f));
@@ -2781,20 +2781,39 @@ namespace Deepbound.UI
                 var screen = cam.WorldToScreenPoint(world);
                 if (screen.z <= 0f || screen.z > 25f) continue;
 
+                barQueue.Add((screen, tags, hp, hurt));
+            }
+
+            // Nearest first: they claim their spot, and farther tags step up out of their way (2026-10-23: a crowd's
+            // tags printed over each other into one unreadable smear). A tag with nowhere to go is left out.
+            barQueue.Sort((p, q) => p.screen.z.CompareTo(q.screen.z));
+            placedTags.Clear();
+            var tagStyle = new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, richText = true, fontSize = 11 };
+            var shadowStyle = new GUIStyle(tagStyle) { contentOffset = new Vector2(1, 1) };
+            foreach (var (screen, tags, hp, hurt) in barQueue)
+            {
                 float bw = 60f, x = screen.x - bw / 2f, y = Screen.height - screen.y;
                 if (hurt)
                 {
                     Rect(x - 1, y - 1, bw + 2, 7, new Color(0, 0, 0, 0.75f));
                     Rect(x, y, bw * hp.Fraction, 5, new Color(0.85f, 0.2f, 0.15f));
                 }
-                if (tags.Length > 0)
-                {
-                    var style = new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, richText = true, fontSize = 11 };
-                    GUI.Label(new Rect(screen.x - 90, y - 17, 180, 16), "<color=#000000AA>" + StripColors(tags) + "</color>", new GUIStyle(style) { contentOffset = new Vector2(1, 1) });
-                    GUI.Label(new Rect(screen.x - 90, y - 17, 180, 16), tags, style);
-                }
+                if (tags.Length == 0) continue;
+                string plain = StripColors(tags);
+                float tw = tagStyle.CalcSize(new GUIContent(plain)).x + 6f;
+                var r = new Rect(screen.x - tw / 2f, y - 17, tw, 15);
+                for (int step = 0; step < 4 && placedTags.Exists(o => o.Overlaps(r)); step++) r.y -= 15f;
+                if (placedTags.Exists(o => o.Overlaps(r))) continue;
+                placedTags.Add(r);
+                var lr = new Rect(screen.x - 90, r.y, 180, 16);
+                GUI.Label(lr, "<color=#000000AA>" + plain + "</color>", shadowStyle);
+                GUI.Label(lr, tags, tagStyle);
             }
+            barQueue.Clear();
         }
+
+        private readonly List<(Vector3 screen, string tags, Health hp, bool hurt)> barQueue = new List<(Vector3, string, Health, bool)>();
+        private readonly List<Rect> placedTags = new List<Rect>();
 
         /// <summary>What a combo can cash in on this enemy, as coloured tags ("CHILL MARK STUN").</summary>
         private static string StatusTags(Health hp, EnemyBrain brain)

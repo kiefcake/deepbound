@@ -23,6 +23,7 @@ namespace Deepbound.Enemies
     {
         [SerializeField] private NetworkObject minionPrefab;
         [SerializeField] private float preferredRange = 11f;
+        public const float BossMendFraction = 0.03f, ChampionMendFraction = 0.12f;
         [SerializeField] private float mendCooldown = 8f, mendWindup = 1.6f, mendRadius = 8f, mendFraction = 0.33f;
         [SerializeField] private float raiseCooldown = 15f;
 
@@ -119,7 +120,12 @@ namespace Deepbound.Enemies
             foreach (var h in CombatQuery.Circle(transform.position, mendRadius, Team.Enemies))
             {
                 if (h.Team != Team.Enemies || h.GetComponent<TrainingDummy>() != null) continue;
-                h.ServerHeal(h.Max.Value * mendFraction);
+                // A third of a boss's health every 8 s outhealed a whole party (2026-10-23, the autoplay run: the Tide
+                // Lich and the Unsung took 50,000 damage and stayed at 90%; the "Sir Aldous takes no damage" mystery).
+                // Guardians take a sliver, champions a little; the rank and file the full mend.
+                var hb = h.GetComponent<EnemyBrain>();
+                float frac = hb is BossBrain ? BossMendFraction : hb != null && hb.IsChampion ? ChampionMendFraction : mendFraction;
+                h.ServerHeal(h.Max.Value * frac);
             }
             MendFxRpc();
         }

@@ -27,8 +27,9 @@ namespace Deepbound.World
         /// </summary>
         public const int MaxHones = 5;
         public const float HoneDamage = 0.03f;
-        public static int HoneEmbers(int hones) => 90 + 30 * hones;
-        public static int HoneGold(int hones) => 100 + 50 * hones;
+        /// <summary>1,250 embers and 2,000 gold for all five (the first run bought four in one visit at 90 + 30n).</summary>
+        public static int HoneEmbers(int hones) => 150 + 50 * hones;
+        public static int HoneGold(int hones) => 200 + 100 * hones;
 
         /// <summary>Gold to go from <paramref name="level"/> to the next (none below +6).</summary>
         public static int GoldCost(int level) => level >= 5 && level < MaxLevel ? 60 + 40 * (level - 5) : 0;

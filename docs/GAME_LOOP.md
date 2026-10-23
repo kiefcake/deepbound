@@ -37,7 +37,7 @@ One run: camp, then 10 floors in 5 acts (a Warden on the first floor of each act
 
 What that adds up to:
 
-- **Solo is the hardest way to play.** There's no one to revive you, and every enemy is after you. It gets the lightest crowds (x0.8) to make up for that. Smelling Salts, Aldric's Prayer and the Phoenix Feather are what save a solo run.
+- **Solo is the hardest way to play.** There's no one to revive you, and every enemy is after you. It gets the lightest crowds (x0.8) to make up for that. Smelling Salts, Aldric's Prayer and the Phoenix Feather are what save a solo run, and a solo run starts with one set of Salts already in the pack (Corwin's gift).
 - **Two players is the easiest per head.** Each player faces the same health as a solo player, with half the aggro on them and revives on top.
 - **Four players do about 25% more work per head than solo.** Combos (Mark, Exposed, Shatter, Thermal Shock, Blessed) more than make up for it. Bosses scale a little under per-head (x3.55 for four), because their attacks split across the party.
 

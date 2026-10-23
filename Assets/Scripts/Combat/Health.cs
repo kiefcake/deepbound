@@ -412,8 +412,21 @@ namespace Deepbound.Combat
             shieldUntil = Time.time + seconds;
         }
 
+        private float nextStatusMote;
+
         private void Update()
         {
+            // Everyone: frost and fire show on the body, not only in its tag (combo set-ups read at a glance).
+            if ((Chilled.Value || Scorched.Value) && Team == Team.Enemies && Time.time >= nextStatusMote)
+            {
+                nextStatusMote = Time.time + 0.22f;
+                var cam = Art.ViewCamera.Current;
+                if (cam != null && (cam.transform.position - transform.position).sqrMagnitude < 625f)
+                {
+                    if (Chilled.Value) Art.Vfx.Mote(transform.position, new Color(0.65f, 0.88f, 1f));
+                    if (Scorched.Value) Art.Vfx.Mote(transform.position, new Color(1f, 0.55f, 0.2f));
+                }
+            }
             if (IsServer && Chilled.Value && (Time.time >= chilledUntil || !IsAlive)) Chilled.Value = false;
             if (IsServer && Scorched.Value && (Time.time >= scorchedUntil || !IsAlive)) Scorched.Value = false;
             if (IsServer && Shield.Value > 0f && (Time.time >= shieldUntil || !IsAlive)) Shield.Value = 0f;

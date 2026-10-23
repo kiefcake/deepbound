@@ -78,6 +78,8 @@ namespace Deepbound.Enemies
         // ---- Phases ----
         protected override float[] PhaseGates => new[] { 0.5f, 0.2f };
         private bool lastStand;
+        private float nextExhale;
+        private bool exhaledOnce;
 
         protected override void OnPhaseGate(int index)
         {
@@ -88,6 +90,7 @@ namespace Deepbound.Enemies
                 {
                     // The tower shield is thrown down: no more frontal guard, but every blow comes faster.
                     lastStand = true;
+                    nextExhale = Time.time + 4f;
                     moveSpeed *= 1.12f;
                     LastStandRpc();
                     PhaseHint.Value = "Its shield is gone: strike from any side, but its blows come faster";
@@ -190,6 +193,19 @@ namespace Deepbound.Enemies
         {
             if (HeldByStun()) return;
             if (IsServer && !IsDead) ResolveRends();
+            // Last Stand (2026-10-23, the first act boss had no bullet pattern): every 11 s the grave exhales two
+            // slow pinwheels of souls that circle it, the game's first taste of what the deeper bosses throw.
+            if (IsServer && !IsDead && lastStand && charge == ChargeState.None && !Dazed && Time.time >= nextExhale && !PatternRunning)
+            {
+                nextExhale = Time.time + 11f;
+                for (int e = 0; e < 2; e++)
+                    StartPattern(new Pattern
+                    {
+                        Arms = 5, Interval = 0.2f, Speed = 8f, Spin = e == 0 ? 10f : -10f, Damage = damage * 0.35f, Kind = ProjectileKind.Soul,
+                        Duration = 3.2f, Range = 22f, Origin = Orbit(2.4f, e == 0 ? 50f : -50f, e * 180f, 1.4f),
+                    });
+                if (!exhaledOnce) { exhaledOnce = true; Taunt("The grave breathes out."); }
+            }
             if (IsServer && !IsDead)
             {
                 if (charge == ChargeState.Windup)

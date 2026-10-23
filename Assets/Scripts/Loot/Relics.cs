@@ -53,11 +53,14 @@ namespace Deepbound.Loot
 
         /// <summary>
         /// The relic tray (2026-10-23): at most <see cref="MaxCarried"/>, each up to tier III. A relic you
-        /// already carry, or any relic once the tray is full, empowers one instead (+50% to its numbers per
+        /// already carry, or any relic once the tray is full, empowers one instead (+35% to its numbers per
         /// tier). A full run used to end with 15+ relics and every build the same.
         /// </summary>
         public const int MaxCarried = 8, MaxTier = 2;
-        public static float Power(int tier) => 1f + 0.5f * Mathf.Clamp(tier, 0, MaxTier);
+        public static float Power(int tier) => 1f + TierStep * Mathf.Clamp(tier, 0, MaxTier);
+        /// <summary>+35% a tier (it was 50%: the autoplay run's floors 8-9 went by with two close calls).</summary>
+        public const float TierStep = 0.35f;
+        public static int TierPercent(int tier) => Mathf.RoundToInt(TierStep * 100f * Mathf.Clamp(tier, 0, MaxTier));
         public static string TierName(int tier) => tier >= 2 ? " III" : tier == 1 ? " II" : "";
 
         /// <summary>Relics with nothing to scale cannot be empowered.</summary>
@@ -110,7 +113,7 @@ namespace Deepbound.Loot
                 case Relic.BerserkersBrand: return "+40% damage while below half health.";
                 case Relic.BoneWard: return "Blocks one hit completely every 12 seconds.";
                 case Relic.PhoenixFeather: return "Once per floor, rise again the moment you go down.";
-                case Relic.GildedSkull: return "+60% gold from everything you pick up.";
+                case Relic.GildedSkull: return "+60% gold from everything you pick up (+30% more per tier).";
                 case Relic.FrostCharm: return "+5% critical chance, and your critical hits chill.";
                 case Relic.EchoStone: return "Ability cooldowns 20% shorter, and your ultimate charges 20% faster.";
                 case Relic.GhostLantern: return "+15% move speed, and dodge recovers twice as fast.";
@@ -125,7 +128,7 @@ namespace Deepbound.Loot
                 case Relic.LongShadow: return "Shots fly 15% further and keep their full bite to the end; melee reaches a little further too.";
                 case Relic.PilgrimsPurse: return "Camp prices 15% lower, and every 10 gold you spend there comes back as an ember.";
                 case Relic.RootbreakerCharm: return "+50% damage while rooted or held; frost roots let go twice as fast and an Entling loses its grip after 3 s.";
-                case Relic.TallymansLedger: return "+20% gold, and the far bell and the Tallyman come three minutes later for your party.";
+                case Relic.TallymansLedger: return "+20% gold (+10% per tier), and the far bell and the Tallyman come three minutes later for your party.";
                 case Relic.LamplightersOil: return "You can fight while carrying anything: the hand torch, a reliquary or a soul skull.";
                 case Relic.ChoristersBell: return "Each room cleared mends you 12%.";
                 case Relic.BannerOfTheFallen: return "You and allies within 8 m deal 8% more damage.";
