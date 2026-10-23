@@ -10,23 +10,26 @@ namespace Deepbound.Classes
     /// </summary>
     public static class AbilityRanks
     {
-        /// <summary>Ranks 4 and 5 (two Sigils each) push further: +15% potency, then a further 15% off the cooldown.</summary>
-        /// <summary>Ranks 6-8 (three Sigils each, at Ysolde's stones): +10% potency, a further 10% off the cooldown, then MASTERED (+15% and -10%).</summary>
-        public const int MaxRank = 8;
-        public const float Rank2Potency = 1.3f, Rank3Cooldown = 0.75f, Rank4Potency = 1.15f, Rank5Cooldown = 0.85f;
-        public const float Rank6Potency = 1.1f, Rank7Cooldown = 0.9f, Rank8Potency = 1.15f, Rank8Cooldown = 0.9f;
+        /// <summary>
+        /// Five ranks (2026-10-23; there were eight, and ranks 4-8 were five clicks of +x% with no
+        /// decision). Rank 4 is +15%; rank 5, MASTERED, is a choice: Overcharged (+30% strength) or
+        /// Hastened (30% off the cooldown).
+        /// </summary>
+        public const int MaxRank = 5;
+        public const float Rank2Potency = 1.3f, Rank3Cooldown = 0.75f, Rank4Potency = 1.15f;
+        public const float OverchargedPotency = 1.3f, HastenedCooldown = 0.7f;
 
-        /// <summary>Sigils to go from <paramref name="rank"/> to the next.</summary>
-        public static int SigilCost(int rank) => rank >= 5 ? 3 : rank >= 3 ? 2 : 1;
+        /// <summary>Sigils to go from <paramref name="rank"/> to the next: 1, 1, 2, 3 (seven to master one ability).</summary>
+        public static int SigilCost(int rank) => rank >= 4 ? 3 : rank >= 3 ? 2 : 1;
+
+        /// <summary>Embers a spare Sigil melts into once both abilities are mastered.</summary>
+        public const int MeltEmbers = 40;
 
         public static string NextRank(ClassId id, AbilitySlot slot, int rank) =>
             rank <= 1 ? "Rank 2: " + Rank2(id, slot)
             : rank == 2 ? "Rank 3: 25% shorter cooldown. " + Twist(id, slot)
             : rank == 3 ? "Rank 4: 15% stronger again."
-            : rank == 4 ? "Rank 5: a further 15% off the cooldown."
-            : rank == 5 ? "Rank 6: 10% stronger again."
-            : rank == 6 ? "Rank 7: a further 10% off the cooldown."
-            : rank == 7 ? "Rank 8, MASTERED: 15% stronger and 10% faster again."
+            : rank == 4 ? "Rank 5, MASTERED - choose: OVERCHARGED (30% stronger) or HASTENED (30% shorter cooldown)."
             : "MASTERED. " + Twist(id, slot);
 
         public static string Twist(ClassId id, AbilitySlot slot)

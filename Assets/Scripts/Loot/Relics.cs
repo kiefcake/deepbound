@@ -33,6 +33,11 @@ namespace Deepbound.Loot
         TallymansLedger = 20,
         LamplightersOil = 21,
         ChoristersBell = 22,
+        // 2026-10-23: the party relics and a crit relic.
+        BannerOfTheFallen = 23,
+        SharedVow = 24,
+        RallyingBell = 25,
+        WhettedFang = 26,
     }
 
     /// <summary>
@@ -45,6 +50,21 @@ namespace Deepbound.Loot
     public static class Relics
     {
         public static readonly int Count = System.Enum.GetValues(typeof(Relic)).Length;
+
+        /// <summary>
+        /// The relic tray (2026-10-23): at most <see cref="MaxCarried"/>, each up to tier III. A relic you
+        /// already carry, or any relic once the tray is full, empowers one instead (+50% to its numbers per
+        /// tier). A full run used to end with 15+ relics and every build the same.
+        /// </summary>
+        public const int MaxCarried = 8, MaxTier = 2;
+        public static float Power(int tier) => 1f + 0.5f * Mathf.Clamp(tier, 0, MaxTier);
+        public static string TierName(int tier) => tier >= 2 ? " III" : tier == 1 ? " II" : "";
+
+        /// <summary>Relics with nothing to scale cannot be empowered.</summary>
+        public static bool Scales(Relic r) => r != Relic.LamplightersOil;
+
+        /// <summary>Only worth having with someone to share it: never rolled in a solo run.</summary>
+        public static bool PartyOnly(Relic r) => r == Relic.SharedVow || r == Relic.RallyingBell;
 
         public static string Name(Relic r)
         {
@@ -73,6 +93,10 @@ namespace Deepbound.Loot
                 case Relic.TallymansLedger: return "Tallyman's Ledger";
                 case Relic.LamplightersOil: return "Lamplighter's Oil";
                 case Relic.ChoristersBell: return "Chorister's Bell";
+                case Relic.BannerOfTheFallen: return "Banner of the Fallen";
+                case Relic.SharedVow: return "Shared Vow";
+                case Relic.RallyingBell: return "Rallying Bell";
+                case Relic.WhettedFang: return "Whetted Fang";
                 default: return r.ToString();
             }
         }
@@ -87,8 +111,8 @@ namespace Deepbound.Loot
                 case Relic.BoneWard: return "Blocks one hit completely every 12 seconds.";
                 case Relic.PhoenixFeather: return "Once per floor, rise again the moment you go down.";
                 case Relic.GildedSkull: return "+60% gold from everything you pick up.";
-                case Relic.FrostCharm: return "Your hits have a 20% chance to chill.";
-                case Relic.EchoStone: return "Ability cooldowns are 30% shorter.";
+                case Relic.FrostCharm: return "+5% critical chance, and your critical hits chill.";
+                case Relic.EchoStone: return "Ability cooldowns 20% shorter, and your ultimate charges 20% faster.";
                 case Relic.GhostLantern: return "+15% move speed, and dodge recovers twice as fast.";
                 case Relic.ThornedMail: return "Melee attackers take 40% of their damage back.";
                 case Relic.HeartOfTheDeep: return "+25% maximum health.";
@@ -99,11 +123,15 @@ namespace Deepbound.Loot
                 case Relic.WintersTooth: return "+25% damage to chilled enemies.";
                 case Relic.IronPsalter: return "You cannot be maddened, curses last half as long, and blows from 5 m or more hurt 15% less.";
                 case Relic.LongShadow: return "Shots fly 15% further and keep their full bite to the end; melee reaches a little further too.";
-                case Relic.PilgrimsPurse: return "Every 10 gold you spend at camp comes back as an ember.";
+                case Relic.PilgrimsPurse: return "Camp prices 15% lower, and every 10 gold you spend there comes back as an ember.";
                 case Relic.RootbreakerCharm: return "+50% damage while rooted or held; frost roots let go twice as fast and an Entling loses its grip after 3 s.";
                 case Relic.TallymansLedger: return "+20% gold, and the far bell and the Tallyman come three minutes later for your party.";
                 case Relic.LamplightersOil: return "You can fight while carrying anything: the hand torch, a reliquary or a soul skull.";
                 case Relic.ChoristersBell: return "Each room cleared mends you 12%.";
+                case Relic.BannerOfTheFallen: return "You and allies within 8 m deal 8% more damage.";
+                case Relic.SharedVow: return "Your Health Potions also mend the nearest ally within 12 m for half as much.";
+                case Relic.RallyingBell: return "Whenever someone near you gets back up, everyone within 15 m gains +20% speed and +15% damage for 5 s.";
+                case Relic.WhettedFang: return "+10% critical chance, and your critical hits deal x2 instead of x1.75.";
                 default: return "";
             }
         }
@@ -135,11 +163,37 @@ namespace Deepbound.Loot
                 case Relic.TallymansLedger: return new Color(0.62f, 1f, 0.7f);
                 case Relic.LamplightersOil: return new Color(1f, 0.7f, 0.35f);
                 case Relic.ChoristersBell: return new Color(1f, 0.85f, 0.45f);
+                case Relic.BannerOfTheFallen: return new Color(0.85f, 0.25f, 0.2f);
+                case Relic.SharedVow: return new Color(0.7f, 0.9f, 1f);
+                case Relic.RallyingBell: return new Color(0.85f, 0.65f, 0.35f);
+                case Relic.WhettedFang: return new Color(0.88f, 0.9f, 0.95f);
                 default: return Color.white;
             }
         }
 
-        public static Relic Random() => (Relic)UnityEngine.Random.Range(0, Count);
+        /// <summary>A random relic; in a solo run never a party one.</summary>
+        public static Relic Random()
+        {
+            bool solo = Player.PlayerLife.All.Count <= 1;
+            for (int i = 0; i < 20; i++)
+            {
+                var r = (Relic)UnityEngine.Random.Range(0, Count);
+                if (!solo || !PartyOnly(r)) return r;
+            }
+            return Relic.HeartOfTheDeep;
+        }
+
+        /// <summary>The same, from a seeded generator (the shrine's stock).</summary>
+        public static Relic FromSeed(System.Random rng)
+        {
+            bool solo = Player.PlayerLife.All.Count <= 1;
+            for (int i = 0; i < 20; i++)
+            {
+                var r = (Relic)rng.Next(Count);
+                if (!solo || !PartyOnly(r)) return r;
+            }
+            return Relic.HeartOfTheDeep;
+        }
 
         // ------------------------------------------------------------------
         // Synergies: two relics that belong together awaken something more
@@ -196,9 +250,7 @@ namespace Deepbound.Loot
             if (!obj.TryGetComponent<PlayerProgress>(out var p)) return;
             p.ServerCreditDamage(dealt, !target.IsAlive);
 
-            if (p.HasRelic(Relic.VampiricFang)) obj.GetComponent<Health>().ServerHeal(dealt * (Has(p, Synergy.Bloodbound) ? 0.12f : 0.06f));
-
-            if (p.HasRelic(Relic.FrostCharm) && UnityEngine.Random.value < 0.2f) target.ServerChill(3f);
+            if (p.HasRelic(Relic.VampiricFang)) obj.GetComponent<Health>().ServerHeal(dealt * (Has(p, Synergy.Bloodbound) ? 0.12f : 0.06f) * p.RelicPower(Relic.VampiricFang));
 
             if (!target.IsAlive && p.HasRelic(Relic.WraithChain))
             {
@@ -207,7 +259,7 @@ namespace Deepbound.Loot
                 {
                     var at = target.transform.position;
                     foreach (var foe in CombatQuery.Circle(at, 4f, Team.Enemies).ToArray())
-                        foe.ServerDamage(22f * p.AttackMultiplier, at, attackerId);
+                        foe.ServerDamage(22f * p.RelicPower(Relic.WraithChain) * p.AttackMultiplier, at, attackerId);
                     p.WraithNovaFxRpc(at);
                 }
                 finally { resolvingProc = false; }
@@ -217,7 +269,7 @@ namespace Deepbound.Loot
             {
                 HitCounters.TryGetValue(attackerId, out int hits);
                 hits++;
-                if (hits >= (Has(p, Synergy.StormCaller) ? 3 : 6))
+                if (hits >= Mathf.Max(2, (Has(p, Synergy.StormCaller) ? 3 : 6) - p.RelicTier(Relic.ThunderSigil)))
                 {
                     hits = 0;
                     resolvingProc = true;

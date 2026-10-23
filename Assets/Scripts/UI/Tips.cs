@@ -53,6 +53,7 @@ namespace Deepbound.UI
                 Offer("camp", "CAMP (G at each stall): Silas sells potions and charms, Hobb tempers your weapon with embers and sells armour, Ysolde ranks abilities with Sigils and sets runes, the shrine offers relics. When ready, sit on the back of Corwin's carriage (F): it leaves when everyone is seated.");
                 var prog = player.GetComponent<Progression.PlayerProgress>();
                 if (prog != null && prog.OpenEdgeSlot >= 0) Offer("edges", "AN EDGE: your weapon has reached +" + Progression.Edges.Levels[prog.OpenEdgeSlot] + ". At the anvil (G) forge one of three edges into it - each makes it better at a different way of fighting. Tempering waits until you choose.");
+                if (prog != null && prog.RelicCount >= Loot.Relics.MaxCarried) Offer("relictray", "YOUR RELIC TRAY IS FULL (8). New relics now EMPOWER one you carry (II, III) instead of adding another.");
                 if (prog != null && prog.WeaponLevel.Value >= Anvil.MaxLevel && prog.Hones.Value == 0) Offer("hone", "FULLY TEMPERED. Hobb can still HONE the blade at the anvil: five times, +3% damage each, for embers and gold.");
                 if (Vector3.Distance(me, Lobby.YardSpot) < 6f) Offer("drills", "SERGEANT BRANN drills you for gold (G): a stat for the run. Each drill costs more than the last.");
                 if (Vector3.Distance(me, Lobby.RunewrightSpot) < 6f) Offer("runewright", "YSOLDE'S STONES (G): set runes, rank abilities with Sigils, and MELD three of the same rune into a stronger one.");

@@ -649,7 +649,7 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(cx, cy + 4, 320, 20), "POUCH   Health " + fl.Health.Value + "   Mana " + fl.Mana.Value + "   Frost " + fl.Frost.Value + "   Holy " + fl.Holy.Value + "   (5 each)", small);
                 cy += 28;
             }
-            GUI.Label(new Rect(cx, cy, 300, 22), "RELICS (" + progress.RelicCount + ")", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            GUI.Label(new Rect(cx, cy, 300, 22), "RELICS (" + progress.RelicCount + " / " + Relics.MaxCarried + ")", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
             cy += 22;
             string hoverText = null;
             bool party = PlayerLife.All.Count > 1;
@@ -664,8 +664,8 @@ namespace Deepbound.UI
                 if (rcy > py + ph - (party ? 150 : 20)) continue;
                 var rr = new Rect(cx + (i / relRows) * relColW, rcy, relColW - 4, 20);
                 var relSt = new GUIStyle(small) { wordWrap = false, normal = { textColor = rr.Contains(mouse) ? Color.white : UiSkin.Readable(Relics.GemColor(rel)) } };
-                GUI.Label(rr, UiSkin.Fit(Relics.Name(rel), relSt, rr.width), relSt);
-                if (rr.Contains(mouse)) hoverText = Relics.Name(rel) + ": " + Relics.Describe(rel);
+                GUI.Label(rr, UiSkin.Fit(progress.RelicLabel(i), relSt, rr.width), relSt);
+                if (rr.Contains(mouse)) hoverText = progress.RelicLabel(i) + ": " + Relics.Describe(rel) + (progress.RelicTierAt(i) > 0 ? "  (empowered: +" + progress.RelicTierAt(i) * 50 + "% to its numbers)" : "");
             }
             cy = relTop + relRows * 20;
 
@@ -2364,14 +2364,21 @@ namespace Deepbound.UI
                 int sigilCost = AbilityRanks.SigilCost(rank);
                 bool maxed = rank >= AbilityRanks.MaxRank;
                 GUI.enabled = !maxed && progress.Sigils.Value >= sigilCost;
-                if (GUI.Button(new Rect(card.x + 12, card.yMax - 32, lw - 24, 26), maxed ? "Mastered" : progress.Sigils.Value >= sigilCost ? "Empower  (" + sigilCost + (sigilCost == 1 ? " sigil)" : " sigils)") : "Needs " + sigilCost + (sigilCost == 1 ? " Sigil" : " Sigils")))
+                string costText = progress.Sigils.Value >= sigilCost ? "(" + sigilCost + (sigilCost == 1 ? " sigil)" : " sigils)") : "needs " + sigilCost + (sigilCost == 1 ? " Sigil" : " Sigils");
+                if (!maxed && rank == AbilityRanks.MaxRank - 1)
+                {
+                    float half = (lw - 30) / 2f;
+                    if (GUI.Button(new Rect(card.x + 12, card.yMax - 32, half, 26), "Overcharged  " + costText)) progress.EmpowerRpc((byte)slot);
+                    if (GUI.Button(new Rect(card.x + 18 + half, card.yMax - 32, half, 26), "Hastened  " + costText)) progress.EmpowerHastenedRpc((byte)slot);
+                }
+                else if (GUI.Button(new Rect(card.x + 12, card.yMax - 32, lw - 24, 26), maxed ? "Mastered  -  " + (progress.Hastened(slot) ? "HASTENED (-30% cooldown)" : "OVERCHARGED (+30% strength)") : "Empower  " + costText))
                     progress.EmpowerRpc((byte)slot);
                 GUI.enabled = true;
                 ly += 112;
             }
             if (progress.Rank(AbilitySlot.Q) >= AbilityRanks.MaxRank && progress.Rank(AbilitySlot.E) >= AbilityRanks.MaxRank && progress.Sigils.Value > 0)
             {
-                if (GUI.Button(new Rect(lx, ly, lw, 26), "Melt a spare Sigil into 30 embers")) progress.MeltSigilRpc();
+                if (GUI.Button(new Rect(lx, ly, lw, 26), "Melt a spare Sigil into " + AbilityRanks.MeltEmbers + " embers")) progress.MeltSigilRpc();
                 ly += 32;
             }
 
@@ -2456,7 +2463,7 @@ namespace Deepbound.UI
                 var nearAnvil = NearAnvil();
                 if (nearAnvil != null && Vector3.Distance(player.transform.position, nearAnvil.transform.position) <
                     Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value)) return;
-                string who = stall == Shop.Vendor.Shrine ? "Press G for the shrine's offerings (holy water, relics, Aldric's prayer)"
+                string who = stall == Shop.Vendor.Shrine ? "Press G for the shrine's offerings (two blessings, relics, holy water, Aldric's prayer)"
                     : stall == Shop.Vendor.Yard ? "Press G to talk to Sergeant Brann (drills: a stat for gold)"
                     : stall == Shop.Vendor.Runewright ? "Press G to visit Ysolde (runes, melding, sigils, ability ranks)"
                     : stall == Shop.Vendor.Carriage ? "Press G to talk to Corwin (maps of the way down, smelling salts)"
@@ -2585,12 +2592,13 @@ namespace Deepbound.UI
             var hr = progress.RelicAt(hover);
             var body = new GUIStyle(small) { wordWrap = true, fontSize = 13 };
             const float tw = 300f;
-            float th = 34f + body.CalcHeight(new GUIContent(Relics.Describe(hr)), tw - 20f);
+            string hrText = Relics.Describe(hr) + (progress.RelicTierAt(hover) > 0 ? "  Empowered: +" + progress.RelicTierAt(hover) * 50 + "% to its numbers." : "");
+            float th = 34f + body.CalcHeight(new GUIContent(hrText), tw - 20f);
             float tx = x + hover * 30, ty = y - th - 8f;
             Rect(tx - 1, ty - 1, tw + 2, th + 2, new Color(Relics.GemColor(hr).r, Relics.GemColor(hr).g, Relics.GemColor(hr).b, 0.9f));
             Rect(tx, ty, tw, th, new Color(0.04f, 0.035f, 0.03f, 0.96f));
-            GUI.Label(new Rect(tx + 10, ty + 6, tw - 20, 20), Relics.Name(hr).ToUpperInvariant(), new GUIStyle(small) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Readable(Relics.GemColor(hr)) } });
-            GUI.Label(new Rect(tx + 10, ty + 26, tw - 20, th - 28), Relics.Describe(hr), body);
+            GUI.Label(new Rect(tx + 10, ty + 6, tw - 20, 20), progress.RelicLabel(hover).ToUpperInvariant(), new GUIStyle(small) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Readable(Relics.GemColor(hr)) } });
+            GUI.Label(new Rect(tx + 10, ty + 26, tw - 20, th - 28), hrText, body);
         }
 
         private void DrawStatSheet(float w, float h)
@@ -2613,18 +2621,19 @@ namespace Deepbound.UI
                 float rh = 40 + perCol * relRowH;
                 float rx = w - 300 - 24 - rw - 12, ry = Mathf.Max(20f, h / 2f - rh / 2f);
                 Rect(rx, ry, rw, rh, Panel);
-                GUI.Label(new Rect(rx + 12, ry + 10, rw, 22), "RELICS  (" + count + ")", new GUIStyle(label) { normal = { textColor = Gold } });
+                GUI.Label(new Rect(rx + 12, ry + 10, rw, 22), "RELICS  (" + count + " / " + Relics.MaxCarried + ")", new GUIStyle(label) { normal = { textColor = Gold } });
                 var desc = new GUIStyle(small) { wordWrap = false };
                 for (int i = 0; i < count; i++)
                 {
                     var r = progress.RelicAt(i);
                     float cx = rx + 12 + (i / perCol) * colW, cy = ry + 36 + (i % perCol) * relRowH;
-                    GUI.Label(new Rect(cx, cy - 2, colW - 20, 22), Relics.Name(r), new GUIStyle(label) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Readable(Relics.GemColor(r)) } });
-                    if (relRowH >= 30f) GUI.Label(new Rect(cx, cy + 17, colW - 24, 20), UiSkin.Fit(Relics.Describe(r), desc, colW - 24), desc);
+                    GUI.Label(new Rect(cx, cy - 2, colW - 20, 22), progress.RelicLabel(i), new GUIStyle(label) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Readable(Relics.GemColor(r)) } });
+                    string rd = (progress.RelicTierAt(i) > 0 ? "x" + Relics.Power(progress.RelicTierAt(i)).ToString("0.#") + ": " : "") + Relics.Describe(r);
+                    if (relRowH >= 30f) GUI.Label(new Rect(cx, cy + 17, colW - 24, 20), UiSkin.Fit(rd, desc, colW - 24), desc);
                 }
             }
 
-            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70 + 88 + 22 + 22;
+            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70 + 88 + 22 + 22 + 22;
             float x = w - pw - 24, y = h / 2f - ph / 2f;
             Rect(x, y, pw, ph, Panel);
             // The two gear slots, at the foot of the sheet; hover-free: full cards sit left of it.
@@ -2657,6 +2666,9 @@ namespace Deepbound.UI
             string edgeList = "";
             for (int s = 0; s < Edges.Slots; s++)
                 if (progress.EdgeAt(s) != Edge.None) edgeList += (edgeList.Length > 0 ? ", " : "") + Edges.Name(progress.EdgeAt(s));
+            GUI.Label(new Rect(x + 12, gy, 70, 20), "CRIT", small);
+            GUI.Label(new Rect(x + 80, gy, pw - 90, 20), Mathf.RoundToInt(GearEffects.CritChance(progress) * 100f) + "%  (x" + (progress.HasRelic(Relic.WhettedFang) ? (2f + 0.25f * progress.RelicTier(Relic.WhettedFang)).ToString("0.##") : "1.75") + " damage)", small);
+            gy += 22;
             GUI.Label(new Rect(x + 12, gy, 70, 20), "EDGES", small);
             var edgeStyle = new GUIStyle(small) { wordWrap = false, normal = { textColor = edgeList.Length > 0 ? new Color(1f, 0.6f, 0.35f) : new Color(1f, 1f, 1f, 0.4f) } };
             GUI.Label(new Rect(x + 80, gy, pw - 90, 20), UiSkin.Fit(edgeList.Length > 0 ? edgeList : "none yet (anvil +" + Edges.Levels[0] + ")", edgeStyle, pw - 90), edgeStyle);
@@ -2796,6 +2808,7 @@ namespace Deepbound.UI
             if (brain is GargoyleBrain garg && !garg.Woken.Value) return "";
             if (DungeonDirector.InRitualWard(brain != null ? brain.transform.position : hp.transform.position)) Tag("RITUAL WARD", "B266FF");
             if (hp.Chilled.Value) Tag("CHILL", "8CD9FF");
+            if (hp.Scorched.Value) Tag("SCORCH", "FF9A4D");
             if (hp.Marked.Value) Tag("MARK", "FF5A4D");
             if (hp.Blighted.Value) Tag("BLIGHT", "8CFF59");
             if (brain != null && (brain.Status.Value & 1) != 0) Tag("STUN", "FFD94D");

@@ -57,10 +57,22 @@ namespace Deepbound.Loot
         private const float HopSeconds = 0.55f;
 
         /// <summary>Server: spawn drops from a table roll, scattered around a point.</summary>
-        public static void ServerSpawnFromTable(NetworkObject prefab, LootTable table, Vector3 at, float goldScale)
+        /// <param name="share">Times to roll the table (fractions roll once more by chance): co-op loot, see <see cref="Enemies.Difficulty.KillLootShare"/>. Gold and embers from every roll land as one pile each.</param>
+        public static void ServerSpawnFromTable(NetworkObject prefab, LootTable table, Vector3 at, float goldScale, float share = 1f)
         {
+            var raw = new List<(LootKind, int)>();
+            int times = Mathf.FloorToInt(share) + (Random.value < share - Mathf.Floor(share) ? 1 : 0);
+            for (int t = 0; t < Mathf.Max(1, times); t++) table.Roll(raw, goldScale);
             var rolls = new List<(LootKind, int)>();
-            table.Roll(rolls, goldScale);
+            int gold = 0, embers = 0;
+            foreach (var r in raw)
+            {
+                if (r.Item1 == LootKind.Gold) gold += r.Item2;
+                else if (r.Item1 == LootKind.Embers) embers += r.Item2;
+                else rolls.Add(r);
+            }
+            if (gold > 0) rolls.Add((LootKind.Gold, gold));
+            if (embers > 0) rolls.Add((LootKind.Embers, embers));
             for (int i = 0; i < rolls.Count; i++)
             {
                 float a = (i / (float)Mathf.Max(1, rolls.Count)) * Mathf.PI * 2f + Random.value;
@@ -159,11 +171,16 @@ namespace Deepbound.Loot
             }
             if (kind == LootKind.Relic)
             {
-                if (progress.ServerAddRelic((Relic)Amount.Value)) return true;
-                // One of each per player: a relic everyone already carries used to lie there for ever with its
-                // beam lit (the autoplay run stood on one for ten minutes). It breaks down into embers instead.
+                var relic = (Relic)Amount.Value;
+                // A relic you already carry would only empower yours: leave it while a teammate lacks it.
+                bool teammateNeeds = false;
                 foreach (var pl in PlayerLife.All)
-                    if (pl != null && pl.TryGetComponent<PlayerProgress>(out var other) && !other.HasRelic((Relic)Amount.Value)) return false;
+                    if (pl != null && pl.TryGetComponent<PlayerProgress>(out var other) && other != progress && !other.HasRelic(relic) && other.CanTakeRelic(relic)) teammateNeeds = true;
+                if ((!progress.HasRelic(relic) || !teammateNeeds) && progress.ServerAddRelic(relic)) return true;
+                // A relic nobody can take used to lie there for ever with its beam lit (the autoplay run stood
+                // on one for ten minutes). It breaks down into embers instead.
+                foreach (var pl in PlayerLife.All)
+                    if (pl != null && pl.TryGetComponent<PlayerProgress>(out var other) && other.CanTakeRelic(relic)) return false;
                 int embers = 15 + 10 * Mathf.Max(0, World.DungeonDirector.Layout != null ? World.DungeonDirector.Layout.Depth : 0);
                 PlayerProgress.ServerShareEmbers(progress, embers);
                 crumbled = true;

@@ -144,6 +144,7 @@ namespace Deepbound.Player
         public float Resource => Stamina;
         public float ResourceMax => StaminaMax;
         public void RestoreResource(float fraction) => Stamina = Mathf.Min(ResourceMax, Stamina + ResourceMax * fraction);
+        public void ShaveCooldowns(float seconds) { BashReadyAt -= seconds; WarCryReadyAt -= seconds; }
 
         public void FillAbilities(List<AbilityView> into)
         {
@@ -251,6 +252,8 @@ namespace Deepbound.Player
         // Server: hit resolution
         // ==================================================================
 
+        private int cleaveSwings;
+
         [Rpc(SendTo.Server)]
         private void SwingRpc(Vector3 origin, Vector3 forward, float swingSide)
         {
@@ -274,12 +277,13 @@ namespace Deepbound.Player
             float damage = SwingDamage * AttackMultiplier * (riposte ? 2.2f : 1f);
 
             bool hitAny = false;
+            bool chillSwing = cleave && progress.Mastered(1) && ++cleaveSwings % 3 == 0;
             foreach (var target in CombatQuery.Arc(origin, forward, range, arc, Team.Enemies))
             {
                 var zone = HitZones.Aimed(target, origin, forward, range, out var zonePoint);
                 target.ServerDamage(damage * HitZones.Multiplier(target, zone, false), transform.position, NetworkObjectId);
                 if (zone != HitZone.Body) Arrows.ReportZone(NetworkObjectId, zonePoint, zone);
-                if (progress.Mastered(1)) target.ServerChill(1.5f);
+                if (chillSwing) target.ServerChill(2.5f);
                 if (riposte && progress.Mastered(2) && target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.2f);
                 hitAny = true;
             }

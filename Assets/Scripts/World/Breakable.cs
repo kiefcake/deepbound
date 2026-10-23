@@ -106,7 +106,7 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.Urn)
             {
-                LootDrop.ServerSpawnFromTable(lootPrefab, LootTable.Urn, transform.position, 1f);
+                LootDrop.ServerSpawnFromTable(lootPrefab, LootTable.Urn, transform.position, 1f, Enemies.Difficulty.FixedLootShare(Enemies.Difficulty.Party));
                 BreakFxRpc();
                 NetworkObject.Despawn();
             }

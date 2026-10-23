@@ -84,6 +84,7 @@ namespace Deepbound.Player
         public float Resource => Focus;
         public float ResourceMax => FocusMax;
         public void RestoreResource(float fraction) => Focus = Mathf.Min(ResourceMax, Focus + ResourceMax * fraction);
+        public void ShaveCooldowns(float seconds) { trapReadyAt -= seconds; volleyReadyAt -= seconds; }
         public float Charge => drawStart < 0f ? 0f : Mathf.Clamp01((Time.time - drawStart) / DrawFull);
 
         public void FillAbilities(List<AbilityView> into)

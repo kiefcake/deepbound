@@ -73,6 +73,7 @@ namespace Deepbound.Player
         public float Resource => Reagents;
         public float ResourceMax => ReagentMax;
         public void RestoreResource(float fraction) => Reagents = Mathf.Min(ReagentMax, Reagents + ReagentMax * fraction);
+        public void ShaveCooldowns(float seconds) { miasmaReadyAt -= seconds; maskReadyAt -= seconds; }
 
         public void FillAbilities(List<AbilityView> into)
         {

@@ -23,21 +23,12 @@ namespace Deepbound.World
 
         public override string Prompt(PlayerProgress who)
         {
-            if (who.ActiveBlessing.Value != 0) return null;
-            var offer = Blessings.OfferFor(who.OwnerClientId, Seed);
-            int price = Blessings.Price(DungeonDirector.GearDepth);
-            return (who.Gold.Value >= price ? "Receive the " : "Needs " + price + " gold: ") + Blessings.Name(offer) + "  (" + Blessings.Describe(offer) + ")" +
-                   (who.Gold.Value >= price ? "  -  " + price + " gold" : "");
+            // The blessings are chosen in the shrine's offerings (G), two to pick from.
+            return null;
         }
 
-        protected override void ServerUse(PlayerProgress who)
-        {
-            if (who.ActiveBlessing.Value != 0) return;
-            var offer = Blessings.OfferFor(who.OwnerClientId, Seed);
-            if (!who.ServerSpendGold(Blessings.Price(DungeonDirector.GearDepth))) return;
-            who.ServerBless(offer);
-            BlessFxRpc(who.name, (byte)offer, who.transform.position);
-        }
+        // Blessings are bought from the shrine's offerings now (two to choose from), not by kneeling.
+        protected override void ServerUse(PlayerProgress who) { }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void BlessFxRpc(string who, byte b, Vector3 at)
@@ -58,7 +49,7 @@ namespace Deepbound.World
                 nextRelicCheck = Time.time + 1f;
                 int n = 0;
                 if (World.DungeonDirector.InLobby)
-                    foreach (var it in Shop.Current(Shop.Vendor.Shrine))
+                    foreach (var it in Shop.For(NetworkManager.Singleton != null ? NetworkManager.Singleton.LocalClientId : 0, Shop.Vendor.Shrine))
                         if (it.Kind == Shop.ItemKind.Relic && n < 2)
                         {
                             ArtLibrary.SetGlow(relicGems[n], Loot.Relics.GemColor((Loot.Relic)(int)it.Amount) * (1.3f + Mathf.Sin(Time.time * 2f + n) * 0.2f));

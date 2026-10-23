@@ -863,7 +863,7 @@ namespace Deepbound.Networking
                     var sh = secret.GetComponent<Health>();
                     var st = secret.transform;
                     int landed = 0;
-                    var aims = new[] { new Vector2(0f, 1.4f), new Vector2(-1.05f, 0.25f), new Vector2(1.05f, 0.25f), new Vector2(-1.05f, 2.6f), new Vector2(1.05f, 2.6f) };
+                    var aims = new[] { new Vector2(0f, 1.4f), new Vector2(-1.05f, 0.5f), new Vector2(1.05f, 0.5f), new Vector2(-1.05f, 2.6f), new Vector2(1.05f, 2.6f) };
                     foreach (var aimAt in aims)
                     {
                         float before = sh.Current.Value;
@@ -873,7 +873,8 @@ namespace Deepbound.Networking
                         string first = Physics.Raycast(from, (target - from).normalized, out var fh, 8f, ~0, QueryTriggerInteraction.Ignore) ? fh.collider.name + "@" + fh.distance.ToString("F1") : "nothing";
                         Arrows.ServerFire(from, target - from, 5f, Team.Enemies, local.NetworkObjectId, 21f, null, false, 12f);
                         yield return new WaitForSeconds(0.45f);
-                        if (secret == null || !secret.IsSpawned || sh.Current.Value < before) landed++;
+                        // An urn or barrel in the way takes the shot and breaks (the next one gets through): not the wall's fault.
+                        if (secret == null || !secret.IsSpawned || sh.Current.Value < before || first.StartsWith("Breakable")) landed++;
                         else Debug.Log("[Smoke] wall shot missed at " + aimAt + ", first thing on the line: " + first);
                         if (secret == null || !secret.IsSpawned) break;
                     }
@@ -1198,17 +1199,22 @@ namespace Deepbound.Networking
                             {
                                 int before = bp.VolleysFired;
                                 bp.ServerBeginSong(sg);
-                                for (float t = 0f; t < 3.4f; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                                // Both kept whole: a stray proc (a party relic, a rune) once killed the piper mid-song.
+                                for (float t = 0f; t < 3.4f && bp != null; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); bp.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                                if (bp == null) break;
                                 if (bp.VolleysFired > before) songs.Add(sg.ToString());
                             }
-                            Log("bone piper", "tunes played " + string.Join(", ", songs) + ", volleys " + (bp.VolleysFired - v0), songs.Count == 4);
+                            Log("bone piper", "tunes played " + string.Join(", ", songs) + ", volleys " + (bp != null ? bp.VolleysFired - v0 : -1), songs.Count == 4);
+                            if (bp == null) { Log("graze", "the piper died first", false); }
+                            else {
                             // A graze: a note fired to pass just beside the player's body.
                             var me = local.transform.position + Vector3.up * 1.2f;
                             var side = local.transform.right * 0.75f;
                             Arrows.ServerFire(me + side - local.transform.forward * 4f, local.transform.forward, 1f, Team.Players, bp.NetworkObjectId, 12f, null, false, 8f);
                             yield return new WaitForSeconds(0.9f);
                             Log("graze", "grazes " + grazes0 + " -> " + progG.Grazes, progG.Grazes > grazes0);
-                            bp.GetComponent<Health>().ServerDamage(1e6f, bp.transform.position);
+                            if (bp != null) bp.GetComponent<Health>().ServerDamage(1e6f, bp.transform.position);
+                            }
                         }
                         else Log("bone piper", "no prefab", false);
                         local.GetComponent<Health>().ServerSetFraction(1f);
@@ -1402,7 +1408,17 @@ namespace Deepbound.Networking
                                 eyeB.ServerDebugPlace(eyeAt);
                                 eyeB.ServerLockOn(hp9);
                                 // Hold it on the clear spot while it locks on (it drifts toward the player otherwise).
-                                for (float t = 0f; t < 2.5f && eyeB.BeamsFired == 0; t += 0.1f) { hp9.ServerSetFraction(1f); eyeB.ServerDebugPlace(eyeAt); yield return new WaitForSeconds(0.1f); }
+                                // ...and the player on theirs (the eye ended up 0.8 m away twice: something shoved the player).
+                                var standAt = local.transform.position;
+                                var standRot = local.transform.rotation;
+                                var standMotor = local.GetComponent<FirstPersonMotor>();
+                                for (float t = 0f; t < 2.5f && eyeB.BeamsFired == 0; t += 0.1f)
+                                {
+                                    hp9.ServerSetFraction(1f);
+                                    eyeB.ServerDebugPlace(eyeAt);
+                                    if (Vector3.Distance(local.transform.position, standAt) > 0.3f) standMotor.Teleport(standAt, standRot);
+                                    yield return new WaitForSeconds(0.1f);
+                                }
                                 float onLine = eyeB.LastBeamDealt;
                                 string eyeWhy = "shield " + hp9.Shield.Value.ToString("F0") + ", dist " + Vector3.Distance(eyeB.transform.position, local.transform.position).ToString("F1") + ", dy " + (eyeB.transform.position.y - local.transform.position.y).ToString("F1") + ", targetable " + local.GetComponent<PlayerLife>().Targetable + ", beam " + eyeB.LastBeamLength.ToString("F1") + " m stopped by " + AbyssEyeBrain.LastBlocker;
                                 Log("abyssal eye", "beams " + eyeB.BeamsFired + ", dealt on the line " + onLine.ToString("F0") + " (" + eyeWhy + ")", eyeB.BeamsFired >= 1 && onLine > 0f);
@@ -2176,16 +2192,21 @@ namespace Deepbound.Networking
                         int after = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length + FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
                         Log("mystery coffer", "gold " + g1 + " -> " + progress.Gold.Value + ", prizes " + things + " -> " + after, progress.Gold.Value == g1 - MysteryCoffer.Price && after > things);
                     }
-                    // The shrine: pay, and the blessing is on you.
+                    // The shrine: two blessings on offer; buy the second, and it is on you.
                     var shrineT = FindObjectsByType<Shrine>(FindObjectsSortMode.None).FirstOrDefault();
                     if (shrineT != null)
                     {
-                        progress.ServerAddGold(Blessings.Price(DungeonDirector.GearDepth));
-                        motor.Teleport(shrineT.transform.position + shrineT.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                        progress.ServerAddGold(Blessings.Price(DungeonDirector.GearDepth) * 2);
+                        motor.Teleport(Lobby.ShrineSpot + shrineT.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                         yield return new WaitForSeconds(0.2f);
-                        shrineT.UseRpc(local.NetworkObject);
+                        var bStock = Shop.For(local.OwnerClientId, Shop.Vendor.Shrine);
+                        int offers = bStock.Count(it => it.Kind == Shop.ItemKind.Blessing);
+                        int bIdx = System.Array.FindLastIndex(bStock, it => it.Kind == Shop.ItemKind.Blessing);
+                        var want = bIdx >= 0 ? (Blessing)(int)bStock[bIdx].Amount : Blessing.None;
+                        if (bIdx >= 0) progress.BuyRpc(Shop.Vendor.Shrine, bIdx);
                         yield return new WaitForSeconds(0.2f);
-                        Log("shrine", "blessing " + Blessings.Name((Blessing)progress.ActiveBlessing.Value), progress.ActiveBlessing.Value != 0);
+                        Log("shrine", offers + " blessings on offer, bought " + Blessings.Name(want) + ", wearing " + Blessings.Name((Blessing)progress.ActiveBlessing.Value),
+                            offers == 2 && progress.ActiveBlessing.Value == (byte)want && want != Blessing.None);
                     }
                     // The range: a hit on a target counts for the shooter.
                     var targetT = FindObjectsByType<RangeTarget>(FindObjectsSortMode.None).FirstOrDefault();
@@ -2480,9 +2501,48 @@ namespace Deepbound.Networking
             if (net.IsServer && local != null)
             {
                 var synP = local.GetComponent<PlayerProgress>();
+                // An empty tray first: relics from earlier checks could fill it or already hold these.
+                for (int ri = 0; ri < Relics.Count; ri++) synP.ServerDebugRemoveRelic((Relic)ri);
                 synP.ServerAddRelic(Relic.ThunderSigil);
                 synP.ServerAddRelic(Relic.EchoStone);
                 Log("relic synergy", "Storm Caller " + Relics.Has(synP, Relics.Synergy.StormCaller), Relics.Has(synP, Relics.Synergy.StormCaller));
+
+                // The relic tray: a relic you carry empowers it; a full tray feeds the weakest; cooldown cuts cap.
+                float cdTier0 = synP.CooldownMultiplier;
+                synP.ServerAddRelic(Relic.EchoStone);
+                int echoTier = synP.RelicTier(Relic.EchoStone);
+                for (int ri = 0; ri < 14; ri++) synP.ServerAddRelic((Relic)ri);
+                int tiered = 0;
+                for (int ri = 0; ri < synP.RelicCount; ri++) if (synP.RelicTierAt(ri) > 0) tiered++;
+                Log("relic tray", "Echo Stone tier " + echoTier + " (cooldowns x" + cdTier0.ToString("F2") + " -> x" + synP.CooldownMultiplier.ToString("F2") + "), carried " + synP.RelicCount + "/" + Relics.MaxCarried + ", empowered " + tiered,
+                    echoTier == 1 && synP.RelicCount == Relics.MaxCarried && tiered >= 2 && synP.CooldownMultiplier >= 1f - PlayerProgress.MaxCooldownCut - 0.001f && synP.CooldownMultiplier < cdTier0);
+
+                // Thermal Shock: fire on an enemy, then frost: the two cancel in a burst.
+                var shockT = Health.All.FirstOrDefault(hh => hh != null && hh.Team == Team.Enemies && hh.IsAlive && !hh.TryGetComponent<BossBrain>(out _));
+                if (shockT != null)
+                {
+                    shockT.ServerSetFraction(1f);
+                    float shockHp = shockT.Current.Value;
+                    shockT.ServerScorch(4f, local.NetworkObjectId);
+                    bool scorched = shockT.Scorched.Value;
+                    shockT.ServerChill(3f);
+                    Log("thermal shock", "scorched " + scorched + ", after frost: scorched " + shockT.Scorched.Value + " chilled " + shockT.Chilled.Value + ", dealt " + (shockHp - shockT.Current.Value).ToString("F0"),
+                        scorched && !shockT.Scorched.Value && !shockT.Chilled.Value && shockT.Current.Value < shockHp);
+                }
+
+                // Rank 5 is a choice: Hastened trades strength for cooldown.
+                synP.RankQ.Value = 5;
+                synP.RankChoice.Value = 0;
+                float overP = synP.Potency(Classes.AbilitySlot.Q), overCd = synP.CooldownFor(Classes.AbilitySlot.Q);
+                synP.RankChoice.Value = 1;
+                float hasteP = synP.Potency(Classes.AbilitySlot.Q), hasteCd = synP.CooldownFor(Classes.AbilitySlot.Q);
+                Log("rank five choice", "overcharged x" + overP.ToString("F2") + " / cd x" + overCd.ToString("F2") + ", hastened x" + hasteP.ToString("F2") + " / cd x" + hasteCd.ToString("F2"),
+                    overP > hasteP && hasteCd < overCd);
+
+                // Co-op loot: each of four players gets about a solo player's share.
+                float k4 = Difficulty.KillLootShare(4), perPlayer = Difficulty.SpawnCount(4) / Difficulty.SpawnCount(1) * k4 / 4f;
+                Log("coop loot share", "kill rolls x" + k4.ToString("F2") + " for 4, each player's kill income x" + perPlayer.ToString("F2") + " of solo; chests x" + Difficulty.FixedLootShare(4),
+                    Mathf.Abs(perPlayer - 1f) < 0.01f && Difficulty.KillLootShare(1) == 1f && Difficulty.FixedLootShare(4) == 4f);
             }
 
             yield return new WaitForSeconds(2f);
@@ -2809,6 +2869,11 @@ namespace Deepbound.Networking
                 local.GetComponent<UI.GameHud>().DebugOpenRunewright();
                 yield return null;
                 yield return Shot(dir, "1b_runewright_panel");
+                // Rank five's choice: Overcharged or Hastened.
+                ap.RankQ.Value = 4;
+                for (int i = 0; i < 3; i++) ap.ServerAddSigil();
+                yield return null;
+                yield return Shot(dir, "1b_runewright_rank5");
                 ap.ServerResetRun();
                 UI.PauseMenu.SetOpen(false);
 

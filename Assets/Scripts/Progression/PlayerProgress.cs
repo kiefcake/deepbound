@@ -132,7 +132,8 @@ namespace Deepbound.Progression
         }
 
         /// <summary>A vendor's mark-up for you: +25% per grudge level.</summary>
-        public float PriceMultiplier(Shop.Vendor vendor) => 1f + 0.25f * Grudge(VendorFolk(vendor));
+        public float PriceMultiplier(Shop.Vendor vendor) => (1f + 0.25f * Grudge(VendorFolk(vendor)))
+            * (HasRelic(Relic.PilgrimsPurse) && World.DungeonDirector.InLobby ? Mathf.Max(0.55f, 1f - 0.15f * RelicPower(Relic.PilgrimsPurse)) : 1f);
 
         /// <summary>Who stands behind a vendor's counter right now (the peddler, off camp).</summary>
         public static World.FolkId VendorFolk(Shop.Vendor vendor) => vendor == Shop.Vendor.Smith ? World.FolkId.Hobb : vendor == Shop.Vendor.Shrine ? World.FolkId.Aldric
@@ -182,7 +183,11 @@ namespace Deepbound.Progression
         public readonly NetworkVariable<byte> RankQ = new NetworkVariable<byte>(1);
         public readonly NetworkVariable<byte> RankE = new NetworkVariable<byte>(1);
 
-        /// <summary>Effective rank: bought ranks, plus one for the Hollow Crown (max 3).</summary>
+        /// <summary>Rank 5's choice per ability: bit 0 = Q Hastened, bit 1 = E Hastened (else Overcharged).</summary>
+        public readonly NetworkVariable<byte> RankChoice = new NetworkVariable<byte>();
+        public bool Hastened(AbilitySlot slot) => (RankChoice.Value & (1 << (int)slot)) != 0;
+
+        /// <summary>Effective rank: bought ranks, plus one for the Hollow Crown (max 5).</summary>
         public int Rank(AbilitySlot slot) => Mathf.Min(AbilityRanks.MaxRank, (slot == AbilitySlot.Q ? RankQ.Value : RankE.Value) + (Wears(GearId.HollowCrown) ? 1 : 0));
 
         /// <summary>Ranks actually bought with Sigils (what the anvil can still raise).</summary>
@@ -190,14 +195,14 @@ namespace Deepbound.Progression
 
         /// <summary>Rank 2 and up: 30% stronger.</summary>
         public float Potency(AbilitySlot slot) => (Rank(slot) >= 2 ? AbilityRanks.Rank2Potency : 1f) * (Rank(slot) >= 4 ? AbilityRanks.Rank4Potency : 1f)
-            * (Rank(slot) >= 6 ? AbilityRanks.Rank6Potency : 1f) * (Rank(slot) >= 8 ? AbilityRanks.Rank8Potency : 1f);
+            * (Rank(slot) >= 5 && !Hastened(slot) ? AbilityRanks.OverchargedPotency : 1f);
 
         /// <summary>Rank 3: the twist.</summary>
         public bool Twist(AbilitySlot slot) => Rank(slot) >= 3;
 
         /// <summary>Q/E cooldown scale: relics and gear, and a quarter off at rank 3.</summary>
-        public float CooldownFor(AbilitySlot slot) => CooldownMultiplier * (Twist(slot) ? AbilityRanks.Rank3Cooldown : 1f) * (Rank(slot) >= 5 ? AbilityRanks.Rank5Cooldown : 1f)
-            * (Rank(slot) >= 7 ? AbilityRanks.Rank7Cooldown : 1f) * (Rank(slot) >= 8 ? AbilityRanks.Rank8Cooldown : 1f);
+        public float CooldownFor(AbilitySlot slot) => CooldownMultiplier * (Twist(slot) ? AbilityRanks.Rank3Cooldown : 1f)
+            * (Rank(slot) >= 5 && Hastened(slot) ? AbilityRanks.HastenedCooldown : 1f);
 
         public void ServerAddSigil()
         {
@@ -211,7 +216,13 @@ namespace Deepbound.Progression
 
         /// <summary>Owner → server: spend a Sigil on Q or E, at the anvil.</summary>
         [Rpc(SendTo.Server)]
-        public void EmpowerRpc(byte slot)
+        public void EmpowerRpc(byte slot) => ServerEmpowerAbility(slot, false);
+
+        /// <summary>Owner -> server: the final rank, taken as HASTENED (EmpowerRpc takes it Overcharged).</summary>
+        [Rpc(SendTo.Server)]
+        public void EmpowerHastenedRpc(byte slot) => ServerEmpowerAbility(slot, true);
+
+        private void ServerEmpowerAbility(byte slot, bool hastened)
         {
             if (!AtRunewright || slot > 1) return;
             var rank = slot == 0 ? RankQ : RankE;
@@ -220,17 +231,19 @@ namespace Deepbound.Progression
             if (Sigils.Value < cost) return;
             Sigils.Value -= cost;
             rank.Value++;
+            if (rank.Value >= AbilityRanks.MaxRank)
+                RankChoice.Value = (byte)(hastened ? RankChoice.Value | (1 << slot) : RankChoice.Value & ~(1 << slot));
             MeldedFxRpc();
             EmpoweredRpc(slot, rank.Value);
         }
 
-        /// <summary>Owner → server: with both abilities at their top rank, a spare Sigil melts into 30 embers.</summary>
+        /// <summary>Owner → server: with both abilities at their top rank, a spare Sigil melts into embers.</summary>
         [Rpc(SendTo.Server)]
         public void MeltSigilRpc()
         {
             if (!AtRunewright || Sigils.Value < 1 || Rank(AbilitySlot.Q) < AbilityRanks.MaxRank || Rank(AbilitySlot.E) < AbilityRanks.MaxRank) return;
             Sigils.Value--;
-            Embers.Value += 30;
+            Embers.Value += AbilityRanks.MeltEmbers;
             MeldedFxRpc();
         }
 
@@ -341,10 +354,15 @@ namespace Deepbound.Progression
         public readonly NetworkVariable<byte> ActiveBlessing = new NetworkVariable<byte>();
         public bool Blessed(Blessing b) => ActiveBlessing.Value == (byte)b;
 
+        /// <summary>How often this player has asked the shrine for other relics this run.</summary>
+        public readonly NetworkVariable<byte> ShrineRerolls = new NetworkVariable<byte>();
+
         public void ServerBless(Blessing b)
         {
             if (!IsServer) return;
             ActiveBlessing.Value = (byte)b;
+            // Fortune pays out late in a run too: gold piles up by then, a Sigil never goes to waste.
+            if (b == Blessing.Fortune) ServerAddSigil();
             OnStatsChangedServer(StatType.HP);
         }
 
@@ -757,7 +775,7 @@ namespace Deepbound.Progression
         /// How far your attacks reach, as a multiple of the class's base range: every temper at the
         /// anvil adds 5%, a Farsight rune 25%. Any peer (it reads synced values), so visuals agree.
         /// </summary>
-        public float RangeMultiplier => 1f + 0.05f * WeaponLevel.Value + (HasRune(Loot.Rune.Farsight) ? 0.25f * Runes.Power(RuneTier(Loot.Rune.Farsight)) : 0f) + (HasRelic(Relic.LongShadow) ? 0.15f : 0f);
+        public float RangeMultiplier => 1f + 0.05f * WeaponLevel.Value + (HasRune(Loot.Rune.Farsight) ? 0.25f * Runes.Power(RuneTier(Loot.Rune.Farsight)) : 0f) + (HasRelic(Relic.LongShadow) ? RelicPower(Relic.LongShadow) * 0.15f : 0f);
 
         /// <summary>Melee gains half as much reach from the same sources.</summary>
         public float ReachMultiplier => 1f + (RangeMultiplier - 1f) * 0.5f;
@@ -775,40 +793,130 @@ namespace Deepbound.Progression
                 if (Bloodlust) m *= BloodlustDamage;
                 if (WeaponLevel.Value >= World.Anvil.AscendedLevel) m *= World.Anvil.AscendedDamage;
                 m *= 1f + World.Anvil.HoneDamage * Hones.Value;
-                if (HasRelic(Relic.BerserkersBrand) && health.Fraction < 0.5f) m *= 1.4f;
-                if (HasRelic(Relic.BloodPact)) m *= 1.3f;
+                if (HasRelic(Relic.BerserkersBrand) && health.Fraction < 0.5f) m *= 1f + 0.4f * RelicPower(Relic.BerserkersBrand);
+                if (HasRelic(Relic.BloodPact)) m *= 1f + 0.3f * RelicPower(Relic.BloodPact);
+                if (Rallied) m *= 1f + 0.15f * RallyPower.Value;
                 return m;
             }
         }
 
         /// <summary>SPD 50 is the reference speed; each point either side is ±1%.</summary>
-        public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1.15f : 1f) * (Blessed(Blessing.Swiftness) ? 1.12f : 1f)
+        public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1f + 0.15f * RelicPower(Relic.GhostLantern) : 1f) * (Blessed(Blessing.Swiftness) ? 1.12f : 1f)
+            * (Rallied ? 1f + 0.2f * RallyPower.Value : 1f)
             * World.DungeonDirector.WaterSlow(transform.position, true)
             * (TryGetComponent<Player.PlayerDebuffs>(out var deb) ? deb.SpeedMultiplier : 1f)
             * World.Carryable.SpeedFor(NetworkObjectId)
             * (Player.PlayerLife.IsDragging(NetworkObjectId) ? Player.PlayerLife.DragSpeed : 1f);
 
         /// <summary>Q and E cooldowns scale by this (Echo Stone).</summary>
-        public float CooldownMultiplier => (HasRelic(Relic.EchoStone) ? 0.7f : 1f) * (Wears(GearId.CrackedHourglass) ? 0.82f : 1f) * (Blessed(Blessing.Swiftness) ? 0.85f : 1f)
-            * (HasEdge(Edge.Quickening) ? Edges.QuickeningCooldown : 1f);
+        /// <summary>
+        /// Q and E cooldowns scale by this. Relics, the blessing and edges ADD up and stop at
+        /// <see cref="MaxCooldownCut"/> (2026-10-23: four sources multiplied down to a third of a cooldown,
+        /// and abilities stopped being decisions). Ability ranks cut on top of this.
+        /// </summary>
+        public float CooldownMultiplier => 1f - Mathf.Min(MaxCooldownCut,
+            (HasRelic(Relic.EchoStone) ? 0.2f * RelicPower(Relic.EchoStone) : 0f) + (Blessed(Blessing.Swiftness) ? 0.15f : 0f) + (HasEdge(Edge.Quickening) ? Edges.QuickeningCut : 0f));
+        public const float MaxCooldownCut = 0.4f;
 
-        public float GoldMultiplier => (HasRelic(Relic.GildedSkull) ? 1.6f : 1f) * (Blessed(Blessing.Fortune) ? 1.5f : 1f) * (HasRelic(Relic.TallymansLedger) ? 1.2f : 1f);
+        /// <summary>Rallying Bell: synced so speed and damage agree on every peer.</summary>
+        public readonly NetworkVariable<double> RallyUntil = new NetworkVariable<double>();
+        public readonly NetworkVariable<float> RallyPower = new NetworkVariable<float>(1f);
+        public bool Rallied => NetworkManager != null && RallyUntil.Value > NetworkManager.ServerTime.Time;
+
+        public void ServerRally(float seconds, float power)
+        {
+            if (!IsServer) return;
+            RallyPower.Value = Mathf.Max(Rallied ? RallyPower.Value : 0f, power);
+            RallyUntil.Value = NetworkManager.ServerTime.Time + seconds;
+        }
+
+        /// <summary>Server: Hunter's Tooth marks the first hit on each elite or boss (by enemy id).</summary>
+        public readonly System.Collections.Generic.HashSet<ulong> ToothMarked = new System.Collections.Generic.HashSet<ulong>();
+
+        /// <summary>Server -> owner: the Cracked Hourglass takes seconds off Q and E (cooldowns are timed on the owner).</summary>
+        [Rpc(SendTo.Owner)]
+        public void ShaveCooldownsRpc(float seconds)
+        {
+            var kit = GetComponent<Player.NetworkPlayer>()?.ActiveKit;
+            kit?.ShaveCooldowns(seconds);
+        }
+
+        public float GoldMultiplier => (HasRelic(Relic.GildedSkull) ? 1f + 0.6f * RelicPower(Relic.GildedSkull) : 1f) * (Blessed(Blessing.Fortune) ? 1.5f : 1f)
+            * (HasRelic(Relic.TallymansLedger) ? 1f + 0.2f * RelicPower(Relic.TallymansLedger) : 1f);
 
         // ---- Relics ----
 
+        // A relic byte: the id in the low five bits, its tier (0-2) in the next two.
+        private static Relic IdOf(byte b) => (Relic)(b & 31);
+        private static int TierOf(byte b) => (b >> 5) & 3;
+
         public bool HasRelic(Relic r)
         {
-            foreach (var b in relics) if (b == (byte)r) return true;
+            foreach (var b in relics) if (IdOf(b) == r) return true;
             return false;
         }
 
         public int RelicCount => relics.Count;
-        public Relic RelicAt(int i) => (Relic)relics[i];
+        public Relic RelicAt(int i) => IdOf(relics[i]);
+        public int RelicTierAt(int i) => TierOf(relics[i]);
 
-        /// <returns>False if already owned (the drop stays for a teammate).</returns>
+        /// <summary>0-2; 0 if not carried.</summary>
+        public int RelicTier(Relic r)
+        {
+            foreach (var b in relics) if (IdOf(b) == r) return TierOf(b);
+            return 0;
+        }
+
+        /// <summary>How strong a carried relic is: 1, 1.5 or 2 (0 if not carried).</summary>
+        public float RelicPower(Relic r) => HasRelic(r) ? Relics.Power(RelicTier(r)) : 0f;
+
+        /// <summary>"Echo Stone II".</summary>
+        public string RelicLabel(int i) => Relics.Name(RelicAt(i)) + Relics.TierName(RelicTierAt(i));
+
+        /// <summary>Would <see cref="ServerAddRelic"/> take this relic (as new, or as an empowering)?</summary>
+        public bool CanTakeRelic(Relic r)
+        {
+            if (HasRelic(r)) return Relics.Scales(r) && RelicTier(r) < Relics.MaxTier;
+            if (relics.Count < Relics.MaxCarried) return true;
+            for (int i = 0; i < relics.Count; i++) if (Relics.Scales(RelicAt(i)) && RelicTierAt(i) < Relics.MaxTier) return true;
+            return false;
+        }
+
+        private void ServerEmpower(int index, Relic fedBy)
+        {
+            var r = RelicAt(index);
+            int tier = Mathf.Min(Relics.MaxTier, RelicTierAt(index) + 1);
+            relics[index] = (byte)((byte)r | (tier << 5));
+            if (r == Relic.HeartOfTheDeep) OnStatsChangedServer(StatType.HP);
+            RelicEmpoweredRpc((byte)r, (byte)fedBy, (byte)tier);
+        }
+
+        /// <returns>
+        /// False if it cannot be taken (the drop stays for a teammate). A relic you carry is empowered
+        /// instead; with a full tray, a new relic empowers your weakest one.
+        /// </returns>
         public bool ServerAddRelic(Relic r)
         {
-            if (!IsServer || HasRelic(r)) return false;
+            if (!IsServer || !CanTakeRelic(r)) return false;
+            if (HasRelic(r))
+            {
+                for (int i = 0; i < relics.Count; i++) if (RelicAt(i) == r) { ServerEmpower(i, r); break; }
+                return true;
+            }
+            if (relics.Count >= Relics.MaxCarried)
+            {
+                int lowest = 99;
+                var pick = new System.Collections.Generic.List<int>();
+                for (int i = 0; i < relics.Count; i++)
+                {
+                    if (!Relics.Scales(RelicAt(i)) || RelicTierAt(i) >= Relics.MaxTier) continue;
+                    int t = RelicTierAt(i);
+                    if (t < lowest) { lowest = t; pick.Clear(); }
+                    if (t == lowest) pick.Add(i);
+                }
+                ServerEmpower(pick[UnityEngine.Random.Range(0, pick.Count)], r);
+                return true;
+            }
             relics.Add((byte)r);
             if (r == Relic.HeartOfTheDeep || r == Relic.BloodPact) OnStatsChangedServer(StatType.HP);
             RelicGainedRpc((byte)r);
@@ -825,7 +933,7 @@ namespace Deepbound.Progression
         public void ServerDebugRemoveRelic(Relic r)
         {
             if (!IsServer) return;
-            for (int i = relics.Count - 1; i >= 0; i--) if (relics[i] == (byte)r) relics.RemoveAt(i);
+            for (int i = relics.Count - 1; i >= 0; i--) if (IdOf(relics[i]) == r) relics.RemoveAt(i);
         }
 
         /// <summary>Server, each floor: once-per-floor relics recharge.</summary>
@@ -840,7 +948,7 @@ namespace Deepbound.Progression
 
         /// <summary>Server: Phoenix Feather. True if it fires (and is used up for this floor).</summary>
         /// <summary>Server: the health fraction the Phoenix raises you to.</summary>
-        public float PhoenixFraction => Relics.Has(this, Relics.Synergy.Undying) ? 1f : 0.5f;
+        public float PhoenixFraction => Relics.Has(this, Relics.Synergy.Undying) ? 1f : 0.5f + 0.25f * RelicTier(Relic.PhoenixFeather);
 
         [Rpc(SendTo.ClientsAndHost)]
         private void SynergyRpc(int index)
@@ -869,7 +977,7 @@ namespace Deepbound.Progression
         {
             if (HasRelic(Relic.BoneWard) && Time.time >= boneWardReadyAt)
             {
-                boneWardReadyAt = Time.time + 12f;
+                boneWardReadyAt = Time.time + 12f / RelicPower(Relic.BoneWard);
                 BoneWardFxRpc();
                 return 0f;
             }
@@ -885,7 +993,7 @@ namespace Deepbound.Progression
                     float d = Vector3.Distance(h.transform.position, attackerPosition);
                     if (d < best) { best = d; nearest = h; }
                 }
-                if (nearest != null) nearest.ServerDamage(damage * 0.4f, transform.position, NetworkObjectId);
+                if (nearest != null) nearest.ServerDamage(damage * 0.4f * RelicPower(Relic.ThornedMail), transform.position, NetworkObjectId);
             }
             return damage;
         }
@@ -894,7 +1002,7 @@ namespace Deepbound.Progression
         {
             if (HasEdge(Edge.Stalwart)) damage *= Edges.StalwartTaken;
             // Iron Psalter: bolts, spit and hexes from across the room glance off the hymns.
-            if (HasRelic(Relic.IronPsalter) && Vector3.Distance(attackerPosition, transform.position) >= 5f) damage *= 0.85f;
+            if (HasRelic(Relic.IronPsalter) && Vector3.Distance(attackerPosition, transform.position) >= 5f) damage *= 1f - 0.15f * RelicPower(Relic.IronPsalter);
             return damage;
         }
 
@@ -940,7 +1048,10 @@ namespace Deepbound.Progression
             {
                 shroudReadyAt = Time.time + 15f;
                 foreach (var foe in CombatQuery.Circle(transform.position, 4.5f, Team.Enemies).ToArray())
+                {
                     foe.ServerDamage(40f * AttackMultiplier, transform.position, NetworkObjectId);
+                    foe.ServerScorch(5f, NetworkObjectId);
+                }
                 ShroudFxRpc();
             }
             return damage;
@@ -1024,7 +1135,10 @@ namespace Deepbound.Progression
         {
             yield return new WaitForSeconds(0.7f);
             foreach (var foe in CombatQuery.Circle(at, 2.6f, Team.Enemies).ToArray())
+            {
                 foe.ServerDamage(30f * AttackMultiplier, at, NetworkObjectId);
+                foe.ServerScorch(4f, NetworkObjectId);
+            }
             JudgementFxRpc(at);
         }
 
@@ -1051,6 +1165,17 @@ namespace Deepbound.Progression
         {
             Art.Sfx.Play(Art.Sound.Fire, transform.position + Vector3.up, 1f, 0.8f);
             Telegraph.Show(transform.position, 4.5f, 0.5f, null, new Color(1f, 0.4f, 0.1f, 0.45f));
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RelicEmpoweredRpc(byte r, byte fedBy, byte tier)
+        {
+            var relic = (Relic)r;
+            Art.Sfx.Play(Art.Sound.Relic, transform.position + Vector3.up, 0.9f, 1.15f);
+            UI.GameHud.Feed(fedBy == r
+                ? name + "'s " + Relics.Name(relic) + " grows stronger: " + Relics.Name(relic) + Relics.TierName(tier) + " (+" + (tier * 50) + "%)"
+                : Relics.Name((Relic)fedBy) + " feeds " + name + "'s " + Relics.Name(relic) + ": now " + Relics.Name(relic) + Relics.TierName(tier) + " (the tray holds " + Relics.MaxCarried + ")",
+                Relics.GemColor(relic));
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -1310,7 +1435,9 @@ namespace Deepbound.Progression
                 case Shop.ItemKind.Flasks: return "Sold out";
                 case Shop.ItemKind.Potion: return GetComponent<Player.Flasks>() is var fl && fl != null && fl.IsFull((Player.Flasks.Kind)(int)item.Amount) ? "Pouch full (5)" : null;
                 case Shop.ItemKind.Gear: return gearBoughtSeed == World.DungeonDirector.Instance?.Floor.Value.x ? "Sold" : null;
-                case Shop.ItemKind.Relic: return HasRelic((Relic)(int)item.Amount) ? "Owned" : null;
+                case Shop.ItemKind.Relic: return !CanTakeRelic((Relic)(int)item.Amount) ? (HasRelic((Relic)(int)item.Amount) ? "At full power" : "Tray full") : null;
+                case Shop.ItemKind.Blessing: return ActiveBlessing.Value != 0 ? "Already blessed" : null;
+                case Shop.ItemKind.ShrineRestock: return null;
                 case Shop.ItemKind.Prayer: return PrayedFor.Value ? "Already prayed for" : null;
                 case Shop.ItemKind.Drill: return DrillCount(item.Stat) >= (int)item.Cap ? "Mastered" : null;
                 case Shop.ItemKind.Map: return ScoutMap.Value ? "Already have it" : null;
@@ -1380,6 +1507,15 @@ namespace Deepbound.Progression
                     Rope.Value = true;
                     bought = true;
                     break;
+                case Shop.ItemKind.Blessing:
+                    ServerBless((Blessing)(int)item.Amount);
+                    BlessedRpc((byte)(int)item.Amount);
+                    bought = true;
+                    break;
+                case Shop.ItemKind.ShrineRestock:
+                    ShrineRerolls.Value++;
+                    bought = true;
+                    break;
                 case Shop.ItemKind.Restock:
                     StockRerolls.Value++;
                     gearBoughtSeed = 0;
@@ -1398,6 +1534,15 @@ namespace Deepbound.Progression
                 if (HasRelic(Relic.PilgrimsPurse) && World.DungeonDirector.InLobby) ServerAddEmbers(item.Price / 10);
                 PurchasedRpc();
             }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BlessedRpc(byte b)
+        {
+            var c = Blessings.Color((Blessing)b);
+            Art.Sfx.Play(Art.Sound.Revive, transform.position + Vector3.up, 0.9f, 1.1f);
+            Art.Vfx.Ring(transform.position, 2f, c, 0.5f);
+            UI.GameHud.Feed(name + " receives the " + Blessings.Name((Blessing)b).Replace("Blessing of ", "blessing of ") + " for the next floor", c);
         }
 
         // The merchant's gear piece is one per floor: the seed of the floor it was bought on.
@@ -1470,6 +1615,7 @@ namespace Deepbound.Progression
             ActiveBlessing.Value = 0;
             Sigils.Value = 0;
             RankQ.Value = RankE.Value = 1;
+            RankChoice.Value = 0;
             Armor.Value = default;
             runeBag.Clear();
             bag.Clear();
@@ -1480,6 +1626,7 @@ namespace Deepbound.Progression
             Drills.Value = 0;
             ScoutMap.Value = MapRevealed.Value = Salts.Value = Rope.Value = false;
             StockRerolls.Value = 0;
+            ShrineRerolls.Value = 0;
             Socket0.Value = Socket1.Value = Socket2.Value = 0;
             Charm.Value = default;
             health.HealMultiplier = 1f;
@@ -1487,6 +1634,8 @@ namespace Deepbound.Progression
             DamageTaken.Value = Crits.Value = AbyssKicks.Value = 0;
             damageCarry = 0f;
             relics.Clear();
+            ToothMarked.Clear();
+            RallyUntil.Value = 0;
             ServerNewFloor();
             ApplyToHealth(refill: true);
         }
@@ -1502,7 +1651,7 @@ namespace Deepbound.Progression
         private void ApplyToHealth(bool refill)
         {
             float hp = Stats.GetValue(StatType.HP);
-            if (HasRelic(Relic.HeartOfTheDeep)) hp *= 1.25f;
+            if (HasRelic(Relic.HeartOfTheDeep)) hp *= 1f + 0.25f * RelicPower(Relic.HeartOfTheDeep);
             if (HasRelic(Relic.BloodPact)) hp *= 0.75f;
             if (Blessed(Blessing.Vigor)) hp *= 1.25f;
             if (CatPeed.Value) hp *= CatPeeHealth;

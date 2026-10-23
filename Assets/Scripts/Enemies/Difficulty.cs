@@ -53,7 +53,18 @@ namespace Deepbound.Enemies
         public static float EnemyHealth(int players) => 1f + 0.45f * Extra(players);
 
         /// <summary>Bosses are the whole party's target, so they scale harder: +75% per extra player.</summary>
-        public static float BossHealth(int players) => 1f + 0.75f * Extra(players);
+        public static float BossHealth(int players) => 1f + 0.85f * Extra(players);
+
+        /// <summary>
+        /// Co-op loot (2026-10-23, "figure out the game loop, solo or a four-man run"). Gold and embers are
+        /// split across the party, but drops barely grew with it: four players each got ~40% of a solo
+        /// player's income. Kill loot is rolled this many times (enemies already come <see cref="SpawnCount"/>
+        /// more often, so this makes up the rest); a fixed source (chest, urn, boss, champion, mimic, hoarder)
+        /// rolls once per player. Each player ends up with about a solo player's share.
+        /// </summary>
+        public static float KillLootShare(int players) => Mathf.Max(1, players) * SpawnCount(1) / SpawnCount(players);
+        public static float FixedLootShare(int players) => Mathf.Max(1, players);
+        public static int Party => Mathf.Max(1, Player.PlayerLife.All.Count);
 
         /// <summary>Per-hit damage: only +8% per extra player.</summary>
         public static float Damage(int players) => 1f + 0.08f * Extra(players);

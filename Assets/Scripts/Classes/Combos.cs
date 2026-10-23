@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Deepbound.Classes
 {
     /// <summary>APPEND ONLY: synced as a byte for the popup.</summary>
-    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed, WardBroken }
+    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed, WardBroken, ThermalShock }
 
     /// <summary>
     /// How the classes play off each other. Each class leaves a state on enemies or allies
@@ -39,6 +39,7 @@ namespace Deepbound.Classes
                 case ComboKind.MarkSpread: return "MARK SPREADS";
                 case ComboKind.Hallowed: return "HALLOWED FIRE";
                 case ComboKind.WardBroken: return "WARD BROKEN";
+                case ComboKind.ThermalShock: return "THERMAL SHOCK";
                 default: return "BLESSED";
             }
         }
@@ -54,6 +55,7 @@ namespace Deepbound.Classes
                 case ComboKind.MarkSpread: return new Color(1f, 0.35f, 0.3f);
                 case ComboKind.Hallowed: return new Color(1f, 0.75f, 0.35f);
                 case ComboKind.WardBroken: return new Color(0.73f, 0.66f, 1f);
+                case ComboKind.ThermalShock: return new Color(1f, 0.55f, 0.85f);
                 default: return new Color(1f, 0.95f, 0.6f);
             }
         }
@@ -70,6 +72,7 @@ namespace Deepbound.Classes
                 case ComboKind.MarkSpread: return "Mark Spreads: kill a marked enemy and the mark jumps to the nearest foe.";
                 case ComboKind.Hallowed: return "Hallowed Fire: a meteor landing on consecrated ground heals the allies on it.";
                 case ComboKind.WardBroken: return "Ward Broken: stun or chill a Warded elite and its ward shatters.";
+                case ComboKind.ThermalShock: return "Thermal Shock: frost on a scorched enemy (or fire on a chilled one) cracks it for a burst of damage.";
                 default: return "Blessed: allies standing in consecrated ground deal +20% damage.";
             }
         }
@@ -139,6 +142,21 @@ namespace Deepbound.Classes
             hooked = true;
             Health.ServerShieldBroken += OnShieldBroken;
             Health.ServerAnyDamaged += OnAnyDamaged;
+            Health.ThermalShock = OnThermalShock;
+        }
+
+        /// <summary>Thermal Shock: a flat crack that grows with the attacker's power, plus a slice of the target's health (much less on bosses).</summary>
+        public const float ShockFlat = 18f, ShockFraction = 0.05f, ShockBossFraction = 0.01f;
+
+        private static void OnThermalShock(Health target, ulong by)
+        {
+            PlayerProgress p = null;
+            var net = Unity.Netcode.NetworkManager.Singleton;
+            if (net != null && by != ulong.MaxValue && net.SpawnManager.SpawnedObjects.TryGetValue(by, out var o)) o.TryGetComponent(out p);
+            bool boss = target.TryGetComponent<BossBrain>(out _);
+            float dmg = ShockFlat * (p != null ? p.AttackMultiplier : 1f) + target.Max.Value * (boss ? ShockBossFraction : ShockFraction);
+            Popup(target, ComboKind.ThermalShock, p);
+            target.ServerDamage(dmg, target.Center, by);
         }
 
         private static void OnShieldBroken(Health shielded)

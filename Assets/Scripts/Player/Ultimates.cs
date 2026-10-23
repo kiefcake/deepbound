@@ -136,7 +136,8 @@ namespace Deepbound.Player
         private void Add(float amount)
         {
             if (DungeonDirector.InLobby || Time.time < lockedUntil) return;
-            if (progress.HasRelic(Relic.WarlordsHorn)) amount *= 1.5f;
+            if (progress.HasRelic(Relic.WarlordsHorn)) amount *= 1f + 0.5f * progress.RelicPower(Relic.WarlordsHorn);
+            if (progress.HasRelic(Relic.EchoStone)) amount *= 1f + 0.2f * progress.RelicPower(Relic.EchoStone);
             if (progress.Wears(GearId.RosaryOfAsh)) amount *= 1.35f;
             Charge.Value = Mathf.Min(ChargeMax, Charge.Value + amount);
         }
@@ -232,7 +233,7 @@ namespace Deepbound.Player
             var cls = progress.ClassId.Value;
             if (progress.HasRelic(Relic.WarlordsHorn))
                 foreach (var ally in CombatQuery.Circle(transform.position, 12f, Team.Players).ToArray())
-                    ally.ServerHeal(ally.Max.Value * 0.25f);
+                    ally.ServerHeal(ally.Max.Value * 0.25f * progress.RelicPower(Relic.WarlordsHorn));
             float att = progress.AttackMultiplier;
             switch (cls)
             {

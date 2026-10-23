@@ -28,8 +28,9 @@ namespace Deepbound.Progression
         public const float CleaverPerFoe = 0.05f, CleaverMax = 0.2f, CleaverRadius = 6f;
         public const float LoneWolfDamage = 1.18f, LoneWolfRadius = 10f;
         public const float OpportunistDamage = 1.2f;
-        public const float StalwartTaken = 0.88f;
-        public const float QuickeningCooldown = 0.88f;
+        public const float StalwartTaken = 0.9f;
+        /// <summary>Quickening: added to the other cooldown cuts (capped, see <see cref="PlayerProgress.MaxCooldownCut"/>).</summary>
+        public const float QuickeningCut = 0.1f;
         /// <summary>Desperation: +1% damage per 3% of health missing, up to +25%.</summary>
         public const float DesperationMax = 0.25f;
         public const float SecondWindHeal = 1.5f;
@@ -58,8 +59,8 @@ namespace Deepbound.Progression
                 case Edge.Cleaver: return "+5% damage for each other enemy within 6 m of you (up to +20%).";
                 case Edge.LoneWolf: return "+18% damage with no other enemy within 10 m.";
                 case Edge.Opportunist: return "+20% damage to stunned, chilled, marked or taunted enemies.";
-                case Edge.Stalwart: return "Take 12% less damage from everything.";
-                case Edge.Quickening: return "Your abilities recharge 12% faster.";
+                case Edge.Stalwart: return "Take 10% less damage from everything.";
+                case Edge.Quickening: return "Your abilities recharge 10% faster.";
                 case Edge.Desperation: return "+1% damage for every 3% of health you are missing (up to +25%).";
                 case Edge.SecondWind: return "Health Potions mend 50% more.";
                 default: return "";

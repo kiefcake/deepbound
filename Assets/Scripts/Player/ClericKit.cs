@@ -109,6 +109,7 @@ namespace Deepbound.Player
         public float Resource => Mana;
         public float ResourceMax => ManaMax;
         public void RestoreResource(float fraction) => Mana = Mathf.Min(ResourceMax, Mana + ResourceMax * fraction);
+        public void ShaveCooldowns(float seconds) { consecrateReadyAt -= seconds; aegisReadyAt -= seconds; }
 
         public void FillAbilities(List<AbilityView> into)
         {

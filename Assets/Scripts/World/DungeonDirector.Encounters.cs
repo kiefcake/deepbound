@@ -435,6 +435,9 @@ namespace Deepbound.World
                 float half = (alongX ? room.Size.x : room.Size.y) / 2f - 1.6f;
                 float t = (float)(rng.NextDouble() * 2.0 - 1.0) * half;
                 if (room.Doors[side] && Mathf.Abs(t) < DungeonLayout.CorridorWidth) continue;
+                // Nor on a hollow wall or beside one (a lever once stood in front of a secret cache's corner).
+                var hollow = room.HoleOn(side);
+                if (hollow != null && Mathf.Abs(t - hollow.Along) < WallHole.Width / 2f + 1.4f) continue;
                 var n = new Vector3(d.x, 0f, d.y);
                 face = -n;
                 float off = (alongX ? room.Size.y : room.Size.x) / 2f - 0.06f;

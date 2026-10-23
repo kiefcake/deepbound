@@ -1072,13 +1072,16 @@ namespace Deepbound.Enemies
             {
                 // The champion's hoard: gear for everyone and a Sigil.
                 GearDrop.ServerSpawnForParty(transform.position, 1f, 0);
-                World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f, LootKind.Sigil, 1);
+                // A Sigil for each player (it was one for the whole party).
+                for (int i = 0; i < Difficulty.Party; i++)
+                    World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f + Quaternion.Euler(0f, i * 90f, 0f) * Vector3.forward * 0.8f, LootKind.Sigil, 1, transform.position);
                 ChampionFallenRpc(Title.Value.ToString());
                 World.DungeonDirector.Instance?.ServerSealFound(depthForLoot);
             }
             if (!NoLoot && lootPrefab != null)
             {
-                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.3f * World.DungeonDirector.Tier(depthForLoot)) /* gold: gentler with depth (2026-10-21, 2,200 gold by floor 4) */ * Difficulty.Level.Gold * World.DungeonDirector.OmenGold * World.DungeonDirector.EventGold);
+                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.3f * World.DungeonDirector.Tier(depthForLoot)) /* gold: gentler with depth (2026-10-21, 2,200 gold by floor 4) */ * Difficulty.Level.Gold * World.DungeonDirector.OmenGold * World.DungeonDirector.EventGold,
+                    this is BossBrain || IsChampion || this is HoarderBrain || this is MimicBrain ? Difficulty.FixedLootShare(Difficulty.Party) : Difficulty.KillLootShare(Difficulty.Party));
                 // Gear, rolled for each player: always from a boss, sometimes from an elite.
                 if (this is BossBrain)
                 {

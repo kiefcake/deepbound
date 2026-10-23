@@ -33,7 +33,7 @@ namespace Deepbound.Progression
                 case Blessing.Wrath: return "+15% damage dealt";
                 case Blessing.Bulwark: return "15% less damage taken";
                 case Blessing.Swiftness: return "+12% speed, abilities recharge 15% faster";
-                case Blessing.Fortune: return "+50% gold and embers picked up";
+                case Blessing.Fortune: return "+50% gold and embers picked up, and a Sigil now";
                 case Blessing.Vigor: return "+25% maximum health";
                 default: return "";
             }
@@ -52,8 +52,16 @@ namespace Deepbound.Progression
         }
 
         /// <summary>The blessing on offer to one player this visit (seeded by the camp's seed).</summary>
-        public static Blessing OfferFor(ulong clientId, int campSeed) =>
-            (Blessing)(1 + new System.Random(campSeed * 17 + (int)clientId * 131).Next(Count));
+        public static Blessing OfferFor(ulong clientId, int campSeed) => OffersFor(clientId, campSeed)[0];
+
+        /// <summary>The two blessings on offer to one player this visit (2026-10-23: one random one was rarely the one you needed).</summary>
+        public static Blessing[] OffersFor(ulong clientId, int campSeed)
+        {
+            var rng = new System.Random(campSeed * 17 + (int)clientId * 131);
+            int a = rng.Next(Count), b = rng.Next(Count - 1);
+            if (b >= a) b++;
+            return new[] { (Blessing)(1 + a), (Blessing)(1 + b) };
+        }
 
         public static int Price(int depth) => 60 + 30 * depth;
     }

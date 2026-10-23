@@ -142,10 +142,25 @@ namespace Deepbound.Player
             float each = life.Health.Max.Value * HealFraction / ticks
                 * (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasEdge(Progression.Edge.SecondWind) ? Progression.Edges.SecondWindHeal : 1f);
             healingUntil = Time.time + HealSeconds;
+            // Shared Vow: half as much again for the nearest standing ally within 12 m.
+            Health ally = null;
+            float allyEach = 0f;
+            if (TryGetComponent<Progression.PlayerProgress>(out var vow) && vow.HasRelic(Loot.Relic.SharedVow))
+            {
+                float best = 12f;
+                foreach (var pl in PlayerLife.All)
+                {
+                    if (pl == null || pl == life || pl.Downed.Value) continue;
+                    float d = Vector3.Distance(pl.transform.position, transform.position);
+                    if (d < best) { best = d; ally = pl.Health; }
+                }
+                if (ally != null) allyEach = ally.Max.Value * HealFraction * 0.5f * vow.RelicPower(Loot.Relic.SharedVow) / ticks;
+            }
             for (int i = 0; i < ticks; i++)
             {
                 if (life.Downed.Value) yield break;
                 life.Health.ServerHeal(each);
+                if (ally != null && ally.IsAlive) ally.ServerHeal(allyEach);
                 yield return new WaitForSeconds(HealSeconds / ticks);
             }
         }

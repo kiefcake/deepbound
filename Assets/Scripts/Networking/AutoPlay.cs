@@ -263,8 +263,8 @@ namespace Deepbound.Networking
                     prog.ServerFreeTemper();
                     yield return null;
                 }
-                prog.RankQ.Value = (byte)Mathf.Min(8, 1 + startFloor / 2 + 1);
-                prog.RankE.Value = (byte)Mathf.Min(8, 1 + startFloor / 2);
+                prog.RankQ.Value = (byte)Mathf.Min(Classes.AbilityRanks.MaxRank, 1 + startFloor / 3 + 1);
+                prog.RankE.Value = (byte)Mathf.Min(Classes.AbilityRanks.MaxRank, 1 + startFloor / 3);
                 for (int i = 0; i < startFloor; i++) prog.ServerAddRelic(Relics.Random());
                 prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Armor)[0], (byte)Mathf.Min(2, startFloor / 3), (byte)startFloor));
                 prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Charm)[0], (byte)Mathf.Min(2, startFloor / 3), (byte)startFloor));

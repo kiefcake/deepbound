@@ -568,6 +568,14 @@ namespace Deepbound.Player
             Downed.Value = false;
             ReviveProgress.Value = 0f;
             reviver = null;
+            // The Rallying Bell: the strongest bell within 15 m of whoever got up rallies everyone near.
+            float bell = 0f;
+            foreach (var p in All)
+                if (p != null && p.progress != null && p.progress.HasRelic(Loot.Relic.RallyingBell) && Vector3.Distance(p.transform.position, transform.position) < 15f)
+                    bell = Mathf.Max(bell, p.progress.RelicPower(Loot.Relic.RallyingBell));
+            if (bell > 0f)
+                foreach (var p in All)
+                    if (p != null && p.progress != null && Vector3.Distance(p.transform.position, transform.position) < 15f) p.progress.ServerRally(5f, bell);
         }
 
         /// <summary>The nearest downed teammate within revive range of <paramref name="from"/>, or null.</summary>

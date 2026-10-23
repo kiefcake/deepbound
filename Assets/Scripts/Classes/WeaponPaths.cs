@@ -75,7 +75,7 @@ namespace Deepbound.Classes
                     ? "A full-draw hit marks its target at once."
                     : "Volley rains nine waves over a wider circle.";
                 default: return path == 1
-                    ? "Every swing chills what it hits, slowing it."
+                    ? "Every third swing chills what it hits (sets up Shatter)."
                     : "A riposte also stuns its targets for 1.2 s.";
             }
         }

@@ -83,6 +83,7 @@ namespace Deepbound.Player
         public float Resource => Mana;
         public float ResourceMax => ManaMax;
         public void RestoreResource(float fraction) => Mana = Mathf.Min(ResourceMax, Mana + ResourceMax * fraction);
+        public void ShaveCooldowns(float seconds) { blinkReadyAt -= seconds; meteorReadyAt -= seconds; }
 
         public void FillAbilities(List<AbilityView> into)
         {
@@ -240,8 +241,10 @@ namespace Deepbound.Player
                     h.ServerDamage(FireboltDamage * att * (shatter ? shatterMul : 1f), casterPos, me);
                     if (pyro)
                     {
+                        // Pyromancer fire scorches: the next frost to touch it sets off a Thermal Shock.
+                        if (h.IsAlive) h.ServerScorch(4f, me);
                         foreach (var other in CombatQuery.Circle(h.Center, burstRadius, Team.Enemies).ToArray())
-                            if (other != h) other.ServerDamage(FireboltDamage * att * burstShare, h.Center, me);
+                            if (other != h) { other.ServerDamage(FireboltDamage * att * burstShare, h.Center, me); other.ServerScorch(4f, me); }
                     }
                     if (this != null) ImpactFxRpc(h.Center, false, shatter || pyro);
                 }, false, FireboltRange * RangeMul);
@@ -299,6 +302,7 @@ namespace Deepbound.Player
                         Combos.Popup(h, ComboKind.Shatter, progress);
                     }
                     h.ServerDamage(MeteorDamage * progress.AttackMultiplier * potency * (shatter ? Shatter : 1f), at + Vector3.up, NetworkObjectId);
+                    if (!shatter) h.ServerScorch(5f, NetworkObjectId);
                 }
                 MeteorImpactRpc(at, shattered > 0);
 

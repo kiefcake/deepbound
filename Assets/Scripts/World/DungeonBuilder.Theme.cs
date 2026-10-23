@@ -53,10 +53,14 @@ namespace Deepbound.World
                 float len = side == 0 || side == 2 ? room.Size.x : room.Size.y;
                 float t = (float)(rng.NextDouble() - 0.5) * (len - 4f);
                 if (room.Doors[side] && Mathf.Abs(t) < DungeonLayout.CorridorWidth / 2f + 1.6f) continue;
-                var hole = room.HoleOn(side);
-                if (hole != null && Mathf.Abs(t - hole.Along) < 2.5f) continue;
                 var tangent = new Vector3(-outward.z, 0f, outward.x);
-                at = room.Center + outward * (half - inset) + tangent * t;
+                var spot = room.Center + outward * (half - inset) + tangent * t;
+                // Well clear of hollow walls, on any side: shelves and racks are wide, and one once covered a secret cache.
+                bool byHole = false;
+                foreach (var hole in room.Holes)
+                    if (Vector3.Distance(room.HoleFace(hole), spot) < WallHole.Width / 2f + 2.4f) byHole = true;
+                if (byHole) continue;
+                at = spot;
                 inward = -outward;
                 return true;
             }

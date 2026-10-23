@@ -41,5 +41,8 @@ namespace Deepbound.Player
 
         /// <summary>Owner: a mana potion. Refill this fraction of the resource.</summary>
         void RestoreResource(float fraction);
+
+        /// <summary>Owner: take this many seconds off Q and E (the Cracked Hourglass, on a kill).</summary>
+        void ShaveCooldowns(float seconds) { }
     }
 }

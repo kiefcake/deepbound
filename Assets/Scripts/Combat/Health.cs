@@ -39,6 +39,41 @@ namespace Deepbound.Combat
         public readonly NetworkVariable<bool> Chilled = new NetworkVariable<bool>();
 
         /// <summary>
+        /// Scorched by fire (Ember Rune, Ashen Shroud, Pyromancer bolts, meteors, Judgement): on its own
+        /// it does nothing, but frost meeting fire (or fire meeting frost) sets off a THERMAL SHOCK
+        /// (2026-10-23: burn had no combo of its own). Synced for the tag.
+        /// </summary>
+        public readonly NetworkVariable<bool> Scorched = new NetworkVariable<bool>();
+        private float scorchedUntil, shockReadyAt;
+        private ulong scorchedBy = ulong.MaxValue;
+
+        /// <summary>Server: deals the shock (set by <see cref="Classes.Combos"/>). Args: target, the attacker to credit.</summary>
+        public static Action<Health, ulong> ThermalShock;
+        public const float ShockCooldown = 4f;
+
+        /// <summary>Server: fire singes this for <paramref name="seconds"/>; on a chilled target it shocks instead.</summary>
+        public void ServerScorch(float seconds, ulong by)
+        {
+            if (!IsServer || !IsAlive) return;
+            if (Chilled.Value && TryShock(by)) return;
+            scorchedUntil = Mathf.Max(scorchedUntil, Time.time + seconds);
+            scorchedBy = by;
+            Scorched.Value = true;
+        }
+
+        private bool TryShock(ulong by)
+        {
+            if (Team != Team.Enemies || Time.time < shockReadyAt || ThermalShock == null) return false;
+            shockReadyAt = Time.time + ShockCooldown;
+            Scorched.Value = false;
+            scorchedUntil = 0f;
+            Chilled.Value = false;
+            chilledUntil = 0f;
+            ThermalShock(this, by);
+            return true;
+        }
+
+        /// <summary>
         /// A damage shield (the Cleric's Divine Aegis): absorbs hits before health, then
         /// fades when its time runs out. Synced so the bubble and the HUD bar show it.
         /// </summary>
@@ -341,6 +376,7 @@ namespace Deepbound.Combat
         public void ServerChill(float seconds)
         {
             if (!IsServer || !IsAlive) return;
+            if (Scorched.Value && TryShock(scorchedBy)) return;
             if (Team == Team.Enemies && Time.time >= freezeReadyAt && FreezesWhenChilled != null && FreezesWhenChilled(this) &&
                 TryGetComponent<ICrowdControl>(out var cc))
             {
@@ -379,6 +415,7 @@ namespace Deepbound.Combat
         private void Update()
         {
             if (IsServer && Chilled.Value && (Time.time >= chilledUntil || !IsAlive)) Chilled.Value = false;
+            if (IsServer && Scorched.Value && (Time.time >= scorchedUntil || !IsAlive)) Scorched.Value = false;
             if (IsServer && Shield.Value > 0f && (Time.time >= shieldUntil || !IsAlive)) Shield.Value = 0f;
             if (IsServer && Marked.Value && (Time.time >= markedUntil || !IsAlive)) Marked.Value = false;
             if (IsServer && Blighted.Value)

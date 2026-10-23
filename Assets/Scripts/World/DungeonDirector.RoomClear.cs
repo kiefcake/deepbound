@@ -83,7 +83,7 @@ namespace Deepbound.World
             foreach (var p in Player.PlayerLife.All)
                 if (p != null && !p.Downed.Value && p.TryGetComponent<Progression.PlayerProgress>(out var prog) && prog.HasRelic(Relic.ChoristersBell)
                     && Vector3.Distance(p.transform.position, at) < 40f)
-                    p.Health.ServerHeal(p.Health.Max.Value * 0.12f);
+                    p.Health.ServerHeal(p.Health.Max.Value * 0.12f * prog.RelicPower(Relic.ChoristersBell));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

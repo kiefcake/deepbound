@@ -84,6 +84,7 @@ namespace Deepbound.Player
         public float Resource => Fervor.Value;
         public float ResourceMax => FervorMax;
         public void RestoreResource(float fraction) => AddFervorRpc(FervorMax * fraction);
+        public void ShaveCooldowns(float seconds) { chainReadyAt -= seconds; leapReadyAt -= seconds; }
 
         public void FillAbilities(List<AbilityView> into)
         {

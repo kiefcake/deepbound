@@ -14,7 +14,7 @@ namespace Deepbound.Progression
     public static class Shop
     {
         /// <summary>Value 1 was the retired stat potion.</summary>
-        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7, Prayer = 8, Drill = 9, Map = 10, Salts = 11, Restock = 12, Rope = 13 }
+        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7, Prayer = 8, Drill = 9, Map = 10, Salts = 11, Restock = 12, Rope = 13, Blessing = 14, ShrineRestock = 15 }
 
         public struct Item
         {
@@ -85,18 +85,7 @@ namespace Deepbound.Progression
                 if (camp ? it.Seller == vendor : vendor == Vendor.Merchant && it.Kind == ItemKind.Potion) list.Add(it);
             }
             if (camp && vendor == Vendor.Shrine)
-            {
-                var rng = new System.Random(seed);
-                int a = rng.Next(Relics.Count), b = rng.Next(Relics.Count - 1);
-                if (b >= a) b++;
-                foreach (int r in new[] { a, b })
-                {
-                    var relic = (Relic)r;
-                    list.Add(new Item { Name = Relics.Name(relic), Description = Relics.Describe(relic), Price = 110 + 30 * depth, Kind = ItemKind.Relic, Amount = r, Seller = Vendor.Shrine });
-                }
-            }
-            if (camp && vendor == Vendor.Shrine)
-                list.Add(new Item { Name = "Brother Aldric's Prayer", Description = "He prays for you, loudly. The first blow that would down you leaves you at 1 health instead (once)",
+                list.Add(new Item { Name = "Brother Aldric's Prayer", Description = "Loudly. The first blow that would down you leaves you at 1 health instead (once)",
                     Price = 45 + 15 * depth, Kind = ItemKind.Prayer, Seller = Vendor.Shrine });
             float tier = World.DungeonDirector.Tier(depth);
             if (camp && vendor == Vendor.Smith)
@@ -159,7 +148,35 @@ namespace Deepbound.Progression
                     list.Add(new Item { Name = "Pendant: " + Loot.Gear.Name(gear), Description = Loot.Gear.StatLine(gear) + ". " + Loot.Gear.Effect(gear.Kind), Price = 55 + 35 * quality + 20 * depth, Kind = ItemKind.Gear, Gear = gear, Seller = Vendor.Merchant });
                 }
             }
+            if (vendor == Vendor.Shrine && World.DungeonDirector.InLobby)
+            {
+                // Two relics picked for you (2026-10-23: they were one pair for the whole party), and a gold
+                // reroll; relics you carry can be bought again to empower them.
+                var buyerS = PlayerProgress.ForClient(clientId);
+                var rng = new System.Random(seed * 13 + (int)clientId * 389 + (buyerS != null ? buyerS.ShrineRerolls.Value * 7717 : 0));
+                var a = Relics.FromSeed(rng);
+                var b = a;
+                for (int t = 0; t < 20 && b == a; t++) b = Relics.FromSeed(rng);
+                foreach (var relic in new[] { a, b })
+                {
+                    bool owned = buyerS != null && buyerS.HasRelic(relic);
+                    list.Add(new Item { Name = Relics.Name(relic) + (owned ? "  (empower to" + Relics.TierName(buyerS.RelicTier(relic) + 1) + ")" : ""), Description = Relics.Describe(relic),
+                        Price = 140 + 45 * depth, Kind = ItemKind.Relic, Amount = (int)relic, Seller = Vendor.Shrine });
+                }
+                list.Add(new Item { Name = "Ask for other relics", Description = "Aldric brings out two different relics for you", Price = UnityEngine.Mathf.RoundToInt(35 + 15 * World.DungeonDirector.Tier(depth)),
+                    Kind = ItemKind.ShrineRestock, Seller = Vendor.Shrine });
+                foreach (var bl in Blessings.OffersFor(clientId, seed))
+                    list.Add(new Item { Name = Blessings.Name(bl), Description = "For the next floor: " + Blessings.Describe(bl), Price = Blessings.Price(depth), Kind = ItemKind.Blessing, Amount = (int)bl, Seller = Vendor.Shrine });
+            }
             var buyer = PlayerProgress.ForClient(clientId);
+            // Potions cost more the deeper the run (2026-10-23: 18 gold on floor 10 was no price at all).
+            for (int i = 0; i < list.Count; i++)
+                if (list[i].Kind == ItemKind.Potion)
+                {
+                    var it = list[i];
+                    it.Price = UnityEngine.Mathf.RoundToInt(it.Price * (1f + 0.25f * depth));
+                    list[i] = it;
+                }
             // Only the Mage and the Cleric spend mana: Breathing (+MP) is no drill for anyone else.
             if (vendor == Vendor.Yard && buyer != null && buyer.ClassId.Value != Classes.ClassId.Mage && buyer.ClassId.Value != Classes.ClassId.Cleric)
                 list.RemoveAll(it => it.Kind == ItemKind.Drill && it.Stat == StatType.MP);

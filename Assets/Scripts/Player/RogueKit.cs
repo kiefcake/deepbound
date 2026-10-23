@@ -79,6 +79,7 @@ namespace Deepbound.Player
         public float Resource => Energy;
         public float ResourceMax => EnergyMax;
         public void RestoreResource(float fraction) => Energy = Mathf.Min(ResourceMax, Energy + ResourceMax * fraction);
+        public void ShaveCooldowns(float seconds) { stepReadyAt -= seconds; smokeReadyAt -= seconds; }
 
         public void FillAbilities(List<AbilityView> into)
         {
