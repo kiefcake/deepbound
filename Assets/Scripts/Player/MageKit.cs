@@ -32,7 +32,7 @@ namespace Deepbound.Player
     [RequireComponent(typeof(Health))]
     public class MageKit : NetworkBehaviour, IClassKit
     {
-        public const float FireboltInterval = 0.42f, FireboltDamage = 20f, FireboltSpeed = 32f, FireboltMana = 5f;
+        public const float FireboltInterval = 0.42f, FireboltDamage = 23f, FireboltSpeed = 32f, FireboltMana = 5f;
         // The frostbolt is a heavy, deliberate shot now: much harder hitting, on its own 3 s cooldown.
         public const float FrostboltInterval = 0.95f, FrostboltDamage = 34f, FrostboltSpeed = 26f, FrostboltMana = 14f, ChillSeconds = 4f, FrostboltCooldown = 3f;
         public const float BlinkCooldown = 8f, BlinkDistance = 7f;

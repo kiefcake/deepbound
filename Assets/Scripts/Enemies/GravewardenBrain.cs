@@ -34,7 +34,7 @@ namespace Deepbound.Enemies
         [SerializeField] private float dazeSeconds = 2.8f;
         [SerializeField] private float frontalDamageTaken = 0.25f;
         // Solo there is nobody to flank with: the shield turns less aside.
-        [SerializeField] private float frontalDamageTakenSolo = 0.4f;
+        [SerializeField] private float frontalDamageTakenSolo = 0.55f;
         // After every Mace Sweep the shield swings wide for a moment: hit it then.
         [SerializeField] private float openingSeconds = 1.2f;
         private float openUntil;

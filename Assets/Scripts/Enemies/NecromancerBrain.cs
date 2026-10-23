@@ -117,6 +117,7 @@ namespace Deepbound.Enemies
         private void ResolveMend()
         {
             mendAt = -1f;
+            var healed = new System.Collections.Generic.List<Vector3>();
             foreach (var h in CombatQuery.Circle(transform.position, mendRadius, Team.Enemies))
             {
                 if (h.Team != Team.Enemies || h.GetComponent<TrainingDummy>() != null) continue;
@@ -126,8 +127,9 @@ namespace Deepbound.Enemies
                 var hb = h.GetComponent<EnemyBrain>();
                 float frac = hb is BossBrain ? BossMendFraction : hb != null && hb.IsChampion ? ChampionMendFraction : mendFraction;
                 h.ServerHeal(h.Max.Value * frac);
+                if (h != health) healed.Add(h.transform.position);
             }
-            MendFxRpc();
+            MendFxRpc(healed.ToArray());
         }
 
         protected override void InterruptWindup(float stagger)
@@ -161,7 +163,18 @@ namespace Deepbound.Enemies
         private void CancelTelegraphRpc() => Telegraph.Cancel(this);
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void MendFxRpc() => Sfx.Play(Sound.Revive, transform.position + Vector3.up, 0.9f, 0.7f);
+        private void MendFxRpc(Vector3[] healed)
+        {
+            // Green rings on everything it mended, so the party sees who keeps the dead standing.
+            Sfx.Play(Sound.Revive, transform.position + Vector3.up, 0.9f, 0.7f);
+            var green = new Color(0.45f, 1f, 0.5f);
+            Vfx.Ring(transform.position, 1.2f, green, 0.6f);
+            foreach (var at in healed)
+            {
+                Vfx.Ring(at, 1.1f, green, 0.6f);
+                Vfx.Embers(at + Vector3.up, 6, green, 2.5f, 0.05f, 0.8f);
+            }
+        }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void RaiseFxRpc() => Sfx.Play(Sound.Summon, transform.position + Vector3.up, 0.8f, 1.3f);

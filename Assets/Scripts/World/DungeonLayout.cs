@@ -377,6 +377,19 @@ namespace Deepbound.World
         {
             AssignOtherFeatures(layout, rng);
             AssignHoles(layout, rng);
+            // Holes come after the features, so clear feature props (sarcophagi, shelves, pyres) off them now:
+            // a sarcophagus once stood across a secret cache's corner and ate the shots meant for it.
+            foreach (var room in layout.Rooms)
+            {
+                if (room.Holes.Count == 0 || room.FeatureSpots.Count <= 1) continue;
+                var keep = room.FeatureSpots.FindAll(spot =>
+                {
+                    foreach (var h in room.Holes)
+                        if (Vector3.Distance(room.HoleFace(h), spot) < WallHole.Width / 2f + 2.8f) return false;
+                    return true;
+                });
+                if (keep.Count > 0 && keep.Count < room.FeatureSpots.Count) { room.FeatureSpots.Clear(); room.FeatureSpots.AddRange(keep); }
+            }
         }
 
         /// <summary>

@@ -45,8 +45,13 @@ namespace Deepbound.Loot
             // Banner of the Fallen: the strongest banner within 8 m lifts everyone near it (its bearer too).
             float banner = 0f;
             foreach (var pl in Player.PlayerLife.All)
-                if (pl != null && pl.TryGetComponent<PlayerProgress>(out var bp) && bp.HasRelic(Relic.BannerOfTheFallen)
-                    && (pl.transform.position - p.transform.position).sqrMagnitude < 64f) banner = Mathf.Max(banner, bp.RelicPower(Relic.BannerOfTheFallen));
+            {
+                if (pl == null || !pl.TryGetComponent<PlayerProgress>(out var bp) || !bp.HasRelic(Relic.BannerOfTheFallen)) continue;
+                bool band = Relics.Has(bp, Relics.Synergy.WarBand);
+                float reach = band ? 12f : 8f;
+                if ((pl.transform.position - p.transform.position).sqrMagnitude < reach * reach)
+                    banner = Mathf.Max(banner, bp.RelicPower(Relic.BannerOfTheFallen) * (band ? 1.5f : 1f));
+            }
             if (banner > 0f) m *= 1f + 0.08f * banner;
             if (p.ServerConsumeDodgeStrike()) m *= 1.6f;
             if (p.Blessed(Blessing.Wrath)) m *= 1.15f;
@@ -64,7 +69,12 @@ namespace Deepbound.Loot
             {
                 m *= p.HasRelic(Relic.WhettedFang) ? 2f + 0.25f * p.RelicTier(Relic.WhettedFang) : 1.75f;
                 // Frost Shard: a crit chills (it used to be a coin flip on every hit, the fifth chill source).
-                if (p.HasRelic(Relic.FrostCharm)) target.ServerChill(3f);
+                if (Relics.Has(p, Relics.Synergy.ColdSteel) && target.ServerConsumeChill())
+                {
+                    m *= 1.4f;
+                    Classes.Combos.Popup(target, Classes.ComboKind.Shatter, p);
+                }
+                else if (p.HasRelic(Relic.FrostCharm)) target.ServerChill(3f);
                 p.CritFxRpc(target.Center + Vector3.up * 0.4f);
             }
             if (World.DungeonDirector.InRitualWard(target.transform.position)) m *= 0.5f;

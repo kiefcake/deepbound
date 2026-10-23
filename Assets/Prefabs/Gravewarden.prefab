@@ -203,6 +203,6 @@ MonoBehaviour:
   chargeMaxLength: 20
   dazeSeconds: 2.8
   frontalDamageTaken: 0.25
-  frontalDamageTakenSolo: 0.4
+  frontalDamageTakenSolo: 0.55
   openingSeconds: 1.2
   dazedDamageTaken: 1.5

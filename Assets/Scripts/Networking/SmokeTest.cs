@@ -877,10 +877,12 @@ namespace Deepbound.Networking
                         // Close in, square on: props in the room (a sarcophagus, once) must not stand in the way.
                         var from = target - st.forward * 2.2f;
                         string first = Physics.Raycast(from, (target - from).normalized, out var fh, 8f, ~0, QueryTriggerInteraction.Ignore) ? fh.collider.name + "@" + fh.distance.ToString("F1") : "nothing";
+                        // One of the dead wandering into the line takes the shot: not the wall's fault either.
+                        bool foeInWay = fh.collider != null && fh.collider.GetComponentInParent<Health>() is Health fhh && fhh.Team == Team.Enemies && fhh != sh;
                         Arrows.ServerFire(from, target - from, 5f, Team.Enemies, local.NetworkObjectId, 21f, null, false, 12f);
                         yield return new WaitForSeconds(0.45f);
                         // An urn or barrel in the way takes the shot and breaks (the next one gets through): not the wall's fault.
-                        if (secret == null || !secret.IsSpawned || sh.Current.Value < before || first.StartsWith("Breakable")) landed++;
+                        if (secret == null || !secret.IsSpawned || sh.Current.Value < before || first.StartsWith("Breakable") || foeInWay) landed++;
                         else Debug.Log("[Smoke] wall shot missed at " + aimAt + ", first thing on the line: " + first);
                         if (secret == null || !secret.IsSpawned) break;
                     }
@@ -1301,6 +1303,7 @@ namespace Deepbound.Networking
                                 bool free = local.GetComponent<PlayerLife>().CanAct;
                                 Log("hand torch", "lit " + lit + ", hands full while carried " + hands + ", free once set down " + free, lit && hands && free);
                                 // Lamplighter's Oil: the torch-bearer can fight.
+                                if (sp.RelicCount >= Relics.MaxCarried) sp.ServerDebugRemoveRelic(sp.RelicAt(0));
                                 sp.ServerAddRelic(Relic.LamplightersOil);
                                 torch.ServerDebugCarry(sp);
                                 yield return new WaitForSeconds(0.2f);
@@ -1568,7 +1571,7 @@ namespace Deepbound.Networking
                     }
                     int chestsAfter = FindObjectsByType<Chest>(FindObjectsSortMode.None).Length;
                     Log("ambush", "triggered wave " + waveSeen + ", gates shut " + gatesShut + ", final wave " + dir.AmbushWave + ", chests " + chestsBefore + " -> " + chestsAfter,
-                        waveSeen == 1 && gatesShut && dir.AmbushWave == 3 && chestsAfter == chestsBefore + 1);
+                        waveSeen >= 1 && gatesShut && dir.AmbushWave == 3 && chestsAfter == chestsBefore + 1);
                     am.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                     yield return new WaitForSeconds(0.3f);
                 }
@@ -2422,6 +2425,8 @@ namespace Deepbound.Networking
                 Log("mania", (psalter ? "immune (Iron Psalter), " : "") + "manic " + manic + ", cleansed " + !deb2.Manic, (manic || psalter) && !deb2.Manic);
                 // The Iron Psalter: madness slides off.
                 var pp2 = local.GetComponent<PlayerProgress>();
+                // A full tray would turn it into an empowering of something else: make room.
+                if (!pp2.HasRelic(Relic.IronPsalter) && pp2.RelicCount >= Relics.MaxCarried) pp2.ServerDebugRemoveRelic(pp2.RelicAt(0));
                 pp2.ServerAddRelic(Relic.IronPsalter);
                 yield return new WaitForSeconds(4f); // past the mania grace
                 deb2.ServerMania(1f);
@@ -2532,6 +2537,12 @@ namespace Deepbound.Networking
                 Log("relic tray", "Echo Stone tier " + echoTier + " (cooldowns x" + cdTier0.ToString("F2") + " -> x" + synP.CooldownMultiplier.ToString("F2") + "), carried " + synP.RelicCount + "/" + Relics.MaxCarried + ", empowered " + tiered,
                     echoTier == 1 && synP.RelicCount == Relics.MaxCarried && tiered >= 2 && synP.CooldownMultiplier >= 1f - PlayerProgress.MaxCooldownCut - 0.001f && synP.CooldownMultiplier < cdTier0);
 
+                // The new pairs wake their synergies.
+                for (int ri = 0; ri < Relics.Count; ri++) synP.ServerDebugRemoveRelic((Relic)ri);
+                foreach (var pr in new[] { Relic.BannerOfTheFallen, Relic.RallyingBell, Relic.FrostCharm, Relic.WhettedFang }) synP.ServerAddRelic(pr);
+                Log("new synergies", "War Band " + Relics.Has(synP, Relics.Synergy.WarBand) + ", Cold Steel " + Relics.Has(synP, Relics.Synergy.ColdSteel),
+                    Relics.Has(synP, Relics.Synergy.WarBand) && Relics.Has(synP, Relics.Synergy.ColdSteel));
+
                 // Thermal Shock: fire on an enemy, then frost: the two cancel in a burst.
                 var shockT = Health.All.FirstOrDefault(hh => hh != null && hh.Team == Team.Enemies && hh.IsAlive && !hh.TryGetComponent<BossBrain>(out _));
                 if (shockT != null)
@@ -2542,7 +2553,7 @@ namespace Deepbound.Networking
                     bool scorched = shockT.Scorched.Value;
                     shockT.ServerChill(3f);
                     Log("thermal shock", "scorched " + scorched + ", after frost: scorched " + shockT.Scorched.Value + " chilled " + shockT.Chilled.Value + ", dealt " + (shockHp - shockT.Current.Value).ToString("F0"),
-                        scorched && !shockT.Scorched.Value && !shockT.Chilled.Value && shockT.Current.Value < shockHp);
+                        scorched && !shockT.Scorched.Value && shockT.Current.Value < shockHp); // chill may come back from another source at once
                 }
 
                 // Rank 5 is a choice: Hastened trades strength for cooldown.

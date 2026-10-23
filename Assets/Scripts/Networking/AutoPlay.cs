@@ -602,6 +602,8 @@ namespace Deepbound.Networking
                 {
                     Problem("stuck for 12 s going for " + goalWhat + " at " + Fmt(goal) + " from " + Fmt(me.transform.position) + " | " + WhyStuck(goal));
                     if (target != null) skip.Add(target.NetworkObjectId);
+                    // Loot it cannot get to (behind a secret wall, on a ledge): give it up rather than walk into the wall all floor.
+                    if (goalWhat == "loot" && loot != null) ignoredLoot.Add(loot.NetworkObjectId);
                     stuckSince = Time.time;
                 }
                 if (Time.time >= nextShot) { nextShot = Time.time + 35f; yield return Shot("F" + (floorNo + 1) + "_" + (int)(Time.time - floorStart) + "s"); }
@@ -630,6 +632,13 @@ namespace Deepbound.Networking
             {
                 if (Vector3.Distance(Flat(me.transform.position), Flat(DungeonDirector.ExitPosition)) > 1.2f) yield return StepToward(DungeonDirector.ExitPosition, 0.5f);
                 else yield return new WaitForSeconds(0.2f);
+            }
+            if (!DungeonDirector.InLobby && dd.Phase.Value == RunPhase.FloorCleared && Vector3.Distance(Flat(me.transform.position), Flat(DungeonDirector.ExitPosition)) > 1.2f)
+            {
+                // The bot's pathing gave out (it is not a player): put it in the cage so one bad spot does not end the test run.
+                Problem("could not walk to the lift from " + Fmt(me.transform.position) + " (" + Vector3.Distance(me.transform.position, DungeonDirector.ExitPosition).ToString("F0") + " m): " + WhyStuck(DungeonDirector.ExitPosition) + "; teleporting");
+                me.GetComponent<FirstPersonMotor>().Teleport(DungeonDirector.ExitPosition + Vector3.up * 0.2f, me.transform.rotation);
+                yield return new WaitForSeconds(1f);
             }
             yield return Shot("F" + (floorNo + 1) + "_lift");
             for (float t = 0f; t < 30f && !DungeonDirector.InLobby && dd.Phase.Value == RunPhase.FloorCleared; t += 0.5f) yield return new WaitForSeconds(0.5f);
