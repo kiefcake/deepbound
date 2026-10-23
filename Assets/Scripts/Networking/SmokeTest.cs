@@ -601,6 +601,8 @@ namespace Deepbound.Networking
                     {
                         // Lamplighter's Oil (a relic a shrine or altar may have handed out) frees the carrier's hands.
                         local.GetComponent<PlayerProgress>().ServerDebugRemoveRelic(Relic.LamplightersOil);
+                        // Untouchable while it carries: any hit at the waystone restarts the rite (wandering dead once did).
+                        local.GetComponent<PlayerLife>().ServerDebugInvulnerable(8f);
                         skullT.ServerDebugCarry(local.GetComponent<PlayerProgress>());
                         yield return new WaitForSeconds(0.2f);
                         bool slowed = SoulSkull.IsCarrying(local.NetworkObjectId) && !local.GetComponent<PlayerLife>().CanAct;
@@ -745,19 +747,23 @@ namespace Deepbound.Networking
                     var mAt = farRoom.Center + (longX ? Vector3.right : Vector3.forward) * reach;
                     if (UnityEngine.AI.NavMesh.SamplePosition(mAt, out var mh, 3f, UnityEngine.AI.NavMesh.AllAreas)) mAt = mh.position;
                     // A pillar or a raised floor between the two would mean nobody watches it: find a clear line.
-                    foreach (var dirM in new[] { Vector3.right, Vector3.left, Vector3.forward, Vector3.back })
+                    bool clearLine = false;
+                    foreach (var dirM in new[] { Vector3.right, Vector3.left, Vector3.forward, Vector3.back, new Vector3(1f, 0f, 1f).normalized, new Vector3(-1f, 0f, 1f).normalized, new Vector3(1f, 0f, -1f).normalized, new Vector3(-1f, 0f, -1f).normalized })
+                    foreach (float rf in new[] { 1f, 0.6f })
                     {
-                        var cand = farRoom.Center + dirM * reach;
+                        if (clearLine) break;
+                        var cand = farRoom.Center + dirM * reach * rf;
                         if (!UnityEngine.AI.NavMesh.SamplePosition(cand, out var ch2, 3f, UnityEngine.AI.NavMesh.AllAreas)) continue;
                         bool blockedM = false;
                         foreach (var hit in Physics.RaycastAll(stand + Vector3.up * 1.5f, (ch2.position + Vector3.up * 1.2f) - (stand + Vector3.up * 1.5f), Vector3.Distance(stand, ch2.position), ~0, QueryTriggerInteraction.Ignore))
                             if (hit.collider.GetComponentInParent<Health>() == null) { blockedM = true; break; }
-                        if (!blockedM) { mAt = ch2.position; break; }
+                        if (!blockedM) { mAt = ch2.position; clearLine = true; }
                     }
                     lfm.Teleport(stand, Quaternion.LookRotation(mAt - stand));
                     yield return new WaitForSeconds(0.3f);
-                    var mourner = DungeonDirector.Instance.ServerDebugSpawnMourner(mAt, stand - mAt) as MournerBrain;
-                    if (mourner != null)
+                    var mourner = clearLine ? DungeonDirector.Instance.ServerDebugSpawnMourner(mAt, stand - mAt) as MournerBrain : null;
+                    if (!clearLine) Log("mourner", "skipped: no clear line of sight in this room's layout", true);
+                    else if (mourner != null)
                     {
                         mourner.ServerAggroNearest(); // this checks the watching rule, not whether it noticed you
                         // Let its first watched check land (a spawn can glide a step before it), then measure.
@@ -1339,14 +1345,14 @@ namespace Deepbound.Networking
                                 var frh = fr.GetComponent<Health>();
                                 frh.ServerSetFraction(0.4f);
                                 bool frenzied = fr.Frenzied;
-                                int piles0 = dd.GraveboundPileCount;
+                                int piles0 = dd.GraveboundPileCount, made0 = dd.GraveboundPilesMade;
                                 var gbAt = gb.transform.position;
                                 gb.GetComponent<Health>().ServerDamage(1e6f, gbAt, local.NetworkObjectId);
                                 yield return new WaitForSeconds(0.3f);
-                                bool pile = dd.GraveboundPileCount == piles0 + 1;
+                                bool pile = dd.GraveboundPilesMade == made0 + 1;
                                 local.GetComponent<FirstPersonMotor>().Teleport(gbAt + Vector3.up * 0.1f, local.transform.rotation);
                                 yield return new WaitForSeconds(0.6f);
-                                bool scattered = dd.GraveboundPileCount == piles0;
+                                bool scattered = dd.GraveboundPileCount <= piles0;
                                 Log("elite affixes", "frenzy only below half " + (calm && frenzied) + ", gravebound bones " + pile + ", stamped out " + scattered, calm && frenzied && pile && scattered);
                                 if (fr.IsSpawned) fr.NetworkObject.Despawn();
                             }
@@ -1384,6 +1390,14 @@ namespace Deepbound.Networking
                         }
                         // An Abyssal Eye's beam hits a player standing on its line, and misses one who stepped off.
                         {
+                            // Stage it in the start room, along its long side: wherever the player happened to stand, the eye
+                            // once landed 0.8 m away (the spot 7 m out was in a wall and the navmesh snap pulled it in).
+                            var srE = DungeonDirector.Layout.StartRoom;
+                            var axisE = srE.Size.x >= srE.Size.y ? Vector3.right : Vector3.forward;
+                            var standE = srE.Center - axisE * 3f;
+                            if (UnityEngine.AI.NavMesh.SamplePosition(standE, out var seH, 2f, UnityEngine.AI.NavMesh.AllAreas)) standE = seH.position;
+                            local.GetComponent<FirstPersonMotor>().Teleport(standE + Vector3.up * 0.1f, Quaternion.LookRotation(axisE));
+                            yield return new WaitForSeconds(0.3f);
                             // A spot 7 m out with nothing between it and the player (its beam stops at walls).
                             var eyeAt = local.transform.position + local.transform.forward * 7f;
                             for (int ed = 0; ed < 8; ed++)
@@ -1560,7 +1574,8 @@ namespace Deepbound.Networking
                 }
 
                 // Kill a handful of skeletons and confirm they drop loot that a player can take.
-                var victims = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain)).Take(6).ToList();
+                // Only the dead standing in rooms: a breach's ambushers wait in a sealed niche with no floor to walk to yet.
+                var victims = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain) && layout.RoomAt(e.transform.position, 0f) != null).Take(6).ToList();
                 foreach (var v in victims) v.GetComponent<Health>().ServerDamage(1e6f, v.transform.position, local.NetworkObjectId);
                 yield return new WaitForSeconds(0.3f);
 

@@ -85,6 +85,8 @@ namespace Deepbound.World
         /// <summary>Server, for tests: bone piles waiting to rise.</summary>
         public int BonePileCount => bonePiles.Count;
         /// <summary>Server, for tests: Gravebound piles waiting to rise.</summary>
+        /// <summary>Server, for tests: Gravebound piles laid this session (a count, so an ally stamping one at once cannot hide it).</summary>
+        public int GraveboundPilesMade { get; private set; }
         public int GraveboundPileCount { get { int n = 0; foreach (var p in bonePiles) if (p.Prefab != null) n++; return n; } }
 
         /// <summary>
@@ -101,6 +103,7 @@ namespace Deepbound.World
             if (prefab == null) prefab = skeletonPrefab;
             var at = brain.transform.position;
             int id = nextPileId++;
+            GraveboundPilesMade++;
             bonePiles.Add(new BonePile { Id = id, At = at, RiseAt = Time.time + GraveboundRiseSeconds, Prefab = prefab });
             BonePileRpc(id, at, GraveboundRiseSeconds);
             GraveboundRpc(at + Vector3.up * 1.6f);

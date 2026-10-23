@@ -391,6 +391,8 @@ namespace Deepbound.Networking
             // Spare gold: Brann's drills (cheapest first), then a relic at the shrine.
             yield return SpendAt(Shop.Vendor.Yard, Lobby.YardSpot, it => it.Kind == Shop.ItemKind.Drill, 4, 120);
             yield return SpendAt(Shop.Vendor.Shrine, Lobby.ShrineSpot, it => it.Kind == Shop.ItemKind.Relic, 1, 100);
+            // A blessing for the next floor (two on offer; the cheaper rule picks the first, they cost the same).
+            yield return SpendAt(Shop.Vendor.Shrine, Lobby.ShrineSpot, it => it.Kind == Shop.ItemKind.Blessing, 1, 60);
             L("gold left at camp: " + prog.Gold.Value);
 
             // Board: a seat on the carriage; it leaves when everyone sits.
@@ -424,11 +426,20 @@ namespace Deepbound.Networking
             }
         }
 
+        private string RelicTiers()
+        {
+            int t = 0;
+            for (int i = 0; i < prog.RelicCount; i++) t += prog.RelicTierAt(i);
+            string edges = "";
+            for (int s = 0; s < Progression.Edges.Slots; s++) if (prog.EdgeAt(s) != Progression.Edge.None) edges += (edges.Length > 0 ? "/" : "") + Progression.Edges.Name(prog.EdgeAt(s));
+            return (t > 0 ? " (+" + t + " tiers)" : "") + (edges.Length > 0 ? ", edges " + edges : "");
+        }
+
         private string Status(string where)
         {
             var kit = me.ActiveKit;
             string s = where + " | hp " + hp.Current.Value.ToString("F0") + "/" + hp.Max.Value.ToString("F0") + ", gold " + prog.Gold.Value + ", embers " + prog.Embers.Value + ", sigils " + prog.Sigils.Value +
-                       ", weapon +" + prog.WeaponLevel.Value + ", Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E) + ", relics " + prog.RelicCount +
+                       ", weapon +" + prog.WeaponLevel.Value + (prog.Hones.Value > 0 ? " honed " + prog.Hones.Value : "") + ", Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E) + ", relics " + prog.RelicCount + RelicTiers() +
                        (flasks != null ? ", pouch H" + flasks.Count(Flasks.Kind.Health) + " M" + flasks.Count(Flasks.Kind.Mana) : "") + ", armour " + Gear.Name(prog.Equipped(GearSlot.Armor)) + ", charm " + Gear.Name(prog.Equipped(GearSlot.Charm));
             L(s);
             return s;

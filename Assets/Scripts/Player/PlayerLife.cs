@@ -79,6 +79,9 @@ namespace Deepbound.Player
         public float DodgeCooldownNow => progress != null && progress.HasRelic(Loot.Relic.GhostLantern) ? DodgeCooldown * 0.5f : DodgeCooldown;
         private float invulnerableUntil;
 
+        /// <summary>Server, tests: take no damage for a while (a stray blow resets a delivery).</summary>
+        public void ServerDebugInvulnerable(float seconds) => invulnerableUntil = Time.time + seconds;
+
         private void Awake()
         {
             Health = GetComponent<Health>();
