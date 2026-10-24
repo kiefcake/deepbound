@@ -324,6 +324,9 @@ namespace Deepbound.Art
 
         private float lastGlow = -1f;
 
+        /// <summary>Re-apply the glow after <see cref="GlowColor"/> changes (enraged eyes).</summary>
+        public void RefreshGlow() { float l = lastGlow; lastGlow = -1f; ApplyGlow(l < 0f ? 1f : l); }
+
         private void ApplyGlow(float intensity)
         {
             if (GlowRenderers == null || Mathf.Abs(intensity - lastGlow) < 0.02f) return;

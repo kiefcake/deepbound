@@ -344,7 +344,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void StabFxRpc(bool hit)
         {
-            SwingTrail.Spawn(transform, 1.5f, 70f, Random.value < 0.5f ? 1f : -1f, new Color(0.75f, 0.6f, 1f) * 0.9f);
+            SwingTrail.Spawn(transform, 1.5f, 70f, Random.value < 0.5f ? 1f : -1f, player.TrailColor(new Color(0.75f, 0.6f, 1f) * 0.9f));
             if (!IsOwner)
             {
                 player.Rig?.Play(RigAction.Swing, 0.18f);

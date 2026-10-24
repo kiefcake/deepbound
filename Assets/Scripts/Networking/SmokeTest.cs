@@ -2644,7 +2644,40 @@ namespace Deepbound.Networking
                     Log("phoenix tome", "read " + read + ", birds " + birds0 + " -> " + Phoenix.All.Count + ", struck its prey " + scorchedPrey + ", egg when downed " + egg + ", reborn " + reborn,
                         read && bird != null && scorchedPrey && egg && reborn);
                     if (bird != null && bird.IsSpawned) bird.NetworkObject.Despawn();
+
+                    // The Tome of the Storm strikes the same prey; the Tome of Sanctuary turns blows aside inside it.
+                    bool stormHit = false;
+                    if (prey != null && prey.IsSpawned)
+                    {
+                        var ph2 = prey.GetComponent<Health>();
+                        ph2.ServerSetFraction(1f);
+                        float before2 = ph2.Current.Value;
+                        rp.Rare.Value = 0; rp.ServerGiveRare(Progression.RareItem.StormTome); rp.ServerUseRare();
+                        for (float t = 0f; t < 3f && !stormHit; t += 0.1f) { rhp.ServerSetFraction(1f); stormHit = ph2 == null || ph2.Current.Value < before2; yield return new WaitForSeconds(0.1f); }
+                    }
+                    rp.Rare.Value = 0; rp.ServerGiveRare(Progression.RareItem.SanctuaryTome); rp.ServerUseRare();
+                    yield return null;
+                    rhp.ServerSetFraction(1f); rhp.Shield.Value = 0f;
+                    float s0 = rhp.Current.Value; rhp.ServerDamage(40f, local.transform.position + Vector3.forward); float sanctHit = s0 - rhp.Current.Value;
+                    Log("storm and sanctuary tomes", "storm struck " + stormHit + ", hit in sanctuary " + sanctHit.ToString("F0") + " (plain was " + plainHit.ToString("F0") + ")",
+                        stormHit && sanctHit < plainHit * 0.8f);
                     if (prey != null && prey.IsSpawned) prey.NetworkObject.Despawn();
+
+                    // A weak point bursts for its full bonus once in a while; a beast struck there goes ENRAGED.
+                    var beast = DungeonDirector.Instance.ServerDebugSpawn("brute", local.transform.position + local.transform.forward * 4f, false);
+                    if (beast != null)
+                    {
+                        var bh = beast.GetComponent<Health>();
+                        float fullHit = HitZones.Multiplier(bh, HitZone.Weak, true);
+                        Arrows.ReportZone(local.NetworkObjectId, bh.Center, HitZone.Weak);
+                        yield return null;
+                        float cooling = HitZones.Multiplier(bh, HitZone.Weak, true);
+                        bool raged = beast.Enraged;
+                        Log("weak point burst", "full x" + fullHit.ToString("F2") + ", then x" + cooling.ToString("F2") + " while it recovers, brute enraged " + raged,
+                            fullHit > cooling && raged);
+                        if (beast.IsSpawned) beast.NetworkObject.Despawn();
+                    }
+                    else Log("weak point burst", "no brute prefab", false);
                 }
             }
 
@@ -3247,6 +3280,26 @@ namespace Deepbound.Networking
                 foreach (var e in inRoom) e.ServerStun(10f);
                 yield return new WaitForSeconds(0.4f);
                 yield return Shot(dir, "2a_status_tags");
+                // Every look an elite can wear, in a row: ward, swift, frenzy, thorns, volatile, splitting, and an enraged brute.
+                {
+                    var row = new System.Collections.Generic.List<EnemyBrain>();
+                    var affixes = new[] { EliteAffix.Warded, EliteAffix.Swift, EliteAffix.Frenzied, EliteAffix.Thorned, EliteAffix.Volatile, EliteAffix.Splitting };
+                    var fwd = local.transform.forward; var side = local.transform.right;
+                    for (int i = 0; i < affixes.Length; i++)
+                    {
+                        var e = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + fwd * 6f + side * ((i - 2.5f) * 1.6f), false);
+                        if (e == null) continue;
+                        e.ServerMakeElite(affixes[i]);
+                        if (affixes[i] == EliteAffix.Frenzied) e.GetComponent<Health>().ServerSetFraction(0.4f);
+                        e.ServerStun(8f);
+                        row.Add(e);
+                    }
+                    var rager = DungeonDirector.Instance.ServerDebugSpawn("brute", local.transform.position + fwd * 8.5f, false);
+                    if (rager != null) { rager.ServerEnrage(8f); rager.ServerStun(8f); row.Add(rager); }
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot(dir, "2a_elite_looks");
+                    foreach (var e in row) if (e != null && e.IsSpawned) e.NetworkObject.Despawn();
+                }
                 // The Tome of the Phoenix in flight over the room, and the belt's fifth slot.
                 {
                     var sp5 = local.GetComponent<Flasks>();

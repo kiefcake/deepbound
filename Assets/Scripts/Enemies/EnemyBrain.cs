@@ -198,6 +198,7 @@ namespace Deepbound.Enemies
             if (Rig != null && !IsBoss && RisesFromGround(visualKind)) Rig.gameObject.AddComponent<RiseFromGround>();
             if (Rig != null && (IsBoss || Heavy || Rig.transform.lossyScale.y >= 1.12f)) FitBodyToRig();
             health.Hurt += OnHurtVisual;
+            if (GetComponent<EnemyStatusFx>() == null) gameObject.AddComponent<EnemyStatusFx>();
             Elite.OnValueChanged += (_, now) => ApplyEliteVisual(now);
             if (Elite.Value) ApplyEliteVisual(true);
 
@@ -209,6 +210,7 @@ namespace Deepbound.Enemies
             health.DamagedServer += OnDamagedServer;
             // From behind hurts more - bosses too, if someone holds their rage so another can get round them.
             health.IncomingModifiers.Add(BackstabModifier);
+            health.IncomingModifiers.Add((d, from) => Enraged ? d * EnrageTaken : d);
             // Each enemy takes its own place around whoever it is fighting, so a pack
             // surrounds you instead of queueing in a line.
             surroundAngle = (NetworkObjectId * 137.508f) % 360f;
@@ -239,11 +241,43 @@ namespace Deepbound.Enemies
         public const float FrenzyPace = 0.6f;
         private bool frenzyAnnounced;
         public bool Frenzied => AffixKind == EliteAffix.Frenzied && health != null && health.Fraction < 0.5f;
+
+        /// <summary>Synced looks for the status visuals: bit 0 the ward is up, bit 1 enraged.</summary>
+        public readonly NetworkVariable<byte> FxFlags = new NetworkVariable<byte>();
+        public bool WardedNow => (FxFlags.Value & 1) != 0;
+        public bool Enraged => (FxFlags.Value & 2) != 0;
+        private float enragedUntil;
+
+        /// <summary>
+        /// Weak point rage (2026-10-24, the user: "maybe a certain mob gets enraged when you hit them there"): the
+        /// beasts with a weak point you can strike - brutes, ghouls, gargoyles, frost wights, plaguebearers, mimics -
+        /// go berserk for a while when it bursts: faster on their feet and in their swings, but they take 15% more.
+        /// </summary>
+        public bool EnragesOnWeakHit => visualKind == CharacterArt.SkeletonKind.Brute || visualKind == CharacterArt.SkeletonKind.Ghoul
+            || visualKind == CharacterArt.SkeletonKind.Gargoyle || visualKind == CharacterArt.SkeletonKind.FrostWight
+            || visualKind == CharacterArt.SkeletonKind.Plaguebearer || visualKind == CharacterArt.SkeletonKind.Mimic;
+        public const float EnrageSeconds = 6f, EnragePace = 0.75f, EnrageSpeed = 1.35f, EnrageTaken = 1.15f;
+
+        public void ServerEnrage(float seconds)
+        {
+            if (!IsServer || IsDead) return;
+            bool was = Enraged;
+            enragedUntil = Mathf.Max(enragedUntil, Time.time + seconds);
+            if (!was) { FxFlags.Value = (byte)(FxFlags.Value | 2); EnrageRpc(); }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void EnrageRpc()
+        {
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.6f, "ENRAGED!", new Color(1f, 0.25f, 0.15f));
+            if (VoicePitch > 0f) Sfx.Play(Sound.Roar, transform.position + Vector3.up * 1.6f, 0.9f, VoicePitch);
+            Vfx.Ring(transform.position + Vector3.up * 0.05f, 2f, new Color(1f, 0.25f, 0.15f), 0.5f);
+        }
         protected float Pace
         {
             get
             {
-                if (!Frenzied) return 1f;
+                if (!Frenzied) return Enraged ? EnragePace : 1f;
                 if (!frenzyAnnounced && IsServer) { frenzyAnnounced = true; FrenzyRpc(); }
                 return FrenzyPace;
             }
@@ -425,7 +459,10 @@ namespace Deepbound.Enemies
             ApplyKnockback();
             // Chill slows the walk, not the attack timing: you get time to reposition, not
             // a free win.
-            agent.speed = (health.Chilled.Value ? moveSpeed * 0.5f : moveSpeed) * SpeedScale * World.DungeonDirector.WaterSlow(transform.position);
+            agent.speed = (health.Chilled.Value ? moveSpeed * 0.5f : moveSpeed) * SpeedScale * World.DungeonDirector.WaterSlow(transform.position) * (Enraged ? EnrageSpeed : 1f);
+            // Keep the synced looks current: the ward, and rage running out.
+            byte fx = (byte)((wardUp ? 1 : 0) | (Enraged && Time.time < enragedUntil ? 2 : 0));
+            if (FxFlags.Value != fx) FxFlags.Value = fx;
 
             if (Time.time < stunnedUntil)
             {

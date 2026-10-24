@@ -16,7 +16,7 @@ namespace Deepbound.Progression
     /// </summary>
     public static class Cosmetics
     {
-        public enum Kind { Cloak, Aura, Heraldry, Pattern }
+        public enum Kind { Cloak, Aura, Heraldry, Pattern, WeaponGlow, Title }
 
         public struct Item
         {
@@ -110,7 +110,44 @@ namespace Deepbound.Progression
 
         public enum Motif { None, Skull, Crossbones, BonePrint, Ribcage, SkullHem }
 
-        public static Item[] Of(Kind kind) => kind == Kind.Aura ? Auras : kind == Kind.Heraldry ? Heraldries : kind == Kind.Pattern ? Patterns : Dyes;
+        /// <summary>
+        /// Weapon glows (2026-10-24, the user: "work on more customisation"): a burning edge along your blade, staff or
+        /// bow and the colour of your swing trails. Index 0 is none. Append only.
+        /// </summary>
+        public static readonly Item[] WeaponGlows =
+        {
+            new Item { Name = "No Glow", Cost = 0, NeedsBoss = -1 },
+            new Item { Name = "Ember Edge", Cloak = new Color(1f, 0.5f, 0.15f), Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Frostfire", Cloak = new Color(0.5f, 0.85f, 1f), Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Grave Green", Cloak = new Color(0.45f, 1f, 0.45f), Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Bloodletter", Cloak = new Color(1f, 0.12f, 0.1f), Cost = 140, NeedsBoss = -1 },
+            new Item { Name = "Void", Cloak = new Color(0.62f, 0.32f, 1f), Cost = 160, NeedsBoss = 1 },
+            new Item { Name = "Kingsgold", Cloak = new Color(1f, 0.82f, 0.35f), Cost = 220, NeedsBoss = 2 },
+            new Item { Name = "Hymnlight", Cloak = new Color(1f, 0.97f, 0.85f), Cost = 260, NeedsBoss = 3 },
+            new Item { Name = "Abyssal", Cloak = new Color(0.35f, 1f, 0.9f), Cost = 320, NeedsBoss = 4 },
+        };
+
+        /// <summary>Titles worn under your name on nameplates and the run summary. Index 0 is none. Append only.</summary>
+        public static readonly Item[] Titles =
+        {
+            new Item { Name = "No Title", Cost = 0, NeedsBoss = -1 },
+            new Item { Name = "the Delver", Cost = 30, NeedsBoss = -1 },
+            new Item { Name = "the Grim", Cost = 60, NeedsBoss = -1 },
+            new Item { Name = "Bonebreaker", Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "the Unlit", Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Lantern-Bearer", Cost = 120, NeedsBoss = -1 },
+            new Item { Name = "Gravebane", Cost = 120, NeedsBoss = 0 },
+            new Item { Name = "Tidebreaker", Cost = 150, NeedsBoss = 1 },
+            new Item { Name = "Kingslayer", Cost = 200, NeedsBoss = 2 },
+            new Item { Name = "Hymnbreaker", Cost = 250, NeedsBoss = 3 },
+            new Item { Name = "Who Silenced the Unsung", Cost = 400, NeedsBoss = 4 },
+        };
+
+        public static Color? WeaponGlowColor(int i) => i > 0 && i < WeaponGlows.Length ? WeaponGlows[i].Cloak : (Color?)null;
+        public static string TitleOf(int i) => i > 0 && i < Titles.Length ? Titles[i].Name : null;
+
+        public static Item[] Of(Kind kind) => kind == Kind.Aura ? Auras : kind == Kind.Heraldry ? Heraldries : kind == Kind.Pattern ? Patterns
+            : kind == Kind.WeaponGlow ? WeaponGlows : kind == Kind.Title ? Titles : Dyes;
 
         /// <summary>The pattern to sew on a cloak, or null for a plain one.</summary>
         public static Item? PatternOf(int i) => i > 0 && i < Patterns.Length ? Patterns[i] : (Item?)null;

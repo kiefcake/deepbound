@@ -249,12 +249,13 @@ namespace Deepbound.UI
             if (layout.PeddlerSpot.HasValue && Visible(layout, layout.PeddlerSpot.Value)) MapIcons.Draw(MapIcons.Id.Coin, ToMap(layout.PeddlerSpot.Value), new Color(1f, 0.82f, 0.35f), px);
             MapIcons.Draw(MapIcons.Id.Waystone, ToMap(layout.WaystonePosition), new Color(0.55f, 0.85f, 1f), px);
 
-            // Loot worth walking to: relics, sigils, runes, and your own gear.
+            // Loot worth walking to: relics, sigils, runes, rare draughts and tomes, and your own gear.
             foreach (var drop in LootDrop.All)
             {
                 if (drop == null) continue;
                 var k = drop.Kind.Value;
-                var c = k == LootKind.Relic ? Relics.GemColor((Relic)drop.Amount.Value) : k == LootKind.Sigil ? LootInfo.SigilColor : k == LootKind.Rune ? Runes.Color((Rune)drop.Amount.Value) : Color.clear;
+                var c = k == LootKind.Relic ? Relics.GemColor((Relic)drop.Amount.Value) : k == LootKind.Sigil ? LootInfo.SigilColor : k == LootKind.Rune ? Runes.Color((Rune)drop.Amount.Value)
+                    : k == LootKind.RareItem ? Progression.RareItems.Color((Progression.RareItem)drop.Amount.Value) : Color.clear;
                 if (c.a > 0f && Visible(layout, drop.transform.position)) MapIcons.Draw(MapIcons.Id.Gem, ToMap(drop.transform.position), c, px * 0.85f);
             }
             var me = player.GetComponent<Progression.PlayerProgress>();

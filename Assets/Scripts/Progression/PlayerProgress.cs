@@ -1097,14 +1097,25 @@ namespace Deepbound.Progression
         [Rpc(SendTo.ClientsAndHost)]
         public void ZoneHitFxRpc(Vector3 at, byte zone)
         {
-            bool weak = zone == (byte)HitZone.Weak;
+            // 3 = a weak point that burst (full bonus, a small blast); 2 = one still recovering (sparks only).
+            bool burst = zone == 3, weak = zone == (byte)HitZone.Weak || burst;
             var c = weak ? new Color(1f, 0.5f, 0.2f) : new Color(1f, 0.92f, 0.55f);
-            UI.GameHud.ShowCombo(at + Vector3.up * 0.25f, weak ? "WEAK POINT" : "HEADSHOT", c);
-            Art.Vfx.Embers(at, 6, c, 3f, 0.04f, 0.35f);
+            if (burst)
+            {
+                UI.GameHud.ShowCombo(at + Vector3.up * 0.25f, "WEAK POINT!", c);
+                Art.Vfx.Fireball(at, 0.9f, c);
+                Art.Vfx.Flash(at, c, 4f, 5f, 0.15f);
+                Art.Vfx.Embers(at, 16, c, 5f, 0.05f, 0.5f);
+                Art.Vfx.Ring(Art.Vfx.Floor(at) + Vector3.up * 0.05f, Combat.Arrows.BurstRadius, c, 0.35f);
+                Art.Sfx.Play(Art.Sound.Fire, at, 0.7f, 1.6f);
+            }
+            else if (weak) Art.Vfx.Embers(at, 5, c * 0.8f, 2.5f, 0.035f, 0.3f);
+            else UI.GameHud.ShowCombo(at + Vector3.up * 0.25f, "HEADSHOT", c);
+            if (!weak) Art.Vfx.Embers(at, 6, c, 3f, 0.04f, 0.35f);
             if (IsOwner)
             {
                 Art.Sfx.Play(Art.Sound.Shatter, at, 0.5f, weak ? 1.1f : 1.6f);
-                Player.NetworkPlayer.Local?.ConfirmHit(weak ? 1.4f : 1.1f);
+                Player.NetworkPlayer.Local?.ConfirmHit(burst ? 1.7f : weak ? 1.2f : 1.1f);
             }
         }
 

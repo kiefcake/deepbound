@@ -104,11 +104,38 @@ namespace Deepbound.Combat
         }
 
         /// <summary>Damage multiplier for a zone. Ranged hits pay more than aimed melee.</summary>
+        /// <summary>
+        /// A weak point bursts for its full bonus at most this often per creature (2026-10-24, the user: "more damage to
+        /// some, however you can only hit them so often"); hits in between count as a headshot.
+        /// </summary>
+        public const float WeakCooldown = 1.4f;
+        private static readonly Dictionary<Health, float> weakReadyAt = new Dictionary<Health, float>();
+        private static Health pendingBurst;
+        private static int pendingFrame = -1;
+
+        /// <summary>Server: the weak point that burst this frame (consumed by <see cref="Arrows.ReportZone"/>).</summary>
+        public static Health TakeBurst()
+        {
+            if (pendingFrame != Time.frameCount) return null;
+            var h = pendingBurst;
+            pendingBurst = null;
+            pendingFrame = -1;
+            return h;
+        }
+
         public static float Multiplier(Health target, HitZone zone, bool ranged)
         {
             if (zone == HitZone.Body) return 1f;
             bool boss = For(target).Boss;
-            if (zone == HitZone.Weak) return boss ? (ranged ? 1.6f : 1.35f) : (ranged ? 2f : 1.6f);
+            if (zone == HitZone.Weak)
+            {
+                if (weakReadyAt.TryGetValue(target, out float ready) && Time.time < ready)
+                    return boss ? (ranged ? 1.25f : 1.1f) : (ranged ? 1.5f : 1.25f);
+                weakReadyAt[target] = Time.time + WeakCooldown;
+                pendingBurst = target;
+                pendingFrame = Time.frameCount;
+                return boss ? (ranged ? 1.75f : 1.5f) : (ranged ? 2.25f : 1.8f);
+            }
             return boss ? (ranged ? 1.25f : 1.1f) : (ranged ? 1.5f : 1.25f);
         }
 

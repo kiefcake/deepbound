@@ -867,9 +867,9 @@ namespace Deepbound.UI
                 bool downed = p.Downed.Value;
                 var slot = np != null ? np.SlotColor : Color.white;
                 float a = Mathf.Lerp(1f, 0.55f, Mathf.InverseLerp(10f, 60f, dist));
-                string label = p.name + (dist > 12f ? "  " + Mathf.RoundToInt(dist) + "m" : "");
+                string label = (np != null ? np.NameWithTitle : p.name) + (dist > 12f ? "  " + Mathf.RoundToInt(dist) + "m" : "");
                 var style = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(slot.r * 0.5f + 0.5f, slot.g * 0.5f + 0.5f, slot.b * 0.5f + 0.5f, a) } };
-                GUI.Label(new Rect(screen.x - 80, y - 18, 160, 16), label, style);
+                GUI.Label(new Rect(screen.x - 110, y - 18, 220, 16), label, style);
                 var voice = p.GetComponent<PlayerVoice>();
                 if (voice != null && voice.Speaking)
                 {
@@ -1335,9 +1335,17 @@ namespace Deepbound.UI
             {
                 if (d == null) continue;
                 var k = d.Kind.Value;
-                if (k != LootKind.PotionHP && k != LootKind.PotionMP) continue;
+                if (k != LootKind.PotionHP && k != LootKind.PotionMP && k != LootKind.RareItem) continue;
                 var off = d.transform.position - player.transform.position; off.y *= 0.5f;
                 if (off.magnitude > 1.8f) continue;
+                if (k == LootKind.RareItem)
+                {
+                    if (pouch.Rare.Value == 0) continue;
+                    var found = (RareItem)d.Amount.Value;
+                    GUI.Label(new Rect(0, Screen.height / 2f + 44f, Screen.width, 22f), "SLOT 5 FULL  -  " + RareItems.Name(found) + " lies here; use your " + RareItems.Name(pouch.RareHeld) + " (5) to make room",
+                        new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = RareItems.Color(found) } });
+                    return;
+                }
                 var kind = k == LootKind.PotionHP ? Flasks.Kind.Health : Flasks.Kind.Mana;
                 if (!pouch.IsFull(kind)) continue;
                 GUI.Label(new Rect(0, Screen.height / 2f + 44f, Screen.width, 22f), "POUCH FULL  -  " + (kind == Flasks.Kind.Health ? "Health" : "Mana") + " Potions " + Flasks.Max + "/" + Flasks.Max + "  (drink one to make room)",
@@ -2902,6 +2910,7 @@ namespace Deepbound.UI
             if (brain != null && (brain.Status.Value & 1) != 0) Tag("STUN", "FFD94D");
             if (brain is MournerBrain mo && mo.Seen.Value) Tag("WATCHED", "B8C4D6");
             if (brain != null && (brain.Status.Value & 2) != 0) Tag("TAUNT", "FF8C59");
+            if (brain != null && brain.Enraged) Tag("ENRAGED", "FF3B26");
             return sb.ToString();
         }
 

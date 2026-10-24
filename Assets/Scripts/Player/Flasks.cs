@@ -78,7 +78,7 @@ namespace Deepbound.Player
         public override void OnNetworkSpawn()
         {
             // Stone takes nothing; ironbark takes half.
-            if (IsServer && life != null) life.Health.IncomingModifiers.Add((d, from) => InStasis ? 0f : Ironbark ? d * RareItems.IronbarkTaken : d);
+            if (IsServer && life != null) life.Health.IncomingModifiers.Add((d, from) => InStasis ? 0f : (Ironbark ? d * RareItems.IronbarkTaken : d) * (InSanctuary(transform.position) ? RareItems.SanctuaryTaken : 1f));
         }
 
         /// <summary>Server: a rare draught or tome into the fifth slot. False if it is already full (the find stays on the floor).</summary>
@@ -126,10 +126,90 @@ namespace Deepbound.Player
                 case RareItem.PhoenixTome:
                     if (World.DungeonDirector.Instance == null || !World.DungeonDirector.Instance.ServerSummonPhoenix(progress)) return false;
                     break;
+                case RareItem.StormTome:
+                    StartCoroutine(Storm());
+                    break;
+                case RareItem.SanctuaryTome:
+                    var at = transform.position;
+                    Sanctuaries.Add((at, Time.time + RareItems.SanctuarySeconds));
+                    StartCoroutine(SanctuaryMend(at));
+                    SanctuaryFxRpc(at);
+                    break;
             }
             Rare.Value = 0;
             RareUsedRpc((byte)r);
             return true;
+        }
+
+        // ---- Tomes ----
+
+        /// <summary>Server: live sanctuaries (centre, end time). Anyone standing in one takes less.</summary>
+        private static readonly System.Collections.Generic.List<(Vector3 at, float until)> Sanctuaries = new System.Collections.Generic.List<(Vector3, float)>();
+
+        public static bool InSanctuary(Vector3 p)
+        {
+            for (int i = Sanctuaries.Count - 1; i >= 0; i--)
+            {
+                if (Time.time >= Sanctuaries[i].until) { Sanctuaries.RemoveAt(i); continue; }
+                var d = p - Sanctuaries[i].at; d.y = 0f;
+                if (d.sqrMagnitude <= RareItems.SanctuaryRadius * RareItems.SanctuaryRadius && Mathf.Abs(p.y - Sanctuaries[i].at.y) < 3f) return true;
+            }
+            return false;
+        }
+
+        private System.Collections.IEnumerator SanctuaryMend(Vector3 at)
+        {
+            float until = Time.time + RareItems.SanctuarySeconds;
+            while (Time.time < until)
+            {
+                foreach (var pl in PlayerLife.All)
+                {
+                    if (pl == null || pl.Downed.Value) continue;
+                    var d = pl.transform.position - at; d.y = 0f;
+                    if (d.sqrMagnitude <= RareItems.SanctuaryRadius * RareItems.SanctuaryRadius) pl.Health.ServerHeal(pl.Health.Max.Value * RareItems.SanctuaryHealPerSecond * 0.5f);
+                }
+                yield return new WaitForSeconds(0.5f);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SanctuaryFxRpc(Vector3 at)
+        {
+            var gold = new Color(1f, 0.9f, 0.55f, 0.28f);
+            Telegraph.Show(at, RareItems.SanctuaryRadius, RareItems.SanctuarySeconds, null, gold);
+            Vfx.Ring(at, RareItems.SanctuaryRadius, new Color(1f, 0.9f, 0.55f), 0.8f);
+            Vfx.Embers(at + Vector3.up, 30, new Color(1f, 0.9f, 0.55f), 5f, 0.06f, 1.4f);
+            Sfx.Play(Sound.Revive, at + Vector3.up, 1f, 0.8f);
+        }
+
+        /// <summary>Server: the Tome of the Storm, a bolt every 0.6 s on one of the dead near the reader.</summary>
+        private System.Collections.IEnumerator Storm()
+        {
+            float until = Time.time + RareItems.StormSeconds;
+            var struck = new System.Collections.Generic.List<Combat.Health>();
+            while (Time.time < until && life != null && !life.Downed.Value)
+            {
+                struck.Clear();
+                foreach (var h in Combat.Health.All)
+                    if (h != null && h.Team == Team.Enemies && h.IsAlive && Vector3.Distance(h.transform.position, transform.position) <= RareItems.StormRange
+                        && !(h.TryGetComponent<Enemies.GargoyleBrain>(out var g) && !g.Woken.Value)) struck.Add(h);
+                if (struck.Count > 0)
+                {
+                    var t = struck[Random.Range(0, struck.Count)];
+                    t.ServerDamage(RareItems.StormDamage * (progress != null ? progress.AttackMultiplier : 1f), t.Center + Vector3.up * 4f, NetworkObjectId);
+                    if (t.IsAlive && t.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(RareItems.StormStun);
+                    StormFxRpc(t.Center);
+                }
+                yield return new WaitForSeconds(RareItems.StormEvery);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void StormFxRpc(Vector3 at)
+        {
+            LightningBolt.Spawn(at + Vector3.up * 9f, new[] { at });
+            Sfx.Play(Sound.Shatter, at, 0.9f, 0.6f);
+            Vfx.Flash(at, new Color(0.6f, 0.75f, 1f), 4f, 6f, 0.15f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

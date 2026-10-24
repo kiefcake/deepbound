@@ -54,11 +54,26 @@ namespace Deepbound.Combat
         private const float ProjectileRadius = 0.12f;
 
         /// <summary>Server: tell everyone a shot found a head or a weak point (the shooter hears it).</summary>
+        /// <summary>Weak point burst: a small blast that catches what stands close (x the shooter's attack).</summary>
+        public const float BurstDamage = 14f, BurstRadius = 2.2f;
+
         public static void ReportZone(ulong shooter, Vector3 at, HitZone zone)
         {
             var net = Unity.Netcode.NetworkManager.Singleton;
             if (net == null || !net.SpawnManager.SpawnedObjects.TryGetValue(shooter, out var obj)) return;
-            if (obj.TryGetComponent<Progression.PlayerProgress>(out var p)) p.ZoneHitFxRpc(at, (byte)zone);
+            var burst = zone == HitZone.Weak ? HitZones.TakeBurst() : null;
+            if (!obj.TryGetComponent<Progression.PlayerProgress>(out var p)) return;
+            if (burst != null)
+            {
+                // The weak point bursts: a little blast for its neighbours, and the beasts go berserk.
+                foreach (var near in CombatQuery.Circle(at, BurstRadius, Team.Enemies).ToArray())
+                    if (near != burst) near.ServerDamage(BurstDamage * p.AttackMultiplier, at, shooter);
+                if (burst.IsAlive && burst.TryGetComponent<Enemies.EnemyBrain>(out var beast) && beast.EnragesOnWeakHit && !(beast is Enemies.BossBrain))
+                    beast.ServerEnrage(Enemies.EnemyBrain.EnrageSeconds);
+                p.ZoneHitFxRpc(at, 3);
+                return;
+            }
+            p.ZoneHitFxRpc(at, (byte)zone);
         }
 
         private struct Arrow

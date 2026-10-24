@@ -516,8 +516,8 @@ namespace Deepbound.Networking
                     var rare = flasks.RareHeld;
                     bool low = hp.Current.Value < hp.Max.Value * 0.35f;
                     bool atBoss = BossBrain.Active != null && dd.BossSealed;
-                    if ((low && (rare == Progression.RareItem.Ironbark || rare == Progression.RareItem.GraveStillness))
-                        || (atBoss && (rare == Progression.RareItem.Bloodfury || rare == Progression.RareItem.PhoenixTome)))
+                    if ((low && (rare == Progression.RareItem.Ironbark || rare == Progression.RareItem.GraveStillness || rare == Progression.RareItem.SanctuaryTome))
+                        || (atBoss && (rare == Progression.RareItem.Bloodfury || rare == Progression.RareItem.PhoenixTome || rare == Progression.RareItem.StormTome)))
                     {
                         if (flasks.ServerUseRare()) L("used " + Progression.RareItems.Name(rare) + (low ? " (low on health)" : " (at the guardian)"));
                     }

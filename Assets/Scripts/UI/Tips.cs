@@ -135,7 +135,7 @@ namespace Deepbound.UI
                 else if (b is HoarderBrain) Offer("hoarder", "BONE HOARDER: it runs with a sack of gold. Every hit spills coins; hit the sack for more. It escapes in 25 s.");
                 else if (b is MimicBrain) Offer("mimic", "MIMIC! Kill it for a chest's worth of loot - and watch for lids that breathe.");
                 if (d < 10f && h.GetComponentInChildren<WeakPoint>() != null)
-                    Offer("weak", "That GLOWING SPOT is a weak point: aim there for double damage. Headshots deal extra too.");
+                    Offer("weak", "That GLOWING SPOT is a weak point: strike it and it BURSTS for big damage and a small blast (once every second or so). Beasts go ENRAGED when it bursts - faster, but they take more. Headshots deal extra too.");
             }
 
             if (World.Tallyman.Active != null && !World.Tallyman.Active.Leaving.Value)

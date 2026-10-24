@@ -59,6 +59,14 @@ namespace Deepbound.Player
         public readonly NetworkVariable<byte> Heraldry = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         /// <summary>The pattern sewn on your cloak (<see cref="Cosmetics.Patterns"/>; cosmetic, owner-written).</summary>
         public readonly NetworkVariable<byte> Pattern = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        /// <summary>Weapon glow (<see cref="Cosmetics.WeaponGlows"/>) and title (<see cref="Cosmetics.Titles"/>), owner-written.</summary>
+        public readonly NetworkVariable<byte> WeaponGlowCos = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        public readonly NetworkVariable<byte> TitleCos = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        /// <summary>"Crimson the Grim" (or just the name).</summary>
+        public string NameWithTitle => Cosmetics.TitleOf(TitleCos.Value) is string t ? name + " " + t : name;
+
+        /// <summary>A swing trail's colour: the worn weapon glow, else the class's own.</summary>
+        public Color TrailColor(Color own) => Cosmetics.WeaponGlowColor(WeaponGlowCos.Value) is Color g ? g * 1.15f : own;
 
         /// <summary>The colour your body and hands are dressed in: your heraldry, else your party colour.</summary>
         public Color DressColor => Cosmetics.HeraldryColor(Heraldry.Value) ?? SlotColor;
@@ -113,7 +121,10 @@ namespace Deepbound.Player
                 Aura.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Aura);
                 Heraldry.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Heraldry);
                 Pattern.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Pattern);
+                WeaponGlowCos.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.WeaponGlow);
+                TitleCos.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Title);
             }
+            WeaponGlowCos.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.WeaponLevel.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket0.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket1.OnValueChanged += (_, __) => RefreshWeaponGlow();
@@ -277,18 +288,49 @@ namespace Deepbound.Player
             if (old != null) Destroy(old.gameObject);
             int level = progress.WeaponLevel.Value;
             var rune = progress.Socketed(0) != Loot.Rune.None ? progress.Socketed(0) : progress.Socketed(1) != Loot.Rune.None ? progress.Socketed(1) : progress.Socketed(2);
-            if (level == 0 && rune == Loot.Rune.None) return;
-
-            var color = rune != Loot.Rune.None ? Loot.Runes.Color(rune) : Loot.LootInfo.EmberColor;
+            var oldEdge = hand.Find("CosmeticEdge");
+            if (oldEdge != null) Destroy(oldEdge.gameObject);
+            var cosmetic = Cosmetics.WeaponGlowColor(WeaponGlowCos.Value);
             bool firstPerson = hand != (Rig != null ? Rig.ArmR : null);
+            if (cosmetic.HasValue) BuildCosmeticEdge(hand, cosmetic.Value, firstPerson);
+            if (level == 0 && rune == Loot.Rune.None && !cosmetic.HasValue) return;
+
+            var color = cosmetic ?? (rune != Loot.Rune.None ? Loot.Runes.Color(rune) : Loot.LootInfo.EmberColor);
             var glow = new GameObject("WeaponGlow").AddComponent<Light>();
             glow.transform.SetParent(hand, false);
             glow.transform.localPosition = firstPerson ? new Vector3(0f, 0.35f, 0.15f) : new Vector3(0f, -0.7f, 0.2f);
             glow.type = LightType.Point;
             glow.color = color;
             glow.range = firstPerson ? 1.1f : 1.8f;
-            glow.intensity = 0.4f + 0.3f * level;
+            glow.intensity = 0.4f + 0.3f * level + (cosmetic.HasValue ? 0.4f : 0f);
             glow.shadows = LightShadows.None;
+        }
+
+        /// <summary>
+        /// The worn weapon glow: a burning line along the blade (from the view model's edge mark to its tip when it has
+        /// them), or a glowing core in the weapon hand.
+        /// </summary>
+        private void BuildCosmeticEdge(Transform hand, Color c, bool firstPerson)
+        {
+            var root = MeshKit.Pivot(hand, "CosmeticEdge", Vector3.zero);
+            if (firstPerson && viewModel != null && viewModel.TipR != null && viewModel.EdgeR != null && viewModel.TipR.parent != null)
+            {
+                var parent = viewModel.TipR.parent;
+                root.SetParent(parent, false);
+                var a = viewModel.EdgeR.localPosition; var b = viewModel.TipR.localPosition;
+                var edge = MeshKit.Part(root, "Edge", MeshKit.Box(new Vector3(0.012f, 1f, 0.012f)), Mat.Glow, (a + b) / 2f);
+                edge.transform.localRotation = Quaternion.FromToRotation(Vector3.up, (b - a).normalized);
+                edge.transform.localScale = new Vector3(1f, (b - a).magnitude * 1.15f, 1f);
+                ArtLibrary.SetGlow(edge.GetComponent<Renderer>(), c * 1.4f);
+                ViewModelLayer(root);
+            }
+            else
+            {
+                var core = MeshKit.Part(root, "Core", MeshKit.Ball(firstPerson ? 0.03f : 0.07f, 8, 6), Mat.Glow, firstPerson ? new Vector3(0f, 0.3f, 0.12f) : new Vector3(0f, -0.72f, 0.18f));
+                ArtLibrary.SetGlow(core.GetComponent<Renderer>(), c * 1.3f);
+                if (firstPerson) ViewModelLayer(root);
+            }
+            foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
         public override void OnNetworkDespawn()

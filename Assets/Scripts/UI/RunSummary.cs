@@ -83,7 +83,7 @@ namespace Deepbound.UI
                 UiSkin.Rect(new Rect(panel.x + 12, ty - 4, pw - 24, 54), new Color(np.SlotColor.r, np.SlotColor.g, np.SlotColor.b, 0.18f));
                 string[] values =
                 {
-                    p.name + (np == NetworkPlayer.Local ? " (you)" : ""),
+                    (np != null ? np.NameWithTitle : p.name) + (np == NetworkPlayer.Local ? " (you)" : ""),
                     prog.Class.Name,
                     prog.Kills.Value + (prog.Kills.Value == topKills && topKills > 0 ? "  ★" : ""),
                     prog.DamageDealt.Value.ToString("N0"),
