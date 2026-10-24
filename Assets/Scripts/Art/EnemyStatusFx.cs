@@ -25,7 +25,7 @@ namespace Deepbound.Art
         private float nextMote, nextStreak;
         private Vector3 lastPos;
         private Color baseEyes;
-        private bool eyesRed;
+        private bool eyesRed, hidden = true;
 
         private void Awake()
         {
@@ -44,6 +44,7 @@ namespace Deepbound.Art
             var cam = ViewCamera.Current;
             bool near = cam != null && (cam.transform.position - transform.position).sqrMagnitude < 900f;
             if (!alive || !near) { HideAll(); return; }
+            hidden = false;
 
             byte st = brain.Status.Value;
             var affix = brain.Elite.Value ? brain.AffixKind : EliteAffix.None;
@@ -217,6 +218,9 @@ namespace Deepbound.Art
 
         private void HideAll()
         {
+            // Every far or dead enemy lands here each frame: only do the work once.
+            if (hidden) return;
+            hidden = true;
             foreach (var x in new[] { stars, mark, tauntRing, frostRing, bubble, volatileRing, thorns, shards, rageRing })
                 if (x != null && x.gameObject.activeSelf) x.gameObject.SetActive(false);
             SetEyes(false);

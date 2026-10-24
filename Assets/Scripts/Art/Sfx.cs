@@ -5,7 +5,8 @@ namespace Deepbound.Art
 {
     public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak, Heartbeat, KillTick, Creak, Toll, Cleared, Pipe, Graze,
         // 2026-10-24: recorded only (Resources/Audio/Sfx/<name>), no synth recipe.
-        Growl, Roar, MonsterDie, MonsterAttack, Door, Chest, Gear, PageTurn }
+        Growl, Roar, MonsterDie, MonsterAttack, Door, Chest, Gear, PageTurn,
+        Chips, Dice, UiClick, UiOpen, UiClose, UiError, Chain, StepSoft }
 
     /// <summary>
     /// Every sound in the game. Recorded clips come first (2026-10-24: CC0 packs from Kenney and OpenGameArt in
@@ -38,8 +39,8 @@ namespace Deepbound.Art
         }
 
         /// <summary>Recordings are mastered hotter than the synth: each is trimmed to sit in the same mix.</summary>
-        private static float RecordedGain(Sound s) => s == Sound.Step ? 0.35f : s == Sound.Growl || s == Sound.Roar || s == Sound.MonsterDie || s == Sound.MonsterAttack ? 0.75f
-            : s == Sound.Hit || s == Sound.Hurt ? 0.7f : s == Sound.Coins || s == Sound.Purchase ? 0.6f : 0.8f;
+        private static float RecordedGain(Sound s) => s == Sound.Step || s == Sound.StepSoft ? 0.35f : s == Sound.UiClick || s == Sound.UiOpen || s == Sound.UiClose || s == Sound.UiError ? 0.45f : s == Sound.Growl || s == Sound.Roar || s == Sound.MonsterDie || s == Sound.MonsterAttack ? 0.75f
+            : s == Sound.Fire ? 0.6f : s == Sound.Hit || s == Sound.Hurt ? 0.7f : s == Sound.Coins || s == Sound.Purchase ? 0.6f : 0.8f;
 
         public static void Play(Sound sound, Vector3 position, float volume = 1f, float pitch = 1f)
         {
@@ -48,9 +49,14 @@ namespace Deepbound.Art
             if (rec.Length > 0) { clip = rec[Random.Range(0, rec.Length)]; volume *= RecordedGain(sound); }
             else clip = Get(sound);
             if (clip == null) return;
-            var go = new GameObject("Sfx " + sound);
-            go.transform.position = position;
-            var src = go.AddComponent<AudioSource>();
+            // The same sound many times in one frame (a volley landing, a crowd hit by a meteor) plays a few times, louder.
+            if (Time.frameCount != countFrame) { countFrame = Time.frameCount; sameFrame.Clear(); }
+            sameFrame.TryGetValue(sound, out int n);
+            sameFrame[sound] = n + 1;
+            if (n >= MaxSameFrame) return;
+            var src = Borrow();
+            if (src == null) return;
+            src.transform.position = position;
             src.clip = clip;
             src.volume = volume;
             src.pitch = pitch * Random.Range(0.92f, 1.08f);
@@ -60,7 +66,40 @@ namespace Deepbound.Art
             src.rolloffMode = AudioRolloffMode.Linear;
             src.dopplerLevel = 0f;
             src.Play();
-            Object.Destroy(go, clip.length / src.pitch + 0.1f);
+        }
+
+        /// <summary>
+        /// Voices are pooled (2026-10-24; every sound used to make and destroy its own GameObject): up to
+        /// <see cref="MaxVoices"/> at once, a free one reused, the busiest moment drops the newest sound.
+        /// </summary>
+        public const int MaxVoices = 48, MaxSameFrame = 3;
+        private static readonly List<AudioSource> voices = new List<AudioSource>();
+        private static readonly Dictionary<Sound, int> sameFrame = new Dictionary<Sound, int>();
+        private static int countFrame = -1, nextVoice;
+        private static Transform voiceRoot;
+
+        private static AudioSource Borrow()
+        {
+            if (voiceRoot == null)
+            {
+                voices.Clear();
+                var root = new GameObject("Sfx Voices");
+                Object.DontDestroyOnLoad(root);
+                voiceRoot = root.transform;
+            }
+            for (int i = 0; i < voices.Count; i++)
+            {
+                int k = (nextVoice + i) % voices.Count;
+                var v = voices[k];
+                if (v != null && !v.isPlaying) { nextVoice = k + 1; return v; }
+            }
+            if (voices.Count >= MaxVoices) return null;
+            var go = new GameObject("Sfx");
+            go.transform.SetParent(voiceRoot, false);
+            var s = go.AddComponent<AudioSource>();
+            s.playOnAwake = false;
+            voices.Add(s);
+            return s;
         }
 
         /// <summary>Non-spatial, for the local player's own actions and UI.</summary>

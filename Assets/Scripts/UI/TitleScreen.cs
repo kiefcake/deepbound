@@ -72,16 +72,14 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
-            "THE BONE PIPER plays bullet patterns: Rose, Scissors, March...",
-            "GRAZE: shots that slip past you close charge your ultimate",
-            "Cloak PATTERNS at the tailor (skulls, bones), brighter dyes",
-            "THE TALLYMAN hunts those who linger (holy water holds him)",
-            "New dead: Choir Acolyte, Abyssal Eye; Frenzied, Gravebound",
-            "Drag a downed friend clear (G); pointers to the fallen",
-            "Bosses make an entrance; the grave lift carries you up",
-            "DAILY DESCENT (Corwin) and the HALL OF RECORDS (camp)",
-            "Rebind keys (Options > Controls), gamepads, colour-blind mode",
-            "Corwin's CLIMBING ROPE; TORMENT once you finish a descent",
+            "Slot 5 RARES: Ironbark, Bloodfury, Grave Stillness, tomes",
+            "Tome of the PHOENIX: a firebird fights beside you for 30 s",
+            "EDGES at +5/+7/+9 and HONES past +10 at Hobb's anvil",
+            "Relics stack to tier III; an 8-slot relic tray",
+            "WEAK POINTS burst (and enrage beasts); see what ails an enemy",
+            "Recorded music, monsters, fire and chains (CC0, see credits)",
+            "Weapon GLOWS and TITLES at the tailor",
+            "New floor events: The Long Night, Embertide, The Bone Choir",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)

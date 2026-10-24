@@ -33,7 +33,7 @@ namespace Deepbound.Art
             var room = World.DungeonDirector.Layout?.BossRoom;
             current.ceiling = room != null ? room.Height : 10f;
             current.Build();
-            Sfx.Play(Sound.Rattle, at + Vector3.up * 4f, 1f, 0.5f);
+            Sfx.Play(Sound.Chain, at + Vector3.up * 4f, 1f, 0.7f);
         }
 
         /// <summary>Any peer: the chains take up and the cage climbs away.</summary>
@@ -41,7 +41,7 @@ namespace Deepbound.Art
         {
             if (current == null) return;
             current.ascendAt = Time.time;
-            Sfx.Play(Sound.Rattle, current.transform.position + Vector3.up * 2f, 1f, 0.45f);
+            Sfx.Play(Sound.Chain, current.transform.position + Vector3.up * 2f, 1f, 0.6f);
             Sfx.Play(Sound.Slam, current.transform.position + Vector3.up * 2f, 0.7f, 0.5f);
             var local = Player.NetworkPlayer.Local;
             if (local != null) local.AddShake(0.35f);
@@ -134,7 +134,7 @@ namespace Deepbound.Art
                 float k = Mathf.Clamp01(t / DescendSeconds);
                 y = Mathf.Lerp(ceiling, 0f, 1f - Mathf.Pow(1f - k, 3f));
                 if (k >= 1f) y = Mathf.Abs(Mathf.Sin((t - DescendSeconds) * 9f)) * 0.06f * Mathf.Exp(-(t - DescendSeconds) * 3f);
-                if (k < 1f && Time.time >= nextClank) { nextClank = Time.time + 0.45f; Sfx.Play(Sound.Rattle, cage.position + Vector3.up * 2f, 0.45f, 0.6f); }
+                if (k < 1f && Time.time >= nextClank) { nextClank = Time.time + 0.45f; Sfx.Play(Sound.Chain, cage.position + Vector3.up * 2f, 0.4f, 0.8f); }
             }
             cage.localPosition = Vector3.up * y;
             if (ascendAt > 0f) RideUp();

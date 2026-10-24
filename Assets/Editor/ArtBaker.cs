@@ -63,6 +63,10 @@ namespace Deepbound.EditorTools
             ApplyDetail("Rubble", "Assets/Textures/Detail/rock_grain_normal.jpg", 4f, 0.7f);
             ApplyDetail("Marble", "Assets/Textures/Detail/rock_grain_normal.jpg", 6f, 0.2f);
             ApplyDetail("Wood", "Assets/Textures/Detail/wood_grain_normal.jpg", 2f, 0.5f);
+            ApplyDetail("Cloth", "Assets/Textures/Detail/cloth_weave_normal.jpg", 6f, 0.35f);
+            ApplyDetail("Leather", "Assets/Textures/Detail/leather_grain_normal.jpg", 4f, 0.4f);
+            ApplyDetail("Steel", "Assets/Textures/Detail/metal_wear_normal.jpg", 3f, 0.25f);
+            ApplyDetail("Gold", "Assets/Textures/Detail/metal_wear_normal.jpg", 3f, 0.2f);
 
             BakeFlat("Dark", lit, new Color(0.05f, 0.05f, 0.06f), 0.4f, 0.3f);
 

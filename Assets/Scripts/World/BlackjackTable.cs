@@ -425,7 +425,7 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void ShuffleFxRpc()
         {
-            Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 0.6f, 1.8f);
+            Sfx.Play(Sound.Chips, transform.position + Vector3.up, 0.8f);
             UI.GameHud.ShowCombo(transform.position + Vector3.up * 1.6f, "THE DEALER SHUFFLES", new Color(0.85f, 0.8f, 0.7f));
         }
 

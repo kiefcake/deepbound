@@ -41,7 +41,7 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void RollFxRpc(string who, int a, int b, int c, int d, int result, int stake)
         {
-            Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 0.9f, 1.6f);
+            Sfx.Play(Sound.Dice, transform.position + Vector3.up, 0.9f);
             // The dice themselves: four bone cubes tumbling across the table.
             for (int i = 0; i < 4; i++)
             {

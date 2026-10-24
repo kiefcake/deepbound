@@ -188,6 +188,7 @@ namespace Deepbound.UI
             if (((keyboard != null && keyboard.escapeKey.wasPressedThisFrame) || Binds.PauseDown) && !OtherMenuOpenLastFrame)
             {
                 Open = !Open;
+                Deepbound.Art.Sfx.Play2D(Open ? Deepbound.Art.Sound.UiOpen : Deepbound.Art.Sound.UiClose, 0.8f);
                 options = guide = controls = false;
             }
         }

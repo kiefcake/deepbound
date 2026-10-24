@@ -25,7 +25,7 @@ namespace Deepbound.UI
     /// </remarks>
     public class AudioDirector : MonoBehaviour
     {
-        private AudioSource explore, combat, boss, campAir, deepAir, shrine, cavernAir, sting;
+        private AudioSource explore, combat, boss, campAir, deepAir, shrine, cavernAir, sting, vaults;
         private float combatHeat;
         private bool started;
         private static AudioDirector instance;
@@ -46,6 +46,9 @@ namespace Deepbound.UI
             boss = MakeSource(recorded ? recBoss : MusicSynth.Boss());
             var recShrine = Load("Music/explore_cathedral");
             shrine = MakeSource(recShrine != null ? recShrine : MusicSynth.Explore());
+            // Acts two and three (the Drowned Vaults, the Hollow Throne) explore to their own piece, if it is there.
+            var recVaults = Load("Music/explore_deep");
+            if (recVaults != null) vaults = MakeSource(recVaults);
             campAir = MakeSource(AmbienceSynth.Camp());
             var recDeep = Load("Ambience/dungeon");
             deepAir = MakeSource(recDeep != null ? recDeep : AmbienceSynth.Deep());
@@ -63,6 +66,7 @@ namespace Deepbound.UI
             combat.PlayScheduled(at);
             boss.PlayScheduled(at);
             shrine.PlayScheduled(at);
+            if (vaults != null) vaults.PlayScheduled(at);
             started = true;
         }
 
@@ -96,7 +100,7 @@ namespace Deepbound.UI
             if (!started) return;
 
             var local = NetworkPlayer.Local;
-            float exploreTarget, combatTarget = 0f, bossTarget = 0f, shrineTarget = 0f;
+            float exploreTarget, combatTarget = 0f, bossTarget = 0f, shrineTarget = 0f, vaultsTarget = 0f;
 
             if (local == null || DungeonDirector.InLobby)
             {
@@ -141,6 +145,7 @@ namespace Deepbound.UI
             // The Black Cathedral explores to the shrine loop instead of the tomb piece.
             int act = DungeonDirector.Layout != null ? DungeonDirector.Act(DungeonDirector.Layout.Depth) : 0;
             if (local != null && !DungeonDirector.InLobby && act == 3) { shrineTarget = exploreTarget; exploreTarget = 0f; }
+            else if (vaults != null && local != null && !DungeonDirector.InLobby && (act == 1 || act == 2)) { vaultsTarget = exploreTarget; exploreTarget = 0f; }
             // The sting has the stage for its few seconds.
             if (Time.time < stingUntil) { bossTarget = 0f; combatTarget *= 0.3f; }
 
@@ -149,6 +154,7 @@ namespace Deepbound.UI
             Fade(combat, combatTarget * music);
             Fade(boss, bossTarget * music);
             Fade(shrine, shrineTarget * music);
+            if (vaults != null) Fade(vaults, vaultsTarget * music);
             // Room tone under the music: night air at camp, the dungeon's breath below; the deeper acts are cavern air.
             bool camp = local == null || DungeonDirector.InLobby;
             bool deep = act >= 3;

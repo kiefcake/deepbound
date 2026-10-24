@@ -441,7 +441,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void ChainFxRpc(Vector3 from, Vector3 to, bool dragged)
         {
-            Sfx.Play(Sound.Rattle, from, 0.9f, 1.3f);
+            Sfx.Play(Sound.Chain, from, 0.9f, 1.1f);
             Sfx.Play(Sound.Hit, to, 0.8f, 0.9f);
             ChainLink.Spawn(from, to, 0.35f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);

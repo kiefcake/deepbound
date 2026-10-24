@@ -25,6 +25,81 @@ namespace Deepbound.World
         private float nextEmber;
         private Transform[] tongues;
 
+        // Crackle (2026-10-24): the few fires nearest the listener crackle, each from its own looped voice.
+        private static readonly System.Collections.Generic.List<Torch> all = new System.Collections.Generic.List<Torch>();
+        private static AudioSource[] crackle;
+        private static Torch[] crackleOn;
+        private static AudioClip crackleClip;
+        private static float nextCrackle;
+        private const int CrackleVoices = 3;
+        private const float CrackleRange = 9f;
+
+        private void OnEnable() => all.Add(this);
+        private void OnDisable() => all.Remove(this);
+
+        private static void TickCrackle()
+        {
+            if (Time.time < nextCrackle) return;
+            nextCrackle = Time.time + 0.25f;
+            if (crackle == null)
+            {
+                crackleClip = Resources.Load<AudioClip>("Audio/Ambience/fire_crackle");
+                if (crackleClip == null) { nextCrackle = float.MaxValue; return; }
+                var root = new GameObject("Torch Crackle");
+                DontDestroyOnLoad(root);
+                crackle = new AudioSource[CrackleVoices];
+                crackleOn = new Torch[CrackleVoices];
+                for (int i = 0; i < CrackleVoices; i++)
+                {
+                    var s = new GameObject("Crackle" + i).AddComponent<AudioSource>();
+                    s.transform.SetParent(root.transform, false);
+                    s.clip = crackleClip; s.loop = true; s.playOnAwake = false;
+                    s.spatialBlend = 1f; s.minDistance = 1.2f; s.maxDistance = CrackleRange;
+                    s.rolloffMode = AudioRolloffMode.Linear; s.dopplerLevel = 0f; s.volume = 0f;
+                    crackle[i] = s;
+                }
+            }
+            var cam = Art.ViewCamera.Current;
+            var ear = cam != null ? cam.transform.position : Vector3.zero;
+            // The nearest few lit fires in range.
+            var pick = new Torch[CrackleVoices];
+            var dist = new float[CrackleVoices];
+            for (int i = 0; i < CrackleVoices; i++) dist[i] = CrackleRange * CrackleRange;
+            if (cam != null)
+                foreach (var t in all)
+                {
+                    if (t == null || t.Flame == null || t.Dim < 0.3f) continue;
+                    float d = (t.Flame.position - ear).sqrMagnitude;
+                    for (int i = 0; i < CrackleVoices; i++)
+                        if (d < dist[i])
+                        {
+                            for (int j = CrackleVoices - 1; j > i; j--) { dist[j] = dist[j - 1]; pick[j] = pick[j - 1]; }
+                            dist[i] = d; pick[i] = t;
+                            break;
+                        }
+                }
+            // Keep a voice on a fire it already serves; hand free voices to the new ones.
+            for (int v = 0; v < CrackleVoices; v++)
+                if (crackleOn[v] != null && System.Array.IndexOf(pick, crackleOn[v]) < 0) crackleOn[v] = null;
+            foreach (var t in pick)
+            {
+                if (t == null || System.Array.IndexOf(crackleOn, t) >= 0) continue;
+                int free = System.Array.IndexOf(crackleOn, null);
+                if (free < 0) break;
+                crackleOn[free] = t;
+                var s = crackle[free];
+                s.transform.position = t.Flame.position;
+                s.pitch = 0.85f + (t.offset % 1f) * 0.3f;
+                if (!s.isPlaying) { s.time = Random.value * (crackleClip.length - 0.1f); s.Play(); }
+            }
+            for (int v = 0; v < CrackleVoices; v++)
+            {
+                var t = crackleOn[v];
+                float target = t != null ? 0.35f * Mathf.Clamp01(t.flameScale.y * 3f + 0.4f) : 0f;
+                crackle[v].volume = Mathf.MoveTowards(crackle[v].volume, target, 0.25f);
+            }
+        }
+
         private void Start()
         {
             offset = Random.value * 100f;
@@ -41,6 +116,7 @@ namespace Deepbound.World
 
         private void Update()
         {
+            TickCrackle();
             float t = Time.time * 7f + offset;
             float n = Mathf.PerlinNoise(t, offset) * 0.7f + Mathf.PerlinNoise(t * 2.7f, offset + 5f) * 0.3f;
 

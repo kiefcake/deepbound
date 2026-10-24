@@ -372,7 +372,8 @@ namespace Deepbound.Player
             if (stepDistance < stride) return;
             stepDistance = 0f;
             bool wet = DungeonDirector.Layout != null && DungeonTheme.ForDepth(DungeonDirector.Layout.Depth).WaterDepth > 0f;
-            Sfx.Play(wet ? Sound.Splash : Sound.Step, p, wet ? 0.35f : 0.25f);
+            // Camp is earth and grass underfoot (the castle cat's road, the forest track); below it is stone.
+            Sfx.Play(wet ? Sound.Splash : DungeonDirector.InLobby ? Sound.StepSoft : Sound.Step, p, wet ? 0.35f : 0.25f);
         }
 
         /// <summary>Server → owner: you fell; climb out here.</summary>

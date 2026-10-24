@@ -51,7 +51,7 @@ namespace Deepbound.World
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void PullFxRpc() => Sfx.Play(Sound.Bash, transform.position + Vector3.up, 0.8f, 0.8f);
+        private void PullFxRpc() { Sfx.Play(Sound.Bash, transform.position + Vector3.up, 0.8f, 0.8f); Sfx.Play(Sound.Chain, transform.position + Vector3.up, 0.6f, 1f); }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void ReleaseFxRpc() => Sfx.Play(Sound.Block, transform.position + Vector3.up, 0.6f, 1.5f);

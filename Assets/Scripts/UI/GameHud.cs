@@ -1106,8 +1106,13 @@ namespace Deepbound.UI
             }
         }
 
+        private bool panelWasOpen;
+
         private void Update()
         {
+            // A soft click when a stall, the anvil, the stones or the pack opens and closes.
+            bool panel = shopOpen || forgeOpen || invOpen || runeOpen;
+            if (panel != panelWasOpen) { panelWasOpen = panel; Art.Sfx.Play2D(panel ? Art.Sound.UiOpen : Art.Sound.UiClose, 0.8f); }
             WatchFloorTime();
             hurtFlash = Mathf.MoveTowards(hurtFlash, 0f, Time.deltaTime * 1.5f);
             Heartbeat();
@@ -2573,9 +2578,11 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(x + 14, ry + 17, pw - 200, 18), item.Description, small);
 
                 GUI.enabled = reason == null;
-                if (GUI.Button(new Rect(x + pw - 174, ry + 3, 160, 28), reason ?? (item.Price + " gold")))
+                GUI.enabled = true;
+                if (GUI.Button(new Rect(x + pw - 174, ry + 3, 160, 28), reason ?? (item.Price + " gold"), reason == null ? GUI.skin.button : new GUIStyle(GUI.skin.button) { normal = { textColor = new Color(0.6f, 0.55f, 0.5f) } }))
                 {
-                    progress.BuyRpc(vendor, i);
+                    if (reason == null) progress.BuyRpc(vendor, i);
+                    else Art.Sfx.Play2D(Art.Sound.UiError, 0.8f);
                 }
                 GUI.enabled = true;
             }
