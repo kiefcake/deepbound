@@ -1075,6 +1075,8 @@ namespace Deepbound.Enemies
             {
                 // The champion's hoard: gear for everyone and a Sigil.
                 GearDrop.ServerSpawnForParty(transform.position, 1f, 0);
+                // And a rare draught or tome for the party (2026-10-24).
+                World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f + Vector3.back * 0.8f, LootKind.RareItem, (int)Progression.RareItems.Random(), transform.position);
                 // A Sigil for each player (it was one for the whole party).
                 for (int i = 0; i < Difficulty.Party; i++)
                     World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f + Quaternion.Euler(0f, i * 90f, 0f) * Vector3.forward * 0.8f, LootKind.Sigil, 1, transform.position);
@@ -1134,15 +1136,43 @@ namespace Deepbound.Enemies
         // Client presentation
         // ------------------------------------------------------------------
 
+        /// <summary>
+        /// The creatures with throats (2026-10-24, recorded growls): the pitch of their voice, 0 for the bony dead,
+        /// who rattle instead.
+        /// </summary>
+        protected float VoicePitch
+        {
+            get
+            {
+                switch (visualKind)
+                {
+                    case CharacterArt.SkeletonKind.Ghoul: return 1.15f;
+                    case CharacterArt.SkeletonKind.Brute: return 0.7f;
+                    case CharacterArt.SkeletonKind.Gargoyle: return 0.8f;
+                    case CharacterArt.SkeletonKind.Mimic: return 0.95f;
+                    case CharacterArt.SkeletonKind.Plaguebearer: return 0.85f;
+                    case CharacterArt.SkeletonKind.FrostWight: return 0.75f;
+                    case CharacterArt.SkeletonKind.Entling: return 1.35f;
+                    case CharacterArt.SkeletonKind.Hoarder: return 1.25f;
+                    default: return 0f;
+                }
+            }
+        }
+
         [Rpc(SendTo.ClientsAndHost)]
         protected void PlayActionRpc(RigAction action, float duration)
         {
             Rig?.Play(action, duration);
+            float voice = VoicePitch;
             switch (action)
             {
                 case RigAction.Swing: Sfx.Play(Sound.Swing, transform.position + Vector3.up, 0.7f, 0.8f); break;
+                case RigAction.Windup:
+                    if (voice > 0f && Random.value < 0.35f) Sfx.Play(Sound.MonsterAttack, transform.position + Vector3.up * 1.4f, 0.7f, voice);
+                    break;
                 case RigAction.Death:
                     Sfx.Play(Sound.BoneBreak, transform.position + Vector3.up);
+                    if (voice > 0f) Sfx.Play(Sound.MonsterDie, transform.position + Vector3.up * 1.2f, 0.9f, voice);
                     BoneBurst.Spawn(transform.position, Rig != null ? Rig.transform.lossyScale.y : 1f, Elite.Value);
                     foreach (var c in GetComponentsInChildren<Collider>()) c.enabled = false;
                     // The rank and file fall apart once they have crumpled; bosses keep their fall.
@@ -1169,7 +1199,8 @@ namespace Deepbound.Enemies
         {
             float top = Rig != null ? Rig.transform.lossyScale.y * 2.1f : 2.1f;
             UI.GameHud.ShowCombo(transform.position + Vector3.up * top, "!", new Color(1f, 0.85f, 0.3f));
-            Sfx.Play(Sound.Rattle, transform.position + Vector3.up * 1.4f, 0.5f, Random.Range(1.15f, 1.4f));
+            if (VoicePitch > 0f) Sfx.Play(Sound.Growl, transform.position + Vector3.up * 1.4f, 0.8f, VoicePitch);
+            else Sfx.Play(Sound.Rattle, transform.position + Vector3.up * 1.4f, 0.5f, Random.Range(1.15f, 1.4f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

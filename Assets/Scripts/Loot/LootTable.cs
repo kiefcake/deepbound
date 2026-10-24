@@ -39,6 +39,7 @@ namespace Deepbound.Loot
                 int amount = Random.Range(e.MinAmount, e.MaxAmount + 1);
                 if (e.Kind == LootKind.Relic) amount = (int)Relics.Random();
                 if (e.Kind == LootKind.Rune) amount = (int)Runes.Random();
+                if (e.Kind == LootKind.RareItem) amount = (int)Progression.RareItems.Random();
                 if (e.Kind == LootKind.Gold) amount = Mathf.Max(1, Mathf.RoundToInt(amount * goldScale));
                 if (e.Kind == LootKind.Embers) amount = Mathf.Max(1, Mathf.RoundToInt(amount * (1f + (goldScale - 1f) * 0.5f)));
                 results.Add((e.Kind, amount));
@@ -63,6 +64,7 @@ namespace Deepbound.Loot
             .Add(0.18f, LootKind.Relic)
             .Add(0.12f, LootKind.Sigil)
             .Add(0.15f, LootKind.Rune)
+            .Add(0.04f, LootKind.RareItem)
             .Add(0.3f, LootKind.PotionHP, 1, 1)
             .Add(0.15f, LootKind.PotionMP, 1, 1);
 
@@ -73,6 +75,7 @@ namespace Deepbound.Loot
             .Add(0.22f, LootKind.Relic)
             .Add(0.2f, LootKind.Sigil)
             .Add(0.22f, LootKind.Rune)
+            .Add(0.07f, LootKind.RareItem)
             .Add(0.45f, LootKind.PotionHP, 1, 1)
             .Add(0.2f, LootKind.PotionMP, 1, 1);
 

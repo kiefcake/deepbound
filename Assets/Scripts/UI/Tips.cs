@@ -102,6 +102,9 @@ namespace Deepbound.UI
                 if (it is LorePage && Vector3.Distance(it.transform.position, me) < 8f)
                     Offer("lore", "A JOURNAL PAGE on a lectern. Press F to read it; every page you find is kept in your Journal (Esc > Guide), run after run.");
             if (ult != null && ult.Ready) Offer("ult", "Your ULTIMATE is charged: press R.");
+            var rarePouch = player.GetComponent<Flasks>();
+            if (rarePouch != null && rarePouch.RareHeld != Progression.RareItem.None)
+                Offer("rare", "A RARE " + (Progression.RareItems.IsTome(rarePouch.RareHeld) ? "TOME" : "DRAUGHT") + " sits in your pouch's fifth slot: press 5 to use it. " + Progression.RareItems.Describe(rarePouch.RareHeld) + " You carry one at a time; save it for the moment that matters.");
 
             var knight = player.GetComponent<KnightKit>();
             if (knight != null && knight.ShieldRaised && PlayerLife.All.Count > 1)

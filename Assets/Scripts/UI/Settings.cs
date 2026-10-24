@@ -69,6 +69,14 @@ namespace Deepbound.UI
 
         public static readonly string[] VoiceModeNames = { "Open mic", "Push to talk (T)", "Off" };
 
+        /// <summary>Music and room tone, 0-1 (under the master volume).</summary>
+        public static float MusicVolume
+        {
+            get => musicVol ??= Load("deepbound.musicvol", 0.8f);
+            set { musicVol = Mathf.Clamp01(value); Save("deepbound.musicvol", musicVol.Value); }
+        }
+        private static float? musicVol;
+
         /// <summary>How loud other players' voices are, 0-1.5.</summary>
         public static float VoiceVolume
         {

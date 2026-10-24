@@ -14,7 +14,7 @@ namespace Deepbound.Progression
     public static class Shop
     {
         /// <summary>Value 1 was the retired stat potion.</summary>
-        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7, Prayer = 8, Drill = 9, Map = 10, Salts = 11, Restock = 12, Rope = 13, Blessing = 14, ShrineRestock = 15 }
+        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7, Prayer = 8, Drill = 9, Map = 10, Salts = 11, Restock = 12, Rope = 13, Blessing = 14, ShrineRestock = 15, Rare = 16 }
 
         public struct Item
         {
@@ -137,6 +137,9 @@ namespace Deepbound.Progression
                 var buyerM = PlayerProgress.ForClient(clientId);
                 var rng = new System.Random(seed * 17 + (int)clientId * 6007 + 11 + (buyerM != null ? buyerM.StockRerolls.Value * 7919 : 0));
                 var charms = new List<Loot.GearId>(Loot.Gear.RollableOf(Loot.GearSlot.Charm));
+                // And one rare draught or tome under the counter, dear (2026-10-24).
+                var rareM = RareItems.FromSeed(new System.Random(seed * 23 + (int)clientId * 911 + (buyerM != null ? buyerM.StockRerolls.Value * 31 : 0)));
+                list.Add(new Item { Name = RareItems.Name(rareM), Description = RareItems.Describe(rareM) + " (pouch slot 5, one at a time)", Price = RareItems.Price(depth), Kind = ItemKind.Rare, Amount = (int)rareM, Seller = Vendor.Merchant });
                 for (int k = 0; k < 2 && charms.Count > 0; k++)
                 {
                     int pick = rng.Next(charms.Count);

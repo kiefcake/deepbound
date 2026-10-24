@@ -110,6 +110,7 @@ namespace Deepbound.EditorTools
             var bountyNotice = BuildObjectPrefab<BountyNotice>("BountyNotice", Vector3.zero);
             var omenStone = BuildObjectPrefab<OmenStone>("OmenStone", new Vector3(1f, 2.6f, 0.7f));
             var rangeTarget = BuildRangeTargetPrefab();
+            var phoenix = BuildPhoenixPrefab();
             var dso = new SerializedObject(director.GetComponent<DungeonDirector>());
             dso.FindProperty("portcullisPrefab").objectReferenceValue = gate.GetComponent<NetworkObject>();
             dso.FindProperty("leverPrefab").objectReferenceValue = lever.GetComponent<NetworkObject>();
@@ -158,11 +159,12 @@ namespace Deepbound.EditorTools
             dso.FindProperty("bountyNoticePrefab").objectReferenceValue = bountyNotice.GetComponent<NetworkObject>();
             dso.FindProperty("omenStonePrefab").objectReferenceValue = omenStone.GetComponent<NetworkObject>();
             dso.FindProperty("rangeTargetPrefab").objectReferenceValue = rangeTarget.GetComponent<NetworkObject>();
+            dso.FindProperty("phoenixPrefab").objectReferenceValue = phoenix.GetComponent<NetworkObject>();
             dso.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody);
+            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -617,6 +619,18 @@ namespace Deepbound.EditorTools
             so.ApplyModifiedPropertiesWithoutUndo();
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
+        }
+
+        /// <summary>The Tome of the Phoenix's bird: on the players' side (Team.Allies), so the dead's blows and bolts can bring it down.</summary>
+        private static GameObject BuildPhoenixPrefab()
+        {
+            var root = new GameObject("Phoenix");
+            root.AddComponent<NetworkObject>();
+            var body = root.AddComponent<CapsuleCollider>();
+            body.radius = 0.45f; body.height = 0.9f; body.center = Vector3.zero; body.isTrigger = true; // blocks no shot, no step
+            SetTeam(root.AddComponent<Health>(), Team.Allies, 0f);
+            root.AddComponent<Deepbound.Player.Phoenix>();
+            return SavePrefab(root, "Phoenix");
         }
 
         private static GameObject BuildCatPrefab()

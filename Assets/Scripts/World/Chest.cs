@@ -53,6 +53,8 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void OpenFxRpc()
         {
+            Sfx.Play(Sound.Chest, transform.position + Vector3.up * 0.8f, 0.9f, 0.9f);
+            Sfx.Play(Sound.Creak, transform.position + Vector3.up * 0.8f, 0.5f, 1.1f);
             Sfx.Play(Sound.Coins, transform.position + Vector3.up, 1f, 0.8f);
             // A gust of gold light out of the opened lid.
             var gold = new Color(1f, 0.78f, 0.35f);

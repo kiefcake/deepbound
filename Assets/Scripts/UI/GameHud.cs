@@ -190,6 +190,7 @@ namespace Deepbound.UI
         /// <summary>A boss's entrance: letterbox bars, its name and epithet, and how to fight it.</summary>
         public static void ShowBossIntro(string name, string epithet, string hint)
         {
+            AudioDirector.BossIntro();
             introName = name;
             introEpithet = epithet;
             introHint = hint;
@@ -1201,6 +1202,13 @@ namespace Deepbound.UI
 
             DrawEnemyBars();
             DrawPylons();
+            DrawPhoenixes();
+            var stonePouch = player.GetComponent<Flasks>();
+            if (stonePouch != null && stonePouch.InStasis)
+            {
+                Rect(0, 0, Screen.width, Screen.height, new Color(0.55f, 0.57f, 0.62f, 0.32f));
+                UiSkin.Shadowed(new Rect(0, Screen.height * 0.3f, Screen.width, 30), "GRAVE STILLNESS  -  nothing can touch you", new GUIStyle(big) { fontSize = 22, normal = { textColor = new Color(0.85f, 0.88f, 0.95f) } });
+            }
             UiTimer.Mark("DrawEnemyBars");
             DrawRelicTags();
             UiTimer.Mark("DrawRelicTags");
@@ -1548,6 +1556,16 @@ namespace Deepbound.UI
                     pouchSt.normal.textColor = n > 0 ? Color.white : new Color(0.6f, 0.6f, 0.6f);
                     GUI.Label(new Rect(sx + 22, y - 30, bw - 24, 24), (k + 1) + "  " + n + "/" + Flasks.Max, pouchSt);
                 }
+                // Slot 5: the rare draught or tome, gold-rimmed, glowing while it waits.
+                var rare = belt.RareHeld;
+                float rx = bx + Flasks.All.Length * bw, rw = 128f;
+                var rc = rare != RareItem.None ? RareItems.Color(rare) : new Color(0.4f, 0.38f, 0.35f);
+                Rect(rx + 1, y - 31, rw - 2, 26, new Color(Gold.r, Gold.g, Gold.b, rare != RareItem.None ? 0.55f + 0.25f * Mathf.Sin(Time.time * 3f) : 0.25f));
+                Rect(rx + 2, y - 30, rw - 4, 24, new Color(0.05f, 0.04f, 0.03f, 0.85f));
+                Rect(rx + 8, y - 25, 10, 14, rare != RareItem.None ? rc : rc * 0.5f);
+                pouchSt.normal.textColor = rare != RareItem.None ? UiSkin.Readable(rc) : new Color(0.55f, 0.55f, 0.55f);
+                var rareSt = new GUIStyle(pouchSt) { wordWrap = false, clipping = TextClipping.Clip };
+                GUI.Label(new Rect(rx + 22, y - 30, rw - 24, 24), Binds.Live(Bind.Rare) + "  " + RareItems.Short(rare), rareSt);
             }
         }
 
@@ -2752,6 +2770,32 @@ namespace Deepbound.UI
         }
 
         private float nextBestiaryCheck;
+
+        /// <summary>Summoned phoenixes: name, seconds left and health over each (an egg says when it will hatch).</summary>
+        private void DrawPhoenixes()
+        {
+            if (Phoenix.All.Count == 0) return;
+            var cam = player.Camera;
+            if (cam == null) return;
+            var fire = new Color(1f, 0.6f, 0.2f);
+            foreach (var p in Phoenix.All)
+            {
+                if (p == null) continue;
+                var sp = cam.WorldToScreenPoint(p.transform.position + Vector3.up * 0.9f);
+                if (sp.z <= 0f || sp.z > 40f) continue;
+                float x = sp.x, y = Screen.height - sp.y;
+                int left = Mathf.Max(0, Mathf.CeilToInt((float)(p.EndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
+                string owner = Health.NameOf(p.Summoner.Value);
+                var st = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 11, normal = { textColor = fire } };
+                UiSkin.Shadowed(new Rect(x - 80, y - 22, 160, 16), (p.Egg.Value ? "EGG - REBORN SOON" : "PHOENIX") + "  " + left + "s" + (p.Summoner.Value != player.NetworkObjectId ? "  (" + owner + ")" : ""), st);
+                var hp = p.GetComponent<Health>();
+                if (hp != null && !p.Egg.Value)
+                {
+                    Rect(x - 26, y - 5, 52, 6, new Color(0f, 0f, 0f, 0.75f));
+                    Rect(x - 25, y - 4, 50 * hp.Fraction, 4, fire);
+                }
+            }
+        }
 
         /// <summary>Heal pylons: PYLON over each with its health, and a warning line while any is feeding the boss.</summary>
         private void DrawPylons()

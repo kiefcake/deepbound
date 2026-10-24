@@ -187,8 +187,12 @@ namespace Deepbound.Enemies
         }
 
         /// <summary>Server: a brief, immune pause into a new phase: it stops, speaks, and gathers itself.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RoarRpc() => Sfx.Play(Sound.Roar, transform.position + Vector3.up * 2f, 1f, Rig != null ? Mathf.Clamp(1.1f - 0.12f * Rig.transform.lossyScale.y, 0.6f, 1f) : 0.8f);
+
         protected void Transition(string phase, string taunt, float seconds = 2.2f, System.Action then = null)
         {
+            if (IsServer) RoarRpc();
             SetStance(Stance.Transition, phase, null, seconds);
             stanceThen = then;
             castUntil = Time.time + seconds;

@@ -63,6 +63,9 @@ namespace Deepbound.UI
                     Text = (DungeonDirector.Thickness > 0.05f ? "The thickened water drags at your legs" : "The water slows you") + ": -" + Mathf.RoundToInt((1f - water) * 100f) + "% movement speed. Get onto stairs, balconies or stones.",
                     Lasts = "While you stand in it", Color = new Color(0.55f, 0.75f, 0.45f) });
             var flasks = player.GetComponent<Flasks>();
+            if (flasks != null && flasks.Ironbark) list.Add(Timed("\u2742", "Ironbark", "Half damage, a shield, and nothing knocks, roots, chills or maddens you.", RareItems.Color(RareItem.Ironbark), flasks.IronbarkUntil.Value - now, RareItems.IronbarkSeconds));
+            if (flasks != null && flasks.Bloodfury) list.Add(Timed("\u2694", "Bloodfury", "+40% damage, attacks 25% faster.", RareItems.Color(RareItem.Bloodfury), flasks.BloodfuryUntil.Value - now, RareItems.BloodfurySeconds));
+            if (flasks != null && flasks.InStasis) list.Add(Timed("\u25C9", "Grave Stillness", "Stone: nothing can hurt you and the dead have forgotten you. You cannot move or act.", RareItems.Color(RareItem.GraveStillness), flasks.StasisUntil.Value - now, RareItems.StasisSeconds));
             if (flasks != null && flasks.Healing)
                 list.Add(new Status { Glyph = "♥", Name = "Mending", Text = "A health potion is closing your wounds.", Lasts = "A few seconds", Color = Good });
             var emotes = player.GetComponent<Emotes>();

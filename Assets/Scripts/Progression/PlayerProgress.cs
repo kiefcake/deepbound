@@ -800,6 +800,7 @@ namespace Deepbound.Progression
                 if (HasRelic(Relic.BerserkersBrand) && health.Fraction < 0.5f) m *= 1f + 0.4f * RelicPower(Relic.BerserkersBrand);
                 if (HasRelic(Relic.BloodPact)) m *= 1f + 0.3f * RelicPower(Relic.BloodPact);
                 if (Rallied) m *= 1f + 0.15f * RallyPower.Value;
+                if (Pouch != null && Pouch.Bloodfury) m *= RareItems.BloodfuryDamage;
                 return m;
             }
         }
@@ -807,6 +808,7 @@ namespace Deepbound.Progression
         /// <summary>SPD 50 is the reference speed; each point either side is ±1%.</summary>
         public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1f + 0.15f * RelicPower(Relic.GhostLantern) : 1f) * (Blessed(Blessing.Swiftness) ? 1.12f : 1f)
             * (Rallied ? 1f + 0.2f * RallyPower.Value : 1f)
+            * (Pouch != null && Pouch.InStasis ? 0f : 1f)
             * World.DungeonDirector.WaterSlow(transform.position, true)
             * (TryGetComponent<Player.PlayerDebuffs>(out var deb) ? deb.SpeedMultiplier : 1f)
             * World.Carryable.SpeedFor(NetworkObjectId)
@@ -1215,7 +1217,10 @@ namespace Deepbound.Progression
         }
 
         /// <summary>DEX 50 is the reference rate; higher DEX shortens swing recovery, floored at 50%.</summary>
-        public float AttackTimeMultiplier => Mathf.Max(0.5f, 1.5f - Value(StatType.DEX) / 50f * 0.5f);
+        public float AttackTimeMultiplier => Mathf.Max(0.5f, 1.5f - Value(StatType.DEX) / 50f * 0.5f) * (Pouch != null && Pouch.Bloodfury ? RareItems.BloodfuryAttackTime : 1f);
+
+        private Player.Flasks Pouch => pouchCache != null ? pouchCache : (pouchCache = GetComponent<Player.Flasks>());
+        private Player.Flasks pouchCache;
 
         // ------------------------------------------------------------------
         // Server API
@@ -1447,6 +1452,7 @@ namespace Deepbound.Progression
                 case Shop.ItemKind.Relic: return !CanTakeRelic((Relic)(int)item.Amount) ? (HasRelic((Relic)(int)item.Amount) ? "At full power" : "Tray full") : null;
                 case Shop.ItemKind.Blessing: return ActiveBlessing.Value != 0 ? "Already blessed" : null;
                 case Shop.ItemKind.ShrineRestock: return null;
+                case Shop.ItemKind.Rare: return GetComponent<Player.Flasks>() is var rf && rf != null && rf.Rare.Value != 0 ? "Slot 5 is full" : null;
                 case Shop.ItemKind.Prayer: return PrayedFor.Value ? "Already prayed for" : null;
                 case Shop.ItemKind.Drill: return DrillCount(item.Stat) >= (int)item.Cap ? "Mastered" : null;
                 case Shop.ItemKind.Map: return ScoutMap.Value ? "Already have it" : null;
@@ -1520,6 +1526,9 @@ namespace Deepbound.Progression
                     ServerBless((Blessing)(int)item.Amount);
                     BlessedRpc((byte)(int)item.Amount);
                     bought = true;
+                    break;
+                case Shop.ItemKind.Rare:
+                    bought = GetComponent<Player.Flasks>() is var rp && rp != null && rp.ServerGiveRare((RareItem)(int)item.Amount);
                     break;
                 case Shop.ItemKind.ShrineRestock:
                     ShrineRerolls.Value++;

@@ -27,7 +27,7 @@ namespace Deepbound.World
         {
             bool isNew = UI.Journal.Add(Index.Value);
             UI.GameHud.ShowPage(Index.Value, isNew);
-            Sfx.Play2D(Sound.Card, 0.6f);
+            Sfx.Play2D(Sound.PageTurn, 0.7f);
             if (isNew) Sfx.Play2D(Sound.Relic, 0.4f);
         }
 

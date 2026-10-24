@@ -60,8 +60,8 @@ namespace Deepbound.Combat
             return Results;
         }
 
-        /// <summary>Attacks aimed at enemies also break props in the way.</summary>
-        public static bool Matches(Health h, Team team) => h.Team == team || (team == Team.Enemies && h.Team == Team.Props);
+        /// <summary>Attacks aimed at enemies also break props in the way; attacks aimed at players also strike their summoned allies.</summary>
+        public static bool Matches(Health h, Team team) => h.Team == team || (team == Team.Enemies && h.Team == Team.Props) || (team == Team.Players && h.Team == Team.Allies);
 
         /// <summary>
         /// True if nothing static stands between the attacker and the target. Hitting any

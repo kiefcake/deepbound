@@ -16,30 +16,69 @@ namespace Deepbound.UI
     /// to synthesise), started together, and never stopped — only their volumes move, so
     /// a fight starting mid-bar slides the drums in on the beat they would be on anyway.
     /// </summary>
+    /// <remarks>
+    /// 2026-10-24: recorded CC0 music and room tone (Resources/Audio/Music and Ambience, see docs/CREDITS.md) take the
+    /// place of the synthesised layers when present: a tomb ambience piece to explore by, a shrine loop for the camp and
+    /// the Black Cathedral, an orchestral battle theme, a looping boss battle, a dramatic sting when an arena seals, and
+    /// wind-and-drip or cavern air under it all. Recorded layers loop on their own (they are not one length); only
+    /// their volumes move.
+    /// </remarks>
     public class AudioDirector : MonoBehaviour
     {
-        private AudioSource explore, combat, boss, campAir, deepAir;
+        private AudioSource explore, combat, boss, campAir, deepAir, shrine, cavernAir, sting;
         private float combatHeat;
         private bool started;
+        private static AudioDirector instance;
 
-        private void Start() => Invoke(nameof(Begin), 0.3f);
+        private void Start() { instance = this; Invoke(nameof(Begin), 0.3f); }
+
+        private static AudioClip Load(string path) => Resources.Load<AudioClip>("Audio/" + path);
 
         private void Begin()
         {
-            explore = MakeSource(MusicSynth.Explore());
-            combat = MakeSource(MusicSynth.Combat());
-            boss = MakeSource(MusicSynth.Boss());
+            var recExplore = Load("Music/explore");
+            var recCombat = Load("Music/combat");
+            var recBoss = Load("Music/boss");
+            bool recorded = recExplore != null && recCombat != null && recBoss != null;
+            recordedMusic = recorded;
+            explore = MakeSource(recorded ? recExplore : MusicSynth.Explore());
+            combat = MakeSource(recorded ? recCombat : MusicSynth.Combat());
+            boss = MakeSource(recorded ? recBoss : MusicSynth.Boss());
+            var recShrine = Load("Music/explore_cathedral");
+            shrine = MakeSource(recShrine != null ? recShrine : MusicSynth.Explore());
             campAir = MakeSource(AmbienceSynth.Camp());
-            deepAir = MakeSource(AmbienceSynth.Deep());
+            var recDeep = Load("Ambience/dungeon");
+            deepAir = MakeSource(recDeep != null ? recDeep : AmbienceSynth.Deep());
+            var recCavern = Load("Ambience/cavern");
+            cavernAir = MakeSource(recCavern != null ? recCavern : AmbienceSynth.Deep());
+            sting = gameObject.AddComponent<AudioSource>();
+            sting.spatialBlend = 0f;
+            sting.playOnAwake = false;
             campAir.Play();
             deepAir.Play();
+            cavernAir.Play();
 
             double at = AudioSettings.dspTime + 0.2;
             explore.PlayScheduled(at);
             combat.PlayScheduled(at);
             boss.PlayScheduled(at);
+            shrine.PlayScheduled(at);
             started = true;
         }
+
+        /// <summary>The arena seals: a dramatic sting over everything (the boss loop is held back while it plays).</summary>
+        public static void BossIntro()
+        {
+            if (instance == null || instance.sting == null) return;
+            var clip = Load("Music/boss_intro");
+            if (clip == null) return;
+            instance.sting.clip = clip;
+            instance.sting.volume = 0.7f * Settings.MusicVolume;
+            instance.sting.Play();
+            instance.stingUntil = Time.time + Mathf.Min(clip.length, 9f);
+        }
+        private float stingUntil;
+        private bool recordedMusic;
 
         private AudioSource MakeSource(AudioClip clip)
         {
@@ -57,11 +96,13 @@ namespace Deepbound.UI
             if (!started) return;
 
             var local = NetworkPlayer.Local;
-            float exploreTarget, combatTarget = 0f, bossTarget = 0f;
+            float exploreTarget, combatTarget = 0f, bossTarget = 0f, shrineTarget = 0f;
 
             if (local == null || DungeonDirector.InLobby)
             {
-                exploreTarget = 0.35f;
+                // Camp: the shrine loop, low.
+                exploreTarget = 0f;
+                shrineTarget = 0.3f;
             }
             else
             {
@@ -91,14 +132,31 @@ namespace Deepbound.UI
                 }
             }
 
-            Fade(explore, exploreTarget);
-            Fade(combat, combatTarget);
-            Fade(boss, bossTarget);
-            // Room tone under the music: night air at camp, the dungeon's breath below (deeper in the Abyss).
+            // Recorded tracks are not one key and tempo like the synth layers: one at a time, crossfaded.
+            if (recordedMusic)
+            {
+                exploreTarget *= 1f - combatHeat;
+                if (bossTarget > 0f) { exploreTarget = 0f; combatTarget = 0f; }
+            }
+            // The Black Cathedral explores to the shrine loop instead of the tomb piece.
+            int act = DungeonDirector.Layout != null ? DungeonDirector.Act(DungeonDirector.Layout.Depth) : 0;
+            if (local != null && !DungeonDirector.InLobby && act == 3) { shrineTarget = exploreTarget; exploreTarget = 0f; }
+            // The sting has the stage for its few seconds.
+            if (Time.time < stingUntil) { bossTarget = 0f; combatTarget *= 0.3f; }
+
+            float music = Settings.MusicVolume;
+            Fade(explore, exploreTarget * music);
+            Fade(combat, combatTarget * music);
+            Fade(boss, bossTarget * music);
+            Fade(shrine, shrineTarget * music);
+            // Room tone under the music: night air at camp, the dungeon's breath below; the deeper acts are cavern air.
             bool camp = local == null || DungeonDirector.InLobby;
-            Fade(campAir, camp ? 0.22f : 0f);
-            Fade(deepAir, camp ? 0f : bossTarget > 0f ? 0.1f : 0.2f);
-            if (deepAir != null) deepAir.pitch = DungeonDirector.Layout != null && DungeonDirector.Layout.Depth >= DungeonDirector.AbyssDepth ? 0.75f : 1f;
+            bool deep = act >= 3;
+            float air = camp ? 0f : bossTarget > 0f ? 0.12f : 0.3f;
+            Fade(campAir, (camp ? 0.22f : 0f) * music);
+            Fade(deepAir, (deep ? 0f : air) * music);
+            Fade(cavernAir, (deep ? air : 0f) * music);
+            if (cavernAir != null) cavernAir.pitch = DungeonDirector.Layout != null && DungeonDirector.Layout.Depth >= DungeonDirector.AbyssDepth ? 0.8f : 1f;
         }
 
         private static void Fade(AudioSource s, float target)

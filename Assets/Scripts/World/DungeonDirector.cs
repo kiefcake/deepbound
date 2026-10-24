@@ -345,6 +345,18 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject chestPrefab;
         [SerializeField] private NetworkObject altarPrefab;
         [SerializeField] private NetworkObject breakablePrefab;
+        [SerializeField] private NetworkObject phoenixPrefab;
+
+        /// <summary>Server: the Tome of the Phoenix (one bird per player at a time). False if it cannot come.</summary>
+        public bool ServerSummonPhoenix(Progression.PlayerProgress who)
+        {
+            if (!IsServer || phoenixPrefab == null || who == null) return false;
+            foreach (var p in Player.Phoenix.All) if (p != null && p.Summoner.Value == who.NetworkObjectId) return false;
+            var obj = Instantiate(phoenixPrefab, who.transform.position + Vector3.up * Player.Phoenix.OrbitHeight, Quaternion.identity);
+            obj.Spawn(destroyWithScene: true);
+            obj.GetComponent<Player.Phoenix>().ServerInit(who);
+            return true;
+        }
         [SerializeField] private NetworkObject anvilPrefab;
         [SerializeField] private NetworkObject gearDropPrefab;
 

@@ -56,6 +56,14 @@ namespace Deepbound.EditorTools
             BakeSurface("Rubble", lit, Rubble, 0.08f, 0f, 3f);
             BakeSurface("Marble", lit, Marble, 0.18f, 0f, 0.5f);
 
+            // Fine grain on top (2026-10-24): a CC0 detail normal from Poly Haven tiled small over the baked surfaces, so
+            // stone and wood catch the light grain by grain. Colour and the brick layout stay ours (docs/CREDITS.md).
+            ApplyDetail("StoneWall", "Assets/Textures/Detail/rock_grain_normal.jpg", 7f, 0.55f);
+            ApplyDetail("Flagstone", "Assets/Textures/Detail/rock_grain_normal.jpg", 5f, 0.45f);
+            ApplyDetail("Rubble", "Assets/Textures/Detail/rock_grain_normal.jpg", 4f, 0.7f);
+            ApplyDetail("Marble", "Assets/Textures/Detail/rock_grain_normal.jpg", 6f, 0.2f);
+            ApplyDetail("Wood", "Assets/Textures/Detail/wood_grain_normal.jpg", 2f, 0.5f);
+
             BakeFlat("Dark", lit, new Color(0.05f, 0.05f, 0.06f), 0.4f, 0.3f);
 
             // Emissive surfaces: torch flames, enemy eyes, the boss's crown gems. Colour is
@@ -122,6 +130,30 @@ namespace Deepbound.EditorTools
                 mat.SetFloat("_SmoothnessTextureChannel", 0f);
                 mat.DisableKeyword("_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A");
             }
+            EditorUtility.SetDirty(mat);
+        }
+
+        /// <summary>A detail normal map on a baked material (URP Lit's detail inputs; the detail albedo stays neutral grey).</summary>
+        private static void ApplyDetail(string material, string normalPath, float tiling, float strength)
+        {
+            var importer = AssetImporter.GetAtPath(normalPath) as TextureImporter;
+            if (importer == null) return;
+            if (importer.textureType != TextureImporterType.NormalMap || importer.wrapMode != TextureWrapMode.Repeat)
+            {
+                importer.textureType = TextureImporterType.NormalMap;
+                importer.wrapMode = TextureWrapMode.Repeat;
+                importer.anisoLevel = 4;
+                importer.maxTextureSize = 1024;
+                importer.SaveAndReimport();
+            }
+            var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(normalPath);
+            var mat = AssetDatabase.LoadAssetAtPath<Material>(MaterialDir + "/" + material + ".mat");
+            if (tex == null || mat == null) return;
+            mat.SetTexture("_DetailNormalMap", tex);
+            mat.SetFloat("_DetailNormalMapScale", strength);
+            mat.SetFloat("_DetailAlbedoMapScale", 0f);
+            mat.SetTextureScale("_DetailAlbedoMap", new Vector2(tiling, tiling));
+            mat.EnableKeyword("_DETAIL_MULX2");
             EditorUtility.SetDirty(mat);
         }
 

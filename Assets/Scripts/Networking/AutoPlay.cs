@@ -510,6 +510,18 @@ namespace Deepbound.Networking
                 // A potion below 40%.
                 if (flasks != null && hp.Current.Value < hp.Max.Value * 0.4f && flasks.Count(Flasks.Kind.Health) > 0) yield return Press(GamepadButton.DpadLeft);
                 if (me.ActiveKit != null && me.ActiveKit.Resource < me.ActiveKit.ResourceMax * 0.15f && flasks != null && flasks.Count(Flasks.Kind.Mana) > 0) yield return Press(GamepadButton.DpadRight);
+                // The rare slot, as a player would: a defensive draught when it is going badly, the rest at the guardian.
+                if (flasks != null && flasks.RareHeld != Progression.RareItem.None && !flasks.InStasis)
+                {
+                    var rare = flasks.RareHeld;
+                    bool low = hp.Current.Value < hp.Max.Value * 0.35f;
+                    bool atBoss = BossBrain.Active != null && dd.BossSealed;
+                    if ((low && (rare == Progression.RareItem.Ironbark || rare == Progression.RareItem.GraveStillness))
+                        || (atBoss && (rare == Progression.RareItem.Bloodfury || rare == Progression.RareItem.PhoenixTome)))
+                    {
+                        if (flasks.ServerUseRare()) L("used " + Progression.RareItems.Name(rare) + (low ? " (low on health)" : " (at the guardian)"));
+                    }
+                }
 
                 // Pick what to do: the nearest living enemy we can walk to (the guardian last), else loot, else a chest.
                 var boss = BossBrain.Active;

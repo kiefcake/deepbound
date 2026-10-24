@@ -40,6 +40,7 @@ namespace Deepbound.UI
         private static readonly (string title, string body)[] GuideRight =
         {
             ("GEAR", "Armour and a charm, rolled for each player - only you see your drops. F puts it in your PACK (I to wear it); X at Hobb's anvil scraps it for embers. Deeper and finer pieces are stronger. At the anvil you can refine a piece's quality or attune it to a deeper floor, so a favourite keeps up. Each boss may drop its own Legendary piece: the Warden's Bulwark, the Lich's Phylactery, the Crown of the Hollow King, the Pale Cardinal's Vestments. Silas sells two PENDANTS (charms) at camp; Hobb sells armour."),
+            ("RARE DRAUGHTS & TOMES (5)", "The pouch's fifth slot holds one rare thing at a time: IRONBARK (8 s of half damage, a shield, no knockback or afflictions), BLOODFURY (8 s of +40% damage, faster attacks), GRAVE STILLNESS (3 s as stone: untouchable and forgotten, but helpless), or the TOME OF THE PHOENIX (a fire-bird fights for you for 30 s, scorching the dead, and is reborn when struck down). Found on champions, elites and in chests; Silas keeps one under the counter, dear. A full slot leaves the next on the floor for someone else."),
             ("RELICS", "Rare powers. You carry at most 8. A relic you already have EMPOWERS it (II, then III: +35% to its numbers each time); with a full tray, a new relic empowers your weakest instead. A relic you carry is left on the floor while a teammate lacks it. Found on elites, in chests and from bosses; the shrine offers two picked for you each visit (ask for others for a little gold). Ability cooldown cuts from relics, blessings and edges add up to at most 40%."),
             ("COMBOS", "Classes set each other up. Chill + a heavy hit = SHATTER. Stunned enemies are EXPOSED (+25% for all). Taunted enemies are DISTRACTED (+15%). Allies in Consecrate are BLESSED (+20%); the Cleric's beam target is INSPIRED (+15%). Allies in a Rogue's smoke are hidden (SMOKE SCREEN). A broken Aegis shield BURSTS. A marked enemy's mark SPREADS when it dies. Fire SCORCHES (Ember Rune, Pyromancer, meteors, Ashen Shroud, Judgement); frost on a scorched enemy, or fire on a chilled one, is a THERMAL SHOCK. Tags over enemies show what is ready to cash in."),
             ("SHELTER", "Stand close behind a Knight whose shield is up: blows that come at the shield's face land on you at half strength. A party that keeps behind its tank lives longer."),
@@ -262,6 +263,9 @@ namespace Deepbound.UI
                 GUILayout.Space(10);
                 GUILayout.Label("Volume  " + Mathf.RoundToInt(Settings.Volume * 100f) + "%", UiSkin.Body);
                 Settings.Volume = GUILayout.HorizontalSlider(Settings.Volume, 0f, 1f);
+                GUILayout.Space(6);
+                GUILayout.Label("Music  " + Mathf.RoundToInt(Settings.MusicVolume * 100f) + "%", UiSkin.Body);
+                Settings.MusicVolume = GUILayout.HorizontalSlider(Settings.MusicVolume, 0f, 1f);
                 GUILayout.Space(10);
                 GUILayout.Label("Field of view  " + Mathf.RoundToInt(Settings.FieldOfView), UiSkin.Body);
                 Settings.FieldOfView = GUILayout.HorizontalSlider(Settings.FieldOfView, 60f, 100f);

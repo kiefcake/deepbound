@@ -125,7 +125,9 @@ namespace Deepbound.Player
             base.OnDestroy();
         }
 
-        public bool CanAct => !Downed.Value && !HandsFull && !IsDragging(NetworkObjectId) && !(debuffs != null && debuffs.Manic);
+        public bool CanAct => !Downed.Value && !HandsFull && !IsDragging(NetworkObjectId) && !(debuffs != null && debuffs.Manic) && !(pouch != null && pouch.InStasis);
+        private Flasks pouch => cachedPouch != null ? cachedPouch : (cachedPouch = GetComponent<Flasks>());
+        private Flasks cachedPouch;
 
         /// <summary>Carrying something in both hands (Lamplighter's Oil lets a torch-bearer fight).</summary>
         private bool HandsFull

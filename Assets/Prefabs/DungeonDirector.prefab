@@ -119,6 +119,7 @@ MonoBehaviour:
   chestPrefab: {fileID: 5389848433996289612, guid: 1b8f0e82fafab894fa40501de576fd99, type: 3}
   altarPrefab: {fileID: 7031684641988543945, guid: b2bdb4bd0518b0943b77591220049a62, type: 3}
   breakablePrefab: {fileID: 6486612486930930439, guid: e03bc3e5b20ced241be0b40e9ec5205d, type: 3}
+  phoenixPrefab: {fileID: 6316473586803349954, guid: fa33e6fa9d3c2a24bb318d62fd6ebec5, type: 3}
   anvilPrefab: {fileID: 7945187900781318309, guid: 07f3fcd0ea1e52a41a1ca7cb2c00b984, type: 3}
   gearDropPrefab: {fileID: 3345228792857247464, guid: 6c1e4383d69e2d346938eb4beffa08a3, type: 3}
   trapPrefab: {fileID: 3299383595831697311, guid: 65d910444904cd6488d160127a6ede6c, type: 3}

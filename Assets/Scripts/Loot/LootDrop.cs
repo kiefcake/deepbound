@@ -208,6 +208,11 @@ namespace Deepbound.Loot
                 progress.ServerAddRune((Rune)Amount.Value);
                 return true;
             }
+            if (kind == LootKind.RareItem)
+            {
+                var pouchR = progress.GetComponent<Flasks>();
+                return pouchR != null && pouchR.ServerGiveRare((Progression.RareItem)Amount.Value);
+            }
             if (kind == LootKind.Embers)
             {
                 PlayerProgress.ServerShareEmbers(progress, Mathf.RoundToInt(Amount.Value * (progress.Wears(GearId.LanternOfTheLost) ? 1.4f : 1f) * (progress.Blessed(Blessing.Fortune) ? 1.5f : 1f)));
@@ -273,6 +278,31 @@ namespace Deepbound.Loot
                 ArtLibrary.SetGlow(bottle.GetComponent<Renderer>(), pc * 1.1f);
                 MeshKit.Part(visual, "Cork", MeshKit.Cylinder(0.035f, 0.03f, 0.05f, 6), Mat.Wood, new Vector3(0f, 0.12f, 0f));
                 AddLight(pc, 1.6f);
+                return;
+            }
+
+            if (Kind.Value == LootKind.RareItem)
+            {
+                // A gold-banded flask, or a bound tome, in the item's colour, with a tall glint so it is seen across a room.
+                var item = (Progression.RareItem)Amount.Value;
+                var rc = Progression.RareItems.Color(item);
+                if (Progression.RareItems.IsTome(item))
+                {
+                    MeshKit.Part(visual, "Cover", MeshKit.Box(new Vector3(0.26f, 0.06f, 0.34f)), Mat.Leather, Vector3.zero, new Vector3(0f, 20f, 0f));
+                    var pages = MeshKit.Part(visual, "Pages", MeshKit.Box(new Vector3(0.24f, 0.07f, 0.31f)), Mat.Glow, new Vector3(0.01f, 0f, 0f), new Vector3(0f, 20f, 0f));
+                    ArtLibrary.SetGlow(pages.GetComponent<Renderer>(), rc * 1.3f);
+                }
+                else
+                {
+                    var flask = MeshKit.Part(visual, "Flask", MeshKit.Lathe("rareFlask", new[]
+                    {
+                        new Vector2(0f, -0.16f), new Vector2(0.12f, -0.12f), new Vector2(0.13f, 0f), new Vector2(0.06f, 0.08f), new Vector2(0.045f, 0.15f), new Vector2(0f, 0.16f),
+                    }, 12), Mat.Glow, Vector3.zero);
+                    ArtLibrary.SetGlow(flask.GetComponent<Renderer>(), rc * 1.4f);
+                    MeshKit.Part(visual, "Band", MeshKit.Cylinder(0.135f, 0.135f, 0.03f, 12), Mat.Gold, new Vector3(0f, -0.02f, 0f));
+                    MeshKit.Part(visual, "Stopper", MeshKit.Cylinder(0.04f, 0.035f, 0.05f, 6), Mat.Gold, new Vector3(0f, 0.16f, 0f));
+                }
+                AddLight(rc, 2.4f);
                 return;
             }
 

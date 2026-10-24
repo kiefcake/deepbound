@@ -79,7 +79,7 @@ namespace Deepbound.Loot
         [Rpc(SendTo.ClientsAndHost)]
         private void EquipFxRpc(string name, bool worn, bool better = false)
         {
-            Sfx.Play(Sound.Block, transform.position + Vector3.up * 0.5f, 0.7f, 1.3f);
+            Sfx.Play(Sound.Gear, transform.position + Vector3.up * 0.5f, 0.9f);
             if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClientId == For.Value)
                 UI.GameHud.Pickup("gear" + name, 1, " " + name + (worn ? "  (now wearing)" : better ? "  (in your pack - better than yours: I to wear it)" : "  (in your pack)"), Gear.QualityColor(Item.Value.Quality));
         }

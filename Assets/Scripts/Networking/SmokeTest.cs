@@ -2583,6 +2583,69 @@ namespace Deepbound.Networking
                 float k4 = Difficulty.KillLootShare(4), perPlayer = Difficulty.SpawnCount(4) / Difficulty.SpawnCount(1) * k4 / 4f;
                 Log("coop loot share", "kill rolls x" + k4.ToString("F2") + " for 4, each player's kill income x" + perPlayer.ToString("F2") + " of solo; chests x" + Difficulty.FixedLootShare(4),
                     Mathf.Abs(perPlayer - 1f) < 0.01f && Difficulty.KillLootShare(1) == 1f && Difficulty.FixedLootShare(4) == 4f);
+
+                // Rare draughts and tomes (pouch slot 5).
+                var rp = local.GetComponent<Flasks>();
+                var rlife = local.GetComponent<PlayerLife>();
+                var rhp = local.GetComponent<Health>();
+                if (rp != null)
+                {
+                    rhp.ServerSetFraction(1f);
+                    rp.Rare.Value = 0; // a champion killed earlier may have filled the slot
+                    bool wasDown = rlife.Downed.Value;
+                    if (wasDown) rlife.ServerRevive(1f); // nobody drinks while down
+                    yield return null;
+                    bool gave = rp.ServerGiveRare(Progression.RareItem.Ironbark), full = !rp.ServerGiveRare(Progression.RareItem.Bloodfury);
+                    rp.ServerUseRare();
+                    yield return null;
+                    rhp.Shield.Value = 0f;
+                    float b0 = rhp.Current.Value; rhp.ServerDamage(40f, local.transform.position + Vector3.forward); float ironHit = b0 - rhp.Current.Value;
+                    bool iron = rp.Ironbark;
+                    rp.IronbarkUntil.Value = 0;
+                    rhp.ServerSetFraction(1f);
+                    b0 = rhp.Current.Value; rhp.ServerDamage(40f, local.transform.position + Vector3.forward); float plainHit = b0 - rhp.Current.Value;
+                    float att0 = synP.AttackMultiplier;
+                    rp.ServerGiveRare(Progression.RareItem.Bloodfury); rp.ServerUseRare();
+                    yield return null;
+                    float att1 = synP.AttackMultiplier;
+                    rp.BloodfuryUntil.Value = 0;
+                    rhp.ServerSetFraction(1f);
+                    rp.ServerGiveRare(Progression.RareItem.GraveStillness); rp.ServerUseRare();
+                    yield return null;
+                    b0 = rhp.Current.Value; rhp.ServerDamage(80f, local.transform.position + Vector3.forward);
+                    bool stone = rp.InStasis && rhp.Current.Value >= b0 - 0.01f && !rlife.CanAct && !rlife.Targetable;
+                    rp.StasisUntil.Value = 0; rlife.VeiledUntil = 0f;
+                    Log("rare draughts", (wasDown ? "(revived first) " : "") + "slot took one " + gave + ", second refused " + full + ", ironbark " + iron + " (hit " + ironHit.ToString("F0") + " vs " + plainHit.ToString("F0") + "), bloodfury attack x" + att0.ToString("F2") + " -> x" + att1.ToString("F2") + ", stone " + stone,
+                        gave && full && iron && ironHit < plainHit * 0.7f && att1 > att0 * 1.3f && stone);
+
+                    // The Tome of the Phoenix: it dives at the dead and scorches them; struck down, it lies as an egg and is reborn.
+                    var prey = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 5f, false);
+                    int birds0 = Phoenix.All.Count;
+                    rp.Rare.Value = 0;
+                    rp.ServerGiveRare(Progression.RareItem.PhoenixTome); bool read = rp.ServerUseRare();
+                    Phoenix bird = Phoenix.All.LastOrDefault();
+                    bool scorchedPrey = false; float preyHp = prey != null ? prey.GetComponent<Health>().Current.Value : 0f;
+                    for (float t = 0f; t < 6f && prey != null && !scorchedPrey; t += 0.1f)
+                    {
+                        rhp.ServerSetFraction(1f);
+                        var ph = prey.GetComponent<Health>();
+                        scorchedPrey = ph.Scorched.Value || ph.Current.Value < preyHp;
+                        yield return new WaitForSeconds(0.1f);
+                    }
+                    bool egg = false, reborn = false;
+                    if (bird != null)
+                    {
+                        bird.GetComponent<Health>().ServerDamage(1e6f, bird.transform.position);
+                        yield return null;
+                        egg = bird.Egg.Value;
+                        for (float t = 0f; t < Phoenix.EggSeconds + 1.5f && bird != null && bird.Egg.Value; t += 0.1f) yield return new WaitForSeconds(0.1f);
+                        reborn = bird != null && !bird.Egg.Value && bird.Rebirths == 1;
+                    }
+                    Log("phoenix tome", "read " + read + ", birds " + birds0 + " -> " + Phoenix.All.Count + ", struck its prey " + scorchedPrey + ", egg when downed " + egg + ", reborn " + reborn,
+                        read && bird != null && scorchedPrey && egg && reborn);
+                    if (bird != null && bird.IsSpawned) bird.NetworkObject.Despawn();
+                    if (prey != null && prey.IsSpawned) prey.NetworkObject.Despawn();
+                }
             }
 
             yield return new WaitForSeconds(2f);
@@ -3184,6 +3247,32 @@ namespace Deepbound.Networking
                 foreach (var e in inRoom) e.ServerStun(10f);
                 yield return new WaitForSeconds(0.4f);
                 yield return Shot(dir, "2a_status_tags");
+                // The Tome of the Phoenix in flight over the room, and the belt's fifth slot.
+                {
+                    var sp5 = local.GetComponent<Flasks>();
+                    if (sp5 != null) sp5.Rare.Value = 0;
+                    if (sp5 != null && sp5.ServerGiveRare(Progression.RareItem.PhoenixTome))
+                    {
+                        sp5.ServerUseRare();
+                        yield return new WaitForSeconds(1.6f);
+                        // Look at the bird where it wheels.
+                        var birdNow = Phoenix.All.LastOrDefault();
+                        if (birdNow != null)
+                        {
+                            var lookTo = birdNow.transform.position - (local.transform.position + Vector3.up * 1.6f);
+                            local.GetComponent<FirstPersonMotor>().Teleport(local.transform.position, Quaternion.LookRotation(new Vector3(lookTo.x, 0f, lookTo.z)));
+                            local.GetComponent<FirstPersonMotor>().SetPitch(-Mathf.Atan2(lookTo.y, new Vector2(lookTo.x, lookTo.z).magnitude) * Mathf.Rad2Deg);
+                            yield return new WaitForSeconds(0.25f);
+                        }
+                        yield return Shot(dir, "2a_phoenix");
+                        sp5.ServerGiveRare(Progression.RareItem.Bloodfury);
+                        yield return null;
+                        yield return Shot(dir, "2a_rare_slot");
+                        local.GetComponent<FirstPersonMotor>().SetPitch(0f);
+                        sp5.ServerReset(); sp5.ServerStartingPouch();
+                        foreach (var bird in Phoenix.All.ToArray()) if (bird != null && bird.IsSpawned) bird.NetworkObject.Despawn();
+                    }
+                }
                 // A hit landing on the nearest one: sparks, chips, the flinch.
                 if (anchor != null)
                 {

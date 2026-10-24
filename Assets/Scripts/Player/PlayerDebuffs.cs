@@ -65,9 +65,12 @@ namespace Deepbound.Player
             PoisonUntil.Value = System.Math.Max(PoisonUntil.Value, Now + seconds);
         }
 
+        /// <summary>Ironbark: nothing takes hold of you while it lasts.</summary>
+        private bool Unshakable => TryGetComponent<Flasks>(out var f) && f.Ironbark;
+
         public void ServerFrostbite(float seconds)
         {
-            if (!IsServer || life.Downed.Value || Warded) return;
+            if (!IsServer || life.Downed.Value || Warded || Unshakable) return;
             FrostUntil.Value = System.Math.Max(FrostUntil.Value, Now + seconds);
         }
 
@@ -82,7 +85,7 @@ namespace Deepbound.Player
         /// <summary>Server: madness takes you for <paramref name="seconds"/> (then a grace of twice as long).</summary>
         public void ServerMania(float seconds)
         {
-            if (!IsServer || life.Downed.Value || Now < maniaGraceUntil || Warded) return;
+            if (!IsServer || life.Downed.Value || Now < maniaGraceUntil || Warded || Unshakable) return;
             if (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasRelic(Loot.Relic.IronPsalter)) return;
             ManiaUntil.Value = Now + seconds;
             maniaGraceUntil = Now + seconds * 3f;
@@ -105,7 +108,7 @@ namespace Deepbound.Player
         /// <summary>Server: ice locks your feet for <paramref name="seconds"/>.</summary>
         public void ServerRoot(float seconds)
         {
-            if (!IsServer || life.Downed.Value || Now < rootGraceUntil || Warded) return;
+            if (!IsServer || life.Downed.Value || Now < rootGraceUntil || Warded || Unshakable) return;
             if (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasRelic(Loot.Relic.RootbreakerCharm)) seconds *= 0.5f;
             RootUntil.Value = Now + seconds;
             rootGraceUntil = Now + seconds * 2.5f;

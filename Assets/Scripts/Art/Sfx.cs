@@ -3,11 +3,14 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak, Heartbeat, KillTick, Creak, Toll, Cleared, Pipe, Graze }
+    public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak, Heartbeat, KillTick, Creak, Toll, Cleared, Pipe, Graze,
+        // 2026-10-24: recorded only (Resources/Audio/Sfx/<name>), no synth recipe.
+        Growl, Roar, MonsterDie, MonsterAttack, Door, Chest, Gear, PageTurn }
 
     /// <summary>
-    /// Every sound in the game, synthesised at startup. Like the art, nothing is
-    /// downloaded.
+    /// Every sound in the game. Recorded clips come first (2026-10-24: CC0 packs from Kenney and OpenGameArt in
+    /// Resources/Audio/Sfx/&lt;Sound&gt;/, several variants each, see docs/CREDITS.md); a sound with no recordings is
+    /// synthesised at startup, as every sound once was.
     ///
     /// <para>
     /// Each sound is a short recipe — filtered noise, decaying partials, pitch sweeps —
@@ -21,9 +24,30 @@ namespace Deepbound.Art
         private static readonly Dictionary<Sound, AudioClip> Clips = new Dictionary<Sound, AudioClip>();
         private static System.Random noise = new System.Random(1234);
 
+        private static readonly Dictionary<Sound, AudioClip[]> Recorded = new Dictionary<Sound, AudioClip[]>();
+
+        /// <summary>The recorded variants of a sound (empty: synthesise it).</summary>
+        private static AudioClip[] RecordedFor(Sound sound)
+        {
+            if (!Recorded.TryGetValue(sound, out var clips))
+            {
+                clips = Resources.LoadAll<AudioClip>("Audio/Sfx/" + sound);
+                Recorded[sound] = clips;
+            }
+            return clips;
+        }
+
+        /// <summary>Recordings are mastered hotter than the synth: each is trimmed to sit in the same mix.</summary>
+        private static float RecordedGain(Sound s) => s == Sound.Step ? 0.35f : s == Sound.Growl || s == Sound.Roar || s == Sound.MonsterDie || s == Sound.MonsterAttack ? 0.75f
+            : s == Sound.Hit || s == Sound.Hurt ? 0.7f : s == Sound.Coins || s == Sound.Purchase ? 0.6f : 0.8f;
+
         public static void Play(Sound sound, Vector3 position, float volume = 1f, float pitch = 1f)
         {
-            var clip = Get(sound);
+            var rec = RecordedFor(sound);
+            AudioClip clip;
+            if (rec.Length > 0) { clip = rec[Random.Range(0, rec.Length)]; volume *= RecordedGain(sound); }
+            else clip = Get(sound);
+            if (clip == null) return;
             var go = new GameObject("Sfx " + sound);
             go.transform.position = position;
             var src = go.AddComponent<AudioSource>();

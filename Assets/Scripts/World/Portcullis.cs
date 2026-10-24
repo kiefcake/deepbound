@@ -34,6 +34,7 @@ namespace Deepbound.World
             if (block != null) block.enabled = closed;
             if (obstacle != null) obstacle.enabled = closed;
             Sfx.Play(closed ? Sound.Slam : Sound.Bash, transform.position + Vector3.up * 2f, closed ? 0.9f : 0.6f, closed ? 0.7f : 0.6f);
+            Sfx.Play(Sound.Door, transform.position + Vector3.up * 1.5f, 0.8f, 0.7f);
         }
 
         private void Update()

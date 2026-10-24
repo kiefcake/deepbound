@@ -12,6 +12,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.Owner)]
         public void KnockbackRpc(Vector3 velocity)
         {
+            if (TryGetComponent<Flasks>(out var f) && (f.Ironbark || f.InStasis)) return; // rooted like a tree, or stone
             GetComponent<FirstPersonMotor>().AddImpulse(velocity);
         }
     }

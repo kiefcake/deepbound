@@ -35,6 +35,18 @@ namespace Deepbound.Player
         public readonly NetworkVariable<byte> Frost = new NetworkVariable<byte>();
         public readonly NetworkVariable<byte> Holy = new NetworkVariable<byte>();
 
+        /// <summary>The fifth slot (see <see cref="RareItems"/>): one rare draught or tome.</summary>
+        public readonly NetworkVariable<byte> Rare = new NetworkVariable<byte>();
+        public readonly NetworkVariable<double> IronbarkUntil = new NetworkVariable<double>();
+        public readonly NetworkVariable<double> BloodfuryUntil = new NetworkVariable<double>();
+        public readonly NetworkVariable<double> StasisUntil = new NetworkVariable<double>();
+        private double Now => NetworkManager != null && NetworkManager.IsListening ? NetworkManager.ServerTime.Time : 0;
+        public RareItem RareHeld => (RareItem)Rare.Value;
+        public bool Ironbark => Now < IronbarkUntil.Value;
+        public bool Bloodfury => Now < BloodfuryUntil.Value;
+        public bool InStasis => Now < StasisUntil.Value;
+        private float rareReadyAt;
+
         private PlayerLife life;
         private FirstPersonMotor motor;
         private NetworkPlayer player;
@@ -61,6 +73,77 @@ namespace Deepbound.Player
             motor = GetComponent<FirstPersonMotor>();
             player = GetComponent<NetworkPlayer>();
             progress = GetComponent<PlayerProgress>();
+        }
+
+        public override void OnNetworkSpawn()
+        {
+            // Stone takes nothing; ironbark takes half.
+            if (IsServer && life != null) life.Health.IncomingModifiers.Add((d, from) => InStasis ? 0f : Ironbark ? d * RareItems.IronbarkTaken : d);
+        }
+
+        /// <summary>Server: a rare draught or tome into the fifth slot. False if it is already full (the find stays on the floor).</summary>
+        public bool ServerGiveRare(RareItem r)
+        {
+            if (!IsServer || r == RareItem.None || Rare.Value != 0) return false;
+            Rare.Value = (byte)r;
+            RareAddedRpc((byte)r);
+            return true;
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void RareAddedRpc(byte r)
+        {
+            var item = (RareItem)r;
+            UI.GameHud.Pickup("rare", 1, " " + RareItems.Name(item) + "  (5 to use)", RareItems.Color(item));
+            Sfx.Play2D(Sound.Relic, 0.6f);
+        }
+
+        /// <summary>Owner -> server: use whatever is in the fifth slot.</summary>
+        [Rpc(SendTo.Server)]
+        public void UseRareRpc() => ServerUseRare();
+
+        public bool ServerUseRare()
+        {
+            var r = RareHeld;
+            if (!IsServer || r == RareItem.None || life.Downed.Value || InStasis) return false;
+            double now = Now;
+            switch (r)
+            {
+                case RareItem.Ironbark:
+                    IronbarkUntil.Value = now + RareItems.IronbarkSeconds;
+                    life.Health.ServerShield(life.Health.Max.Value * RareItems.IronbarkShield, RareItems.IronbarkSeconds);
+                    if (TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerCleanse();
+                    break;
+                case RareItem.Bloodfury:
+                    BloodfuryUntil.Value = now + RareItems.BloodfurySeconds;
+                    break;
+                case RareItem.GraveStillness:
+                    StasisUntil.Value = now + RareItems.StasisSeconds;
+                    // The dead lose you: no rage, and nobody may take you for a target until a moment after.
+                    life.VeiledUntil = Time.time + RareItems.StasisSeconds + RareItems.StasisGrace;
+                    foreach (var e in Enemies.EnemyBrain.All) if (e != null) e.ServerForget(life.Health);
+                    break;
+                case RareItem.PhoenixTome:
+                    if (World.DungeonDirector.Instance == null || !World.DungeonDirector.Instance.ServerSummonPhoenix(progress)) return false;
+                    break;
+            }
+            Rare.Value = 0;
+            RareUsedRpc((byte)r);
+            return true;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RareUsedRpc(byte r)
+        {
+            var item = (RareItem)r;
+            var c = RareItems.Color(item);
+            var at = transform.position + Vector3.up;
+            Sfx.Play(RareItems.IsTome(item) ? Sound.Summon : Sound.Drink, at + Vector3.up * 0.5f, 0.9f, RareItems.IsTome(item) ? 1f : 0.8f);
+            Vfx.Ring(transform.position, 2f, c, 0.5f);
+            Vfx.Embers(at, 16, c, 3f, 0.06f, 0.9f);
+            UI.GameHud.Feed(name + (RareItems.IsTome(item) ? " reads the " : " drinks the ") + RareItems.Name(item), c);
+            if (item == RareItem.GraveStillness) StillnessShell.Spawn(transform, RareItems.StasisSeconds);
+            if (IsOwner) player.ViewModelCast(false);
         }
 
         /// <summary>Server: put potions in the pouch. Returns how many fit (the rest stay where they were).</summary>
@@ -91,13 +174,21 @@ namespace Deepbound.Player
         }
 
         /// <summary>Server: run over, the pouch empties with everything else.</summary>
-        public void ServerReset() { Health.Value = 0; Mana.Value = 0; Frost.Value = 0; Holy.Value = 0; }
+        public void ServerReset() { Health.Value = 0; Mana.Value = 0; Frost.Value = 0; Holy.Value = 0; Rare.Value = 0; IronbarkUntil.Value = BloodfuryUntil.Value = StasisUntil.Value = 0; }
 
         private void Update()
         {
             if (!IsOwner) return;
             var kb = Keyboard.current;
             if (kb == null || Time.time < readyAt || !life.CanAct || !motor.ActionsReady) return;
+            if (UI.Binds.Down(UI.Bind.Rare) && !(World.DungeonDirector.InLobby && PlayerProgress.ClassChangeAllowed) && Time.time >= rareReadyAt)
+            {
+                rareReadyAt = Time.time + 1f;
+                if (Rare.Value == 0) UI.GameHud.Feed("Nothing in the rare slot (5): draughts and tomes are found on champions, elites, in chests, and Silas keeps one", new Color(0.8f, 0.7f, 0.5f));
+                else if (World.DungeonDirector.InLobby) UI.GameHud.Feed("Save it for the dungeon", new Color(0.8f, 0.7f, 0.5f));
+                else UseRareRpc();
+                return;
+            }
             Kind? k = UI.Binds.Down(UI.Bind.Potion1) ? Kind.Health : UI.Binds.Down(UI.Bind.Potion2) ? Kind.Mana
                 : UI.Binds.Down(UI.Bind.Potion3) ? Kind.Frost : UI.Binds.Down(UI.Bind.Potion4) ? Kind.Holy : (Kind?)null;
             // Number keys pick a class at camp before a run; there the pouch stays shut.

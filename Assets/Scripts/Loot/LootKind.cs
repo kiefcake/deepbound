@@ -18,6 +18,7 @@ namespace Deepbound.Loot
         Embers = 11,   // weapon upgrade material
         Sigil = 12,    // ability rank-up, spent at Ysolde's stones
         Rune = 13,     // weapon enchantment; Amount carries the Rune id
+        RareItem = 14, // the pouch's fifth slot; Amount carries the RareItem id
     }
 
     public static class LootInfo
@@ -50,6 +51,7 @@ namespace Deepbound.Loot
             if (kind == LootKind.Sigil) return "a Sigil";
             if (kind == LootKind.Rune) return "a rune";
             if (kind == LootKind.Relic) return "a relic";
+            if (kind == LootKind.RareItem) return "a rare draught or tome";
             if (kind == LootKind.PotionHP) return "a Health Potion";
             if (kind == LootKind.PotionMP) return "a Mana Potion";
             return kind.ToString();
