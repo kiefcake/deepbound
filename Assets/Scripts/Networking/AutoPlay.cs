@@ -435,12 +435,26 @@ namespace Deepbound.Networking
             return (t > 0 ? " (+" + t + " tiers)" : "") + (edges.Length > 0 ? ", edges " + edges : "");
         }
 
+        private double clockServer0 = -1, clockReal0;
+
+        /// <summary>Server clock against the wall clock since the first status (a run summary once said 952 minutes for a 97-minute run).</summary>
+        private string ClockCheck()
+        {
+            var nm = Unity.Netcode.NetworkManager.Singleton;
+            if (nm == null) return "";
+            double st = nm.ServerTime.Time, rt = Time.realtimeSinceStartupAsDouble;
+            if (clockServer0 < 0) { clockServer0 = st; clockReal0 = rt; return ""; }
+            double dr = rt - clockReal0;
+            return dr > 1 ? ", clock x" + ((st - clockServer0) / dr).ToString("F2") + " (run start " + (World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.RunStartedAt.Value.ToString("F0") : "-") + ", now " + st.ToString("F0") + ")" : "";
+        }
+
         private string Status(string where)
         {
             var kit = me.ActiveKit;
             string s = where + " | hp " + hp.Current.Value.ToString("F0") + "/" + hp.Max.Value.ToString("F0") + ", gold " + prog.Gold.Value + ", embers " + prog.Embers.Value + ", sigils " + prog.Sigils.Value +
                        ", weapon +" + prog.WeaponLevel.Value + (prog.Hones.Value > 0 ? " honed " + prog.Hones.Value : "") + ", Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E) + ", relics " + prog.RelicCount + RelicTiers() +
                        (flasks != null ? ", pouch H" + flasks.Count(Flasks.Kind.Health) + " M" + flasks.Count(Flasks.Kind.Mana) : "") + ", armour " + Gear.Name(prog.Equipped(GearSlot.Armor)) + ", charm " + Gear.Name(prog.Equipped(GearSlot.Charm));
+            s += ClockCheck();
             L(s);
             return s;
         }
@@ -540,7 +554,11 @@ namespace Deepbound.Networking
                     }
                     else
                     {
-                        Face(target.Center);
+                        // Ranged shots lead a moving target, as a player's would (run 14's Ranger aimed where bosses had been).
+                        var aimAt = target.Center;
+                        if (!melee && target.TryGetComponent<UnityEngine.AI.NavMeshAgent>(out var tAgent) && tAgent.enabled)
+                            aimAt += tAgent.velocity * (flatDist / (cls == Classes.ClassId.Ranger ? RangerKit.ArrowSpeed : cls == Classes.ClassId.Mage ? MageKit.FireboltSpeed : 24f));
+                        Face(aimAt);
                         // Abilities now and then, when something is close.
                         if (Time.time >= nextAbility)
                         {

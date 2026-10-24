@@ -315,6 +315,7 @@ namespace Deepbound.Progression
         {
             Art.Sfx.Play(Art.Sound.Relic, transform.position + Vector3.up, 0.7f, 1.05f);
             UI.GameHud.Feed(name + " forges the " + Edges.Name((Edge)e).ToUpperInvariant() + " edge: " + Edges.Describe((Edge)e), Edges.Color((Edge)e));
+            if (IsOwner && EdgeAt(Edges.Slots - 1) != Edge.None) Deeds.Earn(Deeds.Deed.ThreeEdges, "Three edges forged");
         }
 
         /// <summary>Why the weapon cannot be honed now, or null.</summary>
@@ -347,8 +348,11 @@ namespace Deepbound.Progression
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void HonedRpc(byte hones) =>
+        private void HonedRpc(byte hones)
+        {
+            if (IsOwner && hones >= World.Anvil.MaxHones) Deeds.Earn(Deeds.Deed.FullyHoned, "Honed to the limit");
             UI.GameHud.Feed(name + " hones their " + ClassDefinition.WeaponName(ClassId.Value) + " (" + hones + "/" + World.Anvil.MaxHones + "): +" + Mathf.RoundToInt(hones * World.Anvil.HoneDamage * 100f) + "% damage", LootInfo.EmberColor);
+        }
 
         /// <summary>The shrine's blessing for the current floor (see <see cref="Blessings"/>).</summary>
         public readonly NetworkVariable<byte> ActiveBlessing = new NetworkVariable<byte>();
@@ -1175,6 +1179,7 @@ namespace Deepbound.Progression
         private void RelicEmpoweredRpc(byte r, byte fedBy, byte tier)
         {
             var relic = (Relic)r;
+            if (IsOwner && tier >= Relics.MaxTier) Deeds.Earn(Deeds.Deed.RelicThree, "A relic at its third tier");
             Art.Sfx.Play(Art.Sound.Relic, transform.position + Vector3.up, 0.9f, 1.15f);
             UI.GameHud.Feed(fedBy == r
                 ? name + "'s " + Relics.Name(relic) + " grows stronger: " + Relics.Name(relic) + Relics.TierName(tier) + " (+" + Relics.TierPercent(tier) + "%)"
