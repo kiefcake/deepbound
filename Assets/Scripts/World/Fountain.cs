@@ -23,6 +23,7 @@ namespace Deepbound.World
         {
             base.OnNetworkSpawn();
             BuildVisual();
+            AmbientLoop.Attach(gameObject, "Audio/Ambience/water_loop", 12f, 0.3f, Vector3.up * 0.8f);
             Spent.OnValueChanged += (_, __) => Refresh();
             Refresh();
         }

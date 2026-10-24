@@ -14,6 +14,7 @@ credited here anyway, with thanks.
 | Interface Sounds | Kenney (kenney.nl) | https://kenney.nl/assets/interface-sounds | CC0 | menus and stalls opening and closing, buying errors |
 | 80 CC0 creature SFX #2 | rubberduck | https://opengameart.org/content/80-cc0-creture-sfx-2 | CC0 | growls, roars, death cries and attack snarls for ghouls, brutes, gargoyles, mimics, plaguebearers, frost wights, entlings, hoarders; boss roars |
 | RPG Sound Pack | artisticdude | https://opengameart.org/content/rpg-sound-pack | CC0 | weapon swooshes (`Swing`), wraith voices (`Shade`), plaguebearer gurgles and spit (`Slime`) |
+| 40 CC0 water / splash / slime SFX | rubberduck | https://opengameart.org/content/40-cc0-water-splash-slime-sfx | CC0 | splashes: wading the Drowned Vaults, thrown vials (`Splash`); the fountain's running water (`Ambience/water_loop.ogg`, from loop_water_02) |
 | 80 CC0 RPG SFX | rubberduck | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 | fire spells, fuses, flame traps and embers (`Fire`); chains on the Flagellant's lash, the grave lift, portcullises and levers (`Chain`) |
 
 ## Music (`Assets/Resources/Audio/Music/`)

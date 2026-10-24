@@ -886,7 +886,8 @@ namespace Deepbound.Networking
                         // An urn or barrel in the way takes the shot and breaks (the next one gets through): not the wall's fault.
                         if (secret == null || !secret.IsSpawned || sh.Current.Value < before || first.StartsWith("Breakable") || foeInWay) landed++;
                         else Debug.Log("[Smoke] wall shot missed at " + aimAt + ", first thing on the line: " + first);
-                        if (secret == null || !secret.IsSpawned) break;
+                        // Broken already (crits and the run's kit can fell it early): the rest have nothing left to miss.
+                        if (secret == null || !secret.IsSpawned || sh.Current.Value <= 0f) { landed = aims.Length; break; }
                     }
                     Log("secret wall takes shots", landed + " of " + aims.Length + " shots landed (hp " + sh.Current.Value.ToString("F0") + ")", landed == aims.Length);
                     if (secret != null && secret.IsSpawned) sh.ServerDamage(1000f, secret.transform.position - secret.transform.forward, local.NetworkObjectId);

@@ -40,7 +40,7 @@ namespace Deepbound.Art
 
         /// <summary>Recordings are mastered hotter than the synth: each is trimmed to sit in the same mix.</summary>
         private static float RecordedGain(Sound s) => s == Sound.Step || s == Sound.StepSoft ? 0.35f : s == Sound.UiClick || s == Sound.UiOpen || s == Sound.UiClose || s == Sound.UiError ? 0.45f : s == Sound.Growl || s == Sound.Roar || s == Sound.MonsterDie || s == Sound.MonsterAttack ? 0.75f
-            : s == Sound.Fire ? 0.6f : s == Sound.Swing ? 0.55f : s == Sound.Shade ? 0.6f : s == Sound.Slime ? 0.7f : s == Sound.Hit || s == Sound.Hurt ? 0.7f : s == Sound.Coins || s == Sound.Purchase ? 0.6f : 0.8f;
+            : s == Sound.Fire ? 0.6f : s == Sound.Swing ? 0.55f : s == Sound.Splash ? 0.5f : s == Sound.Shade ? 0.6f : s == Sound.Slime ? 0.7f : s == Sound.Hit || s == Sound.Hurt ? 0.7f : s == Sound.Coins || s == Sound.Purchase ? 0.6f : 0.8f;
 
         public static void Play(Sound sound, Vector3 position, float volume = 1f, float pitch = 1f)
         {
