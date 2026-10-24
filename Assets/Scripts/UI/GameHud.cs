@@ -1200,6 +1200,7 @@ namespace Deepbound.UI
             if (Cinematic) { DrawFade(w, h); return; }
 
             DrawEnemyBars();
+            DrawPylons();
             UiTimer.Mark("DrawEnemyBars");
             DrawRelicTags();
             UiTimer.Mark("DrawRelicTags");
@@ -2751,6 +2752,30 @@ namespace Deepbound.UI
         }
 
         private float nextBestiaryCheck;
+
+        /// <summary>Heal pylons: PYLON over each with its health, and a warning line while any is feeding the boss.</summary>
+        private void DrawPylons()
+        {
+            if (Breakable.Pylons.Count == 0) return;
+            var cam = player.Camera;
+            if (cam == null) return;
+            int feeding = 0;
+            var green = new Color(0.55f, 1f, 0.6f);
+            foreach (var p in Breakable.Pylons)
+            {
+                if (p == null || p.Health == null || !p.Health.IsAlive) continue;
+                if (p.Feeding.Value) feeding++;
+                var sp = cam.WorldToScreenPoint(p.transform.position + Vector3.up * 3.4f);
+                if (sp.z <= 0f || sp.z > 45f) continue;
+                float x = sp.x, y = Screen.height - sp.y;
+                var st = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = p.Feeding.Value ? green : new Color(0.7f, 0.8f, 0.7f) } };
+                UiSkin.Shadowed(new Rect(x - 60, y - 22, 120, 18), p.Feeding.Value ? "PYLON - HEALING" : "PYLON", st);
+                Rect(x - 31, y - 3, 62, 7, new Color(0f, 0f, 0f, 0.75f));
+                Rect(x - 30, y - 2, 60 * p.Health.Fraction, 5, green);
+            }
+            if (feeding > 0 && BossBrain.Active != null && !BossBrain.Active.IsDead)
+                PromptLine(Screen.width, Screen.height, BossBrain.Active.DisplayName + " drinks from " + feeding + (feeding == 1 ? " PYLON" : " PYLONS") + " (green beams): break them, or hit them to stop the flow", -170f);
+        }
 
         private void DrawEnemyBars()
         {

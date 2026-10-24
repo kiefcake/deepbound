@@ -29,9 +29,20 @@ namespace Deepbound.World
 
         private void Awake() => health = GetComponent<Health>();
 
+        /// <summary>Live heal pylons (the HUD marks them).</summary>
+        public static readonly System.Collections.Generic.List<Breakable> Pylons = new System.Collections.Generic.List<Breakable>();
+        public bool IsPylon => Type.Value == Kind.HealPylon;
+        public Health Health => health;
+
+        /// <summary>Synced: is it pouring health into the boss right now (the beam, the HUD warning)?</summary>
+        public readonly NetworkVariable<bool> Feeding = new NetworkVariable<bool>();
+
+        public override void OnNetworkDespawn() { Pylons.Remove(this); base.OnNetworkDespawn(); }
+
         public override void OnNetworkSpawn()
         {
             BuildVisual();
+            if (Type.Value == Kind.HealPylon && !Pylons.Contains(this)) Pylons.Add(this);
             if (Type.Value == Kind.HealPylon && TryGetComponent<CapsuleCollider>(out var cap))
             {
                 cap.radius = 0.55f; cap.height = 2.8f; cap.center = new Vector3(0f, 1.4f, 0f);
@@ -43,10 +54,17 @@ namespace Deepbound.World
             health.ServerSetMax(Type.Value == Kind.Urn ? 1f : Type.Value == Kind.RitualBrazier ? 60f + 20f * tier
                 : Type.Value == Kind.HealPylon ? (140f + 70f * tier) * (1f + 0.4f * (players - 1)) : 10f, refill: true);
             health.Died += _ => ServerBreak();
+            // A pylon that is being struck stops pouring for a moment: attacking it pays off at once.
+            if (Type.Value == Kind.HealPylon) health.DamagedServer += (lost, by) => stunnedUntil = Time.time + PylonHitPause;
         }
 
-        /// <summary>A pylon pours this fraction of the boss's health back into it every second.</summary>
-        public const float PylonHeal = 0.008f;
+        /// <summary>
+        /// A pylon pours this fraction of the boss's health back into it every second (2026-10-24, the user: "a boss
+        /// that heals from pillars" - three or four at 0.8% each healed faster than a party could hurt it), and
+        /// stops for <see cref="PylonHitPause"/> s whenever it is hit.
+        /// </summary>
+        public const float PylonHeal = 0.0035f, PylonHitPause = 4f;
+        private float stunnedUntil;
         private Transform beam;
         private float nextPylonTick;
 
@@ -54,7 +72,8 @@ namespace Deepbound.World
         {
             if (Type.Value != Kind.HealPylon || broken) return;
             var boss = Enemies.BossBrain.Active;
-            bool feeding = boss != null && !boss.IsDead && !boss.Dormant && boss.Health.Fraction < 0.999f;
+            bool feeding = IsServer ? boss != null && !boss.IsDead && !boss.Dormant && boss.Health.Fraction < 0.999f && Time.time >= stunnedUntil : Feeding.Value;
+            if (IsServer && Feeding.Value != feeding) Feeding.Value = feeding;
             if (IsServer && feeding && Time.time >= nextPylonTick)
             {
                 nextPylonTick = Time.time + 0.5f;

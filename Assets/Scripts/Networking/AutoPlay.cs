@@ -515,6 +515,16 @@ namespace Deepbound.Networking
                 var boss = BossBrain.Active;
                 target = NearestEnemy(skip, out float dist, allowBoss: false);
                 if (target == null && boss != null && !boss.IsDead) { target = boss.GetComponent<Health>(); dist = Vector3.Distance(target.transform.position, me.transform.position); }
+                // A healing pylon comes before the guardian, as it would for a player (the user watched a bot hit a boss
+                // that its pylons kept topping up).
+                if (target != null && boss != null && target == boss.GetComponent<Health>())
+                {
+                    Breakable pylon = null;
+                    float pd = float.MaxValue;
+                    foreach (var p in Breakable.Pylons)
+                        if (p != null && p.Health != null && p.Health.IsAlive && p.Feeding.Value && Vector3.Distance(p.transform.position, me.transform.position) < pd) { pd = Vector3.Distance(p.transform.position, me.transform.position); pylon = p; }
+                    if (pylon != null) { target = pylon.Health; dist = pd; }
+                }
                 if (boss != null && bossSeenAt < 0f && dd.BossSealed) { bossSeenAt = Time.time; L("guardian fight begins: " + boss.DisplayName); yield return Shot("F" + (floorNo + 1) + "_boss_start"); }
 
                 var loot = NearestLoot(18f);
