@@ -95,7 +95,7 @@ namespace Deepbound.World
             for (int v = 0; v < CrackleVoices; v++)
             {
                 var t = crackleOn[v];
-                float target = t != null ? 0.35f * Mathf.Clamp01(t.flameScale.y * 3f + 0.4f) : 0f;
+                float target = t != null ? 0.35f * Mathf.Clamp01(t.flameScale.y * 3f + 0.4f) * UI.Settings.SfxVolume : 0f;
                 crackle[v].volume = Mathf.MoveTowards(crackle[v].volume, target, 0.25f);
             }
         }

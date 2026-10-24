@@ -267,6 +267,9 @@ namespace Deepbound.UI
                 GUILayout.Space(6);
                 GUILayout.Label("Music  " + Mathf.RoundToInt(Settings.MusicVolume * 100f) + "%", UiSkin.Body);
                 Settings.MusicVolume = GUILayout.HorizontalSlider(Settings.MusicVolume, 0f, 1f);
+                GUILayout.Space(6);
+                GUILayout.Label("Effects  " + Mathf.RoundToInt(Settings.SfxVolume * 100f) + "%", UiSkin.Body);
+                Settings.SfxVolume = GUILayout.HorizontalSlider(Settings.SfxVolume, 0f, 1f);
                 GUILayout.Space(10);
                 GUILayout.Label("Field of view  " + Mathf.RoundToInt(Settings.FieldOfView), UiSkin.Body);
                 Settings.FieldOfView = GUILayout.HorizontalSlider(Settings.FieldOfView, 60f, 100f);
@@ -281,18 +284,19 @@ namespace Deepbound.UI
                 Settings.ShowTips = Check(Settings.ShowTips, "Show tips");
                 Settings.ShowFps = Check(Settings.ShowFps, "Show frame rate");
                 if (GUILayout.Button("Show all tips again", UiSkin.Button, GUILayout.Height(30))) Settings.ResetTips();
-                GUILayout.Space(10);
-                GUILayout.Label("Graphics  (lower helps slower PCs)", UiSkin.Body);
-                int gq = Choice(Settings.GraphicsQuality, Settings.GraphicsNames);
-                if (gq != Settings.GraphicsQuality) Settings.GraphicsQuality = gq;
-                bool vs = Check(Settings.VSync, "VSync (off: uncapped frame rate)");
-                if (vs != Settings.VSync) Settings.VSync = vs;
                 var cam = Player.NetworkPlayer.Local != null ? Player.NetworkPlayer.Local.Camera : null;
                 if (cam != null) cam.fieldOfView = Settings.FieldOfView;
                 GUILayout.EndVertical();
                 GUILayout.Space(40);
                 GUILayout.BeginVertical(GUILayout.Width(370));
                 DrawVoiceOptions();
+                // Graphics sit under the voice settings (the left column ran off a 720p screen once Effects joined it).
+                GUILayout.Space(22);
+                GUILayout.Label("Graphics  (lower helps slower PCs)", UiSkin.Body);
+                int gq = Choice(Settings.GraphicsQuality, Settings.GraphicsNames);
+                if (gq != Settings.GraphicsQuality) Settings.GraphicsQuality = gq;
+                bool vs = Check(Settings.VSync, "VSync (off: uncapped frame rate)");
+                if (vs != Settings.VSync) Settings.VSync = vs;
                 GUILayout.EndVertical();
                 GUILayout.EndHorizontal();
                 GUILayout.Space(18);

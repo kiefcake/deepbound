@@ -66,7 +66,7 @@ namespace Deepbound.Enemies
         private void SpitRpc(Vector3 origin, Vector3 dir)
         {
             Arrows.SpawnVisual(origin, dir, ProjectileKind.Spit, 13f);
-            Sfx.Play(Sound.Splash, origin, 0.6f, 1.6f);
+            Sfx.Play(Sound.Slime, origin, 0.8f, 1.1f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

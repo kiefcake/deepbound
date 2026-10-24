@@ -77,6 +77,14 @@ namespace Deepbound.UI
         }
         private static float? musicVol;
 
+        /// <summary>Sound effects (every <see cref="Art.Sfx"/> voice and the torch crackle), 0-1 (under the master volume).</summary>
+        public static float SfxVolume
+        {
+            get => sfxVol ??= Load("deepbound.sfxvol", 1f);
+            set { sfxVol = Mathf.Clamp01(value); Save("deepbound.sfxvol", sfxVol.Value); }
+        }
+        private static float? sfxVol;
+
         /// <summary>How loud other players' voices are, 0-1.5.</summary>
         public static float VoiceVolume
         {

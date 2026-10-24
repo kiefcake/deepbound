@@ -24,14 +24,14 @@ namespace Deepbound.Art
             nextAt = Time.time + Random.Range(3f, 12f);
             switch (owner.GetType().Name)
             {
-                case "WraithBrain": sound = Sound.Whisper; pitch = 1.35f; volume = 0.3f; height = 1.6f; break;
+                case "WraithBrain": sound = Sound.Shade; pitch = 1f; volume = 0.35f; height = 1.6f; break;
                 case "ChoirAcolyteBrain": sound = Sound.Revive; pitch = 0.42f; volume = 0.22f; height = 1.6f; break;
                 case "AbyssEyeBrain": sound = Sound.Whisper; pitch = 0.6f; volume = 0.3f; height = 1.8f; break;
                 case "GhoulBrain": sound = Sound.Whisper; pitch = 0.5f; volume = 0.3f; height = 1f; break;
                 case "BruteBrain": sound = Sound.Step; pitch = 0.45f; volume = 0.45f; height = 0.3f; break;
                 case "NecromancerBrain": case "HexerBrain": sound = Sound.Whisper; pitch = 0.8f; volume = 0.25f; height = 1.6f; break;
                 case "BonePiperBrain": sound = Sound.Pipe; pitch = 0.6f; volume = 0.2f; height = 1.3f; break;
-                case "PlaguebearerBrain": sound = Sound.Splash; pitch = 0.55f; volume = 0.25f; height = 1f; break;
+                case "PlaguebearerBrain": sound = Sound.Slime; pitch = 0.8f; volume = 0.35f; height = 1f; break;
                 case "MournerBrain": case "GargoyleBrain": case "MimicBrain": sound = Sound.Rattle; volume = 0f; break; // statues and chests keep their silence
                 default: sound = Sound.Rattle; pitch = 0.85f; volume = 0.28f; height = 1.2f; break;
             }

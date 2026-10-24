@@ -114,6 +114,7 @@ namespace Deepbound.Enemies
         {
             Telegraph.Show(at, radius, seconds, null, new Color(0.45f, 0.7f, 1f, 0.4f));
             Sfx.Play(Sound.Whisper, transform.position + Vector3.up * 1.8f, 1f, 0.55f);
+            Sfx.Play(Sound.Shade, transform.position + Vector3.up * 1.8f, 1f, 0.75f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

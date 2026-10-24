@@ -6,7 +6,7 @@ namespace Deepbound.Art
     public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak, Heartbeat, KillTick, Creak, Toll, Cleared, Pipe, Graze,
         // 2026-10-24: recorded only (Resources/Audio/Sfx/<name>), no synth recipe.
         Growl, Roar, MonsterDie, MonsterAttack, Door, Chest, Gear, PageTurn,
-        Chips, Dice, UiClick, UiOpen, UiClose, UiError, Chain, StepSoft }
+        Chips, Dice, UiClick, UiOpen, UiClose, UiError, Chain, StepSoft, Shade, Slime }
 
     /// <summary>
     /// Every sound in the game. Recorded clips come first (2026-10-24: CC0 packs from Kenney and OpenGameArt in
@@ -40,7 +40,7 @@ namespace Deepbound.Art
 
         /// <summary>Recordings are mastered hotter than the synth: each is trimmed to sit in the same mix.</summary>
         private static float RecordedGain(Sound s) => s == Sound.Step || s == Sound.StepSoft ? 0.35f : s == Sound.UiClick || s == Sound.UiOpen || s == Sound.UiClose || s == Sound.UiError ? 0.45f : s == Sound.Growl || s == Sound.Roar || s == Sound.MonsterDie || s == Sound.MonsterAttack ? 0.75f
-            : s == Sound.Fire ? 0.6f : s == Sound.Hit || s == Sound.Hurt ? 0.7f : s == Sound.Coins || s == Sound.Purchase ? 0.6f : 0.8f;
+            : s == Sound.Fire ? 0.6f : s == Sound.Swing ? 0.55f : s == Sound.Shade ? 0.6f : s == Sound.Slime ? 0.7f : s == Sound.Hit || s == Sound.Hurt ? 0.7f : s == Sound.Coins || s == Sound.Purchase ? 0.6f : 0.8f;
 
         public static void Play(Sound sound, Vector3 position, float volume = 1f, float pitch = 1f)
         {
@@ -58,7 +58,7 @@ namespace Deepbound.Art
             if (src == null) return;
             src.transform.position = position;
             src.clip = clip;
-            src.volume = volume;
+            src.volume = volume * UI.Settings.SfxVolume;
             src.pitch = pitch * Random.Range(0.92f, 1.08f);
             src.spatialBlend = 1f;
             src.minDistance = 2f;
