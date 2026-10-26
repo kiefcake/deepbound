@@ -14,7 +14,7 @@ namespace Deepbound.UI
     /// </summary>
     public class TitleScreen : MonoBehaviour
     {
-        private enum Page { Main, Join, Options }
+        private enum Page { Main, Join, Options, Address }
 
         private NetworkLauncher launcher;
         private Page page;
@@ -47,12 +47,13 @@ namespace Deepbound.UI
             UiSkin.Shadowed(new Rect(left, h * 0.12f + 84, 560, 30), "Descend together. Nothing comes back up but your name.",
                 new GUIStyle(UiSkin.Body) { fontSize = 17, fontStyle = FontStyle.Italic }, fade);
 
-            var area = new Rect(left, h * 0.36f, 340, h * 0.5f);
+            var area = new Rect(left, h * 0.33f, 360, h * 0.62f);
             GUILayout.BeginArea(area);
             switch (page)
             {
                 case Page.Main: DrawMain(); break;
-                case Page.Join: DrawJoin(); break;
+                case Page.Join: if (SteamPlatform.Ready) DrawSteamJoin(); else DrawJoin(); break;
+                case Page.Address: DrawJoin(); break;
                 case Page.Options: DrawOptions(); break;
             }
 
@@ -72,6 +73,7 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
+            "PLAY WITH FRIENDS over Steam: invite from the pause menu",
             "Slot 5 RARES: Ironbark, Bloodfury, Grave Stillness, tomes",
             "Tome of the PHOENIX: a firebird fights beside you for 30 s",
             "EDGES at +5/+7/+9 and HONES past +10 at Hobb's anvil",
@@ -79,7 +81,6 @@ namespace Deepbound.UI
             "WEAK POINTS burst (and enrage beasts); see what ails an enemy",
             "Recorded music, monsters, fire and chains (CC0, see credits)",
             "Weapon GLOWS and TITLES at the tailor",
-            "New floor events: The Long Night, Embertide, The Bone Choir",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)
@@ -97,13 +98,34 @@ namespace Deepbound.UI
         private void DrawMain()
         {
             if (GUILayout.Button("PLAY", UiSkin.ButtonBig, GUILayout.Height(58))) launcher.StartHost();
-            GUILayout.Label("Host a new party. Friends join you.", UiSkin.Small);
+            GUILayout.Label(SteamPlatform.Ready ? "Host a party. Invite Steam friends from the pause menu (Esc)." : "Host a new party. Friends join you by your address.", UiSkin.Small);
+            // An invite waiting: answer it right here.
+            if (SteamPlatform.Ready && SteamPlatform.Instance.Invites.Count > 0) { GUILayout.Space(8); FriendsPanel.DrawInvites(); }
             GUILayout.Space(10);
             if (GUILayout.Button("JOIN A PARTY", UiSkin.Button, GUILayout.Height(44))) page = Page.Join;
             GUILayout.Space(6);
             if (GUILayout.Button("OPTIONS", UiSkin.Button, GUILayout.Height(44))) page = Page.Options;
             GUILayout.Space(6);
             if (GUILayout.Button("QUIT", UiSkin.Button, GUILayout.Height(44))) Application.Quit();
+            GUILayout.Space(8);
+            GUILayout.Label(SteamPlatform.Ready ? "Steam: playing as " + SteamPlatform.MyName : "Steam: off (" + (string.IsNullOrEmpty(SteamPlatform.Problem) ? "test run" : SteamPlatform.Problem) + ") - parties use addresses",
+                new GUIStyle(UiSkin.Small) { wordWrap = true });
+        }
+
+        /// <summary>Join with Steam: friends hosting a party, invites, and the address route for LAN and VPNs.</summary>
+        private void DrawSteamJoin()
+        {
+            GUILayout.Label("JOIN A FRIEND", UiSkin.Heading);
+            GUILayout.Label("Friends hosting Deepbound appear here. Or accept their invite - here, or in Steam.", UiSkin.Small);
+            GUILayout.Space(6);
+            FriendsPanel.DrawInvites();
+            FriendsPanel.DrawJoinList(Mathf.Clamp(Screen.height * 0.22f, 120f, 260f));
+            GUILayout.Space(8);
+            if (GUILayout.Button("JOIN BY ADDRESS", UiSkin.Button, GUILayout.Height(36))) page = Page.Address;
+            GUILayout.Space(4);
+            if (GUILayout.Button("HOST BY ADDRESS (LAN / VPN)", UiSkin.Button, GUILayout.Height(36))) launcher.StartHostByAddress();
+            GUILayout.Space(6);
+            if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(38))) page = Page.Main;
         }
 
         private void DrawJoin()
@@ -120,7 +142,7 @@ namespace Deepbound.UI
             GUILayout.Label("Same house: their 192.168... address. Over the internet: the address their pause menu shows (their router opens the port by itself if it allows it). " +
                             "If that fails, both install Tailscale or Radmin VPN and use the address it gives. You both need the same build.", new GUIStyle(UiSkin.Small) { wordWrap = true });
             GUILayout.Space(6);
-            if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(38))) page = Page.Main;
+            if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(38))) page = page == Page.Address ? Page.Join : Page.Main;
         }
 
         private void DrawOptions()

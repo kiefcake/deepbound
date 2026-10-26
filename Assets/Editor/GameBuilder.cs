@@ -207,6 +207,10 @@ namespace Deepbound.EditorTools
             });
 
             Debug.Log("[Build] Player build " + report.summary.result + " -> " + StandalonePath);
+            // Steam (2026-10-26): run as Valve's Spacewar test app until Deepbound has its own app id.
+            string exePath = System.Environment.GetEnvironmentVariable("DEEPBOUND_BUILD_PATH") ?? StandalonePath;
+            if (report.summary.result == UnityEditor.Build.Reporting.BuildResult.Succeeded)
+                System.IO.File.WriteAllText(System.IO.Path.Combine(System.IO.Path.GetDirectoryName(System.IO.Path.GetFullPath(exePath)), "steam_appid.txt"), Deepbound.Networking.SteamPlatform.AppId.ToString());
             if (Application.isBatchMode && report.summary.result != UnityEditor.Build.Reporting.BuildResult.Succeeded)
             {
                 EditorApplication.Exit(1);

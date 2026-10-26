@@ -221,7 +221,7 @@ namespace Deepbound.UI
             }
             if (!Progression.PlayerProgress.ClassChangeAllowed) { SetOpen(false); return; }
             progress.ChooseClassRpc(id);
-            Sfx.Play2D(Sound.Purchase, 0.6f);
+            Sfx.Play2D(Sound.Unsheathe, 0.7f);
         }
 
         private void DrawDetail(Rect r, ClassId id)

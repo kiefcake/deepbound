@@ -20,6 +20,12 @@ namespace Deepbound.Networking
     /// Also reads command-line flags so a second instance can connect without clicking:
     /// <c>-host</c>, <c>-client</c>, and <c>-address 192.168.1.20</c>.
     /// </para>
+    ///
+    /// <para>
+    /// 2026-10-26: with Steam running, PLAY hosts over Steam (<see cref="SteamTransport"/>, a friends-only lobby from
+    /// <see cref="SteamPlatform"/>) and friends join from an invite or the friends list - no ports, no VPN. The IP
+    /// route stays for LAN, VPNs, tests (which never start Steam) and anyone without Steam; <c>-nosteam</c> forces it.
+    /// </para>
     /// </summary>
     public class NetworkLauncher : MonoBehaviour
     {
@@ -36,6 +42,11 @@ namespace Deepbound.Networking
         [SerializeField] private NetworkObject directorPrefab;
 
         private string status = "";
+        private UnityTransport unity;
+        private SteamTransport steam;
+        /// <summary>The party in progress runs over Steam (not an IP address).</summary>
+        public bool OverSteam { get; private set; }
+        private string steamHostName = "";
         private PortMapper.State lastMapState = PortMapper.State.Idle;
 
         /// <summary>Screen area the panel occupies, in IMGUI coordinates (origin top-left).</summary>
@@ -68,12 +79,19 @@ namespace Deepbound.Networking
             Net.NetworkConfig.ConnectionApproval = true;
             Net.ConnectionApprovalCallback = Approve;
             Net.NetworkConfig.ConnectionData = System.Text.Encoding.UTF8.GetBytes(BuildId);
+            unity = (UnityTransport)Net.NetworkConfig.NetworkTransport;
+            Net.OnClientStopped += HandleClientStopped;
             // Give up on a dead address in about 12 s, not a minute.
             Transport.MaxConnectAttempts = 12;
             Transport.ConnectTimeoutMS = 1000;
 
             var cl = Environment.GetCommandLineArgs();
             TestRun = Application.isBatchMode || Array.Exists(cl, a => a == "-smoketest" || a == "-shots" || a == "-bosstest" || a == "-classdps" || a == "-noupnp" || a == "-autoplay");
+            // Steam only for real play: tests must never meet a friend, and must run with Steam closed.
+            // -steamcheck: start Steam even in a test run, host over it, log what happened and quit (nothing is saved).
+            bool steamCheck = Array.IndexOf(cl, "-steamcheck") >= 0;
+            if ((!TestRun || steamCheck) && Array.IndexOf(cl, "-nosteam") < 0) SteamPlatform.Boot(this);
+            if (steamCheck) StartCoroutine(SteamCheck());
 
             ApplyCommandLine(Environment.GetCommandLineArgs());
             ApplyWindowMode(Environment.GetCommandLineArgs());
@@ -99,11 +117,41 @@ namespace Deepbound.Networking
             Net.OnClientDisconnectCallback -= HandleDisconnect;
             Net.OnTransportFailure -= HandleTransportFailure;
             Net.OnServerStopped -= HandleServerStopped;
+            Net.OnClientStopped -= HandleClientStopped;
         }
 
         private void OnApplicationQuit() => PortMapper.Close();
 
-        private void HandleServerStopped(bool wasHost) => PortMapper.Close();
+        private void HandleServerStopped(bool wasHost) { PortMapper.Close(); SteamPlatform.SessionEnded(); }
+
+        private void HandleClientStopped(bool wasHost) => SteamPlatform.SessionEnded();
+
+        private System.Collections.IEnumerator SteamCheck()
+        {
+            yield return new WaitForSecondsRealtime(1f);
+            Debug.Log("[SteamCheck] ready " + SteamPlatform.Ready + (SteamPlatform.Ready ? " as " + SteamPlatform.MyName : ", problem: " + SteamPlatform.Problem));
+            if (SteamPlatform.Ready)
+            {
+                StartHost();
+                float until = Time.realtimeSinceStartup + 15f;
+                while (Time.realtimeSinceStartup < until && !SteamPlatform.InLobby) yield return null;
+                Debug.Log("[SteamCheck] hosting " + (Net.IsHost ? "yes" : "no") + ", over Steam " + OverSteam + ", lobby open " + SteamPlatform.InLobby + ", friends listed " + SteamPlatform.Friends().Count);
+                Net.Shutdown();
+                yield return new WaitForSecondsRealtime(1f);
+            }
+            Application.Quit();
+        }
+
+        /// <summary>A line for the title screen (Steam joins report through here).</summary>
+        public void SetStatus(string text) => status = text ?? "";
+
+        /// <summary>Use this transport for the next session.</summary>
+        private void UseTransport(bool overSteam)
+        {
+            OverSteam = overSteam;
+            if (overSteam && steam == null) steam = Net.gameObject.GetComponent<SteamTransport>() ?? Net.gameObject.AddComponent<SteamTransport>();
+            Net.NetworkConfig.NetworkTransport = overSteam ? (NetworkTransport)steam : unity;
+        }
 
         private void Approve(NetworkManager.ConnectionApprovalRequest request, NetworkManager.ConnectionApprovalResponse response)
         {
@@ -170,8 +218,41 @@ namespace Deepbound.Networking
             if (shots >= 0 && shots + 1 < args.Length) gameObject.AddComponent<SmokeTest>().Screenshots(args[shots + 1], this);
         }
 
+        /// <summary>PLAY: host over Steam when it is running, else on this PC's address.</summary>
         public void StartHost()
         {
+            if (SteamPlatform.Ready) StartSteamHost();
+            else StartHostByAddress();
+        }
+
+        private void StartSteamHost()
+        {
+            UseTransport(true);
+            if (!Net.StartHost())
+            {
+                status = "Could not host over Steam - try again, or host by address.";
+                UseTransport(false);
+                return;
+            }
+            status = "";
+            Instantiate(directorPrefab).Spawn();
+            SteamPlatform.OpenLobby();
+        }
+
+        /// <summary>Guest: connect to a friend's party over Steam (the lobby told us who hosts it).</summary>
+        public void StartSteamClient(ulong hostSteamId, string hostName)
+        {
+            if (Net.IsClient || Net.IsServer) Net.Shutdown();
+            UseTransport(true);
+            steam.TargetSteamId = hostSteamId;
+            steamHostName = string.IsNullOrEmpty(hostName) ? "your friend" : hostName;
+            status = Net.StartClient() ? "Joining " + steamHostName + "'s party through Steam..." : "Could not start the Steam connection.";
+        }
+
+        /// <summary>Host on this PC's address (LAN, a VPN, a forwarded port): the way it worked before Steam.</summary>
+        public void StartHostByAddress()
+        {
+            UseTransport(false);
             // Listen on every interface, not just loopback, so someone on the same LAN can
             // join too. The address field is only used when joining.
             Transport.SetConnectionData(address, port, "0.0.0.0");
@@ -225,11 +306,12 @@ namespace Deepbound.Networking
 
         private void StartClient()
         {
+            UseTransport(false);
             Transport.SetConnectionData(address, port);
             status = Net.StartClient() ? "Connecting to " + address + ":" + port + "..." : "Could not start client.";
         }
 
-        private UnityTransport Transport => (UnityTransport)Net.NetworkConfig.NetworkTransport;
+        private UnityTransport Transport => unity != null ? unity : (UnityTransport)Net.NetworkConfig.NetworkTransport;
 
         private void HandleDisconnect(ulong clientId)
         {
@@ -237,6 +319,11 @@ namespace Deepbound.Networking
             // client that leaves. Only the first case means "we are no longer connected".
             if (Net.IsServer || clientId != Net.LocalClientId) return;
 
+            if (OverSteam)
+            {
+                status = string.IsNullOrEmpty(Net.DisconnectReason) ? "Lost the connection to " + steamHostName + "'s party (Steam)." : Net.DisconnectReason;
+                return;
+            }
             status = string.IsNullOrEmpty(Net.DisconnectReason)
                 ? "No answer from " + address + ":" + port + ". Is the host in the game? Did their router open the port (their pause menu says)? Did they let Deepbound through Windows Firewall?"
                 : Net.DisconnectReason;

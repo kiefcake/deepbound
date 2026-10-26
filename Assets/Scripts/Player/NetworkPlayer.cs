@@ -52,6 +52,8 @@ namespace Deepbound.Player
 
         /// <summary>The cloak dye this player wears (<see cref="Cosmetics.Dyes"/>); the owner sets it from its saved wardrobe.</summary>
         public readonly NetworkVariable<byte> CloakDye = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        /// <summary>The owner's Steam name (2026-10-26; empty without Steam, which keeps the colour names).</summary>
+        public readonly NetworkVariable<Unity.Collections.FixedString64Bytes> SteamName = new NetworkVariable<Unity.Collections.FixedString64Bytes>(default, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
         /// <summary>The aura this player wears (<see cref="Cosmetics.Auras"/>): motes drifting up around them.</summary>
         public readonly NetworkVariable<byte> Aura = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
@@ -63,6 +65,15 @@ namespace Deepbound.Player
         public readonly NetworkVariable<byte> WeaponGlowCos = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         public readonly NetworkVariable<byte> TitleCos = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         /// <summary>"Crimson the Grim" (or just the name).</summary>
+        /// <summary>A Steam name cut to fit 64 UTF-8 bytes (and 24 characters, for nameplates).</summary>
+        private static Unity.Collections.FixedString64Bytes SafeName(string n)
+        {
+            n = (n ?? "").Trim();
+            if (n.Length > 24) n = n.Substring(0, 24);
+            while (n.Length > 0 && System.Text.Encoding.UTF8.GetByteCount(n) > 60) n = n.Substring(0, n.Length - 1);
+            return new Unity.Collections.FixedString64Bytes(n);
+        }
+
         public string NameWithTitle => Cosmetics.TitleOf(TitleCos.Value) is string t ? name + " " + t : name;
 
         /// <summary>A swing trail's colour: the worn weapon glow, else the class's own.</summary>
@@ -110,6 +121,9 @@ namespace Deepbound.Player
         {
             int slot = (int)(OwnerClientId % (ulong)SlotNames.Length);
             name = SlotNames[slot] + (OwnerClientId >= (ulong)SlotNames.Length ? " " + (OwnerClientId / (ulong)SlotNames.Length + 1) : "");
+            if (SteamName.Value.Length > 0) name = SteamName.Value.ToString();
+            SteamName.OnValueChanged += (_, now) => { if (now.Length > 0) name = now.ToString(); };
+            if (IsOwner && Networking.SteamPlatform.Ready) SteamName.Value = SafeName(Networking.SteamPlatform.MyName);
             BuildVisuals();
             progress.ClassId.OnValueChanged += (_, __) => BuildVisuals();
             CloakDye.OnValueChanged += (_, __) => BuildVisuals();

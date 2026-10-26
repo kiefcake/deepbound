@@ -85,7 +85,7 @@ namespace Deepbound.Enemies
         [System.NonSerialized] public float ChoirReadyAt;
         private bool championAnnounced;
 
-        private static readonly string[] ChampionNames = { "Grimbold", "Morwen", "Osric", "Hesk", "Vorn", "Ilsa", /* not Aldric or Ysolde: those are camp folk */ "Bram", "Cael", "Odo", "Sabine", "Tormund", "Wenna" };
+        private static readonly string[] ChampionNames = { "Grimbold", "Morwen", "Garrick", "Hesk", "Vorn", "Ilsa", /* not Aldric or Ysolde: those are camp folk */ "Bram", "Cael", "Odo", "Sabine", "Tormund", "Wenna" };
         private static readonly string[] ChampionEpithets = { "the Unburied", "Gravefist", "the Hollow", "Bonegnawer", "the Patient", "Ashenhand", "the Tithe-Taker", "Oathbreaker", "the Pale", "Marrowgrin" };
 
         /// <summary>Server: make this the floor's champion — an elite with a name, more of everything, and a hoard.</summary>
@@ -96,7 +96,24 @@ namespace Deepbound.Enemies
             damage *= 1.15f;
             health.ServerSetMax(health.Max.Value * 1.6f, refill: true);
             health.Defense += 2f;
-            Title.Value = ChampionNames[UnityEngine.Random.Range(0, ChampionNames.Length)] + " " + ChampionEpithets[UnityEngine.Random.Range(0, ChampionEpithets.Length)];
+            Title.Value = Pick(ChampionNames, usedNames) + " " + Pick(ChampionEpithets, usedEpithets);
+        }
+
+        // A run's champions never share a name or an epithet (an autoplay run met three Osrics, 2026-10-24); the
+        // pools refill once spent, and on a new run.
+        private static readonly HashSet<string> usedNames = new HashSet<string>(), usedEpithets = new HashSet<string>();
+        private static double namesRun = -1;
+
+        private static string Pick(string[] pool, HashSet<string> used)
+        {
+            var director = World.DungeonDirector.Instance;
+            double run = director != null ? director.RunStartedAt.Value : 0;
+            if (run != namesRun) { namesRun = run; usedNames.Clear(); usedEpithets.Clear(); }
+            if (used.Count >= pool.Length) used.Clear();
+            string pick;
+            do pick = pool[UnityEngine.Random.Range(0, pool.Length)]; while (used.Contains(pick));
+            used.Add(pick);
+            return pick;
         }
 
         /// <summary>Server: shoved off a ledge — land below, a little the worse for it.</summary>

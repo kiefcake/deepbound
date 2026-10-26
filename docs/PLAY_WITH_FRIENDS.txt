@@ -1,0 +1,25 @@
+DEEPBOUND - PLAYING WITH FRIENDS (Steam)
+=========================================
+
+Everyone needs:
+  - the SAME zip (the game refuses a different build and says so),
+  - Steam running and signed in, with each other as Steam friends.
+No port forwarding, no VPN: Steam connects you, and relays the traffic if it has to.
+
+Until Deepbound has its own Steam page it borrows Valve's free test app, so Steam will show
+you as "playing Spacewar". That is normal. (Spacewar is not installed or needed.)
+
+HOST
+  1. Start Steam, then Deepbound.Exe. The title screen says "Steam: playing as <your name>".
+  2. Press PLAY.
+  3. Esc -> INVITE STEAM FRIENDS -> INVITE next to a friend (or STEAM OVERLAY for Steam's own list).
+
+FRIEND
+  Start Steam and Deepbound, then either:
+  - accept the invite: a JOIN button appears on the title screen (or in the pause menu), or
+  - JOIN A PARTY -> your friend is listed with a JOIN button while they host, or
+  - in the Steam friends list, right-click the host -> Join Game (with Deepbound already open).
+
+If it says "Steam: off": start Steam - the game notices within a few seconds.
+No Steam? JOIN A PARTY -> JOIN BY ADDRESS still works on the same network or over a VPN
+(Tailscale, Radmin VPN): the host uses HOST BY ADDRESS.

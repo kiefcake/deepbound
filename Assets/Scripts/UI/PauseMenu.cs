@@ -15,7 +15,7 @@ namespace Deepbound.UI
 
         /// <summary>For the screenshot run.</summary>
         public static void SetOpen(bool open) => Open = open;
-        private bool options, guide, controls;
+        private bool options, guide, controls, invitesOpen;
         private Bind? capturing;
 
         /// <summary>For the screenshot run.</summary>
@@ -121,6 +121,7 @@ namespace Deepbound.UI
             var g = Gamepad.current;
             if (g == null || !Open || capturing.HasValue) return;
             bool back = g.buttonEast.wasPressedThisFrame, ok = g.buttonSouth.wasPressedThisFrame;
+            if (invitesOpen) { if (back) invitesOpen = false; return; }
             if (guide)
             {
                 if (back) guide = false;
@@ -189,7 +190,7 @@ namespace Deepbound.UI
             {
                 Open = !Open;
                 Deepbound.Art.Sfx.Play2D(Open ? Deepbound.Art.Sound.UiOpen : Deepbound.Art.Sound.UiClose, 0.8f);
-                options = guide = controls = false;
+                options = guide = controls = invitesOpen = false;
             }
         }
 
@@ -249,7 +250,13 @@ namespace Deepbound.UI
                 DrawControls(w, h);
                 return;
             }
-            var area = options ? new Rect(w / 2f - 390, h / 2f - 335, 780, 680) : new Rect(w / 2f - 180, h / 2f - 200, 360, 410);
+            if (invitesOpen)
+            {
+                DrawInviteFriends(w, h);
+                return;
+            }
+            bool steamExtra = Networking.SteamPlatform.Ready;
+            var area = options ? new Rect(w / 2f - 390, h / 2f - 335, 780, 680) : new Rect(w / 2f - 180, h / 2f - (steamExtra ? 250 : 225), 360, steamExtra ? 500 : 455);
             UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
             GUILayout.BeginArea(area);
             GUILayout.Label(options ? "OPTIONS" : "PAUSED", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
@@ -325,8 +332,22 @@ namespace Deepbound.UI
                 var net = NetworkManager.Singleton;
                 string party = net == null ? "" : (net.IsHost ? "You are hosting" : "In a party") + "   ·   " + (net.IsServer ? net.ConnectedClientsIds.Count : Player.PlayerLife.All.Count) + " in the party";
                 GUILayout.Label(party, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+                var launcherHere = FindAnyObjectByType<Networking.NetworkLauncher>();
+                // Hosting over Steam (2026-10-26): invite friends from a list; no addresses to copy.
+                if (net != null && net.IsHost && launcherHere != null && launcherHere.OverSteam)
+                {
+                    GUILayout.Space(4);
+                    if (GUILayout.Button("INVITE STEAM FRIENDS", UiSkin.Button, GUILayout.Height(38))) invitesOpen = true;
+                }
+                // An invite from someone else's party: joining leaves this one.
+                if (Networking.SteamPlatform.Ready && Networking.SteamPlatform.Instance.Invites.Count > 0)
+                {
+                    GUILayout.Space(4);
+                    FriendsPanel.DrawInvites();
+                    GUILayout.Label("Joining leaves this party.", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+                }
                 // Hosting: where friends connect, with Copy buttons (2026-10-21).
-                if (net != null && net.IsHost)
+                if (net != null && net.IsHost && !(launcherHere != null && launcherHere.OverSteam))
                 {
                     var mid = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, wordWrap = true };
                     string line = Networking.PortMapper.Line;
@@ -344,6 +365,24 @@ namespace Deepbound.UI
                 }
                 GUILayout.Label("The dungeon does not pause for you.", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
             }
+            GUILayout.EndArea();
+        }
+
+        /// <summary>The host's invite list: online Steam friends, each with INVITE (2026-10-26).</summary>
+        private void DrawInviteFriends(float w, float h)
+        {
+            var area = new Rect(w / 2f - 230, h / 2f - 260, 460, 520);
+            UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
+            GUILayout.BeginArea(area);
+            GUILayout.Label("INVITE FRIENDS", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
+            GUILayout.Label("They get a Steam invite and a JOIN button in Deepbound. Both of you need the same build, with Steam running.", new GUIStyle(UiSkin.Small) { wordWrap = true, alignment = TextAnchor.MiddleCenter });
+            GUILayout.Space(8);
+            FriendsPanel.DrawInviteList(330f);
+            GUILayout.Space(8);
+            GUILayout.BeginHorizontal();
+            if (GUILayout.Button("STEAM OVERLAY", UiSkin.Button, GUILayout.Height(40))) Networking.SteamPlatform.OpenInviteOverlay();
+            if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(40))) invitesOpen = false;
+            GUILayout.EndHorizontal();
             GUILayout.EndArea();
         }
 

@@ -6,7 +6,7 @@ namespace Deepbound.Art
     public enum Sound { Swing, Hit, Block, Bash, Rattle, BoneBreak, Slam, WarCry, Hurt, Revive, Summon, Coins, Potion, Purchase, Bow, Fire, Frost, Shatter, Whisper, Dodge, Relic, Step, Splash, Meow, Purr, Drink, SlotSpin, Card, Caw, Squeak, Heartbeat, KillTick, Creak, Toll, Cleared, Pipe, Graze,
         // 2026-10-24: recorded only (Resources/Audio/Sfx/<name>), no synth recipe.
         Growl, Roar, MonsterDie, MonsterAttack, Door, Chest, Gear, PageTurn,
-        Chips, Dice, UiClick, UiOpen, UiClose, UiError, Chain, StepSoft, Shade, Slime }
+        Chips, Dice, UiClick, UiOpen, UiClose, UiError, Chain, StepSoft, Shade, Slime, Unsheathe }
 
     /// <summary>
     /// Every sound in the game. Recorded clips come first (2026-10-24: CC0 packs from Kenney and OpenGameArt in
