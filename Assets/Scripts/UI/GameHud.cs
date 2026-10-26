@@ -1835,6 +1835,15 @@ namespace Deepbound.UI
                 bool passed = boss.Health.Fraction < g;
                 Rect(x + bw * g - 1, y + 21, 2, 20, passed ? new Color(1f, 0.82f, 0.4f, 0.9f) : new Color(1f, 1f, 1f, 0.55f));
             }
+            // The break meter (2026-10-26): a thin gold bar under it, white-hot while BROKEN.
+            float st = boss.Stagger.Value;
+            if (st > 0.005f || boss.Broken.Value)
+            {
+                bool broke = boss.Broken.Value;
+                float pulse = broke ? 0.75f + 0.25f * Mathf.Sin(Time.time * 14f) : 1f;
+                Rect(x, y + 43, bw, 5, new Color(0f, 0f, 0f, 0.6f));
+                Rect(x, y + 43, bw * Mathf.Clamp01(st), 5, broke ? new Color(1f, 0.95f, 0.75f, pulse) : new Color(0.95f, 0.72f, 0.3f, 0.95f));
+            }
             // Gold trim top and bottom, the percentage, and the party it is sized for.
             Rect(x - 3, y + 20, bw + 6, 1, new Color(0.8f, 0.62f, 0.3f, 0.8f));
             Rect(x - 3, y + 41, bw + 6, 1, new Color(0.8f, 0.62f, 0.3f, 0.8f));
@@ -1856,6 +1865,7 @@ namespace Deepbound.UI
                 case BossBrain.Stance.Survival: stanceTag = "<color=#FFB070>SURVIVE " + Mathf.CeilToInt((float)System.Math.Max(0.0, left)) + "</color>"; break;
                 case BossBrain.Stance.Armored: stanceTag = "<color=#C8C8D0>ARMORED</color>"; break;
             }
+            if (boss.Broken.Value) stanceTag = "<color=#FFE6A0>BROKEN - STRIKE NOW</color>";
             if (stanceTag != null) tags = stanceTag + (tags.Length > 0 ? "   " + tags : "");
             else if (boss.Health.Fraction < 0.25f) tags = "<color=#E0403A>ENRAGED</color>" + (tags.Length > 0 ? "   " + tags : "");
             string hint = boss.PhaseHint.Value.ToString();

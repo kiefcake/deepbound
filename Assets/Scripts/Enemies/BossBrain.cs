@@ -295,6 +295,80 @@ namespace Deepbound.Enemies
 
         public void SetMinionPrefab(NetworkObject prefab) => minionPrefab = prefab;
 
+        // ------------------------------------------------------------------
+        // STAGGER (2026-10-26, "keep working on bosses"): weak-point bursts, headshots, stuns and kicks fill a
+        // break meter under the boss bar; full, the boss is BROKEN for a few seconds - held, its patterns and
+        // telegraphs cut, taking x1.5 - and each break after needs more. Nothing fills it while it is immune.
+        // ------------------------------------------------------------------
+
+        public readonly NetworkVariable<float> Stagger = new NetworkVariable<float>();
+        public readonly NetworkVariable<bool> Broken = new NetworkVariable<bool>();
+        public const float BreakSeconds = 3.5f, BreakTaken = 1.5f, StaggerGrace = 3f, StaggerDecay = 0.06f;
+        /// <summary>What each kind of hit adds (before the per-break and party scaling).</summary>
+        public const float StaggerWeakBurst = 0.16f, StaggerWeak = 0.05f, StaggerHead = 0.035f, StaggerStun = 0.12f;
+        private float lastStaggerAt, brokenUntil;
+        public int Breaks { get; private set; }
+
+        /// <summary>Server: add to the break meter (scaled down per break so far, and for a bigger party).</summary>
+        public void ServerAddStagger(float amount)
+        {
+            if (!IsServer || IsDead || Immune || Dormant || Broken.Value || InEntrance) return;
+            amount /= 1f + 0.4f * Breaks;
+            amount /= Mathf.Lerp(1f, 1.8f, (StandingParty - 1) / 3f);
+            lastStaggerAt = Time.time;
+            float v = Stagger.Value + amount;
+            if (v >= 1f) ServerBreak();
+            else Stagger.Value = v;
+        }
+
+        private void ServerBreak()
+        {
+            Breaks++;
+            Stagger.Value = 1f;
+            Broken.Value = true;
+            brokenUntil = Time.time + BreakSeconds;
+            heldUntil = Mathf.Max(heldUntil, brokenUntil);
+            StopPatterns();
+            if (attacking) CancelConeRpc();
+            CancelWindup();
+            CancelTelegraphRpc();
+            OnBroken();
+            BrokenRpc();
+            Debug.Log("[Boss] " + DisplayName + " BROKEN (" + Breaks + ")");
+        }
+
+        /// <summary>A subclass drops whatever it was winding up (the Hollow King's slam).</summary>
+        protected virtual void OnBroken() { }
+
+        /// <summary>For tests: break it now, asleep or not.</summary>
+        public void ServerDebugBreak() { if (!Broken.Value) ServerBreak(); }
+
+        private void TickStagger()
+        {
+            if (Broken.Value)
+            {
+                if (Time.time < brokenUntil) return;
+                Broken.Value = false;
+                Stagger.Value = 0f;
+                return;
+            }
+            if (Stagger.Value > 0f && (Immune || Time.time - lastStaggerAt > StaggerGrace))
+                Stagger.Value = Mathf.Max(0f, Stagger.Value - StaggerDecay * Time.deltaTime * (Immune ? 3f : 1f));
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BrokenRpc()
+        {
+            var gold = new Color(1f, 0.82f, 0.4f);
+            UI.GameHud.ShowTitleCard(DisplayName.ToUpperInvariant() + " IS BROKEN", "Strike now: it takes half again", gold);
+            Sfx.Play(Sound.Shatter, transform.position + Vector3.up * 2f, 1f, 0.6f);
+            Sfx.Play(Sound.Roar, transform.position + Vector3.up * 2f, 0.8f, 1.2f);
+            Vfx.Ring(Vfx.Floor(transform.position) + Vector3.up * 0.05f, 4.5f, gold, 0.6f);
+            Vfx.Flash(transform.position + Vector3.up * 2f, gold, 6f, 9f, 0.4f);
+            Vfx.Embers(transform.position + Vector3.up * 2f, 24, gold, 5f, 0.06f, 0.9f);
+            if (Rig != null) Rig.Flinch(transform.position + transform.forward * 2f, 1.4f);
+        }
+
         protected override LootTable Loot => LootTable.SkeletonKing;
 
         public override void OnNetworkSpawn()
@@ -303,6 +377,7 @@ namespace Deepbound.Enemies
             Active = this;
             if (IsServer)
             {
+                health.IncomingModifiers.Add((dmg, from) => Broken.Value && dmg < KillDamage ? dmg * BreakTaken : dmg);
                 // Asleep on its throne it cannot be hurt (no plinking it from the doorway, no
                 // sealing the gates on half the party); the director wakes it when everyone is in.
                 health.IncomingModifiers.Insert(0, (dmg, from) =>
@@ -458,6 +533,7 @@ namespace Deepbound.Enemies
             if (IsServer && !IsDead && IsSpawned)
             {
                 TickPhases();
+                TickStagger();
                 // Hunts and their strikes tick here too: subclasses return early from Update mid-attack.
                 TickStrikes();
                 if (!IsStunned && !InEntrance) TickHunt();
@@ -631,6 +707,7 @@ namespace Deepbound.Enemies
 
         public override void ServerStun(float seconds)
         {
+            ServerAddStagger(StaggerStun * Mathf.Clamp(seconds, 0.5f, 2f));
             if (attacking) CancelConeRpc();
             base.ServerStun(seconds);
         }

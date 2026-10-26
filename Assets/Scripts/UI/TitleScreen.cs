@@ -74,13 +74,13 @@ namespace Deepbound.UI
         private static readonly string[] WhatsNew =
         {
             "PLAY WITH FRIENDS over Steam: invite from the pause menu",
+            "BREAK bosses: weak points and stuns fill a meter - then strike",
+            "The Unsung sings ECHOES of the fallen; the Cardinal BRANDS",
             "Slot 5 RARES: Ironbark, Bloodfury, Grave Stillness, tomes",
             "Tome of the PHOENIX: a firebird fights beside you for 30 s",
             "EDGES at +5/+7/+9 and HONES past +10 at Hobb's anvil",
-            "Relics stack to tier III; an 8-slot relic tray",
             "WEAK POINTS burst (and enrage beasts); see what ails an enemy",
             "Recorded music, monsters, fire and chains (CC0, see credits)",
-            "Weapon GLOWS and TITLES at the tailor",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)

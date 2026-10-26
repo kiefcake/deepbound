@@ -127,15 +127,22 @@ namespace Deepbound.Combat
         {
             if (zone == HitZone.Body) return 1f;
             bool boss = For(target).Boss;
+            // Bosses: every head and weak point hit fills the break meter (2026-10-26).
+            var bossBrain = boss ? target.GetComponent<Enemies.BossBrain>() : null;
             if (zone == HitZone.Weak)
             {
                 if (weakReadyAt.TryGetValue(target, out float ready) && Time.time < ready)
+                {
+                    bossBrain?.ServerAddStagger(Enemies.BossBrain.StaggerWeak);
                     return boss ? (ranged ? 1.25f : 1.1f) : (ranged ? 1.5f : 1.25f);
+                }
+                bossBrain?.ServerAddStagger(Enemies.BossBrain.StaggerWeakBurst);
                 weakReadyAt[target] = Time.time + WeakCooldown;
                 pendingBurst = target;
                 pendingFrame = Time.frameCount;
                 return boss ? (ranged ? 1.75f : 1.5f) : (ranged ? 2.25f : 1.8f);
             }
+            bossBrain?.ServerAddStagger(Enemies.BossBrain.StaggerHead);
             return boss ? (ranged ? 1.25f : 1.1f) : (ranged ? 1.5f : 1.25f);
         }
 

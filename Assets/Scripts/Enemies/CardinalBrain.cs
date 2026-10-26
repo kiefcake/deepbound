@@ -19,6 +19,9 @@ namespace Deepbound.Enemies
     /// <item><b>Choir of the Damned</b> — at two thirds and one third health, Wraiths answer
     ///   the hymn. They are Ethereal: pin them down (chill, stun, mark, consecrate).</item>
     /// <item><b>Last Rites</b> — below a third, everything comes faster.</item>
+    /// <item><b>Excommunication</b> (2026-10-26) — after the first choir, a golden brand rings one player (whoever
+    ///   stands with the most friends); when it bursts it scorches everyone inside the ring, the bearer least. The
+    ///   branded walks away from the party (or dodges through the burst).</item>
     /// </list>
     /// </summary>
     public class CardinalBrain : BossBrain
@@ -30,7 +33,7 @@ namespace Deepbound.Enemies
         protected override byte EntranceStyle => 4;
         public override string LastWords => "The hymn... ends... and so... they wake...";
         public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.Cardinal;
-        public override string Hint => "Kill the Wraith choir to break its ward. Step out of the burning circles and jump the bell's toll.";
+        public override string Hint => "Kill the Wraith choir to break its ward. Step out of the burning circles, jump the bell's toll - and if you are BRANDED, walk away from your friends.";
 
         private float nextJudgement;
         private bool choir66, choir33;
@@ -39,6 +42,13 @@ namespace Deepbound.Enemies
         private readonly List<Pillar> pillars = new List<Pillar>();
 
         private bool LastRites => health.Fraction < 0.34f;
+
+        public const float BrandCooldown = 15f, BrandSeconds = 4.5f, BrandRadius = 4.5f;
+        private float nextBrand, brandBurstsAt = -1f;
+        private PlayerLife branded;
+        /// <summary>For tests: brands that burst, and who the last one caught.</summary>
+        public int BrandsBurst { get; private set; }
+        public int LastBrandCaught { get; private set; }
 
         // ---- Phases ----
         protected override float[] PhaseGates => new[] { 0.66f, 0.33f, 0.12f };
@@ -49,7 +59,7 @@ namespace Deepbound.Enemies
             if (index < 2)
             {
                 var choir = Summon((index == 0 ? 1 : 2) + scaledPlayers, 5f, 1.8f);
-                if (index == 0) choir66 = true; else choir33 = true;
+                if (index == 0) { choir66 = true; nextBrand = Time.time + 6f; } else choir33 = true;
                 InvulnerableWhile("Choir of the Damned", index == 0 ? "Sing, my children. Sing them to sleep." : "Louder! Let the whole cathedral hear!",
                     "The Wraith choir wards the Cardinal: pin them (chill, stun, mark) and silence them", choir, 22f,
                     () => Taunt("The hymn is broken... no matter. I am the hymn."));
@@ -99,7 +109,7 @@ namespace Deepbound.Enemies
         protected override void Update()
         {
             if (HeldByStun()) return;
-            if (IsServer && !IsDead) { ResolvePillars(); TickHymn(); }
+            if (IsServer && !IsDead) { ResolvePillars(); TickHymn(); TickBrand(); }
             base.Update();
         }
 
@@ -107,6 +117,7 @@ namespace Deepbound.Enemies
         {
             if (TryShockwave()) return true;
 
+            if (choir66 && !InSurvival && brandBurstsAt < 0f && Time.time >= nextBrand && Brand()) return true;
             if (Time.time >= nextJudgement)
             {
                 nextJudgement = Time.time + judgementCooldown * (LastRites ? 0.65f : 1f);
@@ -125,6 +136,75 @@ namespace Deepbound.Enemies
                 return true;
             }
             return false;
+        }
+
+        /// <summary>Excommunication: ring the player who stands with the most friends.</summary>
+        private bool Brand()
+        {
+            PlayerLife pick = null;
+            int bestCrowd = -1;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || !p.Targetable) continue;
+                int crowd = 0;
+                foreach (var q in PlayerLife.All)
+                    if (q != null && q != p && q.Targetable && Vector3.Distance(q.transform.position, p.transform.position) < BrandRadius * 1.5f) crowd++;
+                if (crowd > bestCrowd || (crowd == bestCrowd && Random.value < 0.5f)) { bestCrowd = crowd; pick = p; }
+            }
+            if (pick == null) return false;
+            branded = pick;
+            float seconds = Tell(BrandSeconds);
+            brandBurstsAt = Time.time + seconds;
+            nextBrand = Time.time + BrandCooldown * (LastRites ? 0.75f : 1f) / Cadence;
+            castUntil = Time.time + 0.8f;
+            busyUntil = castUntil;
+            PlayActionRpc(RigAction.Cast, 0.8f);
+            BrandRpc(pick.NetworkObjectId, BrandRadius, seconds);
+            Taunt(StandingParty > 1 ? "You. You are cast out. Take your sin away from them." : "I cast you out. Burn alone.");
+            Debug.Log("[Boss] Cardinal brands " + pick.name);
+            return true;
+        }
+
+        private void TickBrand()
+        {
+            if (brandBurstsAt < 0f || Time.time < brandBurstsAt) return;
+            brandBurstsAt = -1f;
+            if (branded == null) return;
+            var at = branded.transform.position;
+            int caught = 0;
+            foreach (var victim in CombatQuery.Circle(at, BrandRadius, Team.Players))
+            {
+                bool bearer = victim == branded.Health;
+                victim.ServerDamage(judgementDamage * Difficulty.Level.Damage * (bearer ? 0.8f : 1.3f), at + Vector3.up, NetworkObjectId);
+                if (!bearer) caught++;
+            }
+            BrandsBurst++;
+            LastBrandCaught = caught;
+            PillarFxRpc(at);
+            BrandBurstRpc(at, BrandRadius);
+            branded = null;
+        }
+
+        /// <summary>For tests: brand now.</summary>
+        public bool ServerDebugBrand() { choir66 = true; brandBurstsAt = -1f; nextBrand = 0f; return Brand(); }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BrandRpc(ulong playerObject, float radius, float seconds)
+        {
+            var gold = new Color(1f, 0.78f, 0.3f);
+            if (!Unity.Netcode.NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(playerObject, out var obj)) return;
+            FollowRing.Attach(obj.transform, radius, seconds, gold * 1.4f);
+            Sfx.Play(Sound.Toll, obj.transform.position + Vector3.up * 2f, 0.7f, 1.3f);
+            if (obj.IsOwner) UI.GameHud.ShowCombo(obj.transform.position + Vector3.up * 2.4f, "EXCOMMUNICATED: MOVE AWAY FROM YOUR ALLIES", gold);
+            else UI.GameHud.ShowCombo(obj.transform.position + Vector3.up * 2.4f, "BRANDED: STAND CLEAR", gold);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BrandBurstRpc(Vector3 at, float radius)
+        {
+            var gold = new Color(1f, 0.78f, 0.3f);
+            Vfx.Ring(at + Vector3.up * 0.05f, radius, gold, 0.5f);
+            Vfx.Flash(at + Vector3.up * 1.5f, gold, 7f, radius + 4f, 0.5f);
         }
 
         private void AddPillar(Vector3 at)

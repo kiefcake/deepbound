@@ -2403,6 +2403,27 @@ namespace Deepbound.Networking
                             hunter.HuntsThrown == thrown0 + 2 && struck && Difficulty.SummonCount(4, 1) < Difficulty.SummonCount(4, 4));
                         yield return new WaitForSeconds(1.4f);
                         hh.ServerSetFraction(1f);
+                        // The break meter: full, the boss is held and takes half again; it recovers after BreakSeconds.
+                        {
+                            var bhp = hunter.GetComponent<Health>();
+                            float plain = 0f, broken = 0f;
+                            // Awake for the measurement (asleep, it takes nothing at all).
+                            bool wasDormant = hunter.Dormant;
+                            hunter.Dormant = false;
+                            hunter.ServerDebugBreak();
+                            yield return null;
+                            bool held = hunter.InEntrance, brk = hunter.Broken.Value;
+                            float mult = 1f;
+                            foreach (var mod in bhp.IncomingModifiers) mult = mod(mult, Vector3.zero);
+                            broken = mult;
+                            yield return new WaitForSeconds(BossBrain.BreakSeconds + 0.4f);
+                            mult = 1f;
+                            foreach (var mod in bhp.IncomingModifiers) mult = mod(mult, Vector3.zero);
+                            plain = mult;
+                            hunter.Dormant = wasDormant;
+                            Log("boss stagger", "broken " + brk + ", held " + held + ", damage x" + (plain > 0f ? (broken / plain).ToString("F2") : "?") + ", recovered " + !hunter.Broken.Value + " (meter " + hunter.Stagger.Value.ToString("F2") + ")",
+                                brk && held && !hunter.Broken.Value && (plain <= 0f || Mathf.Abs(broken / plain - BossBrain.BreakTaken) < 0.05f));
+                        }
                     }
                 }
                 dc.ServerDebugTide();
@@ -3804,6 +3825,42 @@ namespace Deepbound.Networking
                     // Walk toward the Lich mid-test, to provoke the blink.
                     // Wound it halfway through, to see the late-fight phases (summons, surges, enrage).
                     if (boss is TideLichBrain && i == 6) motor.Teleport(boss.transform.position + boss.transform.forward * 2f, local.transform.rotation);
+                }
+
+                // The newer set pieces (2026-10-26): the Cardinal's brand, the Unsung's echoes and eclipse.
+                if (boss is CardinalBrain cardinal)
+                {
+                    bool branded = cardinal.ServerDebugBrand();
+                    yield return new WaitForSeconds(1.5f);
+                    FaceBoss(local, boss);
+                    yield return Shot(dir, "boss" + (depth + 1) + "_brand");
+                    for (float t = 0f; t < CardinalBrain.BrandSeconds + 1.5f && cardinal.BrandsBurst == 0; t += 0.2f) { hp.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                    Log("cardinal brand", "branded " + branded + ", burst " + cardinal.BrandsBurst + ", allies caught " + cardinal.LastBrandCaught, branded && cardinal.BrandsBurst == 1);
+                }
+                if (boss is UnsungBrain unsung)
+                {
+                    for (int e = 0; e < 4; e++)
+                    {
+                        unsung.ServerDebugEcho(e);
+                        yield return new WaitForSeconds(0.8f);
+                        FaceBoss(local, boss);
+                        yield return Shot(dir, "boss" + (depth + 1) + "_echo" + e);
+                        for (int k = 0; k < 10; k++) { hp.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                    }
+                    Log("unsung echoes", "sung " + unsung.EchoesSung, unsung.EchoesSung >= 4);
+                    // The eclipse: stand in the first pool of dawn and live; the second time, stand outside and be struck.
+                    unsung.ServerDebugEclipse();
+                    for (float t = 0f; t < 2f && unsung.DawnPools.Count == 0; t += 0.1f) yield return new WaitForSeconds(0.1f);
+                    int fallen = unsung.EclipsesFallen;
+                    if (unsung.DawnPools.Count > 0) motor.Teleport(unsung.DawnPools[0] + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(1f);
+                    yield return Shot(dir, "boss" + (depth + 1) + "_dawn");
+                    hp.ServerSetFraction(1f);
+                    float before = hp.Current.Value;
+                    for (float t = 0f; t < UnsungBrain.EclipseWarning + 1f && unsung.EclipsesFallen == fallen; t += 0.1f) yield return new WaitForSeconds(0.1f);
+                    float safeLoss = before - hp.Current.Value;
+                    Log("unsung eclipse", "pools " + unsung.DawnPools.Count + ", fell " + (unsung.EclipsesFallen > fallen) + ", lost in the light " + safeLoss.ToString("F0"), unsung.DawnPools.Count >= 2 && unsung.EclipsesFallen > fallen);
+                    motor.Teleport(at, Quaternion.LookRotation(boss.transform.position - at));
                 }
 
                 // Walk the boss through every phase gate: wound it from behind until it changes stance,

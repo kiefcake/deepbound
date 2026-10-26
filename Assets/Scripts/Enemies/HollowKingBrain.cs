@@ -228,6 +228,13 @@ namespace Deepbound.Enemies
         [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
         private void GuardFxRpc() => UI.GameHud.Feed("\"Guards! To your king!\"", new Color(0.55f, 0.75f, 1f));
 
+        protected override void OnBroken()
+        {
+            if (!slamming) return;
+            slamming = false;
+            CancelTelegraphRpc();
+        }
+
         public override void ServerStun(float seconds)
         {
             // Heavy: a bash only staggers him briefly — but it does cancel the slam.
