@@ -789,6 +789,14 @@ namespace Deepbound.Enemies
             Gather(duration, 1f);
         }
 
+        /// <summary>A lane that stands alongside others (a fan): not keyed, so it does not cancel the last one.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        protected void FreeLineTelegraphRpc(Vector3 start, Vector3 direction, float length, float width, float duration)
+        {
+            Telegraph.ShowLine(start, direction, length, width, duration, null);
+            Gather(duration, 0.8f);
+        }
+
         /// <summary>Any peer: the boss crouches, draws embers in and swells a core of light for <paramref name="seconds"/>.</summary>
         protected void Gather(float seconds, float k)
         {
@@ -965,7 +973,7 @@ namespace Deepbound.Enemies
                 {
                     var dir = Quaternion.Euler(0f, (i - (lines - 1) / 2f) * spread, 0f) * to;
                     strikes.Add(new Strike { At = from, Dir = dir, When = Time.time + tell, Damage = damage * 0.65f, Line = true });
-                    LineTelegraphRpc(from, dir, LanceLength, LanceWidth, tell);
+                    FreeLineTelegraphRpc(from, dir, LanceLength, LanceWidth, tell);
                 }
             }
         }

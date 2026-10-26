@@ -24,6 +24,10 @@ namespace Deepbound.Enemies
     /// <item><b>Black Cathedral</b> - the Choirmaster: a fan of hex bolts, and a curse on its prey.</item>
     /// <item><b>Abyss</b> - Gorr, the Rot Below: spits a spray of plague and leaves poison pools.</item>
     /// </list>
+    /// Below half (2026-10-26) each learns a second move: Marrowgut hurls bone at whoever keeps away (Bone
+    /// Toss), the Drowned Knight drags everyone in before the Black Tide breaks (Undertow), Sir Aldous charges
+    /// again if the first one finds no wall, the Choirmaster sings a Second Verse after each hymn, and Gorr's
+    /// slams leave pools of rot behind.
     /// </summary>
     public class WardenBrain : BossBrain
     {
@@ -40,6 +44,14 @@ namespace Deepbound.Enemies
             "Spread out against the hex bolts. Its curse ends when it dies.",
             "Keep moving: its spit and its pools poison. Holy water cleanses.",
         };
+        private static readonly string[] SecondHints =
+        {
+            "Wounded, it hurls bone at whoever keeps away: watch for the circle at your feet.",
+            "Wounded, the Undertow drags you in before the Tide breaks: sprint out as soon as it pulls.",
+            "Wounded, it charges twice: the second lane is short, so dodge sideways, not back.",
+            "Wounded, every hymn has a second verse: move again once the first circles break.",
+            "Wounded, its slams leave rot on the floor: fight it away from the pools.",
+        };
         private static readonly string[] Words =
         {
             "Bones... to the... pile...",
@@ -52,6 +64,29 @@ namespace Deepbound.Enemies
         public override string DisplayName => Names[Mathf.Clamp(act, 0, 4)];
         public override string Epithet => Epithets[Mathf.Clamp(act, 0, 4)];
         public override string Hint => Hints[Mathf.Clamp(act, 0, 4)];
+        /// <summary>Below half every Warden knows its second move.</summary>
+        private bool Second => forceSecond || (health != null && health.Fraction < 0.5f);
+        private bool forceSecond;
+
+        /// <summary>For tests: use the second move now, wounded or not. False if it could not start.</summary>
+        public bool ServerDebugSecond()
+        {
+            forceSecond = true;
+            slamAt = -1f; charge = 0;
+            switch (act)
+            {
+                case 0: return BoneToss();
+                case 2:
+                    if (target == null) return false;
+                    rechargeLeft = 1;
+                    BeginChargeWindup(1.1f);
+                    return true;
+                case 3: BeginHymn(); return true;
+                default: BeginSlam(); return true;
+            }
+        }
+        /// <summary>For tests: second moves used (toss, undertow, recharge, verse, rot pool).</summary>
+        public int SecondMoves { get; private set; }
         public override string LastWords => Words[Mathf.Clamp(act, 0, 4)];
         public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.Warden;
 
@@ -153,6 +188,9 @@ namespace Deepbound.Enemies
             }
         }
 
+        [Rpc(SendTo.ClientsAndHost)]
+        private void HintFeedRpc(string words) => UI.GameHud.Feed(words, new Color(1f, 0.82f, 0.5f));
+
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
@@ -162,6 +200,8 @@ namespace Deepbound.Enemies
 
         protected override void OnPhaseGate(int index)
         {
+            // The second move, named as it is learned.
+            HintFeedRpc(SecondHints[Mathf.Clamp(act, 0, 4)]);
             string[] taunts = { "More bones for the pile!", "Rise, drowned ones. Rise!", "To me, the King's guard!", "Sing, my choir. SING!", "Wake, all of you. Feed." };
             string taunt = taunts[Mathf.Clamp(act, 0, 4)];
             switch (act)
@@ -225,7 +265,8 @@ namespace Deepbound.Enemies
             {
                 case 2:
                     if (distanceToTarget < 4.5f || !CombatQuery.ClearLine(transform.position + Vector3.up * 1.2f, target)) return false;
-                    BeginChargeWindup();
+                    rechargeLeft = Second ? 1 : 0;
+                    BeginChargeWindup(1.1f);
                     nextSpecial = Time.time + 9f;
                     return true;
                 case 3:
@@ -242,7 +283,12 @@ namespace Deepbound.Enemies
                     nextSpecial = Time.time + 8f;
                     return true;
                 default:
-                    if (distanceToTarget > SlamRadius + 1.5f) return false;
+                    if (distanceToTarget > SlamRadius + 1.5f)
+                    {
+                        if (!Second || !BoneToss()) return false;
+                        nextSpecial = Time.time + 6f;
+                        return true;
+                    }
                     BeginSlam();
                     nextSpecial = Time.time + 8f;
                     return true;
@@ -252,7 +298,7 @@ namespace Deepbound.Enemies
         protected override void Update()
         {
             if (HeldByStun()) return;
-            if (IsServer && !IsDead) ResolveHymns();
+            if (IsServer && !IsDead) { ResolveHymns(); ResolveTosses(); TickRot(); }
             if (IsServer && !IsDead)
             {
                 if (slamAt > 0f)
@@ -288,10 +334,19 @@ namespace Deepbound.Enemies
         private readonly List<(Vector3 at, float when)> hymns = new List<(Vector3, float)>();
         private const float HymnRadius = 2.6f, HymnWindup = 1.4f;
 
+        private float secondVerseAt = -1f;
+
         private void BeginHymn()
         {
             PlayActionRpc(RigAction.Cast, 1f);
             busyUntil = Time.time + 1f;
+            SingVerse();
+            // The Second Verse: as the first circles break, a second set opens where everyone is heading next.
+            if (Second) secondVerseAt = Time.time + Tell(HymnWindup) + 0.25f;
+        }
+
+        private void SingVerse()
+        {
             foreach (var p in PlayerLife.All)
             {
                 if (p == null || !p.Targetable) continue;
@@ -303,6 +358,13 @@ namespace Deepbound.Enemies
 
         private void ResolveHymns()
         {
+            if (secondVerseAt > 0f && Time.time >= secondVerseAt)
+            {
+                secondVerseAt = -1f;
+                SecondMoves++;
+                SecondFxRpc("SECOND VERSE", new Color(0.8f, 0.35f, 1f));
+                SingVerse();
+            }
             for (int i = hymns.Count - 1; i >= 0; i--)
             {
                 if (Time.time < hymns[i].when) continue;
@@ -331,6 +393,22 @@ namespace Deepbound.Enemies
         private void BeginSlam()
         {
             slamAt = Time.time + Tell(SlamWindup);
+            // The Undertow: wounded, the Drowned Knight drags the party in first, and gives them a breath longer to run.
+            if (act == 1 && Second)
+            {
+                slamAt += 0.4f;
+                foreach (var p in PlayerLife.All)
+                {
+                    if (p == null || !p.Targetable) continue;
+                    var to = transform.position - p.transform.position;
+                    to.y = 0f;
+                    float d = to.magnitude;
+                    if (d < 2f || d > 14f) continue;
+                    KnockPlayer(p.Health, to / d * Mathf.Min(9f, d * 1.1f) + Vector3.up * 2f);
+                }
+                SecondMoves++;
+                SecondFxRpc("THE UNDERTOW", new Color(0.5f, 0.85f, 1f));
+            }
             busyUntil = slamAt + 1f;
             PlayActionRpc(act == 1 || act == 4 ? RigAction.Cast : RigAction.Slam, Tell(SlamWindup) + 0.3f);
             if (act == 1 || act == 4) TintedKeyedCircleRpc(transform.position, SlamRadius, Tell(SlamWindup), act == 1 ? Telegraph.Frost : Telegraph.Poison);
@@ -354,6 +432,129 @@ namespace Deepbound.Enemies
                 }
             }
             SlamFxRpc(transform.position, SlamRadius, act);
+            if (act == 4 && Second) AddRot(transform.position);
+        }
+
+        protected override void OnBroken()
+        {
+            slamAt = -1f;
+            secondVerseAt = -1f;
+            if (charge != 0) { charge = 0; rechargeLeft = 0; }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SecondFxRpc(string words, Color c)
+        {
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 4.6f, words, c);
+            Sfx.Play(act == 1 ? Sound.Splash : act == 2 ? Sound.WarCry : Sound.Whisper, transform.position + Vector3.up * 2f, 1f, 0.8f);
+            if (act == 1) Vfx.Ring(Vfx.Floor(transform.position) + Vector3.up * 0.05f, 14f, c, 0.7f);
+        }
+
+        // ---- Bone Toss (Marrowgut, wounded): a lump of bone lobbed at whoever keeps away ----
+        private readonly List<(Vector3 at, float when)> tosses = new List<(Vector3, float)>();
+        private const float TossRadius = 2.4f, TossFlight = 1.3f;
+
+        private bool BoneToss()
+        {
+            if (target == null || !target.TryGetComponent<PlayerLife>(out var quarry)) return false;
+            float flight = Tell(TossFlight);
+            var at = PredictedFeet(quarry, flight);
+            tosses.Add((at, Time.time + flight));
+            busyUntil = Time.time + 0.8f;
+            PlayActionRpc(RigAction.Slam, 0.6f);
+            TintedCircleRpc(at, TossRadius, flight, new Color(0.9f, 0.82f, 0.65f, 0.24f));
+            TossFxRpc(transform.position + Vector3.up * 3.2f, at, flight);
+            SecondMoves++;
+            return true;
+        }
+
+        private void ResolveTosses()
+        {
+            for (int i = tosses.Count - 1; i >= 0; i--)
+            {
+                if (Time.time < tosses[i].when) continue;
+                var at = tosses[i].at;
+                tosses.RemoveAt(i);
+                foreach (var v in CombatQuery.Circle(at, TossRadius, Team.Players))
+                {
+                    v.ServerDamage(damage * 1.2f, at + Vector3.up, NetworkObjectId);
+                    var away = v.transform.position - at;
+                    away.y = 0f;
+                    KnockPlayer(v, (away.sqrMagnitude > 0.01f ? away.normalized : Vector3.forward) * 7f + Vector3.up * 4f);
+                }
+                SlamFxRpc(at, TossRadius, 0);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void TossFxRpc(Vector3 from, Vector3 to, float seconds)
+        {
+            Sfx.Play(Sound.Swing, from, 1f, 0.5f);
+            StartCoroutine(Lob(from, to, seconds));
+        }
+
+        private System.Collections.IEnumerator Lob(Vector3 from, Vector3 to, float seconds)
+        {
+            var rock = MeshKit.Part(null, "Bone Toss", MeshKit.Ball(0.55f, 8, 6), Mat.Bone, from);
+            if (rock.TryGetComponent<Collider>(out var col)) Destroy(col);
+            float h = Mathf.Max(3f, Vector3.Distance(from, to) * 0.35f);
+            for (float t = 0f; t < seconds && rock != null; t += Time.deltaTime)
+            {
+                float k = t / seconds;
+                rock.transform.position = Vector3.Lerp(from, to, k) + Vector3.up * (4f * h * k * (1f - k));
+                rock.transform.Rotate(300f * Time.deltaTime, 170f * Time.deltaTime, 0f);
+                yield return null;
+            }
+            if (rock != null) Destroy(rock);
+        }
+
+        // ---- Rot pools (Gorr, wounded): each slam leaves a churning pool of rot that poisons whoever stands in it ----
+        private readonly List<(Vector3 at, float until)> rot = new List<(Vector3, float)>();
+        private float nextRotTick;
+        public const float RotRadius = 3.2f, RotSeconds = 8f;
+        /// <summary>For tests: pools of rot on the floor right now.</summary>
+        public int RotPools => rot.Count;
+
+        private void AddRot(Vector3 at)
+        {
+            at = Vfx.Floor(at);
+            if (rot.Count >= 3) rot.RemoveAt(0);
+            rot.Add((at, Time.time + RotSeconds));
+            RotFxRpc(at, RotRadius, RotSeconds);
+            SecondMoves++;
+        }
+
+        private void TickRot()
+        {
+            if (rot.Count == 0 || Time.time < nextRotTick) return;
+            nextRotTick = Time.time + 0.5f;
+            for (int i = rot.Count - 1; i >= 0; i--)
+            {
+                if (Time.time >= rot[i].until) { rot.RemoveAt(i); continue; }
+                foreach (var v in CombatQuery.Circle(rot[i].at, RotRadius, Team.Players))
+                    if (v.TryGetComponent<PlayerDebuffs>(out var d)) d.ServerPoison(1.5f, 3f + 1.5f * scaledDepth);
+            }
+        }
+
+        /// <summary>For tests: drop a pool of rot right here.</summary>
+        public void ServerDebugRot() => AddRot(transform.position);
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RotFxRpc(Vector3 at, float radius, float seconds)
+        {
+            // Low and flat (AoE stays quiet): a sickly film on the floor and a faint rim, a little smoke as it lands.
+            var pool = MeshKit.Part(null, "Rot Pool", MeshKit.Cylinder(radius, radius, 0.02f, 28), Mat.Telegraph, at + Vector3.up * 0.04f);
+            if (pool.TryGetComponent<Collider>(out var col)) Destroy(col);
+            var rend = pool.GetComponent<Renderer>();
+            ArtLibrary.Tint(rend, new Color(0.3f, 0.45f, 0.08f, 0.1f));
+            rend.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var rim = MeshKit.Part(pool.transform, "Rim", MeshKit.Cylinder(radius + 0.06f, radius + 0.06f, 0.01f, 28), Mat.Glow, Vector3.down * 0.012f);
+            if (rim.TryGetComponent<Collider>(out var rc)) Destroy(rc);
+            ArtLibrary.SetGlow(rim.GetComponent<Renderer>(), new Color(0.35f, 0.6f, 0.1f) * 0.18f);
+            Destroy(pool, seconds);
+            Vfx.Ring(at + Vector3.up * 0.05f, radius, new Color(0.55f, 0.9f, 0.25f), 0.6f);
+            Vfx.Smoke(at, 3, radius * 0.5f, 1.6f);
+            Sfx.Play(Sound.Slime, at + Vector3.up, 1f, 0.7f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -415,6 +616,7 @@ namespace Deepbound.Enemies
         // ---- The King's Shield: guard from the front, and the charge ----
 
         private int charge; // 0 none, 1 wind-up, 2 running
+        private int rechargeLeft;
         private Vector3 chargeDir;
         private float chargeAt, chargeLength, charged, dazedUntil;
         private readonly HashSet<Health> trampled = new HashSet<Health>();
@@ -435,20 +637,20 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void GuardClangRpc() => Sfx.Play(Sound.Block, transform.position + transform.forward * 0.8f + Vector3.up * 1.6f, 0.8f, 0.75f);
 
-        private void BeginChargeWindup()
+        private void BeginChargeWindup(float windup)
         {
             // Aimed where its quarry is going, not where it stands.
-            chargeDir = (target.TryGetComponent<PlayerLife>(out var quarry) ? PredictedFeet(quarry, Tell(1.1f)) : target.transform.position) - transform.position;
+            chargeDir = (target.TryGetComponent<PlayerLife>(out var quarry) ? PredictedFeet(quarry, Tell(windup)) : target.transform.position) - transform.position;
             chargeDir.y = 0f;
             chargeDir.Normalize();
             var from = transform.position;
             chargeLength = 16f;
             if (NavMesh.Raycast(from, from + chargeDir * chargeLength, out var hit, NavMesh.AllAreas)) chargeLength = hit.distance;
             charge = 1;
-            chargeAt = Time.time + Tell(1.1f);
+            chargeAt = Time.time + Tell(windup);
             trampled.Clear();
-            PlayActionRpc(RigAction.Windup, Tell(1.1f));
-            LineTelegraphRpc(from, chargeDir, chargeLength + 1f, 2.6f, Tell(1.1f));
+            PlayActionRpc(RigAction.Windup, Tell(windup));
+            LineTelegraphRpc(from, chargeDir, chargeLength + 1f, 2.6f, Tell(windup));
         }
 
         private void StepCharge()
@@ -478,6 +680,14 @@ namespace Deepbound.Enemies
             {
                 charge = 0;
                 busyUntil = Time.time + 0.8f;
+                // Wounded, a charge that finds no wall turns and comes again, quicker.
+                if (rechargeLeft > 0 && target != null && target.IsAlive)
+                {
+                    rechargeLeft--;
+                    SecondMoves++;
+                    SecondFxRpc("AGAIN!", new Color(1f, 0.6f, 0.3f));
+                    BeginChargeWindup(0.75f);
+                }
             }
         }
     }

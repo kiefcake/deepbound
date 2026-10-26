@@ -3827,6 +3827,18 @@ namespace Deepbound.Networking
                     if (boss is TideLichBrain && i == 6) motor.Teleport(boss.transform.position + boss.transform.forward * 2f, local.transform.rotation);
                 }
 
+                // The Wardens' second moves (2026-10-26).
+                if (boss is WardenBrain warden)
+                {
+                    int before = warden.SecondMoves;
+                    bool began = warden.ServerDebugSecond();
+                    for (int k = 0; k < 20; k++) { hp.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                    FaceBoss(local, boss);
+                    yield return Shot(dir, "boss" + (depth + 1) + "_second");
+                    bool ok = warden.Act == 2 ? began : warden.SecondMoves > before && (warden.Act != 4 || warden.RotPools > 0);
+                    Log("warden second", warden.DisplayName + ": began " + began + ", moves " + (warden.SecondMoves - before) + (warden.Act == 4 ? ", rot pools " + warden.RotPools : ""), ok);
+                }
+
                 // The newer set pieces (2026-10-26): the Cardinal's brand, the Unsung's echoes and eclipse.
                 if (boss is CardinalBrain cardinal)
                 {

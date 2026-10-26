@@ -76,7 +76,7 @@ namespace Deepbound.UI
             "PLAY WITH FRIENDS over Steam: invite from the pause menu",
             "BREAK bosses: weak points and stuns fill a meter - then strike",
             "The Unsung sings ECHOES of the fallen; the Cardinal BRANDS",
-            "Slot 5 RARES: Ironbark, Bloodfury, Grave Stillness, tomes",
+            "WARDENS learn a second move below half health",
             "Tome of the PHOENIX: a firebird fights beside you for 30 s",
             "EDGES at +5/+7/+9 and HONES past +10 at Hobb's anvil",
             "WEAK POINTS burst (and enrage beasts); see what ails an enemy",

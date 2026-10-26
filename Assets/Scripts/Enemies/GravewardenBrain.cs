@@ -343,6 +343,12 @@ namespace Deepbound.Enemies
             }
         }
 
+        protected override void OnBroken()
+        {
+            if (charge == ChargeState.Windup) charge = ChargeState.None;
+            else if (charge == ChargeState.Charging) EndCharge(hitWall: false);
+        }
+
         public override void ServerStun(float seconds)
         {
             // A bash during the wind-up stops the charge before it starts.

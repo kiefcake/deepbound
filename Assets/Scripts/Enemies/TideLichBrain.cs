@@ -263,6 +263,8 @@ namespace Deepbound.Enemies
             return false;
         }
 
+        protected override void OnBroken() => volleyAt = -1f;
+
         private void FireVolley()
         {
             volleyAt = -1f;
