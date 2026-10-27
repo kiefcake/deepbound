@@ -35,6 +35,8 @@ namespace Deepbound.UI
 
         /// <summary>True while a menu wants the cursor (the merchant's shop). The motor reads this.</summary>
         public static bool MenuOpen { get; private set; }
+        /// <summary>Any HUD panel on screen, held ones (the stat sheet) included: world-space speech stays out of its way.</summary>
+        public static bool PanelShowing { get; private set; }
 
         private bool shopOpen, forgeOpen, invOpen, runeOpen;
 
@@ -1003,14 +1005,6 @@ namespace Deepbound.UI
                 if (k >= 1f && !arrivingFromBeam) departStart = -1f;
                 return;
             }
-            // Arriving: out of white, letterboxed for a moment.
-            if (Time.time < letterboxUntil)
-            {
-                float k = Mathf.Clamp01((letterboxUntil - Time.time) / 0.8f);
-                float bar = h * 0.12f * k;
-                Rect(0, 0, w, bar, Color.black);
-                Rect(0, h - bar, w, bar, Color.black);
-            }
             if (whiteFade > 0f)
             {
                 whiteFade = Mathf.MoveTowards(whiteFade, 0f, Time.deltaTime * 0.55f);
@@ -1156,6 +1150,7 @@ namespace Deepbound.UI
             MenuOpen = shopOpen || forgeOpen || invOpen || runeOpen || DevMenu.Open || inspect || BlackjackTable.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
             InventoryOpen = invOpen;
             statsHeld = DebugShowStats || (keyboard != null && Binds.Held(Bind.Stats) && !Wardrobe.Open);
+            PanelShowing = MenuOpen || statsHeld || pageShown >= 0;
 
             // The host sets difficulty at camp.
             var dir = DungeonDirector.Instance;
@@ -1204,6 +1199,14 @@ namespace Deepbound.UI
             float w = Screen.width, h = Screen.height;
             UiTimer.Begin();
             if (Cinematic) { DrawFade(w, h); return; }
+            // Arriving: out of white, letterboxed for a moment - under the HUD, so the bars never hide your health.
+            if (Time.time < letterboxUntil)
+            {
+                float k = Mathf.Clamp01((letterboxUntil - Time.time) / 0.8f);
+                float bar = h * 0.12f * k;
+                Rect(0, 0, w, bar, Color.black);
+                Rect(0, h - bar, w, bar, Color.black);
+            }
 
             DrawEnemyBars();
             DrawPylons();
@@ -2153,9 +2156,10 @@ namespace Deepbound.UI
         /// </summary>
         private void DrawFeed(float h)
         {
-            feedStyle ??= new GUIStyle(label) { fontSize = 14, alignment = TextAnchor.MiddleLeft, wordWrap = false, clipping = TextClipping.Clip };
+            // Long lines wrap onto a second line instead of being cut off (2026-10-27).
+            feedStyle ??= new GUIStyle(label) { fontSize = 14, alignment = TextAnchor.MiddleLeft, wordWrap = true, clipping = TextClipping.Clip };
             float maxW = Mathf.Min(460f, Screen.width * 0.34f);
-            float y = h * 0.6f;
+            float bottom = h * 0.6f + 22f;
             int shown = 0;
             for (int i = FeedLines.Count - 1; i >= 0 && shown < 7; i--)
             {
@@ -2165,13 +2169,15 @@ namespace Deepbound.UI
                 shown++;
                 float a = Mathf.Clamp01((6f - age) / 1f);
                 float slide = 1f - Mathf.Pow(1f - Mathf.Clamp01(age / 0.22f), 3f);
-                float tw = Mathf.Min(maxW, feedStyle.CalcSize(new GUIContent(line.Text)).x + 22f);
-                float x = 18f - (1f - slide) * 60f;
-                Rect(x, y, tw, 22, new Color(0.03f, 0.025f, 0.02f, 0.62f * a));
-                Rect(x, y, 3, 22, new Color(line.Color.r, line.Color.g, line.Color.b, 0.9f * a));
+                var content = new GUIContent(line.Text);
+                float tw = Mathf.Min(maxW, feedStyle.CalcSize(content).x + 22f);
+                float lh = Mathf.Max(22f, feedStyle.CalcHeight(content, tw - 12f) + 4f);
+                float x = 18f - (1f - slide) * 60f, y = bottom - lh;
+                Rect(x, y, tw, lh, new Color(0.03f, 0.025f, 0.02f, 0.62f * a));
+                Rect(x, y, 3, lh, new Color(line.Color.r, line.Color.g, line.Color.b, 0.9f * a));
                 var st = new GUIStyle(feedStyle) { normal = { textColor = new Color(line.Color.r, line.Color.g, line.Color.b, a) } };
-                GUI.Label(new Rect(x + 10, y, tw - 12, 22), line.Text, st);
-                y -= 25;
+                GUI.Label(new Rect(x + 10, y, tw - 12, lh), line.Text, st);
+                bottom = y - 3f;
             }
         }
 
@@ -2503,6 +2509,8 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x + 20, y + ph - 26, pw - 40, 20), "G or Esc to close", new GUIStyle(small) { normal = { textColor = new Color(0.6f, 0.58f, 0.55f) } });
         }
 
+        private float[] shopRowH = new float[16];
+
         private void DrawMerchant(float w, float h)
         {
             DrawSeatPrompt(w, h);
@@ -2528,7 +2536,16 @@ namespace Deepbound.UI
             var stock = Shop.For(progress.OwnerClientId, vendor);
             // Corwin also takes the party's orders: how hard a road, and how the spoils are shared.
             float top = vendor == Shop.Vendor.Carriage ? 70f : 0f;
-            float ph = 70 + top + stock.Length * rowH;
+            // Rows grow to fit a long description (2026-10-27: a tome's two lines ran into the next row).
+            if (shopRowH.Length < stock.Length) shopRowH = new float[stock.Length + 4];
+            float rowsH = 0f;
+            for (int i = 0; i < stock.Length; i++)
+            {
+                float dh = small.CalcHeight(new GUIContent(stock[i].Description), pw - 200);
+                shopRowH[i] = Mathf.Max(rowH, 20f + dh + 2f);
+                rowsH += shopRowH[i];
+            }
+            float ph = 70 + top + rowsH;
             float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(Gold.r, Gold.g, Gold.b, 0.5f));
             Rect(x, y, pw, ph, new Color(0.04f, 0.035f, 0.03f, 0.94f));
@@ -2582,10 +2599,10 @@ namespace Deepbound.UI
                 }
             }
 
-            for (int i = 0; i < stock.Length; i++)
+            float ry = y + 60 + top;
+            for (int i = 0; i < stock.Length; ry += shopRowH[i], i++)
             {
                 var item = stock[i];
-                float ry = y + 60 + top + i * rowH;
                 string reason = progress.CannotBuyReason(vendor, i);
 
                 var nameStyle = item.Kind == Shop.ItemKind.Relic ? new GUIStyle(label) { normal = { textColor = Relics.GemColor((Relic)(int)item.Amount) } }
@@ -2593,8 +2610,8 @@ namespace Deepbound.UI
                     : item.Kind == Shop.ItemKind.Sigil ? new GUIStyle(label) { normal = { textColor = LootInfo.SigilColor } }
                     : label;
                 string title = item.Kind == Shop.ItemKind.Relic ? "RELIC: " + item.Name : item.Kind == Shop.ItemKind.Gear ? "FOR YOU: " + item.Name : item.Name;
-                GUI.Label(new Rect(x + 14, ry, 300, 20), title, nameStyle);
-                GUI.Label(new Rect(x + 14, ry + 17, pw - 200, 18), item.Description, small);
+                GUI.Label(new Rect(x + 14, ry, pw - 200, 20), UiSkin.Fit(title, nameStyle, pw - 200), nameStyle);
+                GUI.Label(new Rect(x + 14, ry + 17, pw - 200, shopRowH[i] - 18), item.Description, small);
 
                 GUI.enabled = reason == null;
                 GUI.enabled = true;
@@ -2883,6 +2900,8 @@ namespace Deepbound.UI
                 var world = hp.transform.position + Vector3.up * (hp.CenterHeight * 2f + 0.35f);
                 var screen = cam.WorldToScreenPoint(world);
                 if (screen.z <= 0f || screen.z > 25f) continue;
+                // No tags or bars through stone (2026-10-27: a stunned wraith two rooms away printed on the wall).
+                if (!InSight(cam.transform.position, hp)) continue;
 
                 barQueue.Add((screen, tags, hp, hurt));
             }
@@ -2913,6 +2932,18 @@ namespace Deepbound.UI
                 GUI.Label(lr, tags, tagStyle);
             }
             barQueue.Clear();
+        }
+
+        private readonly Dictionary<Health, (float at, bool seen)> sightCache = new Dictionary<Health, (float, bool)>();
+
+        /// <summary>Is this enemy in plain view? Re-checked a few times a second, not every frame.</summary>
+        private bool InSight(Vector3 eye, Health hp)
+        {
+            if (sightCache.TryGetValue(hp, out var c) && Time.time - c.at < 0.25f) return c.seen;
+            bool seen = CombatQuery.ClearLine(eye, hp) || Physics.Linecast(eye, hp.transform.position + Vector3.up * (hp.CenterHeight * 2f + 0.2f), out var top, ~0, QueryTriggerInteraction.Ignore) == false || top.collider.GetComponentInParent<Health>() == hp;
+            if (sightCache.Count > 256) sightCache.Clear();
+            sightCache[hp] = (Time.time, seen);
+            return seen;
         }
 
         private readonly List<(Vector3 screen, string tags, Health hp, bool hurt)> barQueue = new List<(Vector3, string, Health, bool)>();

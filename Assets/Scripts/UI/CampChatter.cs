@@ -433,7 +433,7 @@ namespace Deepbound.UI
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             var me = NetworkPlayer.Local;
             var cam = Art.ViewCamera.Current;
-            if (me == null || cam == null || PauseMenu.Open || GameHud.MenuOpen) return;
+            if (me == null || cam == null || PauseMenu.Open || GameHud.MenuOpen || GameHud.PanelShowing) return;
             UiSkin.Apply();
             float h = Screen.height;
             foreach (var s in speakers)
