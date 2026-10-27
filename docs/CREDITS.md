@@ -26,6 +26,7 @@ credited here anyway, with thanks.
 | `explore_deep.ogg` | dungeon002.ogg ("Dungeon ambience") | yd | https://opengameart.org/content/dungeon-ambience | CC0 | exploring the Drowned Vaults and the Hollow Throne |
 | `combat.mp3` | Battle.mp3 ("Battle theme") | Wolfgang_ | https://opengameart.org/content/battle-theme-0 | CC0 | fights |
 | `boss.wav` | Epic Boss Battle [Seamlessly Looping] | Juhani Junkala (via SubspaceAudio) | https://opengameart.org/node/55649 | CC0 | boss fights |
+| `boss_final.ogg` | the_final_battle.ogg ("The Final Battle") | skrjablin | https://opengameart.org/node/73591 | CC0 | the Unsung's fight (the final boss) |
 | `boss_intro.wav` | Heavy Concept A Bass Master ("Dramatic Boss Encounter") | cynicmusic (cynicmusic.com, pixelsphere.org) | https://opengameart.org/content/dramatic-boss-encounter | CC0 | the sting when a guardian's arena seals |
 
 ## Room tone (`Assets/Resources/Audio/Ambience/`)

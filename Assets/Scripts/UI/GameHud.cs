@@ -1556,8 +1556,13 @@ namespace Deepbound.UI
             DrawUltimate(x + (size + gap) * abilities.Count, y, size);
             if (silenced)
             {
+                // Across the Q and E slots themselves (above the bar it ran into the potion pouch).
                 var c = Enemies.CantorBrain.HushColor;
-                UiSkin.Shadowed(new Rect(x, y - 24, total, 22), "SILENCED", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = c } });
+                int qi = abilities.FindIndex(v => v.Key == "Q");
+                if (qi < 0) qi = 2;
+                var band = new Rect(x + (size + gap) * qi - 2, y + size / 2f - 11, size * 2 + gap + 4, 22);
+                Rect(band.x, band.y, band.width, band.height, new Color(0.05f, 0.05f, 0.09f, 0.85f));
+                UiSkin.Shadowed(band, "SILENCED", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = c } });
             }
 
             // The potion pouch, just above the bar: four little bottles with their counts.

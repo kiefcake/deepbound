@@ -25,7 +25,7 @@ namespace Deepbound.UI
     /// </remarks>
     public class AudioDirector : MonoBehaviour
     {
-        private AudioSource explore, combat, boss, campAir, deepAir, shrine, cavernAir, sting, vaults;
+        private AudioSource explore, combat, boss, campAir, deepAir, shrine, cavernAir, sting, vaults, finale;
         private float combatHeat;
         private bool started;
         private static AudioDirector instance;
@@ -49,6 +49,9 @@ namespace Deepbound.UI
             // Acts two and three (the Drowned Vaults, the Hollow Throne) explore to their own piece, if it is there.
             var recVaults = Load("Music/explore_deep");
             if (recVaults != null) vaults = MakeSource(recVaults);
+            // The Unsung fights to its own piece (2026-10-27, skrjablin's "The Final Battle", CC0).
+            var recFinale = Load("Music/boss_final");
+            if (recFinale != null) finale = MakeSource(recFinale);
             campAir = MakeSource(AmbienceSynth.Camp());
             var recDeep = Load("Ambience/dungeon");
             deepAir = MakeSource(recDeep != null ? recDeep : AmbienceSynth.Deep());
@@ -67,6 +70,7 @@ namespace Deepbound.UI
             boss.PlayScheduled(at);
             shrine.PlayScheduled(at);
             if (vaults != null) vaults.PlayScheduled(at);
+            if (finale != null) finale.PlayScheduled(at);
             started = true;
         }
 
@@ -148,11 +152,14 @@ namespace Deepbound.UI
             else if (vaults != null && local != null && !DungeonDirector.InLobby && (act == 1 || act == 2)) { vaultsTarget = exploreTarget; exploreTarget = 0f; }
             // The sting has the stage for its few seconds.
             if (Time.time < stingUntil) { bossTarget = 0f; combatTarget *= 0.3f; }
+            float finaleTarget = 0f;
+            if (finale != null && BossBrain.Active is UnsungBrain) { finaleTarget = bossTarget; bossTarget = 0f; }
 
             float music = Settings.MusicVolume;
             Fade(explore, exploreTarget * music);
             Fade(combat, combatTarget * music);
             Fade(boss, bossTarget * music);
+            if (finale != null) Fade(finale, finaleTarget * music);
             Fade(shrine, shrineTarget * music);
             if (vaults != null) Fade(vaults, vaultsTarget * music);
             // Room tone under the music: night air at camp, the dungeon's breath below; the deeper acts are cavern air.

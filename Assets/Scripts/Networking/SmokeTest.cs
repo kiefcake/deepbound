@@ -871,7 +871,8 @@ namespace Deepbound.Networking
                     var sh = secret.GetComponent<Health>();
                     var st = secret.transform;
                     int landed = 0;
-                    var aims = new[] { new Vector2(0f, 1.4f), new Vector2(-1.05f, 0.5f), new Vector2(1.05f, 0.5f), new Vector2(-1.05f, 2.6f), new Vector2(1.05f, 2.6f) };
+                    // A hand's breadth in from the very corners (at 1.05 m a shot could graze the collider and pass the body box).
+                    var aims = new[] { new Vector2(0f, 1.4f), new Vector2(-0.95f, 0.55f), new Vector2(0.95f, 0.55f), new Vector2(-0.95f, 2.55f), new Vector2(0.95f, 2.55f) };
                     foreach (var aimAt in aims)
                     {
                         float before = sh.Current.Value;
@@ -3749,6 +3750,22 @@ namespace Deepbound.Networking
                         motor.Teleport(ep, Quaternion.LookRotation(e.transform.position - ep));
                         yield return new WaitForSeconds(0.5f);
                         yield return Shot(dir, "7_" + type.Name + "_floor" + (depth + 1));
+                    }
+
+                    // The newer afflictions on the HUD (2026-10-27), once: SILENCED, then DAZED.
+                    if (depth == 6)
+                    {
+                        var sdeb = local.GetComponent<PlayerDebuffs>();
+                        motor.Teleport(from, Quaternion.LookRotation(room.Center - from));
+                        sdeb.ServerCleanse();
+                        sdeb.ServerSilence(4f);
+                        yield return new WaitForSeconds(0.6f);
+                        yield return Shot(dir, "2b_silenced");
+                        sdeb.ServerCleanse();
+                        sdeb.ServerDaze(3f);
+                        yield return new WaitForSeconds(0.6f);
+                        yield return Shot(dir, "2b_dazed");
+                        sdeb.ServerCleanse();
                     }
 
                     // The Bone Piper: a close look, then each tune in full flight.

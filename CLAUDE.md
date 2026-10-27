@@ -249,6 +249,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - ROOTS ALWAYS LET GO (2026-10-27): `PlayerDebuffs` (server) frees an Entangled player whose holder is gone, dead, > 4 m away or has held past `EntlingBrain.HoldLimit` + 1 (`rootedAt`); the Entling also releases before its `HeldByStun` early-out (a stunned Entling's clock used to stop). AUTOPLAY: `StepToward` steps back onto navmesh within 3.5 m when none is within 0.9 m (Disengage leaps left the Ranger bot frozen 9 min); `WhyStuck` names ROOTED/ENTANGLED/PINNED/off-navmesh first.
 
+- FINAL BOSS MUSIC (2026-10-27): `Music/boss_final.ogg` (skrjablin, CC0, credited) on its own `AudioDirector.finale` source, taking the boss layer whenever `BossBrain.Active is UnsungBrain`. SILENCED label sits across the Q/E slots (above the bar it hit the pouch). Shots "2b_silenced", "2b_dazed".
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes
