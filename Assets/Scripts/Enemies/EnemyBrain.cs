@@ -476,7 +476,7 @@ namespace Deepbound.Enemies
             ApplyKnockback();
             // Chill slows the walk, not the attack timing: you get time to reposition, not
             // a free win.
-            agent.speed = (health.Chilled.Value ? moveSpeed * 0.5f : moveSpeed) * SpeedScale * World.DungeonDirector.WaterSlow(transform.position) * (Enraged ? EnrageSpeed : 1f) * World.DungeonDirector.OmenSpeed;
+            agent.speed = (health.Chilled.Value ? moveSpeed * 0.5f : moveSpeed) * SpeedScale * World.DungeonDirector.WaterSlow(transform.position) * (Enraged ? EnrageSpeed : 1f) * World.DungeonDirector.OmenSpeed * World.DungeonDirector.EventSpeed;
             // Keep the synced looks current: the ward, and rage running out.
             byte fx = (byte)((wardUp ? 1 : 0) | (Enraged && Time.time < enragedUntil ? 2 : 0));
             if (FxFlags.Value != fx) FxFlags.Value = fx;

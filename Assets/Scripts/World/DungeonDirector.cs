@@ -965,7 +965,13 @@ namespace Deepbound.World
             foreach (var o in spawned)
                 if (o != null && o.TryGetComponent<EnemyBrain>(out var cb) && !(cb is BossBrain) && !(cb is HoarderBrain) && !(cb is WraithBrain) && !(cb is GargoyleBrain) && !(cb is MournerBrain) &&
                     layout.RoomAt(o.transform.position)?.Kind == RoomKind.Combat) candidates.Add(cb);
-            if (candidates.Count > 0) candidates[UnityEngine.Random.Range(0, candidates.Count)].ServerMakeChampion();
+            // The Warlords' Muster: three of them (each a different one of the dead).
+            for (int c = 0; c < EventChampions && candidates.Count > 0; c++)
+            {
+                int pick = UnityEngine.Random.Range(0, candidates.Count);
+                candidates[pick].ServerMakeChampion();
+                candidates.RemoveAt(pick);
+            }
 
             // From the second floor, a patrol or two walks between the combat rooms (never in tests).
             if (!TestMode && layout.Depth >= 1)

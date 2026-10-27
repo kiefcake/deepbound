@@ -65,6 +65,7 @@ namespace Deepbound.Player
         public void ServerPoison(float seconds, float dps)
         {
             if (!IsServer || life.Downed.Value || Warded) return;
+            if (TryGetComponent<Progression.PlayerProgress>(out var hide) && hide.Wears(Loot.GearId.GorrsHide)) return;
             poisonDps = Mathf.Max(poisonDps * (Poisoned ? 1f : 0f), dps);
             PoisonUntil.Value = System.Math.Max(PoisonUntil.Value, Now + seconds);
         }

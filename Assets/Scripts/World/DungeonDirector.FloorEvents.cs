@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Deepbound.World
 {
     /// <summary>Append only: synced.</summary>
-    public enum FloorEvent : byte { None, Gilded, Swarm, Marching, BloodTithe, Bountiful, LongNight, Embertide, BoneChoir }
+    public enum FloorEvent : byte { None, Gilded, Swarm, Marching, BloodTithe, Bountiful, LongNight, Embertide, BoneChoir, Muster, Quicksilver }
 
     /// <summary>
     /// Floor events (2026-10-20): an omen sets the whole run; an event is one floor's twist, rolled when the
@@ -19,6 +19,8 @@ namespace Deepbound.World
     /// <item><b>The Long Night</b> (2026-10-23): twice the elites, and they carry half as much again.</item>
     /// <item><b>Embertide</b>: the dead smoulder when struck, so any frost cracks them (Thermal Shock); their blows hurt 10% more.</item>
     /// <item><b>The Bone Choir</b>: elites sing slow rings of souls to weave through; 30% more embers.</item>
+    /// <item><b>The Warlords' Muster</b> (2026-10-27): three champions walk this floor instead of one.</item>
+    /// <item><b>Quicksilver</b> (2026-10-27): you and the dead move 15% faster; 30% more embers.</item>
     /// </list>
     /// </summary>
     public partial class DungeonDirector
@@ -31,7 +33,8 @@ namespace Deepbound.World
         public static string EventName(FloorEvent e) =>
             e == FloorEvent.Gilded ? "Gilded Halls" : e == FloorEvent.Swarm ? "The Swarm" : e == FloorEvent.Marching ? "The Dead March"
             : e == FloorEvent.BloodTithe ? "Blood Tithe" : e == FloorEvent.Bountiful ? "Bountiful"
-            : e == FloorEvent.LongNight ? "The Long Night" : e == FloorEvent.Embertide ? "Embertide" : e == FloorEvent.BoneChoir ? "The Bone Choir" : "";
+            : e == FloorEvent.LongNight ? "The Long Night" : e == FloorEvent.Embertide ? "Embertide" : e == FloorEvent.BoneChoir ? "The Bone Choir"
+            : e == FloorEvent.Muster ? "The Warlords' Muster" : e == FloorEvent.Quicksilver ? "Quicksilver" : "";
 
         public static string EventText(FloorEvent e) =>
             e == FloorEvent.Gilded ? "the dead carry far more gold"
@@ -42,6 +45,8 @@ namespace Deepbound.World
             : e == FloorEvent.LongNight ? "twice the elites, and richer ones"
             : e == FloorEvent.Embertide ? "the dead smoulder: frost cracks them (Thermal Shock); their blows hurt more"
             : e == FloorEvent.BoneChoir ? "elites sing rings of souls; more embers"
+            : e == FloorEvent.Muster ? "three champions walk the halls, each with its hoard"
+            : e == FloorEvent.Quicksilver ? "you and the dead move faster; more embers"
             : "";
 
         public static Color EventColor(FloorEvent e) =>
@@ -49,12 +54,16 @@ namespace Deepbound.World
             : e == FloorEvent.Marching ? new Color(0.8f, 0.85f, 0.9f) : e == FloorEvent.BloodTithe ? new Color(0.95f, 0.25f, 0.2f)
             : e == FloorEvent.Bountiful ? new Color(0.55f, 0.95f, 0.5f)
             : e == FloorEvent.LongNight ? new Color(0.6f, 0.55f, 0.95f) : e == FloorEvent.Embertide ? new Color(1f, 0.55f, 0.85f)
-            : e == FloorEvent.BoneChoir ? new Color(0.85f, 0.95f, 1f) : Color.white;
+            : e == FloorEvent.BoneChoir ? new Color(0.85f, 0.95f, 1f)
+            : e == FloorEvent.Muster ? new Color(1f, 0.76f, 0.3f) : e == FloorEvent.Quicksilver ? new Color(0.75f, 0.85f, 0.9f) : Color.white;
 
         // Effects, read on the server.
         public static float EventGold => CurrentEvent == FloorEvent.Gilded ? 1.6f : CurrentEvent == FloorEvent.Marching ? 1.25f : 1f;
         public static float EventCrowd => CurrentEvent == FloorEvent.Swarm ? 1.35f : 1f;
-        public static float EventEmbers => CurrentEvent == FloorEvent.Swarm ? 1.4f : CurrentEvent == FloorEvent.BoneChoir ? 1.3f : 1f;
+        public static float EventEmbers => CurrentEvent == FloorEvent.Swarm ? 1.4f : CurrentEvent == FloorEvent.BoneChoir || CurrentEvent == FloorEvent.Quicksilver ? 1.3f : 1f;
+        /// <summary>Quicksilver: players' and the dead's feet (any peer: the event is synced).</summary>
+        public static float EventSpeed => CurrentEvent == FloorEvent.Quicksilver ? 1.15f : 1f;
+        public static int EventChampions => CurrentEvent == FloorEvent.Muster ? 3 : 1;
         public static float EventElites => CurrentEvent == FloorEvent.LongNight ? 2f : 1f;
         public static float EventEliteLoot => CurrentEvent == FloorEvent.LongNight ? 1.5f : 1f;
         public const float EmbertideHurt = 1.1f, ChoirInterval = 6f, ChoirRange = 18f;
@@ -65,7 +74,7 @@ namespace Deepbound.World
         private void RollFloorEvent(int depth)
         {
             var e = FloorEvent.None;
-            if (!TestMode && depth >= 1 && Random.value < FloorEventChance) e = (FloorEvent)Random.Range(1, 9);
+            if (!TestMode && depth >= 1 && Random.value < FloorEventChance) e = (FloorEvent)Random.Range(1, 11);
             FloorEventValue.Value = (byte)e;
             Combat.Health.FloorPlayerDamageScale = PlayerHurtFor(e);
         }

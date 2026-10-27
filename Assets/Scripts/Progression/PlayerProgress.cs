@@ -812,6 +812,7 @@ namespace Deepbound.Progression
             * World.DungeonDirector.WaterSlow(transform.position, true)
             * (TryGetComponent<Player.PlayerDebuffs>(out var deb) ? deb.SpeedMultiplier : 1f)
             * World.Carryable.SpeedFor(NetworkObjectId)
+            * World.DungeonDirector.EventSpeed
             * (Player.PlayerLife.IsDragging(NetworkObjectId) ? Player.PlayerLife.DragSpeed : 1f);
 
         /// <summary>Q and E cooldowns scale by this (Echo Stone).</summary>
@@ -1055,6 +1056,29 @@ namespace Deepbound.Progression
                 if (nearest != null) nearest.ServerStun(1.5f);
                 BulwarkFxRpc();
             }
+            // The Wardens' pieces (2026-10-27).
+            if (Wears(GearId.AldousOath))
+            {
+                var to = attackerPosition - transform.position;
+                to.y = 0f;
+                if (to.sqrMagnitude > 0.01f && Vector3.Angle(transform.forward, to) < 60f) damage *= 0.8f;
+            }
+            if ((Wears(GearId.DrownedKnightsMail) || Wears(GearId.GorrsHide)) && (attackerPosition - transform.position).sqrMagnitude < 16f)
+            {
+                Health striker = null;
+                float best = 2.5f;
+                foreach (var h in Health.All)
+                {
+                    if (h == null || h.Team != Team.Enemies || !h.IsAlive) continue;
+                    float d = Vector3.Distance(h.transform.position, attackerPosition);
+                    if (d < best) { best = d; striker = h; }
+                }
+                if (striker != null)
+                {
+                    if (Wears(GearId.DrownedKnightsMail)) striker.ServerChill(2.5f);
+                    if (Wears(GearId.GorrsHide)) { striker.ServerDamage(15f * AttackMultiplier, transform.position, NetworkObjectId); RotFxRpc(striker.Center); }
+                }
+            }
             if (Wears(GearId.AshenShroud) && Time.time >= shroudReadyAt && (health.Current.Value - damage) / Mathf.Max(1f, health.Max.Value) < 0.3f)
             {
                 shroudReadyAt = Time.time + 15f;
@@ -1175,6 +1199,24 @@ namespace Deepbound.Progression
             for (int i = 0; i < 4; i++) Art.Vfx.Fireball(at + Vector3.up * (0.4f + i * 0.6f), 1f - i * 0.12f, holy);
             Art.Vfx.Embers(at, 10, holy, 4f, 0.05f, 0.7f);
         }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        public void BoneBurstFxRpc(Vector3 at)
+        {
+            Art.Sfx.Play(Art.Sound.BoneBreak, at + Vector3.up, 0.9f, 0.9f);
+            Art.Vfx.Ring(Art.Vfx.Floor(at) + Vector3.up * 0.05f, 3f, new Color(0.9f, 0.85f, 0.7f), 0.35f);
+            Art.Vfx.Embers(at + Vector3.up, 14, new Color(0.95f, 0.9f, 0.78f), 6f, 0.06f, 0.5f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        public void BatonFxRpc()
+        {
+            Art.Sfx.Play(Art.Sound.Toll, transform.position + Vector3.up * 2f, 0.4f, 1.6f);
+            Art.Vfx.Ring(Art.Vfx.Floor(transform.position) + Vector3.up * 0.05f, 8f, new Color(0.55f, 1f, 0.6f), 0.5f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RotFxRpc(Vector3 at) => Art.Vfx.Embers(at, 8, new Color(0.55f, 0.9f, 0.25f), 3f, 0.05f, 0.5f);
 
         [Rpc(SendTo.ClientsAndHost)]
         private void BulwarkFxRpc() => Art.Sfx.Play(Art.Sound.Block, transform.position + Vector3.up, 1f, 0.7f);

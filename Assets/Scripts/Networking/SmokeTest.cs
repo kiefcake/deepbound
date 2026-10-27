@@ -1276,6 +1276,18 @@ namespace Deepbound.Networking
                             }
                             Log("floor event", "blood tithe hit " + plain.ToString("F1") + " -> " + tithe.ToString("F1") + ", kill mends " + mended + ", back to none " + (DungeonDirector.CurrentEvent == FloorEvent.None),
                                 (plain <= 0f || tithe > plain) && mended && DungeonDirector.CurrentEvent == FloorEvent.None);
+                            {
+                                var spProg = local.GetComponent<PlayerProgress>();
+                                float sp0 = spProg.SpeedMultiplier;
+                                dd.ServerDebugEvent(FloorEvent.Quicksilver);
+                                yield return null;
+                                float sp1 = spProg.SpeedMultiplier;
+                                dd.ServerDebugEvent(FloorEvent.Muster);
+                                int champs = DungeonDirector.EventChampions;
+                                dd.ServerDebugEvent(FloorEvent.None);
+                                Log("new floor events", "quicksilver speed x" + (sp0 > 0f ? (sp1 / sp0).ToString("F2") : "?") + ", muster champions " + champs + ", named " + DungeonDirector.EventName(FloorEvent.Muster),
+                                    (sp0 <= 0f || Mathf.Abs(sp1 / sp0 - 1.15f) < 0.02f) && champs == 3 && DungeonDirector.EventName(FloorEvent.Quicksilver).Length > 0);
+                            }
                         }
                         // Room clears: kill everything raised in the rooms, and each room counts as cleared.
                         {
@@ -2193,6 +2205,24 @@ namespace Deepbound.Networking
 
                     // Boss legendary: the Hollow Crown lifts both abilities a rank.
                     int qBefore = progress.Rank(Classes.AbilitySlot.Q), eBefore = progress.Rank(Classes.AbilitySlot.E);
+                    // Each Warden has its own legendary now (a Warden used to fall through to the Hollow King's crown).
+                    Log("warden legendaries", "names " + Gear.BaseName(GearId.MarrowgutsRib) + " / " + Gear.BaseName(GearId.GorrsHide) + ", slots " + Gear.SlotOf(GearId.AldousOath),
+                        Gear.BaseName(GearId.ChoirmastersBaton) != "Nothing" && Gear.SlotOf(GearId.DrownedKnightsMail) == GearSlot.Armor && Gear.Effect(GearId.MarrowgutsRib).Length > 0);
+                    {
+                        // Hide of Gorr: poison cannot take its wearer.
+                        var oldArmor = progress.ServerEquip(new GearItem(GearId.GorrsHide, 3, 2));
+                        var gdeb = progress.GetComponent<PlayerDebuffs>();
+                        gdeb.ServerCleanse();
+                        gdeb.ServerPoison(3f, 5f);
+                        yield return null;
+                        bool immune = !gdeb.Poisoned;
+                        if (!oldArmor.IsEmpty) progress.ServerEquip(oldArmor);
+                        gdeb.ServerPoison(3f, 5f);
+                        yield return null;
+                        bool back = gdeb.Poisoned;
+                        gdeb.ServerCleanse();
+                        Log("hide of gorr", "immune while worn " + immune + ", poisoned once off " + back, immune && (oldArmor.IsEmpty || back));
+                    }
                     var oldCharm = progress.ServerEquip(new GearItem(GearId.HollowCrown, 3, 2));
                     Log("legendary crown", "Q " + qBefore + " -> " + progress.Rank(Classes.AbilitySlot.Q) + ", E " + eBefore + " -> " + progress.Rank(Classes.AbilitySlot.E),
                         progress.Rank(Classes.AbilitySlot.E) == Mathf.Min(3, eBefore + 1));

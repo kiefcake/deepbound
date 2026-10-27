@@ -86,6 +86,8 @@ namespace Deepbound.Loot
             + (p.WeaponLevel.Value >= World.Anvil.MasterworkLevel ? World.Anvil.MasterworkCrit : 0f)
             + 0.1f * p.RelicPower(Relic.WhettedFang) + 0.05f * p.RelicPower(Relic.FrostCharm);
 
+        private static readonly System.Collections.Generic.Dictionary<ulong, int> batonHits = new System.Collections.Generic.Dictionary<ulong, int>();
+        private static bool boneBursting;
         private static readonly System.Collections.Generic.Dictionary<ulong, int> phylacteryHits = new System.Collections.Generic.Dictionary<ulong, int>();
 
         private static void OnServerAnyDamaged(Health target, float dealt, ulong attackerId)
@@ -97,6 +99,20 @@ namespace Deepbound.Loot
             {
                 // Witchbone Fetish: every 8 s, a hit Marks.
                 if (p.Wears(GearId.WitchboneFetish) && p.ServerConsumeFetish()) target.ServerMark(4f);
+                // Choirmaster's Baton: every tenth hit mends the bearer and everyone near them.
+                if (p.Wears(GearId.ChoirmastersBaton))
+                {
+                    batonHits.TryGetValue(attackerId, out int b);
+                    if (++b >= 10)
+                    {
+                        b = 0;
+                        foreach (var pl in Player.PlayerLife.All)
+                            if (pl != null && !pl.Downed.Value && (pl.transform.position - p.transform.position).sqrMagnitude < 64f)
+                                pl.Health.ServerHeal(pl.Health.Max.Value * 0.05f);
+                        p.BatonFxRpc();
+                    }
+                    batonHits[attackerId] = b;
+                }
                 // Lich's Phylactery: every fourth hit chills.
                 if (p.Wears(GearId.LichPhylactery))
                 {
@@ -110,6 +126,16 @@ namespace Deepbound.Loot
             if (p.Wears(GearId.CrackedHourglass)) p.ShaveCooldownsRpc(1f);
             if (p.Wears(GearId.Bloodstone)) p.GetComponent<Health>().ServerHeal(p.GetComponent<Health>().Max.Value * 0.04f);
             if (p.Wears(GearId.CardinalVestments)) p.ServerJudgement(target.transform.position);
+            // Marrowgut's Rib: the kill bursts into bone shards (never a chain: shards that kill do not burst again).
+            if (p.Wears(GearId.MarrowgutsRib) && !boneBursting)
+            {
+                boneBursting = true;
+                var at = target.transform.position;
+                foreach (var foe in CombatQuery.Circle(at, 3f, Team.Enemies).ToArray())
+                    if (foe != target) foe.ServerDamage(22f * p.AttackMultiplier, at, p.NetworkObjectId);
+                boneBursting = false;
+                p.BoneBurstFxRpc(at);
+            }
             if (p.Wears(GearId.EmberLocket) && Random.value < 0.3f && World.DungeonDirector.Instance != null)
                 World.DungeonDirector.Instance.ServerDropEmbers(target.transform.position, 2);
         }

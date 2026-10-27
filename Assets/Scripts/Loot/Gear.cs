@@ -20,6 +20,8 @@ namespace Deepbound.Loot
         WardensBulwark = 13, LichPhylactery = 14, HollowCrown = 15, CardinalVestments = 16,
         // More rollable pieces (after the legendaries: ids are synced, append only).
         BellringersHauberk = 17, GravediggersCoat = 18, RosaryOfAsh = 19, WitchboneFetish = 20,
+        // The Wardens' own legendaries (2026-10-27; before, a Warden fell through to the Hollow King's crown).
+        MarrowgutsRib = 21, DrownedKnightsMail = 22, AldousOath = 23, ChoirmastersBaton = 24, GorrsHide = 25,
     }
 
     /// <summary>
@@ -81,6 +83,16 @@ namespace Deepbound.Loot
                 Effect = "Your ultimate (R) charges 35% faster.", Stats = new[] { (StatType.WIS, 2f), (StatType.ATT, 1f) } } },
             { GearId.WitchboneFetish, new Def { Slot = GearSlot.Charm, Name = "Witchbone Fetish",
                 Effect = "Every 8 s, your next hit Marks its target (+25% damage from everyone).", Stats = new[] { (StatType.ATT, 1.5f), (StatType.DEX, 1.5f) } } },
+            { GearId.MarrowgutsRib, new Def { Slot = GearSlot.Charm, Name = "Marrowgut's Rib",
+                Effect = "Your kills burst into bone shards that cut everything within 3 m.", Stats = new[] { (StatType.ATT, 2f), (StatType.HP, 1.5f) } } },
+            { GearId.DrownedKnightsMail, new Def { Slot = GearSlot.Armor, Name = "Mail of the Drowned Knight",
+                Effect = "The dead that strike you up close are chilled (sets up Shatter).", Stats = new[] { (StatType.DEF, 3f), (StatType.HP, 2f) } } },
+            { GearId.AldousOath, new Def { Slot = GearSlot.Armor, Name = "Oath of Sir Aldous",
+                Effect = "Blows that come at you from the front deal 20% less.", Stats = new[] { (StatType.DEF, 3.5f), (StatType.HP, 2f) } } },
+            { GearId.ChoirmastersBaton, new Def { Slot = GearSlot.Charm, Name = "Choirmaster's Baton",
+                Effect = "Every tenth hit you land sings: you and allies within 8 m mend 5% of your health.", Stats = new[] { (StatType.WIS, 2f), (StatType.ATT, 1.5f) } } },
+            { GearId.GorrsHide, new Def { Slot = GearSlot.Armor, Name = "Hide of Gorr",
+                Effect = "Poison cannot take you, and the dead that strike you up close are burnt by the rot.", Stats = new[] { (StatType.HP, 3f), (StatType.VIT, 1.5f) } } },
             { GearId.CardinalVestments, new Def { Slot = GearSlot.Armor, Name = "Vestments of the Pale Cardinal",
                 Effect = "Your kills call down Judgement: a pillar of holy fire erupts there a moment later (once a second).", Stats = new[] { (StatType.DEF, 2f), (StatType.WIS, 2f), (StatType.ATT, 1.5f) } } },
         };
@@ -97,7 +109,10 @@ namespace Deepbound.Loot
         public static GearId[] RollableOf(GearSlot slot) => System.Array.FindAll(Rollable, id => SlotOf(id) == slot);
 
         /// <summary>The legendary a boss can drop, by its type.</summary>
-        public static GearId LegendaryOf(Enemies.BossBrain boss) => boss is Enemies.GravewardenBrain ? GearId.WardensBulwark
+        private static readonly GearId[] WardenPieces = { GearId.MarrowgutsRib, GearId.DrownedKnightsMail, GearId.AldousOath, GearId.ChoirmastersBaton, GearId.GorrsHide };
+
+        public static GearId LegendaryOf(Enemies.BossBrain boss) => boss is Enemies.WardenBrain w ? WardenPieces[Mathf.Clamp(w.Act, 0, WardenPieces.Length - 1)]
+            : boss is Enemies.GravewardenBrain ? GearId.WardensBulwark
             : boss is Enemies.TideLichBrain ? GearId.LichPhylactery
             : boss is Enemies.CardinalBrain ? GearId.CardinalVestments
             : GearId.HollowCrown;

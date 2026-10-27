@@ -239,6 +239,10 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - PAD MENUS (2026-10-27): `UI/PadCursor` (booted by RuntimeInitializeOnLoadMethod, DontDestroyOnLoad): while the cursor is unlocked and a pad is present, the window focused and not `TestRun`, left stick warps the real pointer (`Mouse.WarpCursorPosition`), A = user32 `mouse_event` left down/up, right stick = wheel. Off over the pause menu's main list (its own d-pad focus) unless `PauseMenu.InOptions`. Untestable headless: needs a real pad.
 
+- WARDEN LEGENDARIES (2026-10-27; `Gear.LegendaryOf` used to send every Warden (and the Unsung) to the Hollow Crown): GearId 21-25 appended, `WardenPieces[act]`: MARROWGUT'S RIB (charm; kills burst 22 x ATT in 3 m, `boneBursting` guard so no chains), MAIL OF THE DROWNED KNIGHT (armour; the enemy nearest the attacker's spot within 2.5 m, if the blow came from < 4 m, is chilled 2.5 s), OATH OF SIR ALDOUS (armour; blows within 60 deg of your facing x0.8), CHOIRMASTER'S BATON (charm; every 10th hit heals you + allies in 8 m 5% max, `batonHits`), HIDE OF GORR (armour; `ServerPoison` refuses; melee strikers take 15 x ATT). FX RPCs on PlayerProgress. Smoke "warden legendaries", "hide of gorr".
+
+- FLOOR EVENTS 9-10 (2026-10-27, appended; roll `Random.Range(1, 11)`): THE WARLORDS' MUSTER (`EventChampions` 3 distinct champions; Seals stay one bit per act), QUICKSILVER (`EventSpeed` 1.15 on `PlayerProgress.SpeedMultiplier` and enemy agent speed; embers x1.3). Smoke "new floor events".
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes
