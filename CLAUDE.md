@@ -255,6 +255,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - BOSS PRACTICE (2026-10-27, `World/DungeonDirector.Practice.cs`): host-only row in Corwin's carriage panel (camp, no run in progress), a button per floor's guardian, open if `Cosmetics.ActsBeaten` (the boss mask, bit per act) has that act. `PracticeRpc` -> `ServerStartPractice`: `Practice` NV, `StartFloor`, every non-boss despawned, no event/contract/Tallyman, `FloorPlayerDamageScale` `PracticeTaken` 0.6, boss HP x`PracticeHealth` 0.6 and `NoLoot`; `SpawnFor`/`SpawnLookTarget` put the party 8 m from the arena centre facing in (`PracticeSpawn`); `TickPractice` (in Exploring, before wipe/clear) ends on boss death or wipe after `PracticeEndDelay` -> `EnterLobby(keepRun: true)` (camp exactly as it was; `RunInProgress` stays false). Bosstest "boss practice". Guide AT CAMP line.
 
+- AFFIXES 9-10 (2026-10-27, `EliteAffixes.Count` 10): HUSHING (blows Silence 2.5 s) and CONCUSSIVE (blows Daze 1.5 s), `EnsureAfflictHook`; motes; Guide ELITES; smoke "hushing and concussive" (after the Cantor block; `PlayerDebuffs.ServerResetGrace` for tests). AMBUSH can no longer lock a party in: ambushers more than 4 m outside the room stop counting, and a wave older than `AmbushWaveLimit` 75 s opens the gates (the autoplay Knight froze in front of a shut portcullis). AUTOPLAY: the stuck check, screenshots and status lines run at the top of the main loop (a `continue` toward a dormant guardian's arena skipped them and froze the bot silently).
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes

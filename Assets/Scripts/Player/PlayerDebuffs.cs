@@ -117,6 +117,9 @@ namespace Deepbound.Player
             return true;
         }
 
+        /// <summary>For tests: forget every grace, so the next affliction takes.</summary>
+        public void ServerResetGrace() { maniaGraceUntil = rootGraceUntil = silenceGraceUntil = dazeGraceUntil = 0; }
+
         /// <summary>Server: a heavy blow rings your head for <paramref name="seconds"/>.</summary>
         public bool ServerDaze(float seconds)
         {

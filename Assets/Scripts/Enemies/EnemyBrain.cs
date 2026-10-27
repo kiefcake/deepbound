@@ -411,6 +411,25 @@ namespace Deepbound.Enemies
             if (affix == EliteAffix.Swift) moveSpeed *= 1.35f;
             if (affix == EliteAffix.Vampiric) EnsureVampireHook();
             if (affix == EliteAffix.Thorned) EnsureThornHook();
+            if (affix == EliteAffix.Hushing || affix == EliteAffix.Concussive) EnsureAfflictHook();
+        }
+
+        private static bool afflictHooked;
+
+        /// <summary>Hushing: its blows SILENCE you (2.5 s). Concussive: its blows DAZE you (1.5 s). Both have their grace.</summary>
+        private static void EnsureAfflictHook()
+        {
+            if (afflictHooked) return;
+            afflictHooked = true;
+            Health.ServerAnyDamaged += (target, dealt, attackerId) =>
+            {
+                if (target == null || target.Team != Team.Players || dealt <= 0f) return;
+                var net = NetworkManager.Singleton;
+                if (net == null || !net.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj)) return;
+                if (!obj.TryGetComponent<EnemyBrain>(out var brain) || brain.IsDead || !target.TryGetComponent<Player.PlayerDebuffs>(out var deb)) return;
+                if (brain.AffixKind == EliteAffix.Hushing) deb.ServerSilence(2.5f);
+                else if (brain.AffixKind == EliteAffix.Concussive) deb.ServerDaze(1.5f);
+            };
         }
 
         private static bool thornHooked;

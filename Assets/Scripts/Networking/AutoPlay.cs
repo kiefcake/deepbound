@@ -486,6 +486,7 @@ namespace Deepbound.Networking
             var openedChests = new HashSet<ulong>();
             var skip = new HashSet<ulong>();
 
+            ulong lastLootId = ulong.MaxValue;
             while (dd.Phase.Value == RunPhase.Exploring && !DungeonDirector.InLobby && Time.time - floorStart < floorLimit)
             {
                 Cursor.lockState = CursorLockMode.Locked;
@@ -500,6 +501,20 @@ namespace Deepbound.Networking
                     continue;
                 }
                 if (pendingHeal) { pendingHeal = false; hp.ServerSetFraction(0.6f); }
+                // Bookkeeping first, so no branch below can skip it (a `continue` toward a sleeping guardian's arena
+                // once froze the bot without a word, 2026-10-27).
+                // Stuck: no progress for 12 s.
+                if ((me.transform.position - lastPos).sqrMagnitude > 1f) { lastPos = me.transform.position; stuckSince = Time.time; }
+                else if (Time.time - stuckSince > 12f)
+                {
+                    Problem("stuck for 12 s going for " + goalWhat + " at " + Fmt(goal) + " from " + Fmt(me.transform.position) + " | " + WhyStuck(goal));
+                    if (target != null) skip.Add(target.NetworkObjectId);
+                    // Loot it cannot get to (behind a secret wall, on a ledge): give it up rather than walk into the wall all floor.
+                    if (goalWhat == "loot" && lastLootId != ulong.MaxValue) ignoredLoot.Add(lastLootId);
+                    stuckSince = Time.time;
+                }
+                if (Time.time >= nextShot) { nextShot = Time.time + 35f; yield return Shot("F" + (floorNo + 1) + "_" + (int)(Time.time - floorStart) + "s"); }
+                if (Time.time >= nextStatus) { nextStatus = Time.time + 75f; Status("progress (" + LivingEnemies() + " enemies left)"); }
                 // Block (Knight) or dodge a swing that is coming: a red ! within reach.
                 if (Time.time >= nextBlock && ThreatNear(3.6f) && (BossBrain.Active == null || Random.value < 0.5f))
                 {
@@ -540,6 +555,7 @@ namespace Deepbound.Networking
                 if (boss != null && bossSeenAt < 0f && dd.BossSealed) { bossSeenAt = Time.time; L("guardian fight begins: " + boss.DisplayName); yield return Shot("F" + (floorNo + 1) + "_boss_start"); }
 
                 var loot = NearestLoot(18f);
+                lastLootId = loot != null ? loot.NetworkObjectId : ulong.MaxValue;
                 var chest = NearestChest(openedChests);
                 if (target != null && (dist < 14f || loot == null))
                 {
@@ -643,18 +659,6 @@ namespace Deepbound.Networking
                 foreach (var g in Interactable.All.OfType<GearDrop>().ToArray())
                     if (g != null && g.Prompt(prog) != null && Vector3.Distance(g.transform.position, me.transform.position) < 2.4f) { g.UseRpc(me.NetworkObject); L("picked up gear"); yield return new WaitForSeconds(0.2f); }
 
-                // Stuck: no progress for 12 s.
-                if ((me.transform.position - lastPos).sqrMagnitude > 1f) { lastPos = me.transform.position; stuckSince = Time.time; }
-                else if (Time.time - stuckSince > 12f)
-                {
-                    Problem("stuck for 12 s going for " + goalWhat + " at " + Fmt(goal) + " from " + Fmt(me.transform.position) + " | " + WhyStuck(goal));
-                    if (target != null) skip.Add(target.NetworkObjectId);
-                    // Loot it cannot get to (behind a secret wall, on a ledge): give it up rather than walk into the wall all floor.
-                    if (goalWhat == "loot" && loot != null) ignoredLoot.Add(loot.NetworkObjectId);
-                    stuckSince = Time.time;
-                }
-                if (Time.time >= nextShot) { nextShot = Time.time + 35f; yield return Shot("F" + (floorNo + 1) + "_" + (int)(Time.time - floorStart) + "s"); }
-                if (Time.time >= nextStatus) { nextStatus = Time.time + 75f; Status("progress (" + LivingEnemies() + " enemies left)"); }
                 yield return null;
             }
 

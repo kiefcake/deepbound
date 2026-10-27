@@ -257,7 +257,10 @@ namespace Deepbound.World
             public readonly List<Portcullis> Gates = new List<Portcullis>();
             public readonly List<EnemyBrain> Alive = new List<EnemyBrain>();
             public int Wave; // 0 = waiting, 1-2 = fighting, 3 = broken
+            public float WaveAt;
         }
+        /// <summary>A wave that will not end (one of the dead stuck in a wall, or wandered off) opens the gates anyway.</summary>
+        public const float AmbushWaveLimit = 75f;
         private Ambush ambush;
 
         // Read-only views for the smoke test and debugging.
@@ -867,8 +870,12 @@ namespace Deepbound.World
                 return;
             }
 
-            ambush.Alive.RemoveAll(e => e == null || e.IsDead);
-            if (ambush.Alive.Count > 0) return;
+            // The dead that leave the room (or never got into it) do not hold the gates shut (2026-10-27: the autoplay
+            // Knight stood locked in an ambush room with nothing left to fight).
+            ambush.Alive.RemoveAll(e => e == null || e.IsDead || !room.Contains(e.transform.position, 4f));
+            bool overdue = Time.time - ambush.WaveAt > AmbushWaveLimit;
+            if (ambush.Alive.Count > 0 && !overdue) return;
+            if (overdue && ambush.Alive.Count > 0) { ambush.Alive.Clear(); ambush.Wave = 2; }
 
             if (ambush.Wave == 1)
             {
@@ -890,6 +897,7 @@ namespace Deepbound.World
         private void SpawnWave(int wave)
         {
             ambush.Wave = wave;
+            ambush.WaveAt = Time.time;
             var room = ambush.Room;
             int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
             int count = Mathf.RoundToInt((wave == 1 ? 5 : 3) * Difficulty.SpawnCount(players) * Difficulty.Level.SpawnMultiplier);

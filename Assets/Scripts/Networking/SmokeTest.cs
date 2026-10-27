@@ -1283,6 +1283,31 @@ namespace Deepbound.Networking
                             if (ct != null) ct.GetComponent<Health>().ServerDamage(1e6f, ct.transform.position);
                         }
                         else Log("cantor silence", "no prefab", false);
+                        // Hushing and Concussive elites (2026-10-27): their blows silence and daze.
+                        {
+                            var adeb = local.GetComponent<PlayerDebuffs>();
+                            var ahp = local.GetComponent<Health>();
+                            var hush = dd.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f, false);
+                            var conc = dd.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f - local.transform.right * 2f, false);
+                            if (hush != null && conc != null)
+                            {
+                                hush.ServerStun(10f); conc.ServerStun(10f);
+                                hush.ServerMakeElite(EliteAffix.Hushing);
+                                conc.ServerMakeElite(EliteAffix.Concussive);
+                                adeb.ServerCleanse();
+                                adeb.ServerResetGrace();
+                                yield return new WaitForSeconds(0.1f);
+                                ahp.ServerSetFraction(1f);
+                                ahp.ServerDamage(5f, hush.transform.position, hush.NetworkObjectId);
+                                ahp.ServerDamage(5f, conc.transform.position, conc.NetworkObjectId);
+                                yield return null;
+                                bool sil = adeb.Silenced, daz = adeb.Dazed;
+                                adeb.ServerCleanse();
+                                Log("hushing and concussive", "silenced " + sil + ", dazed " + daz + ", tags " + EliteAffixes.Tag(EliteAffix.Hushing) + "/" + EliteAffixes.Tag(EliteAffix.Concussive), sil && daz);
+                                hush.GetComponent<Health>().ServerDamage(1e6f, hush.transform.position);
+                                conc.GetComponent<Health>().ServerDamage(1e6f, conc.transform.position);
+                            }
+                        }
                         local.GetComponent<Health>().ServerSetFraction(1f);
                         // Floor events: Blood Tithe makes blows hurt more and kills mend.
                         {
