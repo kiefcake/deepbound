@@ -107,7 +107,7 @@ namespace Deepbound.UI
             {
                 // Renown counts the act bosses (a Warden is half of one): the run is twice as long as it was.
                 int bosses = ((won ? DungeonDirector.FloorsPerRun : Mathf.Max(0, d.Floor.Value.y)) + 1) / 2;
-                int got = Cosmetics.AwardRun(d.RunStartedAt.Value, bosses, me.Kills.Value, me.CombosTriggered.Value, won, d.DifficultyIndex.Value, DungeonDirector.OmenRenown(d.RunOmen));
+                int got = Cosmetics.AwardRun(d.RunStartedAt.Value, bosses, me.Kills.Value, me.CombosTriggered.Value, won, d.DifficultyIndex.Value, DungeonDirector.OmenRenown(d.RunOmen), me.Gold.Value);
                 if (got >= 0) renownEarned = got;
                 // The Hall of Records: anything this run beat is carved at camp (once per run).
                 foreach (var line in Records.SubmitRun(d.RunStartedAt.Value, floor, me.Kills.Value, me.GoldEarned.Value, won, d.DailyRun.Value ? d.DailyDate.Value : 0))
@@ -115,7 +115,7 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(panel.x + 30, panel.yMax - 104, pw - 60, 28), Epitaph(me, won, floor),
                     new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic, wordWrap = true, normal = { textColor = new Color(0.85f, 0.8f, 0.72f) } });
                 GUI.Label(new Rect(panel.x, panel.yMax - 72, pw, 26),
-                    "RENOWN  +" + renownEarned + "      (" + Cosmetics.Renown + " to spend at the tailor in camp)",
+                    "RENOWN  +" + renownEarned + (Cosmetics.TitheFor(me.Gold.Value) > 0 ? "  (+" + Cosmetics.TitheFor(me.Gold.Value) + " tithed from " + me.Gold.Value + " gold left)" : "") + "      (" + Cosmetics.Renown + " to spend at the tailor)",
                     new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Gold } });
             }
 

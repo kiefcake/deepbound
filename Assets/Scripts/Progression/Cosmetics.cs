@@ -211,12 +211,16 @@ namespace Deepbound.Progression
         /// Award a finished run once (keyed by its start time, so the summary can call this
         /// every frame). Returns the Renown earned, or -1 if this run was already counted.
         /// </summary>
-        public static int AwardRun(double runKey, int bossesFelled, int kills, int combos, bool cleared, int difficulty, float bonus = 1f)
+        /// <summary>Gold left in your purse when a run ends is tithed: this much gold per Renown, up to <see cref="TitheCap"/>.</summary>
+        public const int GoldPerRenown = 100, TitheCap = 50;
+        public static int TitheFor(int goldLeft) => Mathf.Clamp(goldLeft / GoldPerRenown, 0, TitheCap);
+
+        public static int AwardRun(double runKey, int bossesFelled, int kills, int combos, bool cleared, int difficulty, float bonus = 1f, int goldLeft = 0)
         {
             if (TestMode) return -1;
             string key = runKey.ToString("F3");
             if (PlayerPrefs.GetString(KeyLastRun, "") == key) return -1;
-            int earned = Mathf.RoundToInt(RenownFor(bossesFelled, kills, combos, cleared, difficulty) * bonus);
+            int earned = Mathf.RoundToInt(RenownFor(bossesFelled, kills, combos, cleared, difficulty) * bonus) + TitheFor(goldLeft);
             PlayerPrefs.SetString(KeyLastRun, key);
             PlayerPrefs.SetInt(KeyRenown, Renown + earned);
             PlayerPrefs.SetInt(KeyRuns, RunsFinished + 1);

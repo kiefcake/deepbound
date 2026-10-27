@@ -251,6 +251,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - FINAL BOSS MUSIC (2026-10-27): `Music/boss_final.ogg` (skrjablin, CC0, credited) on its own `AudioDirector.finale` source, taking the boss layer whenever `BossBrain.Active is UnsungBrain`. SILENCED label sits across the Q/E slots (above the bar it hit the pouch). Shots "2b_silenced", "2b_dazed".
 
+- GOLD TITHE (2026-10-27; a Rogue run ended on 5,600 unspent gold): `Cosmetics.TitheFor(goldLeft)` = gold / `GoldPerRenown` 100, max `TitheCap` 50, added in `AwardRun(..., goldLeft)`; the summary names it; Guide INVENTORY line.
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes
