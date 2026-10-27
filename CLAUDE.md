@@ -235,8 +235,12 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - OMENS 5-7 (2026-10-27; `OmenCount` 8, appended): QUICKENED DEAD (`OmenPace` 0.83 on enemy `Pace`, `OmenSpeed` 1.2 on agent speed, off at camp; embers x1.4), HUSHED BELLS (`OmenCooldown` x1.4 on `CooldownMultiplier` after the cut cap; `OmenUltCharge` x1.5 in `Ultimates.Add`), AVARICE (`OmenGold` 2, `OmenPrices` x1.5 in `PriceMultiplier`). Smoke "new omens". Smoke "secret wall takes shots" now forgives room dressing in front of the wall (`propInWay`).
 
+- HOLLOW KING DECREES (2026-10-27): from The Last Crown, every `DecreeEvery` 15 s / Cadence, alternating BE STILL (struck if horizontal `ServerVelocity` > `StillSpeed` 1.5 when it falls) and BEGONE (struck if `ClearLine` from his eye: hide behind pillars); `DecreeWarning` 2.6 s x Tell, title card + ring + Gather; x2 dmg; a BREAK voids the decree; `ServerDebugDecree`, bosstest "king decrees"; tip "decree"; hint updated. ROGUE vs bosses (autoplay run 15: every guardian dead in 12-36 s): from behind x`BossAmbushMultiplier` 1.3 / Assassin x`BossAssassinMultiplier` 1.6 (was 1.5 / 2.0); texts updated. The run log is kept as `Builds/AutoRun/autoplay_run15_rogue.txt`.
+
+- PAD MENUS (2026-10-27): `UI/PadCursor` (booted by RuntimeInitializeOnLoadMethod, DontDestroyOnLoad): while the cursor is unlocked and a pad is present, the window focused and not `TestRun`, left stick warps the real pointer (`Mouse.WarpCursorPosition`), A = user32 `mouse_event` left down/up, right stick = wheel. Off over the pause menu's main list (its own d-pad focus) unless `PauseMenu.InOptions`. Untestable headless: needs a real pad.
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes
-(Barbarian, Druid, Engineer) only if asked; more cosmetic kinds (only cloak dyes so far); proximity voice; UI Toolkit HUD replacing IMGUI; gamepad menu navigation (gameplay on a pad and rebinding are done);
+(Barbarian, Druid, Engineer) only if asked; more cosmetic kinds (only cloak dyes so far); proximity voice; UI Toolkit HUD replacing IMGUI; gamepad menus via PadCursor (a pointer, not focus navigation);
 balance pass driven by the user's play feedback; GitHub remote (needs the user).

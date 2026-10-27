@@ -121,7 +121,7 @@ namespace Deepbound.Classes
             : id == ClassId.Rogue
             ? new[]
             {
-                ("PASSIVE", "Ambush", "Hits from behind deal a further +50%."),
+                ("PASSIVE", "Ambush", "Hits from behind deal a further +50% (+30% on bosses)."),
                 ("LMB", "Twin Daggers", "Very fast, short stabs, one target at a time."),
                 ("RMB", "Fan of Knives", "Throw three knives in a narrow spread."),
                 ("Q", "Shadowstep", "Reappear behind the enemy under your crosshair."),

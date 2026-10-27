@@ -1925,6 +1925,10 @@ namespace Deepbound.UI
         private void DrawRevive(float w, float h)
         {
             if (!life.Downed.Value) recapKiller = null;
+            // The run is over: the summary has the floor, nothing peeks out from behind it.
+            var runDir = DungeonDirector.Instance;
+            bool over = runDir != null && (runDir.Phase.Value == RunPhase.Wiped || runDir.Phase.Value == RunPhase.RunComplete);
+            if (life.Downed.Value && over) return;
             if (life.Downed.Value)
             {
                 if (life.Soul.Value)

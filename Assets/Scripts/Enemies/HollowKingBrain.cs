@@ -16,7 +16,9 @@ namespace Deepbound.Enemies
     /// <item><b>Raise the Dead</b> — at 66% and 33% health he calls skeletons out of the
     ///   floor. Answer: the tank War Cries to hold them while the party burns the King.</item>
     /// </list>
-    /// Below 25% he enrages: every wind-up is 30% shorter.
+    /// Below 25% he enrages: every wind-up is 30% shorter, and (2026-10-27) he issues ROYAL DECREES in turn:
+    /// BE STILL (whoever is still moving when the crown falls is struck) and BEGONE (whoever he can see is
+    /// struck: put a pillar between you).
     /// </summary>
     public class HollowKingBrain : BossBrain
     {
@@ -31,7 +33,7 @@ namespace Deepbound.Enemies
         protected override byte EntranceStyle => 3;
         public override string LastWords => "The morning... was it always this cold? Take the crown. It was never mine.";
         public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.HollowKing;
-        public override string Hint => "When a player is marked by the crown, everyone stands in the circle to share the blow.";
+        public override string Hint => "When a player is marked by the crown, everyone stands in the circle to share the blow. At the last, obey his DECREES: BE STILL means stop moving; BEGONE means hide behind a pillar.";
 
         private float nextSlam;
         private bool slamming;
@@ -69,7 +71,7 @@ namespace Deepbound.Enemies
                     () => Taunt("Traitors. All of you. Then I will do it myself."));
             }
             else
-                Transition("The Last Crown", "I was a king before your gods were born!", 2.2f, () => nextBlades = Time.time + 2f);
+                Transition("The Last Crown", "I was a king before your gods were born!", 2.2f, () => { nextBlades = Time.time + 2f; nextDecree = Time.time + 6f; });
         }
         private float WindupScale => (Enraged ? 0.7f : 1f) * Tell(1f);
 
@@ -99,7 +101,7 @@ namespace Deepbound.Enemies
         protected override void Update()
         {
             if (HeldByStun()) return;
-            if (IsServer && !IsDead) { TickJudgement(); TickBlades(); }
+            if (IsServer && !IsDead) { TickJudgement(); TickBlades(); TickDecree(); }
             if (IsServer && !IsDead && slamming)
             {
                 agent.isStopped = true;
@@ -225,11 +227,93 @@ namespace Deepbound.Enemies
             if (local != null && Vector3.Distance(local.transform.position, at) < 10f) local.AddShake(0.5f);
         }
 
+        // ---- Royal Decrees (the Last Crown): BE STILL, then BEGONE, in turn ----
+        private float nextDecree = -1f, decreeAt = -1f;
+        private int decreeKind;
+        public const float DecreeWarning = 2.6f, DecreeEvery = 15f, StillSpeed = 1.5f;
+        /// <summary>For tests: decrees that fell, and how many players the last one struck.</summary>
+        public int DecreesFallen { get; private set; }
+        public int LastDecreeStruck { get; private set; }
+
+        private void TickDecree()
+        {
+            if (decreeAt > 0f)
+            {
+                if (Time.time < decreeAt) return;
+                decreeAt = -1f;
+                int struck = 0;
+                var eye = transform.position + Vector3.up * 2.6f;
+                foreach (var p in Player.PlayerLife.All)
+                {
+                    if (p == null || !p.Targetable) continue;
+                    var v = p.ServerVelocity;
+                    v.y = 0f;
+                    bool guilty = decreeKind == 0 ? v.magnitude > StillSpeed : CombatQuery.ClearLine(eye, p.Health);
+                    if (!guilty) continue;
+                    struck++;
+                    p.Health.ServerDamage(damage * 2f, eye, NetworkObjectId);
+                    DecreeStrikeRpc(p.transform.position);
+                }
+                DecreesFallen++;
+                LastDecreeStruck = struck;
+                DecreeFallsRpc((byte)decreeKind, struck);
+                decreeKind = 1 - decreeKind;
+                return;
+            }
+            if (nextDecree < 0f || Time.time < nextDecree || Immune || slamming) return;
+            BeginDecree(decreeKind);
+        }
+
+        private void BeginDecree(int kind)
+        {
+            decreeKind = kind;
+            nextDecree = Time.time + DecreeEvery / Cadence;
+            float tell = Tell(DecreeWarning);
+            decreeAt = Time.time + tell;
+            castUntil = Time.time + 0.9f;
+            busyUntil = Mathf.Max(busyUntil, castUntil);
+            PlayActionRpc(RigAction.Cast, 0.9f);
+            DecreeRpc((byte)kind, tell);
+            Taunt(kind == 0 ? "KNEEL. Not one step in my presence." : "BEGONE from my sight!");
+        }
+
+        /// <summary>For tests: issue a decree now (0 be still, 1 begone).</summary>
+        public void ServerDebugDecree(int kind) { decreeAt = -1f; BeginDecree(kind); }
+
+        [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
+        private void DecreeRpc(byte kind, float seconds)
+        {
+            var c = new Color(0.55f, 0.75f, 1f);
+            if (kind == 0) UI.GameHud.ShowTitleCard("DECREE: BE STILL", "Stop moving before the crown falls", c);
+            else UI.GameHud.ShowTitleCard("DECREE: BEGONE", "Get out of his sight: behind a pillar", c);
+            Sfx.Play(Sound.Toll, transform.position + Vector3.up * 3f, 1f, 0.75f);
+            Vfx.Ring(Vfx.Floor(transform.position) + Vector3.up * 0.05f, 9f, c, seconds);
+            Gather(seconds, 0.6f);
+        }
+
+        [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
+        private void DecreeStrikeRpc(Vector3 at)
+        {
+            var c = new Color(0.55f, 0.75f, 1f);
+            Vfx.Flash(at + Vector3.up * 2f, c, 6f, 6f, 0.3f);
+            for (int i = 0; i < 4; i++) Vfx.Fireball(at + Vector3.up * (0.4f + i * 0.8f), 0.8f - i * 0.12f, c);
+            Sfx.Play(Sound.Slam, at, 0.9f, 0.9f);
+        }
+
+        [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
+        private void DecreeFallsRpc(byte kind, int struck)
+        {
+            var c = new Color(0.55f, 0.75f, 1f);
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 4.6f, struck == 0 ? "THE DECREE IS OBEYED" : "DISOBEYED x" + struck, c);
+        }
+
         [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
         private void GuardFxRpc() => UI.GameHud.Feed("\"Guards! To your king!\"", new Color(0.55f, 0.75f, 1f));
 
         protected override void OnBroken()
         {
+            // A broken king cannot finish his sentence.
+            if (decreeAt > 0f) { decreeAt = -1f; decreeKind = 1 - decreeKind; }
             if (!slamming) return;
             slamming = false;
             CancelTelegraphRpc();

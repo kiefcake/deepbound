@@ -35,6 +35,7 @@ namespace Deepbound.Player
         public const float StepCooldown = 9f, StepRange = 13f;
         public const float SmokeCooldown = 18f, SmokeSeconds = 7f;
         public const float AmbushMultiplier = 1.5f, OpenerMultiplier = 2f, OpenerStun = 1.2f;
+        public const float BossAmbushMultiplier = 1.3f, BossAssassinMultiplier = 1.6f;
         public const float EnergyMax = 100f, EnergyRegen = 26f;
 
         private Health health;
@@ -201,7 +202,10 @@ namespace Deepbound.Player
             bool behind = toMe.sqrMagnitude > 0.01f && Vector3.Angle(target.transform.forward, toMe) > 115f;
             lastHitFromBehind = behind;
             // Assassin: deadlier from behind. Duelist: better face to face.
-            if (behind) m *= (progress.OnPath(1) ? 2f : AmbushMultiplier) * Combos.TryShatter(target, progress);
+            // Against a boss the bonus is smaller (2026-10-27 autoplay: a Rogue that lived behind them killed every
+            // guardian in 12-36 s, three times the Knight's pace).
+            bool boss = target.TryGetComponent<Enemies.BossBrain>(out _);
+            if (behind) m *= (progress.OnPath(1) ? (boss ? BossAssassinMultiplier : 2f) : (boss ? BossAmbushMultiplier : AmbushMultiplier)) * Combos.TryShatter(target, progress);
             else if (progress.OnPath(2)) m *= 1.25f;
             if (openerArmed && (life.Hidden.Value || Time.time < openerExpires))
             {

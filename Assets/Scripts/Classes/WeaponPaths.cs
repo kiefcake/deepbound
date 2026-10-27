@@ -35,7 +35,7 @@ namespace Deepbound.Classes
                     ? "Smite hits 35% harder, and each hit heals the most wounded ally nearby for 40% of it."
                     : "Mending Beam heals 40% more; healing past full builds a shield of up to 40.";
                 case ClassId.Rogue: return path == 1
-                    ? "Ambush hits from behind deal x2.0 instead of x1.5."
+                    ? "Ambush hits from behind deal x2.0 instead of x1.5 (x1.6 instead of x1.3 on bosses)."
                     : "Stabs strike two enemies, and hit 25% harder from the front.";
                 case ClassId.Flagellant: return path == 1
                     ? "Crashes hit 30% harder and burst half again as wide."

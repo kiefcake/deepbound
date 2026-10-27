@@ -81,7 +81,7 @@ namespace Deepbound.UI
         }
         public static bool Up(Bind b) { var c = Control(b); var p = Pad(b); return (c != null && c.wasReleasedThisFrame) || (p != null && p.wasReleasedThisFrame); }
 
-        // ---- Gamepad (2026-10-20): play with a pad; the menus still want the mouse ----
+        // ---- Gamepad (2026-10-20): play with a pad; menus use UI/PadCursor (stick = pointer, A = click) ----
         //   left stick move, right stick look, A jump, B dodge (slide at a sprint), X use, Y talk/trade,
         //   LB / RB abilities, RT attack, LT secondary (block, frostbolt, beam...), L3 sprint (toggle),
         //   R3 kick, d-pad up ultimate, left health potion, right mana potion, down holy water,

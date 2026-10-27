@@ -3859,6 +3859,22 @@ namespace Deepbound.Networking
                     if (boss is TideLichBrain && i == 6) motor.Teleport(boss.transform.position + boss.transform.forward * 2f, local.transform.rotation);
                 }
 
+                // The Hollow King's decrees (2026-10-27): standing still obeys BE STILL; in plain sight, BEGONE strikes.
+                if (boss is HollowKingBrain king)
+                {
+                    FaceBoss(local, boss);
+                    king.ServerDebugDecree(0);
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot(dir, "boss" + (depth + 1) + "_decree");
+                    for (float t = 0f; t < HollowKingBrain.DecreeWarning + 1.5f && king.DecreesFallen == 0; t += 0.1f) { hp.ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                    int stillStruck = king.LastDecreeStruck;
+                    king.ServerDebugDecree(1);
+                    for (float t = 0f; t < HollowKingBrain.DecreeWarning + 1.5f && king.DecreesFallen < 2; t += 0.1f) { hp.ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                    bool seen = CombatQuery.ClearLine(king.transform.position + Vector3.up * 2.6f, local.GetComponent<Health>());
+                    Log("king decrees", "fallen " + king.DecreesFallen + ", still struck " + stillStruck + ", begone struck " + king.LastDecreeStruck + " (in sight " + seen + ")",
+                        king.DecreesFallen >= 2 && stillStruck == 0 && (!seen || king.LastDecreeStruck == 1));
+                }
+
                 // The Wardens' second moves (2026-10-26).
                 if (boss is WardenBrain warden)
                 {

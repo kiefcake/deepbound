@@ -793,7 +793,8 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         protected void FreeLineTelegraphRpc(Vector3 start, Vector3 direction, float length, float width, float duration)
         {
-            Telegraph.ShowLine(start, direction, length, width, duration, null);
+            // Fanned lanes overlap near the boss: each is fainter, so the stack does not blaze.
+            Telegraph.ShowLine(start, direction, length, width, duration, null, new Color(1f, 0.15f, 0.05f, 0.12f));
             Gather(duration, 0.8f);
         }
 
