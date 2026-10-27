@@ -1230,6 +1230,34 @@ namespace Deepbound.Networking
                             }
                         }
                         else Log("bone piper", "no prefab", false);
+                        // Champion traits (2026-10-27): the Pale's blow frostbites, the Unburied gets up once, the Tithe-Taker pockets gold.
+                        {
+                            var cdeb = local.GetComponent<PlayerDebuffs>();
+                            var chp = local.GetComponent<Health>();
+                            var pale = dd.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f, false);
+                            var unb = dd.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f + local.transform.right * 2f, false);
+                            if (pale != null && unb != null)
+                            {
+                                pale.ServerStun(10f); unb.ServerStun(10f);
+                                pale.ServerDebugChampion(ChampionTraits.Pale);
+                                unb.ServerDebugChampion(ChampionTraits.Unburied);
+                                cdeb.ServerCleanse();
+                                yield return null;
+                                chp.ServerSetFraction(1f);
+                                chp.ServerDamage(5f, pale.transform.position, pale.NetworkObjectId);
+                                yield return null;
+                                bool chilled = cdeb.Frostbitten;
+                                var uh = unb.GetComponent<Health>();
+                                uh.ServerDamage(uh.Current.Value * 3f, local.transform.position, local.NetworkObjectId);
+                                yield return new WaitForSeconds(1.8f);
+                                bool rose = unb != null && !unb.IsDead && uh.Fraction > 0.3f;
+                                cdeb.ServerCleanse();
+                                Log("champion traits", "pale frostbites " + chilled + ", unburied rose " + rose + " (" + (uh != null ? (uh.Fraction * 100f).ToString("F0") : "-") + "%), says \"" + ChampionTraits.Describe(pale.Title.Value.ToString()) + "\"", chilled && rose);
+                                if (pale != null) pale.GetComponent<Health>().ServerDamage(1e6f, pale.transform.position);
+                                if (unb != null) uh.ServerDamage(1e6f, unb.transform.position);
+                            }
+                            else Log("champion traits", "no skeletons", false);
+                        }
                         // A Tongueless Cantor hushes the floor under the player: Silenced, the ability keys lock; Holy Water lifts it.
                         var ct = dd.ServerDebugSpawn("cantor", local.transform.position + local.transform.forward * 9f, false) as CantorBrain;
                         if (ct != null)

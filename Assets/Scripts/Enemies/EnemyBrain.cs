@@ -86,7 +86,8 @@ namespace Deepbound.Enemies
         private bool championAnnounced;
 
         private static readonly string[] ChampionNames = { "Grimbold", "Morwen", "Garrick", "Hesk", "Vorn", "Ilsa", /* not Aldric or Ysolde: those are camp folk */ "Bram", "Cael", "Odo", "Sabine", "Tormund", "Wenna" };
-        private static readonly string[] ChampionEpithets = { "the Unburied", "Gravefist", "the Hollow", "Bonegnawer", "the Patient", "Ashenhand", "the Tithe-Taker", "Oathbreaker", "the Pale", "Marrowgrin" };
+        /// <summary>Append only: each is also a trait (Enemies/ChampionTraits).</summary>
+        public static readonly string[] Epithets = { "the Unburied", "Gravefist", "the Hollow", "Bonegnawer", "the Patient", "Ashenhand", "the Tithe-Taker", "Oathbreaker", "the Pale", "Marrowgrin" };
 
         /// <summary>Server: make this the floor's champion — an elite with a name, more of everything, and a hoard.</summary>
         public void ServerMakeChampion()
@@ -96,7 +97,89 @@ namespace Deepbound.Enemies
             damage *= 1.15f;
             health.ServerSetMax(health.Max.Value * 1.6f, refill: true);
             health.Defense += 2f;
-            Title.Value = Pick(ChampionNames, usedNames) + " " + Pick(ChampionEpithets, usedEpithets);
+            SetChampionTitle(Pick(ChampionNames, usedNames), Pick(Epithets, usedEpithets));
+        }
+
+        /// <summary>Which of <see cref="ChampionTraits"/> this champion carries (server); -1 for everyone else.</summary>
+        public int ChampionTrait { get; private set; } = -1;
+        public int Depth => depthForLoot;
+        private bool championRose, oathCalled;
+        private int tithe;
+
+        private void SetChampionTitle(string name, string epithet)
+        {
+            Title.Value = name + " " + epithet;
+            if (ChampionTrait >= 0) return;
+            ChampionTrait = System.Array.IndexOf(Epithets, epithet);
+            ChampionTraits.EnsureHook();
+            if (ChampionTrait == ChampionTraits.Patient) damage *= 1.5f;
+            if (ChampionTrait == ChampionTraits.Unburied)
+                health.IncomingModifiers.Add((dmg, from) =>
+                {
+                    if (championRose || IsDead || dmg < health.Current.Value || dmg >= BossBrain.KillDamage) return dmg;
+                    championRose = true;
+                    StartCoroutine(ChampionRise());
+                    return Mathf.Max(0f, health.Current.Value - 1f);
+                });
+        }
+
+        /// <summary>For tests: make this a champion carrying a given trait.</summary>
+        public void ServerDebugChampion(int trait)
+        {
+            if (IsBoss) return;
+            if (!Elite.Value) ServerMakeElite();
+            SetChampionTitle("Test", Epithets[Mathf.Clamp(trait, 0, Epithets.Length - 1)]);
+        }
+
+        /// <summary>The Unburied: it falls, and gets up.</summary>
+        private System.Collections.IEnumerator ChampionRise()
+        {
+            ServerStun(1.6f);
+            ChampionRiseRpc();
+            yield return new WaitForSeconds(1.3f);
+            if (!IsDead && health.IsAlive) health.ServerHeal(health.Max.Value * 0.4f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ChampionRiseRpc()
+        {
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.6f, "IT WILL NOT STAY DOWN", new Color(1f, 0.75f, 0.3f));
+            Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 1f, 0.6f);
+            Vfx.Ring(Vfx.Floor(transform.position) + Vector3.up * 0.05f, 2f, new Color(1f, 0.75f, 0.3f), 0.6f);
+        }
+
+        /// <summary>Oathbreaker: wounded to half, it calls two of the dead (once).</summary>
+        public void ServerOathbreak()
+        {
+            if (oathCalled || IsDead || health.Fraction >= 0.5f) return;
+            oathCalled = true;
+            for (int i = 0; i < 2; i++)
+                World.DungeonDirector.Instance?.ServerDebugSpawn("skeleton", transform.position + Quaternion.Euler(0f, 90f + i * 180f, 0f) * transform.forward * 2.5f, false);
+            OathRpc();
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void OathRpc()
+        {
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.6f, "TO ME, OATHSWORN!", new Color(1f, 0.75f, 0.3f));
+            Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.5f, 1f, 0.8f);
+        }
+
+        /// <summary>The Tithe-Taker pockets what it stole; it all spills back, and half again, when it falls.</summary>
+        public void ServerTithe(int gold, Vector3 at)
+        {
+            tithe += gold;
+            TitheRpc(gold, at);
+        }
+
+        /// <summary>For tests: gold it carries.</summary>
+        public int Tithe => tithe;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void TitheRpc(int gold, Vector3 at)
+        {
+            UI.GameHud.ShowCombo(at + Vector3.up * 0.6f, "-" + gold + " GOLD", new Color(1f, 0.82f, 0.3f));
+            Sfx.Play(Sound.Coins, at, 0.7f, 0.8f);
         }
 
         // A run's champions never share a name or an epithet (an autoplay run met three Osrics, 2026-10-24); the
@@ -294,7 +377,7 @@ namespace Deepbound.Enemies
         {
             get
             {
-                if (!Frenzied) return (Enraged ? EnragePace : 1f) * World.DungeonDirector.OmenPace;
+                if (!Frenzied) return (Enraged ? EnragePace : 1f) * World.DungeonDirector.OmenPace * (ChampionTrait == ChampionTraits.Patient ? 1.3f : 1f);
                 if (!frenzyAnnounced && IsServer) { frenzyAnnounced = true; FrenzyRpc(); }
                 return FrenzyPace * World.DungeonDirector.OmenPace;
             }
@@ -1107,7 +1190,8 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void ChampionSeenRpc(string title)
         {
-            UI.GameHud.Feed("A champion stirs: " + title, new Color(1f, 0.75f, 0.3f));
+            string how = ChampionTraits.Describe(title);
+            UI.GameHud.Feed("A champion stirs: " + title + (how.Length > 0 ? " - " + how : ""), new Color(1f, 0.75f, 0.3f));
             Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.5f, 1f, 0.7f);
         }
 
@@ -1115,7 +1199,8 @@ namespace Deepbound.Enemies
         {
             // Once only: the autoplay run saw a champion's death (card, hoard) twice in the same moment.
             if (IsDead) return;
-            if (AffixKind == EliteAffix.Volatile) StartCoroutine(VolatileBlast());
+            if (AffixKind == EliteAffix.Volatile || ChampionTrait == ChampionTraits.Marrowgrin) StartCoroutine(VolatileBlast());
+            if (tithe > 0) World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f, LootKind.Gold, Mathf.RoundToInt(tithe * 1.5f), transform.position);
             if (AffixKind == EliteAffix.Splitting) World.DungeonDirector.Instance?.ServerSpawnSplit(transform.position, scaledPlayersBase, depthForLoot);
             // Gravebound: its bones gather to rise again, unless someone stamps them out.
             if (AffixKind == EliteAffix.Gravebound) World.DungeonDirector.Instance?.ServerGravebound(this);

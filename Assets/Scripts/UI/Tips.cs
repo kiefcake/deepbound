@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "dazed", "decree", "stagger", "brand", "eclipse",
+            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -133,6 +133,7 @@ namespace Deepbound.UI
                 if (b is UnsungBrain) Offer("eclipse", "THE UNSUNG sings ECHOES of the guardians you slew - their attacks, in their colours. At the very end, when POOLS OF DAWN open, stand in the light: the ECLIPSE strikes everyone outside one.");
                 if (b is NecromancerBrain) Offer("necro", "A NECROMANCER mends every one of the dead near it (green rings) and raises more. Kill it first, or stun it while its circle glows to break the spell.");
                 if (b is HollowKingBrain hk && hk.DecreesFallen > 0) Offer("decree", "The Hollow King's DECREES: BE STILL - whoever is still moving when it falls is struck (you can still swing and turn). BEGONE - whoever he can see is struck: put a pillar between you.");
+                if (b.IsChampion) Offer("champtrait", "A CHAMPION's epithet is how it fights: the feed says what it does as it stirs (the Pale frostbites, Ashenhand burns, the Unburied gets up once...). Read the name, then pick the fight.");
                 if (b is CantorBrain) Offer("cantor", "A TONGUELESS CANTOR: when its pale circle closes under you, you are SILENCED - no Q, E or ultimate for a few seconds. Step out of the circle, stun it mid-cast, or lift it with Holy Water. It is frail: reach it.");
                 if (b is BonePiperBrain) Offer("piper", "A BONE PIPER: each tune is a pattern - a ROSE that blooms, SCISSORS that sweep, SEEDPODS that burst where they land, a MARCH of walls with a gap. Its name floats up as it starts. It stands still to play: hit the glowing bag.");
                 if (b is BonePiperBrain || b is OrbweaverBrain) Offer("graze", "GRAZE: a shot that slips past you close without touching you charges your ultimate. Weave through patterns, do not just run from them.");

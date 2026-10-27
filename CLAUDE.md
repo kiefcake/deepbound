@@ -245,6 +245,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - DAZED (2026-10-27, RESEARCH item 9's other half): `PlayerDebuffs.DazeUntil`/`Dazed`/`ServerDaze` (grace x2.5, Ward/Ironbark immune, cleansed), `TurnMultiplier` `DazedTurn` 0.5 on mouse and pad look in `FirstPersonMotor` (no camera sway, on purpose); from the Brute's pound (1.6 s) and the Gargoyle's dive (1.2 s); HUD alert/edge/status, tip "dazed"; smoke "dazed". Guide: Cantors/Silence, BREAK, Warden second moves, decrees, all floor events.
 
+- CHAMPION TRAITS (2026-10-27): `EnemyBrain.Epithets` (was private ChampionEpithets; append only) index = `ChampionTrait`, set in `SetChampionTitle`; `Enemies/ChampionTraits` (static: `Describe(title)` for the feed on any peer, `EnsureHook` on ServerAnyDamaged): Unburied (IncomingModifier: first lethal blow < KillDamage leaves 1 HP, stun 1.6 s, heal to 40% after 1.3 s), Gravefist (daze 1.4 + knock), Hollow (curse 4 s), Bonegnawer (heals 30% of dealt), Patient (dmg x1.5, Pace x1.3), Ashenhand (poison 3 s), Tithe-Taker (steals 5% gold, max 40, `tithe` dropped x1.5 on death), Oathbreaker (below half once: two skeletons via `ServerDebugSpawn`), Pale (frostbite 2.5 s), Marrowgrin (death = VolatileBlast). `ServerDebugChampion(trait)`; smoke "champion traits"; tip "champtrait"; Guide ELITES line.
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes
