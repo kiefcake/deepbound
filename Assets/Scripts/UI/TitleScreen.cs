@@ -73,14 +73,14 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
-            "PLAY WITH FRIENDS over Steam: invite from the pause menu",
+            "CHAMPIONS fight by their epithet: read the name, pick the fight",
+            "WARDENS learn a second move and drop their own LEGENDARIES",
+            "The Hollow King's DECREES: BE STILL, then BEGONE",
+            "TONGUELESS CANTORS silence you; heavy blows DAZE",
             "BREAK bosses: weak points and stuns fill a meter - then strike",
-            "The Unsung sings ECHOES of the fallen; the Cardinal BRANDS",
-            "WARDENS learn a second move below half health",
-            "Tome of the PHOENIX: a firebird fights beside you for 30 s",
-            "TONGUELESS CANTORS silence you; three new OMENS at camp",
-            "WEAK POINTS burst (and enrage beasts); see what ails an enemy",
-            "Recorded music, monsters, fire and chains (CC0, see credits)",
+            "New OMENS and floor EVENTS; spare gold tithes into Renown",
+            "Menus work on a GAMEPAD: the stick moves the pointer",
+            "PLAY WITH FRIENDS over Steam: invite from the pause menu",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)

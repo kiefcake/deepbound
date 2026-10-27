@@ -165,6 +165,8 @@ namespace Deepbound.Progression
         public static int Renown => TestMode ? 0 : PlayerPrefs.GetInt(KeyRenown, 0);
         public static int RunsFinished => PlayerPrefs.GetInt(KeyRuns, 0);
         private static int BossMask => PlayerPrefs.GetInt(KeyBosses, 0);
+        /// <summary>Acts whose master this machine has beaten (bit per act): boss practice unlocks by it.</summary>
+        public static int ActsBeaten => BossMask;
 
         public static int Worn(Kind kind) => TestMode ? 0 : Mathf.Clamp(PlayerPrefs.GetInt(KeyWorn(kind), 0), 0, Of(kind).Length - 1);
         public static int Equipped => Worn(Kind.Cloak);

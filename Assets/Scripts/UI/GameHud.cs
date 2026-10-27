@@ -2519,6 +2519,7 @@ namespace Deepbound.UI
         }
 
         private float[] shopRowH = new float[16];
+        private static readonly string[] PracticeNames = { "Marrow", "Warden", "Drowned", "Lich", "Aldous", "King", "Choir", "Cardinal", "Gorr", "Unsung" };
 
         private void DrawMerchant(float w, float h)
         {
@@ -2545,6 +2546,9 @@ namespace Deepbound.UI
             var stock = Shop.For(progress.OwnerClientId, vendor);
             // Corwin also takes the party's orders: how hard a road, and how the spoils are shared.
             float top = vendor == Shop.Vendor.Carriage ? 70f : 0f;
+            // Boss practice (2026-10-27): before a run, any guardian this machine has beaten.
+            bool practiceRow = vendor == Shop.Vendor.Carriage && DungeonDirector.Instance != null && !DungeonDirector.Instance.RunInProgress && DungeonDirector.InLobby;
+            if (practiceRow) top += 34f;
             // Rows grow to fit a long description (2026-10-27: a tome's two lines ran into the next row).
             if (shopRowH.Length < stock.Length) shopRowH = new float[stock.Length + 4];
             float rowsH = 0f;
@@ -2599,6 +2603,20 @@ namespace Deepbound.UI
                 string note = locked ? "Set for this run. \"Same road as before, then.\"" : host ? diff.Blurb : diff.Blurb + "  (the host chooses)";
                 if (!locked && host && !Enemies.Difficulty.TormentUnlocked && dir.DifficultyIndex.Value == Enemies.Difficulty.TormentIndex - 1) note += "  (Finish a descent to open TORMENT.)";
                 GUI.Label(new Rect(x + 16, dy + 30, pw - 250, 20), note, small);
+                if (practiceRow)
+                {
+                    float py = dy + 58;
+                    GUI.Label(new Rect(x + 16, py + 3, 100, 22), "PRACTICE", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.7f, 0.8f, 0.95f) } });
+                    float bx = x + 96;
+                    for (int d = 0; d <= DungeonDirector.FinalDepth; d++)
+                    {
+                        bool open = DungeonDirector.PracticeUnlocked(d);
+                        GUI.enabled = host && open;
+                        if (GUI.Button(new Rect(bx, py, 59, 24), open ? PracticeNames[Mathf.Min(d, PracticeNames.Length - 1)] : "?", new GUIStyle(GUI.skin.button) { fontSize = 11 })) { dir.PracticeRpc((byte)d); shopOpen = false; }
+                        bx += 61;
+                    }
+                    GUI.enabled = true;
+                }
                 // The daily road: today's floors, the same for everyone who plays today.
                 if (dir != null)
                 {

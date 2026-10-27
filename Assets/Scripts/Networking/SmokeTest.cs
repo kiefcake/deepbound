@@ -3915,6 +3915,26 @@ namespace Deepbound.Networking
             // The test player takes a tenth of every hit: the run must not wipe mid-test.
             hp.IncomingModifiers.Insert(0, (d, f) => d * 0.1f);
 
+            // Boss practice (2026-10-27): from camp, the guardian alone; it falls, the party is back at camp unchanged.
+            {
+                var pd = DungeonDirector.Instance;
+                for (float t = 0f; t < 5f && !DungeonDirector.InLobby; t += 0.2f) yield return new WaitForSeconds(0.2f);
+                pd.ServerStartPractice(1);
+                yield return new WaitForSeconds(2.5f);
+                var pboss = BossBrain.Active;
+                string pname = pboss != null ? pboss.DisplayName : "none";
+                int others = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead && !(e is BossBrain));
+                bool inPractice = DungeonDirector.InPractice;
+                float scale = Health.FloorPlayerDamageScale;
+                float distToArena = pboss != null ? Vector3.Distance(local.transform.position, DungeonDirector.Layout.BossRoom.Center) : -1f;
+                yield return Shot(dir, "practice_arrive");
+                if (pboss != null) pboss.GetComponent<Health>().ServerDamage(1e6f, pboss.transform.position, local.NetworkObjectId);
+                for (float t = 0f; t < DungeonDirector.PracticeEndDelay + 6f && !DungeonDirector.InLobby; t += 0.2f) { hp.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
+                yield return new WaitForSeconds(1f);
+                Log("boss practice", "boss " + pname + ", others " + others + ", in practice " + inPractice + ", taken x" + scale.ToString("F2") + ", arrived " + distToArena.ToString("F1") + " m from the arena centre, back at camp " + DungeonDirector.InLobby + ", run kept off " + !pd.RunInProgress,
+                    pname != "none" && inPractice && Mathf.Abs(scale - DungeonDirector.PracticeTaken) < 0.01f && distToArena >= 0f && distToArena < 14f && DungeonDirector.InLobby && !pd.RunInProgress && !pd.Practice.Value);
+            }
+
             for (int depth = 0; depth <= DungeonDirector.FinalDepth; depth++)
             {
                 DungeonDirector.Instance.ServerDebugStartFloor(depth);

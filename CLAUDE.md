@@ -253,6 +253,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - GOLD TITHE (2026-10-27; a Rogue run ended on 5,600 unspent gold): `Cosmetics.TitheFor(goldLeft)` = gold / `GoldPerRenown` 100, max `TitheCap` 50, added in `AwardRun(..., goldLeft)`; the summary names it; Guide INVENTORY line.
 
+- BOSS PRACTICE (2026-10-27, `World/DungeonDirector.Practice.cs`): host-only row in Corwin's carriage panel (camp, no run in progress), a button per floor's guardian, open if `Cosmetics.ActsBeaten` (the boss mask, bit per act) has that act. `PracticeRpc` -> `ServerStartPractice`: `Practice` NV, `StartFloor`, every non-boss despawned, no event/contract/Tallyman, `FloorPlayerDamageScale` `PracticeTaken` 0.6, boss HP x`PracticeHealth` 0.6 and `NoLoot`; `SpawnFor`/`SpawnLookTarget` put the party 8 m from the arena centre facing in (`PracticeSpawn`); `TickPractice` (in Exploring, before wipe/clear) ends on boss death or wipe after `PracticeEndDelay` -> `EnterLobby(keepRun: true)` (camp exactly as it was; `RunInProgress` stays false). Bosstest "boss practice". Guide AT CAMP line.
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes

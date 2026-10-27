@@ -523,10 +523,10 @@ namespace Deepbound.World
         private static int arenaCounter;
 
         /// <summary>Where a given player should stand right now.</summary>
-        public static Vector3 SpawnFor(ulong clientId) => Layout != null ? Layout.PlayerSpawnFor(clientId) : Lobby.SpawnFor(clientId);
+        public static Vector3 SpawnFor(ulong clientId) => Layout != null ? (InPractice ? PracticeSpawn(clientId) : Layout.PlayerSpawnFor(clientId)) : Lobby.SpawnFor(clientId);
 
         /// <summary>A point to face when spawning: the lobby fire, or the floor's start room centre.</summary>
-        public static Vector3 SpawnLookTarget => Layout != null ? Layout.StartRoom.Center : Lobby.Origin;
+        public static Vector3 SpawnLookTarget => Layout != null ? (InPractice ? PracticeLookTarget : Layout.StartRoom.Center) : Lobby.Origin;
 
         public static int ArenaId => arenaCounter;
 
@@ -625,6 +625,7 @@ namespace Deepbound.World
             ClearSettledContract();
             ApplyOmen(false);
             ClearFloorEvent();
+            Practice.Value = false;
             if (!keepRun) { NextDepth.Value = 0; Seals.Value = 0; }
             foreach (var p in PlayerLife.All) if (p != null) p.Seat.Value = -1;
             if (CarriageRide.Instance != null) CarriageRide.Instance.Park();
@@ -805,7 +806,7 @@ namespace Deepbound.World
             SetupHoles(Layout);
             ApplyOmen(true);
             SpawnEnemies(Layout);
-            BeginContract(Layout.Depth);
+            if (!Practice.Value) BeginContract(Layout.Depth);
 
             foreach (var p in PlayerLife.All)
             {
@@ -1384,6 +1385,7 @@ namespace Deepbound.World
                     if (Layout == null) break;
                     TickEncounters();
                     TickTally(now);
+                    if (TickPractice(now)) break;
                     if (PartyWiped())
                     {
                         EnterPhase(RunPhase.Wiped, WipeDelay);
