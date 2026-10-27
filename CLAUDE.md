@@ -243,6 +243,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - FLOOR EVENTS 9-10 (2026-10-27, appended; roll `Random.Range(1, 11)`): THE WARLORDS' MUSTER (`EventChampions` 3 distinct champions; Seals stay one bit per act), QUICKSILVER (`EventSpeed` 1.15 on `PlayerProgress.SpeedMultiplier` and enemy agent speed; embers x1.3). Smoke "new floor events".
 
+- DAZED (2026-10-27, RESEARCH item 9's other half): `PlayerDebuffs.DazeUntil`/`Dazed`/`ServerDaze` (grace x2.5, Ward/Ironbark immune, cleansed), `TurnMultiplier` `DazedTurn` 0.5 on mouse and pad look in `FirstPersonMotor` (no camera sway, on purpose); from the Brute's pound (1.6 s) and the Gargoyle's dive (1.2 s); HUD alert/edge/status, tip "dazed"; smoke "dazed". Guide: Cantors/Silence, BREAK, Warden second moves, decrees, all floor events.
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes

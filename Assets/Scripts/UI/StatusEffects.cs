@@ -51,6 +51,7 @@ namespace Deepbound.UI
             if (afflict != null)
             {
                 if (afflict.Poisoned) list.Add(Timed("☠", "Poisoned", "You are losing health over time. Holy Water cleanses it.", Bad, afflict.PoisonUntil.Value - now, 8f));
+                if (afflict.Dazed) list.Add(Timed("\u2736", "Dazed", "A heavy blow rang your head: you turn at half speed. Block or dodge the big hits. Holy Water clears it.", new Color(0.95f, 0.85f, 0.55f), afflict.DazeUntil.Value - now, 1.6f));
                 if (afflict.Silenced) list.Add(Timed("\u266A", "Silenced", "A Cantor's hush: no Q, E or ultimate. You can still attack, block, dodge and drink. Holy Water lifts it.", Enemies.CantorBrain.HushColor, afflict.SilenceUntil.Value - now, Enemies.CantorBrain.SilenceSeconds));
                 if (afflict.Manic) list.Add(Timed("\u2735", "Mania", "Madness has your legs: you run wild and cannot attack. Holy Water cleanses it.", new Color(0.85f, 0.4f, 1f), afflict.ManiaUntil.Value - now, 3f));
                 if (afflict.Entangled) list.Add(new Status { Glyph = "\u2618", Name = "Entangled", Text = "An Entling's roots hold your legs: you cannot move until it dies. You can still fight it.", Lasts = "Until the Entling dies", Color = new Color(0.55f, 0.85f, 0.35f) });

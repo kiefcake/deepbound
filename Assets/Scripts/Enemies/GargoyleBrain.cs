@@ -120,6 +120,7 @@ namespace Deepbound.Enemies
             {
                 if (!struck.Add(victim)) continue;
                 victim.ServerDamage(damage * 1.4f, transform.position - diveDir, NetworkObjectId);
+                if (victim.TryGetComponent<Player.PlayerDebuffs>(out var daze)) daze.ServerDaze(1.2f);
                 if (victim.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(diveDir * 8f + Vector3.up * 4f);
             }
             if (moved < step * 0.4f || dived >= diveLength)

@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "decree", "stagger", "brand", "eclipse",
+            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "dazed", "decree", "stagger", "brand", "eclipse",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -112,6 +112,10 @@ namespace Deepbound.UI
             var deb = player.GetComponent<PlayerDebuffs>();
             if (deb != null && (deb.Poisoned || deb.Frostbitten || deb.Cursed))
                 Offer("afflicted", "You are AFFLICTED. Holy Water (4) cleanses it; a curse also ends when its Hexer dies.");
+            if (deb != null && deb.Dazed)
+                Offer("dazed", "DAZED: a heavy blow (a Brute's pound, a Gargoyle's dive) rang your head - you turn at half speed for a moment. Block or dodge the big ones.");
+            if (deb != null && deb.Silenced)
+                Offer("cantor", "SILENCED: a Cantor's pale circle closed on you - no Q, E or ultimate for a few seconds. Step out of the circles; Holy Water lifts it.");
 
             foreach (var h in Health.All)
             {

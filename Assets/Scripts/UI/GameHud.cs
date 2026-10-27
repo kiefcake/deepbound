@@ -3027,7 +3027,7 @@ namespace Deepbound.UI
         }
 
         private Player.PlayerDebuffs debuffs;
-        private bool wasPoison, wasFrost, wasCurse, wasMania, wasRoot, wasSilence;
+        private bool wasPoison, wasFrost, wasCurse, wasMania, wasRoot, wasSilence, wasDaze;
         private string afflictText;
         private Color afflictColor;
         private float afflictAt = -10f;
@@ -3041,15 +3041,16 @@ namespace Deepbound.UI
         {
             debuffs ??= player.GetComponent<Player.PlayerDebuffs>();
             if (debuffs == null) return;
-            bool poison = debuffs.Poisoned, frost = debuffs.Frostbitten, curse = debuffs.Cursed, mania = debuffs.Manic, root = debuffs.Rooted, silence = debuffs.Silenced;
+            bool poison = debuffs.Poisoned, frost = debuffs.Frostbitten, curse = debuffs.Cursed, mania = debuffs.Manic, root = debuffs.Rooted, silence = debuffs.Silenced, daze = debuffs.Dazed;
             void Alert(bool now, bool was, string text, Color c) { if (now && !was) { afflictText = text; afflictColor = c; afflictAt = Time.time; } }
             Alert(poison, wasPoison, "POISONED  -  drink Holy Water or a potion", new Color(0.55f, 1f, 0.3f));
             Alert(frost, wasFrost, "FROSTBITTEN  -  you are slowed", new Color(0.55f, 0.85f, 1f));
             Alert(curse, wasCurse, "CURSED  -  less damage and healing (kill the Hexer)", new Color(0.75f, 0.45f, 1f));
             Alert(mania, wasMania, "MANIA!  -  you cannot control your feet", new Color(1f, 0.4f, 0.9f));
             Alert(root, wasRoot, debuffs.Entangled ? "ENTANGLED  -  kill the Entling holding you" : "ROOTED  -  your feet are frozen", new Color(0.75f, 0.9f, 0.55f));
+            Alert(daze, wasDaze, "DAZED  -  your head rings: turning is sluggish", new Color(0.95f, 0.85f, 0.55f));
             Alert(silence, wasSilence, "SILENCED  -  no abilities for a moment (Holy Water lifts it)", Enemies.CantorBrain.HushColor);
-            wasPoison = poison; wasFrost = frost; wasCurse = curse; wasMania = mania; wasRoot = root; wasSilence = silence;
+            wasPoison = poison; wasFrost = frost; wasCurse = curse; wasMania = mania; wasRoot = root; wasSilence = silence; wasDaze = daze;
 
             var old = GUI.color;
             void Edge(bool on, Color c, float rate)
@@ -3065,6 +3066,7 @@ namespace Deepbound.UI
             Edge(mania, new Color(0.9f, 0.2f, 0.75f), 7f);
             Edge(root, new Color(0.4f, 0.55f, 0.2f), 2f);
             Edge(silence, new Color(0.55f, 0.55f, 0.75f), 1.2f);
+            Edge(daze, new Color(0.7f, 0.62f, 0.35f), 2.5f);
             GUI.color = old;
 
             // Never over a boss's name card: the callout waits for the intro to finish.

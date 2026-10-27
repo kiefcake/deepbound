@@ -33,6 +33,7 @@ namespace Deepbound.Enemies
             foreach (var victim in CombatQuery.Circle(at, poundRadius, Team.Players))
             {
                 victim.ServerDamage(damage, at, NetworkObjectId);
+                if (victim.TryGetComponent<Player.PlayerDebuffs>(out var daze)) daze.ServerDaze(1.6f);
                 var push = victim.transform.position - at;
                 push.y = 0f;
                 if (victim.TryGetComponent<Player.KnockbackReceiver>(out var k)) k.KnockbackRpc(push.normalized * 9f + Vector3.up * 3f);

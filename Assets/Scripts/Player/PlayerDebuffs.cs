@@ -18,6 +18,8 @@ namespace Deepbound.Player
     /// <item><b>Rooted</b> (the drowned and the frozen): ice locks your feet for a moment; you can still fight.</item>
     /// <item><b>Silenced</b> (Tongueless Cantors, 2026-10-27): no Q, E or ultimate for a few seconds; attacks,
     ///   blocks, dodges and potions still work. A grace follows so it never chains.</item>
+    /// <item><b>Dazed</b> (a Brute's pound, a Gargoyle's dive, 2026-10-27): your head rings - turning is sluggish
+    ///   for a moment. Nothing sways the camera; you just cannot whip round.</item>
     /// </list>
     /// Holy Water cleanses everything it splashes. Server-owned; synced as timestamps.
     /// </summary>
@@ -30,10 +32,11 @@ namespace Deepbound.Player
         public readonly NetworkVariable<double> ManiaUntil = new NetworkVariable<double>();
         public readonly NetworkVariable<double> RootUntil = new NetworkVariable<double>();
         public readonly NetworkVariable<double> SilenceUntil = new NetworkVariable<double>();
+        public readonly NetworkVariable<double> DazeUntil = new NetworkVariable<double>();
         /// <summary>An Entling holding you by the legs (its NetworkObjectId), until it dies. MaxValue: nobody.</summary>
         public readonly NetworkVariable<ulong> RootedBy = new NetworkVariable<ulong>(ulong.MaxValue);
         public bool Entangled => RootedBy.Value != ulong.MaxValue;
-        private double maniaGraceUntil, rootGraceUntil, silenceGraceUntil;
+        private double maniaGraceUntil, rootGraceUntil, silenceGraceUntil, dazeGraceUntil;
 
         private float poisonDps, nextTick;
         private Health health;
@@ -45,6 +48,10 @@ namespace Deepbound.Player
         public bool Cursed => Now < CurseUntil.Value;
         public bool Manic => Now < ManiaUntil.Value;
         public bool Silenced => Now < SilenceUntil.Value;
+        public bool Dazed => Now < DazeUntil.Value;
+        /// <summary>How fast you can turn while dazed.</summary>
+        public const float DazedTurn = 0.5f;
+        public float TurnMultiplier => Dazed ? DazedTurn : 1f;
         public bool Rooted => Now < RootUntil.Value || Entangled;
 
         public float SpeedMultiplier => Rooted ? 0f : Frostbitten ? 0.6f : 1f;
@@ -109,6 +116,16 @@ namespace Deepbound.Player
             return true;
         }
 
+        /// <summary>Server: a heavy blow rings your head for <paramref name="seconds"/>.</summary>
+        public bool ServerDaze(float seconds)
+        {
+            if (!IsServer || life.Downed.Value || Now < dazeGraceUntil || Warded || Unshakable) return false;
+            DazeUntil.Value = Now + seconds;
+            dazeGraceUntil = Now + seconds * 2.5f;
+            AfflictedRpc(3);
+            return true;
+        }
+
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
@@ -148,6 +165,11 @@ namespace Deepbound.Player
                 UI.GameHud.ShowCombo(at, "MANIA", new Color(0.85f, 0.4f, 1f));
                 Sfx.Play(Sound.Summon, at, 0.7f, 1.6f);
             }
+            else if (kind == 3)
+            {
+                UI.GameHud.ShowCombo(at, "DAZED", new Color(0.95f, 0.85f, 0.55f));
+                Sfx.Play(Sound.Block, at, 0.5f, 0.5f);
+            }
             else if (kind == 2)
             {
                 UI.GameHud.ShowCombo(at, "SILENCED", Enemies.CantorBrain.HushColor);
@@ -165,9 +187,10 @@ namespace Deepbound.Player
         public void ServerCleanse()
         {
             if (!IsServer) return;
-            bool any = Poisoned || Frostbitten || Cursed || Manic || Silenced || Now < RootUntil.Value;
+            bool any = Poisoned || Frostbitten || Cursed || Manic || Silenced || Dazed || Now < RootUntil.Value;
             ManiaUntil.Value = 0;
             SilenceUntil.Value = 0;
+            DazeUntil.Value = 0;
             RootUntil.Value = 0;
             PoisonUntil.Value = 0;
             FrostUntil.Value = 0;

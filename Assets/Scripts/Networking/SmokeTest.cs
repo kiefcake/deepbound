@@ -1241,6 +1241,15 @@ namespace Deepbound.Networking
                             bool hushed = hdeb.Silenced, locked = UI.Binds.AbilityLock != null && UI.Binds.AbilityLock();
                             hdeb.ServerCleanse();
                             yield return new WaitForSeconds(0.2f);
+                            // Dazed: a heavy blow halves your turning for a moment; Holy Water clears it.
+                            hdeb.ServerCleanse();
+                            yield return new WaitForSeconds(0.1f);
+                            bool dazedNow = hdeb.ServerDaze(1.5f);
+                            yield return null;
+                            float turn = hdeb.TurnMultiplier;
+                            hdeb.ServerCleanse();
+                            yield return null;
+                            Log("dazed", "took " + dazedNow + ", turning x" + turn.ToString("F2") + ", cleansed " + !hdeb.Dazed, dazedNow && Mathf.Abs(turn - PlayerDebuffs.DazedTurn) < 0.01f && !hdeb.Dazed);
                             Log("cantor silence", "hushes " + (ct != null ? ct.Hushes : -1) + ", silenced " + hushed + ", keys locked " + locked + ", cleansed " + !hdeb.Silenced, hushed && locked && !hdeb.Silenced);
                             if (ct != null) ct.GetComponent<Health>().ServerDamage(1e6f, ct.transform.position);
                         }
