@@ -16,6 +16,8 @@ namespace Deepbound.Player
     /// <item><b>Mania</b> (the Cathedral's choir, the Unsung): for a couple of seconds you sprint about
     ///   wildly and cannot attack; you can still look around. A short grace follows, so it never chains.</item>
     /// <item><b>Rooted</b> (the drowned and the frozen): ice locks your feet for a moment; you can still fight.</item>
+    /// <item><b>Silenced</b> (Tongueless Cantors, 2026-10-27): no Q, E or ultimate for a few seconds; attacks,
+    ///   blocks, dodges and potions still work. A grace follows so it never chains.</item>
     /// </list>
     /// Holy Water cleanses everything it splashes. Server-owned; synced as timestamps.
     /// </summary>
@@ -27,10 +29,11 @@ namespace Deepbound.Player
         public readonly NetworkVariable<ulong> CurseSource = new NetworkVariable<ulong>(ulong.MaxValue);
         public readonly NetworkVariable<double> ManiaUntil = new NetworkVariable<double>();
         public readonly NetworkVariable<double> RootUntil = new NetworkVariable<double>();
+        public readonly NetworkVariable<double> SilenceUntil = new NetworkVariable<double>();
         /// <summary>An Entling holding you by the legs (its NetworkObjectId), until it dies. MaxValue: nobody.</summary>
         public readonly NetworkVariable<ulong> RootedBy = new NetworkVariable<ulong>(ulong.MaxValue);
         public bool Entangled => RootedBy.Value != ulong.MaxValue;
-        private double maniaGraceUntil, rootGraceUntil;
+        private double maniaGraceUntil, rootGraceUntil, silenceGraceUntil;
 
         private float poisonDps, nextTick;
         private Health health;
@@ -41,6 +44,7 @@ namespace Deepbound.Player
         public bool Frostbitten => Now < FrostUntil.Value;
         public bool Cursed => Now < CurseUntil.Value;
         public bool Manic => Now < ManiaUntil.Value;
+        public bool Silenced => Now < SilenceUntil.Value;
         public bool Rooted => Now < RootUntil.Value || Entangled;
 
         public float SpeedMultiplier => Rooted ? 0f : Frostbitten ? 0.6f : 1f;
@@ -92,6 +96,25 @@ namespace Deepbound.Player
             AfflictedRpc(0);
         }
 
+        /// <summary>Server: a Cantor's hush takes your abilities for <paramref name="seconds"/>. False if it did not take.</summary>
+        public bool ServerSilence(float seconds)
+        {
+            if (!IsServer || life.Downed.Value || Now < silenceGraceUntil || Warded || Unshakable) return false;
+            // The Iron Psalter's hymn keeps a voice in you: half as long.
+            if (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasRelic(Loot.Relic.IronPsalter)) seconds *= 0.5f;
+            SilenceUntil.Value = Now + seconds;
+            silenceGraceUntil = Now + seconds * 2.5f;
+            AfflictedRpc(2);
+            return true;
+        }
+
+        public override void OnNetworkSpawn()
+        {
+            base.OnNetworkSpawn();
+            // Silence is felt at the keys: Q, E and the ultimate do nothing while it lasts (every kit at once).
+            if (IsOwner) UI.Binds.AbilityLock = () => this != null && Silenced;
+        }
+
         /// <summary>Server: an Entling wraps your legs until it dies (or lets go).</summary>
         public void ServerHoldRoots(ulong entling)
         {
@@ -124,6 +147,11 @@ namespace Deepbound.Player
                 UI.GameHud.ShowCombo(at, "MANIA", new Color(0.85f, 0.4f, 1f));
                 Sfx.Play(Sound.Summon, at, 0.7f, 1.6f);
             }
+            else if (kind == 2)
+            {
+                UI.GameHud.ShowCombo(at, "SILENCED", Enemies.CantorBrain.HushColor);
+                Sfx.Play(Sound.Whisper, at, 0.8f, 0.6f);
+            }
             else
             {
                 UI.GameHud.ShowCombo(at, "ROOTED", new Color(0.6f, 0.9f, 1f));
@@ -136,8 +164,9 @@ namespace Deepbound.Player
         public void ServerCleanse()
         {
             if (!IsServer) return;
-            bool any = Poisoned || Frostbitten || Cursed || Manic || Now < RootUntil.Value;
+            bool any = Poisoned || Frostbitten || Cursed || Manic || Silenced || Now < RootUntil.Value;
             ManiaUntil.Value = 0;
+            SilenceUntil.Value = 0;
             RootUntil.Value = 0;
             PoisonUntil.Value = 0;
             FrostUntil.Value = 0;

@@ -1541,12 +1541,21 @@ namespace Deepbound.UI
             abilities.Add(new AbilityView { Key = "CTRL", Name = "Dodge", Remaining = life.DodgeReadyAt - Time.time, Cooldown = life.DodgeCooldownNow });
             var kick = player.GetComponent<Kick>();
             if (kick != null) abilities.Add(new AbilityView { Key = "V", Name = "Kick", Remaining = kick.ReadyAt - Time.time, Cooldown = Kick.Cooldown });
+            // Silenced: the ability slots go dark, and the word sits over them.
+            var hushed = player.GetComponent<Player.PlayerDebuffs>();
+            bool silenced = hushed != null && hushed.Silenced;
             for (int i = 0; i < abilities.Count; i++)
             {
                 var a = abilities[i];
+                if (silenced && (a.Key == "Q" || a.Key == "E")) a.Unaffordable = true;
                 Ability(x + (size + gap) * i, y, size, Binds.Show(a.Key), a.Name, a.Remaining, a.Cooldown, a.Active, a.Unaffordable);
             }
             DrawUltimate(x + (size + gap) * abilities.Count, y, size);
+            if (silenced)
+            {
+                var c = Enemies.CantorBrain.HushColor;
+                UiSkin.Shadowed(new Rect(x, y - 24, total, 22), "SILENCED", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = c } });
+            }
 
             // The potion pouch, just above the bar: four little bottles with their counts.
             var belt = player.GetComponent<Flasks>();
@@ -2983,7 +2992,7 @@ namespace Deepbound.UI
         }
 
         private Player.PlayerDebuffs debuffs;
-        private bool wasPoison, wasFrost, wasCurse, wasMania, wasRoot;
+        private bool wasPoison, wasFrost, wasCurse, wasMania, wasRoot, wasSilence;
         private string afflictText;
         private Color afflictColor;
         private float afflictAt = -10f;
@@ -2997,14 +3006,15 @@ namespace Deepbound.UI
         {
             debuffs ??= player.GetComponent<Player.PlayerDebuffs>();
             if (debuffs == null) return;
-            bool poison = debuffs.Poisoned, frost = debuffs.Frostbitten, curse = debuffs.Cursed, mania = debuffs.Manic, root = debuffs.Rooted;
+            bool poison = debuffs.Poisoned, frost = debuffs.Frostbitten, curse = debuffs.Cursed, mania = debuffs.Manic, root = debuffs.Rooted, silence = debuffs.Silenced;
             void Alert(bool now, bool was, string text, Color c) { if (now && !was) { afflictText = text; afflictColor = c; afflictAt = Time.time; } }
             Alert(poison, wasPoison, "POISONED  -  drink Holy Water or a potion", new Color(0.55f, 1f, 0.3f));
             Alert(frost, wasFrost, "FROSTBITTEN  -  you are slowed", new Color(0.55f, 0.85f, 1f));
             Alert(curse, wasCurse, "CURSED  -  less damage and healing (kill the Hexer)", new Color(0.75f, 0.45f, 1f));
             Alert(mania, wasMania, "MANIA!  -  you cannot control your feet", new Color(1f, 0.4f, 0.9f));
             Alert(root, wasRoot, debuffs.Entangled ? "ENTANGLED  -  kill the Entling holding you" : "ROOTED  -  your feet are frozen", new Color(0.75f, 0.9f, 0.55f));
-            wasPoison = poison; wasFrost = frost; wasCurse = curse; wasMania = mania; wasRoot = root;
+            Alert(silence, wasSilence, "SILENCED  -  no abilities for a moment (Holy Water lifts it)", Enemies.CantorBrain.HushColor);
+            wasPoison = poison; wasFrost = frost; wasCurse = curse; wasMania = mania; wasRoot = root; wasSilence = silence;
 
             var old = GUI.color;
             void Edge(bool on, Color c, float rate)
@@ -3019,6 +3029,7 @@ namespace Deepbound.UI
             Edge(curse, new Color(0.45f, 0.15f, 0.7f), 2.2f);
             Edge(mania, new Color(0.9f, 0.2f, 0.75f), 7f);
             Edge(root, new Color(0.4f, 0.55f, 0.2f), 2f);
+            Edge(silence, new Color(0.55f, 0.55f, 0.75f), 1.2f);
             GUI.color = old;
 
             // Never over a boss's name card: the callout waits for the intro to finish.

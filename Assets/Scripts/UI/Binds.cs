@@ -59,8 +59,26 @@ namespace Deepbound.UI
             return k == Key.None ? null : kb[k];
         }
 
-        public static bool Down(Bind b) { var c = Control(b); var p = Pad(b); return (c != null && c.wasPressedThisFrame) || (p != null && p.wasPressedThisFrame); }
-        public static bool Held(Bind b) { var c = Control(b); var p = Pad(b); return (c != null && c.isPressed) || (p != null && p.isPressed); }
+        public static bool Down(Bind b)
+        {
+            var c = Control(b); var p = Pad(b);
+            bool down = (c != null && c.wasPressedThisFrame) || (p != null && p.wasPressedThisFrame);
+            if (down && Locked(b)) { LockedPress(); return false; }
+            return down;
+        }
+        public static bool Held(Bind b) { var c = Control(b); var p = Pad(b); return !Locked(b) && ((c != null && c.isPressed) || (p != null && p.isPressed)); }
+
+        /// <summary>Set by the local player's afflictions: true while Q, E and the ultimate are SILENCED.</summary>
+        public static System.Func<bool> AbilityLock;
+        private static bool Locked(Bind b) => (b == Bind.AbilityQ || b == Bind.AbilityE || b == Bind.Ultimate) && AbilityLock != null && AbilityLock();
+        private static float lockedPressAt = -10f;
+        private static void LockedPress()
+        {
+            if (Time.unscaledTime - lockedPressAt < 0.4f) return;
+            lockedPressAt = Time.unscaledTime;
+            Art.Sfx.Play2D(Art.Sound.UiError, 0.5f);
+            GameHud.Feed("SILENCED - your abilities return in a moment (Holy Water lifts it)", Enemies.CantorBrain.HushColor);
+        }
         public static bool Up(Bind b) { var c = Control(b); var p = Pad(b); return (c != null && c.wasReleasedThisFrame) || (p != null && p.wasReleasedThisFrame); }
 
         // ---- Gamepad (2026-10-20): play with a pad; the menus still want the mouse ----

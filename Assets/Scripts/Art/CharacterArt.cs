@@ -688,7 +688,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling, Orbweaver, ChoirAcolyte, AbyssEye, BonePiper }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling, Orbweaver, ChoirAcolyte, AbyssEye, BonePiper, Cantor }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -728,6 +728,7 @@ namespace Deepbound.Art
                 : kind == SkeletonKind.Orbweaver ? new Color(1f, 0.62f, 0.2f)
                 : kind == SkeletonKind.ChoirAcolyte ? new Color(1f, 0.82f, 0.4f)
                 : kind == SkeletonKind.BonePiper ? new Color(0.4f, 1f, 0.9f)
+                : kind == SkeletonKind.Cantor ? new Color(0.78f, 0.78f, 1f)
                 : kind == SkeletonKind.Necromancer ? new Color(0.75f, 0.35f, 1f)
                 : kind == SkeletonKind.Brute ? new Color(1f, 0.4f, 0.1f)
                 : new Color(1f, 0.25f, 0.1f);
@@ -977,6 +978,22 @@ namespace Deepbound.Art
                 // A stiff white choir collar (open at the front, the ruff of a cathedral singer).
                 var collar = MeshKit.Part(rig.Torso, "ChoirCollar", MeshKit.Lathe("choirCollar", new[] { new Vector2(0.17f, 0f), new Vector2(0.26f, 0.05f), new Vector2(0.25f, 0.08f) }, 14, true, 300f), Mat.Cloth, new Vector3(0f, 0.55f, 0f), new Vector3(0f, 30f, 0f));
                 ArtLibrary.Tint(collar.GetComponent<Renderer>(), new Color(0.92f, 0.9f, 0.84f));
+            }
+            else if (kind == SkeletonKind.Cantor)
+            {
+                // A gagged chorister in ash-grey vestments: a linen band bound over the jaw, a pale stole, and
+                // in the free hand a small bell with its clapper wrapped in cloth.
+                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.22f, 0.22f, 0.27f), new Color(0.78f, 0.78f, 1f), false);
+                var linen = new Color(0.78f, 0.74f, 0.64f);
+                ArtLibrary.Tint(MeshKit.Part(rig.Head, "Gag", MeshKit.Box(new Vector3(0.2f, 0.05f, 0.2f)), Mat.Cloth, new Vector3(0f, -0.07f, 0.03f)).GetComponent<Renderer>(), linen);
+                ArtLibrary.Tint(MeshKit.Part(rig.Head, "GagKnot", MeshKit.Ball(0.03f, 6, 4), Mat.Cloth, new Vector3(0f, -0.06f, -0.09f)).GetComponent<Renderer>(), linen * 0.85f);
+                for (int sx = -1; sx <= 1; sx += 2)
+                    ArtLibrary.Tint(MeshKit.Part(rig.Torso, "Stole", MeshKit.Box(new Vector3(0.06f, 0.55f, 0.02f)), Mat.Cloth, new Vector3(sx * 0.09f, 0.3f, 0.2f), new Vector3(-6f, 0f, sx * 4f)).GetComponent<Renderer>(), new Color(0.62f, 0.62f, 0.72f));
+                var bell = MeshKit.Pivot(rig.ArmL, "HandBell", new Vector3(0f, -0.7f, 0.06f));
+                MeshKit.Part(bell, "BellGrip", MeshKit.Cylinder(0.015f, 0.015f, 0.12f, 6), Mat.Wood, new Vector3(0f, 0.04f, 0f));
+                var cup = MeshKit.Part(bell, "BellCup", MeshKit.Lathe("cantorBell", new[] { new Vector2(0.02f, 0f), new Vector2(0.05f, -0.04f), new Vector2(0.065f, -0.11f), new Vector2(0.08f, -0.13f) }, 12, true), Mat.Gold, Vector3.zero);
+                ArtLibrary.Tint(cup.GetComponent<Renderer>(), new Color(0.55f, 0.5f, 0.42f));
+                ArtLibrary.Tint(MeshKit.Part(bell, "Muffle", MeshKit.Ball(0.03f, 6, 4), Mat.Cloth, new Vector3(0f, -0.1f, 0f)).GetComponent<Renderer>(), linen);
             }
             else if (kind == SkeletonKind.BonePiper)
             {

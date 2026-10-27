@@ -1228,6 +1228,21 @@ namespace Deepbound.Networking
                             }
                         }
                         else Log("bone piper", "no prefab", false);
+                        // A Tongueless Cantor hushes the floor under the player: Silenced, the ability keys lock; Holy Water lifts it.
+                        var ct = dd.ServerDebugSpawn("cantor", local.transform.position + local.transform.forward * 9f, false) as CantorBrain;
+                        if (ct != null)
+                        {
+                            var hdeb = local.GetComponent<PlayerDebuffs>();
+                            ct.ServerDebugHush(local.transform.position, 0.6f);
+                            for (float t = 0f; t < 1.2f && ct != null && ct.Hushes == 0; t += 0.1f) { local.GetComponent<Health>().ServerSetFraction(1f); ct.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                            yield return new WaitForSeconds(0.2f);
+                            bool hushed = hdeb.Silenced, locked = UI.Binds.AbilityLock != null && UI.Binds.AbilityLock();
+                            hdeb.ServerCleanse();
+                            yield return new WaitForSeconds(0.2f);
+                            Log("cantor silence", "hushes " + (ct != null ? ct.Hushes : -1) + ", silenced " + hushed + ", keys locked " + locked + ", cleansed " + !hdeb.Silenced, hushed && locked && !hdeb.Silenced);
+                            if (ct != null) ct.GetComponent<Health>().ServerDamage(1e6f, ct.transform.position);
+                        }
+                        else Log("cantor silence", "no prefab", false);
                         local.GetComponent<Health>().ServerSetFraction(1f);
                         // Floor events: Blood Tithe makes blows hurt more and kills mend.
                         {
@@ -3641,7 +3656,7 @@ namespace Deepbound.Networking
                     }
 
                     // Line up one of each newer enemy type for a close look.
-                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain), typeof(EntlingBrain), typeof(OrbweaverBrain), typeof(ChoirAcolyteBrain), typeof(AbyssEyeBrain), typeof(BonePiperBrain) })
+                    foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain), typeof(EntlingBrain), typeof(OrbweaverBrain), typeof(ChoirAcolyteBrain), typeof(AbyssEyeBrain), typeof(BonePiperBrain), typeof(CantorBrain) })
                     {
                         var e = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(b => b.GetType() == type && !b.IsDead);
                         if (e == null) continue;

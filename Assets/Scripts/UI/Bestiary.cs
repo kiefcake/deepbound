@@ -29,6 +29,7 @@ namespace Deepbound.UI
             new Entry { Type = "HexerBrain", Name = "Hexer", Text = "Curses whoever it sees: less damage and healing until it dies. Always the first target." },
             new Entry { Type = "MournerBrain", Name = "Mourner", Text = "Moves only while nobody looks. Keep someone facing it; listen for scraping stone." },
             new Entry { Type = "EntlingBrain", Name = "Entling", Text = "Sprints in and roots you until it dies. Kill it on the way in, or have a friend free you." },
+            new Entry { Type = "CantorBrain", Name = "Tongueless Cantor", Text = "Its pale circle SILENCES whoever it closes on: no abilities for a few seconds. Step out; Holy Water lifts it." },
             new Entry { Type = "BonePiperBrain", Name = "Bone Piper", Text = "Plays tunes of soulfire: Rose, Scissors, Seedpods, March. Stands still to play; its bag is a weak point." },
             new Entry { Type = "OrbweaverBrain", Name = "Orbweaver", Text = "Conjures orbs that fire spirals, gapped rings and aimed bursts. Kill it and its orbs die." },
             new Entry { Type = "WardenBrain", Name = "The Wardens", Text = "A guardian at the end of each act's first floor. Each act's Warden has its own trick.", Boss = true },
