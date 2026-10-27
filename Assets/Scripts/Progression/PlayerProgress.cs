@@ -132,7 +132,7 @@ namespace Deepbound.Progression
         }
 
         /// <summary>A vendor's mark-up for you: +25% per grudge level.</summary>
-        public float PriceMultiplier(Shop.Vendor vendor) => (1f + 0.25f * Grudge(VendorFolk(vendor)))
+        public float PriceMultiplier(Shop.Vendor vendor) => (1f + 0.25f * Grudge(VendorFolk(vendor))) * World.DungeonDirector.OmenPrices
             * (HasRelic(Relic.PilgrimsPurse) && World.DungeonDirector.InLobby ? Mathf.Max(0.55f, 1f - 0.15f * RelicPower(Relic.PilgrimsPurse)) : 1f);
 
         /// <summary>Who stands behind a vendor's counter right now (the peddler, off camp).</summary>
@@ -820,8 +820,9 @@ namespace Deepbound.Progression
         /// <see cref="MaxCooldownCut"/> (2026-10-23: four sources multiplied down to a third of a cooldown,
         /// and abilities stopped being decisions). Ability ranks cut on top of this.
         /// </summary>
-        public float CooldownMultiplier => 1f - Mathf.Min(MaxCooldownCut,
-            (HasRelic(Relic.EchoStone) ? 0.2f * RelicPower(Relic.EchoStone) : 0f) + (Blessed(Blessing.Swiftness) ? 0.15f : 0f) + (HasEdge(Edge.Quickening) ? Edges.QuickeningCut : 0f));
+        public float CooldownMultiplier => (1f - Mathf.Min(MaxCooldownCut,
+            (HasRelic(Relic.EchoStone) ? 0.2f * RelicPower(Relic.EchoStone) : 0f) + (Blessed(Blessing.Swiftness) ? 0.15f : 0f) + (HasEdge(Edge.Quickening) ? Edges.QuickeningCut : 0f)))
+            * World.DungeonDirector.OmenCooldown;
         public const float MaxCooldownCut = 0.4f;
 
         /// <summary>Rallying Bell: synced so speed and damage agree on every peer.</summary>

@@ -139,6 +139,7 @@ namespace Deepbound.Player
             if (progress.HasRelic(Relic.WarlordsHorn)) amount *= 1f + 0.5f * progress.RelicPower(Relic.WarlordsHorn);
             if (progress.HasRelic(Relic.EchoStone)) amount *= 1f + 0.2f * progress.RelicPower(Relic.EchoStone);
             if (progress.Wears(GearId.RosaryOfAsh)) amount *= 1.35f;
+            amount *= DungeonDirector.OmenUltCharge;
             Charge.Value = Mathf.Min(ChargeMax, Charge.Value + amount);
         }
 

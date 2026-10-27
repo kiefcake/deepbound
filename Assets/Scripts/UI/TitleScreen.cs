@@ -78,7 +78,7 @@ namespace Deepbound.UI
             "The Unsung sings ECHOES of the fallen; the Cardinal BRANDS",
             "WARDENS learn a second move below half health",
             "Tome of the PHOENIX: a firebird fights beside you for 30 s",
-            "EDGES at +5/+7/+9 and HONES past +10 at Hobb's anvil",
+            "TONGUELESS CANTORS silence you; three new OMENS at camp",
             "WEAK POINTS burst (and enrage beasts); see what ails an enemy",
             "Recorded music, monsters, fire and chains (CC0, see credits)",
         };

@@ -881,10 +881,12 @@ namespace Deepbound.Networking
                         string first = Physics.Raycast(from, (target - from).normalized, out var fh, 8f, ~0, QueryTriggerInteraction.Ignore) ? fh.collider.name + "@" + fh.distance.ToString("F1") : "nothing";
                         // One of the dead wandering into the line takes the shot: not the wall's fault either.
                         bool foeInWay = fh.collider != null && fh.collider.GetComponentInParent<Health>() is Health fhh && fhh.Team == Team.Enemies && fhh != sh;
+                        // Room dressing (a shelf, a crate) standing in front of the wall blocks it from that spot, as it would a player's.
+                        bool propInWay = fh.collider != null && !fh.collider.transform.IsChildOf(st) && fh.distance < Vector3.Distance(from, target) - 0.4f;
                         Arrows.ServerFire(from, target - from, 5f, Team.Enemies, local.NetworkObjectId, 21f, null, false, 12f);
                         yield return new WaitForSeconds(0.45f);
                         // An urn or barrel in the way takes the shot and breaks (the next one gets through): not the wall's fault.
-                        if (secret == null || !secret.IsSpawned || sh.Current.Value < before || first.StartsWith("Breakable") || foeInWay) landed++;
+                        if (secret == null || !secret.IsSpawned || sh.Current.Value < before || first.StartsWith("Breakable") || foeInWay || propInWay) landed++;
                         else Debug.Log("[Smoke] wall shot missed at " + aimAt + ", first thing on the line: " + first);
                         // Broken already (crits and the run's kit can fell it early): the rest have nothing left to miss.
                         if (secret == null || !secret.IsSpawned || sh.Current.Value <= 0f) { landed = aims.Length; break; }
@@ -2350,6 +2352,21 @@ namespace Deepbound.Networking
                 // The Omen Stone exists at camp (the run is already under way, so it will not turn).
                 Log("omen stone", FindObjectsByType<OmenStone>(FindObjectsSortMode.None).Length + " stone(s), omen " + DungeonDirector.OmenName(dc.RunOmen),
                     FindObjectsByType<OmenStone>(FindObjectsSortMode.None).Length == 1);
+                // The newer omens (2026-10-27) name themselves and move their numbers.
+                {
+                    byte omen0 = dc.OmenValue.Value;
+                    var progO = local.GetComponent<PlayerProgress>();
+                    float cd0 = progO.CooldownMultiplier, price0 = progO.PriceMultiplier(Shop.Vendor.Smith);
+                    dc.OmenValue.Value = (byte)Omen.Avarice;
+                    bool avarice = Mathf.Abs(progO.PriceMultiplier(Shop.Vendor.Smith) / price0 - 1.5f) < 0.01f && DungeonDirector.OmenGold == 2f;
+                    dc.OmenValue.Value = (byte)Omen.HushedBells;
+                    bool hushed = DungeonDirector.OmenUltCharge == 1.5f;
+                    dc.OmenValue.Value = (byte)Omen.QuickenedDead;
+                    bool quick = DungeonDirector.OmenEmbers == 1.4f;
+                    bool named = DungeonDirector.OmenText(Omen.Avarice).Length > 0 && DungeonDirector.OmenName(Omen.QuickenedDead) != "No Omen" && DungeonDirector.OmenCount == 8;
+                    dc.OmenValue.Value = omen0;
+                    Log("new omens", "avarice " + avarice + ", hushed bells " + hushed + ", quickened " + quick + ", named " + named + ", cd back " + (progO.CooldownMultiplier == cd0), avarice && hushed && quick && named);
+                }
 
                 // The bounty board: take a Slayer-free notice, see it ride down with the party.
                 var notice = FindObjectsByType<BountyNotice>(FindObjectsSortMode.None).FirstOrDefault();

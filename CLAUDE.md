@@ -233,6 +233,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - SILENCE + the TONGUELESS CANTOR (2026-10-27, RESEARCH.md item 9): `PlayerDebuffs.SilenceUntil`/`Silenced`/`ServerSilence(s)` (grace x2.5, Ward/Ironbark immune, Iron Psalter halves; cleansed by Holy Water); the owner sets `UI.Binds.AbilityLock`, and `Binds.Down/Held` refuse AbilityQ/E/Ultimate while it holds (one place covers every kit and the autoplay pad; a locked press plays UiError + a feed line, throttled). HUD: alert, grey-violet edge, Q/E dimmed + "SILENCED" over the bar, status entry. `Enemies/CantorBrain` (SkeletonKind/EnemyType `Cantor`, appended; gagged ash-grey chorister with a muffled hand bell, 90 HP): every 9 s a HUSH circle (`HushRadius` 2.8, 1.4 s, keyed so a stun cancels it) where its target is heading; inside on close: x0.5 dmg + Silence `SilenceSeconds` 3.5. Spawns act >= 2 (0.04+0.01 tier). Tip "cantor", Bestiary, murmur (muted toll). Smoke "cantor silence" (`ServerDebugHush`). Tips.Keys gained cantor/stagger/brand/eclipse.
 
+- OMENS 5-7 (2026-10-27; `OmenCount` 8, appended): QUICKENED DEAD (`OmenPace` 0.83 on enemy `Pace`, `OmenSpeed` 1.2 on agent speed, off at camp; embers x1.4), HUSHED BELLS (`OmenCooldown` x1.4 on `CooldownMultiplier` after the cut cap; `OmenUltCharge` x1.5 in `Ultimates.Add`), AVARICE (`OmenGold` 2, `OmenPrices` x1.5 in `PriceMultiplier`). Smoke "new omens". Smoke "secret wall takes shots" now forgives room dressing in front of the wall (`propInWay`).
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes
