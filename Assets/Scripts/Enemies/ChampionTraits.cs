@@ -47,6 +47,19 @@ namespace Deepbound.Enemies
             return t >= 0 && t < Lines.Length ? Lines[t] : "";
         }
 
+        private static readonly Color[] Motes =
+        {
+            new Color(0.75f, 0.7f, 0.55f), new Color(0.9f, 0.8f, 0.5f), new Color(0.6f, 0.25f, 0.85f), new Color(0.85f, 0.2f, 0.2f), new Color(0.8f, 0.8f, 0.85f),
+            new Color(1f, 0.5f, 0.15f), new Color(1f, 0.85f, 0.3f), new Color(0.95f, 0.45f, 0.3f), new Color(0.6f, 0.85f, 1f), new Color(0.95f, 0.92f, 0.8f),
+        };
+
+        /// <summary>The motes a champion with this title drifts in (any peer), or null.</summary>
+        public static Color? MoteColor(string title)
+        {
+            int t = TraitOf(title);
+            return t >= 0 && t < Motes.Length ? Motes[t] : (Color?)null;
+        }
+
         /// <summary>The trait an epithet in this title carries, or -1.</summary>
         public static int TraitOf(string title)
         {

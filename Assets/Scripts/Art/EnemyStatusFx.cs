@@ -23,6 +23,8 @@ namespace Deepbound.Art
         private Transform stars, mark, tauntRing, frostRing, bubble, volatileRing, thorns, shards, rageRing;
         private Renderer tauntR, frostR, bubbleR, volatileR, rageR;
         private float nextMote, nextStreak;
+        private string championTitle;
+        private Color? championMote;
         private Vector3 lastPos;
         private Color baseEyes;
         private bool eyesRed, hidden = true;
@@ -132,6 +134,12 @@ namespace Deepbound.Art
                 if (affix == EliteAffix.Vampiric) Vfx.Mote(transform.position, new Color(0.65f, 0.05f, 0.1f));
                 if (affix == EliteAffix.Gravebound) Vfx.Mote(transform.position, new Color(0.6f, 0.95f, 0.75f));
                 if (enraged) Vfx.Embers(HeadTop, 2, new Color(1f, 0.35f, 0.25f), 1.4f, 0.05f, 0.6f);
+                // A champion wears its trait (2026-10-27): the Pale in frost, Ashenhand in cinders, and so on.
+                if (brain != null && brain.IsChampion)
+                {
+                    if (championTitle != brain.Title.Value.ToString()) { championTitle = brain.Title.Value.ToString(); championMote = Enemies.ChampionTraits.MoteColor(championTitle); }
+                    if (championMote.HasValue) Vfx.Mote(transform.position, championMote.Value);
+                }
             }
             // Swift: pale streaks behind it whenever it runs.
             if (affix == EliteAffix.Swift && speed > 2.5f && t >= nextStreak)
