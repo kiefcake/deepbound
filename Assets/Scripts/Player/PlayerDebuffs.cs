@@ -37,6 +37,7 @@ namespace Deepbound.Player
         public readonly NetworkVariable<ulong> RootedBy = new NetworkVariable<ulong>(ulong.MaxValue);
         public bool Entangled => RootedBy.Value != ulong.MaxValue;
         private double maniaGraceUntil, rootGraceUntil, silenceGraceUntil, dazeGraceUntil;
+        private float rootedAt = -1f;
 
         private float poisonDps, nextTick;
         private Health health;
@@ -214,9 +215,17 @@ namespace Deepbound.Player
                      (src.TryGetComponent<Health>(out var sh) && !sh.IsAlive)))
                     ServerCleanseCurse();
                 if (life.Downed.Value && (Poisoned || Frostbitten || Cursed || Manic || Rooted)) ServerCleanse();
-                // Whatever held you is gone: the roots go with it.
-                if (Entangled && (life.Downed.Value || !NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(RootedBy.Value, out var holder) ||
-                    (holder.TryGetComponent<Health>(out var hh) && !hh.IsAlive))) RootedBy.Value = ulong.MaxValue;
+                // Whatever held you is gone, has been knocked away, or has held too long (a stunned Entling's own clock
+                // stops; 2026-10-27 autoplay: a Ranger stood rooted for nine minutes): the roots go with it.
+                if (Entangled)
+                {
+                    if (rootedAt < 0f) rootedAt = Time.time;
+                    bool gone = life.Downed.Value || !NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(RootedBy.Value, out var holder) ||
+                        (holder.TryGetComponent<Health>(out var hh) && !hh.IsAlive) ||
+                        (holder.transform.position - transform.position).sqrMagnitude > 16f || Time.time - rootedAt > Enemies.EntlingBrain.HoldLimit + 1f;
+                    if (gone) { RootedBy.Value = ulong.MaxValue; rootedAt = -1f; }
+                }
+                else rootedAt = -1f;
             }
 
             // Everyone: wisps around an afflicted player, so the party can see who needs help.

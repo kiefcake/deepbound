@@ -99,6 +99,8 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
+            // Stunned, it still lets go when its time is up (the player's side checks too).
+            if (IsServer && !IsDead && held != null && (Time.time >= holdUntil || held.RootedBy.Value != NetworkObjectId)) Release();
             if (HeldByStun()) return;
             if (IsServer && !IsDead && held != null)
             {

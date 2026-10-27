@@ -247,6 +247,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - CHAMPION TRAITS (2026-10-27): `EnemyBrain.Epithets` (was private ChampionEpithets; append only) index = `ChampionTrait`, set in `SetChampionTitle`; `Enemies/ChampionTraits` (static: `Describe(title)` for the feed on any peer, `EnsureHook` on ServerAnyDamaged): Unburied (IncomingModifier: first lethal blow < KillDamage leaves 1 HP, stun 1.6 s, heal to 40% after 1.3 s), Gravefist (daze 1.4 + knock), Hollow (curse 4 s), Bonegnawer (heals 30% of dealt), Patient (dmg x1.5, Pace x1.3), Ashenhand (poison 3 s), Tithe-Taker (steals 5% gold, max 40, `tithe` dropped x1.5 on death), Oathbreaker (below half once: two skeletons via `ServerDebugSpawn`), Pale (frostbite 2.5 s), Marrowgrin (death = VolatileBlast). `ServerDebugChampion(trait)`; smoke "champion traits"; tip "champtrait"; Guide ELITES line.
 
+- ROOTS ALWAYS LET GO (2026-10-27): `PlayerDebuffs` (server) frees an Entangled player whose holder is gone, dead, > 4 m away or has held past `EntlingBrain.HoldLimit` + 1 (`rootedAt`); the Entling also releases before its `HeldByStun` early-out (a stunned Entling's clock used to stop). AUTOPLAY: `StepToward` steps back onto navmesh within 3.5 m when none is within 0.9 m (Disengage leaps left the Ranger bot frozen 9 min); `WhyStuck` names ROOTED/ENTANGLED/PINNED/off-navmesh first.
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes

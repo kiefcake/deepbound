@@ -750,6 +750,14 @@ namespace Deepbound.Networking
         private string WhyStuck(Vector3? goal)
         {
             if (!goal.HasValue) return "no goal";
+            var stuckDeb = me.GetComponent<PlayerDebuffs>();
+            string held = (stuckDeb != null && stuckDeb.Rooted ? (stuckDeb.Entangled ? "ENTANGLED, " : "ROOTED, ") : "") + (motor.Pinned ? "PINNED, " : "")
+                + (NavMesh.SamplePosition(me.transform.position, out var close, 0.9f, NavMesh.AllAreas) ? "" : "no navmesh within 0.9 m (y " + me.transform.position.y.ToString("F1") + "), ");
+            return held + WhyStuckPath(goal);
+        }
+
+        private string WhyStuckPath(Vector3? goal)
+        {
             var path = new NavMeshPath();
             bool fromOk = NavMesh.SamplePosition(me.transform.position, out var a, 2f, NavMesh.AllAreas);
             bool toOk = NavMesh.SamplePosition(goal.Value, out var b, 3f, NavMesh.AllAreas);
@@ -771,7 +779,16 @@ namespace Deepbound.Networking
         /// <summary>Walk (at a run's pace, over the navmesh) toward a point for one short stretch.</summary>
         private IEnumerator StepToward(Vector3 to, float stopAt)
         {
-            if (!NavMesh.SamplePosition(me.transform.position, out var a, 0.9f, NavMesh.AllAreas) || !NavMesh.SamplePosition(to, out var b, 3f, NavMesh.AllAreas))
+            // Off the navmesh (a Disengage leap onto a ledge or a prop): a player would just step off, so step to the
+            // nearest floor (2026-10-27: the Ranger stood on one spot for nine minutes).
+            if (!NavMesh.SamplePosition(me.transform.position, out var a, 0.9f, NavMesh.AllAreas) && NavMesh.SamplePosition(me.transform.position, out var near, 3.5f, NavMesh.AllAreas))
+            {
+                L("stepped off a spot with no floor under it, back onto " + Fmt(near.position));
+                motor.Teleport(near.position + Vector3.up * 0.05f, me.transform.rotation);
+                yield return null;
+                yield break;
+            }
+            if (!NavMesh.SamplePosition(me.transform.position, out a, 0.9f, NavMesh.AllAreas) || !NavMesh.SamplePosition(to, out var b, 3f, NavMesh.AllAreas))
             {
                 yield return null;
                 yield break;
