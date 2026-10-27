@@ -303,6 +303,15 @@ namespace Deepbound.Combat
         /// <summary>Server: who hit this last, and from where (for diagnosing deaths).</summary>
         public ulong LastHitFrom { get; private set; } = ulong.MaxValue;
 
+        /// <summary>Server: who dealt a hit to <paramref name="victim"/>; with no attacker, poison if they are poisoned, else a trap.</summary>
+        public static string NameOfHit(ulong id, Health victim)
+        {
+            var nm = NetworkManager.Singleton;
+            bool nobody = id == ulong.MaxValue || nm == null || !nm.SpawnManager.SpawnedObjects.ContainsKey(id);
+            if (nobody && victim != null && victim.TryGetComponent<Player.PlayerDebuffs>(out var deb) && deb.Poisoned) return "Poison";
+            return nobody ? "Traps and afflictions" : NameOf(id);
+        }
+
         /// <summary>Server: a readable name for whatever has this object id (bosses and champions by title).</summary>
         public static string NameOf(ulong id)
         {

@@ -303,7 +303,7 @@ namespace Deepbound.Player
         private void ServerRecordHit(float lost, ulong attackerId)
         {
             if (lost <= 0f) return;
-            recentHits.Add(new HitRecord { Who = Combat.Health.NameOf(attackerId), Amount = lost, Time = Time.time });
+            recentHits.Add(new HitRecord { Who = Combat.Health.NameOfHit(attackerId, Health), Amount = lost, Time = Time.time });
             if (recentHits.Count > 12) recentHits.RemoveAt(0);
         }
 

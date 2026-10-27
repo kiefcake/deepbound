@@ -230,7 +230,7 @@ namespace Deepbound.Networking
                 if (h == hp)
                 {
                     taken += amount;
-                    string who = Health.NameOf(from);
+                    string who = Health.NameOfHit(from, hp);
                     takenBy.TryGetValue(who, out var v);
                     takenBy[who] = v + amount;
                 }
