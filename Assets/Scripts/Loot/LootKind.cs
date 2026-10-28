@@ -53,7 +53,7 @@ namespace Deepbound.Loot
             if (kind == LootKind.Relic) return "a relic";
             if (kind == LootKind.RareItem) return "a rare draught or tome";
             if (kind == LootKind.PotionHP) return "a Health Potion";
-            if (kind == LootKind.PotionMP) return "a Mana Potion";
+            if (kind == LootKind.PotionMP) return "a " + Player.Flasks.FullName(Player.Flasks.Kind.Mana);
             return kind.ToString();
         }
     }

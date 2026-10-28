@@ -1199,6 +1199,8 @@ namespace Deepbound.UI
             float w = Screen.width, h = Screen.height;
             UiTimer.Begin();
             if (Cinematic) { DrawFade(w, h); return; }
+            // Afflictions and potions at the edges of the view, under the whole HUD.
+            AfflictionOverlay.PaintOnce();
             // Arriving: out of white, letterboxed for a moment - under the HUD, so the bars never hide your health.
             if (Time.time < letterboxUntil)
             {

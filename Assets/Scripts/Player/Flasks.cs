@@ -17,7 +17,10 @@ namespace Deepbound.Player
     ///
     /// <list type="bullet">
     /// <item><b>1 — Health Potion.</b> Mends 45% of your health over 3 seconds.</item>
-    /// <item><b>2 — Mana Potion.</b> Refills 70% of your class resource (mana, stamina, focus, energy).</item>
+    /// <item><b>2 — the class DRAUGHT</b> (2026-10-28: it was a "Mana Potion" for classes without mana). Each class
+    ///   brews its own: Mana Potion (Mage, Cleric), Draught of Iron (Knight, stamina), Adder's Tonic (Rogue, energy),
+    ///   Hawkeye Draught (Ranger, focus), Martyr's Blood (Flagellant, fervor), Reagent Phial (Plague Doctor). It refills
+    ///   70% and then, for <see cref="SurgeSeconds"/>, the resource never runs dry (SURGE).</item>
     /// <item><b>3 — Frost Flask.</b> Thrown: chills everything it touches (Shatter!), freezes what stands in water.</item>
     /// <item><b>4 — Holy Water.</b> Thrown: the dead reel (stunned) and burn; allies in the splash are cleansed and mended.</item>
     /// </list>
@@ -27,7 +30,7 @@ namespace Deepbound.Player
         public enum Kind : byte { Health, Mana, Frost, Holy }
         public static readonly Kind[] All = { Kind.Health, Kind.Mana, Kind.Frost, Kind.Holy };
         public const int Max = 5;
-        public const float HealFraction = 0.45f, HealSeconds = 3f, ManaFraction = 0.7f;
+        public const float HealFraction = 0.45f, HealSeconds = 3f, ManaFraction = 0.7f, SurgeSeconds = 3f;
         private const float Range = 16f, Flight = 0.55f, ThrowCooldown = 0.8f, DrinkCooldown = 1.2f;
 
         public readonly NetworkVariable<byte> Health = new NetworkVariable<byte>();
@@ -54,10 +57,62 @@ namespace Deepbound.Player
         private float readyAt;
         private float healingUntil;
 
-        public static Color ColorOf(Kind k) => k == Kind.Health ? new Color(0.95f, 0.2f, 0.2f) : k == Kind.Mana ? new Color(0.3f, 0.5f, 1f)
+        public static Color ColorOf(Kind k) => k == Kind.Health ? new Color(0.95f, 0.2f, 0.2f) : k == Kind.Mana ? DraughtColor(LocalClass)
             : k == Kind.Frost ? new Color(0.55f, 0.85f, 1f) : new Color(1f, 0.92f, 0.6f);
-        public static string NameOf(Kind k) => k == Kind.Health ? "Health" : k == Kind.Mana ? "Mana" : k == Kind.Frost ? "Frost" : "Holy";
-        public static string FullName(Kind k) => k == Kind.Health ? "Health Potion" : k == Kind.Mana ? "Mana Potion" : k == Kind.Frost ? "Frost Flask" : "Holy Water";
+        public static string NameOf(Kind k) => k == Kind.Health ? "Health" : k == Kind.Mana ? DraughtShort(LocalClass) : k == Kind.Frost ? "Frost" : "Holy";
+        public static string FullName(Kind k) => k == Kind.Health ? "Health Potion" : k == Kind.Mana ? DraughtName(LocalClass) : k == Kind.Frost ? "Frost Flask" : "Holy Water";
+
+        /// <summary>The local player's class (the pouch's names and colours are drawn for them).</summary>
+        public static Classes.ClassId LocalClass
+        {
+            get
+            {
+                var me = NetworkPlayer.Local;
+                return me != null && me.TryGetComponent<PlayerProgress>(out var p) ? p.ClassId.Value : Classes.ClassId.Mage;
+            }
+        }
+
+        public static string DraughtName(Classes.ClassId c) => c switch
+        {
+            Classes.ClassId.Knight => "Draught of Iron",
+            Classes.ClassId.Rogue => "Adder's Tonic",
+            Classes.ClassId.Ranger => "Hawkeye Draught",
+            Classes.ClassId.Flagellant => "Martyr's Blood",
+            Classes.ClassId.PlagueDoctor => "Reagent Phial",
+            _ => "Mana Potion",
+        };
+
+        public static string DraughtShort(Classes.ClassId c) => c switch
+        {
+            Classes.ClassId.Knight => "Iron", Classes.ClassId.Rogue => "Adder", Classes.ClassId.Ranger => "Hawkeye",
+            Classes.ClassId.Flagellant => "Blood", Classes.ClassId.PlagueDoctor => "Phial", _ => "Mana",
+        };
+
+        /// <summary>What the draught fills, in words.</summary>
+        public static string DraughtResource(Classes.ClassId c) => c switch
+        {
+            Classes.ClassId.Knight => "stamina", Classes.ClassId.Rogue => "energy", Classes.ClassId.Ranger => "focus",
+            Classes.ClassId.Flagellant => "fervor", Classes.ClassId.PlagueDoctor => "reagents", _ => "mana",
+        };
+
+        /// <summary>The draught takes the colour of the bar it fills.</summary>
+        public static Color DraughtColor(Classes.ClassId c) => c switch
+        {
+            Classes.ClassId.Knight => new Color(0.9f, 0.68f, 0.18f),
+            Classes.ClassId.Rogue => new Color(0.85f, 0.9f, 0.3f),
+            Classes.ClassId.Ranger => new Color(0.45f, 0.85f, 0.4f),
+            Classes.ClassId.Flagellant => new Color(0.9f, 0.2f, 0.15f),
+            Classes.ClassId.PlagueDoctor => new Color(0.5f, 0.95f, 0.35f),
+            Classes.ClassId.Cleric => new Color(0.95f, 0.8f, 0.35f),
+            _ => new Color(0.3f, 0.5f, 1f),
+        };
+
+        public static string DraughtText(Classes.ClassId c) =>
+            "refills 70% of your " + DraughtResource(c) + ", then for " + SurgeSeconds.ToString("F0") + " s it never runs dry";
+
+        /// <summary>Owner: the draught's SURGE - the class resource is held full.</summary>
+        public bool Surging => Time.time < surgeUntil;
+        private float surgeUntil, nextSurgeTop;
         public static bool Drunk(Kind k) => k == Kind.Health || k == Kind.Mana;
 
         private NetworkVariable<byte> Slot(Kind k) => k == Kind.Health ? Health : k == Kind.Mana ? Mana : k == Kind.Frost ? Frost : Holy;
@@ -259,6 +314,7 @@ namespace Deepbound.Player
         private void Update()
         {
             if (!IsOwner) return;
+            TickSurge();
             var kb = Keyboard.current;
             if (kb == null || Time.time < readyAt || !life.CanAct || !motor.ActionsReady) return;
             if (UI.Binds.Down(UI.Bind.Rare) && !(World.DungeonDirector.InLobby && PlayerProgress.ClassChangeAllowed) && Time.time >= rareReadyAt)
@@ -337,14 +393,29 @@ namespace Deepbound.Player
         }
 
         [Rpc(SendTo.Owner)]
-        private void ManaOwnerRpc() => player.ActiveKit?.RestoreResource(ManaFraction);
+        private void ManaOwnerRpc()
+        {
+            player.ActiveKit?.RestoreResource(ManaFraction);
+            surgeUntil = Time.time + SurgeSeconds;
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.2f, "SURGE", DraughtColor(progress.ClassId.Value));
+        }
+
+        /// <summary>Owner, each frame: hold the resource full while the draught surges.</summary>
+        private void TickSurge()
+        {
+            if (!Surging || Time.time < nextSurgeTop) return;
+            nextSurgeTop = Time.time + 0.2f;
+            player.ActiveKit?.RestoreResource(1f);
+        }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void DrinkFxRpc(byte kind)
         {
             var k = (Kind)kind;
             Sfx.Play(Sound.Drink, transform.position + Vector3.up * 1.5f, 0.8f);
-            Vfx.Embers(transform.position + Vector3.up * 1.2f, 8, ColorOf(k), 1.5f, 0.05f, 0.9f);
+            var drunkColor = k == Kind.Mana ? DraughtColor(progress.ClassId.Value) : ColorOf(k);
+            Vfx.Embers(transform.position + Vector3.up * 1.2f, 8, drunkColor, 1.5f, 0.05f, 0.9f);
+            if (IsOwner) UI.AfflictionOverlay.Drank(k == Kind.Health ? 0 : 1, drunkColor);
             if (k == Kind.Health) healingUntil = Time.time + HealSeconds;
             if (IsOwner) player.ViewModelCast(false);
         }

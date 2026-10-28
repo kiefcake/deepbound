@@ -266,7 +266,7 @@ namespace Deepbound.Player
         private void CleansedRpc()
         {
             Vfx.Ring(transform.position, 1.5f, new Color(1f, 0.95f, 0.7f), 0.4f);
-            if (IsOwner) UI.GameHud.Feed("Cleansed", new Color(1f, 0.95f, 0.7f));
+            if (IsOwner) { UI.GameHud.Feed("Cleansed", new Color(1f, 0.95f, 0.7f)); UI.AfflictionOverlay.Cleansed(); }
         }
 
         [Rpc(SendTo.ClientsAndHost)]

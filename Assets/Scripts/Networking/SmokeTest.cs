@@ -3820,6 +3820,37 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.5f);
                         yield return Shot(dir, "2b_mania");
                         sdeb.ServerCleanse();
+                        // The potions' own looks (2026-10-28).
+                        var pouchS = local.GetComponent<Flasks>();
+                        var lifeS = local.GetComponent<Health>();
+                        lifeS.ServerSetFraction(0.4f);
+                        pouchS.ServerAdd(Flasks.Kind.Health, 1);
+                        pouchS.ServerDebugDrink(Flasks.Kind.Health);
+                        yield return new WaitForSeconds(1.2f);
+                        yield return Shot(dir, "2c_potion_mend");
+                        lifeS.ServerSetFraction(1f);
+                        pouchS.ServerAdd(Flasks.Kind.Mana, 1);
+                        pouchS.ServerDebugDrink(Flasks.Kind.Mana);
+                        yield return new WaitForSeconds(0.9f);
+                        yield return Shot(dir, "2c_potion_draught");
+                        yield return new WaitForSeconds(3f);
+                        if (pouchS.ServerGiveRare(Progression.RareItem.Ironbark) && pouchS.ServerUseRare())
+                        {
+                            yield return new WaitForSeconds(1f);
+                            yield return Shot(dir, "2c_ironbark");
+                        }
+                        yield return new WaitForSeconds(8f);
+                        if (pouchS.ServerGiveRare(Progression.RareItem.Bloodfury) && pouchS.ServerUseRare())
+                        {
+                            yield return new WaitForSeconds(1f);
+                            yield return Shot(dir, "2c_bloodfury");
+                        }
+                        sdeb.ServerResetGrace();
+                        sdeb.ServerPoison(3f, 0.1f);
+                        yield return new WaitForSeconds(0.6f);
+                        sdeb.ServerCleanse();
+                        yield return new WaitForSeconds(0.12f);
+                        yield return Shot(dir, "2c_cleansed");
                     }
 
                     // The Bone Piper: a close look, then each tune in full flight.

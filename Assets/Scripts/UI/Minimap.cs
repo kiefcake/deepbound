@@ -122,6 +122,7 @@ namespace Deepbound.UI
         private void OnGUIBody()
         {
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
+            AfflictionOverlay.PaintOnce();
             if (GameHud.Cinematic) return;
             UiSkin.Apply();
             var layout = DungeonDirector.Layout;

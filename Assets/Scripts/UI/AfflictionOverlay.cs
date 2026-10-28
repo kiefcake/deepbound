@@ -15,6 +15,10 @@ namespace Deepbound.UI
     /// <item>Silenced - grey-violet haze, and the world goes muffled (a low-pass on the listener).</item>
     /// <item>Dazed - little stars circle over the crosshair and your ears ring.</item>
     /// </list>
+    /// Potions too (2026-10-28, "do potion effects also"): a health potion warms the edges red-gold with sparks rising
+    /// while it mends; the class draught surges in its bar's colour; Holy Water's cleanse washes the view white-gold
+    /// and wipes every affliction picture at once; Ironbark grows bark plates at the edges, Bloodfury beats blood-red,
+    /// Grave Stillness cracks the view to stone, a Sanctuary circle glows gold.
     /// Every texture is generated here at startup (no art files). Drawn behind the HUD; faded under Reduce Flashing.
     /// </summary>
     public class AfflictionOverlay : MonoBehaviour
@@ -22,6 +26,27 @@ namespace Deepbound.UI
         private const int Size = 512;
         private static Texture2D vines, frost, veins, smoke, star;
         private float vineK, frostK, poisonK, curseK, maniaK, silenceK, dazeK;
+        private float mendK, surgeK, barkK, furyK, stoneK, sanctK;
+        private static float gulpAt = -10f, cleanseAt = -10f;
+        private static Color gulpColor = Color.white;
+        private Color surgeColor = Color.white;
+        private float nextSpark;
+        private struct Spark { public Vector2 P, V; public float Born, Life, Size; public Color C; }
+        private readonly System.Collections.Generic.List<Spark> sparks = new System.Collections.Generic.List<Spark>();
+        private static AfflictionOverlay instance;
+
+        /// <summary>Owner, a potion drunk: 0 health, 1 the class draught.</summary>
+        public static void Drank(int kind, Color c) { gulpAt = Time.time; gulpColor = c; }
+
+        /// <summary>Owner: Holy Water (or anything) cleansed you: a white-gold wash, and the pictures go at once.</summary>
+        public static void Cleansed()
+        {
+            cleanseAt = Time.time;
+            if (instance == null) return;
+            instance.vineK = instance.frostK = instance.poisonK = instance.curseK = instance.maniaK = instance.silenceK = instance.dazeK = 0f;
+        }
+
+        private void Awake() => instance = this;
         private bool wasDazed;
         private AudioLowPassFilter muffle;
         private float nextListenerCheck;
@@ -50,6 +75,25 @@ namespace Deepbound.UI
             Approach(ref maniaK, on && deb.Manic, dt, 4f, 1.6f);
             Approach(ref silenceK, on && deb.Silenced, dt, 3f, 1.5f);
             Approach(ref dazeK, on && deb.Dazed, dt, 5f, 1.8f);
+            var pouch = me != null ? me.GetComponent<Player.Flasks>() : null;
+            bool pon = pouch != null && !Application.isBatchMode;
+            Approach(ref mendK, pon && pouch.Healing, dt, 4f, 1.5f);
+            Approach(ref surgeK, pon && pouch.Surging, dt, 5f, 2f);
+            Approach(ref barkK, pon && pouch.Ironbark, dt, 3f, 1.5f);
+            Approach(ref furyK, pon && pouch.Bloodfury, dt, 4f, 1.5f);
+            Approach(ref stoneK, pon && pouch.InStasis, dt, 6f, 3f);
+            Approach(ref sanctK, pon && Player.Flasks.InSanctuary(me.transform.position), dt, 3f, 2f);
+            if (pon && pouch.Surging) surgeColor = Player.Flasks.DraughtColor(Player.Flasks.LocalClass);
+            // Sparks rising up the edges while a potion works.
+            if ((mendK > 0.3f || surgeK > 0.3f) && Time.time >= nextSpark)
+            {
+                nextSpark = Time.time + 0.05f;
+                float h = Screen.height, w = Screen.width;
+                bool left = Random.value < 0.5f;
+                var col = surgeK > mendK ? surgeColor : new Color(1f, Random.Range(0.45f, 0.8f), 0.3f);
+                sparks.Add(new Spark { P = new Vector2(left ? Random.Range(0f, w * 0.18f) : w - Random.Range(0f, w * 0.18f), h + 4f), V = new Vector2(Random.Range(-20f, 20f), -Random.Range(h * 0.25f, h * 0.45f)), Born = Time.time, Life = Random.Range(0.8f, 1.4f), Size = h * Random.Range(0.006f, 0.013f), C = col });
+            }
+            for (int i = sparks.Count - 1; i >= 0; i--) if (Time.time - sparks[i].Born > sparks[i].Life) sparks.RemoveAt(i);
             VineLevel = vineK; FrostLevel = frostK; SmokeLevel = Mathf.Max(curseK, maniaK, silenceK, poisonK); DazeLevel = dazeK;
 
             // Dazed: a ringing in the ears as it lands.
@@ -77,12 +121,27 @@ namespace Deepbound.UI
         private static void Approach(ref float k, bool on, float dt, float up, float down) =>
             k = Mathf.MoveTowards(k, on ? 1f : 0f, dt * (on ? up : down));
 
-        private void OnGUI()
+        private static int paintedFrame = -1;
+
+        /// <summary>
+        /// Called at the top of the HUD's and the minimap's OnGUI: the first caller each frame paints the overlay, so it
+        /// lies under both (they skip the layout pass, and then IMGUI keeps no depth order between scripts).
+        /// </summary>
+        public static void PaintOnce()
         {
-            // Set on every event, not only on Repaint, or IMGUI ignores it and this lands over the HUD.
-            GUI.depth = 10;
-            if (Event.current.type != EventType.Repaint) return;
-            if (vineK + frostK + poisonK + curseK + maniaK + silenceK + dazeK < 0.001f) return;
+            if (instance == null || Event.current.type != EventType.Repaint || paintedFrame == Time.frameCount) return;
+            paintedFrame = Time.frameCount;
+            var keep = GUI.color;
+            var keepMatrix = GUI.matrix;
+            instance.Paint();
+            GUI.color = keep;
+            GUI.matrix = keepMatrix;
+        }
+
+        private void Paint()
+        {
+            bool flashes = Time.time - gulpAt < 0.9f || Time.time - cleanseAt < 0.8f;
+            if (vineK + frostK + poisonK + curseK + maniaK + silenceK + dazeK + mendK + surgeK + barkK + furyK + stoneK + sanctK < 0.001f && !flashes && sparks.Count == 0) return;
             var me = Player.NetworkPlayer.Local;
             if (me == null || PauseMenu.Open || GameHud.Cinematic) return;
             if (me.TryGetComponent<Player.PlayerLife>(out var life) && life.Downed.Value) return;
@@ -90,6 +149,18 @@ namespace Deepbound.UI
             float w = Screen.width, h = Screen.height, t = Time.time;
             float calm = Settings.ReduceFlashing ? 0.6f : 1f;
             var old = GUI.color;
+
+            // The potions' own glows, under everything else.
+            if (sanctK > 0f) Corners(smoke, h * 0.7f, sanctK, new Color(1f, 0.85f, 0.45f, 0.35f * calm), t * 0.5f, 1f);
+            if (mendK > 0f) Corners(smoke, h * 0.6f, mendK, new Color(1f, 0.42f, 0.28f, (0.32f + 0.12f * Mathf.Sin(t * 6f)) * calm), t * 0.7f, 1f);
+            if (surgeK > 0f) Corners(smoke, h * 0.65f, surgeK, new Color(surgeColor.r, surgeColor.g, surgeColor.b, (0.4f + 0.15f * Mathf.Sin(t * 10f)) * calm), t * 2f, 2f);
+            if (furyK > 0f)
+            {
+                float beat = Mathf.Pow(Mathf.Abs(Mathf.Sin(t * 3.4f)), 6f);
+                Corners(smoke, h * (0.7f + 0.08f * beat), furyK, new Color(0.85f, 0.05f, 0.05f, (0.38f + 0.3f * beat) * calm), t, 1.5f);
+            }
+            float gulp = Mathf.Clamp01(1f - (t - gulpAt) / 0.9f);
+            if (gulp > 0f) Corners(smoke, h * (0.45f + 0.35f * (1f - gulp)), gulp, new Color(gulpColor.r, gulpColor.g, gulpColor.b, 0.6f * gulp * calm), 0f, 0f);
 
             // Smoke and haze first (the soft layers), then the sharp pictures over them.
             if (poisonK > 0f) Corners(smoke, h * 0.62f, poisonK, new Color(0.35f, 0.75f, 0.15f, 0.55f * calm), t * 0.6f, 1.5f);
@@ -106,6 +177,26 @@ namespace Deepbound.UI
                 GUI.color = new Color(1f, 1f, 1f, Mathf.Clamp01(vineK * 1.6f) * 0.92f);
                 DrawCorner(vines, new Rect(0, h - s, s, s), new Rect(0, 0, 1, 1), sway, new Vector2(0, h));
                 DrawCorner(vines, new Rect(w - s, h - s, s, s), new Rect(1, 0, -1, 1), -sway, new Vector2(w, h));
+            }
+            if (barkK > 0f) Corners(vines, h * 0.42f, barkK, new Color(0.55f, 0.38f, 0.22f, 0.9f * calm), 0f, 0f);
+            if (stoneK > 0f)
+            {
+                GUI.color = new Color(0.5f, 0.5f, 0.55f, 0.25f * stoneK);
+                GUI.DrawTexture(new Rect(0, 0, w, h), Texture2D.whiteTexture);
+                Corners(frost, h * 0.75f, stoneK, new Color(0.35f, 0.35f, 0.38f, 0.95f * calm), 0f, 0f);
+            }
+            foreach (var sp in sparks)
+            {
+                float age = t - sp.Born, k = 1f - age / sp.Life;
+                var p = sp.P + sp.V * age;
+                GUI.color = new Color(sp.C.r, sp.C.g, sp.C.b, k * 0.9f * calm);
+                GUI.DrawTexture(new Rect(p.x - sp.Size, p.y - sp.Size, sp.Size * 2f, sp.Size * 2f), star);
+            }
+            float wash = Mathf.Clamp01(1f - (t - cleanseAt) / 0.8f);
+            if (wash > 0f)
+            {
+                GUI.color = new Color(1f, 0.95f, 0.75f, 0.4f * wash * wash * calm);
+                GUI.DrawTexture(new Rect(0, 0, w, h), Texture2D.whiteTexture);
             }
             if (dazeK > 0f)
             {

@@ -173,6 +173,17 @@ namespace Deepbound.Progression
                     list.Add(new Item { Name = Blessings.Name(bl), Description = "For the next floor: " + Blessings.Describe(bl), Price = Blessings.Price(depth), Kind = ItemKind.Blessing, Amount = (int)bl, Seller = Vendor.Shrine });
             }
             var buyer = PlayerProgress.ForClient(clientId);
+            // The second potion is the buyer's class draught (2026-10-28).
+            if (buyer != null)
+                for (int i = 0; i < list.Count; i++)
+                    if (list[i].Kind == ItemKind.Potion && (int)list[i].Amount == 1)
+                    {
+                        var it = list[i];
+                        var cls = buyer.ClassId.Value;
+                        it.Name = Player.Flasks.DraughtName(cls);
+                        it.Description = "For the pouch (2): " + Player.Flasks.DraughtText(cls) + ". Up to 5";
+                        list[i] = it;
+                    }
             // Potions cost more the deeper the run (2026-10-23: 18 gold on floor 10 was no price at all).
             for (int i = 0; i < list.Count; i++)
                 if (list[i].Kind == ItemKind.Potion)
@@ -228,7 +239,7 @@ namespace Deepbound.Progression
         {
             // Silas: provisions.
             new Item { Name = "Health Potion", Description = "For the pouch (1): mends 45% of your health over 3 s. Carry up to 5", Price = 18, Kind = ItemKind.Potion, Amount = 0f },
-            new Item { Name = "Mana Potion", Description = "For the pouch (2): refills 70% of your mana, stamina, focus or energy. Up to 5", Price = 15, Kind = ItemKind.Potion, Amount = 1f },
+            new Item { Name = "Mana Potion", Description = "For the pouch (2): your class draught - refills your mana, stamina, focus, energy, fervor or reagents, then holds it full 3 s. Up to 5", Price = 15, Kind = ItemKind.Potion, Amount = 1f },
             new Item { Name = "Frost Flask", Description = "For the pouch (3): thrown, chills everything it splashes. Up to 5", Price = 25, Kind = ItemKind.Potion, Amount = 2f },
             new Item { Name = "Swift Boots", Description = "+5 SPD for the run (max +10)", Price = 50, Kind = ItemKind.Bonus, Stat = StatType.SPD, Amount = 5f, Cap = 10f },
             // Hobb: what the anvil eats, and plate.
