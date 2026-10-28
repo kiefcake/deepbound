@@ -55,6 +55,8 @@ namespace Deepbound.Networking
         private int bossHits; private float bossDealt;
         private float lootOnSince = -1f;
         private readonly HashSet<ulong> ignoredLoot = new HashSet<ulong>();
+        private Health stuckTarget;
+        private float flankStarted = -1f;
         private string lastHeard;
         private readonly List<string> problems = new List<string>();
 
@@ -541,7 +543,9 @@ namespace Deepbound.Networking
                 // Pick what to do: the nearest living enemy we can walk to (the guardian last), else loot, else a chest.
                 var boss = BossBrain.Active;
                 target = NearestEnemy(skip, out float dist, allowBoss: false);
+                stuckTarget = target;
                 if (target == null && boss != null && !boss.IsDead) { target = boss.GetComponent<Health>(); dist = Vector3.Distance(target.transform.position, me.transform.position); }
+                stuckTarget = target;
                 // A healing pylon comes before the guardian, as it would for a player (the user watched a bot hit a boss
                 // that its pylons kept topping up).
                 if (target != null && boss != null && target == boss.GetComponent<Health>())
@@ -575,14 +579,31 @@ namespace Deepbound.Networking
                         continue;
                     }
                     // Hits not landing for a while (a shield, a guard): go round behind it, as a player would.
+                    // Only for a few seconds at a time, then back to fighting: a flank spot it cannot reach (the Lich backed into
+                    // water) once kept the Ranger walking in place for seven minutes, never shooting, so the boss's health
+                    // never moved and the flank never ended (2026-10-28).
                     bool flank = boss != null && target == boss.GetComponent<Health>() && bossHpMark >= 0f && Time.time - bossHpAt > 6f;
+                    if (flank && flankStarted < 0f) flankStarted = Time.time;
+                    if (flank && Time.time - flankStarted > 4f) { bossHpAt = Time.time; flankStarted = -1f; flank = false; }
+                    if (!flank) flankStarted = -1f;
                     if (flank)
                     {
                         var behind = target.transform.position - target.transform.forward * (edge + reach * 0.6f);
                         if (Vector3.Distance(Flat(me.transform.position), Flat(behind)) > 1.2f) { yield return StepToward(behind, 0.6f); continue; }
                     }
                     // In melee reach a clipped line (a crate edge, a rail) is no reason to stand there: swing.
-                    if (flatDist > want || (!clear && !melee)) yield return StepToward(target.transform.position, want * 0.9f);
+                    // No clear line (a dais lip, a pillar, a crate): close in, and if already close, circle round it, as a
+                    // player would (2026-10-28: the Ranger stood 5 m from a raised Tide Lich for seven minutes, "in range").
+                    if (!clear && !melee && flatDist <= want)
+                    {
+                        if (flatDist > edge + 2f) yield return StepToward(target.transform.position, edge + 1.5f);
+                        else
+                        {
+                            var round = Quaternion.Euler(0f, 70f * (Time.frameCount % 2 == 0 ? 1f : -1f), 0f) * (Flat(me.transform.position) - Flat(target.transform.position)).normalized;
+                            yield return StepToward(target.transform.position + round * (edge + 3f), 0.5f);
+                        }
+                    }
+                    else if (flatDist > want || (!clear && !melee)) yield return StepToward(target.transform.position, want * 0.9f);
                     else if (melee && flatDist < edge + 0.6f)
                     {
                         // Too close (inside its reach and ours is wasted): step back out to the edge.
@@ -764,7 +785,15 @@ namespace Deepbound.Networking
             var stuckDeb = me.GetComponent<PlayerDebuffs>();
             string held = (stuckDeb != null && stuckDeb.Rooted ? (stuckDeb.Entangled ? "ENTANGLED, " : "ROOTED, ") : "") + (motor.Pinned ? "PINNED, " : "")
                 + (NavMesh.SamplePosition(me.transform.position, out var close, 0.9f, NavMesh.AllAreas) ? "" : "no navmesh within 0.9 m (y " + me.transform.position.y.ToString("F1") + "), ");
-            return held + WhyStuckPath(goal);
+            // A target we cannot see: name what is in the way.
+            string sight = "";
+            if (stuckTarget != null)
+            {
+                var eye = me.transform.position + Vector3.up * 1.6f;
+                if (Physics.Linecast(eye, stuckTarget.Center, out var lh, ~0, QueryTriggerInteraction.Ignore) && lh.collider.GetComponentInParent<Health>() == null)
+                    sight = "line to target blocked by " + lh.collider.name + " (" + (lh.collider.transform.parent != null ? lh.collider.transform.parent.name : "-") + ") at " + lh.distance.ToString("F1") + " m, ";
+            }
+            return held + sight + WhyStuckPath(goal);
         }
 
         private string WhyStuckPath(Vector3? goal)
