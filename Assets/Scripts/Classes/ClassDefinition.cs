@@ -131,7 +131,7 @@ namespace Deepbound.Classes
             ? new[]
             {
                 ("PASSIVE", "Grace", "You revive fallen allies twice as fast."),
-                ("LMB", "Smite", "Hurl bolts of holy light."),
+                ("LMB", "Smite", "Hurl bolts of holy light (+35% when you fight alone)."),
                 ("RMB", "Mending Beam", "Hold on an ally to heal them. Aim at nothing to heal yourself, slowly."),
                 ("Q", "Consecrate", "Bless the ground: allies inside heal, enemies inside burn."),
                 ("E", "Divine Aegis", "Shield every ally nearby against the next 60 damage."),

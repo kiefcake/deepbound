@@ -232,6 +232,13 @@ namespace Deepbound.Player
             Enemies.EnemyBrain.ServerHealThreat(health, rate * Time.deltaTime);
         }
 
+        /// <summary>
+        /// Alone, a Cleric has no one to keep alive and only its smites to fight with (2026-10-28 autoplay: solo floors took
+        /// 6-9 min against 4-5 for every other class): +35% smite damage with no other player in the party.
+        /// </summary>
+        public const float LoneSmiteBonus = 1.35f;
+        private static float LoneSmite => PlayerLife.All.Count <= 1 ? LoneSmiteBonus : 1f;
+
         [Rpc(SendTo.Server)]
         private void SmiteRpc(Vector3 origin, Vector3 direction)
         {
@@ -241,7 +248,7 @@ namespace Deepbound.Player
             if (progress.OnPath(1))
             {
                 // Zealot: harder smites that mend the most wounded ally in reach.
-                float dmg = SmiteDamage * progress.AttackMultiplier * 1.35f;
+                float dmg = SmiteDamage * progress.AttackMultiplier * 1.35f * LoneSmite;
                 ulong me = NetworkObjectId;
                 Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, SmiteSpeed, h =>
                 {
@@ -253,7 +260,7 @@ namespace Deepbound.Player
                     if (worst != null) worst.ServerHeal(dmg * 0.4f * Potency);
                 }, false, SmiteRange * RangeMul);
             }
-            else Arrows.ServerFire(origin, direction, SmiteDamage * progress.AttackMultiplier, Team.Enemies, NetworkObjectId, SmiteSpeed, null, false, SmiteRange * RangeMul);
+            else Arrows.ServerFire(origin, direction, SmiteDamage * progress.AttackMultiplier * LoneSmite, Team.Enemies, NetworkObjectId, SmiteSpeed, null, false, SmiteRange * RangeMul);
             SmiteFxRpc(origin, direction);
         }
 

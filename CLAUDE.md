@@ -271,6 +271,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - AUTOPLAY round 2026-10-28: the RANGER was never weak - the bot was: (1) its flank of a stalled boss (6 s without the boss losing health, normal in a SURVIVE phase) had no end, and an unreachable flank spot kept it walking in place (no shots, so the health never moved): flank now 4 s at most (`flankStarted`); (2) arrow drop compensation; (3) a blocked line closes in or circles. Run 21 (Ranger from floor 4): every floor 3.6-4.7 min, guardians 0.4-1.7 min, no stuck reports (log `Builds/AutoRun/autoplay_run21_ranger.txt`). Rooted melee bots swing instead of trying to step back.
 
+- Every class has now finished a full autoplay run on the current build with no stuck reports (2026-10-28): Ranger (run 21, from floor 4), Flagellant (22), Plague Doctor (23), Cleric (24: 5-9 min floors, the slowest), plus Knight/Rogue earlier. Solo CLERIC smites x`LoneSmiteBonus` 1.35 when `PlayerLife.All.Count <= 1` (class text says so). Camp walking in the bot is a step, not a problem (no navmesh at camp).
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes
