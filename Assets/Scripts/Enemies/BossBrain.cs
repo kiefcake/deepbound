@@ -803,7 +803,16 @@ namespace Deepbound.Enemies
         {
             if (Rig == null) return;
             BossWindup.For(gameObject, Rig, health != null ? health.CenterHeight * 2f : 2f).Anticipate(seconds, k);
+            // A turning circle of runes under it as it gathers (a sprite, at most every few seconds).
+            if (seconds >= 0.8f && Time.time >= nextCircleAt)
+            {
+                nextCircleAt = Time.time + 3f;
+                FxSprite.MagicCircle(transform.position, Mathf.Max(1.6f, BodyRadiusForFx * 1.6f), seconds, Rig.GlowColor);
+            }
         }
+
+        private float nextCircleAt;
+        private float BodyRadiusForFx => health != null ? health.BodyRadius : 1f;
 
         [Rpc(SendTo.ClientsAndHost)]
         protected void GatherRpc(float seconds, float k) => Gather(seconds, k);

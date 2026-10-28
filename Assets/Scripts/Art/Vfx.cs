@@ -73,6 +73,8 @@ namespace Deepbound.Art
         public static void Ring(Vector3 at, float radius, Color color, float life = 0.45f)
         {
             Spawn(RingMesh, Mat.Glow, at + Vector3.up * 0.08f, Vector3.zero, life, radius * 0.15f, radius, color * 2f);
+            // A soft textured shock ring racing out under it (Kenney's circle sprite).
+            FxSprite.Decal("circle_05", at, radius * 0.3f, radius * 2.1f, life * 1.2f, new Color(color.r, color.g, color.b, 0.45f));
         }
 
         /// <summary>
@@ -99,6 +101,8 @@ namespace Deepbound.Art
                 chip.transform.rotation = Random.rotation;
             }
             Spawn(Ball, Mat.Rubble, at + n * 0.15f, n * 0.6f + Vector3.up * 0.3f, 0.35f, 0.08f, 0.35f + strength * 0.2f, null, -0.2f, 2f);
+            // A star of light where it lands, gone in a blink.
+            FxSprite.Billboard(FxSprite.AnyStar, at + n * 0.1f, Vector3.zero, 0.16f, 0.35f, 0.8f + strength * 0.6f, new Color(spark.r, spark.g, spark.b, 1f), Random.Range(-300f, 300f));
         }
 
         /// <summary>Glowing sparks thrown up and out, falling back under gravity.</summary>
@@ -142,6 +146,13 @@ namespace Deepbound.Art
                 var p = at + new Vector3(Random.Range(-spread, spread), Random.Range(0f, 0.6f), Random.Range(-spread, spread));
                 Spawn(Ball, Mat.Rubble, p, Vector3.up * Random.Range(0.5f, 1.4f) + Random.insideUnitSphere * 0.5f, life * Random.Range(0.4f, 0.8f), Random.Range(0.12f, 0.28f), 0f, null, -0.3f, 1.2f);
             }
+            // Billowing smoke sprites rolling up through the grit.
+            int clouds = Mathf.Clamp(count / 3, 1, 4);
+            for (int i = 0; i < clouds; i++)
+            {
+                var p = at + new Vector3(Random.Range(-spread, spread) * 0.6f, Random.Range(0.2f, 0.7f), Random.Range(-spread, spread) * 0.6f);
+                FxSprite.Billboard(FxSprite.AnySmoke, p, Vector3.up * Random.Range(0.4f, 0.9f), life * Random.Range(0.7f, 1f), spread * 0.8f + 0.4f, spread * 2f + 1f, new Color(0.22f, 0.2f, 0.22f, 0.5f), Random.Range(-25f, 25f), 0.8f);
+            }
         }
 
         /// <summary>A blooming fireball that swells and burns out in a moment.</summary>
@@ -158,6 +169,8 @@ namespace Deepbound.Art
                 Spawn(Ball, Mat.Glow, at + dir * size * 0.25f + Vector3.up * 0.2f, dir * size * 1.6f + Vector3.up * 2.2f,
                     Random.Range(0.45f, 0.7f), size * 0.25f, size * Random.Range(0.5f, 0.75f), c * 1.5f, 0f, 2.5f);
             }
+            // A licking fire sprite through the billows.
+            FxSprite.Billboard(Random.value < 0.5f ? "fire_01" : "fire_02", at + Vector3.up * size * 0.2f, Vector3.up * 1.5f, 0.55f, size * 0.6f, size * 1.7f, new Color(color.r, color.g, color.b, 0.8f), Random.Range(-60f, 60f));
             // ...and a dark cap of smoke climbing after it.
             Smoke(at + Vector3.up * size * 0.6f, 2, size * 0.5f, 1.8f);
         }
@@ -214,6 +227,9 @@ namespace Deepbound.Art
             l.intensity = intensity;
             l.shadows = LightShadows.None;
             go.AddComponent<FadeLight>().Life = life;
+            // The flash seen, not only lit: a soft flare at its heart.
+            float flare = Mathf.Clamp(range * 0.26f, 0.6f, 3.5f) * (UI.Settings.ReduceFlashing ? 0.6f : 1f);
+            FxSprite.Billboard("flare_01", at, Vector3.zero, life * 0.7f, flare * 0.6f, flare, new Color(color.r, color.g, color.b, UI.Settings.ReduceFlashing ? 0.4f : 0.95f), Random.Range(-40f, 40f));
         }
     }
 }

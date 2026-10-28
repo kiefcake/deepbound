@@ -3501,6 +3501,24 @@ namespace Deepbound.Networking
                     anchor.GetComponent<Health>().ServerDamage(anchor.GetComponent<Health>().Max.Value * 0.15f, close, local.NetworkObjectId);
                     yield return new WaitForSeconds(0.06f);
                     yield return Shot(dir, "2c_hit_impact");
+                    // The Kenney sprite effects, staged in front of the camera (2026-10-28).
+                    {
+                        var camT = Art.ViewCamera.Current != null ? Art.ViewCamera.Current.transform : local.transform;
+                        var eye = camT.position;
+                        var fwd = Vector3.ProjectOnPlane(camT.forward, Vector3.up).normalized;
+                        var at = Art.Vfx.Floor(eye + fwd * 4.5f);
+                        var right = Vector3.Cross(Vector3.up, fwd);
+                        Art.Vfx.Flash(at + Vector3.up * 1.4f + right * -1.5f, new Color(1f, 0.6f, 0.25f), 6f, 10f, 1.5f);
+                        Art.Vfx.Fireball(at + Vector3.up * 0.8f + right * 1.6f, 1.6f, new Color(1f, 0.5f, 0.15f));
+                        Art.FxSprite.Scorch(at + right * 1.6f, 1.6f);
+                        Art.FxSprite.MagicCircle(at, 1.8f, 3f, new Color(0.7f, 0.4f, 1f));
+                        Art.Vfx.Smoke(at + right * -1.5f, 3, 0.8f, 2.5f);
+                        Art.Vfx.HitImpact(at + Vector3.up * 1.2f, eye, 1f, new Color(1f, 0.9f, 0.6f));
+                        yield return new WaitForSeconds(0.12f);
+                        yield return Shot(dir, "2d_fx_sprites");
+                        yield return new WaitForSeconds(0.6f);
+                        yield return Shot(dir, "2d_fx_sprites_later");
+                    }
                     // Mid-cut: the swing trail behind the blade.
                     local.ViewModelSwing(0.12f, 0.4f, 1f);
                     yield return new WaitForSeconds(0.2f);

@@ -1281,6 +1281,7 @@ namespace Deepbound.Enemies
             Vfx.Fireball(at + Vector3.up * 0.6f, 3f, fire);
             Vfx.Ring(at, 3.2f, fire, 0.4f);
             Vfx.Flash(at + Vector3.up, fire, 10f, 10f, 0.6f);
+            FxSprite.Scorch(at, 2.4f);
             var local = Player.NetworkPlayer.Local;
             if (local != null && Vector3.Distance(local.transform.position, at) < 12f) local.AddShake(0.35f);
         }

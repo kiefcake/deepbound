@@ -49,6 +49,12 @@ credited here anyway, with thanks.
 
 cynicmusic asks to be told when the music is used: worth a note to them if Deepbound ships.
 
+## Effect sprites (`Assets/Textures/Fx/`)
+
+| Files in game | Original | Author | Source | Licence | Used for |
+|---|---|---|---|---|---|
+| `smoke_01/04/07/10`, `spark_01/05`, `star_01/06/08`, `flare_01`, `light_01`, `circle_02/05`, `magic_01/03/05`, `scorch_01-03`, `dirt_01-03`, `twirl_02`, `fire_01/02`, `flame_03`, `trace_01` (`.png`) | Particle Pack (80+ sprites) | Kenney (kenney.nl), filter templates by Indigo Ray, Craig Nisbet, Zoltan Erdokovy, Heliagon, ThreeDee, Killst4r and Tim2501 | https://opengameart.org/node/85611 (https://kenney.nl/assets/particle-pack) | CC0 | flares in flashes, stars on hits, shock rings, smoke billows, fire in fireballs, scorch marks after blasts, magic circles under gathering bosses, grime and old bloodstains on dungeon floors (`Art/FxSprite`, `DungeonBuilder.FloorStains`) |
+
 ## Code libraries
 
 | Library | Author | Source | Licence | Used for |

@@ -22,6 +22,7 @@ namespace Deepbound.Art
         {
             Vfx.Flash(at + Vector3.up * 1.5f, Fire, 16f, 16f, 0.9f);
             Vfx.Fireball(at + Vector3.up * 0.6f, radius * 1.1f, Fire);
+            FxSprite.Scorch(at, radius);
             Vfx.Ring(at, radius * 1.5f, Fire, 0.5f);
             Vfx.Ring(at, radius * 0.9f, new Color(1f, 0.85f, 0.5f), 0.3f);
             Vfx.Embers(at, 26, Fire, 8f, 0.1f, 1.1f);

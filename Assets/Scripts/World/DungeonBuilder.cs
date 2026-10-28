@@ -347,10 +347,56 @@ namespace Deepbound.World
             }
         }
 
+        /// <summary>
+        /// Grime on the flagstones (2026-10-28, Kenney's CC0 dirt and scorch sprites): a few faint stains, soot and the
+        /// odd old bloodstain lying flat on a plain room's floor. Seeded with the floor, so every peer sees the same.
+        /// </summary>
+        private static void FloorStains(DungeonLayout.Room room, Transform parent, System.Random rng)
+        {
+            if (room.Feature != RoomFeature.None || parent == null) return;
+            string[] kinds = { "Fx_dirt_01", "Fx_dirt_02", "Fx_dirt_03", "Fx_scorch_02" };
+            int n = 3 + rng.Next(4);
+            for (int i = 0; i < n; i++)
+            {
+                var p = room.Center + new Vector3((float)(rng.NextDouble() * 2 - 1) * (room.Size.x / 2f - 1.5f), 0.022f + i * 0.002f, (float)(rng.NextDouble() * 2 - 1) * (room.Size.y / 2f - 1.5f));
+                float size = 1.4f + (float)rng.NextDouble() * 2.2f;
+                bool blood = rng.NextDouble() < 0.2;
+                var go = new GameObject("FloorStain");
+                go.transform.SetParent(parent, false);
+                go.transform.position = p;
+                go.transform.rotation = Quaternion.Euler(90f, (float)rng.NextDouble() * 360f, 0f);
+                go.transform.localScale = Vector3.one * size;
+                go.AddComponent<MeshFilter>().sharedMesh = StainQuad;
+                var r = go.AddComponent<MeshRenderer>();
+                r.sharedMaterial = ArtLibrary.Get(kinds[rng.Next(kinds.Length)]);
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                r.receiveShadows = false;
+                ArtLibrary.Tint(r, blood ? new Color(0.22f, 0.03f, 0.02f, 0.38f) : new Color(0.05f, 0.04f, 0.03f, 0.42f));
+            }
+        }
+
+        private static Mesh stainQuad;
+        private static Mesh StainQuad
+        {
+            get
+            {
+                if (stainQuad != null) return stainQuad;
+                stainQuad = new Mesh { name = "StainQuad" };
+                stainQuad.vertices = new[] { new Vector3(-0.5f, -0.5f, 0f), new Vector3(0.5f, -0.5f, 0f), new Vector3(0.5f, 0.5f, 0f), new Vector3(-0.5f, 0.5f, 0f) };
+                stainQuad.uv = new[] { new Vector2(0f, 0f), new Vector2(1f, 0f), new Vector2(1f, 1f), new Vector2(0f, 1f) };
+                stainQuad.triangles = new[] { 0, 2, 1, 0, 3, 2 };
+                stainQuad.colors = new[] { Color.white, Color.white, Color.white, Color.white };
+                stainQuad.RecalculateNormals();
+                stainQuad.RecalculateBounds();
+                return stainQuad;
+            }
+        }
+
         private static void DressRoom(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
         {
             var c = room.Center;
             float hx = room.Size.x / 2f, hz = room.Size.y / 2f;
+            FloorStains(room, lights, rng);
 
             // Large rooms get pillars: line-of-sight breaks for kiting and hiding.
             if (room.Size.x >= 16f && room.Size.y >= 16f)

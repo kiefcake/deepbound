@@ -81,6 +81,7 @@ namespace Deepbound.EditorTools
             BakeUnlit("Smoke", unlit, new Color(0.17f, 0.15f, 0.2f, 0.32f), transparent: true);
             BakeWater("Water", lit);
             BakeTrail("Trail");
+            BakeFxSprites();
 
             BakeVolumeProfile();
             ConfigureRenderer();
@@ -200,6 +201,42 @@ namespace Deepbound.EditorTools
             mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
             mat.renderQueue = (int)RenderQueue.Transparent;
             EditorUtility.SetDirty(mat);
+        }
+
+        /// <summary>
+        /// One material per Kenney sprite in Assets/Textures/Fx ("Fx_smoke_01"...): URP Unlit, transparent,
+        /// additive for light (sparks, flares, magic, fire), alpha-blended for what darkens (smoke, scorch, dirt).
+        /// Tinted per renderer at runtime (Art/FxSprite).
+        /// </summary>
+        private static void BakeFxSprites()
+        {
+            // Plain URP Unlit (the particle shader drew nothing on these quads; Unlit's transparent variants are
+            // already kept for the Smoke and Telegraph materials).
+            var shader = Shader.Find("Universal Render Pipeline/Unlit");
+            if (shader == null) return;
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { "Assets/Textures/Fx" }))
+            {
+                var path = AssetDatabase.GUIDToAssetPath(guid);
+                var tex = AssetDatabase.LoadAssetAtPath<Texture2D>(path);
+                if (tex == null) continue;
+                string name = "Fx_" + System.IO.Path.GetFileNameWithoutExtension(path);
+                bool darkens = name.Contains("smoke") || name.Contains("scorch") || name.Contains("dirt");
+                var mat = GetOrCreateMaterial(name, shader);
+                mat.SetTexture("_BaseMap", tex);
+                mat.SetColor("_BaseColor", Color.white);
+                mat.SetFloat("_Surface", 1f);
+                mat.SetFloat("_Blend", darkens ? 0f : 2f);
+                mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+                mat.SetFloat("_DstBlend", (float)(darkens ? BlendMode.OneMinusSrcAlpha : BlendMode.One));
+                mat.SetFloat("_SrcBlendAlpha", (float)(darkens ? BlendMode.One : BlendMode.Zero));
+                mat.SetFloat("_DstBlendAlpha", (float)(darkens ? BlendMode.OneMinusSrcAlpha : BlendMode.One));
+                mat.SetFloat("_ZWrite", 0f);
+                mat.SetFloat("_Cull", 0f);
+                mat.SetOverrideTag("RenderType", "Transparent");
+                mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                mat.renderQueue = (int)RenderQueue.Transparent;
+                EditorUtility.SetDirty(mat);
+            }
         }
 
         private static void BakeUnlit(string name, Shader shader, Color color, bool transparent)

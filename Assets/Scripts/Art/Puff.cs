@@ -16,6 +16,10 @@ namespace Deepbound.Art
         /// <summary>A see-through puff (Mat.Smoke): its colour's alpha thins out over its life.</summary>
         public Color Fade;
         public bool Fading;
+        /// <summary>Faces the camera every frame (sprite puffs, Art/FxSprite), turning by <see cref="Spin"/> deg/s.</summary>
+        public bool Billboard;
+        public float Spin;
+        private float spun;
         private Renderer rend;
         private float age;
 
@@ -25,6 +29,9 @@ namespace Deepbound.Art
         public void Restart()
         {
             age = 0f;
+            spun = 0f;
+            Billboard = false;
+            Spin = 0f;
             rend = GetComponent<Renderer>();
         }
 
@@ -36,6 +43,13 @@ namespace Deepbound.Art
             Velocity *= Mathf.Exp(-Drag * Time.deltaTime);
             transform.position += Velocity * Time.deltaTime;
             transform.localScale = Vector3.one * Mathf.Lerp(StartScale, EndScale, k);
+            if (Billboard)
+            {
+                spun += Spin * Time.deltaTime;
+                var cam = ViewCamera.Current;
+                if (cam != null) transform.rotation = Quaternion.LookRotation(transform.position - cam.transform.position) * Quaternion.Euler(0f, 0f, spun);
+            }
+            else if (Spin != 0f) transform.Rotate(Vector3.up, Spin * Time.deltaTime, Space.World);
             if (Glowing && rend != null) ArtLibrary.SetGlow(rend, Glow * (1f - k) * (1f - k));
             if (Fading && rend != null) ArtLibrary.Tint(rend, new Color(Fade.r, Fade.g, Fade.b, Fade.a * Mathf.Sin(Mathf.Min(1f, k * 3f) * Mathf.PI * 0.5f) * (1f - k)));
             if (age >= Life) Vfx.Recycle(this);

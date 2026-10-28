@@ -214,6 +214,7 @@ namespace Deepbound.World
             var fire = new Color(1f, 0.55f, 0.2f);
             Vfx.Flash(at + Vector3.up, fire, 12f, 12f, 0.7f);
             Vfx.Fireball(at, BlastRadius * 0.7f, fire);
+            FxSprite.Scorch(at, BlastRadius * 0.7f);
             Vfx.Ring(at - Vector3.up * 0.5f, BlastRadius, fire, 0.4f);
             Vfx.Embers(at, 18, fire, 7f, 0.08f, 0.9f);
             Vfx.Smoke(at - Vector3.up * 0.4f, 5, 0.8f, 2.2f);
