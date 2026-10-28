@@ -62,6 +62,7 @@ namespace Deepbound.Player
         /// <summary>Whether an enemy may target this health: players must be <see cref="Targetable"/>.</summary>
         public static bool CanTarget(Health h) => h != null && h.IsAlive && (!h.TryGetComponent<PlayerLife>(out var p) || p.Targetable);
         public readonly NetworkVariable<float> ReviveProgress = new NetworkVariable<float>();
+        private float reviveServer;
 
         public Health Health { get; private set; }
 
@@ -347,6 +348,7 @@ namespace Deepbound.Player
             Downed.Value = true;
             downedAt = Time.time;
             ReviveProgress.Value = 0f;
+            reviveServer = 0f;
             Bleed.Value = 0f;
             bleedCarry = 0f;
             ServerSendRecap();
@@ -359,6 +361,7 @@ namespace Deepbound.Player
             Soul.Value = true;
             Bleed.Value = BleedOutSeconds;
             ReviveProgress.Value = 0f;
+            reviveServer = 0f;
             reviver = null;
             Debug.Log("[Down] " + name + " bled out");
             if (DungeonDirector.Instance != null) DungeonDirector.Instance.ServerSpawnSoulSkull(this);
@@ -439,13 +442,18 @@ namespace Deepbound.Player
 
             // The Cleric's passive, Grace: revives twice as fast.
             float rate = beingRevived && reviver.progress != null && reviver.progress.ClassId.Value == Classes.ClassId.Cleric ? 2f : 1f;
-            float progress = ReviveProgress.Value + (beingRevived ? Time.deltaTime * rate : -Time.deltaTime * 0.5f);
-            progress = Mathf.Clamp(progress, 0f, ReviveSeconds);
+            // Kept on the server at full precision (2026-10-28): it used to read back the synced value, which is only
+            // written in 0.01 steps, so above ~100 fps a frame's progress was always too small and a revive never moved.
+            float progress = Mathf.Clamp(reviveServer + (beingRevived ? Time.deltaTime * rate : -Time.deltaTime * 0.5f), 0f, ReviveSeconds);
+            reviveServer = progress;
 
             if (progress >= ReviveSeconds)
             {
                 if (reviver != null && reviver.progress != null) reviver.progress.Revives.Value++;
+                // Got up by the last one standing: a CLUTCH.
+                var saviour = Teamwork.InLastStand(reviver) ? reviver : null;
                 ServerRevive(ReviveHealthFraction);
+                if (saviour != null) Teamwork.ServerClutch(saviour, this);
                 return;
             }
 
@@ -572,6 +580,7 @@ namespace Deepbound.Player
             Health.ServerSetFraction(healthFraction);
             Downed.Value = false;
             ReviveProgress.Value = 0f;
+            reviveServer = 0f;
             reviver = null;
             // The Rallying Bell: the strongest bell within 15 m of whoever got up rallies everyone near.
             float bell = 0f;

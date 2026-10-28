@@ -14,7 +14,7 @@ namespace Deepbound.Player
     /// </summary>
     public class Kick : NetworkBehaviour
     {
-        public const float Cooldown = 5f, Range = 2.4f, Arc = 80f, Shove = 15f;
+        public const float Cooldown = 5f, Range = 2.4f, Arc = 80f, Shove = 15f, AllyShove = 7f;
 
         private PlayerLife life;
         private FirstPersonMotor motor;
@@ -70,12 +70,27 @@ namespace Deepbound.Player
                 }
                 hit = true;
             }
-            KickFxRpc(hit, slide);
+            // An ally in the way gets booted too: a shove, no harm (and never a downed one).
+            bool booted = false;
+            foreach (var ally in CombatQuery.Arc(from, forward, Range, Arc, Team.Players))
+            {
+                if (ally == null || ally.gameObject == gameObject || !ally.TryGetComponent<PlayerLife>(out var al) || al.Downed.Value) continue;
+                if (!ally.TryGetComponent<KnockbackReceiver>(out var kb)) continue;
+                kb.KnockbackRpc(forward * (slide ? AllyShove * 1.5f : AllyShove) + Vector3.up * 3f);
+                booted = true;
+            }
+            if (booted) ServerBoots++;
+            KickFxRpc(hit, slide, booted);
         }
 
+        /// <summary>For tests: allies this player has booted (server).</summary>
+        public int ServerBoots { get; private set; }
+
         [Rpc(SendTo.ClientsAndHost)]
-        private void KickFxRpc(bool hit, bool slide)
+        private void KickFxRpc(bool hit, bool slide, bool booted)
         {
+            if (booted) UI.GameHud.ShowCombo(transform.position + transform.forward * 1.6f + Vector3.up * 1.6f, "BOOTED!", new Color(0.95f, 0.75f, 0.45f));
+            hit |= booted;
             if (hit && slide) UI.GameHud.ShowCombo(transform.position + transform.forward * 1.6f + Vector3.up * 1.4f, "SLIDE KICK", new Color(1f, 0.8f, 0.4f));
             if (!IsOwner) player.Rig?.Play(RigAction.Bash, 0.35f);
             Sfx.Play(hit ? Sound.Bash : Sound.Swing, transform.position + transform.forward + Vector3.up, 0.8f, hit ? 0.8f : 1.3f);

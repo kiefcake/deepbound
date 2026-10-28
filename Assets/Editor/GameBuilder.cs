@@ -251,6 +251,7 @@ namespace Deepbound.EditorTools
             root.AddComponent<Kick>();
             root.AddComponent<Flasks>();
             root.AddComponent<Emotes>();
+            root.AddComponent<Teamwork>();
             root.AddComponent<PlayerDebuffs>();
             root.AddComponent<RangerKit>().SetTrapPrefab(bearTrap.GetComponent<NetworkObject>());
             root.AddComponent<KnockbackReceiver>();

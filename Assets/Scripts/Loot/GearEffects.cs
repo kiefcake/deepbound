@@ -59,6 +59,7 @@ namespace Deepbound.Loot
             if (p.HasRelic(Relic.WintersTooth) && target.Chilled.Value) m *= 1f + 0.25f * p.RelicPower(Relic.WintersTooth) + (Relics.Has(p, Relics.Synergy.DeepWinter) ? 0.25f : 0f);
             m *= Player.Ultimates.OutgoingMultiplier(p);
             if (p.TryGetComponent<Player.Emotes>(out var em) && em.Brothers) m *= 1.1f;
+            if (Player.Teamwork.InLastStand(p.GetComponent<Player.PlayerLife>())) m *= Player.Teamwork.LastStandDamage;
             if (p.TryGetComponent<Player.PlayerDebuffs>(out var curse))
             {
                 m *= curse.DamageMultiplier;

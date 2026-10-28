@@ -72,6 +72,7 @@ namespace Deepbound.UI
                 list.Add(new Status { Glyph = "♥", Name = "Mending", Text = "A health potion is closing your wounds.", Lasts = "A few seconds", Color = Good });
             var emotes = player.GetComponent<Emotes>();
             if (emotes != null && emotes.Brothers) list.Add(Timed("✋", "Brothers in Arms", "+10% damage. You high-fived an ally.", Good, emotes.BrothersUntil.Value - now, Emotes.BuffSeconds));
+            if (life != null && Teamwork.InLastStand(life)) list.Add(new Status { Glyph = "!", Name = "Last Stand", Text = "Everyone else is down: +25% damage, -20% damage taken. Get them up - a revive now is a CLUTCH.", Lasts = "Until someone gets up", Color = Good });
             if (ClericKit.InConsecration(pos)) list.Add(new Status { Glyph = "✦", Name = "Blessed", Text = "+20% damage while you stand in the Cleric's consecrated ground.", Lasts = "While you stand in it", Color = Good });
             if (health != null && ClericKit.IsInspired(health)) list.Add(new Status { Glyph = "★", Name = "Inspired", Text = "+15% damage while the Cleric's beam is on you.", Lasts = "While the beam holds", Color = Good });
             if (life != null && Time.time < life.VeiledUntil) list.Add(new Status { Glyph = "☁", Name = "Smoke Screen", Text = "The dead cannot see you while you stay in the smoke.", Lasts = "While you stay in it", Color = Good });

@@ -568,6 +568,83 @@ namespace Deepbound.Networking
                     dragged.ServerRevive(1f);
                     yield return new WaitForSeconds(0.3f);
                 }
+                // Teamwork: a pincer from opposite sides, an assist on the kill, then a last tw_stand and a clutch revive.
+                {
+                    var tmate = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject && !pl.Downed.Value);
+                    if (tmate != null)
+                    {
+                        var tw_hostLife = local.GetComponent<PlayerLife>();
+                        var hostProg = local.GetComponent<PlayerProgress>();
+                        var mateProg = tmate.GetComponent<PlayerProgress>();
+                        var mateTeam = tmate.GetComponent<Teamwork>();
+                        var hostTeam = local.GetComponent<Teamwork>();
+                        // Stand 6 m from the client so the enemy can sit between the two of us.
+                        var tw_side = local.transform.position - tmate.transform.position;
+                        tw_side.y = 0f;
+                        tw_side = tw_side.sqrMagnitude > 0.01f ? tw_side.normalized : Vector3.right;
+                        fm.Teleport(tmate.transform.position + tw_side * 6f + Vector3.up * 0.1f, Quaternion.LookRotation(-tw_side));
+                        yield return new WaitForSeconds(0.3f);
+                        var tw_mid = (local.transform.position + tmate.transform.position) / 2f;
+                        var tw_foe = DungeonDirector.Instance.ServerDebugSpawn("skeleton", tw_mid, false);
+                        yield return new WaitForSeconds(0.3f);
+                        float tw_pinc = 0f, tw_sameSide = 0f;
+                        int assistsBefore = mateTeam != null ? mateTeam.ServerAssists : 0;
+                        bool tw_assisted = false;
+                        if (tw_foe != null)
+                        {
+                            var tw_fh = tw_foe.GetComponent<Health>();
+                            // Wherever the navmesh put it: the host steps round to its far side from the client.
+                            var fpos = tw_foe.transform.position;
+                            var away = fpos - tmate.transform.position;
+                            away.y = 0f;
+                            away = away.sqrMagnitude > 0.01f ? away.normalized : Vector3.right;
+                            fm.Teleport(fpos + away * 2f + Vector3.up * 0.1f, Quaternion.LookRotation(-away));
+                            yield return new WaitForSeconds(0.1f);
+                            Teamwork.ServerPincer(tw_fh, mateProg);
+                            tw_pinc = Teamwork.ServerPincer(tw_fh, hostProg);
+                            // A second enemy beside the client: both of us hit it from the same tw_side.
+                            var tw_foe2 = DungeonDirector.Instance.ServerDebugSpawn("skeleton", tmate.transform.position - tw_side * 2f, false);
+                            yield return new WaitForSeconds(0.3f);
+                            if (tw_foe2 != null)
+                            {
+                                var tw_f2 = tw_foe2.GetComponent<Health>();
+                                // This time the host stands right beside the client.
+                                fm.Teleport(tmate.transform.position + Vector3.Cross(Vector3.up, tw_side) * 0.8f + Vector3.up * 0.1f, local.transform.rotation);
+                                yield return new WaitForSeconds(0.1f);
+                                Teamwork.ServerPincer(tw_f2, mateProg);
+                                tw_sameSide = Teamwork.ServerPincer(tw_f2, hostProg);
+                                tw_f2.ServerDamage(1e6f, tw_f2.transform.position, local.NetworkObjectId);
+                            }
+                            tw_fh.ServerDamage(1e6f, tw_fh.transform.position, local.NetworkObjectId);
+                            yield return new WaitForSeconds(0.3f);
+                            tw_assisted = mateTeam != null && mateTeam.ServerAssists > assistsBefore;
+                        }
+                        Log("pincer and assist", "opposite sides x" + tw_pinc.ToString("F2") + ", same side x" + tw_sameSide.ToString("F2") + ", assist credited " + tw_assisted,
+                            Mathf.Approximately(tw_pinc, Teamwork.PincerMultiplier) && Mathf.Approximately(tw_sameSide, 1f) && tw_assisted);
+
+                        // Last tw_stand: the client goes down; the host is the last one standing, then gets them up.
+                        fm.Teleport(tmate.transform.position + tw_side * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return new WaitForSeconds(0.2f);
+                        int clutchesBefore = hostTeam.ServerClutches;
+                        tmate.Health.ServerDamage(1e6f, tmate.transform.position + Vector3.forward);
+                        yield return new WaitForSeconds(0.4f);
+                        bool tw_stand = Teamwork.InLastStand(tw_hostLife);
+                        float tw_taken = 100f;
+                        foreach (var mod in local.GetComponent<Health>().IncomingModifiers) tw_taken = mod(tw_taken, local.transform.position + Vector3.forward * 30f);
+                        for (int i = 0; i < 40 && tmate.Downed.Value; i++)
+                        {
+                            tmate.ReviveHoldRpc(local.NetworkObject);
+                            yield return new WaitForSeconds(0.1f);
+                        }
+                        yield return new WaitForSeconds(0.3f);
+                        Debug.Log("[Smoke] clutch: revive gap " + Vector3.Distance(local.transform.position, tmate.transform.position).ToString("F1") + " m, progress " + tmate.ReviveProgress.Value.ToString("F2") + ", downed " + tmate.Downed.Value);
+                        bool tw_clutched = hostTeam.ServerClutches > clutchesBefore && !tmate.Downed.Value && local.GetComponent<Emotes>().Brothers;
+                        Log("last stand and clutch", "last stand " + tw_stand + " (100 taken -> " + tw_taken.ToString("F0") + "), clutch " + tw_clutched + ", after it " + Teamwork.InLastStand(tw_hostLife),
+                            tw_stand && tw_taken < 100f && tw_clutched && !Teamwork.InLastStand(tw_hostLife));
+                        if (tmate.Downed.Value) tmate.ServerRevive(1f);
+                        yield return new WaitForSeconds(0.3f);
+                    }
+                }
                 // Entlings spread out: two of them, two players, one each.
                 {
                     var entMate = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject && pl.Targetable);

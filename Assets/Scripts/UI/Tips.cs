@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse",
+            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -106,6 +106,8 @@ namespace Deepbound.UI
             if (rarePouch != null && rarePouch.RareHeld != Progression.RareItem.None)
                 Offer("rare", "A RARE " + (Progression.RareItems.IsTome(rarePouch.RareHeld) ? "TOME" : "DRAUGHT") + " sits in your pouch's fifth slot: press 5 to use it. " + Progression.RareItems.Describe(rarePouch.RareHeld) + " You carry one at a time; save it for the moment that matters.");
 
+            if (PlayerLife.All.Count > 1 && !DungeonDirector.InLobby)
+                Offer("teamwork", "Fighting together: strike an enemy from the OPPOSITE side to an ally for a PINCER (+15%); helping on a kill is an ASSIST (ultimate charge). Last one standing? LAST STAND: you hit harder - get them up for a CLUTCH.");
             var knight = player.GetComponent<KnightKit>();
             if (knight != null && knight.ShieldRaised && PlayerLife.All.Count > 1)
                 Offer("shelter", "Your shield is up: allies standing close BEHIND you are SHELTERED, taking half from blows at your shield. Hold the line for them.");

@@ -26,7 +26,7 @@ namespace Deepbound.UI
         private const int Size = 512;
         private static Texture2D vines, frost, veins, smoke, star;
         private float vineK, frostK, poisonK, curseK, maniaK, silenceK, dazeK;
-        private float mendK, surgeK, barkK, furyK, stoneK, sanctK;
+        private float mendK, surgeK, barkK, furyK, stoneK, sanctK, lastStandK;
         private static float gulpAt = -10f, cleanseAt = -10f;
         private static Color gulpColor = Color.white;
         private Color surgeColor = Color.white;
@@ -83,6 +83,7 @@ namespace Deepbound.UI
             Approach(ref furyK, pon && pouch.Bloodfury, dt, 4f, 1.5f);
             Approach(ref stoneK, pon && pouch.InStasis, dt, 6f, 3f);
             Approach(ref sanctK, pon && Player.Flasks.InSanctuary(me.transform.position), dt, 3f, 2f);
+            Approach(ref lastStandK, me != null && !Application.isBatchMode && Player.Teamwork.LocalLastStand, dt, 2f, 1.5f);
             if (pon && pouch.Surging) surgeColor = Player.Flasks.DraughtColor(Player.Flasks.LocalClass);
             // Sparks rising up the edges while a potion works.
             if ((mendK > 0.3f || surgeK > 0.3f) && Time.time >= nextSpark)
@@ -141,7 +142,7 @@ namespace Deepbound.UI
         private void Paint()
         {
             bool flashes = Time.time - gulpAt < 0.9f || Time.time - cleanseAt < 0.8f;
-            if (vineK + frostK + poisonK + curseK + maniaK + silenceK + dazeK + mendK + surgeK + barkK + furyK + stoneK + sanctK < 0.001f && !flashes && sparks.Count == 0) return;
+            if (vineK + frostK + poisonK + curseK + maniaK + silenceK + dazeK + mendK + surgeK + barkK + furyK + stoneK + sanctK + lastStandK < 0.001f && !flashes && sparks.Count == 0) return;
             var me = Player.NetworkPlayer.Local;
             if (me == null || PauseMenu.Open || GameHud.Cinematic) return;
             if (me.TryGetComponent<Player.PlayerLife>(out var life) && life.Downed.Value) return;
@@ -158,6 +159,12 @@ namespace Deepbound.UI
             {
                 float beat = Mathf.Pow(Mathf.Abs(Mathf.Sin(t * 3.4f)), 6f);
                 Corners(smoke, h * (0.7f + 0.08f * beat), furyK, new Color(0.85f, 0.05f, 0.05f, (0.38f + 0.3f * beat) * calm), t, 1.5f);
+            }
+            if (lastStandK > 0f)
+            {
+                // Last stand: a slow, heavy red pulse at the edges.
+                float beat = Mathf.Pow(Mathf.Abs(Mathf.Sin(t * 2.2f)), 4f);
+                Corners(smoke, h * (0.6f + 0.06f * beat), lastStandK, new Color(0.7f, 0.08f, 0.06f, (0.3f + 0.22f * beat) * calm), t * 0.4f, 1f);
             }
             float gulp = Mathf.Clamp01(1f - (t - gulpAt) / 0.9f);
             if (gulp > 0f) Corners(smoke, h * (0.45f + 0.35f * (1f - gulp)), gulp, new Color(gulpColor.r, gulpColor.g, gulpColor.b, 0.6f * gulp * calm), 0f, 0f);

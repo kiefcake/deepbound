@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Deepbound.Classes
 {
     /// <summary>APPEND ONLY: synced as a byte for the popup.</summary>
-    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed, WardBroken, ThermalShock }
+    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed, WardBroken, ThermalShock, Pincer }
 
     /// <summary>
     /// How the classes play off each other. Each class leaves a state on enemies or allies
@@ -40,6 +40,7 @@ namespace Deepbound.Classes
                 case ComboKind.Hallowed: return "HALLOWED FIRE";
                 case ComboKind.WardBroken: return "WARD BROKEN";
                 case ComboKind.ThermalShock: return "THERMAL SHOCK";
+                case ComboKind.Pincer: return "PINCER";
                 default: return "BLESSED";
             }
         }
@@ -56,6 +57,7 @@ namespace Deepbound.Classes
                 case ComboKind.Hallowed: return new Color(1f, 0.75f, 0.35f);
                 case ComboKind.WardBroken: return new Color(0.73f, 0.66f, 1f);
                 case ComboKind.ThermalShock: return new Color(1f, 0.55f, 0.85f);
+                case ComboKind.Pincer: return new Color(0.6f, 0.95f, 0.75f);
                 default: return new Color(1f, 0.95f, 0.6f);
             }
         }
@@ -73,6 +75,7 @@ namespace Deepbound.Classes
                 case ComboKind.Hallowed: return "Hallowed Fire: a meteor landing on consecrated ground heals the allies on it.";
                 case ComboKind.WardBroken: return "Ward Broken: stun or chill a Warded elite and its ward shatters.";
                 case ComboKind.ThermalShock: return "Thermal Shock: frost on a scorched enemy (or fire on a chilled one) cracks it for a burst of damage.";
+                case ComboKind.Pincer: return "Pincer: hit an enemy from the opposite side to an ally who just struck it for +15%.";
                 default: return "Blessed: allies standing in consecrated ground deal +20% damage.";
             }
         }
@@ -129,6 +132,7 @@ namespace Deepbound.Classes
                     Popup(target, ComboKind.Distracted, attacker);
                 }
             }
+            m *= Player.Teamwork.ServerPincer(target, attacker);
             if (Player.ClericKit.InConsecration(attacker.transform.position)) m *= BlessedMultiplier;
             if (Player.ClericKit.IsInspired(attacker.GetComponent<Health>())) m *= InspiredMultiplier;
             return m;
