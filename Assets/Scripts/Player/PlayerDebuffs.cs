@@ -242,6 +242,14 @@ namespace Deepbound.Player
                 if (Cursed) Vfx.Mote(transform.position, new Color(0.55f, 0.2f, 0.8f));
                 if (Manic) { Vfx.Mote(transform.position, new Color(0.9f, 0.4f, 1f)); Vfx.Mote(transform.position, new Color(1f, 0.5f, 0.9f)); }
                 if (Rooted) Vfx.Mote(transform.position + Vector3.down * 0.9f, new Color(0.7f, 0.95f, 1f));
+                // The newer two, for the party to see (2026-10-28): stars round a dazed head, grey haze off the silenced.
+                if (Dazed)
+                    for (int i = 0; i < 3; i++)
+                    {
+                        float ang = Time.time * 5f + i * 2.094f;
+                        Vfx.Speck(transform.position + Vector3.up * 2.05f + new Vector3(Mathf.Cos(ang), 0f, Mathf.Sin(ang)) * 0.32f, new Color(1f, 0.9f, 0.5f) * 1.6f);
+                    }
+                if (Silenced) Vfx.Mote(transform.position + Vector3.up * 0.6f, new Color(0.62f, 0.62f, 0.8f));
             }
         }
 
