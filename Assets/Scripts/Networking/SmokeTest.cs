@@ -3791,6 +3791,29 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.6f);
                         yield return Shot(dir, "2b_dazed");
                         sdeb.ServerCleanse();
+                        // Each affliction's picture at the edge of the view (2026-10-28).
+                        sdeb.ServerResetGrace();
+                        sdeb.ServerRoot(4f);
+                        yield return new WaitForSeconds(0.9f);
+                        yield return Shot(dir, "2b_rooted_ice");
+                        sdeb.ServerCleanse();
+                        sdeb.ServerHoldRoots(local.NetworkObjectId);
+                        yield return new WaitForSeconds(0.9f);
+                        yield return Shot(dir, "2b_entangled");
+                        sdeb.ServerReleaseRoots(local.NetworkObjectId);
+                        sdeb.ServerPoison(4f, 0.1f);
+                        yield return new WaitForSeconds(0.9f);
+                        yield return Shot(dir, "2b_poisoned");
+                        sdeb.ServerCleanse();
+                        sdeb.ServerCurse(4f, ulong.MaxValue);
+                        yield return new WaitForSeconds(0.9f);
+                        yield return Shot(dir, "2b_cursed");
+                        sdeb.ServerCleanse();
+                        sdeb.ServerResetGrace();
+                        sdeb.ServerMania(1.5f);
+                        yield return new WaitForSeconds(0.5f);
+                        yield return Shot(dir, "2b_mania");
+                        sdeb.ServerCleanse();
                     }
 
                     // The Bone Piper: a close look, then each tune in full flight.

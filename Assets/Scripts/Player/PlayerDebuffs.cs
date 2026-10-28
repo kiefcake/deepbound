@@ -232,7 +232,9 @@ namespace Deepbound.Player
             }
 
             // Everyone: wisps around an afflicted player, so the party can see who needs help.
-            if (Time.time >= nextWisp)
+            // Not on your own screen: there they spawned at the camera as big squares, and the overlay
+            // (UI/AfflictionOverlay) shows you instead.
+            if (!IsOwner && Time.time >= nextWisp)
             {
                 nextWisp = Time.time + 0.2f;
                 if (Poisoned) Vfx.Mote(transform.position, new Color(0.45f, 0.9f, 0.2f));

@@ -3079,7 +3079,8 @@ namespace Deepbound.UI
             void Edge(bool on, Color c, float rate)
             {
                 if (!on) return;
-                float p = 0.3f + 0.18f * Mathf.Sin(Time.time * rate);
+                // Faint now: the pictures in UI/AfflictionOverlay carry it (2026-10-28).
+                float p = 0.14f + 0.08f * Mathf.Sin(Time.time * rate);
                 GUI.color = new Color(c.r, c.g, c.b, p);
                 GUI.DrawTexture(new Rect(0, 0, w, h), VignetteTex, ScaleMode.StretchToFill);
             }
@@ -3095,11 +3096,12 @@ namespace Deepbound.UI
             // Never over a boss's name card: the callout waits for the intro to finish.
             if (BossIntroShowing && afflictText != null && Time.time - afflictAt < 2.4f) afflictAt = Time.time;
             float age = Time.time - afflictAt;
-            if (afflictText != null && age < 2.4f && !BossIntroShowing)
+            // A small word under the crosshair: the picture at the screen's edge is the message (2026-10-28).
+            if (afflictText != null && age < 1.8f && !BossIntroShowing)
             {
-                float a = Mathf.Clamp01((2.4f - age) / 0.6f);
-                float pop = 1f + 0.35f * Mathf.Clamp01(1f - age / 0.18f);
-                UiSkin.Shadowed(new Rect(0, h * 0.34f, w, 40), afflictText, new GUIStyle(big) { fontSize = Mathf.RoundToInt(28 * pop), normal = { textColor = new Color(afflictColor.r, afflictColor.g, afflictColor.b, a) } }, a);
+                float a = Mathf.Clamp01((1.8f - age) / 0.5f);
+                string word = afflictText.Split(new[] { "  -  " }, System.StringSplitOptions.None)[0];
+                UiSkin.Shadowed(new Rect(0, h * 0.56f, w, 26), word, new GUIStyle(big) { fontSize = 18, normal = { textColor = new Color(afflictColor.r, afflictColor.g, afflictColor.b, a) } }, a);
             }
         }
 
