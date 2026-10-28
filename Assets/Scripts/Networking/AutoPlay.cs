@@ -867,7 +867,9 @@ namespace Deepbound.Networking
                 yield return StepToward(to, stopAt);
             if (Vector3.Distance(Flat(me.transform.position), Flat(to)) > stopAt + 1f)
             {
-                Problem("could not walk to " + Fmt(to) + " (stopped at " + Fmt(me.transform.position) + "): stepping there");
+                // Camp has no navmesh (only floors are baked): there it simply steps across, and that is no problem.
+                if (DungeonDirector.InLobby) L("stepped across camp to " + Fmt(to));
+                else Problem("could not walk to " + Fmt(to) + " (stopped at " + Fmt(me.transform.position) + "): stepping there");
                 motor.Teleport(to + Vector3.up * 0.1f, me.transform.rotation);
                 yield return new WaitForSeconds(0.3f);
             }
