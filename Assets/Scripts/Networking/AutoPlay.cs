@@ -604,7 +604,8 @@ namespace Deepbound.Networking
                         }
                     }
                     else if (flatDist > want || (!clear && !melee)) yield return StepToward(target.transform.position, want * 0.9f);
-                    else if (melee && flatDist < edge + 0.6f)
+                    // Rooted (an Entling holding you): no stepping anywhere, so fight what is in reach.
+                    else if (melee && flatDist < edge + 0.6f && !(me.GetComponent<PlayerDebuffs>() is PlayerDebuffs rootedNow && rootedNow.Rooted))
                     {
                         // Too close (inside its reach and ours is wasted): step back out to the edge.
                         var back = Flat(me.transform.position) - Flat(target.transform.position);

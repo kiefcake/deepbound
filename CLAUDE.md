@@ -269,6 +269,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - Knight swing chain (2026-10-28): consecutive swings (within windup + rest + 0.5 s) go forehand, backhand, OVERHEAD CHOP (`CoilOP/MidOP/EndOP` keys), the look only; shots `2e_swing_over0-5`. The Unsung drops no legendary (`Gear.LegendaryOf` -> None; `GearDrop` rolls ordinary gear then).
 
+- AUTOPLAY round 2026-10-28: the RANGER was never weak - the bot was: (1) its flank of a stalled boss (6 s without the boss losing health, normal in a SURVIVE phase) had no end, and an unreachable flank spot kept it walking in place (no shots, so the health never moved): flank now 4 s at most (`flankStarted`); (2) arrow drop compensation; (3) a blocked line closes in or circles. Run 21 (Ranger from floor 4): every floor 3.6-4.7 min, guardians 0.4-1.7 min, no stuck reports (log `Builds/AutoRun/autoplay_run21_ranger.txt`). Rooted melee bots swing instead of trying to step back.
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes
