@@ -3537,6 +3537,9 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.5f);
                     }
                     Time.timeScale = 1f;
+                    // Idle long enough and the Knight turns his blade to look along it (2026-10-28).
+                    yield return new WaitForSeconds(8.3f);
+                    yield return Shot(dir, "2e_idle_inspect");
                     // The Rogue's paired stabs, the same way.
                     var pclass = local.GetComponent<PlayerProgress>();
                     var was = pclass.ClassId.Value;

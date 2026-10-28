@@ -181,6 +181,7 @@ namespace Deepbound.Player
             viewModel = null;
             vmRestKnown = false;
             viewAnim = null;
+            vmRaisedAt = Time.time;
 
             var cls = progress.ClassId.Value;
             bool mage = cls == ClassId.Mage, cleric = cls == ClassId.Cleric, rogue = cls == ClassId.Rogue, ranger = cls == ClassId.Ranger;
@@ -447,7 +448,12 @@ namespace Deepbound.Player
         private Quaternion vmRestRot = Quaternion.identity;
         private bool vmRestKnown, wasGrounded = true;
         private float walkPhase, landDip, lastVy, lastYaw, lastPitch, slideLean, downRoll, downTilt;
-        private Vector2 sway;
+        private Vector2 sway, swayVel;
+        // 2026-10-28 (the user: "better POV hand and weapon animation"): the view model's weight. A spring on the turn
+        // lag (it overshoots and settles), a roll into strafes, a lift in the air, a carry pose at a sprint, the
+        // weapon raised into view after every rebuild, and a punch back on a connecting hit.
+        private float strafeRoll, airLift, sprintPose, vmRaisedAt = -10f, punch;
+        private const float RaiseSeconds = 0.5f;
 
         /// <summary>Owner: animate the view model and return the camera's bob offset.</summary>
         private Vector3 FirstPersonFeel(Transform cam)
@@ -471,7 +477,21 @@ namespace Deepbound.Player
             lastYaw = yaw;
             lastPitch = pitch;
             var want = new Vector2(Mathf.Clamp(dPitch * 0.5f, -5f, 5f), Mathf.Clamp(-dYaw * 0.5f, -6f, 6f));
-            sway = Vector2.Lerp(sway, want, dt * 9f);
+            // A spring, not a lerp: a hard turn swings the weapon past and lets it settle back.
+            // Stepped in small fixed slices (a long frame - a hitch, a screenshot - must not fling it).
+            for (float left = Mathf.Min(dt, 0.1f); left > 0f; left -= 1f / 120f)
+            {
+                float h = Mathf.Min(left, 1f / 120f);
+                swayVel += ((want - sway) * 170f - swayVel * 15f) * h;
+                sway += swayVel * h;
+            }
+            sway = Vector2.ClampMagnitude(sway, 9f);
+            // Strafing rolls it into the step; in the air it lags up on the way up and down on the way down.
+            var localVel = transform.InverseTransformDirection(vel);
+            strafeRoll = Mathf.Lerp(strafeRoll, Mathf.Clamp(-localVel.x * 1.1f, -5f, 5f), dt * 8f);
+            airLift = Mathf.Lerp(airLift, grounded ? 0f : Mathf.Clamp(-vel.y * 0.006f, -0.05f, 0.05f), dt * 10f);
+            sprintPose = Mathf.MoveTowards(sprintPose, motor.IsSprinting && grounded && speed > 3f ? 1f : 0f, dt * 5f);
+            punch = Mathf.MoveTowards(punch, 0f, dt * 7f);
 
             if (viewModel != null && viewModel.Root != null)
             {
@@ -480,8 +500,14 @@ namespace Deepbound.Player
                 // Standing still the hands breathe: a slow rise and a faint drift.
                 float still = 1f - amp, tb = Time.time;
                 bob += new Vector3(Mathf.Sin(tb * 0.7f) * 0.003f, Mathf.Sin(tb * 1.5f) * 0.004f, Mathf.Sin(tb * 1.5f + 0.6f) * 0.002f) * still;
-                viewModel.Root.localPosition = vmRestPos + bob + Vector3.down * 0.07f * landDip + Vector3.down * (sliding ? 0.04f : 0f);
-                viewModel.Root.localRotation = vmRestRot * Quaternion.Euler(sway.x, sway.y, sway.y * 0.6f);
+                // Raised into view after a rebuild (a spawn, a class change), like drawing a weapon.
+                float raise = Mathf.Clamp01((Time.time - vmRaisedAt) / RaiseSeconds);
+                raise = 1f - (1f - raise) * (1f - raise) * (1f - raise);
+                var lag = new Vector3(-sway.y * 0.0022f, sway.x * 0.0018f, 0f);
+                var carry = new Vector3(0.03f, -0.06f, -0.03f) * sprintPose;
+                viewModel.Root.localPosition = vmRestPos + bob + lag + carry + Vector3.up * airLift + Vector3.back * 0.025f * punch
+                    + Vector3.down * 0.07f * landDip + Vector3.down * (sliding ? 0.04f : 0f) + Vector3.down * 0.35f * (1f - raise);
+                viewModel.Root.localRotation = vmRestRot * Quaternion.Euler(sway.x + 10f * sprintPose + 30f * (1f - raise) - 3f * punch, sway.y - 12f * sprintPose, sway.y * 0.6f + strafeRoll + 8f * sprintPose);
             }
 
             // A slide leans the view; walking nods it a little (scaled with the shake option).
@@ -530,6 +556,9 @@ namespace Deepbound.Player
         public void ConfirmHit(float strength)
         {
             shake = Mathf.Min(1f, shake + 0.12f * strength);
+            // The hands feel it: a hitch in the swing (the view model only, never time) and a punch back.
+            viewAnim?.HitPause(0.045f + 0.035f * Mathf.Clamp01(strength));
+            punch = Mathf.Min(1f, punch + 0.6f * Mathf.Clamp01(strength + 0.3f));
         }
 
         /// <summary>One first-person animator per class; the kit calls whichever hooks apply.</summary>
@@ -541,6 +570,8 @@ namespace Deepbound.Player
             void BlockImpact();
             void Cast(bool frost);
             void SetCharge(float charge);
+            /// <summary>A connecting hit: hold the swing a few hundredths of a second (local, cosmetic).</summary>
+            void HitPause(float seconds) { }
         }
 
         /// <summary>
@@ -594,6 +625,8 @@ namespace Deepbound.Player
             private readonly Quaternion rRot, lRot;
             private float rStab = -10f, lStab = -10f, throwAt = -10f, bob;
             private readonly BladeTrail rTrail, lTrail;
+            private float clock, pauseUntil = -1f, idleSince;
+            public void HitPause(float seconds) => pauseUntil = Mathf.Max(pauseUntil, clock + seconds);
 
             public DaggerViewAnimator(CharacterArt.ViewModel vm)
             {
@@ -607,30 +640,38 @@ namespace Deepbound.Player
 
             public void Swing(float windup, float rest, float side)
             {
-                if (side > 0f) { rStab = Time.time; rTrail?.Arm(0.13f); }
-                else { lStab = Time.time; lTrail?.Arm(0.13f); }
+                if (side > 0f) { rStab = clock; rTrail?.Arm(0.13f); }
+                else { lStab = clock; lTrail?.Arm(0.13f); }
             }
 
             public void Bash() { }
             public void BlockImpact() { }
-            public void Cast(bool frost) => throwAt = Time.time;
+            public void Cast(bool frost) => throwAt = clock;
             public void SetCharge(float charge) { }
 
             public void Update(bool blocking, bool downed, bool sprinting)
             {
+                clock += clock < pauseUntil ? Time.deltaTime * 0.08f : Time.deltaTime;
+                if (sprinting || downed || clock - rStab < 0.6f || clock - lStab < 0.6f || clock - throwAt < 0.6f) idleSince = clock;
+                // Idle a while: flip the right dagger end over end and catch it.
+                float flipT = clock - idleSince - 6f;
+                float flip = 0f, toss = 0f;
+                if (flipT > 0f && flipT < 0.7f) { float k = flipT / 0.7f; flip = k * k * (3f - 2f * k) * 360f; toss = Mathf.Sin(k * Mathf.PI) * 0.09f; }
+                else if (flipT >= 0.7f) idleSince = clock - Random.Range(0f, 2.5f);
                 bob += Time.deltaTime * (sprinting ? 12f : 0f);
                 var run = sprinting ? new Vector3(Mathf.Sin(bob) * 0.02f, Mathf.Abs(Mathf.Cos(bob)) * 0.025f, 0f) : Vector3.zero;
                 var down = downed ? new Vector3(0f, -0.4f, -0.1f) : Vector3.zero;
 
-                float t = Time.time - throwAt;
+                float t = clock - throwAt;
                 float flick = t < 0.25f ? Mathf.Sin(t / 0.25f * Mathf.PI) : 0f;
 
                 // Each hand: a short cock back and twist, then a fast slashing thrust across and in,
                 // a hair of follow-through, and a quick recovery.
-                var (rp, re) = Cut(Time.time - rStab, 1f);
-                var (lp, le) = Cut(Time.time - lStab, -1f);
+                var (rp, re) = Cut(clock - rStab, 1f);
+                var (lp, le) = Cut(clock - lStab, -1f);
                 vm.SwordPivot.localPosition = rRest + run + down + rp + new Vector3(0f, 0.12f, 0.1f) * flick;
-                vm.SwordPivot.localRotation = rRot * Quaternion.Euler(re + new Vector3(-60f * flick, 0f, 0f));
+                vm.SwordPivot.localPosition += Vector3.up * toss;
+                vm.SwordPivot.localRotation = rRot * Quaternion.Euler(re + new Vector3(-60f * flick - flip, 0f, 0f));
                 vm.ShieldPivot.localPosition = lRest + run + down + lp;
                 vm.ShieldPivot.localRotation = lRot * Quaternion.Euler(le);
                 rTrail?.Update();
@@ -712,7 +753,12 @@ namespace Deepbound.Player
                 vm.SwordPivot.localRotation = staffRot * Quaternion.Euler(-10f * thrust, 0f, 0f);
 
                 vm.ShieldPivot.localPosition = handRest + run + down + new Vector3(0.12f, 0.06f, 0.22f) * thrust - sway;
-                vm.ShieldPivot.localRotation = handRot * Quaternion.Euler(-35f * thrust, 0f, 0f);
+                // Every so often the casting hand turns its palm up and the flame swells, then settles.
+                float flexT = Mathf.Repeat(idle, 9f) - 7.5f;
+                float flex = flexT > 0f ? Mathf.Sin(flexT / 1.5f * Mathf.PI) : 0f;
+                vm.ShieldPivot.localRotation = handRot * Quaternion.Euler(-35f * thrust, 0f, 40f * flex);
+                vm.ShieldPivot.localPosition += new Vector3(-0.02f, 0.04f, 0.02f) * flex;
+                thrust = Mathf.Max(thrust, flex * 0.4f);
 
                 if (vm.SpellGlow != null)
                 {
@@ -746,6 +792,9 @@ namespace Deepbound.Player
             private float block, bob;
             private readonly BladeTrail trail;
             private float armedFor = -1f;
+            // Its own clock, so a connecting hit can hold the swing for an instant without touching time.
+            private float clock, pauseUntil = -1f, idleSince;
+            public void HitPause(float seconds) => pauseUntil = Mathf.Max(pauseUntil, clock + seconds);
 
             public ViewModelAnimator(CharacterArt.ViewModel vm)
             {
@@ -759,7 +808,7 @@ namespace Deepbound.Player
 
             public void Swing(float windup, float rest, float side)
             {
-                swingStart = Time.time; swingWindup = windup; swingRest = rest; swingSide = side;
+                swingStart = clock; swingWindup = windup; swingRest = rest; swingSide = side;
             }
 
             // The cut, as keys (offsets from the rest pose): coiled high over the shoulder, a fast
@@ -784,21 +833,23 @@ namespace Deepbound.Player
                 return Vector3.Lerp(Vector3.Lerp(a, c, t), Vector3.Lerp(c, b, t), t);
             }
 
-            public void Bash() => bashStart = Time.time;
-            public void BlockImpact() => impactStart = Time.time;
+            public void Bash() => bashStart = clock;
+            public void BlockImpact() => impactStart = clock;
             public void Cast(bool frost) { }
             public void SetCharge(float charge) { }
 
             public void Update(bool blocking, bool downed, bool sprinting)
             {
                 float dt = Time.deltaTime;
+                clock += clock < pauseUntil ? dt * 0.08f : dt;
+                if (blocking || sprinting || downed || clock - swingStart < swingWindup + swingRest + 0.3f || clock - bashStart < 0.6f) idleSince = clock;
                 block = Mathf.MoveTowards(block, blocking ? 1f : 0f, dt * 8f);
                 bob += dt * (sprinting ? 11f : 0f);
 
                 // --- Sword ---
                 Vector3 pos = swordRestPos;
                 Quaternion rot = swordRestRot;
-                float t = Time.time - swingStart;
+                float t = clock - swingStart;
 
                 float sd = swingSide;
                 bool fore = sd > 0f;
@@ -842,6 +893,17 @@ namespace Deepbound.Player
                         eul = Vector3.Lerp(endE * 1.1f, Vector3.zero, k);
                     }
                 }
+                // Idle a while: turn the blade up to look along it, then back to guard.
+                float idleT = clock - idleSince - 7f;
+                if (idleT > 0f && idleT < 2.4f)
+                {
+                    float k = Mathf.Sin(Mathf.Clamp01(idleT / 2.4f) * Mathf.PI);
+                    k = k * k * (3f - 2f * k);
+                    // A turn of the wrist about the blade's own axis (local +Y) shows its flat; a small lift brings it up to the eye.
+                    off += new Vector3(-0.05f, 0.07f, 0.01f) * k;
+                    eul += new Vector3(-8f, 80f, 6f) * k + new Vector3(0f, Mathf.Sin(idleT * 3f) * 5f * k, 0f);
+                }
+                else if (idleT >= 2.4f) idleSince = clock - Random.Range(0f, 3f);
                 pos += off;
                 rot *= Quaternion.Euler(eul);
                 if (sprinting) pos += new Vector3(Mathf.Sin(bob) * 0.02f, Mathf.Abs(Mathf.Cos(bob)) * 0.025f, 0f);
@@ -854,10 +916,10 @@ namespace Deepbound.Player
                 Vector3 spos = shieldRestPos + new Vector3(0.3f, 0.14f, -0.05f) * block;
                 Quaternion srot = shieldRestRot * Quaternion.Euler(0f, -18f * block, 0f);
 
-                float b = Time.time - bashStart;
+                float b = clock - bashStart;
                 if (b < 0.35f) spos += new Vector3(0.15f, 0.05f, 0.3f) * Mathf.Sin(b / 0.35f * Mathf.PI);
 
-                float i = Time.time - impactStart;
+                float i = clock - impactStart;
                 if (i < 0.2f) spos += new Vector3(0f, 0f, -0.08f) * (1f - i / 0.2f);
 
                 if (sprinting) spos += new Vector3(Mathf.Sin(bob + 1f) * 0.02f, Mathf.Abs(Mathf.Cos(bob)) * 0.025f, 0f);
