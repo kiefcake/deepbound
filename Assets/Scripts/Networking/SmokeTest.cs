@@ -1270,9 +1270,20 @@ namespace Deepbound.Networking
                         if (ct != null)
                         {
                             var hdeb = local.GetComponent<PlayerDebuffs>();
+                            hdeb.ServerCleanse();
+                            hdeb.ServerResetGrace();
                             ct.ServerDebugHush(local.transform.position, 0.6f);
                             for (float t = 0f; t < 1.2f && ct != null && ct.Hushes == 0; t += 0.1f) { local.GetComponent<Health>().ServerSetFraction(1f); ct.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
                             yield return new WaitForSeconds(0.2f);
+                            // A blow can be dodged by worn luck or stood out of: a second hush where the player stands now.
+                            if (!hdeb.Silenced && ct != null)
+                            {
+                                hdeb.ServerResetGrace();
+                                int h0 = ct.Hushes;
+                                ct.ServerDebugHush(local.transform.position, 0.4f);
+                                for (float t = 0f; t < 1f && ct != null && ct.Hushes == h0; t += 0.1f) yield return new WaitForSeconds(0.1f);
+                                yield return null;
+                            }
                             bool hushed = hdeb.Silenced, locked = UI.Binds.AbilityLock != null && UI.Binds.AbilityLock();
                             hdeb.ServerCleanse();
                             yield return new WaitForSeconds(0.2f);
@@ -1389,6 +1400,8 @@ namespace Deepbound.Networking
                                 yield return new WaitForSeconds(0.2f);
                                 var kh = local.GetComponent<Health>();
                                 kh.ServerSetFraction(0.5f);
+                                // A curse from a Hexer nearby halves healing: not the cat's fault.
+                                local.GetComponent<PlayerDebuffs>().ServerCleanse();
                                 kit.ServerDebugUse(sp);
                                 yield return new WaitForSeconds(0.2f);
                                 bool mended = kh.Fraction > 0.7f;

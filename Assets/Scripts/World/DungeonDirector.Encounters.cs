@@ -872,8 +872,17 @@ namespace Deepbound.World
 
             // The dead that leave the room (or never got into it) do not hold the gates shut (2026-10-27: the autoplay
             // Knight stood locked in an ambush room with nothing left to fight).
-            ambush.Alive.RemoveAll(e => e == null || e.IsDead || !room.Contains(e.transform.position, 4f));
-            bool overdue = Time.time - ambush.WaveAt > AmbushWaveLimit;
+            float waveAge = Time.time - ambush.WaveAt;
+            ambush.Alive.RemoveAll(e => e == null || e.IsDead);
+            // Only a settled wave: in its first seconds the dead are still climbing out and finding their feet.
+            if (waveAge > 8f)
+                ambush.Alive.RemoveAll(e =>
+                {
+                    if (room.Contains(e.transform.position, 4f)) return false;
+                    Debug.Log("[Director] ambusher " + e.name + " left the room at " + e.transform.position + ": it no longer holds the gates");
+                    return true;
+                });
+            bool overdue = waveAge > AmbushWaveLimit;
             if (ambush.Alive.Count > 0 && !overdue) return;
             if (overdue && ambush.Alive.Count > 0) { ambush.Alive.Clear(); ambush.Wave = 2; }
 
