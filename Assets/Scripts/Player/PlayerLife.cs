@@ -63,6 +63,12 @@ namespace Deepbound.Player
         public static bool CanTarget(Health h) => h != null && h.IsAlive && (!h.TryGetComponent<PlayerLife>(out var p) || p.Targetable);
         public readonly NetworkVariable<float> ReviveProgress = new NetworkVariable<float>();
         private float reviveServer;
+        private PlayerLife helper;
+        private float lastHelperPing = -10f;
+        /// <summary>Two revivers at once: x1.5.</summary>
+        public const float TwoHandsRate = 1.5f;
+        /// <summary>Server: a second reviver is helping right now (tests read it).</summary>
+        public bool TwoHands { get; private set; }
 
         public Health Health { get; private set; }
 
@@ -347,6 +353,7 @@ namespace Deepbound.Player
             Debug.Log("[Down] " + name + " went down at " + transform.position.ToString("F1") + ", last hit by " + by + " from " + Health.LastHitAt.ToString("F1"));
             Downed.Value = true;
             downedAt = Time.time;
+            Teamwork.ServerVengeance(this, Health.LastHitFrom);
             ReviveProgress.Value = 0f;
             reviveServer = 0f;
             Bleed.Value = 0f;
@@ -396,6 +403,13 @@ namespace Deepbound.Player
             if (r == null || r == this || r.Downed.Value) return;
             if (Vector3.Distance(r.transform.position, transform.position) > ReviveRange + 0.5f) return;
 
+            // A second pair of hands speeds it up.
+            if (reviver != null && reviver != r && Time.time - lastReviverPing < 0.35f && !reviver.Downed.Value)
+            {
+                helper = r;
+                lastHelperPing = Time.time;
+                return;
+            }
             reviver = r;
             lastReviverPing = Time.time;
         }
@@ -442,6 +456,10 @@ namespace Deepbound.Player
 
             // The Cleric's passive, Grace: revives twice as fast.
             float rate = beingRevived && reviver.progress != null && reviver.progress.ClassId.Value == Classes.ClassId.Cleric ? 2f : 1f;
+            bool helped = beingRevived && helper != null && Time.time - lastHelperPing < 0.35f && !helper.Downed.Value &&
+                          Vector3.Distance(helper.transform.position, transform.position) <= ReviveRange + 0.5f;
+            if (helped) rate *= TwoHandsRate;
+            TwoHands = helped;
             // Kept on the server at full precision (2026-10-28): it used to read back the synced value, which is only
             // written in 0.01 steps, so above ~100 fps a frame's progress was always too small and a revive never moved.
             float progress = Mathf.Clamp(reviveServer + (beingRevived ? Time.deltaTime * rate : -Time.deltaTime * 0.5f), 0f, ReviveSeconds);

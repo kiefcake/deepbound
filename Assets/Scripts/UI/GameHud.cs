@@ -481,6 +481,18 @@ namespace Deepbound.UI
                 ShowCombo(p, streak >= 5 ? "GRAZE x" + streak : "GRAZE", streak >= 10 ? new Color(1f, 0.92f, 0.5f) : new Color(0.75f, 0.95f, 1f));
         }
 
+        /// <summary>Downed: who you are watching, and how to change it (Teamwork spectating).</summary>
+        private static void DrawWatchHint(float w, float h)
+        {
+            bool anyone = false;
+            foreach (var p in PlayerLife.All) if (p != null && p.gameObject != Player.NetworkPlayer.Local?.gameObject && !p.Downed.Value) anyone = true;
+            if (!anyone) return;
+            var w8 = Teamwork.Watching;
+            string text = w8 != null ? "Watching " + w8.name + "   (" + (Binds.PadActive ? "RT" : "LMB") + " next, " + (Binds.PadActive ? "LT" : "RMB") + " your own eyes)"
+                : "(" + (Binds.PadActive ? "RT" : "LMB") + ") watch an ally while you wait";
+            UiSkin.Shadowed(new Rect(0, h / 2f + 50, w, 24), text, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.85f, 0.85f, 0.9f) } });
+        }
+
         public static void ShowCombo(Vector3 at, string text, Color color) =>
             combos.Add(new ComboText { World = at, Text = text, Color = color, Time = UnityEngine.Time.time });
 
@@ -1947,6 +1959,7 @@ namespace Deepbound.UI
                     GUI.Label(new Rect(0, h / 2f - 30, w, 24), where, center);
                     if (skull != null && skull.Ritual.Value > 0f)
                         ProgressBar(w, h / 2f + 4, skull.Ritual.Value / SoulSkull.RitualSeconds, new Color(0.7f, 0.5f, 1f));
+                    DrawWatchHint(w, h);
                     DrawRecap(w, h);
                     return;
                 }
@@ -1961,6 +1974,7 @@ namespace Deepbound.UI
                     var bc = left < 10f ? new Color(1f, 0.3f, 0.25f, 0.6f + 0.4f * Mathf.Sin(Time.time * 8f)) : new Color(1f, 0.6f, 0.5f);
                     GUI.Label(new Rect(0, h / 2f + 22, w, 24), "Bleeding out in " + Mathf.CeilToInt(left) + "s", new GUIStyle(center) { normal = { textColor = bc } });
                 }
+                DrawWatchHint(w, h);
                 DrawRecap(w, h);
                 return;
             }

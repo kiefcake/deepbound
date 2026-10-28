@@ -643,6 +643,48 @@ namespace Deepbound.Networking
                             tw_stand && tw_taken < 100f && tw_clutched && !Teamwork.InLastStand(tw_hostLife));
                         if (tmate.Downed.Value) tmate.ServerRevive(1f);
                         yield return new WaitForSeconds(0.3f);
+
+                        // Vengeance: a skeleton downs the client; it is marked; the host kills it and avenges them.
+                        var grudgeFoe = DungeonDirector.Instance.ServerDebugSpawn("skeleton", tmate.transform.position + Vector3.forward * 2f, false);
+                        yield return new WaitForSeconds(0.3f);
+                        bool avenged = false, marked = false;
+                        if (grudgeFoe != null)
+                        {
+                            int before = Teamwork.ServerAvenged;
+                            var gh = grudgeFoe.GetComponent<Health>();
+                            tmate.Health.ServerDamage(1e6f, grudgeFoe.transform.position, grudgeFoe.NetworkObjectId);
+                            yield return new WaitForSeconds(0.3f);
+                            marked = gh.Marked.Value;
+                            gh.ServerDamage(1e6f, gh.transform.position, local.NetworkObjectId);
+                            yield return new WaitForSeconds(0.3f);
+                            avenged = Teamwork.ServerAvenged > before;
+                        }
+                        Log("vengeance", "downed by a skeleton: marked " + marked + ", avenged " + avenged, marked && avenged);
+                        if (tmate.Downed.Value) tmate.ServerRevive(1f);
+                        yield return new WaitForSeconds(0.3f);
+
+                        // Floor honours: a fresh floor tally, one kill by the host, then the honours name a BUTCHER.
+                        Teamwork.ServerFloorStarted();
+                        var honourFoe = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 3f, false);
+                        yield return new WaitForSeconds(0.3f);
+                        if (honourFoe != null) honourFoe.GetComponent<Health>().ServerDamage(1e6f, honourFoe.transform.position, local.NetworkObjectId);
+                        yield return new WaitForSeconds(0.3f);
+                        var honours = Teamwork.ServerFloorHonours();
+                        Log("floor honours", string.Join(" | ", honours), honours.Exists(l => l.StartsWith("BUTCHER: " + local.name)));
+
+                        // Spectating: the host goes down and watches the client over the shoulder.
+                        local.GetComponent<Health>().ServerDamage(1e6f, local.transform.position + Vector3.forward);
+                        yield return new WaitForSeconds(0.4f);
+                        Teamwork.DebugWatch(tmate);
+                        yield return null;
+                        yield return null;
+                        var watchCam = Art.ViewCamera.Current;
+                        float gap = watchCam != null ? Vector3.Distance(watchCam.transform.position, tmate.transform.position + Vector3.up * 1.7f) : 99f;
+                        bool hostDown = local.GetComponent<PlayerLife>().Downed.Value;
+                        local.GetComponent<PlayerLife>().ServerRevive(1f);
+                        yield return new WaitForSeconds(0.3f);
+                        Log("spectate while down", "host down " + hostDown + ", camera " + gap.ToString("F1") + " m from the ally's head, released " + (Teamwork.Watching == null),
+                            hostDown && gap < 4f && Teamwork.Watching == null);
                     }
                 }
                 // Entlings spread out: two of them, two players, one each.
@@ -1483,6 +1525,7 @@ namespace Deepbound.Networking
                                 yield return new WaitForSeconds(0.2f);
                                 bool mended = kh.Fraction > 0.7f;
                                 for (float t = 0f; t < 4f && kit != null && kit.IsSpawned; t += 0.2f) yield return new WaitForSeconds(0.2f);
+                                if (!mended) Debug.Log("[Smoke] shaft cat why: fraction " + kh.Fraction.ToString("F2") + ", heal x" + kh.HealMultiplier.ToString("F2") + ", curse x" + local.GetComponent<PlayerDebuffs>().HealMultiplier.ToString("F2") + ", omen x" + Health.OmenPlayerHealScale.ToString("F2") + ", downed " + local.GetComponent<PlayerLife>().Downed.Value + ", woken " + kit.Woken.Value);
                                 Log("shaft cat", "mended " + mended + ", gone after " + (kit == null || !kit.IsSpawned), mended && (kit == null || !kit.IsSpawned));
                                 kh.ServerSetFraction(1f);
                             }

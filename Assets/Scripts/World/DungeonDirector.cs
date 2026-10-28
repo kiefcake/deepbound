@@ -783,6 +783,7 @@ namespace Deepbound.World
             ClearSpawned();
 
             int seed = FloorSeed(depth);
+            Player.Teamwork.ServerFloorStarted();
             Phase.Value = RunPhase.Exploring;
             PhaseEndsAt.Value = 0;
             Floor.Value = new Vector2Int(seed, depth);
@@ -1393,6 +1394,7 @@ namespace Deepbound.World
                     else if (bossSeen && (boss == null || boss.IsDead))
                     {
                         ContractOnFloorCleared();
+                        if (!Practice.Value) Player.Teamwork.ServerFloorHonours();
                         // No timer: a portal opens where the boss stood, and the party leaves when everyone steps in.
                         ExitFinal.Value = Floor.Value.y >= FinalDepth;
                         EnterPhase(RunPhase.FloorCleared, 0f);

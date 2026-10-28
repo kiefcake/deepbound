@@ -74,6 +74,7 @@ namespace Deepbound.UI
         private static readonly string[] WhatsNew =
         {
             "CO-OP: PINCER from opposite sides, ASSISTS, LAST STAND and CLUTCH revives",
+            "Down? WATCH your allies (LMB). AVENGE the fallen; FLOOR HONOURS",
             "Kick a friend (V) - a harmless boot. Revives now work on fast PCs",
             "CHAMPIONS fight by their epithet; WARDENS learn a second move",
             "The Hollow King's DECREES: BE STILL, then BEGONE",
