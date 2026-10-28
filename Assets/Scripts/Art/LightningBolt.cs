@@ -24,6 +24,12 @@ namespace Deepbound.Art
             path.AddRange(targets);
             for (int i = 0; i < path.Count - 1; i++) bolt.Arc(go.transform, path[i], path[i + 1]);
 
+            // Each strike crackles where it lands (Kenney spark sprites).
+            foreach (var t in targets)
+            {
+                FxSprite.Billboard("spark_01", t, Vector3.zero, 0.22f, 0.6f, 1.6f, new Color(0.75f, 0.85f, 1f, 1f), Random.Range(-500f, 500f));
+                FxSprite.Billboard("light_01", t, Vector3.zero, 0.3f, 0.8f, 2.2f, new Color(0.6f, 0.75f, 1f, 0.6f));
+            }
             bolt.flash = new GameObject("Flash").AddComponent<Light>();
             bolt.flash.transform.SetParent(go.transform, false);
             bolt.flash.transform.position = targets[0] + Vector3.up;

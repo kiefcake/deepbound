@@ -62,6 +62,8 @@ namespace Deepbound.Enemies
             beamFrom = EyeAt;
             // Aim where they are going (at their chest, up or down a ramp too); the floor line shows its path,
             // so a sidestep is the answer.
+            // Locks onto the one it was told to (AimDir leads its current target, which can be someone else).
+            target = who;
             var aim = AimDir(beamFrom, 40f);
             beamDir = aim.sqrMagnitude > 0.01f ? aim.normalized : transform.forward;
             var flat = new Vector3(beamDir.x, 0f, beamDir.z);

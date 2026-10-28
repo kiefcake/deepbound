@@ -318,6 +318,8 @@ namespace Deepbound.Player
         private void ConsecrateFxRpc(Vector3 at)
         {
             HolyGround.Spawn(at, ConsecrateRadius, ConsecrateSeconds);
+            // Runes turning in the hallowed ground for as long as it lasts.
+            FxSprite.Decal("magic_05", at, ConsecrateRadius * 1.9f, ConsecrateRadius * 2f, ConsecrateSeconds, new Color(1f, 0.85f, 0.45f, 0.55f), 18f);
             Sfx.Play(Sound.Revive, at + Vector3.up, 0.9f, 0.85f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.5f);
         }
@@ -330,6 +332,7 @@ namespace Deepbound.Player
             Vfx.Ring(transform.position, AegisRadius, gold, 0.5f);
             Vfx.Flash(transform.position + Vector3.up * 1.5f, gold, 4f, 10f, 0.5f);
             Vfx.Embers(transform.position + Vector3.up * 0.5f, 16, gold, 3.5f, 0.06f, 0.9f);
+            FxSprite.Billboard("light_01", transform.position + Vector3.up * 1.4f, Vector3.up * 0.4f, 0.7f, 1f, 3.2f, new Color(gold.r, gold.g, gold.b, 0.7f));
             player.Rig?.Play(RigAction.Cast, 0.6f);
         }
 

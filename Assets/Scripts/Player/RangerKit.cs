@@ -300,6 +300,8 @@ namespace Deepbound.Player
             var red = new Color(1f, 0.3f, 0.25f);
             Vfx.Ring(Vfx.Ground(at), 1.2f, red, 0.35f);
             Vfx.Embers(at, 8, red, 2.5f, 0.05f, 0.5f);
+            // A hunter's mark: a sharp red star snapping onto the quarry.
+            FxSprite.Billboard("spark_05", at + Vector3.up * 0.2f, Vector3.zero, 0.3f, 1.2f, 0.5f, new Color(red.r, red.g, red.b, 0.95f), 200f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

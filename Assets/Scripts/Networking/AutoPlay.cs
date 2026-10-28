@@ -596,6 +596,13 @@ namespace Deepbound.Networking
                         var aimAt = target.Center;
                         if (!melee && target.TryGetComponent<UnityEngine.AI.NavMeshAgent>(out var tAgent) && tAgent.enabled)
                             aimAt += tAgent.velocity * (flatDist / (cls == Classes.ClassId.Ranger ? RangerKit.ArrowSpeed : cls == Classes.ClassId.Mage ? MageKit.FireboltSpeed : 24f));
+                        // Arrows drop: aim over the target by the fall a full draw takes to get there, as an archer would
+                        // (2026-10-28: the Ranger bot's long shots landed short all run and every guardian took 6-8 min).
+                        if (cls == Classes.ClassId.Ranger)
+                        {
+                            float tof = flatDist / RangerKit.ArrowSpeed;
+                            aimAt += Vector3.up * 0.5f * RangerKit.ArrowGravity(1f) * tof * tof;
+                        }
                         Face(aimAt);
                         // Abilities now and then, when something is close.
                         if (Time.time >= nextAbility)

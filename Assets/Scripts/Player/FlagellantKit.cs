@@ -455,6 +455,8 @@ namespace Deepbound.Player
             Vfx.Ring(at + Vector3.up * 0.05f, LeapRadius, new Color(1f, 0.35f, 0.25f), 0.45f);
             Vfx.Embers(at + Vector3.up * 0.3f, Mathf.RoundToInt(14 * k), Blood, 5f * k, 0.06f, 0.7f);
             Vfx.Flash(at + Vector3.up, new Color(1f, 0.3f, 0.2f), 4f * k, 8f, 0.35f);
+            // The landing cracks the floor and leaves blood on it.
+            FxSprite.Decal("dirt_02", at, LeapRadius * 1.3f, LeapRadius * 1.4f, 6f, new Color(0.25f, 0.03f, 0.02f, 0.6f));
             if (IsOwner) player.ConfirmHit(1.5f);
         }
     }

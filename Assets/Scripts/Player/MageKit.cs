@@ -355,6 +355,9 @@ namespace Deepbound.Player
             Vfx.Ring(from, 1.6f, arcane, 0.35f);
             Vfx.Embers(from + Vector3.up, 16, arcane, 4f, 0.06f, 0.7f);
             Art.BlinkGhost.Spawn(from, transform.rotation, arcane);
+            // A twist of arcane light where the mage left and where they land (Kenney twirl sprite).
+            Art.FxSprite.Billboard("twirl_02", from + Vector3.up * 1.1f, Vector3.zero, 0.45f, 1.4f, 0.2f, new Color(arcane.r, arcane.g, arcane.b, 0.9f), 520f);
+            Art.FxSprite.Billboard("twirl_02", to + Vector3.up * 1.1f, Vector3.zero, 0.4f, 0.3f, 1.5f, new Color(arcane.r, arcane.g, arcane.b, 0.8f), -520f);
             // The path: a streak of motes from there to here.
             var path = to - from;
             int steps = Mathf.Clamp(Mathf.RoundToInt(path.magnitude * 2f), 3, 18);

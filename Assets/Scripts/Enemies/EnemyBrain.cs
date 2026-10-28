@@ -116,6 +116,8 @@ namespace Deepbound.Enemies
             if (ChampionTrait == ChampionTraits.Unburied)
                 health.IncomingModifiers.Add((dmg, from) =>
                 {
+                    // Getting up, it cannot be finished (the whole point of the Unburied); a killing blow still is one.
+                    if (Time.time < risingUntil && dmg < BossBrain.KillDamage) return 0f;
                     if (championRose || IsDead || dmg < health.Current.Value || dmg >= BossBrain.KillDamage) return dmg;
                     championRose = true;
                     StartCoroutine(ChampionRise());
@@ -132,8 +134,11 @@ namespace Deepbound.Enemies
         }
 
         /// <summary>The Unburied: it falls, and gets up.</summary>
+        private float risingUntil;
+
         private System.Collections.IEnumerator ChampionRise()
         {
+            risingUntil = Time.time + 1.4f;
             ServerStun(1.6f);
             ChampionRiseRpc();
             yield return new WaitForSeconds(1.3f);

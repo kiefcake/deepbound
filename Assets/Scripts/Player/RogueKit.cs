@@ -379,6 +379,8 @@ namespace Deepbound.Player
             var shadow = new Color(0.55f, 0.35f, 0.9f);
             Vfx.Embers(from + Vector3.up, 10, shadow, 3f, 0.05f, 0.6f);
             Vfx.Embers(to + Vector3.up, 10, shadow, 3f, 0.05f, 0.6f);
+            FxSprite.Billboard("twirl_02", from + Vector3.up, Vector3.zero, 0.35f, 1.1f, 0.1f, new Color(0.35f, 0.2f, 0.6f, 0.85f), 600f);
+            FxSprite.Billboard("twirl_02", to + Vector3.up, Vector3.zero, 0.35f, 0.2f, 1.2f, new Color(0.35f, 0.2f, 0.6f, 0.7f), -600f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

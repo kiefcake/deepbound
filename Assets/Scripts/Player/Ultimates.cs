@@ -348,7 +348,11 @@ namespace Deepbound.Player
             : new Color(0.95f, 0.3f, 0.2f);
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void BannerFxRpc(Vector3 at) => RallyBanner.Spawn(at, NetworkPlayer.SlotColors[(int)(OwnerClientId % 4)], 8f, BannerRadius);
+        private void BannerFxRpc(Vector3 at)
+        {
+            RallyBanner.Spawn(at, NetworkPlayer.SlotColors[(int)(OwnerClientId % 4)], 8f, BannerRadius);
+            FxSprite.Decal("circle_02", at, BannerRadius * 1.9f, BannerRadius * 2f, 8f, new Color(1f, 0.8f, 0.4f, 0.35f), 10f);
+        }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void MeteorWarnRpc(Vector3 at, int i)
