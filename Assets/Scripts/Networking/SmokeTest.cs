@@ -1245,9 +1245,15 @@ namespace Deepbound.Networking
                                 cdeb.ServerCleanse();
                                 yield return null;
                                 chp.ServerSetFraction(1f);
-                                chp.ServerDamage(5f, pale.transform.position, pale.NetworkObjectId);
-                                yield return null;
-                                bool chilled = cdeb.Frostbitten;
+                                // A few tries: worn gear (the Lucky Knucklebone) can make one blow miss.
+                                bool chilled = false;
+                                for (int tryHit = 0; tryHit < 3 && !chilled; tryHit++)
+                                {
+                                    chp.ServerSetFraction(1f);
+                                    chp.ServerDamage(5f, pale.transform.position, pale.NetworkObjectId);
+                                    yield return null;
+                                    chilled = cdeb.Frostbitten;
+                                }
                                 var uh = unb.GetComponent<Health>();
                                 uh.ServerDamage(uh.Current.Value * 3f, local.transform.position, local.NetworkObjectId);
                                 yield return new WaitForSeconds(1.8f);
