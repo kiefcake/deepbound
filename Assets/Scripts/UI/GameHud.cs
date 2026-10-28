@@ -482,7 +482,7 @@ namespace Deepbound.UI
         }
 
         /// <summary>Downed: who you are watching, and how to change it (Teamwork spectating).</summary>
-        private static void DrawWatchHint(float w, float h)
+        private static void DrawWatchHint(float w, float h, float top)
         {
             bool anyone = false;
             foreach (var p in PlayerLife.All) if (p != null && p.gameObject != Player.NetworkPlayer.Local?.gameObject && !p.Downed.Value) anyone = true;
@@ -490,7 +490,7 @@ namespace Deepbound.UI
             var w8 = Teamwork.Watching;
             string text = w8 != null ? "Watching " + w8.name + "   (" + (Binds.PadActive ? "RT" : "LMB") + " next, " + (Binds.PadActive ? "LT" : "RMB") + " your own eyes)"
                 : "(" + (Binds.PadActive ? "RT" : "LMB") + ") watch an ally while you wait";
-            UiSkin.Shadowed(new Rect(0, h / 2f + 50, w, 24), text, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.85f, 0.85f, 0.9f) } });
+            UiSkin.Shadowed(new Rect(0, h / 2f + top + 50, w, 24), text, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.85f, 0.85f, 0.9f) } });
         }
 
         public static void ShowCombo(Vector3 at, string text, Color color) =>
@@ -1950,31 +1950,36 @@ namespace Deepbound.UI
             if (life.Downed.Value && over) return;
             if (life.Downed.Value)
             {
+                // Watching an ally: the words move up into a band at the top and the tint thins, so the view is theirs.
+                bool watching = Teamwork.Watching != null;
+                float top = watching ? h * 0.14f + 70f - h / 2f : 0f;
                 if (life.Soul.Value)
                 {
-                    Rect(0, 0, w, h, new Color(0.12f, 0.04f, 0.22f, 0.45f));
-                    GUI.Label(new Rect(0, h / 2f - 70, w, 40), "YOU HAVE BLED OUT", big);
+                    Rect(0, 0, w, h, new Color(0.12f, 0.04f, 0.22f, watching ? 0.12f : 0.45f));
+                    if (watching) Rect(0, h / 2f + top - 78f, w, 140f, new Color(0f, 0f, 0f, 0.35f));
+                    GUI.Label(new Rect(0, h / 2f + top - 70, w, 40), "YOU HAVE BLED OUT", big);
                     var skull = SoulSkull.For(player.NetworkObjectId);
                     string where = skull != null && skull.Carried ? "An ally is carrying your soul skull to the waystone..." : "Your soul skull lies where you fell. An ally must carry it to the waystone in the start room.";
-                    GUI.Label(new Rect(0, h / 2f - 30, w, 24), where, center);
+                    GUI.Label(new Rect(0, h / 2f + top - 30, w, 24), where, center);
                     if (skull != null && skull.Ritual.Value > 0f)
-                        ProgressBar(w, h / 2f + 4, skull.Ritual.Value / SoulSkull.RitualSeconds, new Color(0.7f, 0.5f, 1f));
-                    DrawWatchHint(w, h);
+                        ProgressBar(w, h / 2f + top + 4, skull.Ritual.Value / SoulSkull.RitualSeconds, new Color(0.7f, 0.5f, 1f));
+                    DrawWatchHint(w, h, top);
                     DrawRecap(w, h);
                     return;
                 }
-                Rect(0, 0, w, h, new Color(0.35f, 0f, 0f, 0.25f));
-                GUI.Label(new Rect(0, h / 2f - 70, w, 40), "YOU ARE DOWN", big);
+                Rect(0, 0, w, h, new Color(0.35f, 0f, 0f, watching ? 0.08f : 0.25f));
+                if (watching) Rect(0, h / 2f + top - 78f, w, 156f, new Color(0f, 0f, 0f, 0.35f));
+                GUI.Label(new Rect(0, h / 2f + top - 70, w, 40), "YOU ARE DOWN", big);
                 var dragger = life.BeingDragged && Unity.Netcode.NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(life.DraggedBy.Value, out var dob) ? dob.name : null;
-                GUI.Label(new Rect(0, h / 2f - 30, w, 24), dragger != null ? dragger + " is dragging you to safety (you bleed slower)" : "A teammate must hold F next to you to revive you, or drag you clear (G)", center);
-                ProgressBar(w, h / 2f + 4, life.ReviveProgress.Value / PlayerLife.ReviveSeconds, new Color(0.6f, 0.9f, 1f));
+                GUI.Label(new Rect(0, h / 2f + top - 30, w, 24), dragger != null ? dragger + " is dragging you to safety (you bleed slower)" : "A teammate must hold F next to you to revive you, or drag you clear (G)", center);
+                ProgressBar(w, h / 2f + top + 4, life.ReviveProgress.Value / PlayerLife.ReviveSeconds, new Color(0.6f, 0.9f, 1f));
                 if (life.Bleed.Value > 0f)
                 {
                     float left = life.BleedLeft;
                     var bc = left < 10f ? new Color(1f, 0.3f, 0.25f, 0.6f + 0.4f * Mathf.Sin(Time.time * 8f)) : new Color(1f, 0.6f, 0.5f);
-                    GUI.Label(new Rect(0, h / 2f + 22, w, 24), "Bleeding out in " + Mathf.CeilToInt(left) + "s", new GUIStyle(center) { normal = { textColor = bc } });
+                    GUI.Label(new Rect(0, h / 2f + top + 22, w, 24), "Bleeding out in " + Mathf.CeilToInt(left) + "s", new GUIStyle(center) { normal = { textColor = bc } });
                 }
-                DrawWatchHint(w, h);
+                DrawWatchHint(w, h, top);
                 DrawRecap(w, h);
                 return;
             }

@@ -185,8 +185,9 @@ namespace Deepbound.UI
         /// <summary>Owner, from the HUD's OnGUI.</summary>
         public static void Draw(float w, float h)
         {
-            // A boss's entrance has the screen to itself; the tip waits (its timer held) until it ends.
-            if (GameHud.BossIntroShowing)
+            // A boss's entrance has the screen to itself, and so does being down; the tip waits (its timer held).
+            var meDown = NetworkPlayer.Local != null ? NetworkPlayer.Local.GetComponent<PlayerLife>() : null;
+            if (GameHud.BossIntroShowing || (meDown != null && meDown.Downed.Value))
             {
                 if (current != null) shownAt = Time.time;
                 return;

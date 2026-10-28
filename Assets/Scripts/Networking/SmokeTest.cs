@@ -679,6 +679,13 @@ namespace Deepbound.Networking
                         yield return null;
                         yield return null;
                         var watchCam = Art.ViewCamera.Current;
+                        if (!Application.isBatchMode)
+                        {
+                            yield return new WaitForSeconds(0.6f);
+                            yield return new WaitForEndOfFrame();
+                            ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(Application.dataPath, "..", "spectate.png"));
+                            yield return null;
+                        }
                         float gap = watchCam != null ? Vector3.Distance(watchCam.transform.position, tmate.transform.position + Vector3.up * 1.7f) : 99f;
                         bool hostDown = local.GetComponent<PlayerLife>().Downed.Value;
                         local.GetComponent<PlayerLife>().ServerRevive(1f);

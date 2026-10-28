@@ -410,7 +410,9 @@ namespace Deepbound.Player
             // Draw no further than the fog lets anyone see: beyond ~2.6/density (exp-squared fog) it is solid,
             // and with no occlusion culling everything past the walls would otherwise still be drawn.
             // The hands are put away for the carriage ride.
-            if (IsOwner && viewModel != null && viewModel.Root.gameObject.activeSelf == GameHud.Cinematic) viewModel.Root.gameObject.SetActive(!GameHud.Cinematic);
+            // Hidden in cutscenes, and while watching an ally from down on the floor (Teamwork spectating).
+            bool hideHands = GameHud.Cinematic || Teamwork.Watching != null;
+            if (IsOwner && viewModel != null && viewModel.Root.gameObject.activeSelf == hideHands) viewModel.Root.gameObject.SetActive(!hideHands);
             if (IsOwner && playerCamera != null)
                 playerCamera.farClipPlane = DungeonDirector.InLobby ? 220f : Mathf.Clamp(2.6f / Mathf.Max(0.001f, RenderSettings.fogDensity), 45f, 120f);
             if (Rig != null)
