@@ -3526,15 +3526,19 @@ namespace Deepbound.Networking
                     // The whole cut in slow motion, frame by frame (forehand, then backhand).
                     yield return new WaitForSeconds(0.6f);
                     Time.timeScale = 0.12f;
-                    foreach (float side in new[] { 1f, -1f })
+                    // Forehand, backhand, then the chain's third: the overhead chop.
+                    int cut = 0;
+                    foreach (float side in new[] { 1f, -1f, 1f })
                     {
                         local.ViewModelSwing(Player.KnightKit.SwingWindup, Player.KnightKit.SwingStrike + 0.3f, side);
+                        string label = cut == 2 ? "over" : side > 0 ? "fore" : "back";
                         for (int f = 0; f < 6; f++)
                         {
                             yield return new WaitForSeconds(0.05f);
-                            yield return Shot(dir, "2e_swing_" + (side > 0 ? "fore" : "back") + f);
+                            yield return Shot(dir, "2e_swing_" + label + f);
                         }
-                        yield return new WaitForSeconds(0.5f);
+                        cut++;
+                        yield return new WaitForSeconds(0.02f);
                     }
                     Time.timeScale = 1f;
                     // Idle long enough and the Knight turns his blade to look along it (2026-10-28).

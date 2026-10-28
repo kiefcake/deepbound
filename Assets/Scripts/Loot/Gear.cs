@@ -115,6 +115,8 @@ namespace Deepbound.Loot
             : boss is Enemies.GravewardenBrain ? GearId.WardensBulwark
             : boss is Enemies.TideLichBrain ? GearId.LichPhylactery
             : boss is Enemies.CardinalBrain ? GearId.CardinalVestments
+            // The Unsung ends the run: its fall is the reward, not a crown you will never wear.
+            : boss is Enemies.UnsungBrain ? GearId.None
             : GearId.HollowCrown;
 
         public static readonly string[] QualityNames = { "Worn", "Fine", "Masterwork", "Legendary" };

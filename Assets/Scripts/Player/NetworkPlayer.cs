@@ -808,8 +808,17 @@ namespace Deepbound.Player
 
             public void Swing(float windup, float rest, float side)
             {
+                // A chain of quick swings: forehand, backhand, then an overhead chop (the look only; the hit is the same).
+                chain = clock - swingStart < swingWindup + swingRest + 0.5f ? chain + 1 : 0;
+                overhead = chain % 3 == 2;
                 swingStart = clock; swingWindup = windup; swingRest = rest; swingSide = side;
             }
+            private int chain;
+            private bool overhead;
+            // The overhead chop: raised high with the tip back over the head, brought straight down the middle.
+            private static readonly Vector3 CoilOP = new Vector3(-0.08f, 0.32f, -0.12f), CoilOE = new Vector3(-70f, 0f, 20f);
+            private static readonly Vector3 MidOP = new Vector3(-0.12f, 0.08f, 0.3f), MidOE = new Vector3(20f, 0f, 25f);
+            private static readonly Vector3 EndOP = new Vector3(-0.14f, -0.34f, 0.3f), EndOE = new Vector3(88f, 0f, 22f);
 
             // The cut, as keys (offsets from the rest pose): coiled high over the shoulder, a fast
             // diagonal stroke down and across the middle of the view, an overshoot, then home.
@@ -853,9 +862,9 @@ namespace Deepbound.Player
 
                 float sd = swingSide;
                 bool fore = sd > 0f;
-                var coilP = fore ? CoilP : CoilBP; var coilE = fore ? CoilE : CoilBE;
-                var midP = fore ? MidP : MidBP; var midE = fore ? MidE : MidBE;
-                var endP = fore ? EndP : EndBP; var endE = fore ? EndE : EndBE;
+                var coilP = overhead ? CoilOP : fore ? CoilP : CoilBP; var coilE = overhead ? CoilOE : fore ? CoilE : CoilBE;
+                var midP = overhead ? MidOP : fore ? MidP : MidBP; var midE = overhead ? MidOE : fore ? MidE : MidBE;
+                var endP = overhead ? EndOP : fore ? EndP : EndBP; var endE = overhead ? EndOE : fore ? EndE : EndBE;
                 Vector3 off = Vector3.zero, eul = Vector3.zero;
                 if (t >= 0f && t < swingWindup)
                 {

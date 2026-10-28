@@ -267,6 +267,8 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 
 - More sprite FX + fixes (2026-10-28): twirls on Mage blink and Rogue shadowstep, turning runes in Consecrate, a light burst on Aegis, a red spark on the Ranger's mark, a bloodied crack under the Flagellant's leap, sparks + light where lightning lands, a ring under the Rallying Banner. Abyssal Eye `ServerLockOn(who)` now aims at `who` (it led its current target, sometimes the other player: the old "abyssal eye" smoke flake). The Unburied takes no damage while rising (`risingUntil` 1.4 s). Autoplay: the Ranger aims over the target by the arrow's drop (`ArrowGravity(1)` x time of flight squared / 2).
 
+- Knight swing chain (2026-10-28): consecutive swings (within windup + rest + 0.5 s) go forehand, backhand, OVERHEAD CHOP (`CoilOP/MidOP/EndOP` keys), the look only; shots `2e_swing_over0-5`. The Unsung drops no legendary (`Gear.LegendaryOf` -> None; `GearDrop` rolls ordinary gear then).
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes
