@@ -39,7 +39,8 @@ namespace Deepbound.Networking
             StartCoroutine(Sequence(seconds));
             // Watchdog: if the sequence throws, the coroutine dies silently and the
             // process would idle forever. Fail loudly instead.
-            Invoke(nameof(Timeout), seconds * 6f);
+            // x8 (was x6 until 2026-10-29): the checks had grown to fill the old 240 s on a headless host.
+            Invoke(nameof(Timeout), seconds * 8f);
         }
 
         private void Timeout()
@@ -1450,6 +1451,37 @@ namespace Deepbound.Networking
                                 hush.GetComponent<Health>().ServerDamage(1e6f, hush.transform.position);
                                 conc.GetComponent<Health>().ServerDamage(1e6f, conc.transform.position);
                             }
+                        }
+                        // Soulbound twins (2026-10-28): one struck down only falls, rises if left, and dies with its twin.
+                        {
+                            var ta = dd.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f + local.transform.right * 2f, false);
+                            var tb = dd.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f + local.transform.right * 4f, false);
+                            if (ta != null && tb != null)
+                            {
+                                ta.ServerStun(10f); tb.ServerStun(10f);
+                                bool bound = EnemyBrain.ServerBind(ta, tb) && ta.AffixKind == EliteAffix.Soulbound && ta.TwinId.Value == tb.NetworkObjectId;
+                                var ha = ta.GetComponent<Health>();
+                                var hb = tb.GetComponent<Health>();
+                                ha.ServerDamage(ha.Current.Value * 3f + 200f, local.transform.position, local.NetworkObjectId);
+                                yield return null;
+                                bool fell = ha.IsAlive && ta.ServerSevered;
+                                ha.ServerDamage(ha.Max.Value * 3f, local.transform.position, local.NetworkObjectId);
+                                bool immune = ha.IsAlive;
+                                ta.ServerDebugEndWindow();
+                                yield return new WaitForSeconds(0.2f);
+                                bool rose = ha.IsAlive && !ta.ServerSevered && ha.Fraction > 0.4f;
+                                ha.ServerDamage(ha.Current.Value * 3f + 200f, local.transform.position, local.NetworkObjectId);
+                                yield return null;
+                                bool fellAgain = ha.IsAlive && ta.ServerSevered;
+                                hb.ServerDamage(hb.Current.Value * 3f + 200f, local.transform.position, local.NetworkObjectId);
+                                yield return new WaitForSeconds(0.2f);
+                                bool both = !ha.IsAlive && !hb.IsAlive;
+                                Log("soulbound twins", "bound " + bound + ", fell " + fell + ", immune severed " + immune + ", rose " + rose + ", fell again " + fellAgain + ", died together " + both,
+                                    bound && fell && immune && rose && fellAgain && both);
+                                if (ha.IsAlive) ha.ServerDamage(1e6f, ta.transform.position);
+                                if (hb.IsAlive) hb.ServerDamage(1e6f, tb.transform.position);
+                            }
+                            else Log("soulbound twins", "no spawn", false);
                         }
                         local.GetComponent<Health>().ServerSetFraction(1f);
                         // Floor events: Blood Tithe makes blows hurt more and kills mend.

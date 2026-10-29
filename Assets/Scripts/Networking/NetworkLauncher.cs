@@ -321,7 +321,9 @@ namespace Deepbound.Networking
 
             if (OverSteam)
             {
-                status = string.IsNullOrEmpty(Net.DisconnectReason) ? "Lost the connection to " + steamHostName + "'s party (Steam)." : Net.DisconnectReason;
+                status = !string.IsNullOrEmpty(Net.DisconnectReason) ? Net.DisconnectReason
+                    : !string.IsNullOrEmpty(SteamTransport.LastProblem) ? SteamTransport.LastProblem
+                    : "Lost the connection to " + steamHostName + "'s party (Steam).";
                 return;
             }
             status = string.IsNullOrEmpty(Net.DisconnectReason)

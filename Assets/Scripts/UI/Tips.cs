@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork",
+            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -81,6 +81,8 @@ namespace Deepbound.UI
             if (myKit != null && myKit.AttackRange > 6f) Offer("falloff", "RANGED shots lose bite past half their range (60% at the very end), and arrows and knives DROP: aim a little high at distance.");
             if (Object.FindObjectsByType<EntlingBrain>(FindObjectsSortMode.None).Any(e => !e.IsDead && Vector3.Distance(e.transform.position, me) < 16f))
                 Offer("entling", "ENTLINGS sprint at you and root you to the spot: you cannot move until it dies. Kill it on the way in, or turn and cut it off you.");
+            if (Health.All.Any(hh => hh != null && hh.IsAlive && hh.Team == Team.Enemies && (hh.transform.position - me).sqrMagnitude < 400f && hh.TryGetComponent<EnemyBrain>(out var sb) && sb.TwinId.Value != 0))
+                Offer("soulbound", "SOULBOUND TWINS, joined by a pale thread: strike one down and it only falls - it gets up again unless its twin dies within a few seconds. " + (party ? "Split up: one each, and finish them together." : "Bring one low, then the other, and finish them back to back."));
             if (party) Offer("pingwheel", "PINGS: tap Z (or middle mouse) to mark what you aim at. HOLD it for the wheel: Danger, On my way, Need help, Look.");
             var relic = Reliquary.Current;
             if (relic != null && !relic.Carried && Vector3.Distance(relic.transform.position, me) < 10f)

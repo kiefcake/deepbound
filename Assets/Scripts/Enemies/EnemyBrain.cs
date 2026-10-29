@@ -24,7 +24,7 @@ namespace Deepbound.Enemies
     /// a room is a fight, not a queue of one-on-ones.
     /// </summary>
     [RequireComponent(typeof(Health), typeof(NavMeshAgent))]
-    public class EnemyBrain : NetworkBehaviour, ICrowdControl
+    public partial class EnemyBrain : NetworkBehaviour, ICrowdControl
     {
         [Header("Stats (scaled by depth and party size at spawn)")]
         [SerializeField] protected float maxHealth = 75f;
@@ -347,7 +347,7 @@ namespace Deepbound.Enemies
         private bool frenzyAnnounced;
         public bool Frenzied => AffixKind == EliteAffix.Frenzied && health != null && health.Fraction < 0.5f;
 
-        /// <summary>Synced looks for the status visuals: bit 0 the ward is up, bit 1 enraged.</summary>
+        /// <summary>Synced looks for the status visuals: bit 0 the ward is up, bit 1 enraged, bit 2 a soulbound twin lies severed.</summary>
         public readonly NetworkVariable<byte> FxFlags = new NetworkVariable<byte>();
         public bool WardedNow => (FxFlags.Value & 1) != 0;
         public bool Enraged => (FxFlags.Value & 2) != 0;
@@ -585,7 +585,7 @@ namespace Deepbound.Enemies
             // a free win.
             agent.speed = (health.Chilled.Value ? moveSpeed * 0.5f : moveSpeed) * SpeedScale * World.DungeonDirector.WaterSlow(transform.position) * (Enraged ? EnrageSpeed : 1f) * World.DungeonDirector.OmenSpeed * World.DungeonDirector.EventSpeed;
             // Keep the synced looks current: the ward, and rage running out.
-            byte fx = (byte)((wardUp ? 1 : 0) | (Enraged && Time.time < enragedUntil ? 2 : 0));
+            byte fx = (byte)((wardUp ? 1 : 0) | (Enraged && Time.time < enragedUntil ? 2 : 0) | (Severed ? 4 : 0));
             if (FxFlags.Value != fx) FxFlags.Value = fx;
 
             if (Time.time < stunnedUntil)

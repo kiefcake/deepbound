@@ -20,8 +20,10 @@ namespace Deepbound.Art
     {
         private EnemyBrain brain;
         private Health health;
-        private Transform stars, mark, tauntRing, frostRing, bubble, volatileRing, thorns, shards, rageRing;
-        private Renderer tauntR, frostR, bubbleR, volatileR, rageR;
+        private Transform stars, mark, tauntRing, frostRing, bubble, volatileRing, thorns, shards, rageRing, thread, severRing;
+        private Renderer tauntR, frostR, bubbleR, volatileR, rageR, threadR, severR;
+        private Health twinHealth;
+        private ulong twinFor;
         private float nextMote, nextStreak;
         private string championTitle;
         private Color? championMote;
@@ -122,6 +124,10 @@ namespace Deepbound.Art
                 shards.localScale = Vector3.one * Scale;
             }
             else if (shards != null) shards.gameObject.SetActive(false);
+
+            // Soulbound: the thread to its twin, and a pale ring under one that lies severed.
+            UpdateThread(t);
+            Ring(ref severRing, ref severR, brain.SeveredNow, new Color(0.75f, 0.85f, 1f), 1.15f, 1f + 0.1f * Mathf.Sin(t * 10f));
 
             // Motes for the rest (a few a second, near the camera only).
             var moved = transform.position - lastPos;
@@ -226,12 +232,51 @@ namespace Deepbound.Art
             return root;
         }
 
+        /// <summary>Soulbound: a pale thread from this twin to the other (drawn by the one with the lower id), thinning and flickering while one lies severed.</summary>
+        private void UpdateThread(float t)
+        {
+            ulong id = brain.TwinId.Value;
+            if (id == 0 || brain.NetworkObjectId > id) { if (thread != null) thread.gameObject.SetActive(false); return; }
+            if (twinFor != id)
+            {
+                twinFor = id;
+                twinHealth = null;
+                var net = Unity.Netcode.NetworkManager.Singleton;
+                if (net != null && net.SpawnManager != null && net.SpawnManager.SpawnedObjects.TryGetValue(id, out var obj)) twinHealth = obj.GetComponent<Health>();
+            }
+            if (twinHealth == null || !twinHealth.IsAlive) { if (thread != null) thread.gameObject.SetActive(false); return; }
+            if (thread == null)
+            {
+                thread = MeshKit.Part(null, "SoulThread", MeshKit.Box(new Vector3(1f, 1f, 1f)), Mat.Glow, Vector3.zero).transform;
+                threadR = thread.GetComponent<Renderer>();
+                threadR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
+            var a = health.Center;
+            var b = twinHealth.Center;
+            var d = b - a;
+            if (d.sqrMagnitude < 0.01f) { thread.gameObject.SetActive(false); return; }
+            bool severed = brain.SeveredNow || (twinHealth.TryGetComponent<EnemyBrain>(out var tb) && tb.SeveredNow);
+            thread.gameObject.SetActive(true);
+            thread.position = (a + b) / 2f;
+            thread.rotation = Quaternion.LookRotation(d);
+            float w = severed ? 0.018f : 0.03f;
+            thread.localScale = new Vector3(w, w, d.magnitude);
+            float flick = severed ? 0.5f + 0.5f * Mathf.Abs(Mathf.Sin(t * 14f)) : 0.75f + 0.15f * Mathf.Sin(t * 3f);
+            ArtLibrary.SetGlow(threadR, new Color(0.7f, 0.82f, 1f) * flick);
+            if (t >= nextMote - 0.1f && Random.value < 0.3f) Vfx.Mote(Vector3.Lerp(a, b, Random.value) + Vector3.down * 0.6f, new Color(0.75f, 0.85f, 1f));
+        }
+
+        private void OnDestroy()
+        {
+            if (thread != null) Destroy(thread.gameObject);
+        }
+
         private void HideAll()
         {
             // Every far or dead enemy lands here each frame: only do the work once.
             if (hidden) return;
             hidden = true;
-            foreach (var x in new[] { stars, mark, tauntRing, frostRing, bubble, volatileRing, thorns, shards, rageRing })
+            foreach (var x in new[] { stars, mark, tauntRing, frostRing, bubble, volatileRing, thorns, shards, rageRing, thread, severRing })
                 if (x != null && x.gameObject.activeSelf) x.gameObject.SetActive(false);
             SetEyes(false);
         }

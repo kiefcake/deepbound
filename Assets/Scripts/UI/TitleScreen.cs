@@ -73,10 +73,10 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
+            "SOULBOUND TWINS: kill them together, or the fallen one gets up",
             "CO-OP: PINCER from opposite sides, ASSISTS, LAST STAND and CLUTCH revives",
             "Down? WATCH your allies (LMB). AVENGE the fallen; FLOOR HONOURS",
             "Kick a friend (V) - a harmless boot. Revives now work on fast PCs",
-            "CHAMPIONS fight by their epithet; WARDENS learn a second move",
             "The Hollow King's DECREES: BE STILL, then BEGONE",
             "TONGUELESS CANTORS silence you; heavy blows DAZE",
             "BREAK bosses: weak points and stuns fill a meter - then strike",

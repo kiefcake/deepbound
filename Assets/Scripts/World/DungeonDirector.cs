@@ -268,6 +268,10 @@ namespace Deepbound.World
             return route.Count >= 2 ? route : null;
         }
 
+        /// <summary>Plain fighters that can be bound as soulbound twins (not the odd ones out, not a champion).</summary>
+        private static bool SoulboundCandidate(EnemyBrain b) =>
+            b != null && !b.IsChampion && !(b is BossBrain) && !(b is HoarderBrain) && !(b is WraithBrain) && !(b is GargoyleBrain) && !(b is MournerBrain) && !(b is MimicBrain) && !(b is EntlingBrain);
+
         /// <summary>Server: a patrol of skeletons led by an elite, walking <paramref name="route"/> back and forth.</summary>
         public System.Collections.Generic.List<EnemyBrain> ServerSpawnPatrol(System.Collections.Generic.List<Vector3> route, int count)
         {
@@ -973,6 +977,30 @@ namespace Deepbound.World
                 int pick = UnityEngine.Random.Range(0, candidates.Count);
                 candidates[pick].ServerMakeChampion();
                 candidates.RemoveAt(pick);
+            }
+
+            // From the second floor, a pair of SOULBOUND twins in a combat room (two from the fifth; never in tests).
+            if (!TestMode && layout.Depth >= 1)
+            {
+                int pairs = (UnityEngine.Random.value < 0.7f ? 1 : 0) + (layout.Depth >= 4 && UnityEngine.Random.value < 0.5f ? 1 : 0);
+                var byRoom = new System.Collections.Generic.Dictionary<DungeonLayout.Room, System.Collections.Generic.List<EnemyBrain>>();
+                foreach (var o in spawned)
+                {
+                    if (o == null || !o.TryGetComponent<EnemyBrain>(out var tb) || !SoulboundCandidate(tb)) continue;
+                    var room = layout.RoomAt(o.transform.position);
+                    if (room == null || room.Kind != RoomKind.Combat) continue;
+                    if (!byRoom.TryGetValue(room, out var list)) byRoom[room] = list = new System.Collections.Generic.List<EnemyBrain>();
+                    list.Add(tb);
+                }
+                var rooms = new System.Collections.Generic.List<System.Collections.Generic.List<EnemyBrain>>();
+                foreach (var kv in byRoom) if (kv.Value.Count >= 2) rooms.Add(kv.Value);
+                for (int i = 0; i < pairs && rooms.Count > 0; i++)
+                {
+                    int r = UnityEngine.Random.Range(0, rooms.Count);
+                    var list = rooms[r];
+                    rooms.RemoveAt(r);
+                    EnemyBrain.ServerBind(list[0], list[1]);
+                }
             }
 
             // From the second floor, a patrol or two walks between the combat rooms (never in tests).

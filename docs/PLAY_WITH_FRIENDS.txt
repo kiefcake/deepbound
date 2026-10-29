@@ -23,3 +23,11 @@ FRIEND
 If it says "Steam: off": start Steam - the game notices within a few seconds.
 No Steam? JOIN A PARTY -> JOIN BY ADDRESS still works on the same network or over a VPN
 (Tailscale, Radmin VPN): the host uses HOST BY ADDRESS.
+
+IF IT WILL NOT CONNECT
+  The join screen says why (a route could not be found, the host did not answer, a different
+  version...). Try once more - Steam's first route can take ~10 seconds. If it still fails, BOTH of
+  you send the file
+      %USERPROFILE%\AppData\LocalLow\Deepbound\Deepbound\Player.log
+  (paste that path into the Windows Explorer address bar) right after the failed attempt - it is
+  overwritten each time the game starts. Lines starting with [Steam] show exactly where it stopped.

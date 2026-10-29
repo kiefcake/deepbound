@@ -87,6 +87,7 @@ namespace Deepbound.Networking
             ready = true;
             Problem = "";
             SteamNetworkingUtils.InitRelayNetworkAccess();
+            RaiseSendBuffer();
             created = CallResult<LobbyCreated_t>.Create(OnLobbyCreated);
             entered = CallResult<LobbyEnter_t>.Create(OnLobbyEntered);
             joinRequested = Callback<GameLobbyJoinRequested_t>.Create(r => Join(r.m_steamIDLobby.m_SteamID));
@@ -97,6 +98,21 @@ namespace Deepbound.Networking
             var args = Environment.GetCommandLineArgs();
             for (int i = 0; i + 1 < args.Length; i++)
                 if (args[i] == "+connect_lobby") JoinFromConnect("+connect_lobby " + args[i + 1]);
+        }
+
+        /// <summary>Steam's per-connection send buffer is 512 KB by default; the first sync of a whole floor to a joining
+        /// guest can be a burst bigger than that, and a full buffer refuses reliable messages. 8 MB, for every connection.</summary>
+        private static void RaiseSendBuffer()
+        {
+            var size = System.Runtime.InteropServices.Marshal.AllocHGlobal(4);
+            try
+            {
+                System.Runtime.InteropServices.Marshal.WriteInt32(size, 8 * 1024 * 1024);
+                bool ok = SteamNetworkingUtils.SetConfigValue(ESteamNetworkingConfigValue.k_ESteamNetworkingConfig_SendBufferSize,
+                    ESteamNetworkingConfigScope.k_ESteamNetworkingConfig_Global, IntPtr.Zero, ESteamNetworkingConfigDataType.k_ESteamNetworkingConfig_Int32, size);
+                Debug.Log("[Steam] send buffer 8 MB: " + ok);
+            }
+            finally { System.Runtime.InteropServices.Marshal.FreeHGlobal(size); }
         }
 
         public static string MyName => Ready ? SteamFriends.GetPersonaName() : "";
@@ -143,7 +159,12 @@ namespace Deepbound.Networking
 
         private void OnLobbyCreated(LobbyCreated_t r, bool ioFailure)
         {
-            if (ioFailure || r.m_eResult != EResult.k_EResultOK) { Debug.Log("[Steam] lobby failed: " + r.m_eResult); return; }
+            if (ioFailure || r.m_eResult != EResult.k_EResultOK)
+            {
+                Debug.Log("[Steam] lobby failed: " + r.m_eResult + (ioFailure ? " (io failure)" : ""));
+                UI.GameHud.Feed("Steam could not open your party to friends (" + r.m_eResult + "). Host again to retry.", new Color(1f, 0.6f, 0.4f));
+                return;
+            }
             lobby = new CSteamID(r.m_ulSteamIDLobby);
             SteamMatchmaking.SetLobbyData(lobby, LobbyKey, NetworkLauncher.BuildId);
             SteamMatchmaking.SetLobbyData(lobby, "host", SteamUser.GetSteamID().m_SteamID.ToString());
@@ -207,7 +228,12 @@ namespace Deepbound.Networking
         {
             var id = new CSteamID(r.m_ulSteamIDLobby);
             // 1 = k_EChatRoomEnterResponseSuccess
-            if (ioFailure || r.m_EChatRoomEnterResponse != 1) { launcher.SetStatus("Could not join that party (it may have closed, or it is full)."); return; }
+            if (ioFailure || r.m_EChatRoomEnterResponse != 1)
+            {
+                Debug.Log("[Steam] lobby join failed: response " + r.m_EChatRoomEnterResponse + (ioFailure ? " (io failure)" : ""));
+                launcher.SetStatus("Could not join that party (it may have closed, or it is full).");
+                return;
+            }
             string build = SteamMatchmaking.GetLobbyData(id, LobbyKey);
             if (string.IsNullOrEmpty(build)) { SteamMatchmaking.LeaveLobby(id); launcher.SetStatus("That is not a Deepbound party."); return; }
             if (build != NetworkLauncher.BuildId)
