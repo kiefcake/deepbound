@@ -645,6 +645,76 @@ namespace Deepbound.Networking
                         if (tmate.Downed.Value) tmate.ServerRevive(1f);
                         yield return new WaitForSeconds(0.3f);
 
+                        // Shared doom (2026-10-29): split between everyone inside the ring; borne alone it all lands on one.
+                        {
+                            var dh = local.GetComponent<Health>();
+                            var mh = tmate.Health;
+                            fm.Teleport(tmate.transform.position + tw_side * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
+                            yield return new WaitForSeconds(0.2f);
+                            dh.ServerSetFraction(1f); mh.ServerSetFraction(1f); dh.Shield.Value = 0f; mh.Shield.Value = 0f;
+                            float d0 = dh.Current.Value, m0 = mh.Current.Value;
+                            int sharedBy = BossBrain.ServerResolveDoom(tmate.transform.position, 60f, ulong.MaxValue);
+                            float dLost = d0 - dh.Current.Value, mLost = m0 - mh.Current.Value;
+                            yield return new WaitForSeconds(0.2f);
+                            mh.ServerSetFraction(1f); mh.Shield.Value = 0f;
+                            fm.Teleport(tmate.transform.position + tw_side * 8f + Vector3.up * 0.1f, local.transform.rotation);
+                            yield return new WaitForSeconds(0.2f);
+                            m0 = mh.Current.Value;
+                            float d1 = dh.Current.Value;
+                            int aloneBy = BossBrain.ServerResolveDoom(tmate.transform.position, 60f, ulong.MaxValue);
+                            float aloneLost = m0 - mh.Current.Value;
+                            bool hostSpared = Mathf.Approximately(d1, dh.Current.Value);
+                            Log("shared doom", "shared by " + sharedBy + " (host -" + dLost.ToString("F0") + ", client -" + mLost.ToString("F0") + "), alone by " + aloneBy + " (-" + aloneLost.ToString("F0") + "), host spared " + hostSpared,
+                                sharedBy == 2 && aloneBy == 1 && dLost > 0f && mLost > 0f && aloneLost > mLost * 1.5f && hostSpared);
+                            dh.ServerSetFraction(1f); mh.ServerSetFraction(1f);
+                            // Windowed runs only: a picture of soulbound twins and a doom ring on the client, from 8 m off.
+                            if (!Application.isBatchMode)
+                            {
+                                // Along wherever the camera looks (the room's open side), not a guessed direction.
+                                var look = Art.ViewCamera.Current != null ? Art.ViewCamera.Current.transform.forward : local.transform.forward;
+                                look.y = 0f; look = look.sqrMagnitude > 0.01f ? look.normalized : Vector3.forward;
+                                var across = Vector3.Cross(Vector3.up, look);
+                                var eye = local.transform.position;
+                                var t1 = DungeonDirector.Instance.ServerDebugSpawn("skeleton", eye + look * 4.5f + across * 1.6f, false);
+                                var t2 = DungeonDirector.Instance.ServerDebugSpawn("skeleton", eye + look * 4.5f - across * 1.6f, false);
+                                Debug.Log("[Smoke] coop shot: twins at " + (t1 != null ? Vector3.Distance(eye, t1.transform.position).ToString("F1") : "-") + " / " + (t2 != null ? Vector3.Distance(eye, t2.transform.position).ToString("F1") : "-") + " m");
+                                if (t1 != null && t2 != null)
+                                {
+                                    t1.ServerStun(10f); t2.ServerStun(10f);
+                                    EnemyBrain.ServerBind(t1, t2);
+                                    // Stand the pair in front of the camera (it keeps its own heading; turning the body does not turn it).
+                                    var ag1 = t1.GetComponent<UnityEngine.AI.NavMeshAgent>();
+                                    var ag2 = t2.GetComponent<UnityEngine.AI.NavMeshAgent>();
+                                    var spot1 = eye + look * 5f + across * 1.6f;
+                                    var spot2 = eye + look * 5f - across * 1.6f;
+                                    if (ag1 != null && ag1.enabled) ag1.Warp(spot1); else t1.transform.position = spot1;
+                                    if (ag2 != null && ag2.enabled) ag2.Warp(spot2); else t2.transform.position = spot2;
+                                    yield return new WaitForSeconds(2.5f);
+                                    Art.DoomMark.Attach(t1.transform, BossBrain.DoomRadius, 3f, BossBrain.DoomColor);
+                                    yield return new WaitForSeconds(1.6f);
+                                    var shotCam = Art.ViewCamera.Current;
+                                    if (shotCam != null)
+                                    {
+                                        // The camera's own heading, read now (it is not the body's, nor what it was a few seconds ago).
+                                        var cf = shotCam.transform.forward; cf.y = 0f; cf = cf.sqrMagnitude > 0.01f ? cf.normalized : Vector3.forward;
+                                        var cr = Vector3.Cross(Vector3.up, cf);
+                                        var floor = new Vector3(shotCam.transform.position.x, local.transform.position.y, shotCam.transform.position.z);
+                                        if (ag1 != null && ag1.enabled) ag1.Warp(floor + cf * 5f + cr * 1.6f); else t1.transform.position = floor + cf * 5f + cr * 1.6f;
+                                        if (ag2 != null && ag2.enabled) ag2.Warp(floor + cf * 5f - cr * 1.6f); else t2.transform.position = floor + cf * 5f - cr * 1.6f;
+                                        yield return new WaitForSeconds(0.3f);
+                                    }
+                                    if (shotCam != null)
+                                        Debug.Log("[Smoke] coop shot: twin 1 alive " + t1.GetComponent<Health>().IsAlive + " at view " + shotCam.WorldToViewportPoint(t1.transform.position + Vector3.up) +
+                                            ", twin 2 alive " + t2.GetComponent<Health>().IsAlive + " at view " + shotCam.WorldToViewportPoint(t2.transform.position + Vector3.up) + ", cam " + shotCam.transform.position + " host " + local.transform.position);
+                                    yield return new WaitForEndOfFrame();
+                                    ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(Application.dataPath, "..", "coop.png"));
+                                    yield return new WaitForSeconds(0.3f);
+                                    t1.GetComponent<Health>().ServerDamage(1e6f, t1.transform.position);
+                                    t2.GetComponent<Health>().ServerDamage(1e6f, t2.transform.position);
+                                }
+                            }
+                        }
+
                         // Vengeance: a skeleton downs the client; it is marked; the host kills it and avenges them.
                         var grudgeFoe = DungeonDirector.Instance.ServerDebugSpawn("skeleton", tmate.transform.position + Vector3.forward * 2f, false);
                         yield return new WaitForSeconds(0.3f);
@@ -687,7 +757,7 @@ namespace Deepbound.Networking
                             ScreenCapture.CaptureScreenshot(System.IO.Path.Combine(Application.dataPath, "..", "spectate.png"));
                             yield return null;
                         }
-                        float gap = watchCam != null ? Vector3.Distance(watchCam.transform.position, tmate.transform.position + Vector3.up * 1.7f) : 99f;
+                        float gap = watchCam != null ? Vector3.Distance(Teamwork.LastWatchCamera, tmate.transform.position + Vector3.up * 1.7f) : 99f;
                         bool hostDown = local.GetComponent<PlayerLife>().Downed.Value;
                         local.GetComponent<PlayerLife>().ServerRevive(1f);
                         yield return new WaitForSeconds(0.3f);

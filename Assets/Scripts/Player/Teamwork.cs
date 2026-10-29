@@ -79,6 +79,10 @@ namespace Deepbound.Player
         /// <summary>Tests: watch <paramref name="who"/> as if LMB had picked them.</summary>
         public static void DebugWatch(PlayerLife who) { Watching = who; }
 
+        /// <summary>For tests: where the watching camera was last put (the camera itself is moved back to the body
+        /// in Update and over the ally again in LateUpdate, so mid-frame it reads wrong).</summary>
+        public static Vector3 LastWatchCamera { get; private set; }
+
         private List<PlayerLife> Standing()
         {
             var list = new List<PlayerLife>();
@@ -134,6 +138,7 @@ namespace Deepbound.Player
             watchPos = watchSnapped ? Vector3.Lerp(watchPos, want, Time.deltaTime * 10f) : want;
             watchSnapped = true;
             cam.transform.position = watchPos;
+            LastWatchCamera = watchPos;
             cam.transform.rotation = Quaternion.LookRotation(head + Watching.transform.forward * 3f - watchPos);
         }
 

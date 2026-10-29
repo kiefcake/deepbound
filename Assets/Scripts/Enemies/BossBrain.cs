@@ -24,7 +24,7 @@ namespace Deepbound.Enemies
     /// <b>Survival</b> phase (immune, dodge the pattern); or <b>Armored</b> (it takes a third).
     /// Every stance shows on the boss bar, on the boss (a shield bubble) and on hits (IMMUNE).</para>
     /// </summary>
-    public abstract class BossBrain : EnemyBrain
+    public abstract partial class BossBrain : EnemyBrain
     {
         public static BossBrain Active { get; private set; }
 
@@ -513,7 +513,7 @@ namespace Deepbound.Enemies
 
         protected override void Update()
         {
-            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); TickPatterns(); if (!IsStunned && !InEntrance) TickQuickShots(); }
+            if (IsServer && !IsDead) { TickShockwaves(); TickFury(); TickPatterns(); TickDoom(); if (!IsStunned && !InEntrance) TickQuickShots(); }
             if (IsServer && !IsDead && Dormant)
             {
                 if (agent.enabled && agent.isOnNavMesh) agent.isStopped = true;

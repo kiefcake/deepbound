@@ -259,9 +259,9 @@ namespace Deepbound.Art
             thread.gameObject.SetActive(true);
             thread.position = (a + b) / 2f;
             thread.rotation = Quaternion.LookRotation(d);
-            float w = severed ? 0.018f : 0.03f;
+            float w = severed ? 0.03f : 0.05f;
             thread.localScale = new Vector3(w, w, d.magnitude);
-            float flick = severed ? 0.5f + 0.5f * Mathf.Abs(Mathf.Sin(t * 14f)) : 0.75f + 0.15f * Mathf.Sin(t * 3f);
+            float flick = severed ? 0.7f + 0.7f * Mathf.Abs(Mathf.Sin(t * 14f)) : 1.1f + 0.2f * Mathf.Sin(t * 3f);
             ArtLibrary.SetGlow(threadR, new Color(0.7f, 0.82f, 1f) * flick);
             if (t >= nextMote - 0.1f && Random.value < 0.3f) Vfx.Mote(Vector3.Lerp(a, b, Random.value) + Vector3.down * 0.6f, new Color(0.75f, 0.85f, 1f));
         }
