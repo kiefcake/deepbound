@@ -19,7 +19,7 @@ namespace Deepbound.UI
             new Entry { Type = "GhoulBrain", Name = "Ghoul", Text = "Comes in pairs and pounces. Fragile: kill it on the way in." },
             new Entry { Type = "BruteBrain", Name = "Bone Brute", Text = "Huge and slow, with a ground slam. Get behind it: the rune on its back is a weak point." },
             new Entry { Type = "NecromancerBrain", Name = "Necromancer", Text = "Heals and raises the dead. Kill it first; its phylactery is a weak point." },
-            new Entry { Type = "WraithBrain", Name = "Wraith", Text = "Ethereal: barely hurt until it is chilled, stunned, marked or consecrated. Dodge its Wail." },
+            new Entry { Type = "WraithBrain", Name = "Wraith", Text = "Ethereal: takes half damage until it is chilled, stunned, marked or consecrated. Dodge its Wail." },
             new Entry { Type = "ShieldbearerBrain", Name = "Shieldbearer", Text = "Its tower shield blocks from the front. Flank it, or kick or bash the shield aside." },
             new Entry { Type = "MimicBrain", Name = "Mimic", Text = "A chest that breathes when you are not looking. It bites at once; it drops a chest's worth." },
             new Entry { Type = "HoarderBrain", Name = "Bone Hoarder", Text = "Runs with a sack of gold and spills it when hit. Escapes if you are slow." },

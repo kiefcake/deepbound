@@ -130,6 +130,36 @@ namespace Deepbound.UI
             ApplyGraphics();
         }
 
+        // ---- Brightness ----
+        private static float? brightness;
+        private static UnityEngine.Rendering.Volume brightnessVolume;
+        private static UnityEngine.Rendering.Universal.LiftGammaGain brightnessGrade;
+
+        /// <summary>-0.3 (darker) .. +0.4 (brighter), 0 the look as made. A gamma offset, so the dark keeps its shape.</summary>
+        public static float Brightness
+        {
+            get => brightness ??= Load("deepbound.brightness", 0f);
+            set { brightness = Mathf.Clamp(value, -0.3f, 0.4f); Save("deepbound.brightness", brightness.Value); ApplyBrightness(); }
+        }
+
+        public static void ApplyBrightness()
+        {
+            if (brightnessVolume == null)
+            {
+                var go = new GameObject("Brightness");
+                Object.DontDestroyOnLoad(go);
+                brightnessVolume = go.AddComponent<UnityEngine.Rendering.Volume>();
+                brightnessVolume.isGlobal = true;
+                brightnessVolume.priority = 30f;
+                var profile = ScriptableObject.CreateInstance<UnityEngine.Rendering.VolumeProfile>();
+                brightnessGrade = profile.Add<UnityEngine.Rendering.Universal.LiftGammaGain>(true);
+                brightnessVolume.sharedProfile = profile;
+            }
+            float b = Brightness;
+            brightnessGrade.gamma.Override(new Vector4(1f, 1f, 1f, b));
+            brightnessVolume.weight = Mathf.Abs(b) < 0.001f ? 0f : 1f;
+        }
+
         // ---- Graphics ----
         private const string GraphicsKey = "deepbound.graphics", VsyncKey = "deepbound.vsync";
         private static float? graphics, vsync;
@@ -156,6 +186,7 @@ namespace Deepbound.UI
         /// </summary>
         public static void ApplyGraphics()
         {
+            ApplyBrightness();
             int q = GraphicsQuality;
             // -uncapped (perf measurement runs): no VSync, no frame cap, whatever the player saved.
             bool uncapped = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-uncapped") >= 0;

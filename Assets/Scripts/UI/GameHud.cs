@@ -58,7 +58,7 @@ namespace Deepbound.UI
         public static bool DebugShowStats;
         private bool statsHeld;
 
-        private struct FeedLine { public string Text; public Color Color; public float Time; }
+        private struct FeedLine { public string Text; public Color Color; public float Time; public int Count; }
         private static readonly List<FeedLine> FeedLines = new List<FeedLine>();
 
         private static string cardTitle, cardSub;
@@ -272,7 +272,19 @@ namespace Deepbound.UI
                     return;
                 }
             }
-            FeedLines.Add(new FeedLine { Text = text, Color = color, Time = UnityEngine.Time.time });
+            // "Cleansed / Cleansed / Cleansed" reads as noise: the same line within 6 s becomes "Cleansed  x3".
+            for (int i = FeedLines.Count - 1; i >= 0; i--)
+            {
+                var old = FeedLines[i];
+                if (old.Text != text || UnityEngine.Time.time - old.Time > 6f) continue;
+                FeedLines.RemoveAt(i);
+                old.Count = Mathf.Max(1, old.Count) + 1;
+                old.Time = UnityEngine.Time.time;
+                old.Color = color;
+                FeedLines.Add(old);
+                return;
+            }
+            FeedLines.Add(new FeedLine { Text = text, Color = color, Time = UnityEngine.Time.time, Count = 1 });
             if (FeedLines.Count > 6) FeedLines.RemoveAt(0);
         }
 
@@ -280,7 +292,11 @@ namespace Deepbound.UI
         private GUIStyle label, big, small, center;
         private float hurtFlash;
         private float spawnTime;
-        private float bannerUntil;
+        private static float bannerUntil;
+        private static bool bannerUp;
+
+        /// <summary>A title card, the floor banner or a boss intro holds the top-centre of the screen: tips wait for it.</summary>
+        public static bool CentreBusy => BossIntroShowing || (cardTitle != null && UnityEngine.Time.time < cardUntil) || cardQueue.Count > 0 || (bannerUp && UnityEngine.Time.time < bannerUntil);
 
         private static readonly Color Panel = new Color(0.03f, 0.03f, 0.04f, 0.72f);
         private static readonly Color Gold = new Color(0.92f, 0.74f, 0.36f);
@@ -2080,6 +2096,7 @@ namespace Deepbound.UI
 
         private void DrawBanner(float w, float h)
         {
+            bannerUp = bannerTitle != null;
             if (Time.time > bannerUntil || bannerTitle == null || BossIntroShowing) return;
             float a = Mathf.Clamp01((bannerUntil - Time.time) / 1.5f) * Mathf.Clamp01(1f - fade * 1.5f);
             var gold = new Color(Gold.r, Gold.g, Gold.b, a);
@@ -2199,14 +2216,15 @@ namespace Deepbound.UI
                 shown++;
                 float a = Mathf.Clamp01((6f - age) / 1f);
                 float slide = 1f - Mathf.Pow(1f - Mathf.Clamp01(age / 0.22f), 3f);
-                var content = new GUIContent(line.Text);
+                string shownText = line.Count > 1 ? line.Text + "  x" + line.Count : line.Text;
+                var content = new GUIContent(shownText);
                 float tw = Mathf.Min(maxW, feedStyle.CalcSize(content).x + 22f);
                 float lh = Mathf.Max(22f, feedStyle.CalcHeight(content, tw - 12f) + 4f);
                 float x = 18f - (1f - slide) * 60f, y = bottom - lh;
                 Rect(x, y, tw, lh, new Color(0.03f, 0.025f, 0.02f, 0.62f * a));
                 Rect(x, y, 3, lh, new Color(line.Color.r, line.Color.g, line.Color.b, 0.9f * a));
                 var st = new GUIStyle(feedStyle) { normal = { textColor = new Color(line.Color.r, line.Color.g, line.Color.b, a) } };
-                GUI.Label(new Rect(x + 10, y, tw - 12, lh), line.Text, st);
+                GUI.Label(new Rect(x + 10, y, tw - 12, lh), shownText, st);
                 bottom = y - 3f;
             }
         }

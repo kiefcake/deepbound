@@ -94,7 +94,9 @@ namespace Deepbound.Enemies
         {
             if (IsBoss) return;
             if (!Elite.Value) ServerMakeElite();
-            damage *= 1.15f;
+            // The first floor's champion is a new party's first real wall: it hits a little softer there (its 60+ blows
+            // took a fresh Cleric or Plague Doctor near death a dozen times in the autoplay runs).
+            damage *= depthForLoot == 0 ? 0.9f : 1.15f;
             health.ServerSetMax(health.Max.Value * 1.6f, refill: true);
             health.Defense += 2f;
             SetChampionTitle(Pick(ChampionNames, usedNames), Pick(Epithets, usedEpithets));

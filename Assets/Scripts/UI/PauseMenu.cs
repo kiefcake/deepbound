@@ -308,6 +308,9 @@ namespace Deepbound.UI
                 if (gq != Settings.GraphicsQuality) Settings.GraphicsQuality = gq;
                 bool vs = Check(Settings.VSync, "VSync (off: uncapped frame rate)");
                 if (vs != Settings.VSync) Settings.VSync = vs;
+                GUILayout.Space(10);
+                GUILayout.Label("Brightness  " + (Settings.Brightness >= 0f ? "+" : "") + Mathf.RoundToInt(Settings.Brightness * 100f), UiSkin.Body);
+                Settings.Brightness = GUILayout.HorizontalSlider(Settings.Brightness, -0.3f, 0.4f);
                 GUILayout.EndVertical();
                 GUILayout.EndHorizontal();
                 GUILayout.Space(18);

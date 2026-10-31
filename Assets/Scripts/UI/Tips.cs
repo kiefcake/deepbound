@@ -189,7 +189,7 @@ namespace Deepbound.UI
         {
             // A boss's entrance has the screen to itself, and so does being down; the tip waits (its timer held).
             var meDown = NetworkPlayer.Local != null ? NetworkPlayer.Local.GetComponent<PlayerLife>() : null;
-            if (GameHud.BossIntroShowing || (meDown != null && meDown.Downed.Value))
+            if (GameHud.CentreBusy || (meDown != null && meDown.Downed.Value))
             {
                 if (current != null) shownAt = Time.time;
                 return;

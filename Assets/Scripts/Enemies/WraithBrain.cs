@@ -13,13 +13,14 @@ namespace Deepbound.Enemies
     /// are still in it when it lands. Get close and it slips away.
     ///
     /// <para>
-    /// <b>Ethereal</b>: most damage passes through it (60% less) unless it is pinned down —
+    /// <b>Ethereal</b>: half of all damage passes through it unless it is pinned down —
     /// chilled, stunned, marked, or standing in consecrated ground. One player alone can
     /// grind it down; a party that combos makes it solid.
     /// </para>
     /// </summary>
     public class WraithBrain : EnemyBrain
     {
+        public const float EtherealTaken = 0.5f;
         [SerializeField] private float preferredRange = 9f;
         [SerializeField] private float wailCooldown = 6.5f, wailWindup = 1.3f, wailRadius = 3f;
         [SerializeField] private float slipCooldown = 7f;
@@ -34,7 +35,8 @@ namespace Deepbound.Enemies
         {
             base.OnNetworkSpawn();
             nextWail = Time.time + 3f;
-            if (IsServer) health.IncomingModifiers.Add((dmg, from) => Pinned ? dmg : dmg * 0.4f);
+            // Ethereal: half of it passes through (was 60%: ranged, evasive AND that slippery made the late floors a slog).
+            if (IsServer) health.IncomingModifiers.Add((dmg, from) => Pinned ? dmg : dmg * EtherealTaken);
         }
 
         protected override void Update()

@@ -1342,7 +1342,9 @@ namespace Deepbound.World
             float necro = necromancerPrefab != null && !hasNecro && act >= 1 ? 0.06f + 0.03f * tier : 0f;
             float ghoul = ghoulPrefab != null ? 0.22f : 0f;
             float archer = archerPrefab != null ? theme.ArcherChance : 0f;
-            float wraith = wraithPrefab != null ? 0.05f + 0.05f * tier : 0f;
+            // Rolled before everything else, so keep it modest: at 0.05 + 0.05 tier a quarter of floors 9-10 were wraiths, and
+            // the autoplay runs took more from them there than from anything but the Unsung (2026-10-30).
+            float wraith = wraithPrefab != null ? Mathf.Min(0.14f, 0.05f + 0.025f * tier) : 0f;
             float r0 = UnityEngine.Random.value;
             if (r0 < wraith) return wraithPrefab;
             // Entlings come in from the second act, in pairs sometimes.
