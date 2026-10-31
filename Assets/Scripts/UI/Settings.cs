@@ -146,8 +146,25 @@ namespace Deepbound.UI
         /// <summary>0 Fine, 1 Classic, 2 Chunky.</summary>
         public static int RetroSize
         {
-            get => Mathf.Clamp(Mathf.RoundToInt(retroSize ??= Load("deepbound.retrosize", 1f)), 0, 2);
+            get => ArgRetroSize >= 0 ? ArgRetroSize : Mathf.Clamp(Mathf.RoundToInt(retroSize ??= Load("deepbound.retrosize", 1f)), 0, 2);
             set { retroSize = Mathf.Clamp(value, 0, 2); Save("deepbound.retrosize", retroSize.Value); ApplyGraphics(); }
+        }
+
+        /// <summary>`-retrosize 0|1|2` on the command line (screenshot runs): that size for this session, nothing saved.</summary>
+        private static int? argRetroSize;
+        private static int ArgRetroSize
+        {
+            get
+            {
+                if (argRetroSize == null)
+                {
+                    argRetroSize = -1;
+                    var args = System.Environment.GetCommandLineArgs();
+                    for (int i = 0; i + 1 < args.Length; i++)
+                        if (args[i] == "-retrosize" && int.TryParse(args[i + 1], out int v)) argRetroSize = Mathf.Clamp(v, 0, 2);
+                }
+                return argRetroSize.Value;
+            }
         }
 
         /// <summary>The render scale the retro look wants at this window height (never above 1).</summary>
