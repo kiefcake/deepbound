@@ -194,6 +194,10 @@ namespace Deepbound.EditorTools
             PlayerSettings.gcIncremental = true;
             // CPU/GPU frame timings for the perf samples (FrameTimingManager); a negligible cost.
             PlayerSettings.enableFrameTimingStats = true;
+            // DirectX 11 only (2026-10-31): Unity 6 picks DirectX 12 on discrete GPUs, and there the world came in
+            // piecemeal (unlit walls, the title backdrop half dark). Every test machine here ran DX11.
+            PlayerSettings.SetUseDefaultGraphicsAPIs(BuildTarget.StandaloneWindows64, false);
+            PlayerSettings.SetGraphicsAPIs(BuildTarget.StandaloneWindows64, new[] { UnityEngine.Rendering.GraphicsDeviceType.Direct3D11 });
             Build();
 
             var report = BuildPipeline.BuildPlayer(new BuildPlayerOptions
