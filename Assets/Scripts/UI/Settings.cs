@@ -130,6 +130,29 @@ namespace Deepbound.UI
             ApplyGraphics();
         }
 
+        // ---- Retro look ----
+        private static float? retro, retroSize;
+        public static readonly string[] RetroNames = { "Fine", "Classic", "Chunky" };
+        /// <summary>Lines of the small picture for Fine / Classic / Chunky.</summary>
+        public static readonly int[] RetroLines = { 480, 360, 270 };
+
+        /// <summary>The retro gothic look: the world drawn small with chunky pixels and a dithered palette (UI stays sharp).</summary>
+        public static bool Retro
+        {
+            get => (retro ??= Load("deepbound.retro", 1f)) > 0.5f;
+            set { retro = value ? 1f : 0f; Save("deepbound.retro", retro.Value); ApplyGraphics(); }
+        }
+
+        /// <summary>0 Fine, 1 Classic, 2 Chunky.</summary>
+        public static int RetroSize
+        {
+            get => Mathf.Clamp(Mathf.RoundToInt(retroSize ??= Load("deepbound.retrosize", 1f)), 0, 2);
+            set { retroSize = Mathf.Clamp(value, 0, 2); Save("deepbound.retrosize", retroSize.Value); ApplyGraphics(); }
+        }
+
+        /// <summary>The render scale the retro look wants at this window height (never above 1).</summary>
+        public static float RetroScale => Mathf.Clamp(RetroLines[RetroSize] / (float)Mathf.Max(1, Screen.height), 0.15f, 1f);
+
         // ---- Brightness ----
         private static float? brightness;
         private static UnityEngine.Rendering.Volume brightnessVolume;
@@ -196,10 +219,13 @@ namespace Deepbound.UI
             {
                 baseShadowDistance ??= urp.shadowDistance;
                 urp.renderScale = q == 0 ? 0.7f : q == 1 ? 0.85f : 1f;
+                // Retro: the world is drawn small whatever the preset (cheaper too), and blown up with hard pixel edges.
+                if (Retro) urp.renderScale = RetroScale;
                 // Below full resolution, upscale with FSR 1 (sharper than bilinear, nearly free), lightly sharpened.
                 try
                 {
-                    urp.upscalingFilter = urp.renderScale < 0.99f ? UnityEngine.Rendering.Universal.UpscalingFilterSelection.FSR : UnityEngine.Rendering.Universal.UpscalingFilterSelection.Auto;
+                    urp.upscalingFilter = Retro ? UnityEngine.Rendering.Universal.UpscalingFilterSelection.Point
+                        : urp.renderScale < 0.99f ? UnityEngine.Rendering.Universal.UpscalingFilterSelection.FSR : UnityEngine.Rendering.Universal.UpscalingFilterSelection.Auto;
                     urp.fsrOverrideSharpness = true;
                     urp.fsrSharpness = 0.75f;
                 }

@@ -308,6 +308,13 @@ namespace Deepbound.UI
                 if (gq != Settings.GraphicsQuality) Settings.GraphicsQuality = gq;
                 bool vs = Check(Settings.VSync, "VSync (off: uncapped frame rate)");
                 if (vs != Settings.VSync) Settings.VSync = vs;
+                bool rl = Check(Settings.Retro, "Retro look (small pixels, dithered colour)");
+                if (rl != Settings.Retro) Settings.Retro = rl;
+                if (Settings.Retro)
+                {
+                    int rs = Choice(Settings.RetroSize, Settings.RetroNames);
+                    if (rs != Settings.RetroSize) Settings.RetroSize = rs;
+                }
                 GUILayout.Space(10);
                 GUILayout.Label("Brightness  " + (Settings.Brightness >= 0f ? "+" : "") + Mathf.RoundToInt(Settings.Brightness * 100f), UiSkin.Body);
                 Settings.Brightness = GUILayout.HorizontalSlider(Settings.Brightness, -0.3f, 0.4f);

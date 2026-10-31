@@ -743,6 +743,43 @@ namespace Deepbound.EditorTools
         }
 
         /// <summary>
+        /// The retro gothic pass (2026-10-31): <c>Shaders/Retro.shader</c> as a full-screen pass after post-processing,
+        /// through a baked material (so the shader is never stripped). <c>UI/RetroLook</c> drives it with globals.
+        /// </summary>
+        private static void AddRetroPass(UniversalRendererData renderer)
+        {
+            var shader = Shader.Find("Deepbound/Retro");
+            if (shader == null) { Debug.LogError("[ArtBaker] Deepbound/Retro shader missing"); return; }
+            var mat = GetOrCreateMaterial("Retro", shader);
+            EditorUtility.SetDirty(mat);
+            FullScreenPassRendererFeature pass = null;
+            foreach (var f in renderer.rendererFeatures) if (f is FullScreenPassRendererFeature fp && fp.name == "Retro") pass = fp;
+            if (pass == null)
+            {
+                pass = ScriptableObject.CreateInstance<FullScreenPassRendererFeature>();
+                pass.name = "Retro";
+                AssetDatabase.AddObjectToAsset(pass, renderer);
+                renderer.rendererFeatures.Add(pass);
+                var rso = new SerializedObject(renderer);
+                var map = rso.FindProperty("m_RendererFeatureMap");
+                if (map != null && AssetDatabase.TryGetGUIDAndLocalFileIdentifier(pass, out string _, out long localId))
+                {
+                    map.arraySize++;
+                    map.GetArrayElementAtIndex(map.arraySize - 1).longValue = localId;
+                    rso.ApplyModifiedPropertiesWithoutUndo();
+                }
+            }
+            pass.passMaterial = mat;
+            pass.injectionPoint = FullScreenPassRendererFeature.InjectionPoint.AfterRenderingPostProcessing;
+            pass.fetchColorBuffer = true;
+            pass.requirements = ScriptableRenderPassInput.Color;
+            pass.passIndex = 0;
+            pass.SetActive(true);
+            EditorUtility.SetDirty(pass);
+            EditorUtility.SetDirty(renderer);
+        }
+
+        /// <summary>
         /// Forward+ lifts URP's 8-lights-per-object cap, which a torch-lit corridor blows
         /// through immediately. Additional-light shadows let torches cast them.
         /// </summary>
@@ -756,6 +793,7 @@ namespace Deepbound.EditorTools
                 so.ApplyModifiedPropertiesWithoutUndo();
                 EditorUtility.SetDirty(renderer);
                 AddAmbientOcclusion(renderer);
+                AddRetroPass(renderer);
             }
 
             var pipeline = AssetDatabase.LoadAssetAtPath<UniversalRenderPipelineAsset>("Assets/Settings/DeepboundURP.asset");
