@@ -3567,6 +3567,18 @@ namespace Deepbound.Networking
             motor.SetPitch(12f);
             yield return new WaitForSeconds(0.4f);
             yield return Shot(dir, "1_start_room_wide"); yield return SamplePerf("1_start_room_wide");
+            // Blood on the flagstones (2026-11-01): a few blows' worth staged on the floor ahead.
+            {
+                var bcam = Art.ViewCamera.Current;
+                var bf = bcam != null ? bcam.transform.forward : local.transform.forward;
+                bf.y = 0f; bf = bf.sqrMagnitude > 0.01f ? bf.normalized : Vector3.forward;
+                var bside = Vector3.Cross(Vector3.up, bf);
+                Art.BloodSpatter.Splash(local.transform.position + bf * 5f, 0.2f);
+                Art.BloodSpatter.Splash(local.transform.position + bf * 6f + bside * 1.2f, 0.12f);
+                Art.BloodSpatter.Splash(local.transform.position + bf * 6.5f - bside * 1f, 0.2f);
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, "2c_blood");
+            }
             // A door in a doorway: shut from a distance, swinging open as you come up to it.
             var door = FindObjectsByType<SwingDoor>(FindObjectsSortMode.None).OrderBy(d => (d.transform.position - local.transform.position).sqrMagnitude).FirstOrDefault();
             if (door != null)

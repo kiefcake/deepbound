@@ -16,6 +16,8 @@ namespace Deepbound.Art
         /// <summary>A see-through puff (Mat.Smoke): its colour's alpha thins out over its life.</summary>
         public Color Fade;
         public bool Fading;
+        /// <summary>Fading puffs ease in over the first third of their life; off, they are there at once (blood).</summary>
+        public bool FadeIn = true;
         /// <summary>Faces the camera every frame (sprite puffs, Art/FxSprite), turning by <see cref="Spin"/> deg/s.</summary>
         public bool Billboard;
         public float Spin;
@@ -28,6 +30,7 @@ namespace Deepbound.Art
         /// <summary>Reused from the pool: start a fresh life.</summary>
         public void Restart()
         {
+            FadeIn = true;
             age = 0f;
             spun = 0f;
             Billboard = false;
@@ -51,7 +54,7 @@ namespace Deepbound.Art
             }
             else if (Spin != 0f) transform.Rotate(Vector3.up, Spin * Time.deltaTime, Space.World);
             if (Glowing && rend != null) ArtLibrary.SetGlow(rend, Glow * (1f - k) * (1f - k));
-            if (Fading && rend != null) ArtLibrary.Tint(rend, new Color(Fade.r, Fade.g, Fade.b, Fade.a * Mathf.Sin(Mathf.Min(1f, k * 3f) * Mathf.PI * 0.5f) * (1f - k)));
+            if (Fading && rend != null) ArtLibrary.Tint(rend, new Color(Fade.r, Fade.g, Fade.b, Fade.a * (FadeIn ? Mathf.Sin(Mathf.Min(1f, k * 3f) * Mathf.PI * 0.5f) : 1f) * (1f - k)));
             if (age >= Life) Vfx.Recycle(this);
         }
     }
