@@ -2224,6 +2224,8 @@ namespace Deepbound.UI
                 float tw = Mathf.Min(maxW, feedStyle.CalcSize(content).x + 22f);
                 float lh = Mathf.Max(22f, feedStyle.CalcHeight(content, tw - 12f) + 4f);
                 float x = 18f - (1f - slide) * 60f, y = bottom - lh;
+                // A tall stack stops short of the tip box (the oldest lines give way) instead of running under it.
+                if (Tips.BottomEdge > 0f && y < Tips.BottomEdge + 6f && x + tw > Screen.width / 2f - 320f) break;
                 Rect(x, y, tw, lh, new Color(0.03f, 0.025f, 0.02f, 0.62f * a));
                 Rect(x, y, 3, lh, new Color(line.Color.r, line.Color.g, line.Color.b, 0.9f * a));
                 var st = new GUIStyle(feedStyle) { normal = { textColor = new Color(line.Color.r, line.Color.g, line.Color.b, a) } };

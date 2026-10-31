@@ -185,6 +185,11 @@ namespace Deepbound.UI
         }
 
         /// <summary>Owner, from the HUD's OnGUI.</summary>
+        /// <summary>The bottom of the tip box drawn last frame, 0 when none is up (the feed keeps below it).</summary>
+        public static float BottomEdge { get => Time.frameCount - bottomSetAt <= 1 ? bottomEdge : 0f; private set => bottomEdge = value; }
+        private static float bottomEdge;
+        private static int bottomSetAt = -10;
+
         public static void Draw(float w, float h)
         {
             // A boss's entrance has the screen to itself, and so does being down; the tip waits (its timer held).
@@ -223,6 +228,8 @@ namespace Deepbound.UI
             float ph = style.CalcHeight(new GUIContent(current), pw - 40f) + 34f;
             // Below the floor banner, the boss bar and the rage meter (at 104 it sat on top of them).
             var r = new Rect(w / 2f - pw / 2f, 176f, pw, ph);
+            BottomEdge = r.yMax;
+            bottomSetAt = Time.frameCount;
             UiSkin.Panel(r, 0.85f * a);
             GUI.Label(new Rect(r.x + 20, r.y + 6, pw - 40, 18), "TIP", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, a) } });
             GUI.Label(new Rect(r.x + 20, r.y + 24, pw - 40, ph - 30), Binds.Rekey(current), style);
