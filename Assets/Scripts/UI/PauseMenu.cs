@@ -264,6 +264,11 @@ namespace Deepbound.UI
             UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
             GUILayout.BeginArea(area);
             GUILayout.Label(options ? "OPTIONS" : "PAUSED", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
+            if (Event.current.type == EventType.Repaint)
+            {
+                var head = GUILayoutUtility.GetLastRect();
+                UiSkin.Ornament(head.center.x - 110f, head.yMax + 3f, 220f, 1f);
+            }
             GUILayout.Space(14);
 
             if (options)

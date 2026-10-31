@@ -65,6 +65,25 @@ namespace Deepbound.UI
             }
         }
 
+        /// <summary>A gothic rule under the title: two gold lines that taper toward a diamond, with a bead at each end.</summary>
+        public static void Ornament(float x, float y, float width, float fade)
+        {
+            var gold = new Color(Gold.r, Gold.g, Gold.b, 0.85f * fade);
+            var dim = new Color(Gold.r, Gold.g, Gold.b, 0.4f * fade);
+            float mid = x + width / 2f;
+            Rect(new Rect(x + 8f, y, width / 2f - 22f, 1f), gold);
+            Rect(new Rect(mid + 14f, y, width / 2f - 22f, 1f), gold);
+            Rect(new Rect(x + 40f, y + 4f, width / 2f - 54f, 1f), dim);
+            Rect(new Rect(mid + 14f, y + 4f, width / 2f - 54f, 1f), dim);
+            Rect(new Rect(x, y - 1f, 3f, 3f), gold);
+            Rect(new Rect(x + width - 3f, y - 1f, 3f, 3f), gold);
+            var m = GUI.matrix;
+            GUIUtility.RotateAroundPivot(45f, new Vector2(mid, y + 0.5f));
+            Rect(new Rect(mid - 5f, y - 4.5f, 10f, 10f), gold);
+            Rect(new Rect(mid - 2.5f, y - 2f, 5f, 5f), new Color(0.05f, 0.03f, 0.02f, 0.9f * fade));
+            GUI.matrix = m;
+        }
+
         public static void Rect(Rect r, Color c)
         {
             var old = GUI.color;

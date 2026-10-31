@@ -46,6 +46,7 @@ namespace Deepbound.UI
             UiSkin.Shadowed(new Rect(left - 20, h * 0.12f, 560, 90), "DEEPBOUND", new GUIStyle(UiSkin.Title) { alignment = TextAnchor.MiddleLeft }, fade);
             UiSkin.Shadowed(new Rect(left, h * 0.12f + 84, 560, 30), "Descend together. Nothing comes back up but your name.",
                 new GUIStyle(UiSkin.Body) { fontSize = 17, fontStyle = FontStyle.Italic }, fade);
+            UiSkin.Ornament(left, h * 0.12f + 122f, 420f, fade);
 
             var area = new Rect(left, h * 0.33f, 360, h * 0.62f);
             GUILayout.BeginArea(area);
