@@ -296,7 +296,9 @@ namespace Deepbound.UI
         private static bool bannerUp;
 
         /// <summary>A title card, the floor banner or a boss intro holds the top-centre of the screen: tips wait for it.</summary>
-        public static bool CentreBusy => BossIntroShowing || (cardTitle != null && UnityEngine.Time.time < cardUntil) || cardQueue.Count > 0 || (bannerUp && UnityEngine.Time.time < bannerUntil);
+        public static bool CentreBusy => BossIntroShowing || (cardTitle != null && UnityEngine.Time.time < cardUntil) || cardQueue.Count > 0 || (bannerUp && UnityEngine.Time.time < bannerUntil)
+            || UnityEngine.Time.time - phaseBigAt < 0.25f || UnityEngine.Time.time - clearedAt < 1.8f;
+        private static float phaseBigAt = -10f;
 
         private static readonly Color Panel = new Color(0.03f, 0.03f, 0.04f, 0.72f);
         private static readonly Color Gold = new Color(0.92f, 0.74f, 0.36f);
@@ -1410,7 +1412,7 @@ namespace Deepbound.UI
                     if (h != null && h.Team == Team.Enemies && h.IsAlive && hit.distance > reach + 0.6f) outOfRange = true;
                 }
             }
-            if (!outOfRange) return;
+            if (!outOfRange || BossIntroShowing) return;
             GUI.Label(new Rect(c.x - 100f, c.y + 24f, 200f, 18f), "OUT OF RANGE  (" + player.ActiveKit.AttackRange.ToString(player.ActiveKit.AttackRange < 10f ? "F1" : "F0") + " m)",
                 new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.55f, 0.4f, 0.9f) } });
         }
@@ -2058,6 +2060,7 @@ namespace Deepbound.UI
             if (clearedSeenAt < 0f) clearedSeenAt = Time.time;
             if (fresh)
             {
+                phaseBigAt = Time.time;
                 Rect(0, h * 0.28f - 10, w, 90, new Color(0f, 0f, 0f, 0.55f));
                 GUI.Label(new Rect(0, h * 0.28f, w, 44), title, new GUIStyle(big) { normal = { textColor = Gold } });
                 GUI.Label(new Rect(0, h * 0.28f + 46, w, 24), sub, center);

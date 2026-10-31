@@ -338,6 +338,12 @@ namespace Deepbound.Art
                 Add(Box(size), material, Matrix4x4.TRS(center, rotation ?? Quaternion.identity, Vector3.one));
             }
 
+            /// <summary>A box in a tinted variant of a material: each colour is its own combined mesh ("Leather#6B1A14").</summary>
+            public void AddBox(Vector3 center, Vector3 size, string material, Color tint, Quaternion? rotation = null)
+            {
+                AddBox(center, size, material + "#" + ColorUtility.ToHtmlStringRGB(tint), rotation);
+            }
+
             /// <summary>Builds the combined meshes under <paramref name="parent"/>.</summary>
             /// <param name="collide">Add MeshColliders, so the geometry is walkable and navmesh-bakeable.</param>
             /// <param name="tint">Optional per-material tint (a theme recolouring stone, say). Null or white = none.</param>
@@ -354,8 +360,11 @@ namespace Deepbound.Art
                     go.isStatic = true;
                     go.AddComponent<MeshFilter>().sharedMesh = mesh;
                     var renderer = go.AddComponent<MeshRenderer>();
-                    renderer.sharedMaterial = ArtLibrary.Get(pair.Key);
-                    if (tint != null)
+                    int hash = pair.Key.IndexOf('#');
+                    string matName = hash >= 0 ? pair.Key.Substring(0, hash) : pair.Key;
+                    renderer.sharedMaterial = ArtLibrary.Get(matName);
+                    if (hash >= 0 && ColorUtility.TryParseHtmlString(pair.Key.Substring(hash), out var own)) ArtLibrary.Tint(renderer, own);
+                    else if (tint != null)
                     {
                         var c = tint(pair.Key);
                         if (c != Color.white) ArtLibrary.Tint(renderer, c);

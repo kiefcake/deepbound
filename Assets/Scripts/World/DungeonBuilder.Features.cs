@@ -112,9 +112,25 @@ namespace Deepbound.World
                 haze.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
 
-            // The crack itself: a ragged bright gap in the ceiling, with fallen stone beneath.
-            var crack = MeshKit.Part(root, "Crack", MeshKit.Box(new Vector3(radius * 1.2f, 0.05f, radius * 0.7f)), Mat.Glow, Vector3.up * (height - 0.02f), new Vector3(0f, 25f, 0f));
-            ArtLibrary.SetGlow(crack.GetComponent<Renderer>(), color * 1.4f);
+            // The opening: an iron-barred oculus in the ceiling, the light beyond kept dim enough that bloom does not
+            // burn it to a white slab (it did until 2026-10-31), with fallen stone beneath.
+            float gw = radius * 1.2f, gd = radius * 0.8f, top = height - 0.02f;
+            var crack = MeshKit.Part(root, "Crack", MeshKit.Box(new Vector3(gw, 0.04f, gd)), Mat.Glow, Vector3.up * (top + 0.03f), new Vector3(0f, 25f, 0f));
+            ArtLibrary.SetGlow(crack.GetComponent<Renderer>(), color * 0.32f);
+            var grate = new GameObject("Grate").transform;
+            grate.SetParent(root, false);
+            grate.localPosition = Vector3.up * top;
+            grate.localRotation = Quaternion.Euler(0f, 25f, 0f);
+            const float bar = 0.07f;
+            // A frame, then a lattice: three bars one way, two the other.
+            MeshKit.Part(grate, "Frame", MeshKit.Box(new Vector3(gw + 0.2f, 0.09f, 0.12f)), Mat.Dark, new Vector3(0f, 0f, gd * 0.5f + 0.04f));
+            MeshKit.Part(grate, "Frame", MeshKit.Box(new Vector3(gw + 0.2f, 0.09f, 0.12f)), Mat.Dark, new Vector3(0f, 0f, -gd * 0.5f - 0.04f));
+            MeshKit.Part(grate, "Frame", MeshKit.Box(new Vector3(0.12f, 0.09f, gd + 0.2f)), Mat.Dark, new Vector3(gw * 0.5f + 0.04f, 0f, 0f));
+            MeshKit.Part(grate, "Frame", MeshKit.Box(new Vector3(0.12f, 0.09f, gd + 0.2f)), Mat.Dark, new Vector3(-gw * 0.5f - 0.04f, 0f, 0f));
+            for (int i = 1; i <= 3; i++) MeshKit.Part(grate, "Bar", MeshKit.Box(new Vector3(bar, 0.06f, gd)), Mat.Dark, new Vector3(-gw * 0.5f + gw * i / 4f, -0.01f, 0f));
+            for (int i = 1; i <= 2; i++) MeshKit.Part(grate, "Bar", MeshKit.Box(new Vector3(gw, 0.06f, bar)), Mat.Dark, new Vector3(0f, -0.02f, -gd * 0.5f + gd * i / 3f));
+            foreach (var r in grate.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            MeshKit.MergeParts(grate);
             b.AddBox(floor + new Vector3(radius * 0.5f, 0.12f, -radius * 0.3f), new Vector3(0.5f, 0.24f, 0.4f), Mat.Rubble, Quaternion.Euler(0f, 30f, 8f));
             b.AddBox(floor + new Vector3(-radius * 0.4f, 0.08f, radius * 0.45f), new Vector3(0.35f, 0.16f, 0.3f), Mat.Rubble, Quaternion.Euler(0f, -20f, -6f));
 
@@ -357,6 +373,12 @@ namespace Deepbound.World
         // Library: shelf aisles that break line of sight
         // ------------------------------------------------------------------
 
+        private static readonly Color[] BookColours =
+        {
+            new Color(0.66f, 0.17f, 0.12f), new Color(0.22f, 0.4f, 0.22f), new Color(0.22f, 0.27f, 0.55f),
+            new Color(0.58f, 0.38f, 0.2f), new Color(0.2f, 0.17f, 0.16f), new Color(0.72f, 0.6f, 0.38f),
+        };
+
         private static void DressLibrary(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
         {
             float shelfH = Mathf.Min(room.Height - 2.5f, 5.2f);
@@ -374,11 +396,18 @@ namespace Deepbound.World
                     {
                         var off = longX ? new Vector3(0f, 0f, face * 0.22f) : new Vector3(face * 0.22f, 0f, 0f);
                         float run = longX ? size.x - 0.2f : size.z - 0.2f;
-                        for (float u = -run / 2f; u < run / 2f - 0.3f; u += 0.5f + (float)rng.NextDouble() * 0.6f)
+                        // Rows of old bindings (2026-10-31: they were pale cream slabs): thin spines in oxblood, forest,
+                        // navy, umber and black, of varied height, a gap now and then, and the odd one leaning.
+                        float u = -run / 2f;
+                        while (u < run / 2f - 0.25f)
                         {
-                            float bw = 0.3f + (float)rng.NextDouble() * 0.3f, bh = 0.5f + (float)rng.NextDouble() * 0.22f;
+                            if (rng.NextDouble() < 0.07) { u += 0.25f + (float)rng.NextDouble() * 0.3f; continue; }
+                            float bw = 0.09f + (float)rng.NextDouble() * 0.1f, bh = 0.46f + (float)rng.NextDouble() * 0.28f;
+                            bool lean = rng.NextDouble() < 0.05;
                             var at = c + off + Vector3.up * (y + 0.03f + bh / 2f) + (longX ? new Vector3(u + bw / 2f, 0f, 0f) : new Vector3(0f, 0f, u + bw / 2f));
-                            b.AddBox(at, longX ? new Vector3(bw, bh, 0.2f) : new Vector3(0.2f, bh, bw), rng.NextDouble() < 0.5 ? Mat.Leather : Mat.Cloth);
+                            var tilt = lean ? Quaternion.Euler(longX ? 0f : 14f, 0f, longX ? -14f : 0f) : Quaternion.identity;
+                            b.AddBox(at, longX ? new Vector3(bw, bh, 0.22f) : new Vector3(0.22f, bh, bw), Mat.Leather, BookColours[rng.Next(BookColours.Length)], tilt);
+                            u += bw + 0.01f + (lean ? 0.08f : 0f);
                         }
                     }
                 }
