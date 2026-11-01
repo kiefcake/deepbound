@@ -115,7 +115,7 @@ namespace Deepbound.Classes
                 ("PASSIVE", "Hunter's Mark", "Three hits on one enemy mark it: +25% damage from everyone."),
                 ("LMB", "Longbow", "Hold to draw, release to loose. A full draw pierces."),
                 ("RMB", "Disengage", "Leap backwards out of reach."),
-                ("Q", "Bear Trap", "Set a trap at your crosshair that snaps and holds an enemy."),
+                ("Q", "Snare Shot", "Loose a weighted net: everything where it lands is held and hurt, and your arrows hit it 25% harder."),
                 ("E", "Volley", "Rain arrows on the circle at your crosshair."),
             }
             : id == ClassId.Rogue

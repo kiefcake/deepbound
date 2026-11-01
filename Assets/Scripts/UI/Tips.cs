@@ -157,6 +157,9 @@ namespace Deepbound.UI
             if (World.Tallyman.Active != null && !World.Tallyman.Active.Leaving.Value)
                 Offer("tallyman", "THE TALLYMAN comes for parties that linger. He cannot be hurt: sprint away (he gets faster), throw HOLY WATER (4) to hold him for a moment, and get into the guardian's arena - when it seals, he leaves.");
 
+            // Hidden spike plates (2026-11-01): from the second act some lie in the floor's own flagstone.
+            if (layout.Depth >= 2) Offer("hiddenplates", "WATCH THE FLOOR: from here some spike plates are laid in flagstone like the rest. A click underfoot means MOVE - the spikes pin whoever they catch.");
+
             var room = layout.RoomAt(me, 0f);
             if (room != null)
             {
@@ -172,7 +175,7 @@ namespace Deepbound.UI
                 if (room.Feature == RoomFeature.Terrace || room.Feature == RoomFeature.Ziggurat) Offer("highground", "HIGH GROUND: take the ramps up. Archers up top see everything - and anything you knock off the edge has a long way to fall.");
                 if (room.Feature == RoomFeature.Library) Offer("library", "LIBRARY: the shelves block sight both ways. Archers lose you behind them - and the dead can wait round any corner.");
                 if (room.Feature == RoomFeature.Pyre) Offer("pyre", "PYRE HALL: the fire erupts on a beat. When the red ring fills, get out past it - and leave the dead inside.");
-                if (room.Feature == RoomFeature.Gauntlet) Offer("gauntlet", "SPIKE GAUNTLET: a wave of spikes runs down the hall. Rows glow before they fire: step between them, and let the dead walk in.");
+                if (room.Feature == RoomFeature.Gauntlet) Offer("gauntlet", "SPIKE GAUNTLET: a wave of spikes runs down the hall. Rows glow before they fire: step between them, and let the dead walk in. A row that catches you PINS you for a moment.");
                 if (room.Feature == RoomFeature.Cistern) Offer("cistern", "CISTERN: the water slows everyone - but frost freezes anything standing in it.");
             }
             if (Object.FindObjectsByType<FateWheel>(FindObjectsSortMode.None).Any(w => !w.Spun.Value && Vector3.Distance(w.transform.position, me) < 9f))

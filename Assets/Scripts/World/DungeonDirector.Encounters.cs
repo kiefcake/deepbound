@@ -591,10 +591,11 @@ namespace Deepbound.World
                     if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
                     var d = h.transform.position - trap.At;
                     if (Mathf.Abs(Vector3.Dot(d, along)) > 0.75f || Mathf.Abs(Vector3.Dot(d, trap.Across)) > DungeonLayout.CorridorWidth / 2f || Mathf.Abs(d.y) > 1.5f) continue;
-                    if (burnedAt.TryGetValue(h, out float t) && Time.time - t < 0.5f) continue;
+                    if (burnedAt.TryGetValue(h, out float t) && Time.time - t < 0.4f) continue;
                     burnedAt[h] = Time.time;
-                    // Traps hit hard (2026-10-21, the user: "damage on traps to go up"), on both sides.
-                    h.ServerDamage(h.Team == Team.Players ? 16f + 6f * Tier(Layout.Depth) : 50f + 15f * Tier(Layout.Depth), trap.At);
+                    // Traps hit hard (2026-10-21, the user: "damage on traps to go up"), on both sides; harder still since
+                    // 2026-11-01 ("make them more dangerous"), and by the difficulty setting.
+                    h.ServerDamage(h.Team == Team.Players ? TrapHurt(24f + 9f * Tier(Layout.Depth)) : 50f + 15f * Tier(Layout.Depth), trap.At);
                     if (!h.IsAlive && h.Team == Team.Enemies) EnvKillRpc(h.Center, 1);
                 }
             }
@@ -670,8 +671,8 @@ namespace Deepbound.World
                         var push = Pendulum.SwingDirection(room, i, now);
                         if (h.Team == Team.Players)
                         {
-                            h.ServerDamage(30f + 10f * Tier(Layout.Depth), blade);
-                            if (h.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(push * 9f + Vector3.up * 3f);
+                            h.ServerDamage(TrapHurt(46f + 15f * Tier(Layout.Depth)), blade);
+                            if (h.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(push * 13f + Vector3.up * 3.5f);
                         }
                         else
                         {
@@ -699,13 +700,20 @@ namespace Deepbound.World
             return false;
         }
 
-        private void HazardHit(Health h, Vector3 from, float playerDamage, float enemyDamage, Vector3 push, byte how, float rehit)
+        /// <summary>
+        /// A trap's bite on a player (2026-11-01, "make them more dangerous"): what each trap deals, by the difficulty
+        /// setting too (Hard x1.3 ... Torment x2), which traps used to ignore.
+        /// </summary>
+        public static float TrapHurt(float damage) => damage * Difficulty.Level.Damage;
+
+        private void HazardHit(Health h, Vector3 from, float playerDamage, float enemyDamage, Vector3 push, byte how, float rehit, float pin = 0f)
         {
             if (hazardHitAt.TryGetValue(h, out float t) && Time.time - t < rehit) return;
             hazardHitAt[h] = Time.time;
             if (h.Team == Team.Players)
             {
-                h.ServerDamage(playerDamage, from);
+                h.ServerDamage(TrapHurt(playerDamage), from);
+                if (pin > 0f && h.IsAlive && h.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerRoot(pin);
                 if (push.sqrMagnitude > 0.01f && h.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(push);
             }
             else
@@ -739,10 +747,10 @@ namespace Deepbound.World
                         flat.y = 0f;
                         float dist = flat.magnitude;
                         if (ph < last && dist < PyreFire.EruptRadius && h.transform.position.y < c.y + 2.5f)
-                            HazardHit(h, c, 46f + 15f * tier, 160f + 40f * tier, flat.normalized * 9f + Vector3.up * 3f, 1, 0.2f);
+                            HazardHit(h, c, 62f + 20f * tier, 160f + 40f * tier, flat.normalized * 11f + Vector3.up * 3.5f, 1, 0.2f);
                         else if (coreTick && dist < PyreFire.CoreRadius)
                         {
-                            if (h.Team == Team.Players) h.ServerDamage(8f + 3f * tier, c);
+                            if (h.Team == Team.Players) h.ServerDamage(TrapHurt(12f + 4f * tier), c);
                             else { h.ServerDamage(30f + 10f * tier, c); if (!h.IsAlive) EnvKillRpc(h.Center, 1); }
                         }
                     }
@@ -758,7 +766,8 @@ namespace Deepbound.World
                         {
                             if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
                             if (!SpikeGauntlet.OnRow(room, i, h.transform.position - Vector3.up * 0.05f)) continue;
-                            HazardHit(h, h.transform.position, 30f + 9f * tier, 100f + 28f * tier, Vector3.up * 5f, 0, SpikeGauntlet.UpSeconds + 0.1f);
+                            // Impaled: a moment pinned on the row (the next row may be coming).
+                            HazardHit(h, h.transform.position, 44f + 13f * tier, 100f + 28f * tier, Vector3.up * 5f, 0, SpikeGauntlet.UpSeconds + 0.1f, 0.5f);
                         }
                     }
                 }

@@ -45,7 +45,7 @@ namespace Deepbound.Classes
                     : "Tonics heal 40% more, shield for 20, and come back sooner.";
                 case ClassId.Ranger: return path == 1
                     ? "Full-draw arrows deal 40% more damage."
-                    : "Keep three bear traps out, and set them 40% more often.";
+                    : "Snares burst 40% wider and come back 40% sooner.";
                 default: return path == 1
                     ? "Swings sweep a far wider arc (160°) and reach further."
                     : "Blocking a hit readies a riposte: your next swing deals x2.2 damage.";

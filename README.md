@@ -42,7 +42,7 @@ CASTLE RAVENHOLD (camp)  ──carriage──▶  FLOOR  ──▶  GUARDIAN  �
 | **Mage** | Burst | Firebolt, Frostbolt that chills for Shatter, a stunning Tidal Wave, Meteor |
 | **Cleric** | Healer | Smite, a healing beam, Consecrate, Aegis shields for the party |
 | **Rogue** | Assassin | Fast stabs, fan of knives, Shadowstep behind a target, Smoke Bomb to vanish |
-| **Ranger** | Marksman | Charged bow shots with drop, Disengage, bear traps, Volley |
+| **Ranger** | Marksman | Charged bow shots with drop, Disengage, a net-bursting Snare Shot, Volley |
 | **Flagellant** | Bruiser | Hits harder and heals the more hurt it is; Scourge, Chains, Penitent Leap |
 | **Plague Doctor** | Afflicter / support | Blighting vials, healing tonics, Miasma, the Plague Mask |
 

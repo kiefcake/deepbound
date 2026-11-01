@@ -365,7 +365,6 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.RangerKit
   ShowTopMostFoldoutHeaderGroup: 1
-  trapPrefab: {fileID: 1901387081852984573, guid: 320c118f5f5d79b4aa56a965223261ad, type: 3}
 --- !u!114 &1113284408795371079
 MonoBehaviour:
   m_ObjectHideFlags: 0

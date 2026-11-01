@@ -46,8 +46,7 @@ namespace Deepbound.EditorTools
             EnsureFolder(PrefabDir);
 
             var loot = BuildLootPrefab();
-            var bearTrap = BuildObjectPrefab<BearTrap>("BearTrap", Vector3.zero);
-            var player = BuildPlayerPrefab(bearTrap);
+            var player = BuildPlayerPrefab();
             var skeleton = BuildEnemyPrefab("Skeleton", EnemyType.Skeleton, loot);
             var archer = BuildEnemyPrefab("SkeletonArcher", EnemyType.Archer, loot);
             var warden = BuildEnemyPrefab("Gravewarden", EnemyType.Gravewarden, loot);
@@ -170,7 +169,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(bearTrap, player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix);
+            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -218,7 +217,7 @@ namespace Deepbound.EditorTools
         // Prefabs
         // ------------------------------------------------------------------
 
-        private static GameObject BuildPlayerPrefab(GameObject bearTrap)
+        private static GameObject BuildPlayerPrefab()
         {
             // Origin at the feet: spawn points and teleports mean "stand here".
             var root = new GameObject("Player");
@@ -248,7 +247,7 @@ namespace Deepbound.EditorTools
             root.AddComponent<Emotes>();
             root.AddComponent<Teamwork>();
             root.AddComponent<PlayerDebuffs>();
-            root.AddComponent<RangerKit>().SetTrapPrefab(bearTrap.GetComponent<NetworkObject>());
+            root.AddComponent<RangerKit>();
             root.AddComponent<KnockbackReceiver>();
             root.AddComponent<PlayerPings>();
             root.AddComponent<PlayerVoice>();

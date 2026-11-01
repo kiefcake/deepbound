@@ -18,8 +18,9 @@ namespace Deepbound.Player
     /// <item><b>LMB — Longbow.</b> Hold to draw, release to loose. Damage grows with the draw;
     ///   a full draw pierces through every enemy in line.</item>
     /// <item><b>RMB — Disengage.</b> Leap backwards and up, out of reach.</item>
-    /// <item><b>Q — Bear Trap.</b> Set a trap at your crosshair. The first enemy to step in it
-    ///   is snapped, held, and hurt. Up to two at once.</item>
+    /// <item><b>Q — Snare Shot.</b> (2026-11-01, replacing the Bear Trap, which waited for one enemy to walk onto a
+    ///   plate.) Loose a weighted net-arrow: where it strikes, a net bursts open and everything under it is held, hurt,
+    ///   and SNARED: your arrows and Volley hit it harder while it struggles.</item>
     /// <item><b>E — Volley.</b> A blue circle at your crosshair, then arrows rain on it for two
     ///   seconds.</item>
     /// </list>
@@ -36,14 +37,15 @@ namespace Deepbound.Player
         public float AttackRange => ArrowRange(Mathf.Max(Charge, 1f), progress != null ? progress.RangeMultiplier : 1f);
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
         public const float DisengageCooldown = 6f, DisengageFocus = 35f;
-        public const float TrapCooldown = 10f, TrapRange = 9f;
+        public const float SnareCooldown = 9f, SnareFocus = 20f, SnareRadius = 3f, SnareHold = 2f, SnareDamage = 18f;
+        public const float SnareSpeed = 30f, SnareRange = 26f, SnareGravity = 4f;
+        /// <summary>Snared: the Ranger's arrows and Volley deal this much more for <see cref="SnareSeconds"/>.</summary>
+        public const float SnareExposed = 1.25f, SnareSeconds = 4f;
         public const float VolleyCooldown = 16f, VolleyFocus = 55f, VolleyRadius = 4f, VolleyDelay = 0.8f, VolleyDamage = 11f;
         public const int VolleyWaves = 6;
         public const float FocusMax = 100f, FocusRegen = 11f;
         public const int MarkHits = 3;
         public const float MarkSeconds = 6f;
-
-        [SerializeField] private NetworkObject trapPrefab;
 
         private Health health;
         private PlayerLife life;
@@ -53,17 +55,17 @@ namespace Deepbound.Player
 
         public float Focus { get; private set; } = FocusMax;
         private float drawStart = -1f;
-        private float disengageReadyAt, trapReadyAt, volleyReadyAt;
+        private float disengageReadyAt, snareReadyAt, volleyReadyAt;
 
         // Server.
         private ulong markTarget;
         private int markCount;
-        private readonly List<NetworkObject> traps = new List<NetworkObject>();
+        private readonly Dictionary<ulong, float> snaredUntil = new Dictionary<ulong, float>();
+        /// <summary>Tests: how many the last snare caught.</summary>
+        public int LastSnareCaught { get; private set; } = -1;
         private struct Volley { public Vector3 At; public float Next; public int Left; }
         private readonly List<Volley> volleys = new List<Volley>();
         private float lastServerShot;
-
-        public void SetTrapPrefab(NetworkObject prefab) => trapPrefab = prefab;
 
         private void Awake()
         {
@@ -84,7 +86,7 @@ namespace Deepbound.Player
         public float Resource => Focus;
         public float ResourceMax => FocusMax;
         public void RestoreResource(float fraction) => Focus = Mathf.Min(ResourceMax, Focus + ResourceMax * fraction);
-        public void ShaveCooldowns(float seconds) { trapReadyAt -= seconds; volleyReadyAt -= seconds; }
+        public void ShaveCooldowns(float seconds) { snareReadyAt -= seconds; volleyReadyAt -= seconds; }
         public float Charge => drawStart < 0f ? 0f : Mathf.Clamp01((Time.time - drawStart) / DrawFull);
 
         public void FillAbilities(List<AbilityView> into)
@@ -92,7 +94,7 @@ namespace Deepbound.Player
             float cd = progress.CooldownMultiplier;
             into.Add(new AbilityView { Key = "LMB", Name = "Longbow", Active = drawStart >= 0f });
             into.Add(new AbilityView { Key = "RMB", Name = "Disengage", Remaining = disengageReadyAt - Time.time, Cooldown = DisengageCooldown * cd, Unaffordable = Focus < DisengageFocus });
-            into.Add(new AbilityView { Key = "Q", Name = "Bear Trap", Remaining = trapReadyAt - Time.time, Cooldown = TrapCooldown * progress.CooldownFor(AbilitySlot.Q) });
+            into.Add(new AbilityView { Key = "Q", Name = "Snare Shot", Remaining = snareReadyAt - Time.time, Cooldown = SnareCooldownNow, Unaffordable = Focus < SnareFocus });
             into.Add(new AbilityView { Key = "E", Name = "Volley", Remaining = volleyReadyAt - Time.time, Cooldown = VolleyCooldown * progress.CooldownFor(AbilitySlot.E), Unaffordable = Focus < VolleyFocus });
         }
 
@@ -148,11 +150,13 @@ namespace Deepbound.Player
                 DisengageFxRpc();
             }
 
-            // --- Q: Bear Trap at the crosshair ---
-            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= trapReadyAt && TryAimFloor(TrapRange * RangeMul, out var trapAt))
+            // --- Q: Snare Shot along the crosshair ---
+            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= snareReadyAt && Focus >= SnareFocus)
             {
-                trapReadyAt = Time.time + TrapCooldown * progress.CooldownFor(AbilitySlot.Q) * (progress.OnPath(2) ? 0.6f : 1f);
-                TrapRpc(trapAt);
+                Focus -= SnareFocus;
+                snareReadyAt = Time.time + SnareCooldownNow;
+                player.ViewModelCast(true);
+                SnareRpc(player.AimOrigin + player.AimForward * 0.6f, player.AimForward);
             }
 
             // --- E: Volley at the crosshair ---
@@ -183,6 +187,7 @@ namespace Deepbound.Player
 
             charge = Mathf.Clamp01(charge);
             float dmg = Mathf.Lerp(ArrowMinDamage, ArrowMaxDamage, charge) * progress.AttackMultiplier;
+            var kit = this;
             bool pierce = charge >= 1f;
             if (pierce && progress.OnPath(1)) dmg *= 1.4f; // Sharpshooter
             bool instantMark = pierce && progress.Mastered(1);
@@ -190,7 +195,7 @@ namespace Deepbound.Player
             var from = transform.position;
             Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, ArrowSpeed * (0.7f + 0.3f * charge), h =>
             {
-                h.ServerDamage(dmg * (pierce && h.Team == Team.Enemies ? Combos.TryShatter(h, progress) : 1f), from, me);
+                h.ServerDamage(dmg * (pierce && h.Team == Team.Enemies ? Combos.TryShatter(h, progress) : 1f) * (kit != null ? kit.Snared(h) : 1f), from, me);
                 if (this == null) return;
                 if (instantMark && h.Team == Team.Enemies)
                 {
@@ -219,23 +224,56 @@ namespace Deepbound.Player
             }
         }
 
-        [Rpc(SendTo.Server)]
-        private void TrapRpc(Vector3 at) => ServerPlaceTrap(at);
+        // ---- Q: Snare Shot ----
 
-        /// <summary>Server: set a bear trap. Public for the smoke test.</summary>
-        public void ServerPlaceTrap(Vector3 at)
+        /// <summary>The Trapper path: snares come back 40% sooner and burst 40% wider.</summary>
+        private float SnareCooldownNow => SnareCooldown * progress.CooldownFor(AbilitySlot.Q) * (progress.OnPath(2) ? 0.6f : 1f);
+        public float SnareRadiusNow => SnareRadius * (progress != null && progress.OnPath(2) ? 1.4f : 1f);
+
+        /// <summary>Server: the extra the Ranger's own hits deal to something still struggling in a net.</summary>
+        public float Snared(Health h) => h != null && snaredUntil.TryGetValue(h.NetworkObjectId, out var until) && Time.time < until ? SnareExposed : 1f;
+
+        [Rpc(SendTo.Server)]
+        private void SnareRpc(Vector3 origin, Vector3 direction) => ServerSnareShot(origin, direction);
+
+        /// <summary>Server: loose the net-arrow; it bursts where it strikes (an enemy, a wall, the floor). Public for the smoke test.</summary>
+        public void ServerSnareShot(Vector3 origin, Vector3 direction)
         {
-            if (!life.CanAct || trapPrefab == null || Vector3.Distance(at, transform.position) > TrapRange * RangeMul + 2f) return;
-            traps.RemoveAll(t => t == null || !t.IsSpawned);
-            if (traps.Count >= (progress.OnPath(2) ? 3 : 2))
+            if (!life.CanAct) return;
+            if (Vector3.Distance(origin, transform.position + Vector3.up * 1.6f) > 2.5f) origin = transform.position + Vector3.up * 1.6f;
+            // No damage of its own in flight: the net does the work where it lands.
+            Arrows.ServerFire(origin, direction, 0f, Team.Enemies, NetworkObjectId, SnareSpeed, h => { }, false, SnareRange * RangeMul, SnareGravity,
+                at => { if (this != null) ServerSnareBurst(at); });
+            SnareShotFxRpc(origin, direction);
+        }
+
+        /// <summary>Server: the net opens at <paramref name="at"/>. Public for the smoke test.</summary>
+        public void ServerSnareBurst(Vector3 at)
+        {
+            // Lie on the floor under where it struck (an arrow in a wall drops its net at the wall's foot).
+            var ground = Physics.Raycast(at + Vector3.up * 0.5f, Vector3.down, out var hit, 6f, ~0, QueryTriggerInteraction.Ignore) && hit.collider.GetComponentInParent<Health>() == null ? hit.point : at;
+            float r = SnareRadiusNow;
+            int caught = 0;
+            foreach (var h in CombatQuery.Circle(ground, r, Team.Enemies).ToArray())
             {
-                traps[0].Despawn();
-                traps.RemoveAt(0);
+                if (Mathf.Abs(h.transform.position.y - ground.y) > 2.5f) continue;
+                caught++;
+                h.ServerDamage(SnareDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q), ground + Vector3.up, NetworkObjectId);
+                if (!h.IsAlive) continue;
+                // Bosses shrug a stun off sooner (their own ServerStun), but are snared for the full time.
+                if (h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(SnareHold);
+                if (h.TryGetComponent<Enemies.BossBrain>(out var boss)) boss.ServerAddStagger(Enemies.BossBrain.StaggerStun);
+                snaredUntil[h.NetworkObjectId] = Time.time + SnareSeconds;
+                if (progress.Twist(AbilitySlot.Q)) { h.ServerMark(MarkSeconds); MarkFxRpc(h.Center); }
             }
-            var trap = Instantiate(trapPrefab, at, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
-            trap.Spawn(destroyWithScene: true);
-            trap.GetComponent<World.BearTrap>().ServerArm(progress.AttackMultiplier * progress.Potency(AbilitySlot.Q), NetworkObjectId, progress.Twist(AbilitySlot.Q));
-            traps.Add(trap);
+            LastSnareCaught = caught;
+            if (snaredUntil.Count > 64)
+            {
+                var stale = new List<ulong>();
+                foreach (var kv in snaredUntil) if (kv.Value < Time.time) stale.Add(kv.Key);
+                foreach (var k in stale) snaredUntil.Remove(k);
+            }
+            SnareBurstFxRpc(ground, r, caught);
         }
 
         [Rpc(SendTo.Server)]
@@ -254,7 +292,7 @@ namespace Deepbound.Player
                 if (Time.time < v.Next) continue;
                 foreach (var h in CombatQuery.Circle(v.At, progress.Mastered(2) ? 5f : VolleyRadius, Team.Enemies).ToArray())
                 {
-                    h.ServerDamage(VolleyDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.E), v.At + Vector3.up * 6f, NetworkObjectId);
+                    h.ServerDamage(VolleyDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.E) * Snared(h), v.At + Vector3.up * 6f, NetworkObjectId);
                     if (progress.Twist(AbilitySlot.E)) h.ServerChill(2f);
                     CountMark(h);
                 }
@@ -275,6 +313,23 @@ namespace Deepbound.Player
             Arrows.SpawnVisual(origin, direction, ProjectileKind.Arrow, ArrowSpeed * (0.7f + 0.3f * charge), ArrowRange(charge, RangeMul), ArrowGravity(charge));
             Sfx.Play(Sound.Bow, origin, 0.6f + 0.4f * charge, 1.2f - 0.3f * charge);
             if (!IsOwner) player.Rig?.Play(RigAction.Draw, 0.2f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SnareShotFxRpc(Vector3 origin, Vector3 direction)
+        {
+            Arrows.SpawnVisual(origin, direction, ProjectileKind.Arrow, SnareSpeed, SnareRange * RangeMul, SnareGravity);
+            Sfx.Play(Sound.Bow, origin, 0.85f, 0.75f);
+            if (!IsOwner) player.Rig?.Play(RigAction.Draw, 0.2f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SnareBurstFxRpc(Vector3 at, float radius, int caught)
+        {
+            SnareNet.Spawn(at, radius, SnareHold + 0.4f);
+            Sfx.Play(Sound.Chain, at + Vector3.up * 0.4f, 0.7f, 1.25f);
+            if (caught > 0) Sfx.Play(Sound.Block, at + Vector3.up * 0.4f, 0.6f, 0.8f);
+            Vfx.Ring(at + Vector3.up * 0.04f, radius, new Color(0.62f, 0.5f, 0.32f), 0.35f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

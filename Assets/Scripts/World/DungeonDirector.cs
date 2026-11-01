@@ -1270,7 +1270,7 @@ namespace Deepbound.World
                     var a = layout.Rooms[link.A];
                     var b = layout.Rooms[link.B];
                     if (a.Kind == RoomKind.Boss || b.Kind == RoomKind.Boss || a.Kind == RoomKind.Start) continue;
-                    if (rng.NextDouble() < 0.4) Spawn(trapPrefab, layout.CorridorMidpoint(link) + Vector3.up * 0.005f, Quaternion.identity);
+                    if (rng.NextDouble() < 0.5) SpawnPlate(layout.CorridorMidpoint(link) + Vector3.up * 0.005f, layout.Depth, rng);
                 }
                 // Rooms too (2026-10-20): a row of two or three pressure plates across a plain fight
                 // room's floor, off the doorways, in about half of them. Lure the dead across.
@@ -1294,7 +1294,7 @@ namespace Deepbound.World
                             if (shelves.Exists(q => { var g = q; g.xMin -= 1f; g.yMin -= 1f; g.xMax += 1f; g.yMax += 1f; return g.Contains(new Vector2(at.x, at.z)); })) continue;
                             if (Vector3.Distance(new Vector3(at.x, 0f, at.z), new Vector3(room.Center.x, 0f, room.Center.z)) < 2.5f) continue;
                             if (!NavMesh.SamplePosition(at, out var hit, 1.2f, NavMesh.AllAreas) || Mathf.Abs(hit.position.y) > 0.3f) continue;
-                            Spawn(trapPrefab, hit.position + Vector3.up * 0.005f, Quaternion.identity);
+                            SpawnPlate(hit.position + Vector3.up * 0.005f, layout.Depth, rng);
                         }
                     }
                 }
@@ -1310,6 +1310,15 @@ namespace Deepbound.World
             Art.Sfx.Play(Art.Sound.Frost, at, 1f, 0.8f);
             Art.Vfx.IceSpikes(at - Vector3.up * 0.9f, 0.9f, 8);
             UI.GameHud.ShowCombo(at + Vector3.up * 0.8f, "FROZEN", new Color(0.6f, 0.9f, 1f));
+        }
+
+        /// <summary>A spike plate; deeper down, some are laid in flagstone and hidden (<see cref="SpikeTrap.HiddenChance"/>).</summary>
+        private void SpawnPlate(Vector3 at, int depth, System.Random rng)
+        {
+            bool hidden = rng.NextDouble() < SpikeTrap.HiddenChance(depth);
+            var obj = Instantiate(trapPrefab, at, Quaternion.identity);
+            obj.GetComponent<SpikeTrap>().Hidden.Value = hidden;
+            obj.Spawn(destroyWithScene: true);
         }
 
         private NetworkObject Spawn(NetworkObject prefab, Vector3 at, Quaternion rot)

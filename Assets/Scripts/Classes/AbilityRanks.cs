@@ -53,7 +53,7 @@ namespace Deepbound.Classes
                     ? "Miasma clouds are half again as wide."
                     : "The mask's breath steadies the party: Bloodlust (+15% damage) for 6 s.";
                 case ClassId.Ranger: return q
-                    ? "Bear traps mark whatever they catch."
+                    ? "Snares mark everything they catch."
                     : "Volley chills everything it hits.";
                 default: return q
                     ? "Shield Bash becomes a shockwave: a full half-circle, a metre further."
@@ -69,7 +69,7 @@ namespace Deepbound.Classes
                 case ClassId.Mage: return q ? "Tidal Wave hits 30% harder and rolls 30% further." : "Meteor hits 30% harder and wider.";
                 case ClassId.Cleric: return q ? "Consecrate heals and burns 30% more." : "Aegis shields 30% more.";
                 case ClassId.Rogue: return q ? "Shadowstep reaches 30% further." : "Smoke lasts 30% longer.";
-                case ClassId.Ranger: return q ? "Traps bite 30% harder." : "Volley hits 30% harder.";
+                case ClassId.Ranger: return q ? "Snares bite 30% harder." : "Volley hits 30% harder.";
                 case ClassId.Flagellant: return q ? "Chains reach and bite 30% further and harder." : "The leap's crash hits 30% harder.";
                 case ClassId.PlagueDoctor: return q ? "Miasma rots 30% harder." : "The mask heals 30% more.";
                 default: return q ? "Bash hits 30% harder and stuns longer." : "War Cry lasts 30% longer and reaches further.";

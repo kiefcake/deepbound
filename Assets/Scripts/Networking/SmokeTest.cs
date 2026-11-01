@@ -265,10 +265,16 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.4f);
                 }
                 Log("ranger mark", "marked " + dummy.Marked.Value + ", dummy " + dummy.Current.Value.ToString("F0") + " / " + dummy.Max.Value.ToString("F0"), dummy.Marked.Value);
-                ranger.ServerPlaceTrap(dummy.transform.position);
-                yield return new WaitForSeconds(0.3f);
-                var trap = FindObjectsByType<BearTrap>(FindObjectsSortMode.None).FirstOrDefault();
-                Log("ranger trap", "trap " + (trap != null) + ", sprung " + (trap != null && trap.Sprung.Value), trap != null && trap.Sprung.Value);
+                // Snare Shot: the net-arrow bursts on the dummy, catches it, and the next arrow hits 25% harder.
+                dummy.ServerSetFraction(1f);
+                {
+                    var o = me.transform.position + Vector3.up * 1.6f;
+                    ranger.ServerSnareShot(o, dummy.Center - o);
+                    for (float t = 0f; t < 1.5f && ranger.LastSnareCaught < 0; t += 0.1f) yield return new WaitForSeconds(0.1f);
+                    float snaredBy = ranger.Snared(dummy);
+                    Log("ranger snare", "caught " + ranger.LastSnareCaught + ", snared x" + snaredBy.ToString("F2") + ", dummy " + dummy.Current.Value.ToString("F0") + " / " + dummy.Max.Value.ToString("F0"),
+                        ranger.LastSnareCaught >= 1 && snaredBy > 1.2f && dummy.Current.Value < dummy.Max.Value);
+                }
 
                 // Flagellant: swings heal (Penance) and build Fervor, the third crashes; Scourge costs blood for Zeal; the leap spends Fervor.
                 progressMe.ClassId.Value = Classes.ClassId.Flagellant;
@@ -1848,6 +1854,25 @@ namespace Deepbound.Networking
                     }
                     int roomTraps = FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Count(t => layout.RoomAt(t.transform.position, 0f) != null);
                     Log("room traps", roomTraps + " spike traps inside rooms on this floor", true);
+                    // A spike plate (2026-11-01, "more dangerous"): it fires in 0.4 s, bites hard, and pins the player it catches.
+                    var plate = FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).FirstOrDefault();
+                    if (plate != null)
+                    {
+                        var ph = local.GetComponent<Health>();
+                        var pdeb = local.GetComponent<PlayerDebuffs>();
+                        pdeb.ServerResetGrace();
+                        ph.ServerSetFraction(1f);
+                        yield return new WaitForSeconds(SpikeTrap.Rearm + 0.2f);
+                        float before = ph.Current.Value;
+                        local.GetComponent<FirstPersonMotor>().Teleport(plate.transform.position + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return new WaitForSeconds(SpikeTrap.Delay + 0.15f);
+                        float took = before - ph.Current.Value;
+                        bool pinned = pdeb.Rooted;
+                        Log("spike plate", "took " + took.ToString("F0") + " (hidden " + plate.Hidden.Value + "), pinned " + pinned, took >= SpikeTrap.Damage * 0.5f && pinned);
+                        local.GetComponent<FirstPersonMotor>().Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                        ph.ServerSetFraction(1f);
+                        yield return new WaitForSeconds(SpikeTrap.ImpaleSeconds);
+                    }
                 }
                 // The blood altar: three offerings fill the chalice; a relic for who bled, Bloodlust for all.
                 {

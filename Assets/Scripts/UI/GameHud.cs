@@ -2143,7 +2143,7 @@ namespace Deepbound.UI
                     : progress.ClassId.Value == ClassId.Ranger
                     ? "LMB hold to draw, release to shoot\n" +
                       "3 hits mark a target (+25% for all)  ·  RMB leap back\n" +
-                      "Q  Bear Trap  ·  E  Volley at the crosshair\n"
+                      "Q  Snare Shot  ·  E  Volley at the crosshair\n"
                     : progress.ClassId.Value == ClassId.Rogue
                     ? "LMB Twin Daggers  ·  RMB Fan of Knives\n" +
                       "Hit from BEHIND: +50% more (Ambush)\n" +
