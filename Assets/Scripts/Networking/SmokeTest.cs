@@ -206,6 +206,16 @@ namespace Deepbound.Networking
                     progressMe.WeaponPath.Value = 0;
                 }
 
+                // Tidal Wave (Q, replacing Blink): rolls out across the wedge in front and strikes what it reaches once.
+                me.GetComponent<FirstPersonMotor>().Teleport(dummy.transform.position + Vector3.right * 4f, Quaternion.LookRotation(Vector3.left));
+                yield return new WaitForSeconds(0.2f);
+                dummy.ServerSetFraction(1f);
+                float waveBefore = dummy.Current.Value;
+                mage.ServerWave(Vector3.left);
+                yield return new WaitForSeconds(MageKit.WaveSeconds + 0.3f);
+                float waveDealt = waveBefore - dummy.Current.Value;
+                Log("tidal wave", "dealt " + waveDealt.ToString("F0") + " (one hit, dry: " + !mage.WaveWet + ")", waveDealt > 0f && waveDealt < MageKit.WaveDamage * 3f && !mage.WaveWet);
+
                 // Cleric: Aegis absorbs a hit completely; Consecrate burns a dummy standing in it.
                 progressMe.ClassId.Value = Classes.ClassId.Cleric;
                 yield return new WaitForSeconds(0.5f);
@@ -890,12 +900,14 @@ namespace Deepbound.Networking
                     ip.BagDropRpc(ip.BagCount - 1);
                     yield return new WaitForSeconds(0.3f);
                     bool dropped = FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length > drops0;
-                    Log("inventory", "stowed " + stowed + ", wore from pack " + swapped + ", no scrapping away from the anvil " + scrapped + ", took off " + off + ", dropped " + dropped,
-                        stowed && swapped && scrapped && off && dropped);
-                    foreach (var gd in FindObjectsByType<GearDrop>(FindObjectsSortMode.None)) if (gd.NetworkObject.IsSpawned && gd.For.Value == local.OwnerClientId) gd.NetworkObject.Despawn();
+                    // A piece put down from the pack is for the whole party (anyone can take it).
+                    bool shared = FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Any(gd => gd.Shared);
+                    Log("inventory", "stowed " + stowed + ", wore from pack " + swapped + ", no scrapping away from the anvil " + scrapped + ", took off " + off + ", dropped " + dropped + " for anyone " + shared,
+                        stowed && swapped && scrapped && off && dropped && shared);
+                    foreach (var gd in FindObjectsByType<GearDrop>(FindObjectsSortMode.None)) if (gd.NetworkObject.IsSpawned && (gd.For.Value == local.OwnerClientId || gd.Shared)) gd.NetworkObject.Despawn();
                     for (int guard = 0; ip.BagCount > 0 && guard < 40; guard++) { ip.BagDropRpc(0); yield return null; }
                     yield return new WaitForSeconds(0.2f);
-                    foreach (var gd in FindObjectsByType<GearDrop>(FindObjectsSortMode.None)) if (gd.NetworkObject.IsSpawned && gd.For.Value == local.OwnerClientId) gd.NetworkObject.Despawn();
+                    foreach (var gd in FindObjectsByType<GearDrop>(FindObjectsSortMode.None)) if (gd.NetworkObject.IsSpawned && (gd.For.Value == local.OwnerClientId || gd.Shared)) gd.NetworkObject.Despawn();
                     if (!wornBefore.IsEmpty) ip.ServerEquip(wornBefore);
                 }
 
@@ -2406,7 +2418,7 @@ namespace Deepbound.Networking
                     motor.Teleport(World.Lobby.RunewrightSpot + Vector3.back * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
                     var stallHere = local.GetComponent<UI.GameHud>().DebugStallHere();
-                    Log("ysolde reachable", "G at her stones opens " + (stallHere.HasValue ? stallHere.Value.ToString() : "nothing"), stallHere == Shop.Vendor.Runewright);
+                    Log("ysolde reachable", "F at her stones opens " + (stallHere.HasValue ? stallHere.Value.ToString() : "nothing"), stallHere == Shop.Vendor.Runewright);
                     // A gamepad: a virtual pad pressing A jumps (Jump held), RT attacks, and the hints turn to pad buttons.
                     {
                         var vpad = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Gamepad>();
@@ -3184,6 +3196,14 @@ namespace Deepbound.Networking
             yield return Shot(dir, "0d_mage_frostbolt");
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "0e_mage_chilled_dummy");
+            // Tidal Wave rolling out toward the dummy, mid-flow and at its reach.
+            lobbyMotor.SetPitch(10f);
+            mage.ServerWave(local.transform.forward);
+            yield return new WaitForSeconds(0.22f);
+            yield return Shot(dir, "0e2_tidal_wave");
+            yield return new WaitForSeconds(0.2f);
+            yield return Shot(dir, "0e3_tidal_wave_reach");
+            lobbyMotor.SetPitch(0f);
 
             // Meteor: falling through the ceiling, the impact, the crater left behind.
             var meteorSpot = dummyHp.transform.position + new Vector3(-1.5f, 0f, 2f);

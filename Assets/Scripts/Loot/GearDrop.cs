@@ -19,19 +19,31 @@ namespace Deepbound.Loot
         public readonly NetworkVariable<GearItem> Item = new NetworkVariable<GearItem>();
         public readonly NetworkVariable<ulong> For = new NetworkVariable<ulong>();
 
+        /// <summary>
+        /// <see cref="For"/> on a piece a player put down out of their pack (play-test 2026-11-01: "items should be able
+        /// to be dropped to other players"): everyone sees it, and whoever takes it first has it.
+        /// </summary>
+        public const ulong Anyone = ulong.MaxValue;
+        public bool Shared => For.Value == Anyone;
+        private static bool ForMe(ulong forClient) => forClient == Anyone || (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClientId == forClient);
+        /// <summary>Is this piece on offer to the local player?</summary>
+        public bool ForLocal => ForMe(For.Value);
+
         private Transform visual;
         private float phase;
         private bool fanfarePlayed;
         private Transform legendRing;
+        private float lift, nextWaterCheck;
 
         public override float Range => 2.2f;
 
-        private bool Mine(PlayerProgress who) => who != null && who.OwnerClientId == For.Value;
+        private bool Mine(PlayerProgress who) => who != null && (Shared || who.OwnerClientId == For.Value);
 
         public override string Prompt(PlayerProgress who)
         {
             if (!Mine(who) || Item.Value.IsEmpty) return null;
-            return who.BagFull ? Gear.Name(Item.Value) + "  (pack full: wear or drop something, I)" : "Take " + Gear.Name(Item.Value) + " (into your pack, I to wear)";
+            string from = Shared ? "  (left by a friend)" : "";
+            return who.BagFull ? Gear.Name(Item.Value) + "  (pack full: wear or drop something, I)" : "Take " + Gear.Name(Item.Value) + from + " (into your pack, I to wear)";
         }
 
         protected override void ServerUse(PlayerProgress who)
@@ -42,14 +54,14 @@ namespace Deepbound.Loot
             if (who.Equipped(Gear.SlotOf((GearId)item.Id)).IsEmpty)
             {
                 who.ServerEquip(item);
-                EquipFxRpc(Gear.Name(item), true);
+                EquipFxRpc(Gear.Name(item), who.OwnerClientId, true);
                 NetworkObject.Despawn();
                 return;
             }
             if (!who.ServerStow(item)) return;
             // Better than what is worn: say so, or a Legendary sits forgotten in the pack.
             var worn = who.Equipped(Gear.SlotOf((GearId)item.Id));
-            EquipFxRpc(Gear.Name(item), false, item.Quality > worn.Quality);
+            EquipFxRpc(Gear.Name(item), who.OwnerClientId, false, item.Quality > worn.Quality);
             NetworkObject.Despawn();
         }
 
@@ -60,7 +72,7 @@ namespace Deepbound.Loot
             if (!user.TryGet(out var obj) || !obj.TryGetComponent<PlayerProgress>(out var who) || !Mine(who)) return;
             if (Vector3.Distance(obj.transform.position, transform.position) > Range + 1f) return;
             if (!who.ServerStow(Item.Value)) return;
-            EquipFxRpc(Gear.Name(Item.Value), false);
+            EquipFxRpc(Gear.Name(Item.Value), who.OwnerClientId, false);
             NetworkObject.Despawn();
         }
 
@@ -77,10 +89,10 @@ namespace Deepbound.Loot
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void EquipFxRpc(string name, bool worn, bool better = false)
+        private void EquipFxRpc(string name, ulong taker, bool worn, bool better = false)
         {
             Sfx.Play(Sound.Gear, transform.position + Vector3.up * 0.5f, 0.9f);
-            if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClientId == For.Value)
+            if (NetworkManager.Singleton != null && NetworkManager.Singleton.LocalClientId == taker)
                 UI.GameHud.Pickup("gear" + name, 1, " " + name + (worn ? "  (now wearing)" : better ? "  (in your pack - better than yours: I to wear it)" : "  (in your pack)"), Gear.QualityColor(Item.Value.Quality));
         }
 
@@ -118,12 +130,12 @@ namespace Deepbound.Loot
             var drop = obj.GetComponent<GearDrop>();
             drop.Item.Value = item;
             drop.For.Value = forClient;
-            // Only its player is told it exists. (The host still has it — it is the server —
-            // so the visual is also gated below.)
-            obj.CheckObjectVisibility = id => id == forClient;
+            // Only its player is told it exists (a piece put down for the party: everyone). The host still has
+            // it - it is the server - so the visual is also gated below.
+            obj.CheckObjectVisibility = id => forClient == Anyone || id == forClient;
             obj.Spawn(destroyWithScene: true);
             // The white-bag moment: the whole party hears who got lucky.
-            if (item.Quality >= 3 && DungeonDirector.Instance != null)
+            if (item.Quality >= 3 && forClient != Anyone && DungeonDirector.Instance != null)
             {
                 string who = "Someone";
                 if (NetworkManager.Singleton.ConnectedClients.TryGetValue(forClient, out var cl) && cl.PlayerObject != null) who = cl.PlayerObject.name;
@@ -144,7 +156,14 @@ namespace Deepbound.Loot
         {
             if (visual == null) return;
             phase += Time.deltaTime;
-            visual.localPosition = new Vector3(0f, 0.45f + Mathf.Sin(phase * 2f) * 0.06f, 0f);
+            // Under water it floats on the surface, where it can be seen.
+            if (Time.time >= nextWaterCheck)
+            {
+                nextWaterCheck = Time.time + 0.4f;
+                var surface = World.DungeonDirector.WaterSurface(transform.position);
+                lift = surface.HasValue ? Mathf.Max(0f, surface.Value + 0.3f - (transform.position.y + 0.45f)) : 0f;
+            }
+            visual.localPosition = new Vector3(0f, 0.45f + Mathf.Sin(phase * 2f) * 0.06f + lift, 0f);
             visual.localRotation = Quaternion.Euler(0f, phase * 50f, 0f);
             if (legendRing != null)
             {
@@ -159,7 +178,7 @@ namespace Deepbound.Loot
             visual = null;
             var beamOld = transform.Find("Beam");
             if (beamOld != null) Destroy(beamOld.gameObject);
-            if (NetworkManager.LocalClientId != For.Value || Item.Value.IsEmpty) return;
+            if (!ForMe(For.Value) || Item.Value.IsEmpty) return;
 
             var item = Item.Value;
             var color = Gear.QualityColor(item.Quality);

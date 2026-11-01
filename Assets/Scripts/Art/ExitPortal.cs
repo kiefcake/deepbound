@@ -10,6 +10,7 @@ namespace Deepbound.Art
     /// the dark (<see cref="Ascend"/>) as the screen fades, and you climb out at camp. Local only
     /// (every peer builds its own); it lives under the level root.
     /// </summary>
+    [DefaultExecutionOrder(10000)]
     public class ExitPortal : MonoBehaviour
     {
         public const float DescendSeconds = 2.8f, AscendSeconds = 2.2f;
@@ -19,6 +20,9 @@ namespace Deepbound.Art
         private float born, ascendAt = -1f, ceiling = 9f, nextClank;
         /// <summary>The local player is aboard and rising with the cage (pinned to its floor).</summary>
         private Player.FirstPersonMotor riding;
+        /// <summary>Everyone else aboard when the chains took up, and where they stood on the planks.</summary>
+        private readonly System.Collections.Generic.Dictionary<Transform, Vector3> others = new System.Collections.Generic.Dictionary<Transform, Vector3>();
+        private bool othersTaken;
 
         /// <summary>For tests: is the local player riding the cage up?</summary>
         public static bool LocalRiding => current != null && current.riding != null;
@@ -65,6 +69,32 @@ namespace Deepbound.Art
             float r = World.DungeonDirector.ExitRadius - 0.5f;
             if (flat.magnitude > r) flat = flat.normalized * r;
             motor.PinTo(transform.position + flat + Vector3.up * (cage.localPosition.y + 0.15f));
+        }
+
+        /// <summary>
+        /// The others in the cage ride it here too (play-test 2026-11-01: "other players are sinking through the lift").
+        /// Their own machines pin them to the planks, but their position arrives late while the cage climbs on every
+        /// screen at once, so they sank through its floor. Each peer lifts them with its own cage.
+        /// </summary>
+        private void LateUpdate()
+        {
+            if (ascendAt <= 0f || cage == null) return;
+            if (!othersTaken)
+            {
+                othersTaken = true;
+                foreach (var p in Player.PlayerLife.All)
+                {
+                    if (p == null || p.IsOwner) continue;
+                    var flat = p.transform.position - transform.position;
+                    flat.y = 0f;
+                    if (flat.magnitude > World.DungeonDirector.ExitRadius + 0.3f) continue;
+                    float r = World.DungeonDirector.ExitRadius - 0.5f;
+                    if (flat.magnitude > r) flat = flat.normalized * r;
+                    others[p.transform] = flat;
+                }
+            }
+            foreach (var kv in others)
+                if (kv.Key != null) kv.Key.position = transform.position + kv.Value + Vector3.up * (cage.localPosition.y + 0.15f);
         }
 
         private void OnDestroy()

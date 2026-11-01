@@ -87,6 +87,45 @@ namespace Deepbound.Player
 
         public Vector3 AimOrigin => playerCamera.transform.position;
         public Vector3 AimForward => playerCamera.transform.forward;
+        private bool selfShown;
+        private HumanoidRig selfShownRig;
+
+        /// <summary>
+        /// What the crosshair is on, up to <paramref name="range"/> m, looking past your own body (play-test 2026-11-01:
+        /// "E abilities are sometimes let off directly under you": aiming down, the ray clipped the top of your own
+        /// capsule and dropped the spell at your feet), the first-person hands and every trigger.
+        /// </summary>
+        public bool AimRay(float range, out RaycastHit hit)
+        {
+            hit = default;
+            float best = float.MaxValue;
+            bool found = false;
+            foreach (var h in Physics.RaycastAll(AimOrigin, AimForward, range, ~(1 << ViewModelLayerIndex), QueryTriggerInteraction.Ignore))
+            {
+                if (h.distance >= best || h.collider.transform.IsChildOf(transform)) continue;
+                best = h.distance;
+                hit = h;
+                found = true;
+            }
+            return found;
+        }
+
+        /// <summary>The floor under the crosshair (within <paramref name="range"/>; past it, under the end of the reach).</summary>
+        public bool TryAimFloor(float range, out Vector3 spot)
+        {
+            spot = default;
+            var dir = AimForward;
+            var point = AimRay(range, out var hit) ? hit.point : AimOrigin + dir * range;
+            // Drop to the floor beneath wherever the crosshair landed (a wall, an enemy, the ceiling).
+            var from = point + Vector3.up * 0.5f - dir * 0.3f;
+            foreach (var h in Physics.RaycastAll(from, Vector3.down, 40f, ~(1 << ViewModelLayerIndex), QueryTriggerInteraction.Ignore))
+            {
+                // The floor itself: not the top of whoever stands there.
+                if (h.collider.transform.IsChildOf(transform) || h.collider.GetComponentInParent<Health>() != null) continue;
+                if (spot == default || h.point.y > spot.y) spot = h.point;
+            }
+            return spot != default;
+        }
 
         private Health health;
         private PlayerLife life;
@@ -413,6 +452,15 @@ namespace Deepbound.Player
             // Hidden in cutscenes, and while watching an ally from down on the floor (Teamwork spectating).
             bool hideHands = GameHud.Cinematic || Teamwork.Watching != null;
             if (IsOwner && viewModel != null && viewModel.Root.gameObject.activeSelf == hideHands) viewModel.Root.gameObject.SetActive(!hideHands);
+            // Watching an ally from the floor, your own body is in the shot (play-test 2026-11-01: dragged while
+            // spectating, you could not see yourself being dragged). Otherwise it only casts a shadow.
+            bool showSelf = Teamwork.Watching != null;
+            if (IsOwner && Rig != null && (showSelf != selfShown || Rig != selfShownRig))
+            {
+                selfShown = showSelf;
+                selfShownRig = Rig;
+                foreach (var r in Rig.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = showSelf ? ShadowCastingMode.On : ShadowCastingMode.ShadowsOnly;
+            }
             if (IsOwner && playerCamera != null)
                 playerCamera.farClipPlane = DungeonDirector.InLobby ? 220f : Mathf.Clamp(2.6f / Mathf.Max(0.001f, RenderSettings.fogDensity), 45f, 120f);
             if (Rig != null)

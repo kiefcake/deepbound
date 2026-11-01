@@ -209,11 +209,8 @@ namespace Deepbound.Player
 
         private Vector3 LeapTarget()
         {
-            var o = player.AimOrigin;
-            var dir = player.AimForward;
-            if (Physics.Raycast(o, dir, out var hit, LeapRange + 2f, ~0, QueryTriggerInteraction.Ignore)) return hit.point;
-            var far = o + dir * LeapRange;
-            return Physics.Raycast(far, Vector3.down, out var down, 12f, ~0, QueryTriggerInteraction.Ignore) ? down.point : transform.position + transform.forward * LeapRange;
+            if (player.AimRay(LeapRange + 2f, out var hit)) return hit.point;
+            return player.TryAimFloor(LeapRange, out var spot) ? spot : transform.position + transform.forward * LeapRange;
         }
 
         // ==================================================================

@@ -285,6 +285,20 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
 - PRESENCE LIGHT (2026-10-31, `Art/PresenceLight`, booted on load, not in batchmode): a warm shadowless point light (`Range` 8, `Intensity` 1.1) `Ahead` 3 m in front of `ViewCamera.Current` (pulled in before a wall, min 1.4 m): Forward+ IGNORES `Light.cullingMask`, so at the eye it flooded the view-model hands white; off in a Lightless Hall, half at camp. Enemies up close were black cut-outs against the wall torches on floors 5-9.
 - BLOOD (2026-11-01, `Art/BloodSpatter`, static, booted on load, off in batchmode): `Health.AnyHurt` on a player losing >= 3% max HP -> 1-2 dark oxblood splats (`FxSprite.Decal` dirt sprites, 0.9-1.7 m, `Life` 25 s, `Puff.FadeIn` false so they land at once; decals otherwise fade in over the first third of their life), within 30 m of the camera, 0.3 s per player. Shot `2c_blood` (staged in the start room). `-retrosize 0|1|2` forces the retro size for a session (shots).
 - Smoke watchdog is `seconds * 8` (was 6; the sequence had grown to fill 240 s).
+- WINDOWS BUILD IS DIRECTX 11 ONLY (2026-10-31, `GameBuilder.BuildWithPlayer` sets the graphics APIs): on the user's discrete GPU Unity 6 picked DX12 and the title backdrop / world drew half-lit and piecemeal; this machine (AMD integrated) can only run DX11, so DX12 was never seen here. The zip leaves out the D3D12 folder.
+- PLAY-TEST BATCH (2026-11-01, the user's first multiplayer session):
+  - ONE KEY: `Bind.Interact` defaults to F like `Bind.Use` (`Binds.Merged`; a saved G is migrated unless `db.bind.fmerge` is set; moving Use carries Interact, moving Interact alone splits them). With both on F: what's under the crosshair first, then a downed ally (TAP < `PlayerLife.TapSeconds` 0.3 s drags / lets go, HOLD revives), the carriage bench, then the stall / anvil / tailor (`PlayerLife.UseHasWorldTarget`). Shift+F stows gear and lifts the cat. Hint texts say F.
+  - `PlayerLife.Reviving` (owner, F held over a downed ally) is in `CanAct`: no attacking while reviving.
+  - Aim: `NetworkPlayer.AimRay` / `TryAimFloor` skip your own capsule (aiming down, the old raycast hit it and Meteor/Volley/Miasma/ultimates/leap landed at your feet), the view-model layer and the tops of creatures; every kit and pings use them.
+  - Mage: Q TIDAL WAVE replaces Blink (`MageKit.ServerWave`: `WaveArc` 70 deg wedge rolling out `WaveLength` 8 m over 0.5 s, each enemy struck once for `WaveDamage` 20, stunned `WaveStun` 0.5 s, pushed; on a flooded floor or in water x`WaveWetDamage` 1.6 and 1 s stun; rank 3 chills; 18 mana). Art `Art/TidalWave` (local crest of Mat.Telegraph slabs + foam, spray, wet rings). Frostbolt 50 dmg / 2.2 s / 5 s chill. BlinkGhost deleted. Shots `0e2_tidal_wave`, `0e3_tidal_wave_reach`; smoke "tidal wave".
+  - Costs ~1.4-1.5x and slower refill for Mage, Cleric, Rogue, Ranger, Plague Doctor; ultimates charge ~2.7x slower (`Ultimates` per dealt 0.02 / taken 0.06 / sec 0.15, lock 30 s); bosses x`Difficulty.BossToughness` 5 health.
+  - Minimap arrows pointed BACKWARDS (`MapIcons.Arrow` was drawn upside down); fixed, now agrees with the view cone.
+  - Pack drops are `GearDrop.Anyone` (seen by all, taken by whoever is first; `Shared`); smoke "inventory" checks it.
+  - Relic pickup toasts carry the description for 6 s; shrine pedestals say what the relic does.
+  - Loot and gear float on the water surface (`DungeonDirector.WaterSurface`: flooded sheet with tide, or a cistern).
+  - Remote riders: `CarriageRide.LateUpdate` and `ExitPortal.LateUpdate` (execution order 10000) put other players on their seat / the rising cage floor locally; their late network position sank them through.
+  - Watching an ally while down shows your own body (`NetworkPlayer` toggles the rig from shadows-only).
+  - Voice: playback x`PlayerVoice.PlaybackBoost` 2.4 x VoiceVolume on the samples with a soft clip (AudioSource volume stops at 1), minDistance 4; mic boost default 1.5.
 
 ## Backlog / ideas not yet built
 

@@ -73,7 +73,8 @@ namespace Deepbound.UI
             if (player == null) return;
             var keyboard = Keyboard.current;
             bool near = Near;
-            if (keyboard != null && near && Binds.Down(Bind.Interact) && !CharacterSelect.Open && !PauseMenu.Open) Open = !Open;
+            if (keyboard != null && near && Binds.Down(Bind.Interact) && !CharacterSelect.Open && !PauseMenu.Open &&
+                (Open || !Binds.Merged || player.GetComponent<Player.PlayerLife>() is not Player.PlayerLife pl || !pl.UseHasWorldTarget())) Open = !Open;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) Open = false;
             if (keyboard != null && Open && keyboard.tabKey.wasPressedThisFrame) SwitchTab(TabOrder[(System.Array.IndexOf(TabOrder, tab) + 1) % TabOrder.Length]);
             if (!near) Open = false;
@@ -230,7 +231,7 @@ namespace Deepbound.UI
             if (!Open)
             {
                 if (Near && !CharacterSelect.Open)
-                    UiSkin.Shadowed(new Rect(0, h / 2f + 40, w, 24), "Press G to visit the tailor   ·   cloaks, patterns, heraldry and auras" + (Cosmetics.AllFree ? "  (all free for now)" : "   ·   Renown " + Cosmetics.Renown),
+                    UiSkin.Shadowed(new Rect(0, h / 2f + 40, w, 24), "Press F to visit the tailor   ·   cloaks, patterns, heraldry and auras" + (Cosmetics.AllFree ? "  (all free for now)" : "   ·   Renown " + Cosmetics.Renown),
                         new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
                 return;
             }
@@ -349,7 +350,7 @@ namespace Deepbound.UI
             if (Time.time < flashUntil)
                 GUI.Label(new Rect(panel.x, panel.yMax - 40, pw, 20), flash, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14, normal = { textColor = UiSkin.Gold } });
             else
-                GUI.Label(new Rect(panel.x, panel.yMax - 40, pw, 20), "G or Esc to close", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+                GUI.Label(new Rect(panel.x, panel.yMax - 40, pw, 20), "F or Esc to close", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
         }
 
         /// <summary>A swatch of the cloak you wear with the pattern's motif drawn small on it.</summary>

@@ -38,7 +38,7 @@ namespace Deepbound.Player
         public const float ChargeMax = 100f;
         // Damage is measured against the floor's own scale (deeper hits and health are bigger), taken counts for
         // less, and nothing charges for a while after a cast: on floor 6 the autoplay Knight cast every ~12 s.
-        private const float PerDamageDealt = 0.055f, PerDamageTaken = 0.15f, PerSecond = 0.45f, LockAfterCast = 20f;
+        private const float PerDamageDealt = 0.02f, PerDamageTaken = 0.06f, PerSecond = 0.15f, LockAfterCast = 30f;
         private float lockedUntil;
         private static float DepthScaleHealth => Enemies.Difficulty.DepthHealth(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
         private static float DepthScaleDamage => Enemies.Difficulty.DepthDamage(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
@@ -194,11 +194,8 @@ namespace Deepbound.Player
 
         private Vector3 AimGround()
         {
-            var origin = player.AimOrigin;
-            var dir = player.AimForward;
-            if (Physics.Raycast(origin, dir, out var hit, 30f, ~0, QueryTriggerInteraction.Ignore)) return hit.point;
-            var far = origin + dir * 30f;
-            return Physics.Raycast(far, Vector3.down, out var down, 40f, ~0, QueryTriggerInteraction.Ignore) ? down.point : transform.position;
+            if (player.AimRay(30f, out var hit)) return hit.point;
+            return player.TryAimFloor(30f, out var spot) ? spot : transform.position + transform.forward * 6f;
         }
 
         private Health AimedEnemy()

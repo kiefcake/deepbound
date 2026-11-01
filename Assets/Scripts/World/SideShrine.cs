@@ -58,7 +58,7 @@ namespace Deepbound.World
             switch (Type.Value)
             {
                 case Kind.Pedestal:
-                    return HasUsed(who) ? "You have chosen your treasure" : "Take " + Relics.Name((Relic)Choice.Value) + "  (one relic each: the others stay for your friends)";
+                    return HasUsed(who) ? "You have chosen your treasure" : "Take " + Relics.Name((Relic)Choice.Value) + ": " + Relics.Describe((Relic)Choice.Value) + "  (one relic each)";
                 case Kind.Beggar:
                     return "Give the beggar " + BeggarPrice + " gold" + (who.Gold.Value < BeggarPrice ? "  (you have " + who.Gold.Value + ")" : "  (he may give something back)");
                 case Kind.Bell:

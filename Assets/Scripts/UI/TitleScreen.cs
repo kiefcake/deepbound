@@ -74,14 +74,14 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
+            "ONE KEY: F uses, trades and talks (tap F drags a downed ally, hold revives)",
+            "Mage: TIDAL WAVE (Q) stuns what it washes over; Frostbolt hits harder",
+            "Bosses are much tougher; ultimates and spells cost more to come by",
+            "Drop gear from your pack (I) and a friend can take it",
             "A RETRO GOTHIC LOOK: small pixels, dithered colour (Options)",
-            "SOULBOUND TWINS: kill them together, or the fallen one gets up",
             "Bosses lay a SHARED DOOM in co-op: stand together to split it",
             "CO-OP: PINCER from opposite sides, ASSISTS, LAST STAND and CLUTCH revives",
             "Down? WATCH your allies (LMB). AVENGE the fallen; FLOOR HONOURS",
-            "Kick a friend (V) - a harmless boot. Revives now work on fast PCs",
-            "BREAK bosses: weak points and stuns fill a meter - then strike",
-            "New OMENS and floor EVENTS; spare gold tithes into Renown",
             "Menus work on a GAMEPAD: the stick moves the pointer",
             "PLAY WITH FRIENDS over Steam: invite from the pause menu",
         };

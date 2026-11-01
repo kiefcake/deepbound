@@ -38,7 +38,7 @@ namespace Deepbound.Classes
             switch (id)
             {
                 case ClassId.Mage: return q
-                    ? "Blink leaves a frost nova where you stood, chilling enemies within 3.5 m."
+                    ? "The Tidal Wave runs ice-cold: everything it hits is chilled, ready to shatter."
                     : "A second meteor falls on the same spot a moment later.";
                 case ClassId.Cleric: return q
                     ? "Consecrated ground is half again as wide and lasts 9 s."
@@ -66,7 +66,7 @@ namespace Deepbound.Classes
             bool q = slot == AbilitySlot.Q;
             switch (id)
             {
-                case ClassId.Mage: return q ? "Blink 30% further." : "Meteor hits 30% harder and wider.";
+                case ClassId.Mage: return q ? "Tidal Wave hits 30% harder and rolls 30% further." : "Meteor hits 30% harder and wider.";
                 case ClassId.Cleric: return q ? "Consecrate heals and burns 30% more." : "Aegis shields 30% more.";
                 case ClassId.Rogue: return q ? "Shadowstep reaches 30% further." : "Smoke lasts 30% longer.";
                 case ClassId.Ranger: return q ? "Traps bite 30% harder." : "Volley hits 30% harder.";

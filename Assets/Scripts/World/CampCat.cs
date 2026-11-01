@@ -28,7 +28,7 @@ namespace Deepbound.World
 
         public override float Range => 1.8f;
 
-        public override string Prompt(PlayerProgress who) => HeldBy.Value != ulong.MaxValue ? null : "Pet the cat      G  pick it up";
+        public override string Prompt(PlayerProgress who) => HeldBy.Value != ulong.MaxValue ? null : "Pet the cat      Shift+F  pick it up";
 
         /// <summary>Who is holding the cat (it sits in their arms for a moment), or none.</summary>
         public readonly NetworkVariable<ulong> HeldBy = new NetworkVariable<ulong>(ulong.MaxValue);

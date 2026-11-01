@@ -11,6 +11,7 @@ namespace Deepbound.World
     /// through the gate and down the dark road on a fixed curve of time, so every client sees the
     /// same ride and seated players (who pin themselves to their seat) ride along with it.
     /// </summary>
+    [DefaultExecutionOrder(10000)]
     public class CarriageRide : MonoBehaviour
     {
         public static CarriageRide Instance { get; private set; }
@@ -84,6 +85,18 @@ namespace Deepbound.World
                 leg.localRotation = Quaternion.Euler(speed > 0.1f ? Mathf.Sin(gait * Mathf.PI * 2f + phase) * Mathf.Lerp(12f, 28f, speed / 6.4f) : 0f, 0f, 0f);
             if (horseBody != null) horseBody.localPosition = new Vector3(0f, 0f, 0f) + Vector3.up * (speed > 0.1f ? Mathf.Abs(Mathf.Sin(gait * Mathf.PI * 2f)) * 0.06f : Mathf.Sin(Time.time * 1.3f) * 0.01f);
             if (horseHead != null) horseHead.localRotation = Quaternion.Euler(speed > 0.1f ? Mathf.Sin(gait * Mathf.PI * 4f) * 5f : Mathf.Sin(Time.time * 0.7f) * 6f - 4f, 0f, 0f);
+        }
+
+        /// <summary>
+        /// Everyone else on the bench (play-test 2026-11-01: "the other players are sinking through the carriage"): their
+        /// own machines pin them to their seats, but what arrives here is a tenth of a second old while the wagon rolls on
+        /// under them. Each peer moves the wagon itself, so it seats them where the wagon is now.
+        /// </summary>
+        private void LateUpdate()
+        {
+            if (seats == null) return;
+            foreach (var p in Player.PlayerLife.All)
+                if (p != null && !p.IsOwner && p.Seat.Value >= 0 && DungeonDirector.InLobby) p.transform.position = SeatPosition(p.Seat.Value);
         }
 
         // ---- The wagon ----

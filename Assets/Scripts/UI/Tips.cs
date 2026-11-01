@@ -48,15 +48,15 @@ namespace Deepbound.UI
                 {
                     if (it == null || Vector3.Distance(it.transform.position, me) > 6f) continue;
                     if (it is SlotMachine || it is BlackjackTable) Offer("gamble2", "THE TENT: the Bone Reels pay big for three of a kind; at Deadman's Hand beat the skeleton dealer to 21. HIT or STAND in the table's panel.");
-                    if (it is CampCat) Offer("cat", "The castle cat. F pets it (sometimes it has found something for you). G picks it up... ask it first.");
+                    if (it is CampCat) Offer("cat", "The castle cat. F pets it (sometimes it has found something for you). Shift+F picks it up... ask it first.");
                 }
-                Offer("camp", "CAMP (G at each stall): Silas sells potions and charms, Hobb tempers your weapon with embers and sells armour, Ysolde ranks abilities with Sigils and sets runes, the shrine offers relics. When ready, sit on the back of Corwin's carriage (F): it leaves when everyone is seated.");
+                Offer("camp", "CAMP (F at each stall): Silas sells potions and charms, Hobb tempers your weapon with embers and sells armour, Ysolde ranks abilities with Sigils and sets runes, the shrine offers relics. When ready, sit on the back of Corwin's carriage (F): it leaves when everyone is seated.");
                 var prog = player.GetComponent<Progression.PlayerProgress>();
-                if (prog != null && prog.OpenEdgeSlot >= 0) Offer("edges", "AN EDGE: your weapon has reached +" + Progression.Edges.Levels[prog.OpenEdgeSlot] + ". At the anvil (G) forge one of three edges into it - each makes it better at a different way of fighting. Tempering waits until you choose.");
+                if (prog != null && prog.OpenEdgeSlot >= 0) Offer("edges", "AN EDGE: your weapon has reached +" + Progression.Edges.Levels[prog.OpenEdgeSlot] + ". At the anvil (F) forge one of three edges into it - each makes it better at a different way of fighting. Tempering waits until you choose.");
                 if (prog != null && prog.RelicCount >= Loot.Relics.MaxCarried) Offer("relictray", "YOUR RELIC TRAY IS FULL (8). New relics now EMPOWER one you carry (II, III) instead of adding another.");
                 if (prog != null && prog.WeaponLevel.Value >= Anvil.MaxLevel && prog.Hones.Value == 0) Offer("hone", "FULLY TEMPERED. Hobb can still HONE the blade at the anvil: five times, +3% damage each, for embers and gold.");
-                if (Vector3.Distance(me, Lobby.YardSpot) < 6f) Offer("drills", "SERGEANT BRANN drills you for gold (G): a stat for the run. Each drill costs more than the last.");
-                if (Vector3.Distance(me, Lobby.RunewrightSpot) < 6f) Offer("runewright", "YSOLDE'S STONES (G): set runes, rank abilities with Sigils, and MELD three of the same rune into a stronger one.");
+                if (Vector3.Distance(me, Lobby.YardSpot) < 6f) Offer("drills", "SERGEANT BRANN drills you for gold (F): a stat for the run. Each drill costs more than the last.");
+                if (Vector3.Distance(me, Lobby.RunewrightSpot) < 6f) Offer("runewright", "YSOLDE'S STONES (F): set runes, rank abilities with Sigils, and MELD three of the same rune into a stronger one.");
                 if (Vector3.Distance(me, Lobby.CarriageStall) < 6f) Offer("corwin", "CORWIN knows the way down: a SCOUT'S MAP charts the next floor; SMELLING SALTS get you up on your own once.");
                 if (PlayerLife.All.Count > 1) Offer("chat", "TEXT CHAT: press Enter to type to your party, Enter to send.");
                 if (PlayerLife.All.Count > 1) Offer("purse", "PARTY LOOT is shared by default: gold and embers anyone picks up are split evenly. In the inventory (I) you can give gold, even out the purse, or ctrl-click a piece to hand it to the nearest ally.");

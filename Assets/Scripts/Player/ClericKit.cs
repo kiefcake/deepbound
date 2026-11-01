@@ -28,14 +28,14 @@ namespace Deepbound.Player
     [RequireComponent(typeof(Health))]
     public class ClericKit : NetworkBehaviour, IClassKit
     {
-        public const float SmiteInterval = 0.55f, SmiteDamage = 18f, SmiteSpeed = 28f, SmiteMana = 4f, SmiteRange = 18f;
+        public const float SmiteInterval = 0.55f, SmiteDamage = 18f, SmiteSpeed = 28f, SmiteMana = 6f, SmiteRange = 18f;
         public float AttackRange => SmiteRange * (progress != null ? progress.RangeMultiplier : 1f);
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
         private float BeamReach => BeamRange * RangeMul;
-        public const float BeamRange = 16f, BeamHealPerSec = 22f, BeamManaPerSec = 11f;
-        public const float ConsecrateCooldown = 14f, ConsecrateMana = 30f, ConsecrateRadius = 4f, ConsecrateSeconds = 6f;
+        public const float BeamRange = 16f, BeamHealPerSec = 22f, BeamManaPerSec = 16f;
+        public const float ConsecrateCooldown = 14f, ConsecrateMana = 42f, ConsecrateRadius = 4f, ConsecrateSeconds = 6f;
         public const float ConsecrateHealPerSec = 9f, ConsecrateBurnPerSec = 12f;
-        public const float AegisCooldown = 22f, AegisMana = 45f, AegisRadius = 12f, AegisAmount = 60f, AegisSeconds = 8f;
+        public const float AegisCooldown = 22f, AegisMana = 60f, AegisRadius = 12f, AegisAmount = 60f, AegisSeconds = 8f;
 
         /// <summary>Who the beam is on: a player's NetworkObjectId, the Cleric itself, or 0 for off. Owner-written.</summary>
         public readonly NetworkVariable<ulong> BeamTarget = new NetworkVariable<ulong>(0,
@@ -97,7 +97,7 @@ namespace Deepbound.Player
 
         private bool Active => progress.ClassId.Value == ClassId.Cleric;
         private float ManaMax => progress.Value(StatType.MP);
-        private float ManaRegen => 5f + progress.Value(StatType.WIS) * 0.18f;
+        private float ManaRegen => 4f + progress.Value(StatType.WIS) * 0.15f;
         /// <summary>WIS 50 is the reference; healing and shields scale ±1% per point.</summary>
         private float Potency => 1f + (progress.Value(StatType.WIS) - 50f) / 100f;
 

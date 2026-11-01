@@ -432,7 +432,8 @@ namespace Deepbound.Progression
             if (!CanManagePack(i)) return;
             var item = bag[i];
             bag.RemoveAt(i);
-            GearDrop.ServerSpawn(item, OwnerClientId, transform.position + transform.forward * 1.2f + Vector3.up * 0.05f);
+            // Put down for anyone: a friend can pick it up (play-test 2026-11-01).
+            GearDrop.ServerSpawn(item, GearDrop.Anyone, transform.position + transform.forward * 1.2f + Vector3.up * 0.05f);
         }
 
         /// <summary>Owner → server: take a worn piece off into the pack.</summary>

@@ -20,8 +20,9 @@ namespace Deepbound.Player
     /// <item><b>LMB — Firebolt.</b> Hold to fire fast, cheap bolts.</item>
     /// <item><b>RMB — Frostbolt.</b> A slower, costlier bolt that chills (slows) its target —
     ///   the setup for Shatter.</item>
-    /// <item><b>Q — Blink.</b> Teleport a short way in the direction you are looking. The
-    ///   Mage has no armour; this is its defence.</item>
+    /// <item><b>Q — Tidal Wave.</b> A wave flows out in front of the Mage, washing the dead
+    ///   back and stunning them for half a second (2026-11-01, replacing Blink). On a flooded
+    ///   floor, or standing in water, it hits harder and stuns for longer.</item>
     /// <item><b>E — Meteor.</b> Call a meteor onto the spot under your crosshair. A blue
     ///   circle shows your party where it will land; then it hits everything inside, and
     ///   shatters every chilled enemy at once. The Mage's big moment.</item>
@@ -32,11 +33,15 @@ namespace Deepbound.Player
     [RequireComponent(typeof(Health))]
     public class MageKit : NetworkBehaviour, IClassKit
     {
-        public const float FireboltInterval = 0.42f, FireboltDamage = 23f, FireboltSpeed = 32f, FireboltMana = 5f;
-        // The frostbolt is a heavy, deliberate shot now: much harder hitting, on its own 3 s cooldown.
-        public const float FrostboltInterval = 0.95f, FrostboltDamage = 34f, FrostboltSpeed = 26f, FrostboltMana = 14f, ChillSeconds = 4f, FrostboltCooldown = 3f;
-        public const float BlinkCooldown = 8f, BlinkDistance = 7f;
-        public const float MeteorCooldown = 14f, MeteorMana = 35f, MeteorDelay = 1.3f, MeteorRadius = 3.6f, MeteorDamage = 70f, MeteorRange = 30f;
+        // Mana costs up ~1.5x (play-test 2026-11-01: "casting is way too cheap on the resource bar").
+        public const float FireboltInterval = 0.42f, FireboltDamage = 23f, FireboltSpeed = 32f, FireboltMana = 8f;
+        // The frostbolt is a heavy, deliberate shot: buffed 2026-11-01 (34 -> 50, cooldown 3 -> 2.2 s, chill 4 -> 5 s).
+        public const float FrostboltInterval = 0.95f, FrostboltDamage = 50f, FrostboltSpeed = 28f, FrostboltMana = 20f, ChillSeconds = 5f, FrostboltCooldown = 2.2f;
+        /// <summary>Tidal Wave: a <see cref="WaveArc"/>-degree wedge rolling out <see cref="WaveLength"/> m over <see cref="WaveSeconds"/>.</summary>
+        public const float WaveCooldown = 8f, WaveMana = 18f, WaveLength = 8f, WaveArc = 70f, WaveSeconds = 0.5f, WaveDamage = 20f, WaveStun = 0.5f, WavePush = 7f;
+        /// <summary>On a flooded floor (or knee-deep in a cistern) the wave is heavier.</summary>
+        public const float WaveWetDamage = 1.6f, WaveWetStun = 1f;
+        public const float MeteorCooldown = 14f, MeteorMana = 50f, MeteorDelay = 1.3f, MeteorRadius = 3.6f, MeteorDamage = 70f, MeteorRange = 30f;
         public const float ShatterMultiplier = 1.75f;
         /// <summary>Base reach of the bolts and of Meteor's aim (x the anvil / Farsight range multiplier).</summary>
         public const float FireboltRange = 20f, FrostboltRange = 22f, MeteorAimRange = 24f;
@@ -54,7 +59,7 @@ namespace Deepbound.Player
 
         // Owner-side.
         public float Mana { get; private set; }
-        private float nextCast, blinkReadyAt, meteorReadyAt, frostReadyAt;
+        private float nextCast, waveReadyAt, meteorReadyAt, frostReadyAt;
         private bool manaInitialised;
 
         // Server-side.
@@ -73,7 +78,7 @@ namespace Deepbound.Player
 
         private bool Active => progress.ClassId.Value == ClassId.Mage;
         private float ManaMax => progress.Value(StatType.MP);
-        private float ManaRegen => 4f + progress.Value(StatType.WIS) * 0.15f;
+        private float ManaRegen => 3f + progress.Value(StatType.WIS) * 0.12f;
 
         // ---- IClassKit ----
 
@@ -83,13 +88,13 @@ namespace Deepbound.Player
         public float Resource => Mana;
         public float ResourceMax => ManaMax;
         public void RestoreResource(float fraction) => Mana = Mathf.Min(ResourceMax, Mana + ResourceMax * fraction);
-        public void ShaveCooldowns(float seconds) { blinkReadyAt -= seconds; meteorReadyAt -= seconds; }
+        public void ShaveCooldowns(float seconds) { waveReadyAt -= seconds; meteorReadyAt -= seconds; }
 
         public void FillAbilities(List<AbilityView> into)
         {
             into.Add(new AbilityView { Key = "LMB", Name = "Firebolt", Unaffordable = Mana < FireboltMana });
             into.Add(new AbilityView { Key = "RMB", Name = "Frostbolt", Unaffordable = Mana < FrostboltMana, Remaining = frostReadyAt - Time.time, Cooldown = FrostboltCooldown * progress.AttackTimeMultiplier });
-            into.Add(new AbilityView { Key = "Q", Name = "Blink", Remaining = blinkReadyAt - Time.time, Cooldown = BlinkCooldown * progress.CooldownFor(AbilitySlot.Q) });
+            into.Add(new AbilityView { Key = "Q", Name = "Tidal Wave", Remaining = waveReadyAt - Time.time, Cooldown = WaveCooldown * progress.CooldownFor(AbilitySlot.Q), Unaffordable = Mana < WaveMana });
             into.Add(new AbilityView { Key = "E", Name = "Meteor", Remaining = meteorReadyAt - Time.time, Cooldown = MeteorCooldown * progress.CooldownFor(AbilitySlot.E), Unaffordable = Mana < MeteorMana });
         }
 
@@ -131,10 +136,19 @@ namespace Deepbound.Player
                 BoltRpc(player.AimOrigin + player.AimForward * 0.6f, player.AimForward, true);
             }
 
-            // --- Q: Blink ---
-            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= blinkReadyAt && TryBlink())
+            // --- Q: Tidal Wave ---
+            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= waveReadyAt && Mana >= WaveMana)
             {
-                blinkReadyAt = Time.time + BlinkCooldown * progress.CooldownFor(AbilitySlot.Q);
+                var dir = player.AimForward;
+                dir.y = 0f;
+                if (dir.sqrMagnitude > 0.01f)
+                {
+                    Mana -= WaveMana;
+                    waveReadyAt = Time.time + WaveCooldown * progress.CooldownFor(AbilitySlot.Q);
+                    player.ViewModelCast(true);
+                    player.AddShake(0.1f);
+                    WaveRpc(dir.normalized);
+                }
             }
 
             // --- E: Meteor at the crosshair ---
@@ -148,52 +162,7 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>
-        /// Blink along the look direction, flattened, stopping short of walls, and only
-        /// onto solid floor — never into a wall or off a ledge into nothing.
-        /// </summary>
-        private bool TryBlink()
-        {
-            var dir = player.AimForward;
-            dir.y = 0f;
-            if (dir.sqrMagnitude < 0.01f) return false;
-            dir.Normalize();
-
-            var chest = transform.position + Vector3.up * 1.2f;
-            float reach = BlinkDistance * progress.Potency(AbilitySlot.Q);
-            float distance = reach;
-            if (Physics.SphereCast(chest, 0.35f, dir, out var wall, reach, ~0, QueryTriggerInteraction.Ignore) &&
-                wall.collider.GetComponentInParent<Health>() == null)
-            {
-                distance = Mathf.Max(0f, wall.distance - 0.4f);
-            }
-            if (distance < 1f) return false;
-
-            var target = chest + dir * distance;
-            if (!Physics.Raycast(target, Vector3.down, out var floor, 4f, ~0, QueryTriggerInteraction.Ignore)) return false;
-
-            var from = transform.position;
-            motor.Teleport(floor.point + Vector3.up * 0.05f, transform.rotation);
-            BlinkFxRpc(from, transform.position);
-            if (progress.Twist(AbilitySlot.Q)) FrostNovaRpc(from);
-            return true;
-        }
-
-        private bool TryAimGround(out Vector3 spot)
-        {
-            spot = default;
-            var origin = player.AimOrigin;
-            var dir = player.AimForward;
-            Vector3 point;
-            float reach = MeteorAimRange * RangeMul;
-            if (Physics.Raycast(origin, dir, out var hit, reach, ~0, QueryTriggerInteraction.Ignore)) point = hit.point;
-            else point = origin + dir * reach;
-
-            // Drop to the floor beneath wherever the crosshair landed (a wall, an enemy).
-            if (!Physics.Raycast(point + Vector3.up * 0.5f - dir * 0.3f, Vector3.down, out var floor, 12f, ~0, QueryTriggerInteraction.Ignore)) return false;
-            spot = floor.point;
-            return true;
-        }
+        private bool TryAimGround(out Vector3 spot) => player.TryAimFloor(MeteorAimRange * RangeMul, out spot);
 
         // ==================================================================
         // Server
@@ -266,21 +235,70 @@ namespace Deepbound.Player
             MeteorWarnRpc(spot, twin);
         }
 
-        /// <summary>Rank 3 Blink: the air you left freezes.</summary>
         [Rpc(SendTo.Server)]
-        private void FrostNovaRpc(Vector3 at)
+        private void WaveRpc(Vector3 direction) => ServerWave(direction);
+
+        /// <summary>Is the Mage on a flooded floor, or standing in water? The wave is heavier there.</summary>
+        public bool WaveWet
         {
-            if (!life.CanAct || Vector3.Distance(at, transform.position) > BlinkDistance * 1.5f + 2f) return;
-            foreach (var h in CombatQuery.Circle(at, 3.5f, Team.Enemies).ToArray()) h.ServerChill(ChillSeconds);
-            FrostNovaFxRpc(at);
+            get
+            {
+                var layout = World.DungeonDirector.Layout;
+                if (layout == null || World.DungeonDirector.InLobby) return false;
+                return World.DungeonTheme.ForDepth(layout.Depth).WaterDepth > 0f || World.DungeonDirector.InWater(transform.position);
+            }
+        }
+
+        /// <summary>Server: roll a Tidal Wave out along <paramref name="direction"/>. Public for the smoke test.</summary>
+        public void ServerWave(Vector3 direction)
+        {
+            if (!life.CanAct) return;
+            direction.y = 0f;
+            if (direction.sqrMagnitude < 0.01f) return;
+            direction.Normalize();
+            bool wet = WaveWet;
+            float length = WaveLength * progress.Potency(AbilitySlot.Q) * RangeMul;
+            WaveFxRpc(transform.position, direction, wet, length);
+            StartCoroutine(RollWave(transform.position, direction, wet, length));
+        }
+
+        /// <summary>Server: the crest sweeps outward; everything it reaches is struck once, stunned and pushed.</summary>
+        private System.Collections.IEnumerator RollWave(Vector3 from, Vector3 dir, bool wet, float length)
+        {
+            float damage = WaveDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q) * (wet ? WaveWetDamage : 1f);
+            float stun = wet ? WaveWetStun : WaveStun;
+            // Rank 3: the wave runs ice-cold and chills what it hits (Shatter's setup).
+            bool cold = progress.Twist(AbilitySlot.Q);
+            var struck = new HashSet<Health>();
+            float start = Time.time;
+            ulong me = NetworkObjectId;
+            while (true)
+            {
+                float k = Mathf.Clamp01((Time.time - start) / WaveSeconds);
+                float front = Mathf.Max(1.5f, length * k);
+                foreach (var h in CombatQuery.Arc(from + Vector3.up * 0.9f, dir, front, WaveArc, Team.Enemies).ToArray())
+                {
+                    if (h == null || !h.IsAlive || !struck.Add(h)) continue;
+                    h.ServerDamage(damage, from, me);
+                    if (cold) h.ServerChill(ChillSeconds);
+                    if (h.TryGetComponent<ICrowdControl>(out var cc))
+                    {
+                        cc.ServerStun(stun);
+                        cc.ServerKnockback(dir * WavePush * (wet ? 1.3f : 1f));
+                    }
+                }
+                if (k >= 1f) yield break;
+                yield return null;
+            }
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void FrostNovaFxRpc(Vector3 at)
+        private void WaveFxRpc(Vector3 from, Vector3 dir, bool wet, float length)
         {
-            Sfx.Play(Sound.Frost, at + Vector3.up, 1f, 0.8f);
-            Vfx.IceSpikes(at, 3.5f);
-            Vfx.Ring(at, 3.5f, new Color(0.5f, 0.85f, 1f), 0.4f);
+            TidalWave.Spawn(from, dir, length, WaveArc, WaveSeconds, wet);
+            Sfx.Play(Sound.Splash, from + Vector3.up, 1f, 0.75f);
+            Sfx.Play(Sound.Splash, from + dir * (length * 0.5f) + Vector3.up, 0.8f, 0.6f);
+            if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.4f);
         }
 
         private void ResolveMeteors()
@@ -343,32 +361,6 @@ namespace Deepbound.Player
             if (!frost) Vfx.Fireball(at, shatter ? 1.4f : 0.8f, fire);
             if (shatter) Vfx.Embers(at, 14, ice, 7f, 0.08f, 0.8f);
             if (IsOwner) player.ConfirmHit(shatter ? 1.5f : 0.5f);
-        }
-
-        [Rpc(SendTo.ClientsAndHost)]
-        private void BlinkFxRpc(Vector3 from, Vector3 to)
-        {
-            var arcane = new Color(0.6f, 0.55f, 1f);
-            // Departure: the mage folds into a violet implosion and leaves a fading afterimage.
-            Sfx.Play(Sound.Summon, from + Vector3.up, 0.6f, 2.2f);
-            Vfx.Flash(from + Vector3.up, arcane, 4f, 6f, 0.25f);
-            Vfx.Ring(from, 1.6f, arcane, 0.35f);
-            Vfx.Embers(from + Vector3.up, 16, arcane, 4f, 0.06f, 0.7f);
-            Art.BlinkGhost.Spawn(from, transform.rotation, arcane);
-            // A twist of arcane light where the mage left and where they land (Kenney twirl sprite).
-            Art.FxSprite.Billboard("twirl_02", from + Vector3.up * 1.1f, Vector3.zero, 0.45f, 1.4f, 0.2f, new Color(arcane.r, arcane.g, arcane.b, 0.9f), 520f);
-            Art.FxSprite.Billboard("twirl_02", to + Vector3.up * 1.1f, Vector3.zero, 0.4f, 0.3f, 1.5f, new Color(arcane.r, arcane.g, arcane.b, 0.8f), -520f);
-            // The path: a streak of motes from there to here.
-            var path = to - from;
-            int steps = Mathf.Clamp(Mathf.RoundToInt(path.magnitude * 2f), 3, 18);
-            for (int i = 1; i < steps; i++)
-                Vfx.Embers(from + path * (i / (float)steps) + Vector3.up * Random.Range(0.6f, 1.6f), 1, arcane, 0.6f, 0.05f, 0.45f);
-            // Arrival: a crack of light and a ring on the floor.
-            Sfx.Play(Sound.Frost, to + Vector3.up, 0.5f, 1.8f);
-            Vfx.Flash(to + Vector3.up, arcane, 5f, 7f, 0.3f);
-            Vfx.Ring(to, 2f, arcane, 0.45f);
-            Vfx.Embers(to + Vector3.up, 18, arcane, 5f, 0.06f, 0.7f);
-            if (IsOwner) player.AddShake(0.12f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

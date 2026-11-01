@@ -24,7 +24,7 @@ namespace Deepbound.UI
             (Bind.MoveForward, "Move forward", Key.W), (Bind.MoveBack, "Move back", Key.S), (Bind.MoveLeft, "Move left", Key.A), (Bind.MoveRight, "Move right", Key.D),
             (Bind.Jump, "Jump", Key.Space), (Bind.Sprint, "Sprint", Key.LeftShift), (Bind.Dodge, "Dodge", Key.LeftCtrl), (Bind.Slide, "Slide", Key.C),
             (Bind.AbilityQ, "Ability 1", Key.Q), (Bind.AbilityE, "Ability 2", Key.E), (Bind.Ultimate, "Ultimate", Key.R), (Bind.Kick, "Kick", Key.V),
-            (Bind.Use, "Use / pick up", Key.F), (Bind.Interact, "Talk / trade / stow", Key.G), (Bind.Emote, "High five / reply", Key.H),
+            (Bind.Use, "Use / pick up", Key.F), (Bind.Interact, "Talk / trade / drag", Key.F), (Bind.Emote, "High five / reply", Key.H),
             (Bind.Inventory, "Inventory", Key.I), (Bind.Map, "Map", Key.M), (Bind.Ping, "Ping", Key.Z), (Bind.Scrap, "Scrap", Key.X),
             (Bind.Stats, "Stat sheet (hold)", Key.Tab), (Bind.Class, "Class screen", Key.B),
             (Bind.Potion1, "Health potion", Key.Digit1), (Bind.Potion2, "Mana potion", Key.Digit2), (Bind.Potion3, "Frost flask", Key.Digit3), (Bind.Potion4, "Holy water", Key.Digit4),
@@ -43,6 +43,8 @@ namespace Deepbound.UI
                 {
                     // Tests run on the defaults and never read or write the player's bindings.
                     int saved = Progression.Cosmetics.TestMode ? (int)Defaults[i].key : PlayerPrefs.GetInt("db.bind." + Defaults[i].bind, (int)Defaults[i].key);
+                    // The old talk / trade key (G, until 2026-11-01) joins F: a saved G is the old default, not a choice.
+                    if (Defaults[i].bind == Bind.Interact && saved == (int)Key.G && PlayerPrefs.GetInt("db.bind.fmerge", 0) == 0) saved = (int)Defaults[i].key;
                     current[i] = System.Enum.IsDefined(typeof(Key), saved) && saved != (int)Key.None ? (Key)saved : Defaults[i].key;
                 }
                 return current;
@@ -50,6 +52,13 @@ namespace Deepbound.UI
         }
 
         public static Key KeyOf(Bind b) => Current[(int)b];
+
+        /// <summary>
+        /// Talk / trade / drag share the use key (play-test 2026-11-01: "change the G interact button to F"). Then one
+        /// press does one thing: what is under the crosshair first, then a downed ally (tap drags, hold revives), the
+        /// carriage, then the stall or anvil you stand at. Shift + F takes gear into the pack and picks up the cat.
+        /// </summary>
+        public static bool Merged => KeyOf(Bind.Use) == KeyOf(Bind.Interact);
 
         private static KeyControl Control(Bind b)
         {
@@ -171,16 +180,24 @@ namespace Deepbound.UI
         public static void Set(Bind b, Key k)
         {
             var cur = Current;
+            // Use and Interact share a key by design: moving Use takes Interact along while they are together;
+            // moving Interact on its own splits them.
+            bool pair = b == Bind.Use || b == Bind.Interact;
+            Bind other = b == Bind.Use ? Bind.Interact : Bind.Use;
+            bool together = b == Bind.Use && Merged;
             for (int i = 0; i < cur.Length; i++)
-                if (i != (int)b && cur[i] == k) { cur[i] = cur[(int)b]; Save((Bind)i, cur[i]); }
+                if (i != (int)b && cur[i] == k && !(pair && i == (int)other)) { cur[i] = cur[(int)b]; Save((Bind)i, cur[i]); }
             cur[(int)b] = k;
             Save(b, k);
+            if (together) { cur[(int)other] = k; Save(other, k); }
             if (!Progression.Cosmetics.TestMode) PlayerPrefs.Save();
         }
 
         private static void Save(Bind b, Key k)
         {
-            if (!Progression.Cosmetics.TestMode) PlayerPrefs.SetInt("db.bind." + b, (int)k);
+            if (Progression.Cosmetics.TestMode) return;
+            PlayerPrefs.SetInt("db.bind." + b, (int)k);
+            if (b == Bind.Interact) PlayerPrefs.SetInt("db.bind.fmerge", 1);
         }
 
         public static void ResetAll()

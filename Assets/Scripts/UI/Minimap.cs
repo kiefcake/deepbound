@@ -261,7 +261,7 @@ namespace Deepbound.UI
             }
             var me = player.GetComponent<Progression.PlayerProgress>();
             foreach (var i in Interactable.All)
-                if (i is GearDrop g && g.For.Value == me.OwnerClientId && !g.Item.Value.IsEmpty)
+                if (i is GearDrop g && (g.For.Value == me.OwnerClientId || g.Shared) && !g.Item.Value.IsEmpty)
                     MapIcons.Draw(MapIcons.Id.Gear, ToMap(g.transform.position), Gear.QualityColor(g.Item.Value.Quality), px * 0.85f);
 
             // The dead within radar range: soft red blobs, gold if elite.

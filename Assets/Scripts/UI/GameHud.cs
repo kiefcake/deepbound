@@ -1002,7 +1002,7 @@ namespace Deepbound.UI
                 line2 += "   ·   Loot: " + (director.FindersKeepers.Value ? "finders keepers" : "shared") + (host ? " (L)" : "");
             GUI.Label(new Rect(x + 10, y + 24, pw - 20, 18), UiSkin.Fit(line2, bannerLine, pw - 20), bannerLine);
             var seatLine = new GUIStyle(bannerLine) { normal = { textColor = aboard > 0 ? Gold : new Color(0.85f, 0.82f, 0.78f) } };
-            GUI.Label(new Rect(x + 10, y + 41, pw - 20, 18), UiSkin.Fit(Binds.Rekey("Sit on Corwin's carriage (F) to set off   ·   G on Corwin: difficulty and supplies   ·   " + aboard + " / " + total + " seated"), seatLine, pw - 20), seatLine);
+            GUI.Label(new Rect(x + 10, y + 41, pw - 20, 18), UiSkin.Fit(Binds.Rekey("Sit on Corwin's carriage (F) to set off   ·   F on Corwin: difficulty and supplies   ·   " + aboard + " / " + total + " seated"), seatLine, pw - 20), seatLine);
             if (counting)
             {
                 int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
@@ -1150,10 +1150,14 @@ namespace Deepbound.UI
             // G uses whichever station is closer: a stall or the anvil.
             bool anvilFirst = anvil != null && (!near || Vector3.Distance(player.transform.position, anvil.transform.position) <
                 Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value));
-            bool catFirst = keyboard != null && Binds.Down(Bind.Interact) && !MenuOpen &&
-                Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is CampCat;
+            // Talk / trade shares F with use (2026-11-01): Shift + F lifts the cat or stows gear, and a stall or the
+            // anvil opens only when F has nothing else to do (nothing under the crosshair, nobody down, no bench).
+            bool merged = Binds.Merged;
+            bool interact = keyboard != null && Binds.Down(Bind.Interact) && (!merged || PlayerLife.ShiftHeld || !life.UseHasWorldTarget());
+            bool lift = keyboard != null && Binds.Down(Bind.Interact) && (!merged || PlayerLife.ShiftHeld);
+            bool catFirst = lift && !MenuOpen && Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is CampCat;
             if (catFirst) ((CampCat)Interactable.Nearest(player.AimOrigin, player.AimForward, progress)).PickUpRpc(player.NetworkObject);
-            else if (keyboard != null && Binds.Down(Bind.Interact))
+            else if (interact && !(merged && PlayerLife.ShiftHeld))
             {
                 if (shopOpen && shopVendor == Shop.Vendor.Smith) { shopOpen = false; forgeOpen = false; }
                 else if (anvilFirst) { forgeOpen = !forgeOpen; shopOpen = false; }
@@ -1164,7 +1168,7 @@ namespace Deepbound.UI
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = forgeOpen = invOpen = runeOpen = false;
             if (runeOpen && !NearVendor(Shop.Vendor.Runewright)) runeOpen = false;
             // G (when no station is near) stows the gear you are looking at.
-            if (keyboard != null && Binds.Down(Bind.Interact) && !near && anvil == null && !MenuOpen &&
+            if (lift && !near && anvil == null && !MenuOpen &&
                 PlayerLife.DownedNear(player.transform.position, life) == null && !PlayerLife.IsDragging(player.NetworkObjectId) &&
                 Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is GearDrop stow && !progress.BagFull)
                 stow.StowRpc(player.NetworkObject);
@@ -1955,7 +1959,7 @@ namespace Deepbound.UI
             if (compare)
             {
                 GUI.Label(new Rect(x + 10, ry + 34, cw - 20, 18), "Wearing: " + (current.IsEmpty ? "nothing" : Gear.Name(current)), small);
-                GUI.Label(new Rect(x + 10, ry + 52, cw - 20, 18), "X   scrap for " + Gear.ScrapValue(item) + " embers" + (progress.BagFull ? "" : "      G   stow in pack"), new GUIStyle(small) { normal = { textColor = LootInfo.EmberColor } });
+                GUI.Label(new Rect(x + 10, ry + 52, cw - 20, 18), "X   scrap for " + Gear.ScrapValue(item) + " embers" + (progress.BagFull ? "" : "Shift+F   stow in pack"), new GUIStyle(small) { normal = { textColor = LootInfo.EmberColor } });
             }
         }
 
@@ -1989,7 +1993,7 @@ namespace Deepbound.UI
                 if (watching) Rect(0, h / 2f + top - 78f, w, 156f, new Color(0f, 0f, 0f, 0.35f));
                 GUI.Label(new Rect(0, h / 2f + top - 70, w, 40), "YOU ARE DOWN", big);
                 var dragger = life.BeingDragged && Unity.Netcode.NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(life.DraggedBy.Value, out var dob) ? dob.name : null;
-                GUI.Label(new Rect(0, h / 2f + top - 30, w, 24), dragger != null ? dragger + " is dragging you to safety (you bleed slower)" : "A teammate must hold F next to you to revive you, or drag you clear (G)", center);
+                GUI.Label(new Rect(0, h / 2f + top - 30, w, 24), dragger != null ? dragger + " is dragging you to safety (you bleed slower)" : "A teammate must hold F next to you to revive you, or drag you clear (tap F)", center);
                 ProgressBar(w, h / 2f + top + 4, life.ReviveProgress.Value / PlayerLife.ReviveSeconds, new Color(0.6f, 0.9f, 1f));
                 if (life.Bleed.Value > 0f)
                 {
@@ -2013,7 +2017,7 @@ namespace Deepbound.UI
 
             var hauled = PlayerLife.DraggedByPlayer(player.NetworkObjectId);
             if (hauled != null)
-                GUI.Label(new Rect(0, h / 2f + 96, w, 24), "Dragging " + hauled.name + " (" + Binds.Live(Bind.Interact) + " lets go; stop and hold " + Binds.Live(Bind.Use) + " to revive)",
+                GUI.Label(new Rect(0, h / 2f + 96, w, 24), "Dragging " + hauled.name + " (" + (Binds.Merged ? "tap " : "") + Binds.Live(Bind.Interact) + " lets go; stop and hold " + Binds.Live(Bind.Use) + " to revive)",
                     new GUIStyle(center) { normal = { textColor = new Color(0.6f, 0.9f, 1f) } });
 
             var target = PlayerLife.DownedNear(player.transform.position, life);
@@ -2027,7 +2031,7 @@ namespace Deepbound.UI
             }
 
             PromptLine(w, h, "Hold F to revive " + target.name);
-            if (hauled == null && !target.BeingDragged) PromptLine(w, h, "Press G to drag " + target.name + " clear", 100f);
+            if (hauled == null && !target.BeingDragged) PromptLine(w, h, "Tap F to drag " + target.name + " clear", 100f);
             ProgressBar(w, h / 2f + 68, target.ReviveProgress.Value / PlayerLife.ReviveSeconds, new Color(0.6f, 0.9f, 1f));
         }
 
@@ -2151,11 +2155,11 @@ namespace Deepbound.UI
                     : progress.ClassId.Value == ClassId.Mage
                     ? "LMB Firebolt  ·  RMB Frostbolt (chills)\n" +
                       "Fire on a chilled enemy SHATTERS (+75%)\n" +
-                      "Q  Blink  ·  E  Meteor at the crosshair\n"
+                      "Q  Tidal Wave (stuns)  ·  E  Meteor at the crosshair\n"
                     : "LMB swing  ·  RMB block (front)\n" +
                       "Q  Shield Bash — stuns, cancels wind-ups\n" +
                       "E  War Cry — taunt + half damage\n") +
-                "F  revive a downed ally  ·  G  trade  ·  Tab  stats  ·  I  inventory\n" +
+                "F  use, trade, revive (hold), drag (tap)  ·  Tab  stats  ·  I  inventory\n" +
                 "CTRL dodge (slide if sprinting)  ·  V kick\n" +
                 "R ultimate (when charged)\n" +
                 "1 / 2  drink Health / Mana   3 / 4  throw Frost / Holy\n" +
@@ -2165,19 +2169,20 @@ namespace Deepbound.UI
 
         private GUIStyle feedStyle;
 
-        private class Toast { public string Key, Suffix; public int Amount; public Color Color; public float At; }
+        private class Toast { public string Key, Suffix, Detail; public int Amount; public Color Color; public float At; public float Life => Detail != null ? 6f : 1.8f; }
         private static readonly List<Toast> toasts = new List<Toast>();
 
         /// <summary>
         /// Any peer: something you just picked up, shown under the crosshair at once (UI pass 2026-10-20).
         /// The same kind within a moment adds up ("+12 gold" then "+30 gold"), up to four lines.
         /// </summary>
-        public static void Pickup(string key, int amount, string suffix, Color color)
+        /// <param name="detail">A second line under it, held longer (a relic says what it does).</param>
+        public static void Pickup(string key, int amount, string suffix, Color color, string detail = null)
         {
             Heard?.Invoke("pickup", "+" + amount + suffix);
             foreach (var t in toasts)
                 if (t.Key == key && UnityEngine.Time.time - t.At < 1.4f) { t.Amount += amount; t.At = UnityEngine.Time.time; return; }
-            toasts.Add(new Toast { Key = key, Amount = amount, Suffix = suffix, Color = color, At = UnityEngine.Time.time });
+            toasts.Add(new Toast { Key = key, Amount = amount, Suffix = suffix, Color = color, At = UnityEngine.Time.time, Detail = detail });
             if (toasts.Count > 4) toasts.RemoveAt(0);
         }
 
@@ -2189,13 +2194,21 @@ namespace Deepbound.UI
             {
                 var t = toasts[i];
                 float age = Time.time - t.At;
-                if (age > 1.8f) { toasts.RemoveAt(i); continue; }
-                float a = Mathf.Clamp01((1.8f - age) / 0.5f);
+                if (age > t.Life) { toasts.RemoveAt(i); continue; }
+                float a = Mathf.Clamp01((t.Life - age) / 0.5f);
                 float pop = 1f + 0.25f * Mathf.Clamp01(1f - age / 0.15f);
                 string text = (t.Amount > 1 || t.Key == "gold" || t.Key == "embers" ? "+" + t.Amount : "+") + t.Suffix;
                 var st = new GUIStyle(center) { fontSize = Mathf.RoundToInt(16 * pop), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleLeft, normal = { textColor = new Color(t.Color.r, t.Color.g, t.Color.b, a) } };
-                UiSkin.Shadowed(new Rect(x, y - age * 12f, w / 2f - 90f, 26), text, st, a);
+                float rise = Mathf.Min(age, 1.8f) * 12f;
+                UiSkin.Shadowed(new Rect(x, y - rise, w / 2f - 90f, 26), text, st, a);
                 y += 24f;
+                if (t.Detail != null)
+                {
+                    var dst = new GUIStyle(small) { wordWrap = true, alignment = TextAnchor.UpperLeft, normal = { textColor = new Color(1f, 1f, 1f, 0.9f * a) } };
+                    float dh = dst.CalcHeight(new GUIContent(t.Detail), Mathf.Min(420f, w / 2f - 90f));
+                    UiSkin.Shadowed(new Rect(x + 4f, y - rise, Mathf.Min(420f, w / 2f - 90f), dh), t.Detail, dst, a);
+                    y += dh + 4f;
+                }
             }
         }
 
@@ -2237,7 +2250,7 @@ namespace Deepbound.UI
         /// <summary>
         /// An interaction prompt under the crosshair (UI pass 2026-10-20): the key in a gold badge and
         /// the action on a dark backing, instead of bare text over the world. Understands "F   ...",
-        /// "Hold F ..." and "Press G to ..." so every caller keeps its wording.
+        /// "Hold F ..." and "Press F to ..." so every caller keeps its wording.
         /// </summary>
         private void PromptLine(float w, float h, string text, float dy = 40f)
         {
@@ -2282,7 +2295,7 @@ namespace Deepbound.UI
                 var stall = StallHere();
                 if (stall == null || Vector3.Distance(player.transform.position, NearAnvil().transform.position) <
                     Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value))
-                    PromptLine(w, h, DungeonDirector.InLobby ? "Press G to use the anvil (Hobb tempers, refines and scraps; sells plate and gear)" : "Press G to use the anvil");
+                    PromptLine(w, h, DungeonDirector.InLobby ? "Press F to use the anvil (Hobb tempers, refines and scraps; sells plate and gear)" : "Press F to use the anvil");
                 return;
             }
 
@@ -2559,7 +2572,7 @@ namespace Deepbound.UI
                 if (content.height > view.height)
                     GUI.Label(new Rect(rx, view.yMax + 2, rw, 18), kinds.Count + " kinds of rune  -  scroll for more", new GUIStyle(small) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Italic, normal = { textColor = blue } });
             }
-            GUI.Label(new Rect(x + 20, y + ph - 26, pw - 40, 20), "G or Esc to close", new GUIStyle(small) { normal = { textColor = new Color(0.6f, 0.58f, 0.55f) } });
+            GUI.Label(new Rect(x + 20, y + ph - 26, pw - 40, 20), "F or Esc to close", new GUIStyle(small) { normal = { textColor = new Color(0.6f, 0.58f, 0.55f) } });
         }
 
         private float[] shopRowH = new float[16];
@@ -2576,11 +2589,11 @@ namespace Deepbound.UI
                 var nearAnvil = NearAnvil();
                 if (nearAnvil != null && Vector3.Distance(player.transform.position, nearAnvil.transform.position) <
                     Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value)) return;
-                string who = stall == Shop.Vendor.Shrine ? "Press G for the shrine's offerings (two blessings, relics, holy water, Aldric's prayer)"
-                    : stall == Shop.Vendor.Yard ? "Press G to talk to Sergeant Brann (drills: a stat for gold)"
-                    : stall == Shop.Vendor.Runewright ? "Press G to visit Ysolde (runes, melding, sigils, ability ranks)"
-                    : stall == Shop.Vendor.Carriage ? "Press G to talk to Corwin (maps of the way down, smelling salts)"
-                    : DungeonDirector.InLobby ? "Press G to trade with Silas (potions and provisions)" : "Press G to trade with the peddler";
+                string who = stall == Shop.Vendor.Shrine ? "Press F for the shrine's offerings (two blessings, relics, holy water, Aldric's prayer)"
+                    : stall == Shop.Vendor.Yard ? "Press F to talk to Sergeant Brann (drills: a stat for gold)"
+                    : stall == Shop.Vendor.Runewright ? "Press F to visit Ysolde (runes, melding, sigils, ability ranks)"
+                    : stall == Shop.Vendor.Carriage ? "Press F to talk to Corwin (maps of the way down, smelling salts)"
+                    : DungeonDirector.InLobby ? "Press F to trade with Silas (potions and provisions)" : "Press F to trade with the peddler";
                 PromptLine(w, h, who, stall == Shop.Vendor.Shrine ? 70f : 40f);
                 return;
             }

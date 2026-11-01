@@ -30,12 +30,12 @@ namespace Deepbound.Player
     [RequireComponent(typeof(Health))]
     public class PlagueDoctorKit : NetworkBehaviour, IClassKit
     {
-        public const float VialInterval = 0.55f, VialCost = 7f, VialDamage = 15f, VialSpeed = 19f, VialRange = 20f, VialGravity = 9f, SplashRadius = 1.7f;
+        public const float VialInterval = 0.55f, VialCost = 10f, VialDamage = 15f, VialSpeed = 19f, VialRange = 20f, VialGravity = 9f, SplashRadius = 1.7f;
         public const float BlightSeconds = 4f, BlightDps = 9f;
-        public const float TonicCooldown = 7f, TonicCost = 25f, TonicRadius = 3f, TonicHeal = 0.2f;
+        public const float TonicCooldown = 7f, TonicCost = 35f, TonicRadius = 3f, TonicHeal = 0.2f;
         public const float MiasmaCooldown = 12f, MiasmaRadius = 4f, MiasmaSeconds = 6f, MiasmaDps = 9f;
         public const float MaskCooldown = 18f, MaskRadius = 8f, MaskHeal = 0.1f, MaskWard = 4f;
-        public const float ReagentMax = 100f, ReagentRegen = 16f;
+        public const float ReagentMax = 100f, ReagentRegen = 12f;
         public const float ContagionRadius = 6f;
 
         public float AttackRange => VialRange * (progress != null ? progress.RangeMultiplier : 1f);
@@ -163,11 +163,8 @@ namespace Deepbound.Player
 
         private Vector3 AimGround(float range)
         {
-            var o = player.AimOrigin;
-            var dir = player.AimForward;
-            if (Physics.Raycast(o, dir, out var hit, range, ~0, QueryTriggerInteraction.Ignore)) return hit.point;
-            var far = o + dir * range;
-            return Physics.Raycast(far, Vector3.down, out var down, 20f, ~0, QueryTriggerInteraction.Ignore) ? down.point : transform.position + transform.forward * 6f;
+            if (player.AimRay(range, out var hit)) return hit.point;
+            return player.TryAimFloor(range, out var spot) ? spot : transform.position + transform.forward * 6f;
         }
 
         // ==================================================================

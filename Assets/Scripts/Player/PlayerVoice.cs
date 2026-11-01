@@ -55,6 +55,12 @@ namespace Deepbound.Player
         private int writeAt, readAt, buffered;
         private bool playing;
         private readonly object ringLock = new object();
+        /// <summary>
+        /// Voices are amplified on playback (play-test 2026-11-01: "make mics louder"): an AudioSource stops at volume 1,
+        /// so the boost is applied to the samples, with a soft clip so a shout distorts gently instead of cracking.
+        /// </summary>
+        public const float PlaybackBoost = 2.4f;
+        private volatile float playGain = PlaybackBoost;
         private readonly float[] decodeBuf = new float[VoiceCodec.FrameSamples];
         private float nextOcclusion;
         private PlayerLife life;
@@ -271,10 +277,11 @@ namespace Deepbound.Player
             source.loop = true;
             source.spatialBlend = 1f;
             source.rolloffMode = AudioRolloffMode.Linear;
-            source.minDistance = 2f;
+            source.minDistance = 4f;
             source.maxDistance = Earshot;
             source.dopplerLevel = 0f;
-            source.volume = Settings.VoiceVolume;
+            source.volume = 1f;
+            playGain = PlaybackBoost * Settings.VoiceVolume;
             // Stone rooms: a little echo, and walls muffle.
             var reverb = head.AddComponent<AudioReverbFilter>();
             reverb.reverbPreset = AudioReverbPreset.Stoneroom;
@@ -294,7 +301,9 @@ namespace Deepbound.Player
                 for (int i = 0; i < data.Length; i++)
                 {
                     if (!playing || buffered <= 0) { data[i] = 0f; playing = false; continue; }
-                    data[i] = ring[readAt];
+                    // A tanh-shaped soft clip (Pade): unity gain near zero, never past +-1.
+                    float v = Mathf.Clamp(ring[readAt] * playGain, -3f, 3f);
+                    data[i] = v * (27f + v * v) / (27f + 9f * v * v);
                     readAt = (readAt + 1) % ring.Length;
                     buffered--;
                 }
@@ -304,7 +313,8 @@ namespace Deepbound.Player
         private void UpdateOcclusion()
         {
             nextOcclusion = Time.time + 0.2f;
-            source.volume = Settings.VoiceVolume;
+            source.volume = 1f;
+            playGain = PlaybackBoost * Settings.VoiceVolume;
             var cam = Art.ViewCamera.Current;
             bool soul = life != null && life.Soul.Value;
             source.maxDistance = soul ? SoulEarshot : Earshot;

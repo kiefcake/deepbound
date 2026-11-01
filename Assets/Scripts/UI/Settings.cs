@@ -101,7 +101,7 @@ namespace Deepbound.UI
 
         public static float MicGain
         {
-            get => micGain ??= Load(MicGainKey, 1f);
+            get => micGain ??= Load(MicGainKey, 1.5f);
             set { micGain = Mathf.Clamp(value, 0.25f, 4f); Save(MicGainKey, micGain.Value); }
         }
 

@@ -52,8 +52,11 @@ namespace Deepbound.Enemies
         /// <summary>Health multiplier for regular enemies: +45% per extra player.</summary>
         public static float EnemyHealth(int players) => 1f + 0.45f * Extra(players);
 
-        /// <summary>Bosses are the whole party's target, so they scale harder: +75% per extra player.</summary>
-        public static float BossHealth(int players) => 1f + 0.85f * Extra(players);
+        /// <summary>Boss health x5 (play-test 2026-11-01: they went down far too fast).</summary>
+        public const float BossToughness = 5f;
+
+        /// <summary>Bosses are the whole party's target, so they scale harder: +85% per extra player, all x <see cref="BossToughness"/>.</summary>
+        public static float BossHealth(int players) => BossToughness * (1f + 0.85f * Extra(players));
 
         /// <summary>
         /// Co-op loot (2026-10-23, "figure out the game loop, solo or a four-man run"). Gold and embers are

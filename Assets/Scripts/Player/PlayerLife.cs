@@ -132,7 +132,31 @@ namespace Deepbound.Player
             base.OnDestroy();
         }
 
-        public bool CanAct => !Downed.Value && !HandsFull && !IsDragging(NetworkObjectId) && !(debuffs != null && debuffs.Manic) && !(pouch != null && pouch.InStasis);
+        public bool CanAct => !Downed.Value && !HandsFull && !IsDragging(NetworkObjectId) && !Reviving && !(debuffs != null && debuffs.Manic) && !(pouch != null && pouch.InStasis);
+
+        /// <summary>Owner: kneeling over a downed ally with F held: no swinging or casting meanwhile (play-test 2026-11-01).</summary>
+        public bool Reviving => IsOwner && Time.time < revivingUntil;
+        private float revivingUntil, usePressAt = -10f;
+        private bool useTapPending;
+        /// <summary>With talk / drag on the use key: a tap shorter than this drags, a longer hold revives.</summary>
+        public const float TapSeconds = 0.3f;
+
+        /// <summary>
+        /// Owner: does the use key have something in the world to do right now (under the crosshair, a downed ally,
+        /// the carriage bench)? Then a stall or anvil it also stands by does not open on the same press.
+        /// </summary>
+        public bool UseHasWorldTarget()
+        {
+            if (DownedNear(transform.position, this) != null || IsDragging(NetworkObjectId)) return true;
+            var ride = World.CarriageRide.Instance;
+            if (ride != null && DungeonDirector.InLobby && !ride.Riding && (Seat.Value >= 0 || NearestFreeSeat(ride) >= 0)) return true;
+            var cam = GetComponent<NetworkPlayer>();
+            var aimed = cam != null ? World.Interactable.Nearest(cam.AimOrigin, cam.AimForward, progress) : null;
+            return aimed != null && !(ShiftHeld && (aimed is Loot.GearDrop || aimed is World.CampCat));
+        }
+
+        /// <summary>Shift + F: take gear into the pack (not wear it), pick the cat up (not pet it).</summary>
+        public static bool ShiftHeld => Keyboard.current != null && Keyboard.current.shiftKey.isPressed;
         private Flasks pouch => cachedPouch != null ? cachedPouch : (cachedPouch = GetComponent<Flasks>());
         private Flasks cachedPouch;
 
@@ -519,31 +543,51 @@ namespace Deepbound.Player
             var keyboard = Keyboard.current;
             if (Downed.Value || keyboard == null) return;
             var target = DownedNear(transform.position, this);
+            var dragging = DraggedByPlayer(NetworkObjectId);
+            bool merged = UI.Binds.Merged;
+            bool free = !UI.GameHud.MenuOpen && motor != null && motor.HasControl;
 
-            // G takes hold of a downed teammate's collar, or lets go.
-            if (UI.Binds.Down(UI.Bind.Interact) && !UI.GameHud.MenuOpen && motor != null && motor.HasControl)
+            // Taking hold of a downed teammate's collar, or letting go: its own key, or a TAP of the shared F.
+            if (!merged && UI.Binds.Down(UI.Bind.Interact) && free) ToggleDrag(target, dragging);
+            if (merged && (target != null || dragging != null))
             {
-                var dragging = DraggedByPlayer(NetworkObjectId);
-                if (dragging != null) dragging.DragRpc(NetworkObject);
-                else if (target != null && !World.Carryable.IsCarrying(NetworkObjectId)) target.DragRpc(NetworkObject);
+                if (UI.Binds.Down(UI.Bind.Use) && free) { usePressAt = Time.time; useTapPending = true; }
+                if (useTapPending && !UI.Binds.Held(UI.Bind.Use))
+                {
+                    useTapPending = false;
+                    if (Time.time - usePressAt < TapSeconds && free) ToggleDrag(target, dragging);
+                    return;
+                }
+                if (useTapPending && Time.time - usePressAt < TapSeconds) return;
+                useTapPending = false;
             }
 
             // F is contextual: a downed teammate takes priority over a chest or altar.
             if (target == null)
             {
-                if (UI.Binds.Down(UI.Bind.Use) && motor != null && motor.HasControl)
+                if (UI.Binds.Down(UI.Bind.Use) && free)
                 {
                     var cam = GetComponent<NetworkPlayer>();
                     var use = World.Interactable.Nearest(cam.AimOrigin, cam.AimForward, progress);
+                    // Shift + F on gear or the cat is the pack / the lift (GameHud), not wear / pet.
+                    if (use != null && merged && ShiftHeld && (use is Loot.GearDrop || use is World.CampCat)) return;
                     if (use != null) use.UseRpc(NetworkObject);
                     else if (progress != null && progress.CanUseRope) progress.UseRopeRpc();
                 }
                 return;
             }
 
-            if (!UI.Binds.Held(UI.Bind.Use) || Time.time < reviveSendAt) return;
+            if (!UI.Binds.Held(UI.Bind.Use)) return;
+            revivingUntil = Time.time + 0.3f;
+            if (Time.time < reviveSendAt) return;
             reviveSendAt = Time.time + 0.2f;
             target.ReviveHoldRpc(NetworkObject);
+        }
+
+        private void ToggleDrag(PlayerLife target, PlayerLife dragging)
+        {
+            if (dragging != null) dragging.DragRpc(NetworkObject);
+            else if (target != null && !World.Carryable.IsCarrying(NetworkObjectId)) target.DragRpc(NetworkObject);
         }
 
         /// <summary>

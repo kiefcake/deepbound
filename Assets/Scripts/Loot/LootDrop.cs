@@ -98,6 +98,19 @@ namespace Deepbound.Loot
 
         private Transform relicColumn;
 
+        // Under water (play-test 2026-11-01: "hard to see loot under water") the loot bobs on the surface instead.
+        private float lift, nextWaterCheck;
+        private float Buoyancy()
+        {
+            if (Time.time >= nextWaterCheck)
+            {
+                nextWaterCheck = Time.time + 0.4f;
+                var surface = World.DungeonDirector.WaterSurface(transform.position);
+                lift = surface.HasValue ? Mathf.Max(0f, surface.Value + 0.22f - (transform.position.y + 0.35f)) : 0f;
+            }
+            return lift;
+        }
+
         private void Update()
         {
             // Standing in a relic's column of light tints the whole view: it steps aside when you are close.
@@ -110,7 +123,7 @@ namespace Deepbound.Loot
             if (visual != null)
             {
                 phase += Time.deltaTime;
-                visual.localPosition = new Vector3(0f, 0.35f + Mathf.Sin(phase * 2.2f) * 0.07f, 0f);
+                visual.localPosition = new Vector3(0f, 0.35f + Mathf.Sin(phase * 2.2f) * 0.07f + Buoyancy(), 0f);
                 visual.localRotation = Quaternion.Euler(0f, phase * 70f, 0f);
                 // Spilled from the body: a quick spinning hop, growing to size, and a bump on landing.
                 float age = Time.time - bornAt;
@@ -232,7 +245,7 @@ namespace Deepbound.Loot
                 else if (k == LootKind.Embers) UI.GameHud.Pickup("embers", Amount.Value, " embers", LootInfo.EmberColor);
                 else if (k == LootKind.Sigil) UI.GameHud.Pickup("sigil", 1, " Sigil", LootInfo.SigilColor);
                 else if (k == LootKind.Rune) UI.GameHud.Pickup("rune" + Amount.Value, 1, " " + Runes.Name((Rune)Amount.Value), Runes.Color((Rune)Amount.Value));
-                else if (k == LootKind.Relic) UI.GameHud.Pickup("relic" + Amount.Value, 1, " " + Relics.Name((Relic)Amount.Value), Relics.GemColor((Relic)Amount.Value));
+                else if (k == LootKind.Relic) UI.GameHud.Pickup("relic" + Amount.Value, 1, " " + Relics.Name((Relic)Amount.Value), Relics.GemColor((Relic)Amount.Value), Relics.Describe((Relic)Amount.Value));
                 // Potions: the pouch says it, with the count (Flasks.AddedRpc).
             }
             // Relics announce themselves; gold and embers just make their noise.

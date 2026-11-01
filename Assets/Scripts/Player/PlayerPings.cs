@@ -163,7 +163,7 @@ namespace Deepbound.Player
         {
             var origin = player.AimOrigin;
             var dir = player.AimForward;
-            return Physics.Raycast(origin, dir, out var hit, Range, ~0, QueryTriggerInteraction.Ignore) ? hit.point : origin + dir * 20f;
+            return player.AimRay(Range, out var hit) ? hit.point : origin + dir * 20f;
         }
 
         /// <summary>Owner (tests): a semantic ping as if chosen on the wheel.</summary>

@@ -35,11 +35,11 @@ namespace Deepbound.Player
         public static float ArrowRange(float charge, float mul) => Mathf.Lerp(ArrowMinRange, ArrowMaxRange, Mathf.Clamp01(charge)) * mul;
         public float AttackRange => ArrowRange(Mathf.Max(Charge, 1f), progress != null ? progress.RangeMultiplier : 1f);
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
-        public const float DisengageCooldown = 6f, DisengageFocus = 25f;
+        public const float DisengageCooldown = 6f, DisengageFocus = 35f;
         public const float TrapCooldown = 10f, TrapRange = 9f;
-        public const float VolleyCooldown = 16f, VolleyFocus = 40f, VolleyRadius = 4f, VolleyDelay = 0.8f, VolleyDamage = 11f;
+        public const float VolleyCooldown = 16f, VolleyFocus = 55f, VolleyRadius = 4f, VolleyDelay = 0.8f, VolleyDamage = 11f;
         public const int VolleyWaves = 6;
-        public const float FocusMax = 100f, FocusRegen = 14f;
+        public const float FocusMax = 100f, FocusRegen = 11f;
         public const int MarkHits = 3;
         public const float MarkSeconds = 6f;
 
@@ -165,16 +165,7 @@ namespace Deepbound.Player
             }
         }
 
-        private bool TryAimFloor(float range, out Vector3 spot)
-        {
-            spot = default;
-            var origin = player.AimOrigin;
-            var dir = player.AimForward;
-            var point = Physics.Raycast(origin, dir, out var hit, range, ~0, QueryTriggerInteraction.Ignore) ? hit.point : origin + dir * range;
-            if (!Physics.Raycast(point + Vector3.up * 0.5f - dir * 0.3f, Vector3.down, out var floor, 12f, ~0, QueryTriggerInteraction.Ignore)) return false;
-            spot = floor.point;
-            return true;
-        }
+        private bool TryAimFloor(float range, out Vector3 spot) => player.TryAimFloor(range, out spot);
 
         // ==================================================================
         // Server

@@ -336,7 +336,7 @@ namespace Deepbound.UI
             Add("Corwin, carriage driver", Lobby.CarriageAt + new Vector3(0f, 3.1f, 2.2f), new[]
             {
                 "I don't go down. The carriage goes down. I hold the reins and keep my eyes shut.",
-                "Tell me how hard a road you want (G), then find a seat on the back. Think of somewhere nice. It helps. Not much.",
+                "Tell me how hard a road you want (F), then find a seat on the back. Think of somewhere nice. It helps. Not much.",
                 "The horses won't look at the shaft either. Smart horses.",
                 "Out the gate, down the old road, into the trees. After that it is not a road any more.",
                 "Forty years on this seat. Never once seen the bottom. Intend to keep it that way.",

@@ -141,8 +141,8 @@ namespace Deepbound.Classes
             {
                 ("PASSIVE", "Shatter", "Fire on a chilled enemy deals +75% and consumes the chill."),
                 ("LMB", "Firebolt", "Hold to hurl fast, cheap bolts of fire."),
-                ("RMB", "Frostbolt", "A slower bolt that chills: the target is slowed and primed to shatter."),
-                ("Q", "Blink", "Teleport a few metres the way you are looking."),
+                ("RMB", "Frostbolt", "A heavy bolt that hits hard and chills: the target is slowed and primed to shatter."),
+                ("Q", "Tidal Wave", "A wave flows out in front of you, washing the dead back and stunning them for half a second. On a flooded floor, or standing in water, it hits harder and stuns for a full second."),
                 ("E", "Meteor", "Call down a meteor at your crosshair. Shatters everything chilled beneath it."),
             }
             : new[]

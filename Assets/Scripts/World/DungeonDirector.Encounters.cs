@@ -806,6 +806,19 @@ namespace Deepbound.World
 
         public static bool InWater(Vector3 at) => WaterSlow(at) < 1f;
 
+        /// <summary>
+        /// Anyone: the height of the water over <paramref name="at"/> (a flooded floor's sheet, risen with the tide,
+        /// or a cistern basin), or null where it is dry. Loot floats up to it so it is not lost in the murk.
+        /// </summary>
+        public static float? WaterSurface(Vector3 at)
+        {
+            if (Layout == null || InLobby) return null;
+            float sheet = DungeonTheme.ForDepth(Layout.Depth).WaterDepth;
+            if (sheet > 0f) return Mathf.Max(sheet, TideLevel);
+            var room = Layout.RoomAt(at, 0f);
+            return room != null && DungeonLayout.InCisternWater(room, at) ? -0.08f : (float?)null;
+        }
+
         private void TickBossArena()
         {
             if (boss == null || Layout == null) return;

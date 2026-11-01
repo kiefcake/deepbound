@@ -104,7 +104,9 @@ namespace Deepbound.UI
                         float notch = 0.18f - Mathf.Abs(u) * 0.6f;   // the V cut out of the base
                         bool inside = Mathf.Abs(u) < half && v > notch && v < 0.98f;
                         bool rim = !inside && Mathf.Abs(u) < half + 0.07f && v > notch - 0.07f && v < 1f;
-                        arrow.SetPixel(x, n - 1 - y, inside ? Color.white : rim ? new Color(0f, 0f, 0f, 0.85f) : Color.clear);
+                        // Row y counts up from the texture's bottom, and IMGUI draws it upright: the tip (v near 1) is
+                        // at the top. (It was flipped until 2026-11-01: every arrow on the map pointed backwards.)
+                        arrow.SetPixel(x, y, inside ? Color.white : rim ? new Color(0f, 0f, 0f, 0.85f) : Color.clear);
                     }
                 arrow.Apply();
                 return arrow;
