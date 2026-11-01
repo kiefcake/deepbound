@@ -80,8 +80,12 @@ namespace Deepbound.Enemies
         public static float FixedLootShare(int players) => Mathf.Max(1, players);
         public static int Party => Mathf.Max(1, Player.PlayerLife.All.Count);
 
-        /// <summary>Per-hit damage: only +8% per extra player.</summary>
-        public static float Damage(int players) => 1f + 0.08f * Extra(players);
+        /// <summary>
+        /// Per-hit damage: +15% per extra player (was +8%). Party autoplay run 27 (Mage + Knight, 2026-11-01): from floor 3
+        /// the pair went whole floors without a close call, and the Mage took half what a soloist takes, because the
+        /// Knight held the rage. Hits stay survivable (x1.45 in a four), but a party now has to mind them.
+        /// </summary>
+        public static float Damage(int players) => 1f + 0.15f * Extra(players);
 
         /// <summary>
         /// Enemy count per room: a solo player faces 80% of the crowd, +30% per extra player (2026-10-21:

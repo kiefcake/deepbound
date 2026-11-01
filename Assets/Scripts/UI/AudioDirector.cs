@@ -41,22 +41,24 @@ namespace Deepbound.UI
             var recBoss = Load("Music/boss");
             bool recorded = recExplore != null && recCombat != null && recBoss != null;
             recordedMusic = recorded;
-            explore = MakeSource(recorded ? recExplore : MusicSynth.Explore());
-            combat = MakeSource(recorded ? recCombat : MusicSynth.Combat());
-            boss = MakeSource(recorded ? recBoss : MusicSynth.Boss());
+            // All recorded (2026-11-01: the synthesised fallbacks are gone, "no more coded noise").
+            explore = MakeSource(recExplore);
+            combat = MakeSource(recCombat);
+            boss = MakeSource(recBoss);
             var recShrine = Load("Music/explore_cathedral");
-            shrine = MakeSource(recShrine != null ? recShrine : MusicSynth.Explore());
+            shrine = MakeSource(recShrine != null ? recShrine : recExplore);
             // Acts two and three (the Drowned Vaults, the Hollow Throne) explore to their own piece, if it is there.
             var recVaults = Load("Music/explore_deep");
             if (recVaults != null) vaults = MakeSource(recVaults);
             // The Unsung fights to its own piece (2026-10-27, skrjablin's "The Final Battle", CC0).
             var recFinale = Load("Music/boss_final");
             if (recFinale != null) finale = MakeSource(recFinale);
-            campAir = MakeSource(AmbienceSynth.Camp());
+            // Camp: wind over the walls (CC0, "Wind Whoosh Loop", OpenGameArt).
+            campAir = MakeSource(Load("Ambience/camp"));
             var recDeep = Load("Ambience/dungeon");
-            deepAir = MakeSource(recDeep != null ? recDeep : AmbienceSynth.Deep());
+            deepAir = MakeSource(recDeep);
             var recCavern = Load("Ambience/cavern");
-            cavernAir = MakeSource(recCavern != null ? recCavern : AmbienceSynth.Deep());
+            cavernAir = MakeSource(recCavern != null ? recCavern : recDeep);
             sting = gameObject.AddComponent<AudioSource>();
             sting.spatialBlend = 0f;
             sting.playOnAwake = false;

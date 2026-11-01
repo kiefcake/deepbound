@@ -178,19 +178,6 @@ namespace Deepbound.EditorTools
             Debug.Log("[Build] Game built: " + ScenePath);
         }
 
-        /// <summary>Batch check that the soundtrack synthesises: length, and that it is not silent.</summary>
-        public static void TestMusic()
-        {
-            foreach (var clip in new[] { Art.MusicSynth.Explore(), Art.MusicSynth.Combat(), Art.MusicSynth.Boss() })
-            {
-                var data = new float[clip.samples];
-                clip.GetData(data, 0);
-                float peak = 0f;
-                foreach (var v in data) peak = Mathf.Max(peak, Mathf.Abs(v));
-                Debug.Log("[Music] " + clip.name + ": " + clip.length.ToString("F1") + "s, peak " + peak.ToString("F2"));
-            }
-        }
-
         [MenuItem("Deepbound/Build Game + Windows Player")]
         public static void BuildWithPlayer()
         {

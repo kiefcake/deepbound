@@ -1,5 +1,6 @@
 using Deepbound.Loot;
 using System.Collections.Generic;
+using System.Linq;
 using Deepbound.Combat;
 using Deepbound.Enemies;
 using Deepbound.Player;
@@ -258,6 +259,37 @@ namespace Deepbound.World
             public readonly List<EnemyBrain> Alive = new List<EnemyBrain>();
             public int Wave; // 0 = waiting, 1-2 = fighting, 3 = broken
             public float WaveAt;
+            /// <summary>How many were shut in when it sprang: the waves are sized for them, not the whole party.</summary>
+            public int Party = 1;
+            /// <summary>Everyone shut in went down: the gates stood open for the rest to come to them.</summary>
+            public bool Opened;
+        }
+
+        /// <summary>
+        /// Co-op (2026-11-01, the user: "if the players split up they should be punished with a solo ambush, the doors
+        /// should open if the player or players inside get downed"). It shuts on whoever walks in, and its waves are sized
+        /// for them alone; when every one of them is down the gates lift, so the others can come in to raise them.
+        /// </summary>
+        private static int InAmbushTrigger(DungeonLayout.Room room)
+        {
+            float trigger = Mathf.Min(room.Size.x, room.Size.y) / 2f - 2.5f;
+            int inside = 0;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || !p.Targetable) continue;
+                var d = p.transform.position - room.Center;
+                d.y = 0f;
+                if (d.magnitude <= trigger) inside++;
+            }
+            return inside;
+        }
+
+        /// <summary>Anyone still on their feet inside the ambush room.</summary>
+        private static bool AnyoneStandingIn(DungeonLayout.Room room)
+        {
+            foreach (var p in PlayerLife.All)
+                if (p != null && !p.Downed.Value && p.Health != null && p.Health.IsAlive && room.Contains(p.transform.position, 0.5f)) return true;
+            return false;
         }
         /// <summary>A wave that will not end (one of the dead stuck in a wall, or wandered off) opens the gates anyway.</summary>
         public const float AmbushWaveLimit = 75f;
@@ -266,6 +298,8 @@ namespace Deepbound.World
         // Read-only views for the smoke test and debugging.
         public DungeonLayout.Room AmbushRoom => ambush?.Room;
         public int AmbushWave => ambush?.Wave ?? -1;
+        /// <summary>Tests: how many the ambush shut in when it sprang.</summary>
+        public int AmbushParty => ambush?.Party ?? 0;
         public bool BossSealed => bossSealed;
 
         // ------------------------------------------------------------------
@@ -868,19 +902,24 @@ namespace Deepbound.World
 
             if (ambush.Wave == 0)
             {
-                float trigger = Mathf.Min(room.Size.x, room.Size.y) / 2f - 2.5f;
-                foreach (var p in PlayerLife.All)
-                {
-                    if (p == null || !p.Targetable) continue;
-                    var d = p.transform.position - room.Center;
-                    d.y = 0f;
-                    if (d.magnitude > trigger) continue;
-                    SetGates(ambush.Gates, true);
-                    TitleCardRpc("AMBUSH!", "Survive the dead");
-                    SpawnWave(1);
-                    return;
-                }
+                // Whoever walked in is shut in; a party that split up meets it short-handed.
+                int inside = InAmbushTrigger(room);
+                if (inside == 0) return;
+                ambush.Party = inside;
+                Debug.Log("[Director] ambush sprung on " + inside + " in room " + room.Id + " at " + room.Center + " (" + string.Join(", ", PlayerLife.All.Where(p => p != null).Select(p => p.name + " " + p.transform.position)) + ")");
+                SetGates(ambush.Gates, true);
+                TitleCardRpc("AMBUSH!", "Survive the dead");
+                SpawnWave(1);
                 return;
+            }
+
+            // All of those shut in are down: lift the gates so the rest of the party can reach them. The dead fight on.
+            if (!ambush.Opened && !AnyoneStandingIn(room))
+            {
+                ambush.Opened = true;
+                Debug.Log("[Director] ambush gates lift: no one standing in room " + room.Id + " (" + string.Join(", ", PlayerLife.All.Where(p => p != null).Select(p => p.name + " " + p.transform.position + " downed " + p.Downed.Value)) + ")");
+                SetGates(ambush.Gates, false);
+                TitleCardRpc("THE GATES LIFT", "Go to them");
             }
 
             // The dead that leave the room (or never got into it) do not hold the gates shut (2026-10-27: the autoplay
@@ -921,7 +960,7 @@ namespace Deepbound.World
             ambush.Wave = wave;
             ambush.WaveAt = Time.time;
             var room = ambush.Room;
-            int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
+            int players = Mathf.Clamp(ambush.Party, 1, Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count));
             int count = Mathf.RoundToInt((wave == 1 ? 5 : 3) * Difficulty.SpawnCount(players) * Difficulty.Level.SpawnMultiplier);
             var theme = DungeonTheme.ForDepth(Layout.Depth);
             bool brute = false, necro = true; // no necromancers in ambushes: they would raise more

@@ -1942,9 +1942,22 @@ namespace Deepbound.Networking
                     // it has already sprung and been cleared, and the gates must stand open.
                     int wavePre = dir.AmbushWave;
                     am.Teleport(amb.Center + Vector3.up * 0.1f, local.transform.rotation);
+                    // The client stays outside: the trap shuts on the host alone, sized for one.
                     yield return new WaitForSeconds(0.5f);
                     int waveSeen = dir.AmbushWave;
+                    bool lonePart = PlayerLife.All.Count < 2 || dir.AmbushParty == 1;
                     bool gatesShut = FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Any(g => g.Closed.Value);
+                    // No one left standing inside (here: the host steps out of the room, as good as down to the trap): the
+                    // gates lift for the rest of the party, and the dead fight on. Downing the host would end a solo test.
+                    if (wavePre < 3 && waveSeen >= 1)
+                    {
+                        am.Teleport(amb.Center + new Vector3(amb.Size.x / 2f + 6f, 0.1f, 0f), local.transform.rotation);
+                        yield return new WaitForSeconds(0.5f);
+                        bool lifted = !FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Any(g => g.Closed.Value);
+                        Log("ambush gates lift", "no one standing inside: gates open " + lifted + ", wave " + dir.AmbushWave, lifted && dir.AmbushWave >= 1 && dir.AmbushWave < 3);
+                        am.Teleport(amb.Center + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return new WaitForSeconds(0.3f);
+                    }
                     for (int pass = 0; pass < 6 && dir.AmbushWave < 3; pass++)
                     {
                         foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
@@ -1952,9 +1965,9 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.6f);
                     }
                     int chestsAfter = FindObjectsByType<Chest>(FindObjectsSortMode.None).Length;
-                    Log("ambush", "triggered wave " + waveSeen + ", gates shut " + gatesShut + ", final wave " + dir.AmbushWave + ", chests " + chestsBefore + " -> " + chestsAfter,
+                    Log("ambush", "before " + wavePre + ", triggered wave " + waveSeen + " (shut in " + dir.AmbushParty + "), gates shut " + gatesShut + ", final wave " + dir.AmbushWave + ", chests " + chestsBefore + " -> " + chestsAfter,
                         wavePre >= 3 ? dir.AmbushWave == 3 && !FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Any(g => g.Closed.Value)
-                            : waveSeen >= 1 && gatesShut && dir.AmbushWave == 3 && chestsAfter == chestsBefore + 1);
+                            : waveSeen >= 1 && gatesShut && dir.AmbushWave == 3 && chestsAfter == chestsBefore + 1 && lonePart);
                     am.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                     yield return new WaitForSeconds(0.3f);
                 }

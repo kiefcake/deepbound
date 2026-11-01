@@ -904,6 +904,20 @@ namespace Deepbound.World
             ArenaBuilt?.Invoke(arenaCounter);
         }
 
+        /// <summary>
+        /// Party autoplay: only the server bakes a navmesh, so the follower bot (a client) bakes its own copy to walk
+        /// on. Enemy agents stay off on clients, so nothing else uses it.
+        /// </summary>
+        public void DebugBakeLocalNavMesh()
+        {
+            if (IsServer || built == null || built.GetComponent<NavMeshSurface>() != null) return;
+            var surface = built.AddComponent<NavMeshSurface>();
+            surface.collectObjects = CollectObjects.Children;
+            surface.useGeometry = NavMeshCollectGeometry.PhysicsColliders;
+            surface.minRegionArea = 6f;
+            surface.BuildNavMesh();
+        }
+
         private void BakeNavMesh()
         {
             Combat.Health.FreezesWhenChilled = h => InWater(h.transform.position);

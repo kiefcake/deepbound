@@ -56,6 +56,24 @@ namespace Deepbound.Networking
         private float lootOnSince = -1f;
         private readonly HashSet<ulong> ignoredLoot = new HashSet<ulong>();
         private Health stuckTarget;
+
+        // ---- Party autoplay (2026-11-01, "continue further work on balance in parties of more than 1") ----
+        // The host bot runs with -autoparty N and waits for N players; each other bot is a client run with
+        // -autofollow K (K = 1..3: its seat on the carriage) that joins on -port, plays near its leader (the host) and
+        // shops at camp on its own. The host sees every hit, so it keeps the books for the whole party and gives every
+        // member the same "would have gone down" save.
+        private bool follower;
+        private int seatNo, partySize = 1;
+        private class Member { public string Name; public float Dealt, Taken, BossDealt; public int Saves, SavesFloor; }
+        private readonly Dictionary<ulong, Member> party = new Dictionary<ulong, Member>();
+        private readonly HashSet<Health> hooked = new HashSet<Health>();
+        private readonly List<Health> healQueue = new List<Health>();
+        private float disconnectedSince = -1f;
+
+        private PlayerLife Leader
+        {
+            get { foreach (var p in PlayerLife.All) if (p != null && p.OwnerClientId == NetworkManager.ServerClientId) return p; return null; }
+        }
         private float flankStarted = -1f;
         private string lastHeard;
         private readonly List<string> problems = new List<string>();
@@ -68,6 +86,10 @@ namespace Deepbound.Networking
             if (c >= 0 && c + 1 < args.Length && System.Enum.TryParse<Classes.ClassId>(args[c + 1], true, out var parsed)) cls = parsed;
             int ad = System.Array.IndexOf(args, "-autodepth");
             if (ad >= 0 && ad + 1 < args.Length && int.TryParse(args[ad + 1], out var d0)) startFloor = Mathf.Clamp(d0, 1, DungeonDirector.FloorsPerRun) - 1;
+            int ap = System.Array.IndexOf(args, "-autoparty");
+            if (ap >= 0 && ap + 1 < args.Length && int.TryParse(args[ap + 1], out var n0)) partySize = Mathf.Clamp(n0, 1, 4);
+            int af = System.Array.IndexOf(args, "-autofollow");
+            if (af >= 0) { follower = true; seatNo = af + 1 < args.Length && int.TryParse(args[af + 1], out var k0) ? Mathf.Clamp(k0, 1, 3) : 1; startFloor = 0; }
             // Never touch the real save; the dungeon still behaves as in play (DungeonDirector.TestMode stays off).
             Cosmetics.TestMode = true;
             UI.Journal.TestMode = true;
@@ -192,6 +214,49 @@ namespace Deepbound.Networking
         private void Update()
         {
             if (pendingHeal && hp != null) { pendingHeal = false; hp.ServerSetFraction(0.6f); }
+            foreach (var h in healQueue) if (h != null && h.IsAlive) h.ServerSetFraction(0.6f);
+            healQueue.Clear();
+            if (follower && me != null)
+            {
+                // The host's run ended (or it closed): nothing left to play.
+                var nm = NetworkManager.Singleton;
+                if (nm != null && nm.IsConnectedClient) disconnectedSince = -1f;
+                else if (disconnectedSince < 0f) disconnectedSince = Time.time;
+                else if (Time.time - disconnectedSince > 5f) { L("== the host is gone: done =="); log?.Close(); log = null; Application.Quit(0); }
+            }
+            else if (!follower && me != null) HookParty();
+        }
+
+        /// <summary>Host: the books and the save for every party member who has joined (the followers come later).</summary>
+        private void HookParty()
+        {
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null) continue;
+                var h = p.GetComponent<Health>();
+                if (h == null || hooked.Contains(h)) continue;
+                hooked.Add(h);
+                var pp = p.GetComponent<PlayerProgress>();
+                party[p.NetworkObjectId] = new Member { Name = Health.NameOf(p.NetworkObjectId) + " (" + (pp != null ? pp.ClassId.Value.ToString() : "?") + ")" };
+                if (h == hp) continue; // the host's own save is set up in Main
+                var id = p.NetworkObjectId;
+                h.IncomingModifiers.Add((dmg, from) =>
+                {
+                    if (h.Current.Value - dmg > 1f) return dmg;
+                    var m = party[id];
+                    m.Saves++; m.SavesFloor++;
+                    L("!! " + m.Name + " would have gone down (save #" + m.Saves + "): a blow of " + dmg.ToString("F0") + " at " + h.Current.Value.ToString("F0") + " hp");
+                    healQueue.Add(h);
+                    return Mathf.Max(0f, h.Current.Value - 1f);
+                });
+                L("party: " + party[id].Name + " joined (" + PlayerLife.All.Count + " in the party)");
+            }
+        }
+
+        private string PartyLine(bool floor)
+        {
+            if (party.Count < 2) return "";
+            return string.Join(" | ", party.Values.Select(m => m.Name + ": dealt " + m.Dealt.ToString("F0") + " (boss " + m.BossDealt.ToString("F0") + "), taken " + m.Taken.ToString("F0") + ", would-have-gone-down " + (floor ? m.SavesFloor : m.Saves)));
         }
 
         private void L(string s)
@@ -212,7 +277,8 @@ namespace Deepbound.Networking
 
         private IEnumerator Main()
         {
-            launcher.StartHost();
+            if (follower) launcher.StartClient("127.0.0.1:" + launcher.Port);
+            else launcher.StartHost();
             for (float t = 0f; t < 15f && NetworkPlayer.Local == null; t += 0.2f) yield return new WaitForSeconds(0.2f);
             yield return new WaitForSeconds(3f);
             me = NetworkPlayer.Local;
@@ -227,8 +293,10 @@ namespace Deepbound.Networking
             // input from its virtual pad must count anyway.
             Application.runInBackground = true;
             InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
-            Health.ServerAnyDamaged += (h, amount, from) =>
+            if (!follower) Health.ServerAnyDamaged += (h, amount, from) =>
             {
+                if (party.TryGetValue(from, out var md)) { md.Dealt += amount; if (BossBrain.Active != null && h == BossBrain.Active.GetComponent<Health>()) md.BossDealt += amount; }
+                if (h != null && party.TryGetValue(h.NetworkObjectId, out var mt) && h.Team == Team.Players) mt.Taken += amount;
                 if (h == hp)
                 {
                     taken += amount;
@@ -241,17 +309,29 @@ namespace Deepbound.Networking
 
             // A bot cannot dodge like a person: a blow that would put it down leaves it at 1 HP instead,
             // logged as "would have gone down" (alone, a down ends the run), so one run sees every floor.
-            hp.IncomingModifiers.Add((dmg, from) =>
+            if (!follower) hp.IncomingModifiers.Add((dmg, from) =>
             {
                 if (hp.Current.Value - dmg > 1f) return dmg;
                 saves++; savesFloor++;
+                if (party.TryGetValue(me.NetworkObjectId, out var ms)) { ms.Saves++; ms.SavesFloor++; }
                 L("!! would have gone down (save #" + saves + "): a blow of " + dmg.ToString("F0") + " at " + hp.Current.Value.ToString("F0") + " hp; worst so far " + string.Join(", ", takenBy.OrderByDescending(kv => kv.Value).Take(3).Select(kv => kv.Key)));
                 pendingHeal = true;
                 return Mathf.Max(0f, hp.Current.Value - 1f);
             });
-            prog.ClassId.Value = cls;
+            if (follower) prog.ChooseClassRpc(cls);
+            else prog.ClassId.Value = cls;
             yield return new WaitForSeconds(1f);
-            L("== RUN START as " + cls + " ==");
+            if (!follower && partySize > 1)
+            {
+                for (float t = 0f; t < 120f && PlayerLife.All.Count < partySize; t += 0.5f) yield return new WaitForSeconds(0.5f);
+                yield return new WaitForSeconds(2f);
+                HookParty();
+                // The names and classes are known now.
+                foreach (var p in PlayerLife.All)
+                    if (p != null && party.TryGetValue(p.NetworkObjectId, out var mm) && p.GetComponent<PlayerProgress>() is PlayerProgress pq) mm.Name = Health.NameOf(p.NetworkObjectId) + " (" + pq.ClassId.Value + ")";
+                L("== PARTY of " + PlayerLife.All.Count + " (wanted " + partySize + "): " + string.Join(", ", party.Values.Select(m => m.Name)) + " ==");
+            }
+            L("== RUN START as " + cls + (follower ? ", following the host (seat " + seatNo + ")" : "") + " ==");
             yield return Shot("camp_start");
 
             if (startFloor > 0)
@@ -285,6 +365,7 @@ namespace Deepbound.Networking
             }
 
             L("== RUN OVER: phase " + DungeonDirector.Instance.Phase.Value + " ==");
+            if (!follower && party.Count > 1) L("== PARTY TOTALS: " + PartyLine(false) + " ==");
             yield return new WaitForSeconds(6f);
             yield return Shot("run_summary");
             yield return new WaitForSeconds(20f);
@@ -400,12 +481,13 @@ namespace Deepbound.Networking
             // Board: a seat on the carriage; it leaves when everyone sits.
             var ride = CarriageRide.Instance;
             if (ride == null) { Problem("no carriage at camp"); yield break; }
-            yield return WalkTo(ride.SeatGround(0), 1.5f);
-            life.SitRpc(0);
+            yield return WalkTo(ride.SeatGround(seatNo), 1.5f);
+            life.SitRpc(seatNo);
             L("sat on the carriage");
             yield return new WaitForSeconds(4f);
-            yield return Shot("carriage_F" + (floorNo + 2));
-            for (float t = 0f; t < 45f && DungeonDirector.InLobby; t += 0.5f) yield return new WaitForSeconds(0.5f);
+            if (!follower) yield return Shot("carriage_F" + (floorNo + 2));
+            // It leaves when everyone sits: the others may still be at the shops.
+            for (float t = 0f; t < (partySize > 1 || follower ? 150f : 45f) && DungeonDirector.InLobby; t += 0.5f) yield return new WaitForSeconds(0.5f);
             if (DungeonDirector.InLobby) { Problem("the carriage never left (seat " + life.Seat.Value + ")"); }
         }
 
@@ -473,6 +555,9 @@ namespace Deepbound.Networking
             if (layout == null || DungeonDirector.InLobby) { Problem("no floor to play"); yield break; }
             floorNo = layout.Depth;
             yield return new WaitForSeconds(2.5f);
+            if (follower) { dd.DebugBakeLocalNavMesh(); yield return null; }
+            foreach (var m in party.Values) m.SavesFloor = 0;
+            var partyStart = party.ToDictionary(kv => kv.Key, kv => (kv.Value.Dealt, kv.Value.Taken, kv.Value.BossDealt));
             float floorStart = Time.time, takenStart = taken, dealtStart = dealt;
             int killsStart = kills, downsStart = downs;
             L("== FLOOR " + (floorNo + 1) + " (" + DungeonTheme.FloorName(floorNo) + "), " + layout.Rooms.Count + " rooms, event " + dd.FloorEventValue.Value + " ==");
@@ -492,6 +577,10 @@ namespace Deepbound.Networking
             while (dd.Phase.Value == RunPhase.Exploring && !DungeonDirector.InLobby && Time.time - floorStart < floorLimit)
             {
                 Cursor.lockState = CursorLockMode.Locked;
+                if (!follower)
+                    foreach (var p in PlayerLife.All)
+                        if (p != null && p != life && p.Downed.Value) { L("stood " + Health.NameOf(p.NetworkObjectId) + " back up"); p.ServerRevive(1f); }
+                if (life.Downed.Value && follower) { yield return new WaitForSeconds(1f); continue; }
                 if (life.Downed.Value)
                 {
                     downs++;
@@ -514,6 +603,7 @@ namespace Deepbound.Networking
                     // Loot it cannot get to (behind a secret wall, on a ledge): give it up rather than walk into the wall all floor.
                     if (goalWhat == "loot" && lastLootId != ulong.MaxValue) ignoredLoot.Add(lastLootId);
                     stuckSince = Time.time;
+                    if (follower && Leader != null) { motor.Teleport(Leader.transform.position - Leader.transform.forward * 2f + Vector3.up * 0.2f, me.transform.rotation); L("caught up with the leader"); }
                 }
                 if (Time.time >= nextShot) { nextShot = Time.time + 35f; yield return Shot("F" + (floorNo + 1) + "_" + (int)(Time.time - floorStart) + "s"); }
                 if (Time.time >= nextStatus) { nextStatus = Time.time + 75f; Status("progress (" + LivingEnemies() + " enemies left)"); }
@@ -536,7 +626,8 @@ namespace Deepbound.Networking
                     if ((low && (rare == Progression.RareItem.Ironbark || rare == Progression.RareItem.GraveStillness || rare == Progression.RareItem.SanctuaryTome))
                         || (atBoss && (rare == Progression.RareItem.Bloodfury || rare == Progression.RareItem.PhoenixTome || rare == Progression.RareItem.StormTome)))
                     {
-                        if (flasks.ServerUseRare()) L("used " + Progression.RareItems.Name(rare) + (low ? " (low on health)" : " (at the guardian)"));
+                        if (follower) { flasks.UseRareRpc(); L("used " + Progression.RareItems.Name(rare)); }
+                        else if (flasks.ServerUseRare()) L("used " + Progression.RareItems.Name(rare) + (low ? " (low on health)" : " (at the guardian)"));
                     }
                 }
 
@@ -558,9 +649,26 @@ namespace Deepbound.Networking
                 }
                 if (boss != null && bossSeenAt < 0f && dd.BossSealed) { bossSeenAt = Time.time; L("guardian fight begins: " + boss.DisplayName); yield return Shot("F" + (floorNo + 1) + "_boss_start"); }
 
-                var loot = NearestLoot(18f);
+                var lead = follower ? Leader : null;
+                float leadDist = lead != null ? Vector3.Distance(Flat(lead.transform.position), Flat(me.transform.position)) : 0f;
+                // Far behind (the leader rode ahead, or a wall between): catch up, as a friend would run to rejoin.
+                if (lead != null && (leadDist > 40f || (dd.BossSealed && !layout.BossRoom.Contains(me.transform.position, 0f) && layout.BossRoom.Contains(lead.transform.position, 0f))))
+                {
+                    motor.Teleport(lead.transform.position - lead.transform.forward * 2f + Vector3.up * 0.2f, me.transform.rotation);
+                    yield return null;
+                    continue;
+                }
+                var loot = follower && leadDist > 10f ? null : NearestLoot(follower ? 8f : 18f);
                 lastLootId = loot != null ? loot.NetworkObjectId : ulong.MaxValue;
-                var chest = NearestChest(openedChests);
+                var chest = follower ? null : NearestChest(openedChests);
+                if (lead != null && target == null && loot == null)
+                {
+                    goal = lead.transform.position; goalWhat = "the leader";
+                    if (leadDist > 3.5f) yield return StepToward(lead.transform.position, 3f);
+                    else { stuckSince = Time.time; yield return new WaitForSeconds(0.2f); }
+                    yield return null;
+                    continue;
+                }
                 if (target != null && (dist < 14f || loot == null))
                 {
                     goal = target.transform.position; goalWhat = Health.NameOf(target.NetworkObjectId);
@@ -651,7 +759,7 @@ namespace Deepbound.Networking
                                 bool lineOk = CombatQuery.ClearLine(eye, bh);
                                 string blocker = Physics.Linecast(eye, bh.Center, out var lh, ~0, QueryTriggerInteraction.Ignore) ? lh.collider.name + "/" + (lh.collider.GetComponentInParent<Health>() != null) : "none";
                                 float before = bh.Current.Value;
-                                float d = bh.ServerDamage(10f, me.transform.position, me.NetworkObjectId);
+                                float d = follower ? -1f : bh.ServerDamage(10f, me.transform.position, me.NetworkObjectId);
                                 Problem("guardian at " + (bh.Fraction * 100f).ToString("F0") + "% has not lost health in 30 s of attacking: in swing arc " + inArc + ", flat dist " + new Vector2(to.x, to.z).magnitude.ToString("F1") + " (body r " + bh.BodyRadius.ToString("F1") + "), vertical " + to.y.ToString("F1") + " (centre h " + bh.CenterHeight.ToString("F1") + "), clear line " + clear + " (" + blocker + "), dormant " + boss.Dormant + ", immune " + boss.Immune + ", a test hit of 10 dealt " + d.ToString("F1") + ", my " + (me.ActiveKit != null ? me.ActiveKit.ResourceName + " " + me.ActiveKit.Resource.ToString("F0") + "/" + me.ActiveKit.ResourceMax.ToString("F0") : "?") + ", can act " + life.CanAct + ", my hits on it in that time " + bossHits + " for " + bossDealt.ToString("F0"));
                                 bossHits = 0; bossDealt = 0f;
                             }
@@ -692,7 +800,7 @@ namespace Deepbound.Networking
             }
 
             float took = Time.time - floorStart;
-            if (dd.Phase.Value == RunPhase.Exploring && !DungeonDirector.InLobby)
+            if (!follower && dd.Phase.Value == RunPhase.Exploring && !DungeonDirector.InLobby)
             {
                 Problem("floor not finished in " + (floorLimit / 60f).ToString("F0") + " min (" + LivingEnemies() + " enemies left, boss " + (BossBrain.Active != null ? BossBrain.Active.DisplayName + " " + (BossBrain.Active.GetComponent<Health>().Fraction * 100f).ToString("F0") + "%" : "none") + "): forcing it");
                 var b = BossBrain.Active;
@@ -701,6 +809,13 @@ namespace Deepbound.Networking
             }
             L("floor done in " + (took / 60f).ToString("F1") + " min" + (bossSeenAt > 0f ? " (guardian " + ((Time.time - bossSeenAt) / 60f).ToString("F1") + " min)" : "") +
               ": kills " + (kills - killsStart) + ", dealt " + (dealt - dealtStart).ToString("F0") + ", taken " + (taken - takenStart).ToString("F0") + ", downs " + (downs - downsStart) + ", would-have-gone-down " + savesFloor);
+            if (party.Count > 1)
+                L("   party this floor: " + string.Join(" | ", party.Select(kv =>
+                {
+                    var s0 = partyStart.TryGetValue(kv.Key, out var v) ? v : (0f, 0f, 0f);
+                    var m = kv.Value;
+                    return m.Name + ": dealt " + (m.Dealt - s0.Item1).ToString("F0") + " (boss " + (m.BossDealt - s0.Item3).ToString("F0") + "), taken " + (m.Taken - s0.Item2).ToString("F0") + ", would-have-gone-down " + m.SavesFloor;
+                })));
             L("   damage taken so far by source: " + string.Join(", ", takenBy.OrderByDescending(kv => kv.Value).Take(8).Select(kv => kv.Key + " " + kv.Value.ToString("F0"))));
             Status("floor end");
             yield return Shot("F" + (floorNo + 1) + "_cleared");
@@ -744,6 +859,7 @@ namespace Deepbound.Networking
                 if (b == null || (!allowBoss && b is BossBrain)) continue;
                 if (b is MournerBrain || b is GargoyleBrain g && !g.Woken.Value) continue;
                 float d = Vector3.Distance(h.transform.position, me.transform.position);
+                if (follower && Leader != null && Vector3.Distance(h.transform.position, Leader.transform.position) > 16f) continue;
                 // A player kills the healer first: a Necromancer within 16 m counts as much closer than it is.
                 float rank = b is NecromancerBrain && d < 16f ? d * 0.3f : d;
                 if (rank >= dist) continue;

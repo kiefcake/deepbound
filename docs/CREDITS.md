@@ -15,7 +15,30 @@ credited here anyway, with thanks.
 | 80 CC0 creature SFX #2 | rubberduck | https://opengameart.org/content/80-cc0-creture-sfx-2 | CC0 | growls, roars, death cries and attack snarls for ghouls, brutes, gargoyles, mimics, plaguebearers, frost wights, entlings, hoarders; boss roars |
 | RPG Sound Pack | artisticdude | https://opengameart.org/content/rpg-sound-pack | CC0 | weapon swooshes (`Swing`), a blade drawn when you take up a class (`Unsheathe`), wraith voices (`Shade`), plaguebearer gurgles and spit (`Slime`) |
 | 40 CC0 water / splash / slime SFX | rubberduck | https://opengameart.org/content/40-cc0-water-splash-slime-sfx | CC0 | splashes: wading the Drowned Vaults, thrown vials (`Splash`); the fountain's running water (`Ambience/water_loop.ogg`, from loop_water_02) |
-| 80 CC0 RPG SFX | rubberduck | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 | fire spells, fuses, flame traps and embers (`Fire`); chains on the Flagellant's lash, the grave lift, portcullises and levers (`Chain`) |
+| 80 CC0 RPG SFX | rubberduck | https://opengameart.org/content/80-cc0-rpg-sfx | CC0 | fire spells, fuses, flame traps and embers (`Fire`); chains on the Flagellant's lash, the grave lift, portcullises and levers (`Chain`); since 2026-11-01 also summoning spells (`Summon`) and gem chimes for relics (`Relic`) |
+
+Added 2026-11-01, when the last synthesised sounds were replaced ("no more coded noise"); WAVs were trimmed, made mono 44.1 kHz and normalised when installed:
+
+| Pack | Author | Source | Licence | Used for |
+|---|---|---|---|---|
+| Bones Rattle | congusbongus | https://opengameart.org/content/bones-rattle | CC0 | skeletons rattling (`Rattle`) |
+| Bones 2 | AntumDeluge | https://opengameart.org/content/bones-2 | CC0 | a rattle variant (`Rattle`) |
+| Male Grunt/Yelling Sounds | HaelDB | https://opengameart.org/content/male-gruntyelling-sounds | CC0 (dual OGA-BY 3.0 / CC0; used under CC0) | war cries (`WarCry`) |
+| Cure Magic | Someoneman | https://opengameart.org/content/cure-magic | CC0 | revives (`Revive`) |
+| Fantasy Accessory SFX Library | Vehicle | https://opengameart.org/content/fantasy-accessory-sfx-library | CC0 | vials and bottles uncorked (`Potion`, `Drink`), the slot machine's ratchet (`SlotSpin`) |
+| Spinning glass potions (bottle.wav) | KillGorack | https://opengameart.org/node/183337 | CC0 | a potion variant (`Potion`) |
+| Glass bottle (open & close) | sinny | https://opengameart.org/node/179370 | CC0 | a drink variant (`Drink`) |
+| Medieval sound effects - Weapon Textures | Ben Jaszczak & Brian Nelson | https://opengameart.org/content/medieval-sound-effects-weapon-textures | CC0 | longbow, recurve and crossbow shots (`Bow`), blade whooshes for dodges and rolls (`Dodge`) |
+| Ice Spells | bart | https://opengameart.org/content/ice-spells | CC0 | frost (`Frost`), ice shattering (`Shatter`) |
+| Ghost Monster Voice Moaning & Growling | qubodup | https://opengameart.org/content/ghost-monster-voice-moaning-growling | CC0 | whispers and moans of the dead (`Whisper`) |
+| Meow | IgnasD | https://opengameart.org/content/meow | CC0 | the camp cat (`Meow`) |
+| Cat Purr & Meow | Kerzoven | https://opengameart.org/content/cat-purr-meow | CC0 | the camp cat (`Meow`, `Purr`) |
+| Crow Caw | zeroisnotnull | https://opengameart.org/content/crow-caw | CC0 | crows (`Caw`) |
+| Squeaky Rat | qubodup | https://opengameart.org/content/squeaky-rat | CC0 | rats (`Squeak`) |
+| Heartbeat sounds | bart | https://opengameart.org/content/heartbeat-sounds | CC0 | the low-health heartbeat (`Heartbeat`, the first beat of heartbeat_slow) |
+| Pleasing Bell Sound Effect | Spring Spring | https://opengameart.org/content/pleasing-bell-sound-effect | CC0 | the toll (`Toll`, an octave down) |
+| Win Jingle | Fupi | https://opengameart.org/content/win-jingle | CC0 | a room cleared (`Cleared`, harpsichord), the Bone Piper's pipe (`Pipe`, the first note of the "doot" take) |
+| (reused) Interface Sounds / Casino Audio | Kenney | see above | CC0 | the kill tick (`KillTick`) and a shot grazing you (`Graze`) |
 
 ## Music (`Assets/Resources/Audio/Music/`)
 
@@ -36,6 +59,7 @@ credited here anyway, with thanks.
 | `dungeon.ogg` | dungeon_ambient_1.ogg ("Loopable dungeon ambience") | JaggedStone | https://opengameart.org/content/loopable-dungeon-ambience | CC0 | acts 1-3 (wind and drips) |
 | `fire_crackle.wav` | fire-1.wav ("Fire Crackling") | AntumDeluge | https://opengameart.org/content/fire-crackling | CC0 | the crackle of torches, braziers and fires close by |
 | `cavern.ogg` | dark_cavern_ambient_002.ogg | Paul Wortmann | https://opengameart.org/content/dark-cavern-ambient | CC0 | the Black Cathedral and the Abyss |
+| `camp.ogg` | wind woosh loop.ogg ("Wind Whoosh Loop") | SketchMan3 | https://opengameart.org/content/wind-whoosh-loop | CC0 | wind over Castle Ravenhold at camp (2026-11-01, replaced the synthesised night air) |
 
 ## Textures (`Assets/Textures/Detail/`)
 
