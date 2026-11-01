@@ -27,7 +27,7 @@ namespace Deepbound.Player
     [RequireComponent(typeof(Health))]
     public class RogueKit : NetworkBehaviour, IClassKit
     {
-        public const float StabInterval = 0.26f, StabRange = 2.2f, StabArc = 75f, StabDamage = 13f, StabEnergy = 8f;
+        public const float StabInterval = 0.26f, StabRange = 2.2f, StabArc = 75f, StabDamage = 13f, StabEnergy = 0f;
         public const float FanCooldown = 1.8f, FanEnergy = 30f, FanDamage = 15f, FanSpeed = 30f, FanRange = 14f, FanGravity = 6f;
         public float AttackRange => StabRange * (progress != null ? progress.ReachMultiplier : 1f);
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;

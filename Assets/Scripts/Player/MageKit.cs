@@ -17,7 +17,7 @@ namespace Deepbound.Player
     /// <list type="bullet">
     /// <item><b>Passive — Shatter.</b> Fire that hits a chilled enemy deals +75% and
     ///   consumes the chill, with a glassy crack you learn to listen for.</item>
-    /// <item><b>LMB — Firebolt.</b> Hold to fire fast, cheap bolts.</item>
+    /// <item><b>LMB — Firebolt.</b> Hold to fire fast bolts; free (no mana).</item>
     /// <item><b>RMB — Frostbolt.</b> A slower, costlier bolt that chills (slows) its target —
     ///   the setup for Shatter.</item>
     /// <item><b>Q — Tidal Wave.</b> A wave flows out in front of the Mage, washing the dead
@@ -34,7 +34,8 @@ namespace Deepbound.Player
     public class MageKit : NetworkBehaviour, IClassKit
     {
         // Mana costs up ~1.5x (play-test 2026-11-01: "casting is way too cheap on the resource bar").
-        public const float FireboltInterval = 0.42f, FireboltDamage = 23f, FireboltSpeed = 32f, FireboltMana = 8f;
+        // Left click is free for every class (2026-11-01, the user): only the right click and abilities spend the bar.
+        public const float FireboltInterval = 0.42f, FireboltDamage = 23f, FireboltSpeed = 32f, FireboltMana = 0f;
         // The frostbolt is a heavy, deliberate shot: buffed 2026-11-01 (34 -> 50, cooldown 3 -> 2.2 s, chill 4 -> 5 s).
         public const float FrostboltInterval = 0.95f, FrostboltDamage = 50f, FrostboltSpeed = 28f, FrostboltMana = 20f, ChillSeconds = 5f, FrostboltCooldown = 2.2f;
         /// <summary>Tidal Wave: a <see cref="WaveArc"/>-degree wedge rolling out <see cref="WaveLength"/> m over <see cref="WaveSeconds"/>.</summary>

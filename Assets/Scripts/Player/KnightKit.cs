@@ -43,8 +43,9 @@ namespace Deepbound.Player
         public const float BashCooldown = 7f, BashRange = 2.4f, BashDamage = 18f, BashStun = 1.6f;
         public const float WarCryCooldown = 16f, WarCryRadius = 12f, WarCryDuration = 5f;
         public const float StaminaMax = 100f;
-        private const float HeldSwingReserve = 15f;
-        private const float SwingStamina = 14f, SprintStaminaPerSec = 12f, BlockedHitStamina = 11f, StaminaRegen = 28f;
+        // Swings are free (2026-11-01, the user: left click spends nothing); stamina is for blocking, sprinting and dodging.
+        private const float HeldSwingReserve = 0f;
+        private const float SwingStamina = 0f, SprintStaminaPerSec = 12f, BlockedHitStamina = 11f, StaminaRegen = 28f;
 
         /// <summary>Synced so other peers can draw the shield raised and the server can apply it.</summary>
         public readonly NetworkVariable<bool> Blocking = new NetworkVariable<bool>(false,
@@ -191,14 +192,13 @@ namespace Deepbound.Player
             motor.SpeedMultiplier = (wantBlock ? 0.5f : 1f) * progress.SpeedMultiplier;
 
             // --- Swing (LMB) --- held, it keeps swinging (2026-10-21: every other class repeats on hold; the
-            // Knight alone needed a click per swing). Stamina still paces it.
+            // Knight alone needed a click per swing). Swings cost no stamina (2026-11-01).
             // Holding keeps a reserve for the shield (a held button drained stamina as fast as it came back
             // and left nothing to block with); a fresh click may spend the last of it.
             if (canAct && !wantBlock && UI.Binds.PrimaryHeld &&
                 Time.time >= swingBusyUntil && Stamina >= SwingStamina + (UI.Binds.PrimaryDown ? 0f : HeldSwingReserve))
             {
                 Stamina -= SwingStamina;
-                staminaRegenAt = Time.time + 0.5f;
                 side = -side;
                 swingPending = true;
                 swingStrikeAt = Time.time + SwingWindup;

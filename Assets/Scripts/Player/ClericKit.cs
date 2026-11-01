@@ -28,7 +28,7 @@ namespace Deepbound.Player
     [RequireComponent(typeof(Health))]
     public class ClericKit : NetworkBehaviour, IClassKit
     {
-        public const float SmiteInterval = 0.55f, SmiteDamage = 18f, SmiteSpeed = 28f, SmiteMana = 6f, SmiteRange = 18f;
+        public const float SmiteInterval = 0.55f, SmiteDamage = 18f, SmiteSpeed = 28f, SmiteMana = 0f, SmiteRange = 18f;
         public float AttackRange => SmiteRange * (progress != null ? progress.RangeMultiplier : 1f);
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
         private float BeamReach => BeamRange * RangeMul;
