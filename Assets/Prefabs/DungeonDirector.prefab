@@ -141,3 +141,5 @@ MonoBehaviour:
   shrinePrefab: {fileID: 5345076545849612048, guid: b16fdcc5136720548a4199ece49251e0, type: 3}
   rangeTargetPrefab: {fileID: 1712247798310700591, guid: 7306da333a010254eae1214ae856c551, type: 3}
   folkPrefab: {fileID: 8301879967795500839, guid: b5c095c80c6f1b944aad6f48148a9df9, type: 3}
+  tavernKeepPrefab: {fileID: 2628904879674819746, guid: 8aa4fe5e64fa2f748be8b28ca3d4b4bc, type: 3}
+  tavernBandPrefab: {fileID: 2207371130258201031, guid: f3e532959a9ff2b4b9b8cee523d2339f, type: 3}

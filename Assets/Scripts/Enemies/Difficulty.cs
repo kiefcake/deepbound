@@ -49,14 +49,25 @@ namespace Deepbound.Enemies
 
         // --- Party size ---
 
-        /// <summary>Health multiplier for regular enemies: +45% per extra player.</summary>
-        public static float EnemyHealth(int players) => 1f + 0.45f * Extra(players);
+        // Party scaling (reviewed 2026-11-01, "look over multiplayer scaling and improve"). A party of N deals about N
+        // times the damage, so the dead must hold about N times the health in all - but as MORE bodies rather than
+        // sponges, so a party has a room to split, and each kill still lands. Four players: each enemy x2.05 health,
+        // x2.2 as many of them = x4.5 the room's health for x4 the damage (the extra half pays for revives and focus).
+
+        /// <summary>Health multiplier for regular enemies: +35% per extra player (was +45%: spongy in a four).</summary>
+        public static float EnemyHealth(int players) => 1f + 0.35f * Extra(players);
 
         /// <summary>Boss health x5 (play-test 2026-11-01: they went down far too fast).</summary>
         public const float BossToughness = 5f;
 
-        /// <summary>Bosses are the whole party's target, so they scale harder: +85% per extra player, all x <see cref="BossToughness"/>.</summary>
-        public static float BossHealth(int players) => BossToughness * (1f + 0.85f * Extra(players));
+        /// <summary>
+        /// Bosses are the whole party's target, so they scale nearly one for one: +90% per extra player (was +85%, so a
+        /// four killed a guardian faster than a soloist did), all x <see cref="BossToughness"/>.
+        /// </summary>
+        public static float BossHealth(int players) => BossToughness * (1f + 0.9f * Extra(players));
+
+        /// <summary>The health multiplier a fight was scaled with, boss or rank and file (for rescaling on joins and leaves).</summary>
+        public static float PartyHealth(int players, bool boss) => boss ? BossHealth(players) : EnemyHealth(players);
 
         /// <summary>
         /// Co-op loot (2026-10-23, "figure out the game loop, solo or a four-man run"). Gold and embers are
@@ -76,7 +87,7 @@ namespace Deepbound.Enemies
         /// Enemy count per room: a solo player faces 80% of the crowd, +30% per extra player (2026-10-21:
         /// the autoplay run killed 100 on one solo floor and could not reach the guardian in 11 minutes).
         /// </summary>
-        public static float SpawnCount(int players) => 0.8f + 0.3f * Extra(players);
+        public static float SpawnCount(int players) => 0.8f + 0.32f * Extra(players);
 
         // --- Depth (0 = first floor) ---
 

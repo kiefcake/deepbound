@@ -16,6 +16,9 @@ namespace Deepbound.Art
         Draw = 8,     // bow raised and drawn — the archer's telegraph
     }
 
+    /// <summary>The emote wheel's gestures (2026-11-01), played on a player's rig for everyone to see.</summary>
+    public enum Emote : byte { None = 0, Wave = 1, Cheer = 2, Bow = 3, Laugh = 4, Dance = 5, Point = 6, Beckon = 7, Sit = 8 }
+
     /// <summary>
     /// Pivot references for a procedurally built humanoid, and the procedural animation
     /// that drives them.
@@ -50,6 +53,19 @@ namespace Deepbound.Art
 
         public bool Blocking;
         public bool Downed;
+        /// <summary>0-3: how much mead is in them. The body sways and lists with it.</summary>
+        public int Drunk;
+
+        /// <summary>The gesture being played (an emote), until <see cref="emoteUntil"/>; walking off ends most of them.</summary>
+        public Emote EmoteNow { get; private set; }
+        private float emoteStart, emoteUntil;
+
+        public void PlayEmote(Emote e, float seconds)
+        {
+            EmoteNow = e;
+            emoteStart = Time.time;
+            emoteUntil = Time.time + seconds;
+        }
 
         /// <summary>Turn the head toward the local camera when it is near (enemies: they watch you).</summary>
         public bool WatchViewer;
@@ -262,6 +278,20 @@ namespace Deepbound.Art
                 torso += new Vector3(6f, 10f, 0f);
             }
 
+            // An emote: a gesture over the walk (sitting and bowing hold still; walking off ends them, bar the dance).
+            if (EmoteNow != Emote.None)
+            {
+                if (Time.time > emoteUntil || Downed || action == RigAction.Death || (walkAmount > 0.45f && EmoteNow != Emote.Dance)) EmoteNow = Emote.None;
+                else PoseEmote(Time.time - emoteStart, ref armL, ref armR, ref torso, ref head, ref legL, ref legR, ref hipsOffset);
+            }
+            // Mead: a slow list from side to side, the head lolling after it.
+            if (Drunk > 0 && !Downed)
+            {
+                float k = Drunk / 3f, tt = Time.time + seed * 7f;
+                torso += new Vector3(3f * Mathf.Sin(tt * 0.7f) * k, 0f, 9f * Mathf.Sin(tt * 1.1f) * k);
+                head += new Vector3(6f * Mathf.Sin(tt * 0.9f + 1f) * k, 0f, 12f * Mathf.Sin(tt * 1.1f - 0.6f) * k);
+            }
+
             if (Downed)
             {
                 // Kneeling, slumped: visibly "revive me", not dead.
@@ -306,6 +336,82 @@ namespace Deepbound.Art
             poseKnown = true;
 
             ApplyGlow(glow);
+        }
+
+        /// <summary>The emote gestures, as offsets and replacements of the walk pose. <paramref name="e"/> seconds in.</summary>
+        private void PoseEmote(float e, ref Vector3 armL, ref Vector3 armR, ref Vector3 torso, ref Vector3 head, ref Vector3 legL, ref Vector3 legR, ref Vector3 hips)
+        {
+            float into = Ease(Mathf.Clamp01(e * 4f));
+            switch (EmoteNow)
+            {
+                case Emote.Wave:
+                    armR = Vector3.Lerp(armR, new Vector3(-150f, 0f, 30f + 22f * Mathf.Sin(e * 12f)), into);
+                    head += new Vector3(-6f, 0f, 0f) * into;
+                    break;
+                case Emote.Cheer:
+                {
+                    float pump = Mathf.Abs(Mathf.Sin(e * 7f));
+                    armR = Vector3.Lerp(armR, new Vector3(-165f + 25f * pump, 0f, 18f), into);
+                    armL = Vector3.Lerp(armL, new Vector3(-165f + 25f * pump, 0f, -18f), into);
+                    head += new Vector3(-22f, 0f, 0f) * into;
+                    torso += new Vector3(-8f, 0f, 0f) * into;
+                    hips += new Vector3(0f, 0.07f * pump, 0f) * into;
+                    break;
+                }
+                case Emote.Bow:
+                {
+                    float b = Mathf.Sin(Mathf.Clamp01(e / 1.6f) * Mathf.PI);
+                    torso += new Vector3(52f, 0f, 0f) * b;
+                    head += new Vector3(20f, 0f, 0f) * b;
+                    armR = Vector3.Lerp(armR, new Vector3(-45f, 0f, -55f), b);
+                    armL = Vector3.Lerp(armL, new Vector3(25f, 0f, -10f), b);
+                    break;
+                }
+                case Emote.Laugh:
+                {
+                    float shake = Mathf.Sin(e * 26f);
+                    torso += new Vector3(-14f + 4f * shake, 0f, 0f) * into;
+                    head += new Vector3(-26f + 6f * shake, 0f, 0f) * into;
+                    armR = Vector3.Lerp(armR, new Vector3(-30f, 0f, -40f), into);
+                    armL = Vector3.Lerp(armL, new Vector3(-30f, 0f, 40f), into);
+                    break;
+                }
+                case Emote.Dance:
+                {
+                    // A tavern jig: arms up in turn, hips swinging, feet kicking out on the beat.
+                    float beat = e * 7.2f;
+                    float s = Mathf.Sin(beat);
+                    armR = new Vector3(-120f - 40f * s, 0f, 30f);
+                    armL = new Vector3(-120f + 40f * s, 0f, -30f);
+                    torso += new Vector3(0f, 18f * s, 10f * s);
+                    head += new Vector3(-8f, -10f * s, 0f);
+                    legL = new Vector3(-35f * Mathf.Max(0f, s), 0f, -8f);
+                    legR = new Vector3(-35f * Mathf.Max(0f, -s), 0f, 8f);
+                    hips += new Vector3(0.05f * s, 0.06f * Mathf.Abs(Mathf.Cos(beat)), 0f);
+                    break;
+                }
+                case Emote.Point:
+                    armR = Vector3.Lerp(armR, new Vector3(-92f, 0f, 0f), into);
+                    head += new Vector3(-4f, 0f, 0f) * into;
+                    torso += new Vector3(4f, 0f, 0f) * into;
+                    break;
+                case Emote.Beckon:
+                {
+                    float curl = Mathf.Abs(Mathf.Sin(e * 6f));
+                    armR = Vector3.Lerp(armR, new Vector3(-80f + 40f * curl, -20f, 0f), into);
+                    torso += new Vector3(-10f, 0f, 0f) * into;
+                    head += new Vector3(-10f, 0f, 6f) * into;
+                    break;
+                }
+                case Emote.Sit:
+                    legL = Vector3.Lerp(legL, new Vector3(-85f, 0f, -10f), into);
+                    legR = Vector3.Lerp(legR, new Vector3(-85f, 0f, 10f), into);
+                    torso += new Vector3(-6f, 0f, 0f) * into;
+                    armR = Vector3.Lerp(armR, new Vector3(-40f, 0f, 10f), into);
+                    armL = Vector3.Lerp(armL, new Vector3(-40f, 0f, -10f), into);
+                    hips += new Vector3(0f, -0.5f * (hipsRest.y > 0f ? hipsRest.y / 0.95f : 1f), 0.12f) * into;
+                    break;
+            }
         }
 
         private void Ease(Transform t, Vector3 euler, int slot, float a)

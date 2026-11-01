@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "camp", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound",
+            "camp", "tavern", "emotewheel", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -48,6 +48,7 @@ namespace Deepbound.UI
                 {
                     if (it == null || Vector3.Distance(it.transform.position, me) > 6f) continue;
                     if (it is SlotMachine || it is BlackjackTable) Offer("gamble2", "THE TENT: the Bone Reels pay big for three of a kind; at Deadman's Hand beat the skeleton dealer to 21. HIT or STAND in the table's panel.");
+                    if (it is TavernKeep || it is TavernBand) Offer("tavern", "THE GUTTED LANTERN: Marta sells mead (F at the bar): each horn makes you Tipsy, Merry, then Sloshed - a little braver in a fight, and the world sways. F at the stage pays the band for the next song.");
                     if (it is CampCat) Offer("cat", "The castle cat. F pets it (sometimes it has found something for you). Shift+F picks it up... ask it first.");
                 }
                 Offer("camp", "CAMP (F at each stall): Silas sells potions and charms, Hobb tempers your weapon with embers and sells armour, Ysolde ranks abilities with Sigils and sets runes, the shrine offers relics. When ready, sit on the back of Corwin's carriage (F): it leaves when everyone is seated.");
@@ -58,6 +59,7 @@ namespace Deepbound.UI
                 if (Vector3.Distance(me, Lobby.YardSpot) < 6f) Offer("drills", "SERGEANT BRANN drills you for gold (F): a stat for the run. Each drill costs more than the last.");
                 if (Vector3.Distance(me, Lobby.RunewrightSpot) < 6f) Offer("runewright", "YSOLDE'S STONES (F): set runes, rank abilities with Sigils, and MELD three of the same rune into a stronger one.");
                 if (Vector3.Distance(me, Lobby.CarriageStall) < 6f) Offer("corwin", "CORWIN knows the way down: a SCOUT'S MAP charts the next floor; SMELLING SALTS get you up on your own once.");
+                if (PlayerLife.All.Count > 1) Offer("emotewheel", "EMOTES: tap H to wave (two players waving together HIGH FIVE). HOLD H for the emote wheel: cheer, bow, laugh, dance, point, beckon, sit.");
                 if (PlayerLife.All.Count > 1) Offer("chat", "TEXT CHAT: press Enter to type to your party, Enter to send.");
                 if (PlayerLife.All.Count > 1) Offer("purse", "PARTY LOOT is shared by default: gold and embers anyone picks up are split evenly. In the inventory (I) you can give gold, even out the purse, or ctrl-click a piece to hand it to the nearest ally.");
                 return;

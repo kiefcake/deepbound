@@ -108,9 +108,10 @@ namespace Deepbound.UI
 
             if (local == null || DungeonDirector.InLobby)
             {
-                // Camp: the shrine loop, low.
+                // Camp: the shrine loop, low - and it steps aside for the tavern band near the Gutted Lantern.
                 exploreTarget = 0f;
-                shrineTarget = 0.3f;
+                var ear = local != null ? local.transform.position : Lobby.Origin;
+                shrineTarget = 0.3f * (1f - World.TavernBand.Loudness(ear));
             }
             else
             {

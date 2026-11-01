@@ -56,7 +56,35 @@ namespace Deepbound.Player
         public bool Rooted => Now < RootUntil.Value || Entangled;
 
         public float SpeedMultiplier => Rooted ? 0f : Frostbitten ? 0.6f : 1f;
-        public float DamageMultiplier => Cursed ? 0.7f : 1f;
+        public float DamageMultiplier => (Cursed ? 0.7f : 1f) * (1f + DrunkCourage * Drunk);
+
+        // ---- Mead (2026-11-01, the tavern at camp) ----
+        /// <summary>How much mead is in you: 1 Tipsy, 2 Merry, 3 Sloshed. Wears off a level at a time.</summary>
+        public readonly NetworkVariable<byte> DrunkLevel = new NetworkVariable<byte>();
+        public readonly NetworkVariable<double> DrunkUntil = new NetworkVariable<double>();
+        public const int DrunkMax = 3;
+        /// <summary>Seconds each level of drink lasts before the next one wears off.</summary>
+        public const float DrunkSecondsPerLevel = 75f;
+        /// <summary>Liquid courage: +4% damage a level. The world sways with it (the camera, and your body for others).</summary>
+        public const float DrunkCourage = 0.04f;
+        public int Drunk => DrunkLevel.Value > 0 && Now < DrunkUntil.Value ? DrunkLevel.Value : 0;
+        public static string DrunkName(int level) => level >= 3 ? "Sloshed" : level == 2 ? "Merry" : "Tipsy";
+
+        /// <summary>Server: down a mead. One more level (to <see cref="DrunkMax"/>); the clock starts over for the level.</summary>
+        public void ServerDrink()
+        {
+            if (!IsServer) return;
+            DrunkLevel.Value = (byte)Mathf.Min(DrunkMax, Drunk + 1);
+            DrunkUntil.Value = Now + DrunkSecondsPerLevel;
+        }
+
+        /// <summary>Server: the drink wears off a level at a time.</summary>
+        private void TickDrunk()
+        {
+            if (DrunkLevel.Value == 0 || Now < DrunkUntil.Value) return;
+            DrunkLevel.Value = (byte)(DrunkLevel.Value - 1);
+            if (DrunkLevel.Value > 0) DrunkUntil.Value = Now + DrunkSecondsPerLevel;
+        }
         public float HealMultiplier => Cursed ? 0.5f : 1f;
 
         private void Awake()
@@ -207,6 +235,7 @@ namespace Deepbound.Player
         {
             if (IsServer)
             {
+                TickDrunk();
                 if (Poisoned && Time.time >= nextTick && !life.Downed.Value)
                 {
                     nextTick = Time.time + 0.5f;

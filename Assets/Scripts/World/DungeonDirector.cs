@@ -672,6 +672,7 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject shrinePrefab;
         [SerializeField] private NetworkObject rangeTargetPrefab;
         [SerializeField] private NetworkObject folkPrefab;
+        [SerializeField] private NetworkObject tavernKeepPrefab, tavernBandPrefab;
 
         private void SpawnCampStations()
         {
@@ -691,6 +692,8 @@ namespace Deepbound.World
             Put(gongPrefab, Lobby.GongSpot, Lobby.GongFacing);
             Put(shrinePrefab, Lobby.ShrineSpot, Vector3.left);
             Put(omenStonePrefab, Lobby.OmenSpot, Vector3.left);
+            Put(tavernKeepPrefab, Lobby.TavernKeepSpot, Vector3.right);
+            Put(tavernBandPrefab, Lobby.TavernBandSpot, Vector3.forward);
             // The camp's people get bodies that can be struck (and remember it).
             if (folkPrefab != null)
                 foreach (var (id, at) in Lobby.FolkBodies)
@@ -1385,10 +1388,24 @@ namespace Deepbound.World
         // Run state (server)
         // ------------------------------------------------------------------
 
+        private int partySeen;
+
+        /// <summary>Server: when the party's size changes mid-floor, every living enemy is rescaled to it.</summary>
+        private void WatchPartySize()
+        {
+            int n = Mathf.Max(1, PlayerLife.All.Count);
+            if (n == partySeen) return;
+            bool first = partySeen == 0;
+            partySeen = n;
+            if (first || InLobby) return;
+            foreach (var e in new List<EnemyBrain>(EnemyBrain.All)) if (e != null) e.ServerRescaleParty(n);
+        }
+
         private void Update()
         {
             UpdateTideVisual();
             if (!IsServer || Instance != this) return;
+            WatchPartySize();
             double now = NetworkManager.ServerTime.Time;
 
             switch (Phase.Value)

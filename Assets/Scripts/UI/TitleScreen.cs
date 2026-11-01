@@ -74,11 +74,12 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
+            "THE GUTTED LANTERN: a tavern by the tent - mead, and a band to pay for a song",
+            "EMOTE WHEEL: hold H to cheer, bow, laugh, dance, point, beckon or sit",
+            "Wider corridors; enemies rescale when friends join or leave mid-floor",
             "ONE KEY: F uses, trades and talks (tap F drags a downed ally, hold revives)",
             "Mage: TIDAL WAVE (Q) stuns what it washes over; Frostbolt hits harder",
             "Bosses are much tougher; ultimates and spells cost more to come by",
-            "Drop gear from your pack (I) and a friend can take it",
-            "A RETRO GOTHIC LOOK: small pixels, dithered colour (Options)",
             "Bosses lay a SHARED DOOM in co-op: stand together to split it",
             "CO-OP: PINCER from opposite sides, ASSISTS, LAST STAND and CLUTCH revives",
             "Down? WATCH your allies (LMB). AVENGE the fallen; FLOOR HONOURS",

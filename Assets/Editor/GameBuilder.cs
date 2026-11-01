@@ -105,6 +105,8 @@ namespace Deepbound.EditorTools
             var cat = BuildCatPrefab();
             var slots = BuildObjectPrefab<SlotMachine>("SlotMachine", new Vector3(1.1f, 1.9f, 0.8f));
             var blackjack = BuildObjectPrefab<BlackjackTable>("BlackjackTable", new Vector3(1.8f, 0.95f, 1.1f));
+            var tavernKeep = BuildObjectPrefab<TavernKeep>("TavernKeep", Vector3.zero);
+            var tavernBand = BuildObjectPrefab<TavernBand>("TavernBand", Vector3.zero);
             var gong = BuildGongPrefab();
             var shrine = BuildObjectPrefab<Shrine>("Shrine", new Vector3(1.75f, 1f, 0.9f));
             var fateWheel = BuildObjectPrefab<FateWheel>("FateWheel", new Vector3(3f, 4f, 1f));
@@ -153,6 +155,8 @@ namespace Deepbound.EditorTools
             dso.FindProperty("catPrefab").objectReferenceValue = cat.GetComponent<NetworkObject>();
             dso.FindProperty("slotMachinePrefab").objectReferenceValue = slots.GetComponent<NetworkObject>();
             dso.FindProperty("blackjackPrefab").objectReferenceValue = blackjack.GetComponent<NetworkObject>();
+            dso.FindProperty("tavernKeepPrefab").objectReferenceValue = tavernKeep.GetComponent<NetworkObject>();
+            dso.FindProperty("tavernBandPrefab").objectReferenceValue = tavernBand.GetComponent<NetworkObject>();
             dso.FindProperty("gongPrefab").objectReferenceValue = gong.GetComponent<NetworkObject>();
             dso.FindProperty("shrinePrefab").objectReferenceValue = shrine.GetComponent<NetworkObject>();
             var folkBody = BuildFolkPrefab();

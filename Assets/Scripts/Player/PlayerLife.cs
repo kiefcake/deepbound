@@ -132,7 +132,8 @@ namespace Deepbound.Player
             base.OnDestroy();
         }
 
-        public bool CanAct => !Downed.Value && !HandsFull && !IsDragging(NetworkObjectId) && !Reviving && !(debuffs != null && debuffs.Manic) && !(pouch != null && pouch.InStasis);
+        // Seated on Corwin's carriage, your hands stay in your lap (2026-11-01: players were cutting at Corwin from the bench).
+        public bool CanAct => !Downed.Value && !HandsFull && !IsDragging(NetworkObjectId) && !Reviving && Seat.Value < 0 && !(debuffs != null && debuffs.Manic) && !(pouch != null && pouch.InStasis);
 
         /// <summary>Owner: kneeling over a downed ally with F held: no swinging or casting meanwhile (play-test 2026-11-01).</summary>
         public bool Reviving => IsOwner && Time.time < revivingUntil;

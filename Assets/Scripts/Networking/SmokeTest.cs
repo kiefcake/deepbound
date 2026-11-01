@@ -603,6 +603,18 @@ namespace Deepbound.Networking
                         bool tw_assisted = false;
                         if (tw_foe != null)
                         {
+                            // Party size changes mid-floor: the foe was scaled for two; rescaled for one it keeps its hurt
+                            // fraction and drops to the solo multiplier; back to two restores it.
+                            var rsH = tw_foe.GetComponent<Health>();
+                            rsH.ServerSetFraction(0.6f);
+                            float max2 = rsH.Max.Value;
+                            tw_foe.ServerRescaleParty(1);
+                            float max1 = rsH.Max.Value, frac1 = rsH.Fraction;
+                            tw_foe.ServerRescaleParty(2);
+                            float want = Difficulty.EnemyHealth(1) / Difficulty.EnemyHealth(2);
+                            Log("party rescale", "max " + max2.ToString("F0") + " -> " + max1.ToString("F0") + " (x" + (max1 / max2).ToString("F2") + ", want x" + want.ToString("F2") + "), fraction kept " + frac1.ToString("F2") + ", back " + rsH.Max.Value.ToString("F0"),
+                                Mathf.Abs(max1 / max2 - want) < 0.02f && Mathf.Abs(frac1 - 0.6f) < 0.02f && Mathf.Abs(rsH.Max.Value - max2) < 1f);
+                            rsH.ServerSetFraction(1f);
                             var tw_fh = tw_foe.GetComponent<Health>();
                             // Wherever the navmesh put it: the host steps round to its far side from the client.
                             var fpos = tw_foe.transform.position;
@@ -1926,6 +1938,9 @@ namespace Deepbound.Networking
                     var amb = dir.AmbushRoom;
                     var am = local.GetComponent<FirstPersonMotor>();
                     int chestsBefore = FindObjectsByType<Chest>(FindObjectsSortMode.None).Length;
+                    // An earlier step can wander through the trap room first (rooms are bigger since 2026-11-01): then
+                    // it has already sprung and been cleared, and the gates must stand open.
+                    int wavePre = dir.AmbushWave;
                     am.Teleport(amb.Center + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.5f);
                     int waveSeen = dir.AmbushWave;
@@ -1938,7 +1953,8 @@ namespace Deepbound.Networking
                     }
                     int chestsAfter = FindObjectsByType<Chest>(FindObjectsSortMode.None).Length;
                     Log("ambush", "triggered wave " + waveSeen + ", gates shut " + gatesShut + ", final wave " + dir.AmbushWave + ", chests " + chestsBefore + " -> " + chestsAfter,
-                        waveSeen >= 1 && gatesShut && dir.AmbushWave == 3 && chestsAfter == chestsBefore + 1);
+                        wavePre >= 3 ? dir.AmbushWave == 3 && !FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Any(g => g.Closed.Value)
+                            : waveSeen >= 1 && gatesShut && dir.AmbushWave == 3 && chestsAfter == chestsBefore + 1);
                     am.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                     yield return new WaitForSeconds(0.3f);
                 }
@@ -2419,6 +2435,58 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     var stallHere = local.GetComponent<UI.GameHud>().DebugStallHere();
                     Log("ysolde reachable", "F at her stones opens " + (stallHere.HasValue ? stallHere.Value.ToString() : "nothing"), stallHere == Shop.Vendor.Runewright);
+
+                    // The Gutted Lantern: a horn of mead makes you Tipsy (and costs its price); the band takes a request.
+                    var barkeep = FindAnyObjectByType<TavernKeep>();
+                    var band = FindAnyObjectByType<TavernBand>();
+                    if (barkeep != null && band != null)
+                    {
+                        motor.Teleport(barkeep.transform.position + barkeep.transform.forward * 1.2f + Vector3.up * 0.1f, Quaternion.LookRotation(-barkeep.transform.forward));
+                        yield return new WaitForSeconds(0.2f);
+                        progress.ServerAddGold(100);
+                        int g0 = progress.Gold.Value;
+                        var deb = local.GetComponent<PlayerDebuffs>();
+                        barkeep.UseRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.7f);
+                        int drunk1 = deb.Drunk;
+                        barkeep.UseRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.7f);
+                        bool inside = Lobby.InTavern(barkeep.transform.position);
+                        Log("tavern mead", "two horns: drunk " + drunk1 + " then " + deb.Drunk + " (" + PlayerDebuffs.DrunkName(deb.Drunk) + "), paid " + (g0 - progress.Gold.Value) + ", damage x" + deb.DamageMultiplier.ToString("F2") + ", bar inside the tavern " + inside,
+                            drunk1 == 1 && deb.Drunk == 2 && g0 - progress.Gold.Value == 2 * TavernKeep.MeadPrice && deb.DamageMultiplier > 1.05f && inside);
+                        deb.DrunkLevel.Value = 0;
+                        int song0 = band.Song.Value;
+                        motor.Teleport(band.transform.position + band.transform.forward * 1.4f + Vector3.up * 0.1f, Quaternion.LookRotation(-band.transform.forward));
+                        yield return new WaitForSeconds(0.2f);
+                        g0 = progress.Gold.Value;
+                        band.UseRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.3f);
+                        Log("tavern band", "song " + song0 + " -> " + band.Song.Value + " (\"" + TavernBand.SongName(band.Song.Value) + "\"), paid " + (g0 - progress.Gold.Value),
+                            band.Song.Value == (song0 + 1) % Art.TavernMusic.Songs.Length && g0 - progress.Gold.Value == TavernBand.Fee);
+                        // Every tune renders: long enough, never silent, never clipping.
+                        string songs = ""; bool allOk = true;
+                        for (int si = 0; si < Art.TavernMusic.Songs.Length; si++)
+                        {
+                            var data = Art.TavernMusic.RenderNow(si);
+                            float peak = 0f, rms = 0f;
+                            if (data != null) { foreach (var v in data) { peak = Mathf.Max(peak, Mathf.Abs(v)); rms += v * v; } rms = Mathf.Sqrt(rms / data.Length); }
+                            float secs = data != null ? data.Length / (float)Art.TavernMusic.Rate : 0f;
+                            songs += Art.TavernMusic.Songs[si].Name + " " + secs.ToString("F0") + " s rms " + rms.ToString("F2") + "; ";
+                            allOk &= data != null && secs > 20f && peak <= 1f && rms > 0.05f;
+                        }
+                        Log("tavern songs", songs, allOk);
+                    }
+                    else Log("tavern", "no barkeep or band at camp", false);
+                    // Back to Ysolde's stones for the rune checks that follow.
+                    motor.Teleport(World.Lobby.RunewrightSpot + Vector3.back * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.2f);
+
+                    // The emote wheel: a gesture chosen on it plays on your body for everyone.
+                    var emo = local.GetComponent<Emotes>();
+                    emo.DebugEmote(Art.Emote.Cheer);
+                    yield return new WaitForSeconds(0.3f);
+                    Log("emote wheel", "cheer on the rig: " + (local.Rig != null ? local.Rig.EmoteNow.ToString() : "no rig") + ", wheel slices " + Emotes.Wheel.Length,
+                        local.Rig != null && local.Rig.EmoteNow == Art.Emote.Cheer && Emotes.Wheel.Length == 8);
                     // A gamepad: a virtual pad pressing A jumps (Jump held), RT attacks, and the hints turn to pad buttons.
                     {
                         var vpad = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Gamepad>();
@@ -3170,6 +3238,9 @@ namespace Deepbound.Networking
                 ("0o_castle_keep", Lobby.Origin + Lobby.S(3f, 0.1f, 2f), Lobby.Origin + Lobby.S(0f, 9f, -24f), -18f),
                 ("0q_castle_shrine", Lobby.Origin + Lobby.S(10.5f, 0.1f, -4f), Lobby.ShrineSpot + Vector3.up * 1.5f, 0f),
                 ("0r_castle_range", Lobby.Origin + Lobby.S(8.5f, 0.1f, 11f), Lobby.RangeCenter + Vector3.up * 1.2f, 0f),
+                ("0x1_tavern_outside", Lobby.TavernCenter + new Vector3(10f, 0.1f, -4f), Lobby.TavernCenter + Vector3.up * 2f, -4f),
+                ("0x2_tavern_bar", Lobby.TavernCenter + new Vector3(3.2f, 0.1f, 1.8f), Lobby.TavernKeepSpot + Vector3.up * 1.3f, 0f),
+                ("0x3_tavern_band", Lobby.TavernCenter + new Vector3(0.2f, 0.1f, 2.2f), Lobby.TavernBandSpot + Vector3.up * 1.2f, 4f),
             };
             foreach (var (tname, tat, tlook, tpitch) in tour)
             {
@@ -3180,6 +3251,12 @@ namespace Deepbound.Networking
                 yield return Shot(dir, tname); if (tname == "0j_castle_road") yield return SamplePerf(tname);
             }
             lobbyMotor.SetPitch(0f);
+            // The emote wheel, pushed toward DANCE.
+            var shotEmotes = local.GetComponent<Emotes>();
+            shotEmotes.DebugShowWheel(true, new Vector2(80f, -70f));
+            yield return new WaitForSeconds(0.1f);
+            yield return Shot(dir, "0x4_emote_wheel");
+            shotEmotes.DebugShowWheel(false, Vector2.zero);
 
             // The Mage: switch class, frost the dummy, catch the bolt and the chill.
             var prog = local.GetComponent<PlayerProgress>();

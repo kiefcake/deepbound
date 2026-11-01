@@ -206,7 +206,7 @@ namespace Deepbound.World
             Art.FolkIdle.Attach(root, 1.36f, "Hood", "Face", "EyeL", "EyeR");
         }
 
-        public enum Folk { Smith, Priest, Tailor, Driver, Sergeant, Runewright }
+        public enum Folk { Smith, Priest, Tailor, Driver, Sergeant, Runewright, Barkeep, Lutist, Fiddler, Drummer }
 
         /// <summary>
         /// The camp's people: a simple standing figure with a bare face (no hoods), dressed by trade:
@@ -224,7 +224,9 @@ namespace Deepbound.World
             var skin = new Color(0.78f, 0.62f, 0.5f);
             Color coat = folk == Folk.Smith ? new Color(0.35f, 0.28f, 0.22f) : folk == Folk.Priest ? new Color(0.42f, 0.42f, 0.45f)
                 : folk == Folk.Tailor ? new Color(0.42f, 0.14f, 0.4f) : folk == Folk.Sergeant ? new Color(0.38f, 0.22f, 0.16f)
-                : folk == Folk.Runewright ? new Color(0.14f, 0.2f, 0.3f) : new Color(0.12f, 0.12f, 0.16f);
+                : folk == Folk.Runewright ? new Color(0.14f, 0.2f, 0.3f) : folk == Folk.Barkeep ? new Color(0.36f, 0.16f, 0.12f)
+                : folk == Folk.Lutist ? new Color(0.2f, 0.32f, 0.2f) : folk == Folk.Fiddler ? new Color(0.45f, 0.32f, 0.12f)
+                : folk == Folk.Drummer ? new Color(0.22f, 0.2f, 0.32f) : new Color(0.12f, 0.12f, 0.16f);
             float bulk = folk == Folk.Smith || folk == Folk.Sergeant ? 1.2f : 1f;
             FolkFigure(root, folk, coat, skin, bulk);
             foreach (float s in new[] { -1f, 1f })
@@ -305,6 +307,54 @@ namespace Deepbound.World
                     }
                     var rsash = MeshKit.Part(root, "Sash", MeshKit.Box(new Vector3(0.08f, 0.9f, 0.03f)), Mat.Cloth, new Vector3(0f, 0.95f, 0.27f));
                     ArtLibrary.Tint(rsash.GetComponent<Renderer>(), new Color(0.6f, 0.7f, 0.9f));
+                    break;
+                }
+                case Folk.Barkeep:
+                {
+                    // Marta the alewife: copper hair in a kerchief, a white apron, a cloth over her shoulder.
+                    var hairB = MeshKit.Part(root, "Hair", MeshKit.Ball(0.13f, 10, 8), Mat.Cloth, new Vector3(0f, 1.67f, -0.03f));
+                    ArtLibrary.Tint(hairB.GetComponent<Renderer>(), new Color(0.55f, 0.25f, 0.1f));
+                    var kerchief = MeshKit.Part(root, "Kerchief", MeshKit.Cylinder(0.14f, 0.12f, 0.07f, 12), Mat.Cloth, new Vector3(0f, 1.73f, -0.01f));
+                    ArtLibrary.Tint(kerchief.GetComponent<Renderer>(), new Color(0.6f, 0.15f, 0.12f));
+                    var apronB = MeshKit.Part(root, "Apron", MeshKit.Box(new Vector3(0.44f, 0.75f, 0.03f)), Mat.Cloth, new Vector3(0f, 0.82f, 0.29f));
+                    ArtLibrary.Tint(apronB.GetComponent<Renderer>(), new Color(0.82f, 0.78f, 0.68f));
+                    var towel = MeshKit.Part(root, "Towel", MeshKit.Box(new Vector3(0.1f, 0.35f, 0.03f)), Mat.Cloth, new Vector3(0.24f, 1.3f, 0.12f), new Vector3(0f, 0f, -10f));
+                    ArtLibrary.Tint(towel.GetComponent<Renderer>(), new Color(0.75f, 0.72f, 0.62f));
+                    break;
+                }
+                case Folk.Lutist:
+                {
+                    // A lute across the body: a round back, a long neck angled up to the left, a bent-back pegbox.
+                    var feather = MeshKit.Part(root, "Cap", MeshKit.Cylinder(0.15f, 0.12f, 0.08f, 12), Mat.Cloth, new Vector3(0f, 1.73f, 0f));
+                    ArtLibrary.Tint(feather.GetComponent<Renderer>(), new Color(0.15f, 0.25f, 0.15f));
+                    MeshKit.Part(root, "Feather", MeshKit.Box(new Vector3(0.02f, 0.25f, 0.04f)), Mat.Bone, new Vector3(0.1f, 1.85f, -0.05f), new Vector3(-20f, 0f, -25f));
+                    var bowl = MeshKit.Part(root, "LuteBody", MeshKit.Ball(0.19f, 12, 8), Mat.Wood, new Vector3(0.08f, 1.0f, 0.3f), new Vector3(0f, 0f, 35f), new Vector3(1f, 1.25f, 0.55f));
+                    ArtLibrary.Tint(bowl.GetComponent<Renderer>(), new Color(0.55f, 0.33f, 0.15f));
+                    MeshKit.Part(root, "LuteNeck", MeshKit.Box(new Vector3(0.05f, 0.5f, 0.03f)), Mat.Wood, new Vector3(-0.17f, 1.3f, 0.32f), new Vector3(0f, 0f, 35f));
+                    MeshKit.Part(root, "LutePegbox", MeshKit.Box(new Vector3(0.05f, 0.14f, 0.03f)), Mat.Wood, new Vector3(-0.33f, 1.5f, 0.27f), new Vector3(-55f, 0f, 35f));
+                    MeshKit.Part(root, "LuteRose", MeshKit.Cylinder(0.04f, 0.04f, 0.005f, 10), Mat.Dark, new Vector3(0.06f, 1.03f, 0.41f), new Vector3(90f, 0f, 0f));
+                    break;
+                }
+                case Folk.Fiddler:
+                {
+                    // A fiddle under the chin and a bow across it; a shock of grey hair.
+                    var hairF = MeshKit.Part(root, "Hair", MeshKit.Ball(0.14f, 10, 8), Mat.Cloth, new Vector3(0f, 1.68f, -0.03f), default, new Vector3(1.1f, 0.9f, 1f));
+                    ArtLibrary.Tint(hairF.GetComponent<Renderer>(), new Color(0.62f, 0.6f, 0.58f));
+                    var fiddle = MeshKit.Part(root, "Fiddle", MeshKit.Ball(0.1f, 10, 6), Mat.Wood, new Vector3(-0.17f, 1.38f, 0.22f), new Vector3(10f, 30f, 60f), new Vector3(0.75f, 1.4f, 0.4f));
+                    ArtLibrary.Tint(fiddle.GetComponent<Renderer>(), new Color(0.6f, 0.28f, 0.1f));
+                    MeshKit.Part(root, "FiddleNeck", MeshKit.Box(new Vector3(0.025f, 0.22f, 0.02f)), Mat.Dark, new Vector3(-0.36f, 1.33f, 0.36f), new Vector3(10f, 30f, 60f));
+                    MeshKit.Part(root, "Bow", MeshKit.Box(new Vector3(0.012f, 0.6f, 0.012f)), Mat.Wood, new Vector3(0.05f, 1.3f, 0.36f), new Vector3(0f, 0f, -70f));
+                    break;
+                }
+                case Folk.Drummer:
+                {
+                    // A frame drum held up in the left hand, a beater in the right; a broad-brimmed hat.
+                    MeshKit.Part(root, "Brim", MeshKit.Cylinder(0.24f, 0.24f, 0.02f, 14), Mat.Leather, new Vector3(0f, 1.74f, 0f));
+                    MeshKit.Part(root, "Hat", MeshKit.Cylinder(0.12f, 0.13f, 0.14f, 12), Mat.Leather, new Vector3(0f, 1.8f, 0f));
+                    MeshKit.Part(root, "DrumRim", MeshKit.Cylinder(0.24f, 0.24f, 0.07f, 16), Mat.Wood, new Vector3(-0.2f, 1.1f, 0.3f), new Vector3(80f, 0f, 20f));
+                    var drumSkin = MeshKit.Part(root, "DrumSkin", MeshKit.Cylinder(0.23f, 0.23f, 0.075f, 16), Mat.Cloth, new Vector3(-0.2f, 1.1f, 0.31f), new Vector3(80f, 0f, 20f));
+                    ArtLibrary.Tint(drumSkin.GetComponent<Renderer>(), new Color(0.85f, 0.75f, 0.55f));
+                    MeshKit.Part(root, "Beater", MeshKit.Box(new Vector3(0.02f, 0.25f, 0.02f)), Mat.Wood, new Vector3(0.25f, 1.05f, 0.3f), new Vector3(-50f, 0f, 30f));
                     break;
                 }
                 case Folk.Tailor:

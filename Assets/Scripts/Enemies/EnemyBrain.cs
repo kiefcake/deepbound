@@ -342,6 +342,22 @@ namespace Deepbound.Enemies
         }
 
         /// <summary>
+        /// Server: the party grew or shrank mid-floor (a friend joined, or dropped out): rescale this one's health and
+        /// bite to the new size, keeping how hurt it is. A two-player room no longer stays four-player tough after two leave.
+        /// </summary>
+        public void ServerRescaleParty(int players)
+        {
+            players = Mathf.Max(1, players);
+            if (!IsServer || players == scaledPlayersBase || health == null || !health.IsAlive) return;
+            float k = Difficulty.PartyHealth(players, IsBoss) / Difficulty.PartyHealth(scaledPlayersBase, IsBoss);
+            float frac = health.Fraction;
+            health.ServerSetMax(health.Max.Value * k, refill: false);
+            health.ServerSetFraction(frac);
+            damage *= Difficulty.Damage(players) / Difficulty.Damage(scaledPlayersBase);
+            scaledPlayersBase = players;
+        }
+
+        /// <summary>
         /// Frenzied (2026-10-20): below half health it attacks far faster (wind-ups and recoveries x0.6), and
         /// says so once. Burst it down from high, or stun it when it turns.
         /// </summary>

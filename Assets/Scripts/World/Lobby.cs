@@ -40,6 +40,18 @@ namespace Deepbound.World
         public static readonly Vector3 SlotSpot = TentCenter + new Vector3(-2.9f, 0f, 0.3f);
         public static readonly Vector3 BlackjackSpot = TentCenter + new Vector3(-0.6f, 0f, -2.5f);
         public static readonly Vector3 GongSpot = Origin + S(8.5f, 0f, 6f);
+
+        /// <summary>
+        /// The Gutted Lantern (2026-11-01, the user: "a tavern nearby the casino tent ... mead ... a band"): a stone and
+        /// timber alehouse north-west of the gambling tent, its door facing east onto the cart and the bounty board.
+        /// Inside: Marta's bar (mead, <see cref="TavernKeep"/>), a hearth, tables, and a little stage for the band
+        /// (<see cref="TavernBand"/>). Interior 8 x 7 m.
+        /// </summary>
+        public static readonly Vector3 TavernCenter = Origin + S(-16f, 0f, 12f);
+        public const float TavernHalfX = 4f, TavernHalfZ = 3.5f, TavernWall = 3.2f;
+        public static readonly Vector3 TavernKeepSpot = TavernCenter + new Vector3(-1.9f, 0f, 0.6f);
+        public static readonly Vector3 TavernBandSpot = TavernCenter + new Vector3(1.4f, 0f, -1.6f);
+        public static bool InTavern(Vector3 p) => Mathf.Abs(p.x - TavernCenter.x) < TavernHalfX && Mathf.Abs(p.z - TavernCenter.z) < TavernHalfZ && Mathf.Abs(p.y - TavernCenter.y) < 4f;
         public static readonly Vector3 GongFacing = Vector3.left;
 
         public static readonly Vector3 ShrineSpot = Origin + S(15.5f, 0f, -4f);
@@ -127,6 +139,7 @@ namespace Deepbound.World
             BuildPlaza(o, dressing, lights);
             BuildStalls(o, dressing, lights);
             BuildTent(lights, dressing);
+            BuildTavern(structure, dressing, lights);
             BuildYard(o, dressing, lights);
             BuildShrineNook(dressing, lights);
             BuildRange(dressing, lights);
@@ -407,7 +420,7 @@ namespace Deepbound.World
                 }
             }
             // Crates, barrels and a hand cart between the stalls and the walls.
-            foreach (var (x, z) in new[] { (-12f, -2f), (11f, -11f), (-14f, 11f), (12.5f, 9f), (-4f, -21f), (7f, 18f) })
+            foreach (var (x, z) in new[] { (-12f, -2f), (11f, -11f), (12.5f, 9f), (-4f, -21f), (7f, 18f) })
             {
                 var at = o + S(x, 0f, z);
                 for (int n = 0; n < 3; n++)
@@ -655,6 +668,122 @@ namespace Deepbound.World
             lamp.color = new Color(1f, 0.65f, 0.35f);
             lamp.range = 8f;
             lamp.intensity = 2.4f;
+        }
+
+        /// <summary>The Gutted Lantern: walls with an east door, a pitched roof, the bar, the hearth, tables and the stage.</summary>
+        private static void BuildTavern(MeshKit.Batcher s, MeshKit.Batcher d, Transform lights)
+        {
+            var c = TavernCenter;
+            float hx = TavernHalfX, hz = TavernHalfZ, wallH = TavernWall, t = 0.4f;
+            var timber = new Color(0.22f, 0.15f, 0.1f);
+            var plank = new Color(0.42f, 0.3f, 0.2f);
+            // Floorboards.
+            d.AddBox(c + new Vector3(0f, 0.015f, 0f), new Vector3(hx * 2f, 0.03f, hz * 2f), Mat.Wood, plank);
+            // Walls: west and north/south whole, the east wall with a door 2.2 m wide and 2.5 m high.
+            s.AddBox(c + new Vector3(-hx, wallH / 2f, 0f), new Vector3(t, wallH, hz * 2f + t), Mat.StoneWall);
+            s.AddBox(c + new Vector3(0f, wallH / 2f, hz), new Vector3(hx * 2f + t, wallH, t), Mat.StoneWall);
+            s.AddBox(c + new Vector3(0f, wallH / 2f, -hz), new Vector3(hx * 2f + t, wallH, t), Mat.StoneWall);
+            float door = 1.1f, doorH = 2.5f;
+            float side = hz - door;
+            s.AddBox(c + new Vector3(hx, wallH / 2f, door + side / 2f), new Vector3(t, wallH, side + t), Mat.StoneWall);
+            s.AddBox(c + new Vector3(hx, wallH / 2f, -door - side / 2f), new Vector3(t, wallH, side + t), Mat.StoneWall);
+            s.AddBox(c + new Vector3(hx, doorH + (wallH - doorH) / 2f, 0f), new Vector3(t, wallH - doorH, door * 2f), Mat.StoneWall);
+            // Timber: corner posts, a wall plate round the top, a lintel and door posts.
+            foreach (float x in new[] { -hx, hx })
+                foreach (float z in new[] { -hz, hz })
+                    d.AddBox(c + new Vector3(x, wallH / 2f, z), new Vector3(t + 0.12f, wallH, t + 0.12f), Mat.Wood, timber);
+            d.AddBox(c + new Vector3(0f, wallH + 0.1f, hz), new Vector3(hx * 2f + 0.6f, 0.2f, t + 0.1f), Mat.Wood, timber);
+            d.AddBox(c + new Vector3(0f, wallH + 0.1f, -hz), new Vector3(hx * 2f + 0.6f, 0.2f, t + 0.1f), Mat.Wood, timber);
+            d.AddBox(c + new Vector3(hx + 0.02f, doorH + 0.1f, 0f), new Vector3(t + 0.1f, 0.2f, door * 2f + 0.5f), Mat.Wood, timber);
+            foreach (float z in new[] { -door - 0.1f, door + 0.1f }) d.AddBox(c + new Vector3(hx + 0.02f, doorH / 2f, z), new Vector3(t + 0.1f, doorH, 0.18f), Mat.Wood, timber);
+            // The roof: two slopes up to a ridge running east-west, and stepped stone gables.
+            float rise = 1.9f, eave = hz + 0.5f;
+            float slope = Mathf.Sqrt(eave * eave + rise * rise);
+            float ang = Mathf.Atan2(rise, eave) * Mathf.Rad2Deg;
+            var roof = new Color(0.25f, 0.17f, 0.12f);
+            foreach (float sgn in new[] { -1f, 1f })
+                s.AddBox(c + new Vector3(0f, wallH + 0.2f + rise / 2f, sgn * eave / 2f), new Vector3(hx * 2f + 0.9f, 0.16f, slope), Mat.Wood, roof, Quaternion.Euler(sgn * ang, 0f, 0f));
+            d.AddBox(c + new Vector3(0f, wallH + 0.2f + rise + 0.05f, 0f), new Vector3(hx * 2f + 1f, 0.18f, 0.25f), Mat.Wood, timber);
+            foreach (float x in new[] { -hx, hx })
+                for (int i = 0; i < 4; i++)
+                {
+                    float y0 = wallH + i * rise / 4f, w = (eave * 2f) * (1f - (i + 0.5f) / 4f);
+                    s.AddBox(c + new Vector3(x, y0 + rise / 8f + 0.1f, 0f), new Vector3(t, rise / 4f, w), Mat.StoneWall);
+                }
+            // Rafters under the roof.
+            for (int i = -3; i <= 3; i += 2) d.AddBox(c + new Vector3(i * 1.05f, wallH - 0.15f, 0f), new Vector3(0.16f, 0.2f, hz * 2f), Mat.Wood, timber);
+            // A chimney above the hearth.
+            s.AddBox(c + new Vector3(0.6f, wallH + rise * 0.5f + 0.6f, hz - 0.1f), new Vector3(1f, rise + 1.4f, 0.8f), Mat.StoneWall);
+
+            // The hearth on the north wall, a fire in it.
+            var hearth = c + new Vector3(0.6f, 0f, hz - 0.45f);
+            s.AddBox(hearth + new Vector3(-0.75f, 0.65f, 0f), new Vector3(0.3f, 1.3f, 0.7f), Mat.StoneWall);
+            s.AddBox(hearth + new Vector3(0.75f, 0.65f, 0f), new Vector3(0.3f, 1.3f, 0.7f), Mat.StoneWall);
+            s.AddBox(hearth + new Vector3(0f, 1.4f, 0f), new Vector3(1.9f, 0.3f, 0.8f), Mat.StoneWall);
+            d.AddBox(hearth + new Vector3(0f, 0.05f, 0f), new Vector3(1.2f, 0.1f, 0.6f), Mat.Rubble);
+            for (int i = 0; i < 3; i++) d.Add(MeshKit.Cylinder(0.06f, 0.06f, 0.7f, 6), Mat.Wood, Matrix4x4.TRS(hearth + new Vector3(0f, 0.15f, 0f), Quaternion.Euler(0f, i * 60f, 85f), Vector3.one));
+            Props.Candles(lights, c + new Vector3(-hx + 0.5f, 0f, hz - 0.5f), Fire);
+            var fire = MeshKit.Pivot(lights, "TavernFire", hearth + Vector3.up * 0.1f);
+            Props.AddFlame(fire, Vector3.zero, 1.2f, new Color(1f, 0.55f, 0.25f), 4f, 8f, false);
+
+            // The bar: a counter along the west side, a shelf of barrels behind it.
+            var bar = TavernKeepSpot + new Vector3(-0.4f, 0f, 0f);
+            d.AddBox(bar + new Vector3(0f, 0.55f, 0f), new Vector3(0.6f, 1.1f, 3.4f), Mat.Wood, plank * 0.8f);
+            d.AddBox(bar + new Vector3(0.05f, 1.12f, 0f), new Vector3(0.75f, 0.06f, 3.5f), Mat.Wood, timber);
+            for (int i = 0; i < 3; i++)
+            {
+                var keg = c + new Vector3(-hx + 0.55f, 0.45f, -0.9f + i * 0.9f);
+                d.Add(MeshKit.Cylinder(0.32f, 0.32f, 0.75f, 12), Mat.Wood, Matrix4x4.TRS(keg, Quaternion.Euler(0f, 0f, 90f), Vector3.one));
+                d.Add(MeshKit.Cylinder(0.33f, 0.33f, 0.05f, 12), Mat.Steel, Matrix4x4.TRS(keg + new Vector3(0.2f, 0f, 0f), Quaternion.Euler(0f, 0f, 90f), Vector3.one));
+                d.Add(MeshKit.Cylinder(0.33f, 0.33f, 0.05f, 12), Mat.Steel, Matrix4x4.TRS(keg + new Vector3(-0.2f, 0f, 0f), Quaternion.Euler(0f, 0f, 90f), Vector3.one));
+            }
+            d.AddBox(c + new Vector3(-hx + 0.3f, 1.75f, 0f), new Vector3(0.3f, 0.05f, 3f), Mat.Wood, timber);
+            for (int i = 0; i < 7; i++) d.Add(MeshKit.Cylinder(0.05f, 0.05f, 0.14f, 8), Mat.Wood, Matrix4x4.Translate(c + new Vector3(-hx + 0.3f, 1.85f, -1.3f + i * 0.43f)));
+
+            // The stage, and tables with stools.
+            d.AddBox(TavernBandSpot + new Vector3(0f, 0.12f, -0.95f), new Vector3(3.2f, 0.25f, 1.6f), Mat.Wood, plank * 0.9f);
+            foreach (var at in new[] { c + new Vector3(0.1f, 0f, 0.9f), c + new Vector3(2.4f, 0f, 1.6f), c + new Vector3(-0.4f, 0f, -1.6f) })
+            {
+                d.Add(MeshKit.Cylinder(0.08f, 0.14f, 0.75f, 8), Mat.Wood, Matrix4x4.Translate(at));
+                d.Add(MeshKit.Cylinder(0.6f, 0.6f, 0.06f, 14), Mat.Wood, Matrix4x4.Translate(at + Vector3.up * 0.75f));
+                for (int k = 0; k < 3; k++)
+                {
+                    float a = k * 120f * Mathf.Deg2Rad + 0.4f;
+                    var stool = at + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.95f;
+                    d.Add(MeshKit.Cylinder(0.18f, 0.16f, 0.45f, 8), Mat.Wood, Matrix4x4.Translate(stool));
+                }
+                d.Add(MeshKit.Cylinder(0.05f, 0.05f, 0.13f, 8), Mat.Wood, Matrix4x4.Translate(at + new Vector3(0.15f, 0.78f, 0.1f)));
+                // One stub of candle on each table (a floor cluster of them was the size of a bonfire up here).
+                d.Add(MeshKit.Cylinder(0.03f, 0.03f, 0.1f, 6), Mat.Bone, Matrix4x4.Translate(at + new Vector3(-0.2f, 0.78f, -0.1f)));
+                var wick = MeshKit.Part(lights, "TableCandle", MeshKit.Ball(0.022f, 6, 4), Mat.Glow, at + new Vector3(-0.2f, 0.91f, -0.1f), default, new Vector3(1f, 1.6f, 1f));
+                ArtLibrary.SetGlow(wick.GetComponent<Renderer>(), new Color(1f, 0.6f, 0.25f) * 2f);
+            }
+
+            // Windows glowing warm on the north and south walls; a lamp over the bar; a chandelier.
+            foreach (float sgn in new[] { -1f, 1f })
+                foreach (float x in new[] { -1.8f, 2.4f })
+                {
+                    var pane = MeshKit.Part(lights, "TavernWindow", MeshKit.Box(new Vector3(0.8f, 0.9f, 0.05f)), Mat.Glow, c + new Vector3(x, 1.9f, sgn * (hz + t / 2f + 0.01f)));
+                    ArtLibrary.SetGlow(pane.GetComponent<Renderer>(), new Color(1f, 0.6f, 0.25f) * 1.3f);
+                    d.AddBox(c + new Vector3(x, 1.9f, sgn * (hz + t / 2f + 0.03f)), new Vector3(0.06f, 0.95f, 0.04f), Mat.Wood, timber);
+                    d.AddBox(c + new Vector3(x, 1.9f, sgn * (hz + t / 2f + 0.03f)), new Vector3(0.85f, 0.06f, 0.04f), Mat.Wood, timber);
+                }
+            Props.Chandelier(lights, d, c + new Vector3(0.6f, wallH + 0.3f, 0.2f), 0.9f, Fire);
+            var lamp = new GameObject("TavernLamp").AddComponent<Light>();
+            lamp.transform.SetParent(lights, false);
+            lamp.transform.position = c + new Vector3(-2.2f, 2.6f, 0.4f);
+            lamp.type = LightType.Point;
+            lamp.color = new Color(1f, 0.66f, 0.38f);
+            lamp.range = 7f;
+            lamp.intensity = 2f;
+
+            // The sign over the door: a board on an iron arm, a lantern painted on it, its own lantern beneath.
+            var signArm = c + new Vector3(hx + 0.6f, doorH + 0.5f, -door - 0.5f);
+            d.AddBox(signArm, new Vector3(1.2f, 0.06f, 0.06f), Mat.Steel);
+            d.AddBox(signArm + new Vector3(0.25f, -0.45f, 0f), new Vector3(0.06f, 0.7f, 0.9f), Mat.Wood, plank);
+            var painted = MeshKit.Part(lights, "TavernSignLantern", MeshKit.Box(new Vector3(0.02f, 0.32f, 0.22f)), Mat.Glow, signArm + new Vector3(0.29f, -0.45f, 0f));
+            ArtLibrary.SetGlow(painted.GetComponent<Renderer>(), new Color(1f, 0.7f, 0.3f) * 0.9f);
+            Props.WallTorch(lights, c + new Vector3(hx + t / 2f, 2.3f, door + 0.5f), Vector3.right, false, Fire);
         }
 
         private static void BuildYard(Vector3 o, MeshKit.Batcher d, Transform lights)

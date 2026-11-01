@@ -53,8 +53,9 @@ namespace Deepbound.World
         /// <summary>Distance between room centres. Bounds the largest room plus a corridor.</summary>
         /// <remarks>Raised from 30m so rooms can be bigger: a 30m Great Hall still leaves a corridor.</remarks>
         public const float CellSize = 46f;
-        public const float CorridorWidth = 3.2f;
-        public const float CorridorHeight = 3.8f;
+        // Wider and taller (2026-11-01, the user: "make corridor rooms bigger"; was 3.2 x 3.8): a party can pass and fight in them.
+        public const float CorridorWidth = 4.6f;
+        public const float CorridorHeight = 4.4f;
 
         public class Room
         {
@@ -346,7 +347,7 @@ namespace Deepbound.World
             {
                 case RoomKind.Start: size = new Vector2(12f, 12f); height = 5f; break;
                 case RoomKind.Boss: size = new Vector2(30f, 30f); height = 12f; break;
-                case RoomKind.Side: size = new Vector2(Even(rng, 12, 16), Even(rng, 12, 16)); height = 5f; break;
+                case RoomKind.Side: size = new Vector2(Even(rng, 14, 18), Even(rng, 14, 18)); height = 5.5f; break;
                 default: size = new Vector2(Even(rng, 18, 32), Even(rng, 18, 32)); height = 6f + rng.Next(3); break;
             }
 

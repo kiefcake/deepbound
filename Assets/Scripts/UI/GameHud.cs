@@ -2163,7 +2163,7 @@ namespace Deepbound.UI
                 "CTRL dodge (slide if sprinting)  ·  V kick\n" +
                 "R ultimate (when charged)\n" +
                 "1 / 2  drink Health / Mana   3 / 4  throw Frost / Holy\n" +
-                "M map  ·  Z ping  ·  H high five  ·  Esc free mouse\n" +
+                "M map  ·  Z ping  ·  H wave (hold: emotes)  ·  Esc free mouse\n" +
                 "Hit enemies from behind for +35%"), style);
         }
 

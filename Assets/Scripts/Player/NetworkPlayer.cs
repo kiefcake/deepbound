@@ -89,6 +89,9 @@ namespace Deepbound.Player
         public Vector3 AimForward => playerCamera.transform.forward;
         private bool selfShown;
         private HumanoidRig selfShownRig;
+        private PlayerDebuffs debuffsRef;
+        /// <summary>Mead in this player (0-3).</summary>
+        public int Drunk => (debuffsRef != null ? debuffsRef : (debuffsRef = GetComponent<PlayerDebuffs>())) is PlayerDebuffs d ? d.Drunk : 0;
 
         /// <summary>
         /// What the crosshair is on, up to <paramref name="range"/> m, looking past your own body (play-test 2026-11-01:
@@ -465,6 +468,7 @@ namespace Deepbound.Player
                 playerCamera.farClipPlane = DungeonDirector.InLobby ? 220f : Mathf.Clamp(2.6f / Mathf.Max(0.001f, RenderSettings.fogDensity), 45f, 120f);
             if (Rig != null)
             {
+                Rig.Drunk = Drunk;
                 Rig.Blocking = knight != null && knight.Blocking.Value;
                 Rig.Downed = life != null && life.Downed.Value;
             }
@@ -497,7 +501,7 @@ namespace Deepbound.Player
         private Vector3 vmRestPos;
         private Quaternion vmRestRot = Quaternion.identity;
         private bool vmRestKnown, wasGrounded = true;
-        private float walkPhase, landDip, lastVy, lastYaw, lastPitch, slideLean, downRoll, downTilt;
+        private float walkPhase, landDip, lastVy, lastYaw, lastPitch, slideLean, downRoll, downTilt, drunkSway;
         private Vector2 sway, swayVel;
         // 2026-10-28 (the user: "better POV hand and weapon animation"): the view model's weight. A spring on the turn
         // lag (it overshoots and settles), a roll into strafes, a lift in the air, a carry pose at a sprint, the
@@ -566,7 +570,14 @@ namespace Deepbound.Player
             bool down = life != null && life.Downed.Value;
             downRoll = Mathf.MoveTowards(downRoll, down ? 24f : 0f, dt * (down ? 60f : 90f));
             downTilt = Mathf.MoveTowards(downTilt, down ? 18f : 0f, dt * (down ? 40f : 80f));
-            cam.localRotation = Quaternion.Euler(-downTilt, 0f, slideLean + downRoll);
+            // Mead: the room tilts and swims, more with every cup (scaled by the shake option, never below a third).
+            float drunk = Mathf.MoveTowards(drunkSway, Drunk, dt * 0.5f);
+            drunkSway = drunk;
+            float dk = drunk * Mathf.Max(0.35f, Settings.ShakeScale), tt = Time.time;
+            float dRoll = (2.2f * Mathf.Sin(tt * 0.83f) + 1.2f * Mathf.Sin(tt * 1.91f + 1f)) * dk;
+            float drPitch = (1.1f * Mathf.Sin(tt * 0.61f + 2f)) * dk;
+            float drYaw = (1.4f * Mathf.Sin(tt * 0.47f + 0.5f)) * dk;
+            cam.localRotation = Quaternion.Euler(-downTilt + drPitch, drYaw, slideLean + downRoll + dRoll);
             return (Vector3.up * Mathf.Sin(walkPhase * 2f) * 0.022f * amp + Vector3.down * 0.12f * landDip) * Settings.ShakeScale;
         }
 
