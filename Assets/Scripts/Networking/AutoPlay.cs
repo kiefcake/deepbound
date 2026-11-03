@@ -11,8 +11,6 @@ using Deepbound.World;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.AI;
-using UnityEngine.InputSystem;
-using UnityEngine.InputSystem.LowLevel;
 
 namespace Deepbound.Networking
 {
@@ -45,7 +43,6 @@ namespace Deepbound.Networking
         private PlayerProgress prog;
         private Health hp;
         private Flasks flasks;
-        private Gamepad pad;
 
         private readonly Dictionary<string, float> takenBy = new Dictionary<string, float>();
         private float taken, dealt;
@@ -63,6 +60,8 @@ namespace Deepbound.Networking
         // shops at camp on its own. The host sees every hit, so it keeps the books for the whole party and gives every
         // member the same "would have gone down" save.
         private bool follower;
+        /// <summary>-autofloors N: stop after N floors (tools/test_party.py).</summary>
+        private int floorsWanted = int.MaxValue;
         private int seatNo, partySize = 1;
         private class Member { public string Name; public float Dealt, Taken, BossDealt; public int Saves, SavesFloor; }
         private readonly Dictionary<ulong, Member> party = new Dictionary<ulong, Member>();
@@ -88,6 +87,8 @@ namespace Deepbound.Networking
             if (ad >= 0 && ad + 1 < args.Length && int.TryParse(args[ad + 1], out var d0)) startFloor = Mathf.Clamp(d0, 1, DungeonDirector.FloorsPerRun) - 1;
             int ap = System.Array.IndexOf(args, "-autoparty");
             if (ap >= 0 && ap + 1 < args.Length && int.TryParse(args[ap + 1], out var n0)) partySize = Mathf.Clamp(n0, 1, 4);
+            int fl = System.Array.IndexOf(args, "-autofloors");
+            if (fl >= 0 && fl + 1 < args.Length && int.TryParse(args[fl + 1], out var fl0)) floorsWanted = Mathf.Max(1, fl0);
             int af = System.Array.IndexOf(args, "-autofollow");
             if (af >= 0) { follower = true; seatNo = af + 1 < args.Length && int.TryParse(args[af + 1], out var k0) ? Mathf.Clamp(k0, 1, 3) : 1; startFloor = 0; }
             // Never touch the real save; the dungeon still behaves as in play (DungeonDirector.TestMode stays off).
@@ -288,11 +289,10 @@ namespace Deepbound.Networking
             prog = me.GetComponent<PlayerProgress>();
             hp = me.GetComponent<Health>();
             flasks = me.GetComponent<Flasks>();
-            pad = InputSystem.AddDevice<Gamepad>();
-            // The bot's window is often not the focused one (someone is watching or working beside it):
-            // input from its virtual pad must count anyway.
+            // The bot's window is often not the focused one (someone is watching, or three other bots are running): it needs
+            // neither the cursor nor the input system, see Binds.BotPress.
+            FirstPersonMotor.BotControl = true;
             Application.runInBackground = true;
-            InputSystem.settings.backgroundBehavior = InputSettings.BackgroundBehavior.IgnoreFocus;
             if (!follower) Health.ServerAnyDamaged += (h, amount, from) =>
             {
                 if (party.TryGetValue(from, out var md)) { md.Dealt += amount; if (BossBrain.Active != null && h == BossBrain.Active.GetComponent<Health>()) md.BossDealt += amount; }
@@ -362,6 +362,7 @@ namespace Deepbound.Networking
                 yield return Floor();
                 var ph = DungeonDirector.Instance.Phase.Value;
                 if (ph == RunPhase.RunComplete || ph == RunPhase.Wiped) break;
+                if (f + 1 >= floorsWanted) break;
             }
 
             L("== RUN OVER: phase " + DungeonDirector.Instance.Phase.Value + " ==");
@@ -372,7 +373,6 @@ namespace Deepbound.Networking
             yield return Shot("run_summary_late");
             L("== PROBLEMS SEEN (" + problems.Count + ") ==");
             foreach (var p in problems) L("  - " + p);
-            InputSystem.RemoveDevice(pad);
             log.Close();
             Application.Quit(0);
         }
@@ -532,6 +532,102 @@ namespace Deepbound.Networking
             return dr > 1 ? ", clock x" + ((st - clockServer0) / dr).ToString("F2") + " (run start " + (World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.RunStartedAt.Value.ToString("F0") : "-") + ", now " + st.ToString("F0") + ")" : "";
         }
 
+        // ---- What the bot actually did with its kit: the abilities it set going, per floor (2026-11-03: in a four-bot run
+        // three bots never attacked at all and the log did not say so). ----
+        private readonly List<AbilityView> abilityViews = new List<AbilityView>();
+        private readonly Dictionary<string, float> abilityWas = new Dictionary<string, float>();
+        private readonly Dictionary<string, int> abilityUses = new Dictionary<string, int>();
+
+        private void CountAbilities()
+        {
+            if (me == null || me.ActiveKit == null) return;
+            abilityViews.Clear();
+            me.ActiveKit.FillAbilities(abilityViews);
+            foreach (var v in abilityViews)
+            {
+                string key = v.Key + " " + v.Name;
+                abilityWas.TryGetValue(key, out float was);
+                if (v.Remaining > 0.05f && was <= 0.05f) { abilityUses.TryGetValue(key, out int n); abilityUses[key] = n + 1; }
+                abilityWas[key] = v.Remaining;
+            }
+        }
+
+        private string AbilitiesLine()
+        {
+            string line = abilityUses.Count == 0 ? "none" : string.Join(", ", abilityUses.Select(kv => kv.Key + " x" + kv.Value));
+            abilityUses.Clear();
+            return line;
+        }
+
+        private float nextSecondary;
+        private const float BeamReach = 14f;
+
+        /// <summary>The most hurt other player within reach, for the kits that heal them.</summary>
+        private PlayerLife HurtAlly(float below)
+        {
+            PlayerLife best = null;
+            float low = below;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || p == life || p.Health == null || !p.Health.IsAlive || p.Downed.Value) continue;
+                if (Vector3.Distance(p.transform.position, me.transform.position) > BeamReach || p.Health.Fraction >= low) continue;
+                low = p.Health.Fraction;
+                best = p;
+            }
+            return best;
+        }
+
+        /// <summary>
+        /// The right mouse button, which the bot never used: frostbolts, fans, the Scourge, the Cleric's beam and the Plague
+        /// Doctor's tonic, Disengage when something is on top of the Ranger. (The Knight's is its block, handled apart.)
+        /// </summary>
+        private IEnumerator UseSecondary(Health target, float dist)
+        {
+            if (Time.time < nextSecondary || cls == Classes.ClassId.Knight) yield break;
+            switch (cls)
+            {
+                case Classes.ClassId.Mage:
+                    nextSecondary = Time.time + 2.6f;
+                    yield return HoldSecondary(0.15f);
+                    break;
+                case Classes.ClassId.Rogue:
+                    nextSecondary = Time.time + 4f;
+                    yield return HoldSecondary(0.1f);
+                    break;
+                case Classes.ClassId.Flagellant:
+                    if (hp.Fraction < 0.3f) yield break;
+                    nextSecondary = Time.time + 4f;
+                    yield return HoldSecondary(0.1f);
+                    break;
+                case Classes.ClassId.Ranger:
+                    if (dist > 3.5f) yield break;
+                    nextSecondary = Time.time + 6f;
+                    yield return HoldSecondary(0.1f);
+                    break;
+                case Classes.ClassId.Cleric:
+                case Classes.ClassId.PlagueDoctor:
+                {
+                    var ally = HurtAlly(0.7f);
+                    if (ally == null && hp.Fraction >= 0.6f) yield break;
+                    nextSecondary = Time.time + (cls == Classes.ClassId.Cleric ? 2f : 6f);
+                    // Look at whoever needs it (no one under the crosshair: it lands on yourself).
+                    if (ally != null) Face(ally.Health.Center);
+                    yield return HoldSecondary(cls == Classes.ClassId.Cleric ? 1.2f : 0.15f);
+                    if (target != null) Face(target.Center);
+                    break;
+                }
+            }
+        }
+
+        private IEnumerator HoldSecondary(float seconds)
+        {
+            UI.Binds.BotSetSecondary(true);
+            float until = Time.time + seconds;
+            while (Time.time < until) yield return null;
+            UI.Binds.BotSetSecondary(false);
+            yield return null;
+        }
+
         private string Status(string where)
         {
             var kit = me.ActiveKit;
@@ -539,6 +635,7 @@ namespace Deepbound.Networking
                        ", weapon +" + prog.WeaponLevel.Value + (prog.Hones.Value > 0 ? " honed " + prog.Hones.Value : "") + ", Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E) + ", relics " + prog.RelicCount + RelicTiers() +
                        (flasks != null ? ", pouch H" + flasks.Count(Flasks.Kind.Health) + " M" + flasks.Count(Flasks.Kind.Mana) : "") + ", armour " + Gear.Name(prog.Equipped(GearSlot.Armor)) + ", charm " + Gear.Name(prog.Equipped(GearSlot.Charm));
             s += ClockCheck();
+            s += ", hands " + (life.CanAct ? "free" : "BUSY") + (motor.ActionsReady ? "" : " NOT-READY") + (Application.isFocused ? " focused" : "");
             L(s);
             return s;
         }
@@ -577,6 +674,7 @@ namespace Deepbound.Networking
             while (dd.Phase.Value == RunPhase.Exploring && !DungeonDirector.InLobby && Time.time - floorStart < floorLimit)
             {
                 Cursor.lockState = CursorLockMode.Locked;
+                CountAbilities();
                 if (!follower)
                     foreach (var p in PlayerLife.All)
                         if (p != null && p != life && p.Downed.Value) { L("stood " + Health.NameOf(p.NetworkObjectId) + " back up"); p.ServerRevive(1f); }
@@ -612,11 +710,11 @@ namespace Deepbound.Networking
                 {
                     nextBlock = Time.time + 1.6f;
                     if (cls == Classes.ClassId.Knight) yield return Block(0.6f);
-                    else yield return Press(GamepadButton.East);
+                    else yield return Press(UI.Bind.Dodge);
                 }
                 // A potion below 40%.
-                if (flasks != null && hp.Current.Value < hp.Max.Value * 0.4f && flasks.Count(Flasks.Kind.Health) > 0) yield return Press(GamepadButton.DpadLeft);
-                if (me.ActiveKit != null && me.ActiveKit.Resource < me.ActiveKit.ResourceMax * 0.15f && flasks != null && flasks.Count(Flasks.Kind.Mana) > 0) yield return Press(GamepadButton.DpadRight);
+                if (flasks != null && hp.Current.Value < hp.Max.Value * 0.4f && flasks.Count(Flasks.Kind.Health) > 0) yield return Press(UI.Bind.Potion1);
+                if (me.ActiveKit != null && me.ActiveKit.Resource < me.ActiveKit.ResourceMax * 0.15f && flasks != null && flasks.Count(Flasks.Kind.Mana) > 0) yield return Press(UI.Bind.Potion2);
                 // The rare slot, as a player would: a defensive draught when it is going badly, the rest at the guardian.
                 if (flasks != null && flasks.RareHeld != Progression.RareItem.None && !flasks.InStasis)
                 {
@@ -734,13 +832,14 @@ namespace Deepbound.Networking
                             aimAt += Vector3.up * 0.5f * RangerKit.ArrowGravity(1f) * tof * tof;
                         }
                         Face(aimAt);
+                        yield return UseSecondary(target, flatDist);
                         // Abilities now and then, when something is close.
                         if (Time.time >= nextAbility)
                         {
                             nextAbility = Time.time + Random.Range(2.5f, 4.5f);
-                            var btn = Random.value < 0.5f ? GamepadButton.LeftShoulder : GamepadButton.RightShoulder;
+                            var btn = Random.value < 0.5f ? UI.Bind.AbilityQ : UI.Bind.AbilityE;
                             yield return Press(btn);
-                            if (me.GetComponent<Ultimates>() is Ultimates u && u.Ready) yield return Press(GamepadButton.DpadUp);
+                            if (me.GetComponent<Ultimates>() is Ultimates u && u.Ready) yield return Press(UI.Bind.Ultimate);
                         }
                         yield return Attack(cls == Classes.ClassId.Ranger ? 0.9f : 0.8f);
                         stuckSince = Time.time; // fighting in place is not being stuck
@@ -816,6 +915,13 @@ namespace Deepbound.Networking
                     var m = kv.Value;
                     return m.Name + ": dealt " + (m.Dealt - s0.Item1).ToString("F0") + " (boss " + (m.BossDealt - s0.Item3).ToString("F0") + "), taken " + (m.Taken - s0.Item2).ToString("F0") + ", would-have-gone-down " + m.SavesFloor;
                 })));
+            string usedLine = AbilitiesLine();
+            L("   abilities used this floor: " + usedLine);
+            if (usedLine == "none") Problem("played a whole floor without using one ability");
+            // Someone who played a whole floor and hit nothing is a broken bot, not a balance result.
+            if (party.Count > 1)
+                foreach (var kv in party)
+                    if (kv.Value.Dealt - (partyStart.TryGetValue(kv.Key, out var ps) ? ps.Item1 : 0f) <= 0f) Problem(kv.Value.Name + " dealt no damage this floor");
             L("   damage taken so far by source: " + string.Join(", ", takenBy.OrderByDescending(kv => kv.Value).Take(8).Select(kv => kv.Key + " " + kv.Value.ToString("F0"))));
             Status("floor end");
             yield return Shot("F" + (floorNo + 1) + "_cleared");
@@ -1014,29 +1120,27 @@ namespace Deepbound.Networking
 
         private IEnumerator Block(float seconds)
         {
-            InputSystem.QueueStateEvent(pad, new GamepadState { leftTrigger = 1f });
+            UI.Binds.BotSetSecondary(true);
             float until = Time.time + seconds;
             while (Time.time < until) { Cursor.lockState = CursorLockMode.Locked; yield return null; }
-            InputSystem.QueueStateEvent(pad, new GamepadState());
+            UI.Binds.BotSetSecondary(false);
             yield return null;
         }
 
         private IEnumerator Attack(float hold)
         {
-            InputSystem.QueueStateEvent(pad, new GamepadState { rightTrigger = 1f });
+            UI.Binds.BotSetPrimary(true);
             float until = Time.time + hold;
             while (Time.time < until) { Cursor.lockState = CursorLockMode.Locked; yield return null; }
-            InputSystem.QueueStateEvent(pad, new GamepadState());
+            UI.Binds.BotSetPrimary(false);
             yield return null;
             yield return null;
         }
 
-        private IEnumerator Press(GamepadButton b)
+        private IEnumerator Press(UI.Bind b)
         {
-            InputSystem.QueueStateEvent(pad, new GamepadState().WithButton(b));
+            UI.Binds.BotPress(b);
             yield return null;
-            yield return null;
-            InputSystem.QueueStateEvent(pad, new GamepadState());
             yield return null;
         }
     }

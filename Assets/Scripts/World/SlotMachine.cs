@@ -156,7 +156,7 @@ namespace Deepbound.World
             var local = Player.NetworkPlayer.Local;
             if (local == null || Vector3.Distance(local.transform.position, transform.position) > 7f) return;
             UI.UiSkin.Apply();
-            float w = Screen.width, h = Screen.height;
+            float w = UI.UiScale.W, h = UI.UiScale.H;
             float tile = 120f, gap = 14f, pw = tile * 3 + gap * 2 + 40, ph = 230f;
             float px = w / 2f - pw / 2f, py = h * 0.5f + 40f;
             UI.UiSkin.Panel(new Rect(px, py, pw, ph), 0.94f);

@@ -71,11 +71,26 @@ namespace Deepbound.UI
         public static bool Down(Bind b)
         {
             var c = Control(b); var p = Pad(b);
-            bool down = (c != null && c.wasPressedThisFrame) || (p != null && p.wasPressedThisFrame);
+            bool down = (c != null && c.wasPressedThisFrame) || (p != null && p.wasPressedThisFrame) || BotPressedNow(b);
             if (down && Locked(b)) { LockedPress(); return false; }
             return down;
         }
-        public static bool Held(Bind b) { var c = Control(b); var p = Pad(b); return !Locked(b) && ((c != null && c.isPressed) || (p != null && p.isPressed)); }
+        public static bool Held(Bind b) { var c = Control(b); var p = Pad(b); return !Locked(b) && ((c != null && c.isPressed) || (p != null && p.isPressed) || BotPressedNow(b)); }
+
+        // ---- The autoplay bot's hands (2026-11-03). Input events are dropped in a window without focus whatever the input
+        // settings say: in a four-bot party only the focused bot could act, the rest stood there unnoticed for whole floors.
+        // So a bot does not go through the input system at all; it presses here, where every kit reads its controls. ----
+        private static readonly System.Collections.Generic.Dictionary<Bind, int> botPressFrame = new System.Collections.Generic.Dictionary<Bind, int>();
+        private static int botPrimaryFrame = -1, botSecondaryFrame = -1;
+        public static bool BotPrimary { get; private set; }
+        public static bool BotSecondary { get; private set; }
+
+        private static bool BotPressedNow(Bind b) => botPressFrame.Count > 0 && botPressFrame.TryGetValue(b, out int f) && f == Time.frameCount;
+
+        /// <summary>A tap, seen by next frame's Updates (bots run in coroutines, after this frame's).</summary>
+        public static void BotPress(Bind b) => botPressFrame[b] = Time.frameCount + 1;
+        public static void BotSetPrimary(bool on) { if (on && !BotPrimary) botPrimaryFrame = Time.frameCount + 1; BotPrimary = on; }
+        public static void BotSetSecondary(bool on) { if (on && !BotSecondary) botSecondaryFrame = Time.frameCount + 1; BotSecondary = on; }
 
         /// <summary>Set by the local player's afflictions: true while Q, E and the ultimate are SILENCED.</summary>
         public static System.Func<bool> AbilityLock;
@@ -156,11 +171,11 @@ namespace Deepbound.UI
         }
 
         /// <summary>The main attack: left mouse or the right trigger.</summary>
-        public static bool PrimaryHeld => (Mouse.current != null && Mouse.current.leftButton.isPressed) || (Gamepad.current != null && Gamepad.current.rightTrigger.isPressed);
-        public static bool PrimaryDown => (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) || (Gamepad.current != null && Gamepad.current.rightTrigger.wasPressedThisFrame);
+        public static bool PrimaryHeld => BotPrimary || (Mouse.current != null && Mouse.current.leftButton.isPressed) || (Gamepad.current != null && Gamepad.current.rightTrigger.isPressed);
+        public static bool PrimaryDown => botPrimaryFrame == Time.frameCount || (Mouse.current != null && Mouse.current.leftButton.wasPressedThisFrame) || (Gamepad.current != null && Gamepad.current.rightTrigger.wasPressedThisFrame);
         /// <summary>The secondary: right mouse or the left trigger.</summary>
-        public static bool SecondaryHeld => (Mouse.current != null && Mouse.current.rightButton.isPressed) || (Gamepad.current != null && Gamepad.current.leftTrigger.isPressed);
-        public static bool SecondaryDown => (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame) || (Gamepad.current != null && Gamepad.current.leftTrigger.wasPressedThisFrame);
+        public static bool SecondaryHeld => BotSecondary || (Mouse.current != null && Mouse.current.rightButton.isPressed) || (Gamepad.current != null && Gamepad.current.leftTrigger.isPressed);
+        public static bool SecondaryDown => botSecondaryFrame == Time.frameCount || (Mouse.current != null && Mouse.current.rightButton.wasPressedThisFrame) || (Gamepad.current != null && Gamepad.current.leftTrigger.wasPressedThisFrame);
         public static bool PadSprintDown => Gamepad.current != null && Gamepad.current.leftStickButton.wasPressedThisFrame;
         public static bool PauseDown => Gamepad.current != null && Gamepad.current.startButton.wasPressedThisFrame;
 

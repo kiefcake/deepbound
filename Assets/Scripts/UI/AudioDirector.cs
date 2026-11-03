@@ -101,6 +101,8 @@ namespace Deepbound.UI
             return s;
         }
 
+        private void OnApplicationFocus(bool focused) => AudioListener.volume = !focused && Settings.MuteInBackground ? 0f : Settings.Volume;
+
         private void Update()
         {
             if (!started) return;

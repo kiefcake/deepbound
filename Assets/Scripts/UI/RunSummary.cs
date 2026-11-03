@@ -21,15 +21,15 @@ namespace Deepbound.UI
         {
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             UiSkin.Apply();
-            if (DebugEpilogueAt >= 0f) { GUI.depth = -6; DrawEpilogue(Screen.width, Screen.height, DebugEpilogueAt); return; }
+            if (DebugEpilogueAt >= 0f) { GUI.depth = -6; DrawEpilogue(UiScale.W, UiScale.H, DebugEpilogueAt); return; }
             var d = DungeonDirector.Instance;
             if (d == null || (d.Phase.Value != RunPhase.Wiped && d.Phase.Value != RunPhase.RunComplete)) return;
-            float w = Screen.width, h = Screen.height;
+            float w = UiScale.W, h = UiScale.H;
             GUI.depth = -5;
 
             bool won = d.Phase.Value == RunPhase.RunComplete;
             // A victory opens on the epilogue: the Last Morning, over black, before the table.
-            if (won && DrawEpilogue(Screen.width, Screen.height, (float)(NetworkManager.Singleton.ServerTime.Time - d.RunEndedAt.Value))) return;
+            if (won && DrawEpilogue(UiScale.W, UiScale.H, (float)(NetworkManager.Singleton.ServerTime.Time - d.RunEndedAt.Value))) return;
             int floor = Mathf.Max(0, d.Floor.Value.y) + 1;
             double seconds = d.RunEndedAt.Value - d.RunStartedAt.Value;
             string time = seconds > 0 ? ((int)(seconds / 60)).ToString() + "m " + ((int)(seconds % 60)).ToString("00") + "s" : "-";

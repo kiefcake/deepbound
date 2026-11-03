@@ -337,13 +337,164 @@ namespace Deepbound.Networking
                     ph.ServerSetFraction(1f);
                 }
 
+                // ---- Things that slipped through once (2026-11-03, the user: "add more test cases"). tools/run_tests.py
+                // requires each of these names to appear, so one that stops running is a failure too. ----
+
+                // Every kit answers the virtual pad with no cursor lock, as a bot in an unfocused window must (three of four
+                // bots once stood there for a whole floor and nothing said so): attack, Q and E all really go off.
+                {
+                    var botPad = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Gamepad>();
+                    var botKeys = UnityEngine.InputSystem.Keyboard.current == null ? UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Keyboard>() : null;
+                    botPad.MakeCurrent();
+                    bool hadLock = Cursor.lockState == CursorLockMode.Locked;
+                    Cursor.lockState = CursorLockMode.None;
+                    FirstPersonMotor.BotControl = true;
+                    var padMotor = me.GetComponent<FirstPersonMotor>();
+                    var views = new System.Collections.Generic.List<AbilityView>();
+                    foreach (Classes.ClassId id in System.Enum.GetValues(typeof(Classes.ClassId)))
+                    {
+                        progressMe.ClassId.Value = id;
+                        yield return new WaitForSeconds(0.5f);
+                        var kit = me.GetComponents<IClassKit>().First(k => k.Class == id);
+                        kit.RestoreResource(1f);
+                        me.GetComponent<Health>().ServerSetFraction(1f);
+                        dummy.ServerSetFraction(1f);
+                        bool melee = id == Classes.ClassId.Knight || id == Classes.ClassId.Rogue || id == Classes.ClassId.Flagellant;
+                        void Stand()
+                        {
+                            var at = dummy.transform.position + Vector3.back * ((melee ? 1.7f : 6f) + dummy.BodyRadius);
+                            at.y = me.transform.position.y;
+                            padMotor.Teleport(at, Quaternion.LookRotation(Vector3.forward));
+                            var eye = at + Vector3.up * 1.6f;
+                            padMotor.SetPitch(Mathf.Atan2(eye.y - dummy.Center.y, Vector3.Distance(new Vector3(eye.x, 0f, eye.z), new Vector3(dummy.Center.x, 0f, dummy.Center.z))) * Mathf.Rad2Deg);
+                        }
+                        Stand();
+                        yield return new WaitForSeconds(0.2f);
+                        float padStart = dummy.Current.Value;
+                        UnityEngine.InputSystem.InputSystem.QueueStateEvent(botPad, new UnityEngine.InputSystem.LowLevel.GamepadState { rightTrigger = 1f });
+                        yield return new WaitForSeconds(1f);
+                        UnityEngine.InputSystem.InputSystem.QueueStateEvent(botPad, new UnityEngine.InputSystem.LowLevel.GamepadState());
+                        yield return new WaitForSeconds(0.9f);
+                        float attacked = padStart - dummy.Current.Value;
+                        var went = new System.Collections.Generic.HashSet<string>();
+                        foreach (var button in new[] { UnityEngine.InputSystem.LowLevel.GamepadButton.LeftShoulder, UnityEngine.InputSystem.LowLevel.GamepadButton.RightShoulder })
+                        {
+                            kit.RestoreResource(1f);
+                            Stand();
+                            yield return new WaitForSeconds(0.25f);
+                            UnityEngine.InputSystem.InputSystem.QueueStateEvent(botPad, new UnityEngine.InputSystem.LowLevel.GamepadState().WithButton(button));
+                            yield return new WaitForSeconds(0.1f);
+                            UnityEngine.InputSystem.InputSystem.QueueStateEvent(botPad, new UnityEngine.InputSystem.LowLevel.GamepadState());
+                            yield return new WaitForSeconds(0.15f);
+                            views.Clear();
+                            kit.FillAbilities(views);
+                            foreach (var v in views) if (v.Remaining > 0.05f && (v.Key == "Q" || v.Key == "E")) went.Add(v.Key);
+                        }
+                        Log("pad " + id, "attack dealt " + attacked.ToString("F0") + ", abilities gone off: " + string.Join("+", went.OrderBy(k => k)) + ", hands free " + me.GetComponent<PlayerLife>().CanAct + ", ready " + padMotor.ActionsReady,
+                            attacked > 0f && went.Count == 2);
+                        // Whatever it left behind (a held beam, a leap in flight, a cloud) settles before the next class.
+                        yield return new WaitForSeconds(0.5f);
+                    }
+                    FirstPersonMotor.BotControl = false;
+                    Cursor.lockState = hadLock ? CursorLockMode.Locked : CursorLockMode.None;
+                    UnityEngine.InputSystem.InputSystem.RemoveDevice(botPad);
+                    if (botKeys != null) UnityEngine.InputSystem.InputSystem.RemoveDevice(botKeys);
+                    me.GetComponent<Health>().Shield.Value = 0f; // the Cleric's Aegis would swallow the hits later checks measure
+                    me.GetComponent<Health>().ServerSetFraction(1f);
+                }
+
+                // A bot's hands bypass the input system (unfocused windows drop its events): every kit must answer them too.
+                {
+                    FirstPersonMotor.BotControl = true;
+                    foreach (Classes.ClassId id in System.Enum.GetValues(typeof(Classes.ClassId)))
+                    {
+                        progressMe.ClassId.Value = id;
+                        yield return new WaitForSeconds(0.5f);
+                        var kit = me.GetComponents<IClassKit>().First(k => k.Class == id);
+                        kit.ShaveCooldowns(120f);
+                        kit.RestoreResource(1f);
+                        dummy.ServerSetFraction(1f);
+                        bool melee = id == Classes.ClassId.Knight || id == Classes.ClassId.Rogue || id == Classes.ClassId.Flagellant;
+                        var at = dummy.transform.position + Vector3.back * ((melee ? 1.7f : 6f) + dummy.BodyRadius);
+                        at.y = me.transform.position.y;
+                        var bm = me.GetComponent<FirstPersonMotor>();
+                        bm.Teleport(at, Quaternion.LookRotation(Vector3.forward));
+                        var eye = at + Vector3.up * 1.6f;
+                        bm.SetPitch(Mathf.Atan2(eye.y - dummy.Center.y, Vector3.Distance(new Vector3(eye.x, 0f, eye.z), new Vector3(dummy.Center.x, 0f, dummy.Center.z))) * Mathf.Rad2Deg);
+                        yield return new WaitForSeconds(0.3f);
+                        float b0 = dummy.Current.Value;
+                        UI.Binds.BotSetPrimary(true);
+                        yield return new WaitForSeconds(1f);
+                        UI.Binds.BotSetPrimary(false);
+                        yield return new WaitForSeconds(0.9f);
+                        float hit = b0 - dummy.Current.Value;
+                        kit.RestoreResource(1f);
+                        UI.Binds.BotPress(UI.Bind.AbilityE);
+                        yield return new WaitForSeconds(0.25f);
+                        var botViews = new System.Collections.Generic.List<AbilityView>();
+                        kit.FillAbilities(botViews);
+                        bool went = botViews.Any(v => v.Key == "E" && v.Remaining > 0.05f);
+                        Log("bot hands " + id, "attack dealt " + hit.ToString("F0") + ", E went off " + went, hit > 0f && went);
+                        yield return new WaitForSeconds(0.4f);
+                    }
+                    FirstPersonMotor.BotControl = false;
+                    me.GetComponent<Health>().Shield.Value = 0f;
+                    me.GetComponent<Health>().ServerSetFraction(1f);
+                }
+
+                // The interface: no window size and no setting may run the menus off the screen; the layout space fills the window.
+                {
+                    bool fits = true, grows = true;
+                    float last = 0f;
+                    foreach (float sh in new[] { 600f, 720f, 768f, 900f, 1080f, 1200f, 1440f, 1600f, 2160f, 4320f })
+                    {
+                        float f1 = UI.UiScale.For(sh, 1f);
+                        if (f1 < last) grows = false;
+                        last = f1;
+                        foreach (float us in new[] { 0.75f, 0.9f, 1f, 1.15f, 1.3f, 1.5f })
+                            if (sh / UI.UiScale.For(sh, us) < UI.UiScale.MinVirtualHeight - 0.5f) fits = false;
+                    }
+                    Log("ui space", "fits " + fits + ", grows with the window " + grows + ", virtual " + UI.UiScale.W.ToString("F0") + " x " + UI.UiScale.H.ToString("F0") + " at x" + UI.UiScale.Factor.ToString("F2") + " on " + Screen.width + " x " + Screen.height,
+                        fits && grows && Mathf.Abs(UI.UiScale.W * UI.UiScale.Factor - Screen.width) < 1f && Mathf.Abs(UI.UiScale.H * UI.UiScale.Factor - Screen.height) < 1f);
+                    float bottom = UI.Minimap.SmallBottom;
+                    Log("minimap layout", "side " + UI.Minimap.SmallSize.ToString("F0") + ", what sits under it starts at " + bottom.ToString("F0"), !UI.Settings.ShowMinimap || bottom >= 18f + UI.Minimap.SmallSize);
+
+                    var sizes = UI.Settings.Resolutions();
+                    bool sorted = true;
+                    for (int i = 1; i < sizes.Count; i++) if (sizes[i].y < sizes[i - 1].y || sizes[i] == sizes[i - 1]) sorted = false;
+                    var chosen = UI.Settings.ChosenResolution;
+                    Log("options lists", sizes.Count + " resolutions, sorted without repeats " + sorted + ", chosen " + chosen.w + " x " + chosen.h + " listed " + sizes.Contains(new Vector2Int(chosen.w, chosen.h)) + ", window mode " + UI.Settings.WindowMode,
+                        sorted && (chosen.w <= 0 || sizes.Contains(new Vector2Int(chosen.w, chosen.h))) && UI.Settings.WindowMode >= 0 && UI.Settings.WindowMode < UI.Settings.WindowModeNames.Length && UI.Settings.FrameLimit < UI.Settings.FrameLimitNames.Length && UI.Settings.UiScaleIndex < UI.Settings.UiScaleNames.Length);
+                }
+
+                // No sound may be left without a recording: there is no synthesiser to fall back on, it would just be silent.
+                {
+                    var silent = System.Enum.GetValues(typeof(Art.Sound)).Cast<Art.Sound>().Where(sd => Resources.LoadAll<AudioClip>("Audio/Sfx/" + sd).Length == 0).ToList();
+                    Log("every sound recorded", silent.Count == 0 ? "all " + System.Enum.GetValues(typeof(Art.Sound)).Length + " have clips" : "silent: " + string.Join(", ", silent), silent.Count == 0);
+                }
+
+                // The party's numbers, so a slip in the formulas shows: harder per head and more of it with each player, solo untouched.
+                Log("party numbers", "hit x" + Difficulty.Damage(1) + " / " + Difficulty.Damage(2) + " / " + Difficulty.Damage(4) + ", boss x" + Difficulty.BossHealth(1) + " / " + Difficulty.BossHealth(2) + " / " + Difficulty.BossHealth(4) + ", crowd x" + Difficulty.SpawnCount(1) + " / " + Difficulty.SpawnCount(4),
+                    Mathf.Approximately(Difficulty.Damage(1), 1f) && Mathf.Abs(Difficulty.Damage(2) - 1.15f) < 0.001f && Mathf.Abs(Difficulty.Damage(4) - 1.45f) < 0.001f
+                    && Mathf.Approximately(Difficulty.BossHealth(1), Difficulty.BossToughness) && Difficulty.BossHealth(4) > Difficulty.BossHealth(2) && Difficulty.BossHealth(2) > Difficulty.BossHealth(1)
+                    && Difficulty.EnemyHealth(4) > Difficulty.EnemyHealth(1) && Difficulty.SpawnCount(4) > Difficulty.SpawnCount(1));
+
+                // Traps: nothing hidden in the first act, more of it deeper, and the difficulty setting bites.
+                {
+                    bool climbs = true;
+                    for (int d = 1; d < DungeonDirector.FloorsPerRun; d++) if (SpikeTrap.HiddenChance(d) < SpikeTrap.HiddenChance(d - 1)) climbs = false;
+                    Log("trap numbers", "hidden plates " + SpikeTrap.HiddenChance(0).ToString("F2") + " on floor 1, " + SpikeTrap.HiddenChance(DungeonDirector.FloorsPerRun - 1).ToString("F2") + " on the last; a 100 bite is " + DungeonDirector.TrapHurt(100f).ToString("F0") + " on " + Difficulty.Level.Name,
+                        SpikeTrap.HiddenChance(0) <= 0f && SpikeTrap.HiddenChance(1) <= 0f && climbs && SpikeTrap.HiddenChance(DungeonDirector.FloorsPerRun - 1) <= 1f && SpikeTrap.HiddenChance(DungeonDirector.FloorsPerRun - 1) > 0.3f
+                        && Mathf.Approximately(DungeonDirector.TrapHurt(100f), 100f * Difficulty.Level.Damage));
+                }
+
                 progressMe.ClassId.Value = Classes.ClassId.Mage;
                 yield return new WaitForSeconds(0.3f);
                 DungeonDirector.Instance.ServerStartRun();
             }
 
             // Wait for the dungeon itself, not a guess at how long the lobby checks take.
-            float waitUntil = Time.time + 30f;
+            float waitUntil = Time.time + 180f; // the client waits out the host's lobby checks, however many there are
             while ((DungeonDirector.Layout == null || NetworkPlayer.Local == null) && Time.time < waitUntil) yield return null;
             yield return new WaitForSeconds(2f);
 
@@ -360,6 +511,9 @@ namespace Deepbound.Networking
             int enemies = Health.All.Count(h => h != null && h.Team == Team.Enemies);
             Log("enemies", enemies.ToString(), enemies > 0);
             Log("players", PlayerLife.All.Count.ToString(), PlayerLife.All.Count > 0);
+            // The interface follows the window: 1:1 at 1080p, x2 at 4K, x0.75 at 720p, never so big the menus run off.
+            Log("ui scale", "720p x" + UI.UiScale.For(720f, 1f) + ", 1080p x" + UI.UiScale.For(1080f, 1f) + ", 1440p x" + UI.UiScale.For(1440f, 1f).ToString("F2") + ", 4K x" + UI.UiScale.For(2160f, 1f) + "; 720p at 150% x" + UI.UiScale.For(720f, 1.5f),
+                Mathf.Approximately(UI.UiScale.For(1080f, 1f), 1f) && Mathf.Approximately(UI.UiScale.For(2160f, 1f), 2f) && Mathf.Approximately(UI.UiScale.For(720f, 1f), 0.75f) && Mathf.Approximately(UI.UiScale.For(720f, 1.5f), 1f));
 
             // Voice: the codec survives a round trip, and a client's voice reaches the host.
             float snr = VoiceCodec.RoundTripSnr();
@@ -1861,6 +2015,7 @@ namespace Deepbound.Networking
                         var ph = local.GetComponent<Health>();
                         var pdeb = local.GetComponent<PlayerDebuffs>();
                         pdeb.ServerResetGrace();
+                        ph.Shield.Value = 0f;
                         ph.ServerSetFraction(1f);
                         yield return new WaitForSeconds(SpikeTrap.Rearm + 0.2f);
                         float before = ph.Current.Value;
@@ -1992,7 +2147,8 @@ namespace Deepbound.Networking
                     int chestsAfter = FindObjectsByType<Chest>(FindObjectsSortMode.None).Length;
                     Log("ambush", "before " + wavePre + ", triggered wave " + waveSeen + " (shut in " + dir.AmbushParty + "), gates shut " + gatesShut + ", final wave " + dir.AmbushWave + ", chests " + chestsBefore + " -> " + chestsAfter,
                         wavePre >= 3 ? dir.AmbushWave == 3 && !FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Any(g => g.Closed.Value)
-                            : waveSeen >= 1 && gatesShut && dir.AmbushWave == 3 && chestsAfter == chestsBefore + 1 && lonePart);
+                            // Already sprung by someone wandering through and left empty: its gates have lifted, by the new rule.
+                            : waveSeen >= 1 && (gatesShut || wavePre > 0) && dir.AmbushWave == 3 && chestsAfter == chestsBefore + 1 && lonePart);
                     am.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                     yield return new WaitForSeconds(0.3f);
                 }
@@ -3988,6 +4144,29 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.35f);
                 yield return Shot(dir, "1j_flame_trap");
             }
+            // A spike plate as it lies in the open, then the same plate hidden in flagstone, then the Ranger's net beside it.
+            var shotPlate = FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).FirstOrDefault();
+            if (shotPlate != null)
+            {
+                var pp = shotPlate.transform.position;
+                var away = (layout.RoomAt(pp, 0f) != null ? layout.RoomAt(pp, 0f).Center - pp : -local.transform.forward);
+                away.y = 0f;
+                var tp = pp + (away.sqrMagnitude > 0.1f ? away.normalized : Vector3.forward) * 3.6f + Vector3.up * 0.1f;
+                motor.Teleport(tp, Quaternion.LookRotation(new Vector3(pp.x - tp.x, 0f, pp.z - tp.z)));
+                motor.SetPitch(28f);
+                shotPlate.Hidden.Value = false;
+                yield return new WaitForSeconds(0.3f);
+                yield return Shot(dir, "1j2_spike_plate");
+                shotPlate.Hidden.Value = true;
+                yield return new WaitForSeconds(0.3f);
+                yield return Shot(dir, "1j3_spike_plate_hidden");
+                shotPlate.Hidden.Value = false;
+                Art.SnareNet.Spawn(pp, Player.RangerKit.SnareRadius, 3f);
+                yield return new WaitForSeconds(0.45f);
+                yield return Shot(dir, "1j4_snare_net");
+                motor.SetPitch(0f);
+                yield return new WaitForSeconds(0.2f);
+            }
             var champ = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => e.IsChampion && !e.IsDead);
             if (champ != null)
             {
@@ -4367,6 +4546,13 @@ namespace Deepbound.Networking
             UI.PauseMenu.DebugShowOptions(local.GetComponent<UI.PauseMenu>() ?? FindFirstObjectByType<UI.PauseMenu>());
             yield return null;
             yield return Shot(dir, "9c_options");
+            UI.OptionsPanel.Tab = 1;
+            yield return null;
+            yield return Shot(dir, "9c_options_display");
+            UI.OptionsPanel.Tab = 2;
+            yield return null;
+            yield return Shot(dir, "9c_options_audio");
+            UI.OptionsPanel.Tab = 0;
             UI.PauseMenu.DebugShowControls(local.GetComponent<UI.PauseMenu>() ?? FindFirstObjectByType<UI.PauseMenu>());
             yield return null;
             yield return Shot(dir, "9c_controls");

@@ -496,7 +496,7 @@ namespace Deepbound.World
             var local = NetworkPlayer.Local;
             if (local == null) return;
             var prog = local.GetComponent<PlayerProgress>();
-            float w = Screen.width, h = Screen.height;
+            float w = UI.UiScale.W, h = UI.UiScale.H;
             float pw = Mathf.Min(760f, w - 40f), ph = 430f, px = w / 2f - pw / 2f, py = Mathf.Max(20f, h - ph - 120f);
             UI.UiSkin.Panel(new Rect(px - 10, py - 10, pw + 20, ph + 20), 0.96f);
             // Felt.

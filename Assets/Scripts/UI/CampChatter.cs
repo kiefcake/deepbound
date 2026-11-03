@@ -435,11 +435,11 @@ namespace Deepbound.UI
             var cam = Art.ViewCamera.Current;
             if (me == null || cam == null || PauseMenu.Open || GameHud.MenuOpen || GameHud.PanelShowing) return;
             UiSkin.Apply();
-            float h = Screen.height;
+            float h = UiScale.H;
             foreach (var s in speakers)
             {
                 if (s.Current == null || Time.time > s.Until) continue;
-                var screen = cam.WorldToScreenPoint(s.Head);
+                var screen = UiScale.World(cam, s.Head);
                 float dist = Vector3.Distance(cam.transform.position, s.Head);
                 if (screen.z <= 0f || dist > 16f) continue;
                 float a = Mathf.Clamp01((s.Until - Time.time) / 0.6f) * Mathf.Clamp01((16f - dist) / 3f);

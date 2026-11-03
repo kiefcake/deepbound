@@ -62,7 +62,7 @@ namespace Deepbound.UI
             if (!Open || player == null) return;
             UiSkin.Apply();
             GUI.depth = -40;
-            float pw = 720f, ph = 560f, x = Screen.width - pw - 20f, y = 40f;
+            float pw = 720f, ph = 560f, x = UiScale.W - pw - 20f, y = 40f;
             UiSkin.Panel(new Rect(x - 8, y - 8, pw + 16, ph + 16), 0.97f);
             GUI.Label(new Rect(x, y, pw, 26), "DEVELOPER MENU" + (IsHost ? "" : "   (host only: you are a client)"), new GUIStyle(UiSkin.Heading) { fontSize = 20 });
             if (!IsHost) { GUI.Label(new Rect(x, y + 34, pw, 40), "Only the host can use developer tools.", UiSkin.Body); return; }

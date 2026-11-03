@@ -522,13 +522,13 @@ namespace Deepbound.UI
                 var c = combos[i];
                 float age = Time.time - c.Time;
                 if (age > 1.3f) { combos.RemoveAt(i); continue; }
-                var screen = cam.WorldToScreenPoint(c.World + Vector3.up * (0.4f + age * 0.5f));
+                var screen = UiScale.World(cam, c.World + Vector3.up * (0.4f + age * 0.5f));
                 if (screen.z <= 0f || screen.z > 35f) continue;
                 float a = Mathf.Clamp01(1.3f - age) * Mathf.Clamp01(age * 8f);
                 float scale = 1f + Mathf.Max(0f, 0.15f - age) * 3f;
                 var style = new GUIStyle(big) { fontSize = Mathf.RoundToInt(20 * scale), fontStyle = FontStyle.Bold, normal = { textColor = new Color(c.Color.r, c.Color.g, c.Color.b, a) } };
                 var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, a * 0.85f) } };
-                var rect = new Rect(screen.x - 120, Screen.height - screen.y - 16, 240, 32);
+                var rect = new Rect(screen.x - 120, UiScale.H - screen.y - 16, 240, 32);
                 GUI.Label(new Rect(rect.x + 2, rect.y + 2, rect.width, rect.height), c.Text, shadow);
                 GUI.Label(rect, c.Text, style);
             }
@@ -542,7 +542,7 @@ namespace Deepbound.UI
             DrawPouchFull();
             if (Time.time < life.VeiledUntil || (life.IsServer == false && InRogueSmoke())) buffs.Add("SMOKE SCREEN");
             if (buffs.Count > 0)
-                GUI.Label(new Rect(0, Screen.height / 2f + 18, Screen.width, 20), string.Join("   ", buffs),
+                GUI.Label(new Rect(0, UiScale.H / 2f + 18, UiScale.W, 20), string.Join("   ", buffs),
                     new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = Combos.Color(ComboKind.Blessed) } });
         }
 
@@ -566,7 +566,7 @@ namespace Deepbound.UI
 
                 // Hits pop out and arc away to one side under a little gravity; heals rise straight.
                 var lift = n.Heal ? Vector3.up * age * 0.8f : Vector3.up * (age * 1.6f - age * age * 1.1f) + cam.transform.right * n.Drift * age * 0.6f;
-                var screen = cam.WorldToScreenPoint(n.World + lift);
+                var screen = UiScale.World(cam, n.World + lift);
                 if (screen.z <= 0f || screen.z > 30f) continue;
 
                 bool heavy = n.Amount >= 35f;
@@ -575,7 +575,7 @@ namespace Deepbound.UI
                 var color = n.Heal ? new Color(0.45f, 1f, 0.5f, a) : n.Player ? new Color(1f, 0.35f, 0.3f, a) : heavy ? new Color(1f, 0.82f, 0.35f, a) : new Color(1f, 1f, 1f, a);
                 var style = new GUIStyle(big) { fontSize = Mathf.RoundToInt((heavy ? 26 : 18) * pop), normal = { textColor = color } };
                 var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, a * 0.8f) } };
-                var rect = new Rect(screen.x - 60, Screen.height - screen.y - 20, 120, 40);
+                var rect = new Rect(screen.x - 60, UiScale.H - screen.y - 20, 120, 40);
                 string text = (n.Heal ? "+" : "") + Mathf.RoundToInt(n.Amount);
                 GUI.Label(new Rect(rect.x + 1.5f, rect.y + 1.5f, rect.width, rect.height), text, shadow);
                 GUI.Label(rect, text, style);
@@ -824,7 +824,7 @@ namespace Deepbound.UI
             var rel = Reliquary.Current;
             if (rel != null && rel.Carrier.Value != player.NetworkObjectId)
             {
-                var rs = cam.WorldToScreenPoint(rel.transform.position + Vector3.up * 1.1f);
+                var rs = UiScale.World(cam, rel.transform.position + Vector3.up * 1.1f);
                 float rd = Vector3.Distance(cam.transform.position, rel.transform.position);
                 if (rs.z > 0f && (rd < 30f || rel.Carried))
                     GUI.Label(new Rect(rs.x - 120, h - rs.y - 10, 240, 20), (rel.Carried ? "RELIQUARY (carried)  " : "RELIQUARY  ") + Mathf.RoundToInt(rel.Integrity.Value) + "%" + (rd > 8f ? "  " + Mathf.RoundToInt(rd) + "m" : ""),
@@ -835,7 +835,7 @@ namespace Deepbound.UI
             {
                 if (sk == null) continue;
                 if (sk.Carrier.Value == player.NetworkObjectId) continue;
-                var screen = cam.WorldToScreenPoint(sk.transform.position + Vector3.up * 0.9f);
+                var screen = UiScale.World(cam, sk.transform.position + Vector3.up * 0.9f);
                 if (screen.z <= 0f) continue;
                 float dist = Vector3.Distance(cam.transform.position, sk.transform.position);
                 string text = (sk.Carried ? "SOUL (carried): " : "SOUL: ") + sk.SoulName + (dist > 8f ? "  " + Mathf.RoundToInt(dist) + "m" : "");
@@ -844,7 +844,7 @@ namespace Deepbound.UI
             }
             if (!carrying || DungeonDirector.Layout == null) return;
             var way = DungeonDirector.Layout.WaystonePosition + Vector3.up * 2.9f;
-            var ws = cam.WorldToScreenPoint(way);
+            var ws = UiScale.World(cam, way);
             float wd = Vector3.Distance(player.transform.position, DungeonDirector.Layout.WaystonePosition);
             if (ws.z > 0f)
                 GUI.Label(new Rect(ws.x - 120, h - ws.y - 10, 240, 20), "WAYSTONE  " + Mathf.RoundToInt(wd) + "m",
@@ -861,7 +861,7 @@ namespace Deepbound.UI
                 var brain = hp.GetComponent<EnemyBrain>();
                 if (brain == null || (brain.Status.Value & 4) == 0) continue;
                 var world = hp.transform.position + Vector3.up * (hp.CenterHeight * 2f + 0.7f);
-                var screen = cam.WorldToScreenPoint(world);
+                var screen = UiScale.World(cam, world);
                 if (screen.z <= 0f || screen.z > 22f) continue;
                 bool atMe = Vector3.Distance(player.transform.position, hp.transform.position) < 4f;
                 byte st = brain.Status.Value;
@@ -889,7 +889,7 @@ namespace Deepbound.UI
                 if (p == null || p == life) continue;
                 var np = p.GetComponent<NetworkPlayer>();
                 var world = p.transform.position + Vector3.up * 2.25f;
-                var screen = cam.WorldToScreenPoint(world);
+                var screen = UiScale.World(cam, world);
                 float dist = Vector3.Distance(cam.transform.position, world);
                 bool offScreen = screen.z <= 0f || screen.x < 0f || screen.x > w || screen.y < 0f || screen.y > h;
                 // A fallen friend you cannot see: a pointer on the screen's edge, toward them.
@@ -954,7 +954,7 @@ namespace Deepbound.UI
             // An arrowhead (a rotated square) pointing out, and the label just inside it.
             float ang = Mathf.Atan2(-dir.y, dir.x) * Mathf.Rad2Deg;
             var keep = GUI.matrix;
-            GUIUtility.RotateAroundPivot(ang + 45f, at);
+            UiScale.Rotate(ang + 45f, at);
             Rect(at.x - 8, at.y - 8, 16, 16, red);
             Rect(at.x - 5, at.y - 5, 10, 10, new Color(0.15f, 0.02f, 0.02f, 0.9f));
             GUI.matrix = keep;
@@ -972,7 +972,7 @@ namespace Deepbound.UI
             fpsSmoothed = Mathf.Lerp(fpsSmoothed, 1f / Mathf.Max(0.0001f, Time.unscaledDeltaTime), 0.05f);
             if (!Settings.ShowFps) return;
             var c = fpsSmoothed >= 55f ? new Color(0.6f, 1f, 0.6f) : fpsSmoothed >= 30f ? new Color(1f, 0.85f, 0.4f) : new Color(1f, 0.4f, 0.35f);
-            GUI.Label(new Rect(w - 220, Screen.height - 20, 206, 18), Mathf.RoundToInt(fpsSmoothed) + " fps  (" + (1000f / fpsSmoothed).ToString("F1") + " ms)",
+            GUI.Label(new Rect(w - 220, UiScale.H - 20, 206, 18), Mathf.RoundToInt(fpsSmoothed) + " fps  (" + (1000f / fpsSmoothed).ToString("F1") + " ms)",
                 new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = c } });
         }
 
@@ -1230,7 +1230,7 @@ namespace Deepbound.UI
             EnsureStyles();
             if (CharacterSelect.Open) return;
 
-            float w = Screen.width, h = Screen.height;
+            float w = UiScale.W, h = UiScale.H;
             UiTimer.Begin();
             if (Cinematic) { DrawFade(w, h); return; }
             // Afflictions and potions at the edges of the view, under the whole HUD.
@@ -1250,8 +1250,8 @@ namespace Deepbound.UI
             var stonePouch = player.GetComponent<Flasks>();
             if (stonePouch != null && stonePouch.InStasis)
             {
-                Rect(0, 0, Screen.width, Screen.height, new Color(0.55f, 0.57f, 0.62f, 0.32f));
-                UiSkin.Shadowed(new Rect(0, Screen.height * 0.3f, Screen.width, 30), "GRAVE STILLNESS  -  nothing can touch you", new GUIStyle(big) { fontSize = 22, normal = { textColor = new Color(0.85f, 0.88f, 0.95f) } });
+                Rect(0, 0, UiScale.W, UiScale.H, new Color(0.55f, 0.57f, 0.62f, 0.32f));
+                UiSkin.Shadowed(new Rect(0, UiScale.H * 0.3f, UiScale.W, 30), "GRAVE STILLNESS  -  nothing can touch you", new GUIStyle(big) { fontSize = 22, normal = { textColor = new Color(0.85f, 0.88f, 0.95f) } });
             }
             UiTimer.Mark("DrawEnemyBars");
             DrawRelicTags();
@@ -1357,14 +1357,14 @@ namespace Deepbound.UI
                 var at = d.transform.position + Vector3.up * 1.4f;
                 float dist = Vector3.Distance(cam.transform.position, at);
                 if (dist > 30f) continue;
-                var sp = cam.WorldToScreenPoint(at);
+                var sp = UiScale.World(cam, at);
                 if (sp.z <= 0f) continue;
                 // Only what you can actually see: a wall (or anything solid) between hides the tag.
                 if (Physics.Linecast(cam.transform.position, at, out var block, ~0, QueryTriggerInteraction.Ignore) && block.collider.GetComponentInParent<LootDrop>() == null && block.collider.GetComponentInParent<Player.NetworkPlayer>() == null) continue;
                 var relic = (Relic)d.Amount.Value;
                 var c = Relics.GemColor(relic);
                 float a = Mathf.Clamp01((30f - dist) / 8f);
-                var r = new Rect(sp.x - 160f, Screen.height - sp.y - 30f, 320f, 22f);
+                var r = new Rect(sp.x - 160f, UiScale.H - sp.y - 30f, 320f, 22f);
                 UiSkin.Shadowed(r, "RELIC:  " + Relics.Name(relic), new GUIStyle(label) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(Mathf.Lerp(c.r, 1f, 0.3f), Mathf.Lerp(c.g, 1f, 0.3f), Mathf.Lerp(c.b, 1f, 0.3f), a) } }, a);
                 if (dist < 9f) GUI.Label(new Rect(r.x, r.y + 20f, r.width, 18f), Relics.Describe(relic), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 1f, 1f, 0.8f * a) } });
             }
@@ -1386,13 +1386,13 @@ namespace Deepbound.UI
                 {
                     if (pouch.Rare.Value == 0) continue;
                     var found = (RareItem)d.Amount.Value;
-                    GUI.Label(new Rect(0, Screen.height / 2f + 44f, Screen.width, 22f), "SLOT 5 FULL  -  " + RareItems.Name(found) + " lies here; use your " + RareItems.Name(pouch.RareHeld) + " (5) to make room",
+                    GUI.Label(new Rect(0, UiScale.H / 2f + 44f, UiScale.W, 22f), "SLOT 5 FULL  -  " + RareItems.Name(found) + " lies here; use your " + RareItems.Name(pouch.RareHeld) + " (5) to make room",
                         new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = RareItems.Color(found) } });
                     return;
                 }
                 var kind = k == LootKind.PotionHP ? Flasks.Kind.Health : Flasks.Kind.Mana;
                 if (!pouch.IsFull(kind)) continue;
-                GUI.Label(new Rect(0, Screen.height / 2f + 44f, Screen.width, 22f), "POUCH FULL  -  " + (kind == Flasks.Kind.Health ? "Health" : "Mana") + " Potions " + Flasks.Max + "/" + Flasks.Max + "  (drink one to make room)",
+                GUI.Label(new Rect(0, UiScale.H / 2f + 44f, UiScale.W, 22f), "POUCH FULL  -  " + (kind == Flasks.Kind.Health ? "Health" : "Mana") + " Potions " + Flasks.Max + "/" + Flasks.Max + "  (drink one to make room)",
                     new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = Flasks.ColorOf(kind) } });
                 return;
             }
@@ -1445,7 +1445,7 @@ namespace Deepbound.UI
             float gap = kill ? 9f : 7f, len = kill ? 9f : hitMarkHeavy ? 7f : 5f;
             var col = kill ? new Color(1f, 0.25f, 0.2f, a) : new Color(1f, 1f, 1f, a * 0.95f);
             var m = GUI.matrix;
-            GUIUtility.RotateAroundPivot(45f, c);
+            UiScale.Rotate(45f, c);
             foreach (var d in new[] { new Vector2(1, 0), new Vector2(-1, 0), new Vector2(0, 1), new Vector2(0, -1) })
             {
                 bool horizontal = d.y == 0f;
@@ -1513,9 +1513,15 @@ namespace Deepbound.UI
             // A centred dot and four even ticks, with a dark outline so it reads on bright stone too.
             float cx = Mathf.Round(c.x), cy = Mathf.Round(c.y);
             var outline = new Color(0f, 0f, 0f, 0.55f);
-            var tick = new Color(1f, 1f, 1f, 0.6f);
+            var crossColor = Settings.CrosshairColor;
+            var tick = new Color(crossColor.r, crossColor.g, crossColor.b, 0.6f);
+            // Its size setting: everything below scales around the centre.
+            var crossKeep = GUI.matrix;
+            float crossScale = Settings.CrosshairSize;
+            if (!Mathf.Approximately(crossScale, 1f))
+                GUI.matrix = crossKeep * Matrix4x4.Translate(new Vector3(cx, cy, 0f)) * Matrix4x4.Scale(new Vector3(crossScale, crossScale, 1f)) * Matrix4x4.Translate(new Vector3(-cx, -cy, 0f));
             Rect(cx - 2f, cy - 2f, 4, 4, outline);
-            Rect(cx - 1f, cy - 1f, 2, 2, new Color(1f, 1f, 1f, 0.95f));
+            Rect(cx - 1f, cy - 1f, 2, 2, new Color(crossColor.r, crossColor.g, crossColor.b, 0.95f));
             foreach (var d in new[] { new Vector2(1, 0), new Vector2(-1, 0), new Vector2(0, 1), new Vector2(0, -1) })
             {
                 float tx = cx + d.x * 8f, ty = cy + d.y * 8f;
@@ -1524,6 +1530,7 @@ namespace Deepbound.UI
                 Rect(rr.x - 0.5f, rr.y - 0.5f, rr.width + 1f, rr.height + 1f, outline);
                 Rect(rr.x, rr.y, rr.width, rr.height, tick);
             }
+            GUI.matrix = crossKeep;
         }
 
         private void DrawVitals(float w, float h)
@@ -1859,7 +1866,7 @@ namespace Deepbound.UI
             if (close) Rect(0, 0, w, h, new Color(0.1f, 0.4f, 0.2f, 0.06f + 0.06f * pulse));
             var cam = player.Camera;
             if (cam == null || d > 45f) return;
-            var sp = cam.WorldToScreenPoint(tm.transform.position + Vector3.up * 3.1f);
+            var sp = UiScale.World(cam, tm.transform.position + Vector3.up * 3.1f);
             if (sp.z <= 0f) return;
             float y = h - sp.y;
             Rect(sp.x - 5, y - 5, 10, 10, new Color(col.r, col.g, col.b, 0.85f));
@@ -2095,7 +2102,7 @@ namespace Deepbound.UI
             }
             // A marker on the lift, through walls.
             var cam = player.Camera;
-            var ps = cam.WorldToScreenPoint(DungeonDirector.ExitPosition + Vector3.up * 3.2f);
+            var ps = UiScale.World(cam, DungeonDirector.ExitPosition + Vector3.up * 3.2f);
             if (ps.z > 0f)
                 GUI.Label(new Rect(ps.x - 100, h - ps.y - 10, 200, 20), "THE LIFT  " + Mathf.RoundToInt(Vector3.Distance(player.transform.position, DungeonDirector.ExitPosition)) + "m",
                     new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.6f, 0.9f, 1f) } });
@@ -2128,9 +2135,9 @@ namespace Deepbound.UI
             if (age > 25f) return;
             float a = Mathf.Clamp01((25f - age) / 3f);
             var style = new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 1f, 1f, a * 0.9f) } };
-            UiSkin.Rect(new Rect(w - 380, 254, 370, 206), new Color(0f, 0f, 0f, 0.5f * a));
-            UiSkin.Rect(new Rect(w - 12, 254, 2, 206), new Color(Gold.r, Gold.g, Gold.b, 0.6f * a));
-            GUI.Label(new Rect(w - 370, 262, 350, 190), Binds.Rekey(
+            UiSkin.Rect(new Rect(w - 380, Minimap.SmallBottom, 370, 206), new Color(0f, 0f, 0f, 0.5f * a));
+            UiSkin.Rect(new Rect(w - 12, Minimap.SmallBottom, 2, 206), new Color(Gold.r, Gold.g, Gold.b, 0.6f * a));
+            GUI.Label(new Rect(w - 370, Minimap.SmallBottom + 8f, 350, 190), Binds.Rekey(
                 "WASD move  ·  Shift sprint  ·  Space jump\n" +
                 (progress.ClassId.Value == ClassId.Flagellant
                     ? "LMB Flail (every third swing CRASHES)  ·  RMB Scourge yourself for Zeal\n" +
@@ -2221,7 +2228,7 @@ namespace Deepbound.UI
         {
             // Long lines wrap onto a second line instead of being cut off (2026-10-27).
             feedStyle ??= new GUIStyle(label) { fontSize = 14, alignment = TextAnchor.MiddleLeft, wordWrap = true, clipping = TextClipping.Clip };
-            float maxW = Mathf.Min(460f, Screen.width * 0.34f);
+            float maxW = Mathf.Min(460f, UiScale.W * 0.34f);
             float bottom = h * 0.6f + 22f;
             int shown = 0;
             for (int i = FeedLines.Count - 1; i >= 0 && shown < 7; i--)
@@ -2238,7 +2245,7 @@ namespace Deepbound.UI
                 float lh = Mathf.Max(22f, feedStyle.CalcHeight(content, tw - 12f) + 4f);
                 float x = 18f - (1f - slide) * 60f, y = bottom - lh;
                 // A tall stack stops short of the tip box (the oldest lines give way) instead of running under it.
-                if (Tips.BottomEdge > 0f && y < Tips.BottomEdge + 6f && x + tw > Screen.width / 2f - 320f) break;
+                if (Tips.BottomEdge > 0f && y < Tips.BottomEdge + 6f && x + tw > UiScale.W / 2f - 320f) break;
                 Rect(x, y, tw, lh, new Color(0.03f, 0.025f, 0.02f, 0.62f * a));
                 Rect(x, y, 3, lh, new Color(line.Color.r, line.Color.g, line.Color.b, 0.9f * a));
                 var st = new GUIStyle(feedStyle) { normal = { textColor = new Color(line.Color.r, line.Color.g, line.Color.b, a) } };
@@ -2730,7 +2737,7 @@ namespace Deepbound.UI
                 Rect(cx, y, 24, 24, new Color(0.04f, 0.035f, 0.03f, 0.92f));
                 // A cut gem: a diamond of the relic's colour with a bright facet.
                 var keep = GUI.matrix;
-                GUIUtility.RotateAroundPivot(45f, chip.center);
+                UiScale.Rotate(45f, chip.center);
                 Rect(chip.center.x - 6, chip.center.y - 6, 12, 12, c);
                 Rect(chip.center.x - 6, chip.center.y - 6, 5, 5, new Color(1f, 1f, 1f, 0.45f));
                 GUI.matrix = keep;
@@ -2876,7 +2883,7 @@ namespace Deepbound.UI
             foreach (var p in PlayerPings.Active.Values)
             {
                 var world = p.Position + Vector3.up * (p.Kind == PlayerPings.Kind.Enemy ? 2.6f : 1.2f);
-                var sp = cam.WorldToScreenPoint(world);
+                var sp = UiScale.World(cam, world);
                 bool behind = sp.z < 0f;
                 var pos = new Vector2(sp.x, h - sp.y);
                 if (behind) pos = new Vector2(w - pos.x, h - pos.y);
@@ -2895,7 +2902,7 @@ namespace Deepbound.UI
                 var col = new Color(p.Color.r, p.Color.g, p.Color.b, fade);
 
                 var old = GUI.matrix;
-                GUIUtility.RotateAroundPivot(45f, pos);
+                UiScale.Rotate(45f, pos);
                 Rect(pos.x - 9, pos.y - 9, 18, 18, new Color(0f, 0f, 0f, 0.7f * fade));
                 Rect(pos.x - 7, pos.y - 7, 14, 14, col);
                 GUI.matrix = old;
@@ -2916,9 +2923,9 @@ namespace Deepbound.UI
             foreach (var p in Phoenix.All)
             {
                 if (p == null) continue;
-                var sp = cam.WorldToScreenPoint(p.transform.position + Vector3.up * 0.9f);
+                var sp = UiScale.World(cam, p.transform.position + Vector3.up * 0.9f);
                 if (sp.z <= 0f || sp.z > 40f) continue;
-                float x = sp.x, y = Screen.height - sp.y;
+                float x = sp.x, y = UiScale.H - sp.y;
                 int left = Mathf.Max(0, Mathf.CeilToInt((float)(p.EndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
                 string owner = Health.NameOf(p.Summoner.Value);
                 var st = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 11, normal = { textColor = fire } };
@@ -2944,16 +2951,16 @@ namespace Deepbound.UI
             {
                 if (p == null || p.Health == null || !p.Health.IsAlive) continue;
                 if (p.Feeding.Value) feeding++;
-                var sp = cam.WorldToScreenPoint(p.transform.position + Vector3.up * 3.4f);
+                var sp = UiScale.World(cam, p.transform.position + Vector3.up * 3.4f);
                 if (sp.z <= 0f || sp.z > 45f) continue;
-                float x = sp.x, y = Screen.height - sp.y;
+                float x = sp.x, y = UiScale.H - sp.y;
                 var st = new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = p.Feeding.Value ? green : new Color(0.7f, 0.8f, 0.7f) } };
                 UiSkin.Shadowed(new Rect(x - 60, y - 22, 120, 18), p.Feeding.Value ? "PYLON - HEALING" : "PYLON", st);
                 Rect(x - 31, y - 3, 62, 7, new Color(0f, 0f, 0f, 0.75f));
                 Rect(x - 30, y - 2, 60 * p.Health.Fraction, 5, green);
             }
             if (feeding > 0 && BossBrain.Active != null && !BossBrain.Active.IsDead)
-                PromptLine(Screen.width, Screen.height, BossBrain.Active.DisplayName + " drinks from " + feeding + (feeding == 1 ? " PYLON" : " PYLONS") + " (green beams): break them, or hit them to stop the flow", -170f);
+                PromptLine(UiScale.W, UiScale.H, BossBrain.Active.DisplayName + " drinks from " + feeding + (feeding == 1 ? " PYLON" : " PYLONS") + " (green beams): break them, or hit them to stop the flow", -170f);
         }
 
         private void DrawEnemyBars()
@@ -2982,7 +2989,7 @@ namespace Deepbound.UI
                 if (!hurt && tags.Length == 0) continue;
 
                 var world = hp.transform.position + Vector3.up * (hp.CenterHeight * 2f + 0.35f);
-                var screen = cam.WorldToScreenPoint(world);
+                var screen = UiScale.World(cam, world);
                 if (screen.z <= 0f || screen.z > 25f) continue;
                 // No tags or bars through stone (2026-10-27: a stunned wraith two rooms away printed on the wall).
                 if (!InSight(cam.transform.position, hp)) continue;
@@ -2998,7 +3005,7 @@ namespace Deepbound.UI
             var shadowStyle = new GUIStyle(tagStyle) { contentOffset = new Vector2(1, 1) };
             foreach (var (screen, tags, hp, hurt) in barQueue)
             {
-                float bw = 60f, x = screen.x - bw / 2f, y = Screen.height - screen.y;
+                float bw = 60f, x = screen.x - bw / 2f, y = UiScale.H - screen.y;
                 if (hurt)
                 {
                     Rect(x - 1, y - 1, bw + 2, 7, new Color(0, 0, 0, 0.75f));

@@ -9,7 +9,7 @@ namespace Deepbound.Art
     /// </summary>
     public class SnareNet : MonoBehaviour
     {
-        private const int Spokes = 12, Rings = 3;
+        private const int Spokes = 16, Rings = 5;
         private static readonly Color Rope = new Color(0.52f, 0.42f, 0.28f);
 
         private float radius, seconds, born;
@@ -30,8 +30,8 @@ namespace Deepbound.Art
 
         private void Build()
         {
-            var strand = MeshKit.Box(new Vector3(0.035f, 0.025f, 1f));
-            var stone = MeshKit.Ball(0.07f, 6, 4);
+            var strand = MeshKit.Box(new Vector3(0.016f, 0.02f, 1f));
+            var stone = MeshKit.Ball(0.03f, 6, 4);
             // Spokes from the knot at the middle to the rim; rings of rope across them; a stone weight at each spoke's end.
             for (int s = 0; s < Spokes; s++)
             {

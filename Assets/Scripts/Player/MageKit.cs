@@ -138,7 +138,7 @@ namespace Deepbound.Player
             }
 
             // --- Q: Tidal Wave ---
-            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= waveReadyAt && Mana >= WaveMana)
+            if (UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= waveReadyAt && Mana >= WaveMana)
             {
                 var dir = player.AimForward;
                 dir.y = 0f;
@@ -153,7 +153,7 @@ namespace Deepbound.Player
             }
 
             // --- E: Meteor at the crosshair ---
-            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= meteorReadyAt && Mana >= MeteorMana &&
+            if (UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= meteorReadyAt && Mana >= MeteorMana &&
                 TryAimGround(out var spot))
             {
                 Mana -= MeteorMana;

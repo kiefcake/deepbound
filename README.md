@@ -70,15 +70,12 @@ The player lands in `Builds/Deepbound/Deepbound.exe` (Windows, DirectX 11). Do n
 
 ## Testing
 
-- **Smoke test** (headless, host + client over localhost; the main regression check, ~200 checks):
-  ```bash
-  cd Builds/Deepbound
-  ./Deepbound.exe -batchmode -nographics -port 7791 -host -smoketest 40 -logFile host.log &
-  sleep 4
-  ./Deepbound.exe -batchmode -nographics -port 7791 -client -smoketest 34 -logFile client.log
-  grep -E "FAIL|Exception" host.log client.log
-  ```
-- **Screenshots:** `Deepbound.exe -shots <dir> -screen-fullscreen 0 -screen-width 1280 -screen-height 720`
+- **Regression run** (`python tools/run_tests.py [--build Builds/DeepboundNext]`): a source audit, then the headless host + client
+  smoke test (about 230 checks). It also fails if a required check quietly did not run, and names any that this floor's seed skipped.
+- **Source audit** (`python tools/audit.py`): UI code must draw through `UiScale`, every sound must have a recording, no removed names linger.
+- **Party test** (`python tools/test_party.py [--classes Mage Knight Cleric Rogue] [--floors 1]`): real windows, one bot per player; fails if
+  anyone deals no damage, uses no abilities, gets stuck or throws an exception. Opens windows: not while playing.
+- **Screenshots:** `Deepbound.exe -shots <absolute dir> -screen-fullscreen 0 -screen-width 1280 -screen-height 720`
 - **Boss test:** `Deepbound.exe -bosstest <dir>` walks every boss through its phases.
 - **Autoplay:** `Deepbound.exe -autoplay <dir> [-autoclass Mage] [-autodepth N]` — a bot plays a whole run and logs
   everything it sees.

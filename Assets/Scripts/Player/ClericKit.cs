@@ -175,7 +175,7 @@ namespace Deepbound.Player
             }
 
             // --- Q: Consecrate ---
-            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= consecrateReadyAt && Mana >= ConsecrateMana)
+            if (UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= consecrateReadyAt && Mana >= ConsecrateMana)
             {
                 Mana -= ConsecrateMana;
                 consecrateReadyAt = Time.time + ConsecrateCooldown * progress.CooldownFor(AbilitySlot.Q);
@@ -184,7 +184,7 @@ namespace Deepbound.Player
             }
 
             // --- E: Divine Aegis ---
-            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= aegisReadyAt && Mana >= AegisMana)
+            if (UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= aegisReadyAt && Mana >= AegisMana)
             {
                 Mana -= AegisMana;
                 aegisReadyAt = Time.time + AegisCooldown * progress.CooldownFor(AbilitySlot.E) * (progress.Mastered(2) ? 0.7f : 1f);

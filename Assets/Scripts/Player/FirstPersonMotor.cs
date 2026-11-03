@@ -87,7 +87,12 @@ namespace Deepbound.Player
         public float CameraDrop { get; set; }
 
         /// <summary>True while the player has captured the mouse — i.e. is playing, not in a menu.</summary>
-        public bool HasControl => Cursor.lockState == CursorLockMode.Locked;
+        public bool HasControl => BotControl || Cursor.lockState == CursorLockMode.Locked;
+        /// <summary>
+        /// The autoplay bot's window is often not the focused one, and only the focused window of several can hold the
+        /// cursor (2026-11-03: in a four-bot run only one bot could act). It plays with no mouse, so it needs no lock.
+        /// </summary>
+        public static bool BotControl { get; set; }
 
         /// <summary>
         /// Attacks and abilities: control, and not in the quarter second after a menu closed or the
@@ -163,8 +168,8 @@ namespace Deepbound.Player
             if (UI.Binds.PadSprintDown || (UI.Settings.ToggleSprint && UI.Binds.Down(UI.Bind.Sprint))) padSprint = !padSprint;
             if (MoveInput.y < 0.2f) padSprint = false;
             bool sprintKey = (keyboard != null && !UI.Settings.ToggleSprint && UI.Binds.Held(UI.Bind.Sprint)) || padSprint;
-            bool jumpKey = keyboard != null && UI.Binds.Down(UI.Bind.Jump);
-            jumpHeldNow = keyboard != null && UI.Binds.Held(UI.Bind.Jump);
+            bool jumpKey = UI.Binds.Down(UI.Bind.Jump);
+            jumpHeldNow = UI.Binds.Held(UI.Bind.Jump);
             // Mania: your legs are not your own. Rooted: they are frozen to the floor.
             if (debuffs == null) debuffs = GetComponent<PlayerDebuffs>();
             bool manic = debuffs != null && debuffs.Manic && canMove;
@@ -181,9 +186,10 @@ namespace Deepbound.Player
             float feel = Mathf.Clamp01(UI.Settings.ShakeScale);
             float speedNow = new Vector2(planar.x, planar.z).magnitude;
             bool grounded = controller.enabled && controller.isGrounded;
-            lean = Mathf.Lerp(lean, -MoveInput.x * 1.6f * feel, 1f - Mathf.Exp(-Time.deltaTime * 8f));
+            bool bobs = UI.Settings.HeadBob;
+            lean = Mathf.Lerp(lean, bobs ? -MoveInput.x * 1.6f * feel : 0f, 1f - Mathf.Exp(-Time.deltaTime * 8f));
             if (grounded && speedNow > 0.6f) bobPhase += Time.deltaTime * speedNow * 1.85f;
-            float bobK = grounded ? Mathf.Clamp01(speedNow / 7f) * feel : 0f;
+            float bobK = grounded && bobs ? Mathf.Clamp01(speedNow / 7f) * feel : 0f;
             float bobY = Mathf.Sin(bobPhase * 2f) * 0.032f * bobK;
             float bobRoll = Mathf.Sin(bobPhase) * 0.45f * bobK;
             landDip = Mathf.MoveTowards(landDip, 0f, Time.deltaTime * 0.9f);
@@ -212,9 +218,9 @@ namespace Deepbound.Player
         {
             var v = UI.Binds.PadLook;
             if (v.sqrMagnitude < 1e-4f) return;
-            float k = PadTurnSpeed * UI.Settings.MouseSensitivity * Time.deltaTime * (debuffs != null ? debuffs.TurnMultiplier : 1f);
+            float k = PadTurnSpeed * UI.Settings.PadSensitivity * Time.deltaTime * (debuffs != null ? debuffs.TurnMultiplier : 1f);
             transform.Rotate(0f, v.x * k, 0f);
-            pitch = Mathf.Clamp(pitch - v.y * k * 0.7f, -maxPitch, maxPitch);
+            pitch = Mathf.Clamp(pitch - v.y * k * 0.7f * (UI.Settings.InvertLook ? -1f : 1f), -maxPitch, maxPitch);
             if (cameraPivot != null) cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
         private float lastBobY;
@@ -237,7 +243,7 @@ namespace Deepbound.Player
         private static Vector2 ReadMoveInput()
         {
             var keyboard = Keyboard.current;
-            if (keyboard == null) return Vector2.zero;
+            // A pad alone is enough: Binds reads whichever is there.
 
             var input = new Vector2(
                 (UI.Binds.Held(UI.Bind.MoveRight) ? 1f : 0f) - (UI.Binds.Held(UI.Bind.MoveLeft) ? 1f : 0f),
@@ -250,7 +256,7 @@ namespace Deepbound.Player
 
         private static Vector2 ReadLookInput()
         {
-            return Mouse.current != null ? Mouse.current.delta.ReadValue() : Vector2.zero;
+            return Mouse.current != null && !BotControl ? Mouse.current.delta.ReadValue() : Vector2.zero;
         }
 
         private void ApplyLook(Vector2 delta)
@@ -260,7 +266,7 @@ namespace Deepbound.Player
             float sens = mouseSensitivity * UI.Settings.MouseSensitivity * (debuffs != null ? debuffs.TurnMultiplier : 1f);
             transform.Rotate(0f, delta.x * sens, 0f);
 
-            pitch = Mathf.Clamp(pitch - delta.y * sens, -maxPitch, maxPitch);
+            pitch = Mathf.Clamp(pitch - delta.y * sens * (UI.Settings.InvertLook ? -1f : 1f), -maxPitch, maxPitch);
             if (cameraPivot != null) cameraPivot.localRotation = Quaternion.Euler(pitch, 0f, 0f);
         }
 

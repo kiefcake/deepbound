@@ -61,8 +61,8 @@ namespace Deepbound.Player
             if (!IsOwner || debugHold) return;
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
-            bool pressed = (mouse != null && mouse.middleButton.wasPressedThisFrame) || (keyboard != null && UI.Binds.Down(UI.Bind.Ping));
-            bool held = (mouse != null && mouse.middleButton.isPressed) || (keyboard != null && UI.Binds.Held(UI.Bind.Ping));
+            bool pressed = (mouse != null && mouse.middleButton.wasPressedThisFrame) || UI.Binds.Down(UI.Bind.Ping);
+            bool held = (mouse != null && mouse.middleButton.isPressed) || UI.Binds.Held(UI.Bind.Ping);
             var motor = GetComponent<FirstPersonMotor>();
             var life = GetComponent<PlayerLife>();
 
@@ -183,7 +183,7 @@ namespace Deepbound.Player
         {
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             if (!IsOwner || !wheelOpen) return;
-            float w = Screen.width, h = Screen.height;
+            float w = UI.UiScale.W, h = UI.UiScale.H;
             var c = new Vector2(w / 2f, h / 2f);
             var choice = WheelChoice();
             UI.UiSkin.Apply();

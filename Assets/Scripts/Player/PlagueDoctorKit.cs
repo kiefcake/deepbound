@@ -139,7 +139,7 @@ namespace Deepbound.Player
             }
 
             // --- Q: Miasma ---
-            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= miasmaReadyAt)
+            if (UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= miasmaReadyAt)
             {
                 miasmaReadyAt = Time.time + MiasmaCooldown * progress.CooldownFor(AbilitySlot.Q);
                 player.ViewModelCast(false);
@@ -147,7 +147,7 @@ namespace Deepbound.Player
             }
 
             // --- E: Plague Mask ---
-            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= maskReadyAt)
+            if (UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= maskReadyAt)
             {
                 maskReadyAt = Time.time + MaskCooldown * progress.CooldownFor(AbilitySlot.E);
                 MaskRpc();

@@ -287,7 +287,7 @@ namespace Deepbound.Player
             wasSeated = seated;
 
             var keyboard = Keyboard.current;
-            if (keyboard == null || !UI.Binds.Down(UI.Bind.Use) || ride == null || !DungeonDirector.InLobby || ride.Riding || UI.GameHud.MenuOpen) return;
+            if (!UI.Binds.Down(UI.Bind.Use) || ride == null || !DungeonDirector.InLobby || ride.Riding || UI.GameHud.MenuOpen) return;
             if (Seat.Value >= 0) { StandRpc(); return; }
             int free = NearestFreeSeat(ride);
             if (free >= 0) SitRpc(free);
@@ -511,7 +511,7 @@ namespace Deepbound.Player
         private void OwnerDodgeInput()
         {
             var keyboard = Keyboard.current;
-            if (Downed.Value || keyboard == null || motor == null || !motor.HasControl || Time.time < DodgeReadyAt) return;
+            if (Downed.Value || motor == null || !motor.HasControl || Time.time < DodgeReadyAt) return;
             if (!UI.Binds.Down(UI.Bind.Dodge) && !UI.Binds.Down(UI.Bind.Slide)) return;
 
             var input = motor.MoveInput;
@@ -542,7 +542,7 @@ namespace Deepbound.Player
         private void OwnerReviveInput()
         {
             var keyboard = Keyboard.current;
-            if (Downed.Value || keyboard == null) return;
+            if (Downed.Value) return;
             var target = DownedNear(transform.position, this);
             var dragging = DraggedByPlayer(NetworkObjectId);
             bool merged = UI.Binds.Merged;

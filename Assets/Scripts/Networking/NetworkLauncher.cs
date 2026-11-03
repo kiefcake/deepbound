@@ -105,10 +105,7 @@ namespace Deepbound.Networking
         private static void ApplyWindowMode(string[] args)
         {
             if (Application.isBatchMode || Array.IndexOf(args, "-screen-fullscreen") >= 0) return;
-            if (PlayerPrefs.GetInt(UI.Settings.FullscreenKey, 1) == 1)
-                Screen.SetResolution(Display.main.systemWidth, Display.main.systemHeight, FullScreenMode.FullScreenWindow);
-            else if (Screen.fullScreen)
-                Screen.fullScreen = false;
+            UI.Settings.ApplyDisplay();
         }
 
         private void OnDestroy()

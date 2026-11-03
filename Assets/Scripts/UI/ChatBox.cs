@@ -90,7 +90,7 @@ namespace Deepbound.UI
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             if (NetworkPlayer.Local == null) return;
             UiSkin.Apply();
-            float w = Screen.width, h = Screen.height;
+            float w = UiScale.W, h = UiScale.H;
             float x = 18f, bottom = h - 168f, width = Mathf.Min(460f, w * 0.38f);
             GUI.depth = -3;
 

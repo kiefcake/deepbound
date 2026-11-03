@@ -370,6 +370,7 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
+            UiSkin.Apply();
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             if (set == null || !set.activeSelf) return;
             GUI.depth = 5; // behind the title and menu
@@ -381,11 +382,11 @@ namespace Deepbound.UI
                 for (int i = 0; i < 3; i++)
                 {
                     float k = Mathf.Repeat(Time.time * 0.35f + i / 3f, 1f);
-                    var p = cam.WorldToScreenPoint(head + new Vector3(k * 0.25f, k * 0.45f, 0f));
+                    var p = UiScale.World(cam, head + new Vector3(k * 0.25f, k * 0.45f, 0f));
                     if (p.z <= 0f) continue;
                     float size = 14f + k * 18f;
                     var style = new GUIStyle(UiSkin.Heading) { fontSize = Mathf.RoundToInt(size), fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, clipping = TextClipping.Overflow, normal = { textColor = new Color(0.95f, 0.92f, 1f, Mathf.Sin(k * Mathf.PI) * 0.9f) } };
-                    var zr = new Rect(p.x - 60f, Screen.height - p.y - 50f, 120f, 100f);
+                    var zr = new Rect(p.x - 60f, UiScale.H - p.y - 50f, 120f, 100f);
                     UiSkin.Shadowed(zr, i == 2 ? "Z" : "z", style, Mathf.Sin(k * Mathf.PI));
                 }
             }
@@ -394,7 +395,7 @@ namespace Deepbound.UI
             float since = Time.time - sceneStart;
             if (cutAt > 0f) fade = Mathf.Clamp01((Time.time - cutAt) / FadeSeconds * 2f);
             else if (since < FadeSeconds * 0.6f) fade = 1f - since / (FadeSeconds * 0.6f);
-            if (fade > 0f) UiSkin.Rect(new Rect(0, 0, Screen.width, Screen.height), new Color(0f, 0f, 0f, Mathf.SmoothStep(0f, 1f, fade)));
+            if (fade > 0f) UiSkin.Rect(new Rect(0, 0, UiScale.W, UiScale.H), new Color(0f, 0f, 0f, Mathf.SmoothStep(0f, 1f, fade)));
         }
     }
 }

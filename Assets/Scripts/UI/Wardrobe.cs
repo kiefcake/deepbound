@@ -227,7 +227,7 @@ namespace Deepbound.UI
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             if (player == null || !DungeonDirector.InLobby) return;
             UiSkin.Apply();
-            float w = Screen.width, h = Screen.height;
+            float w = UiScale.W, h = UiScale.H;
             if (!Open)
             {
                 if (Near && !CharacterSelect.Open)

@@ -171,7 +171,7 @@ namespace Deepbound.UI
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             UiSkin.Apply();
             if (!Open || progress == null) return;
-            float w = Screen.width, h = Screen.height;
+            float w = UiScale.W, h = UiScale.H;
             GUI.depth = -10;
             int n = ClassDefinition.ById.Length;
             if (viewing < 0 || viewing >= n) viewing = (int)progress.ClassId.Value;

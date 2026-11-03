@@ -35,7 +35,7 @@ namespace Deepbound.UI
         {
             UiSkin.Apply();
             if (launcher == null || Connected) return;
-            float w = Screen.width, h = Screen.height;
+            float w = UiScale.W, h = UiScale.H;
             float fade = Mathf.Clamp01((Time.time - shownAt) / 1.2f);
 
             // Darken the edges so the title and menu read over the 3D scene.
@@ -48,6 +48,21 @@ namespace Deepbound.UI
                 new GUIStyle(UiSkin.Body) { fontSize = 17, fontStyle = FontStyle.Italic }, fade);
             UiSkin.Ornament(left, h * 0.12f + 122f, 420f, fade);
 
+            if (page == Page.Options)
+            {
+                // The same options as the pause menu (keys are rebound in-game, from there).
+                var box = new Rect(w / 2f - 390, h / 2f - 335, 780, 680);
+                UiSkin.Panel(new Rect(box.x - 20, box.y - 20, box.width + 40, box.height + 40), 0.95f);
+                GUILayout.BeginArea(box);
+                GUILayout.Label("OPTIONS", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
+                GUILayout.Space(14);
+                OptionsPanel.Draw();
+                GUILayout.FlexibleSpace();
+                if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(42))) page = Page.Main;
+                GUILayout.EndArea();
+                return;
+            }
+
             var area = new Rect(left, h * 0.33f, 360, h * 0.62f);
             GUILayout.BeginArea(area);
             switch (page)
@@ -55,7 +70,6 @@ namespace Deepbound.UI
                 case Page.Main: DrawMain(); break;
                 case Page.Join: if (SteamPlatform.Ready) DrawSteamJoin(); else DrawJoin(); break;
                 case Page.Address: DrawJoin(); break;
-                case Page.Options: DrawOptions(); break;
             }
 
             if (!string.IsNullOrEmpty(launcher.Status))
@@ -123,7 +137,7 @@ namespace Deepbound.UI
             GUILayout.Label("Friends hosting Deepbound appear here. Or accept their invite - here, or in Steam.", UiSkin.Small);
             GUILayout.Space(6);
             FriendsPanel.DrawInvites();
-            FriendsPanel.DrawJoinList(Mathf.Clamp(Screen.height * 0.22f, 120f, 260f));
+            FriendsPanel.DrawJoinList(Mathf.Clamp(UiScale.H * 0.22f, 120f, 260f));
             GUILayout.Space(8);
             if (GUILayout.Button("JOIN BY ADDRESS", UiSkin.Button, GUILayout.Height(36))) page = Page.Address;
             GUILayout.Space(4);
@@ -147,36 +161,6 @@ namespace Deepbound.UI
                             "If that fails, both install Tailscale or Radmin VPN and use the address it gives. You both need the same build.", new GUIStyle(UiSkin.Small) { wordWrap = true });
             GUILayout.Space(6);
             if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(38))) page = page == Page.Address ? Page.Join : Page.Main;
-        }
-
-        private void DrawOptions()
-        {
-            GUILayout.Label("OPTIONS", UiSkin.Heading);
-            GUILayout.Space(6);
-
-            GUILayout.Label("Mouse sensitivity  " + Settings.MouseSensitivity.ToString("F2"), UiSkin.Body);
-            Settings.MouseSensitivity = GUILayout.HorizontalSlider(Settings.MouseSensitivity, 0.2f, 3f);
-            GUILayout.Space(10);
-
-            GUILayout.Label("Volume  " + Mathf.RoundToInt(Settings.Volume * 100f) + "%", UiSkin.Body);
-            Settings.Volume = GUILayout.HorizontalSlider(Settings.Volume, 0f, 1f);
-            GUILayout.Space(10);
-
-            GUILayout.Label("Field of view  " + Mathf.RoundToInt(Settings.FieldOfView), UiSkin.Body);
-            Settings.FieldOfView = GUILayout.HorizontalSlider(Settings.FieldOfView, 60f, 100f);
-            GUILayout.Space(10);
-
-            bool full = Screen.fullScreen;
-            bool want = GUILayout.Toggle(full, "  Fullscreen", new GUIStyle(GUI.skin.toggle) { fontSize = 15 });
-            if (want != full)
-            {
-                Screen.fullScreen = want;
-                PlayerPrefs.SetInt(Settings.FullscreenKey, want ? 1 : 0);
-                PlayerPrefs.Save();
-            }
-
-            GUILayout.Space(14);
-            if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(38))) page = Page.Main;
         }
     }
 }

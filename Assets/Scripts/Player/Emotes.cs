@@ -127,7 +127,7 @@ namespace Deepbound.Player
         {
             useGUILayout = false;
             if (!IsOwner || !wheelOpen) return;
-            float w = Screen.width, h = Screen.height;
+            float w = UI.UiScale.W, h = UI.UiScale.H;
             var c = new Vector2(w / 2f, h / 2f);
             var choice = WheelChoice();
             UI.UiSkin.Apply();

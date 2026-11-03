@@ -20,7 +20,7 @@ namespace Deepbound.UI
 
         /// <summary>For the screenshot run.</summary>
         public static void DebugShowGuide(PauseMenu menu, int page = 0) { Open = true; menu.guide = true; menu.guidePage = page; }
-        public static void DebugShowOptions(PauseMenu menu) { Open = true; menu.guide = false; menu.options = true; menu.controls = false; }
+        public static void DebugShowOptions(PauseMenu menu, int tab = 0) { Open = true; menu.guide = false; menu.options = true; menu.controls = false; OptionsPanel.Tab = tab; }
         public static void DebugShowControls(PauseMenu menu) { Open = true; menu.guide = false; menu.options = true; menu.controls = true; }
 
         /// <summary>Keys that can never be bound: menus, chat, the free cursor and the developer keys.</summary>
@@ -75,7 +75,7 @@ namespace Deepbound.UI
         private float guideTallest;
 
         /// <summary>A checkbox that shows its state (a gold square inside a box), label beside it. <paramref name="radio"/>: round-ish, for one-of choices.</summary>
-        private static bool Check(bool on, string label, bool radio = false)
+        internal static bool Check(bool on, string label, bool radio = false)
         {
             var rect = GUILayoutUtility.GetRect(new GUIContent("      " + label), UiSkin.Body, GUILayout.Height(24));
             var box = new Rect(rect.x + 2f, rect.y + 4f, 16f, 16f);
@@ -89,7 +89,7 @@ namespace Deepbound.UI
         }
 
         /// <summary>A row of buttons, the chosen one underlined in gold.</summary>
-        private static int Choice(int current, string[] names)
+        internal static int Choice(int current, string[] names)
         {
             GUILayout.BeginHorizontal();
             for (int i = 0; i < names.Length; i++)
@@ -198,7 +198,7 @@ namespace Deepbound.UI
             }
         }
 
-        private static void DrawVoiceOptions()
+        internal static void DrawVoiceOptions()
         {
             GUILayout.Label("PROXIMITY VOICE", UiSkin.Heading);
             GUILayout.Label(Player.PlayerVoice.MicAvailable ? "Players near you hear you; walls muffle. Shouting draws the dead." : "No microphone found: you can still hear others.", UiSkin.Body);
@@ -220,7 +220,7 @@ namespace Deepbound.UI
             GUILayout.Label("Open-mic sensitivity (the bar must pass the line)", UiSkin.Body);
             Settings.MicThreshold = GUILayout.HorizontalSlider(Settings.MicThreshold, 0.002f, 0.08f);
             // Live meter: your level against the threshold line.
-            var r = GUILayoutUtility.GetRect(370, 14);
+            var r = GUILayoutUtility.GetRect(360, 14);
             UiSkin.Rect(r, new Color(0f, 0f, 0f, 0.6f));
             float level = Mathf.Clamp01(Player.PlayerVoice.MicLevel / 0.08f);
             bool open = Player.PlayerVoice.MicLevel >= Settings.MicThreshold;
@@ -240,7 +240,7 @@ namespace Deepbound.UI
         {
             UiSkin.Apply();
             if (!Open) return;
-            float w = Screen.width, h = Screen.height;
+            float w = UiScale.W, h = UiScale.H;
             GUI.depth = -20;
 
             UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.6f));
@@ -273,59 +273,8 @@ namespace Deepbound.UI
 
             if (options)
             {
-                GUILayout.BeginHorizontal();
-                GUILayout.BeginVertical(GUILayout.Width(370));
-                GUILayout.Label("Mouse sensitivity  " + Settings.MouseSensitivity.ToString("F2"), UiSkin.Body);
-                Settings.MouseSensitivity = GUILayout.HorizontalSlider(Settings.MouseSensitivity, 0.2f, 3f);
-                GUILayout.Space(10);
-                GUILayout.Label("Volume  " + Mathf.RoundToInt(Settings.Volume * 100f) + "%", UiSkin.Body);
-                Settings.Volume = GUILayout.HorizontalSlider(Settings.Volume, 0f, 1f);
-                GUILayout.Space(6);
-                GUILayout.Label("Music  " + Mathf.RoundToInt(Settings.MusicVolume * 100f) + "%", UiSkin.Body);
-                Settings.MusicVolume = GUILayout.HorizontalSlider(Settings.MusicVolume, 0f, 1f);
-                GUILayout.Space(6);
-                GUILayout.Label("Effects  " + Mathf.RoundToInt(Settings.SfxVolume * 100f) + "%", UiSkin.Body);
-                Settings.SfxVolume = GUILayout.HorizontalSlider(Settings.SfxVolume, 0f, 1f);
-                GUILayout.Space(10);
-                GUILayout.Label("Field of view  " + Mathf.RoundToInt(Settings.FieldOfView), UiSkin.Body);
-                Settings.FieldOfView = GUILayout.HorizontalSlider(Settings.FieldOfView, 60f, 100f);
-                GUILayout.Space(10);
-                GUILayout.Label("Screen shake  " + Mathf.RoundToInt(Settings.ShakeScale * 100f) + "%", UiSkin.Body);
-                Settings.ShakeScale = GUILayout.HorizontalSlider(Settings.ShakeScale, 0f, 1.5f);
-                GUILayout.Space(8);
-                Settings.DamageNumbers = Check(Settings.DamageNumbers, "Damage numbers");
-                Settings.ReduceFlashing = Check(Settings.ReduceFlashing, "Reduce flashing effects");
-                Settings.ColorBlind = Check(Settings.ColorBlind, "Colour-blind telegraphs (magenta and yellow)");
-                Settings.ToggleSprint = Check(Settings.ToggleSprint, "Toggle sprint (tap to run, stops when you stop)");
-                Settings.ShowTips = Check(Settings.ShowTips, "Show tips");
-                Settings.ShowFps = Check(Settings.ShowFps, "Show frame rate");
-                if (GUILayout.Button("Show all tips again", UiSkin.Button, GUILayout.Height(30))) Settings.ResetTips();
-                var cam = Player.NetworkPlayer.Local != null ? Player.NetworkPlayer.Local.Camera : null;
-                if (cam != null) cam.fieldOfView = Settings.FieldOfView;
-                GUILayout.EndVertical();
-                GUILayout.Space(40);
-                GUILayout.BeginVertical(GUILayout.Width(370));
-                DrawVoiceOptions();
-                // Graphics sit under the voice settings (the left column ran off a 720p screen once Effects joined it).
-                GUILayout.Space(22);
-                GUILayout.Label("Graphics  (lower helps slower PCs)", UiSkin.Body);
-                int gq = Choice(Settings.GraphicsQuality, Settings.GraphicsNames);
-                if (gq != Settings.GraphicsQuality) Settings.GraphicsQuality = gq;
-                bool vs = Check(Settings.VSync, "VSync (off: uncapped frame rate)");
-                if (vs != Settings.VSync) Settings.VSync = vs;
-                bool rl = Check(Settings.Retro, "Retro look (small pixels, dithered colour)");
-                if (rl != Settings.Retro) Settings.Retro = rl;
-                if (Settings.Retro)
-                {
-                    int rs = Choice(Settings.RetroSize, Settings.RetroNames);
-                    if (rs != Settings.RetroSize) Settings.RetroSize = rs;
-                }
-                GUILayout.Space(10);
-                GUILayout.Label("Brightness  " + (Settings.Brightness >= 0f ? "+" : "") + Mathf.RoundToInt(Settings.Brightness * 100f), UiSkin.Body);
-                Settings.Brightness = GUILayout.HorizontalSlider(Settings.Brightness, -0.3f, 0.4f);
-                GUILayout.EndVertical();
-                GUILayout.EndHorizontal();
-                GUILayout.Space(18);
+                OptionsPanel.Draw();
+                GUILayout.FlexibleSpace();
                 GUILayout.BeginHorizontal();
                 if (GUILayout.Button("CONTROLS", UiSkin.Button, GUILayout.Height(42))) controls = true;
                 if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(42))) options = false;

@@ -32,6 +32,11 @@ namespace Deepbound.UI
         private int arenaSeen = -1;
         private bool large;
 
+        /// <summary>The corner map's side at the current setting (virtual pixels).</summary>
+        public static float SmallSize => 220f * Settings.MinimapSize;
+        /// <summary>Where the space under the corner map begins: what sits beneath it starts here.</summary>
+        public static float SmallBottom => Settings.ShowMinimap ? 18f + SmallSize + 16f : 18f;
+
         /// <summary>Large overview on or off (M; the screenshot run also sets it).</summary>
         public bool Large { get => large; set => large = value; }
 
@@ -128,8 +133,9 @@ namespace Deepbound.UI
             var layout = DungeonDirector.Layout;
             if (layout == null || player == null || CharacterSelect.Open || PauseMenu.Open) return;
 
-            float w = Screen.width, h = Screen.height;
-            float size = large ? Mathf.Min(w * 0.6f, h * 0.84f) : 220f;
+            if (!large && !Settings.ShowMinimap) return;
+            float w = UiScale.W, h = UiScale.H;
+            float size = large ? Mathf.Min(w * 0.6f, h * 0.84f) : SmallSize;
             var frame = large ? new Rect(w / 2f - size / 2f - 120f, h / 2f - size / 2f, size, size) : new Rect(w - size - 18f, 18f, size, size);
             float span = large ? MapSpan(layout) : 62f;
             float scale = size / span;
@@ -318,7 +324,7 @@ namespace Deepbound.UI
             var mine = ToMap(player.transform.position);
             float yaw = player.transform.eulerAngles.y;
             var m = GUI.matrix;
-            GUIUtility.RotateAroundPivot(yaw, mine);
+            UiScale.Rotate(yaw, mine);
             var oc = GUI.color;
             GUI.color = new Color(1f, 0.95f, 0.8f, 0.28f);
             float coneLen = large ? 70f : 60f;
@@ -391,7 +397,7 @@ namespace Deepbound.UI
         private static void ArrowAt(Vector2 at, float yaw, Color color, float size)
         {
             var m = GUI.matrix;
-            GUIUtility.RotateAroundPivot(yaw, at);
+            UiScale.Rotate(yaw, at);
             var old = GUI.color;
             GUI.color = color;
             GUI.DrawTexture(new Rect(at.x - size / 2f, at.y - size / 2f, size, size), MapIcons.Arrow);

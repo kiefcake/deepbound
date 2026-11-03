@@ -168,7 +168,7 @@ namespace Deepbound.Player
 
             if (!IsOwner) return;
             var keyboard = Keyboard.current;
-            if (keyboard == null || !UI.Binds.Down(UI.Bind.Ultimate) || !Ready || !life.CanAct || !motor.ActionsReady || Time.time - lastCast < 1f) return;
+            if (!UI.Binds.Down(UI.Bind.Ultimate) || !Ready || !life.CanAct || !motor.ActionsReady || Time.time - lastCast < 1f) return;
             if (DungeonDirector.InLobby) return;
             lastCast = Time.time;
 

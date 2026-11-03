@@ -151,7 +151,7 @@ namespace Deepbound.Player
             }
 
             // --- Q: Snare Shot along the crosshair ---
-            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= snareReadyAt && Focus >= SnareFocus)
+            if (UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= snareReadyAt && Focus >= SnareFocus)
             {
                 Focus -= SnareFocus;
                 snareReadyAt = Time.time + SnareCooldownNow;
@@ -160,7 +160,7 @@ namespace Deepbound.Player
             }
 
             // --- E: Volley at the crosshair ---
-            if (keyboard != null && UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= volleyReadyAt && Focus >= VolleyFocus && TryAimFloor(30f, out var volleyAt))
+            if (UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= volleyReadyAt && Focus >= VolleyFocus && TryAimFloor(30f, out var volleyAt))
             {
                 Focus -= VolleyFocus;
                 volleyReadyAt = Time.time + VolleyCooldown * progress.CooldownFor(AbilitySlot.E);

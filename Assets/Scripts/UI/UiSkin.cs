@@ -23,6 +23,7 @@ namespace Deepbound.UI
         /// <summary>Call at the top of every OnGUI: styles that do not name a font use the book serif.</summary>
         public static void Apply()
         {
+            UiScale.Begin();
             if (GUI.skin.font != BookFont)
             {
                 GUI.skin.font = BookFont;
@@ -78,7 +79,7 @@ namespace Deepbound.UI
             Rect(new Rect(x, y - 1f, 3f, 3f), gold);
             Rect(new Rect(x + width - 3f, y - 1f, 3f, 3f), gold);
             var m = GUI.matrix;
-            GUIUtility.RotateAroundPivot(45f, new Vector2(mid, y + 0.5f));
+            UiScale.Rotate(45f, new Vector2(mid, y + 0.5f));
             Rect(new Rect(mid - 5f, y - 4.5f, 10f, 10f), gold);
             Rect(new Rect(mid - 2.5f, y - 2f, 5f, 5f), new Color(0.05f, 0.03f, 0.02f, 0.9f * fade));
             GUI.matrix = m;
@@ -116,7 +117,7 @@ namespace Deepbound.UI
         public static void Stud(Vector2 at, float size, float alpha = 1f)
         {
             var m = GUI.matrix;
-            GUIUtility.RotateAroundPivot(45f, at);
+            UiScale.Rotate(45f, at);
             Rect(new Rect(at.x - size / 2f - 1, at.y - size / 2f - 1, size + 2, size + 2), new Color(0.1f, 0.07f, 0.03f, alpha));
             Rect(new Rect(at.x - size / 2f, at.y - size / 2f, size, size), new Color(Gold.r, Gold.g, Gold.b, alpha));
             GUI.matrix = m;

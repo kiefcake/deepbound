@@ -153,7 +153,7 @@ namespace Deepbound.UI
             const float tw = 300f;
             float textH = body.CalcHeight(new GUIContent(h.Text), tw - 20f);
             float th = 30f + textH + 22f;
-            float tx = Mathf.Min(x + hover * (size + gap), Screen.width - tw - 8f), ty = y - th - 8f;
+            float tx = Mathf.Min(x + hover * (size + gap), UiScale.W - tw - 8f), ty = y - th - 8f;
             UiSkin.Rect(new Rect(tx - 1.5f, ty - 1.5f, tw + 3f, th + 3f), new Color(h.Color.r, h.Color.g, h.Color.b, 0.9f));
             UiSkin.Rect(new Rect(tx, ty, tw, th), new Color(0.04f, 0.035f, 0.03f, 0.96f));
             GUI.Label(new Rect(tx + 10f, ty + 6f, tw - 20f, 22f), h.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Small) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = h.Color } });

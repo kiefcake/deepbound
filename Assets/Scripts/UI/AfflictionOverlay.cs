@@ -89,7 +89,7 @@ namespace Deepbound.UI
             if ((mendK > 0.3f || surgeK > 0.3f) && Time.time >= nextSpark)
             {
                 nextSpark = Time.time + 0.05f;
-                float h = Screen.height, w = Screen.width;
+                float h = UiScale.H, w = UiScale.W;
                 bool left = Random.value < 0.5f;
                 var col = surgeK > mendK ? surgeColor : new Color(1f, Random.Range(0.45f, 0.8f), 0.3f);
                 sparks.Add(new Spark { P = new Vector2(left ? Random.Range(0f, w * 0.18f) : w - Random.Range(0f, w * 0.18f), h + 4f), V = new Vector2(Random.Range(-20f, 20f), -Random.Range(h * 0.25f, h * 0.45f)), Born = Time.time, Life = Random.Range(0.8f, 1.4f), Size = h * Random.Range(0.006f, 0.013f), C = col });
@@ -132,6 +132,7 @@ namespace Deepbound.UI
         {
             if (instance == null || Event.current.type != EventType.Repaint || paintedFrame == Time.frameCount) return;
             paintedFrame = Time.frameCount;
+            UiSkin.Apply();
             var keep = GUI.color;
             var keepMatrix = GUI.matrix;
             instance.Paint();
@@ -147,7 +148,7 @@ namespace Deepbound.UI
             if (me == null || PauseMenu.Open || GameHud.Cinematic) return;
             if (me.TryGetComponent<Player.PlayerLife>(out var life) && life.Downed.Value) return;
             EnsureTextures();
-            float w = Screen.width, h = Screen.height, t = Time.time;
+            float w = UiScale.W, h = UiScale.H, t = Time.time;
             float calm = Settings.ReduceFlashing ? 0.6f : 1f;
             var old = GUI.color;
 
@@ -217,7 +218,7 @@ namespace Deepbound.UI
                     float ss = h * (0.022f + 0.008f * Mathf.Sin(a)) * (0.6f + 0.4f * dazeK);
                     var pivot = p;
                     var keep = GUI.matrix;
-                    GUIUtility.RotateAroundPivot(t * 140f + i * 50f, pivot);
+                    UiScale.Rotate(t * 140f + i * 50f, pivot);
                     GUI.DrawTexture(new Rect(p.x - ss / 2f, p.y - ss / 2f, ss, ss), star);
                     GUI.matrix = keep;
                 }
@@ -230,7 +231,7 @@ namespace Deepbound.UI
         /// <summary>One picture, mirrored into all four corners, growing out of each as <paramref name="k"/> rises.</summary>
         private static void Corners(Texture2D tex, float size, float k, Color tint, float spin, float swayDeg, bool topOnly = false)
         {
-            float w = Screen.width, h = Screen.height;
+            float w = UiScale.W, h = UiScale.H;
             float s = size * Ease(k);
             GUI.color = new Color(tint.r, tint.g, tint.b, tint.a * Mathf.Clamp01(k * 1.5f));
             float sway = Mathf.Sin(spin) * swayDeg;
@@ -243,7 +244,7 @@ namespace Deepbound.UI
         private static void DrawCorner(Texture2D tex, Rect r, Rect uv, float degrees, Vector2 pivot)
         {
             var keep = GUI.matrix;
-            if (Mathf.Abs(degrees) > 0.01f) GUIUtility.RotateAroundPivot(degrees, pivot);
+            if (Mathf.Abs(degrees) > 0.01f) UiScale.Rotate(degrees, pivot);
             GUI.DrawTextureWithTexCoords(r, tex, uv);
             GUI.matrix = keep;
         }
