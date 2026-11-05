@@ -995,11 +995,11 @@ namespace Deepbound.UI
             bool host = Unity.Netcode.NetworkManager.Singleton.IsHost;
             string cls = ClassDefinition.For(progress.ClassId.Value).Name;
             string line2 = midRun
-                ? "Rest, trade and gamble.   The carriage goes down to floor " + (director.NextDepth.Value + 1) + "."
-                : cls + " (B to change)   ·   " + diff.Name + " difficulty (" + (host ? "set it with Corwin" : "the host sets it with Corwin") + ")" +
+                ? (progress.LateJoiner.Value ? cls + " (" + Binds.Show("B") + " to choose your class)   ·   " : "") + "Rest, trade and gamble.   The carriage goes down to floor " + (director.NextDepth.Value + 1) + "."
+                : cls + " (" + Binds.Show("B") + " to change)   ·   " + diff.Name + " difficulty (" + (host ? "set it with Corwin" : "the host sets it with Corwin") + ")" +
                   (director.RunOmen != Omen.None ? "   ·   Omen: " + DungeonDirector.OmenName(director.RunOmen) : "");
             if (Unity.Netcode.NetworkManager.Singleton.ConnectedClientsIds.Count > 1 || PlayerLife.All.Count > 1)
-                line2 += "   ·   Loot: " + (director.FindersKeepers.Value ? "finders keepers" : "shared") + (host ? " (L)" : "");
+                line2 += "   ·   Loot: " + (director.FindersKeepers.Value ? "finders keepers" : "shared") + (host ? " (set it with Corwin)" : "");
             GUI.Label(new Rect(x + 10, y + 24, pw - 20, 18), UiSkin.Fit(line2, bannerLine, pw - 20), bannerLine);
             var seatLine = new GUIStyle(bannerLine) { normal = { textColor = aboard > 0 ? Gold : new Color(0.85f, 0.82f, 0.78f) } };
             GUI.Label(new Rect(x + 10, y + 41, pw - 20, 18), UiSkin.Fit(Binds.Rekey("Sit on Corwin's carriage (F) to set off   ·   F on Corwin: difficulty and supplies   ·   " + aboard + " / " + total + " seated"), seatLine, pw - 20), seatLine);
@@ -1334,7 +1334,9 @@ namespace Deepbound.UI
             UiTimer.Mark("DrawRunewright");
             DrawFps(w);
             UiTimer.Mark("DrawFps");
-            if (!panel) DrawToasts(w, h);
+            // A six-second relic toast used to poke out from behind the pause menu and the run summary.
+            var toastPhase = World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.Phase.Value : RunPhase.Exploring;
+            if (!panel && !PauseMenu.Open && toastPhase != RunPhase.Wiped && toastPhase != RunPhase.RunComplete) DrawToasts(w, h);
             UiTimer.Mark("DrawToasts");
             if (statsHeld) DrawStatSheet(w, h);
             UiTimer.Mark("DrawStatSheet");
@@ -2318,7 +2320,7 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x + 16, y + 12, pw, 24), "THE ANVIL", new GUIStyle(label) { normal = { textColor = ember } });
             if (Shop.Position(Shop.Vendor.Smith) != null && GUI.Button(new Rect(x + 150, y + 10, 190, 24), "Hobb's wares (buy)"))
             { forgeOpen = false; shopOpen = true; shopVendor = Shop.Vendor.Smith; }
-            GUI.Label(new Rect(x + pw - 300, y + 12, 284, 24), progress.Sigils.Value + " sigils    " + progress.Embers.Value + " embers", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = ember } });
+            GUI.Label(new Rect(x + pw - 300, y + 12, 284, 24), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil    " : " sigils    ") + progress.Embers.Value + " embers", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = ember } });
 
             // Level pips and the temper button.
             GUI.Label(new Rect(x + 16, y + 44, 200, 24), weapon + " +" + level, new GUIStyle(label) { fontSize = 20 });
@@ -2368,11 +2370,14 @@ namespace Deepbound.UI
                 float alpha = locked ? 0.4f : 1f;
                 GUI.Label(new Rect(cx + 10, cy + 8, cw - 20, 22), WeaponPaths.Name(id, p).ToUpperInvariant(), new GUIStyle(label) { normal = { textColor = new Color(ember.r, ember.g, ember.b, alpha) } });
                 var wrap = new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.9f, 0.88f, 0.85f, alpha) } };
-                GUI.Label(new Rect(cx + 10, cy + 32, cw - 20, 60), WeaponPaths.Describe(id, p), wrap);
+                // Stacked by measured height: at fixed spots a three-line mastery ran into the Choose button.
+                float describeH = wrap.CalcHeight(new GUIContent(WeaponPaths.Describe(id, p)), cw - 20);
+                GUI.Label(new Rect(cx + 10, cy + 32, cw - 20, describeH), WeaponPaths.Describe(id, p), wrap);
                 bool mastered = chosen && level >= WeaponPaths.MasteryLevel;
-                GUI.Label(new Rect(cx + 10, cy + 92, cw - 20, 18), mastered ? "MASTERED" : "Mastery at +" + WeaponPaths.MasteryLevel,
+                float masteryY = cy + 36 + describeH;
+                GUI.Label(new Rect(cx + 10, masteryY, cw - 20, 18), mastered ? "MASTERED" : "Mastery at +" + WeaponPaths.MasteryLevel,
                     new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(Gold.r, Gold.g, Gold.b, alpha) } });
-                GUI.Label(new Rect(cx + 10, cy + 110, cw - 20, 40), WeaponPaths.Mastery(id, p), wrap);
+                GUI.Label(new Rect(cx + 10, masteryY + 17, cw - 20, 44), WeaponPaths.Mastery(id, p), wrap);
                 if (path == 0)
                 {
                     GUI.enabled = level >= WeaponPaths.PathLevel;
@@ -2402,7 +2407,7 @@ namespace Deepbound.UI
                 var e = offer != null ? offer[i] : progress.EdgeAt(i);
                 bool empty = e == Edge.None;
                 var ec = empty ? new Color(1f, 1f, 1f, 0.12f) : Edges.Color(e);
-                Rect(ecx - 2, ecy - 2, ecw + 4, ech + 4, offer != null ? new Color(ec.r, ec.g, ec.b, 0.75f) : new Color(ec.r, ec.g, ec.b, empty ? 1f : 0.45f));
+                Rect(ecx - 2, ecy - 2, ecw + 4, ech + 4, offer != null ? new Color(ec.r, ec.g, ec.b, 0.75f) : new Color(ec.r, ec.g, ec.b, empty ? 0.18f : 0.45f));
                 Rect(ecx, ecy, ecw, ech, new Color(0.08f, 0.06f, 0.05f, 0.97f));
                 GUI.Label(new Rect(ecx + 8, ecy + 6, ecw - 16, 20), empty ? "+" + Edges.Levels[i] + "  -  not yet" : Edges.Name(e).ToUpperInvariant(),
                     new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = false, normal = { textColor = empty ? new Color(1f, 1f, 1f, 0.4f) : UiSkin.Readable(ec) } });
@@ -2471,7 +2476,7 @@ namespace Deepbound.UI
             var section = new GUIStyle(small) { fontSize = 13, fontStyle = FontStyle.Bold, wordWrap = false };
             var body = new GUIStyle(small) { fontSize = 13, wordWrap = true };
             GUI.Label(new Rect(x + 20, y + 14, 300, 28), "YSOLDE'S STONES", head);
-            GUI.Label(new Rect(x + pw - 340, y + 16, 320, 24), progress.Sigils.Value + " sigils      " + progress.Embers.Value + " embers",
+            GUI.Label(new Rect(x + pw - 340, y + 16, 320, 24), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil      " : " sigils      ") + progress.Embers.Value + " embers",
                 new GUIStyle(label) { fontSize = 16, alignment = TextAnchor.MiddleRight, normal = { textColor = blue } });
             if (GUI.Button(new Rect(x + pw - 540, y + 14, 180, 28), "Buy a Sigil")) { runeOpen = false; shopOpen = true; shopVendor = Shop.Vendor.Runewright; }
 
@@ -2982,15 +2987,15 @@ namespace Deepbound.UI
             foreach (var hp in Health.All)
             {
                 if (hp == null || hp.Team != Team.Enemies || !hp.IsAlive) continue;
+                // The cheap test first: most of a floor is behind you or out of range.
+                var world = hp.transform.position + Vector3.up * (hp.CenterHeight * 2f + 0.35f);
+                var screen = UiScale.World(cam, world);
+                if (screen.z <= 0f || screen.z > 25f) continue;
                 if (hp.GetComponent<BossBrain>() != null) continue;
                 var brain = hp.GetComponent<EnemyBrain>();
                 string tags = StatusTags(hp, brain);
                 bool hurt = Time.time - hp.LastHurtTime <= 5f;
                 if (!hurt && tags.Length == 0) continue;
-
-                var world = hp.transform.position + Vector3.up * (hp.CenterHeight * 2f + 0.35f);
-                var screen = UiScale.World(cam, world);
-                if (screen.z <= 0f || screen.z > 25f) continue;
                 // No tags or bars through stone (2026-10-27: a stunned wraith two rooms away printed on the wall).
                 if (!InSight(cam.transform.position, hp)) continue;
 
@@ -3001,8 +3006,8 @@ namespace Deepbound.UI
             // tags printed over each other into one unreadable smear). A tag with nowhere to go is left out.
             barQueue.Sort((p, q) => p.screen.z.CompareTo(q.screen.z));
             placedTags.Clear();
-            var tagStyle = new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, richText = true, fontSize = 11 };
-            var shadowStyle = new GUIStyle(tagStyle) { contentOffset = new Vector2(1, 1) };
+            var tagStyle = new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, richText = true, fontSize = 13 };
+            var shadowStyle = new GUIStyle(tagStyle);
             foreach (var (screen, tags, hp, hurt) in barQueue)
             {
                 float bw = 60f, x = screen.x - bw / 2f, y = UiScale.H - screen.y;
@@ -3019,7 +3024,12 @@ namespace Deepbound.UI
                 if (placedTags.Exists(o => o.Overlaps(r))) continue;
                 placedTags.Add(r);
                 var lr = new Rect(screen.x - 90, r.y, 180, 16);
-                GUI.Label(lr, "<color=#000000AA>" + plain + "</color>", shadowStyle);
+                // An outline, not a drop shadow: these tags are the fight's counterplay, read at a distance on dark walls.
+                string outline = "<color=#000000CC>" + plain + "</color>";
+                shadowStyle.contentOffset = new Vector2(1, 1); GUI.Label(lr, outline, shadowStyle);
+                shadowStyle.contentOffset = new Vector2(-1, 1); GUI.Label(lr, outline, shadowStyle);
+                shadowStyle.contentOffset = new Vector2(1, -1); GUI.Label(lr, outline, shadowStyle);
+                shadowStyle.contentOffset = new Vector2(-1, -1); GUI.Label(lr, outline, shadowStyle);
                 GUI.Label(lr, tags, tagStyle);
             }
             barQueue.Clear();

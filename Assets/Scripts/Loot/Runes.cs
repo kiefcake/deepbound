@@ -98,6 +98,9 @@ namespace Deepbound.Loot
         // ------------------------------------------------------------------
 
         private static bool hooked, resolving;
+        /// <summary>Hit counts start again each run.</summary>
+        public static void ResetRun() => hunterCounts.Clear();
+
         private static readonly Dictionary<ulong, (ulong target, int hits)> hunterCounts = new Dictionary<ulong, (ulong, int)>();
 
         public static void EnsureServerHooks()

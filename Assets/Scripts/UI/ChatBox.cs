@@ -71,6 +71,9 @@ namespace Deepbound.UI
             reopenAfter = Time.time + 0.35f;
         }
 
+        // The old party's messages must not show in the next session.
+        private void OnDestroy() => lines.Clear();
+
         private void OnDisable()
         {
             if (Typing) Close();

@@ -38,7 +38,7 @@ namespace Deepbound.Art
 
         private void Update()
         {
-            if (rend == null) return;
+            if (rend == null || !rend.isVisible) return;
             phase += Time.deltaTime;
             ArtLibrary.SetGlow(rend, Glow * (0.9f + 0.6f * (0.5f + 0.5f * Mathf.Sin(phase * 4f))));
         }

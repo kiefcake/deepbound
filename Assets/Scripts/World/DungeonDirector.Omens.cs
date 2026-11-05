@@ -24,7 +24,7 @@ namespace Deepbound.World
         public static string OmenText(Omen o) =>
             o == Omen.BloodMoon ? "far more elites; +50% gold"
             : o == Omen.Famine ? "healing halved; +50% embers"
-            : o == Omen.RestlessDead ? "30% more of the dead; +50% loot from them"
+            : o == Omen.RestlessDead ? "30% more of the dead; +50% gold from them"
             : o == Omen.GlassBones ? "everyone, you and the dead, hits 40% harder"
             : o == Omen.QuickenedDead ? "the dead move and strike 20% faster; +40% embers"
             : o == Omen.HushedBells ? "your abilities return 40% slower; your ultimate charges 50% faster"

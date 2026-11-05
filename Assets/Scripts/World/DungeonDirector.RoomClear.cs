@@ -76,7 +76,7 @@ namespace Deepbound.World
                 int tier = Mathf.RoundToInt(Tier(Floor.Value.y));
                 if (reward == 0) for (int i = 0; i < 3; i++) ServerDropLoot(at + Quaternion.Euler(0f, i * 120f, 0f) * Vector3.forward * 0.7f, LootKind.Gold, 6 + 3 * tier);
                 else if (reward == 1) ServerDropLoot(at, LootKind.PotionHP, 1);
-                else ServerDropLoot(at, LootKind.Embers, 3 + tier);
+                else ServerDropEmbers(at, 3 + tier);
             }
             RoomClearedRpc(at, reward >= 0);
             // The Chorister's Bell: a room won is a breath taken.

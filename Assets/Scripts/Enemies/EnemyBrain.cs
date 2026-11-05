@@ -274,6 +274,7 @@ namespace Deepbound.Enemies
 
         /// <summary>Every live enemy (any peer), for the Bestiary and other look-ups.</summary>
         public static readonly List<EnemyBrain> All = new List<EnemyBrain>();
+        private float nextAcquire;
 
         public override void OnNetworkDespawn()
         {
@@ -853,6 +854,10 @@ namespace Deepbound.Enemies
             }
             // Stay on the current target while it is alive, visible and within leash.
             if (targetValid) return target;
+
+            // Looking costs a linecast per player: an idle pack in range did that every frame. Staggered, and too quick to see.
+            if (Time.time < nextAcquire) return null;
+            nextAcquire = Time.time + 0.15f + (NetworkObjectId % 5) * 0.02f;
 
             Health best = null;
             float bestDist = aggroRange;

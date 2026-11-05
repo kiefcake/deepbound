@@ -164,6 +164,9 @@ namespace Deepbound.Player
             int slot = (int)(OwnerClientId % (ulong)SlotNames.Length);
             name = SlotNames[slot] + (OwnerClientId >= (ulong)SlotNames.Length ? " " + (OwnerClientId / (ulong)SlotNames.Length + 1) : "");
             if (SteamName.Value.Length > 0) name = SteamName.Value.ToString();
+            // A friend arriving or dropping used to pass unannounced. Those already here when you joined are not news.
+            if (IsOwner) localSpawnedAt = Time.time;
+            else if (Local != null && Time.time - localSpawnedAt > 3f) UI.GameHud.Feed("A friend joined the party.", new Color(0.7f, 0.9f, 0.7f));
             SteamName.OnValueChanged += (_, now) => { if (now.Length > 0) name = now.ToString(); };
             if (IsOwner && Networking.SteamPlatform.Ready) SteamName.Value = SafeName(Networking.SteamPlatform.MyName);
             BuildVisuals();
@@ -390,8 +393,11 @@ namespace Deepbound.Player
             foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
 
+        private static float localSpawnedAt;
+
         public override void OnNetworkDespawn()
         {
+            if (!IsOwner && Local != null && NetworkManager != null && !NetworkManager.ShutdownInProgress) UI.GameHud.Feed(name + " left the party.", new Color(1f, 0.8f, 0.45f));
             if (Local == this) Local = null;
             motor.enabled = false;
             DungeonDirector.ArenaBuilt -= HandleArenaBuilt;

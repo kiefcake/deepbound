@@ -326,6 +326,9 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
   - `Health.Tag("x").ServerDamage(...)` names a hit for the bots' `damage by source` lines; no effect on the hit. A proc's nested hit uses up the outer hit's tag, so `other` matching `Relics` is the hit that set the proc off, not extra damage.
   - `BossBrain.Dormant` is server-only: clients read false. `test_party.py --classes` is space-separated.
 
+- FIX ROUND (2026-11-05, "improve everything", two rounds of four reviewers, each finding checked against the code): `tools/compile_check.py [--root <worktree>]` compiles game and editor scripts in ~9 s with no Unity. A floor stays safe once cleared: `ServerEndTheSummons` kills enemies in the arena, `TickClearedFloorDowns` revives a late down after 4 s (the lift counts everyone, so it could wait forever). `DungeonDirector.BossSealed` synced via `BossSealedSync` (clients read false). `PlayerProgress.LateJoiner`/`CanChangeClass`: a mid-run joiner picks a class at camp until the carriage leaves. Feed names who the carriage waits for, and who joined or left. Wraith wail and Gargoyle dive are cancelled by stuns (`ServerStun` overrides). Omen and event ember bonuses now reach table and room-clear embers. Tips: entries waiting over `MaxWait` 25 s are dropped and can return, party how-tos fire at camp, gravewarden/silenced have their own keys. `Health.ServerHitTagged` fires before `ServerAnyDamaged`, so the tally is right (a matching `other`/`Relics` pair is gone). `-classdps` uses `Binds.BotSetPrimary`: a virtual pad reads 0 once the window loses focus.
+  Usage note: the user is on a Pro plan. A 24-agent audit used the whole 5-hour limit in minutes with nothing returned; four frugal Sonnet reviewers cost about 10% of it.
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes

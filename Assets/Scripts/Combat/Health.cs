@@ -337,10 +337,15 @@ namespace Deepbound.Combat
         /// about the hit; added 2026-11-04 because the totals alone could not say what was making a Mage out-damage a Knight 7:1.
         /// </summary>
         public static string DamageTag;
+
+        /// <summary>Test bots: fires before <see cref="ServerAnyDamaged"/>, so a proc set off by this hit cannot get in first.</summary>
+        public static Action<Health, float, ulong, string> ServerHitTagged;
         public Health Tag(string source) { DamageTag = source; return this; }
 
         public float ServerDamage(float amount, Vector3 attackerPosition, ulong attackerId = ulong.MaxValue)
         {
+            string tag = DamageTag;
+            DamageTag = null;
             if (!IsServer || !IsAlive || amount <= 0f) return 0f;
             LastHitFrom = attackerId;
             if (zoneBoostTarget == this) amount *= zoneBoost;
@@ -377,6 +382,7 @@ namespace Deepbound.Combat
             float lost = Mathf.Min(dealt, Current.Value);
             Current.Value = Mathf.Max(0f, Current.Value - dealt);
             DamagedServer?.Invoke(lost, attackerId);
+            ServerHitTagged?.Invoke(this, lost, attackerId, tag);
             ServerAnyDamaged?.Invoke(this, lost, attackerId);
 
             if (Current.Value <= 0f && Blighted.Value) { Blighted.Value = false; BlightedDied?.Invoke(this, blightSource); }

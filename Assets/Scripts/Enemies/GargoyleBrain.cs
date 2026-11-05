@@ -109,6 +109,18 @@ namespace Deepbound.Enemies
             return true;
         }
 
+        /// <summary>A stun ends the dive: it used to set off when the stun wore off, along a line whose warning was long gone.</summary>
+        public override void ServerStun(float seconds)
+        {
+            if (diveAt > 0f || diving) CancelDiveRpc();
+            diveAt = -1f;
+            diving = false;
+            base.ServerStun(seconds);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void CancelDiveRpc() => Telegraph.Cancel(this);
+
         private void StepDive()
         {
             float step = diveSpeed * Time.deltaTime;
@@ -144,7 +156,7 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void DiveWarnRpc(Vector3 from, Vector3 dir, float length)
         {
-            Telegraph.ShowLine(from, dir, length, 2f, diveWindup, null);
+            Telegraph.ShowLine(from, dir, length, 2f, diveWindup, this);
             Sfx.Play(Sound.Whisper, from + Vector3.up * 1.5f, 1f, 0.7f);
         }
 

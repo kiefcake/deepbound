@@ -87,6 +87,9 @@ namespace Deepbound.Loot
             + (p.WeaponLevel.Value >= World.Anvil.MasterworkLevel ? World.Anvil.MasterworkCrit : 0f)
             + 0.1f * p.RelicPower(Relic.WhettedFang) + 0.05f * p.RelicPower(Relic.FrostCharm);
 
+        /// <summary>Hit counts start again each run.</summary>
+        public static void ResetRun() { batonHits.Clear(); phylacteryHits.Clear(); }
+
         private static readonly System.Collections.Generic.Dictionary<ulong, int> batonHits = new System.Collections.Generic.Dictionary<ulong, int>();
         private static bool boneBursting;
         private static readonly System.Collections.Generic.Dictionary<ulong, int> phylacteryHits = new System.Collections.Generic.Dictionary<ulong, int>();

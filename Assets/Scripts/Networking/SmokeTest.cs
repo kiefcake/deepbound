@@ -92,7 +92,8 @@ namespace Deepbound.Networking
             if (dummy == null) { Log("class dps", "no training dummy", false); yield break; }
             var motor = me.GetComponent<FirstPersonMotor>();
             var hp = me.GetComponent<Health>();
-            var pad = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Gamepad>();
+            // Not a virtual pad: input events are dropped when the window loses focus, and classes after that read 0 dps.
+            FirstPersonMotor.BotControl = true;
             float dealt = 0f;
             System.Action<Health, float, ulong> count = (h, amount, from) => { if (h == dummy && from == me.NetworkObjectId) dealt += amount; };
             Health.ServerAnyDamaged += count;
@@ -117,13 +118,12 @@ namespace Deepbound.Networking
                 float t0 = Time.time;
                 while (Time.time - t0 < 6f)
                 {
-                    UnityEngine.InputSystem.InputSystem.QueueStateEvent(pad, new UnityEngine.InputSystem.LowLevel.GamepadState { rightTrigger = 1f });
+                    UI.Binds.BotSetPrimary(true);
                     float until = Time.time + hold;
-                    while (Time.time < until) { hp.ServerSetFraction(1f); Cursor.lockState = CursorLockMode.Locked; yield return null; }
-                    UnityEngine.InputSystem.InputSystem.QueueStateEvent(pad, new UnityEngine.InputSystem.LowLevel.GamepadState());
-                    // Keep "focus" through the release too: the Ranger looses on it.
+                    while (Time.time < until) { hp.ServerSetFraction(1f); yield return null; }
+                    UI.Binds.BotSetPrimary(false);
                     float rel = Time.time + 0.08f;
-                    while (Time.time < rel) { Cursor.lockState = CursorLockMode.Locked; yield return null; }
+                    while (Time.time < rel) yield return null;
                 }
                 yield return new WaitForSeconds(0.6f);
                 float dps = dealt / 6f;
@@ -132,7 +132,7 @@ namespace Deepbound.Networking
                 if (dealt <= 0f) allHit = false;
             }
             Health.ServerAnyDamaged -= count;
-            UnityEngine.InputSystem.InputSystem.RemoveDevice(pad);
+            FirstPersonMotor.BotControl = false;
             motor.SetPitch(0f);
             Log("class dps", string.Join(", ", rows), allHit);
         }
@@ -2281,6 +2281,13 @@ namespace Deepbound.Networking
                 // No timer: the party leaves when everyone is at the portal.
                 yield return new WaitForSeconds(2f);
                 bool stillHere = DungeonDirector.Instance.Phase.Value == RunPhase.FloorCleared;
+                // Going down after the guardian fell must not hold the lift forever.
+                var clearedLife = NetworkPlayer.Local.GetComponent<PlayerLife>();
+                NetworkPlayer.Local.GetComponent<Health>().ServerDamage(1e6f, NetworkPlayer.Local.transform.position);
+                yield return null;
+                bool clearedDown = clearedLife.Downed.Value;
+                yield return new WaitForSeconds(5.5f);
+                Log("cleared floor picks you up", "down " + clearedDown + ", then down " + clearedLife.Downed.Value, !clearedLife.Downed.Value);
                 DungeonDirector.Instance.ServerDebugGatherAtExit();
                 Log("exit at will", "waited without leaving " + stillHere, stillHere);
             }

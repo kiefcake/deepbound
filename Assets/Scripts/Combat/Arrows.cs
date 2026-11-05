@@ -259,9 +259,10 @@ namespace Deepbound.Combat
 
         private static void TryGraze(ref Arrow a, Vector3 from, Vector3 to)
         {
-            foreach (var h in Health.All)
+            foreach (var life in Player.PlayerLife.All)
             {
-                if (h == null || h.Team != Team.Players || !h.IsAlive) continue;
+                var h = life != null ? life.Health : null;
+                if (h == null || !h.IsAlive) continue;
                 if (!h.SegmentTouchesBody(from, to, GrazeRadius)) continue;
                 a.Grazed = true;
                 if (h.TryGetComponent<Progression.PlayerProgress>(out var p)) p.ServerGraze(to);

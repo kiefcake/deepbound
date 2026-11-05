@@ -300,7 +300,9 @@ namespace Deepbound.World
         public int AmbushWave => ambush?.Wave ?? -1;
         /// <summary>Tests: how many the ambush shut in when it sprang.</summary>
         public int AmbushParty => ambush?.Party ?? 0;
-        public bool BossSealed => bossSealed;
+        /// <summary>Synced: a client's copy of bossSealed was always false, so it kept offering the rope and showing THE COUNT inside the arena.</summary>
+        public readonly NetworkVariable<bool> BossSealedSync = new NetworkVariable<bool>();
+        public bool BossSealed => IsServer ? bossSealed : BossSealedSync.Value;
 
         // ------------------------------------------------------------------
         // Setup
@@ -315,6 +317,7 @@ namespace Deepbound.World
             bladeHitAt.Clear();
             bossGates.Clear();
             bossSealed = false;
+            if (IsServer) BossSealedSync.Value = false;
             ambush = null;
             vault = null;
             leversAnnounced = 0;
@@ -877,6 +880,7 @@ namespace Deepbound.World
             if (allIn)
             {
                 bossSealed = true;
+                BossSealedSync.Value = true;
                 boss.Dormant = false;
                 SetGates(bossGates, true);
                 bool hallowed = Hallowed.Value;

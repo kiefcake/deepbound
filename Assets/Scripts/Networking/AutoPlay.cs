@@ -300,10 +300,9 @@ namespace Deepbound.Networking
             // neither the cursor nor the input system, see Binds.BotPress.
             FirstPersonMotor.BotControl = true;
             Application.runInBackground = true;
-            if (!follower) Health.ServerAnyDamaged += (h, amount, from) =>
+            if (!follower) Health.ServerHitTagged += (h, amount, from, tag) =>
             {
-                string source = Health.DamageTag ?? "other";
-                Health.DamageTag = null;
+                string source = tag ?? "other";
                 if (party.TryGetValue(from, out var md) && source != "forced")
                 {
                     md.Dealt += amount;
@@ -318,6 +317,9 @@ namespace Deepbound.Networking
                         md.BossHits[source] = hitsSoFar + 1;
                     }
                 }
+            };
+            if (!follower) Health.ServerAnyDamaged += (h, amount, from) =>
+            {
                 if (h != null && party.TryGetValue(h.NetworkObjectId, out var mt) && h.Team == Team.Players) mt.Taken += amount;
                 if (h == hp)
                 {

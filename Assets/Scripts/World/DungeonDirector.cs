@@ -742,6 +742,8 @@ namespace Deepbound.World
         {
             if (!IsServer || departAt > 0f) return;
             departAt = Time.time + DepartSeconds;
+            foreach (var p in PlayerLife.All)
+                if (p != null && p.TryGetComponent<PlayerProgress>(out var boarding)) boarding.LateJoiner.Value = false;
             DepartRpc();
         }
 
@@ -768,6 +770,9 @@ namespace Deepbound.World
             if (!IsServer) return;
             RunStartedAt.Value = NetworkManager.ServerTime.Time;
             Classes.Combos.ResetRun();
+            Loot.Relics.ResetRun();
+            Loot.GearEffects.ResetRun();
+            Loot.Runes.ResetRun();
             // A lone delver has nobody to drag them up (2026-10-23, the solo loop): one set of Smelling Salts to start.
             if (Player.PlayerLife.All.Count == 1)
                 foreach (var pl in Player.PlayerLife.All)
@@ -1441,6 +1446,7 @@ namespace Deepbound.World
                     }
                     // Everyone in the boarding circle starts a short countdown; anyone
                     // stepping out cancels it. One player can start a solo run.
+                    TellWhoHoldsTheCarriage();
                     if (EveryoneAboard())
                     {
                         if (PhaseEndsAt.Value <= 0) PhaseEndsAt.Value = now + BoardingDelay;
@@ -1475,10 +1481,12 @@ namespace Deepbound.World
                         {
                             if (p.Downed.Value) p.ServerRevive(0.5f);
                         }
+                        ServerEndTheSummons();
                     }
                     break;
 
                 case RunPhase.FloorCleared:
+                    TickClearedFloorDowns(now);
                     // Everyone at the portal starts a short countdown; anyone stepping out cancels it.
                     if (PlayersAtExit() == PlayerLife.All.Count && PlayerLife.All.Count > 0)
                     {
@@ -1509,6 +1517,57 @@ namespace Deepbound.World
         }
 
         private bool ascending;
+
+        /// <summary>
+        /// The guardian's summons fall with it. They used to fight on at the lift, on a floor that says it is safe.
+        /// Only those in the arena: the rest of the floor stays for anyone who goes back for its loot.
+        /// </summary>
+        private void ServerEndTheSummons()
+        {
+            if (Layout == null || Layout.BossRoom == null) return;
+            foreach (var h in new List<Combat.Health>(Combat.Health.All))
+                if (h != null && h.IsAlive && h.Team == Combat.Team.Enemies && Layout.BossRoom.Contains(h.transform.position, 2f) && h.TryGetComponent<EnemyBrain>(out _))
+                    h.ServerDamage(BossBrain.KillDamage, h.transform.position);
+        }
+
+        /// <summary>
+        /// Someone going down after the guardian fell could hold the lift forever: it counts everyone, nothing ended the run
+        /// and a soloist had nobody to help. A cleared floor picks them up again shortly.
+        /// </summary>
+        private void TickClearedFloorDowns(double now)
+        {
+            bool anyDown = false;
+            foreach (var p in PlayerLife.All) if (p != null && p.Downed.Value) anyDown = true;
+            if (!anyDown) { clearedDownAt = -1.0; return; }
+            if (clearedDownAt < 0.0) { clearedDownAt = now; return; }
+            if (now - clearedDownAt < ClearedReviveDelay) return;
+            clearedDownAt = -1.0;
+            foreach (var p in PlayerLife.All) if (p != null && p.Downed.Value) p.ServerRevive(0.5f);
+        }
+
+        private const double ClearedReviveDelay = 4.0;
+        private double clearedDownAt = -1.0;
+
+        /// <summary>The carriage counts everyone and nothing said who it was waiting for. The lift's prompt already does.</summary>
+        private void TellWhoHoldsTheCarriage()
+        {
+            var missing = new List<string>();
+            int aboard = 0;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null) continue;
+                if (p.Seat.Value >= 0) aboard++;
+                else missing.Add(p.name);
+            }
+            if (aboard == 0 || missing.Count == 0) { carriageWaitSince = -1f; return; }
+            if (carriageWaitSince < 0f) { carriageWaitSince = Time.time; nextCarriageNote = Time.time + CarriageWaitGrace; }
+            if (Time.time < nextCarriageNote) return;
+            nextCarriageNote = Time.time + CarriageWaitRepeat;
+            ServerFeedAll("The carriage is waiting for: " + string.Join(", ", missing), new Color(1f, 0.8f, 0.45f));
+        }
+
+        private const float CarriageWaitGrace = 15f, CarriageWaitRepeat = 25f;
+        private float carriageWaitSince = -1f, nextCarriageNote;
 
         [Rpc(SendTo.ClientsAndHost)]
         private void AscendRpc()

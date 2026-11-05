@@ -215,13 +215,33 @@ namespace Deepbound.Networking
         /// <summary>Join a friend's lobby; once inside, connect to its host (any party you are in is left first).</summary>
         public static void Join(ulong lobbyId)
         {
-            if (!Ready || lobbyId == 0) return;
+            if (!Ready || lobbyId == 0)
+            {
+                if (lobbyId != 0 && Instance != null && Instance.launcher != null) Instance.launcher.SetStatus("Steam is not ready, so the invite cannot be answered. Start Steam and try again.");
+                return;
+            }
             var net = NetworkManager.Singleton;
             if (net != null && (net.IsClient || net.IsServer)) net.Shutdown();
             Instance.LeaveLobby();
             Instance.Invites.RemoveAll(i => i.Lobby == lobbyId);
             Instance.launcher.SetStatus("Finding your friend's party on Steam...");
             Instance.entered.Set(SteamMatchmaking.JoinLobby(new CSteamID(lobbyId)));
+        }
+
+        private static string WhyNoLobby(EChatRoomEnterResponse why)
+        {
+            switch (why)
+            {
+                case EChatRoomEnterResponse.k_EChatRoomEnterResponseDoesntExist: return "That party has closed.";
+                case EChatRoomEnterResponse.k_EChatRoomEnterResponseFull: return "That party is full.";
+                case EChatRoomEnterResponse.k_EChatRoomEnterResponseNotAllowed: return "That party is friends-only: only the host's Steam friends can join.";
+                case EChatRoomEnterResponse.k_EChatRoomEnterResponseLimited: return "Your Steam account is limited and cannot join parties yet.";
+                case EChatRoomEnterResponse.k_EChatRoomEnterResponseBanned:
+                case EChatRoomEnterResponse.k_EChatRoomEnterResponseCommunityBan: return "Steam will not let this account join that party.";
+                case EChatRoomEnterResponse.k_EChatRoomEnterResponseMemberBlockedYou:
+                case EChatRoomEnterResponse.k_EChatRoomEnterResponseYouBlockedMember: return "Someone in that party and you have blocked each other on Steam.";
+                default: return "Steam could not join that party (error " + (int)why + "). Try again.";
+            }
         }
 
         private void OnLobbyEntered(LobbyEnter_t r, bool ioFailure)
@@ -231,7 +251,7 @@ namespace Deepbound.Networking
             if (ioFailure || r.m_EChatRoomEnterResponse != 1)
             {
                 Debug.Log("[Steam] lobby join failed: response " + r.m_EChatRoomEnterResponse + (ioFailure ? " (io failure)" : ""));
-                launcher.SetStatus("Could not join that party (it may have closed, or it is full).");
+                launcher.SetStatus(ioFailure ? "Could not reach Steam to join that party. Try again in a moment." : WhyNoLobby((EChatRoomEnterResponse)r.m_EChatRoomEnterResponse));
                 return;
             }
             string build = SteamMatchmaking.GetLobbyData(id, LobbyKey);

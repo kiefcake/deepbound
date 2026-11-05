@@ -72,6 +72,8 @@ namespace Deepbound.Loot
                 else rolls.Add(r);
             }
             if (gold > 0) rolls.Add((LootKind.Gold, gold));
+            // Omens and floor events promise more embers: most embers come through here, and they used to miss the bonus.
+            embers = Mathf.RoundToInt(embers * World.DungeonDirector.OmenEmbers * World.DungeonDirector.EventEmbers);
             if (embers > 0) rolls.Add((LootKind.Embers, embers));
             for (int i = 0; i < rolls.Count; i++)
             {

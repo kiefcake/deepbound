@@ -274,9 +274,9 @@ namespace Deepbound.UI
             foreach (var hp in Health.All)
             {
                 if (hp == null || hp.Team != Team.Enemies || !hp.IsAlive) continue;
+                if (Vector3.Distance(hp.transform.position, player.transform.position) > RadarRange) continue;
                 if (hp.TryGetComponent<Enemies.GargoyleBrain>(out var stone) && !stone.Woken.Value) continue;
                 if (hp.GetComponent<Enemies.BossBrain>() != null) continue;
-                if (Vector3.Distance(hp.transform.position, player.transform.position) > RadarRange) continue;
                 var at = ToMap(hp.transform.position);
                 bool elite = hp.TryGetComponent<Enemies.EnemyBrain>(out var brain) && brain.Elite.Value;
                 float s = elite ? 11f : 8f;

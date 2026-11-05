@@ -109,9 +109,9 @@ namespace Deepbound.Loot
             switch (r)
             {
                 case Relic.VampiricFang: return "Heal for 6% of all damage you deal.";
-                case Relic.ThunderSigil: return "Every 6th hit calls lightning that chains to 2 more enemies.";
+                case Relic.ThunderSigil: return "Every 6th hit (one sooner per tier) calls lightning that chains to 2 more enemies.";
                 case Relic.BerserkersBrand: return "+40% damage while below half health.";
-                case Relic.BoneWard: return "Blocks one hit completely every 12 seconds.";
+                case Relic.BoneWard: return "Blocks one hit completely every 12 seconds (sooner per tier).";
                 case Relic.PhoenixFeather: return "Once per floor, rise again the moment you go down.";
                 case Relic.GildedSkull: return "+60% gold from everything you pick up (+30% more per tier).";
                 case Relic.FrostCharm: return "+5% critical chance, and your critical hits chill.";
@@ -237,6 +237,9 @@ namespace Deepbound.Loot
         }
 
         private static bool resolvingProc;
+
+        /// <summary>Hit counts start again each run.</summary>
+        public static void ResetRun() => HitCounters.Clear();
 
         private static void OnServerAnyDamaged(Health target, float dealt, ulong attackerId)
         {

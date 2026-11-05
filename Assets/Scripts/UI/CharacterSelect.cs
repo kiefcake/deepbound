@@ -27,7 +27,7 @@ namespace Deepbound.UI
 
         private NetworkPlayer player;
         private PlayerProgress progress;
-        private bool shownOnce;
+        private bool shownOnce, toldLate;
 
         private static readonly Vector3 StageOrigin = new Vector3(0f, -900f, 0f);
         private GameObject stage;
@@ -50,7 +50,13 @@ namespace Deepbound.UI
         private void Update()
         {
             bool inLobby = DungeonDirector.InLobby;
-            if (inLobby && !shownOnce && DungeonDirector.ArenaId > 0 && Progression.PlayerProgress.ClassChangeAllowed)
+            bool canChange = progress != null ? progress.CanChangeClass : Progression.PlayerProgress.ClassChangeAllowed;
+            if (progress != null && progress.LateJoiner.Value && !inLobby && !toldLate)
+            {
+                toldLate = true;
+                GameHud.Feed("You joined a run in progress. You can choose your class back at camp.", new Color(1f, 0.8f, 0.45f));
+            }
+            if (inLobby && !shownOnce && DungeonDirector.ArenaId > 0 && canChange)
             {
                 shownOnce = true;
                 SetOpen(true);
@@ -58,13 +64,13 @@ namespace Deepbound.UI
 
             var keyboard = Keyboard.current;
             // Class is chosen for a whole run: only at camp, and not between floors.
-            bool midRun = World.DungeonDirector.Instance != null && World.DungeonDirector.Instance.RunInProgress;
-            if (keyboard != null && Binds.Down(Bind.Class) && inLobby && !midRun) SetOpen(!Open);
-            if (Open && (!inLobby || midRun || (keyboard != null && keyboard.escapeKey.wasPressedThisFrame))) SetOpen(false);
+            if (keyboard != null && Binds.Down(Bind.Class) && inLobby && canChange) SetOpen(!Open);
+            if (Open && (!inLobby || !canChange || (keyboard != null && keyboard.escapeKey.wasPressedThisFrame))) SetOpen(false);
 
             if (Open && turntables != null)
             {
-                foreach (var t in turntables) t.Rotate(0f, 35f * Time.deltaTime, 0f);
+                // Sways around the front: a full turn showed the class's back half the time on the screen where you choose it.
+                foreach (var t in turntables) t.rotation = Quaternion.Euler(0f, 200f + 35f * Mathf.Sin(Time.unscaledTime * 0.6f), 0f);
             }
         }
 
@@ -219,7 +225,7 @@ namespace Deepbound.UI
                 SetOpen(false);
                 return;
             }
-            if (!Progression.PlayerProgress.ClassChangeAllowed) { SetOpen(false); return; }
+            if (progress != null ? !progress.CanChangeClass : !Progression.PlayerProgress.ClassChangeAllowed) { SetOpen(false); return; }
             progress.ChooseClassRpc(id);
             Sfx.Play2D(Sound.Unsheathe, 0.7f);
         }

@@ -589,11 +589,19 @@ namespace Deepbound.Progression
         /// <summary>Can the class change now? Only at camp, before a run begins (never between floors).</summary>
         public static bool ClassChangeAllowed => World.DungeonDirector.InLobby && (World.DungeonDirector.Instance == null || !World.DungeonDirector.Instance.RunInProgress);
 
+        /// <summary>
+        /// Joined a run already under way: they spawned as the default Knight with the class screen locked and nothing said why.
+        /// They choose at camp, until the carriage next leaves.
+        /// </summary>
+        public readonly NetworkVariable<bool> LateJoiner = new NetworkVariable<bool>();
+
+        public bool CanChangeClass => ClassChangeAllowed || (World.DungeonDirector.InLobby && LateJoiner.Value);
+
         /// <summary>Owner → server: pick a class. Refused once the run has begun.</summary>
         [Rpc(SendTo.Server)]
         public void ChooseClassRpc(ClassId id)
         {
-            if (!ClassChangeAllowed || (int)id < 0 || (int)id >= System.Enum.GetValues(typeof(ClassId)).Length) return;
+            if (!CanChangeClass || (int)id < 0 || (int)id >= System.Enum.GetValues(typeof(ClassId)).Length) return;
             ClassId.Value = id;
         }
         private NetworkList<float> bonuses;
@@ -725,6 +733,7 @@ namespace Deepbound.Progression
         public override void OnNetworkSpawn()
         {
             if (IsServer) StartCoroutine(AddPrayerLast());
+            if (IsServer && World.DungeonDirector.Instance != null && World.DungeonDirector.Instance.RunInProgress) LateJoiner.Value = true;
             WeaponLevel.OnValueChanged += (_, __) => StatsChanged?.Invoke();
             bonuses.OnListChanged += _ => StatsChanged?.Invoke();
             relics.OnListChanged += _ => StatsChanged?.Invoke();

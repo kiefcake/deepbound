@@ -87,6 +87,16 @@ namespace Deepbound.Enemies
             return false;
         }
 
+        /// <summary>A stun ends the wail, as it does every other caster's: it used to land when the stun wore off, with its ring long gone.</summary>
+        public override void ServerStun(float seconds)
+        {
+            if (wailAt > 0f) { wailAt = -1f; CancelWailRpc(); }
+            base.ServerStun(seconds);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void CancelWailRpc() => Telegraph.Cancel(this);
+
         private void ResolveWail()
         {
             wailAt = -1f;
@@ -114,7 +124,7 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void WailWarnRpc(Vector3 at, float radius, float seconds)
         {
-            Telegraph.Show(at, radius, seconds, null, new Color(0.45f, 0.7f, 1f, 0.4f));
+            Telegraph.Show(at, radius, seconds, this, new Color(0.45f, 0.7f, 1f, 0.4f));
             Sfx.Play(Sound.Whisper, transform.position + Vector3.up * 1.8f, 1f, 0.55f);
             Sfx.Play(Sound.Shade, transform.position + Vector3.up * 1.8f, 1f, 0.75f);
         }

@@ -17,6 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
+            "edges", "relictray", "hone", "corwin", "chat", "purse", "falloff", "entling", "rare", "necro", "hiddenplates", "gravewarden", "silenced",
             "camp", "tavern", "emotewheel", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound",
         };
 
@@ -24,15 +25,15 @@ namespace Deepbound.UI
         private static string current;
         private static float shownAt = -100f, nextCheck;
         private const float Duration = 7f;
-        private static readonly System.Collections.Generic.Queue<(string key, string text, bool camp)> queue = new System.Collections.Generic.Queue<(string, string, bool)>();
+        private static readonly System.Collections.Generic.Queue<(string key, string text, bool camp, float at)> queue = new System.Collections.Generic.Queue<(string, string, bool, float)>();
         /// <summary>Seconds of quiet after a tip before the next one (they used to arrive back to back).</summary>
-        private const float Gap = 9f;
+        private const float Gap = 9f, MaxWait = 25f;
 
         private static void Offer(string key, string text)
         {
             if (!Settings.ShowTips || sessionSeen.Contains(key) || (Settings.TipSeen(key) && !Progression.Cosmetics.TestMode)) return;
             sessionSeen.Add(key);
-            queue.Enqueue((key, text, DungeonDirector.InLobby));
+            queue.Enqueue((key, text, DungeonDirector.InLobby, Time.time));
         }
 
         /// <summary>Owner, from the HUD: look around for anything worth a first-time tip.</summary>
@@ -59,6 +60,9 @@ namespace Deepbound.UI
                 if (Vector3.Distance(me, Lobby.YardSpot) < 6f) Offer("drills", "SERGEANT BRANN drills you for gold (F): a stat for the run. Each drill costs more than the last.");
                 if (Vector3.Distance(me, Lobby.RunewrightSpot) < 6f) Offer("runewright", "YSOLDE'S STONES (F): set runes, rank abilities with Sigils, and MELD three of the same rune into a stronger one.");
                 if (Vector3.Distance(me, Lobby.CarriageStall) < 6f) Offer("corwin", "CORWIN knows the way down: a SCOUT'S MAP charts the next floor; SMELLING SALTS get you up on your own once.");
+                if (PlayerLife.All.Count > 1 && PlayerVoice.MicAvailable && Settings.VoiceMode != 2)
+                    Offer("voice", "PROXIMITY VOICE is on: players near you hear you, muffled through walls. SHOUTING wakes the dead nearby. Options has push-to-talk (T).");
+                if (PlayerLife.All.Count > 1) Offer("pingwheel", "PINGS: tap Z (or middle mouse) to mark what you aim at. HOLD it for the wheel: Danger, On my way, Need help, Look.");
                 if (PlayerLife.All.Count > 1) Offer("emotewheel", "EMOTES: tap H to wave (two players waving together HIGH FIVE). HOLD H for the emote wheel: cheer, bow, laugh, dance, point, beckon, sit.");
                 if (PlayerLife.All.Count > 1) Offer("chat", "TEXT CHAT: press Enter to type to your party, Enter to send.");
                 if (PlayerLife.All.Count > 1) Offer("purse", "PARTY LOOT is shared by default: gold and embers anyone picks up are split evenly. In the inventory (I) you can give gold, even out the purse, or ctrl-click a piece to hand it to the nearest ally.");
@@ -76,16 +80,13 @@ namespace Deepbound.UI
             }
             // Voice and pings are for a party: alone they mean nothing.
             bool party = PlayerLife.All.Count > 1;
-            if (party && PlayerVoice.MicAvailable && Settings.VoiceMode != 2)
-                Offer("voice", "PROXIMITY VOICE is on: players near you hear you, muffled through walls. SHOUTING wakes the dead nearby. Options has push-to-talk (T).");
             if (DungeonDirector.IsWardenFloor(layout.Depth)) Offer("warden", "Each act's first floor ends at a WARDEN, the second at the act's master. Ten floors in all; the Unsung waits at the bottom.");
             var myKit = player.ActiveKit;
             if (myKit != null && myKit.AttackRange > 6f) Offer("falloff", "RANGED shots lose bite past half their range (60% at the very end), and arrows and knives DROP: aim a little high at distance.");
-            if (Object.FindObjectsByType<EntlingBrain>(FindObjectsSortMode.None).Any(e => !e.IsDead && Vector3.Distance(e.transform.position, me) < 16f))
+            if (EnemyBrain.All.Any(e => e is EntlingBrain && !e.IsDead && Vector3.Distance(e.transform.position, me) < 16f))
                 Offer("entling", "ENTLINGS sprint at you and root you to the spot: you cannot move until it dies. Kill it on the way in, or turn and cut it off you.");
             if (Health.All.Any(hh => hh != null && hh.IsAlive && hh.Team == Team.Enemies && (hh.transform.position - me).sqrMagnitude < 400f && hh.TryGetComponent<EnemyBrain>(out var sb) && sb.TwinId.Value != 0))
                 Offer("soulbound", "SOULBOUND TWINS, joined by a pale thread: strike one down and it only falls - it gets up again unless its twin dies within a few seconds. " + (party ? "Split up: one each, and finish them together." : "Bring one low, then the other, and finish them back to back."));
-            if (party) Offer("pingwheel", "PINGS: tap Z (or middle mouse) to mark what you aim at. HOLD it for the wheel: Danger, On my way, Need help, Look.");
             var relic = Reliquary.Current;
             if (relic != null && !relic.Carried && Vector3.Distance(relic.transform.position, me) < 10f)
                 Offer("reliquary", "A RELIQUARY. Carry it (F) to the waystone in the start room: it raises the fallen, pays everyone, and HALLOWS the floor (its boss wakes weakened). Its hymn heals whoever walks beside the carrier. The carrier is slow and cannot fight, its hymn draws the dead, and every hit cracks it.");
@@ -121,7 +122,7 @@ namespace Deepbound.UI
             if (deb != null && deb.Dazed)
                 Offer("dazed", "DAZED: a heavy blow (a Brute's pound, a Gargoyle's dive) rang your head - you turn at half speed for a moment. Block or dodge the big ones.");
             if (deb != null && deb.Silenced)
-                Offer("cantor", "SILENCED: a Cantor's pale circle closed on you - no Q, E or ultimate for a few seconds. Step out of the circles; Holy Water lifts it.");
+                Offer("silenced", "SILENCED: a Cantor's pale circle closed on you - no Q, E or ultimate for a few seconds. Step out of the circles; Holy Water lifts it.");
 
             foreach (var h in Health.All)
             {
@@ -145,7 +146,7 @@ namespace Deepbound.UI
                 if (b is BonePiperBrain || b is OrbweaverBrain) Offer("graze", "GRAZE: a shot that slips past you close without touching you charges your ultimate. Weave through patterns, do not just run from them.");
                 if (b is OrbweaverBrain) Offer("orbweaver", "An ORBWEAVER: it hangs back and conjures orbs that fire patterns - spirals, rings with a gap, aimed bursts. Watch the gap, and kill the Orbweaver: its orbs die with it.");
                 if (b is MournerBrain) Offer("mourner", "A MOURNER: it only moves while no one is looking at it. Keep your eyes on it, back away facing it, and listen for stone scraping behind you.");
-                if (b is GravewardenBrain) Offer("warden", "THE GRAVEWARDEN: its shield blocks from the front. Hit it right after each Mace Sweep (OPENING), from behind, or while it is dazed from charging into stone.");
+                if (b is GravewardenBrain) Offer("gravewarden", "THE GRAVEWARDEN: its shield blocks from the front. Hit it right after each Mace Sweep (OPENING), from behind, or while it is dazed from charging into stone.");
                 if (b is ShieldbearerBrain sb && sb.ShieldUp) Offer("shield", "SHIELDBEARER: its shield blocks from the front. KICK it (V) or Shield Bash to knock the shield aside, or get behind it.");
                 else if (b is GargoyleBrain g && g.Woken.Value) Offer("gargoyle", "GARGOYLE: it dives along a marked line, then lands exposed. Sidestep, then punish.");
                 else if (b is HoarderBrain) Offer("hoarder", "BONE HOARDER: it runs with a sack of gold. Every hit spills coins; hit the sack for more. It escapes in 25 s.");
@@ -209,12 +210,13 @@ namespace Deepbound.UI
             {
                 if (queue.Count == 0 || Time.time - shownAt < Duration + Gap) return;
                 // A tip offered at camp means nothing in the dungeon (and the other way round): drop stale ones.
-                (string key, string text, bool camp) next = default;
+                (string key, string text, bool camp, float at) next = default;
                 bool found = false;
                 while (queue.Count > 0)
                 {
                     next = queue.Dequeue();
-                    if (next.camp == DungeonDirector.InLobby) { found = true; break; }
+                    // So is one that waited too long: "an Entling!" a minute after it died teaches nothing. It can be offered again.
+                    if (next.camp == DungeonDirector.InLobby && (next.camp || Time.time - next.at <= MaxWait)) { found = true; break; }
                     sessionSeen.Remove(next.key);
                 }
                 if (!found) return;
