@@ -20,11 +20,11 @@ Forced means the test killed the guardian after a stall. Run E had no forced flo
 
 | Floor | 1 | 2 | 3 | 4 | 5 | 6 | 7 | 8 | 9 | 10 | Total |
 |---|---|---|---|---|---|---|---|---|---|---|---|
-| A | 1 | 0 | 0 | 0 | 1 | 6 | 0 | 2 | 13 | - | - |
+| A | 1 | 0 | 0 | 0 | 0 | 1 | 6 | 0 | 2 | 13 | 23 |
 | D | 0 | 12 | 1 | 2 | 0 | 12 | 6 | 1 | 11 | 60 | 105 |
 | E | 1 | 8 | 3 | 0 | 1 | 26 | 12 | 24 | 13 | 35 | 123 |
 
-Run A's row is as logged in the first run's notes; its floor 10 was not comparable.
+Run A's floor 10 guardian fell in 0.7 minutes, so its 13 are not comparable.
 Run E by class: Mage 40, Cleric 39, Rogue 37, Knight 7.
 
 ## Damage share, all ten floors of run E
@@ -48,8 +48,8 @@ The shock was about 29,000 a hit there and about 4,250 a hit in run E.
 | Cleric | F8 | 3 | 22 / 570 / 0 | Legendary d9 (44.4) | Masterwork d9 (23.4) |
 | Rogue | F6 | 4 | 5 / 694 / 0 | Masterwork d9 (30.2) | Masterwork d9 (23.4) |
 
-All four ended with Q5, E5, three runes socketed and eight relics. All used every ability, their ultimates, potions and
-flasks on every floor.
+All four ended with Q5, E5, three runes socketed and eight relics. All used Q, E and the ultimate on every floor, and
+potions and flasks on most. The Mage, Cleric and Rogue used RMB on every floor; the Knight's RMB block is not counted.
 
 What "best gear" means here: bots wear the highest-rated piece they hold and spend everything at the camp, but relics are
 the first eight found and the weapon path is picked at random. No bot played a planned build.
