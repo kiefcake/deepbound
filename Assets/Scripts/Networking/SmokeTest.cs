@@ -484,6 +484,7 @@ namespace Deepbound.Networking
                 {
                     bool climbs = true;
                     for (int d = 1; d < DungeonDirector.FloorsPerRun; d++) if (SpikeTrap.HiddenChance(d) < SpikeTrap.HiddenChance(d - 1)) climbs = false;
+                    Log("trap beat", "vents dark " + (FlameJet.Period - FlameJet.Burn).ToString("F1") + " s, warned " + FlameJet.Warn + " s, plates rearm " + SpikeTrap.Rearm + " s", FlameJet.Period - FlameJet.Burn >= 0.8f && FlameJet.Period - FlameJet.Burn <= 1.2f && SpikeTrap.Rearm + SpikeTrap.Delay > SpikeTrap.ImpaleSeconds);
                     Log("trap numbers", "hidden plates " + SpikeTrap.HiddenChance(0).ToString("F2") + " on floor 1, " + SpikeTrap.HiddenChance(DungeonDirector.FloorsPerRun - 1).ToString("F2") + " on the last; a 100 bite is " + DungeonDirector.TrapHurt(100f).ToString("F0") + " on " + Difficulty.Level.Name,
                         SpikeTrap.HiddenChance(0) <= 0f && SpikeTrap.HiddenChance(1) <= 0f && climbs && SpikeTrap.HiddenChance(DungeonDirector.FloorsPerRun - 1) <= 1f && SpikeTrap.HiddenChance(DungeonDirector.FloorsPerRun - 1) > 0.3f
                         && Mathf.Approximately(DungeonDirector.TrapHurt(100f), 100f * Difficulty.Level.Damage));
@@ -2024,10 +2025,27 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(SpikeTrap.Delay + 0.15f);
                         float took = before - ph.Current.Value;
                         bool pinned = pdeb.Rooted;
-                        Log("spike plate", "took " + took.ToString("F0") + " (hidden " + plate.Hidden.Value + "), pinned " + pinned, took >= SpikeTrap.Damage * 0.5f && pinned);
+                        Log("spike plate", "took " + took.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " (hidden " + plate.Hidden.Value + "), pinned " + pinned, took >= ph.Max.Value * 0.2f && took <= ph.Max.Value * 0.4f && pinned);
                         local.GetComponent<FirstPersonMotor>().Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                         ph.ServerSetFraction(1f);
                         yield return new WaitForSeconds(SpikeTrap.ImpaleSeconds);
+                        // A flame vent strikes once a burst, for a third of your health, and goes dark long enough to cross.
+                        if (layout.FlameTraps.Count > 0)
+                        {
+                            var vent = layout.FlameTraps[0];
+                            var ventMotor = local.GetComponent<FirstPersonMotor>();
+                            pdeb.ServerResetGrace();
+                            ph.ServerSetFraction(1f);
+                            for (int w = 0; w < 120 && FlameJet.Lit(vent.Phase, Pendulum.Clock); w++) yield return new WaitForSeconds(0.02f);
+                            float beforeVent = ph.Current.Value;
+                            ventMotor.Teleport(vent.At + Vector3.up * 0.1f, local.transform.rotation);
+                            for (int w = 0; w < 120 && !FlameJet.Lit(vent.Phase, Pendulum.Clock); w++) yield return new WaitForSeconds(0.02f);
+                            for (int w = 0; w < 120 && FlameJet.Lit(vent.Phase, Pendulum.Clock); w++) yield return new WaitForSeconds(0.02f);
+                            float tookVent = beforeVent - ph.Current.Value;
+                            ventMotor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                            Log("flame vent", "took " + tookVent.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " in one burst", tookVent >= ph.Max.Value * 0.2f && tookVent <= ph.Max.Value * 0.4f);
+                            ph.ServerSetFraction(1f);
+                        }
                     }
                 }
                 // The blood altar: three offerings fill the chalice; a relic for who bled, Bloodlust for all.

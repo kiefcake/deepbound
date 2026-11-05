@@ -57,6 +57,8 @@ namespace Deepbound.Art
             sameFrame[sound] = n + 1;
             if (n >= MaxSameFrame) return;
             var src = Borrow();
+            // A full pool used to drop whatever came next, your own hurt or a boss slam included: those take the quietest voice.
+            if (src == null && Vital(sound)) src = Steal();
             if (src == null) return;
             src.transform.position = position;
             src.clip = clip;
@@ -79,6 +81,17 @@ namespace Deepbound.Art
         private static readonly Dictionary<Sound, int> sameFrame = new Dictionary<Sound, int>();
         private static int countFrame = -1, nextVoice;
         private static Transform voiceRoot;
+
+        private static bool Vital(Sound s) => s == Sound.Hurt || s == Sound.Heartbeat || s == Sound.Revive || s == Sound.Roar || s == Sound.Slam || s == Sound.UiError || s == Sound.Toll;
+
+        private static AudioSource Steal()
+        {
+            AudioSource quietest = null;
+            foreach (var v in voices)
+                if (v != null && (quietest == null || v.volume < quietest.volume)) quietest = v;
+            if (quietest != null) quietest.Stop();
+            return quietest;
+        }
 
         private static AudioSource Borrow()
         {

@@ -105,6 +105,10 @@ namespace Deepbound.UI
 
         private void Update()
         {
+            // Kept in step every frame: the focus event alone missed a game started or a setting changed in the background.
+            float listenerWant = !Application.isFocused && Settings.MuteInBackground ? 0f : Settings.Volume;
+            if (!Mathf.Approximately(AudioListener.volume, listenerWant)) AudioListener.volume = listenerWant;
+            if (sting != null && sting.isPlaying) sting.volume = 0.7f * Settings.MusicVolume;
             if (!started) return;
 
             var local = NetworkPlayer.Local;

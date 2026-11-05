@@ -11,14 +11,15 @@ namespace Deepbound.World
     /// </summary>
     public class FlameJet : MonoBehaviour
     {
-        public const float Period = 4f, Burn = 1.3f, Warn = 0.5f, HalfWidth = 1.2f;
+        // 2026-11-05 (the user: less downtime, "the player has to time their movement"): lit 1.2 s, dark 1 s (was 1.3 and 2.7).
+        public const float Period = 2.2f, Burn = 1.2f, Warn = 0.4f, HalfWidth = 0.75f;
 
         private int phase;
         private Transform fire;
         private Transform[] tongues;
         private Light glow;
         private Renderer vents;
-        private bool wasLit;
+        private bool wasLit, wasWarn;
 
         public static bool Lit(int phase, double time) => Phase(phase, time) < Burn;
         public static bool Warning(int phase, double time) => Phase(phase, time) > Period - Warn;
@@ -35,7 +36,7 @@ namespace Deepbound.World
             foreach (float s in new[] { -1f, 1f })
                 b.AddBox(trap.At + trap.Across * s * (DungeonLayout.CorridorWidth / 2f - 0.05f) + Vector3.up * 0.5f,
                     trap.Across.x != 0f ? new Vector3(0.12f, 0.5f, 0.9f) : new Vector3(0.9f, 0.5f, 0.12f), Mat.Steel);
-            j.vents = MeshKit.Part(go.transform, "VentGlow", MeshKit.Box(trap.Across.x != 0f ? new Vector3(DungeonLayout.CorridorWidth - 0.05f, 0.04f, 0.5f) : new Vector3(0.5f, 0.04f, DungeonLayout.CorridorWidth - 0.05f)),
+            j.vents = MeshKit.Part(go.transform, "VentGlow", MeshKit.Box(trap.Across.x != 0f ? new Vector3(DungeonLayout.CorridorWidth - 0.05f, 0.04f, HalfWidth * 2f) : new Vector3(HalfWidth * 2f, 0.04f, DungeonLayout.CorridorWidth - 0.05f)),
                 Mat.Glow, Vector3.up * 0.02f).GetComponent<Renderer>();
             j.fire = MeshKit.Pivot(go.transform, "Fire", Vector3.zero);
             var rng = new System.Random(trap.Phase * 7919 + 3);
@@ -81,12 +82,10 @@ namespace Deepbound.World
                     tongues[i].localScale = new Vector3(1f, 0.6f + 0.6f * Mathf.PerlinNoise(Time.time * 7f + i * 1.3f, phase), 1f);
             glow.intensity = lit ? 5f + Random.Range(-0.6f, 0.6f) : warn ? 1.2f : 0f;
             ArtLibrary.SetGlow(vents, lit ? new Color(0.9f, 0.25f, 0.05f) * 0.8f : warn ? new Color(1f, 0.3f, 0.1f) * (0.6f + 0.6f * Mathf.Sin(Time.time * 30f)) : new Color(0.3f, 0.08f, 0.02f));
-            if (lit && !wasLit)
-            {
-                var cam = Art.ViewCamera.Current;
-                if (cam != null && Vector3.Distance(cam.transform.position, transform.position) < 18f)
-                    Sfx.Play(Sound.Fire, transform.position + Vector3.up, 0.9f, 0.7f);
-            }
+            // Heard as well as seen: the grates grind as they warn, then the roar. Sfx rolls off with distance by itself.
+            if (warn && !wasWarn) Sfx.Play(Sound.Creak, transform.position + Vector3.up, 0.45f, 1.6f);
+            if (lit && !wasLit) Sfx.Play(Sound.Fire, transform.position + Vector3.up, 0.9f, 0.7f);
+            wasWarn = warn;
             wasLit = lit;
         }
     }

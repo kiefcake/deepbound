@@ -113,6 +113,8 @@ namespace Deepbound.Enemies
 
             var to = attackerPosition - transform.position;
             to.y = 0f;
+            // A hit with no direction (a burn, a proc at its own feet) is not a blow at the shield: it used to always clang.
+            if (to.sqrMagnitude < 0.25f) return damage;
             if (!lastStand && charge != ChargeState.Charging && !Opened && Vector3.Angle(transform.forward, to) < 55f)
             {
                 ShieldClangRpc();

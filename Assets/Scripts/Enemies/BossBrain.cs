@@ -198,9 +198,14 @@ namespace Deepbound.Enemies
             castUntil = Time.time + seconds;
             busyUntil = castUntil;
             CancelTelegraphRpc();
+            // A wind-up in flight is dropped with its telegraph, as a break drops it: it used to land mid-transition with no warning.
+            if (IsServer) OnBroken();
             PlayActionRpc(RigAction.Cast, seconds);
             Taunt(taunt);
         }
+
+        /// <summary>Server: the party changed size mid-fight; the shield and summon rules follow it.</summary>
+        internal void SyncScaledPlayers(int players) => scaledPlayers = Mathf.Max(1, players);
 
         /// <summary>Server: immune while <paramref name="guards"/> live (or until the timeout). It keeps fighting.</summary>
         protected void InvulnerableWhile(string phase, string taunt, string hint, List<EnemyBrain> guards, float maxSeconds, System.Action then = null)
@@ -273,6 +278,23 @@ namespace Deepbound.Enemies
         private Transform bubble;
         private Renderer bubbleRenderer;
 
+        // A faint shadowless light over every guardian: past the presence light's 8 m they were black shapes on the
+        // darker floors (floors 1, 5 and 10 in the boss shots). Low, so the ink-and-candle look stays.
+        private Light bossLight;
+
+        private void TickBossLight()
+        {
+            if (bossLight != null || Application.isBatchMode || health == null) return;
+            bossLight = new GameObject("BossLight").AddComponent<Light>();
+            bossLight.transform.SetParent(transform, false);
+            bossLight.transform.localPosition = Vector3.up * (health.CenterHeight * 2f + 1.2f);
+            bossLight.type = LightType.Point;
+            bossLight.color = new Color(0.95f, 0.82f, 0.66f);
+            bossLight.range = Mathf.Max(9f, health.CenterHeight * 4f);
+            bossLight.intensity = 0.9f;
+            bossLight.shadows = LightShadows.None;
+        }
+
         private void TickBubble()
         {
             bool show = Immune && !IsDead;
@@ -284,6 +306,7 @@ namespace Deepbound.Enemies
                 bubbleRenderer = go.GetComponent<Renderer>();
                 bubbleRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
+            TickBossLight();
             if (bubble == null) return;
             bubble.gameObject.SetActive(show);
             if (!show) return;

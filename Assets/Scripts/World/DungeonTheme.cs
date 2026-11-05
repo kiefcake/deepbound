@@ -107,6 +107,10 @@ namespace Deepbound.World
             t.AmbientSky *= 0.8f;
             t.AmbientEquator *= 0.8f;
             t.AmbientGround *= 0.85f;
+            // Darker, not black: under the retro pass's ink crush the second floor of the deeper acts lost everything.
+            t.AmbientSky = Max(t.AmbientSky, new Color(0.07f, 0.06f, 0.09f));
+            t.AmbientEquator = Max(t.AmbientEquator, new Color(0.05f, 0.04f, 0.065f));
+            t.AmbientGround = Max(t.AmbientGround, new Color(0.03f, 0.025f, 0.04f));
             t.TorchColor = Color.Lerp(t.TorchColor, new Color(1f, 0.35f, 0.2f), 0.2f);
             t.StoneTint *= 0.88f;
             t.FloorTint *= 0.9f;
@@ -125,5 +129,6 @@ namespace Deepbound.World
             "The Last Stair", "Where the Hymn Ends",
         };
         public static string FloorName(int depth) => FloorNames[Mathf.Clamp(depth, 0, FloorNames.Length - 1)];
+        private static Color Max(Color a, Color b) => new Color(Mathf.Max(a.r, b.r), Mathf.Max(a.g, b.g), Mathf.Max(a.b, b.b), a.a);
     }
 }

@@ -409,6 +409,12 @@ namespace Deepbound.Player
         private void HandleDownedChanged(bool was, bool now)
         {
             if (was && !now) Sfx.Play(Sound.Revive, transform.position);
+            // Going down was silent: an ally falling out of sight could only be seen on the HUD.
+            if (!was && now)
+            {
+                Sfx.Play(Sound.Toll, transform.position + Vector3.up, 0.8f, 1.25f);
+                if (IsOwner) Sfx.Play2D(Sound.Heartbeat, 0.8f);
+            }
         }
 
         // ------------------------------------------------------------------

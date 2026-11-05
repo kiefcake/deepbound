@@ -170,6 +170,8 @@ namespace Deepbound.Enemies
             if (brandBurstsAt < 0f || Time.time < brandBurstsAt) return;
             brandBurstsAt = -1f;
             if (branded == null) return;
+            // Down or hidden in a soul before the burst: the brand goes with them, rather than burning the spot they fell on.
+            if (!branded.Targetable) { branded = null; return; }
             var at = branded.transform.position;
             int caught = 0;
             foreach (var victim in CombatQuery.Circle(at, BrandRadius, Team.Players))

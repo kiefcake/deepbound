@@ -22,7 +22,7 @@ namespace Deepbound.World
     /// </summary>
     public class SpikeTrap : NetworkBehaviour
     {
-        public const float Radius = 1.4f, Delay = 0.4f, Damage = 75f, Rearm = 1.6f, ImpaleSeconds = 0.8f;
+        public const float Radius = 1.4f, Delay = 0.4f, Damage = 75f, Rearm = 1f, ImpaleSeconds = 0.8f;
 
         /// <summary>Laid in flagstone, no glow until it is armed.</summary>
         public readonly NetworkVariable<bool> Hidden = new NetworkVariable<bool>();
@@ -82,7 +82,7 @@ namespace Deepbound.World
                 d.y = 0f;
                 if (d.magnitude > Radius) continue;
                 bool player = h.Team == Team.Players;
-                h.ServerDamage(Damage * (1f + 0.25f * DungeonDirector.Tier(depth)) * (player ? Enemies.Difficulty.Level.Damage : 2f), transform.position + Vector3.down, NetworkObjectId);
+                h.ServerDamage(player ? DungeonDirector.TrapBite(h) : Damage * (1f + 0.25f * DungeonDirector.Tier(depth)) * 2f, transform.position + Vector3.down, NetworkObjectId);
                 if (player && h.IsAlive && h.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerRoot(ImpaleSeconds);
             }
             FireRpc();

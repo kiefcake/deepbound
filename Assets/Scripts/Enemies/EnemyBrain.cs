@@ -359,6 +359,7 @@ namespace Deepbound.Enemies
             health.ServerSetFraction(frac);
             damage *= Difficulty.Damage(players) / Difficulty.Damage(scaledPlayersBase);
             scaledPlayersBase = players;
+            if (this is BossBrain bossBrain) bossBrain.SyncScaledPlayers(players);
         }
 
         /// <summary>
@@ -1358,7 +1359,9 @@ namespace Deepbound.Enemies
             {
                 case RigAction.Swing: Sfx.Play(Sound.Swing, transform.position + Vector3.up, 0.7f, 0.8f); break;
                 case RigAction.Windup:
-                    if (voice > 0f && Random.value < 0.35f) Sfx.Play(Sound.MonsterAttack, transform.position + Vector3.up * 1.4f, 0.7f, voice);
+                    if (voice > 0f && (Random.value < 0.35f || Elite.Value)) Sfx.Play(Sound.MonsterAttack, transform.position + Vector3.up * 1.4f, 0.7f, voice);
+                    // The voiceless (bones) wound up in silence: the dodge window could not be heard from behind.
+                    else if (voice <= 0f) Sfx.Play(Sound.Rattle, transform.position + Vector3.up * 1.2f, 0.4f, 1.3f);
                     break;
                 case RigAction.Death:
                     Sfx.Play(Sound.BoneBreak, transform.position + Vector3.up);

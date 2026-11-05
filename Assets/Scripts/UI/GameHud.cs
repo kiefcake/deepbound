@@ -219,11 +219,11 @@ namespace Deepbound.UI
             float spread = Mathf.Lerp(1.12f, 1f, Mathf.Clamp01((t - 0.35f) / 1.2f));
             int nameSize = Mathf.RoundToInt(Mathf.Clamp(w / 22f, 34f, 60f));
             {
-                var probe = new GUIStyle(big) { fontSize = nameSize };
-                while (nameSize > 26 && probe.CalcSize(new GUIContent(introName)).x * spread > w * 0.6f) { nameSize -= 2; probe.fontSize = nameSize; }
+                var probe = new GUIStyle(big) { fontSize = nameSize, clipping = TextClipping.Overflow, wordWrap = false };
+                while (nameSize > 26 && probe.CalcSize(new GUIContent(introName)).x * spread + 12f > w * 0.6f) { nameSize -= 2; probe.fontSize = nameSize; }
             }
             UiSkin.Shadowed(new Rect(-w * (spread - 1f) / 2f, y, w * spread, nameSize + 12), introName,
-                new GUIStyle(big) { fontSize = nameSize, normal = { textColor = new Color(0.92f, 0.32f, 0.22f) } }, text);
+                new GUIStyle(big) { fontSize = nameSize, clipping = TextClipping.Overflow, wordWrap = false, normal = { textColor = new Color(0.92f, 0.32f, 0.22f) } }, text);
             float line = Mathf.Min(w * 0.36f, 460f) * Mathf.Clamp01((t - 0.5f) / 0.6f);
             Rect(w / 2f - line / 2f, y + nameSize + 16, line, 2, new Color(Gold.r, Gold.g, Gold.b, 0.8f * text));
             GUI.Label(new Rect(0, y + nameSize + 22, w, 28), introEpithet.ToUpperInvariant(),

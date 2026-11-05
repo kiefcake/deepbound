@@ -593,12 +593,13 @@ namespace Deepbound.World
                 {
                     if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
                     var d = h.transform.position - trap.At;
-                    if (Mathf.Abs(Vector3.Dot(d, along)) > 0.75f || Mathf.Abs(Vector3.Dot(d, trap.Across)) > DungeonLayout.CorridorWidth / 2f || Mathf.Abs(d.y) > 1.5f) continue;
-                    if (burnedAt.TryGetValue(h, out float t) && Time.time - t < 0.4f) continue;
+                    if (Mathf.Abs(Vector3.Dot(d, along)) > FlameJet.HalfWidth || Mathf.Abs(Vector3.Dot(d, trap.Across)) > DungeonLayout.CorridorWidth / 2f || Mathf.Abs(d.y) > 1.5f) continue;
+                    // A player is struck once a burst: the blow is the whole price, not a run of small burns.
+                    if (burnedAt.TryGetValue(h, out float t) && Time.time - t < (h.Team == Team.Players ? FlameJet.Burn + 0.1f : 0.4f)) continue;
                     burnedAt[h] = Time.time;
                     // Traps hit hard (2026-10-21, the user: "damage on traps to go up"), on both sides; harder still since
                     // 2026-11-01 ("make them more dangerous"), and by the difficulty setting.
-                    h.ServerDamage(h.Team == Team.Players ? TrapHurt(24f + 9f * Tier(Layout.Depth)) : 50f + 15f * Tier(Layout.Depth), trap.At);
+                    h.ServerDamage(h.Team == Team.Players ? TrapBite(h) : 50f + 15f * Tier(Layout.Depth), trap.At);
                     if (!h.IsAlive && h.Team == Team.Enemies) EnvKillRpc(h.Center, 1);
                 }
             }
@@ -708,6 +709,14 @@ namespace Deepbound.World
         /// setting too (Hard x1.3 ... Torment x2), which traps used to ignore.
         /// </summary>
         public static float TrapHurt(float damage) => damage * Difficulty.Level.Damage;
+
+        /// <summary>
+        /// Corridor traps take a third of the player's health (2026-11-05, the user), whatever the floor, class or difficulty.
+        /// DEF is added back so armour does not soften it; a dodge, a block or a shield still does.
+        /// </summary>
+        public static float TrapBite(Health h) => h.Max.Value * TrapHealthShare + h.Defense * Health.DefenseWeight;
+
+        public const float TrapHealthShare = 1f / 3f;
 
         private void HazardHit(Health h, Vector3 from, float playerDamage, float enemyDamage, Vector3 push, byte how, float rehit, float pin = 0f)
         {

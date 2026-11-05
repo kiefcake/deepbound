@@ -626,6 +626,7 @@ namespace Deepbound.Enemies
             if (Time.time < dazedUntil || IsStunned) return dmg * 1.4f;
             var to = from - transform.position;
             to.y = 0f;
+            if (to.sqrMagnitude < 0.25f) return dmg;
             if (charge != 2 && Vector3.Angle(transform.forward, to) < 60f)
             {
                 GuardClangRpc();

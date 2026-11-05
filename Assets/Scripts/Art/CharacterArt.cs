@@ -426,7 +426,7 @@ namespace Deepbound.Art
             rig.Head = MeshKit.Pivot(rig.Torso, "Head", new Vector3(0f, 0.6f, 0f));
             MeshKit.Part(rig.Head, "Face", MeshKit.Ball(0.12f, 8, 6), Mat.Dark, new Vector3(0f, 0.13f, 0.01f));
             var mask = MeshKit.Part(rig.Head, "Mask", MeshKit.Box(new Vector3(0.2f, 0.08f, 0.04f)), Mat.Cloth, new Vector3(0f, 0.08f, 0.1f));
-            ArtLibrary.Tint(mask.GetComponent<Renderer>(), new Color(0.12f, 0.1f, 0.1f));
+            ArtLibrary.Tint(mask.GetComponent<Renderer>(), new Color(0.36f, 0.33f, 0.3f)); // worn leather: black on a black face read as no mask
             var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.014f, 6, 4), Mat.Glow, new Vector3(-0.04f, 0.15f, 0.11f));
             var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.014f, 6, 4), Mat.Glow, new Vector3(0.04f, 0.15f, 0.11f));
             var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("rogueHood", new[]

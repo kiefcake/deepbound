@@ -17,7 +17,7 @@ namespace Deepbound.UI
     {
         public static readonly string[] Keys =
         {
-            "edges", "relictray", "hone", "corwin", "chat", "purse", "falloff", "entling", "rare", "necro", "hiddenplates", "gravewarden", "silenced",
+            "flamevents", "edges", "relictray", "hone", "corwin", "chat", "purse", "falloff", "entling", "rare", "necro", "hiddenplates", "gravewarden", "silenced",
             "camp", "tavern", "emotewheel", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound",
         };
 
@@ -158,6 +158,8 @@ namespace Deepbound.UI
             if (World.Tallyman.Active != null && !World.Tallyman.Active.Leaving.Value)
                 Offer("tallyman", "THE TALLYMAN comes for parties that linger. He cannot be hurt: sprint away (he gets faster), throw HOLY WATER (4) to hold him for a moment, and get into the guardian's arena - when it seals, he leaves.");
 
+            foreach (var vent in layout.FlameTraps)
+                if ((vent.At - me).sqrMagnitude < 144f) { Offer("flamevents", "FLAME VENTS burn across the corridor on a steady beat, and a hit takes a THIRD of your health. The grates glow just before they light: go the moment the fire drops."); break; }
             // Hidden spike plates (2026-11-01): from the second act some lie in the floor's own flagstone.
             if (layout.Depth >= 2) Offer("hiddenplates", "WATCH THE FLOOR: from here some spike plates are laid in flagstone like the rest. A click underfoot means MOVE - the spikes pin whoever they catch.");
 
