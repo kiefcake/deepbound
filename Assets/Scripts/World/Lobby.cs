@@ -771,18 +771,38 @@ namespace Deepbound.World
             Props.Chandelier(lights, d, c + new Vector3(0.6f, wallH + 0.3f, 0.2f), 0.9f, Fire);
             var lamp = new GameObject("TavernLamp").AddComponent<Light>();
             lamp.transform.SetParent(lights, false);
-            lamp.transform.position = c + new Vector3(-2.2f, 2.6f, 0.4f);
+            // Hung over the customer side of the counter: behind the keep it lit only the back of their head.
+            var lampAt = TavernKeepSpot + new Vector3(0.9f, 2.25f, 0f);
+            lamp.transform.position = lampAt;
             lamp.type = LightType.Point;
             lamp.color = new Color(1f, 0.66f, 0.38f);
-            lamp.range = 7f;
-            lamp.intensity = 2f;
+            lamp.range = 6.5f;
+            lamp.intensity = 2.4f;
+            d.AddBox(lampAt + new Vector3(0f, 0.45f, 0f), new Vector3(0.03f, 0.6f, 0.03f), Mat.Steel);
+            d.AddBox(lampAt + new Vector3(0f, 0.12f, 0f), new Vector3(0.2f, 0.05f, 0.2f), Mat.Steel);
+            d.AddBox(lampAt + new Vector3(0f, -0.14f, 0f), new Vector3(0.18f, 0.04f, 0.18f), Mat.Steel);
+            var lampPane = MeshKit.Part(lights, "BarLantern", MeshKit.Box(new Vector3(0.13f, 0.2f, 0.13f)), Mat.Glow, lampAt);
+            ArtLibrary.SetGlow(lampPane.GetComponent<Renderer>(), new Color(1f, 0.55f, 0.18f) * 0.8f);
 
             // The sign over the door: a board on an iron arm, a lantern painted on it, its own lantern beneath.
             var signArm = c + new Vector3(hx + 0.6f, doorH + 0.5f, -door - 0.5f);
             d.AddBox(signArm, new Vector3(1.2f, 0.06f, 0.06f), Mat.Steel);
             d.AddBox(signArm + new Vector3(0.25f, -0.45f, 0f), new Vector3(0.06f, 0.7f, 0.9f), Mat.Wood, plank);
-            var painted = MeshKit.Part(lights, "TavernSignLantern", MeshKit.Box(new Vector3(0.02f, 0.32f, 0.22f)), Mat.Glow, signArm + new Vector3(0.29f, -0.45f, 0f));
-            ArtLibrary.SetGlow(painted.GetComponent<Renderer>(), new Color(1f, 0.7f, 0.3f) * 0.9f);
+            // A lantern painted on both faces: a lit pane caged by dark bars, cap, base and ring. It was one bare glowing
+            // slab that bloomed into a blank white card from the street.
+            for (int face2 = -1; face2 <= 1; face2 += 2)
+            {
+                var face = signArm + new Vector3(0.25f + face2 * 0.04f, -0.45f, 0f);
+                var pane = MeshKit.Part(lights, "TavernSignLantern", MeshKit.Box(new Vector3(0.012f, 0.2f, 0.14f)), Mat.Glow, face + new Vector3(0f, -0.03f, 0f));
+                ArtLibrary.SetGlow(pane.GetComponent<Renderer>(), new Color(1f, 0.55f, 0.15f) * 0.55f);
+                var ink = new Color(0.08f, 0.06f, 0.05f);
+                float o = face2 * 0.008f;
+                d.AddBox(face + new Vector3(o, 0.1f, 0f), new Vector3(0.014f, 0.05f, 0.2f), Mat.Steel, ink);   // cap
+                d.AddBox(face + new Vector3(o, 0.155f, 0f), new Vector3(0.014f, 0.06f, 0.05f), Mat.Steel, ink); // ring
+                d.AddBox(face + new Vector3(o, -0.15f, 0f), new Vector3(0.014f, 0.04f, 0.18f), Mat.Steel, ink); // base
+                for (int b = -1; b <= 1; b++)
+                    d.AddBox(face + new Vector3(o, -0.03f, b * 0.06f), new Vector3(0.014f, 0.2f, 0.016f), Mat.Steel, ink);
+            }
             Props.WallTorch(lights, c + new Vector3(hx + t / 2f, 2.3f, door + 0.5f), Vector3.right, false, Fire);
         }
 

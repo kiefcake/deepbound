@@ -88,16 +88,13 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
-            "THE GUTTED LANTERN: a tavern by the tent - mead, and a band to pay for a song",
-            "EMOTE WHEEL: hold H to cheer, bow, laugh, dance, point, beckon or sit",
-            "Wider corridors; enemies rescale when friends join or leave mid-floor",
-            "ONE KEY: F uses, trades and talks (tap F drags a downed ally, hold revives)",
-            "Mage: TIDAL WAVE (Q) stuns what it washes over; Frostbolt hits harder",
-            "Bosses are much tougher; ultimates and spells cost more to come by",
-            "Bosses lay a SHARED DOOM in co-op: stand together to split it",
-            "CO-OP: PINCER from opposite sides, ASSISTS, LAST STAND and CLUTCH revives",
-            "Down? WATCH your allies (LMB). AVENGE the fallen; FLOOR HONOURS",
-            "Menus work on a GAMEPAD: the stick moves the pointer",
+            "CORRIDOR TRAPS bite for a third of your health, on a tight beat: time your run",
+            "Flame vents grind as they warn, then roar; spike plates rearm in a second",
+            "After the guardian falls, the downed stand back up on their own",
+            "Friends who join mid-run pick a class at camp; the feed says who joined or left",
+            "The carriage says who it is still waiting for",
+            "Guardians hit harder on higher difficulties and the last two floors",
+            "Going down tolls a bell for the whole party; bones rattle as they wind up",
             "PLAY WITH FRIENDS over Steam: invite from the pause menu",
         };
 

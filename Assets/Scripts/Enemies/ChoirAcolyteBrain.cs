@@ -127,7 +127,7 @@ namespace Deepbound.Enemies
         private void HymnBeginRpc(Vector3 at)
         {
             Telegraph.Show(at, HymnRadius, HymnSeconds, this, Gilt);
-            Sfx.Play(Sound.Revive, at + Vector3.up * 1.6f, 0.9f, 0.55f);
+            Sfx.Play(Sound.Toll, at + Vector3.up * 1.6f, 0.7f, 0.7f); // not the revive chime: this is the enemy's hymn
             Sfx.Play(Sound.Whisper, at + Vector3.up * 1.6f, 0.8f, 1.3f);
             UI.GameHud.ShowCombo(at + Vector3.up * 2.3f, "HYMN - BREAK IT", Gilt);
         }

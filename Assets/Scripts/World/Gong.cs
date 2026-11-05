@@ -102,6 +102,18 @@ namespace Deepbound.World
             MeshKit.Part(disc, "Boss", MeshKit.Cylinder(0.35f, 0.3f, 0.12f, 16), Mat.Gold, new Vector3(0f, -1.6f, 0.06f), new Vector3(90f, 0f, 0f));
             MeshKit.Part(disc, "Rim", MeshKit.Lathe("gongRim", new[] { new Vector2(1.1f, 0f), new Vector2(1.2f, 0.05f), new Vector2(1.1f, 0.1f) }, 24, false), Mat.Steel,
                 new Vector3(0f, -1.6f, -0.05f), new Vector3(90f, 0f, 0f));
+            // Hammered bronze with a darker ring band each side: plain gold under the brazier read as a glowing sun.
+            var bronze = new Color(0.36f, 0.24f, 0.11f);
+            var band = new Color(0.14f, 0.09f, 0.05f);
+            ArtLibrary.Tint(disc.Find("Disc").GetComponent<Renderer>(), bronze);
+            ArtLibrary.Tint(disc.Find("Boss").GetComponent<Renderer>(), new Color(0.62f, 0.44f, 0.2f));
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var r1 = MeshKit.Part(disc, "Band", MeshKit.Cylinder(0.82f, 0.82f, 0.01f, 24), Mat.Gold, new Vector3(0f, -1.6f, s * 0.042f), new Vector3(90f, 0f, 0f));
+                ArtLibrary.Tint(r1.GetComponent<Renderer>(), band);
+                var r2 = MeshKit.Part(disc, "Face", MeshKit.Cylinder(0.7f, 0.7f, 0.01f, 24), Mat.Gold, new Vector3(0f, -1.6f, s * 0.047f), new Vector3(90f, 0f, 0f));
+                ArtLibrary.Tint(r2.GetComponent<Renderer>(), bronze);
+            }
         }
     }
 }

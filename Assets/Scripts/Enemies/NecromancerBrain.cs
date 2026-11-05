@@ -166,7 +166,9 @@ namespace Deepbound.Enemies
         private void MendFxRpc(Vector3[] healed)
         {
             // Green rings on everything it mended, so the party sees who keeps the dead standing.
-            Sfx.Play(Sound.Revive, transform.position + Vector3.up, 0.9f, 0.7f);
+            // Its own dark cue: it used the party's revive chime, so an enemy mending its dead sounded like a friend getting up.
+            Sfx.Play(Sound.Shade, transform.position + Vector3.up, 0.9f, 0.7f);
+            Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 0.5f, 0.8f);
             var green = new Color(0.45f, 1f, 0.5f);
             Vfx.Ring(transform.position, 1.2f, green, 0.6f);
             foreach (var at in healed)

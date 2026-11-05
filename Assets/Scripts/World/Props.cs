@@ -811,8 +811,10 @@ namespace Deepbound.World
             for (int i = 0; i < 5; i++)
             {
                 var p = new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f) * 0.6f;
-                float hgt = 0.12f + (float)rng.NextDouble() * 0.2f;
-                MeshKit.Part(root, "Candle" + i, MeshKit.Cylinder(0.035f, 0.035f, hgt, 6), Mat.Bone, p);
+                float hgt = 0.14f + (float)rng.NextDouble() * 0.24f;
+                // Thicker wax and a drip at the foot: at 7 cm across the bodies vanished and the flames seemed to float.
+                MeshKit.Part(root, "Candle" + i, MeshKit.Cylinder(0.05f, 0.055f, hgt, 6), Mat.Bone, p);
+                MeshKit.Part(root, "Drip" + i, MeshKit.Cylinder(0.08f, 0.09f, 0.015f, 6), Mat.Bone, p);
                 var f = MeshKit.Part(root, "Wick" + i, MeshKit.Ball(0.025f, 6, 4), Mat.Glow, p + Vector3.up * (hgt + 0.03f));
                 ArtLibrary.SetGlow(f.GetComponent<Renderer>(), fire * 1.6f);
             }
@@ -867,10 +869,12 @@ namespace Deepbound.World
             {
                 new Vector2(0.1f, 0f), new Vector2(0.42f, 0.15f), new Vector2(0.5f, 0.3f), new Vector2(0.44f, 0.3f), new Vector2(0f, 0.18f),
             }, 10), Mat.Steel, new Vector3(0f, 0.95f, 0f));
-            MeshKit.Part(root, "Coals", MeshKit.Cylinder(0.4f, 0.38f, 0.06f, 10), Mat.Glow, new Vector3(0f, 1.1f, 0f));
-            ArtLibrary.SetGlow(root.Find("Coals").GetComponent<Renderer>(), fire * 1.4f);
+            MeshKit.Part(root, "Coals", MeshKit.Cylinder(0.2f, 0.44f, 0.07f, 10), Mat.Glow, new Vector3(0f, 1.17f, 0f)); // fills the bowl: lower, it hid under the inner steel, which the flame lit to white
+            // Embers, not a lamp: a 0.8 m disc at fire x1.4 bloomed into a flat white plate under the flame. Deep, saturated, dim.
+            Color.RGBToHSV(fire, out float ch, out float cs, out _);
+            ArtLibrary.SetGlow(root.Find("Coals").GetComponent<Renderer>(), Color.HSVToRGB(ch, Mathf.Max(cs, 0.9f), 1f) * 0.55f);
 
-            var brazier = AddFlame(root, new Vector3(0f, 1.15f, 0f), 1.6f, fire, 12f, 14f, shadows);
+            var brazier = AddFlame(root, new Vector3(0f, 1.24f, 0f), 1.6f, fire, 12f, 14f, shadows);
             MeshKit.MergeParts(root);
             return brazier;
         }

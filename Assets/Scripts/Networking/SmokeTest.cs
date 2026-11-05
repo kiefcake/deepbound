@@ -2020,6 +2020,9 @@ namespace Deepbound.Networking
                         ph.Shield.Value = 0f;
                         ph.ServerSetFraction(1f);
                         yield return new WaitForSeconds(SpikeTrap.Rearm + 0.2f);
+                        // A shield regrown during the wait (a relic) soaked the first bite while the pin still took: clear both now.
+                        ph.Shield.Value = 0f;
+                        pdeb.ServerResetGrace();
                         float before = ph.Current.Value;
                         local.GetComponent<FirstPersonMotor>().Teleport(plate.transform.position + Vector3.up * 0.1f, local.transform.rotation);
                         // Something else on the plate (a straggler, the client) can have it mid-beat: wait out one full cycle.
