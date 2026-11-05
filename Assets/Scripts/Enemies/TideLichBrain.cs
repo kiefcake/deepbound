@@ -71,7 +71,7 @@ namespace Deepbound.Enemies
                 to.y = 0f;
                 float d = to.magnitude;
                 if (d > MaelstromRadius) continue;
-                if (d < EyeRadius) p.Health.ServerDamage(9f * Difficulty.Level.Damage, maelstromAt, NetworkObjectId);
+                if (d < EyeRadius) p.Health.ServerDamage(Signature(9f), maelstromAt, NetworkObjectId);
                 // Stronger the closer you are; a sideways swirl so it reads as a whirlpool.
                 var swirl = Vector3.Cross(Vector3.up, to.normalized) * 1.2f;
                 KnockPlayer(p.Health, to.normalized * Mathf.Lerp(4.5f, 2f, d / MaelstromRadius) + swirl);
@@ -129,7 +129,7 @@ namespace Deepbound.Enemies
                 for (int e = 0; e < 2; e++)
                     StartPattern(new Pattern
                     {
-                        Arms = arms, Interval = 0.1f, Speed = SpiralSpeed, Spin = 11f, FlipEvery = 3.2f, Damage = boltDamage * 0.5f,
+                        Arms = arms, Interval = 0.1f, Speed = SpiralSpeed, Spin = 11f, FlipEvery = 3.2f, Damage = Signature(boltDamage) * 0.5f,
                         Kind = ProjectileKind.Frostbolt, Duration = 11.6f, AimedEvery = e == 0 ? 1.4f : 0f, Range = 30f,
                         Origin = Orbit(2.6f, 45f, e * 180f, 1.15f),
                     });
@@ -155,7 +155,7 @@ namespace Deepbound.Enemies
                 PlayActionRpc(RigAction.Cast, 1f);
                 StartPattern(new Pattern
                 {
-                    Arms = 2, Interval = 0.08f, Speed = SpiralSpeed + 1f, Spin = 19f, Damage = boltDamage * 0.45f,
+                    Arms = 2, Interval = 0.08f, Speed = SpiralSpeed + 1f, Spin = 19f, Damage = Signature(boltDamage) * 0.45f,
                     Kind = ProjectileKind.Frostbolt, Duration = 2.6f, Origin = Orbit(1.6f, 120f, 0f, 1.15f),
                 });
             }
@@ -275,7 +275,7 @@ namespace Deepbound.Enemies
             for (int i = 0; i < volleyCount; i++)
             {
                 float a = Mathf.Lerp(-volleySpread / 2f, volleySpread / 2f, volleyCount > 1 ? i / (float)(volleyCount - 1) : 0.5f);
-                Arrows.ServerFire(origin, Quaternion.Euler(0f, a, 0f) * aim, boltDamage, Team.Players, NetworkObjectId);
+                Arrows.ServerFire(origin, Quaternion.Euler(0f, a, 0f) * aim, Signature(boltDamage), Team.Players, NetworkObjectId);
             }
             VolleyRpc(origin, aim, volleyCount, volleySpread);
             Debug.Log("[Boss] Tide Lich volley");
@@ -307,7 +307,7 @@ namespace Deepbound.Enemies
                 var c = pools[i].Center;
                 foreach (var victim in CombatQuery.Circle(c, poolRadius, Team.Players))
                 {
-                    victim.ServerDamage(poolDamage, c + Vector3.up, NetworkObjectId);
+                    victim.ServerDamage(Signature(poolDamage), c + Vector3.up, NetworkObjectId);
                 }
                 PoolFxRpc(c);
                 pools.RemoveAt(i);

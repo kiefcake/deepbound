@@ -311,6 +311,7 @@ namespace Deepbound.World
         private void ResetEncounters()
         {
             ResetGimmicks();
+            clearedDownAt.Clear();
             ritualRoom = null;
             ritualBraziers.Clear();
             if (IsServer) RitualActive.Value = false;

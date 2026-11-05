@@ -240,7 +240,7 @@ namespace Deepbound.Player
         }
 
         [Rpc(SendTo.Server)]
-        private void AddFervorRpc(float amount) => Fervor.Value = Mathf.Min(FervorMax, Fervor.Value + amount);
+        private void AddFervorRpc(float amount) => Fervor.Value = Mathf.Min(FervorMax, Fervor.Value + Mathf.Clamp(amount, 0f, FervorMax));
 
         [Rpc(SendTo.Server)]
         private void SwingRpc(Vector3 origin, Vector3 forward, float swingSide)

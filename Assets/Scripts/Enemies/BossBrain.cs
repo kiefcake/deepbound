@@ -427,7 +427,18 @@ namespace Deepbound.Enemies
             scaledPlayers = players;
             scaledDepth = depth;
             ServerScale(players, depth);
+            // The signature hits (slam, pool, charge, judgement) were bare numbers tuned for each guardian's own act:
+            // they ignored the difficulty setting and fury, and the Cardinal hit no harder on floors 9-10 than on 7-8.
+            // Party size is left out on purpose: those hits land on several of you at once already.
+            signatureScale = Difficulty.Level.Damage * Difficulty.DepthDamage(depth) / Difficulty.DepthDamage(Mathf.Min(depth, HomeDepthCap));
         }
+
+        /// <summary>Deepest depth a guardian is tuned for (the Cardinal's act, depths 6-7); past it the signature hits grow.</summary>
+        private const int HomeDepthCap = 7;
+        private float signatureScale = 1f;
+
+        /// <summary>Server: a signature hit's base number, scaled for difficulty, the depth past its own act, and fury.</summary>
+        protected float Signature(float baseHit) => baseHit * signatureScale;
 
         protected bool Casting => Time.time < castUntil;
 
@@ -443,6 +454,7 @@ namespace Deepbound.Enemies
             if (Time.time - fightStartedAt < FurySeconds) return;
             furious = true;
             damage *= 1.4f;
+            signatureScale *= 1.4f;
             moveSpeed *= 1.15f;
             FuryRpc(DisplayName);
         }

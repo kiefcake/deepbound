@@ -1536,17 +1536,20 @@ namespace Deepbound.World
         /// </summary>
         private void TickClearedFloorDowns(double now)
         {
-            bool anyDown = false;
-            foreach (var p in PlayerLife.All) if (p != null && p.Downed.Value) anyDown = true;
-            if (!anyDown) { clearedDownAt = -1.0; return; }
-            if (clearedDownAt < 0.0) { clearedDownAt = now; return; }
-            if (now - clearedDownAt < ClearedReviveDelay) return;
-            clearedDownAt = -1.0;
-            foreach (var p in PlayerLife.All) if (p != null && p.Downed.Value) p.ServerRevive(0.5f);
+            // Each fallen player gets their own count: one shared clock stood a fresh fall up at once if a friend had lain longer.
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null) continue;
+                if (!p.Downed.Value) { clearedDownAt.Remove(p); continue; }
+                if (!clearedDownAt.TryGetValue(p, out var since)) { clearedDownAt[p] = now; continue; }
+                if (now - since < ClearedReviveDelay) continue;
+                clearedDownAt.Remove(p);
+                p.ServerRevive(0.5f);
+            }
         }
 
         private const double ClearedReviveDelay = 4.0;
-        private double clearedDownAt = -1.0;
+        private readonly Dictionary<PlayerLife, double> clearedDownAt = new Dictionary<PlayerLife, double>();
 
         /// <summary>The carriage counts everyone and nothing said who it was waiting for. The lift's prompt already does.</summary>
         private void TellWhoHoldsTheCarriage()

@@ -75,7 +75,7 @@ namespace Deepbound.Enemies
                     float phase = e * 90f;
                     StartPattern(new Pattern
                     {
-                        Arms = 2, Interval = 0.16f, Speed = 10f, Spin = 8f, Wobble = 7f, Damage = judgementDamage * 0.3f,
+                        Arms = 2, Interval = 0.16f, Speed = 10f, Spin = 8f, Wobble = 7f, Damage = Signature(judgementDamage) * 0.3f,
                         Kind = ProjectileKind.Smite, Duration = 9.5f, Range = 22f,
                         Origin = t => c + Quaternion.Euler(0f, phase + t * 26f, 0f) * Vector3.forward * 7.5f + Vector3.up * 1.2f,
                     });
@@ -177,7 +177,7 @@ namespace Deepbound.Enemies
             foreach (var victim in CombatQuery.Circle(at, BrandRadius, Team.Players))
             {
                 bool bearer = victim == branded.Health;
-                victim.ServerDamage(judgementDamage * Difficulty.Level.Damage * (bearer ? 0.8f : 1.3f), at + Vector3.up, NetworkObjectId);
+                victim.ServerDamage(Signature(judgementDamage) * (bearer ? 0.8f : 1.3f), at + Vector3.up, NetworkObjectId);
                 if (!bearer) caught++;
             }
             BrandsBurst++;
@@ -226,7 +226,7 @@ namespace Deepbound.Enemies
                 pillars.RemoveAt(i);
                 foreach (var victim in CombatQuery.Circle(at, judgementRadius, Team.Players))
                 {
-                    victim.ServerDamage(judgementDamage * Difficulty.Level.Damage, at + Vector3.up, NetworkObjectId);
+                    victim.ServerDamage(Signature(judgementDamage), at + Vector3.up, NetworkObjectId);
                     // In the Last Rites, holy fire burns the mind too.
                     if (LastRites && victim.TryGetComponent<Player.PlayerDebuffs>(out var deb)) deb.ServerMania(1.8f);
                 }

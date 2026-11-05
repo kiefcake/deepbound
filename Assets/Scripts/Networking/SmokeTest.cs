@@ -2022,8 +2022,14 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(SpikeTrap.Rearm + 0.2f);
                         float before = ph.Current.Value;
                         local.GetComponent<FirstPersonMotor>().Teleport(plate.transform.position + Vector3.up * 0.1f, local.transform.rotation);
-                        yield return new WaitForSeconds(SpikeTrap.Delay + 0.15f);
-                        float took = before - ph.Current.Value;
+                        // Something else on the plate (a straggler, the client) can have it mid-beat: wait out one full cycle.
+                        float took = 0f;
+                        for (float t = 0f; t < SpikeTrap.Delay + SpikeTrap.Rearm + 0.6f && took <= 0f; t += 0.05f)
+                        {
+                            yield return new WaitForSeconds(0.05f);
+                            took = before - ph.Current.Value;
+                        }
+                        yield return null;
                         bool pinned = pdeb.Rooted;
                         Log("spike plate", "took " + took.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " (hidden " + plate.Hidden.Value + "), pinned " + pinned, took >= ph.Max.Value * 0.2f && took <= ph.Max.Value * 0.4f && pinned);
                         local.GetComponent<FirstPersonMotor>().Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);

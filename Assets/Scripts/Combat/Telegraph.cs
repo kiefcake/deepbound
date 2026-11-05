@@ -276,8 +276,10 @@ namespace Deepbound.Combat
         {
             SampleField();
             if (field != null) foreach (var r in GetComponentsInChildren<Renderer>()) Conform(r);
-            if (zone != null) ArtLibrary.Tint(zone, new Color(color.r, color.g, color.b, color.a * 0.5f));
-            ArtLibrary.Tint(fill.GetComponent<Renderer>(), new Color(color.r, color.g, color.b, Mathf.Min(0.42f, color.a * 1.35f)));
+            // A room-wide warning at the same alpha as a 2 m one painted the whole floor red: big zones fill fainter (the rim stays bright).
+            float big = Mathf.Lerp(1f, 0.6f, Mathf.InverseLerp(4f, 12f, radius));
+            if (zone != null) ArtLibrary.Tint(zone, new Color(color.r, color.g, color.b, color.a * 0.5f * big));
+            ArtLibrary.Tint(fill.GetComponent<Renderer>(), new Color(color.r, color.g, color.b, Mathf.Min(0.42f, color.a * 1.35f) * big));
             ArtLibrary.SetGlow(sweep.GetComponent<Renderer>(), Rgb * 3.2f * Glow);
             foreach (var r in GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             if (source != null) BySource[source] = this;

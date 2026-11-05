@@ -308,7 +308,7 @@ namespace Deepbound.Enemies
             foreach (var victim in CombatQuery.Circle(transform.position, 1.8f, Team.Players))
             {
                 if (!trampled.Add(victim)) continue;
-                victim.ServerDamage(chargeDamage, transform.position - chargeDir, NetworkObjectId);
+                victim.ServerDamage(Signature(chargeDamage), transform.position - chargeDir, NetworkObjectId);
                 // Flung aside and back, out of the lane.
                 var side = Vector3.Cross(Vector3.up, chargeDir);
                 if (Vector3.Dot(victim.transform.position - transform.position, side) < 0f) side = -side;
