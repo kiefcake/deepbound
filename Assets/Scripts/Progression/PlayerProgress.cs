@@ -870,6 +870,12 @@ namespace Deepbound.Progression
         }
 
         public int RelicCount => relics.Count;
+
+        /// <summary>Relics held, each tier counting as one more (for sharing finds fairly).</summary>
+        public int RelicWealth { get { int w = relics.Count; for (int i = 0; i < relics.Count; i++) w += RelicTierAt(i); return w; } }
+
+        /// <summary>Ability ranks plus unspent sigils (for sharing finds fairly).</summary>
+        public int SigilWealth => RankQ.Value + RankE.Value + Sigils.Value;
         public Relic RelicAt(int i) => IdOf(relics[i]);
         public int RelicTierAt(int i) => TierOf(relics[i]);
 
@@ -1006,7 +1012,7 @@ namespace Deepbound.Progression
                     float d = Vector3.Distance(h.transform.position, attackerPosition);
                     if (d < best) { best = d; nearest = h; }
                 }
-                if (nearest != null) nearest.ServerDamage(damage * 0.4f * RelicPower(Relic.ThornedMail), transform.position, NetworkObjectId);
+                if (nearest != null) nearest.Tag("PlayerProgress").ServerDamage(damage * 0.4f * RelicPower(Relic.ThornedMail), transform.position, NetworkObjectId);
             }
             return damage;
         }
@@ -1077,7 +1083,7 @@ namespace Deepbound.Progression
                 if (striker != null)
                 {
                     if (Wears(GearId.DrownedKnightsMail)) striker.ServerChill(2.5f);
-                    if (Wears(GearId.GorrsHide)) { striker.ServerDamage(15f * AttackMultiplier, transform.position, NetworkObjectId); RotFxRpc(striker.Center); }
+                    if (Wears(GearId.GorrsHide)) { striker.Tag("PlayerProgress").ServerDamage(15f * AttackMultiplier, transform.position, NetworkObjectId); RotFxRpc(striker.Center); }
                 }
             }
             if (Wears(GearId.AshenShroud) && Time.time >= shroudReadyAt && (health.Current.Value - damage) / Mathf.Max(1f, health.Max.Value) < 0.3f)
@@ -1085,7 +1091,7 @@ namespace Deepbound.Progression
                 shroudReadyAt = Time.time + 15f;
                 foreach (var foe in CombatQuery.Circle(transform.position, 4.5f, Team.Enemies).ToArray())
                 {
-                    foe.ServerDamage(40f * AttackMultiplier, transform.position, NetworkObjectId);
+                    foe.Tag("PlayerProgress").ServerDamage(40f * AttackMultiplier, transform.position, NetworkObjectId);
                     foe.ServerScorch(5f, NetworkObjectId);
                 }
                 ShroudFxRpc();
@@ -1183,7 +1189,7 @@ namespace Deepbound.Progression
             yield return new WaitForSeconds(0.7f);
             foreach (var foe in CombatQuery.Circle(at, 2.6f, Team.Enemies).ToArray())
             {
-                foe.ServerDamage(30f * AttackMultiplier, at, NetworkObjectId);
+                foe.Tag("PlayerProgress").ServerDamage(30f * AttackMultiplier, at, NetworkObjectId);
                 foe.ServerScorch(4f, NetworkObjectId);
             }
             JudgementFxRpc(at);
@@ -1408,6 +1414,7 @@ namespace Deepbound.Progression
         {
             var party = Party();
             if (!World.DungeonDirector.ShareLoot || party.Count <= 1) { finder.ServerAddEmbers(total); return; }
+            total = Mathf.Max(1, Mathf.RoundToInt(total * Enemies.Difficulty.PartyEmbers));
             int each = total / party.Count, rest = total - each * party.Count;
             foreach (var p in party) p.ServerAddEmbers(each + (p == finder ? rest : 0));
         }

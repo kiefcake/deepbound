@@ -67,7 +67,15 @@ namespace Deepbound.Enemies
         public static float BossHealth(int players) => BossToughness * (1f + 0.9f * Extra(players));
 
         /// <summary>The health multiplier a fight was scaled with, boss or rank and file (for rescaling on joins and leaves).</summary>
-        public static float PartyHealth(int players, bool boss) => boss ? BossHealth(players) : EnemyHealth(players);
+        public static float PartyHealth(int players, bool boss, int depth = 0) => boss ? BossHealth(players) * BossDepth(players, depth) : EnemyHealth(players);
+
+        /// <summary>
+        /// A party's guardians harden with depth, on top of <see cref="DepthHealth"/> (2026-11-04, ten-floor run with four
+        /// bots in full kit: guardians from floor 6 fell in 30 s). +18% a floor for a full four, a third of that per extra
+        /// player, and nothing alone: a soloist's kit was not what this run measured. (First +25%, while Thermal Shock was
+        /// doing a third of a party's guardian damage; see <see cref="Classes.Combos.ShockBossFraction"/>.)
+        /// </summary>
+        public static float BossDepth(int players, int depth) => 1f + 0.18f * Mathf.Max(0, depth) * Mathf.Min(Extra(players), 3) / 3f;
 
         /// <summary>
         /// Co-op loot (2026-10-23, "figure out the game loop, solo or a four-man run"). Gold and embers are
@@ -83,9 +91,16 @@ namespace Deepbound.Enemies
         /// <summary>
         /// Per-hit damage: +15% per extra player (was +8%). Party autoplay run 27 (Mage + Knight, 2026-11-01): from floor 3
         /// the pair went whole floors without a close call, and the Mage took half what a soloist takes, because the
-        /// Knight held the rage. Hits stay survivable (x1.45 in a four), but a party now has to mind them.
+        /// Knight held the rage. Hits stay survivable, but a party now has to mind them. +22% (was +15%, 2026-11-04: four bots in full kit that never
+        /// dodge came through floors 2-9 with 9 close calls between them): x1.66 in a four.
         /// </summary>
-        public static float Damage(int players) => 1f + 0.15f * Extra(players);
+        public static float Damage(int players) => 1f + 0.22f * Extra(players);
+
+        /// <summary>
+        /// A party's share of embers (2026-11-04: in a four the first weapon reached +10 on floor 5 and every sink was full by
+        /// floor 8, with 1,000+ embers left over). Alone it stays whole.
+        /// </summary>
+        public const float PartyEmbers = 0.8f;
 
         /// <summary>
         /// Enemy count per room: a solo player faces 80% of the crowd, +30% per extra player (2026-10-21:

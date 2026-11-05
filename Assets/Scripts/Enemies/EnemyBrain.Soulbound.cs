@@ -14,7 +14,8 @@ namespace Deepbound.Enemies
     /// </summary>
     public partial class EnemyBrain
     {
-        public const float SoulboundWindow = 5f, SoulboundSoloWindow = 8f, SoulboundRise = 0.5f;
+        public const float SoulboundWindow = 5f, SoulboundSoloWindow = 8f, SoulboundRise = 0.5f, SoulboundRiseFade = 0.7f, SoulboundRiseFloor = 0.1f;
+        private int rises;
 
         /// <summary>The twin's NetworkObjectId (0 for everyone unbound). Synced for the thread.</summary>
         public readonly NetworkVariable<ulong> TwinId = new NetworkVariable<ulong>();
@@ -84,7 +85,9 @@ namespace Deepbound.Enemies
             if (!Severed || IsDead || !health.IsAlive) yield break;
             severedUntil = 0f;
             stunnedUntil = 0f;
-            health.ServerHeal(health.Max.Value * SoulboundRise);
+            // Each rise comes back weaker, down to a tenth, so a pair that cannot be burst down in the window still ends:
+            // at a flat half, four bots spent eight minutes on one Bone Brute and a soloist had no way out (2026-11-05).
+            health.ServerHeal(health.Max.Value * Mathf.Max(SoulboundRiseFloor, SoulboundRise * Mathf.Pow(SoulboundRiseFade, rises++)));
             RisenRpc();
         }
 

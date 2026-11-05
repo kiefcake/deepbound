@@ -251,6 +251,9 @@ namespace Deepbound.Enemies
         protected virtual bool Heavy => false;
 
         protected int scaledPlayersBase = 1;
+
+        /// <summary>How much more health the party's size gave this enemy than it would have against one player.</summary>
+        public float PartyHealthScale => Difficulty.PartyHealth(scaledPlayersBase, IsBoss, depthForLoot) / Difficulty.PartyHealth(1, IsBoss, depthForLoot);
         private float surroundAngle;
 
         protected virtual void Awake()
@@ -335,7 +338,7 @@ namespace Deepbound.Enemies
         public void ServerScale(int players, int depth)
         {
             scaledPlayersBase = players;
-            float hpScale = (IsBoss ? Difficulty.BossHealth(players) : Difficulty.EnemyHealth(players) * Difficulty.RankHealth) * Difficulty.DepthHealth(depth) * Difficulty.Level.Health;
+            float hpScale = (IsBoss ? Difficulty.PartyHealth(players, true, depth) : Difficulty.EnemyHealth(players) * Difficulty.RankHealth) * Difficulty.DepthHealth(depth) * Difficulty.Level.Health;
             damage *= Difficulty.Damage(players) * Difficulty.DepthDamage(depth) * Difficulty.Level.Damage * (IsBoss ? 1f : Difficulty.RankDamage);
             depthForLoot = depth;
             health.ServerSetMax(maxHealth * hpScale, refill: true);
@@ -349,7 +352,7 @@ namespace Deepbound.Enemies
         {
             players = Mathf.Max(1, players);
             if (!IsServer || players == scaledPlayersBase || health == null || !health.IsAlive) return;
-            float k = Difficulty.PartyHealth(players, IsBoss) / Difficulty.PartyHealth(scaledPlayersBase, IsBoss);
+            float k = Difficulty.PartyHealth(players, IsBoss, depthForLoot) / Difficulty.PartyHealth(scaledPlayersBase, IsBoss, depthForLoot);
             float frac = health.Fraction;
             health.ServerSetMax(health.Max.Value * k, refill: false);
             health.ServerSetFraction(frac);

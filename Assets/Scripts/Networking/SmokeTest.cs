@@ -475,7 +475,8 @@ namespace Deepbound.Networking
 
                 // The party's numbers, so a slip in the formulas shows: harder per head and more of it with each player, solo untouched.
                 Log("party numbers", "hit x" + Difficulty.Damage(1) + " / " + Difficulty.Damage(2) + " / " + Difficulty.Damage(4) + ", boss x" + Difficulty.BossHealth(1) + " / " + Difficulty.BossHealth(2) + " / " + Difficulty.BossHealth(4) + ", crowd x" + Difficulty.SpawnCount(1) + " / " + Difficulty.SpawnCount(4),
-                    Mathf.Approximately(Difficulty.Damage(1), 1f) && Mathf.Abs(Difficulty.Damage(2) - 1.15f) < 0.001f && Mathf.Abs(Difficulty.Damage(4) - 1.45f) < 0.001f
+                    Mathf.Approximately(Difficulty.Damage(1), 1f) && Mathf.Abs(Difficulty.Damage(2) - 1.22f) < 0.001f && Mathf.Abs(Difficulty.Damage(4) - 1.66f) < 0.001f
+                    && Mathf.Approximately(Difficulty.BossDepth(1, 9), 1f) && Mathf.Abs(Difficulty.BossDepth(4, 9) - 2.62f) < 0.001f && Mathf.Approximately(Difficulty.BossDepth(4, 0), 1f)
                     && Mathf.Approximately(Difficulty.BossHealth(1), Difficulty.BossToughness) && Difficulty.BossHealth(4) > Difficulty.BossHealth(2) && Difficulty.BossHealth(2) > Difficulty.BossHealth(1)
                     && Difficulty.EnemyHealth(4) > Difficulty.EnemyHealth(1) && Difficulty.SpawnCount(4) > Difficulty.SpawnCount(1));
 

@@ -332,6 +332,13 @@ namespace Deepbound.Combat
         }
         public Vector3 LastHitAt { get; private set; }
 
+        /// <summary>
+        /// Names the next hit for the test bots' damage-by-source tally (<see cref="Networking.AutoPlay"/>). Changes nothing
+        /// about the hit; added 2026-11-04 because the totals alone could not say what was making a Mage out-damage a Knight 7:1.
+        /// </summary>
+        public static string DamageTag;
+        public Health Tag(string source) { DamageTag = source; return this; }
+
         public float ServerDamage(float amount, Vector3 attackerPosition, ulong attackerId = ulong.MaxValue)
         {
             if (!IsServer || !IsAlive || amount <= 0f) return 0f;

@@ -251,7 +251,7 @@ namespace Deepbound.Player
                 if (struck.Count > 0)
                 {
                     var t = struck[Random.Range(0, struck.Count)];
-                    t.ServerDamage(RareItems.StormDamage * (progress != null ? progress.AttackMultiplier : 1f), t.Center + Vector3.up * 4f, NetworkObjectId);
+                    t.Tag("Flasks").ServerDamage(RareItems.StormDamage * (progress != null ? progress.AttackMultiplier : 1f), t.Center + Vector3.up * 4f, NetworkObjectId);
                     if (t.IsAlive && t.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(RareItems.StormStun);
                     StormFxRpc(t.Center);
                 }
@@ -455,14 +455,14 @@ namespace Deepbound.Player
                 case Kind.Frost:
                     foreach (var foe in CombatQuery.Circle(at, 3.6f, Team.Enemies).ToArray())
                     {
-                        foe.ServerDamage(10f * att, at, NetworkObjectId);
+                        foe.Tag("Flasks").ServerDamage(10f * att, at, NetworkObjectId);
                         foe.ServerChill(4f);
                     }
                     break;
                 case Kind.Holy:
                     foreach (var foe in CombatQuery.Circle(at, 4f, Team.Enemies).ToArray())
                     {
-                        foe.ServerDamage(24f * att, at, NetworkObjectId);
+                        foe.Tag("Flasks").ServerDamage(24f * att, at, NetworkObjectId);
                         if (foe.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.8f);
                     }
                     // Holy water is the one thing the Tallyman flinches from.

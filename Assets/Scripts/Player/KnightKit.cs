@@ -37,10 +37,10 @@ namespace Deepbound.Player
         // Timings in seconds. Wind-ups are short — the Knight is meant to feel responsive.
         public const float SwingWindup = 0.16f, SwingStrike = 0.14f, SwingRecovery = 0.3f;
         /// <summary>Rebalanced 2026-10-17: the tank no longer out-damages the damage classes (34 -> 29); it holds rage instead.</summary>
-        public const float SwingRange = 2.7f, SwingArc = 110f, SwingDamage = 29f;
+        public const float SwingRange = 2.7f, SwingArc = 110f, SwingDamage = 35f;
         public float AttackRange => SwingRange * (progress != null ? progress.ReachMultiplier : 1f);
         private float ReachMul => progress != null ? progress.ReachMultiplier : 1f;
-        public const float BashCooldown = 7f, BashRange = 2.4f, BashDamage = 18f, BashStun = 1.6f;
+        public const float BashCooldown = 7f, BashRange = 2.4f, BashDamage = 24f, BashStun = 1.6f;
         public const float WarCryCooldown = 16f, WarCryRadius = 12f, WarCryDuration = 5f;
         public const float StaminaMax = 100f;
         // Swings are free (2026-11-01, the user: left click spends nothing); stamina is for blocking, sprinting and dodging.
@@ -281,7 +281,7 @@ namespace Deepbound.Player
             foreach (var target in CombatQuery.Arc(origin, forward, range, arc, Team.Enemies))
             {
                 var zone = HitZones.Aimed(target, origin, forward, range, out var zonePoint);
-                target.ServerDamage(damage * HitZones.Multiplier(target, zone, false), transform.position, NetworkObjectId);
+                target.Tag("Swing").ServerDamage(damage * HitZones.Multiplier(target, zone, false), transform.position, NetworkObjectId);
                 if (zone != HitZone.Body) Arrows.ReportZone(NetworkObjectId, zonePoint, zone);
                 if (chillSwing) target.ServerChill(2.5f);
                 if (riposte && progress.Mastered(2) && target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.2f);
@@ -319,7 +319,7 @@ namespace Deepbound.Player
             bool wave = progress.Twist(AbilitySlot.Q);
             foreach (var target in CombatQuery.Arc(origin, forward, (BashRange + 1.5f + (wave ? 1f : 0f)) * ReachMul, wave ? 180f : 100f, Team.Enemies))
             {
-                target.ServerDamage(BashDamage * AttackMultiplier * potency * Combos.TryShatter(target, progress), transform.position, NetworkObjectId);
+                target.Tag("Bash").ServerDamage(BashDamage * AttackMultiplier * potency * Combos.TryShatter(target, progress), transform.position, NetworkObjectId);
                 if (target.TryGetComponent<Enemies.EnemyBrain>(out var bashed)) bashed.ServerAddThreat(NetworkObjectId, 80f * potency); // a shield in the face
                 if (target.TryGetComponent<ICrowdControl>(out var cc))
                 {

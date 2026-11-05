@@ -269,7 +269,7 @@ namespace Deepbound.Player
             {
                 foreach (var foe in CombatQuery.Circle(spots[i], MageKit.MeteorRadius, Team.Enemies).ToArray())
                 {
-                    foe.ServerDamage(MageKit.MeteorDamage * 0.85f * att * Combos.TryShatter(foe, progress), spots[i], NetworkObjectId);
+                    foe.Tag("Ultimates").ServerDamage(MageKit.MeteorDamage * 0.85f * att * Combos.TryShatter(foe, progress), spots[i], NetworkObjectId);
                     if (foe.TryGetComponent<ICrowdControl>(out var cc))
                     {
                         var push = foe.transform.position - spots[i];
@@ -298,7 +298,7 @@ namespace Deepbound.Player
         {
             if (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(targetId, out var obj) || !obj.TryGetComponent<Health>(out var target) || !target.IsAlive) return;
             if (Vector3.Distance(target.transform.position, transform.position) > 24f) return;
-            target.ServerDamage(150f * att * Combos.TryShatter(target, progress), target.transform.position - target.transform.forward, NetworkObjectId);
+            target.Tag("Ultimates").ServerDamage(150f * att * Combos.TryShatter(target, progress), target.transform.position - target.transform.forward, NetworkObjectId);
             if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.8f);
             StrikeFxRpc(target.Center);
         }
@@ -312,7 +312,7 @@ namespace Deepbound.Player
                 yield return new WaitForSeconds(0.5f);
                 foreach (var foe in CombatQuery.Circle(at, radius, Team.Enemies).ToArray())
                 {
-                    foe.ServerDamage(16f * att, at + Vector3.up * 6f, NetworkObjectId);
+                    foe.Tag("Ultimates").ServerDamage(16f * att, at + Vector3.up * 6f, NetworkObjectId);
                     foe.ServerChill(1.5f);
                 }
                 RainTickRpc(at, radius);

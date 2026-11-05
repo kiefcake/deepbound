@@ -3,6 +3,7 @@ using System.Collections.Generic;
 using System.IO;
 using System.Linq;
 using Deepbound.Combat;
+using Deepbound.Core;
 using Deepbound.Enemies;
 using Deepbound.Loot;
 using Deepbound.Player;
@@ -63,7 +64,13 @@ namespace Deepbound.Networking
         /// <summary>-autofloors N: stop after N floors (tools/test_party.py).</summary>
         private int floorsWanted = int.MaxValue;
         private int seatNo, partySize = 1;
-        private class Member { public string Name; public float Dealt, Taken, BossDealt; public int Saves, SavesFloor; }
+        private class Member
+        {
+            public string Name; public float Dealt, Taken, BossDealt; public int Saves, SavesFloor;
+            // This floor's damage by source: all of it / on the guardian, and hits on the guardian.
+            public readonly Dictionary<string, float> Source = new Dictionary<string, float>(), BossSource = new Dictionary<string, float>();
+            public readonly Dictionary<string, int> BossHits = new Dictionary<string, int>();
+        }
         private readonly Dictionary<ulong, Member> party = new Dictionary<ulong, Member>();
         private readonly HashSet<Health> hooked = new HashSet<Health>();
         private readonly List<Health> healQueue = new List<Health>();
@@ -295,7 +302,22 @@ namespace Deepbound.Networking
             Application.runInBackground = true;
             if (!follower) Health.ServerAnyDamaged += (h, amount, from) =>
             {
-                if (party.TryGetValue(from, out var md)) { md.Dealt += amount; if (BossBrain.Active != null && h == BossBrain.Active.GetComponent<Health>()) md.BossDealt += amount; }
+                string source = Health.DamageTag ?? "other";
+                Health.DamageTag = null;
+                if (party.TryGetValue(from, out var md) && source != "forced")
+                {
+                    md.Dealt += amount;
+                    md.Source.TryGetValue(source, out float sourceSoFar);
+                    md.Source[source] = sourceSoFar + amount;
+                    if (BossBrain.Active != null && h == BossBrain.Active.GetComponent<Health>())
+                    {
+                        md.BossDealt += amount;
+                        md.BossSource.TryGetValue(source, out float bossSoFar);
+                        md.BossSource[source] = bossSoFar + amount;
+                        md.BossHits.TryGetValue(source, out int hitsSoFar);
+                        md.BossHits[source] = hitsSoFar + 1;
+                    }
+                }
                 if (h != null && party.TryGetValue(h.NetworkObjectId, out var mt) && h.Team == Team.Players) mt.Taken += amount;
                 if (h == hp)
                 {
@@ -365,6 +387,7 @@ namespace Deepbound.Networking
                 if (f + 1 >= floorsWanted) break;
             }
 
+            L("KIT " + KitLine());
             L("== RUN OVER: phase " + DungeonDirector.Instance.Phase.Value + " ==");
             if (!follower && party.Count > 1) L("== PARTY TOTALS: " + PartyLine(false) + " ==");
             yield return new WaitForSeconds(6f);
@@ -381,101 +404,26 @@ namespace Deepbound.Networking
 
         private IEnumerator Camp()
         {
-            for (float t = 0f; t < 60f && !DungeonDirector.InLobby; t += 0.5f) yield return new WaitForSeconds(0.5f);
+            // Long enough for the lift after a slow floor: at 60 s two followers gave up, counted a floor they never played,
+            // and left the run a floor early (2026-11-04).
+            for (float t = 0f; t < 240f && !DungeonDirector.InLobby; t += 0.5f) yield return new WaitForSeconds(0.5f);
             if (!DungeonDirector.InLobby) { Problem("never got back to camp"); yield break; }
             yield return new WaitForSeconds(2f);
             Status("at camp");
             if (floorNo >= 0) yield return Shot("camp_after_F" + (floorNo + 1));
 
-            // The pack: wear anything better than what is on (higher quality).
-            for (int i = prog.BagCount - 1; i >= 0; i--)
-            {
-                var g = prog.BagItem(i);
-                var worn = prog.Equipped(Gear.SlotOf((GearId)g.Id));
-                if (g.Quality > worn.Quality || worn.IsEmpty)
-                {
-                    L("wearing " + Gear.Name(g) + " from the pack (was " + Gear.Name(worn) + ")");
-                    prog.BagEquipRpc(i);
-                    yield return new WaitForSeconds(0.3f);
-                }
-            }
-
-            // Hobb: temper while it can.
-            yield return WalkTo(Lobby.AnvilSpot + Vector3.back * 1.6f, 1.2f);
-            for (int i = 0; i < 6; i++)
-            {
-                string why = prog.CannotTemperReason();
-                if (why != null && why.ToLowerInvariant().Contains("path"))
-                {
-                    prog.ChoosePathRpc((byte)Random.Range(1, 3));
-                    yield return new WaitForSeconds(0.3f);
-                    L("chose a weapon path (" + why + ")");
-                    why = prog.CannotTemperReason();
-                }
-                if (prog.OpenEdgeSlot >= 0)
-                {
-                    var pick = prog.EdgeOffer(prog.OpenEdgeSlot)[Random.Range(0, Progression.Edges.OfferSize)];
-                    prog.ChooseEdgeRpc((byte)pick);
-                    yield return new WaitForSeconds(0.3f);
-                    L("forged the " + Progression.Edges.Name(pick) + " edge");
-                    why = prog.CannotTemperReason();
-                }
-                if (prog.WeaponLevel.Value >= Anvil.MaxLevel)
-                {
-                    if (prog.CannotHoneReason() != null) break;
-                    prog.HoneRpc();
-                    yield return new WaitForSeconds(0.4f);
-                    L("honed (" + prog.Hones.Value + ")");
-                    continue;
-                }
-                int cost = Anvil.Cost(prog.WeaponLevel.Value), gold = Anvil.GoldCost(prog.WeaponLevel.Value);
-                if (why != null || prog.Embers.Value < cost || prog.Gold.Value < gold)
-                {
-                    L("temper +" + prog.WeaponLevel.Value + " -> +" + (prog.WeaponLevel.Value + 1) + ": " + (why ?? "") + " (needs " + cost + " embers" + (gold > 0 ? ", " + gold + " gold" : "") + "; has " + prog.Embers.Value + "e " + prog.Gold.Value + "g)");
-                    break;
-                }
-                prog.TemperRpc();
-                yield return new WaitForSeconds(0.4f);
-                L("tempered to +" + prog.WeaponLevel.Value);
-            }
-
-            // Ysolde: rank abilities with Sigils.
-            if (prog.Sigils.Value > 0)
-            {
-                yield return WalkTo(Lobby.RunewrightSpot + Vector3.forward * 1.6f, 1.2f);
-                for (int i = 0; i < 8 && prog.Sigils.Value > 0; i++)
-                {
-                    byte slot = (byte)(prog.Rank(Classes.AbilitySlot.Q) <= prog.Rank(Classes.AbilitySlot.E) ? 0 : 1);
-                    int before = prog.Sigils.Value;
-                    prog.EmpowerRpc(slot);
-                    yield return new WaitForSeconds(0.3f);
-                    if (prog.Sigils.Value == before) { L("could not empower (" + prog.Sigils.Value + " sigils, Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E) + ", at stones " + prog.AtRunewright + ")"); break; }
-                    L("empowered " + (slot == 0 ? "Q" : "E") + " -> Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E));
-                }
-            }
-
-            // Silas: health potions while there is gold to spare.
-            if (flasks != null && flasks.Count(Flasks.Kind.Health) < 4 && prog.Gold.Value > 60)
-            {
-                yield return WalkTo(Lobby.MerchantSpot + Vector3.back * 1.6f, 1.2f);
-                var stock = Shop.For(me.OwnerClientId, Shop.Vendor.Merchant);
-                int idx = System.Array.FindIndex(stock, it => it.Name != null && it.Name.Contains("Health"));
-                if (idx < 0) L("Silas sells no health potion? stock: " + string.Join(", ", stock.Select(s => s.Name + " " + s.Price)));
-                for (int i = 0; i < 3 && idx >= 0 && flasks.Count(Flasks.Kind.Health) < 4; i++)
-                {
-                    int g0 = prog.Gold.Value;
-                    if (g0 < stock[idx].Price + 20) break;
-                    prog.BuyRpc(Shop.Vendor.Merchant, idx);
-                    yield return new WaitForSeconds(0.3f);
-                    L(prog.Gold.Value < g0 ? "bought " + stock[idx].Name + " for " + (g0 - prog.Gold.Value) : "could not buy " + stock[idx].Name + ": " + prog.CannotBuyReason(Shop.Vendor.Merchant, idx));
-                }
-            }
-
-            // Spare gold: Brann's drills (cheapest first), then a relic at the shrine.
-            yield return SpendAt(Shop.Vendor.Yard, Lobby.YardSpot, it => it.Kind == Shop.ItemKind.Drill, 4, 120);
-            yield return SpendAt(Shop.Vendor.Shrine, Lobby.ShrineSpot, it => it.Kind == Shop.ItemKind.Relic, 1, 100);
-            // A blessing for the next floor (two on offer; the cheaper rule picks the first, they cost the same).
-            yield return SpendAt(Shop.Vendor.Shrine, Lobby.ShrineSpot, it => it.Kind == Shop.ItemKind.Blessing, 1, 60);
+            // A careful player's visit (2026-11-04, "equip the best, use every material"): before this the bots wore gear by
+            // quality alone and never set a rune, refined, attuned, melded or scrapped, so balance runs measured a weak kit.
+            yield return WearBest();
+            yield return AtStones(false);
+            yield return TopUpEmbers();
+            yield return AtAnvil();
+            yield return AtStones(true);
+            yield return Provision();
+            // Buying can pay embers back (the Pilgrim's Purse) or bring a better piece: one more trip if there is work.
+            if (AnvilWorkLeft()) yield return AtAnvil();
+            yield return new WaitForSeconds(0.5f);
+            AuditKit();
             L("gold left at camp: " + prog.Gold.Value);
 
             // Board: a seat on the carriage; it leaves when everyone sits.
@@ -489,6 +437,385 @@ namespace Deepbound.Networking
             // It leaves when everyone sits: the others may still be at the shops.
             for (float t = 0f; t < (partySize > 1 || follower ? 150f : 45f) && DungeonDirector.InLobby; t += 0.5f) yield return new WaitForSeconds(0.5f);
             if (DungeonDirector.InLobby) { Problem("the carriage never left (seat " + life.Seat.Value + ")"); }
+        }
+
+        // ------------------------------------------------------------------ the kit
+
+        /// <summary>What a piece is worth to this class: its stats in units of "one weight point", the deep and the fine count for more.</summary>
+        private float GearScore(GearItem g)
+        {
+            if (g.IsEmpty) return 0f;
+            bool caster = cls == Classes.ClassId.Mage || cls == Classes.ClassId.Cleric || cls == Classes.ClassId.PlagueDoctor;
+            float score = 0f;
+            foreach (var st in Gear.StatsOf(g))
+            {
+                float unit, worth;
+                switch (st)
+                {
+                    case StatType.HP: unit = 10f; worth = 1f; break;
+                    case StatType.MP: unit = 6f; worth = caster ? 0.6f : 0.2f; break;
+                    case StatType.ATT: unit = 2f; worth = 1.4f; break;
+                    case StatType.DEF: unit = 1f; worth = 1f; break;
+                    case StatType.SPD: unit = 2f; worth = 0.5f; break;
+                    case StatType.DEX: unit = 2f; worth = 1.1f; break;
+                    case StatType.VIT: unit = 3f; worth = 0.5f; break;
+                    default: unit = 3f; worth = caster ? 1f : 0.35f; break;
+                }
+                score += Gear.StatValue(g, st) / unit * worth;
+            }
+            return score + (g.Quality >= 3 ? 2f : 0f);
+        }
+
+        private IEnumerator WearBest()
+        {
+            for (int pass = 0; pass < 8; pass++)
+            {
+                int best = -1;
+                float gain = 0.001f;
+                for (int i = 0; i < prog.BagCount; i++)
+                {
+                    var g = prog.BagItem(i);
+                    float d = GearScore(g) - GearScore(prog.Equipped(Gear.SlotOf((GearId)g.Id)));
+                    if (d > gain) { gain = d; best = i; }
+                }
+                if (best < 0) yield break;
+                var item = prog.BagItem(best);
+                L("wearing " + Gear.Name(item) + " (score " + GearScore(item).ToString("F1") + ", was " + Gear.Name(prog.Equipped(Gear.SlotOf((GearId)item.Id))) + " " + GearScore(prog.Equipped(Gear.SlotOf((GearId)item.Id))).ToString("F1") + ")");
+                prog.BagEquipRpc(best);
+                yield return new WaitForSeconds(0.4f);
+            }
+        }
+
+        private static readonly Progression.Edge[] EdgeOrder =
+        {
+            Progression.Edge.Momentum, Progression.Edge.Opportunist, Progression.Edge.Cleaver, Progression.Edge.Quickening,
+            Progression.Edge.Desperation, Progression.Edge.Stalwart, Progression.Edge.LoneWolf, Progression.Edge.SecondWind,
+        };
+
+        private bool GearWorkLeft(out byte slot, out byte mode)
+        {
+            slot = 0; mode = 0;
+            int best = int.MaxValue;
+            for (byte sl = 0; sl < 2; sl++)
+            {
+                var w = prog.Equipped((GearSlot)sl);
+                int refine = Gear.RefineCost(w), attune = Gear.AttuneCost(w, DungeonDirector.GearDepth);
+                if (refine > 0 && refine <= prog.Embers.Value && refine < best) { best = refine; slot = sl; mode = 0; }
+                if (attune > 0 && attune <= prog.Embers.Value && attune < best) { best = attune; slot = sl; mode = 1; }
+            }
+            return best < int.MaxValue;
+        }
+
+        private bool AnvilWorkLeft() => prog.CannotTemperReason() == null || prog.CannotHoneReason() == null || prog.OpenEdgeSlot >= 0 || GearWorkLeft(out _, out _);
+
+        /// <summary>Hobb: break down what is spare, temper while it can, then refine and attune what is worn.</summary>
+        private IEnumerator AtAnvil()
+        {
+            yield return WalkTo(Lobby.AnvilSpot + Vector3.back * 1.6f, 1.2f);
+            for (int i = prog.BagCount - 1; i >= 0; i--)
+            {
+                var g = prog.BagItem(i);
+                int e0 = prog.Embers.Value;
+                prog.BagScrapRpc(i);
+                yield return new WaitForSeconds(0.3f);
+                L("scrapped " + Gear.Name(g) + " for " + (prog.Embers.Value - e0) + " embers");
+            }
+            for (int i = 0; i < 14; i++)
+            {
+                string why = prog.CannotTemperReason();
+                if (why != null && why.ToLowerInvariant().Contains("path"))
+                {
+                    prog.ChoosePathRpc((byte)Random.Range(1, 3));
+                    yield return new WaitForSeconds(0.4f);
+                    L("chose the weapon path of the " + Classes.WeaponPaths.Name(cls, prog.WeaponPath.Value));
+                    why = prog.CannotTemperReason();
+                }
+                if (prog.OpenEdgeSlot >= 0)
+                {
+                    var offer = prog.EdgeOffer(prog.OpenEdgeSlot);
+                    var pick = EdgeOrder.First(e => System.Array.IndexOf(offer, e) >= 0);
+                    prog.ChooseEdgeRpc((byte)pick);
+                    yield return new WaitForSeconds(0.4f);
+                    L("forged the " + Progression.Edges.Name(pick) + " edge (offered " + string.Join(", ", offer.Select(Progression.Edges.Name)) + ")");
+                    why = prog.CannotTemperReason();
+                }
+                if (prog.WeaponLevel.Value >= Anvil.MaxLevel)
+                {
+                    if (prog.CannotHoneReason() != null) break;
+                    prog.HoneRpc();
+                    yield return new WaitForSeconds(0.5f);
+                    L("honed (" + prog.Hones.Value + ")");
+                    continue;
+                }
+                if (why != null)
+                {
+                    L("temper +" + prog.WeaponLevel.Value + " -> +" + (prog.WeaponLevel.Value + 1) + ": " + why + " (needs " + Anvil.Cost(prog.WeaponLevel.Value) + " embers, " + Anvil.GoldCost(prog.WeaponLevel.Value) + " gold; has " + prog.Embers.Value + ", " + prog.Gold.Value + ")");
+                    break;
+                }
+                prog.TemperRpc();
+                yield return new WaitForSeconds(0.5f);
+                L("tempered to +" + prog.WeaponLevel.Value);
+            }
+            for (int i = 0; i < 8 && GearWorkLeft(out byte slot, out byte mode); i++)
+            {
+                int e0 = prog.Embers.Value;
+                var was = prog.Equipped((GearSlot)slot);
+                prog.ReforgeRpc(slot, mode);
+                yield return new WaitForSeconds(0.5f);
+                if (prog.Embers.Value == e0) { L("could not " + (mode == 0 ? "refine " : "attune ") + Gear.Name(was)); break; }
+                L((mode == 0 ? "refined " : "attuned ") + Gear.Name(was) + " (depth " + was.Depth + ") for " + (e0 - prog.Embers.Value) + " embers: now " + Gear.Name(prog.Equipped((GearSlot)slot)) + " depth " + prog.Equipped((GearSlot)slot).Depth);
+            }
+        }
+
+        private float RuneWorth(Rune r)
+        {
+            if (r == Rune.None) return 0f;
+            float w;
+            switch (Runes.Kind(r))
+            {
+                case Rune.Keen: w = 1.2f; break;
+                case Rune.Hunter: case Rune.Ember: w = 1.1f; break;
+                case Rune.Holy: w = cls == Classes.ClassId.Cleric ? 1.3f : 0.8f; break;
+                case Rune.Farsight: w = 0.6f; break;
+                default: w = 1f; break;
+            }
+            return w * Runes.Power(Runes.Tier(r));
+        }
+
+        /// <summary>The best change to the weapon's sockets, or false. Two of a kind do nothing: only the best tier counts.</summary>
+        private bool BestSocketing(out Rune rune, out int socket)
+        {
+            rune = Rune.None; socket = -1;
+            int sockets = Runes.SocketsAt(prog.WeaponLevel.Value);
+            float bestGain = 0.001f;
+            for (int i = 0; i < prog.RuneBagCount; i++)
+            {
+                var r = prog.RuneInBag(i);
+                int same = -1, empty = -1, weakest = -1;
+                for (int k = 0; k < sockets; k++)
+                {
+                    var c = prog.Socketed(k);
+                    if (c == Rune.None) { if (empty < 0) empty = k; continue; }
+                    if (Runes.Kind(c) == Runes.Kind(r)) same = k;
+                    if (weakest < 0 || RuneWorth(c) < RuneWorth(prog.Socketed(weakest))) weakest = k;
+                }
+                int to = same >= 0 ? same : empty >= 0 ? empty : weakest;
+                if (to < 0) continue;
+                float gain = RuneWorth(r) - RuneWorth(prog.Socketed(to));
+                if (gain > bestGain) { bestGain = gain; rune = r; socket = to; }
+            }
+            return socket >= 0;
+        }
+
+        private bool MeldReady(out Rune rune)
+        {
+            rune = Rune.None;
+            for (int i = 0; i < prog.RuneBagCount; i++)
+            {
+                var r = prog.RuneInBag(i);
+                if (Runes.Tier(r) < Runes.MaxTier && prog.RuneCount(r) >= 3 && prog.Embers.Value >= Runes.MeldCost(Runes.Tier(r))) { rune = r; return true; }
+            }
+            return false;
+        }
+
+        private bool RankWorkLeft(out byte slot)
+        {
+            slot = (byte)(prog.Rank(Classes.AbilitySlot.Q) <= prog.Rank(Classes.AbilitySlot.E) ? 0 : 1);
+            for (int n = 0; n < 2; n++, slot = (byte)(1 - slot))
+            {
+                var sl = slot == 0 ? Classes.AbilitySlot.Q : Classes.AbilitySlot.E;
+                if (prog.Rank(sl) < Classes.AbilityRanks.MaxRank && prog.Sigils.Value >= Classes.AbilityRanks.SigilCost(prog.Rank(sl))) return true;
+            }
+            return false;
+        }
+
+        /// <summary>Ysolde: meld, rank abilities with Sigils (buying them when <paramref name="buy"/>), melt what is spare, set the best runes.</summary>
+        private IEnumerator AtStones(bool buy)
+        {
+            bool sigilsForSale = buy && (prog.Rank(Classes.AbilitySlot.Q) < Classes.AbilityRanks.MaxRank || prog.Rank(Classes.AbilitySlot.E) < Classes.AbilityRanks.MaxRank);
+            if (prog.Sigils.Value == 0 && prog.RuneBagCount == 0 && !sigilsForSale) yield break;
+            yield return WalkTo(Lobby.RunewrightSpot + Vector3.forward * 1.6f, 1.2f);
+            for (int i = 0; i < 16 && MeldReady(out var meld); i++)
+            {
+                prog.MeldRunesRpc((byte)meld);
+                yield return new WaitForSeconds(0.4f);
+                L("melded three " + Runes.Name(meld));
+            }
+            if (sigilsForSale)
+            {
+                var stock = Shop.For(me.OwnerClientId, Shop.Vendor.Runewright);
+                int idx = System.Array.FindIndex(stock, it => it.Kind == Shop.ItemKind.Sigil);
+                for (int i = 0; i < 3 && idx >= 0 && prog.Gold.Value >= stock[idx].Price + GoldReserve + 60; i++)
+                {
+                    int g0 = prog.Gold.Value;
+                    prog.BuyRpc(Shop.Vendor.Runewright, idx);
+                    yield return new WaitForSeconds(0.4f);
+                    if (prog.Gold.Value == g0) break;
+                    L("bought a Sigil for " + (g0 - prog.Gold.Value));
+                }
+            }
+            for (int i = 0; i < 8 && RankWorkLeft(out byte slot); i++)
+            {
+                int before = prog.Sigils.Value;
+                prog.EmpowerRpc(slot);
+                yield return new WaitForSeconds(0.4f);
+                if (prog.Sigils.Value == before) { L("could not empower (" + before + " sigils, Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E) + ")"); break; }
+                L("empowered " + (slot == 0 ? "Q" : "E") + " -> Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E));
+            }
+            for (int i = 0; i < 6 && prog.Sigils.Value > 0 && prog.Rank(Classes.AbilitySlot.Q) >= Classes.AbilityRanks.MaxRank && prog.Rank(Classes.AbilitySlot.E) >= Classes.AbilityRanks.MaxRank; i++)
+            {
+                prog.MeltSigilRpc();
+                yield return new WaitForSeconds(0.4f);
+                L("melted a spare Sigil into embers");
+            }
+            for (int i = 0; i < 6 && BestSocketing(out var rune, out int socket); i++)
+            {
+                prog.SocketRuneRpc((byte)rune, (sbyte)socket);
+                yield return new WaitForSeconds(0.4f);
+                L("set a " + Runes.Name(rune) + " in socket " + socket);
+            }
+        }
+
+        /// <summary>Gold the next temper or hone will ask for: nothing else may eat it.</summary>
+        private int GoldReserve => prog.WeaponLevel.Value < Anvil.MaxLevel ? Anvil.GoldCost(prog.WeaponLevel.Value) : prog.Hones.Value < Anvil.MaxHones ? Anvil.HoneGold(prog.Hones.Value) : 0;
+
+        private IEnumerator WalkToVendor(Shop.Vendor v)
+        {
+            var at = Shop.Position(v);
+            if (at != null) yield return WalkTo(at.Value + Vector3.back * 1.6f, 1.2f);
+        }
+
+        /// <summary>A temper just out of reach: buy the embers it is short of, when there is gold to spare.</summary>
+        private IEnumerator TopUpEmbers()
+        {
+            if (prog.WeaponLevel.Value >= Anvil.MaxLevel) yield break;
+            int shortBy = Anvil.Cost(prog.WeaponLevel.Value) - prog.Embers.Value;
+            if (shortBy <= 0 || shortBy > 50) yield break;
+            bool walked = false;
+            for (int i = 0; i < 3 && prog.Embers.Value < Anvil.Cost(prog.WeaponLevel.Value); i++)
+            {
+                var stock = Shop.For(me.OwnerClientId, Shop.Vendor.Smith);
+                int idx = System.Array.FindIndex(stock, it => it.Kind == Shop.ItemKind.Embers && it.Amount >= Anvil.Cost(prog.WeaponLevel.Value) - prog.Embers.Value);
+                if (idx < 0) idx = System.Array.FindLastIndex(stock, it => it.Kind == Shop.ItemKind.Embers);
+                if (idx < 0 || prog.Gold.Value < stock[idx].Price + GoldReserve + 40) break;
+                if (!walked) { walked = true; yield return WalkToVendor(Shop.Vendor.Smith); }
+                int g0 = prog.Gold.Value;
+                prog.BuyRpc(Shop.Vendor.Smith, idx);
+                yield return new WaitForSeconds(0.4f);
+                if (prog.Gold.Value == g0) break;
+                L("bought " + stock[idx].Name + " for " + (g0 - prog.Gold.Value));
+            }
+        }
+
+        private IEnumerator BuyPotions(Flasks.Kind kind, string name, int upTo)
+        {
+            var stock = Shop.For(me.OwnerClientId, Shop.Vendor.Merchant);
+            int idx = System.Array.FindIndex(stock, it => it.Name != null && it.Name.Contains(name));
+            for (int i = 0; i < 5 && idx >= 0 && flasks.Count(kind) < upTo && prog.Gold.Value >= stock[idx].Price + GoldReserve; i++)
+            {
+                int g0 = prog.Gold.Value;
+                prog.BuyRpc(Shop.Vendor.Merchant, idx);
+                yield return new WaitForSeconds(0.35f);
+                if (prog.Gold.Value == g0) { L("could not buy " + stock[idx].Name + ": " + prog.CannotBuyReason(Shop.Vendor.Merchant, idx)); break; }
+                L("bought " + stock[idx].Name + " for " + (g0 - prog.Gold.Value));
+            }
+        }
+
+        /// <summary>A fitted piece on offer that beats what is worn: buy it, take it from where it is laid, put it on.</summary>
+        private IEnumerator BuyBetterGear(Shop.Vendor vendor)
+        {
+            var stock = Shop.For(me.OwnerClientId, vendor);
+            int best = -1;
+            float gain = 0.5f;
+            for (int i = 0; i < stock.Length; i++)
+            {
+                if (stock[i].Kind != Shop.ItemKind.Gear || stock[i].Gear.IsEmpty) continue;
+                float d = GearScore(stock[i].Gear) - GearScore(prog.Equipped(Gear.SlotOf(stock[i].Gear.Kind)));
+                if (d > gain && prog.CannotBuyReason(vendor, i) == null && prog.Gold.Value >= stock[i].Price + GoldReserve + 40) { gain = d; best = i; }
+            }
+            if (best < 0) yield break;
+            int g0 = prog.Gold.Value;
+            prog.BuyRpc(vendor, best);
+            yield return new WaitForSeconds(0.5f);
+            if (prog.Gold.Value == g0) yield break;
+            L("bought " + stock[best].Name + " for " + (g0 - prog.Gold.Value) + " (better by " + gain.ToString("F1") + ")");
+            for (float t = 0f; t < 6f; t += 0.5f)
+            {
+                var g = NearestGear(6f);
+                if (g == null) { yield return new WaitForSeconds(0.5f); continue; }
+                g.UseRpc(me.NetworkObject);
+                yield return new WaitForSeconds(0.5f);
+                break;
+            }
+            yield return WearBest();
+        }
+
+        /// <summary>Gold, most useful first: potions, better gear, a rare, relics, drills, a blessing. Always leaves the next temper's gold.</summary>
+        private IEnumerator Provision()
+        {
+            if (flasks != null && prog.Gold.Value > GoldReserve + 20)
+            {
+                yield return WalkToVendor(Shop.Vendor.Merchant);
+                yield return BuyPotions(Flasks.Kind.Health, "Health", 5);
+                yield return BuyPotions(Flasks.Kind.Mana, "Mana", 3);
+                yield return BuyPotions(Flasks.Kind.Frost, "Frost", 2);
+                yield return BuyBetterGear(Shop.Vendor.Merchant);
+                if (flasks.RareHeld == Progression.RareItem.None) yield return SpendAt(Shop.Vendor.Merchant, Lobby.MerchantSpot, it => it.Kind == Shop.ItemKind.Rare, 1, GoldReserve + 120);
+            }
+            yield return WalkToVendor(Shop.Vendor.Smith);
+            yield return BuyBetterGear(Shop.Vendor.Smith);
+            yield return SpendAt(Shop.Vendor.Shrine, Lobby.ShrineSpot, it => it.Kind == Shop.ItemKind.Relic, 2, GoldReserve + 40);
+            yield return SpendAt(Shop.Vendor.Yard, Lobby.YardSpot, it => it.Kind == Shop.ItemKind.Drill && (it.Stat != StatType.MP || cls == Classes.ClassId.Mage), 8, GoldReserve + 40);
+            yield return SpendAt(Shop.Vendor.Shrine, Lobby.ShrineSpot, it => it.Kind == Shop.ItemKind.Blessing, 1, GoldReserve + 20);
+        }
+
+        private string KitLine()
+        {
+            string sockets = string.Join("/", Enumerable.Range(0, Runes.SocketsAt(prog.WeaponLevel.Value)).Select(k => prog.Socketed(k) == Rune.None ? "empty" : Runes.Name(prog.Socketed(k))));
+            string relicNames = string.Join(", ", Enumerable.Range(0, prog.RelicCount).Select(prog.RelicLabel));
+            string bagRunes = string.Join(", ", Enumerable.Range(0, prog.RuneBagCount).Select(i => Runes.Name(prog.RuneInBag(i))));
+            int drills = 0;
+            foreach (StatType st in System.Enum.GetValues(typeof(StatType))) drills += prog.DrillCount(st);
+            return cls + " | weapon +" + prog.WeaponLevel.Value + " hones " + prog.Hones.Value + " path " + (prog.WeaponPath.Value == 0 ? "none" : Classes.WeaponPaths.Name(cls, prog.WeaponPath.Value)) + RelicTiers() +
+                " | sockets [" + sockets + "] | armour " + Gear.Name(prog.Equipped(GearSlot.Armor)) + " d" + prog.Equipped(GearSlot.Armor).Depth + " (" + GearScore(prog.Equipped(GearSlot.Armor)).ToString("F1") + ")" +
+                " | charm " + Gear.Name(prog.Equipped(GearSlot.Charm)) + " d" + prog.Equipped(GearSlot.Charm).Depth + " (" + GearScore(prog.Equipped(GearSlot.Charm)).ToString("F1") + ")" +
+                " | Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E) + " | drills " + drills + " | relics " + prog.RelicCount + " [" + relicNames + "]" +
+                " | stats HP " + prog.Value(StatType.HP).ToString("F0") + " ATT " + prog.Value(StatType.ATT).ToString("F0") + " DEF " + prog.Value(StatType.DEF).ToString("F0") + " DEX " + prog.Value(StatType.DEX).ToString("F0") +
+                " | held: gold " + prog.Gold.Value + ", embers " + prog.Embers.Value + ", sigils " + prog.Sigils.Value + ", spare runes [" + bagRunes + "], pack " + prog.BagCount +
+                (flasks != null ? ", pouch H" + flasks.Count(Flasks.Kind.Health) + " M" + flasks.Count(Flasks.Kind.Mana) + " F" + flasks.Count(Flasks.Kind.Frost) + " W" + flasks.Count(Flasks.Kind.Holy) + " rare " + Progression.RareItems.Short(flasks.RareHeld) : "");
+        }
+
+        /// <summary>Leaving camp: the kit as it stands, and anything a careful player would not have left undone (tools/test_party.py fails on these).</summary>
+        private void AuditKit()
+        {
+            L("KIT " + KitLine());
+            var left = new List<string>();
+            for (int i = 0; i < prog.BagCount; i++)
+                if (GearScore(prog.BagItem(i)) > GearScore(prog.Equipped(Gear.SlotOf((GearId)prog.BagItem(i).Id))) + 0.001f) left.Add("a better piece in the pack: " + Gear.Name(prog.BagItem(i)));
+            if (prog.CannotTemperReason() == null) left.Add("could still temper at +" + prog.WeaponLevel.Value);
+            if (prog.CannotHoneReason() == null) left.Add("could still hone");
+            if (prog.OpenEdgeSlot >= 0) left.Add("an edge not chosen");
+            if (GearWorkLeft(out byte sl, out byte mo)) left.Add("could still " + (mo == 0 ? "refine " : "attune ") + Gear.Name(prog.Equipped((GearSlot)sl)) + " with " + prog.Embers.Value + " embers");
+            if (RankWorkLeft(out byte rs)) left.Add("Sigils unspent: " + prog.Sigils.Value + " with " + (rs == 0 ? "Q" : "E") + " to rank");
+            if (MeldReady(out var mr)) left.Add("three " + Runes.Name(mr) + " not melded");
+            if (BestSocketing(out var br, out int bs)) left.Add(Runes.Name(br) + " not set in socket " + bs);
+            foreach (var w in left) Problem("UNSPENT " + w);
+        }
+
+        private readonly HashSet<ulong> ignoredGear = new HashSet<ulong>();
+        private float dormantSince = -1f, nextDormantNote, outsideSince = -1f;
+
+        private GearDrop NearestGear(float within)
+        {
+            GearDrop best = null;
+            float bd = within;
+            foreach (var g in Interactable.All.OfType<GearDrop>().ToArray())
+            {
+                if (g == null || !g.IsSpawned || ignoredGear.Contains(g.NetworkObjectId) || g.Prompt(prog) == null) continue;
+                float d = Vector3.Distance(g.transform.position, me.transform.position);
+                if (d < bd && (d < 2.2f || Reachable(g.transform.position, new NavMeshPath()))) { bd = d; best = g; }
+            }
+            return best;
         }
 
         private IEnumerator SpendAt(Shop.Vendor vendor, Vector3 at, System.Func<Shop.Item, bool> want, int maxBuys, int keep)
@@ -559,7 +886,7 @@ namespace Deepbound.Networking
             return line;
         }
 
-        private float nextSecondary;
+        private float nextSecondary, nextFlask;
         private const float BeamReach = 14f;
 
         /// <summary>The most hurt other player within reach, for the kits that heal them.</summary>
@@ -610,6 +937,8 @@ namespace Deepbound.Networking
                     var ally = HurtAlly(0.7f);
                     if (ally == null && hp.Fraction >= 0.6f) yield break;
                     nextSecondary = Time.time + (cls == Classes.ClassId.Cleric ? 2f : 6f);
+                    abilityUses.TryGetValue("RMB heal", out int healUses);
+                    abilityUses["RMB heal"] = healUses + 1;
                     // Look at whoever needs it (no one under the crosshair: it lands on yourself).
                     if (ally != null) Face(ally.Health.Center);
                     yield return HoldSecondary(cls == Classes.ClassId.Cleric ? 1.2f : 0.15f);
@@ -645,6 +974,8 @@ namespace Deepbound.Networking
         private IEnumerator Floor()
         {
             savesFloor = 0;
+            foreach (var pl in PlayerLife.All)
+                if (pl != null && party.TryGetValue(pl.NetworkObjectId, out var pm) && pl.GetComponent<PlayerProgress>() is PlayerProgress pc) pm.Name = Health.NameOf(pl.NetworkObjectId) + " (" + pc.ClassId.Value + ")";
             bossHpMark = -1f;
             for (float t = 0f; t < 30f && (DungeonDirector.InLobby || DungeonDirector.Layout == null); t += 0.5f) yield return new WaitForSeconds(0.5f);
             var dd = DungeonDirector.Instance;
@@ -713,7 +1044,12 @@ namespace Deepbound.Networking
                     else yield return Press(UI.Bind.Dodge);
                 }
                 // A potion below 40%.
-                if (flasks != null && hp.Current.Value < hp.Max.Value * 0.4f && flasks.Count(Flasks.Kind.Health) > 0) yield return Press(UI.Bind.Potion1);
+                if (flasks != null && hp.Current.Value < hp.Max.Value * 0.4f && flasks.Count(Flasks.Kind.Health) > 0)
+                {
+                    yield return Press(UI.Bind.Potion1);
+                    abilityUses.TryGetValue("health potion", out int hn);
+                    abilityUses["health potion"] = hn + 1;
+                }
                 if (me.ActiveKit != null && me.ActiveKit.Resource < me.ActiveKit.ResourceMax * 0.15f && flasks != null && flasks.Count(Flasks.Kind.Mana) > 0) yield return Press(UI.Bind.Potion2);
                 // The rare slot, as a player would: a defensive draught when it is going badly, the rest at the guardian.
                 if (flasks != null && flasks.RareHeld != Progression.RareItem.None && !flasks.InStasis)
@@ -732,6 +1068,9 @@ namespace Deepbound.Networking
                 // Pick what to do: the nearest living enemy we can walk to (the guardian last), else loot, else a chest.
                 var boss = BossBrain.Active;
                 target = NearestEnemy(skip, out float dist, allowBoss: false);
+                // A soulbound twin lying severed cannot be hurt: go for the one still standing, as the screen tells a player to.
+                var standingTwin = StandingTwin();
+                if (standingTwin != null) { target = standingTwin; dist = Vector3.Distance(target.transform.position, me.transform.position); }
                 stuckTarget = target;
                 if (target == null && boss != null && !boss.IsDead) { target = boss.GetComponent<Health>(); dist = Vector3.Distance(target.transform.position, me.transform.position); }
                 stuckTarget = target;
@@ -747,8 +1086,38 @@ namespace Deepbound.Networking
                 }
                 if (boss != null && bossSeenAt < 0f && dd.BossSealed) { bossSeenAt = Time.time; L("guardian fight begins: " + boss.DisplayName); yield return Shot("F" + (floorNo + 1) + "_boss_start"); }
 
+                // The guardian sleeps until the whole party is in its arena. Run of 2026-11-04: on floor 2 it slept for eight
+                // minutes with the bots beating on it and no record of who stood outside. Say who, and walk in.
+                if (boss != null && boss.Dormant && LivingEnemies() <= 3)
+                {
+                    if (dormantSince < 0f) dormantSince = Time.time;
+                    if (Time.time - dormantSince > 90f && Time.time >= nextDormantNote)
+                    {
+                        nextDormantNote = Time.time + 30f;
+                        var outside = PlayerLife.All.Where(p => p != null && !p.Downed.Value && !layout.BossRoom.Contains(p.transform.position, -1f)).Select(p => "client " + p.OwnerClientId + " at " + Fmt(p.transform.position));
+                        Problem("guardian asleep for " + (Time.time - dormantSince).ToString("F0") + " s with " + LivingEnemies() + " enemies left, me at " + Fmt(me.transform.position) + ", goal " + goalWhat + ", outside the arena: " + string.Join("; ", outside));
+                        if (!layout.BossRoom.Contains(me.transform.position, -2f)) motor.Teleport(layout.BossRoom.Center + Vector3.right * 4f + Vector3.up * 0.2f, me.transform.rotation);
+                    }
+                }
+                else dormantSince = -1f;
+
                 var lead = follower ? Leader : null;
                 float leadDist = lead != null ? Vector3.Distance(Flat(lead.transform.position), Flat(me.transform.position)) : 0f;
+                // A client cannot see the guardian sleeping: if the leader has waited in its arena for a while, join them.
+                if (lead != null && boss != null && LivingEnemies() <= 3 && layout.BossRoom.Contains(lead.transform.position, -1f) && !layout.BossRoom.Contains(me.transform.position, -1.5f))
+                {
+                    if (outsideSince < 0f) outsideSince = Time.time;
+                    if (Time.time - outsideSince > 30f)
+                    {
+                        outsideSince = -1f;
+                        Problem("stood outside the arena for 30 s with the leader inside, at " + Fmt(me.transform.position));
+                        motor.Teleport(layout.BossRoom.Center + Vector3.left * 4f + Vector3.up * 0.2f, me.transform.rotation);
+                        yield return null;
+                        continue;
+                    }
+                }
+                else outsideSince = -1f;
+
                 // Far behind (the leader rode ahead, or a wall between): catch up, as a friend would run to rejoin.
                 if (lead != null && (leadDist > 40f || (dd.BossSealed && !layout.BossRoom.Contains(me.transform.position, 0f) && layout.BossRoom.Contains(lead.transform.position, 0f))))
                 {
@@ -759,7 +1128,8 @@ namespace Deepbound.Networking
                 var loot = follower && leadDist > 10f ? null : NearestLoot(follower ? 8f : 18f);
                 lastLootId = loot != null ? loot.NetworkObjectId : ulong.MaxValue;
                 var chest = follower ? null : NearestChest(openedChests);
-                if (lead != null && target == null && loot == null)
+                var myGear = target == null || dist >= 14f ? NearestGear(22f) : null;
+                if (lead != null && target == null && loot == null && myGear == null)
                 {
                     goal = lead.transform.position; goalWhat = "the leader";
                     if (leadDist > 3.5f) yield return StepToward(lead.transform.position, 3f);
@@ -779,7 +1149,9 @@ namespace Deepbound.Networking
                     bool clear = CombatQuery.ClearLine(me.transform.position + Vector3.up * 1.6f, target);
                     // A sleeping guardian wakes only when the party is in its arena: a bow from the doorway does nothing
                     // (run 13, the Ranger, shot a dormant boss from outside for eight minutes).
-                    if (boss != null && target == boss.GetComponent<Health>() && boss.Dormant && !layout.BossRoom.Contains(me.transform.position, -1.5f))
+                    // Not "boss.Dormant": that lives on the server, so a client always read it as awake and a Cleric on a client stood at
+                    // range in the doorway holding the fight up (F2 of one run, F10 of the next, 2026-11-04). Outside is outside.
+                    if (boss != null && target == boss.GetComponent<Health>() && !layout.BossRoom.Contains(me.transform.position, -1.5f))
                     {
                         yield return StepToward(layout.BossRoom.Center, 2f);
                         continue;
@@ -836,10 +1208,35 @@ namespace Deepbound.Networking
                         // Abilities now and then, when something is close.
                         if (Time.time >= nextAbility)
                         {
-                            nextAbility = Time.time + Random.Range(2.5f, 4.5f);
-                            var btn = Random.value < 0.5f ? UI.Bind.AbilityQ : UI.Bind.AbilityE;
-                            yield return Press(btn);
-                            if (me.GetComponent<Ultimates>() is Ultimates u && u.Ready) yield return Press(UI.Bind.Ultimate);
+                            // Whatever is off cooldown (it used to be one at random every few seconds: abilities sat ready for most of a fight).
+                            nextAbility = Time.time + Random.Range(1f, 1.6f);
+                            var ready = new List<AbilityView>();
+                            if (me.ActiveKit != null) me.ActiveKit.FillAbilities(ready);
+                            foreach (var v in ready)
+                            {
+                                if (v.Remaining > 0.05f) continue;
+                                if (v.Key == "Q") yield return Press(UI.Bind.AbilityQ);
+                                else if (v.Key == "E") yield return Press(UI.Bind.AbilityE);
+                            }
+                            if (me.GetComponent<Ultimates>() is Ultimates u && u.Ready)
+                            {
+                                yield return Press(UI.Bind.Ultimate);
+                                abilityUses.TryGetValue("R Ultimate", out int ur);
+                                abilityUses["R Ultimate"] = ur + 1;
+                            }
+                            // Thrown flasks: at a guardian, as a player saves them.
+                            if (flasks != null && boss != null && target == boss.GetComponent<Health>() && Time.time >= nextFlask)
+                            {
+                                var throwKind = flasks.Count(Flasks.Kind.Frost) > 0 ? Flasks.Kind.Frost : Flasks.Kind.Holy;
+                                if (flasks.Count(throwKind) > 0)
+                                {
+                                    nextFlask = Time.time + 9f;
+                                    yield return Press(throwKind == Flasks.Kind.Frost ? UI.Bind.Potion3 : UI.Bind.Potion4);
+                                    string fk = "flask " + throwKind;
+                                    abilityUses.TryGetValue(fk, out int fn);
+                                    abilityUses[fk] = fn + 1;
+                                }
+                            }
                         }
                         yield return Attack(cls == Classes.ClassId.Ranger ? 0.9f : 0.8f);
                         stuckSince = Time.time; // fighting in place is not being stuck
@@ -877,6 +1274,12 @@ namespace Deepbound.Networking
                     else lootOnSince = -1f;
                     yield return StepToward(loot.transform.position, 0.3f);
                 }
+                else if (myGear != null)
+                {
+                    goal = myGear.transform.position; goalWhat = "gear";
+                    if (Vector3.Distance(myGear.transform.position, me.transform.position) > 1.9f) yield return StepToward(myGear.transform.position, 1.6f);
+                    else { myGear.UseRpc(me.NetworkObject); ignoredGear.Add(myGear.NetworkObjectId); L("took gear: " + Gear.Name(myGear.Item.Value)); yield return new WaitForSeconds(0.4f); }
+                }
                 else if (chest != null)
                 {
                     goal = chest.transform.position; goalWhat = "chest";
@@ -903,7 +1306,7 @@ namespace Deepbound.Networking
             {
                 Problem("floor not finished in " + (floorLimit / 60f).ToString("F0") + " min (" + LivingEnemies() + " enemies left, boss " + (BossBrain.Active != null ? BossBrain.Active.DisplayName + " " + (BossBrain.Active.GetComponent<Health>().Fraction * 100f).ToString("F0") + "%" : "none") + "): forcing it");
                 var b = BossBrain.Active;
-                if (b != null) b.GetComponent<Health>().ServerDamage(1e6f, b.transform.position, me.NetworkObjectId);
+                if (b != null) b.GetComponent<Health>().Tag("forced").ServerDamage(1e6f, b.transform.position, me.NetworkObjectId);
                 for (float t = 0f; t < 8f && dd.Phase.Value == RunPhase.Exploring; t += 0.5f) yield return new WaitForSeconds(0.5f);
             }
             L("floor done in " + (took / 60f).ToString("F1") + " min" + (bossSeenAt > 0f ? " (guardian " + ((Time.time - bossSeenAt) / 60f).ToString("F1") + " min)" : "") +
@@ -915,6 +1318,13 @@ namespace Deepbound.Networking
                     var m = kv.Value;
                     return m.Name + ": dealt " + (m.Dealt - s0.Item1).ToString("F0") + " (boss " + (m.BossDealt - s0.Item3).ToString("F0") + "), taken " + (m.Taken - s0.Item2).ToString("F0") + ", would-have-gone-down " + m.SavesFloor;
                 })));
+            foreach (var m in party.Values)
+            {
+                if (m.Source.Count > 0)
+                    L("   damage by source, " + m.Name + ": " + string.Join(", ", m.Source.OrderByDescending(s => s.Value).Select(s =>
+                        s.Key + " " + s.Value.ToString("F0") + (m.BossSource.TryGetValue(s.Key, out float bs) ? " (boss " + bs.ToString("F0") + " in " + m.BossHits[s.Key] + " hits)" : ""))));
+                m.Source.Clear(); m.BossSource.Clear(); m.BossHits.Clear();
+            }
             string usedLine = AbilitiesLine();
             L("   abilities used this floor: " + usedLine);
             if (usedLine == "none") Problem("played a whole floor without using one ability");
@@ -926,6 +1336,15 @@ namespace Deepbound.Networking
             Status("floor end");
             yield return Shot("F" + (floorNo + 1) + "_cleared");
             if (dd.Phase.Value != RunPhase.FloorCleared) yield break;
+
+            // What the guardian left: a player does not ride away from a legendary.
+            for (float t0 = Time.time; Time.time - t0 < 25f && dd.Phase.Value == RunPhase.FloorCleared;)
+            {
+                var left = NearestGear(45f);
+                if (left == null) break;
+                if (Vector3.Distance(left.transform.position, me.transform.position) > 1.9f) yield return StepToward(left.transform.position, 1.6f);
+                else { left.UseRpc(me.NetworkObject); ignoredGear.Add(left.NetworkObjectId); L("took gear: " + Gear.Name(left.Item.Value)); yield return new WaitForSeconds(0.4f); }
+            }
 
             // The grave lift: step in and wait.
             yield return new WaitForSeconds(3f);
@@ -953,6 +1372,20 @@ namespace Deepbound.Networking
 
         private int LivingEnemies() => Health.All.Count(h => h != null && h.IsAlive && h.Team == Team.Enemies && h.GetComponent<EnemyBrain>() != null);
 
+        /// <summary>The living twin of a soulbound enemy lying severed within 40 m, or null.</summary>
+        private Health StandingTwin()
+        {
+            var spawned = NetworkManager.Singleton.SpawnManager.SpawnedObjects;
+            foreach (var h in Health.All)
+            {
+                if (h == null || !h.IsAlive || h.Team != Team.Enemies) continue;
+                var b = h.GetComponent<EnemyBrain>();
+                if (b == null || !b.SeveredNow || b.TwinId.Value == 0 || Vector3.Distance(h.transform.position, me.transform.position) > 40f) continue;
+                if (spawned.TryGetValue(b.TwinId.Value, out var o) && o.TryGetComponent<Health>(out var other) && other.IsAlive) return other;
+            }
+            return null;
+        }
+
         private Health NearestEnemy(HashSet<ulong> skip, out float dist, bool allowBoss)
         {
             Health best = null;
@@ -963,7 +1396,7 @@ namespace Deepbound.Networking
                 if (h == null || !h.IsAlive || h.Team != Team.Enemies || skip.Contains(h.NetworkObjectId)) continue;
                 var b = h.GetComponent<EnemyBrain>();
                 if (b == null || (!allowBoss && b is BossBrain)) continue;
-                if (b is MournerBrain || b is GargoyleBrain g && !g.Woken.Value) continue;
+                if (b is MournerBrain || b is GargoyleBrain g && !g.Woken.Value || b.SeveredNow) continue;
                 float d = Vector3.Distance(h.transform.position, me.transform.position);
                 if (follower && Leader != null && Vector3.Distance(h.transform.position, Leader.transform.position) > 16f) continue;
                 // A player kills the healer first: a Necromancer within 16 m counts as much closer than it is.

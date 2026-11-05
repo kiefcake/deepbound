@@ -195,7 +195,7 @@ namespace Deepbound.Player
             var from = transform.position;
             Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, ArrowSpeed * (0.7f + 0.3f * charge), h =>
             {
-                h.ServerDamage(dmg * (pierce && h.Team == Team.Enemies ? Combos.TryShatter(h, progress) : 1f) * (kit != null ? kit.Snared(h) : 1f), from, me);
+                h.Tag("RangerKit").ServerDamage(dmg * (pierce && h.Team == Team.Enemies ? Combos.TryShatter(h, progress) : 1f) * (kit != null ? kit.Snared(h) : 1f), from, me);
                 if (this == null) return;
                 if (instantMark && h.Team == Team.Enemies)
                 {
@@ -258,7 +258,7 @@ namespace Deepbound.Player
             {
                 if (Mathf.Abs(h.transform.position.y - ground.y) > 2.5f) continue;
                 caught++;
-                h.ServerDamage(SnareDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q), ground + Vector3.up, NetworkObjectId);
+                h.Tag("RangerKit").ServerDamage(SnareDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q), ground + Vector3.up, NetworkObjectId);
                 if (!h.IsAlive) continue;
                 // Bosses shrug a stun off sooner (their own ServerStun), but are snared for the full time.
                 if (h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(SnareHold);
@@ -292,7 +292,7 @@ namespace Deepbound.Player
                 if (Time.time < v.Next) continue;
                 foreach (var h in CombatQuery.Circle(v.At, progress.Mastered(2) ? 5f : VolleyRadius, Team.Enemies).ToArray())
                 {
-                    h.ServerDamage(VolleyDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.E) * Snared(h), v.At + Vector3.up * 6f, NetworkObjectId);
+                    h.Tag("RangerKit").ServerDamage(VolleyDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.E) * Snared(h), v.At + Vector3.up * 6f, NetworkObjectId);
                     if (progress.Twist(AbilitySlot.E)) h.ServerChill(2f);
                     CountMark(h);
                 }

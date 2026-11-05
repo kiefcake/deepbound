@@ -67,7 +67,7 @@ namespace Deepbound.Combat
             {
                 // The weak point bursts: a little blast for its neighbours, and the beasts go berserk.
                 foreach (var near in CombatQuery.Circle(at, BurstRadius, Team.Enemies).ToArray())
-                    if (near != burst) near.ServerDamage(BurstDamage * p.AttackMultiplier, at, shooter);
+                    if (near != burst) near.Tag("Arrows").ServerDamage(BurstDamage * p.AttackMultiplier, at, shooter);
                 if (burst.IsAlive && burst.TryGetComponent<Enemies.EnemyBrain>(out var beast) && beast.EnragesOnWeakHit && !(beast is Enemies.BossBrain))
                     beast.ServerEnrage(Enemies.EnemyBrain.EnrageSeconds);
                 p.ZoneHitFxRpc(at, 3);
@@ -247,7 +247,7 @@ namespace Deepbound.Combat
                     if (zone == HitZone.Weak && h.TryGetComponent<Enemies.HoarderBrain>(out var hoarder)) hoarder.ServerSackHit();
                     float mult = HitZones.Multiplier(h, zone, true) * falloff;
                     // "From" for blocking purposes is a point back along the flight path.
-                    h.ServerDamage(a.Damage * mult, h.Center - a.Velocity.normalized * 3f, a.Shooter);
+                    h.Tag("Arrows").ServerDamage(a.Damage * mult, h.Center - a.Velocity.normalized * 3f, a.Shooter);
                     if (zone != HitZone.Body) ReportZone(a.Shooter, zonePoint, zone);
                     Sfx.Play(Sound.Hit, h.Center, 0.6f, 1.3f);
                 }

@@ -28,7 +28,7 @@ namespace Deepbound.Player
     [RequireComponent(typeof(Health))]
     public class ClericKit : NetworkBehaviour, IClassKit
     {
-        public const float SmiteInterval = 0.55f, SmiteDamage = 18f, SmiteSpeed = 28f, SmiteMana = 0f, SmiteRange = 18f;
+        public const float SmiteInterval = 0.55f, SmiteDamage = 21f, SmiteSpeed = 28f, SmiteMana = 0f, SmiteRange = 18f;
         public float AttackRange => SmiteRange * (progress != null ? progress.RangeMultiplier : 1f);
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
         private float BeamReach => BeamRange * RangeMul;
@@ -252,7 +252,7 @@ namespace Deepbound.Player
                 ulong me = NetworkObjectId;
                 Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, SmiteSpeed, h =>
                 {
-                    h.ServerDamage(dmg, origin, me);
+                    h.Tag("Smite").ServerDamage(dmg, origin, me);
                     if (this == null) return;
                     Health worst = null;
                     foreach (var ally in CombatQuery.Circle(transform.position, 12f, Team.Players))
@@ -290,7 +290,7 @@ namespace Deepbound.Player
                 foreach (var ally in CombatQuery.Circle(z.At, ZoneRadius, Team.Players).ToArray())
                     ally.ServerHeal(ConsecrateHealPerSec * Potency * progress.Potency(AbilitySlot.Q) * dt);
                 foreach (var foe in CombatQuery.Circle(z.At, ZoneRadius, Team.Enemies).ToArray())
-                    foe.ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q) * dt * (progress.Mastered(1) ? 2f : 1f), z.At, NetworkObjectId);
+                    foe.Tag("Consecrate").ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q) * dt * (progress.Mastered(1) ? 2f : 1f), z.At, NetworkObjectId);
             }
         }
 

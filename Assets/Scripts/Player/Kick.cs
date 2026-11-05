@@ -56,7 +56,7 @@ namespace Deepbound.Player
             var from = slide ? transform.position + Vector3.up * 0.6f : origin;
             foreach (var target in CombatQuery.Arc(from, forward, Range + (slide ? 0.6f : 0f), slide ? 110f : Arc, Team.Enemies))
             {
-                target.ServerDamage((slide ? 20f : 8f) * progress.AttackMultiplier, transform.position, NetworkObjectId);
+                target.Tag("Kick").ServerDamage((slide ? 20f : 8f) * progress.AttackMultiplier, transform.position, NetworkObjectId);
                 if (target.TryGetComponent<ICrowdControl>(out var cc))
                 {
                     var push = target.transform.position - transform.position;

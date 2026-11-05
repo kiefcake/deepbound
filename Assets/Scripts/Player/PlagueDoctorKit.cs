@@ -197,7 +197,7 @@ namespace Deepbound.Player
             float p = BlightPower;
             foreach (var h in CombatQuery.Circle(at, radius, Team.Enemies).ToArray())
             {
-                h.ServerDamage(VialDamage * p, at, NetworkObjectId);
+                h.Tag("PlagueDoctorKit").ServerDamage(VialDamage * p, at, NetworkObjectId);
                 h.ServerBlight(BlightSeconds, BlightDps * p, NetworkObjectId);
             }
             SplashFxRpc(at, radius, false);

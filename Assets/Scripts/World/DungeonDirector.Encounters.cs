@@ -902,7 +902,32 @@ namespace Deepbound.World
                 boss.ServerEntrance();
                 BossIntroRpc(boss.DisplayName.ToUpperInvariant(), boss.Epithet, (hallowed ? "HALLOWED by the Reliquary: it wakes at " + Mathf.RoundToInt(HallowedHealth * 100f) + "% and takes +10% damage.  " : "") + boss.Hint + quirk);
             }
+            else TellWhoHoldsTheGuardian();
         }
+
+        /// <summary>
+        /// The guardian sleeps until everyone standing is inside, and nothing told a player that. Someone who stopped at the
+        /// door, or wandered off, held the fight up with no way for the others to know why (2026-11-04).
+        /// </summary>
+        private void TellWhoHoldsTheGuardian()
+        {
+            var outside = new List<string>();
+            int inside = 0;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || p.Downed.Value) continue;
+                if (Layout.BossRoom.Contains(p.transform.position, -1f)) inside++;
+                else outside.Add(p.name);
+            }
+            if (inside == 0 || outside.Count == 0) { guardianWaitSince = -1f; return; }
+            if (guardianWaitSince < 0f) { guardianWaitSince = Time.time; nextGuardianWaitNote = Time.time + GuardianWaitGrace; }
+            if (Time.time < nextGuardianWaitNote) return;
+            nextGuardianWaitNote = Time.time + GuardianWaitRepeat;
+            ServerFeedAll("The guardian sleeps until all of you are inside. Still outside: " + string.Join(", ", outside), new Color(1f, 0.8f, 0.45f));
+        }
+
+        private const float GuardianWaitGrace = 10f, GuardianWaitRepeat = 20f;
+        private float guardianWaitSince = -1f, nextGuardianWaitNote;
 
         private void TickAmbush()
         {

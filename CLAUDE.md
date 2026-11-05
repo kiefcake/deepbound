@@ -320,6 +320,12 @@ grep -E "error CS|warning CS|Player build" Logs/game-build.log | grep -v Package
   - TESTS: run `python tools/run_tests.py --build <dir>` instead of the manual smoke recipe; `REQUIRED` there lists checks that must appear, so add new checks' names to it. `python tools/test_party.py --build <dir>` plays a real party (windowed; `-autofloors N`). New smoke: "pad <Class>" (virtual pad, no lock: attack + Q + E go off; batchmode counts as focused, so this does not prove unfocused input), "bot hands <Class>", "ui space", "minimap layout", "options lists", "every sound recorded", "party numbers", "trap numbers". Tests never write the save: they only read settings. `-shots` needs an ABSOLUTE path.
 - GitHub: `origin` = https://github.com/kiefcake/deepbound (PUBLIC; local `main` -> remote `master`). Push only when the user asks; scan for secrets first.
 
+- PARTY BALANCE ROUND (2026-11-05): numbers, every run and what is still open are in `docs/BALANCE_2026-11.md`; raw logs in `Builds/balance-logs/`.
+  - `Difficulty.BossDepth`: a party's guardians gain health per floor, nothing alone. `EnemyBrain.PartyHealthScale` undoes party scaling where a hit is a slice of max health (Thermal Shock): take any such slice from the solo figure, or it grows with the party.
+  - `LootDrop.FairShare` routes sigils and relics to the poorest member under shared loot. `EnemyBrain.Soulbound` rises weaken each time, so a pair always ends. `DungeonDirector.TellWhoHoldsTheGuardian` names who is outside.
+  - `Health.Tag("x").ServerDamage(...)` names a hit for the bots' `damage by source` lines; no effect on the hit. A proc's nested hit uses up the outer hit's tag, so `other` matching `Relics` is the hit that set the proc off, not extra damage.
+  - `BossBrain.Dormant` is server-only: clients read false. `test_party.py --classes` is space-separated.
+
 ## Backlog / ideas not yet built
 
 The user asked (2026-10-14) to stop adding classes for now and grow the game instead. Remaining classes

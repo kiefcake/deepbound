@@ -133,7 +133,7 @@ namespace Deepbound.Loot
                 boneBursting = true;
                 var at = target.transform.position;
                 foreach (var foe in CombatQuery.Circle(at, 3f, Team.Enemies).ToArray())
-                    if (foe != target) foe.ServerDamage(22f * p.AttackMultiplier, at, p.NetworkObjectId);
+                    if (foe != target) foe.Tag("GearEffects").ServerDamage(22f * p.AttackMultiplier, at, p.NetworkObjectId);
                 boneBursting = false;
                 p.BoneBurstFxRpc(at);
             }

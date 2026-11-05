@@ -161,9 +161,10 @@ namespace Deepbound.Loot
                 d.y *= 0.5f;
                 if (d.magnitude > (Magnetic ? MagnetRadius : PickupRadius)) continue;
 
+                routedTo = null;
                 if (TryApply(life.GetComponent<PlayerProgress>()))
                 {
-                    if (!crumbled) PickedUpRpc(life.NetworkObjectId);
+                    if (!crumbled) PickedUpRpc(routedTo != null ? routedTo.NetworkObjectId : life.NetworkObjectId);
                     NetworkObject.Despawn();
                     return;
                 }
@@ -171,6 +172,25 @@ namespace Deepbound.Loot
         }
 
         private bool crumbled;
+        private PlayerProgress routedTo;
+
+        /// <summary>
+        /// Who a find should go to (2026-11-04, ten-floor party run: whoever ran fastest took 41 sigils and 36 relics while the
+        /// Cleric beside them got 11 and 15, and the Rogue had every relic at its top tier by floor 6). Under shared loot a
+        /// sigil or relic goes to the party's poorest member once the finder is this far ahead; finders keepers is untouched.
+        /// </summary>
+        private const int FairShareGap = 3;
+
+        private PlayerProgress FairShare(PlayerProgress finder, System.Func<PlayerProgress, int> wealth, System.Func<PlayerProgress, bool> canTake)
+        {
+            if (!World.DungeonDirector.ShareLoot) return finder;
+            PlayerProgress best = finder;
+            int low = wealth(finder) - FairShareGap + 1;
+            foreach (var pl in PlayerLife.All)
+                if (pl != null && pl.TryGetComponent<PlayerProgress>(out var other) && other != finder && other.Stats != null && canTake(other) && wealth(other) < low) { best = other; low = wealth(other); }
+            if (best != finder) routedTo = best;
+            return best;
+        }
 
         private bool TryApply(PlayerProgress progress)
         {
@@ -185,6 +205,9 @@ namespace Deepbound.Loot
             if (kind == LootKind.Relic)
             {
                 var relic = (Relic)Amount.Value;
+                var fair = FairShare(progress, p => p.RelicWealth, p => p.CanTakeRelic(relic));
+                if (fair != progress && fair.ServerAddRelic(relic)) return true;
+                routedTo = null;
                 // A relic you already carry would only empower yours: leave it while a teammate lacks it.
                 bool teammateNeeds = false;
                 foreach (var pl in PlayerLife.All)
@@ -213,7 +236,7 @@ namespace Deepbound.Loot
             }
             if (kind == LootKind.Sigil)
             {
-                progress.ServerAddSigil();
+                FairShare(progress, p => p.SigilWealth, p => true).ServerAddSigil();
                 return true;
             }
             if (kind == LootKind.Rune)

@@ -248,7 +248,7 @@ namespace Deepbound.Player
                 float m = Multiplier(target, out bool opener);
                 var zone = HitZones.Aimed(target, origin, forward, Reach, out var zonePoint);
                 m *= HitZones.Multiplier(target, zone, false);
-                target.ServerDamage(StabDamage * m, transform.position, NetworkObjectId);
+                target.Tag("Stab").ServerDamage(StabDamage * m, transform.position, NetworkObjectId);
                 if (zone != HitZone.Body) Arrows.ReportZone(NetworkObjectId, zonePoint, zone);
                 AfterHit(target, opener);
                 if (++hits >= maxHits) break;
@@ -272,7 +272,7 @@ namespace Deepbound.Player
                 {
                     if (this == null) return;
                     float m = Multiplier(h, out bool opener);
-                    h.ServerDamage(FanDamage * m, transform.position, me);
+                    h.Tag("Knives").ServerDamage(FanDamage * m, transform.position, me);
                     AfterHit(h, opener);
                 }, false, FanRange * RangeMul);
             }

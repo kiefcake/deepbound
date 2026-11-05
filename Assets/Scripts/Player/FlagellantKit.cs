@@ -265,7 +265,7 @@ namespace Deepbound.Player
             foreach (var target in CombatQuery.Arc(origin, forward, range, SwingArc, Team.Enemies))
             {
                 var zone = HitZones.Aimed(target, origin, forward, range, out var zonePoint);
-                total += target.ServerDamage(dmg * HitZones.Multiplier(target, zone, false) * Combos.TryShatter(target, progress), transform.position, NetworkObjectId);
+                total += target.Tag("FlagellantKit").ServerDamage(dmg * HitZones.Multiplier(target, zone, false) * Combos.TryShatter(target, progress), transform.position, NetworkObjectId);
                 if (zone != HitZone.Body) Arrows.ReportZone(NetworkObjectId, zonePoint, zone);
                 hit.Add(target);
             }
@@ -276,7 +276,7 @@ namespace Deepbound.Player
                 float radius = CrashRadius * (progress.OnPath(1) ? 1.5f : 1f);
                 foreach (var target in CombatQuery.Circle(crashAt, radius, Team.Enemies))
                 {
-                    if (!hit.Contains(target)) total += target.ServerDamage(dmg * 0.6f, crashAt, NetworkObjectId);
+                    if (!hit.Contains(target)) total += target.Tag("FlagellantKit").ServerDamage(dmg * 0.6f, crashAt, NetworkObjectId);
                     if (progress.Mastered(1) && target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(0.8f);
                 }
             }
@@ -323,7 +323,7 @@ namespace Deepbound.Player
             var toMe = Flat(target.transform.position - from);
             var spot = from + toMe * 1.6f;
             bool dragged = target.TryGetComponent<Enemies.EnemyBrain>(out var brain) && brain.ServerYank(spot);
-            target.ServerDamage(ChainDamage * DamageMultiplier * potency, from, NetworkObjectId);
+            target.Tag("FlagellantKit").ServerDamage(ChainDamage * DamageMultiplier * potency, from, NetworkObjectId);
             if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(ChainStun * (dragged ? 1f : 0.6f));
             // Rank 3: everything near the target comes along too.
             if (progress.Twist(AbilitySlot.Q))
@@ -372,7 +372,7 @@ namespace Deepbound.Player
             float total = 0f;
             foreach (var target in CombatQuery.Circle(at, LeapRadius, Team.Enemies).ToArray())
             {
-                total += target.ServerDamage(dmg, at, NetworkObjectId);
+                total += target.Tag("FlagellantKit").ServerDamage(dmg, at, NetworkObjectId);
                 if (target.TryGetComponent<ICrowdControl>(out var cc))
                 {
                     cc.ServerStun(LeapStun * (twist ? 1.5f : 1f));

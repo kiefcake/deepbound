@@ -150,7 +150,7 @@ namespace Deepbound.Loot
                     int et = p.RuneTier(Rune.Ember);
                     foreach (var foe in new List<Health>(CombatQuery.Circle(at, 2.5f + 0.5f * et, Team.Enemies)))
                     {
-                        foe.ServerDamage(20f * Power(et) * p.AttackMultiplier, at, attackerId);
+                        foe.Tag("Runes").ServerDamage(20f * Power(et) * p.AttackMultiplier, at, attackerId);
                         foe.ServerScorch(4f, attackerId);
                     }
                     World.DungeonDirector.Instance?.EmberBurstFxRpc(at);

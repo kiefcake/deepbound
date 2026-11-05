@@ -73,7 +73,17 @@ for cls, txt, player_log in logs:
     if not used:
         fails.append(f'{cls} logged no finished floor')
     fails += [f'{cls} used no abilities on a floor' for u in used if u.strip() == 'none']
-    stuck = re.findall(r'\?\? .*', text)
+    kits = re.findall(r'KIT (.*)', text)
+    if kits:
+        print(f'{cls}: final kit: {kits[-1]}')
+    elif args.floors > 1:
+        fails.append(f'{cls} never reported a kit')
+    unspent = re.findall(r'\?\? UNSPENT (.*)', text)
+    if unspent:
+        fails.append(f'{cls}: left camp with {len(unspent)} thing(s) undone, first: {unspent[0][:160]}')
+    if args.floors > 1 and 'R Ultimate' not in ' '.join(used):
+        fails.append(f'{cls} never used its ultimate')
+    stuck = [x for x in re.findall(r'\?\? .*', text) if 'UNSPENT' not in x]
     if len(stuck) > 8:
         fails.append(f'{cls}: {len(stuck)} problem lines, first: {stuck[0][:160]}')
     if os.path.exists(player_log):

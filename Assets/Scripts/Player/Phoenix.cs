@@ -138,10 +138,10 @@ namespace Deepbound.Player
             nextDive = Time.time + DiveEvery;
             if (t == null) return;
             float att = owner != null ? owner.AttackMultiplier : 1f;
-            t.ServerDamage(DiveDamage * att, Pos.Value, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
+            t.Tag("Phoenix").ServerDamage(DiveDamage * att, Pos.Value, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
             if (t.IsAlive) t.ServerScorch(5f, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
             foreach (var near in CombatQuery.Circle(t.transform.position, 1.6f, Team.Enemies).ToArray())
-                if (near != t) near.ServerDamage(DiveDamage * 0.4f * att, Pos.Value, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
+                if (near != t) near.Tag("Phoenix").ServerDamage(DiveDamage * 0.4f * att, Pos.Value, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
             StrikeFxRpc(Pos.Value);
         }
 
@@ -156,7 +156,7 @@ namespace Deepbound.Player
             ulong by = owner != null ? owner.NetworkObjectId : ulong.MaxValue;
             foreach (var foe in CombatQuery.Circle(Pos.Value, BurstRadius, Team.Enemies).ToArray())
             {
-                foe.ServerDamage(BurstDamage * att, Pos.Value, by);
+                foe.Tag("Phoenix").ServerDamage(BurstDamage * att, Pos.Value, by);
                 if (foe.IsAlive) foe.ServerScorch(5f, by);
             }
             // The egg settles where it fell (a little above the floor).

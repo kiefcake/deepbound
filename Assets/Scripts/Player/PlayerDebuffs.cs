@@ -239,7 +239,7 @@ namespace Deepbound.Player
                 if (Poisoned && Time.time >= nextTick && !life.Downed.Value)
                 {
                     nextTick = Time.time + 0.5f;
-                    health.ServerDamage(poisonDps * 0.5f, transform.position);
+                    health.Tag("PlayerDebuffs").ServerDamage(poisonDps * 0.5f, transform.position);
                 }
                 // A curse ends with whoever laid it.
                 if (Cursed && CurseSource.Value != ulong.MaxValue &&

@@ -264,7 +264,7 @@ namespace Deepbound.Loot
                 {
                     var at = target.transform.position;
                     foreach (var foe in CombatQuery.Circle(at, 4f, Team.Enemies).ToArray())
-                        foe.ServerDamage(22f * p.RelicPower(Relic.WraithChain) * p.AttackMultiplier, at, attackerId);
+                        foe.Tag("Relics").ServerDamage(22f * p.RelicPower(Relic.WraithChain) * p.AttackMultiplier, at, attackerId);
                     p.WraithNovaFxRpc(at);
                 }
                 finally { resolvingProc = false; }
@@ -309,7 +309,7 @@ namespace Deepbound.Loot
             for (int i = 0; i < struck.Count; i++)
             {
                 points[i] = struck[i].Center;
-                struck[i].ServerDamage(i == 0 ? dmg : dmg * 0.6f, struck[i].Center + Vector3.up, attackerId);
+                struck[i].Tag("Relics").ServerDamage(i == 0 ? dmg : dmg * 0.6f, struck[i].Center + Vector3.up, attackerId);
             }
             caster.LightningFxRpc(points);
         }

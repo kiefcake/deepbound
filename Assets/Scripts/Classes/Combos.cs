@@ -157,18 +157,21 @@ namespace Deepbound.Classes
             PlayerProgress p = null;
             var net = Unity.Netcode.NetworkManager.Singleton;
             if (net != null && by != ulong.MaxValue && net.SpawnManager.SpawnedObjects.TryGetValue(by, out var o)) o.TryGetComponent(out p);
-            bool boss = target.TryGetComponent<BossBrain>(out _);
-            float dmg = ShockFlat * (p != null ? p.AttackMultiplier : 1f) + target.Max.Value * (boss ? ShockBossFraction : ShockFraction);
+            // The boss slice is of the health it would have alone. Taken from the party-scaled total it grew with the party and
+            // the depth, then went through every damage multiplier: 29,000 a hit on floor 10 against a Knight's 580 swing, and
+            // over half of the Mage's damage (2026-11-05, by-source tally). Alone this is what it always was.
+            bool boss = target.TryGetComponent<BossBrain>(out var bossBrain);
+            float dmg = ShockFlat * (p != null ? p.AttackMultiplier : 1f) + (boss ? target.Max.Value / bossBrain.PartyHealthScale * ShockBossFraction : target.Max.Value * ShockFraction);
             Popup(target, ComboKind.ThermalShock, p);
             World.DungeonDirector.Instance?.ThermalShockFxRpc(target.Center);
-            target.ServerDamage(dmg, target.Center, by);
+            target.Tag("Combos").ServerDamage(dmg, target.Center, by);
         }
 
         private static void OnShieldBroken(Health shielded)
         {
             if (shielded.Team != Team.Players) return;
             foreach (var foe in CombatQuery.Circle(shielded.transform.position, AegisBurstRadius, Team.Enemies).ToArrayList())
-                foe.ServerDamage(AegisBurstDamage, shielded.transform.position, shielded.NetworkObjectId);
+                foe.Tag("Combos").ServerDamage(AegisBurstDamage, shielded.transform.position, shielded.NetworkObjectId);
             Popup(shielded, ComboKind.AegisBurst, shielded.GetComponent<PlayerProgress>());
             World.DungeonDirector.Instance?.AegisBurstFxRpc(shielded.transform.position);
         }

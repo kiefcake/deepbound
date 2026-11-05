@@ -37,12 +37,12 @@ namespace Deepbound.Player
         // Left click is free for every class (2026-11-01, the user): only the right click and abilities spend the bar.
         public const float FireboltInterval = 0.42f, FireboltDamage = 23f, FireboltSpeed = 32f, FireboltMana = 0f;
         // The frostbolt is a heavy, deliberate shot: buffed 2026-11-01 (34 -> 50, cooldown 3 -> 2.2 s, chill 4 -> 5 s).
-        public const float FrostboltInterval = 0.95f, FrostboltDamage = 50f, FrostboltSpeed = 28f, FrostboltMana = 20f, ChillSeconds = 5f, FrostboltCooldown = 2.2f;
+        public const float FrostboltInterval = 0.95f, FrostboltDamage = 44f, FrostboltSpeed = 28f, FrostboltMana = 20f, ChillSeconds = 5f, FrostboltCooldown = 2.2f;
         /// <summary>Tidal Wave: a <see cref="WaveArc"/>-degree wedge rolling out <see cref="WaveLength"/> m over <see cref="WaveSeconds"/>.</summary>
         public const float WaveCooldown = 8f, WaveMana = 18f, WaveLength = 8f, WaveArc = 70f, WaveSeconds = 0.5f, WaveDamage = 20f, WaveStun = 0.5f, WavePush = 7f;
         /// <summary>On a flooded floor (or knee-deep in a cistern) the wave is heavier.</summary>
         public const float WaveWetDamage = 1.6f, WaveWetStun = 1f;
-        public const float MeteorCooldown = 14f, MeteorMana = 50f, MeteorDelay = 1.3f, MeteorRadius = 3.6f, MeteorDamage = 70f, MeteorRange = 30f;
+        public const float MeteorCooldown = 14f, MeteorMana = 50f, MeteorDelay = 1.3f, MeteorRadius = 3.6f, MeteorDamage = 60f, MeteorRange = 30f;
         public const float ShatterMultiplier = 1.75f;
         /// <summary>Base reach of the bolts and of Meteor's aim (x the anvil / Farsight range multiplier).</summary>
         public const float FireboltRange = 20f, FrostboltRange = 22f, MeteorAimRange = 24f;
@@ -193,7 +193,7 @@ namespace Deepbound.Player
                 bool cryo = progress.OnPath(2);
                 Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, FrostboltSpeed, h =>
                 {
-                    h.ServerDamage(FrostboltDamage * att, casterPos, me);
+                    h.Tag("Frostbolt").ServerDamage(FrostboltDamage * att, casterPos, me);
                     h.ServerChill(cryo ? 6f : ChillSeconds);
                     if (this != null) ImpactFxRpc(h.Center, true, false);
                 }, cryo, FrostboltRange * RangeMul);
@@ -208,13 +208,13 @@ namespace Deepbound.Player
                 {
                     bool shatter = h.ServerConsumeChill();
                     if (shatter && this != null) Combos.Popup(h, ComboKind.Shatter, progress);
-                    h.ServerDamage(FireboltDamage * att * (shatter ? shatterMul : 1f), casterPos, me);
+                    h.Tag(shatter ? "Firebolt shatter" : "Firebolt").ServerDamage(FireboltDamage * att * (shatter ? shatterMul : 1f), casterPos, me);
                     if (pyro)
                     {
                         // Pyromancer fire scorches: the next frost to touch it sets off a Thermal Shock.
                         if (h.IsAlive) h.ServerScorch(4f, me);
                         foreach (var other in CombatQuery.Circle(h.Center, burstRadius, Team.Enemies).ToArray())
-                            if (other != h) { other.ServerDamage(FireboltDamage * att * burstShare, h.Center, me); other.ServerScorch(4f, me); }
+                            if (other != h) { other.Tag("Firebolt burst").ServerDamage(FireboltDamage * att * burstShare, h.Center, me); other.ServerScorch(4f, me); }
                     }
                     if (this != null) ImpactFxRpc(h.Center, false, shatter || pyro);
                 }, false, FireboltRange * RangeMul);
@@ -280,7 +280,7 @@ namespace Deepbound.Player
                 foreach (var h in CombatQuery.Arc(from + Vector3.up * 0.9f, dir, front, WaveArc, Team.Enemies).ToArray())
                 {
                     if (h == null || !h.IsAlive || !struck.Add(h)) continue;
-                    h.ServerDamage(damage, from, me);
+                    h.Tag("Tidal Wave").ServerDamage(damage, from, me);
                     if (cold) h.ServerChill(ChillSeconds);
                     if (h.TryGetComponent<ICrowdControl>(out var cc))
                     {
@@ -320,7 +320,7 @@ namespace Deepbound.Player
                         shattered++;
                         Combos.Popup(h, ComboKind.Shatter, progress);
                     }
-                    h.ServerDamage(MeteorDamage * progress.AttackMultiplier * potency * (shatter ? Shatter : 1f), at + Vector3.up, NetworkObjectId);
+                    h.Tag(shatter ? "Meteor shatter" : "Meteor").ServerDamage(MeteorDamage * progress.AttackMultiplier * potency * (shatter ? Shatter : 1f), at + Vector3.up, NetworkObjectId);
                     if (!shatter) h.ServerScorch(5f, NetworkObjectId);
                 }
                 MeteorImpactRpc(at, shattered > 0);
