@@ -32,6 +32,8 @@ namespace Deepbound.Enemies
         /// <summary>Unscaled stats, for the balance report.</summary>
         public float BaseHealth => maxHealth;
         public float BaseDamage => damage;
+        /// <summary>Chance a fallen champion leaves a Sigil for each player.</summary>
+        public const float ChampionSigilChance = 0.75f;
         public float BaseDefense => defense;
         public float AttackCycle => windup + recovery;
         [SerializeField] protected float damage = 16f;
@@ -1251,7 +1253,7 @@ namespace Deepbound.Enemies
             // Once only: the autoplay run saw a champion's death (card, hoard) twice in the same moment.
             if (IsDead) return;
             if (AffixKind == EliteAffix.Volatile || ChampionTrait == ChampionTraits.Marrowgrin) StartCoroutine(VolatileBlast());
-            if (tithe > 0) World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f, LootKind.Gold, Mathf.RoundToInt(tithe * 1.5f), transform.position);
+            if (tithe > 0) World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f, LootKind.Gold, Mathf.RoundToInt(tithe * 1.5f), transform.position, fixedSum: true);
             if (AffixKind == EliteAffix.Splitting) World.DungeonDirector.Instance?.ServerSpawnSplit(transform.position, scaledPlayersBase, depthForLoot);
             // Gravebound: its bones gather to rise again, unless someone stamps them out.
             if (AffixKind == EliteAffix.Gravebound) World.DungeonDirector.Instance?.ServerGravebound(this);
@@ -1267,23 +1269,22 @@ namespace Deepbound.Enemies
                 GearDrop.ServerSpawnForParty(transform.position, 1f, 0);
                 // And a rare draught or tome for the party (2026-10-24).
                 World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f + Vector3.back * 0.8f, LootKind.RareItem, (int)Progression.RareItems.Random(), transform.position);
-                // A Sigil for each player (it was one for the whole party).
+                // A Sigil for each player (it was one for the whole party), three champions in four (2026-11-07 economy).
                 for (int i = 0; i < Difficulty.Party; i++)
-                    World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f + Quaternion.Euler(0f, i * 90f, 0f) * Vector3.forward * 0.8f, LootKind.Sigil, 1, transform.position);
+                    if (Random.value < ChampionSigilChance) World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.5f + Quaternion.Euler(0f, i * 90f, 0f) * Vector3.forward * 0.8f, LootKind.Sigil, 1, transform.position);
                 ChampionFallenRpc(Title.Value.ToString());
                 World.DungeonDirector.Instance?.ServerSealFound(depthForLoot);
             }
             if (!NoLoot && lootPrefab != null)
             {
-                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.3f * World.DungeonDirector.Tier(depthForLoot)) /* gold: gentler with depth (2026-10-21, 2,200 gold by floor 4) */ * Difficulty.Level.Gold * World.DungeonDirector.OmenGold * World.DungeonDirector.EventGold * (Elite.Value ? World.DungeonDirector.EventEliteLoot : 1f),
+                LootDrop.ServerSpawnFromTable(lootPrefab, Elite.Value ? LootTable.Elite : Loot, transform.position, (1f + 0.3f * World.DungeonDirector.Tier(depthForLoot)) /* gold: gentler with depth (2026-10-21, 2,200 gold by floor 4); the setting's gold is in Difficulty.GoldIncome now */ * World.DungeonDirector.OmenGold * World.DungeonDirector.EventGold * (Elite.Value ? World.DungeonDirector.EventEliteLoot : 1f),
                     this is BossBrain || IsChampion || this is HoarderBrain || this is MimicBrain ? Difficulty.FixedLootShare(Difficulty.Party) : Difficulty.KillLootShare(Difficulty.Party));
                 // Gear, rolled for each player: always from a boss, sometimes from an elite.
                 if (this is BossBrain)
                 {
                     GearDrop.ServerSpawnForParty(transform.position, 1f, 1, (BossBrain)this);
-                    // A Sigil for each player: every boss is a chance to rank up an ability.
-                    for (int i = 0; i < NetworkManager.ConnectedClientsIds.Count; i++)
-                        World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Quaternion.Euler(0f, i * 90f + 45f, 0f) * Vector3.forward * 1.6f, LootKind.Sigil, 1, transform.position);
+                    // Guardians no longer drop a Sigil each (2026-11-07 economy): with the champions' that was 20 a run
+                    // against the 14 that rank both abilities to 5. Champions, chests, elites and the dungeon's odd corners carry them.
                 }
                 else if (Elite.Value) GearDrop.ServerSpawnForParty(transform.position, 0.18f, 0);
             }

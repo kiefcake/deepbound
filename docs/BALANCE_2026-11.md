@@ -88,3 +88,38 @@ the first eight found and the weapon path is picked at random. No bot played a p
 An `other` entry the same size as `Relics` is not extra damage. It is the hit that set off the proc: the proc's nested hit
 uses up the tag before the tally records the outer hit. So in run E, Cleric's floor 10 guardian Smite is really
 37,185 + 43,361, with Thunder Idol as the 43,369 under `Relics`.
+
+## Economy (2026-11-07)
+
+The user's target: on **Normal with no omens or events**, a solo player or one of four should reach about **80%** of the
+upgrades they care about by the final guardian: **tempering + hones, ability ranks, yard drills**. Lucky drops and
+dungeon extras can push past that; Hard and up (and omens like Blood Moon) pay for the rest. Prices stay as they were.
+
+What "everything" costs per player: tempering 1,125 embers + 700 gold, five hones 1,250 embers + 2,000 gold, every drill
+~3,100 gold (Breathing +500 for mana classes), both abilities to rank 5 = 14 Sigils (`AbilityRanks.MaxRank` is 5; the
+notes saying 8 were stale). Total ~2,375 embers, ~5,800 gold, 14 Sigils.
+
+Measured before the change (full ten-floor bot runs, Normal):
+
+| Player | Gold earned | Embers (drops + scrap) | Sigils |
+|---|---|---|---|
+| Solo Cleric | 9,171 | 2,402 + 573 | 33 |
+| Party Knight | 11,830 | 3,250 + 914 | 28 |
+| Party Rogue | 9,512 | 2,530 + 809 | 23 |
+
+Every bot ended maxed on tempering and hones with 1,800-5,200 gold and 450-1,400 embers unspent; guaranteed Sigils alone
+(a champion's and a guardian's every floor) were 20 against 14 needed.
+
+Changes: `Difficulty.EconomyGold`/`EconomyEmbers` 0.62 on every dungeon source (`LootDrop.ServerSpawnFromTable`,
+`DungeonDirector.ServerDropLoot` unless `fixedSum`, contracts, reliquary, side shrines, blood altar, `Gear.ScrapValue`);
+gambles paid back (`SideShrine` beggar) and a Tithe-Taker's stolen gold are `fixedSum`. The setting's gold (`Level.Gold`)
+now applies to every source (it was only on kills), and settings gained `Embers` (Hard 1.3, Nightmare 1.6, Torment 2;
+embers never scaled with difficulty before). Sigils: guardians no longer drop one each; champions drop one per player
+75% of the time (`ChampionSigilChance`); elites 8% -> 3.5%, chests 14% -> 6%.
+
+Expected on Normal: ~5,700 gold and ~1,850-2,500 embers per player, ~11-12 Sigils (more for whoever scraps a lot or finds
+the niches and shrines). To be confirmed by a solo and a party run on the new numbers.
+
+Solo by class (old economy, same build): the Cleric heals itself and had 0 near-downs on floors 1-9; the Rogue had 4-18
+a floor and 45 on floor 9; the Mage 1-14. Solo difficulty depends heavily on the class. The Mage bot stalled for nine
+minutes on floors 3 and 4 with enemies left (a bot problem; no "stuck" diagnosis printed).

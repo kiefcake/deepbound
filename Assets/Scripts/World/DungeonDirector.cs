@@ -420,9 +420,11 @@ namespace Deepbound.World
         /// <paramref name="from"/> (its source, default: where it was asked for); <paramref name="settle"/> false
         /// leaves it exactly where it was put (a niche's plinth).
         /// </summary>
-        public void ServerDropLoot(Vector3 at, LootKind kind, int amount, Vector3? from = null, bool settle = true)
+        public void ServerDropLoot(Vector3 at, LootKind kind, int amount, Vector3? from = null, bool settle = true, bool fixedSum = false)
         {
             if (lootPrefab == null) return;
+            if (!fixedSum && kind == LootKind.Gold) amount = Enemies.Difficulty.Gold(amount);
+            if (!fixedSum && kind == LootKind.Embers) amount = Enemies.Difficulty.Embers(amount);
             var place = settle ? DropSpots.Settle(from ?? at, at) : at + Vector3.up * 0.05f;
             var obj = Instantiate(lootPrefab, place, Quaternion.identity);
             var drop = obj.GetComponent<LootDrop>();

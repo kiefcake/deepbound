@@ -100,7 +100,7 @@ namespace Deepbound.World
                 case Kind.Whetstone:
                     if (HasUsed(who)) return;
                     Used.Value |= Bit(who);
-                    if (!who.ServerFreeTemper()) who.ServerAddEmbers(30 + 10 * Tier);
+                    if (!who.ServerFreeTemper()) who.ServerAddEmbers(Enemies.Difficulty.Embers(30 + 10 * Tier));
                     FxRpc(0, who.name);
                     break;
                 case Kind.Mirror:
@@ -108,7 +108,7 @@ namespace Deepbound.World
                     Used.Value |= Bit(who);
                     who.ServerSetMirrorCursed(true);
                     for (int tries = 0; tries < 30; tries++) { var r = Relics.Random(); if (!who.HasRelic(r)) { who.ServerAddRelic(r); break; } }
-                    who.ServerAddGold(80 + 30 * Tier);
+                    who.ServerAddGold(Enemies.Difficulty.Gold(80 + 30 * Tier));
                     FxRpc(1, who.name);
                     break;
             }
@@ -140,7 +140,7 @@ namespace Deepbound.World
             if (roll < 0.25f) d?.ServerDropLoot(front, LootKind.Relic, (int)Relics.Random());
             else if (roll < 0.55f) { d?.ServerDropLoot(front, LootKind.PotionHP, 2); d?.ServerDropLoot(front + Vector3.right * 0.6f, LootKind.PotionMP, 1); }
             else if (roll < 0.72f) d?.ServerDropLoot(front, LootKind.Sigil, 1);
-            else for (int i = 0; i < 4; i++) d?.ServerDropLoot(front + Quaternion.Euler(0f, i * 90f, 0f) * Vector3.forward * 0.8f, LootKind.Gold, price * 2);
+            else for (int i = 0; i < 4; i++) d?.ServerDropLoot(front + Quaternion.Euler(0f, i * 90f, 0f) * Vector3.forward * 0.8f, LootKind.Gold, price * 2, fixedSum: true);
             FxRpc(4, who.name);
         }
 

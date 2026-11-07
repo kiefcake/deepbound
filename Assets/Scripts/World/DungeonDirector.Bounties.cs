@@ -116,7 +116,7 @@ namespace Deepbound.World
             {
                 if (p == null) continue;
                 var prog = p.GetComponent<PlayerProgress>();
-                prog.ServerAddGold(50 + 40 * depth);
+                prog.ServerAddGold(Enemies.Difficulty.Gold(50 + 40 * depth));
                 ServerDropEmbers(p.transform.position + Vector3.up * 0.5f, 8 + 3 * depth);
                 if (HardContract(c)) ServerDropLoot(p.transform.position + p.transform.forward + Vector3.up * 0.5f, LootKind.Sigil, 1);
             }

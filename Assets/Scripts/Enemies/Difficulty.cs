@@ -19,16 +19,34 @@ namespace Deepbound.Enemies
         public class Setting
         {
             public string Name, Blurb;
-            public float Health, Damage, SpawnMultiplier, EliteBonus, Gold;
+            public float Health, Damage, SpawnMultiplier, EliteBonus, Gold, Embers = 1f;
         }
 
         public static readonly Setting[] Settings =
         {
-            new Setting { Name = "Normal", Blurb = "The descent as intended.", Health = 1f, Damage = 1f, SpawnMultiplier = 1f, EliteBonus = 0f, Gold = 1f },
-            new Setting { Name = "Hard", Blurb = "Tougher dead, more elites, richer spoils.", Health = 1.4f, Damage = 1.3f, SpawnMultiplier = 1.15f, EliteBonus = 0.08f, Gold = 1.5f },
-            new Setting { Name = "Nightmare", Blurb = "For parties that never fall. Double gold.", Health = 1.9f, Damage = 1.6f, SpawnMultiplier = 1.3f, EliteBonus = 0.15f, Gold = 2f },
-            new Setting { Name = "Torment", Blurb = "For those who brought the Last Morning. The Tallyman comes early.", Health = 2.5f, Damage = 2f, SpawnMultiplier = 1.45f, EliteBonus = 0.25f, Gold = 2.6f },
+            new Setting { Name = "Normal", Blurb = "The descent as intended.", Health = 1f, Damage = 1f, SpawnMultiplier = 1f, EliteBonus = 0f, Gold = 1f, Embers = 1f },
+            new Setting { Name = "Hard", Blurb = "Tougher dead, more elites, richer spoils.", Health = 1.4f, Damage = 1.3f, SpawnMultiplier = 1.15f, EliteBonus = 0.08f, Gold = 1.5f, Embers = 1.3f },
+            new Setting { Name = "Nightmare", Blurb = "For parties that never fall. Double gold.", Health = 1.9f, Damage = 1.6f, SpawnMultiplier = 1.3f, EliteBonus = 0.15f, Gold = 2f, Embers = 1.6f },
+            new Setting { Name = "Torment", Blurb = "For those who brought the Last Morning. The Tallyman comes early.", Health = 2.5f, Damage = 2f, SpawnMultiplier = 1.45f, EliteBonus = 0.25f, Gold = 2.6f, Embers = 2f },
         };
+
+        /// <summary>
+        /// The run's economy (2026-11-07, the user: on Normal with no omens a player, solo or one of four, should reach
+        /// about 80% of the upgrades they care about (tempering + hones, ability ranks, yard drills) by the final guardian;
+        /// harder settings and omens pay for the rest). Measured on full bot runs on Normal: solo ~9,200 gold and ~3,000
+        /// embers, party members ~9,500-11,800 and ~3,300-4,200, against ~5,800 gold (tempering 700, hones 2,000, drills
+        /// ~3,100) and 2,375 embers (tempering 1,125, hones 1,250) for everything. Every gold and ember source in the
+        /// dungeon (loot tables, single drops, contracts, the reliquary, shrines, scrapping) is scaled by these; gambling,
+        /// refunds and the cat are not.
+        /// </summary>
+        public const float EconomyGold = 0.62f, EconomyEmbers = 0.62f;
+        /// <summary>What one unit of dungeon gold is worth on this setting.</summary>
+        public static float GoldIncome => EconomyGold * Level.Gold;
+        /// <summary>What one unit of dungeon embers is worth on this setting.</summary>
+        public static float EmberIncome => EconomyEmbers * Level.Embers;
+        /// <summary>Scale a base reward, never below 1.</summary>
+        public static int Gold(int amount) => amount <= 0 ? amount : Mathf.Max(1, Mathf.RoundToInt(amount * GoldIncome));
+        public static int Embers(int amount) => amount <= 0 ? amount : Mathf.Max(1, Mathf.RoundToInt(amount * EmberIncome));
 
         /// <summary>Torment (index 3) opens once this machine's player has finished a descent.</summary>
         public const int TormentIndex = 3;

@@ -83,8 +83,8 @@ namespace Deepbound.World
             {
                 if (p == null || !p.TryGetComponent<PlayerProgress>(out var prog)) continue;
                 if (p.Downed.Value && !p.Soul.Value) p.ServerRevive(0.5f);
-                prog.ServerAddGold(gold);
-                prog.ServerAddEmbers(embers);
+                prog.ServerAddGold(Enemies.Difficulty.Gold(gold));
+                prog.ServerAddEmbers(Enemies.Difficulty.Embers(embers));
                 if (sigil) prog.ServerAddSigil();
                 if (relic)
                     for (int tries = 0; tries < 30; tries++)

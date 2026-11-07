@@ -57,7 +57,7 @@ namespace Deepbound.World
             hp.ServerSetFraction((hp.Current.Value - hp.Max.Value * OfferFraction) / hp.Max.Value);
             donors.Add(who.NetworkObjectId);
             int depth = DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0;
-            who.ServerAddEmbers(4 + Mathf.RoundToInt(2f * DungeonDirector.Tier(depth)));
+            who.ServerAddEmbers(Enemies.Difficulty.Embers(4 + Mathf.RoundToInt(2f * DungeonDirector.Tier(depth))));
             Filled.Value = (byte)Mathf.Min(Offerings, Filled.Value + 1);
             // Fresh blood on the stone: the dead nearby smell it.
             DungeonDirector.Instance?.ServerNoise(hp, transform.position, 12f);

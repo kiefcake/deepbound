@@ -172,7 +172,7 @@ namespace Deepbound.Loot
         public static int AttuneCost(GearItem item, int depth) => item.IsEmpty || depth <= item.Depth ? 0 : 20 * (depth - item.Depth);
 
         /// <summary>Embers you get for breaking an unwanted piece down.</summary>
-        public static int ScrapValue(GearItem item) => item.IsEmpty ? 0 : 5 + 4 * item.Quality + 3 * item.Depth;
+        public static int ScrapValue(GearItem item) => item.IsEmpty ? 0 : Enemies.Difficulty.Embers(5 + 4 * item.Quality + 3 * item.Depth);
 
         /// <summary>A random piece for the given depth. <paramref name="luck"/> 0 = normal, 1 = boss/vault.</summary>
         public static GearItem Roll(int depth, int luck)
