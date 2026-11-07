@@ -24,6 +24,8 @@ namespace Deepbound.World
         private float departStart = -1f;
         private readonly List<Transform> wheels = new List<Transform>();
         private Transform[] seats;
+        /// <summary>The top of the canvas (the cat perches there while anyone is seated).</summary>
+        public Transform Roof { get; private set; }
         private Transform horseBody, horseHead;
         private readonly List<(Transform leg, float phase)> horseLegs = new List<(Transform, float)>();
         private float wheelAngle;
@@ -133,6 +135,7 @@ namespace Deepbound.World
             var canvas = MeshKit.Part(body, "Canvas", MeshKit.Lathe("canvasShort", new[] { new Vector2(1.06f, -1.05f), new Vector2(1.06f, 1.05f) }, 12, true, 180f), Mat.Cloth,
                 new Vector3(0f, 1.62f, 0.85f), roof.eulerAngles);
             ArtLibrary.Tint(canvas.GetComponent<Renderer>(), new Color(0.55f, 0.5f, 0.4f));
+            Roof = MeshKit.Pivot(body, "CatPerch", new Vector3(0f, 2.7f, 0.85f)); // where the castle cat sits to see riders off
             // A back panel for the canvas, and the driver's box out front.
             W(body, "CabBack", new Vector3(2.1f, 1.2f, 0.06f), new Vector3(0f, 1.62f, -0.2f), default, 0.85f);
             W(body, "Box", new Vector3(1.8f, 0.5f, 0.6f), new Vector3(0f, 1.3f, 2.25f));

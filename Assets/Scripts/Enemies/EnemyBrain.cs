@@ -32,6 +32,8 @@ namespace Deepbound.Enemies
         /// <summary>Unscaled stats, for the balance report.</summary>
         public float BaseHealth => maxHealth;
         public float BaseDamage => damage;
+        /// <summary>Server: hit harder or softer (a Panoply guard).</summary>
+        public void ServerScaleDamage(float k) { if (IsServer) damage *= k; }
         /// <summary>Chance a fallen champion leaves a Sigil for each player.</summary>
         public const float ChampionSigilChance = 0.75f;
         public float BaseDefense => defense;

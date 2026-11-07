@@ -331,13 +331,25 @@ namespace Deepbound.Player
                 if (SpeedMultiplier <= 0.001f) planar = Vector3.zero;
             }
 
+            // A hard ceiling on running speed, whatever adds to it (a slide starts at 1.7x sprint).
+            planar = Vector3.ClampMagnitude(planar, sprintSpeed * Mathf.Max(1f, SpeedMultiplier) * 1.8f);
             impulse = Vector3.MoveTowards(new Vector3(impulse.x, 0f, impulse.z), Vector3.zero, Time.deltaTime * 40f);
             Vector3 velocity = planar + impulse + Vector3.up * verticalVelocity;
 
             var flags = controller.Move(velocity * Time.deltaTime);
             // Bumping a wall or ceiling kills the speed into it, so you do not "stick" and then shoot off.
             if ((flags & CollisionFlags.Above) != 0 && verticalVelocity > 0f) verticalVelocity = 0f;
-            if ((flags & CollisionFlags.Sides) != 0) planar = Vector3.Lerp(planar, new Vector3(controller.velocity.x, 0f, controller.velocity.z), 0.5f);
+            // A wall only ever takes speed away. It used to blend toward the controller's whole velocity, which includes the
+            // dodge/knockback impulse: brushing a wall folded half the impulse into running speed every frame, and in the
+            // air nothing bled it off (the user, 2026-11-07: "almost infinite speeds if you dodge into a wall at an angle").
+            if ((flags & CollisionFlags.Sides) != 0)
+            {
+                var moved = new Vector3(controller.velocity.x, 0f, controller.velocity.z) - new Vector3(impulse.x, 0f, impulse.z);
+                float before = planar.magnitude;
+                planar = Vector3.ClampMagnitude(Vector3.Lerp(planar, moved, 0.5f), before);
+                // The impulse itself is spent against the wall too, so it cannot slide you along for its whole life.
+                impulse = Vector3.ClampMagnitude(impulse, Mathf.Max(0f, new Vector3(controller.velocity.x, 0f, controller.velocity.z).magnitude));
+            }
         }
 
         /// <summary>

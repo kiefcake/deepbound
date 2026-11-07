@@ -16,9 +16,11 @@ namespace Deepbound.World
     [RequireComponent(typeof(Health))]
     public class Breakable : NetworkBehaviour
     {
-        public enum Kind : byte { Urn, PowderBarrel, RitualBrazier, SoulLantern, HealPylon }
+        public enum Kind : byte { Urn, PowderBarrel, RitualBrazier, SoulLantern, HealPylon, GreatUrn }
 
         public readonly NetworkVariable<Kind> Type = new NetworkVariable<Kind>();
+        /// <summary>A great urn takes a few blows (plus 12 a tier).</summary>
+        public const float GreatUrnHealth = 36f;
         [SerializeField] private NetworkObject lootPrefab;
 
         private const float BlastRadius = 3.8f, BlastDamage = 55f, FuseSeconds = 0.7f;
@@ -48,10 +50,15 @@ namespace Deepbound.World
                 cap.radius = 0.55f; cap.height = 2.8f; cap.center = new Vector3(0f, 1.4f, 0f);
                 health.InvalidateBody();
             }
+            if (Type.Value == Kind.GreatUrn && TryGetComponent<CapsuleCollider>(out var gcap))
+            {
+                gcap.radius = 0.62f; gcap.height = 1.9f; gcap.center = new Vector3(0f, 0.95f, 0f);
+                health.InvalidateBody();
+            }
             if (!IsServer) return;
             int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
             float tier = DungeonDirector.Tier(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
-            health.ServerSetMax(Type.Value == Kind.Urn ? 1f : Type.Value == Kind.RitualBrazier ? 60f + 20f * tier
+            health.ServerSetMax(Type.Value == Kind.Urn ? 1f : Type.Value == Kind.GreatUrn ? GreatUrnHealth + 12f * tier : Type.Value == Kind.RitualBrazier ? 60f + 20f * tier
                 : Type.Value == Kind.HealPylon ? (140f + 70f * tier) * (1f + 0.4f * (players - 1)) : 10f, refill: true);
             health.Died += _ => ServerBreak();
             // A pylon that is being struck stops pouring for a moment: attacking it pays off at once.
@@ -120,6 +127,16 @@ namespace Deepbound.World
                 foreach (var foe in CombatQuery.Circle(at, 6f, Team.Enemies).ToArray())
                     if (foe.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(2.5f);
                 SoulFxRpc();
+                NetworkObject.Despawn();
+                return;
+            }
+            if (Type.Value == Kind.GreatUrn)
+            {
+                // A great urn (2026-11-07, the user: "bigger breakable vases with more loot"): a grave-goods jar.
+                float tier = DungeonDirector.Tier(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
+                LootDrop.ServerSpawnFromTable(lootPrefab, LootTable.GreatUrn, transform.position + Vector3.up * 0.4f, 1f + 0.4f * tier, Enemies.Difficulty.FixedLootShare(Enemies.Difficulty.Party));
+                BreakFxRpc();
+                BreakFxRpc();
                 NetworkObject.Despawn();
                 return;
             }
@@ -294,6 +311,32 @@ namespace Deepbound.World
                 pl.range = 6f;
                 pl.intensity = 2f;
                 pl.shadows = LightShadows.None;
+                return;
+            }
+            if (Type.Value == Kind.GreatUrn)
+            {
+                // A tall grave-goods jar, chest high: dark glaze, a gilt band and a painted skull, wax-sealed lid.
+                var jar = MeshKit.Pivot(transform, "Vase", Vector3.zero);
+                jar.localScale = Vector3.one * 2.6f;
+                var body = MeshKit.Part(jar, "Urn", MeshKit.Lathe("greatUrn", new[]
+                {
+                    new Vector2(0f, 0f), new Vector2(0.14f, 0f), new Vector2(0.2f, 0.06f), new Vector2(0.27f, 0.28f), new Vector2(0.25f, 0.5f),
+                    new Vector2(0.14f, 0.62f), new Vector2(0.12f, 0.66f), new Vector2(0.15f, 0.7f), new Vector2(0f, 0.7f),
+                }, 14, false), Mat.Rubble, Vector3.zero);
+                ArtLibrary.Tint(body.GetComponent<Renderer>(), new Color(0.42f, 0.24f, 0.2f));
+                var gilt = MeshKit.Part(jar, "Band", MeshKit.Cylinder(0.272f, 0.272f, 0.035f, 14), Mat.Gold, new Vector3(0f, 0.36f, 0f));
+                ArtLibrary.Tint(gilt.GetComponent<Renderer>(), new Color(0.75f, 0.55f, 0.22f));
+                var foot = MeshKit.Part(jar, "Foot", MeshKit.Cylinder(0.205f, 0.205f, 0.03f, 14), Mat.Gold, new Vector3(0f, 0.04f, 0f));
+                ArtLibrary.Tint(foot.GetComponent<Renderer>(), new Color(0.6f, 0.44f, 0.18f));
+                // A bone-white skull painted on the shoulder, front and back.
+                foreach (float s in new[] { -1f, 1f })
+                {
+                    var skull = MeshKit.Part(jar, "Skull", MeshKit.Ball(0.05f, 8, 6), Mat.Bone, new Vector3(0f, 0.46f, s * 0.215f), Vector3.zero, new Vector3(1f, 1f, 0.35f));
+                    ArtLibrary.Tint(skull.GetComponent<Renderer>(), new Color(0.85f, 0.8f, 0.68f));
+                }
+                MeshKit.Part(jar, "Lid", MeshKit.Cylinder(0.16f, 0.12f, 0.05f, 12), Mat.Rubble, new Vector3(0f, 0.7f, 0f));
+                var wax = MeshKit.Part(jar, "Seal", MeshKit.Ball(0.035f, 6, 4), Mat.Cloth, new Vector3(0f, 0.76f, 0f));
+                ArtLibrary.Tint(wax.GetComponent<Renderer>(), new Color(0.5f, 0.06f, 0.05f));
                 return;
             }
             if (Type.Value == Kind.Urn)

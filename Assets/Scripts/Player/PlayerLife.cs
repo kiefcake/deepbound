@@ -530,6 +530,7 @@ namespace Deepbound.Player
                 motor.AddImpulse(dir.normalized * DodgeSpeed);
             }
             DodgeReadyAt = Time.time + DodgeCooldownNow;
+            if (progress != null && progress.Wears(Loot.GearId.WraithstepCuirass)) progress.WraithstepUntil = Time.time + Progression.PlayerProgress.WraithstepSeconds;
             DodgeRpc();
         }
 

@@ -245,6 +245,7 @@ namespace Deepbound.EditorTools
             root.AddComponent<Kick>();
             root.AddComponent<Flasks>();
             root.AddComponent<Emotes>();
+            root.AddComponent<GiveWheel>();
             root.AddComponent<Teamwork>();
             root.AddComponent<PlayerDebuffs>();
             root.AddComponent<RangerKit>();

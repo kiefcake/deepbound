@@ -13,7 +13,7 @@ namespace Deepbound.World
     /// chamber (braziers empower the room's dead until smashed). Side rooms can be a
     /// Vault or a Fountain.
     /// </summary>
-    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless }
+    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply }
 
     /// <summary>Boss arena shapes: a colonnade (cover), a raised dais under the throne, or broken ruins.</summary>
     public enum BossArena : byte { Colonnade = 0, Dais = 1, Ruins = 2 }
@@ -80,7 +80,7 @@ namespace Deepbound.World
             }
 
             /// <summary>A side room with one of the special features (treasury, beggar, proving bell, armoury, mirror).</summary>
-            public bool Special => Feature == RoomFeature.Treasury || Feature == RoomFeature.Beggar || Feature == RoomFeature.Proving || Feature == RoomFeature.Armoury || Feature == RoomFeature.Mirror || Feature == RoomFeature.Oath;
+            public bool Special => Feature == RoomFeature.Treasury || Feature == RoomFeature.Beggar || Feature == RoomFeature.Proving || Feature == RoomFeature.Armoury || Feature == RoomFeature.Mirror || Feature == RoomFeature.Oath || Feature == RoomFeature.Panoply;
             public Vector2Int Cell;
             public Vector3 Center;
             /// <summary>Interior floor size in metres (x, z).</summary>
@@ -772,7 +772,21 @@ namespace Deepbound.World
         private static void AssignSpecialRooms(DungeonLayout layout, System.Random rng)
         {
             var sides = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side);
-            // The other side rooms (2026-10-20): most become one of the special rooms, no repeats a floor.
+            // The Panoply first (floors 2, 5, 8): the stand at the back, its guard halfway in.
+            if (DungeonDirector.PanoplyFloor(layout.Depth))
+                foreach (var side in sides)
+                {
+                    if (side.Feature != RoomFeature.None || side.Peaceful) continue;
+                    side.Feature = RoomFeature.Panoply;
+                    int pe = 0;
+                    for (int s = 0; s < 4; s++) if (side.Doors[s]) pe = s;
+                    var pback = -new Vector3(Dir[pe].x, 0f, Dir[pe].y);
+                    float pto = (pe == 0 || pe == 2 ? side.Size.y : side.Size.x) / 2f - 1.8f;
+                    side.FeatureSpots.Add(side.Center + pback * pto);
+                    side.FeatureSpots.Add(side.Center + pback * (pto * 0.2f));
+                    break;
+                }
+            // ...the rest: most become one of the special rooms, no repeats a floor.
             var specials = new List<RoomFeature> { RoomFeature.Treasury, RoomFeature.Beggar, RoomFeature.Proving, RoomFeature.Armoury, RoomFeature.Mirror, RoomFeature.Oath };
             for (int i = specials.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (specials[i], specials[j]) = (specials[j], specials[i]); }
             int nextSpecial = 0;

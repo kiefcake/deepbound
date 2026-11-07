@@ -17,7 +17,7 @@ namespace Deepbound.Art
     }
 
     /// <summary>The emote wheel's gestures (2026-11-01), played on a player's rig for everyone to see.</summary>
-    public enum Emote : byte { None = 0, Wave = 1, Cheer = 2, Bow = 3, Laugh = 4, Dance = 5, Point = 6, Beckon = 7, Sit = 8 }
+    public enum Emote : byte { None = 0, Wave = 1, Cheer = 2, Bow = 3, Laugh = 4, Dance = 5, Point = 6, Beckon = 7, Sit = 8, Salute = 9, Kneel = 10, Shrug = 11, Clap = 12 }
 
     /// <summary>
     /// Pivot references for a procedurally built humanoid, and the procedural animation
@@ -411,6 +411,39 @@ namespace Deepbound.Art
                     armL = Vector3.Lerp(armL, new Vector3(-40f, 0f, -10f), into);
                     hips += new Vector3(0f, -0.5f * (hipsRest.y > 0f ? hipsRest.y / 0.95f : 1f), 0.12f) * into;
                     break;
+                case Emote.Salute:
+                    // Fist to the brow, chin up.
+                    armR = Vector3.Lerp(armR, new Vector3(-150f, 30f, 75f), into);
+                    head += new Vector3(-8f, 0f, 0f) * into;
+                    torso += new Vector3(-4f, 0f, 0f) * into;
+                    break;
+                case Emote.Kneel:
+                    // Down on one knee, head bowed, a hand on the raised knee.
+                    legL = Vector3.Lerp(legL, new Vector3(-88f, 0f, -6f), into);
+                    legR = Vector3.Lerp(legR, new Vector3(30f, 0f, 6f), into);
+                    hips += new Vector3(0f, -0.38f * (hipsRest.y > 0f ? hipsRest.y / 0.95f : 1f), 0.05f) * into;
+                    torso += new Vector3(14f, 0f, 0f) * into;
+                    head += new Vector3(24f, 0f, 0f) * into;
+                    armL = Vector3.Lerp(armL, new Vector3(-50f, 0f, -12f), into);
+                    armR = Vector3.Lerp(armR, new Vector3(10f, 0f, 8f), into);
+                    break;
+                case Emote.Shrug:
+                {
+                    float up = Mathf.Sin(Mathf.Clamp01(e / 1.4f) * Mathf.PI);
+                    armR = Vector3.Lerp(armR, new Vector3(-35f, 0f, 55f), up);
+                    armL = Vector3.Lerp(armL, new Vector3(-35f, 0f, -55f), up);
+                    head += new Vector3(0f, 0f, 14f) * up;
+                    hips += new Vector3(0f, 0.04f, 0f) * up;
+                    break;
+                }
+                case Emote.Clap:
+                {
+                    float c = Mathf.Abs(Mathf.Sin(e * 9f));
+                    armR = Vector3.Lerp(armR, new Vector3(-78f, -30f + 22f * c, 0f), into);
+                    armL = Vector3.Lerp(armL, new Vector3(-78f, 30f - 22f * c, 0f), into);
+                    head += new Vector3(-6f, 0f, 0f) * into;
+                    break;
+                }
             }
         }
 

@@ -22,6 +22,8 @@ namespace Deepbound.Loot
         BellringersHauberk = 17, GravediggersCoat = 18, RosaryOfAsh = 19, WitchboneFetish = 20,
         // The Wardens' own legendaries (2026-10-27; before, a Warden fell through to the Hollow King's crown).
         MarrowgutsRib = 21, DrownedKnightsMail = 22, AldousOath = 23, ChoirmastersBaton = 24, GorrsHide = 25,
+        // The Panoply's armour (2026-11-07): only found in a guarded armoury crypt, never rolled.
+        Rimecloak = 26, WraithstepCuirass = 27, MartyrsShell = 28, SunwardPlate = 29,
     }
 
     /// <summary>
@@ -93,6 +95,14 @@ namespace Deepbound.Loot
                 Effect = "Every tenth hit you land sings: you and allies within 8 m mend 5% of your health.", Stats = new[] { (StatType.WIS, 2f), (StatType.ATT, 1.5f) } } },
             { GearId.GorrsHide, new Def { Slot = GearSlot.Armor, Name = "Hide of Gorr",
                 Effect = "Poison cannot take you, and the dead that strike you up close are burnt by the rot.", Stats = new[] { (StatType.HP, 3f), (StatType.VIT, 1.5f) } } },
+            { GearId.Rimecloak, new Def { Slot = GearSlot.Armor, Name = "Rimecloak",
+                Effect = "A frost mist hangs about you: the dead within 4 m are chilled every 1.5 s (sets up Shatter).", Stats = new[] { (StatType.DEF, 2.5f), (StatType.WIS, 2f) } } },
+            { GearId.WraithstepCuirass, new Def { Slot = GearSlot.Armor, Name = "Wraithstep Cuirass",
+                Effect = "After every dodge you run 40% faster for 1.5 s, a ghost at your heels.", Stats = new[] { (StatType.DEX, 2.5f), (StatType.SPD, 2f) } } },
+            { GearId.MartyrsShell, new Def { Slot = GearSlot.Armor, Name = "Martyr's Shell",
+                Effect = "The lower your health, the harder you hit (up to +45% near death); healing on you is 15% weaker.", Stats = new[] { (StatType.ATT, 3f), (StatType.HP, 1.5f) } } },
+            { GearId.SunwardPlate, new Def { Slot = GearSlot.Armor, Name = "Sunward Plate",
+                Effect = "A halo of morning light: allies within 6 m mend 1% of their health a second (you, half that).", Stats = new[] { (StatType.DEF, 3f), (StatType.VIT, 2f) } } },
             { GearId.CardinalVestments, new Def { Slot = GearSlot.Armor, Name = "Vestments of the Pale Cardinal",
                 Effect = "Your kills call down Judgement: a pillar of holy fire erupts there a moment later (once a second).", Stats = new[] { (StatType.DEF, 2f), (StatType.WIS, 2f), (StatType.ATT, 1.5f) } } },
         };
@@ -109,6 +119,8 @@ namespace Deepbound.Loot
         public static GearId[] RollableOf(GearSlot slot) => System.Array.FindAll(Rollable, id => SlotOf(id) == slot);
 
         /// <summary>The legendary a boss can drop, by its type.</summary>
+        /// <summary>The Panoply's pieces: one per guarded armoury, never rolled.</summary>
+        public static readonly GearId[] PanoplyPieces = { GearId.Rimecloak, GearId.WraithstepCuirass, GearId.MartyrsShell, GearId.SunwardPlate };
         private static readonly GearId[] WardenPieces = { GearId.MarrowgutsRib, GearId.DrownedKnightsMail, GearId.AldousOath, GearId.ChoirmastersBaton, GearId.GorrsHide };
 
         public static GearId LegendaryOf(Enemies.BossBrain boss) => boss is Enemies.WardenBrain w ? WardenPieces[Mathf.Clamp(w.Act, 0, WardenPieces.Length - 1)]

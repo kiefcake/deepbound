@@ -1261,6 +1261,8 @@ namespace Deepbound.World
 
                 int urns = 2 + rng.Next(3);
                 for (int i = 0; i < urns; i++) SpawnBreakable(Breakable.Kind.Urn, WallSpot(room, rng));
+                // A great urn in about a third of rooms, half of the side rooms.
+                if (rng.NextDouble() < (room.Kind == RoomKind.Side ? 0.5 : 0.3)) SpawnBreakable(Breakable.Kind.GreatUrn, WallSpot(room, rng));
                 if (Act(layout.Depth) == 2 && room.Kind == RoomKind.Combat)
                     for (int i = 0; i < 2; i++) SpawnBreakable(Breakable.Kind.SoulLantern, WallSpot(room, rng));
                 if (room.Kind == RoomKind.Combat && rng.NextDouble() < 0.6)
@@ -1436,6 +1438,7 @@ namespace Deepbound.World
             UpdateTideVisual();
             if (!IsServer || Instance != this) return;
             WatchPartySize();
+            TickArmourAuras();
             double now = NetworkManager.ServerTime.Time;
 
             switch (Phase.Value)

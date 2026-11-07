@@ -282,6 +282,19 @@ namespace Deepbound.Player
         }
 
         /// <summary>Server: put potions in the pouch. Returns how many fit (the rest stay where they were).</summary>
+        /// <summary>Server: one bottle out of the pouch (a gift). False if there is none.</summary>
+        public bool ServerTakeOne(Kind k)
+        {
+            if (!IsServer) return false;
+            var slot = Slot(k);
+            if (slot.Value == 0) return false;
+            slot.Value--;
+            return true;
+        }
+
+        /// <summary>A potion's full name for a given class (the draught differs by class).</summary>
+        public static string FullNameFor(Kind k, Classes.ClassId c) => k == Kind.Health ? "Health Potion" : k == Kind.Mana ? DraughtName(c) : k == Kind.Frost ? "Frost Flask" : "Holy Water";
+
         public int ServerAdd(Kind k, int count)
         {
             if (!IsServer || count <= 0) return 0;

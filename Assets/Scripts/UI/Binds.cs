@@ -25,7 +25,7 @@ namespace Deepbound.UI
             (Bind.Jump, "Jump", Key.Space), (Bind.Sprint, "Sprint", Key.LeftShift), (Bind.Dodge, "Dodge", Key.LeftCtrl), (Bind.Slide, "Slide", Key.C),
             (Bind.AbilityQ, "Ability 1", Key.Q), (Bind.AbilityE, "Ability 2", Key.E), (Bind.Ultimate, "Ultimate", Key.R), (Bind.Kick, "Kick", Key.V),
             (Bind.Use, "Use / pick up", Key.F), (Bind.Interact, "Talk / trade / drag", Key.F), (Bind.Emote, "Wave / emote wheel (hold)", Key.H),
-            (Bind.Inventory, "Inventory", Key.I), (Bind.Map, "Map", Key.M), (Bind.Ping, "Ping", Key.Z), (Bind.Scrap, "Scrap", Key.X),
+            (Bind.Inventory, "Inventory", Key.I), (Bind.Map, "Map", Key.M), (Bind.Ping, "Give to an ally (hold)", Key.G), (Bind.Scrap, "Scrap", Key.X),
             (Bind.Stats, "Stat sheet (hold)", Key.Tab), (Bind.Class, "Class screen", Key.B),
             (Bind.Potion1, "Health potion", Key.Digit1), (Bind.Potion2, "Mana potion", Key.Digit2), (Bind.Potion3, "Frost flask", Key.Digit3), (Bind.Potion4, "Holy water", Key.Digit4),
             (Bind.PushToTalk, "Push to talk", Key.T), (Bind.Rare, "Rare draught / tome", Key.Digit5),

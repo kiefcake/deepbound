@@ -459,6 +459,7 @@ namespace Deepbound.World
                     case RoomFeature.Armoury when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Whetstone, room, room.FeatureSpots[0], 0, room.Id); break;
                     case RoomFeature.Mirror when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Mirror, room, room.FeatureSpots[0], 0, room.Id); break;
                     case RoomFeature.Oath when oathPlatesPrefab != null && room.FeatureSpots.Count >= 4: SpawnOath(room); break;
+                    case RoomFeature.Panoply: SetupPanoply(room, layout); break;
                 }
             }
         }

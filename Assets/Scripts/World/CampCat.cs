@@ -16,12 +16,13 @@ namespace Deepbound.World
     {
         private static readonly Vector3[] Route =
         {
-            Lobby.S(0.6f, 0f, -8f), Lobby.S(-2.2f, 0f, -2.5f), Lobby.S(-4.6f, 0f, 5.6f), Lobby.S(-1.5f, 0f, 9.5f),
+            Lobby.S(2.4f, 0f, -9.4f), Lobby.S(-2.2f, 0f, -2.5f), Lobby.S(-4.6f, 0f, 5.6f), Lobby.S(-1.5f, 0f, 9.5f),
             Lobby.S(2.4f, 0f, 13f), Lobby.S(3.2f, 0f, 4f), Lobby.S(3.6f, 0f, -3.2f),
         };
         private const float WalkSpeed = 0.9f, SitSeconds = 7f;
 
-        private Transform body, head, tail, legs;
+        private Transform body, head, tail, legs, tailTip, earL, earR;
+        private readonly List<Transform> legPivots = new List<Transform>();
         private readonly HashSet<ulong> pettedThisVisit = new HashSet<ulong>();
         public readonly NetworkVariable<double> PettedUntil = new NetworkVariable<double>();
         private float nextMeow;
@@ -94,10 +95,11 @@ namespace Deepbound.World
             if (HeldBy.Value != ulong.MaxValue || Vector3.Distance(obj.transform.position, transform.position) > Range + 1f) return;
             if (scorned.Contains(who.NetworkObjectId)) { SnubRpc(who.name); return; }
             bool petted = pettedThisVisit.Contains(who.NetworkObjectId);
-            bool news = petted ? !who.CatWhisker.Value : !who.CatPeed.Value;
+            bool news = petted && !who.CatWhisker.Value;
             who.ServerCatVerdict(petted);
             HeldBy.Value = who.NetworkObjectId;
-            HeldUntil.Value = NetworkManager.ServerTime.Time + 2.5;
+            // Unpetted it wriggles straight out of your arms.
+            HeldUntil.Value = NetworkManager.ServerTime.Time + (petted ? 2.5 : 0.7);
             VerdictRpc(who.name, petted, news);
         }
 
@@ -117,10 +119,8 @@ namespace Deepbound.World
             else
             {
                 Sfx.Play(Sound.Meow, at, 1f, 0.8f);
-                Sfx.Play(Sound.Splash, at, 0.6f, 1.5f);
-                for (int i = 0; i < 3; i++) Vfx.Embers(at + Vector3.down * 0.45f, 6, new Color(0.95f, 0.85f, 0.2f), 1.2f, 0.025f, 0.7f);
-                UI.GameHud.ShowCombo(at + Vector3.up * 0.4f, "THE CAT PEES ON YOU", new Color(0.95f, 0.85f, 0.2f));
-                UI.GameHud.Feed(news ? "The cat peed on " + who + ": -5% max health this run." : "The cat peed on " + who + " again.", new Color(0.95f, 0.85f, 0.2f));
+                UI.GameHud.ShowCombo(at + Vector3.up * 0.4f, "MRRRP! (it wriggles free)", new Color(1f, 0.75f, 0.5f));
+                UI.GameHud.Feed("The cat swats " + who + " and wriggles free. Pet it first.", new Color(1f, 0.75f, 0.5f));
             }
         }
 
@@ -128,6 +128,9 @@ namespace Deepbound.World
         {
             if (scorned.Contains(who.NetworkObjectId)) { SnubRpc(who.name); return; }
             PettedUntil.Value = NetworkManager.ServerTime.Time + 3.5;
+            // Then it trails after you for a while (and winds round your legs when you stop).
+            FollowId.Value = who.NetworkObjectId;
+            FollowUntil.Value = NetworkManager.ServerTime.Time + 3.5 + FollowSeconds;
             int coin = 0;
             // Once a visit to camp per player, it may have something for you.
             if (pettedThisVisit.Add(who.NetworkObjectId) && Random.value < 0.35f)
@@ -135,15 +138,24 @@ namespace Deepbound.World
                 coin = Random.Range(5, 21);
                 who.ServerAddGold(coin);
             }
-            PetFxRpc(who.name, coin);
+            bool mouse = coin == 0 && Random.value < 0.2f;
+            PetFxRpc(who.name, coin, mouse);
         }
 
+        public const float FollowSeconds = 22f;
+        /// <summary>Who the cat is trailing after being petted (none = its rounds).</summary>
+        public readonly NetworkVariable<ulong> FollowId = new NetworkVariable<ulong>(ulong.MaxValue);
+        public readonly NetworkVariable<double> FollowUntil = new NetworkVariable<double>();
+        private Vector3 followPos;
+        private bool followInit;
+
         [Rpc(SendTo.ClientsAndHost)]
-        private void PetFxRpc(string who, int coin)
+        private void PetFxRpc(string who, int coin, bool mouse)
         {
             Sfx.Play(Sound.Purr, transform.position + Vector3.up * 0.3f, 0.9f);
             UI.GameHud.ShowCombo(transform.position + Vector3.up * 0.9f, coin > 0 ? "PURR  (+" + coin + " gold)" : "PURR", new Color(1f, 0.8f, 0.55f));
             if (coin > 0) UI.GameHud.Feed("The cat drops a coin at " + who + "'s feet: +" + coin + " gold.", new Color(1f, 0.85f, 0.4f));
+            else if (mouse) UI.GameHud.Feed("The cat lays a very dead mouse at " + who + "'s feet. It is a great honour.", new Color(1f, 0.85f, 0.55f));
         }
 
         public override void OnNetworkSpawn()
@@ -203,7 +215,48 @@ namespace Deepbound.World
                 return;
             }
             if (smile != null && smile.gameObject.activeSelf) smile.gameObject.SetActive(false);
+            if (IsServer && FollowId.Value != ulong.MaxValue && now >= FollowUntil.Value) FollowId.Value = ulong.MaxValue;
+            // Someone has taken a seat on the carriage: the cat hops up onto the roof to see them off.
+            if (CarriagePerch(out var perch))
+            {
+                transform.position = Vector3.Lerp(transform.position, perch, Time.deltaTime * 3f);
+                transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(new Vector3(Lobby.Origin.x - perch.x, 0f, Lobby.Origin.z - perch.z) + Vector3.forward * 0.01f), Time.deltaTime * 3f);
+                Animate(false, false);
+                followInit = false;
+                return;
+            }
             bool petted = now < PettedUntil.Value;
+            if (!petted && FollowId.Value != ulong.MaxValue && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(FollowId.Value, out var lead))
+            {
+                if (!followInit) { followPos = transform.position; followInit = true; }
+                var ahead = lead.transform.position;
+                var toLead = ahead - followPos; toLead.y = 0f;
+                float d = toLead.magnitude;
+                bool walking = d > 1.4f;
+                if (walking) followPos += toLead.normalized * Mathf.Min(d - 1.2f, (d > 4f ? 5.5f : 2.2f) * Time.deltaTime);
+                else
+                {
+                    // Winding round the legs: a slow circle at the feet.
+                    float a = Time.time * 1.6f;
+                    var circle = ahead + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.75f;
+                    var step = circle - followPos; step.y = 0f;
+                    followPos += Vector3.ClampMagnitude(step, 1.4f * Time.deltaTime);
+                    walking = step.magnitude > 0.05f;
+                    toLead = new Vector3(-Mathf.Sin(a), 0f, Mathf.Cos(a));
+                }
+                var at2 = followPos;
+                if (Physics.Raycast(at2 + Vector3.up * 2f, Vector3.down, out var fhit, 4f, ~0, QueryTriggerInteraction.Ignore)) at2.y = fhit.point.y;
+                followPos.y = at2.y;
+                transform.position = at2;
+                if (toLead.sqrMagnitude > 0.001f) transform.rotation = Quaternion.Slerp(transform.rotation, Quaternion.LookRotation(toLead.normalized), Time.deltaTime * 7f);
+                Animate(walking, false, false, d > 4f);
+                return;
+            }
+            if (followInit)
+            {
+                // Back to its rounds: glide to where its route has got to.
+                followInit = false;
+            }
             bool fleeing = Fleeing(now);
             // While being petted it holds still (the route resumes from where time has carried it after).
             if (!petted)
@@ -225,9 +278,43 @@ namespace Deepbound.World
             }
         }
 
-        private void Animate(bool walking, bool petted, bool fleeing = false)
+        /// <summary>On the carriage roof while anyone sits in it (every peer agrees: seats are synced).</summary>
+        private bool CarriagePerch(out Vector3 at)
+        {
+            at = default;
+            if (!DungeonDirector.InLobby || HeldBy.Value != ulong.MaxValue) return false;
+            bool anyone = false;
+            foreach (var p in Player.PlayerLife.All) if (p != null && p.Seat.Value >= 0) { anyone = true; break; }
+            if (!anyone) return false;
+            var ride = FindAnyObjectByType<CarriageRide>();
+            if (ride == null || ride.Roof == null) return false;
+            at = ride.Roof.position;
+            return true;
+        }
+
+        // Idle business while it sits: wash, stretch or loaf, chosen from the clock so every peer agrees.
+        private int Idle(float t) => Mathf.FloorToInt(t / 6f + (float)(RouteOffset.Value % 1000.0)) % 3;
+
+        private void Animate(bool walking, bool petted, bool fleeing = false, bool trotting = false)
         {
             float t = Time.time;
+            // Ears flick now and then.
+            if (earL != null)
+            {
+                float flick = Mathf.Repeat(t + 0.37f * GetInstanceID(), 3.7f) < 0.12f ? 25f : 0f;
+                earL.localRotation = Quaternion.Euler(-10f - flick, 0f, 18f);
+                earR.localRotation = Quaternion.Euler(-10f, 0f, -18f - (Mathf.Repeat(t, 5.3f) < 0.1f ? 25f : 0f));
+            }
+            // Legs: a real gait (diagonal pairs), tucked when sitting.
+            float gait = t * (fleeing ? 22f : trotting ? 15f : 9f);
+            for (int i = 0; i < legPivots.Count; i++)
+            {
+                bool pairA = i == 0 || i == 3;
+                float swing = walking || fleeing || trotting ? Mathf.Sin(gait + (pairA ? 0f : Mathf.PI)) * (fleeing ? 45f : 30f) : 0f;
+                legPivots[i].localRotation = Quaternion.Euler(swing, 0f, 0f);
+            }
+            // The tail: two segments, an S that sways (up and hooked when happy, low and lashing when bolting).
+            if (tailTip != null) tailTip.localRotation = Quaternion.Euler(petted ? 35f : 20f + Mathf.Sin(t * 1.7f) * 15f, Mathf.Sin(t * 2.3f) * 25f, 0f);
             // Bolting: a low, fast, bounding run with the tail straight up.
             if (fleeing)
             {
@@ -237,11 +324,24 @@ namespace Deepbound.World
                 if (head != null) head.localRotation = Quaternion.Euler(10f, 0f, 0f);
                 return;
             }
-            if (body != null) body.localPosition = new Vector3(0f, walking ? 0.2f + Mathf.Abs(Mathf.Sin(t * 9f)) * 0.015f : 0.15f, 0f);
-            if (body != null) body.localRotation = Quaternion.Euler(walking ? 0f : -18f, 0f, 0f);
-            if (legs != null) legs.localScale = new Vector3(1f, walking ? 1f : 0.6f, 1f);
+            bool moving = walking || trotting;
+            int idle = moving || petted ? -1 : Idle(t);
+            if (body != null)
+            {
+                float bob = moving ? Mathf.Abs(Mathf.Sin(gait)) * 0.015f : 0f;
+                // Sitting upright; a stretch (front low, rear high); a loaf (flat, paws tucked).
+                body.localPosition = new Vector3(0f, moving ? 0.2f + bob : idle == 2 ? 0.1f : 0.15f, 0f);
+                float pitch = moving ? 0f : idle == 1 ? 14f * Mathf.Clamp01(Mathf.Sin(Mathf.Repeat(t, 6f) / 6f * Mathf.PI) * 2f) : idle == 2 ? 0f : -18f;
+                body.localRotation = Quaternion.Euler(pitch, 0f, 0f);
+            }
+            if (legs != null) legs.localScale = new Vector3(1f, moving ? 1f : idle == 2 ? 0.35f : 0.6f, 1f);
             if (tail != null) tail.localRotation = Quaternion.Euler(-60f + Mathf.Sin(t * (petted ? 6f : 2f)) * 12f, Mathf.Sin(t * 1.3f) * 30f, 0f);
-            if (head != null) head.localRotation = Quaternion.Euler(petted ? -15f : 0f, petted ? Mathf.Sin(t * 3f) * 10f : Mathf.Sin(t * 0.7f) * 20f, petted ? 8f : 0f);
+            if (head != null)
+            {
+                // Washing: head dipped to one side in little licks.
+                if (idle == 0) head.localRotation = Quaternion.Euler(28f + Mathf.Abs(Mathf.Sin(t * 7f)) * 10f, 35f, 12f);
+                else head.localRotation = Quaternion.Euler(petted ? -15f : 0f, petted ? Mathf.Sin(t * 3f) * 10f : Mathf.Sin(t * 0.7f) * 20f, petted ? 8f : 0f);
+            }
         }
 
         private void BuildVisual()
@@ -257,7 +357,12 @@ namespace Deepbound.World
             Fur(MeshKit.Part(head, "Muzzle", MeshKit.Ball(0.04f, 8, 6), Mat.Cloth, new Vector3(0f, -0.02f, 0.07f)));
             foreach (float s in new[] { -1f, 1f })
             {
-                Fur(MeshKit.Part(head, "Ear", MeshKit.Lathe("catEar", new[] { new Vector2(0.03f, 0f), new Vector2(0f, 0.07f) }, 4), Mat.Cloth, new Vector3(s * 0.045f, 0.06f, 0f), new Vector3(-10f, 0f, s * -18f)));
+                var ear = MeshKit.Pivot(head, s < 0 ? "EarL" : "EarR", new Vector3(s * 0.045f, 0.06f, 0f));
+                ear.localRotation = Quaternion.Euler(-10f, 0f, s * -18f);
+                Fur(MeshKit.Part(ear, "Ear", MeshKit.Lathe("catEar", new[] { new Vector2(0.03f, 0f), new Vector2(0f, 0.07f) }, 4), Mat.Cloth, Vector3.zero));
+                var inner = MeshKit.Part(ear, "EarInner", MeshKit.Lathe("catEarIn", new[] { new Vector2(0.018f, 0f), new Vector2(0f, 0.045f) }, 4), Mat.Cloth, new Vector3(0f, 0.004f, 0.006f));
+                ArtLibrary.Tint(inner.GetComponent<Renderer>(), new Color(0.35f, 0.18f, 0.2f));
+                if (s < 0) earL = ear; else earR = ear;
                 var eye = MeshKit.Part(head, "Eye", MeshKit.Ball(0.016f, 6, 4), Mat.Glow, new Vector3(s * 0.035f, 0.015f, 0.075f));
                 ArtLibrary.SetGlow(eye.GetComponent<Renderer>(), new Color(1f, 0.7f, 0.15f) * 1.6f);
             }
@@ -270,11 +375,29 @@ namespace Deepbound.World
             }
             smile.gameObject.SetActive(false);
             legs = MeshKit.Pivot(body, "Legs", Vector3.zero);
-            foreach (float x in new[] { -0.06f, 0.06f })
-                foreach (float z in new[] { -0.15f, 0.15f })
-                    Fur(MeshKit.Part(legs, "Leg", MeshKit.Cylinder(0.022f, 0.02f, 0.2f, 6), Mat.Cloth, new Vector3(x, -0.2f, z)));
+            // Four legs on their own hip pivots (front left, front right, back left, back right), with paws.
+            legPivots.Clear();
+            foreach (float z in new[] { 0.15f, -0.15f })
+                foreach (float x in new[] { -0.06f, 0.06f })
+                {
+                    var hip = MeshKit.Pivot(legs, "Hip", new Vector3(x, 0f, z));
+                    Fur(MeshKit.Part(hip, "Leg", MeshKit.Cylinder(0.022f, 0.02f, 0.2f, 6), Mat.Cloth, new Vector3(0f, -0.2f, 0f)));
+                    Fur(MeshKit.Part(hip, "Paw", MeshKit.Ball(0.026f, 6, 4), Mat.Cloth, new Vector3(0f, -0.2f, 0.01f), default, new Vector3(1f, 0.6f, 1.3f)));
+                    legPivots.Add(hip);
+                }
             tail = MeshKit.Pivot(body, "Tail", new Vector3(0f, 0.04f, -0.24f));
-            Fur(MeshKit.Part(tail, "Tail", MeshKit.Cylinder(0.02f, 0.012f, 0.32f, 6), Mat.Cloth, Vector3.zero));
+            Fur(MeshKit.Part(tail, "Tail", MeshKit.Cylinder(0.02f, 0.016f, 0.18f, 6), Mat.Cloth, Vector3.zero));
+            tailTip = MeshKit.Pivot(tail, "TailTip", new Vector3(0f, 0.18f, 0f));
+            Fur(MeshKit.Part(tailTip, "Tip", MeshKit.Cylinder(0.016f, 0.008f, 0.17f, 6), Mat.Cloth, Vector3.zero));
+            // A white bib and whiskers: it read as a black blob from a few metres.
+            var bib = MeshKit.Part(body, "Bib", MeshKit.Ball(0.05f, 8, 6), Mat.Cloth, new Vector3(0f, 0.02f, 0.2f), default, new Vector3(1f, 1.2f, 0.6f));
+            ArtLibrary.Tint(bib.GetComponent<Renderer>(), new Color(0.78f, 0.75f, 0.7f));
+            foreach (float s in new[] { -1f, 1f })
+                for (int w = 0; w < 2; w++)
+                {
+                    var wh = MeshKit.Part(head, "Whisker", MeshKit.Box(new Vector3(0.09f, 0.002f, 0.002f)), Mat.Bone, new Vector3(s * 0.07f, -0.02f - w * 0.008f, 0.08f), new Vector3(0f, s * 12f, s * (w == 0 ? 6f : -6f)));
+                    ArtLibrary.Tint(wh.GetComponent<Renderer>(), new Color(0.9f, 0.9f, 0.85f));
+                }
             foreach (var r in GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
         }
     }

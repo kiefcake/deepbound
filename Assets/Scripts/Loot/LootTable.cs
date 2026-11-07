@@ -85,6 +85,17 @@ namespace Deepbound.Loot
             .Add(0.05f, LootKind.Embers, 1, 2)
             .Add(0.03f, LootKind.PotionHP, 1, 1);
 
+        /// <summary>Great urns (2026-11-07): grave goods worth a few swings. Gold scales with depth like a chest.</summary>
+        public static readonly LootTable GreatUrn = new LootTable()
+            .Add(1f, LootKind.Gold, 14, 24)
+            .Add(0.7f, LootKind.Embers, 4, 7)
+            .Add(0.3f, LootKind.PotionHP, 1, 1)
+            .Add(0.15f, LootKind.PotionMP, 1, 1)
+            .Add(0.1f, LootKind.Rune)
+            .Add(0.07f, LootKind.Relic)
+            .Add(0.07f, LootKind.RareItem)
+            .Add(0.03f, LootKind.Sigil);
+
         /// <summary>Every boss always pays out — a boss kill should never feel wasted.</summary>
         public static readonly LootTable SkeletonKing = new LootTable()
             .Add(1f, LootKind.Gold, 40, 60)

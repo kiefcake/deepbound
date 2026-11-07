@@ -740,6 +740,25 @@ namespace Deepbound.Networking
                     Log("drag the downed", "held " + holding + ", body moved " + moved.ToString("F1") + " m, let go " + !dragged.BeingDragged, holding && moved > 2f && !dragged.BeingDragged);
                     dragged.ServerRevive(1f);
                     yield return new WaitForSeconds(0.3f);
+                    // The give wheel (2026-11-07): 25 gold and a health potion from the host to the ally beside them.
+                    {
+                        var giver = local.GetComponent<GiveWheel>();
+                        var myProg = local.GetComponent<PlayerProgress>();
+                        var theirProg = dragged.GetComponent<PlayerProgress>();
+                        var myPouch = local.GetComponent<Flasks>();
+                        var theirPouch = dragged.GetComponent<Flasks>();
+                        local.GetComponent<FirstPersonMotor>().Teleport(dragged.transform.position + Vector3.right * 1.5f + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return null;
+                        myProg.Gold.Value += 60;
+                        myPouch.ServerAdd(Flasks.Kind.Health, 1);
+                        while (theirPouch.Count(Flasks.Kind.Health) >= Flasks.Max) theirPouch.ServerTakeOne(Flasks.Kind.Health);
+                        int g0 = theirProg.Gold.Value, h0 = theirPouch.Count(Flasks.Kind.Health), mine0 = myPouch.Count(Flasks.Kind.Health);
+                        bool gaveGold = giver.ServerGive(dragged.NetworkObjectId, GiveWheel.Gift.Gold);
+                        bool gavePotion = giver.ServerGive(dragged.NetworkObjectId, GiveWheel.Gift.Health);
+                        yield return new WaitForSeconds(0.2f);
+                        bool ok = gaveGold && gavePotion && theirProg.Gold.Value == g0 + GiveWheel.GoldStep && theirPouch.Count(Flasks.Kind.Health) == h0 + 1 && myPouch.Count(Flasks.Kind.Health) == mine0 - 1;
+                        Log("give wheel", "gold +" + (theirProg.Gold.Value - g0) + ", potion " + h0 + " -> " + theirPouch.Count(Flasks.Kind.Health) + ", giver " + mine0 + " -> " + myPouch.Count(Flasks.Kind.Health), ok);
+                    }
                 }
                 // Teamwork: a pincer from opposite sides, an assist on the kill, then a last tw_stand and a clutch revive.
                 {
@@ -2432,8 +2451,8 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.2f);
                         catT.PickUpRpc(local.NetworkObject);
                         yield return new WaitForSeconds(0.3f);
-                        catOk = peed && cprog.CatWhisker.Value;
-                        Log("cat verdict", "unpetted pick-up peed " + peed + ", petted pick-up whisker " + cprog.CatWhisker.Value, catOk);
+                        catOk = !peed && cprog.CatWhisker.Value; // 2026-11-07: no more peeing, it only wriggles free
+                        Log("cat verdict", "unpetted pick-up punished " + peed + ", petted pick-up whisker " + cprog.CatWhisker.Value, catOk);
                         cprog.CatPeed.Value = false;
                         cprog.CatWhisker.Value = false;
                         // Swing at it: it is not hurt, it bolts, and it will not have you this visit.
@@ -2715,7 +2734,7 @@ namespace Deepbound.Networking
                     emo.DebugEmote(Art.Emote.Cheer);
                     yield return new WaitForSeconds(0.3f);
                     Log("emote wheel", "cheer on the rig: " + (local.Rig != null ? local.Rig.EmoteNow.ToString() : "no rig") + ", wheel slices " + Emotes.Wheel.Length,
-                        local.Rig != null && local.Rig.EmoteNow == Art.Emote.Cheer && Emotes.Wheel.Length == 8);
+                        local.Rig != null && local.Rig.EmoteNow == Art.Emote.Cheer && Emotes.Wheel.Length == 12);
                     // A gamepad: a virtual pad pressing A jumps (Jump held), RT attacks, and the hints turn to pad buttons.
                     {
                         var vpad = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Gamepad>();
@@ -2828,6 +2847,21 @@ namespace Deepbound.Networking
                     // Each Warden has its own legendary now (a Warden used to fall through to the Hollow King's crown).
                     Log("warden legendaries", "names " + Gear.BaseName(GearId.MarrowgutsRib) + " / " + Gear.BaseName(GearId.GorrsHide) + ", slots " + Gear.SlotOf(GearId.AldousOath),
                         Gear.BaseName(GearId.ChoirmastersBaton) != "Nothing" && Gear.SlotOf(GearId.DrownedKnightsMail) == GearSlot.Armor && Gear.Effect(GearId.MarrowgutsRib).Length > 0);
+                    {
+                        // The Panoply (2026-11-07): its floors, and Martyr's Shell hitting harder when hurt.
+                        var hpM = local.GetComponent<Health>();
+                        float f0 = hpM.Fraction;
+                        var keep = progress.ServerEquip(new GearItem(GearId.MartyrsShell, 3, 2));
+                        hpM.ServerSetFraction(1f);
+                        float full = progress.AttackMultiplier;
+                        hpM.ServerSetFraction(0.2f);
+                        float low = progress.AttackMultiplier;
+                        hpM.ServerSetFraction(Mathf.Max(0.5f, f0));
+                        if (keep.IsEmpty) progress.ServerUnequip(GearSlot.Armor); else progress.ServerEquip(keep);
+                        bool floors = DungeonDirector.PanoplyFloor(1) && DungeonDirector.PanoplyFloor(4) && !DungeonDirector.PanoplyFloor(0) && !DungeonDirector.PanoplyFloor(9);
+                        Log("panoply armour", "floors " + floors + ", martyr x" + (low / full).ToString("F2") + ", pieces " + Gear.PanoplyPieces.Length + ", " + Gear.BaseName(GearId.SunwardPlate),
+                            floors && low > full * 1.25f && Gear.PanoplyPieces.Length == 4 && Gear.SlotOf(GearId.Rimecloak) == GearSlot.Armor);
+                    }
                     {
                         // Hide of Gorr: poison cannot take its wearer.
                         var oldArmor = progress.ServerEquip(new GearItem(GearId.GorrsHide, 3, 2));

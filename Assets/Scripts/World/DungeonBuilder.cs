@@ -166,6 +166,7 @@ namespace Deepbound.World
                 case RoomFeature.Ziggurat: DressZiggurat(room, dressing, lights, rng); return;
                 case RoomFeature.Treasury: case RoomFeature.Beggar: case RoomFeature.Proving: case RoomFeature.Armoury: case RoomFeature.Mirror: case RoomFeature.Oath:
                     DressSpecial(room, dressing, lights, rng); return;
+                case RoomFeature.Panoply: DressSpecial(room, dressing, lights, rng); DressPanoply(room, dressing, lights); return;
             }
 
             switch (room.Kind)

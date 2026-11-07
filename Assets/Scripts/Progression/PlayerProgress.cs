@@ -173,12 +173,8 @@ namespace Deepbound.Progression
         /// <summary>Server: the cat has judged you.</summary>
         public void ServerCatVerdict(bool petted)
         {
-            if (petted) { if (!CatWhisker.Value) CatWhisker.Value = true; }
-            else if (!CatPeed.Value)
-            {
-                CatPeed.Value = true;
-                ApplyToHealth(refill: false);
-            }
+            // Not petted first: it squirms free (2026-11-07, the user: "remove the pee"). No penalty any more.
+            if (petted && !CatWhisker.Value) CatWhisker.Value = true;
         }
         public readonly NetworkVariable<byte> RankQ = new NetworkVariable<byte>(1);
         public readonly NetworkVariable<byte> RankE = new NetworkVariable<byte>(1);
@@ -447,13 +443,13 @@ namespace Deepbound.Progression
             bag.Add(item);
         }
 
-        private void ServerUnequip(GearSlot which)
+        public void ServerUnequip(GearSlot which)
         {
             var slot = which == GearSlot.Armor ? Armor : Charm;
             var old = slot.Value;
             foreach (var s in Gear.StatsOf(old)) Stats.AddEquipmentBonus(s, -Gear.StatValue(old, s));
             slot.Value = default;
-            health.HealMultiplier = Wears(GearId.TidewovenRobe) ? 1.3f : 1f;
+            health.HealMultiplier = (Wears(GearId.TidewovenRobe) ? 1.3f : 1f) * (Wears(GearId.MartyrsShell) ? MartyrHeal : 1f);
             OnStatsChangedServer(null);
         }
 
@@ -472,7 +468,7 @@ namespace Deepbound.Progression
             foreach (var s in Gear.StatsOf(old)) Stats.AddEquipmentBonus(s, -Gear.StatValue(old, s));
             slot.Value = item;
             foreach (var s in Gear.StatsOf(item)) Stats.AddEquipmentBonus(s, Gear.StatValue(item, s));
-            health.HealMultiplier = Wears(GearId.TidewovenRobe) ? 1.3f : 1f;
+            health.HealMultiplier = (Wears(GearId.TidewovenRobe) ? 1.3f : 1f) * (Wears(GearId.MartyrsShell) ? MartyrHeal : 1f);
             OnStatsChangedServer(null);
             EquippedRpc(item);
             return old;
@@ -502,6 +498,11 @@ namespace Deepbound.Progression
         }
 
         /// <summary>Server: a dodge readies the Gravecloth Mantle's strike.</summary>
+        public const float MartyrDamage = 0.45f, MartyrHeal = 0.85f, WraithstepSpeed = 1.4f, WraithstepSeconds = 1.5f;
+        /// <summary>Owner: the Wraithstep Cuirass's burst after a dodge (speed is worked out on the owner).</summary>
+        public float WraithstepUntil { get; set; } = -1f;
+        public bool Wraithstepping => Time.time < WraithstepUntil;
+
         public void ServerOnDodge()
         {
             if (Wears(GearId.GraveclothMantle)) dodgeStrikeUntil = Time.time + 2f;
@@ -811,6 +812,7 @@ namespace Deepbound.Progression
                 if (HasRelic(Relic.BloodPact)) m *= 1f + 0.3f * RelicPower(Relic.BloodPact);
                 if (Rallied) m *= 1f + 0.15f * RallyPower.Value;
                 if (Pouch != null && Pouch.Bloodfury) m *= RareItems.BloodfuryDamage;
+                if (Wears(GearId.MartyrsShell)) m *= 1f + MartyrDamage * (1f - health.Fraction);
                 return m;
             }
         }
@@ -823,6 +825,7 @@ namespace Deepbound.Progression
             * (TryGetComponent<Player.PlayerDebuffs>(out var deb) ? deb.SpeedMultiplier : 1f)
             * World.Carryable.SpeedFor(NetworkObjectId)
             * World.DungeonDirector.EventSpeed
+            * (Wraithstepping ? WraithstepSpeed : 1f)
             * (Player.PlayerLife.IsDragging(NetworkObjectId) ? Player.PlayerLife.DragSpeed : 1f);
 
         /// <summary>Q and E cooldowns scale by this (Echo Stone).</summary>

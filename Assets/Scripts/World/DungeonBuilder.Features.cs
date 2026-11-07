@@ -546,6 +546,38 @@ namespace Deepbound.World
         // Special side rooms: carpet, candles and a mood for each
         // ------------------------------------------------------------------
 
+        /// <summary>The Panoply: an empty armour stand on a dais at the back, lit cold from above, racks either side.</summary>
+        private static void DressPanoply(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights)
+        {
+            if (room.FeatureSpots.Count == 0) return;
+            var s = room.FeatureSpots[0];
+            var face = room.Center - s; face.y = 0f;
+            var rot = Quaternion.LookRotation(face.sqrMagnitude > 0.01f ? face.normalized : Vector3.forward);
+            var right = rot * Vector3.right;
+            b.AddBox(s + Vector3.up * 0.15f, new Vector3(2.4f, 0.3f, 2.4f), Mat.StoneWall, rot);
+            b.AddBox(s + Vector3.up * 0.32f, new Vector3(2f, 0.04f, 2f), Mat.Cloth, new Color(0.25f, 0.12f, 0.3f), rot);
+            // The stand: post, shoulder bar, a hollow breastplate and a helm on the peg.
+            b.AddBox(s + Vector3.up * 1.2f, new Vector3(0.1f, 1.8f, 0.1f), Mat.Wood, rot);
+            b.AddBox(s + Vector3.up * 1.85f, new Vector3(0.9f, 0.08f, 0.08f), Mat.Wood, rot);
+            b.AddBox(s + Vector3.up * 1.55f + rot * Vector3.forward * 0.08f, new Vector3(0.62f, 0.62f, 0.22f), Mat.Steel, new Color(0.55f, 0.55f, 0.6f), rot);
+            foreach (float k in new[] { -1f, 1f })
+                b.AddBox(s + Vector3.up * 1.8f + right * k * 0.38f, new Vector3(0.26f, 0.12f, 0.3f), Mat.Steel, new Color(0.5f, 0.5f, 0.55f), rot * Quaternion.Euler(0f, 0f, k * -18f));
+            b.Add(MeshKit.Ball(0.17f, 10, 8), Mat.Steel, Matrix4x4.TRS(s + Vector3.up * 2.12f, rot, new Vector3(1f, 1.15f, 1.1f)));
+            // Weapon racks either side of the dais.
+            foreach (float k in new[] { -1f, 1f })
+                for (int w = 0; w < 3; w++)
+                    b.AddBox(s + right * k * (1.8f + w * 0.3f) + Vector3.up * 1f, new Vector3(0.06f, 2f, 0.06f), Mat.Steel, rot * Quaternion.Euler(0f, 0f, k * 8f));
+            // A cold shaft of light on the stand.
+            var l = new GameObject("PanoplyLight").AddComponent<Light>();
+            l.transform.SetParent(lights, false);
+            l.transform.position = s + Vector3.up * 4f;
+            l.type = LightType.Point;
+            l.color = new Color(0.78f, 0.74f, 1f);
+            l.range = 6.5f;
+            l.intensity = 2.2f;
+            l.shadows = LightShadows.None;
+        }
+
         private static void DressSpecial(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
         {
             var c = room.Center;
@@ -553,7 +585,8 @@ namespace Deepbound.World
                 : room.Feature == RoomFeature.Mirror ? new Color(0.6f, 0.35f, 1f)
                 : room.Feature == RoomFeature.Oath ? new Color(0.55f, 0.75f, 1f)
                 : room.Feature == RoomFeature.Proving ? new Color(1f, 0.6f, 0.3f)
-                : room.Feature == RoomFeature.Armoury ? new Color(1f, 0.7f, 0.4f) : theme.TorchColor;
+                : room.Feature == RoomFeature.Armoury ? new Color(1f, 0.7f, 0.4f)
+                : room.Feature == RoomFeature.Panoply ? new Color(0.75f, 0.7f, 1f) : theme.TorchColor;
             // A long carpet from the door to the feature.
             int entry = 0;
             for (int s = 0; s < 4; s++) if (room.Doors[s]) entry = s;

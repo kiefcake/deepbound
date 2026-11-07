@@ -21,20 +21,22 @@ namespace Deepbound.Player
         private const float HoldForWheel = 0.22f;
 
         /// <summary>The wheel, clockwise from the top.</summary>
-        public static readonly Emote[] Wheel = { Emote.Wave, Emote.Cheer, Emote.Bow, Emote.Laugh, Emote.Dance, Emote.Point, Emote.Beckon, Emote.Sit };
+        public static readonly Emote[] Wheel = { Emote.Wave, Emote.Cheer, Emote.Salute, Emote.Bow, Emote.Laugh, Emote.Clap, Emote.Dance, Emote.Shrug, Emote.Point, Emote.Beckon, Emote.Kneel, Emote.Sit };
         public static string Name(Emote e) => e == Emote.Wave ? "WAVE / HIGH FIVE" : e.ToString().ToUpperInvariant();
         /// <summary>How long each gesture plays (sitting lasts until you move).</summary>
-        public static float Seconds(Emote e) => e == Emote.Sit ? 600f : e == Emote.Dance ? 6f : e == Emote.Bow ? 1.8f : e == Emote.Laugh ? 2.4f : 2.2f;
+        public static float Seconds(Emote e) => e == Emote.Sit || e == Emote.Kneel ? 600f : e == Emote.Dance ? 6f : e == Emote.Clap ? 2.6f : e == Emote.Shrug ? 1.5f : e == Emote.Bow ? 1.8f : e == Emote.Laugh ? 2.4f : 2.2f;
         private static string Line(Emote e) => e switch
         {
             Emote.Cheer => "cheers!", Emote.Bow => "bows", Emote.Laugh => "laughs", Emote.Dance => "dances",
-            Emote.Point => "points", Emote.Beckon => "beckons", Emote.Sit => "sits down", _ => "waves",
+            Emote.Point => "points", Emote.Beckon => "beckons", Emote.Sit => "sits down",
+            Emote.Salute => "salutes", Emote.Kneel => "kneels", Emote.Shrug => "shrugs", Emote.Clap => "applauds", _ => "waves",
         };
 
         private static string OwnLine(Emote e) => e switch
         {
             Emote.Cheer => "cheer!", Emote.Bow => "bow", Emote.Laugh => "laugh", Emote.Dance => "dance",
-            Emote.Point => "point", Emote.Beckon => "beckon", Emote.Sit => "sit down", _ => "wave",
+            Emote.Point => "point", Emote.Beckon => "beckon", Emote.Sit => "sit down",
+            Emote.Salute => "salute", Emote.Kneel => "kneel", Emote.Shrug => "shrug", Emote.Clap => "applaud", _ => "wave",
         };
 
         private float readyAt, lastRaisedAt = -10f, heldSince = -1f;
@@ -94,7 +96,8 @@ namespace Deepbound.Player
         {
             if (wheelAim.magnitude < 30f) return Emote.None;
             float ang = Mathf.Atan2(wheelAim.x, wheelAim.y) * Mathf.Rad2Deg; // 0 = up, 90 = right
-            int slice = Mathf.RoundToInt(Mathf.Repeat(ang, 360f) / 45f) % Wheel.Length;
+            float step = 360f / Wheel.Length;
+            int slice = Mathf.RoundToInt(Mathf.Repeat(ang, 360f) / step) % Wheel.Length;
             return Wheel[slice];
         }
 
@@ -119,6 +122,7 @@ namespace Deepbound.Player
             if (e == Emote.Cheer) Sfx.Play(Sound.WarCry, head, 0.4f, 1.5f);
             else if (e == Emote.Laugh) Sfx.Play(Sound.Whisper, head, 0.5f, 1.6f);
             else if (e == Emote.Dance) Sfx.Play(Sound.Step, transform.position, 0.6f, 1.2f);
+            else if (e == Emote.Clap) Sfx.Play(Sound.Block, head - Vector3.up * 0.6f, 0.25f, 2.2f);
             if (!IsOwner) UI.GameHud.ShowCombo(head, name + " " + Line(e), new Color(0.95f, 0.9f, 0.75f));
             else UI.GameHud.Feed("You " + OwnLine(e), new Color(0.85f, 0.82f, 0.7f));
         }
@@ -137,8 +141,8 @@ namespace Deepbound.Player
             for (int i = 0; i < Wheel.Length; i++)
             {
                 var e = Wheel[i];
-                float a = i * 45f * Mathf.Deg2Rad;
-                var pos = c + new Vector2(Mathf.Sin(a) * 205f, -Mathf.Cos(a) * 150f);
+                float a = i * (360f / Wheel.Length) * Mathf.Deg2Rad;
+                var pos = c + new Vector2(Mathf.Sin(a) * 250f, -Mathf.Cos(a) * 180f);
                 bool on = e == choice;
                 UI.UiSkin.Rect(new Rect(pos.x - 72, pos.y - 18, 144, 36), new Color(0f, 0f, 0f, on ? 0.9f : 0.72f));
                 if (on) UI.UiSkin.Rect(new Rect(pos.x - 72, pos.y + 16, 144, 3), gold);
@@ -148,6 +152,20 @@ namespace Deepbound.Player
             GUI.Label(new Rect(c.x - 120, c.y - 12, 240, 24), "EMOTE", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 1f, 1f, 0.6f) } });
             var dot = c + new Vector2(wheelAim.x, -wheelAim.y) * 0.8f;
             UI.UiSkin.Rect(new Rect(dot.x - 4, dot.y - 4, 8, 8), Color.white);
+        }
+
+        /// <summary>Server: play a gesture (the give wheel's salute and bow).</summary>
+        public void ServerPlay(Emote e) { if (IsServer && e != Emote.None && !life.Downed.Value) EmoteFxRpc(e); }
+
+        /// <summary>Server: a high five with a chosen ally (the give wheel), no need for both to press.</summary>
+        public void ServerHighFiveWith(Emotes other)
+        {
+            if (!IsServer || other == null || other == this) return;
+            if (Vector3.Distance(other.transform.position, transform.position) > GiveWheel.Reach + 2f) return;
+            double until = NetworkManager.ServerTime.Time + BuffSeconds;
+            BrothersUntil.Value = until;
+            other.BrothersUntil.Value = until;
+            HighFiveRpc((transform.position + other.transform.position) / 2f + Vector3.up * 1.7f, name, other.name);
         }
 
         [Rpc(SendTo.Server)]

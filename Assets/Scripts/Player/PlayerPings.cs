@@ -61,8 +61,8 @@ namespace Deepbound.Player
             if (!IsOwner || debugHold) return;
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
-            bool pressed = (mouse != null && mouse.middleButton.wasPressedThisFrame) || UI.Binds.Down(UI.Bind.Ping);
-            bool held = (mouse != null && mouse.middleButton.isPressed) || UI.Binds.Held(UI.Bind.Ping);
+            // Pinging is gone (2026-11-07, the user: "remove pinging entirely"); its key is the give wheel's now.
+            bool pressed = false, held = false;
             var motor = GetComponent<FirstPersonMotor>();
             var life = GetComponent<PlayerLife>();
 
