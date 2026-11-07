@@ -25,6 +25,7 @@ Shader "Deepbound/Retro"
             float4 _RetroRes;
             float _RetroLevels;
             float _RetroTint;
+            float _Bright; // the Options brightness as a gamma exponent (0 = unset = 1); applied here whether the retro look is on or off
 
             // The gothic ramp, by brightness: ink, oxblood, candlelight, bone.
             float3 GothicRamp(float l)
@@ -45,8 +46,14 @@ Shader "Deepbound/Retro"
             {
                 UNITY_SETUP_STEREO_EYE_INDEX_POST_VERTEX(input);
                 float2 uv = input.texcoord.xy;
+                float bright = _Bright > 0.01 ? _Bright : 1.0;
                 if (_RetroOn < 0.5 || _RetroRes.x < 1.0)
-                    return SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, uv, 0);
+                {
+                    half4 plain = SAMPLE_TEXTURE2D_X_LOD(_BlitTexture, sampler_PointClamp, uv, 0);
+                    // A gamma exponent on gamma-space colour is the same exponent on linear colour.
+                    plain.rgb = pow(saturate(plain.rgb), bright);
+                    return plain;
+                }
 
                 // One sample per big pixel (the pass may run before or after the upscale: either way the grid holds).
                 float2 cell = floor(uv * _RetroRes.xy);
@@ -56,6 +63,7 @@ Shader "Deepbound/Retro"
 
                 // Work in gamma so the dark end keeps its steps (linear banding would eat the shadows).
                 c = pow(c, 1.0 / 2.2);
+                c = pow(c, bright);
                 // Ink: the last few percent of black goes fully black, so silhouettes read against the gloom.
                 c = saturate((c - 0.025) / 0.975);
                 // A gentle pull toward one gothic palette (strong colours - telegraphs, poison, frost - keep most of their hue).

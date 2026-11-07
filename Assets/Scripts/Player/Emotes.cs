@@ -107,6 +107,16 @@ namespace Deepbound.Player
         /// <summary>Owner (tests): play a gesture as if chosen on the wheel.</summary>
         public void DebugEmote(Emote e) { if (IsOwner) EmoteRpc(e); }
 
+        /// <summary>Owner: sit (a log by the fire, <see cref="CampSeat"/>), and stand back up.</summary>
+        public void SitDown() { if (IsOwner) EmoteRpc(Emote.Sit); }
+        public void StandUp() { if (IsOwner) StopEmoteRpc(); }
+
+        [Rpc(SendTo.Server)]
+        private void StopEmoteRpc() => StopEmoteFxRpc();
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void StopEmoteFxRpc() => player.Rig?.PlayEmote(Emote.None, 0f);
+
         [Rpc(SendTo.Server)]
         private void EmoteRpc(Emote e)
         {

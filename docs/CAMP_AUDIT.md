@@ -14,6 +14,8 @@ Writes, with no HUD:
 - `walk_<x>_<z>_<N|E|S|W>.png`: head-height views every 8 m across the courtyard, four headings each.
 - `eye_*_<station>_fromN/E/S/W/a/top.png`: every station from all four sides and above; `wallNN_in/along`.
 - `tour.txt`: station positions relative to the origin.
+- `fire_<side>_<stand|sit>`: from the spawn fire's log ring toward each side; `tent_inside_up/out/table`; `blackjack_seat/hit` (seated at the card table with a hand dealt).
+- Add `-tourquick` to skip the walk grid and the station views (about a minute instead of ten). Output is JPG now.
 
 Layout code: `Assets/Scripts/World/Lobby.cs` (positions use `S(x, y, z)` = x and z times `Spread` 1.35 from
 `Origin`; the curtain wall is at radius 35 m; the gate is north).
@@ -25,6 +27,17 @@ checked on a fresh tour.
 
 ### Open (beyond placement)
 - [~] The carriage horse needs updating (the user, 2026-11-07). REBUILT 2026-11-07 (`World/CarriageRide.cs` BuildHorse/AnimateHorse: spine, ribcage, pelvis, jointed legs with a diagonal trot, skull with a hinged jaw and glowing sockets, harness, idle head toss / stamp / jaw chatter / tail swish). To check on a tour: hooves may float ~6 cm at full stride, knee/hock bend directions, bit vs reins during a head toss, hind legs clear of the shafts.
+
+## Round 2 (2026-11-07 evening, the user's notes; APPLIED and checked on `-tourquick` renders)
+
+- [x] "move the tavern to a place where it's not blocked by the gambling tent" and "place the tavern closer to the camp fire and logs, as well as the gambling tent": the tavern is now WEST of the spawn fire (`TavernCenter` origin + (-12.6, 0, -19)), its door facing the logs; the tent is EAST of it (`TentCenter` + (12.6, 0, -19)), open to the WEST (the old panel loop actually left the tent open to the NORTH). Dice, coffer, slots and the card table were mirrored inside it. The training yard moved to the tavern's old ground in the north-west (`Lobby.YardShift`).
+- [x] "tent roof is see through when looking up": a second lathe (`TentRoofInside`) for the underside; checked on `tent_inside_up`.
+- [x] "remove badly placed plant pots": the flower planters along the trade row and the stone planters round the bonfire are gone.
+- [x] "remove badly placed carriage in the tent": the hand cart is gone.
+- [x] "remove badly placed tree that's missing its trunk": the yew (its trunk hid under the cone's skirt) is gone; the two oaks by the fire went to make room.
+- [x] "allow the players to sit around the camp fire at spawn on the logs": six logs laid ALONG the ring (they were spokes), two places each; F sits (`Player/CampSeat`, the Sit gesture for everyone), F / jump / a step stands. The plank bench ring is gone. Smoke "fire logs".
+- [x] "MORE LIGHT SOURCES ... AROUND THINGS WHERE THE PLAYER NEEDS TO SEE OR GO": `Lobby.LampPost` + `BuildStationLamps`: lanterns either side of the tavern door, posts at the tent mouth, the tailor, the yard sergeant, the gong, the omen stone and the hall of records; a hanging lamp over the card table.
+- Round 1 north-zone items about the tent, cart, tavern door and the tavern yard are superseded by the move; the rest of Round 1 is still open.
 
 ## Round 1 audit (2026-11-07, four zone reviewers on the first tour; NOT YET APPLIED)
 

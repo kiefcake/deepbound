@@ -62,6 +62,17 @@ namespace Deepbound.World
         private bool seenHoleHidden;
         private string seenResult = "";
         private int betChoice = 20;
+        private BlackjackView view;
+        private float resultShownAt = -10f;
+        private string lastResult = "";
+
+        // What the view (BlackjackView) reads.
+        public Phase SeenPhase => seenPhase;
+        public byte[][] SeenHands => seenHands;
+        public byte[] SeenHouse => seenHouse;
+        public bool SeenHoleHidden => seenHoleHidden;
+        public int[] SeenBets => seenBets;
+        public int BetChoice => betChoice;
 
         public override float Range => 3.4f;
 
@@ -411,8 +422,12 @@ namespace Deepbound.World
             for (int i = 0; i < lengths.Length; i++) { seenHands[i] = new byte[lengths[i]]; System.Array.Copy(cards, at, seenHands[i], 0, lengths[i]); at += lengths[i]; }
             seenFlags = flags; seenBets = bets; seenHouse = house; seenHoleHidden = holeHidden; seenActive = active; seenInsurance = insurance; seenResult = result;
             if (!LocalOpen) betChoice = Mathf.Clamp(lastBet, MinBet, MaxBet);
+            if (!string.IsNullOrEmpty(result) && result != lastResult && seenPhase == Phase.Done) resultShownAt = Time.time;
+            lastResult = result;
+            bool opening = !LocalOpen || localTable != this;
             LocalOpen = true;
             localTable = this;
+            if (opening && view != null) view.SitLocal();
         }
 
         // ---- State for tests ----
@@ -420,7 +435,14 @@ namespace Deepbound.World
         public int ServerHandCount(PlayerProgress who) => seats.TryGetValue(who.NetworkObjectId, out var s) ? s.Hands.Count : 0;
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void DealFxRpc() => Sfx.Play(Sound.Card, transform.position + Vector3.up, 0.8f, Random.Range(0.9f, 1.2f));
+        private void DealFxRpc()
+        {
+            Sfx.Play(Sound.Card, transform.position + Vector3.up, 0.8f, Random.Range(0.9f, 1.2f));
+            // The dealer's hand goes out over the felt with each deal.
+            if (dealerRig != null) dealerRig.PlayEmote(Emote.Point, 0.5f);
+        }
+
+        private HumanoidRig dealerRig;
 
         [Rpc(SendTo.ClientsAndHost)]
         private void ShuffleFxRpc()
@@ -459,34 +481,68 @@ namespace Deepbound.World
             }
             if (localTable != this || !LocalOpen) return;
             var local = NetworkPlayer.Local;
-            if (local == null || Vector3.Distance(local.transform.position, transform.position) > 5f) { LocalOpen = false; return; }
+            if (local == null || Vector3.Distance(local.transform.position, transform.position) > 5f || local.GetComponent<PlayerLife>().Downed.Value) { Leave(); return; }
             var kb = UnityEngine.InputSystem.Keyboard.current;
-            if (kb != null && kb.escapeKey.wasPressedThisFrame)
+            if (kb == null || UI.PauseMenu.Open) return;
+            if (kb.escapeKey.wasPressedThisFrame)
             {
                 if (seenPhase == Phase.Playing || seenPhase == Phase.Insurance) StandRpc(local.NetworkObject);
-                LocalOpen = false;
+                Leave();
+                return;
+            }
+            // Keys, casino style: the bet with the arrows or the wheel, SPACE deals and hits.
+            var prog = local.GetComponent<PlayerProgress>();
+            var no = local.NetworkObject;
+            bool shift = kb.shiftKey.isPressed;
+            switch (seenPhase)
+            {
+                case Phase.Betting:
+                case Phase.Done:
+                    int step = shift ? 25 : 5;
+                    float wheel = UnityEngine.InputSystem.Mouse.current != null ? UnityEngine.InputSystem.Mouse.current.scroll.ReadValue().y : 0f;
+                    if (kb.rightArrowKey.wasPressedThisFrame || kb.upArrowKey.wasPressedThisFrame || kb.wKey.wasPressedThisFrame || kb.dKey.wasPressedThisFrame || wheel > 0.1f) betChoice += step;
+                    if (kb.leftArrowKey.wasPressedThisFrame || kb.downArrowKey.wasPressedThisFrame || kb.sKey.wasPressedThisFrame || kb.aKey.wasPressedThisFrame || wheel < -0.1f) betChoice -= step;
+                    betChoice = Mathf.Clamp(betChoice, MinBet, Mathf.Max(MinBet, Mathf.Min(MaxBet, prog.Gold.Value)));
+                    if ((kb.spaceKey.wasPressedThisFrame || kb.enterKey.wasPressedThisFrame) && prog.Gold.Value >= betChoice) DealRpc(no, betChoice);
+                    break;
+                case Phase.Insurance:
+                    if (kb.yKey.wasPressedThisFrame) InsuranceRpc(no, true);
+                    if (kb.nKey.wasPressedThisFrame) InsuranceRpc(no, false);
+                    break;
+                case Phase.Playing:
+                    var hand = seenActive < seenHands.Length ? seenHands[seenActive] : new byte[0];
+                    int bet = seenActive < seenBets.Length ? seenBets[seenActive] : 0;
+                    if (kb.spaceKey.wasPressedThisFrame) HitRpc(no);
+                    else if (kb.sKey.wasPressedThisFrame) StandRpc(no);
+                    else if (kb.dKey.wasPressedThisFrame && CanDouble(hand.Length, false) && prog.Gold.Value >= bet) DoubleRpc(no);
+                    else if (kb.pKey.wasPressedThisFrame && CanSplit(hand, seenHands.Length) && prog.Gold.Value >= bet) SplitRpc(no);
+                    else if (kb.rKey.wasPressedThisFrame && CanSurrender(hand.Length, seenHands.Length)) SurrenderRpc(no);
+                    break;
             }
         }
 
-        private static readonly string[] Suits = { "♠", "♥", "♦", "♣" };
-        private static Font suitFont;
-        private static Font SuitFont
+        /// <summary>Local: get up from the table (moved: something else already moved the player).</summary>
+        public void Leave(bool moved = false)
         {
-            get
-            {
-                if (suitFont == null) { try { suitFont = Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI Symbol", "Arial Unicode MS", "Arial" }, 30); } catch { } }
-                return suitFont;
-            }
+            LocalOpen = false;
+            if (view != null) view.StandLocal(moved);
         }
+
         private static string RankName(byte c) { int r = Rank(c); return r == 1 ? "A" : r == 11 ? "J" : r == 12 ? "Q" : r == 13 ? "K" : r.ToString(); }
 
-                private void OnGUI()
+        private void OnGUI()
         {
             Deepbound.UI.UiTimer.Begin();
             OnGUIBody();
             Deepbound.UI.UiTimer.Mark("Blackjack");
         }
 
+        private static GUIStyle pill, big, keyCap, label;
+
+        /// <summary>
+        /// The seated HUD (2026-11-07, casino style): no panel over the felt. Totals float beside the cards, the gold and the
+        /// rules sit at the top, and a strip of actions with their keys runs along the bottom.
+        /// </summary>
         private void OnGUIBody()
         {
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
@@ -494,146 +550,190 @@ namespace Deepbound.World
             UI.UiSkin.Apply();
             GUI.depth = -15;
             var local = NetworkPlayer.Local;
-            if (local == null) return;
+            var cam = Art.ViewCamera.Current;
+            if (local == null || cam == null) return;
             var prog = local.GetComponent<PlayerProgress>();
             float w = UI.UiScale.W, h = UI.UiScale.H;
-            float pw = Mathf.Min(760f, w - 40f), ph = 430f, px = w / 2f - pw / 2f, py = Mathf.Max(20f, h - ph - 120f);
-            UI.UiSkin.Panel(new Rect(px - 10, py - 10, pw + 20, ph + 20), 0.96f);
-            // Felt.
-            UI.UiSkin.Rect(new Rect(px, py, pw, ph), new Color(0.06f, 0.2f, 0.1f, 0.95f));
-            GUI.Label(new Rect(px, py + 6, pw, 26), "DEADMAN'S HAND", new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter });
-            GUI.Label(new Rect(px, py + 30, pw, 18), "Blackjack pays 3 to 2   ·   Dealer stands on all 17s   ·   Insurance pays 2 to 1   ·   6 decks",
-                new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.85f, 0.8f, 0.6f) } });
-            GUI.Label(new Rect(px + pw - 180, py + 6, 170, 22), prog.Gold.Value + " gold", new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleRight, normal = { textColor = UI.UiSkin.Gold } });
+            pill ??= new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 16, wordWrap = false };
+            big ??= new GUIStyle(UI.UiSkin.Title) { alignment = TextAnchor.MiddleCenter, fontSize = 40 };
+            keyCap ??= new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, fontSize = 13, wordWrap = false, normal = { textColor = new Color(0.1f, 0.08f, 0.06f) } };
+            label ??= new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleLeft, fontSize = 17, wordWrap = false };
 
+            // Top: the table's name, its rules, your gold, who else plays.
+            UI.UiSkin.Rect(new Rect(0, 0, w, 64), new Color(0f, 0f, 0f, 0.45f));
+            GUI.Label(new Rect(24, 8, 400, 28), "DEADMAN'S HAND", new GUIStyle(UI.UiSkin.Heading) { fontSize = 22 });
+            GUI.Label(new Rect(24, 36, w * 0.6f, 20), "Blackjack pays 3 to 2  ·  Dealer stands on all 17s  ·  Insurance pays 2 to 1  ·  Bets " + MinBet + "-" + MaxBet,
+                new GUIStyle(UI.UiSkin.Small) { wordWrap = false, normal = { textColor = new Color(0.85f, 0.8f, 0.6f) } });
+            GUI.Label(new Rect(w - 324, 10, 300, 28), prog.Gold.Value + " gold", new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleRight, fontSize = 22, normal = { textColor = UI.UiSkin.Gold } });
+            if (!string.IsNullOrEmpty(tableLine))
+                GUI.Label(new Rect(w - 724, 38, 700, 20), tableLine, new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleRight, wordWrap = false });
+
+            // Totals beside the cards.
             bool dealt = seenPhase != Phase.Betting;
-            if (dealt)
+            if (dealt && view != null && view.Stool >= 0)
             {
-                DrawRow(px + 20, py + 56, "DEALER", seenHouse, seenHoleHidden, -1, false);
-                float rowY = py + 168;
-                float rowW = seenHands.Length > 1 ? (pw - 40) / seenHands.Length : pw - 40;
+                if (seenHouse.Length > 0)
+                {
+                    int shown = Total(seenHoleHidden ? new[] { seenHouse[0] } : seenHouse, out bool hsoft);
+                    Pill(cam, view.HouseLabelPoint, "DEALER  " + (seenHoleHidden ? shown + " + ?" : TotalText(seenHouse, shown, hsoft)), new Color(0.85f, 0.82f, 0.75f));
+                }
                 for (int i = 0; i < seenHands.Length; i++)
                 {
+                    int t = Total(seenHands[i], out bool soft);
                     bool active = seenPhase == Phase.Playing && i == seenActive;
-                    string tag = (seenHands.Length > 1 ? "HAND " + (i + 1) : "YOU") + "   bet " + (i < seenBets.Length ? seenBets[i] : 0) +
-                        (i < seenFlags.Length && (seenFlags[i] & 1) != 0 ? "  (doubled)" : "") + (i < seenFlags.Length && (seenFlags[i] & 2) != 0 ? "  (surrendered)" : "");
-                    if (active) UI.UiSkin.Rect(new Rect(px + 16 + i * rowW, rowY - 4, rowW - 8, 118), new Color(1f, 0.85f, 0.4f, 0.12f));
-                    DrawRow(px + 20 + i * rowW, rowY, tag, seenHands[i], false, seenHands.Length > 1 ? 34f : 62f, active);
+                    string tag = TotalText(seenHands[i], t, soft) + (i < seenFlags.Length && (seenFlags[i] & 1) != 0 ? "  x2" : "") + (i < seenFlags.Length && (seenFlags[i] & 2) != 0 ? "  SURRENDERED" : "");
+                    Pill(cam, view.HandLabelPoint(i, seenHands.Length), tag, active ? UI.UiSkin.Gold : new Color(0.9f, 0.88f, 0.84f), active);
                 }
-                if (seenInsurance > 0) GUI.Label(new Rect(px + 20, py + 290, 300, 18), "Insurance: " + seenInsurance, UI.UiSkin.Small);
             }
-            else GUI.Label(new Rect(px, py + 120, pw, 40), "Place your bet.", new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 24 });
 
-            float by = py + ph - 100;
+            // The result, large, for a few seconds.
+            if (seenPhase == Phase.Done && Time.time - resultShownAt < 4f && !string.IsNullOrEmpty(seenResult))
+            {
+                float a = Mathf.Clamp01((4f - (Time.time - resultShownAt)) / 0.6f);
+                bool won = seenResult.Contains("+"), lost = seenResult.Contains("-");
+                var col = won ? new Color(1f, 0.85f, 0.35f, a) : lost ? new Color(0.95f, 0.45f, 0.4f, a) : new Color(0.9f, 0.9f, 0.85f, a);
+                UI.UiSkin.Rect(new Rect(0, h * 0.2f, w, 70), new Color(0f, 0f, 0f, 0.5f * a));
+                GUI.Label(new Rect(0, h * 0.2f, w, 70), UI.UiSkin.Fit(seenResult.ToUpperInvariant(), big, w - 80), new GUIStyle(big) { normal = { textColor = col } });
+            }
+
+            // The bottom strip: what you can do, and its key.
+            float by = h - 88;
+            UI.UiSkin.Rect(new Rect(0, by - 12, w, 100), new Color(0f, 0f, 0f, 0.55f));
+            var no = local.NetworkObject;
+            float x = 40f;
             switch (seenPhase)
             {
                 case Phase.Betting:
                 case Phase.Done:
-                    if (seenPhase == Phase.Done)
-                        GUI.Label(new Rect(px + 10, by - 34, pw - 20, 30), seenResult, new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleCenter, wordWrap = true, fontStyle = FontStyle.Bold, normal = { textColor = UI.UiSkin.Gold } });
-                    DrawBetControls(px, by, pw, prog, local);
+                {
+                    int max = Mathf.Min(MaxBet, prog.Gold.Value);
+                    betChoice = Mathf.Clamp(betChoice, MinBet, Mathf.Max(MinBet, max));
+                    GUI.Label(new Rect(x, by, 90, 40), "BET", new GUIStyle(label) { fontStyle = FontStyle.Bold, normal = { textColor = UI.UiSkin.Gold } });
+                    x += 56;
+                    if (Act(ref x, by, "<", "", betChoice - 5 >= MinBet)) betChoice -= 5;
+                    GUI.Label(new Rect(x, by, 90, 40), betChoice.ToString(), new GUIStyle(big) { fontSize = 28 });
+                    x += 96;
+                    if (Act(ref x, by, ">", "", betChoice + 5 <= max)) betChoice += 5;
+                    if (Act(ref x, by, "MAX", "", max >= MinBet)) betChoice = Mathf.Max(MinBet, max);
+                    x += 30;
+                    bool can = prog.Gold.Value >= betChoice && betChoice >= MinBet;
+                    if (Act(ref x, by, "SPACE", can ? (seenPhase == Phase.Done ? "DEAL AGAIN" : "DEAL") : "NOT ENOUGH GOLD", can, wide: true)) DealRpc(no, betChoice);
+                    Hint(by, "Wheel or arrows change the bet (Shift: 25)   ·   Win " + CutOff + " in one visit and the dealer stops dealing to you until the next floor");
                     break;
+                }
                 case Phase.Insurance:
-                    GUI.Label(new Rect(px, by - 30, pw, 24), "The dealer shows an Ace. Insurance costs " + (seenBets.Length > 0 ? seenBets[0] / 2 : 0) + " and pays 2 to 1 if the dealer has blackjack.",
-                        new GUIStyle(UI.UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
-                    if (GUI.Button(new Rect(px + pw / 2f - 250, by + 10, 230, 44), "TAKE INSURANCE", UI.UiSkin.Button)) InsuranceRpc(local.NetworkObject, true);
-                    if (GUI.Button(new Rect(px + pw / 2f + 20, by + 10, 230, 44), "NO INSURANCE", UI.UiSkin.Button)) InsuranceRpc(local.NetworkObject, false);
+                    GUI.Label(new Rect(x, by, 560, 40), "The dealer shows an Ace. Insure for " + (seenBets.Length > 0 ? seenBets[0] / 2 : 0) + "?", label);
+                    x += 560;
+                    if (Act(ref x, by, "Y", "TAKE INSURANCE", true, wide: true)) InsuranceRpc(no, true);
+                    if (Act(ref x, by, "N", "NO INSURANCE", true, wide: true)) InsuranceRpc(no, false);
                     break;
                 case Phase.Playing:
+                {
                     var hand = seenActive < seenHands.Length ? seenHands[seenActive] : new byte[0];
                     int bet = seenActive < seenBets.Length ? seenBets[seenActive] : 0;
-                    bool canDouble = CanDouble(hand.Length, false) && prog.Gold.Value >= bet;
-                    bool canSplit = CanSplit(hand, seenHands.Length) && prog.Gold.Value >= bet;
-                    bool canSurrender = CanSurrender(hand.Length, seenHands.Length);
-                    float bw = (pw - 60) / 5f;
-                    if (Button(px + 20, by + 10, bw, "HIT", true)) HitRpc(local.NetworkObject);
-                    if (Button(px + 20 + (bw + 5), by + 10, bw, "STAND", true)) StandRpc(local.NetworkObject);
-                    if (Button(px + 20 + (bw + 5) * 2, by + 10, bw, "DOUBLE", canDouble)) DoubleRpc(local.NetworkObject);
-                    if (Button(px + 20 + (bw + 5) * 3, by + 10, bw, "SPLIT", canSplit)) SplitRpc(local.NetworkObject);
-                    if (Button(px + 20 + (bw + 5) * 4, by + 10, bw, "SURRENDER", canSurrender)) SurrenderRpc(local.NetworkObject);
-                    GUI.Label(new Rect(px, by + 60, pw, 18), "Double: one card, bet doubled   ·   Split: a pair into two hands   ·   Surrender: give up, half back",
-                        new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+                    if (Act(ref x, by, "SPACE", "HIT", true, wide: true)) HitRpc(no);
+                    if (Act(ref x, by, "S", "STAND", true, wide: true)) StandRpc(no);
+                    if (Act(ref x, by, "D", "DOUBLE DOWN", CanDouble(hand.Length, false) && prog.Gold.Value >= bet, wide: true)) DoubleRpc(no);
+                    if (Act(ref x, by, "P", "SPLIT", CanSplit(hand, seenHands.Length) && prog.Gold.Value >= bet, wide: true)) SplitRpc(no);
+                    if (Act(ref x, by, "R", "SURRENDER", CanSurrender(hand.Length, seenHands.Length), wide: true)) SurrenderRpc(no);
+                    Hint(by, (seenHands.Length > 1 ? "Playing hand " + (seenActive + 1) + " of " + seenHands.Length + "   ·   " : "") + "Double: one more card for twice the bet   ·   Split a pair into two hands   ·   Surrender: half back");
                     break;
-            }
-            GUI.Label(new Rect(px, py + ph - 20, pw, 18), "Esc or walk away to leave the table", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.7f, 0.7f, 0.6f) } });
-        }
-
-        private static bool Button(float x, float y, float width, string text, bool enabled)
-        {
-            var was = GUI.enabled;
-            GUI.enabled = enabled;
-            bool pressed = GUI.Button(new Rect(x, y, width, 44), text, UI.UiSkin.Button);
-            GUI.enabled = was;
-            return pressed && enabled;
-        }
-
-        private void DrawBetControls(float px, float by, float pw, PlayerProgress prog, NetworkPlayer local)
-        {
-            int max = Mathf.Min(MaxBet, prog.Gold.Value);
-            betChoice = Mathf.Clamp(betChoice, MinBet, Mathf.Max(MinBet, max));
-            float cx = px + pw / 2f;
-            if (Button(cx - 330, by + 10, 60, "-25", betChoice - 25 >= MinBet)) betChoice -= 25;
-            if (Button(cx - 265, by + 10, 50, "-5", betChoice - 5 >= MinBet)) betChoice -= 5;
-            GUI.Label(new Rect(cx - 210, by + 10, 120, 44), "BET  " + betChoice, new GUIStyle(UI.UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 20 });
-            if (Button(cx - 85, by + 10, 50, "+5", betChoice + 5 <= max)) betChoice += 5;
-            if (Button(cx - 30, by + 10, 60, "+25", betChoice + 25 <= max)) betChoice += 25;
-            if (Button(cx + 35, by + 10, 60, "MAX", max >= MinBet)) betChoice = Mathf.Max(MinBet, max);
-            bool can = prog.Gold.Value >= betChoice && betChoice >= MinBet;
-            if (Button(cx + 105, by + 10, 220, can ? (seenPhase == Phase.Done ? "DEAL AGAIN" : "DEAL") : "NOT ENOUGH GOLD", can)) DealRpc(local.NetworkObject, betChoice);
-            GUI.Label(new Rect(px, by + 60, pw, 18), "Bets from " + MinBet + " to " + MaxBet + " gold   ·   win " + CutOff + " in one visit and the dealer cuts you off until the next floor", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
-            if (!string.IsNullOrEmpty(tableLine))
-                GUI.Label(new Rect(px, by + 80, pw, 18), "AT THE TABLE:  " + tableLine, new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = UI.UiSkin.Gold } });
-        }
-
-        private void DrawRow(float x, float y, string who, byte[] cards, bool holeHidden, float spacing, bool active)
-        {
-            int shownTotal = Total(holeHidden && cards.Length > 0 ? new[] { cards[0] } : cards, out bool soft);
-            string total = holeHidden ? shownTotal + " + ?" : (soft && shownTotal < 21 ? "soft " : "") + shownTotal + (shownTotal > 21 ? "  BUST" : Natural(cards) ? "  BLACKJACK" : "");
-            GUI.Label(new Rect(x, y, 400, 20), who + "    " + total, new GUIStyle(UI.UiSkin.Body) { fontStyle = active ? FontStyle.Bold : FontStyle.Normal, normal = { textColor = active ? UI.UiSkin.Gold : new Color(0.9f, 0.9f, 0.85f) } });
-            float step = spacing < 0 ? 62f : spacing;
-            for (int i = 0; i < cards.Length; i++)
-            {
-                var r = new Rect(x + i * step, y + 24, 56, 78);
-                UI.UiSkin.Rect(new Rect(r.x + 2, r.y + 2, r.width, r.height), new Color(0f, 0f, 0f, 0.4f));
-                UI.UiSkin.Rect(r, new Color(0.96f, 0.93f, 0.85f));
-                if (holeHidden && i == 1)
-                {
-                    UI.UiSkin.Rect(new Rect(r.x + 4, r.y + 4, r.width - 8, r.height - 8), new Color(0.4f, 0.08f, 0.1f));
-                    UI.UiSkin.Rect(new Rect(r.x + 10, r.y + 10, r.width - 20, r.height - 20), new Color(0.55f, 0.15f, 0.15f));
-                    continue;
                 }
-                bool red = Suit(cards[i]) == 1 || Suit(cards[i]) == 2;
-                var ink = red ? new Color(0.72f, 0.1f, 0.1f) : new Color(0.1f, 0.08f, 0.08f);
-                GUI.Label(new Rect(r.x + 5, r.y + 2, r.width, 22), RankName(cards[i]), new GUIStyle(UI.UiSkin.Heading) { fontSize = 18, alignment = TextAnchor.UpperLeft, normal = { textColor = ink } });
-                GUI.Label(new Rect(r.x, r.y + 20, r.width, r.height - 20), Suits[Suit(cards[i])], new GUIStyle() { font = SuitFont, fontSize = 30, alignment = TextAnchor.MiddleCenter, normal = { textColor = ink } });
             }
+            GUI.Label(new Rect(w - 260, by, 236, 40), "ESC  leave the table", new GUIStyle(label) { alignment = TextAnchor.MiddleRight, fontSize = 14, normal = { textColor = new Color(0.75f, 0.72f, 0.68f) } });
         }
+
+        private static string TotalText(IList<byte> cards, int total, bool soft) =>
+            total > 21 ? total + "  BUST" : Natural(cards) ? "BLACKJACK" : (soft && total < 21 ? "soft " : "") + total;
+
+        private static void Pill(Camera cam, Vector3 world, string text, Color color, bool strong = false)
+        {
+            var p = UI.UiScale.World(cam, world);
+            if (p.z <= 0f) return;
+            float tw = pill.CalcSize(new GUIContent(text)).x + 24f;
+            var r = new Rect(p.x - tw / 2f, UI.UiScale.H - p.y - 15f, tw, 30f);
+            UI.UiSkin.Rect(r, new Color(0f, 0f, 0f, strong ? 0.8f : 0.62f));
+            if (strong) UI.UiSkin.Rect(new Rect(r.x, r.yMax - 2, r.width, 2), color);
+            GUI.Label(r, text, new GUIStyle(pill) { normal = { textColor = color } });
+        }
+
+        /// <summary>A key cap and its action; clickable too. Advances <paramref name="x"/>.</summary>
+        private static bool Act(ref float x, float y, string key, string text, bool enabled, bool wide = false)
+        {
+            float kw = Mathf.Max(30f, keyCap.CalcSize(new GUIContent(key)).x + 14f);
+            float tw = string.IsNullOrEmpty(text) ? 0f : label.CalcSize(new GUIContent(text)).x + 10f;
+            var whole = new Rect(x, y, kw + 8f + tw, 40f);
+            bool hover = enabled && whole.Contains(Event.current.mousePosition);
+            UI.UiSkin.Rect(new Rect(x, y + 6, kw, 28), enabled ? (hover ? new Color(1f, 0.9f, 0.6f) : new Color(0.88f, 0.82f, 0.7f)) : new Color(0.4f, 0.38f, 0.35f));
+            GUI.Label(new Rect(x, y + 6, kw, 28), key, keyCap);
+            if (tw > 0f) GUI.Label(new Rect(x + kw + 8f, y, tw, 40f), text, new GUIStyle(label) { normal = { textColor = enabled ? (hover ? UI.UiSkin.Gold : new Color(0.92f, 0.9f, 0.85f)) : new Color(0.5f, 0.48f, 0.45f) } });
+            x += whole.width + (wide ? 26f : 12f);
+            return enabled && GUI.Button(whole, GUIContent.none, GUIStyle.none);
+        }
+
+        private static void Hint(float by, string text) =>
+            GUI.Label(new Rect(40, by + 46, UI.UiScale.W - 340, 20), text, new GUIStyle(UI.UiSkin.Small) { wordWrap = false });
 
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
             if (IsServer) Shuffle(announce: false);
-            // A long felt table, candles, and the dealer: a skeleton waiting with the shoe.
-            MeshKit.Part(transform, "Top", MeshKit.Box(new Vector3(2.6f, 0.08f, 1.1f)), Mat.Wood, Vector3.up * 0.88f);
-            var felt = MeshKit.Part(transform, "Felt", MeshKit.Box(new Vector3(2.4f, 0.02f, 0.92f)), Mat.Cloth, Vector3.up * 0.93f);
+            // A half-round casino table (2026-11-07): green felt, a padded rail, four betting circles, four stools, the shoe and
+            // the chip rack at the dealer's straight edge. The players' side is local -Z; the dealer stands at +Z.
+            float fy = BlackjackView.FeltY;
+            var felt = MeshKit.Part(transform, "Felt", MeshKit.Lathe("bjFelt", new[] { new Vector2(1.26f, 0f), new Vector2(0f, 0.0001f) }, 24, true, 180f), Mat.Cloth,
+                new Vector3(0f, fy, 0f), new Vector3(0f, 90f, 0f));
+            ArtLibrary.Tint(felt.GetComponent<Renderer>(), new Color(0.06f, 0.26f, 0.13f));
+            var rail = MeshKit.Part(transform, "Rail", MeshKit.Lathe("bjRail", new[] { new Vector2(1.44f, -0.07f), new Vector2(1.45f, 0.03f), new Vector2(1.36f, 0.075f), new Vector2(1.26f, 0.0f) }, 24, false, 180f), Mat.Leather,
+                new Vector3(0f, fy, 0f), new Vector3(0f, 90f, 0f));
+            ArtLibrary.Tint(rail.GetComponent<Renderer>(), new Color(0.22f, 0.1f, 0.07f));
+            MeshKit.Part(transform, "Skirt", MeshKit.Lathe("bjSkirt", new[] { new Vector2(1.4f, -0.07f), new Vector2(1.3f, -0.2f) }, 24, false, 180f), Mat.Wood, new Vector3(0f, fy, 0f), new Vector3(0f, 90f, 0f));
+            MeshKit.Part(transform, "Edge", MeshKit.Box(new Vector3(2.9f, 0.09f, 0.12f)), Mat.Wood, new Vector3(0f, fy - 0.02f, 0.06f));
+            MeshKit.Part(transform, "Pedestal", MeshKit.Cylinder(0.32f, 0.22f, 0.86f, 10), Mat.Wood, new Vector3(0f, 0f, -0.45f));
+            MeshKit.Part(transform, "Foot", MeshKit.Cylinder(0.55f, 0.5f, 0.06f, 12), Mat.Wood, new Vector3(0f, 0f, -0.45f));
+            foreach (float x in new[] { -1.15f, 1.15f }) MeshKit.Part(transform, "Leg", MeshKit.Box(new Vector3(0.08f, fy, 0.08f)), Mat.Wood, new Vector3(x, fy / 2f, 0.08f));
+            // Betting circles and stools.
             for (int st = 0; st < Stools; st++)
             {
-                float sx = -0.96f + st * 0.64f;
-                MeshKit.Part(transform, "Stool", MeshKit.Cylinder(0.17f, 0.15f, 0.06f, 10), Mat.Wood, new Vector3(sx, 0.62f, -0.95f));
-                MeshKit.Part(transform, "StoolLeg", MeshKit.Cylinder(0.04f, 0.05f, 0.6f, 6), Mat.Wood, new Vector3(sx, 0.3f, -0.95f));
-                var chips = MeshKit.Part(transform, "Chips", MeshKit.Cylinder(0.04f, 0.04f, 0.03f, 8), Mat.Gold, new Vector3(sx, 0.95f, -0.3f));
+                var d = BlackjackView.StoolDir(st);
+                var ring = MeshKit.Part(transform, "BetCircle", MeshKit.Lathe("bjRing", new[] { new Vector2(0.075f, 0f), new Vector2(0.064f, 0f) }, 18), Mat.Gold, d * BlackjackView.BetRadius + Vector3.up * (fy + 0.0015f));
+                ring.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                var sp = d * BlackjackView.StoolRadius;
+                MeshKit.Part(transform, "Stool", MeshKit.Cylinder(0.2f, 0.19f, 0.08f, 12), Mat.Leather, sp + Vector3.up * 0.66f);
+                MeshKit.Part(transform, "StoolLeg", MeshKit.Cylinder(0.04f, 0.05f, 0.66f, 6), Mat.Steel, sp);
+                MeshKit.Part(transform, "StoolFoot", MeshKit.Cylinder(0.2f, 0.2f, 0.03f, 10), Mat.Steel, sp);
             }
-            ArtLibrary.Tint(felt.GetComponent<Renderer>(), new Color(0.1f, 0.28f, 0.14f));
-            foreach (float x in new[] { -1.2f, 1.2f })
-                foreach (float z in new[] { -0.45f, 0.45f })
-                    MeshKit.Part(transform, "Leg", MeshKit.Box(new Vector3(0.08f, 0.86f, 0.08f)), Mat.Wood, new Vector3(x, 0.43f, z));
-            MeshKit.Part(transform, "Shoe", MeshKit.Box(new Vector3(0.18f, 0.1f, 0.3f)), Mat.Wood, new Vector3(0.55f, 0.99f, 0.25f));
-            for (int i = 0; i < 3; i++)
-                MeshKit.Part(transform, "Card", MeshKit.Box(new Vector3(0.1f, 0.005f, 0.14f)), Mat.Bone, new Vector3(-0.3f + i * 0.14f, 0.95f, 0.1f), new Vector3(0f, i * 8f - 8f, 0f));
-            var dealer = CharacterArt.BuildSkeleton(transform, CharacterArt.SkeletonKind.Warrior);
-            dealer.transform.localPosition = new Vector3(0f, 0f, 0.95f);
-            dealer.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
-            Props.Candles(transform, transform.position + transform.right * 0.7f + Vector3.up * 0.93f, new Color(1f, 0.6f, 0.3f));
+            // The dealer's side: chip rack and shoe.
+            var colours = new[] { new Color(0.08f, 0.08f, 0.09f), new Color(0.12f, 0.45f, 0.2f), new Color(0.62f, 0.1f, 0.1f), new Color(0.85f, 0.82f, 0.75f), new Color(0.15f, 0.2f, 0.55f) };
+            MeshKit.Part(transform, "Rack", MeshKit.Box(new Vector3(0.62f, 0.03f, 0.13f)), Mat.Wood, new Vector3(-0.1f, fy + 0.012f, -0.06f));
+            for (int c = 0; c < colours.Length; c++)
+            {
+                var stack = MeshKit.Part(transform, "RackChips", MeshKit.Cylinder(0.024f, 0.024f, 0.045f, 10), Mat.Bone, new Vector3(-0.36f + c * 0.13f, fy + 0.03f, -0.06f), new Vector3(90f, 0f, 0f));
+                ArtLibrary.Tint(stack.GetComponent<Renderer>(), colours[c]);
+            }
+            MeshKit.Part(transform, "Shoe", MeshKit.Box(new Vector3(0.12f, 0.1f, 0.24f)), Mat.Wood, BlackjackView.ShoeLocal + new Vector3(0f, -0.03f, 0.04f), new Vector3(-12f, -20f, 0f));
+            dealerRig = CharacterArt.BuildSkeleton(transform, CharacterArt.SkeletonKind.Warrior);
+            dealerRig.transform.localPosition = new Vector3(0f, 0f, 0.5f);
+            dealerRig.transform.localRotation = Quaternion.Euler(0f, 180f, 0f);
+            // A dealer, not a soldier: no weapon, no shield.
+            foreach (var part in dealerRig.GetComponentsInChildren<Transform>(true))
+                if (part != null && (part.name == "Grip" || part.name.Contains("Shield"))) Destroy(part.gameObject);
+            Props.Candles(transform, transform.TransformPoint(new Vector3(-1.2f, fy, 0.25f)), new Color(1f, 0.6f, 0.3f));
+            // A lamp over the felt, so the cards read in the tent's gloom.
+            var lamp = new GameObject("TableLamp").AddComponent<Light>();
+            lamp.transform.SetParent(transform, false);
+            lamp.transform.localPosition = new Vector3(0f, 2.3f, -0.35f);
+            lamp.type = LightType.Point;
+            lamp.color = new Color(1f, 0.82f, 0.6f);
+            lamp.range = 4.5f;
+            lamp.intensity = 2.2f;
+            lamp.shadows = LightShadows.None;
+            MeshKit.Part(transform, "LampShade", MeshKit.Lathe("bjShade", new[] { new Vector2(0.28f, 0f), new Vector2(0.12f, 0.16f), new Vector2(0.03f, 0.2f) }, 12), Mat.Steel, new Vector3(0f, 2.35f, -0.35f));
+            var bulb = MeshKit.Part(transform, "LampGlow", MeshKit.Ball(0.07f, 8, 6), Mat.Glow, new Vector3(0f, 2.33f, -0.35f));
+            ArtLibrary.SetGlow(bulb.GetComponent<Renderer>(), new Color(1f, 0.75f, 0.45f) * 1.4f);
+            MeshKit.Part(transform, "LampChain", MeshKit.Box(new Vector3(0.015f, 0.6f, 0.015f)), Mat.Steel, new Vector3(0f, 2.85f, -0.35f));
+            view = gameObject.AddComponent<BlackjackView>();
+            view.Init(this);
         }
     }
 }

@@ -126,7 +126,7 @@ namespace Deepbound.UI
                     : (ClassId)i == ClassId.Flagellant ? CharacterArt.BuildFlagellant(table, color)
                     : (ClassId)i == ClassId.PlagueDoctor ? CharacterArt.BuildPlagueDoctor(table, color)
                     : CharacterArt.BuildKnight(table, color);
-                rig.Blocking = (ClassId)i == ClassId.Knight;
+                rig.LowGuard = (ClassId)i == ClassId.Knight; // was Blocking: the raised shield hid him (the user, 2026-11-07)
                 turntables[i] = table;
 
                 // Warm key light and a cool rim, like the dungeon itself.

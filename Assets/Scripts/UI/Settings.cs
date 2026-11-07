@@ -197,7 +197,7 @@ namespace Deepbound.UI
             }
             float b = Brightness;
             brightnessGrade.gamma.Override(new Vector4(1f, 1f, 1f, b));
-            brightnessVolume.weight = Mathf.Abs(b) < 0.001f ? 0f : 1f;
+            brightnessVolume.weight = 0f; // the retro pass applies brightness now (UI/RetroLook); this volume never showed
         }
 
         // ---- Screen (2026-11-01, "add resolution settings, as well as more setting options") ----

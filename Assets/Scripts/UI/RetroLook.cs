@@ -9,7 +9,7 @@ namespace Deepbound.UI
     /// </summary>
     public class RetroLook : MonoBehaviour
     {
-        private static readonly int OnId = Shader.PropertyToID("_RetroOn"), ResId = Shader.PropertyToID("_RetroRes"), LevelsId = Shader.PropertyToID("_RetroLevels"), TintId = Shader.PropertyToID("_RetroTint");
+        private static readonly int OnId = Shader.PropertyToID("_RetroOn"), ResId = Shader.PropertyToID("_RetroRes"), LevelsId = Shader.PropertyToID("_RetroLevels"), TintId = Shader.PropertyToID("_RetroTint"), BrightId = Shader.PropertyToID("_Bright");
         /// <summary>How far greys and browns are pulled toward the gothic ramp (saturated colours much less).</summary>
         public const float Tint = 0.18f;
         /// <summary>Colour steps per channel for Fine / Classic / Chunky: the smaller the picture, the fewer the colours.</summary>
@@ -64,6 +64,9 @@ namespace Deepbound.UI
             float s = Settings.RetroScale;
             Shader.SetGlobalVector(ResId, new Vector4(Mathf.Round(Screen.width * s), Mathf.Round(Screen.height * s), 0f, 0f));
             Shader.SetGlobalFloat(LevelsId, Levels[Settings.RetroSize]);
+            // Brightness (2026-11-07, the user: "brightness option does nothing": the LiftGammaGain volume never showed): a gamma
+            // exponent in the retro pass, which runs whether the look is on or off. +0.4 -> x0.62 (brighter), -0.3 -> x1.43.
+            Shader.SetGlobalFloat(BrightId, Mathf.Exp(-Settings.Brightness * 1.2f));
         }
     }
 }

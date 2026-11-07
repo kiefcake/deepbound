@@ -237,6 +237,8 @@ namespace Deepbound.EditorTools
                 mat.renderQueue = (int)RenderQueue.Transparent;
                 EditorUtility.SetDirty(mat);
             }
+            // Playing cards (World/CardArt draws the atlas at runtime): plain opaque Unlit, so they read in a dark tent.
+            BakeUnlit("Cards", shader, Color.white, false);
         }
 
         private static void BakeUnlit(string name, Shader shader, Color color, bool transparent)

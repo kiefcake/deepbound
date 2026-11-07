@@ -1140,6 +1140,11 @@ namespace Deepbound.UI
         /// <summary>At the back of the carriage: F to sit (or stand).</summary>
         private void DrawSeatPrompt(float w, float h)
         {
+            if (Player.CampSeat.Prompt != null && !shopOpen && !forgeOpen && life.Seat.Value < 0)
+            {
+                GUI.Label(new Rect(0, h / 2f + 92, w, 24), Binds.Rekey(Player.CampSeat.Prompt), center);
+                return;
+            }
             var ride = CarriageRide.Instance;
             if (ride == null || !DungeonDirector.InLobby || ride.Riding || shopOpen || forgeOpen || life.Downed.Value) return;
             string text = null;

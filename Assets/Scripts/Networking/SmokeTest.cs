@@ -40,7 +40,7 @@ namespace Deepbound.Networking
             // Watchdog: if the sequence throws, the coroutine dies silently and the
             // process would idle forever. Fail loudly instead.
             // x8 (was x6 until 2026-10-29): the checks had grown to fill the old 240 s on a headless host.
-            Invoke(nameof(Timeout), seconds * 8f);
+            Invoke(nameof(Timeout), seconds * 10f); // 8x ran out on 2026-11-07 with a game open beside it
         }
 
         private void Timeout()
@@ -2670,6 +2670,33 @@ namespace Deepbound.Networking
                     }
                     else Log("struck folk", "no camp folk spawned", false);
 
+                    // ---- FIRE LOGS (2026-11-07): F by a log sits you on it facing the fire; F again stands you up ----
+                    {
+                        var flMe = NetworkPlayer.Local;
+                        var flMotor = flMe.GetComponent<Player.FirstPersonMotor>();
+                        var flSeats = Lobby.LogSeats();
+                        var flNear = flSeats[0].at - flSeats[0].face * 0.9f;
+                        flNear.y = Lobby.Origin.y + 0.1f;
+                        flMotor.Teleport(flNear, Quaternion.LookRotation(flSeats[0].face));
+                        bool flBot = Player.FirstPersonMotor.BotControl;
+                        Player.FirstPersonMotor.BotControl = true;
+                        yield return null;
+                        yield return null;
+                        bool flPrompted = Player.CampSeat.Prompt != null;
+                        UI.Binds.BotPress(UI.Bind.Use);
+                        yield return new WaitForSeconds(0.5f);
+                        bool flSat = Player.CampSeat.SeatedLocal && flMotor.Pinned && Vector3.Distance(flMe.transform.position, flSeats[0].at) < 0.2f;
+                        UI.Binds.BotPress(UI.Bind.Use);
+                        yield return new WaitForSeconds(0.3f);
+                        bool flStood = !Player.CampSeat.SeatedLocal && !flMotor.Pinned;
+                        Player.FirstPersonMotor.BotControl = flBot;
+                        bool flClear = true;
+                        foreach (var (at, _) in flSeats)
+                            if (Lobby.InTavern(at) || Vector3.Distance(new Vector3(at.x, 0f, at.z), new Vector3(Lobby.TentCenter.x, 0f, Lobby.TentCenter.z)) < 4.8f) flClear = false;
+                        Log("fire logs", "seats " + flSeats.Length + ", prompt " + flPrompted + ", sat " + flSat + ", stood " + flStood + ", clear of tavern and tent " + flClear,
+                            flSeats.Length == 12 && flPrompted && flSat && flStood && flClear);
+                    }
+
                     // The training yard: a drill raises a stat and the next costs more.
                     motor.Teleport(Lobby.YardSpot + Vector3.right * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
@@ -2809,7 +2836,12 @@ namespace Deepbound.Networking
                     // ---- HEIRLOOM (2026-11-07): at camp before a run, the server carries a chosen relic in as a plain relic, once ----
                     {
                         var dirH = World.DungeonDirector.Instance;
-                        bool campH = DungeonDirector.InLobby && !dirH.RunInProgress;
+                        // The smoke run reaches this between floors (a run in progress): the server must refuse then; then
+                        // pretend the run has not begun (NextDepth 0) for the rest, and put it back.
+                        int nextWas = dirH.NextDepth.Value;
+                        bool refusedMidRun = !dirH.RunInProgress || progress.CannotBringHeirloom(1) != null;
+                        dirH.NextDepth.Value = 0;
+                        bool campH = DungeonDirector.InLobby && !dirH.RunInProgress && refusedMidRun;
                         Loot.Relic heir = Loot.Relic.VampiricFang;
                         for (int ri = 0; ri < Loot.Relics.Count; ri++) if (!progress.HasRelic((Loot.Relic)ri) && Loot.Relics.Scales((Loot.Relic)ri)) { heir = (Loot.Relic)ri; break; }
                         bool badRefused = !progress.ServerBringHeirloom(0) && !progress.ServerBringHeirloom(250);
@@ -2822,7 +2854,8 @@ namespace Deepbound.Networking
                         bool regranted = progress.HasRelic(heir) && progress.HeirloomPending == -1;
                         progress.ServerDebugRemoveRelic(heir);
                         progress.ServerDebugClearHeirloom();
-                        Log("heirloom", "camp " + campH + ", " + heir + " brought " + brought + ", carried tier 0 " + carried + ", second refused " + twice + ", bad ids refused " + badRefused + ", regranted at run start " + regranted,
+                        dirH.NextDepth.Value = nextWas;
+                        Log("heirloom", "camp (and refused mid-run) " + campH + ", " + heir + " brought " + brought + ", carried tier 0 " + carried + ", second refused " + twice + ", bad ids refused " + badRefused + ", regranted at run start " + regranted,
                             campH && brought && carried && twice && badRefused && regranted && !progress.HasRelic(heir));
                     }
                     var anvilAgain = FindObjectsByType<Anvil>(FindObjectsSortMode.None).First();
@@ -3646,7 +3679,7 @@ namespace Deepbound.Networking
             {
                 ("0j_castle_road", Lobby.Origin + Lobby.S(0f, 0.1f, -17f), Lobby.Origin + Lobby.S(0f, 2f, 10f), -8f),
                 ("0k_castle_stalls", Lobby.Origin + Lobby.S(0f, 0.1f, -10f), Lobby.Origin + Lobby.S(-5f, 1.5f, -5f), 0f),
-                ("0l_castle_tent", Lobby.Origin + Lobby.S(-2f, 0.1f, 6f), Lobby.TentCenter + Vector3.up * 1.5f, 0f),
+                ("0l_castle_tent", Lobby.FirePit + new Vector3(1.5f, 0.1f, 0.5f), Lobby.TentCenter + Vector3.up * 1.5f, 0f),
                 ("0m_castle_gong", Lobby.Origin + Lobby.S(3f, 0.1f, 6f), Lobby.GongSpot + Vector3.up * 2f, 0f),
                 ("0n_castle_gate", Lobby.Origin + Lobby.S(-4f, 0.1f, 8f), Lobby.BoardingCenter + new Vector3(2f, 3f, 6f), -10f),
                 ("0o_castle_keep", Lobby.Origin + Lobby.S(3f, 0.1f, 2f), Lobby.Origin + Lobby.S(0f, 9f, -24f), -18f),
@@ -4021,8 +4054,8 @@ namespace Deepbound.Networking
                     yield return Shot(dir, "0s_cat_smile");
                     local.GetComponent<PlayerProgress>().ServerResetRun();
                 }
-                var tentFrom = Lobby.TentCenter + new Vector3(2.6f, 0.1f, 0f);
-                lm.Teleport(tentFrom, Quaternion.LookRotation(Lobby.TentCenter + new Vector3(-2f, 0f, -0.6f) - tentFrom));
+                var tentFrom = Lobby.TentCenter + new Vector3(-2.6f, 0.1f, 0f);
+                lm.Teleport(tentFrom, Quaternion.LookRotation(Lobby.TentCenter + new Vector3(2f, 0f, -0.6f) - tentFrom));
                 lm.SetPitch(12f);
                 yield return new WaitForSeconds(0.4f);
                 yield return Shot(dir, "0s_tent_games");

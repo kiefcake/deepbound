@@ -52,6 +52,8 @@ namespace Deepbound.Art
         public float StrideLength = 1.4f;
 
         public bool Blocking;
+        /// <summary>A low guard: the shield held at the hip, angled forward (the class select Knight; the user: "lower the shield").</summary>
+        public bool LowGuard;
         public bool Downed;
         /// <summary>0-3: how much mead is in them. The body sways and lists with it.</summary>
         public int Drunk;
@@ -276,6 +278,11 @@ namespace Deepbound.Art
             {
                 armL = new Vector3(-75f, 35f, 0f);
                 torso += new Vector3(6f, 10f, 0f);
+            }
+            else if (LowGuard && action == RigAction.None)
+            {
+                armL = new Vector3(-28f, 30f, 0f);
+                torso += new Vector3(2f, 6f, 0f);
             }
 
             // An emote: a gesture over the walk (sitting and bowing hold still; walking off ends them, bar the dance).

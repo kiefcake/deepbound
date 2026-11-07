@@ -61,6 +61,8 @@ namespace Deepbound.Player
 
         /// <summary>The last frame's movement input (x = strafe, y = forward), for directional dodges.</summary>
         public Vector2 MoveInput { get; private set; }
+        /// <summary>The move keys even while pinned (a seated player stands up by walking off).</summary>
+        public Vector2 RawMove { get; private set; }
 
         /// <summary>True on frames where sprint is held and actually applied.</summary>
         public bool IsSprinting { get; private set; }
@@ -163,6 +165,7 @@ namespace Deepbound.Player
 
             if (hasControl && !LookHeld) { ApplyLook(ReadLookInput()); ApplyPadLook(); }
             MoveInput = canMove ? ReadMoveInput() : Vector2.zero;
+            RawMove = hasControl && !Frozen ? (canMove ? MoveInput : ReadMoveInput()) : Vector2.zero;
             // L3 latches a sprint until you stop pushing forward (holding a stick in is tiring).
             UI.Binds.Tick();
             if (UI.Binds.PadSprintDown || (UI.Settings.ToggleSprint && UI.Binds.Down(UI.Bind.Sprint))) padSprint = !padSprint;

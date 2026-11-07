@@ -100,6 +100,8 @@ namespace Deepbound.Networking
             }
 
             int n = 0;
+            // -tourquick: plans, the fire, the tent and the card table only (the walk grid and station views take minutes).
+            bool quick = System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-tourquick") >= 0;
             // Aerial obliques (the user: "take more angles"): eight from outside the wall high up, eight closer and lower.
             for (int i = 0; i < 8; i++)
             {
@@ -112,7 +114,7 @@ namespace Deepbound.Networking
                 yield return Render(cam, "air_" + (n++).ToString("000") + "_low_" + i * 45, 1600, 900);
             }
             // A walk across the courtyard: every 8 m, looking north, east, south and west at head height.
-            for (float gx = -32f; gx <= 32f; gx += 8f)
+            for (float gx = -32f; gx <= 32f && !quick; gx += 8f)
                 for (float gz = -32f; gz <= 32f; gz += 8f)
                 {
                     if (gx * gx + gz * gz > 31f * 31f) continue;
@@ -124,7 +126,26 @@ namespace Deepbound.Networking
                         yield return Render(cam, "walk_" + gx.ToString("+00;-00") + "_" + gz.ToString("+00;-00") + "_" + tag, 1280, 720);
                     }
                 }
-            foreach (var (name, at) in spots)
+            // From the spawn fire, sitting and standing, toward each side; and inside the tent looking up (its roof).
+            var pit = Lobby.FirePit;
+            foreach (var (yaw, tag) in new[] { (270f, "tavern"), (90f, "tent"), (0f, "north"), (180f, "south"), (235f, "sw"), (125f, "se") })
+                foreach (var (hgt, pose) in new[] { (1.75f, "stand"), (1.15f, "sit") })
+                {
+                    var dirF = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
+                    cam.transform.position = pit - dirF * 3.9f + Vector3.up * hgt;
+                    cam.transform.rotation = Quaternion.Euler(3f, yaw, 0f);
+                    yield return Render(cam, "fire_" + tag + "_" + pose, 1280, 720);
+                }
+            cam.transform.position = Lobby.TentCenter + new Vector3(1.2f, 1.7f, 0.5f);
+            cam.transform.rotation = Quaternion.Euler(-55f, 250f, 0f);
+            yield return Render(cam, "tent_inside_up", 1280, 720);
+            cam.transform.position = Lobby.TentCenter + new Vector3(2.8f, 1.7f, 0f);
+            cam.transform.rotation = Quaternion.Euler(5f, 270f, 0f);
+            yield return Render(cam, "tent_inside_out", 1280, 720);
+            cam.transform.position = Lobby.TentCenter + new Vector3(-1.5f, 1.7f, 1.5f);
+            cam.transform.rotation = Quaternion.Euler(8f, 150f, 0f);
+            yield return Render(cam, "tent_inside_table", 1280, 720);
+            foreach (var (name, at) in quick ? new List<(string, Vector3)>() : spots)
             {
                 // Two views of each: from the camp's middle side and from the side away from it, at head height.
                 var toCentre = o - at; toCentre.y = 0f;
@@ -144,6 +165,26 @@ namespace Deepbound.Networking
                     cam.transform.position = from;
                     cam.transform.rotation = Quaternion.LookRotation(look - from);
                     yield return Render(cam, "eye_" + (n++).ToString("00") + "_" + name + "_" + tag, 1280, 720);
+                }
+            }
+            // Seated at Deadman's Hand with a hand dealt: what the player sees over the felt.
+            var bj = FindAnyObjectByType<BlackjackTable>();
+            if (bj != null && local != null)
+            {
+                var bjProg = local.GetComponent<Progression.PlayerProgress>();
+                bjProg.ServerAddGold(300);
+                bj.ServerDebugDeal(bjProg, 25, new byte[] { 9, 0, 19, 51 });
+                yield return new WaitForSeconds(2.5f);
+                var vc = Art.ViewCamera.Current;
+                if (vc != null)
+                {
+                    cam.transform.SetPositionAndRotation(vc.transform.position, vc.transform.rotation);
+                    yield return Render(cam, "blackjack_seat", 1280, 720);
+                    bj.HitRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(1.5f);
+                    cam.transform.SetPositionAndRotation(vc.transform.position, vc.transform.rotation);
+                    yield return Render(cam, "blackjack_hit", 1280, 720);
+                    lines.Add("blackjack seat camera " + vc.transform.position + " " + vc.transform.eulerAngles);
                 }
             }
             File.WriteAllLines(Path.Combine(dir, "tour.txt"), lines);

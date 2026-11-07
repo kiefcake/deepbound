@@ -193,6 +193,7 @@ namespace Deepbound.Player
             }
             gameObject.AddComponent<PetCompanion>().Init(this);
             gameObject.AddComponent<ToolBelt>().Init(this);
+            gameObject.AddComponent<CampSeat>().Init(this);
             WeaponGlowCos.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.WeaponLevel.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket0.OnValueChanged += (_, __) => RefreshWeaponGlow();
@@ -469,7 +470,7 @@ namespace Deepbound.Player
             // and with no occlusion culling everything past the walls would otherwise still be drawn.
             // The hands are put away for the carriage ride.
             // Hidden in cutscenes, and while watching an ally from down on the floor (Teamwork spectating).
-            bool hideHands = GameHud.Cinematic || Teamwork.Watching != null;
+            bool hideHands = GameHud.Cinematic || Teamwork.Watching != null || World.BlackjackTable.LocalOpen || CampSeat.SeatedLocal; // seated at the cards or by the fire: hands away
             if (IsOwner && viewModel != null && viewModel.Root.gameObject.activeSelf == hideHands) viewModel.Root.gameObject.SetActive(!hideHands);
             // Watching an ally from the floor, your own body is in the shot (play-test 2026-11-01: dragged while
             // spectating, you could not see yourself being dragged). Otherwise it only casts a shadow.

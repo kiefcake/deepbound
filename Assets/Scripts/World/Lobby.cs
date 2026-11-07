@@ -32,13 +32,13 @@ namespace Deepbound.World
         public static readonly Vector3 MerchantSpot = Origin + S(-7.4f, 0f, -5f);
         public static readonly Vector3 AnvilSpot = Origin + S(-5.6f, 0f, 1.4f); // 2026-11-07 market square: the trade row (west) with Silas and Vey
         public static readonly Vector3 AnvilFacing = Vector3.right;
-        public static readonly Vector3 TentCenter = Origin + S(-8.8f, 0f, 13.2f); // the tavern yard
-        public static readonly Vector3 DiceSpot = TentCenter + new Vector3(1.4f, 0f, -1.2f);
-        public static readonly Vector3 CofferSpot = TentCenter + new Vector3(1.6f, 0f, 1.6f);
-        public static readonly Vector3 TentFacing = Vector3.right;
+        public static readonly Vector3 TentCenter = Origin + new Vector3(12.6f, 0f, -19f); // 2026-11-07 (the user): by the spawn fire, east of it, opening west onto the logs
+        public static readonly Vector3 DiceSpot = TentCenter + new Vector3(-1.4f, 0f, -1.2f);
+        public static readonly Vector3 CofferSpot = TentCenter + new Vector3(-1.6f, 0f, 1.6f);
+        public static readonly Vector3 TentFacing = Vector3.left;
         /// <summary>The bone reels, against the tent's back wall, and the card table by its south wall.</summary>
-        public static readonly Vector3 SlotSpot = TentCenter + new Vector3(-2.9f, 0f, 0.3f);
-        public static readonly Vector3 BlackjackSpot = TentCenter + new Vector3(-0.6f, 0f, -2.5f);
+        public static readonly Vector3 SlotSpot = TentCenter + new Vector3(2.9f, 0f, 0.3f);
+        public static readonly Vector3 BlackjackSpot = TentCenter + new Vector3(0.6f, 0f, -2.5f);
         public static readonly Vector3 GongSpot = Origin + S(8.5f, 0f, 6f);
 
         /// <summary>
@@ -47,7 +47,7 @@ namespace Deepbound.World
         /// Inside: Marta's bar (mead, <see cref="TavernKeep"/>), a hearth, tables, and a little stage for the band
         /// (<see cref="TavernBand"/>). Interior 8 x 7 m.
         /// </summary>
-        public static readonly Vector3 TavernCenter = Origin + S(-16f, 0f, 12f);
+        public static readonly Vector3 TavernCenter = Origin + new Vector3(-12.6f, 0f, -19f); // 2026-11-07 (the user): by the spawn fire, west of it, the door facing the logs
         public const float TavernHalfX = 4f, TavernHalfZ = 3.5f, TavernWall = 3.2f;
         public static readonly Vector3 TavernKeepSpot = TavernCenter + new Vector3(-1.9f, 0f, 0.6f);
         public static readonly Vector3 TavernBandSpot = TavernCenter + new Vector3(1.4f, 0f, -1.6f);
@@ -56,7 +56,9 @@ namespace Deepbound.World
 
         public static readonly Vector3 ShrineSpot = Origin + S(15.5f, 0f, -4f);
         /// <summary>The training yard's drill board, on the plaza side of its fence.</summary>
-        public static readonly Vector3 YardSpot = Origin + S(-9.1f, 0f, -8.2f);
+        public static readonly Vector3 YardSpot = Origin + S(-9.1f, 0f, -8.2f) + YardShift;
+        /// <summary>2026-11-07: the whole training yard moved to the north-west, where the tavern stood (the tavern went by the fire).</summary>
+        public static readonly Vector3 YardShift = new Vector3(-4.05f, 0f, 34.4f);
         /// <summary>Ysolde the runewright's stones, between the shrine and the gong: runes, sigils, abilities.</summary>
         public static readonly Vector3 RunewrightSpot = Origin + S(12.6f, 0f, 3.2f);
 
@@ -103,35 +105,14 @@ namespace Deepbound.World
             amb.Chimneys.Add(ForgeChimney);
             var rng = new System.Random(7);
             // Oaks: (x, z in S units, scale).
-            foreach (var (x, z, k) in new[] { (6.4f, -9.6f, 1.1f), (-6.8f, -11.2f, 0.95f), (-12.6f, 6.6f, 1.25f), (8.2f, 16.2f, 1f), (-2.8f, 22.6f, 0.85f) })
+            foreach (var (x, z, k) in new[] { (-19.5f, -9f, 1.1f), (8.2f, 16.2f, 1f), (-2.8f, 22.6f, 0.85f) } /* 2026-11-07: the two by the spawn fire made way for the tavern and tent */)
             {
                 var at = o + S(x, 0f, z);
                 Oak(d, lights, at, k, rng);
                 amb.Crowns.Add(at + Vector3.up * 4.2f * k);
                 amb.Glades.Add(at);
             }
-            // A yew by the shrine: a dark narrow cone, the churchyard tree.
-            var yew = o + S(12.8f, 0f, -8.6f);
-            d.Add(MeshKit.Cylinder(0.16f, 0.12f, 1.2f, 8), Mat.Wood, Matrix4x4.Translate(yew));
-            var cone = MeshKit.Part(lights, "Yew", MeshKit.Lathe("yewCone", new[] { new Vector2(0f, 0f), new Vector2(1.1f, 0.3f), new Vector2(0.95f, 1.6f), new Vector2(0.55f, 3.2f), new Vector2(0f, 4.2f) }, 10), Mat.Cloth, yew + Vector3.up * 0.9f);
-            ArtLibrary.Tint(cone.GetComponent<Renderer>(), new Color(0.05f, 0.11f, 0.07f));
-            amb.Glades.Add(yew);
-            // Flower planters along the trade row and either side of the square.
-            var blooms = new[] { new Color(0.6f, 0.12f, 0.15f), new Color(0.75f, 0.62f, 0.2f), new Color(0.45f, 0.25f, 0.6f), new Color(0.85f, 0.8f, 0.7f) };
-            foreach (var (x, z) in new[] { (-4.6f, -1.8f), (-4.6f, 4.6f), (4.6f, -1.8f), (4.6f, 3.4f), (-1.8f, -10.8f), (1.8f, -10.8f) })
-            {
-                var at = o + S(x, 0f, z);
-                d.AddBox(at + Vector3.up * 0.25f, new Vector3(1.6f, 0.5f, 0.6f), Mat.Wood, new Color(0.35f, 0.22f, 0.13f));
-                d.AddBox(at + Vector3.up * 0.51f, new Vector3(1.5f, 0.04f, 0.5f), Mat.Rubble, new Color(0.18f, 0.12f, 0.08f));
-                for (int i = 0; i < 9; i++)
-                {
-                    var p = at + new Vector3(-0.62f + i * 0.155f, 0.6f + (float)rng.NextDouble() * 0.12f, ((float)rng.NextDouble() - 0.5f) * 0.3f);
-                    // Batched (one mesh per colour): 108 separate leaf and bloom renderers cost the camp a lot of draw calls.
-                    d.Add(MeshKit.Ball(0.1f, 6, 4), Mat.Cloth + "#" + ColorUtility.ToHtmlStringRGB(new Color(0.1f, 0.2f, 0.08f)), Matrix4x4.TRS(p, Quaternion.identity, new Vector3(1f, 0.8f, 1f)));
-                    d.Add(MeshKit.Ball(0.045f, 6, 4), Mat.Cloth + "#" + ColorUtility.ToHtmlStringRGB(blooms[rng.Next(blooms.Length)]), Matrix4x4.Translate(p + Vector3.up * 0.09f));
-                }
-                amb.Glades.Add(at);
-            }
+            // (2026-11-07, the user: the yew read as a tree with no trunk, the flower planters as out of place: both removed.)
         }
 
         /// <summary>A gnarled oak: a leaning trunk, three crooked limbs, clumps of dark leaves.</summary>
@@ -176,9 +157,30 @@ namespace Deepbound.World
         /// <summary>The training yard, west of the bonfire plaza.</summary>
         public static readonly Vector3[] DummySpots =
         {
-            Origin + S(-13f, 0f, -16f),
-            Origin + S(-13f, 0f, -11f),
+            Origin + S(-13f, 0f, -16f) + YardShift,
+            Origin + S(-13f, 0f, -11f) + YardShift,
         };
+
+        /// <summary>The spawn bonfire and the logs round it (2026-11-07, the user: "allow the players to sit around the camp fire").</summary>
+        public static readonly Vector3 FirePit = Origin + S(0f, 0f, -14f);
+        public const int FireLogCount = 6;
+        public const float FireLogRadius = 3.8f;
+        public static float FireLogAngle(int i) => (i * 60f + 30f) * Mathf.Deg2Rad;
+
+        /// <summary>Two places to sit on each log, facing the fire: (where the body goes, which way it faces).</summary>
+        public static (Vector3 at, Vector3 face)[] LogSeats()
+        {
+            var seats = new (Vector3, Vector3)[FireLogCount * 2];
+            for (int i = 0; i < FireLogCount; i++)
+            {
+                float a = FireLogAngle(i);
+                var outward = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
+                var along = Vector3.Cross(Vector3.up, outward);
+                for (int k = 0; k < 2; k++)
+                    seats[i * 2 + k] = (FirePit + outward * (FireLogRadius + 0.12f) + along * (k == 0 ? -0.45f : 0.45f) + Vector3.up * 0.12f, -outward);
+            }
+            return seats;
+        }
 
         public static Vector3 SpawnFor(ulong clientId)
         {
@@ -213,6 +215,7 @@ namespace Deepbound.World
             BuildStalls(o, dressing, lights);
             BuildTent(lights, dressing);
             BuildTavern(structure, dressing, lights);
+            BuildStationLamps(dressing, lights);
             BuildYard(o, dressing, lights);
             BuildShrineNook(dressing, lights);
             BuildRange(dressing, lights);
@@ -226,11 +229,12 @@ namespace Deepbound.World
                 float a = i * Mathf.PI * 2f / 12f;
                 dressing.AddBox(fire + new Vector3(Mathf.Cos(a), 0.14f, Mathf.Sin(a)) * 1.3f, new Vector3(0.4f, 0.28f, 0.35f), Mat.Rubble, Quaternion.Euler(0f, a * Mathf.Rad2Deg, 0f));
             }
-            for (int i = 0; i < 4; i++)
+            // Six logs to sit on (F), leaving the east and west open for the tent and the tavern door.
+            for (int i = 0; i < FireLogCount; i++)
             {
-                float a = i * Mathf.PI * 0.5f + Mathf.PI * 0.25f;
-                var p = fire + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 3.8f;
-                dressing.Add(MeshKit.Cylinder(0.25f, 0.25f, 1.8f, 8), Mat.Wood, Matrix4x4.TRS(p + Vector3.up * 0.25f, Quaternion.Euler(0f, -a * Mathf.Rad2Deg, 90f), Vector3.one));
+                float a = FireLogAngle(i);
+                var p = fire + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * FireLogRadius;
+                dressing.Add(MeshKit.Cylinder(0.25f, 0.25f, 1.8f, 8), Mat.Wood, Matrix4x4.TRS(p + Vector3.up * 0.25f, Quaternion.Euler(0f, -a * Mathf.Rad2Deg - 90f, 90f), Vector3.one)); // lying ALONG the ring (they were spokes), so two can sit on each
             }
             Props.Brazier(lights, fire, new Color(1f, 0.55f, 0.25f), true);
 
@@ -475,26 +479,9 @@ namespace Deepbound.World
                         l.shadows = LightShadows.None;
                     }
                 }
-            // Benches and stone planters round the bonfire.
-            var fire = o + S(0f, 0f, -14f);
-            for (int i = 0; i < 6; i++)
-            {
-                float a = (i * 60f + 30f) * Mathf.Deg2Rad;
-                var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-                var at = fire + dir * 5.2f;
-                var rot = Quaternion.LookRotation(-dir);
-                d.AddBox(at + Vector3.up * 0.42f, new Vector3(1.8f, 0.08f, 0.45f), Mat.Wood, rot);
-                foreach (float s in new[] { -0.7f, 0.7f }) d.AddBox(at + rot * new Vector3(s, 0.2f, 0f), new Vector3(0.12f, 0.4f, 0.4f), Mat.Wood, rot);
-                if (i % 2 == 0)
-                {
-                    var planter = fire + dir * 7.2f;
-                    d.Add(MeshKit.Cylinder(0.55f, 0.6f, 0.6f, 10), Mat.StoneWall, Matrix4x4.Translate(planter));
-                    var soil = MeshKit.Part(lights, "PlanterShrub", MeshKit.Ball(0.55f, 8, 6), Mat.Cloth, planter + Vector3.up * 0.75f, default, new Vector3(1f, 0.75f, 1f));
-                    ArtLibrary.Tint(soil.GetComponent<Renderer>(), new Color(0.12f, 0.2f, 0.09f));
-                }
-            }
+            // (The bench ring and stone planters round the bonfire went 2026-11-07: six logs to sit on instead, see Build.)
             // Crates, barrels and a hand cart between the stalls and the walls.
-            foreach (var (x, z) in new[] { (-12f, -2f), (11f, -11f), (12.5f, 9f), (-4f, -21f), (7f, 18f) })
+            foreach (var (x, z) in new[] { (-12f, -2f), (12.5f, 9f), (-4f, -21f), (7f, 18f) })
             {
                 var at = o + S(x, 0f, z);
                 for (int n = 0; n < 3; n++)
@@ -504,18 +491,8 @@ namespace Deepbound.World
                     else Props.Barrel(d, p);
                 }
             }
-            var cart = o + S(-7f, 0f, 14f);
-            var crot = Quaternion.Euler(0f, 35f, 0f);
-            d.AddBox(cart + Vector3.up * 0.75f, new Vector3(1.4f, 0.12f, 2.2f), Mat.Wood, crot);
-            foreach (float s in new[] { -1f, 1f })
-            {
-                d.AddBox(cart + crot * new Vector3(s * 0.7f, 1f, 0f), new Vector3(0.08f, 0.45f, 2.2f), Mat.Wood, crot);
-                d.Add(MeshKit.Cylinder(0.45f, 0.45f, 0.1f, 12), Mat.Wood, Matrix4x4.TRS(cart + crot * new Vector3(s * 0.78f, 0.45f, -0.3f), crot * Quaternion.Euler(0f, 0f, 90f), Vector3.one));
-            }
-            d.AddBox(cart + crot * new Vector3(0f, 0.6f, 1.7f), new Vector3(0.08f, 0.08f, 1.4f), Mat.Wood, crot * Quaternion.Euler(-12f, 0f, 0f));
-            Props.Crate(d, cart + crot * new Vector3(0.2f, 0.81f, -0.4f), 0.6f, 20f);
             // Patches of grass in the corners, a dead tree in the east.
-            foreach (var (x, z, r) in new[] { (-18f, -16f, 3.2f), (18f, -15f, 2.8f), (-19f, 4f, 2.5f), (19f, 1f, 3f) })
+            foreach (var (x, z, r) in new[] { (-18f, -16f, 3.2f), (18f, -15f, 2.8f), (-19f, -9f, 2.5f), (19f, 1f, 3f) })
             {
                 var g = MeshKit.Part(lights, "Grass", MeshKit.Cylinder(r, r, 0.03f, 14), Mat.Cloth, o + S(x, 0.015f, z));
                 ArtLibrary.Tint(g.GetComponent<Renderer>(), new Color(0.13f, 0.19f, 0.08f));
@@ -708,19 +685,62 @@ namespace Deepbound.World
             Props.Banner(lights, g + new Vector3(0.45f, 3.2f, 1.5f), Vector3.left, new Color(0.7f, 0.5f, 0.1f));
         }
 
-        /// <summary>The gambling tent: a round striped pavilion, open toward the road.</summary>
+        /// <summary>
+        /// An iron lamp post with a lantern hung on an arm toward <paramref name="arm"/> (2026-11-07, the user: "MORE LIGHT
+        /// SOURCES ... AROUND THINGS WHERE THE PLAYER NEEDS TO SEE OR GO").
+        /// </summary>
+        private static void LampPost(MeshKit.Batcher d, Transform lights, Vector3 foot, Vector3 arm, float range = 8f, float intensity = 2f)
+        {
+            arm.y = 0f; arm.Normalize();
+            var lamp = new Color(1f, 0.72f, 0.4f);
+            var rot = Quaternion.LookRotation(arm);
+            d.AddBox(foot + Vector3.up * 0.1f, new Vector3(0.4f, 0.2f, 0.4f), Mat.StoneWall);
+            d.AddBox(foot + Vector3.up * 1.55f, new Vector3(0.11f, 2.9f, 0.11f), Mat.Steel);
+            d.AddBox(foot + arm * 0.3f + Vector3.up * 2.95f, new Vector3(0.07f, 0.07f, 0.66f), Mat.Steel, rot);
+            var at = foot + arm * 0.55f + Vector3.up * 2.62f;
+            d.AddBox(at + Vector3.up * 0.25f, new Vector3(0.03f, 0.18f, 0.03f), Mat.Steel);
+            d.AddBox(at, new Vector3(0.26f, 0.34f, 0.26f), Mat.Steel);
+            d.AddBox(at + Vector3.up * 0.2f, new Vector3(0.32f, 0.05f, 0.32f), Mat.Steel);
+            var glass = MeshKit.Part(lights, "LampGlass", MeshKit.Box(new Vector3(0.2f, 0.27f, 0.2f)), Mat.Glow, at);
+            ArtLibrary.SetGlow(glass.GetComponent<Renderer>(), lamp * 1.3f);
+            glass.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var l = new GameObject("StationLamp").AddComponent<Light>();
+            l.transform.SetParent(lights, false);
+            l.transform.position = at;
+            l.type = LightType.Point;
+            l.color = lamp;
+            l.range = range;
+            l.intensity = intensity;
+            l.shadows = LightShadows.None;
+        }
+
+        /// <summary>Lamps at the stations that stood in the dark: the tavern door and its yard, the tailor, the yard
+        /// sergeant, the gong, the omen stone and the hall of records.</summary>
+        private static void BuildStationLamps(MeshKit.Batcher d, Transform lights)
+        {
+            // Two lanterns either side of the tavern door.
+            foreach (float z in new[] { -1.65f, 1.65f })
+                Props.WallTorch(lights, TavernCenter + new Vector3(TavernHalfX + 0.22f, 2.3f, z), Vector3.right, false, Fire);
+            LampPost(d, lights, TailorSpot + new Vector3(1.6f, 0f, -2.6f), Vector3.up + Vector3.forward);
+            LampPost(d, lights, YardSpot + new Vector3(2.2f, 0f, -1.5f), Vector3.left);
+            LampPost(d, lights, GongSpot + new Vector3(-1.8f, 0f, 2.6f), Vector3.back);
+            LampPost(d, lights, OmenSpot + new Vector3(1.6f, 0f, -1.4f), Vector3.left);
+            LampPost(d, lights, RecordsSpot + new Vector3(-1.6f, 0f, -0.8f), Vector3.right);
+        }
+
+        /// <summary>The gambling tent: a round striped pavilion, open to the west (the spawn fire).</summary>
         private static void BuildTent(Transform lights, MeshKit.Batcher d)
         {
             var c = TentCenter;
             var red = new Color(0.55f, 0.1f, 0.12f);
             var gold = new Color(0.8f, 0.62f, 0.25f);
-            // Walls: cloth panels round 270 degrees, leaving the east side open.
+            // Walls: cloth panels round 270 degrees, leaving the west side open, toward the fire (until 2026-11-07 the loop left the NORTH open).
             for (int i = 0; i < 14; i++)
             {
-                float deg = 135f + i * (270f / 13f);
+                float deg = 225f + i * (270f / 13f); // gap from 135 to 225: open to the west (the fire)
                 float a = deg * Mathf.Deg2Rad;
                 var dir = new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a));
-                var panel = MeshKit.Part(lights, "TentWall" + i, MeshKit.Box(new Vector3(1.25f, 2.6f, 0.06f)), Mat.Cloth,
+                var panel = MeshKit.Part(lights, "TentWall" + i, MeshKit.Box(new Vector3(1.52f, 2.6f, 0.06f)), Mat.Cloth,
                     c + dir * 4.2f + Vector3.up * 1.3f, Quaternion.LookRotation(dir).eulerAngles);
                 ArtLibrary.Tint(panel.GetComponent<Renderer>(), i % 2 == 0 ? red : gold);
             }
@@ -729,13 +749,22 @@ namespace Deepbound.World
                 new Vector2(4.6f, 0f), new Vector2(2.2f, 1.4f), new Vector2(0f, 2.6f),
             }, 16), Mat.Cloth, c + Vector3.up * 2.6f);
             ArtLibrary.Tint(roof.GetComponent<Renderer>(), red);
+            // The underside (a lathe is one-sided: from inside the roof was missing).
+            var roofIn = MeshKit.Part(lights, "TentRoofInside", MeshKit.Lathe("tentRoofIn", new[]
+            {
+                new Vector2(0f, 2.58f), new Vector2(2.2f, 1.38f), new Vector2(4.6f, -0.02f),
+            }, 16), Mat.Cloth, c + Vector3.up * 2.6f);
+            ArtLibrary.Tint(roofIn.GetComponent<Renderer>(), new Color(0.4f, 0.08f, 0.1f));
+            // Lamp posts either side of the opening.
+            LampPost(d, lights, c + new Vector3(-5.3f, 0f, 3.1f), Vector3.right);
+            LampPost(d, lights, c + new Vector3(-5.3f, 0f, -3.1f), Vector3.right);
             d.AddBox(c + Vector3.up * 2.6f, new Vector3(0.18f, 5.2f, 0.18f), Mat.Wood);
             var pennant = MeshKit.Part(lights, "Pennant", MeshKit.Box(new Vector3(0.05f, 0.4f, 0.9f)), Mat.Cloth, c + new Vector3(0f, 5.6f, 0.45f));
             ArtLibrary.Tint(pennant.GetComponent<Renderer>(), gold);
             var rug = MeshKit.Part(lights, "Rug", MeshKit.Cylinder(3.4f, 3.4f, 0.03f, 18), Mat.Cloth, c + Vector3.up * 0.02f);
             ArtLibrary.Tint(rug.GetComponent<Renderer>(), new Color(0.3f, 0.08f, 0.15f));
-            Props.Candles(lights, c + new Vector3(-2.6f, 0f, -1.4f), Fire);
-            Props.Candles(lights, c + new Vector3(-2.4f, 0f, 2f), Fire);
+            Props.Candles(lights, c + new Vector3(2.6f, 0f, -1.4f), Fire);
+            Props.Candles(lights, c + new Vector3(2.4f, 0f, 2f), Fire);
             var lamp = new GameObject("TentLamp").AddComponent<Light>();
             lamp.transform.SetParent(lights, false);
             lamp.transform.position = c + Vector3.up * 3.2f;
@@ -885,16 +914,16 @@ namespace Deepbound.World
         private static void BuildYard(Vector3 o, MeshKit.Batcher d, Transform lights)
         {
             // Straw under the dummies, a fence on the plaza side, and spare arms.
-            d.AddBox(o + S(-13f, 0.02f, -13.5f), new Vector3(5f, 0.03f, 9f), Mat.Wood);
+            d.AddBox(o + YardShift + S(-13f, 0.02f, -13.5f), new Vector3(5f, 0.03f, 9f), Mat.Wood);
             for (float z = -17.5f; z <= -9.5f; z += 2f)
-                d.AddBox(o + S(-10.2f, 0.5f, z), new Vector3(0.14f, 1f, 0.14f), Mat.Wood);
-            d.AddBox(o + S(-10.2f, 0.85f, -13.5f), new Vector3(0.08f, 0.1f, 8f), Mat.Wood);
-            Props.WeaponRack(d, o + S(-15.8f, 0f, -13.5f), Quaternion.Euler(0f, 90f, 0f));
+                d.AddBox(o + YardShift + S(-10.2f, 0.5f, z), new Vector3(0.14f, 1f, 0.14f), Mat.Wood);
+            d.AddBox(o + YardShift + S(-10.2f, 0.85f, -13.5f), new Vector3(0.08f, 0.1f, 8f), Mat.Wood);
+            Props.WeaponRack(d, o + YardShift + S(-15.8f, 0f, -13.5f), Quaternion.Euler(0f, 90f, 0f));
             // Sergeant Brann's corner: a stool, a bucket and a rack of practice swords by the yard fence.
             d.AddBox(YardSpot + new Vector3(-0.9f, 0.25f, 0.8f), new Vector3(0.4f, 0.5f, 0.4f), Mat.Wood);
             d.Add(MeshKit.Cylinder(0.18f, 0.15f, 0.32f, 10), Mat.Wood, Matrix4x4.Translate(YardSpot + new Vector3(-0.9f, 0f, -0.8f)));
             for (int i = 0; i < 4; i++) d.AddBox(YardSpot + new Vector3(-1.05f, 0.6f, -0.3f + i * 0.18f), new Vector3(0.04f, 1.2f, 0.03f), Mat.Wood, Quaternion.Euler(0f, 0f, 10f));
-            Props.Brazier(lights, o + S(-11f, 0f, -18.5f), Fire, false);
+            Props.Brazier(lights, o + YardShift + S(-11f, 0f, -18.5f), Fire, false);
             Props.Crate(d, o + S(14f, 0f, -14f), 1.2f, 12f);
             Props.Crate(d, o + S(15.2f, 0f, -12.8f), 0.9f, -8f);
             Props.Barrel(d, o + S(13.8f, 0f, -12.2f));
