@@ -27,6 +27,9 @@ namespace Deepbound.Progression
         public const int MaxUpgrade = 3, MaxTools = 5, PartCap = 999;
         public const float LiningDefense = 2f, EdgeDamage = 0.03f, BootsSpeed = 0.03f;
 
+        /// <summary>How many of each tool this player may carry (Tinker, from Legacy, raises it).</summary>
+        public static int ToolCap(Component who) => Legacy.Has(who, Boon.Tinker) ? Legacy.TinkerTools : MaxTools;
+
         public static readonly Recipe[] Recipes =
         {
             new Recipe { Name = "Health Potion", Description = "Bone ash and boiled linen: the old field remedy.", Bone = 4, Cloth = 2, Kind = CraftKind.Potion, Arg = 0 },

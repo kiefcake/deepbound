@@ -54,29 +54,34 @@ namespace Deepbound.Loot
         {
             if (World.DungeonDirector.InLobby) return null;
             PlayerLife best = null;
-            float bestD = Player.PetCompanion.FetchRadius;
+            float bestD = Legacy.KeenFetchRadius + 0.01f;
             foreach (var life in PlayerLife.All)
             {
                 if (life == null || life.Downed.Value) continue;
                 var np = life.GetComponent<Player.NetworkPlayer>();
                 if (np == null || np.PetKind.Value == 0) continue;
                 float dist = Vector3.Distance(life.transform.position, transform.position);
-                if (dist >= bestD || !PetCanReach(life.transform.position, transform.position)) continue;
+                if (dist >= bestD || dist >= Player.PetCompanion.FetchRadiusOf(np) || !PetCanReach(life.transform.position, transform.position)) continue;
                 bestD = dist;
                 best = life;
             }
             return best;
         }
 
-        private PlayerLife NearestCollector(float radius)
+        /// <summary>How far this player's coin magnet reaches (Packrat x1.5).</summary>
+        private static float MagnetOf(PlayerLife life) => Legacy.Has(life, Boon.Packrat) ? MagnetRadius * Legacy.PackratMagnet : MagnetRadius;
+
+        private PlayerLife NearestCollector(out float reach)
         {
             PlayerLife best = null;
-            float bestD = radius;
+            float bestD = float.MaxValue;
+            reach = MagnetRadius;
             foreach (var life in PlayerLife.All)
             {
                 if (life == null || life.Downed.Value) continue;
                 float d = Vector3.Distance(life.transform.position, transform.position);
-                if (d < bestD) { bestD = d; best = life; }
+                float r = MagnetOf(life);
+                if (d < r && d < bestD) { bestD = d; best = life; reach = r; }
             }
             return best;
         }
@@ -191,10 +196,10 @@ namespace Deepbound.Loot
                 // Coins and embers drift toward whoever is near enough to collect them.
                 if (Magnetic && Time.time >= pickupAllowedAt)
                 {
-                    var near = NearestCollector(MagnetRadius);
+                    var near = NearestCollector(out float magnet);
                     if (near != null)
                     {
-                        float k = 1f - Mathf.Clamp01(Vector3.Distance(near.transform.position, transform.position) / MagnetRadius);
+                        float k = 1f - Mathf.Clamp01(Vector3.Distance(near.transform.position, transform.position) / magnet);
                         visual.position = Vector3.Lerp(visual.position, near.transform.position + Vector3.up * 1f, 0.15f + 0.5f * k);
                     }
                 }
@@ -223,7 +228,7 @@ namespace Deepbound.Loot
                 if (life == null || life.Downed.Value) continue;
                 var d = life.transform.position - transform.position;
                 d.y *= 0.5f;
-                if (d.magnitude > (Magnetic ? MagnetRadius : PickupRadius)) continue;
+                if (d.magnitude > (Magnetic ? MagnetOf(life) : PickupRadius)) continue;
 
                 routedTo = null;
                 if (TryApply(life.GetComponent<PlayerProgress>()))

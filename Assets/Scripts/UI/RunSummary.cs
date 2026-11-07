@@ -108,7 +108,7 @@ namespace Deepbound.UI
                 // Renown counts the act bosses (a Warden is half of one): the run is twice as long as it was.
                 int bosses = ((won ? DungeonDirector.FloorsPerRun : Mathf.Max(0, d.Floor.Value.y)) + 1) / 2;
                 int got = Cosmetics.AwardRun(d.RunStartedAt.Value, bosses, me.Kills.Value, me.CombosTriggered.Value, won, d.DifficultyIndex.Value, DungeonDirector.OmenRenown(d.RunOmen), me.Gold.Value);
-                if (got >= 0) renownEarned = got;
+                if (got >= 0) { renownEarned = got; Legacy.SaveRelics(me); }
                 // The Hall of Records: anything this run beat is carved at camp (once per run).
                 foreach (var line in Records.SubmitRun(d.RunStartedAt.Value, floor, me.Kills.Value, me.GoldEarned.Value, won, d.DailyRun.Value ? d.DailyDate.Value : 0))
                     GameHud.Feed("NEW RECORD - " + line, new Color(1f, 0.85f, 0.4f));

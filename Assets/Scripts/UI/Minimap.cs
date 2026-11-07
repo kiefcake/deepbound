@@ -256,6 +256,24 @@ namespace Deepbound.UI
             if (layout.PeddlerSpot.HasValue && Visible(layout, layout.PeddlerSpot.Value)) MapIcons.Draw(MapIcons.Id.Coin, ToMap(layout.PeddlerSpot.Value), new Color(1f, 0.82f, 0.35f), px);
             MapIcons.Draw(MapIcons.Id.Waystone, ToMap(layout.WaystonePosition), new Color(0.55f, 0.85f, 1f), px);
 
+            // Legacy boons (client-only, from your own save's bits): chests and cracked walls near you, and the way to the guardian.
+            if (Legacy.Has(player, Boon.TreasureSense) && chests != null)
+                foreach (var ch in chests)
+                    if (ch != null && !ch.Opened.Value && (ch.transform.position - player.transform.position).sqrMagnitude < Legacy.ChestSenseRange * Legacy.ChestSenseRange)
+                        MapIcons.Draw(MapIcons.Id.Chest, ToMap(ch.transform.position), new Color(1f, 0.8f, 0.35f, 0.8f), px);
+            if (Legacy.Has(player, Boon.Cartographer) && crackedWalls != null)
+                foreach (var cw in crackedWalls)
+                {
+                    if (cw == null || !cw.isActiveAndEnabled || cw.Breach.Value || (cw.transform.position - player.transform.position).sqrMagnitude > Legacy.WallSenseRange * Legacy.WallSenseRange) continue;
+                    var at = ToMap(cw.transform.position);
+                    var wc = new Color(0.9f, 0.55f, 0.35f);
+                    UiSkin.Rect(new Rect(at.x - 3f, at.y - 3f, 6f, 6f), wc);
+                    UiSkin.Rect(new Rect(at.x - 1f, at.y - 5f, 2f, 10f), wc);
+                    UiSkin.Rect(new Rect(at.x - 5f, at.y - 1f, 10f, 2f), wc);
+                }
+            if (Legacy.Has(player, Boon.Pathfinder) && layout.BossRoom != null)
+                DrawPathToGuardian(layout, here, ToMap, px);
+
             // Loot worth walking to: relics, sigils, runes, rare draughts and tomes, and your own gear.
             foreach (var drop in LootDrop.All)
             {
@@ -351,6 +369,41 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(frame.x, frame.yMax + 5f, frame.width - 6f, 18), hint, hintStyle);
             }
             else DrawLegend(layout, frame);
+        }
+
+        /// <summary>Pathfinder: a dotted gold line along the room links from where you stand to the guardian's arena.</summary>
+        private static void DrawPathToGuardian(DungeonLayout layout, DungeonLayout.Room from, System.Func<Vector3, Vector2> toMap, float px)
+        {
+            int start = from != null ? from.Id : layout.StartRoom.Id, goal = layout.BossRoom.Id;
+            var prev = new int[layout.Rooms.Count];
+            for (int i = 0; i < prev.Length; i++) prev[i] = -2;
+            var queue = new Queue<int>();
+            prev[start] = -1; queue.Enqueue(start);
+            while (queue.Count > 0 && prev[goal] == -2)
+            {
+                int cur = queue.Dequeue();
+                foreach (var l in layout.Links)
+                {
+                    int other = l.A == cur ? l.B : l.B == cur ? l.A : -1;
+                    if (other < 0 || prev[other] != -2) continue;
+                    prev[other] = cur; queue.Enqueue(other);
+                }
+            }
+            if (prev[goal] == -2) return;
+            var gold = new Color(1f, 0.85f, 0.4f, 0.9f);
+            float pulse = 0.5f + 0.5f * Mathf.Sin(Time.time * 3f);
+            for (int node = goal; prev[node] >= 0; node = prev[node])
+            {
+                var a = toMap(layout.Rooms[node].Center);
+                var b = toMap(layout.Rooms[prev[node]].Center);
+                int dots = Mathf.Max(2, Mathf.RoundToInt(Vector2.Distance(a, b) / 9f));
+                for (int d = 0; d <= dots; d++)
+                {
+                    var at = Vector2.Lerp(a, b, d / (float)dots);
+                    UiSkin.Rect(new Rect(at.x - 1.5f, at.y - 1.5f, 3f, 3f), gold);
+                }
+            }
+            MapIcons.Draw(MapIcons.Id.Skull, toMap(layout.BossRoom.Center), new Color(1f, 0.7f + 0.2f * pulse, 0.35f), px * 1.25f);
         }
 
         /// <summary>The large map's side panel: where you are, how much is charted, and what the marks mean.</summary>

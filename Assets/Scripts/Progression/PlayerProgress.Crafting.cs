@@ -53,7 +53,7 @@ namespace Deepbound.Progression
                     if (Field(Parts.Value, UpgradeShift(r.Kind), 2) >= Crafting.MaxUpgrade) return "Done (" + Crafting.MaxUpgrade + ")";
                     break;
                 case CraftKind.Caltrops: case CraftKind.Rattle:
-                    if (ToolCount(r.Kind) >= Crafting.MaxTools) return "Carrying " + Crafting.MaxTools;
+                    if (ToolCount(r.Kind) >= Crafting.ToolCap(this)) return "Carrying " + Crafting.ToolCap(this);
                     break;
             }
             if (PartCount(Part.Bone) < r.Bone || PartCount(Part.Cloth) < r.Cloth || PartCount(Part.Iron) < r.Iron) return "Need " + Crafting.Cost(r);

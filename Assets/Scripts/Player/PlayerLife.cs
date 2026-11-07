@@ -490,6 +490,8 @@ namespace Deepbound.Player
             bool helped = beingRevived && helper != null && Time.time - lastHelperPing < 0.35f && !helper.Downed.Value &&
                           Vector3.Distance(helper.transform.position, transform.position) <= ReviveRange + 0.5f;
             if (helped) rate *= TwoHandsRate;
+            // Light Sleeper (Legacy): you get allies up 15% faster.
+            if (beingRevived && Legacy.Has(reviver, Boon.LightSleeper)) rate *= Legacy.LightSleeperRate;
             TwoHands = helped;
             // Kept on the server at full precision (2026-10-28): it used to read back the synced value, which is only
             // written in 0.01 steps, so above ~100 fps a frame's progress was always too small and a revive never moved.

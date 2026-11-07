@@ -211,6 +211,15 @@ namespace Deepbound.Progression
             return true;
         }
 
+        /// <summary>Spend Renown on something that is not a cosmetic (the Legacy boons). False if short or in test mode.</summary>
+        public static bool SpendRenown(int amount)
+        {
+            if (TestMode || amount < 0 || Renown < amount) return false;
+            PlayerPrefs.SetInt(KeyRenown, Renown - amount);
+            PlayerPrefs.Save();
+            return true;
+        }
+
         public static bool Wear(Kind kind, int i)
         {
             if (TestMode || !Owns(kind, i)) return false;

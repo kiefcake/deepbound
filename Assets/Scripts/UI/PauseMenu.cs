@@ -1,3 +1,7 @@
+using Deepbound.Loot;
+using Deepbound.Player;
+using Deepbound.Progression;
+using Deepbound.World;
 using Unity.Netcode;
 using UnityEngine;
 using UnityEngine.InputSystem;
@@ -15,7 +19,7 @@ namespace Deepbound.UI
 
         /// <summary>For the screenshot run.</summary>
         public static void SetOpen(bool open) => Open = open;
-        private bool options, guide, controls, invitesOpen;
+        private bool options, guide, controls, invitesOpen, legacy;
         private Bind? capturing;
 
         /// <summary>For the screenshot run.</summary>
@@ -64,7 +68,7 @@ namespace Deepbound.UI
             ("INVENTORY", "I opens it. CRAFT (right column, anywhere, even mid-floor): BONE, CLOTH and IRON drop from the dead, urns and chests, and scrapping gear gives iron; they make potions and flasks, run upgrades (padded lining +2 DEF, whetted edge +3% damage, hobnailed boots +3% speed; three of each) and tools thrown with Z at the floor you aim at (CALTROPS chill and cut what walks them for 8 s; a BONE RATTLE draws the dead within 10 m to the noise for 4 s and they forget you). Parts last the run. Gear you pick up goes into your PACK (8 slots); wearing a piece sends the old one back to it. In the pack: click to wear, right-click to scrap for embers (only at Hobb's anvil), shift-click to drop. Right-click worn gear to take it off. Everything is lost when the run ends (unspent gold is tithed into Renown: 1 per 100 gold, up to 50). With friends: loot is SHARED by default (gold and embers split evenly; the host toggles it with L at camp). Give gold or even out the purse in the inventory, and ctrl-click a pack piece to hand it to the nearest ally."),
             ("GIVING", "Look at an ally within a few steps and HOLD G for the give wheel: Health, their draught, Frost, Holy water (one each, if they have room), 25 gold or 10 embers (hold on the slice to keep giving), your rare draught or tome, a high five, salute or bow. Flick toward a slice and let go."),
             ("VOICE", "Proximity voice: anyone within about 30 m hears you, muffled through walls. Shouting wakes the dead within 10 m, statues too. The bled-out can only whisper. Push to talk (T) or turn it off in Options. Every key can be moved in Options > Controls. A GAMEPAD plays too: sticks move and look, A jump, B dodge, X use, Y talk/trade, LB/RB abilities, RT attack, LT secondary, L3 sprint, R3 kick, d-pad up ultimate, left/right/down potions, View the map, Start pauses. In menus and shops the left stick moves the pointer, A clicks, the right stick scrolls. TEXT CHAT: press Enter, type, Enter to send (Esc cancels); the game ignores your keys while you type."),
-            ("AT CAMP", "Trade is split by craft: SILAS sells potions and provisions, HOBB at the anvil tempers weapons, scraps gear, refines armour and sells embers, plate and a piece fitted for you, YSOLDE at the standing stones does runes, sigils and ability ranks (and melds runes), and the SHRINE offers holy water, relics and Brother Aldric's paid PRAYER (it catches one blow that would down you). At THE GUTTED LANTERN, the tavern north-west of the tent, Marta sells MEAD (8 gold a horn: Tipsy, Merry, Sloshed - +4% damage a level, and the world sways; it wears off a level at a time) and the band plays four tunes of its own: pay them 15 gold for the next. Take a CONTRACT at the bounty board for the next floor. Turn the OMEN STONE before a run for a harder descent and more Renown. Spin the WHEEL OF FATE when you find one: it usually gives. From floor 2 a PEDDLER sometimes trades in a side room, at a markup. SERGEANT BRANN in the training yard sells drills (a stat for the run, dearer each time), MISTER BONES deals blackjack for up to four players (bets 5-100; win 300 in one visit and he cuts you off until the next floor), and CORWIN at the carriage (who also offers the DAILY DESCENT: today's floors, the same for everyone who plays today; your best is on the Hall of Records) sells a SCOUT'S MAP of the next floor and SMELLING SALTS (get up on your own once) and a CLIMBING ROPE (from floor 2, F at the start room's waystone takes the party back to camp before the guardian; the run goes on but that floor starts over by a new road). Corwin sets the road: Normal, Hard, Nightmare and, once you have finished a descent, TORMENT (the Tallyman comes early). From +6 the anvil wants gold as well as embers; it goes to +10 (+8 ASCENDED, +10 MASTERWORK, a third rune socket at +6). Sigils take abilities to rank 8. All cosmetics at the tailor are free for now. Mistress Vey also has COMPANIONS (the PETS tab): a raven, a rat, a bone hound, a kitten or a lantern wisp follows you down, fetches gold and embers lying within 8 m in sight of you, and runs to sit on a HIDDEN spike plate near you and calls out. The host has a DEVELOPER MENU on F1. PRACTICE: before a run, the host can take the party from Corwin's carriage straight to any guardian already beaten on this machine - only the guardian, blows at 60%, nothing lost or won."),
+            ("AT CAMP", "Trade is split by craft: SILAS sells potions and provisions, HOBB at the anvil tempers weapons, scraps gear, refines armour and sells embers, plate and a piece fitted for you, YSOLDE at the standing stones does runes, sigils and ability ranks (and melds runes), and the SHRINE offers holy water, relics and Brother Aldric's paid PRAYER (it catches one blow that would down you). At THE GUTTED LANTERN, the tavern north-west of the tent, Marta sells MEAD (8 gold a horn: Tipsy, Merry, Sloshed - +4% damage a level, and the world sways; it wears off a level at a time) and the band plays four tunes of its own: pay them 15 gold for the next. Take a CONTRACT at the bounty board for the next floor. Turn the OMEN STONE before a run for a harder descent and more Renown. Spin the WHEEL OF FATE when you find one: it usually gives. From floor 2 a PEDDLER sometimes trades in a side room, at a markup. SERGEANT BRANN in the training yard sells drills (a stat for the run, dearer each time), MISTER BONES deals blackjack for up to four players (bets 5-100; win 300 in one visit and he cuts you off until the next floor), and CORWIN at the carriage (who also offers the DAILY DESCENT: today's floors, the same for everyone who plays today; your best is on the Hall of Records) sells a SCOUT'S MAP of the next floor and SMELLING SALTS (get up on your own once) and a CLIMBING ROPE (from floor 2, F at the start room's waystone takes the party back to camp before the guardian; the run goes on but that floor starts over by a new road). Corwin sets the road: Normal, Hard, Nightmare and, once you have finished a descent, TORMENT (the Tallyman comes early). From +6 the anvil wants gold as well as embers; it goes to +10 (+8 ASCENDED, +10 MASTERWORK, a third rune socket at +6). Sigils take abilities to rank 8. All cosmetics at the tailor are free for now. LEGACY (pause menu, anywhere): spend Renown on small boons (a keener pet, a Quartermaster's starting parts, faster revives, a wider coin magnet, bigger tool belts, and minimap marks for chests, cracked walls and the way to the guardian), and choose an HEIRLOOM from the relics of your last run: at camp, before the carriage leaves, BRING THE HEIRLOOM and it joins the next run as a plain relic, once. Mistress Vey also has COMPANIONS (the PETS tab): a raven, a rat, a bone hound, a kitten or a lantern wisp follows you down, fetches gold and embers lying within 8 m (12 with Keen Companion) in sight of you, and runs to sit on a HIDDEN spike plate near you and calls out. The host has a DEVELOPER MENU on F1. PRACTICE: before a run, the host can take the party from Corwin's carriage straight to any guardian already beaten on this machine - only the guardian, blows at 60%, nothing lost or won."),
             ("RELIC SYNERGIES", "Some pairs awaken more: Frost Shard + Winter's Tooth, Vampiric Fang + Blood Pact, Thunder Idol + Echo Stone, Executioner's Coin + Berserker's Brand, Phoenix Feather + Heart of the Deep."),
         };
         private int guidePage, lastGuidePage = -1;
@@ -131,6 +135,11 @@ namespace Deepbound.UI
                 guideScroll.y = Mathf.Max(0f, guideScroll.y - g.rightStick.ReadValue().y * 900f * Time.unscaledDeltaTime);
                 return;
             }
+            if (legacy)
+            {
+                if (back) legacy = false;
+                return;
+            }
             if (options)
             {
                 if (back) { if (controls) controls = false; else options = false; }
@@ -140,7 +149,7 @@ namespace Deepbound.UI
             if (Mathf.Abs(v) > 0.5f && Time.unscaledTime >= padRepeatAt)
             {
                 padRepeatAt = Time.unscaledTime + 0.22f;
-                padFocus = (padFocus + (v < 0f ? 1 : 4)) % 5;
+                padFocus = (padFocus + (v < 0f ? 1 : 5)) % 6;
             }
             else if (Mathf.Abs(v) <= 0.5f) padRepeatAt = 0f;
             if (back) { Choose(0); return; }
@@ -154,8 +163,9 @@ namespace Deepbound.UI
                 case 0: Open = false; Cursor.lockState = CursorLockMode.Locked; Cursor.visible = false; break;
                 case 1: guide = true; break;
                 case 2: options = true; break;
-                case 3: Open = false; NetworkManager.Singleton.Shutdown(); break;
-                case 4: Application.Quit(); break;
+                case 3: legacy = true; break;
+                case 4: Open = false; NetworkManager.Singleton.Shutdown(); break;
+                case 5: Application.Quit(); break;
             }
         }
 
@@ -174,7 +184,7 @@ namespace Deepbound.UI
 
         private void Update()
         {
-            InOptions = Open && (options || invitesOpen);
+            InOptions = Open && (options || invitesOpen || legacy);
             PadNavigate();
             var keyboard = Keyboard.current;
             if (capturing.HasValue && keyboard != null)
@@ -194,7 +204,7 @@ namespace Deepbound.UI
             {
                 Open = !Open;
                 Deepbound.Art.Sfx.Play2D(Open ? Deepbound.Art.Sound.UiOpen : Deepbound.Art.Sound.UiClose, 0.8f);
-                options = guide = controls = invitesOpen = false;
+                options = guide = controls = invitesOpen = legacy = false;
             }
         }
 
@@ -249,6 +259,11 @@ namespace Deepbound.UI
                 DrawGuide(w, h);
                 return;
             }
+            if (legacy)
+            {
+                DrawLegacy(w, h);
+                return;
+            }
             if (options && controls)
             {
                 DrawControls(w, h);
@@ -260,7 +275,7 @@ namespace Deepbound.UI
                 return;
             }
             bool steamExtra = Networking.SteamPlatform.Ready;
-            var area = options ? new Rect(w / 2f - 390, h / 2f - 335, 780, 680) : new Rect(w / 2f - 180, h / 2f - (steamExtra ? 250 : 225), 360, steamExtra ? 500 : 455);
+            var area = options ? new Rect(w / 2f - 390, h / 2f - 335, 780, 680) : new Rect(w / 2f - 180, h / 2f - (steamExtra ? 278 : 253), 360, steamExtra ? 556 : 511);
             UiSkin.Panel(new Rect(area.x - 20, area.y - 20, area.width + 40, area.height + 40), 0.95f);
             GUILayout.BeginArea(area);
             GUILayout.Label(options ? "OPTIONS" : "PAUSED", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
@@ -291,11 +306,14 @@ namespace Deepbound.UI
                 if (GUILayout.Button("OPTIONS", UiSkin.Button, GUILayout.Height(44))) Choose(2);
                 PadFrame(2);
                 GUILayout.Space(8);
-                if (GUILayout.Button("LEAVE PARTY", UiSkin.Button, GUILayout.Height(44))) Choose(3);
+                if (GUILayout.Button("LEGACY", UiSkin.Button, GUILayout.Height(44))) Choose(3);
                 PadFrame(3);
                 GUILayout.Space(8);
-                if (GUILayout.Button("QUIT GAME", UiSkin.Button, GUILayout.Height(44))) Choose(4);
+                if (GUILayout.Button("LEAVE PARTY", UiSkin.Button, GUILayout.Height(44))) Choose(4);
                 PadFrame(4);
+                GUILayout.Space(8);
+                if (GUILayout.Button("QUIT GAME", UiSkin.Button, GUILayout.Height(44))) Choose(5);
+                PadFrame(5);
                 GUILayout.Space(10);
                 var net = NetworkManager.Singleton;
                 string party = net == null ? "" : (net.IsHost ? "You are hosting" : "In a party") + "   ·   " + (net.IsServer ? net.ConnectedClientsIds.Count : Player.PlayerLife.All.Count) + " in the party";
@@ -334,6 +352,80 @@ namespace Deepbound.UI
                 GUILayout.Label("The dungeon does not pause for you.", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
             }
             GUILayout.EndArea();
+        }
+
+        // ---- LEGACY (2026-11-07): Renown boons and the heirloom, anywhere from the pause menu ----
+        private Vector2 legacyScroll;
+
+        private void DrawLegacy(float w, float h)
+        {
+            float pw = Mathf.Min(820f, w - 60f), ph = Mathf.Min(720f, h - 40f);
+            var panel = new Rect(w / 2f - pw / 2f, h / 2f - ph / 2f, pw, ph);
+            UiSkin.Panel(panel, 0.96f);
+            GUI.Label(new Rect(panel.x, panel.y + 12, pw, 40), "LEGACY", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 30 });
+            GUI.Label(new Rect(panel.x, panel.y + 50, pw, 24), "RENOWN  " + Cosmetics.Renown + "      small comforts that outlive a run; nothing here makes you stronger",
+                new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Gold } });
+
+            var view = new Rect(panel.x + 16, panel.y + 82, pw - 32, ph - 82 - 72);
+            const float rowH = 52f;
+            var last = Legacy.LastRelics();
+            float contentH = 8 * rowH + 36f + 24f + 110f + (last.Length > 0 ? (last.Length / 3 + 1) * 36f : 30f);
+            var content = new Rect(0, 0, view.width - 20, Mathf.Max(contentH, view.height));
+            legacyScroll = GUI.BeginScrollView(view, legacyScroll, content);
+            float cw = content.width;
+            var nameStyle = new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, fontSize = 15, normal = { textColor = UiSkin.Gold } };
+            var effectStyle = new GUIStyle(UiSkin.Small) { fontSize = 13, wordWrap = false };
+            GUI.Label(new Rect(8, 0, cw, 22), "BOONS", nameStyle);
+            for (int i = 0; i < Legacy.All.Length; i++)
+            {
+                var b = (Boon)i;
+                var info = Legacy.All[i];
+                var r = new Rect(0, 26 + i * rowH, cw, rowH - 6f);
+                bool owned = Legacy.Owned(b);
+                UiSkin.Rect(r, new Color(1f, 1f, 1f, owned ? 0.07f : 0.035f));
+                if (owned) UiSkin.Rect(new Rect(r.x, r.y, 3, r.height), UiSkin.Gold);
+                GUI.Label(new Rect(r.x + 12, r.y + 3, r.width - 200, 20), info.Name.ToUpperInvariant(), nameStyle);
+                GUI.Label(new Rect(r.x + 12, r.y + 23, r.width - 200, 20), info.Effect, effectStyle);
+                string why = Legacy.CannotBuy(b);
+                var btn = new Rect(r.xMax - 176, r.y + 6, 166, r.height - 12);
+                bool was = GUI.enabled;
+                GUI.enabled = why == null;
+                if (GUI.Button(btn, owned ? "OWNED" : why == null ? "BUY  " + info.Cost : info.Cost + " RENOWN", UiSkin.Button)) Legacy.Buy(b);
+                GUI.enabled = was;
+            }
+
+            float y = 26 + 8 * rowH + 14f;
+            GUI.Label(new Rect(8, y, cw, 22), "HEIRLOOM", nameStyle);
+            y += 24f;
+            GUI.Label(new Rect(8, y, cw, 40), "Choose one relic from your last run. At camp, before a run, bring it: it joins that run as a plain relic, once. Then you must earn another.", new GUIStyle(UiSkin.Small) { fontSize = 13, wordWrap = true });
+            y += 44f;
+            if (last.Length == 0) GUI.Label(new Rect(8, y, cw, 22), "No relics remembered yet: finish a run carrying some.", new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Italic });
+            var chosen = Legacy.Heirloom;
+            float bw = (cw - 16f - 20f) / 3f;
+            for (int i = 0; i < last.Length; i++)
+            {
+                var rect = new Rect(8f + (i % 3) * (bw + 10f), y + (i / 3) * 36f, bw, 32f);
+                if (GUI.Button(rect, Relics.Name(last[i]), UiSkin.Button)) Legacy.ChooseHeirloom(last[i]);
+                if (chosen.HasValue && chosen.Value == last[i]) UiSkin.Rect(new Rect(rect.x + 4f, rect.yMax - 4f, rect.width - 8f, 3f), UiSkin.Gold);
+            }
+            if (last.Length > 0) y += ((last.Length + 2) / 3) * 36f;
+            y += 8f;
+            GUI.Label(new Rect(8, y, cw, 22), "Heirloom: " + (chosen.HasValue ? Relics.Name(chosen.Value) : "none chosen"), new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Bold });
+            y += 28f;
+            var net = NetworkPlayer.Local;
+            var prog = net != null ? net.GetComponent<PlayerProgress>() : null;
+            var dir = DungeonDirector.Instance;
+            bool atCamp = dir != null && DungeonDirector.InLobby && !dir.RunInProgress;
+            string block = !chosen.HasValue ? "Choose an heirloom first." : prog == null ? "Not in a party." : !atCamp ? "Only at camp, before a run starts." : "";
+            bool ready = chosen.HasValue && atCamp && prog != null;
+            bool was2 = GUI.enabled;
+            GUI.enabled = ready;
+            if (GUI.Button(new Rect(8, y, 260, 40), "BRING THE HEIRLOOM", UiSkin.Button) && ready) { Legacy.Note = ""; prog.BringHeirloomRpc((byte)((int)chosen.Value + 1)); }
+            GUI.enabled = was2;
+            string note = !string.IsNullOrEmpty(Legacy.Note) ? Legacy.Note : block;
+            GUI.Label(new Rect(280, y + 10, cw - 280, 24), note, UiSkin.Small);
+            GUI.EndScrollView();
+            if (GUI.Button(new Rect(panel.x + pw / 2f - 90, panel.yMax - 56, 180, 40), "BACK", UiSkin.Button)) legacy = false;
         }
 
         /// <summary>The host's invite list: online Steam friends, each with INVITE (2026-10-26).</summary>

@@ -66,6 +66,10 @@ namespace Deepbound.Player
         public readonly NetworkVariable<byte> TitleCos = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         /// <summary>The companion at your heel (<see cref="PetCompanion.Kind"/>), chosen at the tailor; 0 = none.</summary>
         public readonly NetworkVariable<byte> PetKind = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        /// <summary>The Legacy boons this player owns (<see cref="Progression.Legacy"/>, bit per <see cref="Progression.Boon"/>), owner-written.</summary>
+        public readonly NetworkVariable<ushort> LegacyBits = new NetworkVariable<ushort>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        /// <summary>Owner: publish the boons this machine owns.</summary>
+        public void RefreshLegacy() { if (IsOwner && IsSpawned) LegacyBits.Value = Legacy.Bits; }
         /// <summary>"Crimson the Grim" (or just the name).</summary>
         /// <summary>A Steam name cut to fit 64 UTF-8 bytes (and 24 characters, for nameplates).</summary>
         private static Unity.Collections.FixedString64Bytes SafeName(string n)
@@ -185,6 +189,7 @@ namespace Deepbound.Player
                 WeaponGlowCos.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.WeaponGlow);
                 TitleCos.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Title);
                 PetKind.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Pet);
+                LegacyBits.Value = Legacy.Bits;
             }
             gameObject.AddComponent<PetCompanion>().Init(this);
             gameObject.AddComponent<ToolBelt>().Init(this);

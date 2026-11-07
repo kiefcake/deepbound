@@ -2779,6 +2779,52 @@ namespace Deepbound.Networking
                             && progress.ReadiedTool == CraftKind.Caltrops && spent);
                         progress.Parts.Value = 0;
                     }
+                    // ---- LEGACY BOONS (2026-11-07): the effect functions read the player's synced LegacyBits ----
+                    {
+                        var lnp = local.GetComponent<NetworkPlayer>();
+                        ushort bitsWas = lnp.LegacyBits.Value;
+                        int caltL = System.Array.FindIndex(Crafting.Recipes, r => r.Kind == CraftKind.Caltrops);
+                        lnp.LegacyBits.Value = 0;
+                        float radiusPlain = PetCompanion.FetchRadiusOf(lnp);
+                        int capPlain = Crafting.ToolCap(progress);
+                        lnp.LegacyBits.Value = (ushort)((1 << (int)Boon.Tinker) | (1 << (int)Boon.KeenCompanion));
+                        float radiusKeen = PetCompanion.FetchRadiusOf(lnp);
+                        int capTinker = Crafting.ToolCap(progress);
+                        progress.Parts.Value = 0;
+                        progress.ServerAddPart(Part.Iron, 60);
+                        for (int n = 0; n < 9; n++) progress.CraftRpc((byte)caltL);
+                        yield return new WaitForSeconds(0.4f);
+                        int caltrops = progress.ToolCount(CraftKind.Caltrops);
+                        string capReason = progress.CannotCraftReason(caltL);
+                        bool boonsHeld = Legacy.Has(lnp, Boon.Tinker) && Legacy.Has(lnp, Boon.KeenCompanion) && !Legacy.Has(lnp, Boon.Packrat);
+                        lnp.LegacyBits.Value = 0;
+                        string capReasonPlain = progress.CannotCraftReason(caltL);
+                        lnp.LegacyBits.Value = bitsWas;
+                        progress.Parts.Value = 0;
+                        Log("legacy boons", "pet radius " + radiusPlain + " -> " + radiusKeen + ", tool cap " + capPlain + " -> " + capTinker + ", caltrops crafted " + caltrops + " ('" + capReason + "', without Tinker '" + capReasonPlain + "'), bits read " + boonsHeld
+                            + ", boons listed " + Legacy.All.Length,
+                            Mathf.Approximately(radiusPlain, 8f) && Mathf.Approximately(radiusKeen, 12f) && capPlain == 5 && capTinker == 8 && caltrops == 8 && capReason == "Carrying 8" && capReasonPlain == "Carrying 5"
+                            && boonsHeld && Legacy.All.Length == System.Enum.GetValues(typeof(Boon)).Length);
+                    }
+                    // ---- HEIRLOOM (2026-11-07): at camp before a run, the server carries a chosen relic in as a plain relic, once ----
+                    {
+                        var dirH = World.DungeonDirector.Instance;
+                        bool campH = DungeonDirector.InLobby && !dirH.RunInProgress;
+                        Loot.Relic heir = Loot.Relic.VampiricFang;
+                        for (int ri = 0; ri < Loot.Relics.Count; ri++) if (!progress.HasRelic((Loot.Relic)ri) && Loot.Relics.Scales((Loot.Relic)ri)) { heir = (Loot.Relic)ri; break; }
+                        bool badRefused = !progress.ServerBringHeirloom(0) && !progress.ServerBringHeirloom(250);
+                        bool brought = progress.ServerBringHeirloom((int)heir + 1);
+                        bool carried = progress.HasRelic(heir) && progress.RelicTier(heir) == 0 && progress.HeirloomPending == (int)heir;
+                        bool twice = !progress.ServerBringHeirloom((int)heir + 1);
+                        // A class change would wipe the tray: the run start puts it back, and spends the flag.
+                        progress.ServerDebugRemoveRelic(heir);
+                        progress.ServerGrantHeirloom();
+                        bool regranted = progress.HasRelic(heir) && progress.HeirloomPending == -1;
+                        progress.ServerDebugRemoveRelic(heir);
+                        progress.ServerDebugClearHeirloom();
+                        Log("heirloom", "camp " + campH + ", " + heir + " brought " + brought + ", carried tier 0 " + carried + ", second refused " + twice + ", bad ids refused " + badRefused + ", regranted at run start " + regranted,
+                            campH && brought && carried && twice && badRefused && regranted && !progress.HasRelic(heir));
+                    }
                     var anvilAgain = FindObjectsByType<Anvil>(FindObjectsSortMode.None).First();
                     motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);

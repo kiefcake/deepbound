@@ -22,6 +22,9 @@ namespace Deepbound.Player
     {
         public const float FetchRadius = 8f, FetchDelay = 0.9f, WarnRadius = 4.5f;
 
+        /// <summary>This owner's fetch radius: <see cref="Legacy"/>'s Keen Companion stretches it.</summary>
+        public static float FetchRadiusOf(NetworkPlayer owner) => Legacy.Has(owner, Boon.KeenCompanion) ? Legacy.KeenFetchRadius : FetchRadius;
+
         /// <summary>Index into <see cref="Cosmetics.Pets"/>; append only.</summary>
         public enum Kind { None, Raven, Rat, BoneHound, Kitten, Wisp }
 
@@ -263,7 +266,7 @@ namespace Deepbound.Player
             var ownerLife = owner.GetComponent<PlayerLife>();
             if (ownerLife != null && ownerLife.Downed.Value) return;
             LootDrop best = null;
-            float bd = FetchRadius;
+            float bd = FetchRadiusOf(owner);
             foreach (var d in LootDrop.All)
             {
                 if (d == null || !d.IsMoney) continue;

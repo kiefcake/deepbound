@@ -783,6 +783,14 @@ namespace Deepbound.World
                         solo.Salts.Value = true;
                         ServerFeedAll("Corwin presses a twist of Smelling Salts into your hand: \"Nobody to carry you out. Take these.\"", new Color(0.85f, 0.8f, 0.6f));
                     }
+            // Legacy: the Quartermaster's pack, and an heirloom brought from camp (re-granted if a class change wiped it).
+            foreach (var pl in Player.PlayerLife.All)
+            {
+                if (pl == null || !pl.TryGetComponent<Progression.PlayerProgress>(out var kit)) continue;
+                if (Progression.Legacy.Has(pl, Progression.Boon.Quartermaster))
+                    foreach (Progression.Part part in System.Enum.GetValues(typeof(Progression.Part))) kit.ServerAddPart(part, Progression.Legacy.QuartermasterParts);
+                kit.ServerGrantHeirloom();
+            }
             StartFloor(0);
         }
 
