@@ -2107,6 +2107,37 @@ namespace Deepbound.Networking
                             Log("pet fetch", "gold " + petGold0 + " -> " + petProg.Gold.Value + " from " + far.ToString("F1") + " m after " + waited.ToString("F1") + " s, pets listed " + Cosmetics.Pets.Length,
                                 petProg.Gold.Value > petGold0 && far > 2.6f && waited >= PetCompanion.FetchDelay - 0.2f && sizes);
                         }
+                        // Crafted tools (2026-11-07): caltrops chill and cut what stands in them; a rattle draws the dead away.
+                        {
+                            var tp = local.GetComponent<PlayerProgress>();
+                            var toolFoeAt = local.transform.position + local.transform.forward * 4f;
+                            if (UnityEngine.AI.NavMesh.SamplePosition(toolFoeAt, out var toolFoeMesh, 2f, UnityEngine.AI.NavMesh.AllAreas)) toolFoeAt = toolFoeMesh.position;
+                            var toolFoe = World.DungeonDirector.Instance.ServerDebugSpawn("skeleton", toolFoeAt, false);
+                            yield return new WaitForSeconds(0.3f);
+                            bool chilled = false, cut = false, lured = false;
+                            if (toolFoe != null)
+                            {
+                                var fh = toolFoe.GetComponent<Health>();
+                                toolFoe.ServerStun(3f);
+                                tp.Parts.Value = 0;
+                                tp.ServerAddPart(Part.Iron, 3); tp.ServerAddPart(Part.Bone, 3); tp.ServerAddPart(Part.Cloth, 1);
+                                tp.CraftRpc((byte)System.Array.FindIndex(Crafting.Recipes, r => r.Kind == CraftKind.Caltrops));
+                                tp.CraftRpc((byte)System.Array.FindIndex(Crafting.Recipes, r => r.Kind == CraftKind.Rattle));
+                                yield return new WaitForSeconds(0.2f);
+                                float hp0 = fh.Current.Value;
+                                tp.UseToolRpc(toolFoe.transform.position);
+                                for (float tt = 0f; tt < 1.5f && !(fh.Chilled.Value && fh.Current.Value < hp0); tt += 0.1f) yield return new WaitForSeconds(0.1f);
+                                chilled = fh.Chilled.Value; cut = fh.Current.Value < hp0;
+                                tp.ReadyToolRpc((byte)CraftKind.Rattle);
+                                yield return new WaitForSeconds(0.2f);
+                                tp.UseToolRpc(toolFoe.transform.position + local.transform.right * 5f);
+                                yield return new WaitForSeconds(0.2f);
+                                lured = toolFoe.Lured;
+                                toolFoe.GetComponent<Health>().ServerDamage(99999f, toolFoe.transform.position);
+                            }
+                            tp.Parts.Value = 0;
+                            Log("crafted tools", "caltrops chilled " + chilled + ", cut " + cut + ", rattle lured " + lured, toolFoe != null && chilled && cut && lured);
+                        }
                         // A flame vent strikes once a burst, for a third of your health, and goes dark long enough to cross.
                         if (layout.FlameTraps.Count > 0)
                         {
@@ -2724,6 +2755,30 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.3f);
                     Log("shop gear", "bought " + stock[gearIndex].Name + " for " + stock[gearIndex].Price + ", gold " + goldNow + " -> " + progress.Gold.Value + ", sold-out: " + progress.CannotBuyReason(Shop.Vendor.Smith, gearIndex),
                         progress.Gold.Value == goldNow - stock[gearIndex].Price && FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length == dropsBeforeBuy + 1 && progress.CannotBuyReason(Shop.Vendor.Smith, gearIndex) == "Sold");
+                    // Crafting (2026-11-07): parts make a potion, a run upgrade and a tool, anywhere; short parts refuse.
+                    {
+                        var flasksC = local.GetComponent<Flasks>();
+                        int hpPot = System.Array.FindIndex(Crafting.Recipes, r => r.Kind == CraftKind.Potion && r.Arg == 0);
+                        int edge = System.Array.FindIndex(Crafting.Recipes, r => r.Kind == CraftKind.Edge);
+                        int calt = System.Array.FindIndex(Crafting.Recipes, r => r.Kind == CraftKind.Caltrops);
+                        progress.Parts.Value = 0;
+                        string refused = progress.CannotCraftReason(hpPot);
+                        while (flasksC.ServerTakeOne(Flasks.Kind.Health)) { }
+                        progress.ServerAddPart(Part.Bone, 20); progress.ServerAddPart(Part.Cloth, 20); progress.ServerAddPart(Part.Iron, 20);
+                        int potsBefore = flasksC.Count(Flasks.Kind.Health);
+                        float craftAtt0 = progress.AttackMultiplier;
+                        progress.CraftRpc((byte)hpPot);
+                        progress.CraftRpc((byte)edge);
+                        progress.CraftRpc((byte)calt);
+                        yield return new WaitForSeconds(0.3f);
+                        var r0 = Crafting.Recipes[hpPot]; var r1 = Crafting.Recipes[edge]; var r2 = Crafting.Recipes[calt];
+                        bool spent = progress.PartCount(Part.Bone) == 20 - r0.Bone - r1.Bone - r2.Bone && progress.PartCount(Part.Iron) == 20 - r0.Iron - r1.Iron - r2.Iron;
+                        Log("crafting", "refused with no parts: '" + refused + "', potion " + potsBefore + " -> " + flasksC.Count(Flasks.Kind.Health) + ", attack x" + craftAtt0.ToString("F3") + " -> x" + progress.AttackMultiplier.ToString("F3")
+                            + ", caltrops " + progress.ToolCount(CraftKind.Caltrops) + " readied " + progress.ReadiedTool + ", parts spent " + spent,
+                            refused != null && flasksC.Count(Flasks.Kind.Health) == potsBefore + 1 && progress.AttackMultiplier > craftAtt0 * 1.02f && progress.ToolCount(CraftKind.Caltrops) == 1
+                            && progress.ReadiedTool == CraftKind.Caltrops && spent);
+                        progress.Parts.Value = 0;
+                    }
                     var anvilAgain = FindObjectsByType<Anvil>(FindObjectsSortMode.None).First();
                     motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);

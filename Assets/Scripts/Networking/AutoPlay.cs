@@ -404,6 +404,27 @@ namespace Deepbound.Networking
 
         // ------------------------------------------------------------------ camp
 
+        /// <summary>Spend the run's parts as a careful player would (2026-11-07): run upgrades first, then potions, then tools.</summary>
+        private IEnumerator Craft()
+        {
+            int made = 0;
+            for (int pass = 0; pass < 12; pass++)
+            {
+                int pick = -1;
+                foreach (var kind in new[] { CraftKind.Lining, CraftKind.Edge, CraftKind.Boots, CraftKind.Potion, CraftKind.Caltrops, CraftKind.Rattle })
+                {
+                    for (int i = 0; i < Crafting.Recipes.Length && pick < 0; i++)
+                        if (Crafting.Recipes[i].Kind == kind && prog.CannotCraftReason(i) == null) pick = i;
+                    if (pick >= 0) break;
+                }
+                if (pick < 0) break;
+                prog.CraftRpc((byte)pick);
+                made++;
+                yield return new WaitForSeconds(0.25f);
+            }
+            if (made > 0) L("crafted " + made + " (parts left: " + prog.PartCount(Part.Bone) + " bone, " + prog.PartCount(Part.Cloth) + " cloth, " + prog.PartCount(Part.Iron) + " iron; lining " + prog.Lining + ", edge " + prog.Whetted + ", boots " + prog.Boots + ")");
+        }
+
         private IEnumerator Camp()
         {
             // Long enough for the lift after a slow floor: at 60 s two followers gave up, counted a floor they never played,
@@ -417,6 +438,7 @@ namespace Deepbound.Networking
             // A careful player's visit (2026-11-04, "equip the best, use every material"): before this the bots wore gear by
             // quality alone and never set a rune, refined, attuned, melded or scrapped, so balance runs measured a weak kit.
             yield return WearBest();
+            yield return Craft();
             yield return AtStones(false);
             yield return TopUpEmbers();
             yield return AtAnvil();

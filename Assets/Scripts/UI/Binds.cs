@@ -10,6 +10,7 @@ namespace Deepbound.UI
         MoveForward, MoveBack, MoveLeft, MoveRight, Jump, Sprint, Dodge, Slide,
         AbilityQ, AbilityE, Ultimate, Kick, Use, Interact, Emote, Inventory, Map, Ping, Scrap, Stats, Class,
         Potion1, Potion2, Potion3, Potion4, PushToTalk, Rare,
+        Tool,
     }
 
     /// <summary>
@@ -29,6 +30,7 @@ namespace Deepbound.UI
             (Bind.Stats, "Stat sheet (hold)", Key.Tab), (Bind.Class, "Class screen", Key.B),
             (Bind.Potion1, "Health potion", Key.Digit1), (Bind.Potion2, "Mana potion", Key.Digit2), (Bind.Potion3, "Frost flask", Key.Digit3), (Bind.Potion4, "Holy water", Key.Digit4),
             (Bind.PushToTalk, "Push to talk", Key.T), (Bind.Rare, "Rare draught / tome", Key.Digit5),
+            (Bind.Tool, "Throw a crafted tool", Key.Z),
         };
 
         private static Key[] current;

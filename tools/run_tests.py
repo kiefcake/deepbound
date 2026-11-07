@@ -20,7 +20,7 @@ REQUIRED = [
     'ui scale', 'ui space', 'options lists', 'every sound recorded', 'party numbers', 'trap numbers', 'minimap layout',
     'pad Knight', 'pad Mage', 'pad Cleric', 'pad Rogue', 'pad Ranger', 'pad Flagellant', 'pad PlagueDoctor',
     'bot hands Knight', 'bot hands Mage', 'bot hands Cleric', 'bot hands Rogue', 'bot hands Ranger', 'bot hands Flagellant', 'bot hands PlagueDoctor',
-    'cleared floor picks you up', 'trap beat', 'ranger snare', 'spike plate', 'tidal wave', 'party rescale', 'tavern mead', 'tavern band', 'tavern songs', 'emote wheel', 'give wheel', 'panoply armour', 'enemy sizes', 'pet fetch',
+    'cleared floor picks you up', 'trap beat', 'ranger snare', 'spike plate', 'tidal wave', 'party rescale', 'tavern mead', 'tavern band', 'tavern songs', 'emote wheel', 'give wheel', 'panoply armour', 'enemy sizes', 'pet fetch', 'crafting', 'crafted tools',
 ]
 SEED_DEPENDENT = ['ambush', 'ambush gates lift']
 MIN_PASSES = 195

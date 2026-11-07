@@ -667,7 +667,8 @@ namespace Deepbound.UI
         private void DrawInventory(float w, float h)
         {
             Rect(0, 0, w, h, new Color(0f, 0f, 0f, 0.55f));
-            float pw = Mathf.Min(980f, w - 40f), ph = Mathf.Min(560f, h - 60f);
+            // Wider since 2026-11-07: a CRAFT column on the right.
+            float pw = Mathf.Min(1250f, w - 40f), ph = Mathf.Min(560f, h - 60f);
             float px = w / 2f - pw / 2f, py = h / 2f - ph / 2f;
             UiSkin.Panel(new Rect(px - 12, py - 12, pw + 24, ph + 24), 0.96f);
             GUI.Label(new Rect(px, py, pw, 30), "INVENTORY", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleLeft, fontSize = 26 });
@@ -809,9 +810,64 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(dx + 10, dy + 8, 340, 60), hoverText, new GUIStyle(small) { wordWrap = true });
             }
 
+            DrawCraft(px + 870f, py + 44f, pw - 870f, ph - 70f, mouse);
+
             GUI.Label(new Rect(px, py + ph - 22, pw, 20),
                 "Pack: click to wear   right-click to scrap (at Hobb's anvil)   shift-click to drop" + (party ? "   ctrl-click to give to the nearest ally" : "") + "      Worn: right-click to take off      I / Esc close",
                 new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+        }
+
+        /// <summary>
+        /// The CRAFT column (2026-11-07): parts on hand, every recipe with its cost and a Make button (greyed with the reason),
+        /// the run upgrades made so far, and the tools carried with a Ready button for the throw key.
+        /// </summary>
+        private void DrawCraft(float x, float y, float cw, float chH, Vector2 mouse)
+        {
+            if (cw < 240f) return;
+            GUI.Label(new Rect(x, y, cw, 22), "CRAFT  (anywhere)", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            float px2 = x + 140f;
+            foreach (Part part in System.Enum.GetValues(typeof(Part)))
+            {
+                GUI.Label(new Rect(px2, y, 90, 22), progress.PartCount(part) + " " + Crafting.PartName(part), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Crafting.PartColor(part) } });
+                px2 += 70f;
+            }
+            y += 26;
+            string hover = null;
+            for (int i = 0; i < Crafting.Recipes.Length; i++)
+            {
+                var r = Crafting.Recipes[i];
+                string why = progress.CannotCraftReason(i);
+                var row = new Rect(x, y, cw, 32);
+                bool over = row.Contains(mouse);
+                Rect(row.x, row.y, row.width, row.height, new Color(0f, 0f, 0f, over ? 0.5f : 0.3f));
+                string name = r.Kind == CraftKind.Potion && r.Arg == 1 ? Flasks.FullName(Flasks.Kind.Mana) : r.Name;
+                GUI.Label(new Rect(x + 8, y + 1, cw - 110, 18), name, new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = false });
+                GUI.Label(new Rect(x + 8, y + 15, cw - 110, 16), Crafting.Cost(r), new GUIStyle(small) { fontSize = 11, wordWrap = false, normal = { textColor = why == null ? new Color(0.8f, 0.78f, 0.7f) : new Color(0.6f, 0.45f, 0.4f) } });
+                GUI.enabled = why == null;
+                if (GUI.Button(new Rect(x + cw - 96, y + 4, 90, 24), why == null ? "Make" : (why.StartsWith("Need") ? "Need parts" : why), new GUIStyle(UiSkin.Button) { fontSize = 12 })) progress.CraftRpc((byte)i);
+                GUI.enabled = true;
+                if (over) hover = name + ": " + r.Description + (why != null ? "   (" + why + ")" : "");
+                y += 35;
+            }
+            y += 4;
+            GUI.Label(new Rect(x, y, cw, 20), "Upgrades:  lining " + progress.Lining + "/" + Crafting.MaxUpgrade + "   edge " + progress.Whetted + "/" + Crafting.MaxUpgrade + "   boots " + progress.Boots + "/" + Crafting.MaxUpgrade, small);
+            y += 22;
+            foreach (var tool in new[] { CraftKind.Caltrops, CraftKind.Rattle })
+            {
+                int n = progress.ToolCount(tool);
+                bool ready = progress.ReadiedTool == tool;
+                GUI.Label(new Rect(x, y, cw - 100, 20), Crafting.ToolName(tool) + "  x" + n + (ready ? "   (" + Binds.Label(Bind.Tool) + " throws)" : ""), new GUIStyle(small) { normal = { textColor = ready ? Gold : small.normal.textColor } });
+                GUI.enabled = n > 0 && !ready;
+                if (GUI.Button(new Rect(x + cw - 96, y, 90, 20), ready ? "Readied" : "Ready", new GUIStyle(UiSkin.Button) { fontSize = 12 })) progress.ReadyToolRpc((byte)tool);
+                GUI.enabled = true;
+                y += 23;
+            }
+            if (hover != null)
+            {
+                float hy = Mathf.Min(y + 6, UiScale.H - 80);
+                Rect(x, hy, cw, 54, new Color(0.04f, 0.035f, 0.03f, 0.93f));
+                GUI.Label(new Rect(x + 8, hy + 5, cw - 16, 46), hover, new GUIStyle(small) { wordWrap = true });
+            }
         }
 
         // ---- Your microphone: lit while you transmit; PTT hint. ----
@@ -2208,7 +2264,7 @@ namespace Deepbound.UI
                 "CTRL dodge (slide if sprinting)  ·  V kick\n" +
                 "R ultimate (when charged)\n" +
                 "1 / 2  drink Health / Mana   3 / 4  throw Frost / Holy\n" +
-                "M map  ·  G give (at an ally)  ·  H wave (hold: emotes)  ·  Esc free mouse\n" +
+                "M map  ·  G give (at an ally)  ·  Z throw tool  ·  H wave (hold: emotes)  ·  Esc free mouse\n" +
                 "Hit enemies from behind for +35%"), style);
         }
 

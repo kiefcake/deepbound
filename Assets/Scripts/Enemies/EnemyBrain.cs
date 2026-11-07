@@ -652,6 +652,13 @@ namespace Deepbound.Enemies
                 return;
             }
 
+            if (Lured)
+            {
+                target = null;
+                agent.isStopped = false;
+                if (Time.time >= repathAt) { repathAt = Time.time + 0.4f; agent.SetDestination(lureAt); }
+                return;
+            }
             target = PickTarget();
             // First sight of you: a beat to rear up and rattle, so being spotted reads (and costs them a moment).
             if (target != null && !engaged)
@@ -1133,6 +1140,25 @@ namespace Deepbound.Enemies
             flurryLeft = 0;
             busyUntil = 0f;
             PlayActionRpc(RigAction.Stagger, Mathf.Min(seconds, 0.6f));
+        }
+
+        private Vector3 lureAt;
+        private float lureUntil;
+        public bool Lured => Time.time < lureUntil;
+
+        /// <summary>
+        /// Server: a bone rattle (2026-11-07, crafted tool): it forgets everyone and walks to the noise for a while.
+        /// Bosses and statues pay no mind.
+        /// </summary>
+        public void ServerLure(Vector3 at, float seconds)
+        {
+            if (!IsServer || IsDead || IsBoss || visualKind == CharacterArt.SkeletonKind.Mourner || visualKind == CharacterArt.SkeletonKind.Mimic) return;
+            lureAt = at;
+            lureUntil = Time.time + seconds;
+            threat.Clear();
+            target = null;
+            taunter = null;
+            attacking = false;
         }
 
         /// <summary>Server: a player shouted nearby (proximity voice). Idle enemies turn on them.</summary>

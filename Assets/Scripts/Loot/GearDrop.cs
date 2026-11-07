@@ -84,6 +84,7 @@ namespace Deepbound.Loot
             if (Vector3.Distance(obj.transform.position, transform.position) > Range + 1f) return;
             if (World.Anvil.Near(obj.transform.position) == null) return; // smith's work
             who.ServerAddEmbers(Gear.ScrapValue(Item.Value));
+            who.ServerAddPart(Progression.Part.Iron, 1 + Item.Value.Quality);
             ScrapFxRpc();
             NetworkObject.Despawn();
         }

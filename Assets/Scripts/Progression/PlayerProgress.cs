@@ -22,7 +22,7 @@ namespace Deepbound.Progression
     /// </para>
     /// </summary>
     [RequireComponent(typeof(Health))]
-    public class PlayerProgress : NetworkBehaviour
+    public partial class PlayerProgress : NetworkBehaviour
     {
         public readonly NetworkVariable<int> Gold = new NetworkVariable<int>();
 
@@ -418,6 +418,7 @@ namespace Deepbound.Progression
             var item = bag[i];
             bag.RemoveAt(i);
             ServerAddEmbers(Gear.ScrapValue(item));
+            ServerAddPart(Part.Iron, 1 + item.Quality);
             PackFxRpc(0);
         }
 
@@ -813,6 +814,7 @@ namespace Deepbound.Progression
                 if (Rallied) m *= 1f + 0.15f * RallyPower.Value;
                 if (Pouch != null && Pouch.Bloodfury) m *= RareItems.BloodfuryDamage;
                 if (Wears(GearId.MartyrsShell)) m *= 1f + MartyrDamage * (1f - health.Fraction);
+                m *= 1f + Crafting.EdgeDamage * Whetted;
                 return m;
             }
         }
@@ -820,6 +822,7 @@ namespace Deepbound.Progression
         /// <summary>SPD 50 is the reference speed; each point either side is ±1%.</summary>
         public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1f + 0.15f * RelicPower(Relic.GhostLantern) : 1f) * (Blessed(Blessing.Swiftness) ? 1.12f : 1f)
             * (Rallied ? 1f + 0.2f * RallyPower.Value : 1f)
+            * (1f + Crafting.BootsSpeed * Boots)
             * (Pouch != null && Pouch.InStasis ? 0f : 1f)
             * World.DungeonDirector.WaterSlow(transform.position, true)
             * (TryGetComponent<Player.PlayerDebuffs>(out var deb) ? deb.SpeedMultiplier : 1f)
@@ -1716,6 +1719,7 @@ namespace Deepbound.Progression
             Grudges.Value = 0;
             PrayedFor.Value = false;
             Drills.Value = 0;
+            Parts.Value = 0;
             ScoutMap.Value = MapRevealed.Value = Salts.Value = Rope.Value = false;
             StockRerolls.Value = 0;
             ShrineRerolls.Value = 0;
@@ -1749,7 +1753,7 @@ namespace Deepbound.Progression
             if (CatPeed.Value) hp *= CatPeeHealth;
             if (MirrorCursed.Value) hp *= MirrorHealth;
             health.ServerSetMax(hp, refill);
-            health.Defense = Stats.GetValue(StatType.DEF);
+            health.Defense = Stats.GetValue(StatType.DEF) + Lining * Crafting.LiningDefense;
         }
     }
 }

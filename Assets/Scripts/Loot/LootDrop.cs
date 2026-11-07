@@ -313,6 +313,11 @@ namespace Deepbound.Loot
                 var pouchR = progress.GetComponent<Flasks>();
                 return pouchR != null && pouchR.ServerGiveRare((Progression.RareItem)Amount.Value);
             }
+            if (kind == LootKind.Bone || kind == LootKind.Cloth || kind == LootKind.Iron)
+            {
+                progress.ServerAddPart(PartOf(kind), Amount.Value);
+                return true;
+            }
             if (kind == LootKind.Embers)
             {
                 PlayerProgress.ServerShareEmbers(progress, Mathf.RoundToInt(Amount.Value * (progress.Wears(GearId.LanternOfTheLost) ? 1.4f : 1f) * (progress.Blessed(Blessing.Fortune) ? 1.5f : 1f)));
@@ -331,6 +336,7 @@ namespace Deepbound.Loot
                 if (k == LootKind.Gold) UI.GameHud.Pickup("gold", Amount.Value, " gold", LootInfo.GoldColor);
                 else if (k == LootKind.Embers) UI.GameHud.Pickup("embers", Amount.Value, " embers", LootInfo.EmberColor);
                 else if (k == LootKind.Sigil) UI.GameHud.Pickup("sigil", 1, " Sigil", LootInfo.SigilColor);
+                else if (IsPart(k)) UI.GameHud.Pickup("part" + (int)k, Amount.Value, " " + Crafting.PartName(PartOf(k)), Crafting.PartColor(PartOf(k)));
                 else if (k == LootKind.Rune) UI.GameHud.Pickup("rune" + Amount.Value, 1, " " + Runes.Name((Rune)Amount.Value), Runes.Color((Rune)Amount.Value));
                 else if (k == LootKind.Relic) UI.GameHud.Pickup("relic" + Amount.Value, 1, " " + Relics.Name((Relic)Amount.Value), Relics.GemColor((Relic)Amount.Value), Relics.Describe((Relic)Amount.Value));
                 // Potions: the pouch says it, with the count (Flasks.AddedRpc).
@@ -341,7 +347,11 @@ namespace Deepbound.Loot
             else if (Kind.Value == LootKind.Embers) Sfx.Play(Sound.Fire, at, 0.45f, 1.6f);
             else if (Kind.Value == LootKind.Sigil || Kind.Value == LootKind.Rune) Sfx.Play(Sound.Relic, at, 0.8f, 1.3f);
             else if (Kind.Value == LootKind.PotionHP || Kind.Value == LootKind.PotionMP) Sfx.Play(Sound.Potion, at, 0.7f, 1.1f);
+            else if (IsPart(Kind.Value)) Sfx.Play(Kind.Value == LootKind.Bone ? Sound.Rattle : Kind.Value == LootKind.Iron ? Sound.Chain : Sound.Gear, at, 0.45f, 1.3f);
         }
+
+        public static bool IsPart(LootKind k) => k == LootKind.Bone || k == LootKind.Cloth || k == LootKind.Iron;
+        public static Part PartOf(LootKind k) => k == LootKind.Bone ? Part.Bone : k == LootKind.Cloth ? Part.Cloth : Part.Iron;
 
         // ------------------------------------------------------------------
 
@@ -426,6 +436,29 @@ namespace Deepbound.Loot
                 var bar = MeshKit.Part(visual, "GlyphBar", MeshKit.Box(new Vector3(0.14f, 0.04f, 0.07f)), Mat.Glow, new Vector3(0f, 0.04f, 0f));
                 ArtLibrary.SetGlow(bar.GetComponent<Renderer>(), LootInfo.SigilColor * 1.8f);
                 AddLight(LootInfo.SigilColor, 2.2f);
+                return;
+            }
+
+            if (IsPart(Kind.Value))
+            {
+                // Crafting parts: a femur, a folded rag, a twist of scrap; a faint glint so they read on a dark floor.
+                var col = Crafting.PartColor(PartOf(Kind.Value));
+                if (Kind.Value == LootKind.Bone)
+                {
+                    MeshKit.Part(visual, "Femur", MeshKit.Cylinder(0.03f, 0.03f, 0.3f, 6), Mat.Bone, new Vector3(0f, -0.2f, 0f), new Vector3(0f, 0f, 80f));
+                    foreach (float s in new[] { -1f, 1f }) MeshKit.Part(visual, "Knuckle", MeshKit.Ball(0.045f, 6, 4), Mat.Bone, new Vector3(s * 0.15f, -0.19f, 0f));
+                }
+                else if (Kind.Value == LootKind.Cloth)
+                {
+                    var rag = MeshKit.Part(visual, "Rag", MeshKit.Box(new Vector3(0.24f, 0.06f, 0.18f)), Mat.Cloth, new Vector3(0f, -0.2f, 0f), new Vector3(0f, 25f, 8f));
+                    ArtLibrary.Tint(rag.GetComponent<Renderer>(), new Color(0.42f, 0.3f, 0.48f));
+                }
+                else
+                {
+                    MeshKit.Part(visual, "Scrap", MeshKit.Box(new Vector3(0.2f, 0.03f, 0.12f)), Mat.Steel, new Vector3(0f, -0.2f, 0f), new Vector3(10f, 30f, 15f));
+                    MeshKit.Part(visual, "Nail", MeshKit.Cylinder(0.012f, 0.008f, 0.16f, 4), Mat.Steel, new Vector3(0.05f, -0.16f, 0.03f), new Vector3(70f, 0f, 20f));
+                }
+                AddLight(col, 0.8f);
                 return;
             }
 

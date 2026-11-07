@@ -19,6 +19,9 @@ namespace Deepbound.Loot
         Sigil = 12,    // ability rank-up, spent at Ysolde's stones
         Rune = 13,     // weapon enchantment; Amount carries the Rune id
         RareItem = 14, // the pouch's fifth slot; Amount carries the RareItem id
+        Bone = 15,     // crafting parts (2026-11-07): Amount = how many
+        Cloth = 16,
+        Iron = 17,
     }
 
     public static class LootInfo
@@ -53,6 +56,9 @@ namespace Deepbound.Loot
             if (kind == LootKind.Relic) return "a relic";
             if (kind == LootKind.RareItem) return "a rare draught or tome";
             if (kind == LootKind.PotionHP) return "a Health Potion";
+            if (kind == LootKind.Bone) return "bone";
+            if (kind == LootKind.Cloth) return "cloth";
+            if (kind == LootKind.Iron) return "iron scrap";
             if (kind == LootKind.PotionMP) return "a " + Player.Flasks.FullName(Player.Flasks.Kind.Mana);
             return kind.ToString();
         }

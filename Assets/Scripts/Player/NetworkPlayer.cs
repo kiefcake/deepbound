@@ -187,6 +187,7 @@ namespace Deepbound.Player
                 PetKind.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Pet);
             }
             gameObject.AddComponent<PetCompanion>().Init(this);
+            gameObject.AddComponent<ToolBelt>().Init(this);
             WeaponGlowCos.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.WeaponLevel.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket0.OnValueChanged += (_, __) => RefreshWeaponGlow();
