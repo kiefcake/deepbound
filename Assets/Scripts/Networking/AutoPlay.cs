@@ -378,12 +378,12 @@ namespace Deepbound.Networking
                 L("== starting at floor " + (startFloor + 1) + " with a loadout ==");
                 Status("loadout");
                 DungeonDirector.Instance.ServerDebugStartFloor(startFloor);
-                yield return Floor();
+                yield return Guarded(Floor);
             }
             for (int f = startFloor > 0 ? startFloor + 1 : 0; f < DungeonDirector.FloorsPerRun; f++)
             {
                 yield return Camp();
-                yield return Floor();
+                yield return Guarded(Floor);
                 var ph = DungeonDirector.Instance.Phase.Value;
                 if (ph == RunPhase.RunComplete || ph == RunPhase.Wiped) break;
                 if (f + 1 >= floorsWanted) break;
@@ -972,6 +972,42 @@ namespace Deepbound.Networking
         }
 
         // ------------------------------------------------------------------ a floor
+
+        /// <summary>
+        /// Runs a bot routine and keeps going if it throws: a follower once lost its whole run to one NullReference on
+        /// floor 1 (2026-11-07) and stood idle. The error is a Problem in the log, then the routine starts over (3 times).
+        /// </summary>
+        private IEnumerator Guarded(System.Func<IEnumerator> routine)
+        {
+            for (int attempt = 0; attempt < 4; attempt++)
+            {
+                // Nested steps (StepToward, Press, Shot...) are driven here too, so their errors are caught as well.
+                var stack = new System.Collections.Generic.Stack<IEnumerator>();
+                stack.Push(routine());
+                bool threw = false;
+                while (stack.Count > 0)
+                {
+                    object cur;
+                    try
+                    {
+                        var top = stack.Peek();
+                        if (!top.MoveNext()) { stack.Pop(); continue; }
+                        cur = top.Current;
+                        if (cur is IEnumerator inner) { stack.Push(inner); continue; }
+                    }
+                    catch (System.Exception ex)
+                    {
+                        Problem("bot routine threw (" + ex.GetType().Name + ": " + ex.Message + ") " + ex.StackTrace?.Split((char)10)[0]?.Trim() + "; starting it over");
+                        threw = true;
+                        break;
+                    }
+                    yield return cur;
+                }
+                if (!threw) yield break;
+                yield return new WaitForSeconds(1f);
+                if (DungeonDirector.InLobby || DungeonDirector.Instance == null || DungeonDirector.Instance.Phase.Value != RunPhase.Exploring) yield break;
+            }
+        }
 
         private IEnumerator Floor()
         {

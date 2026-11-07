@@ -1330,6 +1330,14 @@ namespace Deepbound.World
             obj.Spawn(destroyWithScene: true);
         }
 
+        /// <summary>Tests: a plain (visible) spike plate here, for a floor that rolled none.</summary>
+        public SpikeTrap ServerDebugSpawnPlate(Vector3 at)
+        {
+            var obj = Instantiate(trapPrefab, at, Quaternion.identity);
+            obj.Spawn(destroyWithScene: true);
+            return obj.GetComponent<SpikeTrap>();
+        }
+
         private NetworkObject Spawn(NetworkObject prefab, Vector3 at, Quaternion rot)
         {
             var obj = Instantiate(prefab, at, rot);

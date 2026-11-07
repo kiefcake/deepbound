@@ -36,7 +36,22 @@ namespace Deepbound.World
         private float armedAt = -1f, readyAt;
         private float spikeOut, glow;
 
-        public override void OnNetworkSpawn() => BuildVisual();
+        /// <summary>Every plate on this peer (pets look for hidden ones).</summary>
+        public static readonly System.Collections.Generic.List<SpikeTrap> All = new System.Collections.Generic.List<SpikeTrap>();
+
+        public override void OnNetworkSpawn()
+        {
+            if (!All.Contains(this)) All.Add(this);
+            BuildVisual();
+        }
+
+        public override void OnNetworkDespawn() => All.Remove(this);
+
+        public override void OnDestroy()
+        {
+            All.Remove(this);
+            base.OnDestroy();
+        }
 
         private void Update()
         {

@@ -64,6 +64,8 @@ namespace Deepbound.Player
         /// <summary>Weapon glow (<see cref="Cosmetics.WeaponGlows"/>) and title (<see cref="Cosmetics.Titles"/>), owner-written.</summary>
         public readonly NetworkVariable<byte> WeaponGlowCos = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         public readonly NetworkVariable<byte> TitleCos = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
+        /// <summary>The companion at your heel (<see cref="PetCompanion.Kind"/>), chosen at the tailor; 0 = none.</summary>
+        public readonly NetworkVariable<byte> PetKind = new NetworkVariable<byte>(0, NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
         /// <summary>"Crimson the Grim" (or just the name).</summary>
         /// <summary>A Steam name cut to fit 64 UTF-8 bytes (and 24 characters, for nameplates).</summary>
         private static Unity.Collections.FixedString64Bytes SafeName(string n)
@@ -182,7 +184,9 @@ namespace Deepbound.Player
                 Pattern.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Pattern);
                 WeaponGlowCos.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.WeaponGlow);
                 TitleCos.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Title);
+                PetKind.Value = (byte)Cosmetics.Worn(Cosmetics.Kind.Pet);
             }
+            gameObject.AddComponent<PetCompanion>().Init(this);
             WeaponGlowCos.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.WeaponLevel.OnValueChanged += (_, __) => RefreshWeaponGlow();
             progress.Socket0.OnValueChanged += (_, __) => RefreshWeaponGlow();

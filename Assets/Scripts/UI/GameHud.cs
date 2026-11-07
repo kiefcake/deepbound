@@ -419,7 +419,26 @@ namespace Deepbound.UI
 
         // ---- Floating damage numbers ----
 
-        private struct DamageNumber { public Vector3 World; public float Amount; public float Time; public bool Player; public bool Heal; public float Drift; }
+        private struct DamageNumber { public Vector3 World; public float Amount; public float Time; public bool Player; public bool Heal; public float Drift; public Health Target; }
+
+        /// <summary>
+        /// Hits on one target within <see cref="MergeWindow"/> add up into its latest number (2026-11-07, the user: "too much
+        /// writing above enemies"; DoTs, multi-hits and relic procs each printed their own number).
+        /// </summary>
+        private const float MergeWindow = 0.35f;
+        private bool MergeInto(Health target, float amount, bool heal)
+        {
+            for (int i = numbers.Count - 1; i >= 0; i--)
+            {
+                var n = numbers[i];
+                if (Time.time - n.Time > MergeWindow) break;
+                if (n.Target != target || n.Heal != heal) continue;
+                n.Amount += amount;
+                numbers[i] = n;
+                return true;
+            }
+            return false;
+        }
 
         private void OnAnyHealed(Health target, float amount)
         {
@@ -427,7 +446,8 @@ namespace Deepbound.UI
             if (target == null || amount < 4f || target.Team != Team.Players) return;
             var jitter = new Vector3(Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f));
             if (!Settings.DamageNumbers) return;
-            numbers.Add(new DamageNumber { World = target.Center + Vector3.up * (target.CenterHeight + 0.3f) + jitter, Amount = amount, Time = Time.time, Heal = true });
+            if (MergeInto(target, amount, true)) return;
+            numbers.Add(new DamageNumber { World = target.Center + Vector3.up * (target.CenterHeight + 0.3f) + jitter, Amount = amount, Time = Time.time, Heal = true, Target = target });
             if (numbers.Count > 40) numbers.RemoveAt(0);
         }
         private readonly List<DamageNumber> numbers = new List<DamageNumber>();
@@ -441,7 +461,8 @@ namespace Deepbound.UI
             if (mine) return;
             var jitter = new Vector3(Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f));
             if (!Settings.DamageNumbers) return;
-            numbers.Add(new DamageNumber { World = target.Center + Vector3.up * (target.CenterHeight + 0.2f) + jitter, Amount = amount, Time = Time.time, Player = target.Team == Team.Players, Drift = Random.Range(-1f, 1f) });
+            if (MergeInto(target, amount, false)) return;
+            numbers.Add(new DamageNumber { World = target.Center + Vector3.up * (target.CenterHeight + 0.2f) + jitter, Amount = amount, Time = Time.time, Player = target.Team == Team.Players, Drift = Random.Range(-1f, 1f), Target = target });
             if (numbers.Count > 40) numbers.RemoveAt(0);
         }
 
@@ -511,8 +532,19 @@ namespace Deepbound.UI
             UiSkin.Shadowed(new Rect(0, h / 2f + top + 50, w, 24), text, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.85f, 0.85f, 0.9f) } });
         }
 
-        public static void ShowCombo(Vector3 at, string text, Color color) =>
-            combos.Add(new ComboText { World = at, Text = text, Color = color, Time = UnityEngine.Time.time });
+        /// <summary>
+        /// A word floating up from a spot. The same word near the same spot within a second is dropped, and at most
+        /// <see cref="MaxCombos"/> float at once (the oldest gives way), so a big fight does not fill the screen.
+        /// </summary>
+        public static void ShowCombo(Vector3 at, string text, Color color)
+        {
+            float now = UnityEngine.Time.time;
+            foreach (var c in combos)
+                if (c.Text == text && now - c.Time < 1f && (c.World - at).sqrMagnitude < 9f) return;
+            combos.Add(new ComboText { World = at, Text = text, Color = color, Time = now });
+            if (combos.Count > MaxCombos) combos.RemoveAt(0);
+        }
+        private const int MaxCombos = 6;
 
         private void DrawCombos()
         {
@@ -523,8 +555,8 @@ namespace Deepbound.UI
                 float age = Time.time - c.Time;
                 if (age > 1.3f) { combos.RemoveAt(i); continue; }
                 var screen = UiScale.World(cam, c.World + Vector3.up * (0.4f + age * 0.5f));
-                if (screen.z <= 0f || screen.z > 35f) continue;
-                float a = Mathf.Clamp01(1.3f - age) * Mathf.Clamp01(age * 8f);
+                if (screen.z <= 0f || screen.z > 26f) continue;
+                float a = Mathf.Clamp01(1.3f - age) * Mathf.Clamp01(age * 8f) * Mathf.Lerp(1f, 0.45f, Mathf.InverseLerp(14f, 26f, screen.z));
                 float scale = 1f + Mathf.Max(0f, 0.15f - age) * 3f;
                 var style = new GUIStyle(big) { fontSize = Mathf.RoundToInt(20 * scale), fontStyle = FontStyle.Bold, normal = { textColor = new Color(c.Color.r, c.Color.g, c.Color.b, a) } };
                 var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, a * 0.85f) } };
@@ -573,7 +605,7 @@ namespace Deepbound.UI
                 float a = 1f - age * age;
                 float pop = age < 0.12f ? Mathf.Lerp(1.6f, 1f, age / 0.12f) : 1f;
                 var color = n.Heal ? new Color(0.45f, 1f, 0.5f, a) : n.Player ? new Color(1f, 0.35f, 0.3f, a) : heavy ? new Color(1f, 0.82f, 0.35f, a) : new Color(1f, 1f, 1f, a);
-                var style = new GUIStyle(big) { fontSize = Mathf.RoundToInt((heavy ? 26 : 18) * pop), normal = { textColor = color } };
+                var style = new GUIStyle(big) { fontSize = Mathf.RoundToInt((heavy ? 24 : 16) * pop), normal = { textColor = color } };
                 var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, a * 0.8f) } };
                 var rect = new Rect(screen.x - 60, UiScale.H - screen.y - 20, 120, 40);
                 string text = (n.Heal ? "+" : "") + Mathf.RoundToInt(n.Amount);
@@ -863,13 +895,17 @@ namespace Deepbound.UI
                 var world = hp.transform.position + Vector3.up * (hp.CenterHeight * 2f + 0.7f);
                 var screen = UiScale.World(cam, world);
                 if (screen.z <= 0f || screen.z > 22f) continue;
-                bool atMe = Vector3.Distance(player.transform.position, hp.transform.position) < 4f;
+                float dMe = Vector3.Distance(player.transform.position, hp.transform.position);
+                bool atMe = dMe < 4f;
+                // Not through stone unless it is right on you (2026-11-07: a room's worth of "!" printed on the wall).
+                if (dMe > 6f && !InSight(cam.transform.position, hp)) continue;
                 byte st = brain.Status.Value;
                 // Heavy "!!" (sidestep it), sweep "<!>" (back off), lunge ">>" (dodge sideways), plain "!".
                 string glyph = (st & 8) != 0 ? "!!" : (st & 16) != 0 ? "<!>" : (st & 32) != 0 ? ">>" : "!";
                 if ((st & 32) != 0) atMe = atMe || Vector3.Distance(player.transform.position, hp.transform.position) < 8f;
-                float pulse = 0.8f + 0.2f * Mathf.Sin(Time.time * 18f);
-                int size = Mathf.RoundToInt((atMe ? 34 : 24) * pulse);
+                bool far = dMe > 12f && !atMe;
+                float pulse = far ? 0.8f : 0.8f + 0.2f * Mathf.Sin(Time.time * 18f);
+                int size = Mathf.RoundToInt((atMe ? 34 : far ? 17 : 24) * pulse);
                 var c = atMe ? new Color(1f, 0.25f, 0.15f) : new Color(1f, 0.6f, 0.2f);
                 var style = new GUIStyle(big) { fontSize = size, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = c } };
                 var shadow = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, 0.8f) } };
@@ -1917,7 +1953,7 @@ namespace Deepbound.UI
             string phase = boss.PhaseName.Value.ToString();
             if (phase.Length > 0)
                 GUI.Label(new Rect(x, y - 4, bw, 24), phase, new GUIStyle(small) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.85f, 0.8f, 0.7f) } });
-            string tags = StatusTags(boss.Health, boss);
+            string tags = Words(StatusTags(boss.Health, boss));
             string stanceTag = null;
             double left = boss.StanceEndsAt.Value > 0.0 && Unity.Netcode.NetworkManager.Singleton != null ? boss.StanceEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time : 0.0;
             switch (stance)
@@ -2993,9 +3029,9 @@ namespace Deepbound.UI
                 if (screen.z <= 0f || screen.z > 25f) continue;
                 if (hp.GetComponent<BossBrain>() != null) continue;
                 var brain = hp.GetComponent<EnemyBrain>();
-                string tags = StatusTags(hp, brain);
+                var tags = StatusTags(hp, brain);
                 bool hurt = Time.time - hp.LastHurtTime <= 5f;
-                if (!hurt && tags.Length == 0) continue;
+                if (!hurt && tags.Count == 0 && brain?.SizeWord == null) continue;
                 // No tags or bars through stone (2026-10-27: a stunned wraith two rooms away printed on the wall).
                 if (!InSight(cam.transform.position, hp)) continue;
 
@@ -3006,6 +3042,21 @@ namespace Deepbound.UI
             // tags printed over each other into one unreadable smear). A tag with nowhere to go is left out.
             barQueue.Sort((p, q) => p.screen.z.CompareTo(q.screen.z));
             placedTags.Clear();
+            // Words only for the one you are looking at (nearest the crosshair, within FocusPixels); the rest show
+            // coloured pips (2026-11-07, the user: "on later floors, there is too much writing above enemies").
+            Health focus = null;
+            float bestScore = float.MaxValue;
+            var centre = new Vector2(UiScale.W / 2f, UiScale.H / 2f);
+            foreach (var (screen, tags, hp, hurt) in barQueue)
+            {
+                if (tags.Count == 0 && hp.GetComponent<EnemyBrain>()?.SizeWord == null) continue;
+                var body = UiScale.World(cam, hp.Center);
+                if (body.z <= 0f) continue;
+                float px = Vector2.Distance(new Vector2(body.x, UiScale.H - body.y), centre);
+                if (px > FocusPixels) continue;
+                float score = px + screen.z * 6f;
+                if (score < bestScore) { bestScore = score; focus = hp; }
+            }
             var tagStyle = new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, richText = true, fontSize = 13 };
             var shadowStyle = new GUIStyle(tagStyle);
             foreach (var (screen, tags, hp, hurt) in barQueue)
@@ -3016,8 +3067,16 @@ namespace Deepbound.UI
                     Rect(x - 1, y - 1, bw + 2, 7, new Color(0, 0, 0, 0.75f));
                     Rect(x, y, bw * hp.Fraction, 5, new Color(0.85f, 0.2f, 0.15f));
                 }
-                if (tags.Length == 0) continue;
-                string plain = StripColors(tags);
+                var sizeWord = hp.GetComponent<EnemyBrain>()?.SizeWord;
+                if (tags.Count == 0 && (hp != focus || sizeWord == null)) continue;
+                if (hp != focus)
+                {
+                    DrawPips(screen.x, y, tags);
+                    continue;
+                }
+                string coloured = Words(tags);
+                if (sizeWord != null) coloured = "<color=#D9C7A3>" + sizeWord + "</color>" + (coloured.Length > 0 ? " " + coloured : "");
+                string plain = StripColors(coloured);
                 float tw = tagStyle.CalcSize(new GUIContent(plain)).x + 6f;
                 var r = new Rect(screen.x - tw / 2f, y - 17, tw, 15);
                 for (int step = 0; step < 4 && placedTags.Exists(o => o.Overlaps(r)); step++) r.y -= 15f;
@@ -3030,9 +3089,41 @@ namespace Deepbound.UI
                 shadowStyle.contentOffset = new Vector2(-1, 1); GUI.Label(lr, outline, shadowStyle);
                 shadowStyle.contentOffset = new Vector2(1, -1); GUI.Label(lr, outline, shadowStyle);
                 shadowStyle.contentOffset = new Vector2(-1, -1); GUI.Label(lr, outline, shadowStyle);
-                GUI.Label(lr, tags, tagStyle);
+                GUI.Label(lr, coloured, tagStyle);
             }
             barQueue.Clear();
+        }
+
+        private const float FocusPixels = 170f;
+
+        /// <summary>One small square per tag in its colour, centred over the health bar; a champion's is a taller gold bar.</summary>
+        private void DrawPips(float cx, float barY, List<(string text, string hex)> tags)
+        {
+            const float size = 7f, gap = 3f;
+            int n = Mathf.Min(tags.Count, 6);
+            float x = cx - (n * size + (n - 1) * gap) / 2f, y = barY - 11f;
+            for (int i = 0; i < n; i++)
+            {
+                ColorUtility.TryParseHtmlString("#" + tags[i].hex, out var c);
+                bool title = i == 0 && tags[i].hex == ChampionHex;
+                float hgt = title ? size + 4f : size;
+                Rect(x - 1, y - (hgt - size) - 1, size + 2, hgt + 2, new Color(0f, 0f, 0f, 0.8f));
+                Rect(x, y - (hgt - size), size, hgt, c);
+                x += size + gap;
+            }
+        }
+
+        private const string ChampionHex = "FFC14D";
+
+        private static string Words(List<(string text, string hex)> tags)
+        {
+            var sb = new System.Text.StringBuilder();
+            foreach (var (text, hex) in tags)
+            {
+                if (sb.Length > 0) sb.Append(' ');
+                sb.Append("<color=#").Append(hex).Append('>').Append(text).Append("</color>");
+            }
+            return sb.ToString();
         }
 
         private readonly Dictionary<Health, (float at, bool seen)> sightCache = new Dictionary<Health, (float, bool)>();
@@ -3047,19 +3138,20 @@ namespace Deepbound.UI
             return seen;
         }
 
-        private readonly List<(Vector3 screen, string tags, Health hp, bool hurt)> barQueue = new List<(Vector3, string, Health, bool)>();
+        private readonly List<(Vector3 screen, List<(string text, string hex)> tags, Health hp, bool hurt)> barQueue = new List<(Vector3, List<(string, string)>, Health, bool)>();
         private readonly List<Rect> placedTags = new List<Rect>();
 
-        /// <summary>What a combo can cash in on this enemy, as coloured tags ("CHILL MARK STUN").</summary>
-        private static string StatusTags(Health hp, EnemyBrain brain)
+        /// <summary>What a combo can cash in on this enemy, as (word, colour) tags ("CHILL MARK STUN"). A fresh list per
+        /// call: the bar queue keeps them until it draws.</summary>
+        private static List<(string text, string hex)> StatusTags(Health hp, EnemyBrain brain)
         {
-            var sb = new System.Text.StringBuilder();
-            void Tag(string text, string hex) { if (sb.Length > 0) sb.Append(' '); sb.Append("<color=#").Append(hex).Append('>').Append(text).Append("</color>"); }
-            if (brain != null && brain.IsChampion) Tag(brain.Title.Value.ToString().ToUpperInvariant(), "FFC14D");
+            var sb = new List<(string text, string hex)>();
+            void Tag(string text, string hex) => sb.Add((text, hex));
+            if (brain != null && brain.IsChampion) Tag(brain.Title.Value.ToString().ToUpperInvariant(), ChampionHex);
             if (brain != null && brain.AffixKind != EliteAffix.None) Tag(EliteAffixes.Tag(brain.AffixKind), EliteAffixes.Hex(brain.AffixKind));
             if (brain is WraithBrain wr && !wr.Pinned) Tag("ETHEREAL", "8FA8D0");
             if (brain is ShieldbearerBrain shieldB) { if (shieldB.ShieldUp) Tag("SHIELDED", "C8B48C"); else if (shieldB.GuardDown) Tag("OPEN", "FFD98A"); }
-            if (brain is GargoyleBrain garg && !garg.Woken.Value) return "";
+            if (brain is GargoyleBrain garg && !garg.Woken.Value) { sb.Clear(); return sb; }
             if (DungeonDirector.InRitualWard(brain != null ? brain.transform.position : hp.transform.position)) Tag("RITUAL WARD", "B266FF");
             if (hp.Chilled.Value) Tag("CHILL", "8CD9FF");
             if (hp.Scorched.Value) Tag("SCORCH", "FF9A4D");
@@ -3069,7 +3161,7 @@ namespace Deepbound.UI
             if (brain is MournerBrain mo && mo.Seen.Value) Tag("WATCHED", "B8C4D6");
             if (brain != null && (brain.Status.Value & 2) != 0) Tag("TAUNT", "FF8C59");
             if (brain != null && brain.Enraged) Tag("ENRAGED", "FF3B26");
-            return sb.ToString();
+            return sb;
         }
 
         private static string StripColors(string tags) => System.Text.RegularExpressions.Regex.Replace(tags, "<[^>]+>", "");

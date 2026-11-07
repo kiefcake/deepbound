@@ -22,6 +22,51 @@ namespace Deepbound.Loot
         private const float PickupRadius = 1.3f, MagnetRadius = 2.6f;
 
         private bool Magnetic => Kind.Value == LootKind.Gold || Kind.Value == LootKind.Embers;
+        /// <summary>Gold or embers: what a pet fetches.</summary>
+        public bool IsMoney => Magnetic;
+
+        // Pet fetch (2026-11-07): who has had a pet watching this pile, and since when.
+        private PlayerLife fetcher;
+        private float fetchSince;
+
+        /// <summary>
+        /// Server: a standing player with a pet, within <see cref="Player.PetCompanion.FetchRadius"/> and in sight of this
+        /// pile, has it brought over once it has lain there <see cref="Player.PetCompanion.FetchDelay"/> (the pet runs out
+        /// for it on every screen). The nearest such player wins.
+        /// </summary>
+        /// <summary>The same test on every peer, so the pet runs only for what will be fetched: level-ish, and in sight
+        /// (bodies do not block; a door or wall within 0.3 m of the pile does).</summary>
+        public static bool PetCanReach(Vector3 owner, Vector3 pile)
+        {
+            if (Mathf.Abs(owner.y - pile.y) > 2.5f) return false;
+            var eye = owner + Vector3.up * 0.6f;
+            var spot = pile + Vector3.up * 0.35f;
+            foreach (var hit in Physics.RaycastAll(eye, spot - eye, Vector3.Distance(eye, spot), ~0, QueryTriggerInteraction.Ignore))
+            {
+                if (hit.collider.GetComponentInParent<PlayerLife>() != null || hit.collider.GetComponentInParent<Combat.Health>() != null) continue;
+                if (hit.collider.GetComponentInParent<LootDrop>() != null) continue;
+                if ((hit.point - spot).sqrMagnitude > 0.09f) return false;
+            }
+            return true;
+        }
+
+        private PlayerLife PetFetcher()
+        {
+            if (World.DungeonDirector.InLobby) return null;
+            PlayerLife best = null;
+            float bestD = Player.PetCompanion.FetchRadius;
+            foreach (var life in PlayerLife.All)
+            {
+                if (life == null || life.Downed.Value) continue;
+                var np = life.GetComponent<Player.NetworkPlayer>();
+                if (np == null || np.PetKind.Value == 0) continue;
+                float dist = Vector3.Distance(life.transform.position, transform.position);
+                if (dist >= bestD || !PetCanReach(life.transform.position, transform.position)) continue;
+                bestD = dist;
+                best = life;
+            }
+            return best;
+        }
 
         private PlayerLife NearestCollector(float radius)
         {
@@ -156,6 +201,22 @@ namespace Deepbound.Loot
             }
 
             if (!IsServer || Time.time < pickupAllowedAt) return;
+
+            if (Magnetic)
+            {
+                var pf = PetFetcher();
+                if (pf != fetcher) { fetcher = pf; fetchSince = Time.time; }
+                if (fetcher != null && Time.time - fetchSince >= Player.PetCompanion.FetchDelay)
+                {
+                    routedTo = null;
+                    if (TryApply(fetcher.GetComponent<PlayerProgress>()))
+                    {
+                        if (!crumbled) PickedUpRpc(routedTo != null ? routedTo.NetworkObjectId : fetcher.NetworkObjectId);
+                        NetworkObject.Despawn();
+                        return;
+                    }
+                }
+            }
 
             foreach (var life in PlayerLife.All)
             {

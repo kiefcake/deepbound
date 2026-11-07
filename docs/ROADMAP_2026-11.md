@@ -22,7 +22,7 @@ Work through in order; tick off in the commit messages.
 - **Dungeon**: great urns, room dressing, dungeon life (critters), lighting moods; ALL FIVE ACTS EVENLY.
 
 ## Batch 2 (next, all four wanted)
-- Pets / companions (earned at camp, follow you down, fetch loot, help a little).
+- Pets / companions (earned at camp, follow you down, fetch loot, help a little). DONE 2026-11-07: five companions at the tailor; fetch gold/embers, warn of hidden plates.
 - Crafting from dungeon parts (bone, cloth, iron scraps -> potions, flasks, cosmetic trims at Hobb/Vey).
 - Between-run progression (small permanent unlock tree paid with Renown).
 - Dungeon side quests (NPCs on floors: escort, fetch, kill a named foe).
@@ -30,3 +30,7 @@ Work through in order; tick off in the commit messages.
 ## Combat notes from the user
 - Later floors: too much writing above enemies (status tags, affixes, names). Find a calmer way to show it.
 - Enemies are all about the same size apart from bosses and elites: more size variety (and visual variety).
+
+## Done 2026-11-07 (second batch)
+- Combat notes: words only over the enemy at the crosshair (pips for the rest), merged damage numbers, fewer floating words; enemy sizes vary (runts and hulking ones).
+- Dungeon life and moods in all five acts.

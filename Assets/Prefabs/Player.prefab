@@ -25,6 +25,7 @@ GameObject:
   - component: {fileID: 5594889991321821081}
   - component: {fileID: 2211125422673540453}
   - component: {fileID: 3022622143307181046}
+  - component: {fileID: 928244989165057719}
   - component: {fileID: 2849200414980662586}
   - component: {fileID: 3849500718695495139}
   - component: {fileID: 5009049371056740726}
@@ -325,6 +326,19 @@ MonoBehaviour:
   m_Script: {fileID: 11500000, guid: 29c3973cd3fe35c4892abf428271f9a4, type: 3}
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.Emotes
+  ShowTopMostFoldoutHeaderGroup: 1
+--- !u!114 &928244989165057719
+MonoBehaviour:
+  m_ObjectHideFlags: 0
+  m_CorrespondingSourceObject: {fileID: 0}
+  m_PrefabInstance: {fileID: 0}
+  m_PrefabAsset: {fileID: 0}
+  m_GameObject: {fileID: 539545562963582333}
+  m_Enabled: 1
+  m_EditorHideFlags: 0
+  m_Script: {fileID: 11500000, guid: 0dacd817d5fb28e46bd8e04c893c8047, type: 3}
+  m_Name: 
+  m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Player.GiveWheel
   ShowTopMostFoldoutHeaderGroup: 1
 --- !u!114 &2849200414980662586
 MonoBehaviour:

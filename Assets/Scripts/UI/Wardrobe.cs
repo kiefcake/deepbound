@@ -64,9 +64,9 @@ namespace Deepbound.UI
                              Vector3.Distance(player.transform.position, Lobby.TailorSpot) <= Range;
 
         private int WornNow(Cosmetics.Kind kind) => kind == Cosmetics.Kind.Aura ? player.Aura.Value : kind == Cosmetics.Kind.Heraldry ? player.Heraldry.Value
-            : kind == Cosmetics.Kind.Pattern ? player.Pattern.Value : kind == Cosmetics.Kind.WeaponGlow ? player.WeaponGlowCos.Value : kind == Cosmetics.Kind.Title ? player.TitleCos.Value : player.CloakDye.Value;
+            : kind == Cosmetics.Kind.Pattern ? player.Pattern.Value : kind == Cosmetics.Kind.WeaponGlow ? player.WeaponGlowCos.Value : kind == Cosmetics.Kind.Title ? player.TitleCos.Value : kind == Cosmetics.Kind.Pet ? player.PetKind.Value : player.CloakDye.Value;
 
-        private static readonly Cosmetics.Kind[] TabOrder = { Cosmetics.Kind.Cloak, Cosmetics.Kind.Pattern, Cosmetics.Kind.Heraldry, Cosmetics.Kind.Aura, Cosmetics.Kind.WeaponGlow, Cosmetics.Kind.Title };
+        private static readonly Cosmetics.Kind[] TabOrder = { Cosmetics.Kind.Cloak, Cosmetics.Kind.Pattern, Cosmetics.Kind.Heraldry, Cosmetics.Kind.Aura, Cosmetics.Kind.WeaponGlow, Cosmetics.Kind.Title, Cosmetics.Kind.Pet };
 
         private void Update()
         {
@@ -255,7 +255,7 @@ namespace Deepbound.UI
             GUI.Label(new Rect(panel.x, panel.y + 50, pw, 22), Cosmetics.AllFree ? "EVERYTHING IS FREE FOR NOW  ·  pick and wear" : "RENOWN  " + Cosmetics.Renown + "      ·      earned at the end of every run",
                 new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14, normal = { textColor = UiSkin.Gold } });
 
-            string[] names = { "CLOAKS", "AURAS", "HERALDRY", "PATTERNS", "GLOWS", "TITLES" };
+            string[] names = { "CLOAKS", "AURAS", "HERALDRY", "PATTERNS", "GLOWS", "TITLES", "PETS" };
             float tabW = Mathf.Min(112f, (pw - 20f) / TabOrder.Length - 6f);
             for (int t = 0; t < TabOrder.Length; t++)
             {
@@ -267,7 +267,8 @@ namespace Deepbound.UI
             string blurb = tab == Cosmetics.Kind.Cloak ? "The cloak on your back, and its trim." : tab == Cosmetics.Kind.Pattern ? "Bones sewn on the back of your cloak, in any dye."
                 : tab == Cosmetics.Kind.Heraldry ? "Your colours: tabard, plume, sash, hat band - on every class."
                 : tab == Cosmetics.Kind.WeaponGlow ? "A burning edge on your weapon, and the colour of your swings."
-                : tab == Cosmetics.Kind.Title ? "Worn under your name, for the party and the Hall to see." : "Motes that drift up around you.";
+                : tab == Cosmetics.Kind.Title ? "Worn under your name, for the party and the Hall to see."
+                : tab == Cosmetics.Kind.Pet ? "A companion at your heel: fetches gold and embers, finds hidden plates." : "Motes that drift up around you.";
             GUI.Label(new Rect(panel.x, panel.y + 108, pw, 20), blurb + "   (Tab switches)", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
 
             var view = new Rect(panel.x + 16, panel.y + 134, pw - 32, ph - 176);
@@ -308,6 +309,18 @@ namespace Deepbound.UI
                     UiSkin.Rect(new Rect(row.x + 20, row.y + 27, 14, 3), new Color(0.6f, 0.45f, 0.25f));
                     if (i > 0) UiSkin.Rect(new Rect(row.x + 29, row.y + 9, 2, 18), item.Cloak);
                 }
+                else if (tab == Cosmetics.Kind.Pet)
+                {
+                    // A little beast: body, head, two legs, in its colour.
+                    UiSkin.Rect(new Rect(row.x + 8, row.y + 6, 38, 28), new Color(0.03f, 0.03f, 0.04f));
+                    if (i > 0)
+                    {
+                        UiSkin.Rect(new Rect(row.x + 14, row.y + 16, 18, 8), item.Cloak);
+                        UiSkin.Rect(new Rect(row.x + 30, row.y + 12, 8, 7), item.Cloak);
+                        UiSkin.Rect(new Rect(row.x + 16, row.y + 24, 3, 6), item.Cloak);
+                        UiSkin.Rect(new Rect(row.x + 27, row.y + 24, 3, 6), item.Cloak);
+                    }
+                }
                 else if (tab == Cosmetics.Kind.Title)
                 {
                     UiSkin.Rect(new Rect(row.x + 8, row.y + 6, 38, 28), new Color(0.03f, 0.03f, 0.04f));
@@ -323,7 +336,7 @@ namespace Deepbound.UI
 
                 GUI.Label(new Rect(row.x + 58, row.y + 4, 260, 22), item.Name, new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Bold });
                 bool owns = Cosmetics.Owns(tab, i), unlocked = Cosmetics.Unlocked(tab, i);
-                string sub = i == 0 ? (tab == Cosmetics.Kind.Cloak ? "Each class's own colours" : tab == Cosmetics.Kind.Heraldry ? "Your party colour" : tab == Cosmetics.Kind.Pattern ? "No pattern" : "Nothing about you") : owns ? (Cosmetics.AllFree ? "Free" : "Owned")
+                string sub = i == 0 ? (tab == Cosmetics.Kind.Cloak ? "Each class's own colours" : tab == Cosmetics.Kind.Heraldry ? "Your party colour" : tab == Cosmetics.Kind.Pattern ? "No pattern" : tab == Cosmetics.Kind.Pet ? "No companion" : "Nothing about you") : owns ? (Cosmetics.AllFree ? "Free" : "Owned")
                     : !unlocked ? "Fell " + BossName(item.NeedsBoss) + " to unlock" : item.Cost + " Renown";
                 GUI.Label(new Rect(row.x + 58, row.y + 22, 300, 18), sub, new GUIStyle(UiSkin.Small) { normal = { textColor = !unlocked ? new Color(0.7f, 0.45f, 0.4f) : UiSkin.Small.normal.textColor } });
 
@@ -401,6 +414,7 @@ namespace Deepbound.UI
             else if (kind == Cosmetics.Kind.Pattern) player.Pattern.Value = (byte)i;
             else if (kind == Cosmetics.Kind.WeaponGlow) player.WeaponGlowCos.Value = (byte)i;
             else if (kind == Cosmetics.Kind.Title) player.TitleCos.Value = (byte)i;
+            else if (kind == Cosmetics.Kind.Pet) player.PetKind.Value = (byte)i;
             else player.CloakDye.Value = (byte)i;
             Sfx.Play(Sound.Purchase, player.transform.position + Vector3.up, 0.6f, 1.2f);
             Say("Now wearing " + Cosmetics.Of(kind)[i].Name);

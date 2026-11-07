@@ -16,7 +16,7 @@ namespace Deepbound.Progression
     /// </summary>
     public static class Cosmetics
     {
-        public enum Kind { Cloak, Aura, Heraldry, Pattern, WeaponGlow, Title }
+        public enum Kind { Cloak, Aura, Heraldry, Pattern, WeaponGlow, Title, Pet }
 
         public struct Item
         {
@@ -143,11 +143,25 @@ namespace Deepbound.Progression
             new Item { Name = "Who Silenced the Unsung", Cost = 400, NeedsBoss = 4 },
         };
 
+        /// <summary>
+        /// Companions (2026-11-07), in <see cref="Player.PetCompanion.Kind"/> order. Index 0 is none. Append only. They fetch
+        /// gold and embers and warn of hidden plates; none fights.
+        /// </summary>
+        public static readonly Item[] Pets =
+        {
+            new Item { Name = "No Companion", Cost = 0, NeedsBoss = -1 },
+            new Item { Name = "Gallows Raven", Cloak = new Color(0.1f, 0.1f, 0.12f), Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Cellar Rat", Cloak = new Color(0.4f, 0.36f, 0.32f), Cost = 60, NeedsBoss = -1 },
+            new Item { Name = "Bone Hound", Cloak = new Color(0.86f, 0.82f, 0.72f), Cost = 160, NeedsBoss = 0 },
+            new Item { Name = "Castle Kitten", Cloak = new Color(0.45f, 0.4f, 0.36f), Cost = 120, NeedsBoss = -1 },
+            new Item { Name = "Lantern Wisp", Cloak = new Color(0.6f, 0.85f, 1f), Cost = 220, NeedsBoss = 3 },
+        };
+
         public static Color? WeaponGlowColor(int i) => i > 0 && i < WeaponGlows.Length ? WeaponGlows[i].Cloak : (Color?)null;
         public static string TitleOf(int i) => i > 0 && i < Titles.Length ? Titles[i].Name : null;
 
         public static Item[] Of(Kind kind) => kind == Kind.Aura ? Auras : kind == Kind.Heraldry ? Heraldries : kind == Kind.Pattern ? Patterns
-            : kind == Kind.WeaponGlow ? WeaponGlows : kind == Kind.Title ? Titles : Dyes;
+            : kind == Kind.WeaponGlow ? WeaponGlows : kind == Kind.Title ? Titles : kind == Kind.Pet ? Pets : Dyes;
 
         /// <summary>The pattern to sew on a cloak, or null for a plain one.</summary>
         public static Item? PatternOf(int i) => i > 0 && i < Patterns.Length ? Patterns[i] : (Item?)null;
@@ -156,8 +170,11 @@ namespace Deepbound.Progression
         public static Color? HeraldryColor(int i) => i > 0 && i < Heraldries.Length ? Heraldries[i].Cloak : (Color?)null;
 
         private const string KeyRenown = "db.renown", KeyBosses = "db.bosses", KeyLastRun = "db.lastRun", KeyRuns = "db.runs";
-        private static string KeyOwned(Kind k) => k == Kind.Aura ? "db.auras" : k == Kind.Heraldry ? "db.heraldries" : k == Kind.Pattern ? "db.patterns" : "db.dyes";
-        private static string KeyWorn(Kind k) => k == Kind.Aura ? "db.aura" : k == Kind.Heraldry ? "db.heraldry" : k == Kind.Pattern ? "db.pattern" : "db.cloak";
+        // Glows and titles fell through to the dye keys until 2026-11-07 (wearing a title changed your cloak on the next start).
+        private static string KeyOwned(Kind k) => k == Kind.Aura ? "db.auras" : k == Kind.Heraldry ? "db.heraldries" : k == Kind.Pattern ? "db.patterns"
+            : k == Kind.WeaponGlow ? "db.glows" : k == Kind.Title ? "db.titles" : k == Kind.Pet ? "db.pets" : "db.dyes";
+        private static string KeyWorn(Kind k) => k == Kind.Aura ? "db.aura" : k == Kind.Heraldry ? "db.heraldry" : k == Kind.Pattern ? "db.pattern"
+            : k == Kind.WeaponGlow ? "db.glow" : k == Kind.Title ? "db.title" : k == Kind.Pet ? "db.pet" : "db.cloak";
 
         /// <summary>Set by the smoke/screenshot tests: nothing is read from or written to the real save.</summary>
         public static bool TestMode;

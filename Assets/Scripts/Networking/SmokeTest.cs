@@ -473,6 +473,21 @@ namespace Deepbound.Networking
                     Log("every sound recorded", silent.Count == 0 ? "all " + System.Enum.GetValues(typeof(Art.Sound)).Length + " have clips" : "silent: " + string.Join(", ", silent), silent.Count == 0);
                 }
 
+                // Enemy sizes (2026-11-07): a spread of runts and hulks among plain fighters, none for bosses or odd shapes.
+                {
+                    int runts = 0, hulks = 0, n = 4000;
+                    float lo = 9f, hi = 0f;
+                    for (ulong id = 1; id <= (ulong)n; id++)
+                    {
+                        float s = Enemies.EnemyBrain.SizeFor(id, Art.CharacterArt.SkeletonKind.Warrior, false);
+                        if (s < 0.8f) runts++; else if (s > 1.3f) hulks++;
+                        lo = Mathf.Min(lo, s); hi = Mathf.Max(hi, s);
+                    }
+                    bool odd = Enemies.EnemyBrain.SizeFor(77, Art.CharacterArt.SkeletonKind.Mimic, false) == 1f && Enemies.EnemyBrain.SizeFor(77, Art.CharacterArt.SkeletonKind.Warrior, true) == 1f;
+                    Log("enemy sizes", runts + " runts, " + hulks + " hulks in " + n + ", sizes " + lo.ToString("0.00") + "-" + hi.ToString("0.00") + (odd ? "" : ", a boss or mimic was sized"),
+                        odd && runts > n * 0.04f && runts < n * 0.1f && hulks > n * 0.025f && hulks < n * 0.07f && lo >= 0.67f && hi <= 1.56f);
+                }
+
                 // The party's numbers, so a slip in the formulas shows: harder per head and more of it with each player, solo untouched.
                 Log("party numbers", "hit x" + Difficulty.Damage(1) + " / " + Difficulty.Damage(2) + " / " + Difficulty.Damage(4) + ", boss x" + Difficulty.BossHealth(1) + " / " + Difficulty.BossHealth(2) + " / " + Difficulty.BossHealth(4) + ", crowd x" + Difficulty.SpawnCount(1) + " / " + Difficulty.SpawnCount(4),
                     Mathf.Approximately(Difficulty.Damage(1), 1f) && Mathf.Abs(Difficulty.Damage(2) - 1.22f) < 0.001f && Mathf.Abs(Difficulty.Damage(4) - 1.66f) < 0.001f
@@ -2031,6 +2046,14 @@ namespace Deepbound.Networking
                     Log("room traps", roomTraps + " spike traps inside rooms on this floor", true);
                     // A spike plate (2026-11-01, "more dangerous"): it fires in 0.4 s, bites hard, and pins the player it catches.
                     var plate = FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).FirstOrDefault();
+                    // Trap rolls are seeded: a floor with no plate at all once left this check unrun (2026-11-07).
+                    if (plate == null)
+                    {
+                        var spot = layout.PlayerSpawnFor(local.OwnerClientId) + local.transform.forward * 3f;
+                        if (UnityEngine.AI.NavMesh.SamplePosition(spot, out var onMesh, 3f, UnityEngine.AI.NavMesh.AllAreas)) spot = onMesh.position;
+                        plate = World.DungeonDirector.Instance.ServerDebugSpawnPlate(spot);
+                        yield return new WaitForSeconds(0.3f);
+                    }
                     if (plate != null)
                     {
                         var ph = local.GetComponent<Health>();
@@ -2057,6 +2080,33 @@ namespace Deepbound.Networking
                         local.GetComponent<FirstPersonMotor>().Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                         ph.ServerSetFraction(1f);
                         yield return new WaitForSeconds(SpikeTrap.ImpaleSeconds);
+                        // A pet (2026-11-07) fetches a pile of gold lying beyond the coin magnet, in sight.
+                        {
+                            var np = local.GetComponent<NetworkPlayer>();
+                            var petProg = local.GetComponent<PlayerProgress>();
+                            byte petWas = np.PetKind.Value;
+                            np.PetKind.Value = (byte)PetCompanion.Kind.BoneHound;
+                            var petFrom = local.transform.position;
+                            // A spot 5 m off in clear view: try headings until one is.
+                            var petSpot = petFrom + local.transform.forward * 5f;
+                            for (int hd = 0; hd < 12; hd++)
+                            {
+                                var tryAt = petFrom + Quaternion.Euler(0f, hd * 30f, 0f) * local.transform.forward * 5f;
+                                if (!UnityEngine.AI.NavMesh.SamplePosition(tryAt, out var petMesh, 1.5f, UnityEngine.AI.NavMesh.AllAreas)) continue;
+                                if (Vector3.Distance(petFrom, petMesh.position) < 3.5f || !LootDrop.PetCanReach(petFrom, petMesh.position)) continue;
+                                petSpot = petMesh.position;
+                                break;
+                            }
+                            int petGold0 = petProg.Gold.Value, dropsBefore = LootDrop.All.Count;
+                            World.DungeonDirector.Instance.ServerDropLoot(petSpot, LootKind.Gold, 40, null, settle: false, fixedSum: true);
+                            float waited = 0f;
+                            for (; waited < 4f && petProg.Gold.Value == petGold0; waited += 0.1f) yield return new WaitForSeconds(0.1f);
+                            float far = Vector3.Distance(petFrom, petSpot);
+                            np.PetKind.Value = petWas;
+                            bool sizes = Cosmetics.Pets.Length == System.Enum.GetValues(typeof(PetCompanion.Kind)).Length;
+                            Log("pet fetch", "gold " + petGold0 + " -> " + petProg.Gold.Value + " from " + far.ToString("F1") + " m after " + waited.ToString("F1") + " s, pets listed " + Cosmetics.Pets.Length,
+                                petProg.Gold.Value > petGold0 && far > 2.6f && waited >= PetCompanion.FetchDelay - 0.2f && sizes);
+                        }
                         // A flame vent strikes once a burst, for a third of your health, and goes dark long enough to cross.
                         if (layout.FlameTraps.Count > 0)
                         {

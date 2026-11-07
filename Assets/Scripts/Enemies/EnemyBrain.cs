@@ -308,8 +308,10 @@ namespace Deepbound.Enemies
             MeshKit.MergeRig(Rig);
             if (Rig != null) Rig.WatchViewer = true;
             // Champions stand larger (applied after the rig exists, so late joiners see it too).
-            Title.OnValueChanged += (_, t) => { if (t.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f; };
-            if (Title.Value.Length > 0 && Rig != null) Rig.transform.localScale = Vector3.one * 1.22f;
+            // (Multiplied, once: it used to SET 1.22 and threw away a brute's own size and the elite growth.)
+            ApplySize();
+            Title.OnValueChanged += (_, t) => { if (t.Length > 0) ScaleAsChampion(); };
+            if (Title.Value.Length > 0) ScaleAsChampion();
             if (Rig != null && !IsBoss && RisesFromGround(visualKind)) Rig.gameObject.AddComponent<RiseFromGround>();
             if (Rig != null && (IsBoss || Heavy || Rig.transform.lossyScale.y >= 1.12f)) FitBodyToRig();
             health.Hurt += OnHurtVisual;
@@ -343,6 +345,7 @@ namespace Deepbound.Enemies
         public void ServerScale(int players, int depth)
         {
             scaledPlayersBase = players;
+            if (!sizeStatsApplied) { sizeStatsApplied = true; ServerApplySizeStats(); }
             float hpScale = (IsBoss ? Difficulty.PartyHealth(players, true, depth) : Difficulty.EnemyHealth(players) * Difficulty.RankHealth) * Difficulty.DepthHealth(depth) * Difficulty.Level.Health;
             damage *= Difficulty.Damage(players) * Difficulty.DepthDamage(depth) * Difficulty.Level.Damage * (IsBoss ? 1f : Difficulty.RankDamage);
             depthForLoot = depth;
@@ -533,11 +536,14 @@ namespace Deepbound.Enemies
             return dealt * (IsBoss ? Difficulty.BossBackstabMultiplier : Difficulty.BackstabMultiplier);
         }
 
+        private bool eliteGrown;
+
         /// <summary>A gilded enemy: bigger, gold-eyed, wreathed in a slow gold ring.</summary>
         private void ApplyEliteVisual(bool elite)
         {
-            if (!elite || Rig == null) return;
-            Rig.transform.localScale *= 1.18f;
+            if (!elite || Rig == null || eliteGrown) return;
+            eliteGrown = true;
+            Grow(1.18f);
             if (flash != null) flash.Invalidate();
             Rig.GlowColor = new Color(1f, 0.78f, 0.25f);
             var ring = MeshKit.Part(transform, "EliteAura", MeshKit.Lathe("eliteRing", new[]

@@ -32,6 +32,7 @@ namespace Deepbound.World
                     default: CrystalCluster(lights, at, rng); break;
                 }
             }
+            ActExtras(room, b, lights, rng, depth);
         }
 
         private static int DepthOf(DungeonTheme t)
