@@ -29,6 +29,14 @@ checked on a fresh tour.
 ### Open (beyond placement)
 - [~] The carriage horse needs updating (the user, 2026-11-07). REBUILT 2026-11-07 (`World/CarriageRide.cs` BuildHorse/AnimateHorse: spine, ribcage, pelvis, jointed legs with a diagonal trot, skull with a hinged jaw and glowing sockets, harness, idle head toss / stamp / jaw chatter / tail swish). To check on a tour: hooves may float ~6 cm at full stride, knee/hock bend directions, bit vs reins during a head toss, hind legs clear of the shafts.
 
+## Round 4 (2026-11-08, second inspector pass, read every sheet by eye)
+
+- [x] The spawn fire was a tripod brazier standing in an empty stone ring: now `Props.Bonfire` (seven leaned split logs, charred tips, two burning across an ember bed, ash, one big flame with a 15/18 m shadowed light and three flickering side licks `Art/FlameLick`).
+- [x] `MeshKit.Cylinder` grows UP from its base, not from its middle. Lying cylinders built as if centred were off by half a length: every fire log sat 0.9 m along the ring from where `LogSeats()` puts you (one seat per log was on air), the carriage axles stuck 1.2 m out of one side, the tavern kegs' hoops floated beside them. All three fixed; other sideways cylinders in camp code already start from one end or are too small to see.
+- [x] Hall of records: the white marble face under a road brazier rendered as a blank lit panel (0.595): grey-tinted, candles unlit, lamp post further off (0.366, lines readable).
+- [x] Oak leaves were near-black balls at night (one hung behind Brann's head in every yard shot): lighter greens. The gate oak grew into the gatehouse wall: removed.
+- Open: `fire_logs` now flags BLOCKED-BY the bonfire's own collider (the station point is the fire itself: benign).
+
 ## Round 3 (2026-11-07 night, the inspector bot + the user's answers: warm and well lit; NPCs face you, work, wander and chat, better faces; signs AND names)
 
 - [x] DARK range (0.053 -> 0.125): posts at both ends of the lanes and a line of three lanterns over them. Mannequin 0.067 -> 0.115 (still DIM by the measure, readable). Every road lamp lit and brighter, stall lamps 2.6, station lamps 2.6/9 m, warmer ambient.

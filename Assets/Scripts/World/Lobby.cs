@@ -111,7 +111,7 @@ namespace Deepbound.World
             amb.Chimneys.Add(ForgeChimney);
             var rng = new System.Random(7);
             // Oaks: (x, z in S units, scale).
-            foreach (var (x, z, k) in new[] { (-19.5f, -9f, 1.1f), (8.2f, 16.2f, 1f), (-2.8f, 22.6f, 0.85f) } /* 2026-11-07: the two by the spawn fire made way for the tavern and tent */)
+            foreach (var (x, z, k) in new[] { (-19.5f, -9f, 1.1f), (8.2f, 16.2f, 1f) } /* 2026-11-07: the two by the spawn fire made way for the tavern and tent */)
             {
                 var at = o + S(x, 0f, z);
                 Oak(d, lights, at, k, rng);
@@ -139,7 +139,7 @@ namespace Deepbound.World
             {
                 var off = new Vector3(((float)rng.NextDouble() - 0.5f) * 2.6f, 2.8f + (float)rng.NextDouble() * 2.4f, ((float)rng.NextDouble() - 0.5f) * 2.6f) * k;
                 // Clumps in two greens, batched; rounder and spread up the crown so it reads as a tree, not a mushroom cap.
-                var green = rng.NextDouble() < 0.5 ? new Color(0.12f, 0.2f, 0.08f) : new Color(0.2f, 0.23f, 0.09f);
+                var green = rng.NextDouble() < 0.5 ? new Color(0.24f, 0.36f, 0.13f) : new Color(0.34f, 0.38f, 0.15f); // darker read as black balls at night
                 d.Add(MeshKit.Ball(0.8f + (float)rng.NextDouble() * 0.45f, 8, 6), Mat.Cloth + "#" + ColorUtility.ToHtmlStringRGB(green), Matrix4x4.TRS(at + off, Quaternion.identity, Vector3.one * k));
             }
         }
@@ -242,9 +242,11 @@ namespace Deepbound.World
             {
                 float a = FireLogAngle(i);
                 var p = fire + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * FireLogRadius;
-                dressing.Add(MeshKit.Cylinder(0.25f, 0.25f, 1.8f, 8), Mat.Wood, Matrix4x4.TRS(p + Vector3.up * 0.25f, Quaternion.Euler(0f, -a * Mathf.Rad2Deg - 90f, 90f), Vector3.one)); // lying ALONG the ring (they were spokes), so two can sit on each
+                var along = Vector3.Cross(Vector3.up, new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)));
+                // Cylinder grows from its base along +along here: start half a log back so both seats are ON it (one sat on air).
+                dressing.Add(MeshKit.Cylinder(0.25f, 0.25f, 1.8f, 8), Mat.Wood, Matrix4x4.TRS(p - along * 0.9f + Vector3.up * 0.25f, Quaternion.Euler(0f, -a * Mathf.Rad2Deg - 90f, 90f), Vector3.one)); // lying ALONG the ring (they were spokes), so two can sit on each
             }
-            Props.Brazier(lights, fire, new Color(1f, 0.55f, 0.25f), true);
+            Props.Bonfire(lights, fire, new Color(1f, 0.55f, 0.25f));
 
             // The carriage at the gate, facing out: sit on its tailgate to set off.
             CarriageRide.Build(root.transform, CarriageAt, Vector3.forward);
@@ -667,12 +669,12 @@ namespace Deepbound.World
             // The Hall of Records: a carved slab on a plinth, gilded lines, a candle either side.
             var rs = RecordsSpot;
             d.AddBox(rs + new Vector3(0f, 0.2f, 0f), new Vector3(0.7f, 0.4f, 1.5f), Mat.StoneWall);
-            d.AddBox(rs + new Vector3(0f, 1.2f, 0f), new Vector3(0.22f, 1.7f, 1.2f), Mat.Marble);
+            d.AddBox(rs + new Vector3(0f, 1.2f, 0f), new Vector3(0.22f, 1.7f, 1.2f), Mat.Marble, new Color(0.5f, 0.48f, 0.46f), Quaternion.identity); // grey: white marble under the road brazier read as a blank lit panel
             d.AddBox(rs + new Vector3(0f, 2.1f, 0f), new Vector3(0.3f, 0.12f, 1.32f), Mat.StoneWall);
             for (int ln = 0; ln < 5; ln++)
                 d.AddBox(rs + new Vector3(0.115f, 1.75f - ln * 0.2f, 0f), new Vector3(0.01f, 0.05f, 0.8f - (ln % 2) * 0.2f), Mat.Gold);
             foreach (float z in new[] { -0.85f, 0.85f })
-                Props.AddFlame(lights, rs + new Vector3(0.1f, 0.48f, z), 0.25f, Fire, 0.7f, 3f, false);
+                Props.AddFlame(lights, rs + new Vector3(0.1f, 0.48f, z), 0.25f, Fire, 0f, 1f, false, light: false);
             // The tailor (far west): bolts of dyed cloth on the counter, more on a rack behind.
             Stall(lights, d, TailorSpot + TailorFacing * 2.4f, TailorFacing, new Color(0.3f, 0.08f, 0.32f), new Color(0.8f, 0.72f, 0.55f));
             var bolts = new[] { new Color(0.42f, 0.04f, 0.05f), new Color(0.05f, 0.07f, 0.18f), new Color(0.26f, 0.07f, 0.36f), new Color(0.82f, 0.79f, 0.7f), new Color(0.04f, 0.2f, 0.2f) };
@@ -758,7 +760,7 @@ namespace Deepbound.World
             LampPost(d, lights, YardSpot + new Vector3(2.2f, 0f, -1.5f), Vector3.left);
             LampPost(d, lights, GongSpot + new Vector3(-1.8f, 0f, 2.6f), Vector3.back);
             LampPost(d, lights, OmenSpot + new Vector3(1.6f, 0f, -1.4f), Vector3.left);
-            LampPost(d, lights, RecordsSpot + new Vector3(-1.6f, 0f, -0.8f), Vector3.right);
+            LampPost(d, lights, RecordsSpot + new Vector3(-2.6f, 0f, -1.6f), Vector3.right, 8f, 1.6f); // nearer and brighter blew the marble out to white
             LampPost(d, lights, MannequinSpot + new Vector3(1.1f, 0f, -1.3f), Vector3.left, 9f, 3.4f);
             // The archery range was the darkest corner of camp: the shooting line and both ends of the lanes.
             LampPost(d, lights, Origin + S(10f, 0f, 11f) + new Vector3(-0.7f, 0f, 4.4f), Vector3.right, 11f, 2.8f);
@@ -895,9 +897,10 @@ namespace Deepbound.World
             for (int i = 0; i < 3; i++)
             {
                 var keg = c + new Vector3(-hx + 0.55f, 0.45f, -0.9f + i * 0.9f);
-                d.Add(MeshKit.Cylinder(0.32f, 0.32f, 0.75f, 12), Mat.Wood, Matrix4x4.TRS(keg, Quaternion.Euler(0f, 0f, 90f), Vector3.one));
-                d.Add(MeshKit.Cylinder(0.33f, 0.33f, 0.05f, 12), Mat.Steel, Matrix4x4.TRS(keg + new Vector3(0.2f, 0f, 0f), Quaternion.Euler(0f, 0f, 90f), Vector3.one));
-                d.Add(MeshKit.Cylinder(0.33f, 0.33f, 0.05f, 12), Mat.Steel, Matrix4x4.TRS(keg + new Vector3(-0.2f, 0f, 0f), Quaternion.Euler(0f, 0f, 90f), Vector3.one));
+                // On its side a Cylinder runs from its base toward -x: start half a keg to +x so the hoops sit on it.
+                d.Add(MeshKit.Cylinder(0.32f, 0.32f, 0.75f, 12), Mat.Wood, Matrix4x4.TRS(keg + new Vector3(0.375f, 0f, 0f), Quaternion.Euler(0f, 0f, 90f), Vector3.one));
+                d.Add(MeshKit.Cylinder(0.33f, 0.33f, 0.05f, 12), Mat.Steel, Matrix4x4.TRS(keg + new Vector3(0.225f, 0f, 0f), Quaternion.Euler(0f, 0f, 90f), Vector3.one));
+                d.Add(MeshKit.Cylinder(0.33f, 0.33f, 0.05f, 12), Mat.Steel, Matrix4x4.TRS(keg + new Vector3(-0.175f, 0f, 0f), Quaternion.Euler(0f, 0f, 90f), Vector3.one));
             }
             d.AddBox(c + new Vector3(-hx + 0.3f, 1.75f, 0f), new Vector3(0.3f, 0.05f, 3f), Mat.Wood, timber);
             for (int i = 0; i < 7; i++) d.Add(MeshKit.Cylinder(0.05f, 0.05f, 0.14f, 8), Mat.Wood, Matrix4x4.Translate(c + new Vector3(-hx + 0.3f, 1.85f, -1.3f + i * 0.43f)));

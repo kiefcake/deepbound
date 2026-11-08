@@ -949,7 +949,53 @@ namespace Deepbound.World
             return brazier;
         }
 
-        public static Torch AddFlame(Transform root, Vector3 at, float size, Color color, float intensity, float range, bool shadows)
+        /// <summary>A real camp bonfire on the ground: split logs leaned into a cone over a bed of embers and ash,
+        /// one big flame and two smaller ones round it (the camp's fire was a tripod brazier standing in an empty stone ring).</summary>
+        public static Torch Bonfire(Transform parent, Vector3 floor, Color fire)
+        {
+            var root = new GameObject("Bonfire").transform;
+            root.SetParent(parent, false);
+            root.position = floor;
+            MeshKit.Part(root, "Ash", MeshKit.Cylinder(1.05f, 1.1f, 0.04f, 14), Mat.Rubble, new Vector3(0f, 0.02f, 0f));
+            ArtLibrary.Tint(root.Find("Ash").GetComponent<Renderer>(), new Color(0.32f, 0.3f, 0.29f));
+            var bed = MeshKit.Part(root, "Embers", MeshKit.Cylinder(0.55f, 0.7f, 0.08f, 12), Mat.Glow, new Vector3(0f, 0.06f, 0f));
+            Color.RGBToHSV(fire, out float ch, out float cs, out _);
+            ArtLibrary.SetGlow(bed.GetComponent<Renderer>(), Color.HSVToRGB(ch, Mathf.Max(cs, 0.92f), 1f) * 0.5f);
+            bed.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            // Seven split logs leaned in to a point, charred at the top.
+            for (int i = 0; i < 7; i++)
+            {
+                float yaw = i * (360f / 7f) + (i % 2) * 9f;
+                var dir = Quaternion.Euler(0f, yaw, 0f) * Vector3.forward;
+                var foot = dir * 0.72f;
+                var top = Vector3.up * 1.05f + dir * 0.06f;
+                var mid = (foot + top) * 0.5f;
+                var rot = Quaternion.FromToRotation(Vector3.up, (top - foot).normalized) * Quaternion.Euler(0f, yaw, 0f);
+                float len = Vector3.Distance(foot, top);
+                MeshKit.Part(root, "Log" + i, MeshKit.Cylinder(0.09f, 0.07f + (i % 3) * 0.01f, len, 7), Mat.Wood, foot, rot.eulerAngles); // Cylinder grows up from its base
+                MeshKit.Part(root, "Char" + i, MeshKit.Cylinder(0.078f, 0.07f, len * 0.35f, 7), Mat.Dark, Vector3.Lerp(foot, top, 0.65f), rot.eulerAngles);
+            }
+            // Two logs lying across the bed, glowing where they burn.
+            for (int i = 0; i < 2; i++)
+            {
+                var p = new Vector3(i == 0 ? 0.12f : -0.1f, 0.13f, i == 0 ? 0.08f : -0.12f);
+                float yaw = i * 70f + 20f;
+                MeshKit.Part(root, "Lying" + i, MeshKit.Cylinder(0.1f, 0.1f, 1.2f, 8), Mat.Dark, p + Quaternion.Euler(0f, yaw, 0f) * new Vector3(0.6f, 0f, 0f), new Vector3(0f, yaw, 90f));
+            }
+            var torch = AddFlame(root, new Vector3(0f, 0.12f, 0f), 3.4f, fire, 15f, 18f, true);
+            // Smaller licks round the main flame, no lights of their own.
+            for (int i = 0; i < 3; i++)
+            {
+                var at = Quaternion.Euler(0f, i * 120f + 40f, 0f) * new Vector3(0f, 0.1f, 0.34f);
+                AddFlame(root, at, 1.6f + i * 0.25f, fire, 0f, 1f, false, light: false); // no Torch: FlameLick flickers them
+            }
+            foreach (Transform c in root)
+                if (c.name == "Flame" && c != torch.Flame) c.gameObject.AddComponent<Art.FlameLick>();
+            MeshKit.MergeParts(root);
+            return torch;
+        }
+
+        public static Torch AddFlame(Transform root, Vector3 at, float size, Color color, float intensity, float range, bool shadows, bool light = true)
         {
             var flame = MeshKit.Pivot(root, "Flame", at);
             flame.localScale = Vector3.one * size;
@@ -983,18 +1029,23 @@ namespace Deepbound.World
                 lick.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
 
-            var light = new GameObject("Light").AddComponent<Light>();
-            light.transform.SetParent(root, false);
-            light.transform.localPosition = at + Vector3.up * 0.25f;
-            light.type = LightType.Point;
-            light.color = color;
-            light.range = range;
-            light.intensity = intensity;
-            light.shadows = shadows ? LightShadows.Soft : LightShadows.None;
-            light.shadowNearPlane = 0.3f;
+            Light lamp = null;
+            if (light)
+            {
+                lamp = new GameObject("Light").AddComponent<Light>();
+                lamp.transform.SetParent(root, false);
+                lamp.transform.localPosition = at + Vector3.up * 0.25f;
+                lamp.type = LightType.Point;
+                lamp.color = color;
+                lamp.range = range;
+                lamp.intensity = intensity;
+                lamp.shadows = shadows ? LightShadows.Soft : LightShadows.None;
+                lamp.shadowNearPlane = 0.3f;
+            }
 
+            if (!light) return null;
             var torch = root.gameObject.AddComponent<Torch>();
-            torch.Light = light;
+            torch.Light = lamp;
             torch.Flame = flame;
             torch.BaseIntensity = intensity;
             return torch;

@@ -242,12 +242,12 @@ namespace Deepbound.World
                     Mat.Wood, Vector3.zero, new Vector3(0f, 0f, 90f));
                 MeshKit.Part(hub, "Tyre", MeshKit.Lathe("wheelTyre", new[] { new Vector2(0.64f, -0.05f), new Vector2(0.64f, 0.05f), new Vector2(0.615f, 0.05f), new Vector2(0.615f, -0.05f), new Vector2(0.64f, -0.05f) }, 18),
                     Mat.Steel, Vector3.zero, new Vector3(0f, 0f, 90f));
-                MeshKit.Part(hub, "Hub", MeshKit.Cylinder(0.11f, 0.11f, 0.24f, 8), Mat.Steel, Vector3.zero, new Vector3(0f, 0f, 90f));
+                MeshKit.Part(hub, "Hub", MeshKit.Cylinder(0.11f, 0.11f, 0.24f, 8), Mat.Steel, new Vector3(0.12f, 0f, 0f), new Vector3(0f, 0f, 90f));
                 for (int k = 0; k < 6; k++) W(hub, "Spoke", new Vector3(0.05f, 1.12f, 0.05f), Vector3.zero, new Vector3(k * 30f, 0f, 0f), 0.85f);
                 wheels.Add(hub);
             }
-            MeshKit.Part(root, "AxleF", MeshKit.Cylinder(0.05f, 0.05f, 2.36f, 6), Mat.Steel, new Vector3(0f, 0.62f, 1.25f), new Vector3(0f, 0f, 90f));
-            MeshKit.Part(root, "AxleR", MeshKit.Cylinder(0.05f, 0.05f, 2.36f, 6), Mat.Steel, new Vector3(0f, 0.62f, -1.3f), new Vector3(0f, 0f, 90f));
+            MeshKit.Part(root, "AxleF", MeshKit.Cylinder(0.05f, 0.05f, 2.36f, 6), Mat.Steel, new Vector3(1.18f, 0.62f, 1.25f), new Vector3(0f, 0f, 90f)); // a Cylinder runs from its base: start at one end (it stuck out 1.2 m on one side)
+            MeshKit.Part(root, "AxleR", MeshKit.Cylinder(0.05f, 0.05f, 2.36f, 6), Mat.Steel, new Vector3(1.18f, 0.62f, -1.3f), new Vector3(0f, 0f, 90f));
 
             // Shafts out to the horse.
             foreach (float s in new[] { -0.45f, 0.45f }) W(body, "Shaft", new Vector3(0.08f, 0.08f, 2.8f), new Vector3(s, 1.05f, 3.4f), new Vector3(-4f, 0f, 0f), 0.75f);
