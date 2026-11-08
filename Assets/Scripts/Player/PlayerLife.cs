@@ -149,6 +149,7 @@ namespace Deepbound.Player
         public bool UseHasWorldTarget()
         {
             if (DownedNear(transform.position, this) != null || IsDragging(NetworkObjectId)) return true;
+            if (UI.Dialogue.Aimed != null || UI.Dialogue.Open) return true; // F talks to the person you look at
             var ride = World.CarriageRide.Instance;
             if (ride != null && DungeonDirector.InLobby && !ride.Riding && (Seat.Value >= 0 || NearestFreeSeat(ride) >= 0)) return true;
             var cam = GetComponent<NetworkPlayer>();
@@ -577,6 +578,7 @@ namespace Deepbound.Player
             {
                 if (UI.Binds.Down(UI.Bind.Use) && free)
                 {
+                    if (UI.Dialogue.TryBegin()) return;
                     var cam = GetComponent<NetworkPlayer>();
                     var use = World.Interactable.Nearest(cam.AimOrigin, cam.AimForward, progress);
                     // Shift + F on gear or the cat is the pack / the lift (GameHud), not wear / pet.

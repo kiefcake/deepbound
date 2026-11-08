@@ -244,6 +244,21 @@ namespace Deepbound.UI
         }
 
         private static PlayerProgress Me => NetworkPlayer.Local != null ? NetworkPlayer.Local.GetComponent<PlayerProgress>() : null;
+
+        /// <summary>For conversation (<see cref="Dialogue"/>): what they would say about what has happened, else one of their idle lines.</summary>
+        public static string NewsFor(FolkId who)
+        {
+            if (instance == null || (int)who >= instance.speakers.Count) return null;
+            var s = instance.speakers[(int)who];
+            string news = s.News?.Invoke();
+            if (!string.IsNullOrEmpty(news)) return news;
+            if (s.Idle == null || s.Idle.Length == 0) return null;
+            s.IdleIndex = (s.IdleIndex + 1) % s.Idle.Length;
+            return s.Idle[s.IdleIndex];
+        }
+
+        /// <summary>The greeting for the local player, or null.</summary>
+        public static string GreetingFor(FolkId who) => NetworkPlayer.Local != null ? Greeting(who, NetworkPlayer.Local) : null;
         private readonly HashSet<int> greeted = new HashSet<int>();
         private bool wasInCamp;
 
@@ -262,6 +277,7 @@ namespace Deepbound.UI
                 case FolkId.Vey: return k == 0 ? name + ", darling. That cloak is a crime." : k == 1 ? "A " + cls + "! Stand still, let me look at you." : "*Vey bites off a thread.* Something new for the dark, " + name + "?";
                 case FolkId.Corwin: return k == 0 ? "Seats are in the back, " + name + ". Mind the horse." : k == 1 ? "When you are ready, " + cls + ". The road waits. I do not." : "*Corwin tips his hat.* Down again, " + name + "?";
                 case FolkId.Brann: return k == 0 ? name + "! Feet apart, chin down. Again." : k == 1 ? "On your guard, " + cls + ". The yard is open." : "*Brann lowers the practice sword.* You look soft, " + name + ". We can fix that.";
+                case FolkId.Marta: return k == 0 ? name + "! Sit down before you fall down." : k == 1 ? "A thirsty " + cls + ". My favourite kind." : "*Marta flicks the cloth over her shoulder.* What'll it be, " + name + "?";
                 case FolkId.Ysolde: return k == 0 ? "The stones hum when you are near, " + name + "." : k == 1 ? "A " + cls + "'s hands. Let me read what they can hold." : "*Ysolde's runes dim as she turns.* You have sigils for me, " + name + "?";
                 default: return null;
             }
@@ -413,6 +429,22 @@ namespace Deepbound.UI
                 var me = Me;
                 if (me != null && me.Grudge(FolkId.Ysolde) > 0) return "The stones are still angry with you. Make amends.";
                 if (me != null && me.RuneBagCount >= 3) return "You're carrying runes I could meld, you know. Three alike and I'll make one better.";
+                return null;
+            });
+
+            // Index 9 = FolkId.Marta (2026-11-08: the alewife talks too).
+            Add("Marta, alewife", Lobby.TavernCenter + Vector3.up * 2.1f, new[]
+            {
+                "Mead's honest. Honey, water, time and a little of whatever fell in.",
+                "The band knows four songs. They'll tell you it's five. It's four.",
+                "Delvers drink to forget. Then they come back up and drink to remember who didn't.",
+                "Silas sells potions. I sell the thing that makes you brave enough to need them.",
+                "Corwin doesn't drink. Says the horse can smell it. The horse is dead, I tell him. Doesn't help.",
+            }, () =>
+            {
+                var me = Me;
+                if (me != null && me.TryGetComponent<PlayerDebuffs>(out var d) && d.Drunk >= PlayerDebuffs.DrunkMax) return "You're done, love. Sit. Water's free.";
+                if (FloorsDone >= 4) return "You've been deeper than anyone who drinks here. Except the ones who don't come back to drink.";
                 return null;
             });
         }

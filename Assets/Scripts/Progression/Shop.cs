@@ -54,13 +54,13 @@ namespace Deepbound.Progression
             : v == Vendor.Carriage ? "\"I've driven folk to the door of every floor. I know a thing or two about the way down.\""
             : World.DungeonDirector.InLobby ? "\"Coin for courage, friend. It all spends the same down there.\"" : "\"Long way down to carry glass. Prices reflect it.\"";
 
-        /// <summary>Where a vendor stands right now (null: not here).</summary>
-        public static UnityEngine.Vector3? Position(Vendor v) => v == Vendor.Merchant ? World.DungeonDirector.MerchantPosition
-            : !World.DungeonDirector.InLobby ? (UnityEngine.Vector3?)null
-            : v == Vendor.Smith ? World.Lobby.AnvilSpot : v == Vendor.Yard ? World.Lobby.YardSpot : v == Vendor.Carriage ? World.Lobby.CarriageStall
-            : v == Vendor.Runewright ? World.Lobby.RunewrightSpot : World.Lobby.ShrineSpot;
+        /// <summary>Where a vendor stands right now (null: not here). At camp that is the PERSON, wherever their errands
+        /// have taken them (<see cref="World.FolkPlaces"/>); below, the peddler at his spot.</summary>
+        public static UnityEngine.Vector3? Position(Vendor v) => World.DungeonDirector.InLobby ? World.FolkPlaces.Now(PlayerProgress.VendorFolk(v))
+            : v == Vendor.Merchant ? World.DungeonDirector.MerchantPosition : (UnityEngine.Vector3?)null;
 
-        public static float Range(Vendor v) => v == Vendor.Merchant ? MerchantRange : v == Vendor.Carriage ? 4.3f : StallRange;
+        public static float Range(Vendor v) => World.DungeonDirector.InLobby ? World.FolkPlaces.TalkRange(PlayerProgress.VendorFolk(v)) + 0.6f
+            : v == Vendor.Merchant ? MerchantRange : StallRange;
 
         public static bool InReach(Vendor v, UnityEngine.Vector3 at, float slack = 0f)
         {

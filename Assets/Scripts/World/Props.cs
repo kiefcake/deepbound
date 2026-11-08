@@ -436,7 +436,7 @@ namespace Deepbound.World
                 Folk.Driver => (World.FolkId.Corwin, "Corwin", "Carriage driver", Art.FolkIdle.WorkKind.None),
                 Folk.Sergeant => (World.FolkId.Brann, "Sergeant Brann", "Drillmaster", Art.FolkIdle.WorkKind.Drill),
                 Folk.Runewright => (World.FolkId.Ysolde, "Ysolde", "Runewright", Art.FolkIdle.WorkKind.Trace),
-                Folk.Barkeep => (null, "Marta", "Alewife", Art.FolkIdle.WorkKind.Wipe),
+                Folk.Barkeep => (World.FolkId.Marta, "Marta", "Alewife", Art.FolkIdle.WorkKind.Wipe),
                 Folk.Lutist => (null, "Pell", "Minstrel", Art.FolkIdle.WorkKind.None),
                 Folk.Fiddler => (null, "Old Garrow", "Minstrel", Art.FolkIdle.WorkKind.None),
                 Folk.Drummer => (null, "Tam", "Minstrel", Art.FolkIdle.WorkKind.None),

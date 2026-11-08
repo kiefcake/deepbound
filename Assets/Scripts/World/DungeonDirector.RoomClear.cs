@@ -79,6 +79,7 @@ namespace Deepbound.World
                 else ServerDropEmbers(at, 3 + tier);
             }
             RoomClearedRpc(at, reward >= 0);
+            QuestOnRoomClear();
             // The Chorister's Bell: a room won is a breath taken.
             foreach (var p in Player.PlayerLife.All)
                 if (p != null && !p.Downed.Value && p.TryGetComponent<Progression.PlayerProgress>(out var prog) && prog.HasRelic(Relic.ChoristersBell)

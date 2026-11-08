@@ -325,7 +325,7 @@ namespace Deepbound.UI
         private void LateUpdate()
         {
             // Esc closes the shop or class screen first; only a second Esc pauses.
-            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || runeOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open;
+            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || runeOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open || Dialogue.Open;
         }
 
         private void OnDestroy()
@@ -618,20 +618,28 @@ namespace Deepbound.UI
         /// Camp banner, top of the screen and out of the way: where you are, what is next,
         /// your class and the difficulty (both only changeable before a run), and boarding.
         /// </summary>
-        /// <summary>The party's contract, top left: what it asks, how far along, and how it ended.</summary>
+        /// <summary>The party's quests, top left: whose, what it asks, how far along, and how it ended.</summary>
         private void DrawContract()
         {
             var d = DungeonDirector.Instance;
-            if (d == null || d.ActiveContract.Value == 0) return;
-            var c = (Contract)d.ActiveContract.Value;
-            var state = (DungeonDirector.ContractStatus)d.ContractState.Value;
-            string line = state == DungeonDirector.ContractStatus.Taken ? "Next floor: " + DungeonDirector.ContractTask(c, d.NextDepth.Value)
-                : state == DungeonDirector.ContractStatus.Active ? (c == Contract.Slayer ? d.ContractProgress.Value + " / " + d.ContractGoal.Value + " slain" : DungeonDirector.ContractTask(c, DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0).Replace("the next", "this").Replace("next ", ""))
-                : state == DungeonDirector.ContractStatus.Fulfilled ? "FULFILLED" : state == DungeonDirector.ContractStatus.Failed ? "FAILED" : "";
-            var col = state == DungeonDirector.ContractStatus.Fulfilled ? new Color(0.5f, 1f, 0.55f) : state == DungeonDirector.ContractStatus.Failed ? new Color(0.9f, 0.4f, 0.35f) : new Color(0.9f, 0.88f, 0.84f);
-            Rect(14, 14, 330, 46, Panel);
-            GUI.Label(new Rect(22, 16, 320, 20), "CONTRACT  ·  " + DungeonDirector.ContractName(c).ToUpperInvariant(), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
-            GUI.Label(new Rect(22, 35, 320, 20), line, new GUIStyle(small) { normal = { textColor = col } });
+            if (d == null || d.Quests.Count == 0) return;
+            int n = d.Quests.Count;
+            Rect(14, 14, 360, 22 + n * 38, Panel);
+            GUI.Label(new Rect(22, 16, 340, 20), "QUESTS  " + n + " / " + DungeonDirector.MaxQuests, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            for (int i = 0; i < n; i++)
+            {
+                var q = d.Quests[i];
+                var state = q.Status;
+                string task = DungeonDirector.QuestTask(q.Contract, q.Goal);
+                string line = state == DungeonDirector.ContractStatus.Taken ? "Next floor: " + task
+                    : state == DungeonDirector.ContractStatus.Active ? task + (q.Goal > 1 ? "  (" + q.Progress + " / " + q.Goal + ")" : "")
+                    : state == DungeonDirector.ContractStatus.Fulfilled ? "COMPLETE" : state == DungeonDirector.ContractStatus.Failed ? "FAILED" : "";
+                var col = state == DungeonDirector.ContractStatus.Fulfilled ? new Color(0.5f, 1f, 0.55f) : state == DungeonDirector.ContractStatus.Failed ? new Color(0.9f, 0.4f, 0.35f) : new Color(0.9f, 0.88f, 0.84f);
+                float y = 36 + i * 38;
+                GUI.Label(new Rect(22, y, 340, 18), Dialogue.NameOf(q.Who) + "  ·  " + DungeonDirector.ContractName(q.Contract).ToUpperInvariant() + (q.Special ? "  ★" : ""),
+                    new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.95f, 0.82f, 0.55f) } });
+                GUI.Label(new Rect(22, y + 17, 340, 18), UiSkin.Fit(line, small, 340), new GUIStyle(small) { normal = { textColor = col } });
+            }
         }
 
         // ---- Where hits come from: a red arc at the screen's edge, toward the attacker. ----
@@ -1162,6 +1170,8 @@ namespace Deepbound.UI
 
         private Shop.Vendor? StallHere()
         {
+            // At camp every stall belongs to a person: you open it by talking to them (Dialogue), wherever they are.
+            if (DungeonDirector.InLobby) return null;
             if (NearVendor(Shop.Vendor.Merchant)) return Shop.Vendor.Merchant;
             if (NearVendor(Shop.Vendor.Shrine)) return Shop.Vendor.Shrine;
             if (NearVendor(Shop.Vendor.Yard)) return Shop.Vendor.Yard;
@@ -1229,6 +1239,11 @@ namespace Deepbound.UI
 
         private bool panelWasOpen;
 
+        /// <summary>From conversation: open a person's stall panel (closes itself if you walk away from them).</summary>
+        public void OpenStall(Shop.Vendor v) { shopOpen = true; shopVendor = v; forgeOpen = runeOpen = invOpen = false; }
+        public void OpenForge() { forgeOpen = true; shopOpen = runeOpen = invOpen = false; }
+        public void OpenRunes() { runeOpen = true; shopOpen = forgeOpen = invOpen = false; }
+
         private void Update()
         {
             // A soft click when a stall, the anvil, the stones or the pack opens and closes.
@@ -1278,7 +1293,7 @@ namespace Deepbound.UI
             if (shopOpen && !NearVendor(shopVendor)) shopOpen = false;
             if (anvil == null) forgeOpen = false;
             bool inspect = keyboard != null && keyboard.leftAltKey.isPressed && !life.Downed.Value;
-            MenuOpen = shopOpen || forgeOpen || invOpen || runeOpen || DevMenu.Open || inspect || BlackjackTable.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open;
+            MenuOpen = shopOpen || forgeOpen || invOpen || runeOpen || DevMenu.Open || inspect || BlackjackTable.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open || Dialogue.Open;
             InventoryOpen = invOpen;
             statsHeld = DebugShowStats || (keyboard != null && Binds.Held(Bind.Stats) && !Wardrobe.Open);
             PanelShowing = MenuOpen || statsHeld || pageShown >= 0;
@@ -1292,7 +1307,7 @@ namespace Deepbound.UI
 
             // Class choice is a camp decision: number keys pick one, only in the lobby.
             // Only before a run: once the first floor is done the class is locked for the run.
-            if (keyboard != null && PlayerProgress.ClassChangeAllowed)
+            if (keyboard != null && PlayerProgress.ClassChangeAllowed && !MenuOpen) // number keys also choose in conversation
             {
                 for (int i = 0; i < ClassDefinition.ById.Length && i < 9; i++)
                 {
@@ -2129,6 +2144,7 @@ namespace Deepbound.UI
             var target = PlayerLife.DownedNear(player.transform.position, life);
             if (target == null)
             {
+                if (Dialogue.Aimed != null && !statsHeld) { PromptLine(w, h, "F   Talk to " + Dialogue.Aimed.DisplayName); return; }
                 var use = Interactable.Nearest(player.AimOrigin, player.AimForward, progress);
                 if (use != null && !statsHeld) PromptLine(w, h, "F   " + use.Prompt(progress));
                 else if (use == null && !statsHeld && progress.CanUseRope) PromptLine(w, h, "F   Climb the rope back to camp  (the run goes on; this floor starts over)");

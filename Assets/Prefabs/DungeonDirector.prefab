@@ -73,6 +73,10 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.World.DungeonDirector
   ShowTopMostFoldoutHeaderGroup: 1
+  Quests:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
   portcullisPrefab: {fileID: 718576205680989572, guid: 8705e581428d22d4aa7f589d23300b11, type: 3}
   leverPrefab: {fileID: 3093957043763054616, guid: 25e590880c995b944afa9a190517e20e, type: 3}
   fountainPrefab: {fileID: 7715955194514988750, guid: 175a93a42b3f5ae4f8d57f7ee7dcf047, type: 3}

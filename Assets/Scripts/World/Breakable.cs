@@ -107,6 +107,7 @@ namespace Deepbound.World
         {
             if (broken) return;
             broken = true;
+            if (Type.Value == Kind.Urn || Type.Value == Kind.GreatUrn) DungeonDirector.Instance?.QuestOnUrn();
             if (Type.Value == Kind.HealPylon)
             {
                 PylonFxRpc();

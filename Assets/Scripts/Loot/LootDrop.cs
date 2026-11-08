@@ -268,7 +268,9 @@ namespace Deepbound.Loot
 
             if (kind == LootKind.Gold)
             {
-                PlayerProgress.ServerShareGold(progress, Mathf.RoundToInt(Amount.Value * progress.GoldMultiplier));
+                int got = Mathf.RoundToInt(Amount.Value * progress.GoldMultiplier);
+                PlayerProgress.ServerShareGold(progress, got);
+                if (!World.DungeonDirector.InLobby) World.DungeonDirector.Instance?.QuestOnGold(got);
                 return true;
             }
             if (kind == LootKind.Relic)

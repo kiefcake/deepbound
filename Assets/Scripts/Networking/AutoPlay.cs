@@ -658,7 +658,7 @@ namespace Deepbound.Networking
         {
             bool sigilsForSale = buy && (prog.Rank(Classes.AbilitySlot.Q) < Classes.AbilityRanks.MaxRank || prog.Rank(Classes.AbilitySlot.E) < Classes.AbilityRanks.MaxRank);
             if (prog.Sigils.Value == 0 && prog.RuneBagCount == 0 && !sigilsForSale) yield break;
-            yield return WalkTo(Lobby.RunewrightSpot + Vector3.forward * 1.6f, 1.2f);
+            yield return WalkTo(FolkPlaces.Now(FolkId.Ysolde) + Vector3.forward * 1.6f, 1.2f);
             for (int i = 0; i < 16 && MeldReady(out var meld); i++)
             {
                 prog.MeldRunesRpc((byte)meld);
@@ -846,6 +846,7 @@ namespace Deepbound.Networking
         {
             var stock = Shop.For(me.OwnerClientId, vendor);
             if (!stock.Any(want)) yield break;
+            at = Shop.Position(vendor) ?? at; // trade follows the person (they may be out on an errand)
             yield return WalkTo(at + Vector3.back * 1.6f, 1.2f);
             for (int n = 0; n < maxBuys; n++)
             {

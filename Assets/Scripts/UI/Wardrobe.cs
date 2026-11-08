@@ -58,10 +58,13 @@ namespace Deepbound.UI
         }
 
         public void DebugOpen(bool open) => Open = open;
+        private static bool requested;
+        /// <summary>From conversation with Vey: open the wardrobe (next frame, if you are still with her).</summary>
+        public static void RequestOpen() => requested = true;
         public void DebugTab(Cosmetics.Kind kind) => SwitchTab(kind);
 
         private bool Near => DungeonDirector.InLobby && life != null && !life.Downed.Value &&
-                             Vector3.Distance(player.transform.position, Lobby.TailorSpot) <= Range;
+                             FolkPlaces.InReach(FolkId.Vey, player.transform.position, 1f); // Vey's wardrobe goes where she goes
 
         private int WornNow(Cosmetics.Kind kind) => kind == Cosmetics.Kind.Aura ? player.Aura.Value : kind == Cosmetics.Kind.Heraldry ? player.Heraldry.Value
             : kind == Cosmetics.Kind.Pattern ? player.Pattern.Value : kind == Cosmetics.Kind.WeaponGlow ? player.WeaponGlowCos.Value : kind == Cosmetics.Kind.Title ? player.TitleCos.Value : kind == Cosmetics.Kind.Pet ? player.PetKind.Value : player.CloakDye.Value;
@@ -73,8 +76,9 @@ namespace Deepbound.UI
             if (player == null) return;
             var keyboard = Keyboard.current;
             bool near = Near;
-            if (keyboard != null && near && Binds.Down(Bind.Interact) && !CharacterSelect.Open && !PauseMenu.Open &&
-                (Open || !Binds.Merged || player.GetComponent<Player.PlayerLife>() is not Player.PlayerLife pl || !pl.UseHasWorldTarget())) Open = !Open;
+            // Opened by talking to Vey (UI.Dialogue); F closes it again.
+            if (requested) { requested = false; if (near && !CharacterSelect.Open && !PauseMenu.Open) Open = true; }
+            else if (keyboard != null && Open && Binds.Down(Bind.Interact)) Open = false;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) Open = false;
             if (keyboard != null && Open && keyboard.tabKey.wasPressedThisFrame) SwitchTab(TabOrder[(System.Array.IndexOf(TabOrder, tab) + 1) % TabOrder.Length]);
             if (!near) Open = false;

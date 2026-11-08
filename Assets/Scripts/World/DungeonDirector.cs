@@ -628,7 +628,7 @@ namespace Deepbound.World
         private void EnterLobby(bool keepRun = false)
         {
             ClearSpawned();
-            ClearSettledContract();
+            ClearSettledContract(keepRun);
             ApplyOmen(false);
             ClearFloorEvent();
             Practice.Value = false;
@@ -705,10 +705,11 @@ namespace Deepbound.World
                     folk.Spawn(destroyWithScene: true);
                     spawned.Add(folk);
                 }
-            // The bounty board: three different contracts for the next floor.
+            // The quest board: three of the camp folk's offers for the next floor (the same work they give in person).
             if (bountyNoticePrefab != null)
             {
-                var kinds = new System.Collections.Generic.List<byte> { 1, 2, 3, 4, 5 };
+                var kinds = new System.Collections.Generic.List<byte>();
+                foreach (var g in QuestGivers) kinds.Add((byte)g);
                 for (int i = 0; i < 3; i++)
                 {
                     int k = UnityEngine.Random.Range(0, kinds.Count);

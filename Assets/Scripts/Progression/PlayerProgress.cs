@@ -133,12 +133,23 @@ namespace Deepbound.Progression
 
         /// <summary>A vendor's mark-up for you: +25% per grudge level.</summary>
         public float PriceMultiplier(Shop.Vendor vendor) => (1f + 0.25f * Grudge(VendorFolk(vendor))) * World.DungeonDirector.OmenPrices
+            * (World.DungeonDirector.InLobby ? World.DungeonDirector.FavourPriceScale(VendorFolk(vendor)) : 1f)
             * (HasRelic(Relic.PilgrimsPurse) && World.DungeonDirector.InLobby ? Mathf.Max(0.55f, 1f - 0.15f * RelicPower(Relic.PilgrimsPurse)) : 1f);
 
         /// <summary>Who stands behind a vendor's counter right now (the peddler, off camp).</summary>
         public static World.FolkId VendorFolk(Shop.Vendor vendor) => vendor == Shop.Vendor.Smith ? World.FolkId.Hobb : vendor == Shop.Vendor.Shrine ? World.FolkId.Aldric
             : vendor == Shop.Vendor.Carriage ? World.FolkId.Corwin : vendor == Shop.Vendor.Yard ? World.FolkId.Brann : vendor == Shop.Vendor.Runewright ? World.FolkId.Ysolde
             : World.DungeonDirector.InLobby ? World.FolkId.Silas : World.FolkId.Peddler;
+
+        /// <summary>Owner -> server: take <paramref name="who"/>'s quest while talking to them (party-wide).</summary>
+        [Rpc(SendTo.Server)]
+        public void TakeQuestRpc(byte who)
+        {
+            var d = World.DungeonDirector.Instance;
+            if (d == null || !World.DungeonDirector.InLobby || !World.FolkPlaces.InReach((World.FolkId)who, transform.position, 2f)) return;
+            if (Grudge((World.FolkId)who) >= 3) return;
+            d.ServerTakeQuest((World.FolkId)who, name);
+        }
 
         /// <summary>What it costs to make amends with a vendor (0: nothing to mend).</summary>
         public int AmendsCost(Shop.Vendor vendor)

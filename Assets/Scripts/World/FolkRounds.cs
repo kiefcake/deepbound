@@ -34,6 +34,8 @@ namespace Deepbound.World
 
         /// <summary>Tests and the camp inspector: moves everyone's rounds clock.</summary>
         public static double DebugShift;
+        /// <summary>Tests: everyone stays home (a buy must not miss a person who just left on an errand).</summary>
+        public static bool StayHome;
 
         /// <summary>The people who go on rounds (a clear way was found).</summary>
         public static IEnumerable<FolkId> Walkers { get { if (rounds == null) Build(); return rounds.Keys; } }
@@ -210,7 +212,7 @@ namespace Deepbound.World
         {
             if (rounds == null) Build();
             var pose = new Pose();
-            if (!rounds.TryGetValue(who, out var r)) return pose;
+            if (StayHome || !rounds.TryGetValue(who, out var r)) return pose;
             double t = Clock + r.Offset;
             pose.Visit = (int)(t / r.Period);
             float tau = (float)(t - pose.Visit * (double)r.Period);

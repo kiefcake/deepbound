@@ -14,6 +14,9 @@ namespace Deepbound.World
     public class TavernKeep : Interactable
     {
         public const int MeadPrice = 8;
+        public static TavernKeep Instance { get; private set; }
+        /// <summary>Where Marta stands, behind the bar.</summary>
+        public Vector3 MartaAt => transform.position - transform.forward * 0.9f;
         private float busyUntil;
 
         public override float Range => 2.6f;
@@ -52,6 +55,7 @@ namespace Deepbound.World
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
+            Instance = this;
             // Marta behind her counter, a horn on the bar.
             Props.Townsfolk(transform, transform.position - transform.forward * 0.9f, transform.position + transform.forward * 3f, Props.Folk.Barkeep);
             MeshKit.Part(transform, "Horn", MeshKit.Lathe("meadHorn", new[] { new Vector2(0.045f, 0f), new Vector2(0.06f, 0.12f), new Vector2(0.07f, 0.2f) }, 10, false), Mat.Bone,

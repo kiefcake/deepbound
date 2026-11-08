@@ -30,6 +30,7 @@ namespace Deepbound.Networking
         {
             Progression.Cosmetics.TestMode = true;
             DungeonDirector.TestMode = true;
+            World.FolkRounds.StayHome = true;
             UI.Journal.TestMode = true;
             Progression.Deeds.TestMode = true;
         }
@@ -2699,6 +2700,7 @@ namespace Deepbound.Networking
 
                     // ---- CAMP FOLK (2026-11-07): rounds found a way for most, the struck-body walks with the figure, names set ----
                     {
+                        World.FolkRounds.StayHome = false;
                         var walkers = new System.Collections.Generic.List<World.FolkId>(World.FolkRounds.Walkers);
                         bool bodiesFollow = true;
                         foreach (var who in walkers)
@@ -2712,7 +2714,18 @@ namespace Deepbound.Networking
                             var gap = fig.transform.position - body.transform.position; gap.y = 0f;
                             if (gap.magnitude > 0.6f) bodiesFollow = false;
                         }
+                        // Trade follows the person (2026-11-08): Silas at the tavern door sells there, not at his empty stall.
+                        bool followsSilas = true;
+                        if (walkers.Contains(World.FolkId.Silas))
+                        {
+                            World.FolkRounds.DebugArrive(World.FolkId.Silas);
+                            yield return new WaitForSeconds(0.15f);
+                            var silasNow = World.FolkPlaces.Now(World.FolkId.Silas);
+                            followsSilas = Shop.InReach(Shop.Vendor.Merchant, silasNow + Vector3.right * 1.5f) && !Shop.InReach(Shop.Vendor.Merchant, Lobby.MerchantSpot + Vector3.right * 2.4f);
+                        }
+                        Log("trade follows the person", "Silas away on rounds: reach by him and not at his stall " + followsSilas, followsSilas);
                         World.FolkRounds.DebugShift = 0;
+                        World.FolkRounds.StayHome = true;
                         int named = 0; foreach (var f in Art.FolkIdle.All) if (f != null && !string.IsNullOrEmpty(f.DisplayName)) named++;
                         Log("camp folk rounds", "walkers " + walkers.Count + " (" + string.Join(", ", walkers) + "), bodies follow " + bodiesFollow + ", named figures " + named,
                             walkers.Count >= 4 && bodiesFollow && named >= 10);
@@ -2887,8 +2900,7 @@ namespace Deepbound.Networking
                     // Runes and sigils are Ysolde's craft: walk to her stones.
                     motor.Teleport(World.Lobby.RunewrightSpot + Vector3.back * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
-                    var stallHere = local.GetComponent<UI.GameHud>().DebugStallHere();
-                    Log("ysolde reachable", "F at her stones opens " + (stallHere.HasValue ? stallHere.Value.ToString() : "nothing"), stallHere == Shop.Vendor.Runewright);
+                    Log("ysolde reachable", "rune work by her stones " + progress.AtRunewright, progress.AtRunewright);
 
                     // The Gutted Lantern: a horn of mead makes you Tipsy (and costs its price); the band takes a request.
                     var barkeep = FindAnyObjectByType<TavernKeep>();
@@ -3258,7 +3270,44 @@ namespace Deepbound.Networking
                     Log("new omens", "avarice " + avarice + ", hushed bells " + hushed + ", quickened " + quick + ", named " + named + ", cd back " + (progO.CooldownMultiplier == cd0), avarice && hushed && quick && named);
                 }
 
-                // The bounty board: take a Slayer-free notice, see it ride down with the party.
+                // ---- TALKING AND QUESTS (2026-11-08) ----
+                {
+                    dc.ServerDebugClearQuests();
+                    bool talks = true; string broken = "";
+                    foreach (var g in DungeonDirector.QuestGivers)
+                    {
+                        UI.Dialogue.DebugBegin(g);
+                        var opts = UI.Dialogue.DebugOptions();
+                        if (!UI.Dialogue.Open || opts.Count < 5 || !opts.Contains("Got any work?")) { talks = false; broken += g + " "; }
+                        UI.Dialogue.DebugChoose(opts.IndexOf("Tell me about yourself."));
+                        if (string.IsNullOrEmpty(UI.Dialogue.DebugLine)) { talks = false; broken += g + "(about) "; }
+                        UI.Dialogue.DebugChoose(UI.Dialogue.DebugOptions().IndexOf("Got any work?"));
+                        if (UI.Dialogue.DebugOptions()[0] != "I'll do it.") { talks = false; broken += g + "(work) "; }
+                        UI.Dialogue.DebugClose();
+                    }
+                    Log("npc dialogue", DungeonDirector.QuestGivers.Length + " people talk" + (broken.Length > 0 ? ", broken: " + broken : ""), talks);
+
+                    var hobbOffer = dc.OfferOf(FolkId.Hobb);
+                    bool tookHobb = dc.ServerTakeQuest(FolkId.Hobb, "test");
+                    bool sameAsOffered = dc.Quests.Count == 1 && dc.Quests[0].Kind == hobbOffer.Kind && dc.Quests[0].Goal == hobbOffer.Goal;
+                    bool notTwice = !dc.ServerTakeQuest(FolkId.Hobb, "test");
+                    bool three = dc.ServerTakeQuest(FolkId.Silas, "test") && dc.ServerTakeQuest(FolkId.Marta, "test");
+                    bool full = !dc.ServerTakeQuest(FolkId.Vey, "test") && dc.Quests.Count == DungeonDirector.MaxQuests;
+                    dc.ServerDebugFavour(FolkId.Ysolde, DungeonDirector.SpecialFavour);
+                    bool special = dc.OfferOf(FolkId.Ysolde).Special;
+                    int pFull = Shop.For(local.OwnerClientId, Shop.Vendor.Merchant)[0].Price;
+                    dc.ServerDebugFavour(FolkId.Silas, 5);
+                    int pFavoured = Shop.For(local.OwnerClientId, Shop.Vendor.Merchant)[0].Price;
+                    dc.ServerDebugFavour(FolkId.Silas, 0);
+                    dc.ServerDebugFavour(FolkId.Ysolde, 0);
+                    Log("quests", "took Hobb's " + tookHobb + " (as offered " + sameAsOffered + "), not twice " + notTwice + ", three " + three + ", fourth refused " + full + ", special at favour 2 " + special + ", favour 5 price " + pFull + " -> " + pFavoured,
+                        tookHobb && sameAsOffered && notTwice && three && full && special && pFavoured < pFull);
+                    bool flow = dc.ServerDebugQuestFlow(out var flowWhy);
+                    Log("quest progress", flowWhy, flow);
+                    dc.ServerDebugClearQuests();
+                }
+
+                // The quest board: take a notice, see it ride down with the party.
                 var notice = FindObjectsByType<BountyNotice>(FindObjectsSortMode.None).FirstOrDefault();
                 if (notice != null)
                 {
@@ -3266,8 +3315,8 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.3f);
                     notice.UseRpc(local.NetworkObject);
                     yield return new WaitForSeconds(0.3f);
-                    Log("bounty board", FindObjectsByType<BountyNotice>(FindObjectsSortMode.None).Length + " notices, taken " + DungeonDirector.ContractName((Contract)dc.ActiveContract.Value) +
-                        ", state " + (DungeonDirector.ContractStatus)dc.ContractState.Value, dc.ContractState.Value == (byte)DungeonDirector.ContractStatus.Taken);
+                    bool fromBoard = dc.Quests.Count == 1 && dc.Quests[0].Giver == notice.Kind.Value && dc.Quests[0].Status == DungeonDirector.ContractStatus.Taken;
+                    Log("bounty board", FindObjectsByType<BountyNotice>(FindObjectsSortMode.None).Length + " notices, took " + (dc.Quests.Count > 0 ? UI.Dialogue.NameOf(dc.Quests[0].Who) + "'s " + DungeonDirector.ContractName(dc.Quests[0].Contract) : "nothing"), fromBoard);
                 }
 
                 // Board: floor two, same run.
@@ -3287,8 +3336,8 @@ namespace Deepbound.Networking
                 }
                 Log("carriage ride", "seated " + seatN + ", rode out " + rode + ", rode on the seat " + pinned + ", floor started " + (dc.Phase.Value == RunPhase.Exploring), rode && dc.Phase.Value == RunPhase.Exploring);
                 yield return new WaitForSeconds(1.5f);
-                Log("contract live", DungeonDirector.ContractName((Contract)dc.ActiveContract.Value) + " " + (DungeonDirector.ContractStatus)dc.ContractState.Value + ", goal " + dc.ContractGoal.Value,
-                    dc.ActiveContract.Value == 0 || dc.ContractState.Value == (byte)DungeonDirector.ContractStatus.Active);
+                bool live = true; foreach (var q in dc.Quests) if (q.Status == DungeonDirector.ContractStatus.Taken) live = false;
+                Log("contract live", dc.Quests.Count + " quest(s), " + (dc.Quests.Count > 0 ? DungeonDirector.ContractName(dc.Quests[0].Contract) + " " + dc.Quests[0].Status + ", goal " + dc.Quests[0].Goal : "none"), live);
                 Log("next floor", "depth " + dc.Floor.Value.y + ", weapon kept +" + pc.WeaponLevel.Value, dc.Floor.Value.y == 1 && pc.WeaponLevel.Value >= 2);
                 // The Drowned Vaults (act two, floor 3): their tide slows low ground while it is up.
                 dc.ServerDebugStartFloor(2);

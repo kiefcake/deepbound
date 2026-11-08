@@ -6,38 +6,27 @@ using UnityEngine;
 namespace Deepbound.World
 {
     /// <summary>
-    /// One notice pinned to the camp's bounty board: a contract for the next floor. Any
-    /// player can take one for the party; the others then show as passed over.
+    /// One notice pinned to the camp's quest board: one camp person's work for the next floor - the same quest they
+    /// offer in conversation (<see cref="DungeonDirector.OfferOf"/>). Any player can take it for the party.
     /// </summary>
     public class BountyNotice : Interactable
     {
+        /// <summary>Whose work this notice is (a <see cref="FolkId"/>).</summary>
         public readonly NetworkVariable<byte> Kind = new NetworkVariable<byte>();
         private Renderer seal;
         public override float Range => 2.4f;
 
-        private Contract Offer => (Contract)Kind.Value;
+        public FolkId Giver => (FolkId)Kind.Value;
 
         public override string Prompt(PlayerProgress who)
         {
             var d = DungeonDirector.Instance;
-            if (d == null || !DungeonDirector.InLobby) return null;
-            if (d.ContractState.Value == (byte)DungeonDirector.ContractStatus.Taken) return null;
-            return "Take " + DungeonDirector.ContractName(Offer).ToUpperInvariant() + ": " + DungeonDirector.ContractTask(Offer, d.NextDepth.Value).Replace(" on the next floor", "").Replace("the next floor", "next floor") +
-                (DungeonDirector.HardContract(Offer) ? "  (gold, embers, Sigil)" : "  (gold, embers)");
+            if (d == null || !DungeonDirector.InLobby || d.CannotTakeQuest(Giver) != null) return null;
+            var q = d.OfferOf(Giver);
+            return "Take " + UI.Dialogue.NameOf(Giver) + "'s quest" + (q.Special ? " (SPECIAL)" : "") + ": " + DungeonDirector.QuestTask(q.Contract, q.Goal) + "  -  " + DungeonDirector.QuestReward(q);
         }
 
-        protected override void ServerUse(PlayerProgress who)
-        {
-            DungeonDirector.Instance?.ServerTakeContract(Offer);
-            TakenRpc(who.name);
-        }
-
-        [Rpc(SendTo.ClientsAndHost)]
-        private void TakenRpc(string who)
-        {
-            Sfx.Play(Sound.Purchase, transform.position + Vector3.up * 1.6f, 0.8f, 0.9f);
-            UI.GameHud.Feed(who + " takes the contract: " + DungeonDirector.ContractName(Offer), new Color(0.95f, 0.8f, 0.5f));
-        }
+        protected override void ServerUse(PlayerProgress who) => DungeonDirector.Instance?.ServerTakeQuest(Giver, who.name);
 
         public override void OnNetworkSpawn()
         {
@@ -57,9 +46,9 @@ namespace Deepbound.World
         {
             if (seal == null) return;
             var d = DungeonDirector.Instance;
-            bool taken = d != null && d.ContractState.Value == (byte)DungeonDirector.ContractStatus.Taken;
-            bool mine = taken && d.ActiveContract.Value == Kind.Value;
-            var c = DungeonDirector.HardContract(Offer) ? new Color(0.8f, 0.15f, 0.12f) : new Color(0.85f, 0.6f, 0.2f);
+            bool mine = d != null && d.QuestIndexFrom(Giver) >= 0;
+            bool taken = mine || (d != null && d.CannotTakeQuest(Giver) != null);
+            var c = d != null && DungeonDirector.HardContract(d.OfferOf(Giver).Contract) ? new Color(0.8f, 0.15f, 0.12f) : new Color(0.85f, 0.6f, 0.2f);
             ArtLibrary.SetGlow(seal, mine ? c * (1.2f + 0.4f * Mathf.Sin(Time.time * 4f)) : taken ? c * 0.15f : c * 0.6f);
         }
     }

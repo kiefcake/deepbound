@@ -18,7 +18,7 @@ namespace Deepbound.UI
         public static readonly string[] Keys =
         {
             "flamevents", "edges", "relictray", "hone", "corwin", "chat", "purse", "falloff", "entling", "rare", "necro", "hiddenplates", "gravewarden", "silenced",
-            "camp", "tavern", "emotewheel", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound",
+            "camp", "quests", "tavern", "emotewheel", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -49,10 +49,11 @@ namespace Deepbound.UI
                 {
                     if (it == null || Vector3.Distance(it.transform.position, me) > 6f) continue;
                     if (it is SlotMachine || it is BlackjackTable) Offer("gamble2", "THE TENT: the Bone Reels pay big for three of a kind; at Deadman's Hand beat the skeleton dealer to 21. HIT or STAND in the table's panel.");
-                    if (it is TavernKeep || it is TavernBand) Offer("tavern", "THE GUTTED LANTERN: Marta sells mead (F at the bar): each horn makes you Tipsy, Merry, then Sloshed - a little braver in a fight, and the world sways. F at the stage pays the band for the next song.");
+                    if (it is TavernKeep || it is TavernBand) Offer("tavern", "THE GUTTED LANTERN: talk to Marta (F) for mead: each horn makes you Tipsy, Merry, then Sloshed - a little braver in a fight, and the world sways. F at the stage pays the band for the next song.");
                     if (it is CampCat) Offer("cat", "The castle cat. F pets it (sometimes it has found something for you). Shift+F picks it up... ask it first.");
                 }
-                Offer("camp", "CAMP (F at each stall): Silas sells potions and charms, Hobb tempers your weapon with embers and sells armour, Ysolde ranks abilities with Sigils and sets runes, the shrine offers relics. When ready, sit on the back of Corwin's carriage (F): it leaves when everyone is seated.");
+                Offer("camp", "CAMP: look at someone and press F to TALK - trade, work, news. Silas sells potions and charms, Hobb tempers at his anvil (F there) and sells armour, Ysolde ranks abilities and sets runes, Brother Aldric keeps the shrine, Vey the wardrobe, Marta the mead. They trade wherever they are, even on an errand. When ready, sit on the back of Corwin's carriage (F).");
+                Offer("quests", "QUESTS: ask the camp folk \"Got any work?\" or take a notice on the quest board - the same jobs. Up to three at once for the whole party; each pays gold and embers and wins that person's favour (cheaper prices, more to say). At favour 2 they offer a SPECIAL quest with their own relic.");
                 var prog = player.GetComponent<Progression.PlayerProgress>();
                 if (prog != null && prog.OpenEdgeSlot >= 0) Offer("edges", "AN EDGE: your weapon has reached +" + Progression.Edges.Levels[prog.OpenEdgeSlot] + ". At the anvil (F) forge one of three edges into it - each makes it better at a different way of fighting. Tempering waits until you choose.");
                 if (prog != null && prog.RelicCount >= Loot.Relics.MaxCarried) Offer("relictray", "YOUR RELIC TRAY IS FULL (8). New relics now EMPOWER one you carry (II, III) instead of adding another.");
