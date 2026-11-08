@@ -4,7 +4,7 @@ Written 2026-11-08, because the user asked: "please explain each option further 
 it would work". The user then asked for all of them ("take your time on all of them").
 
 **Status (2026-11-08):**
-- Built: knife board, fishing at the well, bell ringing, arm wrestling (against Brann only, no player-vs-player yet);
+- Built: knife board, fishing at the well, bell ringing, arm wrestling (against Brann, and delver against delver since the second pass: C stakes a challenge, another player matches it, the winner takes both);
   statue room, chime room (plates in order; no co-op two-plate step, the Oath room already does that) and the light-beam
   room (standing mirrors, from act three); chandelier,
   oil + fire, cracked pillars, prisoner cages, vigil candles; trophies + remembered quests; weather (clear / mist / rain);

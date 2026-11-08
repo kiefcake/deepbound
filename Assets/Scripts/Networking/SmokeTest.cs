@@ -3545,15 +3545,16 @@ namespace Deepbound.Networking
                             int startGold = arm.Gold.Value;
                             if (startGold < 200) arm.ServerAddGold(200);
                             int ga = arm.Gold.Value;
-                            double Win(ArmWrestle w)
+                            double Win(ArmWrestle w, int side = 1)
                             {
                                 // Heave at every moment the marker is on the mark, a gap apart, until he is pinned.
                                 double t0 = w.StartAt.Value, last = -10;
                                 for (double tt = 0; tt < 40 && w.InBout; tt += 0.005)
-                                    if (tt - last >= ArmWrestle.HeaveGap + 0.01 && Mathf.Abs(ArmWrestle.MarkerAt(tt)) < 0.04f) { w.ServerHeave(t0 + tt); last = tt; }
+                                    if (tt - last >= ArmWrestle.HeaveGap + 0.01 && Mathf.Abs(ArmWrestle.MarkerAt(tt)) < 0.04f) { w.ServerHeave(t0 + tt, side); last = tt; }
                                 return last;
                             }
-                            bool claspOk = false, slipped = false, wonFirst = false, lossKeeps = false, capOk = false;
+                            bool claspOk = false, slipped = false, wonFirst = false, lossKeeps = false, capOk = false, pvpOk = false;
+                            string pvpWhy = "";
                             if (barrel != null)
                             {
                                 claspOk = barrel.ServerClasp(arm, 25) && arm.Gold.Value == ga - 25;
@@ -3572,12 +3573,25 @@ namespace Deepbound.Networking
                                 for (int k = 0; k < 3; k++) { barrel.ServerClasp(arm, 10); Win(barrel); }
                                 // Wins 2 and 3 pay double (+10 each); the 4th is for pride (stake back).
                                 capOk = arm.Gold.Value == gc + 20;
+                                // Delver against delver (one player takes both sides here; a real pair is not smoke-tested):
+                                // a challenge waits and withdraws for a refund; taken, the winner gets both stakes.
+                                ArmWrestle.DebugSelfMatch = true;
+                                int gp = arm.Gold.Value;
+                                bool waits = barrel.ServerChallenge(arm, 25) && barrel.WaitingForRival && arm.Gold.Value == gp - 25 && !barrel.ServerClasp(arm, 10);
+                                barrel.ServerCancelWait();
+                                bool refunded = !barrel.WaitingForRival && arm.Gold.Value == gp;
+                                barrel.ServerChallenge(arm, 25);
+                                bool taken = barrel.ServerAccept(arm) && barrel.InBout && barrel.Delvers && arm.Gold.Value == gp - 50;
+                                Win(barrel, -1);
+                                pvpOk = waits && refunded && taken && barrel.LastOutcome == -1 && !barrel.InBout && !barrel.Delvers && arm.Gold.Value == gp;
+                                pvpWhy = "waits " + waits + ", withdrawn and refunded " + refunded + ", taken " + taken + ", far side pinned " + (barrel.LastOutcome == -1) + ", gold " + (arm.Gold.Value - gp);
+                                ArmWrestle.DebugSelfMatch = false;
                             }
                             yield return null;
                             arm.ServerAddGold(startGold - arm.Gold.Value);
                             World.FolkRounds.StayHome = stayA;
-                            Log("arm wrestling", "barrel " + (barrel != null) + ", clasp takes the stake " + claspOk + ", a miss slips " + slipped + ", pinned him for double " + wonFirst + ", a loss keeps the stake " + lossKeeps + ", three paid wins a visit " + capOk,
-                                barrel != null && claspOk && slipped && wonFirst && lossKeeps && capOk);
+                            Log("arm wrestling", "barrel " + (barrel != null) + ", clasp takes the stake " + claspOk + ", a miss slips " + slipped + ", pinned him for double " + wonFirst + ", a loss keeps the stake " + lossKeeps + ", three paid wins a visit " + capOk + "; delvers: " + pvpWhy,
+                                barrel != null && claspOk && slipped && wonFirst && lossKeeps && capOk && pvpOk);
                         }
                         // Old Wick (2026-11-08): sits with a lone player, plays a whole hand on his own, gold is only moved (never made) at the table, leaves when the player does, never sits broke.
                         {
