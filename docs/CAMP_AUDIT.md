@@ -15,6 +15,7 @@ Writes, with no HUD:
 - `eye_*_<station>_fromN/E/S/W/a/top.png`: every station from all four sides and above; `wallNN_in/along`.
 - `tour.txt`: station positions relative to the origin.
 - `fire_<side>_<stand|sit>`: from the spawn fire's log ring toward each side; `tent_inside_up/out/table`; `blackjack_seat/hit` (seated at the card table with a hand dealt).
+- **The inspector bot**: `-camptour <dir> -tourbot` (Networking/CampInspector) stands where a player uses each station, renders with the game's own light (plus the light players carry), and writes `inspect.txt`: DARK/DIM (measured brightness), NO-ROOM-TO-STAND, BLOCKED-BY, FRONT-INTO, FACES-AWAY, CROWDED; contact sheets `sheet_NN.jpg` (use view | approach), `faces_NN.jpg` (every named person), `round_<who>_walking/there.jpg` (rounds fast-forwarded). Run it after every camp change; it takes about two minutes.
 - Add `-tourquick` to skip the walk grid and the station views (about a minute instead of ten). Output is JPG now.
 
 Layout code: `Assets/Scripts/World/Lobby.cs` (positions use `S(x, y, z)` = x and z times `Spread` 1.35 from
@@ -27,6 +28,21 @@ checked on a fresh tour.
 
 ### Open (beyond placement)
 - [~] The carriage horse needs updating (the user, 2026-11-07). REBUILT 2026-11-07 (`World/CarriageRide.cs` BuildHorse/AnimateHorse: spine, ribcage, pelvis, jointed legs with a diagonal trot, skull with a hinged jaw and glowing sockets, harness, idle head toss / stamp / jaw chatter / tail swish). To check on a tour: hooves may float ~6 cm at full stride, knee/hock bend directions, bit vs reins during a head toss, hind legs clear of the shafts.
+
+## Round 3 (2026-11-07 night, the inspector bot + the user's answers: warm and well lit; NPCs face you, work, wander and chat, better faces; signs AND names)
+
+- [x] DARK range (0.053 -> 0.125): posts at both ends of the lanes and a line of three lanterns over them. Mannequin 0.067 -> 0.115 (still DIM by the measure, readable). Every road lamp lit and brighter, stall lamps 2.6, station lamps 2.6/9 m, warmer ambient.
+- [x] Hobb stood with his back to his customers: now behind the anvil facing the counter (`Lobby.HobbSpot`), hammering it (sparks, a clang) while nobody is at the counter.
+- [x] Aldric knelt square in front of the altar (BLOCKED-BY): now kneels beside it (`AldricSpot`), the altar clear.
+- [x] Vey stood 1.8 m back from her counter: now right behind it (`VeySpot`).
+- [x] Silas stood 3.5 m behind an empty stall counter: the stall is now a frame round him and his own table (`Stall(..., counter: false)`).
+- [x] The hall of records had a road brazier right in front of its slab: the bounty board and records moved 1.5 m west.
+- [x] Faces were nearly black (skin on the dark leather texture): skin is on the pale bone base now; bigger eyes with a glint, cheeks, a fuller mouth. Outfits: Hobb's bracers, apron straps, hair; Vey's fringe, shawl and pincushion; Brann's tabard; Corwin's scarf.
+- [x] NPCs turn their body to you within 4.5 m (`FolkIdle.TurnsBody`), stop working and look at you within 3.8 m, greet you by name and class once a visit (`CampChatter.Greeting`), and show NAME / TRADE over their heads within 11 m when not talking.
+- [x] Work: Hobb hammers, Vey sews, Brann drills, Ysolde traces runes, Marta wipes the bar (`FolkIdle.WorkKind`, arm pivots from `Props.GroupArm`).
+- [x] Rounds (`World/FolkRounds`): Hobb to the well, Vey to Silas (he answers), Brann to the fire, Ysolde to the gong, Silas to the tavern door; server clock, grid path round the stalls, the struck-body walks with the figure. Smoke "camp folk rounds".
+- [x] Signs (`World/SignArt`): Merchant, Smith, Tailor, Drills, Runes, Shrine, Tavern, Games, Bounties, Might, Archery.
+- Open: false positives in the inspector (NO-ROOM at the omen stone, Corwin's box, Marta's bar); while someone is on rounds their shop still opens at the stall.
 
 ## Round 2 (2026-11-07 evening, the user's notes; APPLIED and checked on `-tourquick` renders)
 

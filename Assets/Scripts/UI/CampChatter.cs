@@ -83,7 +83,7 @@ namespace Deepbound.UI
         private readonly List<(float at, FolkId who, string text)> pending = new List<(float, FolkId, string)>();
 
         /// <summary>Queue a line to be said a moment from now (a reply, a bystander).</summary>
-        private static void SayLater(FolkId who, string text, float delay)
+        public static void SayLater(FolkId who, string text, float delay)
         {
             if (instance != null) instance.pending.Add((Time.time + delay, who, text));
         }
@@ -244,6 +244,28 @@ namespace Deepbound.UI
         }
 
         private static PlayerProgress Me => NetworkPlayer.Local != null ? NetworkPlayer.Local.GetComponent<PlayerProgress>() : null;
+        private readonly HashSet<int> greeted = new HashSet<int>();
+        private bool wasInCamp;
+
+        /// <summary>What each of them says when you walk up (your name and your class in it), or null.</summary>
+        private static string Greeting(FolkId who, NetworkPlayer me)
+        {
+            var prog = me.GetComponent<PlayerProgress>();
+            string name = me.name;
+            string cls = prog != null ? Classes.ClassDefinition.For(prog.ClassId.Value).Name.ToLowerInvariant() : "delver";
+            int k = Random.Range(0, 3);
+            switch (who)
+            {
+                case FolkId.Silas: return k == 0 ? name + "! Still breathing. Good for business." : k == 1 ? "Ah, the " + cls + ". Browse. Touch nothing you cannot pay for." : "Welcome back, " + name + ". Prices are fair. Mostly.";
+                case FolkId.Hobb: return k == 0 ? name + ". Let me see that edge." : k == 1 ? "A " + cls + " with a blunt weapon is a dead " + cls + ". Hand it over." : "*Hobb sets the hammer down.* What needs mending, " + name + "?";
+                case FolkId.Aldric: return k == 0 ? "Bless you, child. Blessings are, of course, by donation." : k == 1 ? "The light walks with you, " + name + ". For a modest sum it walks faster." : "*Aldric looks up from his prayers.* Ah. A paying pilgrim.";
+                case FolkId.Vey: return k == 0 ? name + ", darling. That cloak is a crime." : k == 1 ? "A " + cls + "! Stand still, let me look at you." : "*Vey bites off a thread.* Something new for the dark, " + name + "?";
+                case FolkId.Corwin: return k == 0 ? "Seats are in the back, " + name + ". Mind the horse." : k == 1 ? "When you are ready, " + cls + ". The road waits. I do not." : "*Corwin tips his hat.* Down again, " + name + "?";
+                case FolkId.Brann: return k == 0 ? name + "! Feet apart, chin down. Again." : k == 1 ? "On your guard, " + cls + ". The yard is open." : "*Brann lowers the practice sword.* You look soft, " + name + ". We can fix that.";
+                case FolkId.Ysolde: return k == 0 ? "The stones hum when you are near, " + name + "." : k == 1 ? "A " + cls + "'s hands. Let me read what they can hold." : "*Ysolde's runes dim as she turns.* You have sigils for me, " + name + "?";
+                default: return null;
+            }
+        }
         private static DungeonDirector Dir => DungeonDirector.Instance;
         private static int FloorsDone => Dir != null ? Dir.NextDepth.Value : 0;
         private static int Seals => Dir != null ? Dir.SealCount : 0;
@@ -406,6 +428,29 @@ namespace Deepbound.UI
                 if (Time.time >= pending[i].at) { Say(pending[i].who, pending[i].text, 5f); pending.RemoveAt(i); }
             var me = NetworkPlayer.Local;
             if (me == null) return;
+            // A new camp visit: everyone may greet you again.
+            bool inCamp = DungeonDirector.InLobby;
+            if (!inCamp && wasInCamp) greeted.Clear();
+            wasInCamp = inCamp;
+            for (int i = 0; i < speakers.Count; i++)
+            {
+                var s = speakers[i];
+                // Speech follows the person (they turn, and some walk about).
+                var fig = Art.FolkIdle.Of((FolkId)i);
+                if (fig != null) s.Head = fig.HeadTop;
+                // A greeting the first time you come up to them this visit (2026-11-07, the user: "turn to face you").
+                if (inCamp && fig != null && !greeted.Contains(i) && Vector3.Distance(me.transform.position, fig.transform.position) < Art.FolkIdle.AttendRange)
+                {
+                    greeted.Add(i);
+                    string hello = Greeting((FolkId)i, me);
+                    if (hello != null)
+                    {
+                        s.Current = hello;
+                        s.Until = Time.time + 5f;
+                        s.NextAt = s.Until + Random.Range(3f, 6f);
+                    }
+                }
+            }
             foreach (var s in speakers)
             {
                 bool near = Vector3.Distance(me.transform.position, s.Head) < 9f;
@@ -436,6 +481,7 @@ namespace Deepbound.UI
             if (me == null || cam == null || PauseMenu.Open || GameHud.MenuOpen || GameHud.PanelShowing) return;
             UiSkin.Apply();
             float h = UiScale.H;
+            DrawNames(cam, h);
             foreach (var s in speakers)
             {
                 if (s.Current == null || Time.time > s.Until) continue;
@@ -451,6 +497,46 @@ namespace Deepbound.UI
                 UiSkin.Rect(r, new Color(0.04f, 0.035f, 0.03f, 0.78f * a));
                 GUI.Label(new Rect(r.x + 8, r.y + 4, bw - 16, 18), s.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperCenter, normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, a) } });
                 GUI.Label(new Rect(r.x + 8, r.y + 22, bw - 16, bh - 24), s.Current, body);
+            }
+        }
+
+        private static GUIStyle nameStyle, tradeStyle;
+
+        /// <summary>
+        /// Names over heads (2026-11-07, the user: signs AND names): within 11 m and in sight, a name and a trade over each
+        /// camp person who is not talking, fading out with distance.
+        /// </summary>
+        private void DrawNames(Camera cam, float h)
+        {
+            if (!DungeonDirector.InLobby) return;
+            nameStyle ??= new GUIStyle(UiSkin.Small) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false };
+            tradeStyle ??= new GUIStyle(UiSkin.Small) { fontSize = 11, alignment = TextAnchor.MiddleCenter, wordWrap = false };
+            foreach (var f in Art.FolkIdle.All)
+            {
+                if (f == null || string.IsNullOrEmpty(f.DisplayName)) continue;
+                if (f.Who.HasValue && (int)f.Who.Value < speakers.Count)
+                {
+                    var sp = speakers[(int)f.Who.Value];
+                    if (sp.Current != null && Time.time < sp.Until) continue; // the speech panel names them
+                }
+                var top = f.HeadTop + Vector3.down * 0.25f;
+                float dist = Vector3.Distance(cam.transform.position, top);
+                if (dist > 11f || dist < 0.8f) continue;
+                var screen = UiScale.World(cam, top);
+                if (screen.z <= 0f) continue;
+                if (Physics.Linecast(cam.transform.position, top, out var hit, ~0, QueryTriggerInteraction.Ignore) && hit.distance < dist - 0.6f && !hit.transform.IsChildOf(f.transform)) continue;
+                float a = Mathf.Clamp01((11f - dist) / 3f);
+                float y = h - screen.y;
+                var shadow = new Color(0f, 0f, 0f, 0.7f * a);
+                var nameRect = new Rect(screen.x - 120, y - 30, 240, 18);
+                GUI.Label(new Rect(nameRect.x + 1, nameRect.y + 1, nameRect.width, nameRect.height), f.DisplayName, new GUIStyle(nameStyle) { normal = { textColor = shadow } });
+                GUI.Label(nameRect, f.DisplayName, new GUIStyle(nameStyle) { normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, a) } });
+                if (!string.IsNullOrEmpty(f.Trade))
+                {
+                    var tradeRect = new Rect(screen.x - 120, y - 13, 240, 14);
+                    GUI.Label(new Rect(tradeRect.x + 1, tradeRect.y + 1, tradeRect.width, tradeRect.height), f.Trade.ToUpperInvariant(), new GUIStyle(tradeStyle) { normal = { textColor = shadow } });
+                    GUI.Label(tradeRect, f.Trade.ToUpperInvariant(), new GUIStyle(tradeStyle) { normal = { textColor = new Color(0.88f, 0.85f, 0.78f, a) } });
+                }
             }
         }
     }

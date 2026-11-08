@@ -68,12 +68,18 @@ namespace Deepbound.World
         public static readonly Vector3 CarriageAt = Origin + S(0f, 0f, 19.5f);
 
         /// <summary>Where each camp character stands (their struck-body, <see cref="CampFolk"/>).</summary>
+        /// <summary>Where the people stand (2026-11-07 inspection: Hobb had his back to his customers behind the anvil,
+        /// Aldric knelt square in front of the altar, Vey stood 1.8 m back from her own counter).</summary>
+        public static Vector3 HobbSpot => AnvilSpot + Vector3.left * 0.95f;
+        public static Vector3 AldricSpot => ShrineSpot + new Vector3(-0.7f, 0f, 1.45f);
+        public static Vector3 VeySpot => TailorSpot + TailorFacing * 1.45f;
+
         public static (FolkId id, Vector3 at)[] FolkBodies => new[]
         {
             (FolkId.Silas, MerchantSpot),
-            (FolkId.Hobb, AnvilSpot + Vector3.back * 1.4f),
-            (FolkId.Aldric, ShrineSpot + Vector3.left * 1.2f),
-            (FolkId.Vey, TailorSpot + Vector3.right * 0.6f),
+            (FolkId.Hobb, HobbSpot),
+            (FolkId.Aldric, AldricSpot),
+            (FolkId.Vey, VeySpot),
             (FolkId.Corwin, CarriageAt + new Vector3(0f, 0.9f, 2.2f)),
             (FolkId.Bones, BlackjackSpot + Vector3.back * 1f),
             (FolkId.Brann, YardSpot),
@@ -81,9 +87,9 @@ namespace Deepbound.World
         };
 
         /// <summary>The bounty board, by the road near the gate: contracts for the next floor.</summary>
-        public static readonly Vector3 BountySpot = Origin + S(-4.6f, 0f, 17.2f); // by the gate road, last stop before the carriage
+        public static readonly Vector3 BountySpot = Origin + S(-5.7f, 0f, 17.2f); // by the gate road, last stop before the carriage
         /// <summary>The Hall of Records slab, beside the bounty board.</summary>
-        public static readonly Vector3 RecordsSpot = BountySpot + new Vector3(0.6f, 0f, -3.1f);
+        public static readonly Vector3 RecordsSpot = BountySpot + new Vector3(0f, 0f, -3.4f); // west of the road braziers (one stood right in front of the slab)
         public static readonly Vector3 BountyFacing = Vector3.right;
         /// <summary>The market square's well, between the arrival bonfire and the stalls.</summary>
         public static readonly Vector3 WellSpot = Origin + S(0f, 0f, -8.4f);
@@ -198,6 +204,7 @@ namespace Deepbound.World
 
         public static GameObject Build()
         {
+            FolkRounds.Reset();
             var root = new GameObject("Lobby (Castle Ravenhold)");
             var structure = new MeshKit.Batcher();
             var dressing = new MeshKit.Batcher();
@@ -216,6 +223,7 @@ namespace Deepbound.World
             BuildTent(lights, dressing);
             BuildTavern(structure, dressing, lights);
             BuildStationLamps(dressing, lights);
+            BuildSigns(dressing, lights);
             BuildYard(o, dressing, lights);
             BuildShrineNook(dressing, lights);
             BuildRange(dressing, lights);
@@ -242,9 +250,9 @@ namespace Deepbound.World
             CarriageRide.Build(root.transform, CarriageAt, Vector3.forward);
 
             // The camp's people (the merchant has his own stall above).
-            Props.Townsfolk(lights, AnvilSpot + Vector3.back * 1.4f, AnvilSpot + Vector3.left * 3f, Props.Folk.Smith);
-            Props.Townsfolk(lights, ShrineSpot + Vector3.left * 1.2f, ShrineSpot + Vector3.left * 4f, Props.Folk.Priest);
-            Props.Townsfolk(lights, TailorSpot + Vector3.right * 0.6f, TailorSpot + Vector3.right * 4f, Props.Folk.Tailor);
+            Props.Townsfolk(lights, HobbSpot, HobbSpot + Vector3.right * 4f, Props.Folk.Smith);
+            Props.Townsfolk(lights, AldricSpot, ShrineSpot + new Vector3(-4f, 0f, -0.6f), Props.Folk.Priest);
+            Props.Townsfolk(lights, VeySpot, VeySpot + TailorFacing * 4f, Props.Folk.Tailor);
             Props.Townsfolk(lights, YardSpot, YardSpot + Vector3.right * 4f, Props.Folk.Sergeant);
             Props.Townsfolk(lights, RunewrightSpot, RunewrightSpot + new Vector3(-4f, 0f, -1f), Props.Folk.Runewright);
             BuildRuneStones(dressing, lights);
@@ -262,9 +270,10 @@ namespace Deepbound.World
         public static void ApplyCastleAtmosphere()
         {
             DungeonBuilder.ApplyAtmosphere();
-            RenderSettings.ambientSkyColor = new Color(0.25f, 0.27f, 0.38f);
-            RenderSettings.ambientEquatorColor = new Color(0.17f, 0.15f, 0.16f);
-            RenderSettings.ambientGroundColor = new Color(0.09f, 0.075f, 0.07f);
+            // Warm and well lit (the user, 2026-11-07): camp is the safe place. A little more sky, a warmer horizon.
+            RenderSettings.ambientSkyColor = new Color(0.3f, 0.3f, 0.4f);
+            RenderSettings.ambientEquatorColor = new Color(0.26f, 0.2f, 0.17f);
+            RenderSettings.ambientGroundColor = new Color(0.13f, 0.1f, 0.08f);
             RenderSettings.fogColor = new Color(0.045f, 0.055f, 0.09f);
             RenderSettings.fogDensity = 0.0095f;
             foreach (var cam in Camera.allCameras) cam.backgroundColor = RenderSettings.fogColor;
@@ -467,15 +476,15 @@ namespace Deepbound.World
                     var glass = MeshKit.Part(lights, "LampGlass", MeshKit.Box(new Vector3(0.2f, 0.28f, 0.2f)), Mat.Glow, lanternAt);
                     ArtLibrary.SetGlow(glass.GetComponent<Renderer>(), lamp * 1.3f);
                     glass.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                    if ((k + (s > 0 ? 1 : 0)) % 2 == 0)
+                    if (true) // every lamp lit since 2026-11-07 (the user: warm and well lit)
                     {
                         var l = new GameObject("LampLight").AddComponent<Light>();
                         l.transform.SetParent(lights, false);
                         l.transform.position = lanternAt;
                         l.type = LightType.Point;
                         l.color = lamp;
-                        l.range = 9f;
-                        l.intensity = 1.6f;
+                        l.range = 10f;
+                        l.intensity = 2.2f;
                         l.shadows = LightShadows.None;
                     }
                 }
@@ -587,13 +596,16 @@ namespace Deepbound.World
         }
 
         /// <summary>A market stall: counter, four posts and a striped awning.</summary>
-        private static void Stall(Transform parent, MeshKit.Batcher d, Vector3 front, Vector3 facing, Color a, Color b)
+        private static void Stall(Transform parent, MeshKit.Batcher d, Vector3 front, Vector3 facing, Color a, Color b, bool counter = true)
         {
             var rot = Quaternion.LookRotation(facing);
             var right = rot * Vector3.right;
             var back = -facing;
-            d.AddBox(front + Vector3.up * 0.5f, new Vector3(3.6f, 1f, 0.8f), Mat.Wood, rot);
-            d.AddBox(front + Vector3.up * 1.02f, new Vector3(3.8f, 0.06f, 0.95f), Mat.Wood, rot);
+            if (counter)
+            {
+                d.AddBox(front + Vector3.up * 0.5f, new Vector3(3.6f, 1f, 0.8f), Mat.Wood, rot);
+                d.AddBox(front + Vector3.up * 1.02f, new Vector3(3.8f, 0.06f, 0.95f), Mat.Wood, rot);
+            }
             foreach (float sx in new[] { -1.8f, 1.8f })
                 foreach (float sz in new[] { 0f, 2.4f })
                     d.AddBox(front + right * sx + back * sz + Vector3.up * 1.4f, new Vector3(0.16f, 2.8f, 0.16f), Mat.Wood);
@@ -609,14 +621,14 @@ namespace Deepbound.World
             lamp.transform.position = front + back * 0.6f + Vector3.up * 2.4f;
             lamp.type = LightType.Point;
             lamp.color = Fire;
-            lamp.range = 6f;
-            lamp.intensity = 1.6f;
+            lamp.range = 7.5f;
+            lamp.intensity = 2.6f;
         }
 
         private static void BuildStalls(Vector3 o, MeshKit.Batcher d, Transform lights)
         {
             // Merchant (west), behind his own table of wares.
-            Stall(lights, d, o + S(-4.8f, 0f, -5f), Vector3.right, new Color(0.55f, 0.12f, 0.12f), new Color(0.85f, 0.75f, 0.5f));
+            Stall(lights, d, MerchantSpot + Vector3.right * 1.45f, Vector3.right, new Color(0.55f, 0.12f, 0.12f), new Color(0.85f, 0.75f, 0.5f), counter: false); // round Silas and his table (it stood 3.5 m in front of him, empty)
             Props.Merchant(lights, MerchantSpot, MerchantSpot + Vector3.right * 3f, d);
 
             // Blacksmith (the trade row, west, beside Silas): forge with a chimney and a quench barrel beside the anvil.
@@ -689,7 +701,7 @@ namespace Deepbound.World
         /// An iron lamp post with a lantern hung on an arm toward <paramref name="arm"/> (2026-11-07, the user: "MORE LIGHT
         /// SOURCES ... AROUND THINGS WHERE THE PLAYER NEEDS TO SEE OR GO").
         /// </summary>
-        private static void LampPost(MeshKit.Batcher d, Transform lights, Vector3 foot, Vector3 arm, float range = 8f, float intensity = 2f)
+        private static void LampPost(MeshKit.Batcher d, Transform lights, Vector3 foot, Vector3 arm, float range = 9f, float intensity = 2.6f)
         {
             arm.y = 0f; arm.Normalize();
             var lamp = new Color(1f, 0.72f, 0.4f);
@@ -714,6 +726,27 @@ namespace Deepbound.World
             l.shadows = LightShadows.None;
         }
 
+        /// <summary>
+        /// Painted signs over every station (2026-11-07, the user: show what each station is from a distance), hung from the
+        /// stall awnings, fixed over the tavern door and the gong, or on posts where there is nothing to hang them from.
+        /// </summary>
+        private static void BuildSigns(MeshKit.Batcher d, Transform lights)
+        {
+            SignArt.Hang(lights, d, MerchantSpot + Vector3.right * 1.65f + Vector3.up * 2.75f, Vector3.right, "Merchant", SignArt.Icon.Potion);
+            SignArt.Hang(lights, d, AnvilSpot + S(0.8f, 0f, 0f) + Vector3.right * 0.2f + Vector3.up * 2.75f, Vector3.right, "Smith", SignArt.Icon.Anvil);
+            SignArt.Hang(lights, d, TailorSpot + TailorFacing * 2.6f + Vector3.up * 2.75f, TailorFacing, "Tailor", SignArt.Icon.Needle);
+            SignArt.Post(lights, d, YardSpot + new Vector3(2.0f, 0f, 1.8f), Vector3.back, Vector3.right, "Drills", SignArt.Icon.Sword);
+            var runeFront = new Vector3(-1f, 0f, -0.25f).normalized;
+            var runeSide = Vector3.Cross(Vector3.up, runeFront);
+            SignArt.Post(lights, d, RunewrightSpot + runeFront * 2.8f + runeSide * 1.7f, -runeSide, runeFront, "Runes", SignArt.Icon.Rune);
+            SignArt.Post(lights, d, ShrineSpot + new Vector3(-2.4f, 0f, -2.5f), Vector3.forward, Vector3.left, "Shrine", SignArt.Icon.Candle);
+            SignArt.Flat(lights, d, TavernCenter + new Vector3(TavernHalfX + 0.24f, 2.86f, 0f), Vector3.right, "Tavern", SignArt.Icon.Mug, 1.3f);
+            SignArt.Hang(lights, d, TentCenter + new Vector3(-4.45f, 2.66f, 0f), Vector3.left, "Games", SignArt.Icon.Dice);
+            SignArt.Flat(lights, d, BountySpot + new Vector3(0.07f, 2.42f, 0f), BountyFacing, "Bounties", SignArt.Icon.Scroll, 1.3f);
+            SignArt.Flat(lights, d, GongSpot + new Vector3(0.3f, 4.02f, 0f), GongFacing, "Might", SignArt.Icon.Bell, 1.2f);
+            SignArt.Flat(lights, d, Origin + S(10f, 0f, 11f) + new Vector3(-0.07f, 2.2f, -3.4f), Vector3.left, "Archery", SignArt.Icon.Target, 0.95f);
+        }
+
         /// <summary>Lamps at the stations that stood in the dark: the tavern door and its yard, the tailor, the yard
         /// sergeant, the gong, the omen stone and the hall of records.</summary>
         private static void BuildStationLamps(MeshKit.Batcher d, Transform lights)
@@ -726,6 +759,30 @@ namespace Deepbound.World
             LampPost(d, lights, GongSpot + new Vector3(-1.8f, 0f, 2.6f), Vector3.back);
             LampPost(d, lights, OmenSpot + new Vector3(1.6f, 0f, -1.4f), Vector3.left);
             LampPost(d, lights, RecordsSpot + new Vector3(-1.6f, 0f, -0.8f), Vector3.right);
+            LampPost(d, lights, MannequinSpot + new Vector3(1.1f, 0f, -1.3f), Vector3.left, 9f, 3.4f);
+            // The archery range was the darkest corner of camp: the shooting line and both ends of the lanes.
+            LampPost(d, lights, Origin + S(10f, 0f, 11f) + new Vector3(-0.7f, 0f, 4.4f), Vector3.right, 11f, 2.8f);
+            LampPost(d, lights, Origin + S(17.5f, 0f, 6.2f), Vector3.forward, 10f, 2.6f);
+            LampPost(d, lights, Origin + S(17.5f, 0f, 16f), Vector3.back, 10f, 2.6f);
+            var wireA = Origin + S(17.5f, 0f, 6.2f) + Vector3.up * 3.0f; var wireB = Origin + S(17.5f, 0f, 16f) + Vector3.up * 3.0f;
+            d.AddBox((wireA + wireB) / 2f, new Vector3(0.025f, 0.025f, Vector3.Distance(wireA, wireB)), Mat.Steel);
+            for (int i = 1; i <= 3; i++)
+            {
+                var at = Vector3.Lerp(wireA, wireB, i / 4f) + Vector3.down * 0.35f;
+                d.AddBox(at + Vector3.up * 0.18f, new Vector3(0.02f, 0.2f, 0.02f), Mat.Steel);
+                d.AddBox(at, new Vector3(0.22f, 0.3f, 0.22f), Mat.Steel);
+                var glass = MeshKit.Part(lights, "RangeLantern", MeshKit.Box(new Vector3(0.17f, 0.23f, 0.17f)), Mat.Glow, at);
+                ArtLibrary.SetGlow(glass.GetComponent<Renderer>(), new Color(1f, 0.72f, 0.4f) * 1.3f);
+                glass.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                var l = new GameObject("RangeLight").AddComponent<Light>();
+                l.transform.SetParent(lights, false);
+                l.transform.position = at;
+                l.type = LightType.Point;
+                l.color = new Color(1f, 0.72f, 0.4f);
+                l.range = 10f;
+                l.intensity = 3.4f;
+                l.shadows = LightShadows.None;
+            }
         }
 
         /// <summary>The gambling tent: a round striped pavilion, open to the west (the spawn fire).</summary>

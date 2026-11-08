@@ -2697,6 +2697,28 @@ namespace Deepbound.Networking
                             flSeats.Length == 12 && flPrompted && flSat && flStood && flClear);
                     }
 
+                    // ---- CAMP FOLK (2026-11-07): rounds found a way for most, the struck-body walks with the figure, names set ----
+                    {
+                        var walkers = new System.Collections.Generic.List<World.FolkId>(World.FolkRounds.Walkers);
+                        bool bodiesFollow = true;
+                        foreach (var who in walkers)
+                        {
+                            World.FolkRounds.DebugArrive(who);
+                            yield return new WaitForSeconds(0.15f);
+                            var fig = Art.FolkIdle.Of(who);
+                            CampFolk body = null;
+                            foreach (var cf in FindObjectsByType<CampFolk>(FindObjectsSortMode.None)) if (cf.Who.Value == (byte)who) body = cf;
+                            if (fig == null || body == null) { bodiesFollow = false; continue; }
+                            var gap = fig.transform.position - body.transform.position; gap.y = 0f;
+                            if (gap.magnitude > 0.6f) bodiesFollow = false;
+                        }
+                        World.FolkRounds.DebugShift = 0;
+                        int named = 0; foreach (var f in Art.FolkIdle.All) if (f != null && !string.IsNullOrEmpty(f.DisplayName)) named++;
+                        Log("camp folk rounds", "walkers " + walkers.Count + " (" + string.Join(", ", walkers) + "), bodies follow " + bodiesFollow + ", named figures " + named,
+                            walkers.Count >= 4 && bodiesFollow && named >= 10);
+                        yield return new WaitForSeconds(0.2f);
+                    }
+
                     // The training yard: a drill raises a stat and the next costs more.
                     motor.Teleport(Lobby.YardSpot + Vector3.right * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);

@@ -25,6 +25,19 @@ namespace Deepbound.World
         private readonly Dictionary<ulong, float> lastOffence = new Dictionary<ulong, float>();
 
         private void Awake() => health = GetComponent<Health>();
+        private Vector3 home;
+        private bool homeSet;
+
+        /// <summary>Server: the body walks the same rounds as the figure (World/FolkRounds), so a blow lands where they are.</summary>
+        private void Update()
+        {
+            if (!IsServer || !DungeonDirector.InLobby) return;
+            if (!homeSet) { home = transform.position; homeSet = true; }
+            var who = (FolkId)Who.Value;
+            if (!FolkRounds.Walks(who)) return;
+            var pose = FolkRounds.At(who);
+            transform.position = pose.Away ? pose.Position + (home.y - pose.Position.y) * Vector3.up : home;
+        }
 
         public override void OnNetworkSpawn()
         {

@@ -17,6 +17,7 @@ args = ap.parse_args()
 build = os.path.abspath(args.build)
 
 REQUIRED = [
+    'camp folk rounds',
     'fire logs',
     'ui scale', 'ui space', 'options lists', 'every sound recorded', 'party numbers', 'trap numbers', 'minimap layout',
     'pad Knight', 'pad Mage', 'pad Cleric', 'pad Rogue', 'pad Ranger', 'pad Flagellant', 'pad PlagueDoctor',

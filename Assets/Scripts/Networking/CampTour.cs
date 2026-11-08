@@ -17,6 +17,7 @@ namespace Deepbound.Networking
     {
         private string dir;
         private NetworkLauncher launcher;
+        private readonly Texture2D[] last = new Texture2D[1];
 
         public void Run(string outDir, NetworkLauncher l)
         {
@@ -73,6 +74,29 @@ namespace Deepbound.Networking
             }
             // A grid of 10 m cells, labelled, as a key for the plans: printed into tour.txt.
             lines.Add("PLAN: camera straight down, +X right (east), +Z up (north). Origin " + o + ", radius " + r.ToString("F1") + " m.");
+
+            // ---- -tourbot: the inspector (CampInspector) with the game's own light, then done.
+            if (System.Array.IndexOf(System.Environment.GetCommandLineArgs(), "-tourbot") >= 0)
+            {
+                Destroy(sun.gameObject);
+                RenderSettings.ambientLight = ambient;
+                RenderSettings.ambientMode = ambientMode;
+                RenderSettings.fog = fog;
+                cam.orthographic = false;
+                cam.fieldOfView = 70f;
+                // The light a player carries at camp (Art/PresenceLight is off in batchmode): half strength, 3 m ahead.
+                var carried = new GameObject("TourPresence").AddComponent<Light>();
+                carried.type = LightType.Point;
+                carried.range = Art.PresenceLight.Range;
+                carried.intensity = Art.PresenceLight.Intensity * 0.5f;
+                carried.color = new Color(1f, 0.86f, 0.7f);
+                carried.shadows = LightShadows.None;
+                var follow = carried.gameObject.AddComponent<TourFollow>();
+                follow.Cam = cam;
+                yield return CampInspector.Run(cam, dir, Render, last);
+                Application.Quit(0);
+                yield break;
+            }
 
             // ---- Eye level, as a player sees it: the game's own light, a little brighter so dark corners show.
             Destroy(sun.gameObject);
@@ -209,7 +233,9 @@ namespace Deepbound.Networking
             cam.targetTexture = null;
             RenderTexture.ReleaseTemporary(rt);
             File.WriteAllBytes(Path.Combine(dir, name + ".jpg"), tex.EncodeToJPG(88));
-            Destroy(tex);
+            // Kept until the next shot, so the inspector can measure it.
+            if (last[0] != null) Destroy(last[0]);
+            last[0] = tex;
         }
     }
 }
