@@ -60,6 +60,7 @@ Added 2026-11-01, when the last synthesised sounds were replaced ("no more coded
 | `fire_crackle.wav` | fire-1.wav ("Fire Crackling") | AntumDeluge | https://opengameart.org/content/fire-crackling | CC0 | the crackle of torches, braziers and fires close by |
 | `cavern.ogg` | dark_cavern_ambient_002.ogg | Paul Wortmann | https://opengameart.org/content/dark-cavern-ambient | CC0 | the Black Cathedral and the Abyss |
 | `camp.ogg` | wind woosh loop.ogg ("Wind Whoosh Loop") | SketchMan3 | https://opengameart.org/content/wind-whoosh-loop | CC0 | wind over Castle Ravenhold at camp (2026-11-01, replaced the synthesised night air) |
+| `rain.ogg` | 3.ogg from "Rain OGG.zip" ("Rain (loopable)") | Ylmir | https://opengameart.org/content/rain-loopable | CC0 | rain over the camp when the weather turns (2026-11-08) |
 
 ## Textures (`Assets/Textures/Detail/`)
 

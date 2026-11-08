@@ -212,7 +212,7 @@ namespace Deepbound.World
         {
             if (rounds == null) Build();
             var pose = new Pose();
-            if (StayHome || !rounds.TryGetValue(who, out var r)) return pose;
+            if (StayHome || CampWeather.KeepIn || !rounds.TryGetValue(who, out var r)) return pose; // in the rain they keep to their stalls
             double t = DungeonDirector.FolkClock(who, Clock) + r.Offset; // a person held in conversation keeps their own clock still
             pose.Visit = (int)(t / r.Period);
             float tau = (float)(t - pose.Visit * (double)r.Period);

@@ -20,6 +20,29 @@ namespace Deepbound.UI
             _ => "Trade.",
         };
 
+        /// <summary>A line about what came home or what hangs in camp now (null if nothing for them).</summary>
+        public static string Remembered(FolkId who)
+        {
+            uint b = CampMemory.Now;
+            switch (who)
+            {
+                case FolkId.Hobb when CampMemory.Has(b, FolkId.Hobb, true): return "*He nods at the chimney.* My father's hammer. I strike the first blow of every morning with it now. You did that.";
+                case FolkId.Silas when CampMemory.Has(b, FolkId.Silas, true): return "That strongbox behind me? Old Pell's. Empty now. Mostly. I keep it to remind me what greed weighs.";
+                case FolkId.Marta when CampMemory.Has(b, FolkId.Marta, true): return "*She pats the cask on the bar.* Deepcellar Black. One cup a night, for whoever came back. Tonight that's you.";
+                case FolkId.Vey when CampMemory.Has(b, FolkId.Vey, true): return "The deep silk is on my rack, darling. I've cut three cloaks from it already. None as good as the one I'm saving.";
+                case FolkId.Corwin when CampMemory.Has(b, FolkId.Corwin, true): return "*He glances at the lamp by the gate.* It burns all night now. The horse looks at it. I think he remembers.";
+                case FolkId.Aldric when CampMemory.Has(b, FolkId.Aldric, false): return "Saint Ossa rests on my dais again. The pilgrims have started coming. Real ones. I hardly know what to charge.";
+                case FolkId.Brann when CampMemory.Has(b, FolkId.Brann, false): return "*He looks up at the standard.* That's my squad flying. Every name is stitched on it. There's room for more. Don't add yours.";
+                case FolkId.Ysolde when CampMemory.Has(b, FolkId.Ysolde, false): return "The shards turn over my stones day and night. They sing in chords now. You gave the stones their voice back.";
+            }
+            if ((b & 1u) != 0 && who == FolkId.Brann) return "That shield over the gate was the Gravewarden's. I salute it every morning. Not the warden. The ones who took it down.";
+            if ((b & 2u) != 0 && who == FolkId.Aldric) return "The Lich's crown sits by my shrine and drips. Always drips. I've stopped asking where the water comes from.";
+            if ((b & 4u) != 0 && who == FolkId.Hobb) return "The Hollow King's crown is on a pike by the gong. Bad gold. I wouldn't melt it for a horseshoe.";
+            if ((b & 8u) != 0 && who == FolkId.Marta) return "Aye, that's the Cardinal's hat over my bar. Drinks are half price for anyone who can reach it. Nobody can.";
+            if ((b & 16u) != 0 && who == FolkId.Ysolde) return "The Unsung's skull hums by the well. A low note. The stones answer it a fifth above. I find it restful. Nobody else does.";
+            return null;
+        }
+
         /// <summary>Who they are, a line at a time; more opens up with favour (1, 3, 5).</summary>
         public static string[] About(FolkId who, int favour)
         {
@@ -62,9 +85,12 @@ namespace Deepbound.UI
                     return new[] { "..." };
             }
             int open = favour >= 5 ? 3 : favour >= 3 ? 2 : favour >= 1 ? 1 : 0;
-            var all = new string[b.Length + open];
-            b.CopyTo(all, 0);
-            for (int i = 0; i < open; i++) all[b.Length + i] = f[i];
+            var mem = Remembered(who);
+            var all = new string[b.Length + open + (mem != null ? 1 : 0)];
+            int k = 0;
+            if (mem != null) all[k++] = mem;
+            b.CopyTo(all, k);
+            for (int i = 0; i < open; i++) all[k + b.Length + i] = f[i];
             return all;
         }
 

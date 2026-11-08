@@ -44,10 +44,22 @@ namespace Deepbound.World
     /// then high dice. The best hand takes the pot (a tie splits it).</item>
     /// </list>
     /// Walk off (or F) to leave; leaving mid-hand folds. Turns time out (hold: stand; betting: check, or fold to a bet).
+    /// <para>OLD WICK (2026-11-08, the user's list: "NPC delvers / a poker bot"): a delver back from the deep pulls up a
+    /// stool when exactly one player sits alone (<see cref="Wick"/> in a seat). He plays honestly and simply - holds his
+    /// pairs, bets strong hands, calls fair ones, bluffs now and then - with a purse of real house gold,
+    /// <see cref="WickPurse"/> a camp visit: he leaves when it is gone ("cleaned out") or when a second player sits down,
+    /// since the table is meant for players. What he wins leaves the economy.</para>
     /// </summary>
     public class PokerDiceTable : Interactable
     {
         public const ulong NoOne = ulong.MaxValue;
+        /// <summary>Old Wick's seat id (never a real client id).</summary>
+        public const ulong Wick = ulong.MaxValue - 1;
+        public const string WickName = "Old Wick";
+        public const int WickPurse = 150;
+        /// <summary>Tests: let Wick sit even in test mode.</summary>
+        public static bool DebugWick;
+        public readonly NetworkVariable<int> WickGold = new NetworkVariable<int>(WickPurse);
         public const int Seats = 4, DiceCount = 5;
         public enum Phase : byte { Idle, Rolling, Betting, Showdown }
         public static readonly int[] Antes = { 10, 25, 50, 100 };
@@ -142,18 +154,18 @@ namespace Deepbound.World
             var s = State.Value;
             if (s.Phase != (byte)Phase.Idle && s.Phase != (byte)Phase.Showdown) return false;
             ante = Array.IndexOf(Antes, ante) >= 0 ? ante : Antes[1];
-            var players = new List<(int seat, PlayerProgress p)>();
+            var players = new List<(int seat, ulong id)>();
             for (int k = 0; k < Seats; k++)
             {
-                var p = ProgressOf(s.SeatOf(k));
-                if (p != null && p.Gold.Value >= ante) players.Add((k, p));
+                ulong id = s.SeatOf(k);
+                if (id != NoOne && CanPay(id, ante)) players.Add((k, id));
             }
             if (players.Count < 2) { TableFeedRpc("Skull Poker needs two players who can pay the " + ante + " gold ante.", true); return false; }
             s.Ante = ante; s.Pot = 0; s.InMask = 0; s.DoneMask = 0; s.FoldMask = 0; s.MatchMask = 0; s.WinMask = 0; s.Held = 0;
             s.Bettor = 255; s.Turn = 255; s.Dealer = (byte)dealer; s.Round++;
-            foreach (var (seat, p) in players)
+            foreach (var (seat, id) in players)
             {
-                if (!p.ServerSpendGold(ante)) continue;
+                if (!Spend(id, ante)) continue;
                 s.Pot += ante;
                 s.InMask |= (byte)(1 << seat);
                 for (int i = 0; i < DiceCount; i++) s.SetDie(seat, i, UnityEngine.Random.Range(1, 7));
@@ -200,8 +212,8 @@ namespace Deepbound.World
             var s = State.Value;
             if (seat < 0 || s.Phase != (byte)Phase.Betting || s.Turn != seat) return;
             byte bit = (byte)(1 << seat);
-            var p = ProgressOf(s.SeatOf(seat));
-            string name = p != null ? p.name : "Someone";
+            ulong actor = s.SeatOf(seat);
+            string name = NameOf(actor);
             switch (act)
             {
                 case Act.Check:
@@ -209,13 +221,13 @@ namespace Deepbound.World
                     TableFeedRpc(name + " checks.", false);
                     break;
                 case Act.Bet:
-                    if (s.Bettor != 255 || p == null || !p.ServerSpendGold(s.Ante)) return;
+                    if (s.Bettor != 255 || !Spend(actor, s.Ante)) return;
                     s.Pot += s.Ante; s.Bettor = (byte)seat; s.MatchMask = bit;
                     TableFeedRpc(name + " BETS " + s.Ante + ". Pot " + s.Pot + ".", false);
                     ChipsRpc((byte)seat);
                     break;
                 case Act.Call:
-                    if (s.Bettor == 255 || p == null || !p.ServerSpendGold(s.Ante)) return;
+                    if (s.Bettor == 255 || !Spend(actor, s.Ante)) return;
                     s.Pot += s.Ante; s.MatchMask |= bit;
                     TableFeedRpc(name + " calls. Pot " + s.Pot + ".", false);
                     ChipsRpc((byte)seat);
@@ -291,8 +303,8 @@ namespace Deepbound.World
                 for (int k = 0; k < Seats; k++)
                 {
                     if ((win & (1 << k)) == 0) continue;
-                    var p = ProgressOf(s.SeatOf(k));
-                    if (p != null) { p.ServerAddGold(share + extra); names.Add(p.name); }
+                    ulong id = s.SeatOf(k);
+                    if (id != NoOne) { Pay(id, share + extra); names.Add(NameOf(id)); }
                     extra = 0;
                 }
             }
@@ -325,11 +337,13 @@ namespace Deepbound.World
                 for (int k = 0; k < Seats; k++)
                 {
                     ulong id = s.SeatOf(k);
-                    if (id == NoOne) continue;
+                    if (id == NoOne || id == Wick) continue;
                     var p = ProgressOf(id);
                     if (p == null || (!DebugNoDistance && !DungeonDirector.InLobby) || (!DebugNoDistance && Flat(p.transform.position - transform.position) > LeaveDistance)) { ServerLeave(id); s = State.Value; }
                 }
             }
+            TickWick();
+            s = State.Value;
             if (Now < s.Deadline) return;
             switch ((Phase)s.Phase)
             {
@@ -347,6 +361,98 @@ namespace Deepbound.World
                     State.Value = s;
                     break;
             }
+        }
+
+        // ================= Old Wick =================
+
+        private int wickVisit = -1;
+        private float wickSitAt = -1f, wickActAt = -1f;
+        private byte wickPhase = 255, wickTurn = 255;
+        private int wickRound = -1;
+        private static int Visit => DungeonDirector.Instance != null ? DungeonDirector.Instance.NextDepth.Value * 1000 + (int)(DungeonDirector.Instance.RunStartedAt.Value % 997) : 0;
+
+        public static string NameOf(ulong id) => id == Wick ? WickName : ProgressOf(id) is PlayerProgress p ? p.name : "?";
+        private bool CanPay(ulong id, int g) => id == Wick ? WickGold.Value >= g : ProgressOf(id) is PlayerProgress p && p.Gold.Value >= g;
+        private bool Spend(ulong id, int g)
+        {
+            if (id != Wick) return ProgressOf(id) is PlayerProgress p && p.ServerSpendGold(g);
+            if (WickGold.Value < g) return false;
+            WickGold.Value -= g;
+            return true;
+        }
+        private void Pay(ulong id, int g)
+        {
+            if (id == Wick) WickGold.Value += g;
+            else ProgressOf(id)?.ServerAddGold(g);
+        }
+
+        public int WickSeat => SeatOfClient(Wick);
+
+        /// <summary>Server: Wick sits with a lone player, plays his hand, and leaves when outnumbered or broke.</summary>
+        private void TickWick()
+        {
+            if (DungeonDirector.TestMode && !DebugWick) return;
+            if (wickVisit != Visit) { wickVisit = Visit; WickGold.Value = WickPurse; }
+            var s = State.Value;
+            int humans = 0;
+            for (int k = 0; k < Seats; k++) { ulong id = s.SeatOf(k); if (id != NoOne && id != Wick) humans++; }
+            int seat = WickSeat;
+            bool idle = s.Phase == (byte)Phase.Idle || s.Phase == (byte)Phase.Showdown;
+            if (seat < 0)
+            {
+                if (humans != 1 || !idle || WickGold.Value < Antes[0]) { wickSitAt = -1f; return; }
+                if (wickSitAt < 0f) wickSitAt = Time.time + (DebugWick ? 0f : 4f);
+                if (Time.time < wickSitAt) return;
+                for (int k = 0; k < Seats; k++)
+                    if (s.SeatOf(k) == NoOne) { s.SetSeat(k, Wick); State.Value = s; TableFeedRpc(WickName + ", a delver back from the deep, pulls up a stool. \"One hand. Maybe two. I've coin to lose.\"", false); break; }
+                return;
+            }
+            if (idle && (humans != 1 || WickGold.Value < Mathf.Max(Antes[0], s.Ante)))
+            {
+                bool broke = WickGold.Value < Mathf.Max(Antes[0], s.Ante);
+                s.SetSeat(seat, NoOne);
+                State.Value = s;
+                TableFeedRpc(broke ? WickName + " turns out his purse. \"Cleaned out. You'll drink on me, then.\" He leaves the table." : WickName + " gets up. \"Your game now. I'll watch.\"", false);
+                return;
+            }
+            // Give him a moment to think before each move.
+            if (s.Phase != wickPhase || s.Turn != wickTurn || s.Round != wickRound)
+            {
+                wickPhase = s.Phase; wickTurn = s.Turn; wickRound = s.Round;
+                wickActAt = Time.time + (DebugWick ? 0f : UnityEngine.Random.Range(1.2f, 2.6f));
+            }
+            if (Time.time < wickActAt) return;
+            byte bit = (byte)(1 << seat);
+            if (s.Phase == (byte)Phase.Rolling && (s.InMask & bit) != 0 && (s.DoneMask & bit) == 0 && (s.FoldMask & bit) == 0)
+                ServerReroll(seat, WickHold(Hand(s, seat)));
+            else if (s.Phase == (byte)Phase.Betting && s.Turn == seat)
+                ServerAct(seat, WickChoice(Score(Hand(s, seat)) / 1000000, s.Bettor != 255, WickGold.Value >= s.Ante));
+        }
+
+        /// <summary>Wick keeps every die in a pair or better, a straight whole, else his best single die.</summary>
+        public static int WickHold(int[] dice)
+        {
+            var count = new int[7];
+            foreach (var d in dice) count[d]++;
+            if (Score(dice) / 1000000 == 4) return 31;
+            int mask = 0;
+            for (int i = 0; i < dice.Length; i++) if (count[dice[i]] >= 2) mask |= 1 << i;
+            if (mask == 0)
+            {
+                int hi = 0;
+                for (int i = 1; i < dice.Length; i++) if (dice[i] > dice[hi]) hi = i;
+                mask = 1 << hi;
+            }
+            return mask;
+        }
+
+        /// <summary>Wick's bet: two pair or better bets/calls; a pair sometimes bets, calls a bet; nothing checks, folds to a bet, and bluffs now and then.</summary>
+        public static Act WickChoice(int category, bool facingBet, bool canPay)
+        {
+            float r = UnityEngine.Random.value;
+            if (!facingBet)
+                return canPay && (category >= 2 || (category == 1 && r < 0.3f) || (category == 0 && r < 0.1f)) ? Act.Bet : Act.Check;
+            return canPay && (category >= 1 || r < 0.2f) ? Act.Call : Act.Fold;
         }
 
         private static PlayerProgress ProgressOf(ulong client)
@@ -457,6 +563,7 @@ namespace Deepbound.World
             var me = NetworkPlayer.Local;
             if (me == null) return;
             var s = State.Value;
+            DrawWick(s);
             int seat = SeatOfClient(me.OwnerClientId);
             var motor = me.GetComponent<FirstPersonMotor>();
             // Sit / stand to follow the server.
@@ -546,6 +653,27 @@ namespace Deepbound.World
             }
         }
 
+        private Transform wickBody;
+
+        /// <summary>Old Wick plays standing at his place, behind his stool: a delver in dented armour (the knight rig's sit pose
+        /// tipped him over on the stool).</summary>
+        private void DrawWick(PokerState s)
+        {
+            int ws = -1;
+            for (int k = 0; k < Seats; k++) if (s.SeatOf(k) == Wick) ws = k;
+            if (ws < 0) { if (wickBody != null) wickBody.gameObject.SetActive(false); return; }
+            if (wickBody == null)
+            {
+                wickBody = new GameObject("OldWick").transform;
+                wickBody.SetParent(transform, false);
+                CharacterArt.BuildKnight(wickBody, new Color(0.38f, 0.33f, 0.26f));
+            }
+            if (!wickBody.gameObject.activeSelf) wickBody.gameObject.SetActive(true);
+            var dir = transform.TransformDirection(SeatDir(ws));
+            wickBody.position = transform.TransformPoint(SeatDir(ws) * (StoolRadius + 0.35f));
+            wickBody.rotation = Quaternion.LookRotation(-new Vector3(dir.x, 0f, dir.z));
+        }
+
         private Vector3 SeatPoint(int k) => transform.TransformPoint(SeatDir(k) * StoolRadius) + Vector3.up * 0.1f;
         private static Vector3 CupLocal(int k) => SeatDir(k) * (DiceRadius + 0.12f) + Vector3.up * (FeltY + 0.01f);
         private static Vector3 DieRest(int k, int i)
@@ -585,7 +713,7 @@ namespace Deepbound.World
                 ulong id = s.SeatOf(k);
                 if (id == NoOne) continue;
                 var p = ProgressOf(id);
-                string name = p != null ? p.name : "?";
+                string name = NameOf(id);
                 byte bit = (byte)(1 << k);
                 bool inHand = (s.InMask & bit) != 0 && phase != Phase.Idle;
                 string status;
@@ -597,7 +725,7 @@ namespace Deepbound.World
                 else status = (s.WinMask & bit) != 0 ? "WINS  -  " + HandName(Hand(s, k)) : HandName(Hand(s, k));
                 var rowStyle = new GUIStyle(UI.UiSkin.Body) { fontSize = 15, normal = { textColor = k == mySeat ? UI.UiSkin.Gold : new Color(0.9f, 0.88f, 0.84f) } };
                 GUI.Label(new Rect(r.x + 22, y, 200, 22), (s.Dealer == k && phase != Phase.Idle ? "◆ " : "   ") + name + (k == mySeat ? " (you)" : ""), rowStyle);
-                GUI.Label(new Rect(r.x + 230, y, pw - 250, 22), status + (p != null && k != mySeat ? "    " + p.Gold.Value + "g" : ""), rowStyle);
+                GUI.Label(new Rect(r.x + 230, y, pw - 250, 22), status + (p != null && k != mySeat ? "    " + p.Gold.Value + "g" : id == Wick ? "    " + WickGold.Value + "g" : ""), rowStyle);
                 y += 24f;
             }
 

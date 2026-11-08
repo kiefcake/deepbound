@@ -10,7 +10,11 @@ namespace Deepbound.Progression
     /// </summary>
     public static class Records
     {
-        private const string KeyDeep = "db.rec.deep", KeyKills = "db.rec.kills", KeyGold = "db.rec.gold", KeyFast = "db.rec.fast", KeyWins = "db.rec.wins", KeyRun = "db.rec.run", KeyDailyDate = "db.rec.dailydate", KeyDailyFloor = "db.rec.dailyfloor";
+        private const string KeyDeep = "db.rec.deep", KeyKills = "db.rec.kills", KeyGold = "db.rec.gold", KeyFast = "db.rec.fast", KeyWins = "db.rec.wins", KeyRun = "db.rec.run", KeyDailyDate = "db.rec.dailydate", KeyDailyFloor = "db.rec.dailyfloor", KeyFallen = "db.rec.fallen";
+        /// <summary>How many lost parties the slab remembers.</summary>
+        public const int FallenKept = 6;
+        /// <summary>Between memorial lines in the saved string (a newline).</summary>
+        private const char Sep = (char)10;
 
         private static bool Test => Cosmetics.TestMode;
         public static int Deepest => Test ? 0 : PlayerPrefs.GetInt(KeyDeep, 0);
@@ -30,7 +34,21 @@ namespace Deepbound.Progression
         public static int DailyBest(int today) => Test || PlayerPrefs.GetInt(KeyDailyDate, 0) != today ? 0 : PlayerPrefs.GetInt(KeyDailyFloor, 0);
 
         /// <summary>A run has ended (once per run key): the records it beat, as lines for the feed.</summary>
-        public static List<string> SubmitRun(double runKey, int floorReached, int kills, int gold, bool won, int dailyDate = 0)
+        /// <summary>THE FALLEN (2026-11-08, "the names of the dead go on a memorial after a wipe"): the newest first, "names - floor N".</summary>
+        public static string[] Fallen
+        {
+            get
+            {
+                if (Test) return new string[0];
+                string all = PlayerPrefs.GetString(KeyFallen, "");
+                return all.Length == 0 ? new string[0] : all.Split(Sep);
+            }
+        }
+
+        /// <summary>One memorial line: the party's names and where they fell.</summary>
+        public static string FallenLine(string names, int floorReached) => (string.IsNullOrEmpty(names) ? "Nameless delvers" : names) + "  -  fell on floor " + floorReached;
+
+        public static List<string> SubmitRun(double runKey, int floorReached, int kills, int gold, bool won, int dailyDate = 0, string party = null)
         {
             var beaten = new List<string>();
             if (Test) return beaten;
@@ -41,6 +59,13 @@ namespace Deepbound.Progression
             if (kills > BestKills) { PlayerPrefs.SetInt(KeyKills, kills); beaten.Add("most kills in a run: " + kills); }
             if (gold > BestGold) { PlayerPrefs.SetInt(KeyGold, gold); beaten.Add("most gold in a run: " + gold); }
             if (won) { PlayerPrefs.SetInt(KeyWins, Wins + 1); beaten.Add("victories: " + (Wins)); }
+            else
+            {
+                // A wipe: their names go on the slab, newest first.
+                var list = new List<string> { FallenLine(party, floorReached).Replace(Sep, ' ') };
+                foreach (var old in Fallen) if (list.Count < FallenKept) list.Add(old);
+                PlayerPrefs.SetString(KeyFallen, string.Join(Sep.ToString(), list));
+            }
             if (dailyDate != 0 && floorReached > DailyBest(dailyDate))
             {
                 PlayerPrefs.SetInt(KeyDailyDate, dailyDate);

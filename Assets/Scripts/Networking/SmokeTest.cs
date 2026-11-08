@@ -25,6 +25,21 @@ namespace Deepbound.Networking
     /// </summary>
     public class SmokeTest : MonoBehaviour
     {
+        /// <summary>Tests and shots: urns on the Scales whose weights sum to the counterweight (smallest such set), or none.</summary>
+        private static System.Collections.Generic.List<ScaleWeight> ScaleAnswer(System.Collections.Generic.List<ScaleWeight> urns, int target)
+        {
+            var best = new System.Collections.Generic.List<ScaleWeight>();
+            for (int m = 1; m < (1 << urns.Count); m++)
+            {
+                int sum = 0, n = 0;
+                for (int i = 0; i < urns.Count; i++) if ((m & (1 << i)) != 0) { sum += urns[i].Weight.Value; n++; }
+                if (sum != target || (best.Count > 0 && n >= best.Count)) continue;
+                best = new System.Collections.Generic.List<ScaleWeight>();
+                for (int i = 0; i < urns.Count; i++) if ((m & (1 << i)) != 0) best.Add(urns[i]);
+            }
+            return best;
+        }
+
         // Tests never touch the player's real wardrobe or Renown.
         private void Awake()
         {
@@ -1585,7 +1600,7 @@ namespace Deepbound.Networking
                     }
                     Log("peddler rooms peaceful", peddlers + " peddler rooms over 40 seeds, " + hostile + " with enemies", peddlers > 0 && hostile == 0);
                     {
-                        int tre = 0, beg = 0, pro = 0, arm = 0, mir = 0, ter = 0, zig = 0, oat = 0, dark = 0, specialHostile = 0;
+                        int tre = 0, beg = 0, pro = 0, arm = 0, mir = 0, ter = 0, zig = 0, oat = 0, dark = 0, wat = 0, chi = 0, specialHostile = 0;
                         for (int sd = 1; sd <= 40; sd++)
                         {
                             var gl = DungeonLayout.Generate(sd * 15485863, 1 + sd % 8);
@@ -1601,13 +1616,15 @@ namespace Deepbound.Networking
                                     case RoomFeature.Terrace: ter++; break;
                                     case RoomFeature.Ziggurat: zig++; break;
                                     case RoomFeature.Oath: oat++; break;
+                                    case RoomFeature.Statues: wat++; break;
+                                    case RoomFeature.Chimes: chi++; break;
                                     case RoomFeature.Lightless: dark++; break;
                                 }
                                 if (r.Special && r.Feature != RoomFeature.Treasury && r.EnemySpawns.Count > 0) specialHostile++;
                             }
                         }
-                        Log("special rooms", "over 40 seeds: treasury " + tre + ", beggar " + beg + ", proving " + pro + ", armoury " + arm + ", mirror " + mir + ", terrace " + ter + ", ziggurat " + zig + ", oath " + oat + ", lightless " + dark + "; special rooms with enemies " + specialHostile,
-                            tre > 0 && beg > 0 && pro > 0 && arm > 0 && mir > 0 && ter > 0 && zig > 0 && oat > 0 && dark > 0 && specialHostile == 0);
+                        Log("special rooms", "over 40 seeds: treasury " + tre + ", beggar " + beg + ", proving " + pro + ", armoury " + arm + ", mirror " + mir + ", terrace " + ter + ", ziggurat " + zig + ", oath " + oat + ", lightless " + dark + ", watchers " + wat + ", chimes " + chi + "; special rooms with enemies " + specialHostile,
+                            tre > 0 && beg > 0 && pro > 0 && arm > 0 && mir > 0 && ter > 0 && zig > 0 && oat > 0 && dark > 0 && wat > 0 && chi > 0 && specialHostile == 0);
                     }
                     {
                         // The special rooms' furniture does what it says.
@@ -2945,8 +2962,13 @@ namespace Deepbound.Networking
                         bool refusedMidRun = !dirH.RunInProgress || progress.CannotBringHeirloom(1) != null;
                         dirH.NextDepth.Value = 0;
                         bool campH = DungeonDirector.InLobby && !dirH.RunInProgress && refusedMidRun;
+                        // At camp before a run the tray is empty; by now the test player carries the floors' relics, and a full
+                        // tray feeds a newcomer into the weakest instead of carrying it (the old flake). Empty it, put it back after.
+                        var trayWas = new System.Collections.Generic.List<(Loot.Relic r, int tier)>();
+                        for (int ri = 0; ri < Loot.Relics.Count; ri++) if (progress.HasRelic((Loot.Relic)ri)) trayWas.Add(((Loot.Relic)ri, progress.RelicTier((Loot.Relic)ri)));
+                        foreach (var (r, _) in trayWas) progress.ServerDebugRemoveRelic(r);
                         Loot.Relic heir = Loot.Relic.VampiricFang;
-                        for (int ri = 0; ri < Loot.Relics.Count; ri++) if (!progress.HasRelic((Loot.Relic)ri) && Loot.Relics.Scales((Loot.Relic)ri)) { heir = (Loot.Relic)ri; break; }
+                        for (int ri = 0; ri < Loot.Relics.Count; ri++) if (!progress.HasRelic((Loot.Relic)ri) && Loot.Relics.Scales((Loot.Relic)ri) && !trayWas.Exists(t => t.r == (Loot.Relic)ri)) { heir = (Loot.Relic)ri; break; }
                         bool badRefused = !progress.ServerBringHeirloom(0) && !progress.ServerBringHeirloom(250);
                         bool brought = progress.ServerBringHeirloom((int)heir + 1);
                         bool carried = progress.HasRelic(heir) && progress.RelicTier(heir) == 0 && progress.HeirloomPending == (int)heir;
@@ -2957,9 +2979,11 @@ namespace Deepbound.Networking
                         bool regranted = progress.HasRelic(heir) && progress.HeirloomPending == -1;
                         progress.ServerDebugRemoveRelic(heir);
                         progress.ServerDebugClearHeirloom();
+                        bool heirGone = !progress.HasRelic(heir);
+                        foreach (var (r, tier) in trayWas) for (int t = 0; t <= tier; t++) progress.ServerAddRelic(r);
                         dirH.NextDepth.Value = nextWas;
                         Log("heirloom", "camp (and refused mid-run) " + campH + ", " + heir + " brought " + brought + ", carried tier 0 " + carried + ", second refused " + twice + ", bad ids refused " + badRefused + ", regranted at run start " + regranted,
-                            campH && brought && carried && twice && badRefused && regranted && !progress.HasRelic(heir));
+                            campH && brought && carried && twice && badRefused && regranted && heirGone);
                     }
                     var anvilAgain = FindObjectsByType<Anvil>(FindObjectsSortMode.None).First();
                     motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
@@ -3412,6 +3436,199 @@ namespace Deepbound.Networking
                         tookHobb && sameAsOffered && notTwice && three && full && special && pFavoured < pFull);
                     bool flow = dc.ServerDebugQuestFlow(out var flowWhy);
                     Log("quest progress", flowWhy, flow);
+                    // The camp remembers (2026-11-08): with every trophy and keepsake set, they all stand in camp and the folk speak of them.
+                    {
+                        var keepDir = DungeonDirector.Instance;
+                        uint keep0 = keepDir.CampKeeps.Value;
+                        keepDir.CampKeeps.Value = 0xFFFFFFFFu;
+                        yield return null; yield return null;
+                        string[] want = { "GravewardenShield", "LichCrown", "KingsCrown", "CardinalMitre", "UnsungSkull", "WardenJaw", "FathersHammer", "Strongbox", "DeepcellarCask", "DeepSilk", "CoachLamp", "SaintsBones", "SquadStandard", "RuneShards" };
+                        var missing = want.Where(n => GameObject.Find(n) == null).ToList();
+                        string hobbLine = UI.DialogueLines.Remembered(FolkId.Hobb);
+                        keepDir.CampKeeps.Value = keep0;
+                        yield return null; yield return null;
+                        bool cleared = keep0 != 0 || GameObject.Find("FathersHammer") == null;
+                        Log("camp memory", (want.Length - missing.Count) + "/" + want.Length + " pieces" + (missing.Count > 0 ? " (missing " + string.Join(", ", missing) + ")" : "") + ", Hobb speaks of it " + (hobbLine != null) + ", cleared " + cleared,
+                            missing.Count == 0 && hobbLine != null && cleared);
+                    }
+                    // Camp pastimes (2026-11-08): the well gives up a catch; three bulls on the knife board pay Brann's perfect wager once a visit.
+                    {
+                        var well = FindObjectsByType<WellFishing>(FindObjectsSortMode.None).FirstOrDefault();
+                        var board = FindObjectsByType<KnifeBoard>(FindObjectsSortMode.None).FirstOrDefault();
+                        var me = NetworkPlayer.Local.GetComponent<PlayerProgress>();
+                        string caught = well != null ? well.ServerCatch(me, 1) : null;
+                        int g0 = me.Gold.Value;
+                        int s = 0;
+                        if (board != null) for (int k = 0; k < 3; k++) s += board.ServerThrow(me, new Vector2(0.02f * k, -0.03f));
+                        yield return null;
+                        int paid = me.Gold.Value - g0;
+                        int g1 = me.Gold.Value, again = 0;
+                        if (board != null) for (int k = 0; k < 3; k++) again += board.ServerThrow(me, Vector2.zero);
+                        yield return null;
+                        int paidAgain = me.Gold.Value - g1;
+                        int miss = board != null ? board.ServerThrow(me, new Vector2(1f, 0f)) : -1;
+                        bool spots = well != null && board != null && Vector3.Distance(well.transform.position, Lobby.WellSpot) < 0.5f;
+                        // Camp weather (2026-11-08): rain keeps every one of the folk at home; clear lets them go on their rounds.
+                        {
+                            var dirW = DungeonDirector.Instance;
+                            byte w0 = dirW.Weather.Value;
+                            bool stay0 = World.FolkRounds.StayHome;
+                            World.FolkRounds.StayHome = false;
+                            dirW.Weather.Value = (byte)CampWeather.Kind.Rain;
+                            yield return null;
+                            int awayInRain = 0, awayDry = 0;
+                            for (int sh = 0; sh < 24; sh++)
+                            {
+                                World.FolkRounds.DebugShift = sh * 13.0;
+                                foreach (FolkId f in System.Enum.GetValues(typeof(FolkId))) if (World.FolkRounds.At(f).Away) awayInRain++;
+                            }
+                            dirW.Weather.Value = (byte)CampWeather.Kind.Clear;
+                            yield return null;
+                            for (int sh = 0; sh < 24; sh++)
+                            {
+                                World.FolkRounds.DebugShift = sh * 13.0;
+                                foreach (FolkId f in System.Enum.GetValues(typeof(FolkId))) if (World.FolkRounds.At(f).Away) awayDry++;
+                            }
+                            World.FolkRounds.DebugShift = 0;
+                            World.FolkRounds.StayHome = stay0;
+                            dirW.Weather.Value = w0;
+                            bool hasWeather = FindObjectsByType<CampWeather>(FindObjectsSortMode.None).Length == 1;
+                            Log("camp weather", "folk away in the rain " + awayInRain + ", in the dry " + awayDry + " (24 moments), weather on the camp " + hasWeather + ", tests roll clear " + (w0 == 0),
+                                awayInRain == 0 && awayDry > 0 && hasWeather && w0 == 0);
+                        }
+                        // Old Hollis at the bar and the board of the fallen (2026-11-08): both in the tavern, and the board reads no
+                        // names in a test (the records are never touched).
+                        {
+                            var regs = FindObjectsByType<TavernRegular>(FindObjectsSortMode.None);
+                            var boards = FindObjectsByType<MemorialBoard>(FindObjectsSortMode.None);
+                            bool regIn = regs.Length == 1 && Lobby.InTavern(regs[0].transform.position);
+                            bool boardIn = boards.Length == 1 && Lobby.InTavern(boards[0].transform.position + boards[0].transform.forward * 0.3f);
+                            bool noNames = Progression.Records.Fallen.Length == 0;
+                            Log("tavern regular", "regulars " + regs.Length + " in the tavern " + regIn + ", memorial boards " + boards.Length + " in the tavern " + boardIn + ", no names in tests " + noNames,
+                                regIn && boardIn && noNames);
+                        }
+                        // The bells (2026-11-08): a peal rung true is clean and blesses the ringer once a visit; a ragged one does not.
+                        {
+                            var frame = FindObjectsByType<BellFrame>(FindObjectsSortMode.None).FirstOrDefault();
+                            var ringer = NetworkPlayer.Local.GetComponent<PlayerProgress>();
+                            byte bl0 = ringer.ActiveBlessing.Value;
+                            ringer.ServerClearBlessing();
+                            bool ragged = false, clean = false, once = false;
+                            int g0b = ringer.Gold.Value;
+                            if (frame != null)
+                            {
+                                frame.ServerBegin();
+                                for (int i = 0; i < 8; i++) frame.ServerRing(ringer, frame.NoteAt(i), frame.PealAt.Value + i * BellFrame.Beat);
+                                frame.ServerRing(ringer, (frame.NoteAt(8) + 1) % 4, frame.PealAt.Value + 8 * BellFrame.Beat); // a wrong bell
+                                frame.ServerFinish();
+                                ragged = frame.LastHits == 8 && ringer.ActiveBlessing.Value == 0;
+                                frame.ServerBegin();
+                                for (int i = 0; i < BellFrame.Strikes; i++) frame.ServerRing(ringer, frame.NoteAt(i), frame.PealAt.Value + i * BellFrame.Beat + (i % 2 == 0 ? 0.2 : -0.2));
+                                frame.ServerFinish();
+                                clean = frame.LastHits == BellFrame.Strikes && ringer.ActiveBlessing.Value != 0;
+                                byte got = ringer.ActiveBlessing.Value;
+                                frame.ServerBegin();
+                                for (int i = 0; i < BellFrame.Strikes; i++) frame.ServerRing(ringer, frame.NoteAt(i), frame.PealAt.Value + i * BellFrame.Beat);
+                                frame.ServerFinish();
+                                once = ringer.ActiveBlessing.Value == got && ringer.Gold.Value == g0b;
+                            }
+                            yield return null;
+                            if (bl0 != 0) ringer.ServerBless((Blessing)bl0); else ringer.ServerClearBlessing();
+                            Log("bell peal", "frame " + (frame != null) + ", ragged peal unblessed " + ragged + ", clean peal blessed " + clean + ", only once a visit " + once, frame != null && ragged && clean && once);
+                        }
+                        // Arm-wrestling Brann (2026-11-08): heaves on the mark pin him and pay double, a miss slips, a loss keeps the stake, and he pays three wins a visit.
+                        {
+                            var barrel = FindObjectsByType<ArmWrestle>(FindObjectsSortMode.None).FirstOrDefault();
+                            var arm = NetworkPlayer.Local.GetComponent<PlayerProgress>();
+                            bool stayA = World.FolkRounds.StayHome;
+                            World.FolkRounds.StayHome = true; // Brann at his post
+                            int startGold = arm.Gold.Value;
+                            if (startGold < 200) arm.ServerAddGold(200);
+                            int ga = arm.Gold.Value;
+                            double Win(ArmWrestle w)
+                            {
+                                // Heave at every moment the marker is on the mark, a gap apart, until he is pinned.
+                                double t0 = w.StartAt.Value, last = -10;
+                                for (double tt = 0; tt < 40 && w.InBout; tt += 0.005)
+                                    if (tt - last >= ArmWrestle.HeaveGap + 0.01 && Mathf.Abs(ArmWrestle.MarkerAt(tt)) < 0.04f) { w.ServerHeave(t0 + tt); last = tt; }
+                                return last;
+                            }
+                            bool claspOk = false, slipped = false, wonFirst = false, lossKeeps = false, capOk = false;
+                            if (barrel != null)
+                            {
+                                claspOk = barrel.ServerClasp(arm, 25) && arm.Gold.Value == ga - 25;
+                                float b0 = barrel.Balance.Value;
+                                double tSlip = 0;
+                                for (double tt = 0; tt < 3; tt += 0.005) if (Mathf.Abs(ArmWrestle.MarkerAt(tt)) > 0.95f) { tSlip = tt; break; }
+                                barrel.ServerHeave(barrel.StartAt.Value + tSlip);
+                                slipped = barrel.Balance.Value < b0;
+                                Win(barrel);
+                                wonFirst = barrel.LastOutcome == 1 && arm.Gold.Value == ga + 25;
+                                int gl = arm.Gold.Value;
+                                barrel.ServerClasp(arm, 10);
+                                barrel.ServerEnd(-1);
+                                lossKeeps = barrel.LastOutcome == -1 && arm.Gold.Value == gl - 10;
+                                int gc = arm.Gold.Value;
+                                for (int k = 0; k < 3; k++) { barrel.ServerClasp(arm, 10); Win(barrel); }
+                                // Wins 2 and 3 pay double (+10 each); the 4th is for pride (stake back).
+                                capOk = arm.Gold.Value == gc + 20;
+                            }
+                            yield return null;
+                            arm.ServerAddGold(startGold - arm.Gold.Value);
+                            World.FolkRounds.StayHome = stayA;
+                            Log("arm wrestling", "barrel " + (barrel != null) + ", clasp takes the stake " + claspOk + ", a miss slips " + slipped + ", pinned him for double " + wonFirst + ", a loss keeps the stake " + lossKeeps + ", three paid wins a visit " + capOk,
+                                barrel != null && claspOk && slipped && wonFirst && lossKeeps && capOk);
+                        }
+                        // Old Wick (2026-11-08): sits with a lone player, plays a whole hand on his own, gold is only moved (never made) at the table, leaves when the player does, never sits broke.
+                        {
+                            var table = FindObjectsByType<PokerDiceTable>(FindObjectsSortMode.None).FirstOrDefault(t => Enumerable.Range(0, PokerDiceTable.Seats).All(k => t.State.Value.SeatOf(k) == PokerDiceTable.NoOne));
+                            var wme = NetworkPlayer.Local.GetComponent<PlayerProgress>();
+                            bool dbgWick = PokerDiceTable.DebugWick, dbgDist = PokerDiceTable.DebugNoDistance;
+                            PokerDiceTable.DebugWick = true; PokerDiceTable.DebugNoDistance = true;
+                            bool sat = false, played = false, conserved = false, left = false, brokeStays = false;
+                            string why = "";
+                            if (table != null)
+                            {
+                                if (wme.Gold.Value < 100) wme.ServerAddGold(100);
+                                table.ServerSit(wme);
+                                for (int f = 0; f < 10 && table.WickSeat < 0; f++) yield return null;
+                                sat = table.WickSeat >= 0;
+                                int before = wme.Gold.Value + table.WickGold.Value;
+                                int mine = table.SeatOfClient(wme.OwnerClientId);
+                                if (sat && table.ServerDeal(mine, 10))
+                                {
+                                    table.ServerReroll(mine, 31);
+                                    for (int f = 0; f < 120 && table.State.Value.Phase != (byte)PokerDiceTable.Phase.Showdown; f++)
+                                    {
+                                        var st = table.State.Value;
+                                        if (st.Phase == (byte)PokerDiceTable.Phase.Betting && st.Turn == mine) table.ServerAct(mine, st.Bettor == 255 ? PokerDiceTable.Act.Check : PokerDiceTable.Act.Call);
+                                        yield return null;
+                                    }
+                                    played = table.State.Value.Phase == (byte)PokerDiceTable.Phase.Showdown;
+                                    conserved = wme.Gold.Value + table.WickGold.Value == before;
+                                    if (!conserved) why = " (" + before + " -> " + (wme.Gold.Value + table.WickGold.Value) + ")";
+                                }
+                                table.ServerLeave(wme.OwnerClientId);
+                                for (int f = 0; f < 10 && table.WickSeat >= 0; f++) yield return null;
+                                left = table.WickSeat < 0;
+                                int purse = table.WickGold.Value;
+                                table.WickGold.Value = 5;
+                                table.ServerSit(wme);
+                                for (int f = 0; f < 6; f++) yield return null;
+                                brokeStays = table.WickSeat < 0;
+                                table.ServerLeave(wme.OwnerClientId);
+                                table.WickGold.Value = purse;
+                                // Seated, the player was pinned to the stool: let the table unpin them before anything teleports them.
+                                for (int f = 0; f < 6; f++) yield return null;
+                            }
+                            bool holds = PokerDiceTable.WickHold(new[] { 3, 3, 5, 6, 1 }) == 3 && PokerDiceTable.WickHold(new[] { 2, 3, 4, 5, 6 }) == 31;
+                            PokerDiceTable.DebugWick = dbgWick; PokerDiceTable.DebugNoDistance = dbgDist;
+                            Log("old wick", "table " + (table != null) + ", sat with a lone player " + sat + ", played the hand to showdown " + played + ", gold only moved " + conserved + why + ", left with the player " + left + ", never sits broke " + brokeStays + ", holds pairs and straights " + holds,
+                                table != null && sat && played && conserved && left && brokeStays && holds);
+                        }
+                        Log("camp pastimes", "well fished up " + (caught ?? "nothing") + "; three bulls " + s + " paid " + paid + ", again " + again + " paid " + paidAgain + ", a wide knife scores " + miss + ", board best " + (board != null ? board.Best.Value : -1) + ", stations placed " + spots,
+                            caught != null && s == 30 && paid == KnifeBoard.PerfectGold && again == 30 && paidAgain == 0 && miss == 0 && board.Best.Value == 30 && spots);
+                    }
                     dc.ServerDebugClearQuests();
                 }
 
@@ -3451,6 +3668,186 @@ namespace Deepbound.Networking
                     bool qdOk = false; string qdWhy = "did not finish";
                     yield return dc.ServerDebugQuestDungeon((ok, why) => { qdOk = ok; qdWhy = why; });
                     Log("quests on the floor", qdWhy, qdOk);
+                }
+                // Dungeon interactables (2026-11-08): oil + fire bowl, a scorch lights oil, a falling pillar, a chandelier, a vigil kept and snuffed, a prisoner freed and a bait cage.
+                {
+                    var ix = new System.Text.StringBuilder();
+                    bool ixOk = true;
+                    var origin = local.transform.position;
+                    Vector3 Spot(float x, float z)
+                    {
+                        var p = origin + new Vector3(x, 0f, z);
+                        return UnityEngine.AI.NavMesh.SamplePosition(p, out var hit, 6f, UnityEngine.AI.NavMesh.AllAreas) ? hit.position : p;
+                    }
+                    EnemyBrain Dummy(Vector3 at)
+                    {
+                        var e = dc.ServerDebugSpawn("skeleton", at, false);
+                        if (e != null) { e.ServerStun(30f); e.GetComponent<Health>().ServerSetMax(4000f, refill: true); }
+                        return e;
+                    }
+                    var made = new System.Collections.Generic.List<EnemyBrain>();
+                    // 1. A jar spills; the fire bowl beside it tips and lights the slick.
+                    int slicks0 = OilSlick.All.Count;
+                    var oilAt = Spot(14f, 0f);
+                    var jar = dc.ServerDebugBreakable(Breakable.Kind.OilJar, oilAt);
+                    var bowl = dc.ServerDebugBreakable(Breakable.Kind.FireBowl, oilAt + Vector3.right * 2.2f);
+                    yield return null;
+                    jar.Health.ServerDamage(10f, oilAt + Vector3.up, local.NetworkObjectId);
+                    yield return null;
+                    var slickA = OilSlick.All.Count > slicks0 ? OilSlick.All[OilSlick.All.Count - 1] : null;
+                    bool spilled = slickA != null && !slickA.Burning;
+                    bowl.Health.ServerDamage(50f, bowl.transform.position - Vector3.right, local.NetworkObjectId);
+                    yield return new WaitForSeconds(0.3f);
+                    bool bowlLit = slickA != null && slickA.Burning;
+                    ix.Append("oil spilled " + spilled + ", bowl lit it " + bowlLit);
+                    ixOk &= spilled && bowlLit;
+                    // 2. A scorch on something standing in a slick lights it, and it burns what stands in it.
+                    var burner = Dummy(Spot(-14f, 0f));
+                    yield return new WaitForSeconds(0.2f);
+                    var slickB = dc.ServerSpawnOil(burner != null ? burner.transform.position : Spot(-14f, 0f), false, local.NetworkObjectId);
+                    yield return new WaitForSeconds(0.1f);
+                    float hp0 = burner != null ? burner.GetComponent<Health>().Current.Value : 0f;
+                    if (burner != null) burner.GetComponent<Health>().ServerScorch(2f, local.NetworkObjectId);
+                    yield return new WaitForSeconds(1.3f);
+                    bool scorchLit = slickB.Burning && burner != null && burner.GetComponent<Health>().Current.Value < hp0;
+                    ix.Append(", scorch lit and burned " + scorchLit);
+                    ixOk &= scorchLit;
+                    if (burner != null) made.Add(burner);
+                    // 3. A pillar falls away from the blow, onto the skeleton behind it.
+                    var pillarAt = Spot(0f, 14f);
+                    var pillar = dc.ServerDebugBreakable(Breakable.Kind.CrackedPillar, pillarAt);
+                    var fallDir = pillarAt - origin; fallDir.y = 0f; fallDir.Normalize();
+                    var crushed = Dummy(pillarAt + fallDir * 2.6f);
+                    yield return new WaitForSeconds(0.2f);
+                    float cp0 = crushed != null ? crushed.GetComponent<Health>().Current.Value : 0f;
+                    pillar.Health.ServerDamage(1e4f, origin + Vector3.up, local.NetworkObjectId);
+                    yield return new WaitForSeconds(Breakable.PillarWarn + 0.4f);
+                    bool pillarHit = crushed != null && crushed.GetComponent<Health>().Current.Value < cp0 - 100f;
+                    ix.Append(", pillar crushed " + pillarHit);
+                    ixOk &= pillarHit;
+                    if (crushed != null) made.Add(crushed);
+                    // 4. The chandelier lands on the skeleton under it.
+                    var under = Dummy(Spot(0f, -14f));
+                    yield return new WaitForSeconds(0.2f);
+                    var hang = under != null ? under.transform.position : Spot(0f, -14f);
+                    var chand = dc.ServerDebugChandelier(hang + Vector3.right * 4f, hang);
+                    yield return new WaitForSeconds(0.2f);
+                    float ch0 = under != null ? under.GetComponent<Health>().Current.Value : 0f;
+                    chand.ServerDebugDrop(local.NetworkObjectId);
+                    yield return new WaitForSeconds(Chandelier.FallSeconds + 0.4f);
+                    float ch1 = under != null ? under.GetComponent<Health>().Current.Value : 0f;
+                    bool chandHit = under != null && ch1 < ch0 - 100f;
+                    ix.Append(", chandelier crushed " + chandHit + (chandHit ? "" : " (" + ch0.ToString("F0") + " -> " + ch1.ToString("F0") + ", " + (under != null ? Vector3.Distance(under.transform.position, hang).ToString("F1") + " m off" : "no dummy") + ")"));
+                    ixOk &= chandHit;
+                    if (under != null) made.Add(under);
+                    // 5. A vigil kept heals and blesses; a lit candle by one of the dead is snuffed.
+                    var prog = local.GetComponent<PlayerProgress>();
+                    byte blessing0 = prog.ActiveBlessing.Value;
+                    prog.ServerClearBlessing();
+                    var vigil = dc.ServerDebugVigil(origin + Vector3.up * 0.05f);
+                    yield return null;
+                    foreach (var c in vigil) c.ServerLight(prog);
+                    yield return null;
+                    bool kept = vigil.Count == 4 && vigil.TrueForAll(c => c.Kept.Value) && prog.ActiveBlessing.Value != 0;
+                    // The dead one first, then the candles round it (a spawn can be nudged off where it was asked for).
+                    var snuffer = Dummy(oilAt + Vector3.forward * 8f);
+                    yield return null;
+                    var nearSnuffer = (snuffer != null ? snuffer.transform.position : oilAt + Vector3.forward * 8f) + Vector3.right * 0.6f;
+                    var snuffSet = dc.ServerDebugVigil(nearSnuffer - Vector3.forward * 3f); // candle 0 stands 3 m forward of the centre
+                    yield return null;
+                    snuffSet[0].ServerLight(prog);
+                    yield return new WaitForSeconds(0.6f);
+                    bool snuffed = !snuffSet[0].Lit.Value;
+                    ix.Append(", vigil kept " + kept + ", snuffed " + snuffed);
+                    ixOk &= kept && snuffed;
+                    if (snuffer != null) made.Add(snuffer);
+                    // 6. A prisoner freed fights the dead near them; a bait cage lets out ghouls.
+                    var cageAt = Spot(-6f, 6f);
+                    var freed = dc.ServerDebugPrisoner(cageAt, Quaternion.identity);
+                    var foe = Dummy(cageAt + Vector3.forward * 2.5f);
+                    yield return null;
+                    float f0 = foe != null ? foe.GetComponent<Health>().Current.Value : 0f;
+                    freed.ServerOpen(true);
+                    yield return new WaitForSeconds(4f);
+                    bool fought = freed.IsFree && foe != null && foe.GetComponent<Health>().Current.Value < f0;
+                    int enemies0 = EnemyBrain.All.Count;
+                    var bait = dc.ServerDebugPrisoner(Spot(6f, 6f), Quaternion.identity);
+                    yield return null;
+                    bait.ServerOpen(false);
+                    yield return new WaitForSeconds(0.3f);
+                    bool baited = EnemyBrain.All.Count > enemies0 && (bait == null || !bait.IsSpawned);
+                    ix.Append(", prisoner fought " + fought + ", bait " + baited);
+                    ixOk &= fought && baited;
+                    if (foe != null) made.Add(foe);
+                    for (int i = enemies0; i < EnemyBrain.All.Count; i++) made.Add(EnemyBrain.All[i]);
+                    // Clean up: the dummies and the ghouls go, the freed delver and the props stay out of the way.
+                    foreach (var e in made) if (e != null && !e.IsDead) e.GetComponent<Health>().ServerDamage(1e6f, e.transform.position);
+                    if (freed != null && freed.IsSpawned) freed.NetworkObject.Despawn();
+                    foreach (var s in OilSlick.All.ToArray()) if (s != null && s.IsSpawned) s.NetworkObject.Despawn();
+                    if (blessing0 != 0) prog.ServerBless((Blessing)blessing0); else prog.ServerClearBlessing();
+                    yield return new WaitForSeconds(0.3f);
+                    Log("dungeon interactables", ix.ToString(), ixOk);
+                }
+                // Puzzle rooms (2026-11-08): the watchers turn to the sigil and the coffer opens; the chimes reset on a wrong plate and open on the tune.
+                {
+                    var o = local.transform.position;
+                    int chests0 = FindObjectsByType<Chest>(FindObjectsSortMode.None).Length;
+                    int solved0 = dc.PuzzlesSolved;
+                    var pw = dc.ServerDebugPuzzle(PuzzleRoom.Kind.Watchers, o + new Vector3(14f, 0f, 14f), o + new Vector3(14f, 0f, 19.5f));
+                    yield return null; yield return null;
+                    var statues = PuzzleStatue.All.Where(s => s != null && s.Group.Value == pw.RoomId.Value).ToList();
+                    bool allAway = statues.Count == 4 && statues.All(s => !s.Watching);
+                    bool unsolvedEarly = true;
+                    for (int k = 0; k < statues.Count; k++)
+                    {
+                        for (int turn = 0; turn < 4 && !statues[k].Watching; turn++) statues[k].ServerTurn(true);
+                        if (k < statues.Count - 1 && pw.Solved.Value) unsolvedEarly = false;
+                    }
+                    yield return new WaitForSeconds(0.3f);
+                    bool wSolved = pw.Solved.Value && statues.All(s => s.Solved.Value);
+                    var pc2 = dc.ServerDebugPuzzle(PuzzleRoom.Kind.Chimes, o + new Vector3(-14f, 0f, 14f), o + new Vector3(-14f, 0f, 19.5f));
+                    yield return null; yield return null;
+                    int len = pc2.Length.Value;
+                    bool noRepeats = true;
+                    for (int k = 1; k < len; k++) if (pc2.NoteAt(k) == pc2.NoteAt(k - 1)) noRepeats = false;
+                    pc2.ServerStep(pc2.NoteAt(0));
+                    pc2.ServerStep((pc2.NoteAt(1) + 1) % 4);
+                    bool reset = pc2.Step.Value == 0 && pc2.Wrongs == 1 && !pc2.Solved.Value;
+                    for (int k = 0; k < len; k++) pc2.ServerStep(pc2.NoteAt(k));
+                    yield return new WaitForSeconds(0.3f);
+                    bool cSolved = pc2.Solved.Value;
+                    // The light-beam room: the mirrors start sending the light astray; set right, it reaches the crystal.
+                    var pm = dc.ServerDebugPuzzle(PuzzleRoom.Kind.Mirrors, o + new Vector3(0f, 0f, -16f), o + new Vector3(0f, 0f, -22.5f));
+                    yield return null; yield return null;
+                    var mirrors = PuzzleMirror.All.Where(m => m != null && m.Group.Value == pm.RoomId.Value).ToList();
+                    bool startsDark = mirrors.Count == 4 && !pm.BeamHits() && !pm.Solved.Value;
+                    foreach (var m in mirrors) if (m.State.Value != m.SolutionState) m.ServerTurn(true);
+                    yield return new WaitForSeconds(0.3f);
+                    bool mSolved = pm.Solved.Value && mirrors.All(m => m.Solved.Value);
+                    // The Scales: five urns; the wrong load leaves it shut, the right one (by the studs) held level opens it.
+                    var ps = dc.ServerDebugPuzzle(PuzzleRoom.Kind.Scales, o + new Vector3(16f, 0f, -16f), o + new Vector3(16f, 0f, -22.5f));
+                    yield return null; yield return null;
+                    var urns = Carryable.All.OfType<ScaleWeight>().Where(u => u != null && u.Group.Value == ps.RoomId.Value).ToList();
+                    var answer = ScaleAnswer(urns, ps.Target.Value);
+                    bool noSingle = urns.All(u => u.Weight.Value != ps.Target.Value);
+                    var off = urns.Where(u => !answer.Contains(u)).ToList();
+                    foreach (var u in off) u.ServerDrop(ps.LoadPan);
+                    yield return new WaitForSeconds(0.3f);
+                    int wrongLoad = ps.Load.Value;
+                    yield return new WaitForSeconds(PuzzleRoom.BalanceHold + 0.3f);
+                    bool shutWhenWrong = !ps.Solved.Value && wrongLoad != ps.Target.Value;
+                    foreach (var u in off) u.ServerDrop(ps.Centre.Value - ps.AxisB * 3f);
+                    foreach (var u in answer) u.ServerDrop(ps.LoadPan + ps.AxisB * 0.6f);
+                    yield return new WaitForSeconds(0.3f);
+                    bool onPan = answer.All(u => Mathf.Abs(u.Rest.Value.y - ps.Centre.Value.y - PuzzleRoom.PanTop(1f, ps.TiltFor(ps.Load.Value))) < 0.3f);
+                    yield return new WaitForSeconds(PuzzleRoom.BalanceHold + 0.4f);
+                    bool sSolved = ps.Solved.Value && ps.Load.Value == ps.Target.Value;
+                    int chests = FindObjectsByType<Chest>(FindObjectsSortMode.None).Length - chests0;
+                    Log("puzzle rooms", "watchers 4 looking away " + allAway + ", not open till the last " + unsolvedEarly + ", opened " + wSolved + "; chimes " + len + " notes, no repeats " + noRepeats + ", wrong plate resets " + reset + ", tune opens " + cSolved + "; mirrors " + mirrors.Count + " start dark " + startsDark + ", light reaches the crystal " + mSolved
+                        + "; scales " + urns.Count + " urns for " + ps.Target.Value + ", no single urn " + noSingle + ", load " + wrongLoad + " stays shut " + shutWhenWrong + ", urns on the pan " + onPan + ", level opens " + sSolved
+                        + "; chests " + chests + ", solved " + (dc.PuzzlesSolved - solved0),
+                        allAway && unsolvedEarly && wSolved && len >= 4 && noRepeats && reset && cSolved && startsDark && mSolved
+                        && urns.Count == PuzzleRoom.ScaleWeights && answer.Count >= 2 && noSingle && shutWhenWrong && onPan && sSolved && chests >= 4 && dc.PuzzlesSolved - solved0 == 4);
                 }
                 Log("next floor", "depth " + dc.Floor.Value.y + ", weapon kept +" + pc.WeaponLevel.Value, dc.Floor.Value.y == 1 && pc.WeaponLevel.Value >= 2);
                 // The Drowned Vaults (act two, floor 3): their tide slows low ground while it is up.
@@ -3807,6 +4204,216 @@ namespace Deepbound.Networking
         /// </summary>
         public void TalkShots(string dir, NetworkLauncher launcher) => StartCoroutine(TalkShotSequence(dir, launcher));
 
+        public void IxShots(string dir, NetworkLauncher launcher) => StartCoroutine(IxShotSequence(dir, launcher));
+
+        /// <summary>
+        /// -ixshots (2026-11-08): the dungeon interactables staged on floor 2 in front of the camera - oil jars and a fire
+        /// bowl, spilled and burning; a cracked pillar standing, warning and fallen; a chandelier hanging and down; a vigil
+        /// half lit and kept; a prisoner caged and freed. Windowed; quits when done.
+        /// </summary>
+        private IEnumerator IxShotSequence(string dir, NetworkLauncher launcher)
+        {
+            Progression.Cosmetics.TestMode = true;
+            DungeonDirector.TestMode = true;
+            UI.Journal.TestMode = true;
+            Progression.Deeds.TestMode = true;
+            System.IO.Directory.CreateDirectory(dir);
+            yield return new WaitForSeconds(2f);
+            launcher.StartHost();
+            yield return new WaitForSeconds(3f);
+            var local = NetworkPlayer.Local;
+            if (local == null) { Application.Quit(1); yield break; }
+            local.GetComponent<UI.CharacterSelect>().Close();
+            var dc = DungeonDirector.Instance;
+            dc.ServerDebugStartFloor(1);
+            yield return new WaitForSeconds(5f);
+            var motor = local.GetComponent<FirstPersonMotor>();
+            motor.enabled = false;
+            var hp = local.GetComponent<Health>();
+            hp.IncomingModifiers.Add((d, f) => 0f);
+            var layout = DungeonDirector.Layout;
+            var room = layout.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Combat && r.Feature == RoomFeature.None)
+                ?? layout.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Combat && (r.Feature == RoomFeature.GreatHall || r.Feature == RoomFeature.Crypt || r.Feature == RoomFeature.Library || r.Feature == RoomFeature.Lightless || r.Feature == RoomFeature.Ritual))
+                ?? layout.Rooms.First(r => r.Kind == RoomKind.Combat);
+            var c = room.Center;
+            Vector3 On(float x, float z) => UnityEngine.AI.NavMesh.SamplePosition(c + new Vector3(x, 0f, z), out var h, 3f, UnityEngine.AI.NavMesh.AllAreas) ? h.position : c + new Vector3(x, 0f, z);
+            void ClearFoes() { foreach (var e in EnemyBrain.All.ToArray()) if (e != null && !e.IsDead && !(e is BossBrain)) e.GetComponent<Health>().ServerDamage(1e6f, e.transform.position); }
+            void Stand(Vector3 at, Vector3 look, float pitch)
+            {
+                var f = look - at; f.y = 0f;
+                motor.Teleport(at + Vector3.up * 0.1f, Quaternion.LookRotation(f.sqrMagnitude > 0.01f ? f : Vector3.forward));
+                motor.SetPitch(pitch);
+            }
+            ClearFoes();
+            var eye = On(0f, -6f);
+            Stand(eye, c, 14f);
+            yield return new WaitForSeconds(1f);
+            // Oil.
+            var j1 = dc.ServerDebugBreakable(Breakable.Kind.OilJar, On(-1.6f, 1f));
+            var j2 = dc.ServerDebugBreakable(Breakable.Kind.OilJar, On(0.6f, 1.6f));
+            var bowl = dc.ServerDebugBreakable(Breakable.Kind.FireBowl, On(2.8f, 1f));
+            yield return new WaitForSeconds(0.6f);
+            yield return Shot(dir, "ix_1_oil_props");
+            j1.Health.ServerDamage(10f, eye, local.NetworkObjectId);
+            j2.Health.ServerDamage(10f, eye, local.NetworkObjectId);
+            yield return new WaitForSeconds(0.8f);
+            yield return Shot(dir, "ix_2_oil_spilled");
+            var foe = dc.ServerDebugSpawn("skeleton", On(-1f, 1.4f), false);
+            if (foe != null) foe.ServerStun(20f);
+            bowl.Health.ServerDamage(50f, On(4f, 0f), local.NetworkObjectId);
+            yield return new WaitForSeconds(1.2f);
+            yield return Shot(dir, "ix_3_oil_burning");
+            yield return new WaitForSeconds(2.5f);
+            yield return Shot(dir, "ix_3b_oil_burning_later");
+            ClearFoes();
+            foreach (var s in OilSlick.All.ToArray()) if (s != null && s.IsSpawned) s.NetworkObject.Despawn();
+            yield return new WaitForSeconds(0.5f);
+            // A cracked pillar.
+            var pAt = On(0f, 3f);
+            var pillar = dc.ServerDebugBreakable(Breakable.Kind.CrackedPillar, pAt);
+            var p2 = dc.ServerDebugSpawn("skeleton", pAt + (pAt - eye).normalized * 2.6f, false);
+            if (p2 != null) p2.ServerStun(20f);
+            Stand(On(-4f, -3f), pAt + Vector3.up * 2f, 4f);
+            yield return new WaitForSeconds(0.8f);
+            yield return Shot(dir, "ix_4_pillar");
+            pillar.Health.ServerDamage(1e4f, eye + Vector3.up, local.NetworkObjectId);
+            yield return new WaitForSeconds(0.3f);
+            yield return Shot(dir, "ix_5_pillar_warning");
+            yield return new WaitForSeconds(1.2f);
+            yield return Shot(dir, "ix_6_pillar_fallen");
+            ClearFoes();
+            // A chandelier.
+            var hang = On(3f, -2f);
+            var wall = c + new Vector3(room.Size.x / 2f - 1f, 0f, -2f);
+            var ch = dc.ServerDebugChandelier(wall, hang);
+            var under = dc.ServerDebugSpawn("skeleton", hang, false);
+            if (under != null) under.ServerStun(20f);
+            Stand(On(-3f, -7f), hang + Vector3.up * 3f, -12f);
+            yield return new WaitForSeconds(1f);
+            yield return Shot(dir, "ix_7_chandelier");
+            Stand(On(2f, -7f), wall, 0f);
+            yield return new WaitForSeconds(0.4f);
+            yield return Shot(dir, "ix_7b_chandelier_cleat");
+            Stand(On(-3f, -7f), hang, 12f);
+            ch.ServerDebugDrop(local.NetworkObjectId);
+            yield return new WaitForSeconds(0.35f);
+            yield return Shot(dir, "ix_8a_chandelier_falling");
+            yield return new WaitForSeconds(1f);
+            yield return Shot(dir, "ix_8_chandelier_fallen");
+            ClearFoes();
+            // A vigil.
+            var vc = On(-4f, 4f);
+            var vigil = dc.ServerDebugVigil(vc);
+            Stand(vc + new Vector3(0f, 0f, -6.5f), vc, 12f);
+            yield return new WaitForSeconds(0.5f);
+            var prog = local.GetComponent<PlayerProgress>();
+            for (int i = 0; i < 3; i++) vigil[i].ServerLight(prog);
+            yield return new WaitForSeconds(0.6f);
+            yield return Shot(dir, "ix_9_vigil_three_lit");
+            vigil[3].ServerLight(prog);
+            yield return new WaitForSeconds(0.8f);
+            yield return Shot(dir, "ix_10_vigil_kept");
+            // A prisoner.
+            var cageAt = On(3f, 5f);
+            var standAt = On(3f, 0.5f);
+            var cage = dc.ServerDebugPrisoner(cageAt, Quaternion.LookRotation(standAt - cageAt));
+            Stand(standAt, cageAt + Vector3.up * 1f, 8f);
+            yield return new WaitForSeconds(1.2f);
+            yield return Shot(dir, "ix_11_prisoner_caged");
+            cage.ServerOpen(true);
+            var near = dc.ServerDebugSpawn("skeleton", On(0f, 2.5f), false);
+            if (near != null) { near.ServerStun(20f); near.GetComponent<Health>().ServerSetMax(3000f, refill: true); }
+            yield return new WaitForSeconds(2.5f);
+            Stand(On(5.5f, -1.5f), cage.transform.position + Vector3.up, 6f);
+            yield return new WaitForSeconds(0.3f);
+            yield return Shot(dir, "ix_12_prisoner_freed");
+            // Puzzle rooms, in another room (debug puzzles: the same pieces a Watchers' or Chime room gets).
+            // A quiet side room (no spawns, never the ambush room), as the real puzzle rooms are.
+            var room2 = layout.Rooms.FirstOrDefault(r => r != room && r.Kind == RoomKind.Side && r.Feature == RoomFeature.None && r.Holes.Count == 0)
+                ?? layout.Rooms.FirstOrDefault(r => r != room && r.Kind == RoomKind.Side && r.Feature == RoomFeature.None)
+                ?? layout.Rooms.FirstOrDefault(r => r != room && r.Kind == RoomKind.Side)
+                ?? layout.Rooms.FirstOrDefault(r => r != room && r.Kind == RoomKind.Combat);
+            Debug.Log("[IxShots] puzzle room " + (room2 != null ? room2.Kind + " " + room2.Feature + " " + room2.Size : "none"));
+            if (room2 != null)
+            {
+                var c2 = room2.Center;
+                Vector3 On2(float x, float z) => UnityEngine.AI.NavMesh.SamplePosition(c2 + new Vector3(x, 0f, z), out var h, 3f, UnityEngine.AI.NavMesh.AllAreas) ? h.position : c2 + new Vector3(x, 0f, z);
+                foreach (var e in EnemyBrain.All.ToArray()) if (e != null && !e.IsDead && !(e is BossBrain) && Vector3.Distance(e.transform.position, c2) < 16f) e.GetComponent<Health>().ServerDamage(1e6f, e.transform.position);
+                var pw = dc.ServerDebugPuzzle(PuzzleRoom.Kind.Watchers, c2, c2 + new Vector3(0f, 0f, 5.5f));
+                Stand(On2(0f, -6.5f), c2 + Vector3.up * 0.5f, 18f);
+                yield return new WaitForSeconds(1.2f);
+                yield return Shot(dir, "ix_13_watchers");
+                var sts = PuzzleStatue.All.Where(s => s != null && s.Group.Value == pw.RoomId.Value).ToList();
+                for (int k = 0; k < sts.Count - 1; k++) for (int t = 0; t < 4 && !sts[k].Watching; t++) sts[k].ServerTurn(true);
+                yield return new WaitForSeconds(0.9f);
+                yield return Shot(dir, "ix_14_watchers_three");
+                if (sts.Count > 0) { var last = sts[sts.Count - 1]; Stand(On2(-2.5f, -1.5f), last.transform.position + Vector3.up * 1.6f, -6f); }
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, "ix_14b_watcher_close");
+                if (sts.Count > 0) for (int t = 0; t < 4 && !sts[sts.Count - 1].Watching; t++) sts[sts.Count - 1].ServerTurn(true);
+                Stand(On2(0f, -1.5f), c2 + new Vector3(0f, 0.6f, 5.5f), 10f);
+                yield return new WaitForSeconds(1.2f);
+                yield return Shot(dir, "ix_15_watchers_open");
+                foreach (var s in sts) if (s != null && s.IsSpawned) s.NetworkObject.Despawn();
+                foreach (var cst in FindObjectsByType<Chest>(FindObjectsSortMode.None)) if (cst != null && cst.IsSpawned && Vector3.Distance(cst.transform.position, c2) < 9f) cst.NetworkObject.Despawn();
+                if (pw.IsSpawned) pw.NetworkObject.Despawn();
+                var pcm = dc.ServerDebugPuzzle(PuzzleRoom.Kind.Chimes, c2, c2 + new Vector3(0f, 0f, 5.5f));
+                Stand(On2(0f, -6.5f), c2 + Vector3.up * 0.5f, 22f);
+                yield return new WaitForSeconds(0.6f);
+                yield return Shot(dir, "ix_16_chimes");
+                pcm.ServerReplay(0.0);
+                yield return new WaitForSeconds(PuzzleRoom.Lead + 0.12f);
+                yield return Shot(dir, "ix_17_chimes_first_note");
+                for (int k = 0; k < pcm.Length.Value; k++) pcm.ServerStep(pcm.NoteAt(k));
+                Stand(On2(0f, -1f), c2 + new Vector3(0f, 0.6f, 5.5f), 10f);
+                yield return new WaitForSeconds(1.2f);
+                yield return Shot(dir, "ix_18_chimes_open");
+                // The light-beam room.
+                foreach (var cst in FindObjectsByType<Chest>(FindObjectsSortMode.None)) if (cst != null && cst.IsSpawned && Vector3.Distance(cst.transform.position, c2) < 9f) cst.NetworkObject.Despawn();
+                if (pcm.IsSpawned) pcm.NetworkObject.Despawn();
+                // The freed prisoner follows the camera about; send them off so the mirrors are in plain view.
+                foreach (var hh in FindObjectsByType<Health>(FindObjectsSortMode.None)) if (hh != null && hh.Team == Team.Allies && hh.NetworkObject != null && hh.NetworkObject.IsSpawned) hh.NetworkObject.Despawn();
+                yield return new WaitForSeconds(0.3f);
+                var pmr = dc.ServerDebugPuzzle(PuzzleRoom.Kind.Mirrors, c2, c2 + new Vector3(0f, 0f, 5.5f));
+                Stand(On2(0f, -6.8f), c2 + Vector3.up * 0.6f, 14f);
+                yield return new WaitForSeconds(1f);
+                yield return Shot(dir, "ix_19_mirrors_dark");
+                var mrs = PuzzleMirror.All.Where(m => m != null && m.Group.Value == pmr.RoomId.Value).ToList();
+                if (mrs.Count > 0 && mrs[0].State.Value != mrs[0].SolutionState) mrs[0].ServerTurn(true);
+                Stand(On2(-4.5f, -4.5f), c2 + Vector3.up * 0.8f, 10f);
+                yield return new WaitForSeconds(0.8f);
+                yield return Shot(dir, "ix_20_mirrors_turning");
+                foreach (var m in mrs) if (m.State.Value != m.SolutionState) m.ServerTurn(true);
+                Stand(On2(0f, -6.8f), c2 + Vector3.up * 0.6f, 14f);
+                yield return new WaitForSeconds(1.2f);
+                yield return Shot(dir, "ix_21_mirrors_lit");
+                // The Scales: the empty pan high, then two urns on it, then level.
+                foreach (var cst in FindObjectsByType<Chest>(FindObjectsSortMode.None)) if (cst != null && cst.IsSpawned && Vector3.Distance(cst.transform.position, c2) < 9f) cst.NetworkObject.Despawn();
+                foreach (var m in mrs) if (m != null && m.IsSpawned) m.NetworkObject.Despawn();
+                if (pmr.IsSpawned) pmr.NetworkObject.Despawn();
+                yield return new WaitForSeconds(0.3f);
+                var psc = dc.ServerDebugPuzzle(PuzzleRoom.Kind.Scales, c2, c2 + new Vector3(0f, 0f, 5.5f));
+                Stand(On2(0f, -6.8f), c2 + Vector3.up * 1.2f, 12f);
+                yield return new WaitForSeconds(1.2f);
+                yield return Shot(dir, "ix_22_scales");
+                var urns = Carryable.All.OfType<ScaleWeight>().Where(u => u != null && u.Group.Value == psc.RoomId.Value).ToList();
+                var pick = ScaleAnswer(urns, psc.Target.Value);
+                if (pick.Count > 0) { var wrong = urns.FirstOrDefault(u => !pick.Contains(u)); if (wrong != null) wrong.ServerDrop(psc.LoadPan); }
+                Stand(On2(3.2f, -3.8f), psc.LoadPan + Vector3.up * 0.9f, 10f);
+                yield return new WaitForSeconds(1.4f);
+                yield return Shot(dir, "ix_23_scales_tipped");
+                foreach (var u in urns) if (!pick.Contains(u)) u.ServerDrop(c2 + new Vector3(-3f, 0f, -3f));
+                foreach (var u in pick) u.ServerDrop(psc.LoadPan);
+                Stand(On2(0f, -6.8f), c2 + Vector3.up * 1.2f, 12f);
+                yield return new WaitForSeconds(2.2f);
+                yield return Shot(dir, "ix_24_scales_level");
+            }
+            Debug.Log("[IxShots] room " + room.Feature + " " + room.Size + ", delver " + (cage != null ? cage.Now.Value + " at " + Vector3.Distance(cage.transform.position, cageAt).ToString("F1") + " m from the cage" : "gone"));
+            Debug.Log("[IxShots] done");
+            yield return new WaitForSeconds(0.5f);
+            Application.Quit(0);
+        }
+
         private IEnumerator TalkShotSequence(string dir, NetworkLauncher launcher)
         {
             Progression.Cosmetics.TestMode = true;
@@ -3929,12 +4536,40 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.4f);
                     yield return Shot(dir, tag);
                 }
+                // Sat a while, it curls up asleep.
+                yield return new WaitForSeconds(Player.PetCompanion.SleepAfter);
+                motor.Teleport(seats[0].at, Quaternion.LookRotation(rightOfSeat * 0.8f + seats[0].face * 0.6f));
+                motor.SetPitch(38f);
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, "camp_9b_pet_asleep");
                 var petGo = GameObject.Find("Pet_Kitten");
                 Debug.Log("[TalkShots] pet sit: owner emote " + (local.Rig != null ? local.Rig.EmoteNow.ToString() : "?") + ", pet " + (petGo != null ? (petGo.transform.position - local.transform.position).ToString("F2") : "missing"));
                 motor.SetPitch(0f);
                 motor.Unpin(seats[0].at);
                 local.GetComponent<Emotes>().StandUp();
             }
+            // The camp remembers: every trophy and keepsake up at once.
+            dc.CampKeeps.Value = 0xFFFFFFFFu;
+            yield return new WaitForSeconds(0.5f);
+            foreach (var (name, offset) in new[] { ("GravewardenShield", new Vector3(0f, -6.5f, -9f)), ("CoachLamp", new Vector3(1.5f, -1.2f, -5f)), ("LichCrown", new Vector3(-3f, 0.2f, -1f)),
+                ("KingsCrown", new Vector3(-3.5f, -1.2f, 0f)), ("CardinalMitre", new Vector3(3f, -1f, 0f)), ("UnsungSkull", new Vector3(0f, -0.2f, -3.5f)), ("WardenJaw", new Vector3(3.5f, -0.5f, 0f)),
+                ("FathersHammer", new Vector3(2.4f, -0.4f, 0f)), ("Strongbox", new Vector3(2f, 1.2f, -0.5f)), ("DeepcellarCask", new Vector3(2.2f, 0.2f, 0f)), ("DeepSilk", new Vector3(2.4f, 0.6f, -0.5f)),
+                ("SaintsBones", new Vector3(-2.6f, 1f, 0f)), ("SquadStandard", new Vector3(4f, 0.6f, 1f)), ("RuneShards", new Vector3(0f, -1.5f, -4f)) })
+            {
+                var piece = GameObject.Find(name);
+                if (piece == null) { Debug.Log("[TalkShots] memory piece missing: " + name); continue; }
+                var at = piece.transform.position;
+                var eye = at + offset;
+                eye.y = Mathf.Max(0.1f, UnityEngine.AI.NavMesh.SamplePosition(eye, out var eh, 3f, UnityEngine.AI.NavMesh.AllAreas) ? eh.position.y : 0.1f);
+                eye.y = Lobby.Origin.y + 0.1f;
+                var flat = at - eye; flat.y = 0f;
+                motor.Teleport(eye, Quaternion.LookRotation(flat.sqrMagnitude > 0.01f ? flat : Vector3.forward));
+                float pitch = -Mathf.Atan2(at.y - (eye.y + 1.6f), flat.magnitude) * Mathf.Rad2Deg;
+                motor.SetPitch(Mathf.Clamp(pitch, -60f, 60f));
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, "memory_" + name);
+            }
+            motor.SetPitch(0f);
             // Trade talk (2026-11-08): Hobb looks over the weapon, Corwin names the road.
             foreach (var who in new[] { FolkId.Hobb, FolkId.Corwin, FolkId.Vey })
             {
@@ -4016,10 +4651,177 @@ namespace Deepbound.Networking
                     poker.ServerSit(prog);
                     yield return new WaitForSeconds(1f);
                     yield return Shot(dir, "casino_7_poker_seated");
+                    PokerDiceTable.DebugWick = true;
+                    yield return new WaitForSeconds(1.2f);
+                    poker.ServerDeal(poker.SeatOfClient(local.OwnerClientId), 10);
+                    yield return new WaitForSeconds(1.5f);
+                    yield return Shot(dir, "casino_8_old_wick");
+                    PokerDiceTable.DebugWick = false;
                     poker.ServerLeave(local.OwnerClientId);
                     yield return new WaitForSeconds(0.5f);
                 }
                 _ = tentView;
+            }
+            // Weather: the market square in rain and in mist.
+            foreach (var (wk, tag) in new[] { (CampWeather.Kind.Rain, "weather_1_rain"), (CampWeather.Kind.Mist, "weather_2_mist") })
+            {
+                dc.Weather.Value = (byte)wk;
+                yield return null;
+                CampWeather.DebugSettle();
+                var at = Lobby.WellSpot + new Vector3(-3f, 0.1f, -6f);
+                motor.Teleport(at, Quaternion.LookRotation(Lobby.WellSpot + new Vector3(0f, 0f, 8f) - at));
+                motor.SetPitch(4f);
+                yield return new WaitForSeconds(1.2f);
+                yield return Shot(dir, tag);
+            }
+            {
+                dc.Weather.Value = (byte)CampWeather.Kind.Rain;
+                yield return null;
+                CampWeather.DebugSettle();
+                var inside = Lobby.TavernCenter + new Vector3(1.5f, 0.1f, 0f);
+                motor.Teleport(inside, Quaternion.LookRotation(Vector3.right));
+                yield return new WaitForSeconds(1f);
+                yield return Shot(dir, "weather_3_rain_from_tavern");
+                dc.Weather.Value = (byte)CampWeather.Kind.Clear;
+                yield return null;
+                CampWeather.DebugSettle();
+            }
+            // Old Hollis at the bar and the board of the fallen (made-up names: nothing is read from or written to the save).
+            {
+                MemorialBoard.DebugLines = new[] { "Crimson, Ash  -  fell on floor 4", "Wren  -  fell on floor 2", "Moss, Ivo, Brandt  -  fell on floor 7" };
+                var c = Lobby.TavernCenter;
+                var at = c + new Vector3(0.2f, 0.1f, 1.2f);
+                var hollisAt = c + new Vector3(-1.6f, 1.5f, 1.85f);
+                motor.Teleport(at, Quaternion.LookRotation(Vector3.ProjectOnPlane(hollisAt - at, Vector3.up)));
+                motor.SetPitch(4f);
+                yield return new WaitForSeconds(1.5f);
+                TavernRegular.DebugSay("*Hollis lifts his tankard to the board on the wall.* To Crimson, Ash. They went down on floor 4. Drink for them, delver.");
+                yield return new WaitForSeconds(0.6f);
+                yield return Shot(dir, "tavern_1_hollis");
+                var board = c + new Vector3(-3f, 1.6f, -Lobby.TavernHalfZ);
+                var stand = c + new Vector3(-2.7f, 0.1f, -1.4f);
+                motor.Teleport(stand, Quaternion.LookRotation(Vector3.ProjectOnPlane(board - stand, Vector3.up)));
+                motor.SetPitch(8f);
+                yield return new WaitForSeconds(5f); // the board reads the names every 4 s
+                yield return Shot(dir, "tavern_2_memorial");
+                MemorialBoard.DebugLines = null;
+            }
+            // Brann's barrel: the bout from your side, panel open, half way.
+            {
+                var barrel = FindObjectsByType<ArmWrestle>(FindObjectsSortMode.None).FirstOrDefault();
+                if (barrel != null)
+                {
+                    var stand = barrel.transform.position + barrel.transform.forward * 0.95f + Vector3.up * 0.1f;
+                    motor.Teleport(stand, Quaternion.LookRotation(-barrel.transform.forward));
+                    motor.SetPitch(22f);
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot(dir, "wrestle_1_barrel");
+                    barrel.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.3f);
+                    barrel.ServerClasp(local.GetComponent<PlayerProgress>(), 10);
+                    yield return new WaitForSeconds(1.6f);
+                    barrel.Balance.Value = 0.35f;
+                    yield return new WaitForSeconds(0.1f);
+                    yield return Shot(dir, "wrestle_2_bout");
+                    barrel.ServerEnd(0);
+                    ArmWrestle.CloseLocal();
+                    var side = barrel.transform.position + barrel.transform.right * 2.6f + barrel.transform.forward * 0.6f + Vector3.up * 0.1f;
+                    motor.Teleport(side, Quaternion.LookRotation(barrel.transform.position - side));
+                    motor.SetPitch(10f);
+                    yield return new WaitForSeconds(0.4f);
+                    yield return Shot(dir, "wrestle_3_side");
+                }
+            }
+            // The bell frame: from the plaza, then a peal under way with the panel open.
+            {
+                var frame = FindObjectsByType<BellFrame>(FindObjectsSortMode.None).FirstOrDefault();
+                if (frame != null)
+                {
+                    var view = frame.transform.position + frame.transform.forward * 6f + frame.transform.right * 2f + Vector3.up * 0.1f;
+                    motor.Teleport(view, Quaternion.LookRotation(frame.transform.position - view));
+                    motor.SetPitch(-12f);
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot(dir, "bells_1_frame");
+                    var rope = frame.transform.position + frame.transform.forward * 1.6f + Vector3.up * 0.1f;
+                    motor.Teleport(rope, Quaternion.LookRotation(-frame.transform.forward));
+                    motor.SetPitch(-22f);
+                    frame.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.4f);
+                    frame.ServerBegin();
+                    yield return new WaitForSeconds(BellFrame.Lead + BellFrame.Beat * 2.5f);
+                    frame.ServerRing(local.GetComponent<PlayerProgress>(), frame.NoteAt(3), frame.PealAt.Value + 3 * BellFrame.Beat);
+                    yield return new WaitForSeconds(0.25f);
+                    yield return Shot(dir, "bells_2_peal_panel");
+                    frame.ServerFinish();
+                    BellFrame.CloseLocal();
+                    yield return new WaitForSeconds(0.3f);
+                }
+            }
+            // Camp pastimes: the well line and its bite, the knife board from the chalk line and from the side.
+            {
+                var prog = local.GetComponent<PlayerProgress>();
+                var well = FindObjectsByType<WellFishing>(FindObjectsSortMode.None).FirstOrDefault();
+                if (well != null)
+                {
+                    var stand = well.transform.position + new Vector3(0.4f, 0.1f, -2.4f);
+                    motor.Teleport(stand, Quaternion.LookRotation(well.transform.position - stand));
+                    motor.SetPitch(24f);
+                    well.ServerDebugCast(prog, 1.4f);
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot(dir, "pastime_1_well_line");
+                    yield return new WaitForSeconds(1f);
+                    yield return Shot(dir, "pastime_2_well_bite");
+                    well.ServerCatch(prog, 1);
+                    yield return new WaitForSeconds(0.4f);
+                    yield return Shot(dir, "pastime_3_well_catch");
+                }
+                var knives = FindObjectsByType<KnifeBoard>(FindObjectsSortMode.None).FirstOrDefault();
+                if (knives != null)
+                {
+                    var line = knives.LinePoint;
+                    // Pet tricks down the knife lane: point and it fetches a stick; dance and it spins.
+                    var pet = local.GetComponent<Player.PetCompanion>();
+                    local.PetKind.Value = (byte)Player.PetCompanion.Kind.BoneHound;
+                    motor.Teleport(line + Vector3.up * 0.1f, Quaternion.LookRotation(knives.transform.forward));
+                    motor.SetPitch(18f);
+                    yield return new WaitForSeconds(1.5f);
+                    local.Rig?.PlayEmote(Art.Emote.Point, 1.5f);
+                    yield return new WaitForSeconds(1.1f);
+                    yield return Shot(dir, "pet_1_fetch_out");
+                    yield return new WaitForSeconds(1.6f);
+                    yield return Shot(dir, "pet_2_fetch_back");
+                    motor.SetPitch(40f);
+                    yield return new WaitForSeconds(1.6f);
+                    yield return Shot(dir, "pet_3_stick_dropped");
+                    local.Rig?.PlayEmote(Art.Emote.Dance, 2f);
+                    motor.SetPitch(30f);
+                    yield return new WaitForSeconds(0.45f);
+                    yield return Shot(dir, "pet_4_spin");
+                    Debug.Log("[TalkShots] pet tricks: " + (pet != null ? pet.Doing.ToString() : "no pet component"));
+                    yield return new WaitForSeconds(1.5f);
+                    motor.Teleport(line + Vector3.up * 0.1f, Quaternion.LookRotation(knives.transform.forward));
+                    motor.SetPitch(-2f);
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot(dir, "pastime_4_knife_line");
+                    knives.LocalDebugAim();
+                    yield return new WaitForSeconds(0.7f);
+                    yield return Shot(dir, "pastime_5_knife_aim");
+                    knives.ServerThrow(prog, new Vector2(0.05f, 0.02f));
+                    knives.ServerThrow(prog, new Vector2(-0.3f, 0.25f));
+                    knives.ServerThrow(prog, new Vector2(0.5f, -0.4f));
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot(dir, "pastime_6_knives_thrown");
+                    var side = line + knives.transform.forward * 2.8f + knives.transform.right * 3.2f;
+                    motor.Teleport(side + Vector3.up * 0.1f, Quaternion.LookRotation(line + knives.transform.forward * 3f - side));
+                    motor.SetPitch(4f);
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot(dir, "pastime_7_knife_lane_side");
+                    var back = line - knives.transform.forward * 4f + Vector3.up * 0.1f;
+                    motor.Teleport(back, Quaternion.LookRotation(knives.transform.forward));
+                    motor.SetPitch(12f);
+                    yield return new WaitForSeconds(0.4f);
+                    yield return Shot(dir, "pastime_8_knife_lane_back");
+                }
             }
             Debug.Log("[TalkShots] done");
             yield return new WaitForSeconds(0.5f);

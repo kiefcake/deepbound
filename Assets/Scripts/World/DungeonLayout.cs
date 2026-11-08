@@ -13,7 +13,7 @@ namespace Deepbound.World
     /// chamber (braziers empower the room's dead until smashed). Side rooms can be a
     /// Vault or a Fountain.
     /// </summary>
-    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply }
+    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply, Statues, Chimes, Mirrors, Scales }
 
     /// <summary>Boss arena shapes: a colonnade (cover), a raised dais under the throne, or broken ruins.</summary>
     public enum BossArena : byte { Colonnade = 0, Dais = 1, Ruins = 2 }
@@ -80,7 +80,7 @@ namespace Deepbound.World
             }
 
             /// <summary>A side room with one of the special features (treasury, beggar, proving bell, armoury, mirror).</summary>
-            public bool Special => Feature == RoomFeature.Treasury || Feature == RoomFeature.Beggar || Feature == RoomFeature.Proving || Feature == RoomFeature.Armoury || Feature == RoomFeature.Mirror || Feature == RoomFeature.Oath || Feature == RoomFeature.Panoply;
+            public bool Special => Feature == RoomFeature.Treasury || Feature == RoomFeature.Beggar || Feature == RoomFeature.Proving || Feature == RoomFeature.Armoury || Feature == RoomFeature.Mirror || Feature == RoomFeature.Oath || Feature == RoomFeature.Panoply || Feature == RoomFeature.Statues || Feature == RoomFeature.Chimes || Feature == RoomFeature.Mirrors || Feature == RoomFeature.Scales;
             public Vector2Int Cell;
             public Vector3 Center;
             /// <summary>Interior floor size in metres (x, z).</summary>
@@ -787,7 +787,10 @@ namespace Deepbound.World
                     break;
                 }
             // ...the rest: most become one of the special rooms, no repeats a floor.
-            var specials = new List<RoomFeature> { RoomFeature.Treasury, RoomFeature.Beggar, RoomFeature.Proving, RoomFeature.Armoury, RoomFeature.Mirror, RoomFeature.Oath };
+            var specials = new List<RoomFeature> { RoomFeature.Treasury, RoomFeature.Beggar, RoomFeature.Proving, RoomFeature.Armoury, RoomFeature.Mirror, RoomFeature.Oath, RoomFeature.Statues, RoomFeature.Chimes };
+            // The light-beam room belongs to the deeper, holier acts (the Throne on).
+            if (DungeonDirector.Act(layout.Depth) >= 2) specials.Add(RoomFeature.Mirrors);
+            if (DungeonDirector.Act(layout.Depth) >= 1) specials.Add(RoomFeature.Scales);
             for (int i = specials.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (specials[i], specials[j]) = (specials[j], specials[i]); }
             int nextSpecial = 0;
             foreach (var side in sides)
@@ -815,6 +818,12 @@ namespace Deepbound.World
                     side.FeatureSpots.Add(side.Center - across * halfAcross + back * 0.5f);
                     side.FeatureSpots.Add(side.Center - back * (toBack * 0.55f) + across * 1.6f);
                     side.FeatureSpots.Add(side.Center + back * toBack);
+                }
+                else if (side.Feature == RoomFeature.Statues || side.Feature == RoomFeature.Chimes || side.Feature == RoomFeature.Mirrors || side.Feature == RoomFeature.Scales)
+                {
+                    // The coffer at the back; the puzzle's middle a little toward the door so the back plate's bell clears it.
+                    side.FeatureSpots.Add(side.Center + back * toBack);
+                    side.FeatureSpots.Add(side.Center - back * 1.2f);
                 }
                 else side.FeatureSpots.Add(side.Center + back * toBack);
             }

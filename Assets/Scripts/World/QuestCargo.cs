@@ -52,6 +52,7 @@ namespace Deepbound.World
         protected override bool CanSetDown => DungeonDirector.Instance == null || !DungeonDirector.Instance.BossSealed;
         protected override string HoldOnText => "Hold on to " + ItemName + " - no setting it down in the guardian's arena";
         protected override string CarryText => "Carry " + ItemName + " out: through the guardian, up on the grave lift";
+        public override string CarryingLine => "Carrying " + ItemName + ": out through the guardian's arena and up on the grave lift";
 
         public override string Prompt(PlayerProgress who)
         {

@@ -95,6 +95,18 @@ MonoBehaviour:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
       MaxSecondsBetweenUpdates: 0
+  oilSlickPrefab: {fileID: 2745135330012934162, guid: dcf7feb396162da4bb42489f37b3b6e7, type: 3}
+  chandelierPrefab: {fileID: 931506198319307082, guid: be6cd7aa317dcfa46836047f5d6e13fb, type: 3}
+  vigilCandlePrefab: {fileID: 3769822899982802960, guid: 15e0ac9b1bbd2a74eac0bd6a96dc07d8, type: 3}
+  prisonerPrefab: {fileID: 1988850448541398791, guid: 3f5a6deefa962104d9ca92ad3541b2d8, type: 3}
+  puzzleMirrorPrefab: {fileID: 2631131412916418695, guid: ef875bc161d01d5428564124bd6a4809, type: 3}
+  scaleWeightPrefab: {fileID: 6725833587995569330, guid: a66b8228c073df2449cb9acc08b4c5d1, type: 3}
+  puzzleRoomPrefab: {fileID: 1696898002554740714, guid: 9b85e5dca10e3f14d906ce030caddd3c, type: 3}
+  puzzleStatuePrefab: {fileID: 7698058689260352346, guid: 6f5c1c772bcdeab4d9ff54bfab26fe9a, type: 3}
+  wellFishingPrefab: {fileID: 8527638876030340047, guid: 979133311cf7ff14d9de64272669836e, type: 3}
+  knifeBoardPrefab: {fileID: 8583463325974824564, guid: 1ad142e0ce02591439bdb4ac6ffa216a, type: 3}
+  bellFramePrefab: {fileID: 3175398819336863962, guid: 49e3cd0e113bfc440beb9c32deb12a7e, type: 3}
+  armWrestlePrefab: {fileID: 4254628673237401154, guid: e36255dee42a0b641856b164fd218686, type: 3}
   questCargoPrefab: {fileID: 1004015803005182924, guid: 5dc1bff7c2dd43740a5fb8ae02d50ac5, type: 3}
   questTrinketPrefab: {fileID: 2205022400048718115, guid: 67d3f9f3a53d22441b1aedf01c727d1d, type: 3}
   tallymanPrefab: {fileID: 219130841370759467, guid: 38df321217aacd44fa6b98aeb2245b02, type: 3}

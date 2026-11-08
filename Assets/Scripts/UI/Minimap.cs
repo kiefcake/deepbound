@@ -203,6 +203,10 @@ namespace Deepbound.UI
                     : room.Feature == RoomFeature.Treasury ? Color.Lerp(floor, new Color(0.55f, 0.45f, 0.15f), 0.45f)
                     : room.Feature == RoomFeature.Mirror ? Color.Lerp(floor, new Color(0.35f, 0.15f, 0.45f), 0.45f)
                     : room.Feature == RoomFeature.Oath ? Color.Lerp(floor, new Color(0.2f, 0.3f, 0.5f), 0.45f)
+                    : room.Feature == RoomFeature.Statues ? Color.Lerp(floor, new Color(0.5f, 0.42f, 0.2f), 0.45f)
+                    : room.Feature == RoomFeature.Chimes ? Color.Lerp(floor, new Color(0.2f, 0.4f, 0.5f), 0.45f)
+                    : room.Feature == RoomFeature.Mirrors ? Color.Lerp(floor, new Color(0.5f, 0.45f, 0.25f), 0.45f)
+                    : room.Feature == RoomFeature.Scales ? Color.Lerp(floor, new Color(0.55f, 0.38f, 0.2f), 0.45f)
                     : room.Feature == RoomFeature.Lightless ? Color.Lerp(floor, Color.black, 0.6f)
                     : room.Feature == RoomFeature.Proving ? Color.Lerp(floor, new Color(0.5f, 0.25f, 0.1f), 0.45f)
                     : room.Feature == RoomFeature.Beggar || room.Feature == RoomFeature.Armoury ? Color.Lerp(floor, new Color(0.35f, 0.3f, 0.2f), 0.4f)
@@ -219,7 +223,8 @@ namespace Deepbound.UI
                 if (room.Special && (large || r.width > 26f))
                 {
                     string label = room.Feature == RoomFeature.Treasury ? "TREASURY" : room.Feature == RoomFeature.Beggar ? "BEGGAR"
-                        : room.Feature == RoomFeature.Proving ? "PROVING" : room.Feature == RoomFeature.Armoury ? "ARMOURY" : room.Feature == RoomFeature.Oath ? "OATH" : "MIRROR";
+                        : room.Feature == RoomFeature.Proving ? "PROVING" : room.Feature == RoomFeature.Armoury ? "ARMOURY" : room.Feature == RoomFeature.Oath ? "OATH"
+                        : room.Feature == RoomFeature.Statues ? "WATCHERS" : room.Feature == RoomFeature.Chimes ? "CHIMES" : room.Feature == RoomFeature.Mirrors ? "MIRRORS" : room.Feature == RoomFeature.Scales ? "SCALES" : room.Feature == RoomFeature.Panoply ? "PANOPLY" : "MIRROR";
                     GUI.Label(new Rect(r.x - 20f, r.center.y - 9f, r.width + 40f, 18f), label, new GUIStyle(UiSkin.Small) { fontSize = large ? 12 : 9, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 0.88f, 0.55f, 0.9f) } });
                 }
                 // Raised ground: lighter blocks.

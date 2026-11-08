@@ -316,6 +316,8 @@ namespace Deepbound.World
                 if (q.Special) prog.ServerAddRelic(relic);
             }
             if (q.Special) GiftMask.Value |= (ushort)(1 << q.Giver);
+            // The camp remembers what came home (a keepsake goes up for good).
+            if (q.Contract == Contract.Cargo || q.Contract == Contract.Gather) CampKeeps.Value |= CampMemory.Remember(q.Who, q.Contract == Contract.Cargo);
             ServerAddFavour(q.Who);
             TitleCardRpc("QUEST COMPLETE", UI.Dialogue.NameOf(q.Who) + ": " + ContractName(q.Contract) + "  -  " + QuestReward(q));
         }

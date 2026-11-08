@@ -1,7 +1,19 @@
 # More things to do at camp and in the dungeon — the four options, explained
 
 Written 2026-11-08, because the user asked: "please explain each option further in how you would implement it and how
-it would work". Nothing here is built yet. Pick any mix and it gets built.
+it would work". The user then asked for all of them ("take your time on all of them").
+
+**Status (2026-11-08):**
+- Built: knife board, fishing at the well, bell ringing, arm wrestling (against Brann only, no player-vs-player yet);
+  statue room, chime room (plates in order; no co-op two-plate step, the Oath room already does that) and the light-beam
+  room (standing mirrors, from act three); chandelier,
+  oil + fire, cracked pillars, prisoner cages, vigil candles; trophies + remembered quests; weather (clear / mist / rain);
+  Old Wick at Skull Poker (real house gold, 150 a visit, not fake); pet tricks (fetch, come, spin, chase the cat, sleep by
+  the fire).
+- Also built (second pass, 2026-11-08): the weight puzzle (THE SCALES room, act two on: five urns, a counterweight that
+  is the sum of two or three of them), a drinker at the bar (Old Hollis, who toasts the fallen), the memorial (a board of
+  the fallen on the tavern wall, a candle per lost party).
+- Not built: time of day (camp stays night; dusk would mean a second lighting pass over the whole camp).
 
 ---
 

@@ -107,6 +107,18 @@ namespace Deepbound.EditorTools
             var slots = BuildObjectPrefab<SlotMachine>("SlotMachine", new Vector3(1.1f, 1.9f, 0.8f));
             var blackjack = BuildObjectPrefab<BlackjackTable>("BlackjackTable", new Vector3(1.8f, 0.95f, 1.1f));
             var poker = BuildObjectPrefab<PokerDiceTable>("PokerDiceTable", new Vector3(1.8f, 0.95f, 1.8f));
+            var oilSlick = BuildObjectPrefab<OilSlick>("OilSlick", Vector3.zero);
+            var chandelier = BuildObjectPrefab<Chandelier>("Chandelier", Vector3.zero);
+            var vigilCandle = BuildObjectPrefab<VigilCandle>("VigilCandle", new Vector3(0.35f, 1.4f, 0.35f));
+            var prisoner = BuildPrisonerPrefab();
+            var puzzleRoom = BuildObjectPrefab<PuzzleRoom>("PuzzleRoom", new Vector3(1.3f, 1.1f, 1.3f));
+            var puzzleStatue = BuildObjectPrefab<PuzzleStatue>("PuzzleStatue", new Vector3(0.9f, 2.1f, 0.9f));
+            var puzzleMirror = BuildObjectPrefab<PuzzleMirror>("PuzzleMirror", new Vector3(0.7f, 1.6f, 0.7f));
+            var scaleWeight = BuildObjectPrefab<ScaleWeight>("ScaleWeight", Vector3.zero);
+            var wellFishing = BuildObjectPrefab<WellFishing>("WellFishing", Vector3.zero);
+            var knifeBoard = BuildObjectPrefab<KnifeBoard>("KnifeBoard", Vector3.zero);
+            var bellFrame = BuildObjectPrefab<BellFrame>("BellFrame", Vector3.zero);
+            var armWrestle = BuildObjectPrefab<ArmWrestle>("ArmWrestle", new Vector3(0.72f, 0.95f, 0.72f));
             var tavernKeep = BuildObjectPrefab<TavernKeep>("TavernKeep", Vector3.zero);
             var tavernBand = BuildObjectPrefab<TavernBand>("TavernBand", Vector3.zero);
             var gong = BuildGongPrefab();
@@ -160,6 +172,18 @@ namespace Deepbound.EditorTools
             dso.FindProperty("slotMachinePrefab").objectReferenceValue = slots.GetComponent<NetworkObject>();
             dso.FindProperty("blackjackPrefab").objectReferenceValue = blackjack.GetComponent<NetworkObject>();
             dso.FindProperty("pokerPrefab").objectReferenceValue = poker.GetComponent<NetworkObject>();
+            dso.FindProperty("oilSlickPrefab").objectReferenceValue = oilSlick.GetComponent<NetworkObject>();
+            dso.FindProperty("chandelierPrefab").objectReferenceValue = chandelier.GetComponent<NetworkObject>();
+            dso.FindProperty("vigilCandlePrefab").objectReferenceValue = vigilCandle.GetComponent<NetworkObject>();
+            dso.FindProperty("prisonerPrefab").objectReferenceValue = prisoner.GetComponent<NetworkObject>();
+            dso.FindProperty("puzzleRoomPrefab").objectReferenceValue = puzzleRoom.GetComponent<NetworkObject>();
+            dso.FindProperty("puzzleStatuePrefab").objectReferenceValue = puzzleStatue.GetComponent<NetworkObject>();
+            dso.FindProperty("puzzleMirrorPrefab").objectReferenceValue = puzzleMirror.GetComponent<NetworkObject>();
+            dso.FindProperty("scaleWeightPrefab").objectReferenceValue = scaleWeight.GetComponent<NetworkObject>();
+            dso.FindProperty("wellFishingPrefab").objectReferenceValue = wellFishing.GetComponent<NetworkObject>();
+            dso.FindProperty("knifeBoardPrefab").objectReferenceValue = knifeBoard.GetComponent<NetworkObject>();
+            dso.FindProperty("bellFramePrefab").objectReferenceValue = bellFrame.GetComponent<NetworkObject>();
+            dso.FindProperty("armWrestlePrefab").objectReferenceValue = armWrestle.GetComponent<NetworkObject>();
             dso.FindProperty("tavernKeepPrefab").objectReferenceValue = tavernKeep.GetComponent<NetworkObject>();
             dso.FindProperty("tavernBandPrefab").objectReferenceValue = tavernBand.GetComponent<NetworkObject>();
             dso.FindProperty("gongPrefab").objectReferenceValue = gong.GetComponent<NetworkObject>();
@@ -175,7 +199,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix, handTorch, questCargo, questTrinket, poker);
+            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix, handTorch, questCargo, questTrinket, poker, oilSlick, chandelier, vigilCandle, prisoner, puzzleRoom, puzzleStatue, wellFishing, knifeBoard, bellFrame, armWrestle, puzzleMirror, scaleWeight);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -637,6 +661,18 @@ namespace Deepbound.EditorTools
         }
 
         /// <summary>The Tome of the Phoenix's bird: on the players' side (Team.Allies), so the dead's blows and bolts can bring it down.</summary>
+        /// <summary>The caged prisoner / freed delver: an ally body (a trigger capsule, so it never blocks a shot or a step).</summary>
+        private static GameObject BuildPrisonerPrefab()
+        {
+            var root = new GameObject("PrisonerCage");
+            root.AddComponent<NetworkObject>();
+            var body = root.AddComponent<CapsuleCollider>();
+            body.radius = 0.4f; body.height = 1.8f; body.center = new Vector3(0f, 0.9f, 0f); body.isTrigger = true;
+            SetTeam(root.AddComponent<Health>(), Team.Allies, 1f);
+            root.AddComponent<PrisonerCage>();
+            return SavePrefab(root, "PrisonerCage");
+        }
+
         private static GameObject BuildPhoenixPrefab()
         {
             var root = new GameObject("Phoenix");

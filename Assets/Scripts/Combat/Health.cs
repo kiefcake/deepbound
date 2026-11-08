@@ -59,6 +59,7 @@ namespace Deepbound.Combat
             scorchedUntil = Mathf.Max(scorchedUntil, Time.time + seconds);
             scorchedBy = by;
             Scorched.Value = true;
+            World.OilSlick.ServerIgniteAt(transform.position, by);
         }
 
         private bool TryShock(ulong by)

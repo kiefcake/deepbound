@@ -17,6 +17,8 @@ namespace Deepbound.World
         public override float DeliverRange => -1f;
         protected override Vector3 HoldOffset => new Vector3(0f, 0.95f, 0.55f);
         public override Color MarkerColor => new Color(0.55f, 0.75f, 1f);
+        protected override bool DeliversAtWaystone => false;
+        public override string CarryingLine => "Carrying the Oath Stone: set it down on a plate (F)";
 
         public override string Prompt(PlayerProgress who)
         {

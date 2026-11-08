@@ -211,14 +211,14 @@ namespace Deepbound.World
             silas.Who = World.FolkId.Silas; silas.DisplayName = "Silas Crane"; silas.Trade = "Merchant";
         }
 
-        public enum Folk { Smith, Priest, Tailor, Driver, Sergeant, Runewright, Barkeep, Lutist, Fiddler, Drummer }
+        public enum Folk { Smith, Priest, Tailor, Driver, Sergeant, Runewright, Barkeep, Lutist, Fiddler, Drummer, Drinker }
 
         /// <summary>
         /// The camp's people: a simple standing figure with a bare face (no hoods), dressed by trade:
         /// the smith in a leather apron with a hammer, the priest tonsured in grey with a censer, the
         /// tailor in plum with a measuring tape, the driver in a long coat and a tall hat.
         /// </summary>
-        public static void Townsfolk(Transform parent, Vector3 floor, Vector3 lookAt, Folk folk)
+        public static Transform Townsfolk(Transform parent, Vector3 floor, Vector3 lookAt, Folk folk)
         {
             var root = new GameObject(folk.ToString()).transform;
             root.SetParent(parent, false);
@@ -231,7 +231,7 @@ namespace Deepbound.World
                 : folk == Folk.Tailor ? new Color(0.42f, 0.14f, 0.4f) : folk == Folk.Sergeant ? new Color(0.38f, 0.22f, 0.16f)
                 : folk == Folk.Runewright ? new Color(0.14f, 0.2f, 0.3f) : folk == Folk.Barkeep ? new Color(0.36f, 0.16f, 0.12f)
                 : folk == Folk.Lutist ? new Color(0.2f, 0.32f, 0.2f) : folk == Folk.Fiddler ? new Color(0.45f, 0.32f, 0.12f)
-                : folk == Folk.Drummer ? new Color(0.22f, 0.2f, 0.32f) : new Color(0.12f, 0.12f, 0.16f);
+                : folk == Folk.Drummer ? new Color(0.22f, 0.2f, 0.32f) : folk == Folk.Drinker ? new Color(0.3f, 0.26f, 0.2f) : new Color(0.12f, 0.12f, 0.16f);
             float bulk = folk == Folk.Smith || folk == Folk.Sergeant ? 1.2f : 1f;
             FolkFigure(root, folk, coat, skin, bulk);
             foreach (float s in new[] { -1f, 1f })
@@ -342,6 +342,24 @@ namespace Deepbound.World
                     ArtLibrary.Tint(towel.GetComponent<Renderer>(), new Color(0.75f, 0.72f, 0.62f));
                     break;
                 }
+                case Folk.Drinker:
+                {
+                    // Old Hollis, the regular: a battered felt hat, grey stubble, a patched coat, a pewter tankard.
+                    var hatH = MeshKit.Part(root, "Hat", MeshKit.Cylinder(0.14f, 0.125f, 0.15f, 10), Mat.Cloth, new Vector3(0f, 1.71f, -0.01f), new Vector3(-5f, 0f, 4f));
+                    ArtLibrary.Tint(hatH.GetComponent<Renderer>(), new Color(0.22f, 0.18f, 0.14f));
+                    var brimH = MeshKit.Part(root, "Brim", MeshKit.Cylinder(0.22f, 0.22f, 0.02f, 12), Mat.Cloth, new Vector3(0f, 1.71f, -0.01f), new Vector3(-5f, 0f, 4f));
+                    ArtLibrary.Tint(brimH.GetComponent<Renderer>(), new Color(0.19f, 0.15f, 0.12f));
+                    var stubble = MeshKit.Part(root, "Beard", MeshKit.Ball(0.095f, 8, 6), Mat.Cloth, new Vector3(0f, 1.52f, 0.075f), default, new Vector3(1f, 0.75f, 0.75f));
+                    ArtLibrary.Tint(stubble.GetComponent<Renderer>(), new Color(0.5f, 0.48f, 0.45f));
+                    var patch = MeshKit.Part(root, "Patch", MeshKit.Box(new Vector3(0.12f, 0.12f, 0.02f)), Mat.Cloth, new Vector3(-0.1f, 1.12f, 0.25f), new Vector3(0f, 0f, 12f));
+                    ArtLibrary.Tint(patch.GetComponent<Renderer>(), new Color(0.38f, 0.3f, 0.18f));
+                    var hand = new Vector3(0.31f, 0.83f, 0.08f);
+                    MeshKit.Part(root, "Tankard", MeshKit.Cylinder(0.06f, 0.055f, 0.15f, 10), Mat.Steel, hand + new Vector3(0f, -0.1f, 0.07f));
+                    MeshKit.Part(root, "Tankard", MeshKit.Box(new Vector3(0.02f, 0.09f, 0.02f)), Mat.Steel, hand + new Vector3(0.07f, -0.03f, 0.07f));
+                    var froth = MeshKit.Part(root, "Tankard", MeshKit.Cylinder(0.052f, 0.052f, 0.015f, 10), Mat.Cloth, hand + new Vector3(0f, 0.045f, 0.07f));
+                    ArtLibrary.Tint(froth.GetComponent<Renderer>(), new Color(0.85f, 0.8f, 0.65f));
+                    break;
+                }
                 case Folk.Lutist:
                 {
                     // A lute across the body: a round back, a long neck angled up to the left, a bent-back pegbox.
@@ -444,16 +462,18 @@ namespace Deepbound.World
                 Folk.Lutist => (null, "Pell", "Minstrel", Art.FolkIdle.WorkKind.None),
                 Folk.Fiddler => (null, "Old Garrow", "Minstrel", Art.FolkIdle.WorkKind.None),
                 Folk.Drummer => (null, "Tam", "Minstrel", Art.FolkIdle.WorkKind.None),
+                Folk.Drinker => (null, World.TavernRegular.Name, "Regular", Art.FolkIdle.WorkKind.Drink),
                 _ => (null, folk.ToString(), "", Art.FolkIdle.WorkKind.None),
             };
             idle.TurnsBody = folk != Folk.Priest && folk != Folk.Driver && folk != Folk.Lutist && folk != Folk.Fiddler && folk != Folk.Drummer;
             if (idle.Work != Art.FolkIdle.WorkKind.None)
             {
-                idle.ArmR = GroupArm(root, 1f, bulk, "Haft", "HammerHead", "PracticeSword", "SwordGuard", "PalmRune", "Bracer");
+                idle.ArmR = GroupArm(root, 1f, bulk, "Haft", "HammerHead", "PracticeSword", "SwordGuard", "PalmRune", "Bracer", "Tankard");
                 idle.ArmL = GroupArm(root, -1f, bulk, "PalmRune", "Bracer", "Pincushion");
                 var head = idle.ArmR.Find("HammerHead");
                 if (head != null) idle.Striker = head;
             }
+            return root;
         }
 
         /// <summary>

@@ -325,7 +325,7 @@ namespace Deepbound.UI
         private void LateUpdate()
         {
             // Esc closes the shop or class screen first; only a second Esc pauses.
-            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || runeOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open || Dialogue.Open || DiceTable.LocalOpen || PokerDiceTable.LocalSeated;
+            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || runeOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open || Dialogue.Open || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen;
         }
 
         private void OnDestroy()
@@ -1213,7 +1213,8 @@ namespace Deepbound.UI
             if (toSlab.magnitude > 2.6f || Vector3.Dot(player.transform.forward, toSlab.normalized) < 0.55f) return;
             var lines = Records.Lines;
             int deedRows = (Deeds.Listed.Length + 1) / 2;
-            float pw = 460f, ph = 46f + lines.Length * 22f + 34f + deedRows * 19f;
+            var fallen = Records.Fallen;
+            float pw = 460f, ph = 46f + lines.Length * 22f + 34f + deedRows * 19f + (fallen.Length > 0 ? 30f + fallen.Length * 18f : 0f);
             var r = new Rect(w / 2f - pw / 2f, 96f, pw, ph);
             UiSkin.Panel(r, 0.94f);
             GUI.Label(new Rect(r.x, r.y + 8, pw, 24), "THE HALL OF RECORDS", new GUIStyle(center) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
@@ -1234,6 +1235,14 @@ namespace Deepbound.UI
                 bool done = Deeds.Has(deed);
                 float cx = r.x + 26 + (i % 2) * ((pw - 52) / 2f), cy = dy + 24 + (i / 2) * 19f;
                 GUI.Label(new Rect(cx, cy, (pw - 52) / 2f, 18), (done ? "+  " : "-  ") + name, new GUIStyle(ds) { normal = { textColor = done ? new Color(0.95f, 0.85f, 0.5f) : new Color(0.66f, 0.62f, 0.57f) } });
+            }
+            // The fallen: parties that wiped, newest first.
+            if (fallen.Length > 0)
+            {
+                float fy = dy + 30 + deedRows * 19f;
+                GUI.Label(new Rect(r.x + 26, fy, pw - 52, 20), "THE FALLEN", new GUIStyle(st) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.85f, 0.55f, 0.5f) } });
+                var fs = new GUIStyle(ds) { fontStyle = FontStyle.Italic, clipping = TextClipping.Clip, normal = { textColor = new Color(0.8f, 0.75f, 0.7f) } };
+                for (int i = 0; i < fallen.Length; i++) GUI.Label(new Rect(r.x + 26, fy + 22 + i * 18f, pw - 52, 18), fallen[i], fs);
             }
         }
 
@@ -1299,7 +1308,7 @@ namespace Deepbound.UI
             if (shopOpen && !NearVendor(shopVendor)) shopOpen = false;
             if (anvil == null) forgeOpen = false;
             bool inspect = keyboard != null && keyboard.leftAltKey.isPressed && !life.Downed.Value;
-            MenuOpen = shopOpen || forgeOpen || invOpen || runeOpen || DevMenu.Open || inspect || BlackjackTable.LocalOpen || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open || Dialogue.Open;
+            MenuOpen = shopOpen || forgeOpen || invOpen || runeOpen || DevMenu.Open || inspect || BlackjackTable.LocalOpen || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open || Dialogue.Open;
             InventoryOpen = invOpen;
             statsHeld = DebugShowStats || (keyboard != null && Binds.Held(Bind.Stats) && !Wardrobe.Open);
             PanelShowing = MenuOpen || statsHeld || pageShown >= 0;
@@ -2136,7 +2145,7 @@ namespace Deepbound.UI
             foreach (var sk in Carryable.All)
             {
                 if (sk == null || sk.Carrier.Value != player.NetworkObjectId) continue;
-                string msg = sk.Ritual.Value > 0f ? "The waystone stirs... (don't get hit)" : "Carrying " + sk.ItemName + ": bring it to the waystone (F sets it down)";
+                string msg = sk.Ritual.Value > 0f ? "The waystone stirs... (don't get hit)" : sk.CarryingLine;
                 if (sk is Reliquary rq) msg += "   Intact " + Mathf.RoundToInt(rq.Integrity.Value) + "%";
                 GUI.Label(new Rect(0, h / 2f + 96, w, 24), msg, new GUIStyle(center) { normal = { textColor = sk.MarkerColor } });
                 if (sk.Ritual.Value > 0f) ProgressBar(w, h / 2f + 124, sk.Ritual.Value / sk.DeliverSeconds, sk.MarkerColor);
@@ -2150,7 +2159,7 @@ namespace Deepbound.UI
             var target = PlayerLife.DownedNear(player.transform.position, life);
             if (target == null)
             {
-                if (Dialogue.Open || DiceTable.LocalOpen || PokerDiceTable.LocalSeated) return;
+                if (Dialogue.Open || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen) return;
                 if (Dialogue.Aimed != null && !statsHeld) { PromptLine(w, h, "F   Talk to " + Dialogue.Aimed.DisplayName); return; }
                 var use = Interactable.Nearest(player.AimOrigin, player.AimForward, progress);
                 if (use != null && !statsHeld) PromptLine(w, h, "F   " + use.Prompt(progress));

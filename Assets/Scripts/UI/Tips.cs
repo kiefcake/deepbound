@@ -18,7 +18,7 @@ namespace Deepbound.UI
         public static readonly string[] Keys =
         {
             "flamevents", "edges", "relictray", "hone", "corwin", "chat", "purse", "falloff", "entling", "rare", "necro", "hiddenplates", "gravewarden", "silenced",
-            "camp", "quests", "tavern", "emotewheel", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound", "casino3", "poker", "questfloor",
+            "camp", "quests", "tavern", "emotewheel", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound", "casino3", "poker", "questfloor", "oil", "chandelier", "pillar", "vigil", "prisoner", "watchers", "chimes", "fishing", "knives", "bells", "wrestle", "mirrors",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -52,6 +52,10 @@ namespace Deepbound.UI
                     if (it is PokerDiceTable) Offer("poker", "SKULL POKER: dice against the other players, no house. Sit (F), ante, hold and reroll once, then CHECK / BET / CALL / FOLD. Best hand takes the pot. Only you see your dice - the others see how many you kept.");
                     if (it is SlotMachine || it is BlackjackTable) Offer("gamble2", "THE TENT: the Bone Reels pay big for three of a kind; at Deadman's Hand beat the skeleton dealer to 21. HIT or STAND in the table's panel.");
                     if (it is TavernKeep || it is TavernBand) Offer("tavern", "THE GUTTED LANTERN: talk to Marta (F) for mead: each horn makes you Tipsy, Merry, then Sloshed - a little braver in a fight, and the world sways. F at the stage pays the band for the next song.");
+                    if (it is WellFishing) Offer("fishing", "THE WELL: F drops a line. Wait for the bite - a splash, the float ducks - then F again, quick, to haul it up. Mostly junk; sometimes coins, a potion... a pearl, they say.");
+                    if (it is ArmWrestle) Offer("wrestle", "ARM-WRESTLE BRANN: stake gold, clasp hands (SPACE), then SPACE each time the swinging marker crosses the gold mark. Miss and you slip. Pin him for double - he pays three times a visit.");
+                    if (it is BellFrame) Offer("bells", "THE BELLS: take a rope (F) and ask Aldric for a peal (SPACE). Ring 1-4 as each strike reaches the line - share the ropes with friends. A clean peal blesses everyone who rang for the next floor.");
+                    if (it is KnifeBoard) Offer("knives", "THE KNIFE BOARD: F at the chalk line, then F again to throw when the swinging mark is on the bull. Three knives a round; Brann pays once a visit for 24 or better.");
                     if (it is CampCat) Offer("cat", "The castle cat. F pets it (sometimes it has found something for you). Shift+F picks it up... ask it first.");
                 }
                 Offer("camp", "CAMP: look at someone and press F to TALK - trade, work, news. Silas sells potions and charms, Hobb tempers at his anvil (F there) and sells armour, Ysolde ranks abilities and sets runes, Brother Aldric keeps the shrine, Vey the wardrobe, Marta the mead. They trade wherever they are, even on an errand. When ready, sit on the back of Corwin's carriage (F).");
@@ -83,6 +87,23 @@ namespace Deepbound.UI
             }
             // Voice and pings are for a party: alone they mean nothing.
             bool party = PlayerLife.All.Count > 1;
+            foreach (var b in Object.FindObjectsByType<Breakable>(FindObjectsSortMode.None))
+            {
+                if (b == null || Vector3.Distance(b.transform.position, me) > 9f) continue;
+                if (b.Type.Value == Breakable.Kind.OilJar || b.Type.Value == Breakable.Kind.FireBowl)
+                    Offer("oil", "OIL JARS spill a slick when broken. Any fire lights it - a fire spell, a scorch, a powder barrel, a burning hand torch, or the FIRE BOWL knocked over (it tips away from your blow). Everything in it burns: lure the dead in, and stay out yourself.");
+                if (b.Type.Value == Breakable.Kind.CrackedPillar)
+                    Offer("pillar", "A CRACKED PILLAR: break it and it falls AWAY from your last blow, crushing whatever stands in that lane (the warning lane shows it). The rubble stays: cover from shots.");
+            }
+            foreach (var c in Chandelier.FindObjectsByType<Chandelier>(FindObjectsSortMode.None))
+                if (c != null && !c.Fallen.Value && Vector3.Distance(c.HangAt.Value, me) < 12f)
+                    Offer("chandelier", "A CHANDELIER hangs over this room. Its rope runs to a cleat on the wall: F there drops it on whatever stands under it - crushing the dead, staggering a guardian. Mind your own head.");
+            foreach (var v in VigilCandle.All)
+                if (v != null && !v.Kept.Value && Vector3.Distance(v.transform.position, me) < 10f)
+                { Offer("vigil", "VIGIL CANDLES: light all four (F) and the vigil is kept - you are mended and blessed for the floor. The dead snuff any lit candle they pass: clear the room, or be quick."); break; }
+            foreach (var pc in Object.FindObjectsByType<PrisonerCage>(FindObjectsSortMode.None))
+                if (pc != null && Vector3.Distance(pc.transform.position, me) < 10f)
+                { Offer("prisoner", "A PRISONER begs to be let out. Free them (F) and they fight beside you for the floor - though now and then the thing in the cage was never a prisoner."); break; }
             var questDir = DungeonDirector.Instance;
             if (questDir != null)
                 foreach (var q in questDir.Quests)
@@ -181,6 +202,10 @@ namespace Deepbound.UI
                 if (room.Feature == RoomFeature.Proving) Offer("proving", "THE PROVING BELL: ring it and two waves of the dead come. Clear them for gear for everyone, a Sigil and gold.");
                 if (room.Feature == RoomFeature.Armoury) Offer("armoury", "THE ARMOURY: each of you may sharpen your weapon once on the whetstone - a free temper.");
                 if (room.Feature == RoomFeature.Lightless) Offer("lightless", "A LIGHTLESS HALL: no torch burns here but the one by the door. Carry it (F) - whoever holds it cannot fight - or set it down and fight in its glow. Something waits at the far end.");
+                if (room.Feature == RoomFeature.Statues) Offer("watchers", "THE WATCHERS' ROOM: four stone watchers, all looking away. F turns one a quarter round; when every one of them looks at the sigil in the floor, their eyes burn and the coffer opens. The grinding can wake the dead.");
+                if (room.Feature == RoomFeature.Scales) Offer("scales", "THE SCALES: a great balance stands in the middle, a stone counterweight on one pan. Carry the urns (F) - the gold studs show each one's weight - and set them down by the empty pan until the beam hangs level. Exactly level opens the coffer.");
+                if (room.Feature == RoomFeature.Mirrors) Offer("mirrors", "THE LIGHT-BEAM ROOM: a lens throws light across the room. F turns a standing mirror to its other diagonal; send the beam from mirror to mirror until it strikes the crystal, and the coffer opens.");
+                if (room.Feature == RoomFeature.Chimes) Offer("chimes", "THE CHIME ROOM: listen - the bells ring a tune. Step on the coloured plates in the same order. A wrong plate wakes the dead and the tune starts over; F at the coffer rings it again.");
                 if (room.Feature == RoomFeature.Oath) Offer("oath", "THE OATH ROOM: two plates must be held down at once. Stand on one each - or, alone, carry the Oath Stone (F) onto one and stand on the other.");
                 if (room.Feature == RoomFeature.Mirror) Offer("mirror", "THE DARK MIRROR: a relic and gold for whoever touches it... and it keeps a fifth of their health until camp.");
                 if (room.Feature == RoomFeature.Terrace || room.Feature == RoomFeature.Ziggurat) Offer("highground", "HIGH GROUND: take the ramps up. Archers up top see everything - and anything you knock off the edge has a long way to fall.");

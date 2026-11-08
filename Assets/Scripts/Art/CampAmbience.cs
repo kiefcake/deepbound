@@ -45,7 +45,7 @@ namespace Deepbound.Art
             {
                 float p = f.Phase + t * f.Speed;
                 f.T.position = f.Home + new Vector3(Mathf.Sin(p * 1.3f) * 2.2f, 0.9f + Mathf.Sin(p * 0.7f) * 0.6f, Mathf.Cos(p * 0.9f) * 2.2f);
-                bool on = Mathf.Sin(p * 3.1f + f.Phase) > -0.2f;
+                bool on = Mathf.Sin(p * 3.1f + f.Phase) > -0.2f && World.CampWeather.RainK < 0.5f; // no fireflies in the rain
                 if (f.R.enabled != on) f.R.enabled = on;
             }
             // Chimney smoke.

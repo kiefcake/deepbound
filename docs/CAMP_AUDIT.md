@@ -29,6 +29,13 @@ checked on a fresh tour.
 ### Open (beyond placement)
 - [~] The carriage horse needs updating (the user, 2026-11-07). REBUILT 2026-11-07 (`World/CarriageRide.cs` BuildHorse/AnimateHorse: spine, ribcage, pelvis, jointed legs with a diagonal trot, skull with a hinged jaw and glowing sockets, harness, idle head toss / stamp / jaw chatter / tail swish). To check on a tour: hooves may float ~6 cm at full stride, knee/hock bend directions, bit vs reins during a head toss, hind legs clear of the shafts.
 
+## Round 5 (2026-11-08, new camp stations, checked on `-talkshots` renders)
+
+- [x] Brann stood by the tavern, 28 m from his own yard: `Lobby.YardSpot` was declared before `YardShift`, so it read the shift as zero (static fields initialise in order). Swapped; Brann, his stool, sticks, the Drills sign, his lamp post, the Squad Standard and the Warden's jaw now sit at the yard.
+- [x] The first knife-board spot (worked out from an old plan) put the board against the tavern door. Moved to `KnifeSpot` = YardSpot + (1.8, 0, -4.8), throwing south along the yard fence with Brann behind you.
+- [x] The well line: rope from the crossbeam to the water, a red float that ducks on a bite (`pastime_1/2`).
+- To check on the next renders: the knife lane (`pastime_4-8`), the bell frame south-east of the shrine (`bells_1-2`), Brann's barrel (`wrestle_1-3`), Old Wick on his stool (`casino_8_old_wick`), rain and mist (`weather_1-3`), the pet tricks (`pet_1-4`, `camp_9b_pet_asleep`).
+
 ## Round 4 (2026-11-08, second inspector pass, read every sheet by eye)
 
 - [x] The spawn fire was a tripod brazier standing in an empty stone ring: now `Props.Bonfire` (seven leaned split logs, charred tips, two burning across an ember bed, ash, one big flame with a 15/18 m shadowed light and three flickering side licks `Art/FlameLick`).
@@ -857,3 +864,9 @@ Files: `C:/Users/User/Desktop/game_prototype/Deepbound/Assets/Scripts/World/Lobb
   - a real two-player Skull Poker hand (needs two players; the smoke test plays one server-side)
   - the quest cargo, finds and marks on a floor (smoke-tested only)
 - Poker table spot: `Lobby.PokerSpot` = TentCenter + (1.0, 0, 2.2), between the coffer and the reels; the stools have room.
+
+## Round 6 (2026-11-08): the tavern regular and the board of the fallen, checked in `-talkshots` (tavern_1/2)
+- NEW, seen: OLD HOLLIS leans on the customer side of the bar at TavernCenter + (-1.6, 0, 1.85), facing the counter, clear of Marta's prompt and the tables (tavern_1). His speech card sits beside Marta's without covering it.
+- NEW, seen: the BOARD OF THE FALLEN on the tavern's south wall at TavernCenter + (-3, 1.6, -3.3), 0.8 m from the west wall, clear of the kegs and the first window (tavern_2). The names show over it within 3.2 m. Each lost party gets a lit candle and a brass plate.
+- FIXED, seen in ix_19-21/22-24: puzzle-room parts laid out in world coordinates (sigil stone, chime rings, lens, crystal) sat a whole room-offset away under a root at the coffer; the root is at the origin now.
+- Still not seen in a window: a real wipe filling the board (tests never write the records; the shot uses made-up names).

@@ -16,6 +16,10 @@ namespace Deepbound.Player
     /// <item>FETCH: gold and embers lying within <see cref="FetchRadius"/> of you (in sight) are brought to you after
     /// <see cref="FetchDelay"/> (server side in <see cref="LootDrop"/>; here the pet runs out to them). It never adds loot.</item>
     /// <item>WARN: a hidden spike plate within <see cref="WarnRadius"/> makes it run over, sit on it and call out.</item>
+    /// <item>TRICKS (2026-11-08, the user's list: "pets do things at camp"), driven by your emotes so everyone sees them:
+    /// POINT = it runs out to where you point and brings back a stick (dropped at your feet); BECKON = it comes and sits
+    /// before you; DANCE / CLAP / CHEER = it spins and hops. At camp it now and then CHASES the castle cat for a few
+    /// seconds, and when you sit by the fire a while it curls up ASLEEP beside you (<see cref="SleepAfter"/>).</item>
     /// </list>
     /// </summary>
     public class PetCompanion : MonoBehaviour
@@ -48,6 +52,18 @@ namespace Deepbound.Player
 
         private bool Flies => kind == Kind.Raven || kind == Kind.Wisp;
 
+        // Tricks.
+        public enum Trick { None, Fetch, Chase, Spin, Come }
+        public const float SleepAfter = 7f, FetchReach = 6f, ChaseSeconds = 3.5f, SpinSeconds = 1.2f;
+        public Trick Doing { get; private set; }
+        public bool Sleeping { get; private set; }
+        private float trickStart, trickUntil, sitSince = -1f, nextChase = 25f;
+        private int fetchStage;
+        private Vector3 trickAt;
+        private Transform stick;
+        private Emote lastEmote;
+        private World.CampCat cat;
+
         public void Init(NetworkPlayer who)
         {
             owner = who;
@@ -65,6 +81,8 @@ namespace Deepbound.Player
             kind = k;
             if (body != null) Destroy(body.gameObject);
             body = head = tail = null;
+            stick = null;
+            Doing = Trick.None;
             legs.Clear();
             warned.Clear();
             if (k == Kind.None || Application.isBatchMode || owner == null) return;
@@ -250,6 +268,7 @@ namespace Deepbound.Player
                 if (!Flies && Raised(perch.Value, o.y)) perch = o + fwd * 1.3f - right * side * 1.1f;
                 if (!Flies && Raised(perch.Value, o.y)) perch = o + right * side * 0.8f - fwd * 0.2f;
             }
+            TickTricks(t, o, fwd, moving);
             Vector3 want = errand ?? perch.Value;
             if (Flies) want += Vector3.up * (errand.HasValue ? 0.6f : ownerSits ? (kind == Kind.Wisp ? 0.5f : 0f) : 1.5f + Mathf.Sin(t * 1.7f) * 0.15f);
 
@@ -279,7 +298,125 @@ namespace Deepbound.Player
             var face = flat.sqrMagnitude > 0.05f ? flat : ownerSits ? fwd : (sitting || errand.HasValue ? flat : (o - pos));
             face.y = 0f;
             if (face.sqrMagnitude > 0.001f) body.rotation = Quaternion.Slerp(body.rotation, Quaternion.LookRotation(face), 1f - Mathf.Exp(-8f * dt));
-            Animate(flat.magnitude, sitting, t, dt);
+            if (Doing == Trick.Spin)
+            {
+                // Two turns and a little hop on each.
+                float k = Mathf.Clamp01((t - trickStart) / SpinSeconds);
+                body.rotation *= Quaternion.Euler(0f, k * 720f, 0f);
+                body.position = pos + Vector3.up * Mathf.Abs(Mathf.Sin(k * Mathf.PI * 2f)) * 0.18f * Size;
+            }
+            if (Sleeping && !Flies) body.position = pos + Vector3.down * 0.05f * Size;
+            Animate(flat.magnitude, sitting || Sleeping, t, dt);
+        }
+
+        // ---------------------------------------------------------------- tricks
+
+        private void StartTrick(Trick k, float seconds)
+        {
+            Doing = k;
+            trickStart = Time.time;
+            trickUntil = Time.time + seconds;
+            fetchStage = 0;
+            sitUntil = 0f;
+            errand = null;
+        }
+
+        private void EndTrick()
+        {
+            if (Doing == Trick.Fetch && stick != null) Destroy(stick.gameObject);
+            stick = null;
+            Doing = Trick.None;
+            errand = null;
+        }
+
+        /// <summary>Emotes start tricks; at camp it chases the cat now and then; sitting a while, it sleeps.</summary>
+        private void TickTricks(float t, Vector3 o, Vector3 fwd, bool moving)
+        {
+            var emote = owner.Rig != null ? owner.Rig.EmoteNow : Emote.None;
+            if (emote != lastEmote)
+            {
+                lastEmote = emote;
+                if (emote == Emote.Point)
+                {
+                    StartTrick(Trick.Fetch, 9f);
+                    var aim = o + fwd * FetchReach;
+                    trickAt = Physics.Raycast(aim + Vector3.up * 2f, Vector3.down, out var hit, 5f, ~0, QueryTriggerInteraction.Ignore) ? hit.point : new Vector3(aim.x, o.y, aim.z);
+                    Sfx.Play(CallSound, pos + Vector3.up * 0.4f, 0.6f, 1.2f);
+                }
+                else if (emote == Emote.Beckon) { StartTrick(Trick.Come, 4f); sitOnArrival = true; }
+                else if (emote == Emote.Dance || emote == Emote.Clap || emote == Emote.Cheer) { StartTrick(Trick.Spin, SpinSeconds); Sfx.Play(CallSound, pos + Vector3.up * 0.4f, 0.5f, 1.3f); }
+            }
+            if (ownerSits) { if (sitSince < 0f) sitSince = t; } else sitSince = -1f;
+            Sleeping = ownerSits && sitSince >= 0f && t - sitSince > SleepAfter && Doing == Trick.None;
+
+            if (Doing != Trick.None && (t > trickUntil || moving && Doing != Trick.Fetch)) { EndTrick(); return; }
+            switch (Doing)
+            {
+                case Trick.Fetch:
+                    if (fetchStage == 0)
+                    {
+                        errand = trickAt; errandUntil = trickUntil;
+                        if (Flat(pos - trickAt) < 0.5f)
+                        {
+                            fetchStage = 1;
+                            if (kind != Kind.Wisp && head != null)
+                            {
+                                // A stick in its mouth (the raven in its beak).
+                                stick = MeshKit.Part(head, "Stick", MeshKit.Box(new Vector3(0.36f, 0.035f, 0.035f)), Mat.Wood, new Vector3(0f, -0.02f, 0.14f), new Vector3(0f, 8f, 4f)).transform;
+                                ArtLibrary.Tint(stick.GetComponent<Renderer>(), new Color(0.45f, 0.32f, 0.18f));
+                            }
+                        }
+                    }
+                    else
+                    {
+                        var drop = o + fwd * 0.9f;
+                        errand = drop; errandUntil = trickUntil;
+                        if (Flat(pos - drop) < 0.6f)
+                        {
+                            if (stick != null)
+                            {
+                                // Dropped at your feet; it lies there a while.
+                                stick.SetParent(null, true);
+                                stick.position = new Vector3(pos.x, o.y + 0.03f, pos.z) + fwd * 0.2f;
+                                stick.rotation = Quaternion.Euler(0f, Random.Range(0f, 180f), 90f);
+                                Destroy(stick.gameObject, 10f);
+                                stick = null;
+                            }
+                            Sfx.Play(CallSound, pos + Vector3.up * 0.4f, 0.6f, 1.15f);
+                            Doing = Trick.None;
+                            errand = null;
+                            sitUntil = t + 1.6f;
+                        }
+                    }
+                    break;
+                case Trick.Come:
+                    errand = o + fwd * 0.9f; errandUntil = trickUntil;
+                    break;
+                case Trick.Chase:
+                    if (cat == null || cat.HeldBy.Value != ulong.MaxValue) { EndTrick(); break; }
+                    var c = cat.transform.position;
+                    var off = pos - c; off.y = 0f;
+                    errand = c + (off.sqrMagnitude > 0.01f ? off.normalized : -fwd) * 0.7f; errandUntil = trickUntil;
+                    break;
+            }
+            // The castle cat: a pet near it (and its owner standing about) goes after it now and then.
+            if (Doing == Trick.None && DungeonDirector.InLobby && !ownerSits && !moving && t >= nextChase && kind != Kind.Wisp)
+            {
+                nextChase = t + Random.Range(35f, 60f);
+                if (cat == null) cat = FindFirstObjectByType<World.CampCat>();
+                if (cat != null && cat.HeldBy.Value == ulong.MaxValue && Vector3.Distance(cat.transform.position, o) < 9f)
+                {
+                    StartTrick(Trick.Chase, ChaseSeconds);
+                    Sfx.Play(CallSound, pos + Vector3.up * 0.4f, 0.8f, 1.05f);
+                }
+            }
+        }
+
+        /// <summary>Shots: start a chase now if the cat is near.</summary>
+        public void DebugChase()
+        {
+            if (cat == null) cat = FindFirstObjectByType<World.CampCat>();
+            if (cat != null) StartTrick(Trick.Chase, ChaseSeconds);
         }
 
         private static float Flat(Vector3 v) { v.y = 0f; return v.magnitude; }
@@ -300,10 +437,18 @@ namespace Deepbound.Player
             }
             if (kind == Kind.Raven)
             {
+                if (Sleeping) { for (int i = 0; i < legs.Count; i++) legs[i].localRotation = Quaternion.Euler(0f, 0f, (i == 0 ? 1f : -1f) * -8f); if (head != null) head.localRotation = Quaternion.Euler(35f, 150f, 0f); return; }
                 bool flying = speed > 1.2f || pos.y > owner.transform.position.y + 0.5f;
                 float flap = flying ? Mathf.Sin(t * 22f) * 55f : 0f;
                 for (int i = 0; i < legs.Count; i++) legs[i].localRotation = Quaternion.Euler(0f, 0f, (i == 0 ? 1f : -1f) * (flying ? flap : -8f));
                 if (head != null) head.localRotation = Quaternion.Euler(Mathf.Sin(t * 3.1f) * 10f, Mathf.Sin(t * 1.3f) * 35f, 0f);
+                return;
+            }
+            if (Sleeping)
+            {
+                for (int i = 0; i < legs.Count; i++) legs[i].localRotation = Quaternion.Euler(i >= 2 ? -80f : 70f, 0f, 0f);
+                if (head != null) head.localRotation = Quaternion.Euler(28f + Mathf.Sin(t * 1.4f) * 2f, 18f, 0f);
+                if (tail != null) tail.localRotation = Quaternion.Euler(0f, 60f, 0f);
                 return;
             }
             float swing = speed > 0.1f ? Mathf.Sin(gait) * Mathf.Clamp(speed * 9f, 0f, 38f) : 0f;

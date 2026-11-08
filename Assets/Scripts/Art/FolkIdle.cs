@@ -11,7 +11,7 @@ namespace Deepbound.Art
     /// </summary>
     public class FolkIdle : MonoBehaviour
     {
-        public enum WorkKind { None, Hammer, Sew, Drill, Trace, Wipe }
+        public enum WorkKind { None, Hammer, Sew, Drill, Trace, Wipe, Drink }
 
         private Transform neck;
         private float seed, yaw, pitch, nextGlance, glanceYaw;
@@ -168,7 +168,7 @@ namespace Deepbound.Art
                 }
             }
             // At work, eyes on the work (unless someone is close enough to talk to).
-            if (!watching && workBlend > 0.5f) { wantYaw = 0f; wantPitch = Work == WorkKind.Trace ? -8f : 24f; }
+            if (!watching && workBlend > 0.5f) { wantYaw = 0f; wantPitch = Work == WorkKind.Trace ? -8f : Work == WorkKind.Drink ? -6f : 24f; }
             if (!watching && Time.time >= nextGlance)
             {
                 nextGlance = Time.time + Random.Range(2.5f, 6f);
@@ -245,6 +245,15 @@ namespace Deepbound.Art
                     r = new Vector3(-88f + Mathf.Cos(t * 1.6f) * 16f, Mathf.Sin(t * 1.6f) * 24f, 0f);
                     l = new Vector3(-40f + Mathf.Sin(t * 0.8f) * 6f, 10f, 0f);
                     break;
+                case WorkKind.Drink:
+                {
+                    // Leaning on the bar (left forearm on the counter); every few seconds the tankard comes up for a pull.
+                    float cyc = Mathf.Repeat(t, 7f);
+                    float lift = Smooth(cyc / 0.8f) * (1f - Smooth((cyc - 2.4f) / 0.8f));
+                    r = new Vector3(-30f - lift * 68f, -lift * 26f, 0f);
+                    l = new Vector3(-50f, 10f, 0f);
+                    break;
+                }
                 case WorkKind.Wipe:
                     r = new Vector3(-56f + Mathf.Sin(t * 3f) * 6f, Mathf.Sin(t * 3f) * 24f, 0f);
                     l = new Vector3(-30f, 8f, 0f);

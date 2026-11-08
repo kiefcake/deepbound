@@ -25,7 +25,7 @@ namespace Deepbound.UI
     /// </remarks>
     public class AudioDirector : MonoBehaviour
     {
-        private AudioSource explore, combat, boss, campAir, deepAir, shrine, cavernAir, sting, vaults, finale;
+        private AudioSource explore, combat, boss, campAir, deepAir, shrine, cavernAir, sting, vaults, finale, rainAir;
         private float combatHeat;
         private bool started;
         private static AudioDirector instance;
@@ -55,6 +55,9 @@ namespace Deepbound.UI
             if (recFinale != null) finale = MakeSource(recFinale);
             // Camp: wind over the walls (CC0, "Wind Whoosh Loop", OpenGameArt).
             campAir = MakeSource(Load("Ambience/camp"));
+            // Rain on the camp when the weather turns (2026-11-08, Ylmir's "Rain (loopable)", CC0).
+            var recRain = Load("Ambience/rain");
+            if (recRain != null) { rainAir = MakeSource(recRain); rainAir.Play(); }
             var recDeep = Load("Ambience/dungeon");
             deepAir = MakeSource(recDeep);
             var recCavern = Load("Ambience/cavern");
@@ -176,6 +179,12 @@ namespace Deepbound.UI
             bool deep = act >= 3;
             float air = camp ? 0f : bossTarget > 0f ? 0.12f : 0.3f;
             Fade(campAir, (camp ? 0.22f : 0f) * music);
+            if (rainAir != null)
+            {
+                // Indoors (the tavern) it is the drum on the roof: quieter.
+                float rain = camp ? World.CampWeather.RainK * (local != null && World.Lobby.InTavern(local.transform.position) ? 0.18f : 0.45f) : 0f;
+                Fade(rainAir, rain * music);
+            }
             Fade(deepAir, (deep ? 0f : air) * music);
             Fade(cavernAir, (deep ? air : 0f) * music);
             if (cavernAir != null) cavernAir.pitch = DungeonDirector.Layout != null && DungeonDirector.Layout.Depth >= DungeonDirector.AbyssDepth ? 0.8f : 1f;

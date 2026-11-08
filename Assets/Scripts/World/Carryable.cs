@@ -47,6 +47,9 @@ namespace Deepbound.World
         protected virtual string HoldOnText => "Hold on to " + ItemName;
         /// <summary>The prompt's verb for picking it up.</summary>
         protected virtual string CarryText => "Carry " + ItemName + " to the waystone";
+        /// <summary>The HUD line while you carry it (it used to say "bring it to the waystone" for everything).</summary>
+        public virtual string CarryingLine => DeliversAtWaystone ? "Carrying " + ItemName + ": bring it to the waystone (F sets it down)"
+            : CanSetDown ? "Carrying " + ItemName + "  (F sets it down)" : "Carrying " + ItemName;
 
         protected abstract void BuildVisual();
         /// <summary>Server: it reached the waystone. Despawn it (or let the subclass do it).</summary>

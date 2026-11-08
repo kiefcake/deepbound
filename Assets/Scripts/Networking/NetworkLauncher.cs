@@ -86,7 +86,7 @@ namespace Deepbound.Networking
             Transport.ConnectTimeoutMS = 1000;
 
             var cl = Environment.GetCommandLineArgs();
-            TestRun = Application.isBatchMode || Array.Exists(cl, a => a == "-smoketest" || a == "-shots" || a == "-bosstest" || a == "-classdps" || a == "-noupnp" || a == "-autoplay" || a == "-camptour" || a == "-talkshots");
+            TestRun = Application.isBatchMode || Array.Exists(cl, a => a == "-smoketest" || a == "-shots" || a == "-bosstest" || a == "-classdps" || a == "-noupnp" || a == "-autoplay" || a == "-camptour" || a == "-talkshots" || a == "-ixshots");
             // Steam only for real play: tests must never meet a friend, and must run with Steam closed.
             // -steamcheck: start Steam even in a test run, host over it, log what happened and quit (nothing is saved).
             bool steamCheck = Array.IndexOf(cl, "-steamcheck") >= 0;
@@ -216,6 +216,9 @@ namespace Deepbound.Networking
 
             int talk = Array.IndexOf(args, "-talkshots");
             if (talk >= 0 && talk + 1 < args.Length) gameObject.AddComponent<SmokeTest>().TalkShots(args[talk + 1], this);
+
+            int ix = Array.IndexOf(args, "-ixshots");
+            if (ix >= 0 && ix + 1 < args.Length) gameObject.AddComponent<SmokeTest>().IxShots(args[ix + 1], this);
 
             int shots = Array.IndexOf(args, "-shots");
             if (shots >= 0 && shots + 1 < args.Length) gameObject.AddComponent<SmokeTest>().Screenshots(args[shots + 1], this);

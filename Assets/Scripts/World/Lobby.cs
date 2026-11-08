@@ -57,10 +57,12 @@ namespace Deepbound.World
         public static readonly Vector3 GongFacing = Vector3.left;
 
         public static readonly Vector3 ShrineSpot = Origin + S(15.5f, 0f, -4f);
+        /// <summary>2026-11-07: the whole training yard moved to the north-west, where the tavern stood (the tavern went by the fire).
+        /// DECLARED BEFORE <see cref="YardSpot"/>: static fields initialise in order, and until 2026-11-08 YardSpot read this as
+        /// zero, so Brann, his stool and his sign stayed by the tavern, 28 m from his own yard.</summary>
+        public static readonly Vector3 YardShift = new Vector3(-4.05f, 0f, 34.4f);
         /// <summary>The training yard's drill board, on the plaza side of its fence.</summary>
         public static readonly Vector3 YardSpot = Origin + S(-9.1f, 0f, -8.2f) + YardShift;
-        /// <summary>2026-11-07: the whole training yard moved to the north-west, where the tavern stood (the tavern went by the fire).</summary>
-        public static readonly Vector3 YardShift = new Vector3(-4.05f, 0f, 34.4f);
         /// <summary>Ysolde the runewright's stones, between the shrine and the gong: runes, sigils, abilities.</summary>
         public static readonly Vector3 RunewrightSpot = Origin + S(12.6f, 0f, 3.2f);
 
@@ -95,6 +97,16 @@ namespace Deepbound.World
         public static readonly Vector3 BountyFacing = Vector3.right;
         /// <summary>The market square's well, between the arrival bonfire and the stalls.</summary>
         public static readonly Vector3 WellSpot = Origin + S(0f, 0f, -8.4f);
+        /// <summary>Brann's knife board: the chalk line just south of Brann, east of the yard fence; you throw SOUTH
+        /// (<see cref="KnifeFacing"/>) with Brann at your back, at a board 5.5 m down the fence.</summary>
+        public static readonly Vector3 KnifeSpot = YardSpot + new Vector3(1.8f, 0f, -5.8f); // the use point, 1 m past the chalk line
+        public static readonly Vector3 KnifeFacing = Vector3.back;
+        /// <summary>The bell frame, south-east of the shrine, its ropes toward the plaza (west): Aldric's peals.</summary>
+        public static readonly Vector3 BellSpot = ShrineSpot + new Vector3(4.6f, 0f, -5.1f);
+        public static readonly Vector3 BellFacing = Vector3.left;
+        /// <summary>Brann's arm-wrestling barrel, a step in front of him (he faces east); you stand on its far side.</summary>
+        public static readonly Vector3 WrestleSpot = YardSpot + new Vector3(1.0f, 0f, 0f);
+        public static readonly Vector3 WrestleFacing = Vector3.right;
         /// <summary>Where smoke leaves the forge chimney (set when the camp is built).</summary>
         public static Vector3 ForgeChimney { get; private set; }
         public static Vector3 TavernChimney { get; private set; }
@@ -265,6 +277,8 @@ namespace Deepbound.World
             Art.AmbientLife.Ravens(lights, Origin, Radius, WallHeight);
             dressing.Build(root.transform, "LobbyDressing", collide: true);
             root.AddComponent<UI.CampChatter>();
+            root.AddComponent<CampMemory>();
+            root.AddComponent<CampWeather>();
             ApplyCastleAtmosphere();
             Art.PropColliders.Add(root.transform);
             return root;
@@ -928,6 +942,15 @@ namespace Deepbound.World
                     d.AddBox(c + new Vector3(x, 1.9f, sgn * (hz + t / 2f + 0.03f)), new Vector3(0.85f, 0.06f, 0.04f), Mat.Wood, timber);
                 }
             Props.Chandelier(lights, d, c + new Vector3(0.6f, wallH + 0.3f, 0.2f), 0.9f, Fire);
+            // Old Hollis leans on the customer side of the counter (2026-11-08), and the board of the fallen hangs on the
+            // south wall between the kegs and the first window, where he can raise his tankard to it.
+            var hollis = Props.Townsfolk(lights, c + new Vector3(-1.6f, 0f, 1.85f), c + new Vector3(-3.2f, 0f, 1.7f), Props.Folk.Drinker);
+            hollis.gameObject.AddComponent<TavernRegular>();
+            var memorial = new GameObject("MemorialBoard").transform;
+            memorial.SetParent(lights, false);
+            memorial.position = c + new Vector3(-3f, 1.6f, -hz + t / 2f);
+            memorial.rotation = Quaternion.LookRotation(Vector3.forward);
+            memorial.gameObject.AddComponent<MemorialBoard>();
             var lamp = new GameObject("TavernLamp").AddComponent<Light>();
             lamp.transform.SetParent(lights, false);
             // Hung over the customer side of the counter: behind the keep it lit only the back of their head.

@@ -584,6 +584,10 @@ namespace Deepbound.World
             var mood = room.Feature == RoomFeature.Treasury ? new Color(1f, 0.85f, 0.5f)
                 : room.Feature == RoomFeature.Mirror ? new Color(0.6f, 0.35f, 1f)
                 : room.Feature == RoomFeature.Oath ? new Color(0.55f, 0.75f, 1f)
+                : room.Feature == RoomFeature.Statues ? new Color(1f, 0.8f, 0.45f)
+                : room.Feature == RoomFeature.Chimes ? new Color(0.6f, 0.85f, 1f)
+                : room.Feature == RoomFeature.Mirrors ? new Color(1f, 0.9f, 0.65f)
+                : room.Feature == RoomFeature.Scales ? new Color(1f, 0.72f, 0.42f)
                 : room.Feature == RoomFeature.Proving ? new Color(1f, 0.6f, 0.3f)
                 : room.Feature == RoomFeature.Armoury ? new Color(1f, 0.7f, 0.4f)
                 : room.Feature == RoomFeature.Panoply ? new Color(0.75f, 0.7f, 1f) : theme.TorchColor;
@@ -591,6 +595,8 @@ namespace Deepbound.World
             int entry = 0;
             for (int s = 0; s < 4; s++) if (room.Doors[s]) entry = s;
             bool alongX = entry == 1 || entry == 3;
+            // (The puzzle rooms keep their floor bare: the sigil and the plates are the floor.)
+            if (room.Feature != RoomFeature.Statues && room.Feature != RoomFeature.Chimes && room.Feature != RoomFeature.Mirrors && room.Feature != RoomFeature.Scales)
             b.AddBox(c + Vector3.up * 0.012f, alongX ? new Vector3(room.Size.x - 2f, 0.02f, 2.2f) : new Vector3(2.2f, 0.02f, room.Size.y - 2f), Mat.Cloth);
             Props.Candelabra(lights, b, c + new Vector3(2.8f, 0f, 2.8f), mood);
             Props.Candelabra(lights, b, c + new Vector3(-2.8f, 0f, -2.8f), mood);

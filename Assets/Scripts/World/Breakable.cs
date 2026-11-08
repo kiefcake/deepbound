@@ -16,7 +16,9 @@ namespace Deepbound.World
     [RequireComponent(typeof(Health))]
     public class Breakable : NetworkBehaviour
     {
-        public enum Kind : byte { Urn, PowderBarrel, RitualBrazier, SoulLantern, HealPylon, GreatUrn }
+        /// <summary>Append only (synced). 2026-11-08 interactables: OilJar (spills a slick), CrackedPillar (topples away
+        /// from whoever breaks it, crushing a lane), FireBowl (tips over: burning coals that light oil).</summary>
+        public enum Kind : byte { Urn, PowderBarrel, RitualBrazier, SoulLantern, HealPylon, GreatUrn, OilJar, CrackedPillar, FireBowl }
 
         public readonly NetworkVariable<Kind> Type = new NetworkVariable<Kind>();
         /// <summary>A great urn takes a few blows (plus 12 a tier).</summary>
@@ -55,12 +57,24 @@ namespace Deepbound.World
                 gcap.radius = 0.62f; gcap.height = 1.9f; gcap.center = new Vector3(0f, 0.95f, 0f);
                 health.InvalidateBody();
             }
+            if (Type.Value == Kind.CrackedPillar && TryGetComponent<CapsuleCollider>(out var pcap))
+            {
+                pcap.radius = 0.55f; pcap.height = 4.2f; pcap.center = new Vector3(0f, 2.1f, 0f);
+                health.InvalidateBody();
+            }
+            if (Type.Value == Kind.FireBowl && TryGetComponent<CapsuleCollider>(out var fcap))
+            {
+                fcap.radius = 0.4f; fcap.height = 1.3f; fcap.center = new Vector3(0f, 0.65f, 0f);
+                health.InvalidateBody();
+            }
             if (!IsServer) return;
             int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
             float tier = DungeonDirector.Tier(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
-            health.ServerSetMax(Type.Value == Kind.Urn ? 1f : Type.Value == Kind.GreatUrn ? GreatUrnHealth + 12f * tier : Type.Value == Kind.RitualBrazier ? 60f + 20f * tier
+            health.ServerSetMax(Type.Value == Kind.Urn || Type.Value == Kind.OilJar ? 1f : Type.Value == Kind.FireBowl ? 12f : Type.Value == Kind.CrackedPillar ? PillarHealth + 30f * tier
+                : Type.Value == Kind.GreatUrn ? GreatUrnHealth + 12f * tier : Type.Value == Kind.RitualBrazier ? 60f + 20f * tier
                 : Type.Value == Kind.HealPylon ? (140f + 70f * tier) * (1f + 0.4f * (players - 1)) : 10f, refill: true);
             health.Died += _ => ServerBreak();
+            health.DamagedServer += (lost, by) => lastHitBy = by;
             // A pylon that is being struck stops pouring for a moment: attacking it pays off at once.
             if (Type.Value == Kind.HealPylon) health.DamagedServer += (lost, by) => stunnedUntil = Time.time + PylonHitPause;
         }
@@ -103,10 +117,51 @@ namespace Deepbound.World
             ArtLibrary.SetGlow(beam.GetComponent<Renderer>(), new Color(0.5f, 1f, 0.55f) * (1.2f * pulse));
         }
 
+        private ulong lastHitBy = ulong.MaxValue;
+        public const float PillarHealth = 90f, PillarLength = 5.2f, PillarWidth = 1.7f, PillarWarn = 0.6f;
+
+        /// <summary>Server: the way from whoever struck last to this (a pillar falls that way, a fire bowl tips that way).</summary>
+        private Vector3 AwayFromHitter()
+        {
+            Vector3 dir = Vector3.zero;
+            if (lastHitBy != ulong.MaxValue && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(lastHitBy, out var hitter))
+                dir = transform.position - hitter.transform.position;
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 0.01f) dir = transform.forward;
+            return dir.normalized;
+        }
+
         private void ServerBreak()
         {
             if (broken) return;
             broken = true;
+            if (Type.Value == Kind.OilJar)
+            {
+                // The slick lights at once if fire is already beside it.
+                bool fire = OilSlick.BurningAt(transform.position);
+                DungeonDirector.Instance?.ServerSpawnOil(transform.position, fire, lastHitBy);
+                OilJarFxRpc();
+                NetworkObject.Despawn();
+                return;
+            }
+            if (Type.Value == Kind.FireBowl)
+            {
+                // Tipped over: the coals spill a pace away from the blow, burning, lighting any oil they reach.
+                var dir = AwayFromHitter();
+                var at = transform.position + dir * 1.1f;
+                DungeonDirector.Instance?.ServerSpawnOil(at, true, lastHitBy, coals: true);
+                OilSlick.ServerIgniteAt(at, lastHitBy, OilSlick.Radius);
+                FireBowlFxRpc(dir);
+                NetworkObject.Despawn();
+                return;
+            }
+            if (Type.Value == Kind.CrackedPillar)
+            {
+                var dir = AwayFromHitter();
+                PillarWarnRpc(dir);
+                StartCoroutine(PillarCrash(dir));
+                return;
+            }
             if (Type.Value == Kind.Urn || Type.Value == Kind.GreatUrn) DungeonDirector.Instance?.QuestOnUrn();
             if (Type.Value == Kind.HealPylon)
             {
@@ -186,8 +241,113 @@ namespace Deepbound.World
                 push.y = 0f;
                 if (h.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(push.normalized * 12f + Vector3.up * 5f);
             }
+            OilSlick.ServerIgniteAt(at, NetworkObjectId, BlastRadius);
             ExplodeFxRpc(at);
             NetworkObject.Despawn();
+        }
+
+        private System.Collections.IEnumerator PillarCrash(Vector3 dir)
+        {
+            yield return new WaitForSeconds(PillarWarn);
+            var from = transform.position;
+            float tier = DungeonDirector.Tier(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
+            foreach (var h in Health.All.ToArray())
+            {
+                if (h == null || !h.IsAlive || h == health) continue;
+                var d = h.transform.position - from;
+                if (Mathf.Abs(d.y) > 2f) continue;
+                float along = Vector3.Dot(new Vector3(d.x, 0f, d.z), dir);
+                float side = Vector3.Cross(dir, new Vector3(d.x, 0f, d.z)).magnitude;
+                if (along < -0.4f || along > PillarLength || side > PillarWidth / 2f + 0.35f) continue;
+                if (h.Team == Team.Enemies)
+                {
+                    var boss = h.GetComponent<Enemies.BossBrain>();
+                    float dmg = boss != null ? h.Max.Value * 0.05f : Mathf.Max(h.Max.Value * 0.6f, 40f + 15f * tier);
+                    h.Tag("Falling pillar").ServerDamage(dmg, from, lastHitBy);
+                    if (boss != null) boss.ServerAddStagger(0.25f);
+                    else if (h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(2f);
+                }
+                else if (h.Team == Team.Players)
+                {
+                    h.Tag("Falling pillar").ServerDamage(h.Max.Value * 0.3f + h.Defense * Health.DefenseWeight, from);
+                    if (h.TryGetComponent<KnockbackReceiver>(out var k)) k.KnockbackRpc(Vector3.Cross(Vector3.up, dir) * (Vector3.Dot(h.transform.position - from, Vector3.Cross(Vector3.up, dir)) >= 0f ? 7f : -7f) + Vector3.up * 3f);
+                }
+                else if (h.Team == Team.Props && h.TryGetComponent<Breakable>(out var other) && other.Type.Value != Kind.CrackedPillar)
+                    h.ServerDamage(999f, from, lastHitBy);
+            }
+            // Oil in its path splashes alight if anything was burning; the crash itself sparks none.
+            PillarRubbleRpc(dir);
+            ServerRubble(dir);
+        }
+
+        /// <summary>Every peer: the column lies where it fell (a low wall: cover from shots, a barrier the dead walk round).</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PillarRubbleRpc(Vector3 dir)
+        {
+            var at = transform.position;
+            foreach (Transform child in transform) if (child.name == "Column") child.gameObject.SetActive(false);
+            if (TryGetComponent<CapsuleCollider>(out var cap)) cap.enabled = false;
+            var fallen = new GameObject("FallenColumn").transform;
+            fallen.SetParent(transform, false);
+            fallen.rotation = Quaternion.LookRotation(dir);
+            fallen.position = at;
+            for (int i = 0; i < 4; i++)
+            {
+                // Four drums of the column, a little askew, rolled out along the fall.
+                var drum = MeshKit.Part(fallen, "Drum" + i, MeshKit.Cylinder(0.46f, 0.46f, 1.05f, 10), Mat.StoneWall,
+                    new Vector3(Random.Range(-0.12f, 0.12f), 0.44f, 0.6f + i * 1.15f), new Vector3(90f, 0f, Random.Range(-8f, 8f)));
+                drum.transform.localPosition += new Vector3(0f, 0f, -0.52f);
+            }
+            for (int i = 0; i < 8; i++)
+                MeshKit.Part(fallen, "Chunk", MeshKit.Box(Vector3.one * Random.Range(0.18f, 0.4f)), Mat.StoneWall,
+                    new Vector3(Random.Range(-1f, 1f), 0.12f, Random.Range(0f, PillarLength)), new Vector3(Random.Range(0f, 40f), Random.Range(0f, 360f), 0f));
+            var col = fallen.gameObject.AddComponent<BoxCollider>();
+            col.center = new Vector3(0f, 0.45f, PillarLength * 0.45f);
+            col.size = new Vector3(0.95f, 0.9f, PillarLength * 0.85f);
+            Sfx.Play(Sound.Slam, at + dir * 2f, 1f, 0.7f);
+            Sfx.Play(Sound.BoneBreak, at + dir * 2f, 1f, 0.6f);
+            for (int i = 0; i < 4; i++) Vfx.Smoke(at + dir * (i * 1.3f) + Vector3.up * 0.4f, 3, 0.8f, 2.4f);
+            var local = Player.NetworkPlayer.Local;
+            if (local != null && Vector3.Distance(local.transform.position, at) < 16f) local.AddShake(0.5f);
+            UI.GameHud.ShowCombo(at + dir * 2.5f + Vector3.up * 1.5f, "CRUSHED", new Color(0.85f, 0.8f, 0.7f));
+        }
+
+        /// <summary>Server: the dead path round the fallen column.</summary>
+        private void ServerRubble(Vector3 dir)
+        {
+            var obstacle = new GameObject("RubbleObstacle").AddComponent<UnityEngine.AI.NavMeshObstacle>();
+            obstacle.transform.SetParent(transform, false);
+            obstacle.transform.rotation = Quaternion.LookRotation(dir);
+            obstacle.shape = UnityEngine.AI.NavMeshObstacleShape.Box;
+            obstacle.center = new Vector3(0f, 0.45f, PillarLength * 0.45f);
+            obstacle.size = new Vector3(0.95f, 0.9f, PillarLength * 0.85f);
+            obstacle.carving = true;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PillarWarnRpc(Vector3 dir)
+        {
+            Telegraph.ShowLine(transform.position, dir, PillarLength, PillarWidth, PillarWarn, null, new Color(0.85f, 0.75f, 0.55f));
+            Sfx.Play(Sound.Creak, transform.position + Vector3.up * 2f, 1f, 0.6f);
+            Vfx.Smoke(transform.position + Vector3.up * 3.6f, 3, 0.4f, 1.5f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void OilJarFxRpc()
+        {
+            Sfx.Play(Sound.Shatter, transform.position + Vector3.up * 0.4f, 0.8f, 1.3f);
+            Sfx.Play(Sound.Splash, transform.position, 0.6f, 0.7f);
+            BoneBurst.Spawn(transform.position, 0.6f, false, Mat.Rubble);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void FireBowlFxRpc(Vector3 dir)
+        {
+            var at = transform.position + Vector3.up * 0.8f;
+            Sfx.Play(Sound.Block, at, 0.9f, 0.6f);
+            Sfx.Play(Sound.Fire, at, 1f, 1f);
+            Vfx.Embers(at, 24, new Color(1f, 0.55f, 0.2f), 5f, 0.06f, 1f);
+            BoneBurst.Spawn(transform.position + dir * 0.6f, 0.8f, false, Mat.Steel);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -338,6 +498,61 @@ namespace Deepbound.World
                 MeshKit.Part(jar, "Lid", MeshKit.Cylinder(0.16f, 0.12f, 0.05f, 12), Mat.Rubble, new Vector3(0f, 0.7f, 0f));
                 var wax = MeshKit.Part(jar, "Seal", MeshKit.Ball(0.035f, 6, 4), Mat.Cloth, new Vector3(0f, 0.76f, 0f));
                 ArtLibrary.Tint(wax.GetComponent<Renderer>(), new Color(0.5f, 0.06f, 0.05f));
+                return;
+            }
+            if (Type.Value == Kind.OilJar)
+            {
+                // A squat black-glazed jar with a stoppered neck, oil weeping down its side and a dark stain round its foot.
+                var jar = MeshKit.Pivot(transform, "Vase", Vector3.zero);
+                jar.localScale = Vector3.one * 1.5f;
+                var body = MeshKit.Part(jar, "Jar", MeshKit.Lathe("oilJar", new[]
+                {
+                    new Vector2(0f, 0f), new Vector2(0.2f, 0f), new Vector2(0.28f, 0.16f), new Vector2(0.27f, 0.34f),
+                    new Vector2(0.1f, 0.5f), new Vector2(0.08f, 0.6f), new Vector2(0f, 0.6f),
+                }, 12, false), Mat.Rubble, Vector3.zero);
+                ArtLibrary.Tint(body.GetComponent<Renderer>(), new Color(0.2f, 0.17f, 0.13f));
+                var cork = MeshKit.Part(jar, "Stopper", MeshKit.Cylinder(0.075f, 0.065f, 0.07f, 8), Mat.Wood, new Vector3(0f, 0.6f, 0f));
+                ArtLibrary.Tint(cork.GetComponent<Renderer>(), new Color(0.55f, 0.4f, 0.25f));
+                var drip = MeshKit.Part(jar, "Drip", MeshKit.Box(new Vector3(0.05f, 0.25f, 0.01f)), Mat.Glow, new Vector3(0.06f, 0.36f, 0.25f), new Vector3(-20f, 0f, 0f));
+                ArtLibrary.SetGlow(drip.GetComponent<Renderer>(), new Color(0.6f, 0.45f, 0.15f) * 0.25f);
+                var stain = MeshKit.Part(transform, "Stain", MeshKit.Cylinder(0.55f, 0.55f, 0.008f, 12), Mat.Dark, new Vector3(0.1f, 0.01f, 0.1f));
+                ArtLibrary.Tint(stain.GetComponent<Renderer>(), new Color(0.05f, 0.04f, 0.03f));
+                // A painted flame on the shoulder: this one burns.
+                var mark = MeshKit.Part(jar, "FlameMark", MeshKit.Box(new Vector3(0.08f, 0.1f, 0.01f)), Mat.Glow, new Vector3(0f, 0.3f, -0.275f));
+                ArtLibrary.SetGlow(mark.GetComponent<Renderer>(), new Color(1f, 0.45f, 0.1f) * 0.6f);
+                return;
+            }
+            if (Type.Value == Kind.FireBowl)
+            {
+                // An iron fire bowl on three legs, coals glowing: knock it over and they spill.
+                for (int i = 0; i < 3; i++)
+                    MeshKit.Part(transform, "Leg" + i, MeshKit.Box(new Vector3(0.06f, 0.95f, 0.06f)), Mat.Steel,
+                        Quaternion.Euler(0f, i * 120f, 0f) * new Vector3(0f, 0.47f, 0.24f), new Vector3(-12f, i * 120f, 0f));
+                MeshKit.Part(transform, "Bowl", MeshKit.Lathe("fireBowl", new[]
+                {
+                    new Vector2(0.08f, 0f), new Vector2(0.36f, 0.12f), new Vector2(0.44f, 0.28f), new Vector2(0.38f, 0.28f), new Vector2(0f, 0.16f),
+                }, 12), Mat.Steel, new Vector3(0f, 0.9f, 0f));
+                var coals = MeshKit.Part(transform, "Coals", MeshKit.Cylinder(0.36f, 0.3f, 0.06f, 10), Mat.Glow, new Vector3(0f, 1.12f, 0f));
+                ArtLibrary.SetGlow(coals.GetComponent<Renderer>(), new Color(1f, 0.35f, 0.08f) * 1.2f);
+                Props.AddFlame(transform, new Vector3(0f, 1.2f, 0f), 0.55f, new Color(1f, 0.55f, 0.2f), 1.8f, 6f, false);
+                return;
+            }
+            if (Type.Value == Kind.CrackedPillar)
+            {
+                // A stone column with a crack climbing it and fallen grit at its foot: it will not take many blows.
+                var col = MeshKit.Pivot(transform, "Column", Vector3.zero);
+                MeshKit.Part(col, "Base", MeshKit.Box(new Vector3(1.1f, 0.3f, 1.1f)), Mat.StoneWall, new Vector3(0f, 0.15f, 0f));
+                MeshKit.Part(col, "Shaft", MeshKit.Cylinder(0.46f, 0.42f, 3.9f, 10), Mat.StoneWall, new Vector3(0f, 0.3f, 0f));
+                MeshKit.Part(col, "Capital", MeshKit.Box(new Vector3(1f, 0.3f, 1f)), Mat.StoneWall, new Vector3(0f, 4.2f, 0f));
+                for (int i = 0; i < 6; i++)
+                {
+                    var crack = MeshKit.Part(col, "Crack", MeshKit.Box(new Vector3(0.04f, 0.55f, 0.02f)), Mat.Dark,
+                        new Vector3(0.02f * i, 0.8f + i * 0.5f, 0.44f), new Vector3(0f, 0f, i % 2 == 0 ? 18f : -16f));
+                    ArtLibrary.Tint(crack.GetComponent<Renderer>(), new Color(0.05f, 0.04f, 0.04f));
+                }
+                for (int i = 0; i < 5; i++)
+                    MeshKit.Part(col, "Grit", MeshKit.Box(Vector3.one * Random.Range(0.08f, 0.16f)), Mat.StoneWall,
+                        new Vector3(Random.Range(-0.7f, 0.7f), 0.05f, Random.Range(-0.7f, 0.7f)), new Vector3(0f, Random.Range(0f, 90f), 0f));
                 return;
             }
             if (Type.Value == Kind.Urn)

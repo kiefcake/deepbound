@@ -627,6 +627,8 @@ namespace Deepbound.World
 
         private void EnterLobby(bool keepRun = false)
         {
+            CampKeeps.Value = CampMemory.Load();
+            Weather.Value = TestMode ? (byte)CampWeather.Kind.Clear : CampWeather.Roll();
             ClearSpawned();
             ClearSettledContract(keepRun);
             ApplyOmen(false);
@@ -701,6 +703,10 @@ namespace Deepbound.World
             Put(slotMachinePrefab, Lobby.SlotSpot, Lobby.TentFacing);
             Put(blackjackPrefab, Lobby.BlackjackSpot, Vector3.back);
             Put(pokerPrefab, Lobby.PokerSpot, Lobby.TentFacing);
+            Put(wellFishingPrefab, Lobby.WellSpot, Vector3.forward);
+            Put(knifeBoardPrefab, Lobby.KnifeSpot, Lobby.KnifeFacing);
+            Put(bellFramePrefab, Lobby.BellSpot, Lobby.BellFacing);
+            Put(armWrestlePrefab, Lobby.WrestleSpot, Lobby.WrestleFacing);
             Put(catPrefab, Lobby.Origin + Lobby.S(0.6f, 0f, -8f), Vector3.forward);
             Put(gongPrefab, Lobby.GongSpot, Lobby.GongFacing);
             Put(shrinePrefab, Lobby.ShrineSpot, Vector3.left);
@@ -1204,6 +1210,7 @@ namespace Deepbound.World
         private void SpawnObjects(DungeonLayout layout)
         {
             if (breakablePrefab == null) return;
+            SpawnInteractables(layout);
             var rng = new System.Random(layout.Seed ^ 0x5eed);
             DungeonLayout.Room altarRoom = null;
             if (altarPrefab != null && (TestMode || rng.NextDouble() < 0.5))

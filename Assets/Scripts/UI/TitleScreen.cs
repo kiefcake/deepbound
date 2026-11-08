@@ -88,14 +88,14 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
-            "COMPANIONS at the tailor: they fetch gold and embers and sniff out hidden plates",
-            "GIVE to an ally: hold G on them for potions, gold, embers or a high five",
-            "Less writing over enemies: words for the one you aim at, pips for the rest",
-            "Runts and hulking brutes among the dead; great urns full of loot",
-            "THE PANOPLY: a guarded armour room every few floors, four new pieces",
-            "Spiders, fish, moths, gibbets and broken lanterns in every act",
-            "The camp is a market square now: trees, planters, fireflies, a livelier cat",
-            "Gold and embers rebalanced: about 80% of the upgrades on Normal",
+            "Chandeliers, burning oil, falling pillars, prisoners and vigils",
+            "Puzzle rooms: watchers, chimes, mirrors and the Scales",
+            "Quest cargo goes out past the guardian, on the lift",
+            "Trophies and keepsakes stay up in camp; the folk remember",
+            "Fish the well, throw knives, ring the bells, arm-wrestle Brann",
+            "New casino games, Skull Poker, and Old Wick at the table",
+            "Mist and rain at camp; pets fetch, chase the cat, nap by the fire",
+            "Old Hollis drinks at the bar to the fallen on the tavern wall",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)
