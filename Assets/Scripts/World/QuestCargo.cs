@@ -8,7 +8,10 @@ namespace Deepbound.World
     /// <summary>
     /// A quest's CARGO (2026-11-08, the user: quests "way too easy ... be more creative, you can involve new mechanics or
     /// assets that can be done in the dungeon"; picked "Fetch &amp; carry"). Somewhere far from the start lies the thing a
-    /// camp person asked for; carry it (F) back to the start room's waystone. Each one handles differently:
+    /// camp person asked for; carry it (F) OUT: through the guardian's fight and up on the grave lift (2026-11-08, the
+    /// user: "it should be carried out past the boss fight, so that the item can get damaged or the speed halved will
+    /// affect someone in combat"). It must be inside the arena when the arena seals (else it is left behind and the quest
+    /// fails), and it cannot be set down while the arena is sealed. Each one handles differently:
     /// <list type="bullet">
     /// <item>Hobb's father's hammer: heavy (x0.5 speed).</item>
     /// <item>Silas's strongbox of a dead merchant: x0.62, and every blow that knocks it loose spills some of its gold (the reward shrinks).</item>
@@ -45,12 +48,17 @@ namespace Deepbound.World
         public override Color MarkerColor => new Color(0.95f, 0.8f, 0.45f);
         protected override Vector3 HoldOffset => Who == FolkId.Corwin ? new Vector3(0.35f, 1.45f, 0.4f) : new Vector3(0f, 1.1f, 0.5f);
 
+        protected override bool DeliversAtWaystone => false;
+        protected override bool CanSetDown => DungeonDirector.Instance == null || !DungeonDirector.Instance.BossSealed;
+        protected override string HoldOnText => "Hold on to " + ItemName + " - no setting it down in the guardian's arena";
+        protected override string CarryText => "Carry " + ItemName + " out: through the guardian, up on the grave lift";
+
         public override string Prompt(PlayerProgress who)
         {
             string p = base.Prompt(who);
             if (p == null) return null;
             if (Fragile && Cracks.Value > 0) p += "  (cracked " + Cracks.Value + " / " + MaxCracks + ")";
-            return p + "  -  bring it to the waystone";
+            return p;
         }
 
         protected override void ServerCarrierHurt(float amount, bool knockedLoose)
@@ -76,11 +84,8 @@ namespace Deepbound.World
             UI.GameHud.ShowCombo(transform.position + Vector3.up * 0.9f, cracks >= MaxCracks ? "RUINED" : "CRACKED " + cracks + "/" + MaxCracks, new Color(1f, 0.5f, 0.35f));
         }
 
-        protected override void ServerDelivered(NetworkObject carrier, DungeonLayout layout)
-        {
-            DungeonDirector.Instance?.ServerCargoDelivered(Who);
-            NetworkObject.Despawn();
-        }
+        /// <summary>Never by the waystone: <see cref="DungeonDirector"/> settles cargo as the grave lift rises.</summary>
+        protected override void ServerDelivered(NetworkObject carrier, DungeonLayout layout) { }
 
         protected override void VisualTick(bool carried)
         {

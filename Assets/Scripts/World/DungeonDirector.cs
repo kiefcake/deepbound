@@ -1466,6 +1466,7 @@ namespace Deepbound.World
             UpdateTideVisual();
             if (!IsServer || Instance != this) return;
             TickFolkHolds();
+            TickHeldFinds();
             WatchPartySize();
             TickArmourAuras();
             double now = NetworkManager.ServerTime.Time;
@@ -1529,6 +1530,7 @@ namespace Deepbound.World
                         {
                             // The grave lift takes up its chains: everyone rises into the dark, then camp.
                             ascending = true;
+                            QuestSettleOnAscent();
                             AscendRpc();
                             StartCoroutine(AfterAscent());
                         }

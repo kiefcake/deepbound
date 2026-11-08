@@ -42,7 +42,7 @@ namespace Deepbound.World
             if (taken) return;
             taken = true;
             TakenRpc(who.name);
-            DungeonDirector.Instance?.ServerTrinketFound(Who);
+            DungeonDirector.Instance?.ServerTrinketTaken(Who, who);
             NetworkObject.Despawn();
         }
 

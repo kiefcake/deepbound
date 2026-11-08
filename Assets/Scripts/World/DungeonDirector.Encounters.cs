@@ -893,6 +893,7 @@ namespace Deepbound.World
                 bossSealed = true;
                 BossSealedSync.Value = true;
                 boss.Dormant = false;
+                QuestCargoAtSeal();
                 SetGates(bossGates, true);
                 bool hallowed = Hallowed.Value;
                 if (hallowed)

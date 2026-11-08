@@ -39,6 +39,14 @@ namespace Deepbound.World
         public abstract string ItemName { get; }
         public virtual Color MarkerColor => new Color(0.78f, 0.6f, 1f);
         protected virtual bool CanCarry(PlayerProgress who) => true;
+        /// <summary>Delivered by standing at the start room's waystone (quest cargo goes out on the grave lift instead).</summary>
+        protected virtual bool DeliversAtWaystone => true;
+        /// <summary>The carrier may put it down now (quest cargo cannot be put down in the guardian's sealed arena).</summary>
+        protected virtual bool CanSetDown => true;
+        /// <summary>The prompt while carrying when it cannot be set down.</summary>
+        protected virtual string HoldOnText => "Hold on to " + ItemName;
+        /// <summary>The prompt's verb for picking it up.</summary>
+        protected virtual string CarryText => "Carry " + ItemName + " to the waystone";
 
         protected abstract void BuildVisual();
         /// <summary>Server: it reached the waystone. Despawn it (or let the subclass do it).</summary>
@@ -67,16 +75,16 @@ namespace Deepbound.World
         public override string Prompt(PlayerProgress who)
         {
             if (who == null || !CanCarry(who)) return null;
-            if (Carrier.Value == who.NetworkObjectId) return "Set down " + ItemName;
+            if (Carrier.Value == who.NetworkObjectId) return CanSetDown ? "Set down " + ItemName : HoldOnText;
             if (Carried || IsCarrying(who.NetworkObjectId)) return null;
-            return "Carry " + ItemName + " to the waystone";
+            return CarryText;
         }
 
         public override float Range => 2.4f;
 
         protected override void ServerUse(PlayerProgress who)
         {
-            if (Carrier.Value == who.NetworkObjectId) { ServerDrop(who.transform.position); return; }
+            if (Carrier.Value == who.NetworkObjectId) { if (CanSetDown) ServerDrop(who.transform.position); return; }
             if (Carried) return;
             Carrier.Value = who.NetworkObjectId;
             carrierHealthLast = who.GetComponent<Combat.Health>().Current.Value;
@@ -167,7 +175,7 @@ namespace Deepbound.World
             ServerCarriedTick(carrier);
 
             var layout = DungeonDirector.Layout;
-            if (layout == null) return;
+            if (layout == null || !DeliversAtWaystone) return;
             var to = layout.WaystonePosition - carrier.transform.position;
             to.y = 0f;
             if (to.magnitude > DeliverRange) { if (Ritual.Value > 0f) Ritual.Value = 0f; return; }

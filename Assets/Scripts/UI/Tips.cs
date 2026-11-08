@@ -87,7 +87,7 @@ namespace Deepbound.UI
             if (questDir != null)
                 foreach (var q in questDir.Quests)
                     if (q.Status == DungeonDirector.ContractStatus.Active && (q.Contract == Contract.Cargo || q.Contract == Contract.Gather || q.Contract == Contract.Mark))
-                    { Offer("questfloor", "QUEST ON THIS FLOOR: cargo glows with a column of light - carry it (F) to the start room's waystone; fragile cargo cracks when a hit knocks it loose. Finds glow and whisper in separate rooms. A named MARK walks the floor: hunt it before you take the lift."); break; }
+                    { Offer("questfloor", "QUEST ON THIS FLOOR: cargo glows with a column of light - carry it (F) OUT: into the guardian's arena (left outside, it is lost), through the fight (it cannot be set down there) and up on the grave lift. Fragile cargo cracks when a hit knocks it loose. Finds glow and whisper in separate rooms; whoever holds one must ride the lift out - go down and you drop it. A named MARK walks the floor: hunt it before you take the lift."); break; }
             if (DungeonDirector.IsWardenFloor(layout.Depth)) Offer("warden", "Each act's first floor ends at a WARDEN, the second at the act's master. Ten floors in all; the Unsung waits at the bottom.");
             var myKit = player.ActiveKit;
             if (myKit != null && myKit.AttackRange > 6f) Offer("falloff", "RANGED shots lose bite past half their range (60% at the very end), and arrows and knives DROP: aim a little high at distance.");

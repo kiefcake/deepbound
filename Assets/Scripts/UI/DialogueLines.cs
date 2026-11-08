@@ -87,11 +87,11 @@ namespace Deepbound.UI
             {
                 case Contract.Cargo: return who switch
                 {
-                    FolkId.Hobb => "*Hobb looks at the empty hook on the wall.* My father's hammer went down with him. Heavy as sin - you'll crawl carrying it. Bring it to the waystone and I'll hang it where it belongs.",
-                    FolkId.Silas => "A colleague of mine died rich somewhere below. His strongbox didn't. Carry it to the waystone - and every knock spills coin, so don't get hit. What's left, we split. Mostly me.",
+                    FolkId.Hobb => "*Hobb looks at the empty hook on the wall.* My father's hammer went down with him. Heavy as sin - you'll crawl carrying it. Carry it out past whatever guards that floor and I'll hang it where it belongs.",
+                    FolkId.Silas => "A colleague of mine died rich somewhere below. His strongbox didn't. Carry it out on the grave lift - and every knock spills coin, so don't get hit. What's left, we split. Mostly me.",
                     FolkId.Marta => "There's a cask of Deepcellar Black on a shelf down there, from before the flood. Three knocks and it's vinegar. Carry it like a baby, love. A heavy, sloshing baby.",
-                    FolkId.Vey => "Deep silk. A bolt of it, in some drowned merchant's chest. If it tears, it's ruined - three snags and I'll weep. Get it to the waystone untouched.",
-                    FolkId.Corwin => "I dropped my coach lamp the night the road caved in. It's still down there. Still lit, they say. Bring it to the waystone. It'll light your way, at least.",
+                    FolkId.Vey => "Deep silk. A bolt of it, in some drowned merchant's chest. If it tears, it's ruined - three snags and I'll weep. Bring it out on the lift untouched.",
+                    FolkId.Corwin => "I dropped my coach lamp the night the road caved in. It's still down there. Still lit, they say. Bring it up on the lift. It'll light your way through the dark, at least.",
                     _ => "There's something of mine down there. Carry it back up.",
                 };
                 case Contract.Gather: return who switch

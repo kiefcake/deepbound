@@ -44,8 +44,121 @@ namespace Deepbound.World
             _ => "ghoul",
         };
 
-        public static string CargoTask(FolkId who) => "Find " + QuestCargo.NameOf(who) + " and carry it to the start room's waystone";
-        public static string GatherTask(FolkId who, int goal) => "Find " + goal + " " + (who == FolkId.Aldric ? "saint's knucklebones (gold glow, a whisper)" : who == FolkId.Brann ? "fallen standards of Brann's squad" : "humming rune shards") + " in different rooms";
+        public static string CargoTask(FolkId who) => "Find " + QuestCargo.NameOf(who) + " and carry it out: into the guardian's arena, through the fight, up on the grave lift";
+        public static string GatherTask(FolkId who, int goal) => "Find " + goal + " " + (who == FolkId.Aldric ? "saint's knucklebones (gold glow, a whisper)" : who == FolkId.Brann ? "fallen standards of Brann's squad" : "humming rune shards") + " in different rooms and bring them out on the grave lift (go down and you drop them)";
+
+        /// <summary>Server: finds held by each player (NetworkObjectId -> givers), counted when the lift rises.</summary>
+        private readonly Dictionary<ulong, List<FolkId>> heldFinds = new Dictionary<ulong, List<FolkId>>();
+        private float nextHeldCheck;
+
+        /// <summary>Server: a find picked up - held by that player until the lift, dropped where they fall.</summary>
+        public void ServerTrinketTaken(FolkId giver, Progression.PlayerProgress by)
+        {
+            if (by == null) return;
+            if (!heldFinds.TryGetValue(by.NetworkObjectId, out var list)) heldFinds[by.NetworkObjectId] = list = new List<FolkId>();
+            list.Add(giver);
+            SyncHeld();
+            HeldFindRpc(UI.Dialogue.NameOf(giver), RpcTarget.Single(by.OwnerClientId, RpcTargetUse.Temp));
+        }
+
+        [Rpc(SendTo.SpecifiedInParams)]
+        private void HeldFindRpc(string giver, RpcParams p = default) =>
+            UI.GameHud.Feed("You carry " + giver + "'s find - it counts once you ride the grave lift out. Go down and you drop it.", new Color(1f, 0.85f, 0.5f));
+
+        private void SyncHeld()
+        {
+            for (int i = 0; i < Quests.Count; i++)
+            {
+                var q = Quests[i];
+                if (q.Contract != Contract.Gather) continue;
+                int n = 0;
+                foreach (var kv in heldFinds) foreach (var g in kv.Value) if (g == q.Who) n++;
+                if (q.Held != n) { q.Held = (byte)n; Quests[i] = q; }
+            }
+        }
+
+        /// <summary>Server, from Update: a player who goes down (or leaves) drops what they hold where they are.</summary>
+        private void TickHeldFinds()
+        {
+            if (heldFinds.Count == 0 || Time.time < nextHeldCheck) return;
+            nextHeldCheck = Time.time + 0.25f;
+            List<ulong> drop = null;
+            foreach (var kv in heldFinds)
+            {
+                if (kv.Value.Count == 0) continue;
+                NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(kv.Key, out var obj);
+                var life = obj != null ? obj.GetComponent<Player.PlayerLife>() : null;
+                if (life == null || life.Downed.Value) (drop ??= new List<ulong>()).Add(kv.Key);
+            }
+            if (drop == null) return;
+            foreach (var id in drop)
+            {
+                NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(id, out var obj);
+                var at = obj != null ? obj.transform.position : (Layout != null ? Layout.WaystonePosition : Vector3.zero);
+                int k = 0;
+                foreach (var giver in heldFinds[id])
+                {
+                    if (questTrinketPrefab == null) break;
+                    var spot = OnNav(at + Quaternion.Euler(0f, k++ * 120f, 0f) * Vector3.forward * 0.7f);
+                    var t = Instantiate(questTrinketPrefab, spot, Quaternion.identity);
+                    t.GetComponent<QuestTrinket>().Giver.Value = (byte)giver;
+                    t.Spawn(destroyWithScene: true);
+                }
+                if (heldFinds[id].Count > 0) FindsDroppedRpc(obj != null ? obj.name : "Someone", heldFinds[id].Count);
+                heldFinds.Remove(id);
+            }
+            SyncHeld();
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void FindsDroppedRpc(string who, int n) => UI.GameHud.Feed(who + " went down and dropped " + n + " quest find" + (n > 1 ? "s" : "") + " - pick " + (n > 1 ? "them" : "it") + " up again.", new Color(1f, 0.6f, 0.4f));
+
+        /// <summary>Server, when the arena seals: cargo that is not inside with the party is left behind.</summary>
+        private void QuestCargoAtSeal()
+        {
+            var room = Layout != null ? Layout.BossRoom : null;
+            if (room == null) return;
+            foreach (var c in FindObjectsByType<QuestCargo>(FindObjectsSortMode.None))
+            {
+                if (c == null || !c.IsSpawned || room.Contains(c.transform.position, 0.5f)) continue;
+                LeftBehindRpc(QuestCargo.NameOf(c.Who));
+                ServerCargoRuined(c.Who);
+                c.NetworkObject.Despawn();
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void LeftBehindRpc(string what) => UI.GameHud.Feed("The gates fall shut - " + what + " is left behind in the dark.", new Color(0.9f, 0.45f, 0.35f));
+
+        /// <summary>Server, as the grave lift rises: cargo carried out (or set in the cage) and finds held count; the rest fails.</summary>
+        public void QuestSettleOnAscent()
+        {
+            var cargo = FindObjectsByType<QuestCargo>(FindObjectsSortMode.None);
+            for (int i = 0; i < Quests.Count; i++)
+            {
+                var q = Quests[i];
+                if (q.Status != ContractStatus.Active) continue;
+                if (q.Contract == Contract.Cargo)
+                {
+                    var c = System.Array.Find(cargo, x => x != null && x.IsSpawned && x.Who == q.Who);
+                    var flat = c != null ? c.transform.position - ExitPosition : Vector3.one * 99f; flat.y = 0f;
+                    bool out_ = c != null && (c.Carried || flat.magnitude <= ExitRadius + 1f);
+                    if (out_) Advance(Contract.Cargo, 1, q.Who);
+                    else FailQuest(i);
+                }
+                else if (q.Contract == Contract.Gather)
+                {
+                    int held = 0;
+                    foreach (var kv in heldFinds) foreach (var g in kv.Value) if (g == q.Who) held++;
+                    if (held > 0) Advance(Contract.Gather, held, q.Who);
+                    q = Quests[i];
+                    if (q.Status == ContractStatus.Active) FailQuest(i);
+                }
+            }
+            heldFinds.Clear();
+            SyncHeld();
+            foreach (var c in cargo) if (c != null && c.IsSpawned) c.NetworkObject.Despawn();
+        }
         public static string MarkTask(FolkId who) => "Hunt " + MarkName(who) + " (a named " + MarkKind(who) + ") somewhere on the floor";
 
         /// <summary>Rooms worth hiding things in, farthest from the start first.</summary>
@@ -64,6 +177,7 @@ namespace Deepbound.World
         private void SpawnQuestObjects()
         {
             marks.Clear();
+            heldFinds.Clear();
             var layout = Layout;
             if (layout == null) return;
             var rooms = FarRooms(layout);
@@ -146,17 +260,32 @@ namespace Deepbound.World
             ulong markId = 0; foreach (var kv in marks) if (kv.Value == FolkId.Brann) markId = kv.Key;
             string why = "cargo " + (cargo != null) + ", finds " + finds.Length + ", mark " + (markId != 0);
             bool placed = cargo != null && finds.Length >= 1 && markId != 0;
+            int ok = 0;
             if (placed)
             {
-                ServerCargoDelivered(FolkId.Hobb);
                 var taker = System.Linq.Enumerable.FirstOrDefault(Player.PlayerLife.All, p => p != null)?.GetComponent<Progression.PlayerProgress>();
+                cargo.ServerDebugCarry(taker);
                 foreach (var t in finds) if (taker != null) t.ServerTake(taker);
                 yield return new WaitForSeconds(0.3f);
+                // Held, not yet counted: no waystone delivery, and the finds wait for the lift.
+                bool waiting = Quests[baseCount].Status == ContractStatus.Active && Quests[baseCount + 1].Progress == 0 && Quests[baseCount + 1].Held == finds.Length;
+                why += ", held " + Quests[baseCount + 1].Held + " waiting " + waiting;
                 if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(markId, out var markObj)) markObj.GetComponent<Health>().ServerDamage(1e6f, markObj.transform.position);
                 yield return new WaitForSeconds(0.3f);
+                QuestSettleOnAscent();
+                yield return null;
+                for (int i = baseCount; i < Quests.Count; i++) if (Quests[i].Status == ContractStatus.Fulfilled) ok++;
+                if (!waiting) ok = -1;
+                // Cargo outside the arena when it seals is left behind.
+                Quests.Add(new QuestSlot { Kind = (byte)Contract.Cargo, Giver = (byte)FolkId.Marta, State = (byte)ContractStatus.Active, Goal = 1 });
+                SpawnQuestObjects();
+                yield return null;
+                QuestCargoAtSeal();
+                yield return null;
+                bool leftBehind = Quests[Quests.Count - 1].Status == ContractStatus.Failed;
+                why += ", left behind at the seal " + leftBehind;
+                if (!leftBehind) ok = -1;
             }
-            int ok = 0;
-            for (int i = baseCount; i < Quests.Count; i++) if (Quests[i].Status == ContractStatus.Fulfilled) ok++;
             why += ", fulfilled " + ok + "/3";
             while (Quests.Count > baseCount) Quests.RemoveAt(Quests.Count - 1);
             if (cargo != null && cargo.IsSpawned) cargo.NetworkObject.Despawn();

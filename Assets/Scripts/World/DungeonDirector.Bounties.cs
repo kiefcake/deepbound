@@ -25,12 +25,14 @@ namespace Deepbound.World
         public byte Kind, Giver, State;
         public bool Special;
         public int Progress, Goal;
+        /// <summary>Gather: finds picked up and held by the party, counted only once they ride the lift out.</summary>
+        public byte Held;
 
         public Contract Contract => (Contract)Kind;
         public FolkId Who => (FolkId)Giver;
         public DungeonDirector.ContractStatus Status => (DungeonDirector.ContractStatus)State;
 
-        public bool Equals(QuestSlot o) => Kind == o.Kind && Giver == o.Giver && State == o.State && Special == o.Special && Progress == o.Progress && Goal == o.Goal;
+        public bool Equals(QuestSlot o) => Kind == o.Kind && Giver == o.Giver && State == o.State && Special == o.Special && Progress == o.Progress && Goal == o.Goal && Held == o.Held;
         public override bool Equals(object obj) => obj is QuestSlot o && Equals(o);
         public override int GetHashCode() => Kind | Giver << 8 | State << 16 | Progress << 20;
     }
@@ -288,6 +290,8 @@ namespace Deepbound.World
                 var q = Quests[i];
                 if (q.Status != ContractStatus.Active) continue;
                 if (q.Contract == Contract.Untouchable || q.Contract == Contract.SwiftBlade) FulfilQuest(i);
+                // Cargo and finds are settled as the grave lift rises (they have to be carried out).
+                else if (q.Contract == Contract.Cargo || q.Contract == Contract.Gather) continue;
                 else FailQuest(i);
             }
         }

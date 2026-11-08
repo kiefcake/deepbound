@@ -632,7 +632,7 @@ namespace Deepbound.UI
                 var state = q.Status;
                 string task = DungeonDirector.QuestTask(q);
                 string line = state == DungeonDirector.ContractStatus.Taken ? "Next floor: " + task
-                    : state == DungeonDirector.ContractStatus.Active ? task + (q.Goal > 1 ? "  (" + q.Progress + " / " + q.Goal + ")" : "")
+                    : state == DungeonDirector.ContractStatus.Active ? task + (q.Goal > 1 ? "  (" + (q.Progress + q.Held) + " / " + q.Goal + (q.Held > 0 ? ", " + q.Held + " held" : "") + ")" : "")
                     : state == DungeonDirector.ContractStatus.Fulfilled ? "COMPLETE" : state == DungeonDirector.ContractStatus.Failed ? "FAILED" : "";
                 var col = state == DungeonDirector.ContractStatus.Fulfilled ? new Color(0.5f, 1f, 0.55f) : state == DungeonDirector.ContractStatus.Failed ? new Color(0.9f, 0.4f, 0.35f) : new Color(0.9f, 0.88f, 0.84f);
                 float y = 36 + i * 38;
