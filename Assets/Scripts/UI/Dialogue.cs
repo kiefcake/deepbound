@@ -242,11 +242,17 @@ namespace Deepbound.UI
                 }
             }
 
-            float pw = Mathf.Min(760f, W - 40f);
+            // To the right of the crosshair so the person's face stays in view (the controls hint hides while it is open).
+            float pw = Mathf.Min(580f, W * 0.46f);
             float textH = bodyStyle.CalcHeight(new GUIContent(say ?? ""), pw - 40f);
-            float extra = (task != null ? 26f : 0f) + (reward != null ? 24f : 0f);
+            var taskBold = new GUIStyle(taskStyle) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.95f, 0.9f, 0.8f) } };
+            var rewardGold = new GUIStyle(taskStyle) { normal = { textColor = UiSkin.Gold } };
+            float taskH = task != null ? taskBold.CalcHeight(new GUIContent(task), pw - 40f) : 0f;
+            float rewardH = reward != null ? rewardGold.CalcHeight(new GUIContent(reward), pw - 40f) : 0f;
+            float extra = (task != null ? taskH + 6f : 0f) + (reward != null ? rewardH + 4f : 0f);
             float ph = 54f + textH + extra + 14f + options.Count * 34f + 14f;
-            var r = new Rect(W / 2f - pw / 2f, H - ph - 60f, pw, ph);
+            // Above the potion belt and the ability bar (it sat over both).
+            var r = new Rect(W - pw - 36f, Mathf.Max(70f, H - ph - Mathf.Max(150f, H * 0.2f)), pw, ph);
             UiSkin.Panel(r, 0.95f);
 
             var fig = Art.FolkIdle.Of(who);
@@ -262,8 +268,8 @@ namespace Deepbound.UI
             float y = r.y + 46f;
             GUI.Label(new Rect(r.x + 20, y, pw - 40, textH), say ?? "", bodyStyle);
             y += textH + 6f;
-            if (task != null) { GUI.Label(new Rect(r.x + 20, y, pw - 40, 22), task, new GUIStyle(taskStyle) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.95f, 0.9f, 0.8f) } }); y += 26f; }
-            if (reward != null) { GUI.Label(new Rect(r.x + 20, y, pw - 40, 22), reward, new GUIStyle(taskStyle) { normal = { textColor = UiSkin.Gold } }); y += 24f; }
+            if (task != null) { GUI.Label(new Rect(r.x + 20, y, pw - 40, taskH), task, taskBold); y += taskH + 6f; }
+            if (reward != null) { GUI.Label(new Rect(r.x + 20, y, pw - 40, rewardH), reward, rewardGold); y += rewardH + 4f; }
             y += 8f;
             for (int i = 0; i < options.Count; i++)
             {

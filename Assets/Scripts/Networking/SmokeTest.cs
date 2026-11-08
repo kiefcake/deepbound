@@ -3687,6 +3687,87 @@ namespace Deepbound.Networking
         /// </summary>
         public void Screenshots(string dir, NetworkLauncher launcher) => StartCoroutine(ShotSequence(dir, launcher));
 
+        /// <summary>
+        /// -talkshots &lt;ABS dir&gt; (windowed): the conversation panel and the quest log as a player sees them - the talk
+        /// prompt, each giver's opening and work page, then three quests taken. Writes PNGs and quits. Never saves.
+        /// </summary>
+        public void TalkShots(string dir, NetworkLauncher launcher) => StartCoroutine(TalkShotSequence(dir, launcher));
+
+        private IEnumerator TalkShotSequence(string dir, NetworkLauncher launcher)
+        {
+            Progression.Cosmetics.TestMode = true;
+            DungeonDirector.TestMode = true;
+            UI.Journal.TestMode = true;
+            Progression.Deeds.TestMode = true;
+            World.FolkRounds.StayHome = true;
+            System.IO.Directory.CreateDirectory(dir);
+            yield return new WaitForSeconds(2f);
+            launcher.StartHost();
+            yield return new WaitForSeconds(3f);
+            var local = NetworkPlayer.Local;
+            if (local == null) { Application.Quit(1); yield break; }
+            local.GetComponent<UI.CharacterSelect>().Close();
+            yield return new WaitForSeconds(2.5f); // the folk build their rounds 2.5 s after the camp
+            var motor = local.GetComponent<FirstPersonMotor>();
+            motor.enabled = false;
+            var dc = DungeonDirector.Instance;
+            dc.ServerDebugClearQuests();
+            local.GetComponent<PlayerProgress>().ServerAddGold(300);
+            int n = 0;
+            foreach (var who in new[] { FolkId.Hobb, FolkId.Marta, FolkId.Corwin, FolkId.Silas, FolkId.Ysolde, FolkId.Aldric, FolkId.Vey, FolkId.Brann })
+            {
+                var fig = Art.FolkIdle.Of(who);
+                var feet = World.FolkPlaces.Now(who);
+                var face = fig != null ? fig.transform.forward : Vector3.forward; face.y = 0f;
+                if (face.sqrMagnitude < 0.01f) face = Vector3.forward;
+                var stand = feet + face.normalized * (who == FolkId.Corwin ? 3f : who == FolkId.Marta ? 1.9f : 2f);
+                stand.y = feet.y + 0.1f;
+                if (who == FolkId.Corwin) stand = Lobby.CarriageAt + new Vector3(2.4f, 0.1f, 3.6f);
+                var chest = fig != null ? Vector3.Lerp(fig.transform.position, fig.HeadTop, 0.65f) : feet + Vector3.up * 1.3f;
+                motor.Teleport(stand, Quaternion.LookRotation(Vector3.ProjectOnPlane(chest - stand, Vector3.up)));
+                yield return new WaitForSeconds(0.6f);
+                if (n == 0) yield return Shot(dir, "talk_0_prompt_" + who);
+                Debug.Log("[TalkShots] " + who + " aimed " + (UI.Dialogue.Aimed != null ? UI.Dialogue.Aimed.DisplayName : "nobody"));
+                UI.Dialogue.DebugBegin(who);
+                yield return null;
+                yield return Shot(dir, "talk_" + (++n) + "_" + who + "_main");
+                UI.Dialogue.DebugChoose(UI.Dialogue.DebugOptions().IndexOf("Tell me about yourself."));
+                yield return null;
+                yield return Shot(dir, "talk_" + n + "_" + who + "_about");
+                UI.Dialogue.DebugChoose(UI.Dialogue.DebugOptions().IndexOf("Got any work?"));
+                yield return null;
+                yield return Shot(dir, "talk_" + n + "_" + who + "_work");
+                if (n <= 3) { UI.Dialogue.DebugChoose(0); yield return new WaitForSeconds(0.3f); }
+                UI.Dialogue.DebugClose();
+            }
+            // A special offer (favour 2) on Brann's page, then the log with three quests.
+            dc.ServerDebugFavour(FolkId.Brann, DungeonDirector.SpecialFavour);
+            dc.ServerDebugClearQuests();
+            UI.Dialogue.DebugBegin(FolkId.Brann);
+            UI.Dialogue.DebugChoose(UI.Dialogue.DebugOptions().IndexOf("Got any work?"));
+            yield return null;
+            yield return Shot(dir, "talk_9_special_offer");
+            UI.Dialogue.DebugClose();
+            dc.ServerDebugFavour(FolkId.Brann, 0);
+            dc.ServerTakeQuest(FolkId.Hobb, "Shots");
+            dc.ServerTakeQuest(FolkId.Marta, "Shots");
+            dc.ServerTakeQuest(FolkId.Corwin, "Shots");
+            yield return new WaitForSeconds(0.5f);
+            yield return Shot(dir, "talk_10_quest_log");
+            var notice = FindObjectsByType<BountyNotice>(FindObjectsSortMode.None).FirstOrDefault();
+            if (notice != null)
+            {
+                dc.ServerDebugClearQuests();
+                var at = notice.transform.position + notice.transform.forward * 1.5f + Vector3.up * 0.1f;
+                motor.Teleport(at, Quaternion.LookRotation(-notice.transform.forward));
+                yield return new WaitForSeconds(0.5f);
+                yield return Shot(dir, "talk_11_board");
+            }
+            Debug.Log("[TalkShots] done");
+            yield return new WaitForSeconds(0.5f);
+            Application.Quit(0);
+        }
+
         private IEnumerator ShotSequence(string dir, NetworkLauncher launcher)
         {
             System.IO.Directory.CreateDirectory(dir);

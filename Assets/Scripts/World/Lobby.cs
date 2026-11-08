@@ -111,7 +111,7 @@ namespace Deepbound.World
             amb.Chimneys.Add(ForgeChimney);
             var rng = new System.Random(7);
             // Oaks: (x, z in S units, scale).
-            foreach (var (x, z, k) in new[] { (-19.5f, -9f, 1.1f), (8.2f, 16.2f, 1f) } /* 2026-11-07: the two by the spawn fire made way for the tavern and tent */)
+            foreach (var (x, z, k) in new[] { (8.2f, 16.2f, 1f) } /* 2026-11-08: the west oak's unlit crown sat right behind Brann's head from his customers' side (read as a black hat) */ /* 2026-11-07: the two by the spawn fire made way for the tavern and tent */)
             {
                 var at = o + S(x, 0f, z);
                 Oak(d, lights, at, k, rng);
@@ -744,7 +744,7 @@ namespace Deepbound.World
             SignArt.Post(lights, d, ShrineSpot + new Vector3(-2.4f, 0f, -2.5f), Vector3.forward, Vector3.left, "Shrine", SignArt.Icon.Candle);
             SignArt.Flat(lights, d, TavernCenter + new Vector3(TavernHalfX + 0.24f, 2.86f, 0f), Vector3.right, "Tavern", SignArt.Icon.Mug, 1.3f);
             SignArt.Hang(lights, d, TentCenter + new Vector3(-4.45f, 2.66f, 0f), Vector3.left, "Games", SignArt.Icon.Dice);
-            SignArt.Flat(lights, d, BountySpot + new Vector3(0.07f, 2.42f, 0f), BountyFacing, "Bounties", SignArt.Icon.Scroll, 1.3f);
+            SignArt.Flat(lights, d, BountySpot + new Vector3(0.07f, 2.42f, 0f), BountyFacing, "Quests", SignArt.Icon.Scroll, 1.3f);
             SignArt.Flat(lights, d, GongSpot + new Vector3(0.3f, 4.02f, 0f), GongFacing, "Might", SignArt.Icon.Bell, 1.2f);
             SignArt.Flat(lights, d, Origin + S(10f, 0f, 11f) + new Vector3(-0.07f, 2.2f, -3.4f), Vector3.left, "Archery", SignArt.Icon.Target, 0.95f);
         }

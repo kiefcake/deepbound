@@ -2144,6 +2144,7 @@ namespace Deepbound.UI
             var target = PlayerLife.DownedNear(player.transform.position, life);
             if (target == null)
             {
+                if (Dialogue.Open) return;
                 if (Dialogue.Aimed != null && !statsHeld) { PromptLine(w, h, "F   Talk to " + Dialogue.Aimed.DisplayName); return; }
                 var use = Interactable.Nearest(player.AimOrigin, player.AimForward, progress);
                 if (use != null && !statsHeld) PromptLine(w, h, "F   " + use.Prompt(progress));
@@ -2414,6 +2415,7 @@ namespace Deepbound.UI
             if (NearAnvil() == null || shopOpen) return;
             if (!forgeOpen)
             {
+                if (Dialogue.Aimed != null || Dialogue.Open) return; // looking at Hobb: F talks to him
                 var stall = StallHere();
                 if (stall == null || Vector3.Distance(player.transform.position, NearAnvil().transform.position) <
                     Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value))
