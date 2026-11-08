@@ -277,7 +277,7 @@ namespace Deepbound.Loot
             {
                 HitCounters.TryGetValue(attackerId, out int hits);
                 hits++;
-                if (hits >= Mathf.Max(2, (Has(p, Synergy.StormCaller) ? 3 : 6) - p.RelicTier(Relic.ThunderSigil)))
+                if (hits >= Mathf.Max(3, (Has(p, Synergy.StormCaller) ? 3 : 6) - p.RelicTier(Relic.ThunderSigil))) // never more often than every 3rd hit (Storm Caller on the Cleric's beam ticks was the strongest pair seen)
                 {
                     hits = 0;
                     resolvingProc = true;

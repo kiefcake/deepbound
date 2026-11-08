@@ -75,8 +75,9 @@ the first eight found and the weapon path is picked at random. No bot played a p
 - **Knight damage:** 10% of the party's total. Relic luck is part of it: the Knight out-damaged the Cleric in runs A and C,
   and the Cleric only passed it in run E with Thunder Idol. The Knight also took the least damage on floor 10 (2,129 against
   the Rogue's 7,942) despite having the most threat and health.
+- **Knight damage (2026-11-08):** every Knight now counters (a swing within 1.6 s of a block hits x1.4; the Riposte path x2.2). Not yet measured in a bot run.
 - **Thunder Idol + Echo Stone (Storm Caller):** lightning every second hit, about a third of the Cleric's guardian damage.
-  Left alone, because it lifts a weak damage dealer, but it is the strongest relic pair seen.
+  Left alone, because it lifts a weak damage dealer, but it is the strongest relic pair seen. 2026-11-08: capped at every 3rd hit (tiers had made it every 2nd).
 - **Late guardians are quick:** floors 7 and 9 took about a minute or less, shorter than floors 2 and 4. Bots stand still and
   keep full uptime, so people should take longer. Needs a real party.
 - **Solo:** the last solo run predates the final changes and had stalls on floors 3, 7 and 9. The twins fix may explain them;

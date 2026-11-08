@@ -48,7 +48,7 @@ namespace Deepbound.Classes
                     : "Snares burst 40% wider and come back 40% sooner.";
                 default: return path == 1
                     ? "Swings sweep a far wider arc (160°) and reach further."
-                    : "Blocking a hit readies a riposte: your next swing deals x2.2 damage.";
+                    : "Your counter after a block becomes a riposte: x2.2 damage instead of x1.4.";
             }
         }
 

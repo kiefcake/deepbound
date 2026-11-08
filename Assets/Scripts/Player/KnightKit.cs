@@ -130,9 +130,15 @@ namespace Deepbound.Player
         }
 
         private float AttackMultiplier => progress.AttackMultiplier;
-        private bool riposteReady;
+        private float riposteUntil = -10f;
+        /// <summary>COUNTER (2026-11-08, every Knight): a swing within <see cref="CounterWindow"/> s of turning a blow aside hits x<see cref="CounterDamage"/>; the Riposte path makes it x2.2 (and its mastery stuns).</summary>
+        public const float CounterWindow = 1.6f, CounterDamage = 1.4f, RiposteDamage = 2.2f;
+        /// <summary>Server: a counter is ready now.</summary>
+        public bool CounterReady => Time.time < riposteUntil;
         /// <summary>Tests: hold the shield up as if RMB were down.</summary>
         public bool DebugHoldBlock { get; set; }
+        /// <summary>Tests (server): a swing as if the owner had sent it.</summary>
+        public void ServerDebugSwing(Vector3 origin, Vector3 forward) => SwingRpc(origin, forward, 1f);
 
         /// <summary>True when the player's chosen class is the Knight. Otherwise this kit sleeps.</summary>
         private bool Active => progress.ClassId.Value == ClassId.Knight;
@@ -238,6 +244,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.Owner)]
         private void BlockedHitRpc()
         {
+            UI.Tips.OfferNow("counter", "COUNTER: you turned a blow on your shield. Swing within " + CounterWindow + " s of a block and the swing hits x" + CounterDamage + " (x" + RiposteDamage + " on the Riposte path).");
             Stamina = Mathf.Max(0f, Stamina - BlockedHitStamina);
             staminaRegenAt = Time.time + 0.8f;
             if (Stamina <= 0f)
@@ -271,10 +278,11 @@ namespace Deepbound.Player
 
             // Cleave: a wider, longer arc (mastery chills). Riposte: a blocked hit empowers this swing.
             bool cleave = progress.OnPath(1);
-            bool riposte = riposteReady && progress.OnPath(2);
-            riposteReady = false;
+            bool counter = Time.time < riposteUntil;
+            bool riposte = counter && progress.OnPath(2);
+            riposteUntil = -10f;
             float range = (cleave ? SwingRange + 0.6f : SwingRange) * ReachMul, arc = cleave ? 160f : SwingArc;
-            float damage = SwingDamage * AttackMultiplier * (riposte ? 2.2f : 1f);
+            float damage = SwingDamage * AttackMultiplier * (riposte ? RiposteDamage : counter ? CounterDamage : 1f);
 
             bool hitAny = false;
             bool chillSwing = cleave && progress.Mastered(1) && ++cleaveSwings % 3 == 0;
@@ -287,7 +295,7 @@ namespace Deepbound.Player
                 if (riposte && progress.Mastered(2) && target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.2f);
                 hitAny = true;
             }
-            if (riposte) Sfx2Rpc();
+            if (counter && hitAny) Sfx2Rpc(riposte);
 
             SwingFxRpc(swingSide, hitAny);
         }
@@ -336,7 +344,11 @@ namespace Deepbound.Player
 
         /// <summary>The riposte's ring of steel.</summary>
         [Rpc(SendTo.ClientsAndHost)]
-        private void Sfx2Rpc() => Sfx.Play(Sound.Block, transform.position + transform.forward + Vector3.up * 1.3f, 1f, 1.6f);
+        private void Sfx2Rpc(bool riposte)
+        {
+            Sfx.Play(Sound.Block, transform.position + transform.forward + Vector3.up * 1.3f, 1f, 1.6f);
+            if (IsOwner) UI.GameHud.ShowCombo(transform.position + transform.forward * 1.6f + Vector3.up * 1.6f, riposte ? "RIPOSTE" : "COUNTER", new Color(1f, 0.85f, 0.45f));
+        }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void BashFxRpc()
@@ -399,7 +411,7 @@ namespace Deepbound.Player
                     if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(health.LastHitFrom, out var foe) && foe.TryGetComponent<Enemies.EnemyBrain>(out var angry))
                         angry.ServerAddThreat(NetworkObjectId, damage * 3f + 15f);
                     damage *= 0.2f;
-                    riposteReady = true;
+                    riposteUntil = Time.time + CounterWindow;
                     BlockedHitRpc();
                     BlockFxRpc();
                 }

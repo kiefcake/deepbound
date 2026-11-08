@@ -741,6 +741,40 @@ namespace Deepbound.Networking
                     hp0.ClassId.Value = classBefore;
                     Log("sheltered", "blow from the front sheltered " + fromFront + ", from behind " + fromRear, fromFront && !fromRear);
                 }
+                // The Knight's COUNTER (2026-11-08): a swing soon after a block hits harder than a plain one; late, it does not.
+                {
+                    var kk = local.GetComponent<KnightKit>();
+                    var kp = local.GetComponent<PlayerProgress>(); // early in the run: a class change resets the run
+                    var cls0 = kp.ClassId.Value;
+                    kp.ClassId.Value = Classes.ClassId.Knight;
+                    var dm = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 1.6f, false);
+                    if (dm != null) { dm.ServerStun(30f); dm.GetComponent<Health>().ServerSetMax(4000f, refill: true); }
+                    yield return new WaitForSeconds(0.6f);
+                    float plain = 0f, counter = 0f, late = 0f;
+                    bool blocked = false;
+                    if (dm != null)
+                    {
+                        var dh = dm.GetComponent<Health>();
+                        var eye = local.transform.position + Vector3.up * 1.5f;
+                        var aim = dm.transform.position + Vector3.up * 1.0f - eye;
+                        float h0 = dh.Current.Value; kk.ServerDebugSwing(eye, aim.normalized); plain = h0 - dh.Current.Value;
+                        yield return new WaitForSeconds(0.7f);
+                        kk.DebugHoldBlock = true;
+                        yield return new WaitForSeconds(0.2f);
+                        local.GetComponent<Health>().ServerDamage(10f, dm.transform.position + Vector3.up, dm.NetworkObjectId);
+                        blocked = kk.CounterReady;
+                        kk.DebugHoldBlock = false;
+                        yield return new WaitForSeconds(0.15f);
+                        h0 = dh.Current.Value; kk.ServerDebugSwing(eye, aim.normalized); counter = h0 - dh.Current.Value;
+                        yield return new WaitForSeconds(0.7f);
+                        h0 = dh.Current.Value; kk.ServerDebugSwing(eye, aim.normalized); late = h0 - dh.Current.Value;
+                    }
+                    if (dm != null && !dm.IsDead) dm.GetComponent<Health>().ServerDamage(1e6f, dm.transform.position);
+                    kp.ClassId.Value = cls0;
+                    float k = plain > 0f ? counter / plain : 0f;
+                    Log("knight counter", "plain " + plain.ToString("F1") + ", after a block " + counter.ToString("F1") + " (x" + k.ToString("F2") + "), next swing " + late.ToString("F1") + ", block readied it " + blocked,
+                        blocked && plain > 0f && Mathf.Abs(k - KnightKit.CounterDamage) < 0.12f && late > 0f && late < counter * 0.9f);
+                }
                 // Dragging: the host takes the downed client by the collar and hauls it a few metres.
                 var dragged = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
                 if (dragged != null)

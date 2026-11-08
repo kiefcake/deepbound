@@ -147,7 +147,7 @@ namespace Deepbound.Classes
             }
             : new[]
             {
-                ("PASSIVE", "Bulwark", "Blocking stops 80% of damage from the front, at a stamina cost."),
+                ("PASSIVE", "Bulwark", "Blocking stops 80% of damage from the front, at a stamina cost. Swing within 1.6 s of a block to COUNTER for x1.4."),
                 ("LMB", "Sword Swing", "A quick wind-up, then a wide arc. Alternates sides."),
                 ("RMB", "Block", "Hold to raise your shield. Slows you while held."),
                 ("Q", "Shield Bash", "Lunge and stun. Cancels enemy wind-ups — even a boss's."),
