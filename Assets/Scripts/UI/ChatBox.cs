@@ -51,7 +51,7 @@ namespace Deepbound.UI
             // Open with Enter (or / ) when nothing else has the keyboard.
             var kb = Keyboard.current;
             if (!Typing && kb != null && (kb.enterKey.wasPressedThisFrame || kb.numpadEnterKey.wasPressedThisFrame || kb.slashKey.wasPressedThisFrame)
-                && !PauseMenu.Open && !CharacterSelect.Open && !Wardrobe.Open && !World.BlackjackTable.LocalOpen)
+                && !PauseMenu.Open && !CharacterSelect.Open && !Wardrobe.Open && !World.BlackjackTable.LocalOpen && !World.DiceTable.LocalOpen && !World.PokerDiceTable.LocalSeated)
                 Open(kb.slashKey.wasPressedThisFrame ? "/" : "");
         }
 

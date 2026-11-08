@@ -30,6 +30,8 @@ namespace Deepbound.Progression
             public Loot.GearItem Gear;
             /// <summary>Which camp vendor sells it.</summary>
             public Vendor Seller;
+            /// <summary>Drills: which regimens teach it (bits of <see cref="Regimen"/>; 0 = everyone).</summary>
+            public byte Regimens;
         }
 
         public const float MerchantRange = 3.2f;
@@ -192,9 +194,12 @@ namespace Deepbound.Progression
                     it.Price = UnityEngine.Mathf.RoundToInt(it.Price * (1f + 0.25f * depth));
                     list[i] = it;
                 }
-            // Only the Mage and the Cleric spend mana: Breathing (+MP) is no drill for anyone else.
-            if (vendor == Vendor.Yard && buyer != null && buyer.ClassId.Value != Classes.ClassId.Mage && buyer.ClassId.Value != Classes.ClassId.Cleric)
-                list.RemoveAll(it => it.Kind == ItemKind.Drill && it.Stat == StatType.MP);
+            // Brann drills each class in its own regimen (2026-11-08, the user: casters who live on mana and WIS were left out).
+            if (vendor == Vendor.Yard && buyer != null)
+            {
+                byte mine = (byte)RegimenOf(buyer.ClassId.Value);
+                list.RemoveAll(it => it.Kind == ItemKind.Drill && it.Regimens != 0 && (it.Regimens & mine) == 0);
+            }
             // Drills cost more each time you take one.
             if (vendor == Vendor.Yard && buyer != null)
                 for (int i = 0; i < list.Count; i++)
@@ -221,13 +226,39 @@ namespace Deepbound.Progression
         /// The training yard's drills: a stat for the run, each one dearer than the last (Cap = how many
         /// times). Gold's long-term sink: there is always one more drill to pay for.
         /// </summary>
+        /// <summary>Brann's three regimens: the front line, the skirmishers, and the casters.</summary>
+        [System.Flags] public enum Regimen : byte { Martial = 1, Skirmish = 2, Arcane = 4 }
+
+        public static Regimen RegimenOf(Classes.ClassId c) => c switch
+        {
+            Classes.ClassId.Knight or Classes.ClassId.Flagellant => Regimen.Martial,
+            Classes.ClassId.Rogue or Classes.ClassId.Ranger => Regimen.Skirmish,
+            _ => Regimen.Arcane,
+        };
+
+        public static string RegimenName(Classes.ClassId c) => RegimenOf(c) switch
+        {
+            Regimen.Martial => "THE LINE: steel, shield and stamina",
+            Regimen.Skirmish => "THE SKIRMISH: aim, footwork and speed",
+            _ => "THE VIGIL: forms, breath and stillness - for those who fight with the mind",
+        };
+
         public static readonly Item[] Drills =
         {
-            new Item { Name = "Sword Drill", Description = "+2 ATT for the run", Price = 60, Kind = ItemKind.Drill, Stat = StatType.ATT, Amount = 2f, Cap = 6, Seller = Vendor.Yard },
-            new Item { Name = "Shield Drill", Description = "+2 DEF for the run", Price = 55, Kind = ItemKind.Drill, Stat = StatType.DEF, Amount = 2f, Cap = 6, Seller = Vendor.Yard },
-            new Item { Name = "Footwork", Description = "+3 DEX for the run (faster attacks)", Price = 50, Kind = ItemKind.Drill, Stat = StatType.DEX, Amount = 3f, Cap = 6, Seller = Vendor.Yard },
-            new Item { Name = "Endurance Run", Description = "+25 max HP for the run", Price = 50, Kind = ItemKind.Drill, Stat = StatType.HP, Amount = 25f, Cap = 6, Seller = Vendor.Yard },
-            new Item { Name = "Breathing", Description = "+10 max MP for the run", Price = 40, Kind = ItemKind.Drill, Stat = StatType.MP, Amount = 10f, Cap = 5, Seller = Vendor.Yard },
+            // Everyone runs.
+            new Item { Name = "Endurance Run", Description = "Laps of the wall in full kit. +25 max HP for the run", Price = 50, Kind = ItemKind.Drill, Stat = StatType.HP, Amount = 25f, Cap = 6, Seller = Vendor.Yard },
+            // The line.
+            new Item { Name = "Sword Drill", Description = "The pell, a thousand cuts. +2 ATT for the run", Price = 60, Kind = ItemKind.Drill, Stat = StatType.ATT, Amount = 2f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Martial },
+            new Item { Name = "Shield Drill", Description = "Brann hits you with a plank until you stop flinching. +2 DEF for the run", Price = 55, Kind = ItemKind.Drill, Stat = StatType.DEF, Amount = 2f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Martial },
+            new Item { Name = "Footwork", Description = "Ladder steps in the sawdust. +3 DEX for the run (faster attacks)", Price = 50, Kind = ItemKind.Drill, Stat = StatType.DEX, Amount = 3f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)(Regimen.Martial | Regimen.Skirmish) },
+            // The skirmish.
+            new Item { Name = "Target Practice", Description = "The butts at forty paces, then sixty. +2 ATT for the run", Price = 60, Kind = ItemKind.Drill, Stat = StatType.ATT, Amount = 2f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Skirmish },
+            new Item { Name = "Hill Sprints", Description = "Up the rampart stairs until your legs lie to you. +2 SPD for the run", Price = 45, Kind = ItemKind.Drill, Stat = StatType.SPD, Amount = 2f, Cap = 4, Seller = Vendor.Yard, Regimens = (byte)Regimen.Skirmish },
+            // The vigil.
+            new Item { Name = "Casting Forms", Description = "The gestures, slow then fast, until the hand knows them. +2 ATT for the run (spells hit harder)", Price = 60, Kind = ItemKind.Drill, Stat = StatType.ATT, Amount = 2f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Arcane },
+            new Item { Name = "Breathing", Description = "Hold it under the cold well water. +12 max MP for the run", Price = 45, Kind = ItemKind.Drill, Stat = StatType.MP, Amount = 12f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Arcane },
+            new Item { Name = "Meditation", Description = "An hour still in the yard, Brann shouting the whole time. +3 WIS for the run (mana / reagents back faster, Cleric heals stronger)", Price = 55, Kind = ItemKind.Drill, Stat = StatType.WIS, Amount = 3f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Arcane },
+            new Item { Name = "Quick Hands", Description = "Catch the falling pebbles. +3 DEX for the run (faster casting)", Price = 50, Kind = ItemKind.Drill, Stat = StatType.DEX, Amount = 3f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Arcane },
         };
         public const int DrillStep = 30;
 

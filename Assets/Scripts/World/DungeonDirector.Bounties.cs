@@ -15,6 +15,8 @@ namespace Deepbound.World
         None, Slayer, ChampionHunt, Untouchable, TreasureHunt, SwiftBlade,
         // 2026-11-08: the camp folk's own work.
         Exorcist, EliteHunter, Salvage, Ironmonger, RoomSweep, GoldRun, UrnBreaker,
+        // 2026-11-08 (the user: "way too easy ... be more creative"): things put on the floor for the quest.
+        Cargo, Gather, Mark,
     }
 
     /// <summary>One line of the party's quest log (synced).</summary>
@@ -70,14 +72,15 @@ namespace Deepbound.World
 
         private static Contract[] PoolOf(FolkId who) => who switch
         {
-            FolkId.Silas => new[] { Contract.Salvage, Contract.GoldRun, Contract.TreasureHunt },
-            FolkId.Hobb => new[] { Contract.Ironmonger, Contract.ChampionHunt, Contract.EliteHunter },
-            FolkId.Aldric => new[] { Contract.Exorcist, Contract.Untouchable, Contract.Slayer },
-            FolkId.Vey => new[] { Contract.UrnBreaker, Contract.Salvage, Contract.TreasureHunt },
-            FolkId.Corwin => new[] { Contract.RoomSweep, Contract.SwiftBlade, Contract.Slayer },
-            FolkId.Brann => new[] { Contract.Slayer, Contract.EliteHunter, Contract.Untouchable },
-            FolkId.Ysolde => new[] { Contract.TreasureHunt, Contract.Exorcist, Contract.ChampionHunt },
-            FolkId.Marta => new[] { Contract.GoldRun, Contract.UrnBreaker, Contract.RoomSweep },
+            // Each person: their own errand on the floor (cargo or finds), their own mark to hunt, and one harder job of the old kind.
+            FolkId.Silas => new[] { Contract.Cargo, Contract.Mark, Contract.Salvage },
+            FolkId.Hobb => new[] { Contract.Cargo, Contract.Mark, Contract.Ironmonger },
+            FolkId.Aldric => new[] { Contract.Gather, Contract.Mark, Contract.Exorcist },
+            FolkId.Vey => new[] { Contract.Cargo, Contract.Mark, Contract.UrnBreaker },
+            FolkId.Corwin => new[] { Contract.Cargo, Contract.Mark, Contract.SwiftBlade },
+            FolkId.Brann => new[] { Contract.Gather, Contract.Mark, Contract.Untouchable },
+            FolkId.Ysolde => new[] { Contract.Gather, Contract.Mark, Contract.TreasureHunt },
+            FolkId.Marta => new[] { Contract.Cargo, Contract.Mark, Contract.GoldRun },
             _ => new[] { Contract.Slayer },
         };
 
@@ -100,7 +103,17 @@ namespace Deepbound.World
             Contract.TreasureHunt => "Treasure Hunt", Contract.SwiftBlade => "Swift Blade", Contract.Exorcist => "Exorcist",
             Contract.EliteHunter => "Elite Hunter", Contract.Salvage => "Salvage", Contract.Ironmonger => "Ironmonger",
             Contract.RoomSweep => "Clear the Road", Contract.GoldRun => "Cellar Money", Contract.UrnBreaker => "Grave Dust",
+            Contract.Cargo => "Fetch and Carry", Contract.Gather => "Gathering", Contract.Mark => "A Named Mark",
             _ => "",
+        };
+
+        /// <summary>The task as the quest log and the panels say it (the new kinds name what and whose).</summary>
+        public static string QuestTask(QuestSlot q) => q.Contract switch
+        {
+            Contract.Cargo => CargoTask(q.Who),
+            Contract.Gather => GatherTask(q.Who, q.Goal),
+            Contract.Mark => MarkTask(q.Who),
+            _ => QuestTask(q.Contract, q.Goal),
         };
 
         /// <summary>The task, for a goal (counts in the text).</summary>
@@ -121,7 +134,7 @@ namespace Deepbound.World
             _ => "",
         };
 
-        public static bool HardContract(Contract c) => c == Contract.Untouchable || c == Contract.SwiftBlade || c == Contract.ChampionHunt || c == Contract.EliteHunter;
+        public static bool HardContract(Contract c) => c == Contract.Untouchable || c == Contract.SwiftBlade || c == Contract.ChampionHunt || c == Contract.EliteHunter || c == Contract.Mark || c == Contract.Cargo;
 
         public static string QuestReward(QuestSlot q) => (HardContract(q.Contract) || q.Special ? "gold, embers and a Sigil each" : "gold and embers each")
             + (q.Special ? ", and " + Relics.Name(SignatureRelic(q.Who)) : "");
@@ -131,14 +144,16 @@ namespace Deepbound.World
             float t = Tier(depth), k = special ? 1.4f : 1f;
             return c switch
             {
-                Contract.Slayer => Mathf.RoundToInt((30 + 10 * t) * k),
-                Contract.Exorcist => Mathf.RoundToInt((3 + t) * k),
-                Contract.EliteHunter => Mathf.RoundToInt((2 + t * 0.5f) * k),
-                Contract.Salvage => Mathf.RoundToInt(2 * k),
-                Contract.Ironmonger => Mathf.RoundToInt((3 + t) * k),
-                Contract.RoomSweep => Mathf.RoundToInt(4 * k),
-                Contract.GoldRun => Mathf.RoundToInt((120 + 60 * t) * k / 10f) * 10,
-                Contract.UrnBreaker => Mathf.RoundToInt((5 + 2 * t) * k),
+                // Harder than the first pass (2026-11-08: "way too easy").
+                Contract.Slayer => Mathf.RoundToInt((45 + 14 * t) * k),
+                Contract.Exorcist => Mathf.RoundToInt((6 + 2 * t) * k),
+                Contract.EliteHunter => Mathf.RoundToInt((3 + t * 0.6f) * k),
+                Contract.Salvage => Mathf.RoundToInt(4 * k),
+                Contract.Ironmonger => Mathf.RoundToInt((5 + 1.5f * t) * k),
+                Contract.RoomSweep => Mathf.RoundToInt(6 * k),
+                Contract.GoldRun => Mathf.RoundToInt((220 + 90 * t) * k / 10f) * 10,
+                Contract.UrnBreaker => Mathf.RoundToInt((10 + 3 * t) * k),
+                Contract.Gather => Mathf.RoundToInt((3 + (t >= 2f ? 1 : 0)) * k),
                 _ => 1,
             };
         }
@@ -208,14 +223,16 @@ namespace Deepbound.World
                 Quests[i] = q;
             }
             questsStartedAt = Time.time;
+            SpawnQuestObjects();
         }
 
-        private void Advance(Contract kind, int amount = 1)
+        private void Advance(Contract kind, int amount = 1, FolkId? giver = null)
         {
             for (int i = 0; i < Quests.Count; i++)
             {
                 var q = Quests[i];
                 if (q.Status != ContractStatus.Active || q.Contract != kind) continue;
+                if (giver.HasValue && q.Who != giver.Value) continue;
                 q.Progress = Mathf.Min(q.Goal, q.Progress + amount);
                 Quests[i] = q;
                 if (q.Progress >= q.Goal) FulfilQuest(i);
@@ -237,6 +254,7 @@ namespace Deepbound.World
             if (Quests.Count == 0 || target == null) return;
             if (target.Team == Team.Players) { FailQuests(Contract.Untouchable); return; }
             if (target.Team != Team.Enemies) return;
+            QuestMarkKilled(target);
             Advance(Contract.Slayer);
             if (!target.TryGetComponent<EnemyBrain>(out var b)) return;
             if (b.IsChampion) Advance(Contract.ChampionHunt);

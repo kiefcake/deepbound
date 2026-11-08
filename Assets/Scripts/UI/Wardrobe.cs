@@ -232,13 +232,7 @@ namespace Deepbound.UI
             if (player == null || !DungeonDirector.InLobby) return;
             UiSkin.Apply();
             float w = UiScale.W, h = UiScale.H;
-            if (!Open)
-            {
-                if (Near && !CharacterSelect.Open)
-                    UiSkin.Shadowed(new Rect(0, h / 2f + 40, w, 24), "Press F to visit the tailor   ·   cloaks, patterns, heraldry and auras" + (Cosmetics.AllFree ? "  (all free for now)" : "   ·   Renown " + Cosmetics.Renown),
-                        new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
-                return;
-            }
+            if (!Open) return; // opened by talking to Vey ("Talk to Mistress Vey" is the prompt now)
 
             GUI.depth = -3;
             var items = Cosmetics.Of(tab);

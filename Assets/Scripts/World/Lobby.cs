@@ -39,6 +39,8 @@ namespace Deepbound.World
         /// <summary>The bone reels, against the tent's back wall, and the card table by its south wall.</summary>
         public static readonly Vector3 SlotSpot = TentCenter + new Vector3(2.9f, 0f, 0.3f);
         public static readonly Vector3 BlackjackSpot = TentCenter + new Vector3(0.6f, 0f, -2.5f);
+        /// <summary>Skull Poker (2026-11-08), the players' dice table, in the tent's north half.</summary>
+        public static readonly Vector3 PokerSpot = TentCenter + new Vector3(1.0f, 0f, 2.2f);
         public static readonly Vector3 GongSpot = Origin + S(8.5f, 0f, 6f);
 
         /// <summary>
@@ -71,7 +73,7 @@ namespace Deepbound.World
         /// <summary>Where the people stand (2026-11-07 inspection: Hobb had his back to his customers behind the anvil,
         /// Aldric knelt square in front of the altar, Vey stood 1.8 m back from her own counter).</summary>
         public static Vector3 HobbSpot => AnvilSpot + Vector3.left * 0.95f;
-        public static Vector3 AldricSpot => ShrineSpot + new Vector3(-0.7f, 0f, 1.45f);
+        public static Vector3 AldricSpot => ShrineSpot + new Vector3(-0.75f, 0.12f, 1.3f); // ON the shrine dais (0.12 m): at ground height his knees sank into it
         public static Vector3 VeySpot => TailorSpot + TailorFacing * 1.45f;
 
         public static (FolkId id, Vector3 at)[] FolkBodies => new[]
@@ -677,17 +679,7 @@ namespace Deepbound.World
                 Props.AddFlame(lights, rs + new Vector3(0.1f, 0.48f, z), 0.25f, Fire, 0f, 1f, false, light: false);
             // The tailor (far west): bolts of dyed cloth on the counter, more on a rack behind.
             Stall(lights, d, TailorSpot + TailorFacing * 2.4f, TailorFacing, new Color(0.3f, 0.08f, 0.32f), new Color(0.8f, 0.72f, 0.55f));
-            var bolts = new[] { new Color(0.42f, 0.04f, 0.05f), new Color(0.05f, 0.07f, 0.18f), new Color(0.26f, 0.07f, 0.36f), new Color(0.82f, 0.79f, 0.7f), new Color(0.04f, 0.2f, 0.2f) };
-            for (int i = 0; i < bolts.Length; i++)
-            {
-                var bolt = MeshKit.Part(lights, "ClothBolt" + i, MeshKit.Cylinder(0.12f, 0.12f, 0.7f, 8), Mat.Cloth,
-                    TailorSpot + TailorFacing * 1.5f + new Vector3(0f, 1.02f, -1.1f + i * 0.5f), new Vector3(0f, 0f, 90f));
-                ArtLibrary.Tint(bolt.GetComponent<Renderer>(), bolts[i]);
-                var hung = MeshKit.Part(lights, "HungCloth" + i, MeshKit.Box(new Vector3(0.05f, 1.3f, 0.42f)), Mat.Cloth,
-                    TailorSpot - TailorFacing * 0.9f + new Vector3(0f, 1.25f, -1.1f + i * 0.5f));
-                ArtLibrary.Tint(hung.GetComponent<Renderer>(), bolts[(i + 2) % bolts.Length]);
-            }
-            d.AddBox(TailorSpot - TailorFacing * 0.9f + new Vector3(0f, 2f, 0f), new Vector3(0.06f, 0.06f, 2.8f), Mat.Wood);
+            BuildTailorShop(d, lights);
             d.AddBox(MannequinSpot + new Vector3(0f, 0.05f, 0f), new Vector3(0.9f, 0.1f, 0.9f), Mat.Wood);
 
             // The Test of Might's frame (the gong itself is a networked object).
@@ -696,7 +688,9 @@ namespace Deepbound.World
                 d.AddBox(g + new Vector3(0.3f, 1.8f, z), new Vector3(0.25f, 3.6f, 0.25f), Mat.Wood);
             d.AddBox(g + new Vector3(0.3f, 3.65f, 0f), new Vector3(0.3f, 0.3f, 3.6f), Mat.Wood);
             d.AddBox(g + new Vector3(-1.4f, 0.05f, 0f), new Vector3(1.6f, 0.1f, 2.4f), Mat.Rubble);
-            Props.Banner(lights, g + new Vector3(0.45f, 3.2f, 1.5f), Vector3.left, new Color(0.7f, 0.5f, 0.1f));
+            // The banner on its own pole beside the frame (hung on the frame it was 1.45 m wide across the gong and swayed through it).
+            d.AddBox(g + new Vector3(0.3f, 1.9f, 2.95f), new Vector3(0.14f, 3.8f, 0.14f), Mat.Wood);
+            Props.Banner(lights, g + new Vector3(0.42f, 3.4f, 2.95f), Vector3.left, new Color(0.7f, 0.5f, 0.1f));
         }
 
         /// <summary>
@@ -1056,6 +1050,88 @@ namespace Deepbound.World
             key.range = 5f;
         }
 
+        /// <summary>
+        /// Vey's shop (2026-11-08 rework, the user: "fix the tailor's stall", "make a large mirror ... so players can see
+        /// emotes"). The old bolts were base-grown cylinders that lay right where Vey stands; now: bolts lying neatly at the
+        /// counter's two ends, shears and a tape between, an upright bolt rack behind her, drapes on the back rail, and a
+        /// tall standing MIRROR beside the stall facing the plaza (<see cref="Art.Mirror"/>, a real reflection).
+        /// </summary>
+        private static void BuildTailorShop(MeshKit.Batcher d, Transform lights)
+        {
+            var t = TailorSpot;
+            var dyes = new[] { new Color(0.42f, 0.04f, 0.05f), new Color(0.05f, 0.07f, 0.18f), new Color(0.26f, 0.07f, 0.36f), new Color(0.82f, 0.79f, 0.7f), new Color(0.04f, 0.2f, 0.2f), new Color(0.5f, 0.36f, 0.08f) };
+            // Counter top is at y 1.05, 2.4 m in front of the spot, running along z.
+            float cx = t.x + 2.4f, top = t.y + 1.05f;
+            // Bolts lying across the counter (along x, toward the customer) at each end: a pyramid of three, a pair.
+            void Bolt(int i, float z, float y)
+            {
+                // Cylinder grows from its base: on its side (z -90 => +x) it starts half a length back.
+                var b = MeshKit.Part(lights, "ClothBolt" + i, MeshKit.Cylinder(0.1f, 0.1f, 0.62f, 10), Mat.Cloth, new Vector3(cx - 0.31f, top + y, t.z + z), new Vector3(0f, 0f, -90f));
+                ArtLibrary.Tint(b.GetComponent<Renderer>(), dyes[i % dyes.Length]);
+            }
+            Bolt(0, -1.55f, 0.1f); Bolt(1, -1.33f, 0.1f); Bolt(2, -1.44f, 0.28f);
+            Bolt(3, 1.38f, 0.1f); Bolt(4, 1.58f, 0.1f);
+            // Shears and a coiled tape in the middle, a pincushion.
+            d.AddBox(new Vector3(cx, top + 0.012f, t.z - 0.35f), new Vector3(0.22f, 0.02f, 0.05f), Mat.Steel, Quaternion.Euler(0f, 25f, 0f));
+            d.AddBox(new Vector3(cx, top + 0.012f, t.z - 0.32f), new Vector3(0.22f, 0.02f, 0.05f), Mat.Steel, Quaternion.Euler(0f, -25f, 0f));
+            var tape = MeshKit.Part(lights, "Tape", MeshKit.Cylinder(0.07f, 0.07f, 0.03f, 12), Mat.Cloth, new Vector3(cx + 0.05f, top, t.z + 0.3f));
+            ArtLibrary.Tint(tape.GetComponent<Renderer>(), new Color(0.85f, 0.75f, 0.35f));
+            var cushion = MeshKit.Part(lights, "Pincushion", MeshKit.Ball(0.07f, 8, 6), Mat.Cloth, new Vector3(cx - 0.1f, top + 0.05f, t.z + 0.65f));
+            ArtLibrary.Tint(cushion.GetComponent<Renderer>(), new Color(0.6f, 0.08f, 0.1f));
+            // The upright rack behind her: a low shelf, a top rail, bolts standing in a row.
+            float rx = t.x + 0.45f;
+            d.AddBox(new Vector3(rx, t.y + 0.2f, t.z), new Vector3(0.45f, 0.06f, 3.0f), Mat.Wood);
+            d.AddBox(new Vector3(rx, t.y + 1.45f, t.z), new Vector3(0.08f, 0.06f, 3.0f), Mat.Wood);
+            foreach (float z in new[] { -1.5f, 1.5f }) d.AddBox(new Vector3(rx, t.y + 0.75f, t.z + z), new Vector3(0.08f, 1.5f, 0.08f), Mat.Wood);
+            for (int i = 0; i < 6; i++)
+            {
+                var b = MeshKit.Part(lights, "RackBolt" + i, MeshKit.Cylinder(0.1f, 0.1f, 1.05f + (i % 3) * 0.08f, 10), Mat.Cloth, new Vector3(rx, t.y + 0.23f, t.z - 1.2f + i * 0.48f));
+                ArtLibrary.Tint(b.GetComponent<Renderer>(), dyes[(i + 2) % dyes.Length]);
+            }
+            // Drapes on the back rail, inside the stall's back posts.
+            float bx = t.x + 0.06f;
+            d.AddBox(new Vector3(bx, t.y + 2.25f, t.z), new Vector3(0.06f, 0.06f, 3.4f), Mat.Wood);
+            for (int i = 0; i < 5; i++)
+            {
+                var drape = MeshKit.Part(lights, "Drape" + i, MeshKit.Box(new Vector3(0.04f, 1.45f, 0.55f)), Mat.Cloth, new Vector3(bx, t.y + 1.5f, t.z - 1.3f + i * 0.65f));
+                ArtLibrary.Tint(drape.GetComponent<Renderer>(), dyes[(i + 4) % dyes.Length] * 0.9f);
+            }
+            // The standing mirror: south of the stall, facing the plaza, a lamp on it.
+            var mFoot = MirrorSpot;
+            var mFace = MirrorFacing;
+            var mRot = Quaternion.LookRotation(mFace);
+            var mRight = mRot * Vector3.right;
+            const float mw = 1.3f, mh = 2.2f, lift = 0.25f;
+            var centre = mFoot + Vector3.up * (lift + mh / 2f);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                d.AddBox(centre + mRight * s * (mw / 2f + 0.07f) - mFace * 0.02f, new Vector3(0.12f, mh + 0.2f, 0.1f), Mat.Wood, mRot);
+                d.AddBox(mFoot + mRight * s * (mw / 2f + 0.07f) + Vector3.up * 0.04f, new Vector3(0.16f, 0.08f, 0.7f), Mat.Wood, mRot);
+            }
+            d.AddBox(centre + Vector3.up * (mh / 2f + 0.07f) - mFace * 0.02f, new Vector3(mw + 0.3f, 0.12f, 0.1f), Mat.Wood, mRot);
+            d.AddBox(centre - Vector3.up * (mh / 2f + 0.07f) - mFace * 0.02f, new Vector3(mw + 0.3f, 0.12f, 0.1f), Mat.Wood, mRot);
+            d.AddBox(centre + Vector3.up * (mh / 2f + 0.17f) - mFace * 0.02f, new Vector3(0.5f, 0.12f, 0.08f), Mat.Gold, mRot);
+            d.AddBox(centre - mFace * 0.06f, new Vector3(mw + 0.02f, mh + 0.02f, 0.03f), Mat.Dark, mRot);
+            Art.Mirror.Build(lights, centre, mFace, new Vector2(mw, mh));
+            // A lantern on a hook over the glass, lighting whoever stands before it (the reflection was a dark room).
+            d.AddBox(centre + Vector3.up * (mh / 2f + 0.25f) + mFace * 0.25f, new Vector3(0.05f, 0.05f, 0.5f), Mat.Steel, mRot);
+            var lamp = MeshKit.Part(lights, "MirrorLantern", MeshKit.Box(new Vector3(0.16f, 0.22f, 0.16f)), Mat.Glow, centre + Vector3.up * (mh / 2f + 0.08f) + mFace * 0.5f);
+            ArtLibrary.SetGlow(lamp.GetComponent<Renderer>(), new Color(1f, 0.72f, 0.4f) * 1.2f);
+            lamp.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var ml = new GameObject("MirrorLight").AddComponent<Light>();
+            ml.transform.SetParent(lights, false);
+            ml.transform.position = centre + Vector3.up * 0.9f + mFace * 1.6f;
+            ml.type = LightType.Point;
+            ml.color = new Color(1f, 0.78f, 0.52f);
+            ml.range = 6f;
+            ml.intensity = 2.4f;
+            ml.shadows = LightShadows.None;
+        }
+
+        /// <summary>The tailor's standing mirror (feet), and the way its glass faces.</summary>
+        public static Vector3 MirrorSpot => TailorSpot + new Vector3(3.9f, 0f, -3.3f);
+        public static Vector3 MirrorFacing => new Vector3(1f, 0f, 0.55f).normalized;
+
         /// <summary>Steps, flanking braziers and a backing wall for the shrine.</summary>
         private static void BuildShrineNook(MeshKit.Batcher d, Transform lights)
         {
@@ -1064,7 +1140,7 @@ namespace Deepbound.World
             d.AddBox(s + new Vector3(-1.4f, 0.03f, 0f), new Vector3(0.6f, 0.06f, 3.2f), Mat.StoneWall);
             d.AddBox(s + new Vector3(2.2f, 2f, 0f), new Vector3(0.5f, 4f, 3.6f), Mat.StoneWall);
             d.AddBox(s + new Vector3(2.2f, 4.2f, 0f), new Vector3(0.7f, 0.4f, 4f), Mat.StoneWall);
-            Props.Brazier(lights, s + new Vector3(-0.8f, 0f, 1.9f), Fire, false);
+            Props.Brazier(lights, s + new Vector3(-1.0f, 0f, 2.45f), Fire, false); // off the dais, clear of Aldric
             Props.Brazier(lights, s + new Vector3(-0.8f, 0f, -1.9f), Fire, false);
             Props.Banner(lights, s + new Vector3(1.95f, 3.2f, 1.2f), Vector3.left, new Color(0.45f, 0.08f, 0.1f));
             Props.Banner(lights, s + new Vector3(1.95f, 3.2f, -1.2f), Vector3.left, new Color(0.45f, 0.08f, 0.1f));

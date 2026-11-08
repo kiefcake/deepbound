@@ -269,6 +269,32 @@ namespace Deepbound.UI
             string name = me.name;
             string cls = prog != null ? Classes.ClassDefinition.For(prog.ClassId.Value).Name.ToLowerInvariant() : "delver";
             int k = Random.Range(0, 3);
+            // Grounded first (2026-11-08): caught away from their post, or you reeking of mead, they say so.
+            var debuffs = me.GetComponent<Player.PlayerDebuffs>();
+            if (debuffs != null && debuffs.Drunk >= 2 && Random.value < 0.7f)
+                switch (who)
+                {
+                    case FolkId.Silas: return "*Silas steadies you by the elbow.* All prices are final when you're merry, " + name + ". House rule. My house.";
+                    case FolkId.Hobb: return "Not near the forge like that. Last merry delver I let near the coals lost his eyebrows. Both.";
+                    case FolkId.Aldric: return "*Aldric makes a small sign.* The light forgives drink. The cobbles, less so. Sit, child.";
+                    case FolkId.Vey: return "Darling, you've mead on the hem. On MY hem. Stand still.";
+                    case FolkId.Corwin: return "If you're sick in my carriage you're walking down. I mean that.";
+                    case FolkId.Brann: return "*Brann sighs.* Drunk on the eve of a descent. My old company would've been proud. Then flogged you.";
+                    case FolkId.Ysolde: return "The stones can't read you like this, " + name + ". Everything's swimming.";
+                    case FolkId.Marta: return "You've had your share, love. Water's free. Have some.";
+                }
+            if (FolkRounds.Walks(who) && (FolkPlaces.Now(who) - FolkPlaces.Home(who)).sqrMagnitude > 16f && Random.value < 0.75f)
+                switch (who)
+                {
+                    case FolkId.Silas: return "*Silas shifts a sack on his shoulder.* Fetching stock. Walk with me, " + name + " - the stall's watched, I'm not.";
+                    case FolkId.Hobb: return "*Hobb wipes soot onto his apron.* Out for charcoal. Make it quick, the fire won't mind itself.";
+                    case FolkId.Aldric: return "*Aldric pauses mid-stride, censer swinging.* Blessing the walls, " + name + ". The walls pay nothing either.";
+                    case FolkId.Vey: return "*Vey has pins in her mouth.* Mm. Fetching thread. Talk while I walk, darling.";
+                    case FolkId.Corwin: return "Stretching my legs. The horse doesn't need it. Hasn't for years.";
+                    case FolkId.Brann: return "*Brann is walking the wall.* Inspecting the watch. They're asleep. As usual. What is it?";
+                    case FolkId.Ysolde: return "I'm listening to the far stones. They whisper differently out here. What is it, " + name + "?";
+                    case FolkId.Marta: return "*Marta balances a crate of mugs.* Quick, love, these aren't light.";
+                }
             switch (who)
             {
                 case FolkId.Silas: return k == 0 ? name + "! Still breathing. Good for business." : k == 1 ? "Ah, the " + cls + ". Browse. Touch nothing you cannot pay for." : "Welcome back, " + name + ". Prices are fair. Mostly.";

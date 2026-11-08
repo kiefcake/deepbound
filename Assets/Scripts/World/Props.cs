@@ -164,43 +164,47 @@ namespace Deepbound.World
             b.AddBox(table + Vector3.up * 0.85f, new Vector3(1.8f, 0.08f, 0.7f), Mat.Wood, root.rotation);
             b.AddBox(table + root.right * 0.75f + Vector3.up * 0.42f, new Vector3(0.08f, 0.84f, 0.6f), Mat.Wood, root.rotation);
             b.AddBox(table - root.right * 0.75f + Vector3.up * 0.42f, new Vector3(0.08f, 0.84f, 0.6f), Mat.Wood, root.rotation);
+            // His wares stay on the table when he walks off on an errand (2026-11-08: they used to walk with him).
+            var wares = new GameObject("SilasWares").transform;
+            wares.SetParent(root.parent, false);
+            wares.SetPositionAndRotation(root.position, root.rotation);
             // His wares: two healing draughts, a bowl of embers, a sigil tablet and a charm.
             Vector3 Local(float along) => root.InverseTransformPoint(table + root.right * along + Vector3.up * 0.89f);
             foreach (float along in new[] { -0.65f, -0.4f })
             {
-                var flask = MeshKit.Part(root, "Draught" + along, MeshKit.Lathe("flask", new[]
+                var flask = MeshKit.Part(wares, "Draught" + along, MeshKit.Lathe("flask", new[]
                 {
                     new Vector2(0f, 0f), new Vector2(0.08f, 0.02f), new Vector2(0.11f, 0.08f), new Vector2(0.1f, 0.15f),
                     new Vector2(0.04f, 0.2f), new Vector2(0.035f, 0.28f), new Vector2(0f, 0.28f),
                 }, 10), Mat.Glow, Local(along));
                 ArtLibrary.SetGlow(flask.GetComponent<Renderer>(), new Color(0.95f, 0.15f, 0.15f) * 1.4f);
             }
-            MeshKit.Part(root, "EmberBowl", MeshKit.Lathe("emberBowl", new[]
+            MeshKit.Part(wares, "EmberBowl", MeshKit.Lathe("emberBowl", new[]
             {
                 new Vector2(0f, 0f), new Vector2(0.14f, 0.01f), new Vector2(0.18f, 0.09f), new Vector2(0f, 0.06f),
             }, 10), Mat.Wood, Local(-0.05f));
             for (int i = 0; i < 4; i++)
             {
-                var ember = MeshKit.Part(root, "BowlEmber" + i, MeshKit.Ball(0.04f, 5, 4), Mat.Glow, Local(-0.05f) + new Vector3(Mathf.Cos(i * 1.6f) * 0.07f, 0.08f, Mathf.Sin(i * 1.6f) * 0.07f));
+                var ember = MeshKit.Part(wares, "BowlEmber" + i, MeshKit.Ball(0.04f, 5, 4), Mat.Glow, Local(-0.05f) + new Vector3(Mathf.Cos(i * 1.6f) * 0.07f, 0.08f, Mathf.Sin(i * 1.6f) * 0.07f));
                 ArtLibrary.SetGlow(ember.GetComponent<Renderer>(), Loot.LootInfo.EmberColor * 1.6f);
             }
-            MeshKit.Part(root, "SigilTablet", MeshKit.Box(new Vector3(0.18f, 0.24f, 0.05f)), Mat.StoneWall, Local(0.3f) + new Vector3(0f, 0.12f, 0f), new Vector3(-12f, 0f, 0f));
-            var glyph = MeshKit.Part(root, "SigilGlyph", MeshKit.Box(new Vector3(0.04f, 0.16f, 0.06f)), Mat.Glow, Local(0.3f) + new Vector3(0f, 0.12f, 0.005f), new Vector3(-12f, 0f, 0f));
+            MeshKit.Part(wares, "SigilTablet", MeshKit.Box(new Vector3(0.18f, 0.24f, 0.05f)), Mat.StoneWall, Local(0.3f) + new Vector3(0f, 0.12f, 0f), new Vector3(-12f, 0f, 0f));
+            var glyph = MeshKit.Part(wares, "SigilGlyph", MeshKit.Box(new Vector3(0.04f, 0.16f, 0.06f)), Mat.Glow, Local(0.3f) + new Vector3(0f, 0.12f, 0.005f), new Vector3(-12f, 0f, 0f));
             ArtLibrary.SetGlow(glyph.GetComponent<Renderer>(), Loot.LootInfo.SigilColor * 1.6f);
-            MeshKit.Part(root, "Charm", MeshKit.Cylinder(0.08f, 0.08f, 0.03f, 12), Mat.Gold, Local(0.6f) + new Vector3(0f, 0.02f, 0f));
-            var stone = MeshKit.Part(root, "CharmStone", MeshKit.Ball(0.05f, 8, 6), Mat.Glow, Local(0.6f) + new Vector3(0f, 0.05f, 0f));
+            MeshKit.Part(wares, "Charm", MeshKit.Cylinder(0.08f, 0.08f, 0.03f, 12), Mat.Gold, Local(0.6f) + new Vector3(0f, 0.02f, 0f));
+            var stone = MeshKit.Part(wares, "CharmStone", MeshKit.Ball(0.05f, 8, 6), Mat.Glow, Local(0.6f) + new Vector3(0f, 0.05f, 0f));
             ArtLibrary.SetGlow(stone.GetComponent<Renderer>(), new Color(0.45f, 0.7f, 1f) * 1.6f);
             // A little rack of pendants at the table's end (he sells them since 2026-10-20).
             var rack = root.InverseTransformPoint(table + root.right * 0.95f + Vector3.up * 0.89f);
-            MeshKit.Part(root, "PendantRackPost", MeshKit.Box(new Vector3(0.03f, 0.45f, 0.03f)), Mat.Wood, rack + new Vector3(0f, 0.22f, 0f));
-            MeshKit.Part(root, "PendantRackBar", MeshKit.Box(new Vector3(0.36f, 0.025f, 0.025f)), Mat.Wood, rack + new Vector3(0f, 0.44f, 0f));
+            MeshKit.Part(wares, "PendantRackPost", MeshKit.Box(new Vector3(0.03f, 0.45f, 0.03f)), Mat.Wood, rack + new Vector3(0f, 0.22f, 0f));
+            MeshKit.Part(wares, "PendantRackBar", MeshKit.Box(new Vector3(0.36f, 0.025f, 0.025f)), Mat.Wood, rack + new Vector3(0f, 0.44f, 0f));
             var gems = new[] { new Color(0.9f, 0.2f, 0.25f), new Color(0.35f, 0.9f, 0.5f), new Color(0.6f, 0.45f, 1f) };
             for (int i = 0; i < 3; i++)
             {
                 var hang = rack + new Vector3(-0.13f + i * 0.13f, 0.44f, 0f);
-                MeshKit.Part(root, "PendantChain", MeshKit.Box(new Vector3(0.006f, 0.16f, 0.006f)), Mat.Gold, hang + Vector3.down * 0.08f);
-                MeshKit.Part(root, "PendantSetting", MeshKit.Cylinder(0.03f, 0.03f, 0.012f, 10), Mat.Gold, hang + Vector3.down * 0.17f, new Vector3(90f, 0f, 0f));
-                var gem = MeshKit.Part(root, "PendantGem", MeshKit.Ball(0.018f, 6, 4), Mat.Glow, hang + new Vector3(0f, -0.17f, 0.008f));
+                MeshKit.Part(wares, "PendantChain", MeshKit.Box(new Vector3(0.006f, 0.16f, 0.006f)), Mat.Gold, hang + Vector3.down * 0.08f);
+                MeshKit.Part(wares, "PendantSetting", MeshKit.Cylinder(0.03f, 0.03f, 0.012f, 10), Mat.Gold, hang + Vector3.down * 0.17f, new Vector3(90f, 0f, 0f));
+                var gem = MeshKit.Part(wares, "PendantGem", MeshKit.Ball(0.018f, 6, 4), Mat.Glow, hang + new Vector3(0f, -0.17f, 0.008f));
                 ArtLibrary.SetGlow(gem.GetComponent<Renderer>(), gems[i] * 1.4f);
             }
             var silas = Art.FolkIdle.Attach(root, 1.36f, "Hood", "Face", "EyeL", "EyeR");

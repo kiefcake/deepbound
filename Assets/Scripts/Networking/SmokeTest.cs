@@ -775,6 +775,58 @@ namespace Deepbound.Networking
                         bool ok = gaveGold && gavePotion && theirProg.Gold.Value == g0 + GiveWheel.GoldStep && theirPouch.Count(Flasks.Kind.Health) == h0 + 1 && myPouch.Count(Flasks.Kind.Health) == mine0 - 1;
                         Log("give wheel", "gold +" + (theirProg.Gold.Value - g0) + ", potion " + h0 + " -> " + theirPouch.Count(Flasks.Kind.Health) + ", giver " + mine0 + " -> " + myPouch.Count(Flasks.Kind.Health), ok);
                     }
+                    // Skull Poker (2026-11-08): host and client sit, ante 25, both stand, the host bets, the client calls; the pot goes to the better hand.
+                    {
+                        var poker = DungeonDirector.Instance.ServerDebugSpawnPoker(local.transform.position + Vector3.forward * 30f + Vector3.down * 20f);
+                        var hostP = local.GetComponent<PlayerProgress>();
+                        var mateP = dragged.GetComponent<PlayerProgress>();
+                        if (poker == null) Log("skull poker", "no table at camp", false);
+                        else
+                        {
+                            PokerDiceTable.DebugNoDistance = true;
+                            hostP.Gold.Value += 200; mateP.Gold.Value += 200;
+                            bool sat = poker.ServerSit(hostP) & poker.ServerSit(mateP);
+                            int hs = poker.SeatOfClient(local.OwnerClientId), ms = poker.SeatOfClient(dragged.OwnerClientId);
+                            int total0 = hostP.Gold.Value + mateP.Gold.Value;
+                            bool dealt = poker.ServerDeal(hs, 25);
+                            int pot1 = poker.State.Value.Pot;
+                            poker.ServerReroll(hs, 31);
+                            poker.ServerReroll(ms, 0b00111);
+                            var st = poker.State.Value;
+                            bool betting = st.Phase == (byte)PokerDiceTable.Phase.Betting;
+                            int first = st.Turn, second = first == hs ? ms : hs;
+                            poker.ServerAct(first, PokerDiceTable.Act.Bet);
+                            poker.ServerAct(second, PokerDiceTable.Act.Call);
+                            st = poker.State.Value;
+                            int hostScore = PokerDiceTable.Score(PokerDiceTable.Hand(st, hs)), mateScore = PokerDiceTable.Score(PokerDiceTable.Hand(st, ms));
+                            int expectWin = hostScore > mateScore ? 1 << hs : mateScore > hostScore ? 1 << ms : (1 << hs) | (1 << ms);
+                            bool settled = st.Phase == (byte)PokerDiceTable.Phase.Showdown && st.Pot == 100 && st.WinMask == expectWin && hostP.Gold.Value + mateP.Gold.Value == total0;
+                            // Ranking spot checks.
+                            bool ranks = PokerDiceTable.Score(new[] { 2, 2, 2, 2, 2 }) > PokerDiceTable.Score(new[] { 6, 6, 6, 6, 5 })
+                                && PokerDiceTable.Score(new[] { 3, 3, 3, 5, 5 }) > PokerDiceTable.Score(new[] { 2, 3, 4, 5, 6 })
+                                && PokerDiceTable.Score(new[] { 2, 3, 4, 5, 6 }) > PokerDiceTable.Score(new[] { 1, 2, 3, 4, 5 })
+                                && PokerDiceTable.Score(new[] { 1, 2, 3, 4, 5 }) > PokerDiceTable.Score(new[] { 6, 6, 6, 1, 2 })
+                                && PokerDiceTable.Score(new[] { 4, 4, 2, 2, 6 }) > PokerDiceTable.Score(new[] { 4, 4, 2, 2, 5 })
+                                && PokerDiceTable.Score(new[] { 1, 2, 3, 4, 6 }) / 1000000 == 0;
+                            // A fold hands the pot to the bettor unseen.
+                            poker.ServerDeal(hs, 10);
+                            poker.ServerReroll(hs, 31); poker.ServerReroll(ms, 31);
+                            st = poker.State.Value;
+                            int t1 = st.Turn, t2 = t1 == hs ? ms : hs;
+                            poker.ServerAct(t1, PokerDiceTable.Act.Bet);
+                            poker.ServerAct(t2, PokerDiceTable.Act.Fold);
+                            st = poker.State.Value;
+                            bool foldWin = st.Phase == (byte)PokerDiceTable.Phase.Showdown && st.WinMask == (1 << t1) && st.InMask == 0;
+                            // Leaving empties the stool.
+                            poker.ServerLeave(dragged.OwnerClientId);
+                            poker.ServerLeave(local.OwnerClientId);
+                            bool empty = poker.SeatOfClient(local.OwnerClientId) < 0 && poker.SeatOfClient(dragged.OwnerClientId) < 0;
+                            poker.NetworkObject.Despawn();
+                            PokerDiceTable.DebugNoDistance = false;
+                            Log("skull poker", "sat " + sat + ", dealt " + dealt + " pot " + pot1 + ", betting " + betting + ", showdown pot " + st.Pot + " settled " + settled + ", ranks " + ranks + ", fold wins unseen " + foldWin + ", stools empty " + empty,
+                                sat && dealt && pot1 == 50 && betting && settled && ranks && foldWin && empty);
+                        }
+                    }
                 }
                 // Teamwork: a pincer from opposite sides, an assist on the kill, then a last tw_stand and a clutch revive.
                 {
@@ -2724,6 +2776,22 @@ namespace Deepbound.Networking
                             followsSilas = Shop.InReach(Shop.Vendor.Merchant, silasNow + Vector3.right * 1.5f) && !Shop.InReach(Shop.Vendor.Merchant, Lobby.MerchantSpot + Vector3.right * 2.4f);
                         }
                         Log("trade follows the person", "Silas away on rounds: reach by him and not at his stall " + followsSilas, followsSilas);
+                        // Held in conversation (2026-11-08): halfway down his errand, Silas stands still while someone talks to him.
+                        if (walkers.Contains(World.FolkId.Silas))
+                        {
+                            World.FolkRounds.DebugArrive(World.FolkId.Silas, 0.5f);
+                            yield return new WaitForSeconds(0.1f);
+                            dc.ServerHoldFolk(World.FolkId.Silas, local.OwnerClientId, true);
+                            var heldAt = World.FolkPlaces.Now(World.FolkId.Silas);
+                            yield return new WaitForSeconds(1.2f);
+                            var heldNow = World.FolkPlaces.Now(World.FolkId.Silas);
+                            dc.ServerHoldFolk(World.FolkId.Silas, local.OwnerClientId, false);
+                            yield return new WaitForSeconds(1.2f);
+                            var freed = World.FolkPlaces.Now(World.FolkId.Silas);
+                            bool still = Vector3.Distance(heldAt, heldNow) < 0.05f, walksOn = Vector3.Distance(heldNow, freed) > 0.5f;
+                            Log("folk hold still", "held moved " + Vector3.Distance(heldAt, heldNow).ToString("F2") + " m, after release " + Vector3.Distance(heldNow, freed).ToString("F2") + " m, held bit cleared " + !dc.IsFolkHeld(World.FolkId.Silas),
+                                still && walksOn && !dc.IsFolkHeld(World.FolkId.Silas));
+                        }
                         World.FolkRounds.DebugShift = 0;
                         World.FolkRounds.StayHome = true;
                         int named = 0; foreach (var f in Art.FolkIdle.All) if (f != null && !string.IsNullOrEmpty(f.DisplayName)) named++;
@@ -3116,33 +3184,73 @@ namespace Deepbound.Networking
                     }
                     else Log("anvil", "none at camp", false);
 
-                    // The gambling tent: a roll of the bones moves gold one way or the other (or not).
+                    // Bones (2026-11-08): F opens the call panel; a called throw pays by its odds (forced dice, then a real call).
                     var dice = FindObjectsByType<DiceTable>(FindObjectsSortMode.None).FirstOrDefault();
                     if (dice != null)
                     {
-                        progress.ServerAddGold(200);
+                        progress.ServerAddGold(400);
                         motor.Teleport(dice.transform.position + dice.transform.forward * 1.4f + Vector3.up * 0.1f, local.transform.rotation);
                         yield return new WaitForSeconds(0.2f);
-                        int g0 = progress.Gold.Value;
                         dice.UseRpc(local.NetworkObject);
                         yield return new WaitForSeconds(0.3f);
-                        int stake = DiceTable.Stake(g0);
-                        int delta = progress.Gold.Value - g0;
-                        Log("dice", "gold " + g0 + " -> " + progress.Gold.Value + " (stake " + stake + ")", delta == stake || delta == 0 || delta == -stake);
+                        bool opened = DiceTable.LocalOpen;
+                        int g0 = progress.Gold.Value;
+                        int sevenWin = dice.ServerDebugCall(progress, DiceTable.Call.Seven, 20, 3, 4);
+                        int lowLoss = dice.ServerDebugCall(progress, DiceTable.Call.Low, 20, 5, 6);
+                        int dbl = dice.ServerDebugCall(progress, DiceTable.Call.Doubles, 20, 2, 2);
+                        yield return null;
+                        int bonesNet = progress.Gold.Value - g0;
+                        bool paid = sevenWin == 110 && lowLoss == 0 && dbl == 110 && bonesNet == 110 - 20 + 0 - 20 + 110 - 20;
+                        int g1 = progress.Gold.Value;
+                        dice.Call_(DiceTable.Call.High, 25);
+                        yield return new WaitForSeconds(0.4f);
+                        int d1 = progress.Gold.Value - g1;
+                        DiceTable.CloseLocal();
+                        Log("bones", "panel " + opened + ", seven/low/doubles paid " + sevenWin + "/" + lowLoss + "/" + dbl + " (net " + bonesNet + "), a real HIGH call moved " + d1,
+                            opened && paid && (d1 == -25 || d1 == 30));
                     }
-                    // The coffer: pay and something appears.
+                    // The Locksmith's Coffer: buy, open two locks, step back -> the tier-two prize; buy again and a snap gives nothing.
                     var coffer = FindObjectsByType<MysteryCoffer>(FindObjectsSortMode.None).FirstOrDefault();
                     if (coffer != null)
                     {
-                        progress.ServerAddGold(MysteryCoffer.Price);
+                        progress.ServerAddGold(MysteryCoffer.Price * 2);
                         motor.Teleport(coffer.transform.position + coffer.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                         yield return new WaitForSeconds(0.2f);
                         int g1 = progress.Gold.Value;
                         int things = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length + FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
                         coffer.UseRpc(local.NetworkObject);
                         yield return new WaitForSeconds(0.3f);
+                        bool mine = coffer.Opener.Value == local.OwnerClientId;
+                        coffer.ServerPicked(progress, true);
+                        coffer.ServerPicked(progress, true);
+                        int locks = coffer.Locks.Value;
+                        coffer.ServerTake(progress);
                         int after = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length + FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
-                        Log("mystery coffer", "gold " + g1 + " -> " + progress.Gold.Value + ", prizes " + things + " -> " + after, progress.Gold.Value == g1 - MysteryCoffer.Price && after > things);
+                        bool prized = after > things;
+                        yield return new WaitForSeconds(0.3f);
+                        coffer.UseRpc(local.NetworkObject);
+                        yield return new WaitForSeconds(0.3f);
+                        // Counted in the same frame: the player standing there picks prizes up within a moment.
+                        after = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length + FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
+                        coffer.ServerPicked(progress, false);
+                        int afterSnap = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length + FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
+                        bool free = coffer.Opener.Value == MysteryCoffer.NoOne;
+                        Log("mystery coffer", "bought " + mine + ", locks " + locks + ", prized " + prized + ", snap: " + after + " -> " + afterSnap + ", gold " + g1 + " -> " + progress.Gold.Value + ", free again " + free,
+                            mine && locks == 2 && prized && afterSnap == after && progress.Gold.Value == g1 - MysteryCoffer.Price * 2 && free);
+                    }
+                    // The Bone Reels' pot and nudge (forced symbols): a loss feeds the pot, three crowns on a nudge win it.
+                    var reelsT = FindObjectsByType<SlotMachine>(FindObjectsSortMode.None).FirstOrDefault();
+                    if (reelsT != null)
+                    {
+                        progress.ServerAddGold(100);
+                        int pot0 = reelsT.Pot.Value, g2 = progress.Gold.Value;
+                        reelsT.ServerSettle(progress, new[] { SlotMachine.Symbol.Crown, SlotMachine.Symbol.Skull, SlotMachine.Symbol.Bone }, -1, SlotMachine.Stake);
+                        int pot1 = reelsT.Pot.Value;
+                        int nudgeWin = reelsT.ServerSettle(progress, new[] { SlotMachine.Symbol.Crown, SlotMachine.Symbol.Crown, SlotMachine.Symbol.Crown }, 0, SlotMachine.NudgeCost);
+                        int pairOnNudge = reelsT.ServerSettle(progress, new[] { SlotMachine.Symbol.Coin, SlotMachine.Symbol.Coin, SlotMachine.Symbol.Skull }, 0, SlotMachine.NudgeCost);
+                        yield return new WaitForSeconds(2.5f);
+                        Log("bone reels pot", "pot " + pot0 + " -> " + pot1 + " after a loss, three crowns paid " + nudgeWin + " (pot now " + reelsT.Pot.Value + "), a pair on a nudge paid " + pairOnNudge,
+                            pot1 > pot0 && nudgeWin == pot1 && reelsT.Pot.Value == SlotMachine.PotSeed + 2 && pairOnNudge == 0);
                     }
                     // The shrine: two blessings on offer; buy the second, and it is on you.
                     var shrineT = FindObjectsByType<Shrine>(FindObjectsSortMode.None).FirstOrDefault();
@@ -3338,6 +3446,12 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(1.5f);
                 bool live = true; foreach (var q in dc.Quests) if (q.Status == DungeonDirector.ContractStatus.Taken) live = false;
                 Log("contract live", dc.Quests.Count + " quest(s), " + (dc.Quests.Count > 0 ? DungeonDirector.ContractName(dc.Quests[0].Contract) + " " + dc.Quests[0].Status + ", goal " + dc.Quests[0].Goal : "none"), live);
+                // Quests on the floor (2026-11-08): cargo to carry, finds to gather, a named mark - each placed and each done.
+                {
+                    bool qdOk = false; string qdWhy = "did not finish";
+                    yield return dc.ServerDebugQuestDungeon((ok, why) => { qdOk = ok; qdWhy = why; });
+                    Log("quests on the floor", qdWhy, qdOk);
+                }
                 Log("next floor", "depth " + dc.Floor.Value.y + ", weapon kept +" + pc.WeaponLevel.Value, dc.Floor.Value.y == 1 && pc.WeaponLevel.Value >= 2);
                 // The Drowned Vaults (act two, floor 3): their tide slows low ground while it is up.
                 dc.ServerDebugStartFloor(2);
@@ -3762,6 +3876,150 @@ namespace Deepbound.Networking
                 motor.Teleport(at, Quaternion.LookRotation(-notice.transform.forward));
                 yield return new WaitForSeconds(0.5f);
                 yield return Shot(dir, "talk_11_board");
+            }
+            // ---- Camp fixes of 2026-11-08: the mirror, Vey's shop, Aldric on the dais, the gong, Silas's wares, a pet sitting. ----
+            {
+                var face = Lobby.MirrorFacing;
+                var glassAt = Lobby.MirrorSpot + Vector3.up * 1.35f;
+                var stand = Lobby.MirrorSpot + face * 2.6f + Vector3.up * 0.1f;
+                motor.Teleport(stand, Quaternion.LookRotation(-face));
+                yield return new WaitForSeconds(0.4f);
+                local.GetComponent<Emotes>().DebugEmote(Art.Emote.Wave);
+                yield return new WaitForSeconds(0.6f);
+                yield return Shot(dir, "camp_1_mirror_wave");
+                local.GetComponent<Emotes>().DebugEmote(Art.Emote.Dance);
+                yield return new WaitForSeconds(1.2f);
+                yield return Shot(dir, "camp_2_mirror_dance");
+                var side = Lobby.MirrorSpot + face * 3.5f + Vector3.Cross(Vector3.up, face) * 3.2f + Vector3.up * 0.1f;
+                motor.Teleport(side, Quaternion.LookRotation(Vector3.ProjectOnPlane(glassAt - side, Vector3.up)));
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, "camp_3_mirror_angle");
+                var shop = Lobby.TailorSpot + new Vector3(4.6f, 0.1f, 0.4f);
+                motor.Teleport(shop, Quaternion.LookRotation(Vector3.left));
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, "camp_4_tailor_shop");
+                var ald = Lobby.AldricSpot + new Vector3(-2.6f, 0.1f, 0.6f);
+                motor.Teleport(ald, Quaternion.LookRotation(Vector3.ProjectOnPlane(Lobby.AldricSpot - ald, Vector3.up)));
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, "camp_5_aldric");
+                var gong = Lobby.GongSpot + new Vector3(-4.5f, 0.1f, 0.8f);
+                motor.Teleport(gong, Quaternion.LookRotation(Vector3.right));
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, "camp_6_gong");
+                World.FolkRounds.StayHome = false;
+                World.FolkRounds.DebugArrive(FolkId.Silas);
+                var ms = Lobby.MerchantSpot + new Vector3(3.6f, 0.1f, 0f);
+                motor.Teleport(ms, Quaternion.LookRotation(Vector3.left));
+                yield return new WaitForSeconds(0.6f);
+                yield return Shot(dir, "camp_7_silas_away_wares");
+                World.FolkRounds.DebugShift = 0;
+                World.FolkRounds.StayHome = true;
+                // A pet sits beside you on the log.
+                local.PetKind.Value = (byte)Player.PetCompanion.Kind.Kitten;
+                var seats = Lobby.LogSeats();
+                motor.Teleport(seats[0].at, Quaternion.LookRotation(seats[0].face));
+                motor.PinTo(seats[0].at);
+                local.GetComponent<Emotes>().SitDown();
+                yield return new WaitForSeconds(3f);
+                var rightOfSeat = Vector3.Cross(Vector3.up, seats[0].face);
+                foreach (var (dirSide, tag) in new[] { (rightOfSeat, "camp_8_pet_sit_right"), (-rightOfSeat, "camp_9_pet_sit_left") })
+                {
+                    motor.Teleport(seats[0].at, Quaternion.LookRotation(dirSide * 0.8f + seats[0].face * 0.6f));
+                    motor.SetPitch(38f);
+                    yield return new WaitForSeconds(0.4f);
+                    yield return Shot(dir, tag);
+                }
+                var petGo = GameObject.Find("Pet_Kitten");
+                Debug.Log("[TalkShots] pet sit: owner emote " + (local.Rig != null ? local.Rig.EmoteNow.ToString() : "?") + ", pet " + (petGo != null ? (petGo.transform.position - local.transform.position).ToString("F2") : "missing"));
+                motor.SetPitch(0f);
+                motor.Unpin(seats[0].at);
+                local.GetComponent<Emotes>().StandUp();
+            }
+            // Trade talk (2026-11-08): Hobb looks over the weapon, Corwin names the road.
+            foreach (var who in new[] { FolkId.Hobb, FolkId.Corwin, FolkId.Vey })
+            {
+                var at = FolkPlaces.Now(who);
+                var fig = Art.FolkIdle.Of(who);
+                var chest = fig != null ? Vector3.Lerp(fig.transform.position, fig.HeadTop, 0.7f) : at + Vector3.up * 1.4f;
+                var dirTo = Vector3.ProjectOnPlane(fig != null ? fig.transform.forward : Vector3.forward, Vector3.up).normalized;
+                var stand = at + dirTo * 2.2f + Vector3.up * 0.1f;
+                motor.Teleport(stand, Quaternion.LookRotation(Vector3.ProjectOnPlane(chest - stand, Vector3.up)));
+                yield return new WaitForSeconds(0.5f);
+                UI.Dialogue.DebugBegin(who);
+                var opts = UI.Dialogue.DebugOptions();
+                int craft = opts.IndexOf(UI.DialogueLines.CraftLabel(who));
+                if (craft >= 0) UI.Dialogue.DebugChoose(craft);
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, "casino_0_trade_talk_" + who);
+                Debug.Log("[TalkShots] " + who + " craft: " + UI.Dialogue.DebugLine);
+                UI.Dialogue.DebugClose();
+                yield return new WaitForSeconds(0.3f);
+            }
+            // The tent: Bones with its panel, the coffer mid-pick, the reels' pot, Skull Poker from the stool.
+            {
+                var prog = local.GetComponent<PlayerProgress>();
+                prog.Gold.Value += 1500;
+                var tentView = Lobby.TentCenter + new Vector3(-4.6f, 1.7f, 0f);
+                motor.Teleport(Lobby.TentCenter + new Vector3(-5.2f, 0.1f, 0f), Quaternion.LookRotation(Vector3.right));
+                motor.SetPitch(12f);
+                yield return new WaitForSeconds(0.8f);
+                yield return Shot(dir, "casino_1_tent");
+                var bones = FindObjectsByType<DiceTable>(FindObjectsSortMode.None).FirstOrDefault();
+                if (bones != null)
+                {
+                    var stand = bones.transform.position + bones.transform.forward * 1.3f + Vector3.up * 0.1f;
+                    motor.Teleport(stand, Quaternion.LookRotation(-bones.transform.forward));
+                    motor.SetPitch(35f);
+                    yield return new WaitForSeconds(0.3f);
+                    bones.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.3f);
+                    bones.Call_(DiceTable.Call.High, 25);
+                    yield return new WaitForSeconds(1.3f);
+                    yield return Shot(dir, "casino_2_bones");
+                    DiceTable.CloseLocal();
+                }
+                var box = FindObjectsByType<MysteryCoffer>(FindObjectsSortMode.None).FirstOrDefault();
+                if (box != null)
+                {
+                    var stand = box.transform.position + box.transform.forward * 1.6f + Vector3.up * 0.1f;
+                    motor.Teleport(stand, Quaternion.LookRotation(-box.transform.forward));
+                    motor.SetPitch(25f);
+                    yield return new WaitForSeconds(0.3f);
+                    box.UseRpc(local.NetworkObject);
+                    yield return new WaitForSeconds(0.6f);
+                    box.ServerPicked(prog, true);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot(dir, "casino_3_coffer_one_lock");
+                    box.ServerTake(prog);
+                    yield return new WaitForSeconds(1f);
+                    yield return Shot(dir, "casino_4_coffer_open");
+                }
+                var reels = FindObjectsByType<SlotMachine>(FindObjectsSortMode.None).FirstOrDefault();
+                if (reels != null)
+                {
+                    var stand = reels.transform.position + reels.transform.forward * 1.5f + Vector3.up * 0.1f;
+                    motor.Teleport(stand, Quaternion.LookRotation(-reels.transform.forward));
+                    motor.SetPitch(8f);
+                    yield return new WaitForSeconds(0.3f);
+                    reels.ServerSettle(prog, new[] { SlotMachine.Symbol.Crown, SlotMachine.Symbol.Skull, SlotMachine.Symbol.Candle }, -1, SlotMachine.Stake);
+                    yield return new WaitForSeconds(2.6f);
+                    yield return Shot(dir, "casino_5_reels_nudge_offer");
+                }
+                var poker = FindObjectsByType<PokerDiceTable>(FindObjectsSortMode.None).FirstOrDefault();
+                if (poker != null)
+                {
+                    var stand = poker.transform.position + Vector3.left * 2.6f + Vector3.up * 0.1f;
+                    motor.Teleport(stand, Quaternion.LookRotation(Vector3.right));
+                    motor.SetPitch(20f);
+                    yield return new WaitForSeconds(0.4f);
+                    yield return Shot(dir, "casino_6_poker_table");
+                    poker.ServerSit(prog);
+                    yield return new WaitForSeconds(1f);
+                    yield return Shot(dir, "casino_7_poker_seated");
+                    poker.ServerLeave(local.OwnerClientId);
+                    yield return new WaitForSeconds(0.5f);
+                }
+                _ = tentView;
             }
             Debug.Log("[TalkShots] done");
             yield return new WaitForSeconds(0.5f);

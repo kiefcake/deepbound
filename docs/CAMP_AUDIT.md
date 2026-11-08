@@ -843,3 +843,17 @@ Files: `C:/Users/User/Desktop/game_prototype/Deepbound/Assets/Scripts/World/Lobb
 
 ## Other open work saved for later
 - Side quests (fetch / hunt / escort): a builder agent was cut off by the usage limit; its partial work is in the worktree branch `worktree-agent-a74a2105a6be7e696` (`.claude/worktrees/agent-a74a2105a6be7e696`). Resume it or redo from the brief.
+
+## Round 4 (2026-11-08): the user's list, checked in windowed shots (`-talkshots`, camp_1-9 and casino_0-7)
+- FIXED, seen: Silas's wares stay on the stall while he is away (camp_7). Brother Aldric kneels on the dais, not inside the shrine (camp_5). The gong's banner has its own pole beside the gong (camp_6).
+- FIXED, seen: the tailor shop is rebuilt with a standing MIRROR that shows you (camp_1-3). The first render was nearly black, so a lantern and a point light now light the reflection.
+- FIXED, seen: a pet sits beside you when you sit (camp_8/9; the log gives the kitten's offset as 0.6 m to the side).
+  - Pets used to perch on tables in the tent (casino_2, casino_6). They now refuse ground more than 0.4 m above your feet and pick the other side.
+- NEW, seen: the Bones panel with real pip dice on the baize (casino_2), the coffer's three padlocks (casino_3), the reels' pot + nudge card (casino_5), and the Skull Poker table and seated panel (casino_6/7).
+  - The reels' result card is hidden while another casino panel is open (it overlapped the poker panel).
+  - Interact prompts are hidden while the Bones or poker panel is open (the blackjack prompt showed through).
+- NOT SEEN in a window:
+  - Corwin riding the carriage away (needs a departure)
+  - a real two-player Skull Poker hand (needs two players; the smoke test plays one server-side)
+  - the quest cargo, finds and marks on a floor (smoke-tested only)
+- Poker table spot: `Lobby.PokerSpot` = TentCenter + (1.0, 0, 2.2), between the coffer and the reels; the stools have room.

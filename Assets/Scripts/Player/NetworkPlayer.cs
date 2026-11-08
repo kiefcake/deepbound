@@ -471,7 +471,7 @@ namespace Deepbound.Player
             // and with no occlusion culling everything past the walls would otherwise still be drawn.
             // The hands are put away for the carriage ride.
             // Hidden in cutscenes, and while watching an ally from down on the floor (Teamwork spectating).
-            bool hideHands = GameHud.Cinematic || Teamwork.Watching != null || World.BlackjackTable.LocalOpen || CampSeat.SeatedLocal; // seated at the cards or by the fire: hands away
+            bool hideHands = GameHud.Cinematic || Teamwork.Watching != null || World.BlackjackTable.LocalOpen || World.PokerDiceTable.LocalSeated || CampSeat.SeatedLocal; // seated at the cards or by the fire: hands away
             if (IsOwner && viewModel != null && viewModel.Root.gameObject.activeSelf == hideHands) viewModel.Root.gameObject.SetActive(!hideHands);
             // Watching an ally from the floor, your own body is in the shot (play-test 2026-11-01: dragged while
             // spectating, you could not see yourself being dragged). Otherwise it only casts a shadow.

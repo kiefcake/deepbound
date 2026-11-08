@@ -36,7 +36,9 @@ namespace Deepbound.Art
         private bool awayRotSet;
         private Vector3 joltAway;
         private Quaternion baseRot;
-        private Vector3 homePos;
+        private Vector3 homeLocal;
+        /// <summary>Home in the world NOW: it rides with whatever the figure stands on (Corwin's carriage drove off without him).</summary>
+        private Vector3 HomePos => transform.parent != null ? transform.parent.TransformPoint(homeLocal) : homeLocal;
         private bool away;
         public static readonly System.Collections.Generic.List<FolkIdle> All = new System.Collections.Generic.List<FolkIdle>();
 
@@ -97,7 +99,7 @@ namespace Deepbound.Art
             seed = Random.value * 20f;
             baseScale = transform.localScale;
             baseRot = transform.localRotation;
-            homePos = transform.position;
+            homeLocal = transform.localPosition;
             nextGlance = Time.time + Random.Range(1f, 4f);
         }
 
@@ -113,7 +115,8 @@ namespace Deepbound.Art
                 World.FolkRounds.Chatter(Who.Value, pose);
             }
             away = pose.Away;
-            transform.position = away ? new Vector3(pose.Position.x, homePos.y + (pose.Walking ? Mathf.Abs(Mathf.Sin(t * 6.5f)) * 0.035f : 0f), pose.Position.z) : homePos;
+            if (away) transform.position = new Vector3(pose.Position.x, HomePos.y + (pose.Walking ? Mathf.Abs(Mathf.Sin(t * 6.5f)) * 0.035f : 0f), pose.Position.z);
+            else transform.localPosition = homeLocal;
             float camDist = cam != null ? Flat(cam.transform.position - transform.position) : 99f;
             // Breathing: a slow rise and fall.
             transform.localScale = new Vector3(baseScale.x * (1f + Mathf.Sin(t * 1.4f) * 0.006f), baseScale.y * (1f + Mathf.Sin(t * 1.4f) * 0.009f), baseScale.z);

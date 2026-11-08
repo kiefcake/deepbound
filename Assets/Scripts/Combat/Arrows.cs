@@ -107,7 +107,7 @@ namespace Deepbound.Combat
 
         /// <summary>
         /// GRAZING (2026-10-21, bullet hell): an enemy shot that passes within this of a player's body
-        /// without touching it is a graze. Grazes charge the ultimate and build a streak (<see cref="Progression.PlayerProgress.ServerGraze"/>),
+        /// without touching it is a graze. Grazes build a streak (no ult charge since 2026-11-08) (<see cref="Progression.PlayerProgress.ServerGraze"/>),
         /// so weaving through a pattern pays more than standing well clear of it.
         /// </summary>
         public const float GrazeRadius = 0.6f;

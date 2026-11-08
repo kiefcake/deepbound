@@ -670,11 +670,21 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject slotMachinePrefab;
         [SerializeField] private NetworkObject blackjackPrefab;
         [SerializeField] private NetworkObject cofferPrefab;
+        [SerializeField] private NetworkObject pokerPrefab;
         [SerializeField] private NetworkObject gongPrefab;
         [SerializeField] private NetworkObject shrinePrefab;
         [SerializeField] private NetworkObject rangeTargetPrefab;
         [SerializeField] private NetworkObject folkPrefab;
         [SerializeField] private NetworkObject tavernKeepPrefab, tavernBandPrefab;
+
+        /// <summary>Server, tests: a Skull Poker table anywhere (the smoke test's two-player block runs on a floor).</summary>
+        public PokerDiceTable ServerDebugSpawnPoker(Vector3 at)
+        {
+            if (pokerPrefab == null) return null;
+            var obj = Instantiate(pokerPrefab, at, Quaternion.identity);
+            obj.Spawn(destroyWithScene: true);
+            return obj.GetComponent<PokerDiceTable>();
+        }
 
         private void SpawnCampStations()
         {
@@ -690,6 +700,7 @@ namespace Deepbound.World
             Put(cofferPrefab, Lobby.CofferSpot, Lobby.TentFacing);
             Put(slotMachinePrefab, Lobby.SlotSpot, Lobby.TentFacing);
             Put(blackjackPrefab, Lobby.BlackjackSpot, Vector3.back);
+            Put(pokerPrefab, Lobby.PokerSpot, Lobby.TentFacing);
             Put(catPrefab, Lobby.Origin + Lobby.S(0.6f, 0f, -8f), Vector3.forward);
             Put(gongPrefab, Lobby.GongSpot, Lobby.GongFacing);
             Put(shrinePrefab, Lobby.ShrineSpot, Vector3.left);
@@ -1454,6 +1465,7 @@ namespace Deepbound.World
         {
             UpdateTideVisual();
             if (!IsServer || Instance != this) return;
+            TickFolkHolds();
             WatchPartySize();
             TickArmourAuras();
             double now = NetworkManager.ServerTime.Time;

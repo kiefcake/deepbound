@@ -87,6 +87,16 @@ MonoBehaviour:
   soulSkullPrefab: {fileID: 2749980807616642887, guid: 9d23c8acc5cae7e42b89372e6848278a, type: 3}
   sarcophagusPrefab: {fileID: 450747277759864904, guid: ba5736d10dcde4a4d9af9adbdbab1f2b, type: 3}
   crackedWallPrefab: {fileID: 3855241515496535436, guid: 943bd248e66bc7e4faabab7fd6969047, type: 3}
+  FolkHeldAt:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+  FolkPausedTotal:
+    UpdateTraits:
+      MinSecondsBetweenUpdates: 0
+      MaxSecondsBetweenUpdates: 0
+  questCargoPrefab: {fileID: 1004015803005182924, guid: 5dc1bff7c2dd43740a5fb8ae02d50ac5, type: 3}
+  questTrinketPrefab: {fileID: 2205022400048718115, guid: 67d3f9f3a53d22441b1aedf01c727d1d, type: 3}
   tallymanPrefab: {fileID: 219130841370759467, guid: 38df321217aacd44fa6b98aeb2245b02, type: 3}
   skeletonPrefab: {fileID: 6347288401934167848, guid: 193fe9095fca3fe4d9657fe22d9dd2d8, type: 3}
   archerPrefab: {fileID: 1189994025091854638, guid: c9a59dea8caf8604bac5f21df48c4056, type: 3}
@@ -141,6 +151,7 @@ MonoBehaviour:
   slotMachinePrefab: {fileID: 8912430892319929899, guid: 5bff212b8109e7848b0071bc18340a96, type: 3}
   blackjackPrefab: {fileID: 4364429901473664670, guid: 68b604e9ad0ad6544816a744b4cbba44, type: 3}
   cofferPrefab: {fileID: 277748187989132094, guid: 56f6ca87434608e45987518743f36e9a, type: 3}
+  pokerPrefab: {fileID: 5261483106692253039, guid: 8c27c8348af8d0046bd3415044e211e1, type: 3}
   gongPrefab: {fileID: 6238532070434734018, guid: ae46c97d3df5ee047bf2b963aee60bcb, type: 3}
   shrinePrefab: {fileID: 5345076545849612048, guid: b16fdcc5136720548a4199ece49251e0, type: 3}
   rangeTargetPrefab: {fileID: 1712247798310700591, guid: 7306da333a010254eae1214ae856c551, type: 3}

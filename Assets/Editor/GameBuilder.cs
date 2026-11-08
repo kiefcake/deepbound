@@ -91,6 +91,8 @@ namespace Deepbound.EditorTools
             var oathPlates = BuildObjectPrefab<OathPlates>("OathPlates", Vector3.zero);
             var oathStone = BuildObjectPrefab<OathStone>("OathStone", Vector3.zero);
             var handTorch = BuildObjectPrefab<HandTorch>("HandTorch", Vector3.zero);
+            var questCargo = BuildObjectPrefab<QuestCargo>("QuestCargo", Vector3.zero);
+            var questTrinket = BuildObjectPrefab<QuestTrinket>("QuestTrinket", Vector3.zero);
             var shaftCat = BuildObjectPrefab<ShaftCat>("ShaftCat", Vector3.zero);
             var soulSkull = BuildObjectPrefab<SoulSkull>("SoulSkull", Vector3.zero);
             var reliquary = BuildObjectPrefab<Reliquary>("Reliquary", Vector3.zero);
@@ -104,6 +106,7 @@ namespace Deepbound.EditorTools
             var cat = BuildCatPrefab();
             var slots = BuildObjectPrefab<SlotMachine>("SlotMachine", new Vector3(1.1f, 1.9f, 0.8f));
             var blackjack = BuildObjectPrefab<BlackjackTable>("BlackjackTable", new Vector3(1.8f, 0.95f, 1.1f));
+            var poker = BuildObjectPrefab<PokerDiceTable>("PokerDiceTable", new Vector3(1.8f, 0.95f, 1.8f));
             var tavernKeep = BuildObjectPrefab<TavernKeep>("TavernKeep", Vector3.zero);
             var tavernBand = BuildObjectPrefab<TavernBand>("TavernBand", Vector3.zero);
             var gong = BuildGongPrefab();
@@ -123,6 +126,8 @@ namespace Deepbound.EditorTools
             dso.FindProperty("oathPlatesPrefab").objectReferenceValue = oathPlates.GetComponent<NetworkObject>();
             dso.FindProperty("oathStonePrefab").objectReferenceValue = oathStone.GetComponent<NetworkObject>();
             dso.FindProperty("handTorchPrefab").objectReferenceValue = handTorch.GetComponent<NetworkObject>();
+            dso.FindProperty("questCargoPrefab").objectReferenceValue = questCargo.GetComponent<NetworkObject>();
+            dso.FindProperty("questTrinketPrefab").objectReferenceValue = questTrinket.GetComponent<NetworkObject>();
             dso.FindProperty("shaftCatPrefab").objectReferenceValue = shaftCat.GetComponent<NetworkObject>();
             dso.FindProperty("soulSkullPrefab").objectReferenceValue = soulSkull.GetComponent<NetworkObject>();
             dso.FindProperty("sarcophagusPrefab").objectReferenceValue = sarcophagus.GetComponent<NetworkObject>();
@@ -154,6 +159,7 @@ namespace Deepbound.EditorTools
             dso.FindProperty("catPrefab").objectReferenceValue = cat.GetComponent<NetworkObject>();
             dso.FindProperty("slotMachinePrefab").objectReferenceValue = slots.GetComponent<NetworkObject>();
             dso.FindProperty("blackjackPrefab").objectReferenceValue = blackjack.GetComponent<NetworkObject>();
+            dso.FindProperty("pokerPrefab").objectReferenceValue = poker.GetComponent<NetworkObject>();
             dso.FindProperty("tavernKeepPrefab").objectReferenceValue = tavernKeep.GetComponent<NetworkObject>();
             dso.FindProperty("tavernBandPrefab").objectReferenceValue = tavernBand.GetComponent<NetworkObject>();
             dso.FindProperty("gongPrefab").objectReferenceValue = gong.GetComponent<NetworkObject>();
@@ -169,7 +175,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix);
+            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix, handTorch, questCargo, questTrinket, poker);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };

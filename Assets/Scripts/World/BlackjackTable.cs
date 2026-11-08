@@ -51,6 +51,7 @@ namespace Deepbound.World
         private readonly List<byte> shoe = new List<byte>();
 
         // ---- The local player's view of their seat ----
+        private static float localOpenedAt;
         public static bool LocalOpen { get; private set; }
         private static BlackjackTable localTable;
         private Phase seenPhase;
@@ -425,6 +426,7 @@ namespace Deepbound.World
             if (!string.IsNullOrEmpty(result) && result != lastResult && seenPhase == Phase.Done) resultShownAt = Time.time;
             lastResult = result;
             bool opening = !LocalOpen || localTable != this;
+            if (opening) localOpenedAt = Time.time;
             LocalOpen = true;
             localTable = this;
             if (opening && view != null) view.SitLocal();
@@ -484,7 +486,7 @@ namespace Deepbound.World
             if (local == null || Vector3.Distance(local.transform.position, transform.position) > 5f || local.GetComponent<PlayerLife>().Downed.Value) { Leave(); return; }
             var kb = UnityEngine.InputSystem.Keyboard.current;
             if (kb == null || UI.PauseMenu.Open) return;
-            if (kb.escapeKey.wasPressedThisFrame)
+            if (kb.escapeKey.wasPressedThisFrame || (UI.Binds.Down(UI.Bind.Use) && Time.time - localOpenedAt > 0.4f)) // F leaves too
             {
                 if (seenPhase == Phase.Playing || seenPhase == Phase.Insurance) StandRpc(local.NetworkObject);
                 Leave();

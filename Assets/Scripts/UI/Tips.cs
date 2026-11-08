@@ -18,7 +18,7 @@ namespace Deepbound.UI
         public static readonly string[] Keys =
         {
             "flamevents", "edges", "relictray", "hone", "corwin", "chat", "purse", "falloff", "entling", "rare", "necro", "hiddenplates", "gravewarden", "silenced",
-            "camp", "quests", "tavern", "emotewheel", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound",
+            "camp", "quests", "tavern", "emotewheel", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound", "casino3", "poker", "questfloor",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -48,6 +48,8 @@ namespace Deepbound.UI
                 foreach (var it in Interactable.All)
                 {
                     if (it == null || Vector3.Distance(it.transform.position, me) > 6f) continue;
+                    if (it is DiceTable || it is MysteryCoffer) Offer("casino3", "BONES: call LOW, HIGH, SEVEN or DOUBLES before the dice fly, and LET IT RIDE on a win. The LOCKSMITH'S COFFER has three locks: each one you pick betters the prize, a snapped pick loses it all - step back to take what you have.");
+                    if (it is PokerDiceTable) Offer("poker", "SKULL POKER: dice against the other players, no house. Sit (F), ante, hold and reroll once, then CHECK / BET / CALL / FOLD. Best hand takes the pot. Only you see your dice - the others see how many you kept.");
                     if (it is SlotMachine || it is BlackjackTable) Offer("gamble2", "THE TENT: the Bone Reels pay big for three of a kind; at Deadman's Hand beat the skeleton dealer to 21. HIT or STAND in the table's panel.");
                     if (it is TavernKeep || it is TavernBand) Offer("tavern", "THE GUTTED LANTERN: talk to Marta (F) for mead: each horn makes you Tipsy, Merry, then Sloshed - a little braver in a fight, and the world sways. F at the stage pays the band for the next song.");
                     if (it is CampCat) Offer("cat", "The castle cat. F pets it (sometimes it has found something for you). Shift+F picks it up... ask it first.");
@@ -81,6 +83,11 @@ namespace Deepbound.UI
             }
             // Voice and pings are for a party: alone they mean nothing.
             bool party = PlayerLife.All.Count > 1;
+            var questDir = DungeonDirector.Instance;
+            if (questDir != null)
+                foreach (var q in questDir.Quests)
+                    if (q.Status == DungeonDirector.ContractStatus.Active && (q.Contract == Contract.Cargo || q.Contract == Contract.Gather || q.Contract == Contract.Mark))
+                    { Offer("questfloor", "QUEST ON THIS FLOOR: cargo glows with a column of light - carry it (F) to the start room's waystone; fragile cargo cracks when a hit knocks it loose. Finds glow and whisper in separate rooms. A named MARK walks the floor: hunt it before you take the lift."); break; }
             if (DungeonDirector.IsWardenFloor(layout.Depth)) Offer("warden", "Each act's first floor ends at a WARDEN, the second at the act's master. Ten floors in all; the Unsung waits at the bottom.");
             var myKit = player.ActiveKit;
             if (myKit != null && myKit.AttackRange > 6f) Offer("falloff", "RANGED shots lose bite past half their range (60% at the very end), and arrows and knives DROP: aim a little high at distance.");
@@ -144,7 +151,7 @@ namespace Deepbound.UI
                 if (b.IsChampion) Offer("champtrait", "A CHAMPION's epithet is how it fights: the feed says what it does as it stirs (the Pale frostbites, Ashenhand burns, the Unburied gets up once...). Read the name, then pick the fight.");
                 if (b is CantorBrain) Offer("cantor", "A TONGUELESS CANTOR: when its pale circle closes under you, you are SILENCED - no Q, E or ultimate for a few seconds. Step out of the circle, stun it mid-cast, or lift it with Holy Water. It is frail: reach it.");
                 if (b is BonePiperBrain) Offer("piper", "A BONE PIPER: each tune is a pattern - a ROSE that blooms, SCISSORS that sweep, SEEDPODS that burst where they land, a MARCH of walls with a gap. Its name floats up as it starts. It stands still to play: hit the glowing bag.");
-                if (b is BonePiperBrain || b is OrbweaverBrain) Offer("graze", "GRAZE: a shot that slips past you close without touching you charges your ultimate. Weave through patterns, do not just run from them.");
+                if (b is BonePiperBrain || b is OrbweaverBrain) Offer("graze", "GRAZE: a shot that slips past you close without touching you counts toward a streak. Weave through patterns, do not just run from them.");
                 if (b is OrbweaverBrain) Offer("orbweaver", "An ORBWEAVER: it hangs back and conjures orbs that fire patterns - spirals, rings with a gap, aimed bursts. Watch the gap, and kill the Orbweaver: its orbs die with it.");
                 if (b is MournerBrain) Offer("mourner", "A MOURNER: it only moves while no one is looking at it. Keep your eyes on it, back away facing it, and listen for stone scraping behind you.");
                 if (b is GravewardenBrain) Offer("gravewarden", "THE GRAVEWARDEN: its shield blocks from the front. Hit it right after each Mace Sweep (OPENING), from behind, or while it is dazed from charging into stone.");

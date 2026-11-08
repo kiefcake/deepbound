@@ -46,7 +46,7 @@ namespace Deepbound.World
             if (rounds == null) Build();
             if (!rounds.TryGetValue(who, out var r)) return;
             DebugShift = 0;
-            double t = Clock + r.Offset;
+            double t = DungeonDirector.FolkClock(who, Clock) + r.Offset; // a person held in conversation keeps their own clock still
             float walk = r.Length / Speed;
             float target = along < 0f ? walk + Stay * 0.5f : walk * along;
             double inPeriod = t - System.Math.Floor(t / r.Period) * r.Period;
@@ -213,7 +213,7 @@ namespace Deepbound.World
             if (rounds == null) Build();
             var pose = new Pose();
             if (StayHome || !rounds.TryGetValue(who, out var r)) return pose;
-            double t = Clock + r.Offset;
+            double t = DungeonDirector.FolkClock(who, Clock) + r.Offset; // a person held in conversation keeps their own clock still
             pose.Visit = (int)(t / r.Period);
             float tau = (float)(t - pose.Visit * (double)r.Period);
             float walk = r.Length / Speed;

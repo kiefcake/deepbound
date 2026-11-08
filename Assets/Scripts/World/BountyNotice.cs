@@ -23,7 +23,7 @@ namespace Deepbound.World
             var d = DungeonDirector.Instance;
             if (d == null || !DungeonDirector.InLobby || d.CannotTakeQuest(Giver) != null) return null;
             var q = d.OfferOf(Giver);
-            return "Take " + UI.Dialogue.NameOf(Giver) + "'s quest" + (q.Special ? " (SPECIAL)" : "") + ": " + DungeonDirector.QuestTask(q.Contract, q.Goal) + "  -  " + DungeonDirector.QuestReward(q);
+            return "Take " + UI.Dialogue.NameOf(Giver) + "'s quest" + (q.Special ? " (SPECIAL)" : "") + ": " + DungeonDirector.QuestTask(q) + "  -  " + DungeonDirector.QuestReward(q);
         }
 
         protected override void ServerUse(PlayerProgress who) => DungeonDirector.Instance?.ServerTakeQuest(Giver, who.name);

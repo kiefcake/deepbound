@@ -37,6 +37,13 @@ namespace Deepbound.Player
         private bool sitOnArrival;
         private Vector3? errand;
         private float errandUntil;
+        /// <summary>Where it waits by you: a spot in the WORLD, kept until you walk off from it (it used to hang a fixed
+        /// offset behind your view, so turning to look at it swung it behind you again).</summary>
+        private Vector3? perch;
+        private Vector3 lastOwner;
+        private bool ownerSits;
+        /// <summary>Pets read better a size up (the user: "barely visible").</summary>
+        public const float Size = 1.35f;
         private readonly HashSet<SpikeTrap> warned = new HashSet<SpikeTrap>();
 
         private bool Flies => kind == Kind.Raven || kind == Kind.Wisp;
@@ -73,7 +80,21 @@ namespace Deepbound.Player
                 case Kind.Kitten: BuildKitten(root); break;
                 case Kind.Wisp: BuildWisp(root); break;
             }
-            foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            // A size up, a shadow under it, and (your own pet) a faint warm glow so it is never a dark lump at your feet.
+            root.localScale = Vector3.one * Size;
+            foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.On;
+            if (owner.IsOwner && k != Kind.Wisp)
+            {
+                var glow = new GameObject("PetGlow").AddComponent<Light>();
+                glow.transform.SetParent(root, false);
+                glow.transform.localPosition = new Vector3(0f, 0.9f, 0.3f);
+                glow.type = LightType.Point;
+                glow.color = new Color(1f, 0.82f, 0.6f);
+                glow.range = 2.2f;
+                glow.intensity = 0.7f;
+                glow.shadows = LightShadows.None;
+            }
+            perch = null;
         }
 
         // ---------------------------------------------------------------- looks
@@ -200,8 +221,37 @@ namespace Deepbound.Player
             if (t >= nextScan) { nextScan = t + 0.3f; Scan(o); }
             if (errand.HasValue && (t > errandUntil || (owner.transform.position - errand.Value).sqrMagnitude > 18f * 18f)) errand = null;
 
-            Vector3 want = errand ?? (o - fwd * 1.5f + right * 0.9f);
-            if (Flies) want += Vector3.up * (errand.HasValue ? 0.6f : 1.7f + Mathf.Sin(t * 1.7f) * 0.15f);
+            // How the owner moves (local position change: works for everyone's pets).
+            var ownerVel = dt > 0f ? (o - lastOwner) / dt : Vector3.zero; ownerVel.y = 0f;
+            lastOwner = o;
+            bool moving = ownerVel.magnitude > 1.2f;
+            ownerSits = owner.Rig != null && owner.Rig.EmoteNow == Art.Emote.Sit;
+            // Keep to the side it is already on, so it does not cross in front of you every time.
+            var fromOwner = pos - o; fromOwner.y = 0f;
+            float side = Vector3.Dot(fromOwner, right) >= 0f ? 1f : -1f;
+            if (ownerSits)
+            {
+                // Sit beside you: on your side of the log, facing the way you face.
+                perch = o + right * side * 0.75f + fwd * 0.15f;
+            }
+            else if (moving)
+            {
+                // Trot alongside, a little ahead, where you can see it.
+                var dir = ownerVel.normalized;
+                var r2 = Vector3.Cross(Vector3.up, dir);
+                var ahead = o + dir * 1.4f + r2 * side * 1.0f;
+                if (perch == null || Flat(perch.Value - ahead) > 1.4f) perch = ahead;
+            }
+            else if (perch == null || Flat(perch.Value - o) > 3.4f || Flat(perch.Value - o) < 0.6f)
+            {
+                // Standing: settle in front and to the side - in view - and stay there however you turn.
+                // Not on a table or a counter: try the other side, then closer in at your side.
+                perch = o + fwd * 1.3f + right * side * 1.1f;
+                if (!Flies && Raised(perch.Value, o.y)) perch = o + fwd * 1.3f - right * side * 1.1f;
+                if (!Flies && Raised(perch.Value, o.y)) perch = o + right * side * 0.8f - fwd * 0.2f;
+            }
+            Vector3 want = errand ?? perch.Value;
+            if (Flies) want += Vector3.up * (errand.HasValue ? 0.6f : ownerSits ? (kind == Kind.Wisp ? 0.5f : 0f) : 1.5f + Mathf.Sin(t * 1.7f) * 0.15f);
 
             // Far behind (a lift, a fall, a new floor): it is simply there again.
             if ((pos - o).sqrMagnitude > 16f * 16f) { pos = want; vel = Vector3.zero; }
@@ -209,6 +259,7 @@ namespace Deepbound.Player
             var to = want - pos; to.y = Flies ? to.y : 0f;
             float dist = to.magnitude;
             if (sitOnArrival && errand.HasValue && dist < 0.45f) { sitOnArrival = false; sitUntil = t + 2.4f; errandUntil = sitUntil; }
+            if (ownerSits && !errand.HasValue && dist < 0.4f) sitUntil = t + 0.3f;
             bool sitting = t < sitUntil;
             float speed = sitting ? 0f : dist > 5f ? 9f : dist > 1.2f ? 4.5f : dist > 0.35f ? 2f : 0f;
             var target = dist > 0.01f ? to / dist * speed : Vector3.zero;
@@ -217,18 +268,26 @@ namespace Deepbound.Player
             if (!Flies)
             {
                 // Feet on the floor (props and steps included).
-                if (Physics.Raycast(pos + Vector3.up * 1.2f, Vector3.down, out var hit, 4f, ~0, QueryTriggerInteraction.Ignore) && hit.collider.GetComponentInParent<NetworkPlayer>() == null)
+                if (Physics.Raycast(pos + Vector3.up * 1.2f, Vector3.down, out var hit, 4f, ~0, QueryTriggerInteraction.Ignore) && hit.collider.GetComponentInParent<NetworkPlayer>() == null
+                    && hit.point.y < o.y + 0.55f)
                     pos.y = Mathf.Lerp(pos.y, hit.point.y, 1f - Mathf.Exp(-14f * dt));
                 else pos.y = Mathf.Lerp(pos.y, o.y, 1f - Mathf.Exp(-6f * dt));
             }
             body.position = pos;
 
             var flat = new Vector3(vel.x, 0f, vel.z);
-            var face = flat.sqrMagnitude > 0.05f ? flat : (sitting || errand.HasValue ? flat : (o - pos));
+            var face = flat.sqrMagnitude > 0.05f ? flat : ownerSits ? fwd : (sitting || errand.HasValue ? flat : (o - pos));
             face.y = 0f;
             if (face.sqrMagnitude > 0.001f) body.rotation = Quaternion.Slerp(body.rotation, Quaternion.LookRotation(face), 1f - Mathf.Exp(-8f * dt));
             Animate(flat.magnitude, sitting, t, dt);
         }
+
+        private static float Flat(Vector3 v) { v.y = 0f; return v.magnitude; }
+
+        /// <summary>The ground at <paramref name="at"/> is a table top or a counter (well above the owner's feet).</summary>
+        private static bool Raised(Vector3 at, float feet) =>
+            Physics.Raycast(new Vector3(at.x, feet + 1.6f, at.z), Vector3.down, out var hit, 2.2f, ~0, QueryTriggerInteraction.Ignore)
+            && hit.collider.GetComponentInParent<NetworkPlayer>() == null && hit.point.y > feet + 0.4f;
 
         private void Animate(float speed, bool sitting, float t, float dt)
         {

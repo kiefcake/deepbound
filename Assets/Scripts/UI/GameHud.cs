@@ -142,7 +142,7 @@ namespace Deepbound.UI
             if (pageShown < 0 || pageShown >= Journal.Entries.Length) return;
             var kb = Keyboard.current;
             // F, Esc, or walking off closes it (it closes itself after a while too).
-            if (Time.time - pageAt > 0.3f && kb != null && kb.escapeKey.wasPressedThisFrame) { pageShown = -1; return; }
+            if (Time.time - pageAt > 0.3f && ((kb != null && kb.escapeKey.wasPressedThisFrame) || Binds.Down(Bind.Use))) { pageShown = -1; return; }
             if (!pageAnchored) { pageWhere = player.transform.position; pageAnchored = true; }
             if ((player.transform.position - pageWhere).sqrMagnitude > 16f) { pageShown = -1; return; }
             if (Time.time - pageAt > 25f || player.GetComponent<FirstPersonMotor>().MoveInput.sqrMagnitude > 0.1f && Time.time - pageAt > 1f) { pageShown = -1; return; }
@@ -325,7 +325,7 @@ namespace Deepbound.UI
         private void LateUpdate()
         {
             // Esc closes the shop or class screen first; only a second Esc pauses.
-            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || runeOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open || Dialogue.Open;
+            PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || runeOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open || Dialogue.Open || DiceTable.LocalOpen || PokerDiceTable.LocalSeated;
         }
 
         private void OnDestroy()
@@ -630,7 +630,7 @@ namespace Deepbound.UI
             {
                 var q = d.Quests[i];
                 var state = q.Status;
-                string task = DungeonDirector.QuestTask(q.Contract, q.Goal);
+                string task = DungeonDirector.QuestTask(q);
                 string line = state == DungeonDirector.ContractStatus.Taken ? "Next floor: " + task
                     : state == DungeonDirector.ContractStatus.Active ? task + (q.Goal > 1 ? "  (" + q.Progress + " / " + q.Goal + ")" : "")
                     : state == DungeonDirector.ContractStatus.Fulfilled ? "COMPLETE" : state == DungeonDirector.ContractStatus.Failed ? "FAILED" : "";
@@ -1240,9 +1240,10 @@ namespace Deepbound.UI
         private bool panelWasOpen;
 
         /// <summary>From conversation: open a person's stall panel (closes itself if you walk away from them).</summary>
-        public void OpenStall(Shop.Vendor v) { shopOpen = true; shopVendor = v; forgeOpen = runeOpen = invOpen = false; }
-        public void OpenForge() { forgeOpen = true; shopOpen = runeOpen = invOpen = false; }
-        public void OpenRunes() { runeOpen = true; shopOpen = forgeOpen = invOpen = false; }
+        private float panelOpenedAt;
+        public void OpenStall(Shop.Vendor v) { shopOpen = true; shopVendor = v; forgeOpen = runeOpen = invOpen = false; panelOpenedAt = Time.time; }
+        public void OpenForge() { forgeOpen = true; shopOpen = runeOpen = invOpen = false; panelOpenedAt = Time.time; }
+        public void OpenRunes() { runeOpen = true; shopOpen = forgeOpen = invOpen = false; panelOpenedAt = Time.time; }
 
         private void Update()
         {
@@ -1268,7 +1269,12 @@ namespace Deepbound.UI
             bool interact = keyboard != null && Binds.Down(Bind.Interact) && (!merged || PlayerLife.ShiftHeld || !life.UseHasWorldTarget());
             bool lift = keyboard != null && Binds.Down(Bind.Interact) && (!merged || PlayerLife.ShiftHeld);
             bool catFirst = lift && !MenuOpen && Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is CampCat;
-            if (catFirst) ((CampCat)Interactable.Nearest(player.AimOrigin, player.AimForward, progress)).PickUpRpc(player.NetworkObject);
+            // F closes an open stall / forge / rune panel, whatever is under the crosshair (2026-11-08: looking at the
+            // person you bought from counted as "something to use", so F did nothing).
+            bool panelUp = shopOpen || forgeOpen || runeOpen;
+            if (panelUp && keyboard != null && Binds.Down(Bind.Interact) && !(merged && PlayerLife.ShiftHeld) && Time.time - panelOpenedAt > 0.2f)
+                shopOpen = forgeOpen = runeOpen = false;
+            else if (catFirst) ((CampCat)Interactable.Nearest(player.AimOrigin, player.AimForward, progress)).PickUpRpc(player.NetworkObject);
             else if (interact && !(merged && PlayerLife.ShiftHeld))
             {
                 if (shopOpen && shopVendor == Shop.Vendor.Smith) { shopOpen = false; forgeOpen = false; }
@@ -1293,7 +1299,7 @@ namespace Deepbound.UI
             if (shopOpen && !NearVendor(shopVendor)) shopOpen = false;
             if (anvil == null) forgeOpen = false;
             bool inspect = keyboard != null && keyboard.leftAltKey.isPressed && !life.Downed.Value;
-            MenuOpen = shopOpen || forgeOpen || invOpen || runeOpen || DevMenu.Open || inspect || BlackjackTable.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open || Dialogue.Open;
+            MenuOpen = shopOpen || forgeOpen || invOpen || runeOpen || DevMenu.Open || inspect || BlackjackTable.LocalOpen || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open || Dialogue.Open;
             InventoryOpen = invOpen;
             statsHeld = DebugShowStats || (keyboard != null && Binds.Held(Bind.Stats) && !Wardrobe.Open);
             PanelShowing = MenuOpen || statsHeld || pageShown >= 0;
@@ -2144,7 +2150,7 @@ namespace Deepbound.UI
             var target = PlayerLife.DownedNear(player.transform.position, life);
             if (target == null)
             {
-                if (Dialogue.Open) return;
+                if (Dialogue.Open || DiceTable.LocalOpen || PokerDiceTable.LocalSeated) return;
                 if (Dialogue.Aimed != null && !statsHeld) { PromptLine(w, h, "F   Talk to " + Dialogue.Aimed.DisplayName); return; }
                 var use = Interactable.Nearest(player.AimOrigin, player.AimForward, progress);
                 if (use != null && !statsHeld) PromptLine(w, h, "F   " + use.Prompt(progress));
@@ -2747,7 +2753,7 @@ namespace Deepbound.UI
             Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(Gold.r, Gold.g, Gold.b, 0.5f));
             Rect(x, y, pw, ph, new Color(0.04f, 0.035f, 0.03f, 0.94f));
             GUI.Label(new Rect(x + 14, y + 10, pw, 24), Shop.VendorTitle(vendor), new GUIStyle(label) { normal = { textColor = Gold } });
-            GUI.Label(new Rect(x + 14, y + 30, pw - 28, 20), Shop.VendorLine(vendor), small);
+            GUI.Label(new Rect(x + 14, y + 30, pw - 28, 20), vendor == Shop.Vendor.Yard ? "Your regimen: " + Shop.RegimenName(progress.ClassId.Value) : Shop.VendorLine(vendor), small);
             if (vendor == Shop.Vendor.Smith && GUI.Button(new Rect(x + pw - 300, y + 8, 160, 24), "Back to the anvil")) { shopOpen = false; forgeOpen = true; }
             if (vendor == Shop.Vendor.Runewright && GUI.Button(new Rect(x + pw - 300, y + 8, 160, 24), "Back to the stones")) { shopOpen = false; runeOpen = true; }
             // Struck this vendor? It shows in the prices, and coin can mend it.

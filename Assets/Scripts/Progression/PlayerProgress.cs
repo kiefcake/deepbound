@@ -141,6 +141,16 @@ namespace Deepbound.Progression
             : vendor == Shop.Vendor.Carriage ? World.FolkId.Corwin : vendor == Shop.Vendor.Yard ? World.FolkId.Brann : vendor == Shop.Vendor.Runewright ? World.FolkId.Ysolde
             : World.DungeonDirector.InLobby ? World.FolkId.Silas : World.FolkId.Peddler;
 
+        /// <summary>Owner -> server: you start or stop talking/trading with <paramref name="who"/> (they hold still meanwhile).</summary>
+        [Rpc(SendTo.Server)]
+        public void TalkHoldRpc(byte who, bool on)
+        {
+            var d = World.DungeonDirector.Instance;
+            if (d == null) return;
+            if (on && (!World.DungeonDirector.InLobby || !World.FolkPlaces.InReach((World.FolkId)who, transform.position, 2f))) return;
+            d.ServerHoldFolk((World.FolkId)who, OwnerClientId, on);
+        }
+
         /// <summary>Owner -> server: take <paramref name="who"/>'s quest while talking to them (party-wide).</summary>
         [Rpc(SendTo.Server)]
         public void TakeQuestRpc(byte who)
@@ -1657,13 +1667,12 @@ namespace Deepbound.Progression
         [Rpc(SendTo.Owner)]
         private void GearBoughtRpc(int seed) => gearBoughtSeed = seed;
 
-        private float grazeStreakUntil, nextGrazeCharge;
+        private float grazeStreakUntil;
         private int grazeStreak;
         /// <summary>Tests: grazes this session.</summary>
         public int Grazes { get; private set; }
-        public const float GrazeCharge = 0.6f;
 
-        /// <summary>Server: an enemy shot slipped past you (<see cref="Combat.Arrows.GrazeRadius"/>): ult charge and a streak.</summary>
+        /// <summary>Server: an enemy shot slipped past you (<see cref="Combat.Arrows.GrazeRadius"/>): a streak and a tick (no ult charge).</summary>
         public void ServerGraze(Vector3 at)
         {
             var life = GetComponent<Player.PlayerLife>();
@@ -1671,12 +1680,7 @@ namespace Deepbound.Progression
             Grazes++;
             grazeStreak = Time.time < grazeStreakUntil ? grazeStreak + 1 : 1;
             grazeStreakUntil = Time.time + 2.2f;
-            // The charge is capped at five a second, so a wall of notes cannot fill the bar on its own.
-            if (Time.time >= nextGrazeCharge && TryGetComponent<Player.Ultimates>(out var u))
-            {
-                nextGrazeCharge = Time.time + 0.2f;
-                u.ServerAddCharge(GrazeCharge * (grazeStreak >= 10 ? 1.5f : 1f));
-            }
+            // 2026-11-08 (the user: "weaving will not charge ultimate anymore"): a graze is only a streak and a tick now.
             GrazeRpc(at, (byte)Mathf.Min(255, grazeStreak));
         }
 

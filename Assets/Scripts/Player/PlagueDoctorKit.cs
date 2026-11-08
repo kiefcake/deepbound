@@ -112,7 +112,8 @@ namespace Deepbound.Player
             if (IsServer && clouds.Count > 0 && Time.time >= nextCloudTick) TickClouds();
             if (!IsOwner || !Active) return;
 
-            Reagents = Mathf.Min(ReagentMax, Reagents + ReagentRegen * Time.deltaTime);
+            // WIS (Brann's Meditation drill) brews reagents faster: +2.5% per point over the class's 42.
+            Reagents = Mathf.Min(ReagentMax, Reagents + ReagentRegen * Mathf.Max(0.5f, 1f + (progress.Value(Core.StatType.WIS) - 42f) * 0.025f) * Time.deltaTime);
             motor.SpeedMultiplier = progress.SpeedMultiplier;
             motor.CanSprint = true;
             if (!life.CanAct || !motor.ActionsReady) return;

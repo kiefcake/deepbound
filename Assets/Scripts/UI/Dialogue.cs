@@ -33,6 +33,8 @@ namespace Deepbound.UI
         private string line;
         private int about;
         private float openedAt;
+        /// <summary>Who we asked the server to hold still (through the talk and any panel it opened).</summary>
+        private FolkId? holding;
         private readonly List<(string label, System.Action act)> options = new List<(string, System.Action)>();
 
         public void Init(NetworkPlayer p)
@@ -80,6 +82,7 @@ namespace Deepbound.UI
             line = CampChatter.GreetingFor(w) ?? "Yes?";
             if (progress != null && progress.Grudge(w) >= 2) line = "*" + NameOf(w) + " looks at you coldly.* What.";
             Open = true;
+            Hold(w);
             Art.Sfx.Play2D(Art.Sound.UiOpen, 0.6f);
         }
 
@@ -92,11 +95,28 @@ namespace Deepbound.UI
 
         private GameHud Hud => GetComponent<GameHud>();
 
+        private void Hold(FolkId w)
+        {
+            if (holding == w) return;
+            Release();
+            holding = w;
+            progress?.TalkHoldRpc((byte)w, true);
+        }
+
+        private void Release()
+        {
+            if (holding == null) return;
+            progress?.TalkHoldRpc((byte)holding.Value, false);
+            holding = null;
+        }
+
         private void Update()
         {
             if (player == null || !player.IsOwner) return;
             bool can = DungeonDirector.InLobby && life != null && !life.Downed.Value;
-            Aimed = can && !Open && !OtherPanelOpen ? FindAimed() : null;
+            Aimed = can && !Open && !OtherPanelOpen && !GameHud.MenuOpen ? FindAimed() : null;
+            // Held through the talk AND the stall / wardrobe / runes it opened; let go once every panel is shut.
+            if (holding != null && !Open && !GameHud.MenuOpen && !Wardrobe.Open) Release();
             if (!Open) return;
             if (!can || !FolkPlaces.InReach(who, transform.position, 1.2f)) { Close(); return; }
             var kb = Keyboard.current;
@@ -112,7 +132,7 @@ namespace Deepbound.UI
                     }
         }
 
-        private static bool OtherPanelOpen => BlackjackTable.LocalOpen || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open || DevMenu.Open;
+        private static bool OtherPanelOpen => BlackjackTable.LocalOpen || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || CharacterSelect.Open || PauseMenu.Open || Wardrobe.Open || DevMenu.Open;
 
         /// <summary>The camp person nearest the crosshair, within talking range and roughly looked at.</summary>
         private Art.FolkIdle FindAimed()
@@ -155,6 +175,8 @@ namespace Deepbound.UI
             }
             options.Add((DialogueLines.TradeLabel(who), Trade));
             if (who == FolkId.Hobb && Anvil.Near(transform.position) != null) options.Add(("Work the forge.", () => { Close(); Hud?.OpenForge(); }));
+            var craft = DialogueLines.CraftLabel(who);
+            if (craft != null) options.Add((craft, () => { line = DialogueLines.Craft(who, player); }));
             options.Add(("Got any work?", () => { page = Page.Work; line = null; }));
             options.Add(("What's the news?", () => { line = CampChatter.NewsFor(who) ?? "Nothing worth the breath."; }));
             options.Add(("Tell me about yourself.", () =>
@@ -196,7 +218,7 @@ namespace Deepbound.UI
             {
                 var q = d.Quests[idx];
                 say = q.Status == DungeonDirector.ContractStatus.Taken ? "You've got my job. It starts when you reach the next floor."
-                    : "You're on my job: " + DungeonDirector.QuestTask(q.Contract, q.Goal) + "  (" + q.Progress + " / " + q.Goal + ")";
+                    : "You're on my job: " + DungeonDirector.QuestTask(q) + "  (" + q.Progress + " / " + q.Goal + ")";
                 return false;
             }
             if (progress != null && progress.Grudge(who) >= 3) { say = DialogueLines.Grudged(who); return false; }
@@ -237,7 +259,7 @@ namespace Deepbound.UI
                 if (offer)
                 {
                     var q = d.OfferOf(who);
-                    task = (q.Special ? "SPECIAL  -  " : "") + DungeonDirector.ContractName(q.Contract).ToUpperInvariant() + ":  " + DungeonDirector.QuestTask(q.Contract, q.Goal) + " on the next floor";
+                    task = (q.Special ? "SPECIAL  -  " : "") + DungeonDirector.ContractName(q.Contract).ToUpperInvariant() + ":  " + DungeonDirector.QuestTask(q) + " on the next floor";
                     reward = "Reward: " + DungeonDirector.QuestReward(q) + "  +  " + NameOf(who) + "'s favour";
                 }
             }
@@ -285,6 +307,7 @@ namespace Deepbound.UI
         private void OnDisable()
         {
             if (local == this) { Open = false; Aimed = null; }
+            if (player != null && player.IsOwner && player.IsSpawned) Release();
         }
     }
 }
