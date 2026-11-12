@@ -1139,6 +1139,47 @@ namespace Deepbound.World
             d.AddBox(YardSpot + new Vector3(-0.9f, 0.25f, 0.8f), new Vector3(0.4f, 0.5f, 0.4f), Mat.Wood);
             d.Add(MeshKit.Cylinder(0.18f, 0.15f, 0.32f, 10), Mat.Wood, Matrix4x4.Translate(YardSpot + new Vector3(-0.9f, 0f, -0.8f)));
             for (int i = 0; i < 4; i++) d.AddBox(YardSpot + new Vector3(-1.05f, 0.6f, -0.3f + i * 0.18f), new Vector3(0.04f, 1.2f, 0.03f), Mat.Wood, Quaternion.Euler(0f, 0f, 10f));
+            // His post, dressed (2026-11-09, "upgrade npc stalls"; he stood in the dark): a lantern on a post that lights his
+            // face, a chalk DRILL BOARD on two legs (tallies of who drilled what), and an armour stand with a padded jack.
+            var post = YardSpot + new Vector3(0.45f, 0f, -1.7f);
+            d.AddBox(post + Vector3.up * 1.2f, new Vector3(0.12f, 2.4f, 0.12f), Mat.Wood);
+            d.AddBox(post + new Vector3(0f, 2.35f, 0.3f), new Vector3(0.06f, 0.06f, 0.6f), Mat.Wood);
+            var yardLamp = post + new Vector3(0f, 2.05f, 0.55f);
+            d.AddBox(yardLamp + Vector3.up * 0.13f, new Vector3(0.18f, 0.04f, 0.18f), Mat.Steel);
+            d.AddBox(yardLamp + Vector3.down * 0.12f, new Vector3(0.16f, 0.03f, 0.16f), Mat.Steel);
+            var yardPane = MeshKit.Part(lights, "YardLantern", MeshKit.Box(new Vector3(0.12f, 0.2f, 0.12f)), Mat.Glow, yardLamp);
+            yardPane.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            ArtLibrary.SetGlow(yardPane.GetComponent<Renderer>(), new Color(1f, 0.6f, 0.22f) * 0.75f);
+            var yl = new GameObject("YardLamp").AddComponent<Light>();
+            yl.transform.SetParent(lights, false);
+            yl.transform.position = yardLamp + Vector3.down * 0.1f;
+            yl.type = LightType.Point;
+            yl.color = Fire;
+            yl.range = 6f;
+            yl.intensity = 1.8f;
+            var board = YardSpot + new Vector3(-1.15f, 0f, 1.65f);
+            foreach (float z in new[] { -0.55f, 0.55f }) d.AddBox(board + new Vector3(0f, 0.75f, z), new Vector3(0.07f, 1.5f, 0.07f), Mat.Wood);
+            d.AddBox(board + Vector3.up * 1.25f, new Vector3(0.04f, 0.7f, 1.2f), Mat.Dark, new Color(0.14f, 0.15f, 0.14f));
+            d.AddBox(board + new Vector3(0.01f, 1.62f, 0f), new Vector3(0.05f, 0.05f, 1.26f), Mat.Wood);
+            var chalk = new Color(0.82f, 0.82f, 0.76f);
+            for (int row = 0; row < 4; row++)
+            {
+                float y = 1.48f - row * 0.15f;
+                d.AddBox(board + new Vector3(0.025f, y, -0.38f), new Vector3(0.01f, 0.025f, 0.26f), Mat.Bone, chalk); // a name, in chalk scrawl
+                int marks = 2 + (row * 3) % 5;
+                for (int m = 0; m < marks; m++)
+                {
+                    bool gate = m == 4; // the fifth crosses the four
+                    d.AddBox(board + new Vector3(0.025f, y, gate ? 0.15f : 0.02f + m * 0.07f), new Vector3(0.01f, 0.1f, 0.015f), Mat.Bone, chalk, gate ? Quaternion.Euler(60f, 0f, 0f) : (Quaternion?)null);
+                }
+            }
+            var stand = YardSpot + new Vector3(-0.35f, 0f, 2.35f);
+            d.AddBox(stand + Vector3.up * 0.04f, new Vector3(0.45f, 0.08f, 0.45f), Mat.Wood);
+            d.AddBox(stand + Vector3.up * 0.75f, new Vector3(0.06f, 1.4f, 0.06f), Mat.Wood);
+            d.AddBox(stand + Vector3.up * 1.35f, new Vector3(0.06f, 0.06f, 0.6f), Mat.Wood);
+            d.Add(MeshKit.Cylinder(0.24f, 0.2f, 0.55f, 10), Mat.Cloth, Matrix4x4.TRS(stand + Vector3.up * 0.85f, Quaternion.identity, Vector3.one)); // the padded jack
+            d.Add(MeshKit.Cylinder(0.14f, 0.15f, 0.12f, 12), Mat.Steel, Matrix4x4.Translate(stand + Vector3.up * 1.48f)); // a kettle helm on top
+            d.Add(MeshKit.Cylinder(0.22f, 0.22f, 0.02f, 14), Mat.Steel, Matrix4x4.Translate(stand + Vector3.up * 1.48f));
             Props.Brazier(lights, o + YardShift + S(-11f, 0f, -18.5f), Fire, false);
             Props.Crate(d, o + S(14f, 0f, -14f), 1.2f, 12f);
             Props.Crate(d, o + S(15.2f, 0f, -12.8f), 0.9f, -8f);
@@ -1195,6 +1236,34 @@ namespace Deepbound.World
                 ArtLibrary.SetGlow(tile.GetComponent<Renderer>(), glow * (0.7f + 0.15f * i));
             }
             Props.Candles(lights, RunewrightSpot + new Vector3(0.95f, 0.88f, 0.75f), new Color(0.6f, 0.85f, 1f));
+            // Her stall, such as it is (2026-11-09): a cloth over the slab, a scroll and an inkpot, a cold-flame brazier at the
+            // table's end, and rune charms hung on a cord between two of the stones.
+            d.AddBox(RunewrightSpot + new Vector3(0.9f, 0.885f, 0.25f), new Vector3(0.6f, 0.01f, 1.1f), Mat.Cloth, new Color(0.12f, 0.18f, 0.3f));
+            d.AddBox(RunewrightSpot + new Vector3(0.69f, 0.7f, 0.25f), new Vector3(0.02f, 0.36f, 1.0f), Mat.Cloth, new Color(0.12f, 0.18f, 0.3f));
+            d.Add(MeshKit.Cylinder(0.035f, 0.035f, 0.32f, 8), Mat.Bone, Matrix4x4.TRS(RunewrightSpot + new Vector3(0.82f, 0.93f, 0.45f), Quaternion.Euler(0f, 0f, 90f), Vector3.one));
+            d.Add(MeshKit.Cylinder(0.035f, 0.03f, 0.06f, 8), Mat.Dark, Matrix4x4.Translate(RunewrightSpot + new Vector3(1.05f, 0.89f, 0.5f)));
+            var coldBrazier = RunewrightSpot + new Vector3(1.0f, 0f, 1.35f);
+            d.Add(MeshKit.Cylinder(0.05f, 0.07f, 0.85f, 6), Mat.Steel, Matrix4x4.Translate(coldBrazier));
+            d.Add(MeshKit.Lathe("coldBowl", new[] { new Vector2(0.05f, 0f), new Vector2(0.24f, 0.08f), new Vector2(0.27f, 0.16f), new Vector2(0f, 0.12f) }, 10), Mat.Steel, Matrix4x4.Translate(coldBrazier + Vector3.up * 0.85f));
+            var coldFlame = MeshKit.Pivot(lights, "ColdFlame", coldBrazier + Vector3.up * 1.0f);
+            Props.AddFlame(coldFlame, Vector3.zero, 0.55f, new Color(0.45f, 0.75f, 1f), 1.2f, 4f, false);
+            var cordA = tops[4] + (c - tops[4]).normalized * 0.2f + Vector3.down * 0.7f;
+            var cordB = tops[5] + (c - tops[5]).normalized * 0.2f + Vector3.down * 0.7f;
+            for (int i = 0; i <= 6; i++)
+            {
+                float t = i / 6f;
+                var at = Vector3.Lerp(cordA, cordB, t) + Vector3.down * (Mathf.Sin(t * Mathf.PI) * 0.35f);
+                if (i < 6)
+                {
+                    var next = Vector3.Lerp(cordA, cordB, (i + 1) / 6f) + Vector3.down * (Mathf.Sin((i + 1) / 6f * Mathf.PI) * 0.35f);
+                    d.AddBox((at + next) / 2f, new Vector3(0.015f, 0.015f, Vector3.Distance(at, next)), Mat.Cloth, new Color(0.35f, 0.3f, 0.25f), Quaternion.LookRotation(next - at));
+                }
+                if (i == 0 || i == 6) continue;
+                var charm = MeshKit.Part(lights, "RuneCharm", MeshKit.Box(new Vector3(0.08f, 0.11f, 0.02f)), Mat.Glow, at + Vector3.down * 0.12f, new Vector3(0f, i * 31f, 0f));
+                charm.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                ArtLibrary.SetGlow(charm.GetComponent<Renderer>(), glow * 0.6f);
+                d.AddBox(at + Vector3.down * 0.05f, new Vector3(0.008f, 0.1f, 0.008f), Mat.Cloth, new Color(0.35f, 0.3f, 0.25f));
+            }
             var l = new GameObject("RuneLight").AddComponent<Light>();
             l.transform.SetParent(lights, false);
             l.transform.position = c + Vector3.up * 2.4f;

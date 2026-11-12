@@ -4591,6 +4591,8 @@ namespace Deepbound.Networking
                     (Lobby.MerchantSpot + new Vector3(4.2f, 0.1f, 2.6f), Lobby.MerchantSpot + new Vector3(0.2f, 1.3f, 0f), "stall_1_silas"),
                     (Lobby.AnvilSpot + new Vector3(4.6f, 0.1f, -1.8f), Lobby.AnvilSpot + new Vector3(0f, 1.3f, 0.2f), "stall_2_hobb"),
                     (Lobby.AnvilSpot + new Vector3(1.2f, 0.1f, -3.6f), Lobby.AnvilSpot + new Vector3(-3.5f, 1.3f, -2.2f), "stall_3_forge"),
+                    (Lobby.YardSpot + new Vector3(3.4f, 0.1f, 1.2f), Lobby.YardSpot + new Vector3(-0.5f, 1.3f, 0.6f), "stall_4_brann"),
+                    (Lobby.RunewrightSpot + new Vector3(-3.6f, 0.1f, -1.6f), Lobby.RunewrightSpot + new Vector3(0.8f, 1.2f, 0.6f), "stall_5_ysolde"),
                 })
                 {
                     var flat = look - from; float pitch = -Mathf.Atan2(flat.y - 1.5f, new Vector2(flat.x, flat.z).magnitude) * Mathf.Rad2Deg; flat.y = 0f;
