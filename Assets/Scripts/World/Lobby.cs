@@ -761,6 +761,19 @@ namespace Deepbound.World
             foreach (float sx in new[] { -0.6f, 0.6f }) d.AddBox(wall + right * sx + Vector3.up * 0.2f, new Vector3(0.07f, 0.4f, 0.4f), Mat.Wood, timber, rot);
             for (int k = 0; k < 5; k++)
                 d.AddBox(wall + right * (-0.4f + (k % 3) * 0.13f) + Vector3.up * (0.48f + (k / 3) * 0.05f), new Vector3(0.1f, 0.05f, 0.32f), Mat.Steel, iron * 1.1f, rot);
+            // A candle-lamp on a bracket over the bench, so the wall reads from the road (it sat in shadow behind Hobb).
+            var bracket = wall + right * 0.65f + Vector3.up * 1.95f + back * -0.12f;
+            d.AddBox(bracket + Vector3.up * 0.12f, new Vector3(0.04f, 0.04f, 0.25f), Mat.Steel, rot);
+            var wallLamp = MeshKit.Part(parent, "ToolWallLamp", MeshKit.Box(new Vector3(0.09f, 0.14f, 0.09f)), Mat.Glow, bracket);
+            wallLamp.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            ArtLibrary.SetGlow(wallLamp.GetComponent<Renderer>(), new Color(1f, 0.6f, 0.22f) * 0.6f);
+            var wl = new GameObject("ToolWallLight").AddComponent<Light>();
+            wl.transform.SetParent(parent, false);
+            wl.transform.position = bracket - back * 0.5f;
+            wl.type = LightType.Point;
+            wl.color = Fire;
+            wl.range = 3.2f;
+            wl.intensity = 1.2f;
             var wheel = wall + right * 0.35f + Vector3.up * 0.72f;
             d.Add(MeshKit.Cylinder(0.24f, 0.24f, 0.08f, 14), Mat.StoneWall, Matrix4x4.TRS(wheel, rot * Quaternion.Euler(0f, 0f, 90f), Vector3.one));
             d.AddBox(wheel, new Vector3(0.3f, 0.03f, 0.03f), Mat.Steel, rot);

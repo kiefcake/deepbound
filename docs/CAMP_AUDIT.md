@@ -878,3 +878,4 @@ Files: `C:/Users/User/Desktop/game_prototype/Deepbound/Assets/Scripts/World/Lobb
 - Rain (weather_1, mid-shower) is a faint drizzle: fewer, thinner, darker streaks.
 - NEW, seen (stall_4): Brann's corner is lit by a lantern post, with a chalk DRILL board and an armour stand beside him. Before, he stood in the dark.
 - NEW, NOT properly seen (stall_5): the framing is blocked by a menhir. Ysolde's table has a cloth, a scroll and an inkpot, there is a cold-flame brazier, and rune charms hang on a cord between two stones. Needs a better camera spot.
+- SEEN (stall_5, reframed): Ysolde's cloth-covered rune table, its candles and the cold blue brazier, from inside the ring. Hobb's tool wall has its own small lamp now.

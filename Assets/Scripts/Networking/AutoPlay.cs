@@ -1085,7 +1085,14 @@ namespace Deepbound.Networking
                 // Bookkeeping first, so no branch below can skip it (a `continue` toward a sleeping guardian's arena
                 // once froze the bot without a word, 2026-10-27).
                 // Stuck: no progress for 12 s.
-                if ((me.transform.position - lastPos).sqrMagnitude > 1f) { lastPos = me.transform.position; stuckSince = Time.time; }
+                if ((me.transform.position - lastPos).sqrMagnitude > 1f) { lastPos = me.transform.position; stuckSince = Time.time; gateWaitSince = -1f; }
+                else if (Time.time - stuckSince > 12f && ShutGateNear(me.transform.position) && (gateWaitSince < 0f || Time.time - gateWaitSince < 90f))
+                {
+                    // A gate shut in front of us (an ambush sprung on whoever was inside, an arena sealed): by design it lifts
+                    // when the fight inside ends, so wait for it rather than call it stuck (2026-11-09, the commonest "stuck").
+                    if (gateWaitSince < 0f) { gateWaitSince = Time.time; L("waiting at a shut gate (" + goalWhat + " is beyond it)"); }
+                    stuckSince = Time.time;
+                }
                 else if (Time.time - stuckSince > 12f)
                 {
                     Problem("stuck for 12 s going for " + goalWhat + " at " + Fmt(goal) + " from " + Fmt(me.transform.position) + " | " + WhyStuck(goal));
@@ -1496,6 +1503,16 @@ namespace Deepbound.Networking
         }
 
         /// <summary>Why the way on fails: the path's state, where it ends, and what stands near us.</summary>
+        private float gateWaitSince = -1f;
+
+        /// <summary>A shut portcullis within 5 m.</summary>
+        private static bool ShutGateNear(Vector3 at)
+        {
+            foreach (var pc in FindObjectsByType<Portcullis>(FindObjectsSortMode.None))
+                if (pc != null && pc.Closed.Value && Vector3.Distance(pc.transform.position, at) < 5f) return true;
+            return false;
+        }
+
         private string WhyStuck(Vector3? goal)
         {
             if (!goal.HasValue) return "no goal";

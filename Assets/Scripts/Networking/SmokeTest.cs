@@ -1988,7 +1988,8 @@ namespace Deepbound.Networking
                                 // A curse from a Hexer nearby halves healing: not the cat's fault.
                                 local.GetComponent<PlayerDebuffs>().ServerCleanse();
                                 kit.ServerDebugUse(sp);
-                                yield return new WaitForSeconds(0.2f);
+                                // The mend can land a beat later (it was seen at 0.80 just after a 0.2 s check failed).
+                                for (float t = 0f; t < 1.5f && kh.Fraction <= 0.7f; t += 0.1f) yield return new WaitForSeconds(0.1f);
                                 bool mended = kh.Fraction > 0.7f;
                                 for (float t = 0f; t < 4f && kit != null && kit.IsSpawned; t += 0.2f) yield return new WaitForSeconds(0.2f);
                                 if (!mended) Debug.Log("[Smoke] shaft cat why: fraction " + kh.Fraction.ToString("F2") + ", heal x" + kh.HealMultiplier.ToString("F2") + ", curse x" + local.GetComponent<PlayerDebuffs>().HealMultiplier.ToString("F2") + ", omen x" + Health.OmenPlayerHealScale.ToString("F2") + ", downed " + local.GetComponent<PlayerLife>().Downed.Value + ", woken " + kit.Woken.Value);
@@ -4592,7 +4593,7 @@ namespace Deepbound.Networking
                     (Lobby.AnvilSpot + new Vector3(4.6f, 0.1f, -1.8f), Lobby.AnvilSpot + new Vector3(0f, 1.3f, 0.2f), "stall_2_hobb"),
                     (Lobby.AnvilSpot + new Vector3(1.2f, 0.1f, -3.6f), Lobby.AnvilSpot + new Vector3(-3.5f, 1.3f, -2.2f), "stall_3_forge"),
                     (Lobby.YardSpot + new Vector3(3.4f, 0.1f, 1.2f), Lobby.YardSpot + new Vector3(-0.5f, 1.3f, 0.6f), "stall_4_brann"),
-                    (Lobby.RunewrightSpot + new Vector3(-3.6f, 0.1f, -1.6f), Lobby.RunewrightSpot + new Vector3(0.8f, 1.2f, 0.6f), "stall_5_ysolde"),
+                    (Lobby.RunewrightSpot + new Vector3(-1.4f, 0.1f, 1.9f), Lobby.RunewrightSpot + new Vector3(0.9f, 1.0f, 0.6f), "stall_5_ysolde"),
                 })
                 {
                     var flat = look - from; float pitch = -Mathf.Atan2(flat.y - 1.5f, new Vector2(flat.x, flat.z).magnitude) * Mathf.Rad2Deg; flat.y = 0f;
