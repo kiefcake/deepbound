@@ -58,7 +58,6 @@ namespace Deepbound.Networking
                 new Station { Name = "tavern_keep_marta", At = Lobby.TavernKeepSpot, Front = Vector3.right },
                 new Station { Name = "tavern_band", At = Lobby.TavernBandSpot, Front = Vector3.forward },
                 new Station { Name = "tent_mouth", At = Lobby.TentCenter + new Vector3(-4.2f, 0f, 0f), Front = Vector3.left, Look = 1.6f, Stand = 3f },
-                new Station { Name = "tent_dice", At = Lobby.DiceSpot, Front = Lobby.TentFacing },
                 new Station { Name = "tent_coffer", At = Lobby.CofferSpot, Front = Lobby.TentFacing },
                 new Station { Name = "tent_slots", At = Lobby.SlotSpot, Front = Lobby.TentFacing },
                 new Station { Name = "tent_blackjack", At = Lobby.BlackjackSpot, Front = Vector3.forward, Stand = 2.4f },

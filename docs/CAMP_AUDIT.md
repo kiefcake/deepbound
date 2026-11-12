@@ -870,3 +870,9 @@ Files: `C:/Users/User/Desktop/game_prototype/Deepbound/Assets/Scripts/World/Lobb
 - NEW, seen: the BOARD OF THE FALLEN on the tavern's south wall at TavernCenter + (-3, 1.6, -3.3), 0.8 m from the west wall, clear of the kegs and the first window (tavern_2). The names show over it within 3.2 m. Each lost party gets a lit candle and a brass plate.
 - FIXED, seen in ix_19-21/22-24: puzzle-room parts laid out in world coordinates (sigil stone, chime rings, lens, crystal) sat a whole room-offset away under a root at the coffer; the root is at the origin now.
 - Still not seen in a window: a real wipe filling the board (tests never write the records; the shot uses made-up names).
+
+## Round 7 (2026-11-09): stalls rebuilt, Bones gone, quieter rain (talk shots stall_1-3, weather_1)
+- NEW, seen: Silas's stall (stall_1) has a back wall of shelves with coloured draughts, herbs from the beam, a valance and a visible lantern. Hobb's (stall_2) has a planked counter with a cloth runner, a valance and crates. The forge (stall_3) has a stepped hood over the coals.
+- Hobb's tool wall sits in shadow behind him from the road; it is there, but dim.
+- Bones (the dice table) no longer stands in the tent; its spot is empty floor now.
+- Rain (weather_1, mid-shower) is a faint drizzle: fewer, thinner, darker streaks.

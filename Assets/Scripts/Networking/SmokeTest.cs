@@ -1843,6 +1843,7 @@ namespace Deepbound.Networking
                             // Dazed: a heavy blow halves your turning for a moment; Holy Water clears it.
                             hdeb.ServerCleanse();
                             yield return new WaitForSeconds(0.1f);
+                            hdeb.ServerResetGrace(); // a real daze earlier in the run leaves a grace window that refuses this one
                             bool dazedNow = hdeb.ServerDaze(1.5f);
                             yield return null;
                             float turn = hdeb.TurnMultiplier;
@@ -2692,9 +2693,9 @@ namespace Deepbound.Networking
                     Log("tent games and the cat", "slots " + slotOk + ", blackjack " + bjOk + ", cat " + (catT != null) + ", solid props " + solid, slotOk && bjOk && catT != null && solid > 10);
                     gm.Teleport(Lobby.Origin + Vector3.up * 0.1f, local.transform.rotation);
                 }
-                Log("camp stations", FindObjectsByType<Anvil>(FindObjectsSortMode.None).Length + " anvil, " + FindObjectsByType<DiceTable>(FindObjectsSortMode.None).Length + " dice, " +
+                Log("camp stations", FindObjectsByType<Anvil>(FindObjectsSortMode.None).Length + " anvil, " + FindObjectsByType<DiceTable>(FindObjectsSortMode.None).Length + " dice (none now), " +
                     FindObjectsByType<MysteryCoffer>(FindObjectsSortMode.None).Length + " coffer, " + FindObjectsByType<Gong>(FindObjectsSortMode.None).Length + " gong",
-                    FindObjectsByType<Anvil>(FindObjectsSortMode.None).Length == 1 && FindObjectsByType<DiceTable>(FindObjectsSortMode.None).Length == 1 && FindObjectsByType<Gong>(FindObjectsSortMode.None).Length == 1);
+                    FindObjectsByType<Anvil>(FindObjectsSortMode.None).Length == 1 && FindObjectsByType<DiceTable>(FindObjectsSortMode.None).Length == 0 && FindObjectsByType<Gong>(FindObjectsSortMode.None).Length == 1);
 
                 {
                     var progress = pc;
@@ -3274,31 +3275,7 @@ namespace Deepbound.Networking
                     }
                     else Log("anvil", "none at camp", false);
 
-                    // Bones (2026-11-08): F opens the call panel; a called throw pays by its odds (forced dice, then a real call).
-                    var dice = FindObjectsByType<DiceTable>(FindObjectsSortMode.None).FirstOrDefault();
-                    if (dice != null)
-                    {
-                        progress.ServerAddGold(400);
-                        motor.Teleport(dice.transform.position + dice.transform.forward * 1.4f + Vector3.up * 0.1f, local.transform.rotation);
-                        yield return new WaitForSeconds(0.2f);
-                        dice.UseRpc(local.NetworkObject);
-                        yield return new WaitForSeconds(0.3f);
-                        bool opened = DiceTable.LocalOpen;
-                        int g0 = progress.Gold.Value;
-                        int sevenWin = dice.ServerDebugCall(progress, DiceTable.Call.Seven, 20, 3, 4);
-                        int lowLoss = dice.ServerDebugCall(progress, DiceTable.Call.Low, 20, 5, 6);
-                        int dbl = dice.ServerDebugCall(progress, DiceTable.Call.Doubles, 20, 2, 2);
-                        yield return null;
-                        int bonesNet = progress.Gold.Value - g0;
-                        bool paid = sevenWin == 110 && lowLoss == 0 && dbl == 110 && bonesNet == 110 - 20 + 0 - 20 + 110 - 20;
-                        int g1 = progress.Gold.Value;
-                        dice.Call_(DiceTable.Call.High, 25);
-                        yield return new WaitForSeconds(0.4f);
-                        int d1 = progress.Gold.Value - g1;
-                        DiceTable.CloseLocal();
-                        Log("bones", "panel " + opened + ", seven/low/doubles paid " + sevenWin + "/" + lowLoss + "/" + dbl + " (net " + bonesNet + "), a real HIGH call moved " + d1,
-                            opened && paid && (d1 == -25 || d1 == 30));
-                    }
+                    // Bones (the dice table) is no longer in camp (2026-11-09): "camp stations" checks it stays gone.
                     // The Locksmith's Coffer: buy, open two locks, step back -> the tier-two prize; buy again and a snap gives nothing.
                     var coffer = FindObjectsByType<MysteryCoffer>(FindObjectsSortMode.None).FirstOrDefault();
                     if (coffer != null)
@@ -3541,6 +3518,7 @@ namespace Deepbound.Networking
                             bool stay0 = World.FolkRounds.StayHome;
                             World.FolkRounds.StayHome = false;
                             dirW.Weather.Value = (byte)CampWeather.Kind.Rain;
+                            CampWeather.DebugShowering = true;
                             yield return null;
                             int awayInRain = 0, awayDry = 0;
                             for (int sh = 0; sh < 24; sh++)
@@ -3548,8 +3526,13 @@ namespace Deepbound.Networking
                                 World.FolkRounds.DebugShift = sh * 13.0;
                                 foreach (FolkId f in System.Enum.GetValues(typeof(FolkId))) if (World.FolkRounds.At(f).Away) awayInRain++;
                             }
+                            CampWeather.DebugShowering = false;
                             dirW.Weather.Value = (byte)CampWeather.Kind.Clear;
                             yield return null;
+                            // Rain comes in showers: over ten minutes of a rainy night there are dry spells and no downpours.
+                            int wetSecs = 0; float peak = 0f;
+                            for (int t = 0; t < 600; t++) { float sv = CampWeather.Shower(t); if (sv > 0.15f) wetSecs++; peak = Mathf.Max(peak, sv); }
+                            bool showers = wetSecs > 120 && wetSecs < 360 && peak < 0.85f;
                             for (int sh = 0; sh < 24; sh++)
                             {
                                 World.FolkRounds.DebugShift = sh * 13.0;
@@ -3559,8 +3542,8 @@ namespace Deepbound.Networking
                             World.FolkRounds.StayHome = stay0;
                             dirW.Weather.Value = w0;
                             bool hasWeather = FindObjectsByType<CampWeather>(FindObjectsSortMode.None).Length == 1;
-                            Log("camp weather", "folk away in the rain " + awayInRain + ", in the dry " + awayDry + " (24 moments), weather on the camp " + hasWeather + ", tests roll clear " + (w0 == 0),
-                                awayInRain == 0 && awayDry > 0 && hasWeather && w0 == 0);
+                            Log("camp weather", "folk away in the rain " + awayInRain + ", in the dry " + awayDry + " (24 moments), weather on the camp " + hasWeather + ", tests roll clear " + (w0 == 0) + ", showers: wet " + wetSecs + " s of 600, peak " + peak.ToString("F2") + " " + showers,
+                                awayInRain == 0 && awayDry > 0 && hasWeather && w0 == 0 && showers);
                         }
                         // Old Hollis at the bar and the board of the fallen (2026-11-08): both in the tavern, and the board reads no
                         // names in a test (the records are never touched).
@@ -4601,6 +4584,22 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "camp_7_silas_away_wares");
                 World.FolkRounds.DebugShift = 0;
                 World.FolkRounds.StayHome = true;
+                yield return new WaitForSeconds(0.6f);
+                // The stalls (2026-11-09 rebuild): Silas's at home, three-quarter; Hobb's from the road; the forge corner.
+                foreach (var (from, look, tag) in new[]
+                {
+                    (Lobby.MerchantSpot + new Vector3(4.2f, 0.1f, 2.6f), Lobby.MerchantSpot + new Vector3(0.2f, 1.3f, 0f), "stall_1_silas"),
+                    (Lobby.AnvilSpot + new Vector3(4.6f, 0.1f, -1.8f), Lobby.AnvilSpot + new Vector3(0f, 1.3f, 0.2f), "stall_2_hobb"),
+                    (Lobby.AnvilSpot + new Vector3(1.2f, 0.1f, -3.6f), Lobby.AnvilSpot + new Vector3(-3.5f, 1.3f, -2.2f), "stall_3_forge"),
+                })
+                {
+                    var flat = look - from; float pitch = -Mathf.Atan2(flat.y - 1.5f, new Vector2(flat.x, flat.z).magnitude) * Mathf.Rad2Deg; flat.y = 0f;
+                    motor.Teleport(from, Quaternion.LookRotation(flat));
+                    motor.SetPitch(pitch);
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot(dir, tag);
+                }
+                motor.SetPitch(0f);
                 // A pet sits beside you on the log.
                 local.PetKind.Value = (byte)Player.PetCompanion.Kind.Kitten;
                 var seats = Lobby.LogSeats();
@@ -4679,20 +4678,6 @@ namespace Deepbound.Networking
                 motor.SetPitch(12f);
                 yield return new WaitForSeconds(0.8f);
                 yield return Shot(dir, "casino_1_tent");
-                var bones = FindObjectsByType<DiceTable>(FindObjectsSortMode.None).FirstOrDefault();
-                if (bones != null)
-                {
-                    var stand = bones.transform.position + bones.transform.forward * 1.3f + Vector3.up * 0.1f;
-                    motor.Teleport(stand, Quaternion.LookRotation(-bones.transform.forward));
-                    motor.SetPitch(35f);
-                    yield return new WaitForSeconds(0.3f);
-                    bones.UseRpc(local.NetworkObject);
-                    yield return new WaitForSeconds(0.3f);
-                    bones.Call_(DiceTable.Call.High, 25);
-                    yield return new WaitForSeconds(1.3f);
-                    yield return Shot(dir, "casino_2_bones");
-                    DiceTable.CloseLocal();
-                }
                 var box = FindObjectsByType<MysteryCoffer>(FindObjectsSortMode.None).FirstOrDefault();
                 if (box != null)
                 {
@@ -4742,7 +4727,8 @@ namespace Deepbound.Networking
                 }
                 _ = tentView;
             }
-            // Weather: the market square in rain and in mist.
+            // Weather: the market square in rain (mid-shower) and in mist.
+            CampWeather.DebugShowering = true;
             foreach (var (wk, tag) in new[] { (CampWeather.Kind.Rain, "weather_1_rain"), (CampWeather.Kind.Mist, "weather_2_mist") })
             {
                 dc.Weather.Value = (byte)wk;
@@ -4762,6 +4748,7 @@ namespace Deepbound.Networking
                 motor.Teleport(inside, Quaternion.LookRotation(Vector3.right));
                 yield return new WaitForSeconds(1f);
                 yield return Shot(dir, "weather_3_rain_from_tavern");
+                CampWeather.DebugShowering = false;
                 dc.Weather.Value = (byte)CampWeather.Kind.Clear;
                 yield return null;
                 CampWeather.DebugSettle();

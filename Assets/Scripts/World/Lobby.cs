@@ -614,43 +614,166 @@ namespace Deepbound.World
         }
 
         /// <summary>A market stall: counter, four posts and a striped awning.</summary>
-        private static void Stall(Transform parent, MeshKit.Batcher d, Vector3 front, Vector3 facing, Color a, Color b, bool counter = true)
+        private enum StallKind { Plain, Merchant, Smith }
+
+        /// <summary>
+        /// A market stall (rebuilt 2026-11-09, the user: "upgrade npc stalls"): four posts tied by header beams, a striped
+        /// awning with a scalloped valance along its front edge, a lantern you can see hanging from the front beam (the light
+        /// used to come from nowhere), a planked counter with a cloth runner, crates and sacks at the corners, and per trade
+        /// the back: Silas's shelves of coloured draughts and drying herbs, Hobb's wall of tools.
+        /// </summary>
+        private static void Stall(Transform parent, MeshKit.Batcher d, Vector3 front, Vector3 facing, Color a, Color b, bool counter = true, StallKind kind = StallKind.Plain)
         {
             var rot = Quaternion.LookRotation(facing);
             var right = rot * Vector3.right;
             var back = -facing;
+            var timber = new Color(0.26f, 0.17f, 0.1f);
             if (counter)
             {
+                // A planked front panel (dark battens over it read as boards), a top, and a cloth runner in the stall's colours.
                 d.AddBox(front + Vector3.up * 0.5f, new Vector3(3.6f, 1f, 0.8f), Mat.Wood, rot);
+                for (int k = -3; k <= 3; k++)
+                    d.AddBox(front + right * (k * 0.5f) + facing * 0.41f + Vector3.up * 0.5f, new Vector3(0.05f, 0.96f, 0.03f), Mat.Wood, timber, rot);
                 d.AddBox(front + Vector3.up * 1.02f, new Vector3(3.8f, 0.06f, 0.95f), Mat.Wood, rot);
+                d.AddBox(front + Vector3.up * 1.06f, new Vector3(3.2f, 0.02f, 0.5f), Mat.Cloth, b * 0.9f, rot);
+                d.AddBox(front + facing * 0.47f + Vector3.up * 0.86f, new Vector3(3.2f, 0.36f, 0.02f), Mat.Cloth, a * 0.9f, rot);
             }
             foreach (float sx in new[] { -1.8f, 1.8f })
                 foreach (float sz in new[] { 0f, 2.4f })
                     d.AddBox(front + right * sx + back * sz + Vector3.up * 1.4f, new Vector3(0.16f, 2.8f, 0.16f), Mat.Wood);
+            // Header beams tying the posts, front and back, and braces in the front corners.
+            foreach (float sz in new[] { 0f, 2.4f })
+                d.AddBox(front + back * sz + Vector3.up * 2.62f, new Vector3(3.8f, 0.14f, 0.14f), Mat.Wood, timber, rot);
+            foreach (float sx in new[] { -1f, 1f })
+                d.AddBox(front + right * (sx * 1.55f) + Vector3.up * 2.4f, new Vector3(0.5f, 0.08f, 0.08f), Mat.Wood, timber, rot * Quaternion.Euler(0f, 0f, sx * 40f));
             // Striped awning: alternating cloth bands, tilted toward the road.
+            var tilt = rot * Quaternion.Euler(-14f, 0f, 0f);
             for (int i = 0; i < 6; i++)
             {
                 var stripe = MeshKit.Part(parent, "Awning" + i, MeshKit.Box(new Vector3(0.64f, 0.05f, 3.2f)), Mat.Cloth,
-                    front + right * (-1.6f + i * 0.64f) + back * 1.1f + Vector3.up * 2.95f, (rot * Quaternion.Euler(-14f, 0f, 0f)).eulerAngles);
+                    front + right * (-1.6f + i * 0.64f) + back * 1.1f + Vector3.up * 2.95f, tilt.eulerAngles);
                 ArtLibrary.Tint(stripe.GetComponent<Renderer>(), i % 2 == 0 ? a : b);
             }
+            // The valance: scallops hanging from the awning's front edge, alternating colours.
+            var edge = front + back * 1.1f + Vector3.up * 2.95f + tilt * new Vector3(0f, -0.03f, 1.6f);
+            for (int i = 0; i < 12; i++)
+            {
+                float x = -1.65f + i * 0.3f;
+                d.AddBox(edge + right * x + Vector3.down * 0.13f, new Vector3(0.27f, 0.22f, 0.025f), Mat.Cloth, (i % 2 == 0 ? b : a) * 0.95f, rot);
+                d.AddBox(edge + right * x + Vector3.down * 0.27f, new Vector3(0.14f, 0.07f, 0.025f), Mat.Cloth, (i % 2 == 0 ? b : a) * 0.95f, rot);
+            }
+            // A lantern hanging from the front beam on a short chain: the stall's light comes from it.
+            var lampAt = front + back * 0.15f + Vector3.up * 2.12f;
+            d.AddBox(lampAt + Vector3.up * 0.3f, new Vector3(0.025f, 0.32f, 0.025f), Mat.Steel);
+            d.AddBox(lampAt + Vector3.up * 0.13f, new Vector3(0.2f, 0.04f, 0.2f), Mat.Steel);
+            d.AddBox(lampAt + Vector3.down * 0.13f, new Vector3(0.18f, 0.035f, 0.18f), Mat.Steel);
+            var pane = MeshKit.Part(parent, "StallLantern", MeshKit.Box(new Vector3(0.13f, 0.21f, 0.13f)), Mat.Glow, lampAt);
+            pane.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            ArtLibrary.SetGlow(pane.GetComponent<Renderer>(), new Color(1f, 0.6f, 0.22f) * 0.75f);
             var lamp = new GameObject("StallLamp").AddComponent<Light>();
             lamp.transform.SetParent(parent, false);
-            lamp.transform.position = front + back * 0.6f + Vector3.up * 2.4f;
+            lamp.transform.position = lampAt + Vector3.down * 0.1f;
             lamp.type = LightType.Point;
             lamp.color = Fire;
             lamp.range = 7.5f;
             lamp.intensity = 2.6f;
+            // Crates and a sack or two by the front posts, outside the counter.
+            Props.Crate(d, front + right * 2.25f + facing * 0.15f, 0.55f, 12f);
+            Props.Crate(d, front + right * 2.3f + back * 0.5f, 0.42f, -20f);
+            d.Add(MeshKit.Ball(0.5f, 10, 8), Mat.Cloth, Matrix4x4.TRS(front - right * 2.2f + facing * 0.1f + Vector3.up * 0.3f, rot, new Vector3(0.42f, 0.6f, 0.38f)));
+            d.Add(MeshKit.Ball(0.5f, 10, 8), Mat.Cloth, Matrix4x4.TRS(front - right * 2.45f + back * 0.35f + Vector3.up * 0.25f, rot * Quaternion.Euler(0f, 30f, 8f), new Vector3(0.38f, 0.5f, 0.36f)));
+
+            if (kind == StallKind.Merchant) MerchantShelves(parent, d, front, rot, right, back, timber);
+            else if (kind == StallKind.Smith) SmithToolWall(parent, d, front, rot, right, back, timber);
+        }
+
+        /// <summary>Silas's back wall: a plank backboard, three shelves of stoppered draughts in their colours, herbs drying from the beam.</summary>
+        private static void MerchantShelves(Transform parent, MeshKit.Batcher d, Vector3 front, Quaternion rot, Vector3 right, Vector3 back, Color timber)
+        {
+            var wall = front + back * 2.32f;
+            d.AddBox(wall + back * 0.12f + Vector3.up * 1.25f, new Vector3(3.45f, 2.3f, 0.05f), Mat.Wood, new Color(0.34f, 0.23f, 0.15f), rot);
+            foreach (float sx in new[] { -1.62f, 1.62f })
+                d.AddBox(wall + right * sx + Vector3.up * 1.1f, new Vector3(0.07f, 2.2f, 0.32f), Mat.Wood, timber, rot);
+            var shelves = new[] { 0.62f, 1.12f, 1.62f };
+            foreach (float y in shelves) d.AddBox(wall + Vector3.up * y, new Vector3(3.25f, 0.045f, 0.32f), Mat.Wood, timber, rot);
+            // The draughts: red, blue, green, amber and violet, a few squat jars among them. One pivot, merged per colour.
+            var bottles = MeshKit.Pivot(parent, "MerchantBottles", Vector3.zero);
+            var colours = new[] { new Color(0.95f, 0.15f, 0.15f), new Color(0.3f, 0.5f, 1f), new Color(0.35f, 0.9f, 0.4f), new Color(1f, 0.7f, 0.25f), new Color(0.65f, 0.4f, 1f) };
+            var flask = MeshKit.Lathe("flask", new[]
+            {
+                new Vector2(0f, 0f), new Vector2(0.08f, 0.02f), new Vector2(0.11f, 0.08f), new Vector2(0.1f, 0.15f),
+                new Vector2(0.04f, 0.2f), new Vector2(0.035f, 0.28f), new Vector2(0f, 0.28f),
+            }, 10);
+            var rng = new System.Random(7);
+            for (int sh = 0; sh < shelves.Length; sh++)
+                for (int k = 0; k < 9; k++)
+                {
+                    if (rng.NextDouble() < 0.18) continue; // gaps: sold
+                    float x = -1.4f + k * 0.35f + (float)(rng.NextDouble() - 0.5) * 0.08f;
+                    var at = wall + right * x + Vector3.up * (shelves[sh] + 0.025f);
+                    var c = colours[(sh * 3 + k * 2 + rng.Next(2)) % colours.Length];
+                    bool jar = rng.NextDouble() < 0.25;
+                    var part = MeshKit.Part(bottles, "Bottle", jar ? MeshKit.Cylinder(0.075f, 0.075f, 0.14f, 8) : flask, Mat.Glow, at, default, jar ? Vector3.one : Vector3.one * 0.75f);
+                    part.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    ArtLibrary.SetGlow(part.GetComponent<Renderer>(), c * 0.55f); // low: a shelf of 1.4x bottles bloomed into a white band
+                    if (jar) d.AddBox(at + Vector3.up * 0.155f, new Vector3(0.1f, 0.03f, 0.1f), Mat.Wood, timber);
+                }
+            MeshKit.MergeParts(bottles);
+            // Herbs and a string of garlic drying from the front beam's inner side, either side of the lantern.
+            foreach (float x in new[] { -1.35f, -1.05f, -0.75f, 0.75f, 1.05f, 1.35f })
+            {
+                var top = front + back * 0.1f + right * x + Vector3.up * 2.55f;
+                d.AddBox(top + Vector3.down * 0.12f, new Vector3(0.012f, 0.24f, 0.012f), Mat.Cloth, new Color(0.5f, 0.42f, 0.3f));
+                bool garlic = Mathf.Abs(x) > 1.2f;
+                d.Add(MeshKit.Ball(0.5f, 6, 5), Mat.Cloth, Matrix4x4.TRS(top + Vector3.down * 0.36f, rot, garlic ? new Vector3(0.13f, 0.28f, 0.13f) : new Vector3(0.16f, 0.3f, 0.12f)));
+            }
+        }
+
+        /// <summary>Hobb's back wall (the half away from the forge): a pegboard of hammers, tongs and horseshoes over a bench of iron bars.</summary>
+        private static void SmithToolWall(Transform parent, MeshKit.Batcher d, Vector3 front, Quaternion rot, Vector3 right, Vector3 back, Color timber)
+        {
+            var wall = front + back * 2.36f - right * 0.95f;
+            var iron = new Color(0.32f, 0.32f, 0.34f);
+            d.AddBox(wall + back * 0.06f + Vector3.up * 1.55f, new Vector3(1.6f, 1.3f, 0.05f), Mat.Wood, new Color(0.3f, 0.2f, 0.13f), rot);
+            d.AddBox(wall + back * 0.04f + Vector3.up * 0.9f, new Vector3(1.7f, 0.06f, 0.08f), Mat.Wood, timber, rot);
+            for (int k = 0; k < 4; k++)
+            {
+                float x = -0.6f + k * 0.4f;
+                var hook = wall + right * x + Vector3.up * 2.0f;
+                if (k % 2 == 0)
+                {
+                    // A hammer hanging head-down.
+                    d.AddBox(hook + Vector3.down * 0.2f, new Vector3(0.035f, 0.38f, 0.035f), Mat.Wood, rot);
+                    d.AddBox(hook + Vector3.down * 0.42f, new Vector3(0.16f, 0.07f, 0.08f), Mat.Steel, iron, rot);
+                }
+                else
+                {
+                    // Tongs: two long jaws, a little apart.
+                    foreach (float j in new[] { -0.025f, 0.025f })
+                        d.AddBox(hook + right * j + Vector3.down * 0.25f, new Vector3(0.02f, 0.5f, 0.02f), Mat.Steel, iron, rot * Quaternion.Euler(0f, 0f, j * 120f));
+                }
+            }
+            // Horseshoes in a row lower down (a flat ring with a gap reads as one at this size).
+            for (int k = 0; k < 3; k++)
+                d.Add(MeshKit.Cylinder(0.07f, 0.07f, 0.02f, 10), Mat.Steel, Matrix4x4.TRS(wall + right * (-0.45f + k * 0.45f) + Vector3.up * 1.3f, rot * Quaternion.Euler(90f, 0f, 0f), Vector3.one));
+            // The bench below, iron bars stacked on it, and a grindstone wheel at its end.
+            d.AddBox(wall + Vector3.up * 0.42f, new Vector3(1.4f, 0.06f, 0.45f), Mat.Wood, timber, rot);
+            foreach (float sx in new[] { -0.6f, 0.6f }) d.AddBox(wall + right * sx + Vector3.up * 0.2f, new Vector3(0.07f, 0.4f, 0.4f), Mat.Wood, timber, rot);
+            for (int k = 0; k < 5; k++)
+                d.AddBox(wall + right * (-0.4f + (k % 3) * 0.13f) + Vector3.up * (0.48f + (k / 3) * 0.05f), new Vector3(0.1f, 0.05f, 0.32f), Mat.Steel, iron * 1.1f, rot);
+            var wheel = wall + right * 0.35f + Vector3.up * 0.72f;
+            d.Add(MeshKit.Cylinder(0.24f, 0.24f, 0.08f, 14), Mat.StoneWall, Matrix4x4.TRS(wheel, rot * Quaternion.Euler(0f, 0f, 90f), Vector3.one));
+            d.AddBox(wheel, new Vector3(0.3f, 0.03f, 0.03f), Mat.Steel, rot);
         }
 
         private static void BuildStalls(Vector3 o, MeshKit.Batcher d, Transform lights)
         {
             // Merchant (west), behind his own table of wares.
-            Stall(lights, d, MerchantSpot + Vector3.right * 1.45f, Vector3.right, new Color(0.55f, 0.12f, 0.12f), new Color(0.85f, 0.75f, 0.5f), counter: false); // round Silas and his table (it stood 3.5 m in front of him, empty)
+            Stall(lights, d, MerchantSpot + Vector3.right * 1.45f, Vector3.right, new Color(0.55f, 0.12f, 0.12f), new Color(0.85f, 0.75f, 0.5f), counter: false, kind: StallKind.Merchant); // round Silas and his table (it stood 3.5 m in front of him, empty)
             Props.Merchant(lights, MerchantSpot, MerchantSpot + Vector3.right * 3f, d);
 
             // Blacksmith (the trade row, west, beside Silas): forge with a chimney and a quench barrel beside the anvil.
-            Stall(lights, d, AnvilSpot + S(0.8f, 0f, 0f), Vector3.right, new Color(0.2f, 0.2f, 0.24f), new Color(0.6f, 0.35f, 0.15f));
+            Stall(lights, d, AnvilSpot + S(0.8f, 0f, 0f), Vector3.right, new Color(0.2f, 0.2f, 0.24f), new Color(0.6f, 0.35f, 0.15f), kind: StallKind.Smith);
             var forge = AnvilSpot + S(-2.6f, 0f, -1.6f);
             ForgeChimney = forge + new Vector3(0f, 5.5f, -0.3f);
             d.AddBox(forge + Vector3.up * 0.7f, new Vector3(1.8f, 1.4f, 1.4f), Mat.StoneWall);
@@ -663,6 +786,22 @@ namespace Deepbound.World
             forgeLight.color = new Color(1f, 0.45f, 0.15f);
             forgeLight.range = 7f;
             forgeLight.intensity = 3f;
+            // The forge, dressed (2026-11-09): a stepped stone hood over the coals, a heap of glowing coal, leather bellows on
+            // its side, a quench trough of dark water and a few bars cooling on its lip.
+            d.AddBox(forge + new Vector3(0f, 2.15f, -0.1f), new Vector3(1.7f, 0.35f, 1.25f), Mat.StoneWall);
+            d.AddBox(forge + new Vector3(0f, 2.48f, -0.2f), new Vector3(1.2f, 0.32f, 1.0f), Mat.StoneWall);
+            d.AddBox(forge + new Vector3(0f, 1.0f, 0.69f), new Vector3(1.0f, 0.5f, 0.04f), Mat.Dark);
+            var coals = MeshKit.Part(lights, "ForgeCoals", MeshKit.Ball(0.5f, 10, 6), Mat.Glow, forge + Vector3.up * 1.43f, default, new Vector3(1.0f, 0.18f, 0.7f));
+            coals.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            ArtLibrary.SetGlow(coals.GetComponent<Renderer>(), new Color(1f, 0.35f, 0.08f) * 1.1f);
+            var bellows = forge + new Vector3(1.15f, 0.95f, 0f);
+            d.Add(MeshKit.Ball(0.5f, 10, 6), Mat.Leather, Matrix4x4.TRS(bellows, Quaternion.Euler(0f, 0f, 20f), new Vector3(0.22f, 0.5f, 0.6f)));
+            d.AddBox(bellows + new Vector3(0f, -0.26f, 0f), new Vector3(0.3f, 0.04f, 0.62f), Mat.Wood, Quaternion.Euler(0f, 0f, 20f));
+            d.AddBox(bellows + new Vector3(-0.32f, 0.22f, 0f), new Vector3(0.4f, 0.06f, 0.06f), Mat.Steel, Quaternion.Euler(0f, 0f, 35f));
+            var trough = forge + new Vector3(0.2f, 0f, 1.35f);
+            d.AddBox(trough + Vector3.up * 0.3f, new Vector3(1.2f, 0.6f, 0.55f), Mat.StoneWall);
+            d.AddBox(trough + Vector3.up * 0.58f, new Vector3(1.02f, 0.03f, 0.4f), Mat.Dark, new Color(0.08f, 0.1f, 0.12f));
+            for (int k = 0; k < 2; k++) d.AddBox(trough + new Vector3(-0.3f + k * 0.18f, 0.63f, 0.18f), new Vector3(0.05f, 0.04f, 0.5f), Mat.Steel, Quaternion.Euler(0f, 70f + k * 12f, 0f));
             Props.Barrel(d, AnvilSpot + S(-1.2f, 0f, 1.8f));
             Props.WeaponRack(d, AnvilSpot + S(-3f, 0f, 1.6f), Quaternion.Euler(0f, 90f, 0f));
 

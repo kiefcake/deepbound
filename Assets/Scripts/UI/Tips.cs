@@ -51,7 +51,7 @@ namespace Deepbound.UI
                 foreach (var it in Interactable.All)
                 {
                     if (it == null || Vector3.Distance(it.transform.position, me) > 6f) continue;
-                    if (it is DiceTable || it is MysteryCoffer) Offer("casino3", "BONES: call LOW, HIGH, SEVEN or DOUBLES before the dice fly, and LET IT RIDE on a win. The LOCKSMITH'S COFFER has three locks: each one you pick betters the prize, a snapped pick loses it all - step back to take what you have.");
+                    if (it is MysteryCoffer) Offer("casino3", "The LOCKSMITH'S COFFER has three locks: each one you pick betters the prize, a snapped pick loses it all - step back to take what you have.");
                     if (it is PokerDiceTable) Offer("poker", "SKULL POKER: dice against the other players, no house. Sit (F), ante, hold and reroll once, then CHECK / BET / CALL / FOLD. Best hand takes the pot. Only you see your dice - the others see how many you kept.");
                     if (it is SlotMachine || it is BlackjackTable) Offer("gamble2", "THE TENT: the Bone Reels pay big for three of a kind; at Deadman's Hand beat the skeleton dealer to 21. HIT or STAND in the table's panel.");
                     if (it is TavernKeep || it is TavernBand) Offer("tavern", "THE GUTTED LANTERN: talk to Marta (F) for mead: each horn makes you Tipsy, Merry, then Sloshed - a little braver in a fight, and the world sways. F at the stage pays the band for the next song.");

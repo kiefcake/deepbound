@@ -5,10 +5,11 @@ namespace Deepbound.World
 {
     /// <summary>
     /// WEATHER AT CAMP (2026-11-08, the user's list: "camp life: weather"). The host rolls it on each return to camp
-    /// (<see cref="DungeonDirector.Weather"/>, synced; always clear in tests): a clear night (half the time), MIST (a
-    /// quarter: thick grey fog, the gate road lost in it) or RAIN (a quarter: streaks of rain round you that stop at any
-    /// roof, the rain loop, no fireflies, and the folk stay home under cover instead of running errands,
-    /// <see cref="FolkRounds"/>). It changes nothing in play. Local on every peer; added to the camp root by
+    /// (<see cref="DungeonDirector.Weather"/>, synced; always clear in tests): a clear night (60%), MIST (25%: thick grey
+    /// fog, the gate road lost in it) or RAIN (15%). Rain comes in SHOWERS (2026-11-09, the user: "more lowkey, and not on
+    /// all of the time"): on the server clock, so every peer agrees, about a minute of light rain in every two and a half
+    /// (<see cref="Shower"/>); while a shower falls there are thin streaks round you that stop at any roof, the rain loop,
+    /// no fireflies, and the folk stay home under cover (<see cref="FolkRounds"/>). It changes nothing in play. Local on every peer; added to the camp root by
     /// <see cref="Lobby"/>.
     /// </summary>
     public class CampWeather : MonoBehaviour
@@ -18,13 +19,31 @@ namespace Deepbound.World
         /// <summary>The weather now (synced).</summary>
         public static Kind Now => DungeonDirector.Instance != null ? (Kind)DungeonDirector.Instance.Weather.Value : Kind.Clear;
         /// <summary>The folk keep indoors (no errands) while it rains.</summary>
-        public static bool KeepIn => DungeonDirector.InLobby && Now == Kind.Rain;
+        public static bool KeepIn => DungeonDirector.InLobby && Now == Kind.Rain && (DebugShowering || Shower(Clock) > 0.15f);
+        /// <summary>Tests: treat it as mid-shower whatever the clock says.</summary>
+        public static bool DebugShowering;
+        public const double ShowerCycle = 150, ShowerWet = 62;
+        public const float ShowerRamp = 12f;
+        private static double Clock => Unity.Netcode.NetworkManager.Singleton != null && Unity.Netcode.NetworkManager.Singleton.IsListening ? Unity.Netcode.NetworkManager.Singleton.ServerTime.Time : Time.timeAsDouble;
+
+        /// <summary>
+        /// How hard a rainy night is raining at server time <paramref name="t"/>, 0..~0.8: a shower of <see cref="ShowerWet"/> s
+        /// (easing in and out over <see cref="ShowerRamp"/> s) in every <see cref="ShowerCycle"/> s, never a downpour.
+        /// </summary>
+        public static float Shower(double t)
+        {
+            double ph = t % ShowerCycle;
+            if (ph < 0) ph += ShowerCycle;
+            if (ph >= ShowerWet) return 0f;
+            float k = Mathf.Clamp01((float)ph / ShowerRamp) * Mathf.Clamp01((float)(ShowerWet - ph) / ShowerRamp);
+            return k * (0.45f + 0.35f * Mathf.PerlinNoise((float)(t * 0.04), 0.7f));
+        }
         /// <summary>0..1, eased: how much rain / mist there is this frame (audio and ambience read these).</summary>
         public static float RainK { get; private set; }
         public static float MistK { get; private set; }
 
-        public const int Drops = 300;
-        public const float Box = 12f, Near = 3f, FallSpeed = 13f, Streak = 0.5f, Width = 0.022f; // ~1 retro pixel at 5 m; none within Near (close ones were fat white bars)
+        public const int Drops = 140; // was 300: the user found it too much
+        public const float Box = 12f, Near = 3.5f, FallSpeed = 13f, Streak = 0.4f, Width = 0.02f; // ~1 retro pixel at 5 m; none within Near (close ones were fat white bars)
         private static readonly Color RainTint = new Color(0.55f, 0.6f, 0.7f);
 
         private Mesh mesh;
@@ -35,18 +54,18 @@ namespace Deepbound.World
         private float baseFog;
         private Color baseFogColor;
 
-        /// <summary>The host's roll for a new camp visit: clear 50%, mist 25%, rain 25%.</summary>
+        /// <summary>The host's roll for a new camp visit: clear 60%, mist 25%, rain 15%.</summary>
         public static byte Roll()
         {
             float r = Random.value;
-            return (byte)(r < 0.5f ? Kind.Clear : r < 0.75f ? Kind.Mist : Kind.Rain);
+            return (byte)(r < 0.6f ? Kind.Clear : r < 0.85f ? Kind.Mist : Kind.Rain);
         }
 
         private void Start()
         {
             baseFog = RenderSettings.fogDensity;
             baseFogColor = RenderSettings.fogColor;
-            RainK = Now == Kind.Rain ? 1f : 0f;
+            RainK = Now == Kind.Rain ? Shower(Clock) : 0f;
             MistK = Now == Kind.Mist ? 1f : 0f;
             if (Application.isBatchMode) return;
             var go = new GameObject("Rain");
@@ -73,8 +92,8 @@ namespace Deepbound.World
             mr.sharedMaterial = ArtLibrary.Get(Mat.Glow);
             mr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mr.receiveShadows = false;
-            ArtLibrary.Tint(mr, RainTint * 0.4f); // a white base lit by the lanterns made bright white bars
-            ArtLibrary.SetGlow(mr, RainTint * 0.3f);
+            ArtLibrary.Tint(mr, RainTint * 0.18f); // a white base lit by the lanterns made bright white bars
+            ArtLibrary.SetGlow(mr, RainTint * 0.09f);
             drop = new Vector3[Drops];
             land = new float[Drops];
             for (int i = 0; i < Drops; i++) land[i] = float.MaxValue; // respawn on the first frame
@@ -91,12 +110,12 @@ namespace Deepbound.World
         {
             float dt = Time.deltaTime;
             var w = Now;
-            RainK = Mathf.MoveTowards(RainK, w == Kind.Rain ? 1f : 0f, dt / 3f);
+            RainK = Mathf.MoveTowards(RainK, w == Kind.Rain ? (DebugShowering ? 0.8f : Shower(Clock)) : 0f, dt / 3f);
             MistK = Mathf.MoveTowards(MistK, w == Kind.Mist ? 1f : 0f, dt / 3f);
             if (!DungeonDirector.InLobby) return;
             // Mist thickens the fog and greys it; rain a little.
-            RenderSettings.fogDensity = baseFog + 0.019f * MistK + 0.007f * RainK;
-            RenderSettings.fogColor = Color.Lerp(baseFogColor, new Color(0.1f, 0.11f, 0.13f), MistK * 0.8f + RainK * 0.35f);
+            RenderSettings.fogDensity = baseFog + 0.019f * MistK + 0.004f * RainK;
+            RenderSettings.fogColor = Color.Lerp(baseFogColor, new Color(0.1f, 0.11f, 0.13f), MistK * 0.8f + RainK * 0.2f);
             var cam = ViewCamera.Current;
             if (cam != null) cam.backgroundColor = RenderSettings.fogColor;
             if (mr == null) return;
@@ -134,6 +153,6 @@ namespace Deepbound.World
         }
 
         /// <summary>Shots and tests: as if the weather had already settled.</summary>
-        public static void DebugSettle() { RainK = Now == Kind.Rain ? 1f : 0f; MistK = Now == Kind.Mist ? 1f : 0f; }
+        public static void DebugSettle() { RainK = Now == Kind.Rain ? (DebugShowering ? 0.8f : Shower(Clock)) : 0f; MistK = Now == Kind.Mist ? 1f : 0f; }
     }
 }

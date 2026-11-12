@@ -263,7 +263,9 @@ namespace Deepbound.World
             int ok = 0;
             if (placed)
             {
-                var taker = System.Linq.Enumerable.FirstOrDefault(Player.PlayerLife.All, p => p != null)?.GetComponent<Progression.PlayerProgress>();
+                // The host carries (the first in the list can be a client out fighting, who may drop it).
+                var taker = (Player.NetworkPlayer.Local != null ? Player.NetworkPlayer.Local.GetComponent<Progression.PlayerProgress>() : null)
+                    ?? System.Linq.Enumerable.FirstOrDefault(Player.PlayerLife.All, p => p != null)?.GetComponent<Progression.PlayerProgress>();
                 cargo.ServerDebugCarry(taker);
                 foreach (var t in finds) if (taker != null) t.ServerTake(taker);
                 yield return new WaitForSeconds(0.3f);
@@ -275,6 +277,7 @@ namespace Deepbound.World
                 QuestSettleOnAscent();
                 yield return null;
                 for (int i = baseCount; i < Quests.Count; i++) if (Quests[i].Status == ContractStatus.Fulfilled) ok++;
+                why += " (cargo " + Quests[baseCount].Status + ", finds " + Quests[baseCount + 1].Status + " " + Quests[baseCount + 1].Progress + "/" + Quests[baseCount + 1].Goal + ", mark " + Quests[baseCount + 2].Status + ")";
                 if (!waiting) ok = -1;
                 // Cargo outside the arena when it seals is left behind.
                 Quests.Add(new QuestSlot { Kind = (byte)Contract.Cargo, Giver = (byte)FolkId.Marta, State = (byte)ContractStatus.Active, Goal = 1 });

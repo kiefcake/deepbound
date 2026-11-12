@@ -698,7 +698,7 @@ namespace Deepbound.World
                 spawned.Add(obj);
             }
             Put(anvilPrefab, Lobby.AnvilSpot, Lobby.AnvilFacing);
-            Put(diceTablePrefab, Lobby.DiceSpot, Lobby.TentFacing);
+            // Bones (the dice table) was taken out of camp on 2026-11-09 (the user: "remove bones gambling").
             Put(cofferPrefab, Lobby.CofferSpot, Lobby.TentFacing);
             Put(slotMachinePrefab, Lobby.SlotSpot, Lobby.TentFacing);
             Put(blackjackPrefab, Lobby.BlackjackSpot, Vector3.back);

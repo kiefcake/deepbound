@@ -182,7 +182,7 @@ namespace Deepbound.UI
             if (rainAir != null)
             {
                 // Indoors (the tavern) it is the drum on the roof: quieter.
-                float rain = camp ? World.CampWeather.RainK * (local != null && World.Lobby.InTavern(local.transform.position) ? 0.18f : 0.45f) : 0f;
+                float rain = camp ? World.CampWeather.RainK * (local != null && World.Lobby.InTavern(local.transform.position) ? 0.1f : 0.3f) : 0f;
                 Fade(rainAir, rain * music);
             }
             Fade(deepAir, (deep ? 0f : air) * music);
