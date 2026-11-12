@@ -44,12 +44,51 @@ namespace Deepbound.World
         {
             foreach (var a in All)
                 if (a != null && Vector3.Distance(a.transform.position, at) <= UseRange) return a;
+            // At camp the smithy is more than the anvil (2026-11-12): the grindstone and the forge do their share of the
+            // work, so standing at either counts as being at Hobb's anvil (CampStations).
+            if (DungeonDirector.InLobby && CampStations.AtSmithy(at))
+                foreach (var a in All)
+                    if (a != null && Vector3.Distance(a.transform.position, Lobby.AnvilSpot) < 2f) return a;
             return null;
+        }
+
+        /// <summary>Which part of the smithy did the work: the anvil, the grindstone or the forge's hearth.</summary>
+        public enum Work : byte { Anvil, Grindstone, Hearth }
+
+        /// <summary>Everyone sees the work done where it was done: at camp the grindstone spins and sparks, the forge's coals
+        /// roar; anywhere else (a start room's lone anvil) it all happens at the anvil.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        public void WorkFxRpc(Work where, float k)
+        {
+            if (where == Work.Anvil || !DungeonDirector.InLobby) { HammerFx(3); return; }
+            var fx = SmithyFx.Instance;
+            if (where == Work.Grindstone)
+            {
+                var at = CampStations.GrindstoneSpot + new Vector3(0.12f, 0.5f, 0f);
+                Sfx.Play(Sound.Unsheathe, at, 0.9f, 0.8f);
+                Sfx.Play(Sound.Graze, at, 0.6f, 1.3f);
+                BoneBurst.Spawn(at, 0.35f, false, Mat.Flame);
+                if (fx != null) fx.Spin();
+            }
+            else
+            {
+                var at = CampStations.HearthSpot + Vector3.up * 1.5f;
+                Sfx.Play(Sound.Fire, at, 1f, 0.75f);
+                BoneBurst.Spawn(at, 0.4f + 0.3f * k, false, Mat.Flame);
+                if (fx != null) fx.Flare(k);
+            }
         }
 
         /// <summary>Everyone sees and hears the hammer fall.</summary>
         [Rpc(SendTo.ClientsAndHost)]
         public void ForgeFxRpc(int level)
+        {
+            HammerFx(level);
+            // At camp the forge's coals lift too: the steel came out of them.
+            if (DungeonDirector.InLobby && SmithyFx.Instance != null) SmithyFx.Instance.Flare(0.5f);
+        }
+
+        private void HammerFx(int level)
         {
             var top = transform.position + Vector3.up * 0.95f;
             Sfx.Play(Sound.Bash, top, 1f, 0.7f + level * 0.08f);

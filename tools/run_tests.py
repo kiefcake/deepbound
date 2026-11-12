@@ -17,7 +17,7 @@ args = ap.parse_args()
 build = os.path.abspath(args.build)
 
 REQUIRED = [
-    'camp folk rounds', 'trade follows the person', 'folk hold still', 'npc dialogue', 'quests', 'quest progress', 'quests on the floor', 'bone reels pot', 'skull poker', 'dungeon interactables', 'camp memory', 'puzzle rooms', 'camp pastimes', 'camp weather', 'bell peal', 'arm wrestling', 'old wick', 'tavern regular', 'knight counter', 'rogue duelist and dash',
+    'camp folk rounds', 'trade follows the person', 'folk hold still', 'npc dialogue', 'quests', 'quest progress', 'quests on the floor', 'bone reels pot', 'skull poker', 'dungeon interactables', 'camp memory', 'puzzle rooms', 'camp pastimes', 'camp weather', 'bell peal', 'arm wrestling', 'old wick', 'tavern regular', 'knight counter', 'rogue duelist and dash', 'workstations',
     'fire logs',
     'ui scale', 'ui space', 'options lists', 'every sound recorded', 'party numbers', 'trap numbers', 'minimap layout',
     'pad Knight', 'pad Mage', 'pad Cleric', 'pad Rogue', 'pad Ranger', 'pad Flagellant', 'pad PlagueDoctor',

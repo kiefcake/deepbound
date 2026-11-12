@@ -579,6 +579,7 @@ namespace Deepbound.Player
                 if (UI.Binds.Down(UI.Bind.Use) && free)
                 {
                     if (UI.Dialogue.TryBegin()) return;
+                    if (merged && World.CampStations.LocalAimed != null) return; // the HUD uses the workstation (CampStations)
                     var cam = GetComponent<NetworkPlayer>();
                     var use = World.Interactable.Nearest(cam.AimOrigin, cam.AimForward, progress);
                     // Shift + F on gear or the cat is the pack / the lift (GameHud), not wear / pet.

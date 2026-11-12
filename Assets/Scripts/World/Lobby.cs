@@ -786,7 +786,9 @@ namespace Deepbound.World
             Props.Merchant(lights, MerchantSpot, MerchantSpot + Vector3.right * 3f, d);
 
             // Blacksmith (the trade row, west, beside Silas): forge with a chimney and a quench barrel beside the anvil.
-            Stall(lights, d, AnvilSpot + S(0.8f, 0f, 0f), Vector3.right, new Color(0.2f, 0.2f, 0.24f), new Color(0.6f, 0.35f, 0.15f), kind: StallKind.Smith);
+            // No counter (2026-11-12): the anvil IS Hobb's counter. Behind a plank front it was hidden, so the thing you
+            // forge at was never seen (CampStations: you use it by looking at it).
+            Stall(lights, d, AnvilSpot + S(0.8f, 0f, 0f), Vector3.right, new Color(0.2f, 0.2f, 0.24f), new Color(0.6f, 0.35f, 0.15f), counter: false, kind: StallKind.Smith);
             var forge = AnvilSpot + S(-2.6f, 0f, -1.6f);
             ForgeChimney = forge + new Vector3(0f, 5.5f, -0.3f);
             d.AddBox(forge + Vector3.up * 0.7f, new Vector3(1.8f, 1.4f, 1.4f), Mat.StoneWall);
@@ -815,6 +817,34 @@ namespace Deepbound.World
             d.AddBox(trough + Vector3.up * 0.3f, new Vector3(1.2f, 0.6f, 0.55f), Mat.StoneWall);
             d.AddBox(trough + Vector3.up * 0.58f, new Vector3(1.02f, 0.03f, 0.4f), Mat.Dark, new Color(0.08f, 0.1f, 0.12f));
             for (int k = 0; k < 2; k++) d.AddBox(trough + new Vector3(-0.3f + k * 0.18f, 0.63f, 0.18f), new Vector3(0.05f, 0.04f, 0.5f), Mat.Steel, Quaternion.Euler(0f, 70f + k * 12f, 0f));
+            // The grindstone (2026-11-12): a treadle wheel over a water trough at the stall's front corner, where you can see
+            // it and use it (CampStations: it hones and refines). Its wheel spins and throws sparks when it works (SmithyFx).
+            var gs = CampStations.GrindstoneSpot;
+            var gWood = new Color(0.3f, 0.2f, 0.12f);
+            foreach (float sx in new[] { -0.2f, 0.2f })
+            {
+                d.AddBox(gs + new Vector3(sx, 0.39f, 0.22f), new Vector3(0.07f, 0.82f, 0.07f), Mat.Wood, gWood, Quaternion.Euler(-15f, 0f, 0f));
+                d.AddBox(gs + new Vector3(sx, 0.39f, -0.22f), new Vector3(0.07f, 0.82f, 0.07f), Mat.Wood, gWood, Quaternion.Euler(15f, 0f, 0f));
+                d.AddBox(gs + new Vector3(sx, 0.78f, 0f), new Vector3(0.07f, 0.07f, 0.24f), Mat.Wood, gWood);
+                d.AddBox(gs + new Vector3(sx, 0.2f, 0f), new Vector3(0.05f, 0.05f, 0.62f), Mat.Wood, gWood);
+            }
+            d.AddBox(gs + new Vector3(0f, 0.3f, 0f), new Vector3(0.3f, 0.14f, 0.5f), Mat.Wood);
+            d.AddBox(gs + new Vector3(0f, 0.375f, 0f), new Vector3(0.24f, 0.01f, 0.44f), Mat.Dark, new Color(0.08f, 0.1f, 0.12f));
+            d.AddBox(gs + new Vector3(0f, 0.78f, 0f), new Vector3(0.56f, 0.04f, 0.04f), Mat.Steel);
+            d.AddBox(gs + new Vector3(0.29f, 0.7f, 0f), new Vector3(0.03f, 0.18f, 0.03f), Mat.Steel);
+            d.AddBox(gs + new Vector3(0.36f, 0.62f, 0f), new Vector3(0.13f, 0.035f, 0.035f), Mat.Wood);
+            d.AddBox(gs + new Vector3(0.05f, 0.05f, -0.42f), new Vector3(0.42f, 0.04f, 0.13f), Mat.Wood, gWood);
+            var wheelPivot = MeshKit.Pivot(lights, "GrindWheel", gs + new Vector3(0f, 0.78f, 0f), new Vector3(0f, 0f, 90f));
+            MeshKit.Part(wheelPivot, "Stone", MeshKit.Cylinder(0.32f, 0.32f, 0.1f, 16), Mat.StoneWall, Vector3.zero);
+            for (int k = 0; k < 4; k++)
+            {
+                float a = k * Mathf.PI / 2f;
+                var notch = MeshKit.Part(wheelPivot, "Notch" + k, MeshKit.Box(new Vector3(0.07f, 0.12f, 0.05f)), Mat.Wood, new Vector3(Mathf.Cos(a) * 0.27f, 0f, Mathf.Sin(a) * 0.27f), new Vector3(0f, -a * Mathf.Rad2Deg, 0f));
+                ArtLibrary.Tint(notch.GetComponent<Renderer>(), new Color(0.2f, 0.14f, 0.09f));
+            }
+            var smithy = new GameObject("SmithyFx").AddComponent<SmithyFx>();
+            smithy.transform.SetParent(lights, false);
+            smithy.Init(wheelPivot, forgeLight, coals.GetComponent<Renderer>(), new Color(1f, 0.35f, 0.08f) * 1.1f);
             Props.Barrel(d, AnvilSpot + S(-1.2f, 0f, 1.8f));
             Props.WeaponRack(d, AnvilSpot + S(-3f, 0f, 1.6f), Quaternion.Euler(0f, 90f, 0f));
 

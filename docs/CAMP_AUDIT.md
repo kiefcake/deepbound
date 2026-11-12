@@ -879,3 +879,8 @@ Files: `C:/Users/User/Desktop/game_prototype/Deepbound/Assets/Scripts/World/Lobb
 - NEW, seen (stall_4): Brann's corner is lit by a lantern post, with a chalk DRILL board and an armour stand beside him. Before, he stood in the dark.
 - NEW, NOT properly seen (stall_5): the framing is blocked by a menhir. Ysolde's table has a cloth, a scroll and an inkpot, there is a cold-flame brazier, and rune charms hang on a cord between two stones. Needs a better camera spot.
 - SEEN (stall_5, reframed): Ysolde's cloth-covered rune table, its candles and the cold blue brazier, from inside the ring. Hobb's tool wall has its own small lamp now.
+
+## Round 8 (2026-11-12): the smithy and the stalls as workstations (ix shots 1b_smithy_wide, 1b_station_*)
+- NEW: a treadle GRINDSTONE at Hobb's stall's north front corner (`CampStations.GrindstoneSpot` = AnvilSpot + (0.45, 0, 1.4)), clear of the front post (z 1.8) and the sacks (z 2.2).
+- CHANGED: Hobb's stall has no counter, so the anvil (1.08 m behind the stall's front line, Hobb behind it) can be seen and used from the road.
+- Stand points (`CampStations.Station.Stand`): anvil +1.5 m east; grindstone +1.4 m east; forge SE of the hearth at (+1.0, -1.7), 4.6 m from the anvil, clear of the bellows; Silas's table +1.4 m east; Ysolde's table +1.3 m east, inside the ring's open side; Brann's board +1.5 m east, 0.7 m from the armour stand.

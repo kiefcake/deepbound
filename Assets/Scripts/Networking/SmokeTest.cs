@@ -170,6 +170,63 @@ namespace Deepbound.Networking
                 int dummies = FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None).Length;
                 Log("lobby", "in lobby " + DungeonDirector.InLobby + ", " + dummies + " dummies", DungeonDirector.InLobby && dummies == Lobby.DummySpots.Length);
 
+                // Camp workstations (2026-11-12): each is what the crosshair finds from where you would stand at it (and
+                // looking up past the anvil at Hobb finds none); the grindstone and the forge count as Hobb's smithy on the
+                // server, out of the anvil's own reach; F on each opens its own page. (A class switch next resets the run.)
+                {
+                    var wsMe = NetworkPlayer.Local;
+                    var wsHud = wsMe.GetComponent<UI.GameHud>();
+                    var wsMotor = wsMe.GetComponent<FirstPersonMotor>();
+                    var wsP = wsMe.GetComponent<PlayerProgress>();
+                    Vector3 wsPos0 = wsMe.transform.position; Quaternion wsRot0 = wsMe.transform.rotation;
+                    int aimedRight = 0;
+                    var wrong = new System.Collections.Generic.List<string>();
+                    foreach (var st in CampStations.All)
+                    {
+                        var eye = st.Stand + Vector3.up * 1.6f;
+                        var got = CampStations.Aimed(eye, (st.Center - eye).normalized, out _);
+                        if (got == st) aimedRight++; else wrong.Add(st.Noun + " -> " + (got != null ? got.Noun : "nothing"));
+                    }
+                    var anvilSt = CampStations.Get(CampStations.Job.Anvil);
+                    var eyeA = anvilSt.Stand + Vector3.up * 1.6f;
+                    bool faceFree = CampStations.Aimed(eyeA, (Lobby.HobbSpot + Vector3.up * 1.62f - eyeA).normalized, out _) == null;
+
+                    var hearthSt = CampStations.Get(CampStations.Job.Hearth);
+                    wsMotor.Teleport(hearthSt.Stand + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(hearthSt.Center - hearthSt.Stand)));
+                    yield return new WaitForSeconds(0.3f);
+                    float fromAnvil = Vector3.Distance(Flat3(wsMe.transform.position), Flat3(Lobby.AnvilSpot));
+                    wsP.ServerStow(new GearItem(GearId.ThornhideJerkin, 0, 0));
+                    int e0 = wsP.Embers.Value, bag0 = wsP.BagCount;
+                    wsP.BagScrapRpc(0);
+                    yield return new WaitForSeconds(0.3f);
+                    bool melted = wsP.Embers.Value > e0 && wsP.BagCount == bag0 - 1;
+                    wsHud.DebugUseStation(CampStations.Job.Hearth);
+                    bool hearthTab = wsHud.DebugForgeOpen && wsHud.DebugForgeTab == 2;
+                    wsHud.DebugCloseMenus();
+
+                    var grindSt = CampStations.Get(CampStations.Job.Grindstone);
+                    wsMotor.Teleport(grindSt.Stand + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(grindSt.Center - grindSt.Stand)));
+                    yield return new WaitForSeconds(0.3f);
+                    wsP.ServerEquip(new GearItem(GearId.ThornhideJerkin, 0, 0));
+                    wsP.ServerAddEmbers(100);
+                    wsP.ReforgeRpc((byte)GearSlot.Armor, 0);
+                    yield return new WaitForSeconds(0.3f);
+                    bool refined = wsP.Equipped(GearSlot.Armor).Quality == 1;
+                    wsHud.DebugUseStation(CampStations.Job.Grindstone);
+                    bool grindTab = wsHud.DebugForgeOpen && wsHud.DebugForgeTab == 1;
+                    wsHud.DebugCloseMenus();
+                    wsHud.DebugUseStation(CampStations.Job.Anvil);
+                    bool anvilTab = wsHud.DebugForgeOpen && wsHud.DebugForgeTab == 0;
+                    wsHud.DebugCloseMenus();
+                    bool farOff = Anvil.Near(Lobby.MerchantSpot + Vector3.right * 2f) == null && Anvil.Near(Lobby.RunewrightSpot) == null;
+                    Log("workstations", "aimed right " + aimedRight + "/" + CampStations.All.Length + (wrong.Count > 0 ? " (" + string.Join(", ", wrong) + ")" : "") +
+                        ", Hobb's face clear " + faceFree + "; at the forge (" + fromAnvil.ToString("F1") + " m from the anvil) melted " + melted + " (+" + (wsP.Embers.Value - e0) + "), page " + hearthTab +
+                        "; grindstone refined " + refined + ", page " + grindTab + "; anvil page " + anvilTab + "; no smithy far off " + farOff,
+                        aimedRight == CampStations.All.Length && faceFree && fromAnvil > Anvil.UseRange && melted && hearthTab && refined && grindTab && anvilTab && farOff);
+                    wsMotor.Teleport(wsPos0 + Vector3.up * 0.05f, wsRot0);
+                    yield return new WaitForSeconds(0.2f);
+                }
+
                 // Switch to Mage at camp, then chill a dummy and shatter it.
                 var me = NetworkPlayer.Local;
                 var progressMe = me.GetComponent<PlayerProgress>();
@@ -3895,7 +3952,9 @@ namespace Deepbound.Networking
                     var answer = ScaleAnswer(urns, ps.Target.Value);
                     bool noSingle = urns.All(u => u.Weight.Value != ps.Target.Value);
                     var off = urns.Where(u => !answer.Contains(u)).ToList();
-                    foreach (var u in off) u.ServerDrop(ps.LoadPan);
+                    // The spare urns can be a second answer by chance (1+2+6 when the target is 4+5 = 9): load one fewer.
+                    var wrongSet = off.Sum(u => u.Weight.Value) == ps.Target.Value ? off.Skip(1).ToList() : off;
+                    foreach (var u in wrongSet) u.ServerDrop(ps.LoadPan);
                     yield return new WaitForSeconds(0.3f);
                     int wrongLoad = ps.Load.Value;
                     yield return new WaitForSeconds(PuzzleRoom.BalanceHold + 0.3f);
@@ -5178,6 +5237,27 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.5f);
                 yield return Shot(dir, "1b_anvil");
                 lobbyMotor.SetPitch(0f);
+                // The smithy as a whole (2026-11-12): the open stall, the anvil, the grindstone; then each station aimed at.
+                {
+                    var wideFrom = Lobby.AnvilSpot + new Vector3(4.4f, 0.1f, 2.4f);
+                    lobbyMotor.Teleport(wideFrom, Quaternion.LookRotation(Flat3(Lobby.AnvilSpot + new Vector3(0f, 0f, 0.5f) - wideFrom)));
+                    lobbyMotor.SetPitch(12f);
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot(dir, "1b_smithy_wide");
+                    foreach (var job in new[] { CampStations.Job.Grindstone, CampStations.Job.Hearth, CampStations.Job.Merchant, CampStations.Job.Runes, CampStations.Job.Drills })
+                    {
+                        var st = CampStations.Get(job);
+                        var from = st.Stand + Vector3.up * 0.1f;
+                        var to = st.Center - (from + Vector3.up * 1.5f);
+                        lobbyMotor.Teleport(from, Quaternion.LookRotation(Flat3(to)));
+                        lobbyMotor.SetPitch(Mathf.Atan2(-to.y, Flat3(to).magnitude) * Mathf.Rad2Deg);
+                        yield return new WaitForSeconds(0.5f);
+                        yield return Shot(dir, "1b_station_" + job.ToString().ToLowerInvariant());
+                    }
+                    lobbyMotor.SetPitch(0f);
+                    lobbyMotor.Teleport(af, Quaternion.LookRotation(anvilObj.transform.position - af));
+                    yield return new WaitForSeconds(0.3f);
+                }
                 var ap = local.GetComponent<PlayerProgress>();
                 ap.ServerAddEmbers(60);
                 ap.TemperRpc();
@@ -5192,6 +5272,17 @@ namespace Deepbound.Networking
                 local.GetComponent<UI.GameHud>().DebugOpenForge();
                 yield return null;
                 yield return Shot(dir, "1b_forge_panel");
+                // The grindstone's and the forge's pages (2026-11-12), a piece in the pack to melt.
+                ap.ServerStow(new GearItem(GearId.ThornhideJerkin, 1, 0));
+                yield return new WaitForSeconds(0.2f);
+                local.GetComponent<UI.GameHud>().DebugOpenForge(1);
+                yield return null;
+                yield return Shot(dir, "1b_forge_grind_tab");
+                local.GetComponent<UI.GameHud>().DebugOpenForge(2);
+                yield return null;
+                yield return Shot(dir, "1b_forge_hearth_tab");
+                local.GetComponent<UI.GameHud>().DebugOpenForge(0);
+                yield return null;
                 // At +5: an edge to choose (three cards), then one forged and +7 open.
                 if (ap.WeaponPath.Value == 0) ap.ChoosePathRpc(1);
                 yield return new WaitForSeconds(0.2f);

@@ -45,7 +45,17 @@ namespace Deepbound.UI
         public static bool InventoryOpen { get; private set; }
 
         /// <summary>Screenshots only: stage the forge panel open.</summary>
-        public void DebugOpenForge() => forgeOpen = true;
+        public void DebugOpenForge(int tab = 0) { forgeOpen = true; forgeTab = (ForgeTab)tab; }
+        public bool DebugForgeOpen => forgeOpen;
+        public int DebugForgeTab => (int)forgeTab;
+        public bool DebugRunesOpen => runeOpen;
+        public Shop.Vendor? DebugShopOpen => shopOpen ? shopVendor : (Shop.Vendor?)null;
+        /// <summary>Tests: F on a camp workstation, as if aimed.</summary>
+        public void DebugUseStation(CampStations.Job j) => UseStation(j);
+
+        /// <summary>The forge panel's three pages: one per part of the smithy (2026-11-12).</summary>
+        public enum ForgeTab { Anvil, Grindstone, Hearth }
+        private ForgeTab forgeTab;
 
         /// <summary>Screenshots only: stage the merchant's panel open.</summary>
         public void DebugCloseMenus() { shopOpen = forgeOpen = invOpen = runeOpen = false; }
@@ -1251,7 +1261,50 @@ namespace Deepbound.UI
         /// <summary>From conversation: open a person's stall panel (closes itself if you walk away from them).</summary>
         private float panelOpenedAt;
         public void OpenStall(Shop.Vendor v) { shopOpen = true; shopVendor = v; forgeOpen = runeOpen = invOpen = false; panelOpenedAt = Time.time; }
-        public void OpenForge() { forgeOpen = true; shopOpen = runeOpen = invOpen = false; panelOpenedAt = Time.time; }
+        public void OpenForge(ForgeTab tab = ForgeTab.Anvil) { forgeOpen = true; forgeTab = tab; shopOpen = runeOpen = invOpen = false; panelOpenedAt = Time.time; }
+
+        /// <summary>
+        /// F on a camp workstation (<see cref="CampStations"/>): the anvil, the grindstone and the forge open the forge panel
+        /// on their own page; Silas's table, Ysolde's rune table and Brann's drill board open their keeper's panel, if the
+        /// keeper is there (and hold them there while it is open).
+        /// </summary>
+        private void UseStation(CampStations.Job j)
+        {
+            if (CampStations.IsSmithy(j))
+            {
+                if (NearAnvil() == null) return;
+                OpenForge(j == CampStations.Job.Grindstone ? ForgeTab.Grindstone : j == CampStations.Job.Hearth ? ForgeTab.Hearth : ForgeTab.Anvil);
+                return;
+            }
+            var v = CampStations.VendorOf(j).Value;
+            var keeper = PlayerProgress.VendorFolk(v);
+            if (!NearVendor(v)) { Feed(Dialogue.NameOf(keeper) + " is away from " + CampStations.Get(j).Noun + " just now.", new Color(0.75f, 0.72f, 0.68f)); return; }
+            Dialogue.HoldFor(keeper);
+            if (v == Shop.Vendor.Runewright) OpenRunes();
+            else OpenStall(v);
+        }
+
+        /// <summary>What a workstation says under the crosshair.</summary>
+        private string StationPrompt(CampStations.Station s)
+        {
+            string key = Binds.Live(Bind.Interact) + "   ";
+            int level = progress.WeaponLevel.Value;
+            switch (s.Job)
+            {
+                case CampStations.Job.Anvil:
+                    return key + "The anvil  -  " + (level >= Anvil.MaxLevel ? "your " + ClassDefinition.WeaponName(progress.ClassId.Value) + " is +" + level + " (hone it at the grindstone)"
+                        : "temper your " + ClassDefinition.WeaponName(progress.ClassId.Value) + " (+" + level + "), choose its path and edges");
+                case CampStations.Job.Grindstone:
+                    return key + "The grindstone  -  hone a +" + Anvil.MaxLevel + " blade, refine the gear you wear";
+                case CampStations.Job.Hearth:
+                    return key + "The forge  -  melt pack gear down for embers" + (progress.BagCount > 0 ? " (" + progress.BagCount + " in your pack)" : "") + ", attune your gear";
+            }
+            var v = CampStations.VendorOf(s.Job).Value;
+            string noun = char.ToUpperInvariant(s.Noun[0]) + s.Noun.Substring(1);
+            if (!NearVendor(v)) return noun + "  -  " + Dialogue.NameOf(PlayerProgress.VendorFolk(v)) + " is away";
+            return key + noun + "  -  " + (s.Job == CampStations.Job.Merchant ? "potions and provisions"
+                : s.Job == CampStations.Job.Runes ? "set and meld runes, sigils, ability ranks" : "drills: a stat for gold");
+        }
         public void OpenRunes() { runeOpen = true; shopOpen = forgeOpen = invOpen = false; panelOpenedAt = Time.time; }
 
         private void Update()
@@ -1269,6 +1322,15 @@ namespace Deepbound.UI
             var stall = StallHere();
             bool near = stall != null;
             var anvil = NearAnvil();
+            // The workstation under the crosshair (camp, 2026-11-12): a person or a thing to pick up only beats it when nearer.
+            CampStations.Station station = null;
+            if (DungeonDirector.InLobby && !life.Downed.Value && !MenuOpen && !Dialogue.Open && Dialogue.Aimed == null)
+            {
+                var sAim = CampStations.Aimed(player.AimOrigin, player.AimForward, out float sDist);
+                var sThing = sAim != null ? Interactable.Nearest(player.AimOrigin, player.AimForward, progress) : null;
+                if (sAim != null && (sThing == null || Vector3.Distance(player.AimOrigin, sThing.transform.position + Vector3.up * 0.6f) > sDist + 0.3f)) station = sAim;
+            }
+            CampStations.LocalAimed = station;
             // G uses whichever station is closer: a stall or the anvil.
             bool anvilFirst = anvil != null && (!near || Vector3.Distance(player.transform.position, anvil.transform.position) <
                 Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value));
@@ -1284,10 +1346,16 @@ namespace Deepbound.UI
             if (panelUp && keyboard != null && Binds.Down(Bind.Interact) && !(merged && PlayerLife.ShiftHeld) && Time.time - panelOpenedAt > 0.2f)
                 shopOpen = forgeOpen = runeOpen = false;
             else if (catFirst) ((CampCat)Interactable.Nearest(player.AimOrigin, player.AimForward, progress)).PickUpRpc(player.NetworkObject);
+            else if (station != null && keyboard != null && Binds.Down(Bind.Interact) && !(merged && PlayerLife.ShiftHeld)) UseStation(station.Job);
             else if (interact && !(merged && PlayerLife.ShiftHeld))
             {
                 if (shopOpen && shopVendor == Shop.Vendor.Smith) { shopOpen = false; forgeOpen = false; }
-                else if (anvilFirst) { forgeOpen = !forgeOpen; shopOpen = false; }
+                else if (anvilFirst)
+                {
+                    if (forgeOpen) forgeOpen = false;
+                    else OpenForge(DungeonDirector.InLobby ? (ForgeTab)CampStations.NearestSmithy(player.transform.position) : ForgeTab.Anvil);
+                    shopOpen = false;
+                }
                 else if (near && stall.Value == Shop.Vendor.Runewright) { runeOpen = !runeOpen; shopOpen = false; forgeOpen = false; }
                 else if (near) { shopOpen = !shopOpen; forgeOpen = false; runeOpen = false; shopVendor = stall.Value; }
             }
@@ -2163,6 +2231,7 @@ namespace Deepbound.UI
             {
                 if (Dialogue.Open || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen) return;
                 if (Dialogue.Aimed != null && !statsHeld) { PromptLine(w, h, "F   Talk to " + Dialogue.Aimed.DisplayName); return; }
+                if (CampStations.LocalAimed != null && !statsHeld && !MenuOpen) { PromptLine(w, h, StationPrompt(CampStations.LocalAimed)); return; }
                 var use = Interactable.Nearest(player.AimOrigin, player.AimForward, progress);
                 if (use != null && !statsHeld) PromptLine(w, h, "F   " + use.Prompt(progress));
                 else if (use == null && !statsHeld && progress.CanUseRope) PromptLine(w, h, "F   Climb the rope back to camp  (the run goes on; this floor starts over)");
@@ -2432,11 +2501,11 @@ namespace Deepbound.UI
             if (NearAnvil() == null || shopOpen) return;
             if (!forgeOpen)
             {
-                if (Dialogue.Aimed != null || Dialogue.Open) return; // looking at Hobb: F talks to him
+                if (Dialogue.Aimed != null || Dialogue.Open || CampStations.LocalAimed != null) return; // looking at Hobb (talk) or at a workstation (its own prompt)
                 var stall = StallHere();
                 if (stall == null || Vector3.Distance(player.transform.position, NearAnvil().transform.position) <
                     Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value))
-                    PromptLine(w, h, DungeonDirector.InLobby ? "Press F to use the anvil (Hobb tempers, refines and scraps; sells plate and gear)" : "Press F to use the anvil");
+                    PromptLine(w, h, DungeonDirector.InLobby ? Binds.Live(Bind.Interact) + "   Work at the smithy  (or look at the anvil, the grindstone or the forge)" : "Press F to use the anvil");
                 return;
             }
 
@@ -2444,143 +2513,209 @@ namespace Deepbound.UI
             int level = progress.WeaponLevel.Value, path = progress.WeaponPath.Value;
             string weapon = ClassDefinition.WeaponName(id);
             const float leftW = 620f;
-            float pw = leftW + 340, ph = 584;
-            float x = w / 2f - pw / 2f, y = h / 2f - ph / 2f;
+            // Three tabs, one per part of the smithy (2026-11-12): at camp each opens from its own object (CampStations).
+            float pw = leftW + 32;
+            float ph = forgeTab == ForgeTab.Anvil ? 556f : forgeTab == ForgeTab.Grindstone ? 300f : 262f + 30f * Mathf.Max(1, progress.BagCount);
+            float x = w / 2f - pw / 2f, y0 = h / 2f - ph / 2f;
             var ember = LootInfo.EmberColor;
-            Rect(x - 3, y - 3, pw + 6, ph + 6, new Color(ember.r, ember.g, ember.b, 0.5f));
-            Rect(x, y, pw, ph, new Color(0.05f, 0.03f, 0.02f, 0.95f));
-            GUI.Label(new Rect(x + 16, y + 12, pw, 24), "THE ANVIL", new GUIStyle(label) { normal = { textColor = ember } });
-            if (Shop.Position(Shop.Vendor.Smith) != null && GUI.Button(new Rect(x + 150, y + 10, 190, 24), "Hobb's wares (buy)"))
+            Rect(x - 3, y0 - 3, pw + 6, ph + 6, new Color(ember.r, ember.g, ember.b, 0.5f));
+            Rect(x, y0, pw, ph, new Color(0.05f, 0.03f, 0.02f, 0.95f));
+            GUI.Label(new Rect(x + 16, y0 + 12, 140, 24), forgeTab == ForgeTab.Anvil ? "THE ANVIL" : forgeTab == ForgeTab.Grindstone ? "THE GRINDSTONE" : "THE FORGE", new GUIStyle(label) { normal = { textColor = ember } });
+            if (Shop.Position(Shop.Vendor.Smith) != null && GUI.Button(new Rect(x + 170, y0 + 10, 170, 24), "Hobb's wares (buy)"))
             { forgeOpen = false; shopOpen = true; shopVendor = Shop.Vendor.Smith; }
-            GUI.Label(new Rect(x + pw - 300, y + 12, 284, 24), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil    " : " sigils    ") + progress.Embers.Value + " embers", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = ember } });
-
-            // Level pips and the temper button.
-            GUI.Label(new Rect(x + 16, y + 44, 200, 24), weapon + " +" + level, new GUIStyle(label) { fontSize = 20 });
-            for (int i = 0; i < Anvil.MaxLevel; i++)
+            GUI.Label(new Rect(x + pw - 300, y0 + 12, 284, 24), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil    " : " sigils    ") + progress.Embers.Value + " embers", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = ember } });
+            string[] tabNames = { "ANVIL  -  temper", "GRINDSTONE  -  hone, refine", "FORGE  -  scrap, attune" };
+            for (int t = 0; t < 3; t++)
             {
-                float px = x + 180 + i * 17 + (i >= 5 ? 6 : 0);
-                Rect(px, y + 50, 13, 14, i < level ? (i >= Anvil.AscendedLevel - 1 ? new Color(1f, 0.85f, 0.45f) : ember) : new Color(ember.r, ember.g, ember.b, 0.18f));
-                // A notch under the levels that bring a choice (path, edges), so the road ahead reads at a glance.
-                int lv = i + 1;
-                if (lv == WeaponPaths.PathLevel || Edges.SlotAt(lv) >= 0)
-                    Rect(px + 3, y + 66, 7, 3, new Color(1f, 0.55f, 0.3f, lv <= level ? 0.95f : 0.5f));
+                var tr = new Rect(x + 16 + t * 208, y0 + 42, 200, 24);
+                bool sel = (int)forgeTab == t;
+                if (sel) Rect(tr.x - 2, tr.y - 2, tr.width + 4, tr.height + 4, ember);
+                if (GUI.Button(tr, tabNames[t]) && !sel) forgeTab = (ForgeTab)t;
             }
-            for (int i = 0; i < Anvil.MaxHones && level >= Anvil.MaxLevel; i++)
-                Rect(x + 180 + Anvil.MaxLevel * 17 + 12 + i * 11, y + 53, 8, 8, i < progress.Hones.Value ? new Color(1f, 0.92f, 0.7f) : new Color(1f, 0.92f, 0.7f, 0.2f));
-            bool honing = level >= Anvil.MaxLevel;
-            string reason = honing ? progress.CannotHoneReason() : progress.CannotTemperReason();
-            int hones = progress.Hones.Value;
-            string next = honing
-                ? (hones >= Anvil.MaxHones ? "Honed to the limit: +" + Mathf.RoundToInt(Anvil.MaxHones * Anvil.HoneDamage * 100f) + "% damage"
-                    : "Hone " + (hones + 1) + "/" + Anvil.MaxHones + ":  +" + Mathf.RoundToInt(Anvil.HoneDamage * 100f) + "% damage (now +" + Mathf.RoundToInt(hones * Anvil.HoneDamage * 100f) + "%)")
-                : "Temper to +" + (level + 1) + ":  +" + ClassDefinition.WeaponAttPerLevel + " ATT, +" + ClassDefinition.WeaponDexPerLevel + " DEX, +5% range" +
-                  (Edges.SlotAt(level + 1) >= 0 ? ", an EDGE" : "") +
-                  (level + 1 == WeaponPaths.MasteryLevel && path != 0 ? ", path mastery" : "") +
-                  (level + 1 == Runes.SocketLevels[2] ? ", a 3rd rune socket" : "") +
-                  (level + 1 == Anvil.AscendedLevel ? ", ASCENDED (+10% dmg)" : "") +
-                  (level + 1 == Anvil.MasterworkLevel ? ", MASTERWORK (+8% crit)" : "");
-            GUI.Label(new Rect(x + 16, y + 80, leftW - 32, 20), UiSkin.Fit(next, new GUIStyle(small) { wordWrap = false }, leftW - 32), new GUIStyle(small) { wordWrap = false });
-            GUI.enabled = reason == null;
-            int goldCost = Anvil.GoldCost(level);
-            if (honing)
-            {
-                if (GUI.Button(new Rect(x + leftW - 216, y + 46, 200, 30), reason ?? ("Hone  (" + Anvil.HoneEmbers(hones) + " embers, " + Anvil.HoneGold(hones) + "g)"))) progress.HoneRpc();
-            }
-            else if (GUI.Button(new Rect(x + leftW - 216, y + 46, 200, 30), reason ?? ("Temper  (" + Anvil.Cost(level) + " embers" + (goldCost > 0 ? ", " + goldCost + "g)" : ")")))) progress.TemperRpc();
-            GUI.enabled = true;
 
-            // The two paths.
-            string head = path != 0 ? "PATH" : level >= WeaponPaths.PathLevel ? "CHOOSE A PATH (once per run)" : "PATHS  -  choose one at +" + WeaponPaths.PathLevel;
-            GUI.Label(new Rect(x + 16, y + 108, pw, 20), head, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
-            for (int p = 1; p <= 2; p++)
+            if (forgeTab == ForgeTab.Anvil)
             {
-                float cx = x + 16 + (p - 1) * ((leftW - 44) / 2f + 12), cw = (leftW - 44) / 2f, cy = y + 132, chh = 182;
-                bool chosen = path == p, locked = path != 0 && !chosen;
-                var border = chosen ? ember : new Color(1f, 1f, 1f, locked ? 0.06f : 0.18f);
-                Rect(cx - 2, cy - 2, cw + 4, chh + 4, border);
-                Rect(cx, cy, cw, chh, new Color(0.08f, 0.06f, 0.05f, 0.95f));
-                float alpha = locked ? 0.4f : 1f;
-                GUI.Label(new Rect(cx + 10, cy + 8, cw - 20, 22), WeaponPaths.Name(id, p).ToUpperInvariant(), new GUIStyle(label) { normal = { textColor = new Color(ember.r, ember.g, ember.b, alpha) } });
-                var wrap = new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.9f, 0.88f, 0.85f, alpha) } };
-                // Stacked by measured height: at fixed spots a three-line mastery ran into the Choose button.
-                float describeH = wrap.CalcHeight(new GUIContent(WeaponPaths.Describe(id, p)), cw - 20);
-                GUI.Label(new Rect(cx + 10, cy + 32, cw - 20, describeH), WeaponPaths.Describe(id, p), wrap);
-                bool mastered = chosen && level >= WeaponPaths.MasteryLevel;
-                float masteryY = cy + 36 + describeH;
-                GUI.Label(new Rect(cx + 10, masteryY, cw - 20, 18), mastered ? "MASTERED" : "Mastery at +" + WeaponPaths.MasteryLevel,
-                    new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(Gold.r, Gold.g, Gold.b, alpha) } });
-                GUI.Label(new Rect(cx + 10, masteryY + 17, cw - 20, 44), WeaponPaths.Mastery(id, p), wrap);
-                if (path == 0)
+                float y = y0 + 30; // the anvil's page sits a row lower than the one-page panel it was
+                // Level pips and the temper button.
+                GUI.Label(new Rect(x + 16, y + 44, 200, 24), weapon + " +" + level, new GUIStyle(label) { fontSize = 20 });
+                for (int i = 0; i < Anvil.MaxLevel; i++)
                 {
-                    GUI.enabled = level >= WeaponPaths.PathLevel;
-                    if (GUI.Button(new Rect(cx + 10, cy + chh - 34, cw - 20, 26), level >= WeaponPaths.PathLevel ? "Choose " + WeaponPaths.Name(id, p) : "Unlocks at +" + WeaponPaths.PathLevel))
-                        progress.ChoosePathRpc((byte)p);
+                    float px = x + 180 + i * 17 + (i >= 5 ? 6 : 0);
+                    Rect(px, y + 50, 13, 14, i < level ? (i >= Anvil.AscendedLevel - 1 ? new Color(1f, 0.85f, 0.45f) : ember) : new Color(ember.r, ember.g, ember.b, 0.18f));
+                    // A notch under the levels that bring a choice (path, edges), so the road ahead reads at a glance.
+                    int lv = i + 1;
+                    if (lv == WeaponPaths.PathLevel || Edges.SlotAt(lv) >= 0)
+                        Rect(px + 3, y + 66, 7, 3, new Color(1f, 0.55f, 0.3f, lv <= level ? 0.95f : 0.5f));
+                }
+                for (int i = 0; i < Anvil.MaxHones && level >= Anvil.MaxLevel; i++)
+                    Rect(x + 180 + Anvil.MaxLevel * 17 + 12 + i * 11, y + 53, 8, 8, i < progress.Hones.Value ? new Color(1f, 0.92f, 0.7f) : new Color(1f, 0.92f, 0.7f, 0.2f));
+                bool honing = level >= Anvil.MaxLevel;
+                string reason = honing ? progress.CannotHoneReason() : progress.CannotTemperReason();
+                int hones = progress.Hones.Value;
+                string next = honing
+                    ? (hones >= Anvil.MaxHones ? "Honed to the limit: +" + Mathf.RoundToInt(Anvil.MaxHones * Anvil.HoneDamage * 100f) + "% damage"
+                        : "Hone " + (hones + 1) + "/" + Anvil.MaxHones + ":  +" + Mathf.RoundToInt(Anvil.HoneDamage * 100f) + "% damage (now +" + Mathf.RoundToInt(hones * Anvil.HoneDamage * 100f) + "%)")
+                    : "Temper to +" + (level + 1) + ":  +" + ClassDefinition.WeaponAttPerLevel + " ATT, +" + ClassDefinition.WeaponDexPerLevel + " DEX, +5% range" +
+                      (Edges.SlotAt(level + 1) >= 0 ? ", an EDGE" : "") +
+                      (level + 1 == WeaponPaths.MasteryLevel && path != 0 ? ", path mastery" : "") +
+                      (level + 1 == Runes.SocketLevels[2] ? ", a 3rd rune socket" : "") +
+                      (level + 1 == Anvil.AscendedLevel ? ", ASCENDED (+10% dmg)" : "") +
+                      (level + 1 == Anvil.MasterworkLevel ? ", MASTERWORK (+8% crit)" : "");
+                GUI.Label(new Rect(x + 16, y + 80, leftW - 32, 20), UiSkin.Fit(next, new GUIStyle(small) { wordWrap = false }, leftW - 32), new GUIStyle(small) { wordWrap = false });
+                int goldCost = Anvil.GoldCost(level);
+                if (honing)
+                {
+                    // A +10 blade is honed at the grindstone (2026-11-12): the button takes you there.
+                    if (GUI.Button(new Rect(x + leftW - 216, y + 46, 200, 30), "Hone it at the grindstone")) forgeTab = ForgeTab.Grindstone;
+                }
+                else
+                {
+                    GUI.enabled = reason == null;
+                    if (GUI.Button(new Rect(x + leftW - 216, y + 46, 200, 30), reason ?? ("Temper  (" + Anvil.Cost(level) + " embers" + (goldCost > 0 ? ", " + goldCost + "g)" : ")")))) progress.TemperRpc();
                     GUI.enabled = true;
+                }
+
+                // The two paths.
+                string head = path != 0 ? "PATH" : level >= WeaponPaths.PathLevel ? "CHOOSE A PATH (once per run)" : "PATHS  -  choose one at +" + WeaponPaths.PathLevel;
+                GUI.Label(new Rect(x + 16, y + 108, leftW, 20), head, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+                for (int p = 1; p <= 2; p++)
+                {
+                    float cx = x + 16 + (p - 1) * ((leftW - 44) / 2f + 12), cw = (leftW - 44) / 2f, cy = y + 132, chh = 182;
+                    bool chosen = path == p, locked = path != 0 && !chosen;
+                    var border = chosen ? ember : new Color(1f, 1f, 1f, locked ? 0.06f : 0.18f);
+                    Rect(cx - 2, cy - 2, cw + 4, chh + 4, border);
+                    Rect(cx, cy, cw, chh, new Color(0.08f, 0.06f, 0.05f, 0.95f));
+                    float alpha = locked ? 0.4f : 1f;
+                    GUI.Label(new Rect(cx + 10, cy + 8, cw - 20, 22), WeaponPaths.Name(id, p).ToUpperInvariant(), new GUIStyle(label) { normal = { textColor = new Color(ember.r, ember.g, ember.b, alpha) } });
+                    var wrap = new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.9f, 0.88f, 0.85f, alpha) } };
+                    // Stacked by measured height: at fixed spots a three-line mastery ran into the Choose button.
+                    float describeH = wrap.CalcHeight(new GUIContent(WeaponPaths.Describe(id, p)), cw - 20);
+                    GUI.Label(new Rect(cx + 10, cy + 32, cw - 20, describeH), WeaponPaths.Describe(id, p), wrap);
+                    bool mastered = chosen && level >= WeaponPaths.MasteryLevel;
+                    float masteryY = cy + 36 + describeH;
+                    GUI.Label(new Rect(cx + 10, masteryY, cw - 20, 18), mastered ? "MASTERED" : "Mastery at +" + WeaponPaths.MasteryLevel,
+                        new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(Gold.r, Gold.g, Gold.b, alpha) } });
+                    GUI.Label(new Rect(cx + 10, masteryY + 17, cw - 20, 44), WeaponPaths.Mastery(id, p), wrap);
+                    if (path == 0)
+                    {
+                        GUI.enabled = level >= WeaponPaths.PathLevel;
+                        if (GUI.Button(new Rect(cx + 10, cy + chh - 34, cw - 20, 26), level >= WeaponPaths.PathLevel ? "Choose " + WeaponPaths.Name(id, p) : "Unlocks at +" + WeaponPaths.PathLevel))
+                            progress.ChoosePathRpc((byte)p);
+                        GUI.enabled = true;
+                    }
+                }
+
+                // Edges: at +5, +7 and +9 one of three is forged in (all three slots shown, so the road is plain).
+                int openEdge = progress.OpenEdgeSlot;
+                float ey = y + 326;
+                GUI.Label(new Rect(x + 16, ey, leftW - 32, 20), openEdge >= 0 ? "FORGE AN EDGE  (+" + Edges.Levels[openEdge] + ")  -  choose one; tempering waits"
+                    : "EDGES  -  at +" + Edges.Levels[0] + ", +" + Edges.Levels[1] + " and +" + Edges.Levels[2] + " forge one of three into the weapon",
+                    new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = openEdge >= 0 ? new Color(1f, 0.6f, 0.35f) : Gold } });
+                var offer = openEdge >= 0 ? progress.EdgeOffer(openEdge) : null;
+                if (offer != null && openEdge > 0)
+                {
+                    string forged = "";
+                    for (int s = 0; s < openEdge; s++) forged += (s > 0 ? ", " : "") + Edges.Name(progress.EdgeAt(s));
+                    GUI.Label(new Rect(x + 16, ey, leftW - 32, 20), "forged: " + forged, new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 0.85f, 0.7f, 0.8f) } });
+                }
+                float ecw = (leftW - 32 - 20) / 3f, ech = 108;
+                for (int i = 0; i < 3; i++)
+                {
+                    float ecx = x + 16 + i * (ecw + 10), ecy = ey + 22;
+                    var e = offer != null ? offer[i] : progress.EdgeAt(i);
+                    bool empty = e == Edge.None;
+                    var ec = empty ? new Color(1f, 1f, 1f, 0.12f) : Edges.Color(e);
+                    Rect(ecx - 2, ecy - 2, ecw + 4, ech + 4, offer != null ? new Color(ec.r, ec.g, ec.b, 0.75f) : new Color(ec.r, ec.g, ec.b, empty ? 0.18f : 0.45f));
+                    Rect(ecx, ecy, ecw, ech, new Color(0.08f, 0.06f, 0.05f, 0.97f));
+                    GUI.Label(new Rect(ecx + 8, ecy + 6, ecw - 16, 20), empty ? "+" + Edges.Levels[i] + "  -  not yet" : Edges.Name(e).ToUpperInvariant(),
+                        new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = false, normal = { textColor = empty ? new Color(1f, 1f, 1f, 0.4f) : UiSkin.Readable(ec) } });
+                    GUI.Label(new Rect(ecx + 8, ecy + 26, ecw - 16, 50), empty ? "Temper to +" + Edges.Levels[i] + " to choose." : Edges.Describe(e),
+                        new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.9f, 0.88f, 0.85f, empty ? 0.5f : 1f) } });
+                    if (offer != null && !empty && GUI.Button(new Rect(ecx + 8, ecy + ech - 30, ecw - 16, 24), "Forge " + Edges.Name(e))) progress.ChooseEdgeRpc((byte)e);
                 }
             }
 
-            // Edges: at +5, +7 and +9 one of three is forged in (all three slots shown, so the road is plain).
-            int openEdge = progress.OpenEdgeSlot;
-            float ey = y + 326;
-            GUI.Label(new Rect(x + 16, ey, leftW - 32, 20), openEdge >= 0 ? "FORGE AN EDGE  (+" + Edges.Levels[openEdge] + ")  -  choose one; tempering waits"
-                : "EDGES  -  at +" + Edges.Levels[0] + ", +" + Edges.Levels[1] + " and +" + Edges.Levels[2] + " forge one of three into the weapon",
-                new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = openEdge >= 0 ? new Color(1f, 0.6f, 0.35f) : Gold } });
-            var offer = openEdge >= 0 ? progress.EdgeOffer(openEdge) : null;
-            if (offer != null && openEdge > 0)
-            {
-                string forged = "";
-                for (int s = 0; s < openEdge; s++) forged += (s > 0 ? ", " : "") + Edges.Name(progress.EdgeAt(s));
-                GUI.Label(new Rect(x + 16, ey, leftW - 32, 20), "forged: " + forged, new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 0.85f, 0.7f, 0.8f) } });
-            }
-            float ecw = (leftW - 32 - 20) / 3f, ech = 108;
-            for (int i = 0; i < 3; i++)
-            {
-                float ecx = x + 16 + i * (ecw + 10), ecy = ey + 22;
-                var e = offer != null ? offer[i] : progress.EdgeAt(i);
-                bool empty = e == Edge.None;
-                var ec = empty ? new Color(1f, 1f, 1f, 0.12f) : Edges.Color(e);
-                Rect(ecx - 2, ecy - 2, ecw + 4, ech + 4, offer != null ? new Color(ec.r, ec.g, ec.b, 0.75f) : new Color(ec.r, ec.g, ec.b, empty ? 0.18f : 0.45f));
-                Rect(ecx, ecy, ecw, ech, new Color(0.08f, 0.06f, 0.05f, 0.97f));
-                GUI.Label(new Rect(ecx + 8, ecy + 6, ecw - 16, 20), empty ? "+" + Edges.Levels[i] + "  -  not yet" : Edges.Name(e).ToUpperInvariant(),
-                    new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = false, normal = { textColor = empty ? new Color(1f, 1f, 1f, 0.4f) : UiSkin.Readable(ec) } });
-                GUI.Label(new Rect(ecx + 8, ecy + 26, ecw - 16, 50), empty ? "Temper to +" + Edges.Levels[i] + " to choose." : Edges.Describe(e),
-                    new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.9f, 0.88f, 0.85f, empty ? 0.5f : 1f) } });
-                if (offer != null && !empty && GUI.Button(new Rect(ecx + 8, ecy + ech - 30, ecw - 16, 24), "Forge " + Edges.Name(e))) progress.ChooseEdgeRpc((byte)e);
-            }
+            // The forge's other two tabs, then the foot of the panel.
+            if (forgeTab == ForgeTab.Grindstone) DrawGrindTab(x, y0 + 74, pw, weapon);
+            else if (forgeTab == ForgeTab.Hearth) DrawHearthTab(x, y0 + 74, pw, ember);
+            else GUI.Label(new Rect(x + 16, y0 + ph - 50, pw - 32, 20), "Runes, sigils and ability ranks are Ysolde's work: find her at the standing stones.", new GUIStyle(small) { wordWrap = false, normal = { textColor = new Color(0.6f, 0.85f, 1f) } });
+            GUI.Label(new Rect(x + pw - 216, y0 + ph - 26, 200, 20), "F or Esc to close", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(0.6f, 0.58f, 0.55f) } });
+            if (!string.IsNullOrEmpty(GUI.tooltip)) GUI.Label(new Rect(x + 16, y0 + ph - 26, pw - 250, 20), GUI.tooltip, new GUIStyle(small) { normal = { textColor = Gold } });
+        }
 
-            // Under the edges: refine or attune the gear you are wearing, so a favourite keeps up.
-            GUI.Label(new Rect(x + 16, y + 464, leftW - 32, 20), "GEAR  -  refine quality, or attune it to this floor", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
-            int floorDepth = DungeonDirector.GearDepth;
-            foreach (var gslot in new[] { GearSlot.Armor, GearSlot.Charm })
+        /// <summary>The grindstone's tab: hone a +10 blade, refine the gear you wear up a quality.</summary>
+        private void DrawGrindTab(float x, float top, float pw, string weapon)
+        {
+            var bold = new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } };
+            int level = progress.WeaponLevel.Value, hones = progress.Hones.Value;
+            float cy = top;
+            GUI.Label(new Rect(x + 16, cy, pw - 32, 20), "HONE  -  a +" + Anvil.MaxLevel + " blade takes " + Anvil.MaxHones + " hones, +" + Mathf.RoundToInt(Anvil.HoneDamage * 100f) + "% damage each", bold);
+            cy += 26;
+            if (level < Anvil.MaxLevel)
+                GUI.Label(new Rect(x + 16, cy + 4, pw - 32, 20), weapon + " +" + level + ": temper it to +" + Anvil.MaxLevel + " at the anvil before it takes a hone.", small);
+            else
             {
-                float gy = y + 486 + (int)gslot * 34;
-                var g = progress.Equipped(gslot);
-                GUI.Label(new Rect(x + 16, gy + 4, 250, 20), g.IsEmpty ? gslot + ": nothing worn" : Gear.Name(g) + "  (floor " + (g.Depth + 1) + ")",
-                    new GUIStyle(small) { normal = { textColor = g.IsEmpty ? new Color(1f, 1f, 1f, 0.4f) : Gear.QualityColor(g.Quality) } });
-                if (g.IsEmpty) continue;
-                int refine = Gear.RefineCost(g), attune = Gear.AttuneCost(g, floorDepth);
-                GUI.enabled = refine > 0 && progress.Embers.Value >= refine;
-                if (GUI.Button(new Rect(x + 270, gy, 160, 26), refine > 0 ? "Refine  (" + refine + ")" : "Fully refined")) progress.ReforgeRpc((byte)gslot, 0);
-                GUI.enabled = attune > 0 && progress.Embers.Value >= attune;
-                if (GUI.Button(new Rect(x + 440, gy, 160, 26), attune > 0 ? "Attune  (" + attune + ")" : "Attuned")) progress.ReforgeRpc((byte)gslot, 1);
+                for (int i = 0; i < Anvil.MaxHones; i++)
+                    Rect(x + 16 + i * 14, cy + 9, 10, 10, i < hones ? new Color(1f, 0.92f, 0.7f) : new Color(1f, 0.92f, 0.7f, 0.2f));
+                string next = hones >= Anvil.MaxHones ? "Honed to the limit: +" + Mathf.RoundToInt(Anvil.MaxHones * Anvil.HoneDamage * 100f) + "% damage"
+                    : "Hone " + (hones + 1) + "/" + Anvil.MaxHones + ":  +" + Mathf.RoundToInt(Anvil.HoneDamage * 100f) + "% damage (now +" + Mathf.RoundToInt(hones * Anvil.HoneDamage * 100f) + "%)";
+                GUI.Label(new Rect(x + 30 + Anvil.MaxHones * 14, cy + 4, pw - 290, 20), next, small);
+                string reason = progress.CannotHoneReason();
+                GUI.enabled = reason == null;
+                if (GUI.Button(new Rect(x + pw - 216, cy, 200, 28), reason ?? ("Hone  (" + Anvil.HoneEmbers(hones) + " embers, " + Anvil.HoneGold(hones) + "g)"))) progress.HoneRpc();
                 GUI.enabled = true;
             }
+            cy += 52;
+            GUI.Label(new Rect(x + 16, cy, pw - 32, 20), "REFINE  -  grind the gear you wear up a quality", bold);
+            cy += 26;
+            foreach (var gslot in new[] { GearSlot.Armor, GearSlot.Charm })
+            {
+                var g = progress.Equipped(gslot);
+                GUI.Label(new Rect(x + 16, cy + 4, pw - 250, 20), g.IsEmpty ? gslot + ": nothing worn" : Gear.Name(g),
+                    new GUIStyle(small) { normal = { textColor = g.IsEmpty ? new Color(1f, 1f, 1f, 0.4f) : Gear.QualityColor(g.Quality) } });
+                if (!g.IsEmpty)
+                {
+                    int refine = Gear.RefineCost(g);
+                    GUI.enabled = refine > 0 && progress.Embers.Value >= refine;
+                    if (GUI.Button(new Rect(x + pw - 216, cy, 200, 26), refine > 0 ? "Refine  (" + refine + " embers)" : "Fully refined")) progress.ReforgeRpc((byte)gslot, 0);
+                    GUI.enabled = true;
+                }
+                cy += 34;
+            }
+        }
 
-            // Right column: Hobb's scrap bench. What you are carrying, broken down for embers.
-            float rx = x + leftW + 4, rw = pw - leftW - 20;
-            Rect(rx - 10, y + 40, 1, ph - 56, new Color(1f, 1f, 1f, 0.08f));
-            float ay = y + 44;
-            GUI.Label(new Rect(rx, ay, rw, 20), "SCRAP  -  break down pack gear for embers", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = ember } });
-            if (progress.BagCount == 0) GUI.Label(new Rect(rx, ay + 24, rw, 40), "Nothing in your pack. Gear you pick up goes there (I to look).", new GUIStyle(small) { wordWrap = true });
+        /// <summary>The forge's tab: attune the gear you wear to the next floor, melt pack gear down for embers.</summary>
+        private void DrawHearthTab(float x, float top, float pw, Color ember)
+        {
+            int floorDepth = DungeonDirector.GearDepth;
+            float cy = top;
+            GUI.Label(new Rect(x + 16, cy, pw - 32, 20), "ATTUNE  -  rework the gear you wear to floor " + (floorDepth + 1) + "'s depth", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            cy += 26;
+            foreach (var gslot in new[] { GearSlot.Armor, GearSlot.Charm })
+            {
+                var g = progress.Equipped(gslot);
+                GUI.Label(new Rect(x + 16, cy + 4, pw - 250, 20), g.IsEmpty ? gslot + ": nothing worn" : Gear.Name(g) + "  (floor " + (g.Depth + 1) + ")",
+                    new GUIStyle(small) { normal = { textColor = g.IsEmpty ? new Color(1f, 1f, 1f, 0.4f) : Gear.QualityColor(g.Quality) } });
+                if (!g.IsEmpty)
+                {
+                    int attune = Gear.AttuneCost(g, floorDepth);
+                    GUI.enabled = attune > 0 && progress.Embers.Value >= attune;
+                    if (GUI.Button(new Rect(x + pw - 216, cy, 200, 26), attune > 0 ? "Attune  (" + attune + " embers)" : "Attuned")) progress.ReforgeRpc((byte)gslot, 1);
+                    GUI.enabled = true;
+                }
+                cy += 34;
+            }
+            cy += 12;
+            GUI.Label(new Rect(x + 16, cy, pw - 32, 20), "SCRAP  -  melt pack gear down for embers", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = ember } });
+            cy += 26;
+            if (progress.BagCount == 0) GUI.Label(new Rect(x + 16, cy + 4, pw - 32, 20), "Nothing in your pack. Gear you pick up goes there (I to look).", small);
             for (int i = 0; i < progress.BagCount; i++)
             {
                 var item = progress.BagItem(i);
-                float ry2 = ay + 24 + i * 30;
-                GUI.Label(new Rect(rx, ry2 + 4, rw - 112, 20), Gear.Name(item), new GUIStyle(small) { normal = { textColor = Gear.QualityColor(item.Quality) } });
-                if (GUI.Button(new Rect(rx + rw - 108, ry2, 108, 24), "Scrap  +" + Gear.ScrapValue(item))) progress.BagScrapRpc(i);
+                GUI.Label(new Rect(x + 16, cy + 4, pw - 250, 20), Gear.Name(item), new GUIStyle(small) { normal = { textColor = Gear.QualityColor(item.Quality) } });
+                if (GUI.Button(new Rect(x + pw - 216, cy, 200, 24), "Scrap  +" + Gear.ScrapValue(item) + " embers")) progress.BagScrapRpc(i);
+                cy += 30;
             }
-            GUI.Label(new Rect(rx, y + ph - 70, rw, 40), "Runes, sigils and ability ranks are Ysolde's work: find her at the standing stones.", new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.6f, 0.85f, 1f) } });
-            if (!string.IsNullOrEmpty(GUI.tooltip)) GUI.Label(new Rect(x + 16, y + ph - 26, pw - 32, 20), GUI.tooltip, new GUIStyle(small) { normal = { textColor = Gold } });
         }
 
         // ---- Ysolde the runewright (G at the standing stones): ability ranks, runes, melding ----

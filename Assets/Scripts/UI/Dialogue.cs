@@ -95,6 +95,9 @@ namespace Deepbound.UI
 
         private GameHud Hud => GetComponent<GameHud>();
 
+        /// <summary>Keep <paramref name="w"/> at their place while the local player uses their station (released with the panel).</summary>
+        public static void HoldFor(FolkId w) { if (local != null) local.Hold(w); }
+
         private void Hold(FolkId w)
         {
             if (holding == w) return;
@@ -115,6 +118,11 @@ namespace Deepbound.UI
             if (player == null || !player.IsOwner) return;
             bool can = DungeonDirector.InLobby && life != null && !life.Downed.Value;
             Aimed = can && !Open && !OtherPanelOpen && !GameHud.MenuOpen ? FindAimed() : null;
+            // A workstation the crosshair actually enters, nearer than the person, comes first (2026-11-12): Hobb stands
+            // right behind his anvil, Silas behind his table; looking up at their faces still talks to them.
+            if (Aimed != null && World.CampStations.Aimed(player.AimOrigin, player.AimForward, out float sd) != null
+                && sd < Vector3.Distance(player.AimOrigin, Vector3.Lerp(Aimed.transform.position, Aimed.HeadTop, 0.65f)))
+                Aimed = null;
             // Held through the talk AND the stall / wardrobe / runes it opened; let go once every panel is shut.
             if (holding != null && !Open && !GameHud.MenuOpen && !Wardrobe.Open) Release();
             if (!Open) return;

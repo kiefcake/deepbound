@@ -351,7 +351,7 @@ namespace Deepbound.Progression
         public void HoneRpc()
         {
             var anvil = World.Anvil.Near(transform.position);
-            if (anvil != null && ServerHone()) anvil.ForgeFxRpc(WeaponLevel.Value + Hones.Value);
+            if (anvil != null && ServerHone()) anvil.WorkFxRpc(World.Anvil.Work.Grindstone, 1f); // the grindstone's work (2026-11-12)
         }
 
         public bool ServerHone()
@@ -441,6 +441,8 @@ namespace Deepbound.Progression
             ServerAddEmbers(Gear.ScrapValue(item));
             ServerAddPart(Part.Iron, 1 + item.Quality);
             PackFxRpc(0);
+            var smithy = World.Anvil.Near(transform.position);
+            if (smithy != null) smithy.WorkFxRpc(World.Anvil.Work.Hearth, 1f); // melted down in the forge (2026-11-12)
         }
 
         /// <summary>Owner → server: set a piece down on the floor (yours alone to see, as ever).</summary>
@@ -516,7 +518,8 @@ namespace Deepbound.Progression
             Embers.Value -= cost;
             var better = mode == 0 ? new GearItem(item.Kind, item.Quality + 1, item.Depth) : new GearItem(item.Kind, item.Quality, depth);
             ServerEquip(better);
-            anvil.ForgeFxRpc(3);
+            // Refining is the grindstone's work, attuning the forge's (2026-11-12).
+            anvil.WorkFxRpc(mode == 0 ? World.Anvil.Work.Grindstone : World.Anvil.Work.Hearth, 0.7f);
         }
 
         /// <summary>Server: a dodge readies the Gravecloth Mantle's strike.</summary>
