@@ -1644,6 +1644,8 @@ namespace Deepbound.UI
             var outline = new Color(0f, 0f, 0f, 0.55f);
             var crossColor = Settings.CrosshairColor;
             var tick = new Color(crossColor.r, crossColor.g, crossColor.b, 0.6f);
+            // A Rogue facing an enemy's back: the crosshair turns violet (Ambush is on).
+            if (player.ActiveKit is RogueKit rogueKit && rogueKit.LocalBehind) { crossColor = new Color(0.8f, 0.55f, 1f); tick = new Color(0.8f, 0.55f, 1f, 0.95f); }
             // Its size setting: everything below scales around the centre.
             var crossKeep = GUI.matrix;
             float crossScale = Settings.CrosshairSize;

@@ -26,6 +26,8 @@ namespace Deepbound.Networking
     public class SmokeTest : MonoBehaviour
     {
         /// <summary>Tests and shots: urns on the Scales whose weights sum to the counterweight (smallest such set), or none.</summary>
+        private static Vector3 Flat3(Vector3 v) { v.y = 0f; return v; }
+
         private static System.Collections.Generic.List<ScaleWeight> ScaleAnswer(System.Collections.Generic.List<ScaleWeight> urns, int target)
         {
             var best = new System.Collections.Generic.List<ScaleWeight>();
@@ -266,6 +268,36 @@ namespace Deepbound.Networking
                 float opener = dBefore - dummy.Current.Value;
                 Log("rogue ambush", "hidden " + wasHidden + " -> " + me.GetComponent<PlayerLife>().Hidden.Value + ", opener stab dealt " + opener.ToString("F0") + " (plain ~13)",
                     wasHidden && !me.GetComponent<PlayerLife>().Hidden.Value && opener > 30f);
+                // The Duelist's flourish (2026-11-09): every 5th stab in a row on one foe hits x2.5. And Shadowstep with
+                // nobody under the crosshair dashes the way you look.
+                {
+                    byte path0 = progressMe.WeaponPath.Value; int lvl0 = progressMe.WeaponLevel.Value;
+                    progressMe.WeaponLevel.Value = 2; progressMe.WeaponPath.Value = 2;
+                    dummy.ServerSetFraction(1f);
+                    var front = dummy.transform.position + dummy.transform.forward * 1.3f;
+                    me.GetComponent<FirstPersonMotor>().Teleport(front, Quaternion.LookRotation(-dummy.transform.forward));
+                    yield return new WaitForSeconds(0.3f);
+                    int fl0 = rogue.Flourishes;
+                    var stabs = new System.Collections.Generic.List<float>();
+                    for (int i = 0; i < RogueKit.FlourishEvery; i++)
+                    {
+                        float b = dummy.Current.Value;
+                        rogue.ServerStab(me.transform.position + Vector3.up * 1.5f, -dummy.transform.forward);
+                        stabs.Add(b - dummy.Current.Value);
+                        yield return new WaitForSeconds(0.3f);
+                    }
+                    bool flourished = rogue.Flourishes == fl0 + 1 && stabs[stabs.Count - 1] > stabs[0] * 2f;
+                    progressMe.WeaponPath.Value = path0; progressMe.WeaponLevel.Value = lvl0;
+                    // The dash: face away from the dummy into the open yard.
+                    var start = me.transform.position;
+                    me.GetComponent<FirstPersonMotor>().Teleport(start, Quaternion.LookRotation(dummy.transform.forward));
+                    yield return new WaitForSeconds(0.2f);
+                    start = me.transform.position;
+                    bool dashed = rogue.DebugDash();
+                    float moved = Vector3.Distance(Flat3(start), Flat3(me.transform.position));
+                    Log("rogue duelist and dash", "stabs " + string.Join(", ", stabs.Select(x => x.ToString("F0"))) + ", flourish " + flourished + "; dash " + dashed + " moved " + moved.ToString("F1") + " m",
+                        flourished && dashed && moved > 1.5f && moved <= RogueKit.DashRange + 0.6f);
+                }
 
                 // Ranger: three full draws mark the dummy; a trap set on it springs.
                 progressMe.ClassId.Value = Classes.ClassId.Ranger;

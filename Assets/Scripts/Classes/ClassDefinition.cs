@@ -121,10 +121,10 @@ namespace Deepbound.Classes
             : id == ClassId.Rogue
             ? new[]
             {
-                ("PASSIVE", "Ambush", "Hits from behind deal a further +50% (+30% on bosses)."),
+                ("PASSIVE", "Ambush", "Hits from behind deal a further +50% (+30% on bosses). Your crosshair turns violet when the foe in reach has its back to you."),
                 ("LMB", "Twin Daggers", "Very fast, short stabs, one target at a time."),
                 ("RMB", "Fan of Knives", "Throw three knives in a narrow spread."),
-                ("Q", "Shadowstep", "Reappear behind the enemy under your crosshair."),
+                ("Q", "Shadowstep", "Reappear behind the enemy under your crosshair. No enemy there: dash a few metres the way you look (half the cooldown)."),
                 ("E", "Smoke Bomb", "Vanish: enemies lose you. Your first strike from the smoke deals double and stuns."),
             }
             : id == ClassId.Cleric

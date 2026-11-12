@@ -18,7 +18,8 @@ namespace Deepbound.Player
     /// <item><b>LMB — Twin Daggers.</b> Very fast, very short stabs, alternating hands.</item>
     /// <item><b>RMB — Fan of Knives.</b> Three thrown knives in a narrow spread.</item>
     /// <item><b>Q — Shadowstep.</b> Vanish and reappear behind the enemy under your crosshair,
-    ///   facing its back.</item>
+    ///   facing its back. With no enemy there, a SHADOW DASH a few metres the way you look (half the
+    ///   cooldown): the Rogue's way out.</item>
     /// <item><b>E — Smoke Bomb.</b> Disappear for seven seconds: every enemy loses you, you move
     ///   faster, and your first strike out of the smoke deals double damage and stuns.</item>
     /// </list>
@@ -37,6 +38,20 @@ namespace Deepbound.Player
         public const float AmbushMultiplier = 1.5f, OpenerMultiplier = 2f, OpenerStun = 1.2f;
         public const float BossAmbushMultiplier = 1.3f, BossAssassinMultiplier = 1.6f;
         public const float EnergyMax = 100f, EnergyRegen = 22f;
+        /// <summary>Shadowstep with no target (2026-11-09): a dash this far along the flat aim, for this share of the cooldown.</summary>
+        public const float DashRange = 7f, DashCooldownShare = 0.5f;
+        /// <summary>
+        /// Duelist (path 2, 2026-11-09): stabs on the same enemy without a pause longer than <see cref="FlourishGap"/> count up;
+        /// every <see cref="FlourishEvery"/>th (<see cref="FlourishEveryMastered"/>th once mastered) is a FLOURISH: x<see cref="FlourishDamage"/>
+        /// and a <see cref="FlourishStun"/> s stagger. The path used to be +25% from the front and two targets, nothing to play for.
+        /// </summary>
+        public const int FlourishEvery = 5, FlourishEveryMastered = 4;
+        public const float FlourishDamage = 2.5f, FlourishStun = 0.5f, FlourishGap = 1.2f;
+        /// <summary>Owner: the enemy in reach under the crosshair has its back to you (the crosshair turns violet).</summary>
+        public bool LocalBehind { get; private set; }
+        private float nextBehindCheck;
+        /// <summary>Tests (owner = host): Shadowstep's dash with no target.</summary>
+        public bool DebugDash() => TryShadowDash();
 
         private Health health;
         private PlayerLife life;
@@ -52,6 +67,12 @@ namespace Deepbound.Player
         public const float SmokeCloudRadius = 3.5f;
         private float side = 1f;
         private float lastServerStab;
+        // Server: the Duelist's run of stabs on one enemy.
+        private ulong flourishTarget;
+        private int flourishCount;
+        private float flourishLast;
+        /// <summary>Server, tests: flourishes struck.</summary>
+        public int Flourishes { get; private set; }
 
         // Server: when the smoke ends, and whether the next hit is the opener.
         private float hiddenUntil;
@@ -115,6 +136,7 @@ namespace Deepbound.Player
             motor.SpeedMultiplier = progress.SpeedMultiplier * (life.Hidden.Value ? 1.3f : 1f);
             motor.CanSprint = true;
 
+            if (Time.time >= nextBehindCheck) { nextBehindCheck = Time.time + 0.1f; LocalBehind = life.CanAct && FacingABack(); }
             if (!life.CanAct || !motor.ActionsReady) return;
             var mouse = Mouse.current;
             var keyboard = Keyboard.current;
@@ -140,9 +162,10 @@ namespace Deepbound.Player
             }
 
             // --- Q: Shadowstep ---
-            if (UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= stepReadyAt && TryShadowstep())
+            if (UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= stepReadyAt)
             {
-                stepReadyAt = Time.time + StepCooldown * progress.CooldownFor(AbilitySlot.Q);
+                if (TryShadowstep()) stepReadyAt = Time.time + StepCooldown * progress.CooldownFor(AbilitySlot.Q);
+                else if (TryShadowDash()) stepReadyAt = Time.time + StepCooldown * DashCooldownShare * progress.CooldownFor(AbilitySlot.Q);
             }
 
             // --- E: Smoke Bomb ---
@@ -186,6 +209,41 @@ namespace Deepbound.Player
             StepFxRpc(from, transform.position);
             if (progress.Twist(AbilitySlot.Q)) ArmStepOpenerRpc();
             return true;
+        }
+
+        /// <summary>
+        /// No enemy under the crosshair: dash up to <see cref="DashRange"/> m along the flat aim, stopping short of walls and
+        /// only onto floor. False if there is no room to go.
+        /// </summary>
+        private bool TryShadowDash()
+        {
+            var flat = player.AimForward; flat.y = 0f;
+            if (flat.sqrMagnitude < 0.01f) return false;
+            flat.Normalize();
+            var chest = transform.position + Vector3.up * 1.0f;
+            float dist = DashRange * progress.Potency(AbilitySlot.Q);
+            if (Physics.SphereCast(chest, 0.3f, flat, out var wall, dist, ~0, QueryTriggerInteraction.Ignore)) dist = wall.distance - 0.4f;
+            if (dist < 1.5f) return false;
+            var spot = chest + flat * dist;
+            if (!Physics.Raycast(spot + Vector3.up * 0.8f, Vector3.down, out var floor, 3.5f, ~0, QueryTriggerInteraction.Ignore)) return false;
+            if (Mathf.Abs(floor.point.y - transform.position.y) > 1.6f) return false; // not off a ledge, not up onto a wall top
+            var from = transform.position;
+            motor.Teleport(floor.point + Vector3.up * 0.05f, Quaternion.LookRotation(flat));
+            StepFxRpc(from, transform.position);
+            return true;
+        }
+
+        /// <summary>Owner: is the enemy under the crosshair, within reach, turned away from us?</summary>
+        private bool FacingABack()
+        {
+            float reach = Reach * 1.4f;
+            foreach (var h in CombatQuery.Arc(player.AimOrigin, player.AimForward, reach, 30f, Team.Enemies))
+            {
+                if (h == null || !h.IsAlive) continue;
+                var toMe = transform.position - h.transform.position; toMe.y = 0f;
+                return toMe.sqrMagnitude > 0.01f && Vector3.Angle(h.transform.forward, toMe) > 115f;
+            }
+            return false;
         }
 
         // ==================================================================
@@ -246,16 +304,44 @@ namespace Deepbound.Player
             foreach (var target in CombatQuery.Arc(origin, forward, Reach, StabArc, Team.Enemies).ToArray())
             {
                 float m = Multiplier(target, out bool opener);
+                bool flourish = hits == 0 && progress.OnPath(2) && CountFlourish(target);
+                if (flourish) m *= FlourishDamage;
                 var zone = HitZones.Aimed(target, origin, forward, Reach, out var zonePoint);
                 m *= HitZones.Multiplier(target, zone, false);
                 target.Tag("Stab").ServerDamage(StabDamage * m, transform.position, NetworkObjectId);
                 if (zone != HitZone.Body) Arrows.ReportZone(NetworkObjectId, zonePoint, zone);
                 AfterHit(target, opener);
+                if (flourish)
+                {
+                    Flourishes++;
+                    if (target.IsAlive && target.TryGetComponent<ICrowdControl>(out var fcc)) fcc.ServerStun(FlourishStun);
+                    FlourishFxRpc(target.Center);
+                }
                 if (++hits >= maxHits) break;
             }
             bool hitAny = hits > 0;
             if (life.Hidden.Value) EndHidden();
             StabFxRpc(hitAny);
+        }
+
+        /// <summary>Server: one more stab in the Duelist's run on this enemy; true when it is the flourish.</summary>
+        private bool CountFlourish(Health target)
+        {
+            if (target.NetworkObjectId != flourishTarget || Time.time - flourishLast > FlourishGap) { flourishTarget = target.NetworkObjectId; flourishCount = 0; }
+            flourishLast = Time.time;
+            flourishCount++;
+            int every = progress.Mastered(2) ? FlourishEveryMastered : FlourishEvery;
+            if (flourishCount < every) return false;
+            flourishCount = 0;
+            return true;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void FlourishFxRpc(Vector3 at)
+        {
+            Sfx.Play(Sound.Block, at, 0.8f, 1.9f);
+            Vfx.Flash(at, new Color(1f, 0.85f, 0.5f), 3f, 3f, 0.2f);
+            if (IsOwner) UI.GameHud.ShowCombo(at + Vector3.up * 0.5f, "FLOURISH", new Color(1f, 0.85f, 0.5f));
         }
 
         [Rpc(SendTo.Server)]
@@ -277,7 +363,7 @@ namespace Deepbound.Player
                 }, false, FanRange * RangeMul);
             }
             if (life.Hidden.Value) EndHidden();
-            FanFxRpc(origin, direction);
+            FanFxRpc(origin, direction, spread);
         }
 
         /// <summary>Rank 3 Shadowstep: the first strike from the shadows is an opener.</summary>
@@ -362,9 +448,10 @@ namespace Deepbound.Player
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void FanFxRpc(Vector3 origin, Vector3 direction)
+        private void FanFxRpc(Vector3 origin, Vector3 direction, int spread)
         {
-            for (int i = -1; i <= 1; i++) Arrows.SpawnVisual(origin, Quaternion.Euler(0f, i * 7f, 0f) * direction, ProjectileKind.Knife, FanSpeed, FanRange * RangeMul, FanGravity);
+            // As many knives as the server threw (the Duelist's mastery throws five; three were drawn).
+            for (int i = -spread; i <= spread; i++) Arrows.SpawnVisual(origin, Quaternion.Euler(0f, i * 7f, 0f) * direction, ProjectileKind.Knife, FanSpeed, FanRange * RangeMul, FanGravity);
             Sfx.Play(Sound.Bow, origin, 0.6f, 1.6f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
         }

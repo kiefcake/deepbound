@@ -36,7 +36,7 @@ namespace Deepbound.Classes
                     : "Mending Beam heals 40% more; healing past full builds a shield of up to 40.";
                 case ClassId.Rogue: return path == 1
                     ? "Ambush hits from behind deal x2.0 instead of x1.5 (x1.6 instead of x1.3 on bosses)."
-                    : "Stabs strike two enemies, and hit 25% harder from the front.";
+                    : "Stabs strike two enemies and hit 25% harder from the front; every 5th stab in a row on one foe is a FLOURISH (x2.5, staggers).";
                 case ClassId.Flagellant: return path == 1
                     ? "Crashes hit 30% harder and burst half again as wide."
                     : "Penance heals twice as much from every hit.";
@@ -64,7 +64,7 @@ namespace Deepbound.Classes
                     : "Divine Aegis is 60% stronger and recharges 30% faster.";
                 case ClassId.Rogue: return path == 1
                     ? "Killing an enemy from behind resets Shadowstep."
-                    : "Fan of Knives throws five knives.";
+                    : "A flourish every 4th stab, and Fan of Knives throws five knives.";
                 case ClassId.Flagellant: return path == 1
                     ? "Crashes stun everything they burst on."
                     : "Scourge heals allies within 6 m for the health it costs you.";
