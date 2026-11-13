@@ -74,14 +74,16 @@ namespace Deepbound.World
                     }, 18, true);
                     var lay = rot * Quaternion.Euler(0f, 0f, 90f);
                     var at = c + Vector3.up * 1.3f + rot * new Vector3(-1.1f, 0f, 0f);
-                    b.Add(bell, Mat.Gold + "#" + ColorUtility.ToHtmlStringRGB(new Color(0.42f, 0.31f, 0.2f)), Matrix4x4.TRS(at, lay, Vector3.one));
-                    b.Add(MeshKit.Lathe("greatBellIn", new[] { new Vector2(1.4f, 0.15f), new Vector2(1.05f, 0.7f), new Vector2(0.75f, 1.6f), new Vector2(0.01f, 2.1f) }, 18, true), Mat.Dark, Matrix4x4.TRS(at, lay, Vector3.one));
+                    b.Add(bell, Mat.Gold + "#" + ColorUtility.ToHtmlStringRGB(new Color(0.62f, 0.48f, 0.3f)), Matrix4x4.TRS(at, lay, Vector3.one));
+                    b.Add(MeshKit.Lathe("greatBellIn", new[] { new Vector2(1.4f, 0.15f), new Vector2(1.05f, 0.7f), new Vector2(0.75f, 1.6f), new Vector2(0.01f, 2.1f) }, 18, true), Mat.Gold + "#" + ColorUtility.ToHtmlStringRGB(new Color(0.2f, 0.14f, 0.09f)), Matrix4x4.TRS(at, lay, Vector3.one));
                     b.AddBox(at + rot * new Vector3(0.6f, 0.55f, 0.7f), new Vector3(0.05f, 0.9f, 0.05f), Mat.Dark, rot * Quaternion.Euler(30f, 0f, 20f));
                     // The frame: two posts and a fallen beam.
                     var f = c + rot * new Vector3(1.6f, 0f, 1.2f);
                     b.AddBox(f + Vector3.up * 1.1f, new Vector3(0.35f, 2.2f, 0.35f), Mat.Wood, rot);
                     b.AddBox(f + rot * new Vector3(0.4f, 0.22f, -1.4f), new Vector3(0.3f, 0.3f, 3.2f), Mat.Wood, rot * Quaternion.Euler(0f, 18f, 6f));
                     Props.Rubble(b, c + rot * new Vector3(0.6f, 0f, -1.6f), rng);
+                    // Someone keeps votive candles at its lip: the bell was the only light in its room in the 2026-11-13 shots.
+                    Props.Candles(lights, c + rot * new Vector3(0.2f, 0f, 1.8f), new Color(1f, 0.72f, 0.4f));
                     break;
                 }
                 case Kind.Columns:

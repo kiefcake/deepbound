@@ -1175,7 +1175,9 @@ namespace Deepbound.Networking
                     Breakable pylon = null;
                     float pd = float.MaxValue;
                     foreach (var p in Breakable.Pylons)
-                        if (p != null && p.Health != null && p.Health.IsAlive && p.Feeding.Value && Vector3.Distance(p.transform.position, me.transform.position) < pd) { pd = Vector3.Distance(p.transform.position, me.transform.position); pylon = p; }
+                        if (p != null && p.Health != null && p.Health.IsAlive && Vector3.Distance(p.transform.position, me.transform.position) < pd) { pd = Vector3.Distance(p.transform.position, me.transform.position); pylon = p; }
+                    // Any standing pylon, not only a feeding one: a hit stops the beam for 4 s, so 'feeding' flickered off after
+                    // each swing and the bot went back to the guardian, which two pylons out-healed (2026-11-13, Hollow King, 5 min).
                     if (pylon != null) { target = pylon.Health; dist = pd; }
                 }
                 if (boss != null && bossSeenAt < 0f && dd.BossSealed) { bossSeenAt = Time.time; L("guardian fight begins: " + boss.DisplayName); yield return Shot("F" + (floorNo + 1) + "_boss_start"); }
