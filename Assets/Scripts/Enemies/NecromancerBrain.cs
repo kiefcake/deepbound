@@ -26,6 +26,7 @@ namespace Deepbound.Enemies
         public const float BossMendFraction = 0.03f, ChampionMendFraction = 0.12f;
         [SerializeField] private float mendCooldown = 8f, mendWindup = 1.6f, mendRadius = 8f, mendFraction = 0.33f;
         [SerializeField] private float raiseCooldown = 15f;
+        private bool riftOpened;
 
         private float nextMend, nextRaise, mendAt = -1f;
 
@@ -69,12 +70,22 @@ namespace Deepbound.Enemies
                 nextRaise = Time.time + raiseCooldown;
                 busyUntil = Time.time + 1.4f;
                 PlayActionRpc(RigAction.Cast, 1.4f);
+                // Its first raise tears a RIFT open (2026-11-13): it keeps calling the dead until someone breaks it.
+                if (!riftOpened)
+                {
+                    riftOpened = true;
+                    var face = target != null ? target.transform.position - transform.position : transform.forward;
+                    face.y = 0f;
+                    if (face.sqrMagnitude < 0.01f) face = transform.forward;
+                    var side = Vector3.Cross(Vector3.up, face.normalized) * (Random.value < 0.5f ? -3f : 3f);
+                    var rift = World.DungeonDirector.ServerOpenRift(transform.position + side - face.normalized * 1.5f, Quaternion.LookRotation(face), minionPrefab);
+                    if (rift != null) { RaiseFxRpc(); return true; }
+                }
                 for (int i = 0; i < 2; i++)
                 {
                     var pos = transform.position + Quaternion.Euler(0f, i * 180f + 45f, 0f) * Vector3.forward * 2.5f;
                     if (NavMesh.SamplePosition(pos, out var hit, 2f, NavMesh.AllAreas)) pos = hit.position;
-                    var m = Instantiate(minionPrefab, pos, transform.rotation);
-                    m.Spawn(destroyWithScene: true);
+                    var m = World.DungeonDirector.ServerSpawnEntering(minionPrefab, pos, transform.rotation, 0f, 0f); // raised: up through the floor
                     var brain = m.GetComponent<EnemyBrain>();
                     brain.NoLoot = true;
                     brain.ServerScale(scaledPlayersBase, 0);

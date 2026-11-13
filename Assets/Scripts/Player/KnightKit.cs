@@ -45,7 +45,10 @@ namespace Deepbound.Player
         public const float StaminaMax = 100f;
         // Swings are free (2026-11-01, the user: left click spends nothing); stamina is for blocking, sprinting and dodging.
         private const float HeldSwingReserve = 0f;
-        private const float SwingStamina = 0f, SprintStaminaPerSec = 12f, BlockedHitStamina = 11f, StaminaRegen = 28f;
+        private const float SwingStamina = 0f, SprintStaminaPerSec = 12f, BlockedHitStamina = 11f;
+        /// <summary>Stamina back per second (2026-11-12, the user: lower from the start, trainable with Brann): 12 + VIT/4,
+        /// 22/s at base VIT 40 (was a flat 28); Roadwork drills (+5 VIT) bring it back up.</summary>
+        private float StaminaRegen => 12f + (progress != null ? progress.Value(StatType.VIT) : 40f) * 0.25f;
 
         /// <summary>Synced so other peers can draw the shield raised and the server can apply it.</summary>
         public readonly NetworkVariable<bool> Blocking = new NetworkVariable<bool>(false,
@@ -157,7 +160,7 @@ namespace Deepbound.Player
         {
             double warCryLeft = WarCryEnds.Value - NetworkManager.ServerTime.Time;
             into.Add(new AbilityView { Key = "LMB", Name = "Swing", Unaffordable = Stamina < SwingStamina });
-            into.Add(new AbilityView { Key = "RMB", Name = "Block", Active = Blocking.Value });
+            into.Add(new AbilityView { Key = "RMB", Name = progress != null && progress.OnPath(Classes.PathTriads.Path) ? (progress.ShieldCharge.Value >= 1f ? "Block  CHARGED" : "Block " + Mathf.RoundToInt(progress.ShieldCharge.Value * 100f) + "%") : "Block", Active = Blocking.Value });
             into.Add(new AbilityView { Key = "Q", Name = "Bash", Remaining = BashReadyAt - Time.time, Cooldown = BashCooldown * progress.CooldownFor(AbilitySlot.Q) });
             into.Add(new AbilityView { Key = "E", Name = "War Cry", Remaining = WarCryReadyAt - Time.time, Cooldown = WarCryCooldown * progress.CooldownFor(AbilitySlot.E), Active = warCryLeft > 0 });
         }
@@ -240,12 +243,20 @@ namespace Deepbound.Player
 
         }
 
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BulwarkFxRpc()
+        {
+            Art.Sfx.Play(Art.Sound.Slam, transform.position, 1f, 0.8f);
+            Art.Vfx.Ring(transform.position + Vector3.up * 0.05f, Classes.PathTriads.BulwarkRadius, new Color(1f, 0.85f, 0.45f), 0.45f);
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.2f, "BULWARK!", new Color(1f, 0.85f, 0.45f));
+        }
+
         /// <summary>Called on the owner when the server reports a blocked hit.</summary>
         [Rpc(SendTo.Owner)]
         private void BlockedHitRpc()
         {
             UI.Tips.OfferNow("counter", "COUNTER: you turned a blow on your shield. Swing within " + CounterWindow + " s of a block and the swing hits x" + CounterDamage + " (x" + RiposteDamage + " on the Riposte path).");
-            Stamina = Mathf.Max(0f, Stamina - BlockedHitStamina);
+            Stamina = Mathf.Max(0f, Stamina - BlockedHitStamina * (progress != null ? progress.BuildBlockCostScale : 1f));
             staminaRegenAt = Time.time + 0.8f;
             if (Stamina <= 0f)
             {
@@ -410,6 +421,7 @@ namespace Deepbound.Player
                     // Turning a blow aside infuriates whoever threw it.
                     if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(health.LastHitFrom, out var foe) && foe.TryGetComponent<Enemies.EnemyBrain>(out var angry))
                         angry.ServerAddThreat(NetworkObjectId, damage * 3f + 15f);
+                    if (Classes.PathTriads.OnKnightBlock(progress, damage, SwingDamage)) BulwarkFxRpc();
                     damage *= 0.2f;
                     riposteUntil = Time.time + CounterWindow;
                     BlockedHitRpc();

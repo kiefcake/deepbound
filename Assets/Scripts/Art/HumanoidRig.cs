@@ -54,6 +54,39 @@ namespace Deepbound.Art
         public bool Blocking;
         /// <summary>A low guard: the shield held at the hip, angled forward (the class select Knight; the user: "lower the shield").</summary>
         public bool LowGuard;
+
+        /// <summary>
+        /// The shield's mount (2026-11-12, the user: blocking "shield clips into body", "arm pose looks broken"). A rig's
+        /// arm is one bone, so a shield strapped to it can only face sideways or sweep through the chest. While blocking,
+        /// the shield leaves the arm's frame and is held at <see cref="GuardPos"/> / <see cref="GuardEuler"/> in front of the
+        /// chest (torso space), face forward, and the arm reaches out behind it; it eases back onto the arm after.
+        /// </summary>
+        public Transform GuardShield;
+        public Vector3 GuardPos = new Vector3(-0.12f, 0.28f, 0.6f), GuardEuler = new Vector3(-4f, 12f, 0f);
+        private Vector3 guardRestPos;
+        private Quaternion guardRestRot;
+        private float guardK;
+
+        public void SetGuardShield(Transform mount, Vector3 pos, Vector3 euler)
+        {
+            GuardShield = mount;
+            GuardPos = pos;
+            GuardEuler = euler;
+            guardRestPos = mount.localPosition;
+            guardRestRot = mount.localRotation;
+        }
+
+        private void PoseGuardShield(float dt, bool raised)
+        {
+            if (GuardShield == null || Torso == null) return;
+            guardK = Mathf.MoveTowards(guardK, raised ? 1f : 0f, dt * 7f);
+            GuardShield.localPosition = guardRestPos;
+            GuardShield.localRotation = guardRestRot;
+            if (guardK <= 0f) return;
+            float k = guardK * guardK * (3f - 2f * guardK);
+            GuardShield.position = Vector3.Lerp(GuardShield.position, Torso.TransformPoint(GuardPos), k);
+            GuardShield.rotation = Quaternion.Slerp(GuardShield.rotation, Torso.rotation * Quaternion.Euler(GuardEuler), k);
+        }
         public bool Downed;
         /// <summary>0-3: how much mead is in them. The body sways and lists with it.</summary>
         public int Drunk;
@@ -276,8 +309,10 @@ namespace Deepbound.Art
 
             if (Blocking && action == RigAction.None)
             {
-                armL = new Vector3(-75f, 35f, 0f);
-                torso += new Vector3(6f, 10f, 0f);
+                // Reaching forward and a little in, to the back of the shield held before the chest (PoseGuardShield);
+                // it was swung 35 deg in, which put the board through the chest, edge-on to whatever it blocked.
+                armL = new Vector3(-70f, 16f, 0f);
+                torso += new Vector3(5f, 8f, 0f);
             }
             else if (LowGuard && action == RigAction.None)
             {
@@ -341,6 +376,7 @@ namespace Deepbound.Art
             Ease(LegL, legL, 4, a); Ease(LegR, legR, 5, a);
             if (Hips != null) Hips.localPosition = poseKnown ? Vector3.Lerp(Hips.localPosition, hipsRest + hipsOffset, Mathf.Max(a, 0.5f)) : hipsRest + hipsOffset;
             poseKnown = true;
+            PoseGuardShield(dt, Blocking && action == RigAction.None && !Downed);
 
             ApplyGlow(glow);
         }

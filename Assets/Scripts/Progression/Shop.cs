@@ -14,7 +14,7 @@ namespace Deepbound.Progression
     public static class Shop
     {
         /// <summary>Value 1 was the retired stat potion.</summary>
-        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7, Prayer = 8, Drill = 9, Map = 10, Salts = 11, Restock = 12, Rope = 13, Blessing = 14, ShrineRestock = 15, Rare = 16 }
+        public enum ItemKind : byte { Heal, Embers = 1, Bonus = 2, Relic = 3, Gear = 4, Sigil = 5, Flasks = 6, Potion = 7, Prayer = 8, Drill = 9, Map = 10, Salts = 11, Restock = 12, Rope = 13, Blessing = 14, ShrineRestock = 15, Rare = 16, Picks = 17, Lantern = 18 }
 
         public struct Item
         {
@@ -92,6 +92,8 @@ namespace Deepbound.Progression
             float tier = World.DungeonDirector.Tier(depth);
             if (camp && vendor == Vendor.Smith)
             {
+                list.Add(new Item { Name = "Tinker's Picks", Description = "A roll of " + 3 + " picks: kneel on a spike plate (hold F) for two seconds to jam it. A Rogue needs none",
+                    Price = UnityEngine.Mathf.RoundToInt(35 + 10 * tier), Kind = ItemKind.Picks, Seller = Vendor.Smith });
                 list.Add(new Item { Name = "Commission another piece", Description = "Hobb puts away the piece he made you and forges a fresh one (a new roll)",
                     Price = UnityEngine.Mathf.RoundToInt(30 + 15 * tier), Kind = ItemKind.Restock, Seller = Vendor.Smith });
             }
@@ -103,6 +105,8 @@ namespace Deepbound.Progression
                     Price = UnityEngine.Mathf.RoundToInt(110 + 30 * tier), Kind = ItemKind.Salts, Seller = Vendor.Carriage });
                 list.Add(new Item { Name = "Climbing Rope", Description = "From floor 2: F at the waystone retreats the party to camp",
                     Price = UnityEngine.Mathf.RoundToInt(60 + 20 * tier), Kind = ItemKind.Rope, Seller = Vendor.Carriage });
+                list.Add(new Item { Name = "Hooded Lantern", Description = "A small light that goes with you, all run long (hangs at your belt)",
+                    Price = UnityEngine.Mathf.RoundToInt(45 + 15 * tier), Kind = ItemKind.Lantern, Seller = Vendor.Carriage });
             }
             if (camp && vendor == Vendor.Yard)
                 foreach (var d in Drills) list.Add(d);
@@ -247,6 +251,10 @@ namespace Deepbound.Progression
         {
             // Everyone runs.
             new Item { Name = "Endurance Run", Description = "Laps of the wall in full kit. +25 max HP for the run", Price = 50, Kind = ItemKind.Drill, Stat = StatType.HP, Amount = 25f, Cap = 6, Seller = Vendor.Yard },
+            // 2026-11-12 (the user: "allow stamina training at sargeant", tankier builds from camp): wind for everyone (a
+            // Knight's stamina comes back faster with VIT), and hardening for those who never learned the shield.
+            new Item { Name = "Roadwork", Description = "Ten miles with a sack of stones. +5 VIT for the run (health back faster; a Knight's stamina too)", Price = 45, Kind = ItemKind.Drill, Stat = StatType.VIT, Amount = 5f, Cap = 6, Seller = Vendor.Yard },
+            new Item { Name = "Hardening", Description = "Brann's sparring, no padding. +2 DEF for the run", Price = 55, Kind = ItemKind.Drill, Stat = StatType.DEF, Amount = 2f, Cap = 4, Seller = Vendor.Yard, Regimens = (byte)(Regimen.Skirmish | Regimen.Arcane) },
             // The line.
             new Item { Name = "Sword Drill", Description = "The pell, a thousand cuts. +2 ATT for the run", Price = 60, Kind = ItemKind.Drill, Stat = StatType.ATT, Amount = 2f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Martial },
             new Item { Name = "Shield Drill", Description = "Brann hits you with a plank until you stop flinching. +2 DEF for the run", Price = 55, Kind = ItemKind.Drill, Stat = StatType.DEF, Amount = 2f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Martial },

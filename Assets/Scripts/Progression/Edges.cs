@@ -9,6 +9,8 @@ namespace Deepbound.Progression
     {
         None = 0, Momentum = 1, Cleaver = 2, LoneWolf = 3, Opportunist = 4,
         Stalwart = 5, Quickening = 6, Desperation = 7, SecondWind = 8,
+        // Guard edges (2026-11-12, the user: tank or damage "should reflect through items, abilities, everything").
+        Bastion = 9, Ironhide = 10, Retribution = 11, Lifeblood = 12,
     }
 
     /// <summary>
@@ -21,7 +23,13 @@ namespace Deepbound.Progression
     /// </summary>
     public static class Edges
     {
-        public const int Count = 8, Slots = 3, OfferSize = 3;
+        public const int Count = 12, Slots = 3, OfferSize = 3;
+        public const float BastionHP = 60f, IronhideDEF = 8f, RetributionShare = 0.3f, RetributionReach = 4f, LifebloodHeal = 0.03f;
+
+        /// <summary>BLADE edges hit harder; GUARD edges keep you standing; Quickening is neither.</summary>
+        public static bool IsBlade(Edge e) => e == Edge.Momentum || e == Edge.Cleaver || e == Edge.LoneWolf || e == Edge.Opportunist || e == Edge.Desperation;
+        public static bool IsGuard(Edge e) => e == Edge.Stalwart || e == Edge.SecondWind || e == Edge.Bastion || e == Edge.Ironhide || e == Edge.Retribution || e == Edge.Lifeblood;
+        public static string Kind(Edge e) => IsBlade(e) ? "BLADE" : IsGuard(e) ? "GUARD" : "CRAFT";
         public static readonly int[] Levels = { 5, 7, 9 };
 
         public const float MomentumDamage = 1.2f, MomentumSeconds = 4f;
@@ -47,6 +55,10 @@ namespace Deepbound.Progression
                 case Edge.Quickening: return "Quickening";
                 case Edge.Desperation: return "Desperation";
                 case Edge.SecondWind: return "Second Wind";
+                case Edge.Bastion: return "Bastion";
+                case Edge.Ironhide: return "Ironhide";
+                case Edge.Retribution: return "Retribution";
+                case Edge.Lifeblood: return "Lifeblood";
                 default: return "";
             }
         }
@@ -63,6 +75,10 @@ namespace Deepbound.Progression
                 case Edge.Quickening: return "Your abilities recharge 10% faster.";
                 case Edge.Desperation: return "+1% damage for every 3% of health you are missing (up to +25%).";
                 case Edge.SecondWind: return "Health Potions mend 50% more.";
+                case Edge.Bastion: return "+" + BastionHP + " max HP for the run.";
+                case Edge.Ironhide: return "+" + IronhideDEF + " DEF for the run.";
+                case Edge.Retribution: return "The dead that strike you up close take " + Mathf.RoundToInt(RetributionShare * 100f) + "% of the blow back.";
+                case Edge.Lifeblood: return "Each kill mends " + Mathf.RoundToInt(LifebloodHeal * 100f) + "% of your max health.";
                 default: return "";
             }
         }
@@ -72,7 +88,7 @@ namespace Deepbound.Progression
             switch (e)
             {
                 case Edge.Momentum: case Edge.Cleaver: case Edge.LoneWolf: case Edge.Opportunist: case Edge.Desperation: return new Color(1f, 0.55f, 0.3f);
-                case Edge.Stalwart: case Edge.SecondWind: return new Color(0.7f, 0.85f, 1f);
+                case Edge.Stalwart: case Edge.SecondWind: case Edge.Bastion: case Edge.Ironhide: case Edge.Retribution: case Edge.Lifeblood: return new Color(0.7f, 0.85f, 1f);
                 default: return new Color(1f, 0.85f, 0.4f);
             }
         }
@@ -92,11 +108,15 @@ namespace Deepbound.Progression
             }
             var rng = new System.Random(runSeed * 31 + (int)clientId * 977 + slot * 7919);
             var pick = new Edge[OfferSize];
+            // Always a real choice of build (2026-11-12): one BLADE, one GUARD, and one of anything left.
+            System.Func<Edge, bool>[] wants = { IsBlade, IsGuard, _ => true };
             for (int i = 0; i < OfferSize && pool.Count > 0; i++)
             {
-                int k = rng.Next(pool.Count);
-                pick[i] = pool[k];
-                pool.RemoveAt(k);
+                var fits = pool.FindAll(e => wants[i](e));
+                if (fits.Count == 0) fits = pool;
+                var e = fits[rng.Next(fits.Count)];
+                pick[i] = e;
+                pool.Remove(e);
             }
             return pick;
         }

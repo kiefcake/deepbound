@@ -115,6 +115,10 @@ namespace Deepbound.EditorTools
             var puzzleStatue = BuildObjectPrefab<PuzzleStatue>("PuzzleStatue", new Vector3(0.9f, 2.1f, 0.9f));
             var puzzleMirror = BuildObjectPrefab<PuzzleMirror>("PuzzleMirror", new Vector3(0.7f, 1.6f, 0.7f));
             var scaleWeight = BuildObjectPrefab<ScaleWeight>("ScaleWeight", Vector3.zero);
+            var statDraught = BuildObjectPrefab<StatDraught>("StatDraught", new Vector3(0.4f, 0.6f, 0.4f));
+            var bargainAltar = BuildObjectPrefab<BargainAltar>("BargainAltar", new Vector3(1.2f, 1.1f, 0.7f));
+            var soulRift = BuildSoulRiftPrefab();
+            var cellarHatch = BuildCellarHatchPrefab();
             var wellFishing = BuildObjectPrefab<WellFishing>("WellFishing", Vector3.zero);
             var knifeBoard = BuildObjectPrefab<KnifeBoard>("KnifeBoard", Vector3.zero);
             var bellFrame = BuildObjectPrefab<BellFrame>("BellFrame", Vector3.zero);
@@ -180,6 +184,10 @@ namespace Deepbound.EditorTools
             dso.FindProperty("puzzleStatuePrefab").objectReferenceValue = puzzleStatue.GetComponent<NetworkObject>();
             dso.FindProperty("puzzleMirrorPrefab").objectReferenceValue = puzzleMirror.GetComponent<NetworkObject>();
             dso.FindProperty("scaleWeightPrefab").objectReferenceValue = scaleWeight.GetComponent<NetworkObject>();
+            dso.FindProperty("statDraughtPrefab").objectReferenceValue = statDraught.GetComponent<NetworkObject>();
+            dso.FindProperty("bargainAltarPrefab").objectReferenceValue = bargainAltar.GetComponent<NetworkObject>();
+            dso.FindProperty("soulRiftPrefab").objectReferenceValue = soulRift.GetComponent<NetworkObject>();
+            dso.FindProperty("cellarHatchPrefab").objectReferenceValue = cellarHatch.GetComponent<NetworkObject>();
             dso.FindProperty("wellFishingPrefab").objectReferenceValue = wellFishing.GetComponent<NetworkObject>();
             dso.FindProperty("knifeBoardPrefab").objectReferenceValue = knifeBoard.GetComponent<NetworkObject>();
             dso.FindProperty("bellFramePrefab").objectReferenceValue = bellFrame.GetComponent<NetworkObject>();
@@ -199,7 +207,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix, handTorch, questCargo, questTrinket, poker, oilSlick, chandelier, vigilCandle, prisoner, puzzleRoom, puzzleStatue, wellFishing, knifeBoard, bellFrame, armWrestle, puzzleMirror, scaleWeight);
+            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix, handTorch, questCargo, questTrinket, poker, oilSlick, chandelier, vigilCandle, prisoner, puzzleRoom, puzzleStatue, wellFishing, knifeBoard, bellFrame, armWrestle, puzzleMirror, scaleWeight, statDraught, bargainAltar, soulRift, cellarHatch);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -632,6 +640,34 @@ namespace Deepbound.EditorTools
             SetTeam(root.AddComponent<Health>(), Team.Props, 1.45f);
             root.AddComponent<RangeTarget>();
             return SavePrefab(root, "RangeTarget");
+        }
+
+        /// <summary>A necromancer's rift: a body that every attack can hit (Team.Enemies), no brain.</summary>
+        private static GameObject BuildSoulRiftPrefab()
+        {
+            var root = new GameObject("SoulRift");
+            root.AddComponent<NetworkObject>();
+            var capsule = root.AddComponent<CapsuleCollider>();
+            capsule.radius = 0.7f;
+            capsule.height = 2.5f;
+            capsule.center = new Vector3(0f, 1.25f, 0f);
+            SetTeam(root.AddComponent<Health>(), Team.Enemies, 1.25f);
+            root.AddComponent<SoulRift>();
+            return SavePrefab(root, "SoulRift");
+        }
+
+        /// <summary>A cellar's cracked tile (any blow breaks it: Team.Props) and its rope.</summary>
+        private static GameObject BuildCellarHatchPrefab()
+        {
+            var root = new GameObject("CellarHatch");
+            root.AddComponent<NetworkObject>();
+            var box = root.AddComponent<BoxCollider>();
+            box.size = new Vector3(1.3f, 0.3f, 1.3f);
+            box.center = new Vector3(0f, 0.15f, 0f);
+            box.isTrigger = true;
+            SetTeam(root.AddComponent<Health>(), Team.Props, 0.15f);
+            root.AddComponent<CellarHatch>();
+            return SavePrefab(root, "CellarHatch");
         }
 
         private static GameObject BuildBreakablePrefab()

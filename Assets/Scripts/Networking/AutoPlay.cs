@@ -364,7 +364,7 @@ namespace Deepbound.Networking
                 for (int i = 0; i < Mathf.Min(10, Mathf.RoundToInt(startFloor * 1.5f)); i++)
                 {
                     var why = prog.CannotTemperReason();
-                    if (why != null && why.ToLowerInvariant().Contains("path")) { prog.ChoosePathRpc((byte)Random.Range(1, 3)); yield return new WaitForSeconds(0.2f); }
+                    if (why != null && why.ToLowerInvariant().Contains("path")) { prog.ChoosePathRpc((byte)Random.Range(1, Classes.WeaponPaths.Count + 1)); yield return new WaitForSeconds(0.2f); }
                     if (prog.OpenEdgeSlot >= 0) { prog.ServerChooseEdge(prog.EdgeOffer(prog.OpenEdgeSlot)[0]); yield return null; }
                     prog.ServerFreeTemper();
                     yield return null;
@@ -549,7 +549,7 @@ namespace Deepbound.Networking
                 string why = prog.CannotTemperReason();
                 if (why != null && why.ToLowerInvariant().Contains("path"))
                 {
-                    prog.ChoosePathRpc((byte)Random.Range(1, 3));
+                    prog.ChoosePathRpc((byte)Random.Range(1, Classes.WeaponPaths.Count + 1));
                     yield return new WaitForSeconds(0.4f);
                     L("chose the weapon path of the " + Classes.WeaponPaths.Name(cls, prog.WeaponPath.Value));
                     why = prog.CannotTemperReason();

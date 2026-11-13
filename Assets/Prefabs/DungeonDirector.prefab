@@ -87,6 +87,8 @@ MonoBehaviour:
   soulSkullPrefab: {fileID: 2749980807616642887, guid: 9d23c8acc5cae7e42b89372e6848278a, type: 3}
   sarcophagusPrefab: {fileID: 450747277759864904, guid: ba5736d10dcde4a4d9af9adbdbab1f2b, type: 3}
   crackedWallPrefab: {fileID: 3855241515496535436, guid: 943bd248e66bc7e4faabab7fd6969047, type: 3}
+  bargainAltarPrefab: {fileID: 7035068946349983244, guid: 60a04e9a35b95c442a7e34d16e1be694, type: 3}
+  cellarHatchPrefab: {fileID: 3352739897469317294, guid: 09cae1169e29cae4b9e28af0837456b3, type: 3}
   FolkHeldAt:
     UpdateTraits:
       MinSecondsBetweenUpdates: 0
@@ -101,6 +103,7 @@ MonoBehaviour:
   prisonerPrefab: {fileID: 1988850448541398791, guid: 3f5a6deefa962104d9ca92ad3541b2d8, type: 3}
   puzzleMirrorPrefab: {fileID: 2631131412916418695, guid: ef875bc161d01d5428564124bd6a4809, type: 3}
   scaleWeightPrefab: {fileID: 6725833587995569330, guid: a66b8228c073df2449cb9acc08b4c5d1, type: 3}
+  statDraughtPrefab: {fileID: 4508464783430533778, guid: e6548af449bc12a49a11330dcf83d462, type: 3}
   puzzleRoomPrefab: {fileID: 1696898002554740714, guid: 9b85e5dca10e3f14d906ce030caddd3c, type: 3}
   puzzleStatuePrefab: {fileID: 7698058689260352346, guid: 6f5c1c772bcdeab4d9ff54bfab26fe9a, type: 3}
   wellFishingPrefab: {fileID: 8527638876030340047, guid: 979133311cf7ff14d9de64272669836e, type: 3}
@@ -135,6 +138,7 @@ MonoBehaviour:
   frostWightPrefab: {fileID: 2523612389223368176, guid: 9ae6b7eeef2aa36498d6d2e3ef5d3d2c, type: 3}
   hexerPrefab: {fileID: 9099394919089818623, guid: 1a478868dedba2047aaa69623444d732, type: 3}
   acolytePrefab: {fileID: 2261373335432661186, guid: c6dbd86c0b184264ba54308f8bd2ec79, type: 3}
+  soulRiftPrefab: {fileID: 4316799812595865892, guid: 56c02fcd2ec7e274183bdfe32a25417c, type: 3}
   shaftCatPrefab: {fileID: 7736194991897977138, guid: d36112bde4e7bd54b8253fe29152a8fb, type: 3}
   abyssEyePrefab: {fileID: 436945408862097884, guid: bab2d226deb87ee4185b939de9bed426, type: 3}
   bonePiperPrefab: {fileID: 2089347321912224805, guid: 276bb5f6daaadfb4780be9e8e65862a9, type: 3}

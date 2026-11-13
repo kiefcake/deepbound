@@ -14,7 +14,21 @@ namespace Deepbound.World
     /// </summary>
     public partial class DungeonDirector
     {
-        [SerializeField] private NetworkObject puzzleMirrorPrefab, scaleWeightPrefab;
+        [SerializeField] private NetworkObject puzzleMirrorPrefab, scaleWeightPrefab, statDraughtPrefab;
+
+        /// <summary>Server: the Draught room's flask, holding a random stat (StatDraught).</summary>
+        private StatDraught SpawnDraught(DungeonLayout.Room room, Vector3 at)
+        {
+            if (room != null) at.y = room.Center.y + room.RaisedAt(at);
+            var obj = Instantiate(statDraughtPrefab, at, Quaternion.identity);
+            var dr = obj.GetComponent<StatDraught>();
+            dr.Prepare((Core.StatType)Random.Range(0, 8));
+            obj.Spawn(destroyWithScene: true);
+            return dr;
+        }
+
+        /// <summary>Tests: a draught at <paramref name="at"/>.</summary>
+        public StatDraught ServerDebugDraught(Vector3 at) => statDraughtPrefab == null ? null : SpawnDraught(null, at);
         [SerializeField] private NetworkObject puzzleRoomPrefab, puzzleStatuePrefab, wellFishingPrefab, knifeBoardPrefab, bellFramePrefab, armWrestlePrefab;
         private int debugPuzzles;
 

@@ -18,7 +18,11 @@ namespace Deepbound.World
     {
         /// <summary>Append only (synced). 2026-11-08 interactables: OilJar (spills a slick), CrackedPillar (topples away
         /// from whoever breaks it, crushing a lane), FireBowl (tips over: burning coals that light oil).</summary>
-        public enum Kind : byte { Urn, PowderBarrel, RitualBrazier, SoulLantern, HealPylon, GreatUrn, OilJar, CrackedPillar, FireBowl }
+        public enum Kind : byte { Urn, PowderBarrel, RitualBrazier, SoulLantern, HealPylon, GreatUrn, OilJar, CrackedPillar, FireBowl, Crate, Cask, BoneHeap }
+
+        /// <summary>The small smashables (2026-11-12, the user: "more breakable objects into the dungeon, and in spawn"):
+        /// one blow, a pinch of the urn's loot below (none at camp, where they are only for the joy of it).</summary>
+        public static bool Smashable(Kind k) => k == Kind.Urn || k == Kind.Crate || k == Kind.Cask || k == Kind.BoneHeap;
 
         public readonly NetworkVariable<Kind> Type = new NetworkVariable<Kind>();
         /// <summary>A great urn takes a few blows (plus 12 a tier).</summary>
@@ -70,7 +74,7 @@ namespace Deepbound.World
             if (!IsServer) return;
             int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
             float tier = DungeonDirector.Tier(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
-            health.ServerSetMax(Type.Value == Kind.Urn || Type.Value == Kind.OilJar ? 1f : Type.Value == Kind.FireBowl ? 12f : Type.Value == Kind.CrackedPillar ? PillarHealth + 30f * tier
+            health.ServerSetMax(Smashable(Type.Value) || Type.Value == Kind.OilJar ? 1f : Type.Value == Kind.FireBowl ? 12f : Type.Value == Kind.CrackedPillar ? PillarHealth + 30f * tier
                 : Type.Value == Kind.GreatUrn ? GreatUrnHealth + 12f * tier : Type.Value == Kind.RitualBrazier ? 60f + 20f * tier
                 : Type.Value == Kind.HealPylon ? (140f + 70f * tier) * (1f + 0.4f * (players - 1)) : 10f, refill: true);
             health.Died += _ => ServerBreak();
@@ -196,10 +200,11 @@ namespace Deepbound.World
                 NetworkObject.Despawn();
                 return;
             }
-            if (Type.Value == Kind.Urn)
+            if (Smashable(Type.Value))
             {
-                LootDrop.ServerSpawnFromTable(lootPrefab, LootTable.Urn, transform.position, 1f, Enemies.Difficulty.FixedLootShare(Enemies.Difficulty.Party));
-                BreakFxRpc();
+                if (!DungeonDirector.InLobby && lootPrefab != null)
+                    LootDrop.ServerSpawnFromTable(lootPrefab, LootTable.Urn, transform.position, Type.Value == Kind.Urn ? 1f : 0.7f, Enemies.Difficulty.FixedLootShare(Enemies.Difficulty.Party));
+                if (Type.Value == Kind.Urn) BreakFxRpc(); else SplinterFxRpc();
                 NetworkObject.Despawn();
             }
             else
@@ -351,6 +356,18 @@ namespace Deepbound.World
         }
 
         [Rpc(SendTo.ClientsAndHost)]
+        private void SplinterFxRpc()
+        {
+            bool bones = Type.Value == Kind.BoneHeap;
+            var at = transform.position + Vector3.up * 0.4f;
+            Sfx.Play(bones ? Sound.Rattle : Sound.Creak, at, 0.9f, bones ? 1.2f : 1.5f);
+            Sfx.Play(bones ? Sound.BoneBreak : Sound.Bash, at, 0.6f, 1.4f);
+            if (bones) BoneBurst.Spawn(transform.position, 0.9f, false);
+            else BoneBurst.Spawn(transform.position, 0.8f, false, Mat.Wood);
+            Vfx.Embers(at, 6, bones ? new Color(0.8f, 0.78f, 0.7f) : new Color(0.45f, 0.32f, 0.2f), 3f, 0.06f, 0.8f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
         private void BreakFxRpc()
         {
             Sfx.Play(Sound.BoneBreak, transform.position + Vector3.up * 0.4f, 0.8f, 1.6f);
@@ -403,6 +420,52 @@ namespace Deepbound.World
 
         private void BuildVisual()
         {
+            if (Type.Value == Kind.Crate)
+            {
+                // A plank crate: boards, a frame of darker battens, a cross brace on the faces.
+                float s = 0.62f + (NetworkObjectId % 3) * 0.06f;
+                var dark = new Color(0.32f, 0.22f, 0.13f);
+                MeshKit.Part(transform, "Box", MeshKit.Box(Vector3.one * s), Mat.Wood, Vector3.up * s / 2f);
+                foreach (var ax in new[] { Vector3.right, Vector3.forward })
+                    foreach (float side in new[] { -1f, 1f })
+                    {
+                        var face = ax * side * (s / 2f + 0.01f);
+                        var rot = Quaternion.LookRotation(ax * side);
+                        ArtLibrary.Tint(MeshKit.Part(transform, "Brace", MeshKit.Box(new Vector3(s * 1.3f, 0.07f, 0.025f)), Mat.Wood, face + Vector3.up * s / 2f, (rot * Quaternion.Euler(0f, 0f, 45f)).eulerAngles).GetComponent<Renderer>(), dark);
+                        foreach (float y in new[] { 0.05f, s - 0.05f })
+                            ArtLibrary.Tint(MeshKit.Part(transform, "Batten", MeshKit.Box(new Vector3(s + 0.02f, 0.07f, 0.03f)), Mat.Wood, face + Vector3.up * y, rot.eulerAngles).GetComponent<Renderer>(), dark);
+                    }
+                return;
+            }
+            if (Type.Value == Kind.Cask)
+            {
+                // A plain wine cask (no red band: that is the powder barrel), iron hoops.
+                MeshKit.Part(transform, "Cask", MeshKit.Lathe("cask", new[]
+                {
+                    new Vector2(0f, 0f), new Vector2(0.27f, 0f), new Vector2(0.33f, 0.25f), new Vector2(0.35f, 0.42f),
+                    new Vector2(0.33f, 0.6f), new Vector2(0.27f, 0.85f), new Vector2(0f, 0.85f),
+                }, 10), Mat.Wood, Vector3.zero);
+                foreach (float y in new[] { 0.12f, 0.73f })
+                    MeshKit.Part(transform, "Hoop", MeshKit.Cylinder(0.315f, 0.315f, 0.04f, 10), Mat.Steel, new Vector3(0f, y, 0f));
+                MeshKit.Part(transform, "Hoop", MeshKit.Cylinder(0.355f, 0.355f, 0.04f, 10), Mat.Steel, new Vector3(0f, 0.42f, 0f));
+                return;
+            }
+            if (Type.Value == Kind.BoneHeap)
+            {
+                // A heap of old bones with a skull on top: the leavings of something.
+                var rng = new System.Random((int)NetworkObjectId);
+                for (int i = 0; i < 9; i++)
+                {
+                    float a = (float)rng.NextDouble() * 360f, r = (float)rng.NextDouble() * 0.32f;
+                    var at = Quaternion.Euler(0f, a, 0f) * Vector3.forward * r + Vector3.up * (0.05f + (0.32f - r) * 0.5f);
+                    MeshKit.Part(transform, "Bone", MeshKit.Cylinder(0.03f, 0.025f, 0.38f + (float)rng.NextDouble() * 0.2f, 5), Mat.Bone, at,
+                        new Vector3((float)rng.NextDouble() * 80f + 50f, (float)rng.NextDouble() * 360f, 0f));
+                }
+                MeshKit.Part(transform, "Skull", MeshKit.Ball(0.11f, 8, 6), Mat.Bone, new Vector3(0.05f, 0.27f, 0.02f), new Vector3(-20f, 30f, 0f), new Vector3(1f, 0.9f, 1.15f));
+                MeshKit.Part(transform, "Socket", MeshKit.Ball(0.03f, 5, 4), Mat.Dark, new Vector3(0.09f, 0.29f, 0.11f));
+                MeshKit.Part(transform, "Socket", MeshKit.Ball(0.03f, 5, 4), Mat.Dark, new Vector3(0.01f, 0.29f, 0.12f));
+                return;
+            }
             if (Type.Value == Kind.SoulLantern)
             {
                 // An iron post with a cage at the top, a pale soul-light trapped inside.

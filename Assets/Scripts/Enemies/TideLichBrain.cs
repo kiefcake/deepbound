@@ -27,6 +27,7 @@ namespace Deepbound.Enemies
     /// </summary>
     public class TideLichBrain : BossBrain
     {
+        protected override DashStyle Dash => DashStyle.Blink;
         [SerializeField] private float preferredRange = 9f;
         [SerializeField] private float volleyCooldown = 3.6f, volleyWindup = 1.0f, boltDamage = 15f, volleySpread = 40f;
         [SerializeField] private int volleyCount = 5;

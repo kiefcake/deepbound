@@ -103,6 +103,27 @@ namespace Deepbound.Combat
             public bool Grazed;
             /// <summary>Visual: a soul note fades out at the end of its flight (no puff, no burst).</summary>
             public bool Quiet;
+            /// <summary>Visual: the side that shot it (a body of another side stops it); none known: any body after a metre.</summary>
+            public Team ShooterTeam;
+            public bool ShooterKnown;
+        }
+
+        /// <summary>
+        /// A visual copy stops where it meets a body (2026-11-12, the user: "fix abilities floating, for example the wizard
+        /// spells can float after hitting an enemy"): the copy knows nothing of the server's hit, so it used to fly on
+        /// through the enemy to the end of its range. Whoever stands nearest the muzzle is the shooter; its own side never
+        /// stops it (a party shoots past each other, as the real shot does).
+        /// </summary>
+        private static bool VisualMeetsBody(ref Arrow a, Vector3 from, Vector3 to)
+        {
+            if (a.Travelled < (a.ShooterKnown ? 0.3f : 1f)) return false;
+            foreach (var h in Health.All)
+            {
+                if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
+                if (a.ShooterKnown && (h.Team == a.ShooterTeam || (a.ShooterTeam == Team.Players && h.Team == Team.Allies) || (a.ShooterTeam == Team.Allies && h.Team == Team.Players))) continue;
+                if (h.SegmentTouchesBody(from, to, ProjectileRadius)) return true;
+            }
+            return false;
         }
 
         /// <summary>
@@ -142,8 +163,18 @@ namespace Deepbound.Combat
         /// <summary>Any peer: fly a harmless visual copy.</summary>
         public static void SpawnVisual(Vector3 origin, Vector3 direction, ProjectileKind kind = ProjectileKind.Arrow, float speed = Speed, float range = MaxRange, float gravity = 0f, bool throughWalls = false)
         {
+            // Who fired it: the body nearest the muzzle, within reach of it.
+            Health shooter = null; float best = 2.2f;
+            foreach (var h in Health.All)
+            {
+                if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
+                float d = Vector3.Distance(h.Center, origin);
+                if (d < best) { best = d; shooter = h; }
+            }
             Instance.live.Add(new Arrow
             {
+                ShooterKnown = shooter != null,
+                ShooterTeam = shooter != null ? shooter.Team : Team.Props,
                 Ghost = throughWalls,
                 Range = range,
                 Gravity = gravity,
@@ -192,6 +223,12 @@ namespace Deepbound.Combat
                         Destroy(a.Visual.gameObject, 2f);
                         a.Visual = null;
                     }
+                }
+                else if (!a.ServerSide && a.Visual != null && !a.Ghost && VisualMeetsBody(ref a, a.Position, a.Position + step))
+                {
+                    // Into the body it hit, and gone (a bolt bursts there).
+                    a.Position += step * 0.5f;
+                    done = true;
                 }
                 else
                 {

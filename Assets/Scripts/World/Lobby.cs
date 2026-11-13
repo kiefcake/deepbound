@@ -75,6 +75,21 @@ namespace Deepbound.World
         /// <summary>Where the people stand (2026-11-07 inspection: Hobb had his back to his customers behind the anvil,
         /// Aldric knelt square in front of the altar, Vey stood 1.8 m back from her own counter).</summary>
         public static Vector3 HobbSpot => AnvilSpot + Vector3.left * 0.95f;
+
+        /// <summary>Camp smashables (2026-11-12): spots clear of the stalls' fronts and the walking lines (see docs/CAMP_AUDIT.md
+        /// Round 9). Breakable.Smashable kinds give nothing at camp.</summary>
+        public static readonly (Breakable.Kind kind, Vector3 at)[] CampBreakables =
+        {
+            (Breakable.Kind.Crate, MerchantSpot + new Vector3(1.6f, 0f, 3.0f)),
+            (Breakable.Kind.Cask, MerchantSpot + new Vector3(2.3f, 0f, 3.1f)),
+            (Breakable.Kind.Crate, AnvilSpot + new Vector3(-2.7f, 0f, 3.1f)), // clear of the barrel at S(-1.2, 1.8) and the weapon rack
+            (Breakable.Kind.Cask, TavernCenter + new Vector3(TavernHalfX + 0.9f, 0f, 2.2f)),
+            (Breakable.Kind.Cask, TavernCenter + new Vector3(TavernHalfX + 0.9f, 0f, 2.95f)),
+            (Breakable.Kind.Crate, TavernCenter + new Vector3(TavernHalfX + 1.0f, 0f, -2.4f)),
+            (Breakable.Kind.Urn, ShrineSpot + new Vector3(-1.6f, 0f, -2.9f)),
+            (Breakable.Kind.Urn, ShrineSpot + new Vector3(-2.1f, 0f, 2.9f)),
+            (Breakable.Kind.Crate, YardSpot + new Vector3(1.4f, 0f, -2.6f)),
+        };
         public static Vector3 AldricSpot => ShrineSpot + new Vector3(-0.75f, 0.12f, 1.3f); // ON the shrine dais (0.12 m): at ground height his knees sank into it
         public static Vector3 VeySpot => TailorSpot + TailorFacing * 1.45f;
 
@@ -105,7 +120,9 @@ namespace Deepbound.World
         public static readonly Vector3 BellSpot = ShrineSpot + new Vector3(4.6f, 0f, -5.1f);
         public static readonly Vector3 BellFacing = Vector3.left;
         /// <summary>Brann's arm-wrestling barrel, a step in front of him (he faces east); you stand on its far side.</summary>
-        public static readonly Vector3 WrestleSpot = YardSpot + new Vector3(1.0f, 0f, 0f);
+        /// <summary>Big Gorm's barrel (2026-11-13, the user: "closer to the campfire and tavern, but not in the way"): in the
+        /// tavern yard, south of the door path to the fire, clear of the fire's log ring and the casks by the wall.</summary>
+        public static readonly Vector3 WrestleSpot = TavernCenter + new Vector3(TavernHalfX + 3.2f, 0f, -3.6f);
         public static readonly Vector3 WrestleFacing = Vector3.right;
         /// <summary>Where smoke leaves the forge chimney (set when the camp is built).</summary>
         public static Vector3 ForgeChimney { get; private set; }

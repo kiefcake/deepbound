@@ -27,12 +27,14 @@ namespace Deepbound.World
         public int Progress, Goal;
         /// <summary>Gather: finds picked up and held by the party, counted only once they ride the lift out.</summary>
         public byte Held;
+        /// <summary>The condition the job carries (<see cref="DungeonDirector.QuestClause"/>), 2026-11-13: none can be done by just playing on.</summary>
+        public byte Clause;
 
         public Contract Contract => (Contract)Kind;
         public FolkId Who => (FolkId)Giver;
         public DungeonDirector.ContractStatus Status => (DungeonDirector.ContractStatus)State;
 
-        public bool Equals(QuestSlot o) => Kind == o.Kind && Giver == o.Giver && State == o.State && Special == o.Special && Progress == o.Progress && Goal == o.Goal && Held == o.Held;
+        public bool Equals(QuestSlot o) => Kind == o.Kind && Giver == o.Giver && State == o.State && Special == o.Special && Progress == o.Progress && Goal == o.Goal && Held == o.Held && Clause == o.Clause;
         public override bool Equals(object obj) => obj is QuestSlot o && Equals(o);
         public override int GetHashCode() => Kind | Giver << 8 | State << 16 | Progress << 20;
     }
@@ -110,13 +112,41 @@ namespace Deepbound.World
         };
 
         /// <summary>The task as the quest log and the panels say it (the new kinds name what and whose).</summary>
-        public static string QuestTask(QuestSlot q) => q.Contract switch
+        public static string QuestTask(QuestSlot q) => (q.Contract switch
         {
             Contract.Cargo => CargoTask(q.Who),
             Contract.Gather => GatherTask(q.Who, q.Goal),
             Contract.Mark => MarkTask(q.Who),
             _ => QuestTask(q.Contract, q.Goal),
+        }) + ClauseText((QuestClause)q.Clause);
+
+        /// <summary>
+        /// HARDER QUESTS (2026-11-13, the user: "quests can be forgotten about and completed with ease"): every job that would
+        /// fill itself while you play (kills, chests, rooms, gold, urns, marks, finds) now carries a CLAUSE - beat the bell,
+        /// nobody goes down, or no potions - that breaks it the moment it is broken. Goals are higher, a failed job costs a
+        /// point of the giver's favour, and a clause pays x<see cref="ClauseReward"/>.
+        /// </summary>
+        public enum QuestClause : byte { None = 0, BeforeBell = 1, Unbowed = 2, Dry = 3 }
+        public const float ClauseReward = 1.3f, PassiveGoalScale = 1.35f;
+
+        public static bool TakesClause(Contract c) => c != Contract.Untouchable && c != Contract.SwiftBlade && c != Contract.Cargo && c != Contract.TreasureHunt && c != Contract.ChampionHunt;
+
+        public static string ClauseText(QuestClause c) => c switch
+        {
+            QuestClause.BeforeBell => ", before the Tallyman's bell",
+            QuestClause.Unbowed => ", with nobody going down",
+            QuestClause.Dry => ", without anyone drinking a potion",
+            _ => "",
         };
+
+        private void FailClause(QuestClause c)
+        {
+            for (int i = 0; i < Quests.Count; i++)
+                if (Quests[i].Status == ContractStatus.Active && Quests[i].Clause == (byte)c) FailQuest(i);
+        }
+
+        /// <summary>Server: someone drank from the pouch (breaks a no-potions clause).</summary>
+        public void QuestOnPotion() { if (Quests.Count > 0) FailClause(QuestClause.Dry); }
 
         /// <summary>The task, for a goal (counts in the text).</summary>
         public static string QuestTask(Contract c, int goal) => c switch
@@ -147,14 +177,14 @@ namespace Deepbound.World
             return c switch
             {
                 // Harder than the first pass (2026-11-08: "way too easy").
-                Contract.Slayer => Mathf.RoundToInt((45 + 14 * t) * k),
-                Contract.Exorcist => Mathf.RoundToInt((6 + 2 * t) * k),
-                Contract.EliteHunter => Mathf.RoundToInt((3 + t * 0.6f) * k),
-                Contract.Salvage => Mathf.RoundToInt(4 * k),
-                Contract.Ironmonger => Mathf.RoundToInt((5 + 1.5f * t) * k),
-                Contract.RoomSweep => Mathf.RoundToInt(6 * k),
-                Contract.GoldRun => Mathf.RoundToInt((220 + 90 * t) * k / 10f) * 10,
-                Contract.UrnBreaker => Mathf.RoundToInt((10 + 3 * t) * k),
+                Contract.Slayer => Mathf.RoundToInt((45 + 14 * t) * k * PassiveGoalScale),
+                Contract.Exorcist => Mathf.RoundToInt((6 + 2 * t) * k * PassiveGoalScale),
+                Contract.EliteHunter => Mathf.RoundToInt((3 + t * 0.6f) * k * PassiveGoalScale),
+                Contract.Salvage => Mathf.RoundToInt(5 * k),
+                Contract.Ironmonger => Mathf.RoundToInt((5 + 1.5f * t) * k * PassiveGoalScale),
+                Contract.RoomSweep => Mathf.RoundToInt(8 * k),
+                Contract.GoldRun => Mathf.RoundToInt((220 + 90 * t) * k * PassiveGoalScale / 10f) * 10,
+                Contract.UrnBreaker => Mathf.RoundToInt((10 + 3 * t) * k * PassiveGoalScale),
                 Contract.Gather => Mathf.RoundToInt((3 + (t >= 2f ? 1 : 0)) * k),
                 _ => 1,
             };
@@ -173,7 +203,8 @@ namespace Deepbound.World
             h = Mix(h, (uint)who * 104729u + 17u);
             var kind = pool[(int)(h % (uint)pool.Length)];
             bool special = Favour(who) >= SpecialFavour && (GiftMask.Value & (1 << (int)who)) == 0;
-            return new QuestSlot { Kind = (byte)kind, Giver = (byte)who, State = (byte)ContractStatus.None, Special = special, Goal = GoalFor(kind, NextDepth.Value, special) };
+            byte clause = TakesClause(kind) ? (byte)(1 + (h >> 11) % 3u) : (byte)0;
+            return new QuestSlot { Kind = (byte)kind, Giver = (byte)who, State = (byte)ContractStatus.None, Special = special, Goal = GoalFor(kind, NextDepth.Value, special), Clause = clause };
         }
 
         public int QuestIndexFrom(FolkId who)
@@ -254,7 +285,7 @@ namespace Deepbound.World
         private void ContractOnKill(Health target)
         {
             if (Quests.Count == 0 || target == null) return;
-            if (target.Team == Team.Players) { FailQuests(Contract.Untouchable); return; }
+            if (target.Team == Team.Players) { FailQuests(Contract.Untouchable); FailClause(QuestClause.Unbowed); return; }
             if (target.Team != Team.Enemies) return;
             QuestMarkKilled(target);
             Advance(Contract.Slayer);
@@ -279,7 +310,7 @@ namespace Deepbound.World
         private void TickContract()
         {
             // Swift Blade: beat the bell (the Tallyman's warning, which comes later on a bigger floor).
-            if (Quests.Count > 0 && Time.time - questsStartedAt > TallyWarnSeconds) FailQuests(Contract.SwiftBlade);
+            if (Quests.Count > 0 && Time.time - questsStartedAt > TallyWarnSeconds) { FailQuests(Contract.SwiftBlade); FailClause(QuestClause.BeforeBell); }
         }
 
         /// <summary>Server: the floor's guardian fell - settle what is still open.</summary>
@@ -303,7 +334,7 @@ namespace Deepbound.World
             q.Progress = q.Goal;
             Quests[i] = q;
             int depth = Mathf.RoundToInt(Tier(Layout != null ? Layout.Depth : 0));
-            float k = q.Special ? 1.5f : 1f;
+            float k = (q.Special ? 1.5f : 1f) * (q.Clause != 0 ? ClauseReward : 1f);
             bool sigil = HardContract(q.Contract) || q.Special;
             var relic = SignatureRelic(q.Who);
             foreach (var p in PlayerLife.All)
@@ -328,7 +359,23 @@ namespace Deepbound.World
             q.State = (byte)ContractStatus.Failed;
             Quests[i] = q;
             ContractFailedRpc(UI.Dialogue.NameOf(q.Who) + "'s quest: " + ContractName(q.Contract));
+            ServerLoseFavour(q.Who);
         }
+
+        /// <summary>Server: a job let slide costs a point of that person's favour (never below 0).</summary>
+        private void ServerLoseFavour(FolkId who)
+        {
+            EnsureFavourLoaded();
+            int was = Favour(who);
+            if (was <= 0) return;
+            ServerDebugFavour(who, was - 1);
+            if (!Cosmetics.TestMode) { PlayerPrefs.SetInt(FavourKey(who), was - 1); PlayerPrefs.Save(); }
+            FavourLostRpc((byte)who, was - 1);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void FavourLostRpc(byte who, int level) =>
+            UI.GameHud.Feed(UI.Dialogue.NameOf((FolkId)who) + " is let down (favour " + level + ")", new Color(0.85f, 0.5f, 0.4f));
 
         [Rpc(SendTo.ClientsAndHost)]
         private void ContractFailedRpc(string name) => UI.GameHud.Feed("Quest failed: " + name, new Color(0.85f, 0.4f, 0.35f));

@@ -33,9 +33,9 @@ namespace Deepbound.Player
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
         private float BeamReach => BeamRange * RangeMul;
         public const float BeamRange = 16f, BeamHealPerSec = 22f, BeamManaPerSec = 16f;
-        public const float ConsecrateCooldown = 14f, ConsecrateMana = 42f, ConsecrateRadius = 4f, ConsecrateSeconds = 6f;
+        public const float ConsecrateCooldown = 10f, ConsecrateMana = 42f, ConsecrateRadius = 4f, ConsecrateSeconds = 6f;
         public const float ConsecrateHealPerSec = 9f, ConsecrateBurnPerSec = 12f;
-        public const float AegisCooldown = 22f, AegisMana = 60f, AegisRadius = 12f, AegisAmount = 60f, AegisSeconds = 8f;
+        public const float AegisCooldown = 16f, AegisMana = 60f, AegisRadius = 12f, AegisAmount = 60f, AegisSeconds = 8f;
 
         /// <summary>Who the beam is on: a player's NetworkObjectId, the Cleric itself, or 0 for off. Owner-written.</summary>
         public readonly NetworkVariable<ulong> BeamTarget = new NetworkVariable<ulong>(0,
@@ -97,7 +97,7 @@ namespace Deepbound.Player
 
         private bool Active => progress.ClassId.Value == ClassId.Cleric;
         private float ManaMax => progress.Value(StatType.MP);
-        private float ManaRegen => 4f + progress.Value(StatType.WIS) * 0.15f;
+        private float ManaRegen => 2.5f + progress.Value(StatType.WIS) * 0.11f; // 2026-11-12: lower from the start (11.5/s -> 8/s at base WIS)
         /// <summary>WIS 50 is the reference; healing and shields scale ±1% per point.</summary>
         private float Potency => 1f + (progress.Value(StatType.WIS) - 50f) / 100f;
 

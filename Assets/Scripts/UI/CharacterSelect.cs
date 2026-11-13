@@ -165,6 +165,14 @@ namespace Deepbound.UI
         private int viewing = -1;
 
         /// <summary>Screenshots only: show one class, turned to a given yaw (200 = front, 20 = back).</summary>
+        /// <summary>Shots: every preview figure holds its guard up (the Knight's shield, HumanoidRig.GuardShield).</summary>
+        public void DebugBlock(bool up)
+        {
+            if (turntables == null) return;
+            foreach (var t in turntables)
+                if (t != null) foreach (var r in t.GetComponentsInChildren<Art.HumanoidRig>()) r.Blocking = up;
+        }
+
         public void DebugView(int i, float yaw)
         {
             viewing = i;

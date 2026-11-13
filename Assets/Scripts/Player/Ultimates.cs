@@ -40,6 +40,7 @@ namespace Deepbound.Player
         // less, and nothing charges for a while after a cast: on floor 6 the autoplay Knight cast every ~12 s.
         private const float PerDamageDealt = 0.02f, PerDamageTaken = 0.06f, PerSecond = 0.15f, LockAfterCast = 30f;
         private float lockedUntil;
+        public const float RogueChargeScale = 1.6f, RogueLockAfterCast = 18f;
         private static float DepthScaleHealth => Enemies.Difficulty.DepthHealth(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
         private static float DepthScaleDamage => Enemies.Difficulty.DepthDamage(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0);
 
@@ -140,6 +141,8 @@ namespace Deepbound.Player
             if (progress.HasRelic(Relic.EchoStone)) amount *= 1f + 0.2f * progress.RelicPower(Relic.EchoStone);
             if (progress.Wears(GearId.RosaryOfAsh)) amount *= 1.35f;
             amount *= DungeonDirector.OmenUltCharge;
+            // The Rogue's Death From Shadow fills faster (2026-11-12, the user): an assassin lives on the opening.
+            if (progress.ClassId.Value == ClassId.Rogue) amount *= RogueChargeScale;
             Charge.Value = Mathf.Min(ChargeMax, Charge.Value + amount);
         }
 
@@ -227,7 +230,7 @@ namespace Deepbound.Player
             if (!Ready || !life.CanAct) return;
             if (Vector3.Distance(aim, transform.position) > 34f) aim = transform.position + transform.forward * 4f;
             Charge.Value = 0f;
-            lockedUntil = Time.time + LockAfterCast;
+            lockedUntil = Time.time + (progress.ClassId.Value == ClassId.Rogue ? RogueLockAfterCast : LockAfterCast);
             var cls = progress.ClassId.Value;
             if (progress.HasRelic(Relic.WarlordsHorn))
                 foreach (var ally in CombatQuery.Circle(transform.position, 12f, Team.Players).ToArray())

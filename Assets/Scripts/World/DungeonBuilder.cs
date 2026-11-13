@@ -30,6 +30,7 @@ namespace Deepbound.World
             doorParent = lights;
 
             foreach (var room in layout.Rooms) BuildRoom(room, structure, dressing, lights);
+            foreach (var room in layout.Rooms) if (room.Cellar) BuildCellar(room, structure, dressing, lights);
             foreach (var link in layout.Links) BuildCorridor(layout.Rooms[link.A], layout.Rooms[link.B], link.Dir, structure, dressing, lights);
             foreach (var trap in layout.FlameTraps) FlameJet.Build(lights, trap, dressing);
             if (layout.PeddlerSpot.HasValue)
@@ -164,7 +165,7 @@ namespace Deepbound.World
                 case RoomFeature.Gauntlet: DressGauntlet(room, dressing, lights, rng); return;
                 case RoomFeature.Terrace: DressTerrace(room, dressing, lights, rng); return;
                 case RoomFeature.Ziggurat: DressZiggurat(room, dressing, lights, rng); return;
-                case RoomFeature.Treasury: case RoomFeature.Beggar: case RoomFeature.Proving: case RoomFeature.Armoury: case RoomFeature.Mirror: case RoomFeature.Oath: case RoomFeature.Statues: case RoomFeature.Chimes: case RoomFeature.Mirrors: case RoomFeature.Scales:
+                case RoomFeature.Treasury: case RoomFeature.Beggar: case RoomFeature.Proving: case RoomFeature.Armoury: case RoomFeature.Mirror: case RoomFeature.Oath: case RoomFeature.Statues: case RoomFeature.Chimes: case RoomFeature.Mirrors: case RoomFeature.Scales: case RoomFeature.Draught:
                     DressSpecial(room, dressing, lights, rng); return;
                 case RoomFeature.Panoply: DressSpecial(room, dressing, lights, rng); DressPanoply(room, dressing, lights); return;
             }
@@ -286,6 +287,28 @@ namespace Deepbound.World
         /// The space behind a hollow wall: floor, ceiling, back and sides. A secret cache is
         /// a little shrine-alcove; a breach is a rough tunnel the dead dug to reach you.
         /// </summary>
+        /// <summary>A cellar vault: a low stone room <see cref="DungeonLayout.CellarDrop"/> under its side room, a torch, crates.</summary>
+        private static void BuildCellar(DungeonLayout.Room room, MeshKit.Batcher s, MeshKit.Batcher d, Transform lights)
+        {
+            var c = room.CellarCenter;
+            float w = DungeonLayout.CellarSize, h = DungeonLayout.CellarHeight, full = w + WallThickness * 2f;
+            s.AddBox(c + Vector3.down * FloorThickness / 2f, new Vector3(full, FloorThickness, full), Mat.Flagstone);
+            s.AddBox(c + Vector3.up * (h + FloorThickness / 2f), new Vector3(full, FloorThickness, full), Mat.StoneWall);
+            for (int k = 0; k < 4; k++)
+            {
+                var dir = DungeonLayout.Dir[k];
+                var o = new Vector3(dir.x, 0f, dir.y);
+                var size = dir.y != 0 ? new Vector3(full, h, WallThickness) : new Vector3(WallThickness, h, full);
+                s.AddBox(c + o * (w / 2f + WallThickness / 2f) + Vector3.up * h / 2f, size, Mat.StoneWall);
+            }
+            Props.WallTorch(lights, c + new Vector3(0f, 2.2f, -w / 2f + 0.15f), Vector3.forward, false, theme.TorchColor);
+            Props.WallTorch(lights, c + new Vector3(0f, 2.2f, w / 2f - 0.15f), Vector3.back, false, theme.TorchColor);
+            Props.Crate(d, c + new Vector3(-w / 2f + 0.8f, 0f, w / 2f - 0.9f), 0.9f, 12f);
+            Props.Crate(d, c + new Vector3(-w / 2f + 0.9f, 0f, w / 2f - 1.9f), 0.7f, -20f);
+            Props.Crate(d, c + new Vector3(w / 2f - 0.8f, 0f, 0.6f), 0.8f, 33f); // clear of the chests in the far corners
+            d.AddBox(c + new Vector3(w / 2f - 1.2f, 0.06f, w / 2f - 1.2f), new Vector3(1.4f, 0.12f, 0.9f), Mat.Bone, Quaternion.Euler(0f, 25f, 0f));
+        }
+
         private static void BuildNiche(Vector3 wallMid, Vector3 outward, bool alongX, bool breach, MeshKit.Batcher b)
         {
             float w = WallHole.Width + 1.2f, depth = WallHole.NicheDepth, hh = WallHole.Height + 0.2f;

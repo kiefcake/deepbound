@@ -28,6 +28,10 @@ namespace Deepbound.Networking
         /// <summary>Tests and shots: urns on the Scales whose weights sum to the counterweight (smallest such set), or none.</summary>
         private static Vector3 Flat3(Vector3 v) { v.y = 0f; return v; }
 
+        /// <summary>Hidden caches holding a Draught instead of a chest (2026-11-12): draughts standing in no Draught room.</summary>
+        private static int CacheDraughts(DungeonLayout layout) => FindObjectsByType<StatDraught>(FindObjectsSortMode.None)
+            .Count(d => { var r = layout.RoomAt(d.transform.position, 0f); return r == null || r.Feature != RoomFeature.Draught; });
+
         private static System.Collections.Generic.List<ScaleWeight> ScaleAnswer(System.Collections.Generic.List<ScaleWeight> urns, int target)
         {
             var best = new System.Collections.Generic.List<ScaleWeight>();
@@ -169,6 +173,106 @@ namespace Deepbound.Networking
                 // Sessions start at camp. Check it, then board the carriage.
                 int dummies = FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None).Length;
                 Log("lobby", "in lobby " + DungeonDirector.InLobby + ", " + dummies + " dummies", DungeonDirector.InLobby && dummies == Lobby.DummySpots.Length);
+
+                // Build identity (2026-11-13): gear sets, Brann's masteries, class gifts; harder quests carry a clause.
+                {
+                    var bp = NetworkPlayer.Local.GetComponent<PlayerProgress>();
+                    bool sets = PlayerProgress.Sets.Length >= 5 && PlayerProgress.SetLine(GearId.BulwarkPlate) != null && PlayerProgress.SetLine(GearId.GlassHeart) != null;
+                    ulong drills0 = bp.Drills.Value;
+                    float regen0 = bp.BuildRegenScale;
+                    bp.Drills.Value = (drills0 & ~(0xFUL << (4 * (int)Core.StatType.VIT))) | (6UL << (4 * (int)Core.StatType.VIT));
+                    bool mastery = bp.Mastered(Core.StatType.VIT) && bp.BuildRegenScale > regen0;
+                    bp.Drills.Value = drills0;
+                    bool gifts = System.Enum.GetValues(typeof(Classes.ClassId)).Cast<Classes.ClassId>().All(c => !string.IsNullOrEmpty(PlayerProgress.ClassGift(c)));
+                    var dq = World.DungeonDirector.Instance;
+                    int passive = 0, clauses = 0;
+                    foreach (FolkId who in System.Enum.GetValues(typeof(FolkId)))
+                    {
+                        if (!World.DungeonDirector.GivesQuests(who)) continue;
+                        var q = dq.OfferOf(who);
+                        if (!World.DungeonDirector.TakesClause(q.Contract)) continue;
+                        passive++;
+                        if (q.Clause != 0) clauses++;
+                    }
+                    Log("build identity", "sets " + sets + ", VIT mastery " + mastery + ", class gifts " + gifts + "; quests that fill themselves carry a clause: " + clauses + " of " + passive,
+                        sets && mastery && gifts && clauses == passive);
+                }
+
+                // Path triads, the major rune socket, an edge ground out (2026-11-13).
+                {
+                    var tp = NetworkPlayer.Local.GetComponent<PlayerProgress>();
+                    bool names = System.Enum.GetValues(typeof(Classes.ClassId)).Cast<Classes.ClassId>().All(c =>
+                        Classes.WeaponPaths.Name(c, 3) != Classes.WeaponPaths.Name(c, 1) && Classes.WeaponPaths.Name(c, 3) != Classes.WeaponPaths.Name(c, 2) && Classes.WeaponPaths.Describe(c, 3).StartsWith("SURVIVAL"));
+                    byte path0 = tp.WeaponPath.Value;
+                    tp.WeaponPath.Value = 3;
+                    bool knight = tp.ClassId.Value == Classes.ClassId.Knight;
+                    bool bulwark = true;
+                    if (knight)
+                    {
+                        Classes.PathTriads.DebugCharge(tp.NetworkObjectId, Classes.PathTriads.BulwarkCharge);
+                        bulwark = Classes.PathTriads.OnKnightBlock(tp, 10f, KnightKit.SwingDamage) && Classes.PathTriads.ChargeOf(tp.NetworkObjectId) == 0f;
+                    }
+                    float inc = Classes.PathTriads.Incoming(tp, tp.transform.position + Vector3.forward * 2f);
+                    tp.WeaponPath.Value = path0;
+                    // Major socket: a rune in the first socket counts double.
+                    byte s0 = tp.Socket0.Value, s1 = tp.Socket1.Value;
+                    tp.Socket0.Value = 0; tp.Socket1.Value = (byte)Runes.Make(Rune.Farsight, 0);
+                    float minorRange = tp.RangeMultiplier;
+                    tp.Socket1.Value = 0; tp.Socket0.Value = (byte)Runes.Make(Rune.Farsight, 0);
+                    float majorRange = tp.RangeMultiplier;
+                    tp.Socket0.Value = s0; tp.Socket1.Value = s1;
+                    // Respec: grind an edge out, once a run.
+                    int edges0 = tp.EdgeBits.Value, gold0 = tp.Gold.Value;
+                    bool respec0 = tp.EdgeRespecced.Value;
+                    tp.EdgeBits.Value = (int)Progression.Edge.Momentum;
+                    tp.ServerAddGold(tp.RespecCost + 10);
+                    bool ground = tp.ServerRespecEdge(0) && tp.EdgeAt(0) == Progression.Edge.None && tp.EdgeRespecced.Value;
+                    tp.EdgeBits.Value = (int)Progression.Edge.Momentum;
+                    bool onceOnly = !tp.ServerRespecEdge(0);
+                    tp.EdgeBits.Value = edges0;
+                    tp.EdgeRespecced.Value = respec0;
+                    tp.ServerAddGold(gold0 - tp.Gold.Value);
+                    Log("path triads", "third paths named " + names + (knight ? ", bulwark shockwave " + bulwark : "") + ", survival incoming x" + inc.ToString("F2")
+                        + "; major socket range +" + ((majorRange - 1f) * 100f).ToString("F0") + "% vs +" + ((minorRange - 1f) * 100f).ToString("F0") + "%; edge ground out " + ground + ", once a run " + onceOnly,
+                        names && bulwark && majorRange > minorRange + 0.1f && ground && onceOnly);
+                }
+
+                // VIT regeneration (2026-11-13): slow, more for melee, less for ranged.
+                {
+                    var vh = NetworkPlayer.Local.GetComponent<Health>();
+                    var vp = NetworkPlayer.Local.GetComponent<PlayerProgress>();
+                    PlayerLife.VitRegenInTests = true;
+                    vh.ServerSetFraction(0.5f);
+                    float vh0 = vh.Current.Value;
+                    yield return new WaitForSeconds(3f);
+                    float vh1 = vh.Current.Value;
+                    PlayerLife.VitRegenInTests = false;
+                    vh.ServerSetFraction(1f);
+                    float want = PlayerLife.VitRegen(vp.Value(Core.StatType.VIT), vp.ClassId.Value);
+                    bool order = PlayerLife.VitShare(Classes.ClassId.Knight) > PlayerLife.VitShare(Classes.ClassId.Rogue) && PlayerLife.VitShare(Classes.ClassId.Rogue) > PlayerLife.VitShare(Classes.ClassId.Mage)
+                        && PlayerLife.VitShare(Classes.ClassId.Ranger) < 1f;
+                    Log("vit regeneration", vp.ClassId.Value + " VIT " + vp.Value(Core.StatType.VIT) + ": " + want.ToString("F2") + " hp/s, healed " + (vh1 - vh0).ToString("F1") + " in 3 s, melee > ranged " + order,
+                        vh1 > vh0 && vh1 - vh0 <= want * 3.5f + 1f && order);
+                }
+
+                // Build choices (2026-11-12): every edge offer has a BLADE and a GUARD; trade-off gear is in the rolls; Brann
+                // trains wind and hide; mana and stamina come back slower from the start; the Rogue's ultimate fills faster.
+                {
+                    int bad = 0;
+                    for (int seed = 0; seed < 60; seed++)
+                        for (int slot = 0; slot < Progression.Edges.Slots; slot++)
+                        {
+                            var offer = Progression.Edges.Offer(seed, (ulong)(seed % 4), slot, 0);
+                            if (!offer.Any(Progression.Edges.IsBlade) || !offer.Any(Progression.Edges.IsGuard) || offer.Distinct().Count() != offer.Length) bad++;
+                        }
+                    var armours = Gear.RollableOf(GearSlot.Armor);
+                    bool tradeoffs = armours.Contains(GearId.BulwarkPlate) && armours.Contains(GearId.BerserkersHarness) && Gear.RollableOf(GearSlot.Charm).Contains(GearId.GlassHeart)
+                        && Gear.StatValue(new GearItem(GearId.BulwarkPlate, 0, 0), Core.StatType.SPD) < 0f && Gear.StatValue(new GearItem(GearId.GlassHeart, 0, 0), Core.StatType.HP) < 0f;
+                    bool drills = Shop.Drills.Any(d => d.Name == "Roadwork" && d.Stat == Core.StatType.VIT) && Shop.Drills.Any(d => d.Name == "Hardening");
+                    Log("build choices", "edge offers without a blade and a guard: " + bad + " of " + (60 * Progression.Edges.Slots) + ", trade-off gear " + tradeoffs + ", Roadwork/Hardening drills " + drills
+                        + ", cleric cooldowns " + ClericKit.ConsecrateCooldown + "/" + ClericKit.AegisCooldown + " s, rogue ult x" + Ultimates.RogueChargeScale,
+                        bad == 0 && tradeoffs && drills && ClericKit.ConsecrateCooldown <= 10f && Ultimates.RogueChargeScale > 1f);
+                }
 
                 // Camp workstations (2026-11-12): each is what the crosshair finds from where you would stand at it (and
                 // looking up past the anvil at Hobb finds none); the grindstone and the forge count as Hobb's smithy on the
@@ -1447,7 +1551,7 @@ namespace Deepbound.Networking
                 var chests = FindObjectsByType<Chest>(FindObjectsSortMode.None);
                 int urns = FindObjectsByType<Breakable>(FindObjectsSortMode.None).Count(b => b.Type.Value == Breakable.Kind.Urn);
                 Log("dungeon objects", chests.Length + " chests for " + sideRooms + " side rooms, " + urns + " urns, " +
-                    FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Length + " traps", chests.Length == sideRooms + (layout.Rooms.Any(r => r.Feature == RoomFeature.Vault) ? 2 : 0) + layout.Rooms.Sum(r => r.Holes.Count(hh => !hh.Breach)) && urns > 0);
+                    FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Length + " traps", chests.Length == sideRooms + (layout.Rooms.Any(r => r.Feature == RoomFeature.Vault) ? 2 : 0) + layout.Rooms.Sum(r => r.Holes.Count(hh => !hh.Breach)) - CacheDraughts(layout) - FindObjectsByType<BargainAltar>(FindObjectsSortMode.None).Length + 2 * layout.Rooms.Count(r => r.Cellar) && urns > 0);
                 if (chests.Length > 0)
                 {
                     int dropsBefore = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
@@ -1723,7 +1827,7 @@ namespace Deepbound.Networking
                     }
                     Log("peddler rooms peaceful", peddlers + " peddler rooms over 40 seeds, " + hostile + " with enemies", peddlers > 0 && hostile == 0);
                     {
-                        int tre = 0, beg = 0, pro = 0, arm = 0, mir = 0, ter = 0, zig = 0, oat = 0, dark = 0, wat = 0, chi = 0, specialHostile = 0;
+                        int tre = 0, beg = 0, pro = 0, arm = 0, mir = 0, ter = 0, zig = 0, oat = 0, dark = 0, wat = 0, chi = 0, dra = 0, specialHostile = 0;
                         for (int sd = 1; sd <= 40; sd++)
                         {
                             var gl = DungeonLayout.Generate(sd * 15485863, 1 + sd % 8);
@@ -1741,13 +1845,14 @@ namespace Deepbound.Networking
                                     case RoomFeature.Oath: oat++; break;
                                     case RoomFeature.Statues: wat++; break;
                                     case RoomFeature.Chimes: chi++; break;
+                                    case RoomFeature.Draught: dra++; break;
                                     case RoomFeature.Lightless: dark++; break;
                                 }
                                 if (r.Special && r.Feature != RoomFeature.Treasury && r.EnemySpawns.Count > 0) specialHostile++;
                             }
                         }
-                        Log("special rooms", "over 40 seeds: treasury " + tre + ", beggar " + beg + ", proving " + pro + ", armoury " + arm + ", mirror " + mir + ", terrace " + ter + ", ziggurat " + zig + ", oath " + oat + ", lightless " + dark + ", watchers " + wat + ", chimes " + chi + "; special rooms with enemies " + specialHostile,
-                            tre > 0 && beg > 0 && pro > 0 && arm > 0 && mir > 0 && ter > 0 && zig > 0 && oat > 0 && dark > 0 && wat > 0 && chi > 0 && specialHostile == 0);
+                        Log("special rooms", "over 40 seeds: treasury " + tre + ", beggar " + beg + ", proving " + pro + ", armoury " + arm + ", mirror " + mir + ", terrace " + ter + ", ziggurat " + zig + ", oath " + oat + ", lightless " + dark + ", watchers " + wat + ", chimes " + chi + ", draught " + dra + "; special rooms with enemies " + specialHostile,
+                            tre > 0 && beg > 0 && pro > 0 && arm > 0 && mir > 0 && ter > 0 && zig > 0 && oat > 0 && dark > 0 && wat > 0 && chi > 0 && dra > 0 && specialHostile == 0);
                     }
                     {
                         // The special rooms' furniture does what it says.
@@ -2244,7 +2349,7 @@ namespace Deepbound.Networking
                     // Trap rolls are seeded: a floor with no plate at all once left this check unrun (2026-11-07).
                     if (plate == null)
                     {
-                        var spot = layout.PlayerSpawnFor(local.OwnerClientId) + local.transform.forward * 3f;
+                        var spot = layout.PlayerSpawnFor(local.OwnerClientId) + local.transform.forward * 6f; // clear of the other spawns
                         if (UnityEngine.AI.NavMesh.SamplePosition(spot, out var onMesh, 3f, UnityEngine.AI.NavMesh.AllAreas)) spot = onMesh.position;
                         plate = World.DungeonDirector.Instance.ServerDebugSpawnPlate(spot);
                         yield return new WaitForSeconds(0.3f);
@@ -2261,20 +2366,193 @@ namespace Deepbound.Networking
                         ph.Shield.Value = 0f;
                         pdeb.ServerResetGrace();
                         float before = ph.Current.Value;
-                        local.GetComponent<FirstPersonMotor>().Teleport(plate.transform.position + Vector3.up * 0.1f, local.transform.rotation);
-                        // Something else on the plate (a straggler, the client) can have it mid-beat: wait out one full cycle.
+                        // A spike bed (2026-11-12): the bed itself is safe to stand on; a tread on a plate fires it.
+                        var bedMotor = local.GetComponent<FirstPersonMotor>();
+                        bedMotor.Teleport(plate.transform.position + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return new WaitForSeconds(SpikeTrap.Delay + 0.3f);
+                        bool bedQuiet = before - ph.Current.Value <= 0f;
+                        bedMotor.Teleport(plate.PlateCenter(0) + Vector3.up * 0.1f, local.transform.rotation);
+                        yield return new WaitForSeconds(0.1f);
+                        bedMotor.Teleport(plate.transform.position + Vector3.up * 0.1f, local.transform.rotation);
+                        // Something else on a plate (a straggler, the client) can have it mid-beat: wait out one full cycle.
                         float took = 0f;
-                        for (float t = 0f; t < SpikeTrap.Delay + SpikeTrap.Rearm + 0.6f && took <= 0f; t += 0.05f)
+                        for (float t = 0f; t < SpikeTrap.Delay + SpikeTrap.UpSeconds + SpikeTrap.Rearm + 0.6f && took <= 0f; t += 0.05f)
                         {
                             yield return new WaitForSeconds(0.05f);
                             took = before - ph.Current.Value;
+                            if (took <= 0f && t > SpikeTrap.Delay + SpikeTrap.UpSeconds + 0.2f && t < SpikeTrap.Delay + SpikeTrap.UpSeconds + 0.3f)
+                            {
+                                bedMotor.Teleport(plate.PlateCenter(1) + Vector3.up * 0.1f, local.transform.rotation);
+                                yield return new WaitForSeconds(0.1f);
+                                bedMotor.Teleport(plate.transform.position + Vector3.up * 0.1f, local.transform.rotation);
+                            }
                         }
                         yield return null;
                         bool pinned = pdeb.Rooted;
-                        Log("spike plate", "took " + took.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " (hidden " + plate.Hidden.Value + "), pinned " + pinned, took >= ph.Max.Value * 0.2f && took <= ph.Max.Value * 0.4f && pinned);
+                        Log("spike plate", "bed quiet untrod " + bedQuiet + ", took " + took.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " (hidden " + plate.Hidden.Value + "), pinned " + pinned, bedQuiet && took >= ph.Max.Value * 0.2f && took <= ph.Max.Value * 0.4f && pinned);
                         local.GetComponent<FirstPersonMotor>().Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                         ph.ServerSetFraction(1f);
                         yield return new WaitForSeconds(SpikeTrap.ImpaleSeconds);
+                        // ---- 2026-11-12: ways in, rooms that erupt, the Draught ----
+                        {
+                            var dd = World.DungeonDirector.Instance;
+                            // A pack raised mid-floor comes in by a wall, the floor or a rift, and does nothing until it is through.
+                            var er = layout.Rooms.Where(r => r.Kind == RoomKind.Combat).OrderByDescending(r => Vector3.Distance(r.Center, local.transform.position)).FirstOrDefault();
+                            if (er != null)
+                            {
+                                var pack = dd.ServerSpawnPackList(er.Center + new Vector3(er.Size.x / 2f - 2f, 0f, 0f), 6, false);
+                                yield return null;
+                                bool allWays = pack.Count == 6 && pack.All(b => b.Entrance.Value != 0);
+                                bool held = pack.All(b => b.Entering);
+                                string ways = string.Join(",", pack.Select(b => ((EnemyBrain.EntranceKind)b.Entrance.Value).ToString()));
+                                // The tell: still in the wall, nothing to hit; then out, and it takes extra while it climbs.
+                                var ph0 = pack.Count > 0 ? pack[0].GetComponent<Health>() : null;
+                                float tellHp0 = ph0 != null ? ph0.Current.Value : 0f;
+                                if (ph0 != null) ph0.ServerDamage(10f, ph0.transform.position + Vector3.forward, local.NetworkObjectId);
+                                bool tellSafe = ph0 != null && Mathf.Approximately(ph0.Current.Value, tellHp0);
+                                yield return new WaitForSeconds(EnemyBrain.EntranceTell + 0.15f);
+                                float emHp0 = ph0 != null ? ph0.Current.Value : 0f;
+                                if (ph0 != null && pack[0].Entering) ph0.ServerDamage(10f, ph0.transform.position + Vector3.forward, local.NetworkObjectId);
+                                float emerging = ph0 != null ? emHp0 - ph0.Current.Value : 0f;
+                                yield return new WaitForSeconds(EnemyBrain.EntranceSeconds(EnemyBrain.EntranceKind.Wall) + 0.3f);
+                                bool through = pack.All(b => b == null || !b.Entering);
+                                Log("spawn telegraph", "a hit in the tell does nothing " + tellSafe + ", a hit as it climbs out takes " + emerging.ToString("F1") + " (of a 10 hit before armour)", tellSafe && emerging > 0f);
+                                foreach (var b in pack) if (b != null && b.IsSpawned) b.NetworkObject.Despawn();
+                                Log("enemy entrances", "6 raised, ways " + ways + ", all had one " + allWays + ", held while coming in " + held + ", through after " + through, allWays && held && through);
+                                // A cleared room erupts: a swarm of lesser skeletons out of the walls.
+                                int enemiesBefore = EnemyBrain.All.Count;
+                                int made = dd.ServerErupt(er);
+                                yield return null;
+                                var swarm = EnemyBrain.All.Skip(enemiesBefore).Where(b => b != null).ToList();
+                                bool lesser = swarm.Count(b => b.Lesser.Value) >= made - World.DungeonDirector.EruptHeavies(layout.Depth);
+                                bool fromWalls = swarm.All(b => b.Entrance.Value == (byte)EnemyBrain.EntranceKind.Wall);
+                                bool insideRoom = swarm.All(b => er.Contains(b.transform.position, 0.5f));
+                                bool deeper = World.DungeonDirector.EruptChance(6) > World.DungeonDirector.EruptChance(0) && World.DungeonDirector.EruptCount(6, 1) > World.DungeonDirector.EruptCount(0, 1);
+                                foreach (var b in swarm) if (b != null && b.IsSpawned) b.NetworkObject.Despawn();
+                                Log("room eruption", made + " out of the walls (" + World.DungeonDirector.EruptCount(layout.Depth, 1) + " a swarm here), lesser " + lesser + ", from walls " + fromWalls + ", in the room " + insideRoom + ", worse deeper " + deeper,
+                                    made >= 5 && lesser && fromWalls && insideRoom && deeper);
+                            }
+                            // The Draught: one drink, a random stat up for the run.
+                            var dAt = local.transform.position + local.transform.forward * 1.2f;
+                            var draught = dd.ServerDebugDraught(dAt);
+                            yield return new WaitForSeconds(0.2f);
+                            if (draught != null)
+                            {
+                                var dp = local.GetComponent<PlayerProgress>();
+                                var stat = draught.Kind;
+                                float v0 = dp.Value(stat);
+                                draught.UseRpc(local.NetworkObject);
+                                yield return new WaitForSeconds(0.2f);
+                                float v1 = dp.Value(stat);
+                                draught.UseRpc(local.NetworkObject);
+                                yield return new WaitForSeconds(0.2f);
+                                float v2 = dp.Value(stat);
+                                dp.ServerAddBonus(stat, -StatDraught.Amount(stat));
+                                Log("stat draught", StatDraught.DraughtName(stat) + ": " + stat + " " + v0 + " -> " + v1 + " (+" + StatDraught.Amount(stat) + "), again " + v2 + ", empty " + draught.Drunk.Value,
+                                    Mathf.Approximately(v1 - v0, StatDraught.Amount(stat)) && Mathf.Approximately(v2, v1) && draught.Drunk.Value);
+                                draught.NetworkObject.Despawn();
+                            }
+                            else Log("stat draught", "no prefab", false);
+                            // ---- 2026-11-13: swarms by act, breach patrols, rifts, jammed plates, bargains, cellars ----
+                            {
+                                bool acts = World.DungeonDirector.SwarmOf(0) == World.DungeonDirector.SwarmKind.Bones && World.DungeonDirector.SwarmOf(2) == World.DungeonDirector.SwarmKind.Ghouls
+                                    && World.DungeonDirector.SwarmOf(6) == World.DungeonDirector.SwarmKind.Choir && World.DungeonDirector.SwarmWarning(World.DungeonDirector.SwarmKind.Ghouls) != World.DungeonDirector.SwarmWarning(World.DungeonDirector.SwarmKind.Bones);
+                                Log("swarm by act", "crypt bones, deep ghouls, the choir's rifts: " + acts, acts);
+                                // A breach patrol: out of a wall behind you, hunting.
+                                var br = layout.Rooms.Where(r => r.Kind == RoomKind.Combat).OrderByDescending(r => Vector3.Distance(r.Center, local.transform.position)).FirstOrDefault();
+                                if (br != null)
+                                {
+                                    int nBefore = EnemyBrain.All.Count;
+                                    int made = dd.ServerBreach(br);
+                                    yield return new WaitForSeconds(0.3f);
+                                    var party = EnemyBrain.All.Skip(nBefore).Where(b => b != null).ToList();
+                                    bool hunting = party.Count > 0 && party.All(b => b.CurrentTarget != null);
+                                    bool fromWall = party.All(b => b.Entrance.Value == (byte)EnemyBrain.EntranceKind.Wall);
+                                    foreach (var b in party) if (b != null && b.IsSpawned) b.NetworkObject.Despawn();
+                                    Log("breach patrol", made + " out of a wall " + Vector3.Distance(br.Center, local.transform.position).ToString("F0") + " m away, hunting " + hunting + ", from the wall " + fromWall, made >= 3 && hunting && fromWall);
+                                }
+                                // A necromancer's rift: it spits out the dead until it is broken.
+                                var riftAt = local.transform.position + local.transform.forward * 6f;
+                                var rift = dd.ServerDebugRift(riftAt);
+                                if (rift != null)
+                                {
+                                    int nBefore = EnemyBrain.All.Count;
+                                    yield return new WaitForSeconds(2.6f + EnemyBrain.EntranceTotal(EnemyBrain.EntranceKind.Portal));
+                                    int spat = rift.Made.Value;
+                                    var rh = rift.GetComponent<Health>();
+                                    rh.ServerDamage(1e6f, rift.transform.position + Vector3.forward, local.NetworkObjectId);
+                                    yield return new WaitForSeconds(0.3f);
+                                    bool closed = rift == null || !rift.IsSpawned;
+                                    foreach (var b in EnemyBrain.All.Skip(nBefore).ToList()) if (b != null && b.IsSpawned) b.NetworkObject.Despawn();
+                                    Log("soul rift", "spat out " + spat + ", broken and closed " + closed, spat >= 1 && closed);
+                                }
+                                else Log("soul rift", "no prefab", false);
+                                // Jamming a spike plate: a Rogue's hands or a pick.
+                                var jp = local.GetComponent<PlayerProgress>();
+                                var jt = dd.ServerDebugSpawnPlate(local.transform.position + local.transform.forward * 4f);
+                                yield return null;
+                                if (jt != null)
+                                {
+                                    byte picks0 = jp.Picks.Value;
+                                    jp.Picks.Value = 0;
+                                    local.GetComponent<FirstPersonMotor>().Teleport(jt.PlateCenter(0) + Vector3.up * 0.1f, local.transform.rotation);
+                                    yield return new WaitForSeconds(0.2f);
+                                    bool rogue = jp.ClassId.Value == Classes.ClassId.Rogue;
+                                    bool noTool = rogue || !jt.ServerJam(jp);
+                                    jp.Picks.Value = 2;
+                                    bool jammed = jt.ServerJam(jp) && jt.Jammed.Value && (rogue || jp.Picks.Value == 1);
+                                    local.GetComponent<FirstPersonMotor>().Teleport(jt.transform.position + Vector3.up * 0.1f, local.transform.rotation);
+                                    var jh = local.GetComponent<Health>();
+                                    float jhp = jh.Current.Value;
+                                    yield return new WaitForSeconds(SpikeTrap.Delay + SpikeTrap.UpSeconds + 0.3f);
+                                    bool quiet = jh.Current.Value >= jhp - 0.01f;
+                                    jp.Picks.Value = picks0;
+                                    jt.NetworkObject.Despawn();
+                                    local.GetComponent<FirstPersonMotor>().Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                                    Log("spike jam", "no tool refused " + noTool + ", a pick jams it " + jammed + ", the bed stays down " + quiet, noTool && jammed && quiet);
+                                }
+                                // A shrine of trade-off: Blood for Steel.
+                                var bal = dd.SpawnBargain(local.transform.position + local.transform.forward * 2f, Quaternion.identity, 0);
+                                yield return new WaitForSeconds(0.2f);
+                                if (bal != null)
+                                {
+                                    float att0 = jp.AttackMultiplier, max0 = local.GetComponent<Health>().Max.Value;
+                                    bool sealedOk = bal.ServerSeal(jp);
+                                    float att1 = jp.AttackMultiplier, max1 = local.GetComponent<Health>().Max.Value;
+                                    bool once = !bal.ServerSeal(jp);
+                                    jp.Bargains.Value = 0;
+                                    jp.ServerAddBonus(Core.StatType.HP, 0f);
+                                    float max2 = local.GetComponent<Health>().Max.Value;
+                                    local.GetComponent<Health>().ServerSetFraction(1f);
+                                    bal.NetworkObject.Despawn();
+                                    Log("bargain altar", "damage x" + (att1 / att0).ToString("F2") + ", max hp " + max0.ToString("F0") + " -> " + max1.ToString("F0") + " (undone " + max2.ToString("F0") + "), once a run " + once,
+                                        sealedOk && att1 > att0 * 1.1f && max1 < max0 && once && Mathf.Abs(max2 - max0) < 1f);
+                                }
+                                else Log("bargain altar", "no prefab", false);
+                                // A cellar vault: break the tile, drop in, climb out.
+                                var hatch = FindObjectsByType<CellarHatch>(FindObjectsSortMode.None).FirstOrDefault(c => c.What == CellarHatch.Mode.Hatch);
+                                var croom = layout.Rooms.FirstOrDefault(r => r.Cellar);
+                                if (hatch != null && croom != null)
+                                {
+                                    hatch.GetComponent<Health>().ServerDamage(50f, hatch.transform.position + Vector3.up, local.NetworkObjectId);
+                                    yield return new WaitForSeconds(0.2f);
+                                    bool broke = hatch.Broken.Value;
+                                    local.GetComponent<FirstPersonMotor>().Teleport(hatch.transform.position + Vector3.forward * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
+                                    yield return new WaitForSeconds(0.2f);
+                                    hatch.UseRpc(local.NetworkObject);
+                                    yield return new WaitForSeconds(0.5f);
+                                    bool down = layout.InCellar(local.transform.position);
+                                    int cellarChests = FindObjectsByType<Chest>(FindObjectsSortMode.None).Count(c => layout.InCellar(c.transform.position));
+                                    var rope = FindObjectsByType<CellarHatch>(FindObjectsSortMode.None).FirstOrDefault(c => c.What == CellarHatch.Mode.Rope);
+                                    if (rope != null) rope.UseRpc(local.NetworkObject);
+                                    yield return new WaitForSeconds(0.5f);
+                                    bool up = !layout.InCellar(local.transform.position) && Vector3.Distance(local.transform.position, hatch.transform.position) < 4f;
+                                    local.GetComponent<FirstPersonMotor>().Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                                    Log("cellar vault", "tile broke " + broke + ", dropped in " + down + ", chests below " + cellarChests + ", climbed out " + up, broke && down && cellarChests >= 2 && up);
+                                }
+                                else Log("cellar vault", "no cellar on this floor (hatch " + (hatch != null) + ", room " + (croom != null) + ")", false);
+                            }
+                        }
                         // A pet (2026-11-07) fetches a pile of gold lying beyond the coin magnet, in sight.
                         {
                             var np = local.GetComponent<NetworkPlayer>();
@@ -2589,6 +2867,44 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(1.3f);
                     float b2 = boss.Health.Current.Value;
                     Log("arena machinery", "ballista " + b0.ToString("F0") + " -> " + b1.ToString("F0") + ", chandelier -> " + b2.ToString("F0") + ", stunned " + boss.IsStunned, bal != null && winch != null && b1 < b0 && b2 < b1);
+                    // The guardian's dash (2026-11-12): from across the room it lines up and charges at you.
+                    {
+                        yield return new WaitForSeconds(1.5f);
+                        var bossFm = local.GetComponent<FirstPersonMotor>();
+                        var dashFrom = boss.transform.position;
+                        var away = Flat3(local.transform.position - dashFrom);
+                        if (away.sqrMagnitude < 1f) away = boss.transform.forward;
+                        var standAt = dashFrom + away.normalized * 13f;
+                        if (UnityEngine.AI.NavMesh.SamplePosition(standAt, out var sHit, 3f, UnityEngine.AI.NavMesh.AllAreas)) standAt = sHit.position;
+                        bossFm.Teleport(standAt + Vector3.up * 0.1f, Quaternion.LookRotation(-away));
+                        local.GetComponent<Health>().ServerSetFraction(1f);
+                        // The chandelier stuns it: a stunned guardian does not charge (wait that out).
+                        for (float w = 0f; w < 8f && boss.IsStunned; w += 0.2f) yield return new WaitForSeconds(0.2f);
+                        yield return new WaitForSeconds(0.2f);
+                        float gap0 = Vector3.Distance(Flat3(boss.transform.position), Flat3(local.transform.position));
+                        int dashes0 = boss.BossDashCount;
+                        var bossAt0 = boss.transform.position;
+                        bool began = boss.ServerBossDash();
+                        yield return new WaitForSeconds(EnemyBrain.BossDashTell + 1.2f);
+                        float gap1 = Vector3.Distance(Flat3(boss.transform.position), Flat3(local.transform.position));
+                        float bossMoved = Vector3.Distance(Flat3(boss.transform.position), Flat3(bossAt0));
+                        Log("boss dash", boss.GetType().Name + " began " + began + ", it moved " + bossMoved.ToString("F1") + " m (gap " + gap0.ToString("F1") + " -> " + gap1.ToString("F1") + "), dashes " + (boss.BossDashCount - dashes0),
+                            began && boss.BossDashCount > dashes0 && bossMoved > 4f);
+                        local.GetComponent<Health>().ServerSetFraction(1f);
+                        // Hugging it: the ring fills round it, then it bursts and throws you out.
+                        for (float w = 0f; w < 3f && boss.Dashing; w += 0.1f) yield return new WaitForSeconds(0.1f);
+                        var hugAt = boss.transform.position + Flat3(local.transform.position - boss.transform.position).normalized * 2.4f;
+                        bossFm.Teleport(hugAt + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(boss.transform.position - hugAt)));
+                        yield return new WaitForSeconds(0.15f);
+                        var hugHp = local.GetComponent<Health>();
+                        float hp0 = hugHp.Current.Value;
+                        int rep0 = boss.Repulses;
+                        for (float w = 0f; w < 5f && (boss.IsStunned || boss.Immune); w += 0.2f) yield return new WaitForSeconds(0.2f);
+                        boss.ServerRepulse();
+                        for (float w = 0f; w < BossBrain.RepulseTell + 2.5f && boss.Repulses == rep0; w += 0.1f) yield return new WaitForSeconds(0.1f);
+                        Log("boss repulse", "repulses " + (boss.Repulses - rep0) + ", hp " + hp0.ToString("F0") + " -> " + hugHp.Current.Value.ToString("F0"), boss.Repulses > rep0 && hugHp.Current.Value < hp0);
+                        hugHp.ServerSetFraction(1f);
+                    }
                     boss.Dormant = wasAsleep;
                 }
                 boss.Health.ServerDamage(1e6f, boss.transform.position);
@@ -3648,28 +3964,39 @@ namespace Deepbound.Networking
                             var barrel = FindObjectsByType<ArmWrestle>(FindObjectsSortMode.None).FirstOrDefault();
                             var arm = NetworkPlayer.Local.GetComponent<PlayerProgress>();
                             bool stayA = World.FolkRounds.StayHome;
-                            World.FolkRounds.StayHome = true; // Brann at his post
+                            World.FolkRounds.StayHome = true;
                             int startGold = arm.Gold.Value;
                             if (startGold < 200) arm.ServerAddGold(200);
                             int ga = arm.Gold.Value;
                             double Win(ArmWrestle w, int side = 1)
                             {
-                                // Heave at every moment the marker is on the mark, a gap apart, until he is pinned.
-                                double t0 = w.StartAt.Value, last = -10;
-                                for (double tt = 0; tt < 40 && w.InBout; tt += 0.005)
-                                    if (tt - last >= ArmWrestle.HeaveGap + 0.01 && Mathf.Abs(ArmWrestle.MarkerAt(tt)) < 0.04f) { w.ServerHeave(t0 + tt, side); last = tt; }
-                                return last;
+                                // Play the bout out on its own clock. Against Gorm: rest while he leans, strain from his surge
+                                // through his tiring. Delvers: the far side strains all the way, the near side rests.
+                                for (int k = 0; k < 6000 && w.InBout; k++)
+                                {
+                                    if (side < 0) { w.ServerSetStrain(-1, true); w.ServerSetStrain(1, false); }
+                                    else w.ServerSetStrain(1, w.GormPhase.Value == ArmWrestle.Phase.Surge || w.GormPhase.Value == ArmWrestle.Phase.Tired);
+                                    w.ServerSimulate(0.02f);
+                                }
+                                return w.BoutTime;
                             }
                             bool claspOk = false, slipped = false, wonFirst = false, lossKeeps = false, capOk = false, pvpOk = false;
                             string pvpWhy = "";
                             if (barrel != null)
                             {
                                 claspOk = barrel.ServerClasp(arm, 25) && arm.Gold.Value == ga - 25;
-                                float b0 = barrel.Balance.Value;
-                                double tSlip = 0;
-                                for (double tt = 0; tt < 3; tt += 0.005) if (Mathf.Abs(ArmWrestle.MarkerAt(tt)) > 0.95f) { tSlip = tt; break; }
-                                barrel.ServerHeave(barrel.StartAt.Value + tSlip);
-                                slipped = barrel.Balance.Value < b0;
+                                // An unbraced surge shoves you most of the way to the wood.
+                                float bs = 0f; bool sawSurge = false;
+                                for (int k = 0; k < 3000 && barrel.InBout; k++)
+                                {
+                                    barrel.ServerSimulate(0.02f);
+                                    if (!sawSurge && barrel.GormPhase.Value == ArmWrestle.Phase.Surge) { sawSurge = true; bs = barrel.Balance.Value; }
+                                    if (sawSurge && barrel.GormPhase.Value != ArmWrestle.Phase.Surge) break;
+                                }
+                                slipped = sawSurge && barrel.Balance.Value < bs - 0.4f;
+                                barrel.ServerEnd(0);
+                                ga = arm.Gold.Value;
+                                barrel.ServerClasp(arm, 25);
                                 Win(barrel);
                                 wonFirst = barrel.LastOutcome == 1 && arm.Gold.Value == ga + 25;
                                 int gl = arm.Gold.Value;
@@ -3697,7 +4024,7 @@ namespace Deepbound.Networking
                             yield return null;
                             arm.ServerAddGold(startGold - arm.Gold.Value);
                             World.FolkRounds.StayHome = stayA;
-                            Log("arm wrestling", "barrel " + (barrel != null) + ", clasp takes the stake " + claspOk + ", a miss slips " + slipped + ", pinned him for double " + wonFirst + ", a loss keeps the stake " + lossKeeps + ", three paid wins a visit " + capOk + "; delvers: " + pvpWhy,
+                            Log("arm wrestling", "barrel " + (barrel != null) + ", clasp takes the stake " + claspOk + ", an unbraced surge shoves you " + slipped + ", braced and drove: pinned him for double " + wonFirst + ", a loss keeps the stake " + lossKeeps + ", three paid wins a visit " + capOk + "; delvers: " + pvpWhy,
                                 barrel != null && claspOk && slipped && wonFirst && lossKeeps && capOk && pvpOk);
                         }
                         // Old Wick (2026-11-08): sits with a lone player, plays a whole hand on his own, gold is only moved (never made) at the table, leaves when the player does, never sits broke.
@@ -4996,6 +5323,15 @@ namespace Deepbound.Networking
                     yield return Shot(dir, "0p_class_" + ((Classes.ClassId)ci) + "_" + tag);
                 }
             }
+            // The Knight's guard, from the front and the side (2026-11-12: the raised shield went through the chest).
+            select.DebugBlock(true);
+            foreach (var (yaw, tag) in new[] { (200f, "front"), (270f, "side"), (150f, "quarter") })
+            {
+                select.DebugView((int)Classes.ClassId.Knight, yaw);
+                yield return new WaitForSeconds(0.5f);
+                yield return Shot(dir, "0q_knight_block_" + tag);
+            }
+            select.DebugBlock(false);
             select.DebugView((int)local.GetComponent<PlayerProgress>().ClassId.Value, 200f);
             local.GetComponent<UI.CharacterSelect>().Close();
             yield return new WaitForSeconds(0.2f);
@@ -5253,6 +5589,16 @@ namespace Deepbound.Networking
                         lobbyMotor.SetPitch(Mathf.Atan2(-to.y, Flat3(to).magnitude) * Mathf.Rad2Deg);
                         yield return new WaitForSeconds(0.5f);
                         yield return Shot(dir, "1b_station_" + job.ToString().ToLowerInvariant());
+                    }
+                    // The camp's smashables (2026-11-12): three of the groups, for the camp audit.
+                    foreach (int bi in new[] { 0, 3, 6, 8 })
+                    {
+                        var campBreakAt = Lobby.CampBreakables[bi].at;
+                        var campShotFrom = campBreakAt + new Vector3(2.6f, 0.1f, -1.6f);
+                        lobbyMotor.Teleport(campShotFrom, Quaternion.LookRotation(Flat3(campBreakAt - campShotFrom)));
+                        lobbyMotor.SetPitch(18f);
+                        yield return new WaitForSeconds(0.4f);
+                        yield return Shot(dir, "1b_camp_breakables_" + bi);
                     }
                     lobbyMotor.SetPitch(0f);
                     lobbyMotor.Teleport(af, Quaternion.LookRotation(anvilObj.transform.position - af));
@@ -5775,11 +6121,10 @@ namespace Deepbound.Networking
             if (shotPlate != null)
             {
                 var pp = shotPlate.transform.position;
-                var away = (layout.RoomAt(pp, 0f) != null ? layout.RoomAt(pp, 0f).Center - pp : -local.transform.forward);
-                away.y = 0f;
-                var tp = pp + (away.sqrMagnitude > 0.1f ? away.normalized : Vector3.forward) * 3.6f + Vector3.up * 0.1f;
-                motor.Teleport(tp, Quaternion.LookRotation(new Vector3(pp.x - tp.x, 0f, pp.z - tp.z)));
-                motor.SetPitch(28f);
+                // A spike bed (2026-11-12) is seen down its own length, from beyond its near plate.
+                var tp = pp - shotPlate.transform.forward * (SpikeTrap.Length / 2f + SpikeTrap.PlateLength + 1.6f) + Vector3.up * 0.1f;
+                motor.Teleport(tp, Quaternion.LookRotation(Flat3(shotPlate.transform.forward)));
+                motor.SetPitch(30f);
                 shotPlate.Hidden.Value = false;
                 yield return new WaitForSeconds(0.3f);
                 yield return Shot(dir, "1j2_spike_plate");

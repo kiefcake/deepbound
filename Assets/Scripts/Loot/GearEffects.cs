@@ -83,7 +83,7 @@ namespace Deepbound.Loot
         }
 
         /// <summary>5% base, DEX, the Masterwork weapon, Whetted Fang and Frost Shard. Any peer (the Tab sheet shows it).</summary>
-        public static float CritChance(PlayerProgress p) => 0.05f + p.Value(Core.StatType.DEX) / 650f
+        public static float CritChance(PlayerProgress p) => 0.05f + p.BuildCritBonus + p.Value(Core.StatType.DEX) / 650f
             + (p.WeaponLevel.Value >= World.Anvil.MasterworkLevel ? World.Anvil.MasterworkCrit : 0f)
             + 0.1f * p.RelicPower(Relic.WhettedFang) + 0.05f * p.RelicPower(Relic.FrostCharm);
 
@@ -127,6 +127,7 @@ namespace Deepbound.Loot
                 return;
             }
             if (p.HasEdge(Edge.Momentum)) p.ServerMomentumUntil = Time.time + Edges.MomentumSeconds;
+            if (p.HasEdge(Edge.Lifeblood)) p.GetComponent<Health>().ServerHeal(p.GetComponent<Health>().Max.Value * Edges.LifebloodHeal);
             if (p.Wears(GearId.CrackedHourglass)) p.ShaveCooldownsRpc(1f);
             if (p.Wears(GearId.Bloodstone)) p.GetComponent<Health>().ServerHeal(p.GetComponent<Health>().Max.Value * 0.04f);
             if (p.Wears(GearId.CardinalVestments)) p.ServerJudgement(target.transform.position);

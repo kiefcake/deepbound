@@ -161,6 +161,64 @@ namespace Deepbound.World
         public CrackedWall BreachWall(int i) => i < breaches.Count ? breaches[i].Wall : null;
 
         /// <summary>Plugs for every hollow wall; caches behind the secret ones.</summary>
+        [SerializeField] private NetworkObject bargainAltarPrefab;
+        [SerializeField] private NetworkObject cellarHatchPrefab;
+
+        /// <summary>Server: a bargain altar (tests call this with a fixed offer).</summary>
+        public BargainAltar SpawnBargain(Vector3 at, Quaternion rot, int offer)
+        {
+            if (bargainAltarPrefab == null) return null;
+            var obj = Instantiate(bargainAltarPrefab, at, rot);
+            var altar = obj.GetComponent<BargainAltar>();
+            altar.Prepare((Progression.PlayerProgress.Bargain)Mathf.Clamp(offer, 0, Progression.PlayerProgress.BargainCount - 1));
+            obj.Spawn(destroyWithScene: true);
+            return altar;
+        }
+
+        /// <summary>Server: every cellar vault's tile, rope, chests, gold and guards.</summary>
+        private void SpawnCellars(DungeonLayout layout)
+        {
+            if (cellarHatchPrefab == null) return;
+            var rng = new System.Random(layout.Seed ^ 0xce12);
+            foreach (var room in layout.Rooms)
+            {
+                if (!room.Cellar) continue;
+                var cc = room.CellarCenter;
+                var hatch = Instantiate(cellarHatchPrefab, room.HatchSpot, Quaternion.identity);
+                hatch.GetComponent<CellarHatch>().Prepare(CellarHatch.Mode.Hatch, cc + new Vector3(0.9f, 0f, 0.9f));
+                hatch.Spawn(destroyWithScene: true);
+                var rope = Instantiate(cellarHatchPrefab, cc, Quaternion.identity);
+                rope.GetComponent<CellarHatch>().Prepare(CellarHatch.Mode.Rope, room.HatchSpot + new Vector3(1.4f, 0f, 1.4f));
+                rope.Spawn(destroyWithScene: true);
+                float half = DungeonLayout.CellarSize / 2f - 1.2f;
+                if (chestPrefab != null)
+                    for (int i = 0; i < 2; i++)
+                    {
+                        var at = cc + new Vector3(i == 0 ? -half : half, 0f, -half);
+                        var chest = Spawn(chestPrefab, at, Quaternion.LookRotation(cc - at));
+                        chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
+                    }
+                int tier = Mathf.RoundToInt(Tier(layout.Depth));
+                for (int g = 0; g < 5; g++) ServerDropLoot(cc + new Vector3(-half + 0.6f + g * 0.35f, 0.3f, half - 0.3f), LootKind.Gold, 10 + 5 * tier, settle: false);
+                if (rng.NextDouble() < 0.5) ServerDropLoot(cc + new Vector3(half - 0.5f, 0.3f, half - 0.5f), LootKind.Relic, (int)Relics.Random(), settle: false);
+                // Its keepers: two (three deeper) waiting in the dark.
+                if (!TestMode && skeletonPrefab != null)
+                {
+                    int guards = 2 + (layout.Depth >= 4 ? 1 : 0);
+                    for (int i = 0; i < guards; i++)
+                    {
+                        var at = cc + new Vector3((i - 1) * 1.6f, 0f, -half + 1.4f);
+                        if (UnityEngine.AI.NavMesh.SamplePosition(at, out var hit, 2f, UnityEngine.AI.NavMesh.AllAreas)) at = hit.position;
+                        var e = Instantiate(i == 2 && brutePrefab != null ? brutePrefab : skeletonPrefab, at, Quaternion.LookRotation(Vector3.forward));
+                        e.Spawn(destroyWithScene: true);
+                        var b = e.GetComponent<Enemies.EnemyBrain>();
+                        b.ServerScale(Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count), layout.Depth);
+                        spawned.Add(e);
+                    }
+                }
+            }
+        }
+
         private void SetupHoles(DungeonLayout layout)
         {
             breaches.Clear();
@@ -186,17 +244,35 @@ namespace Deepbound.World
                         breaches.Add(new Breach { Wall = wall, Room = room, Hole = hole, TriggerAfter = 3f + (float)rng.NextDouble() * 5f });
                         continue;
                     }
-                    // The cache: a chest at the back of the alcove, and a rune or a Sigil on the plinth.
+                    // The cache (2026-11-12: more of them, and not all alike): a chest with a rune, a Sigil or a relic on
+                    // the plinth; a DRAUGHT standing alone in the dark (StatDraught); or a dead delver's HOARD of gold and embers.
                     var back = face + outward * (0.8f + WallHole.NicheDepth - 1.4f);
+                    double roll = rng.NextDouble();
+                    if (roll < 0.18 && statDraughtPrefab != null)
+                    {
+                        SpawnDraught(room, back + outward * 0.3f);
+                        continue;
+                    }
+                    // A SHRINE OF TRADE-OFF (2026-11-13): a cursed bargain in the dark.
+                    if (roll < 0.34 && bargainAltarPrefab != null)
+                    {
+                        SpawnBargain(back + outward * 0.1f, Quaternion.LookRotation(-outward), rng.Next(Progression.PlayerProgress.BargainCount));
+                        continue;
+                    }
                     if (chestPrefab != null)
                     {
                         var chest = Spawn(chestPrefab, back - outward * 0.6f, Quaternion.LookRotation(-outward));
                         chest.GetComponent<Chest>().SetLootPrefab(lootPrefab);
                     }
-                    // Usually a rune or a Sigil on the plinth; one time in three, a relic.
-                    double roll = rng.NextDouble();
-                    if (roll < 0.33) ServerDropLoot(back + outward * 0.75f + Vector3.up * 0.6f, LootKind.Relic, (int)Relics.Random(), settle: false);
-                    else ServerDropLoot(back + outward * 0.75f + Vector3.up * 0.6f, roll < 0.66 ? LootKind.Sigil : LootKind.Rune, (int)Runes.Random(), settle: false);
+                    var plinth = back + outward * 0.75f + Vector3.up * 0.6f;
+                    if (roll < 0.4)
+                    {
+                        int tier = Mathf.RoundToInt(Tier(layout.Depth));
+                        for (int g = 0; g < 4; g++) ServerDropLoot(plinth + Quaternion.Euler(0f, g * 90f, 0f) * Vector3.forward * 0.35f, LootKind.Gold, 8 + 4 * tier, settle: false);
+                        ServerDropEmbers(plinth, 6 + 2 * tier);
+                    }
+                    else if (roll < 0.62) ServerDropLoot(plinth, LootKind.Relic, (int)Relics.Random(), settle: false);
+                    else ServerDropLoot(plinth, roll < 0.81 ? LootKind.Sigil : LootKind.Rune, (int)Runes.Random(), settle: false);
                 }
             }
         }
@@ -462,6 +538,7 @@ namespace Deepbound.World
                     case RoomFeature.Statues when room.FeatureSpots.Count >= 2: SpawnPuzzle(PuzzleRoom.Kind.Watchers, room.FeatureSpots[1], room.FeatureSpots[0], room.Id); break;
                     case RoomFeature.Chimes when room.FeatureSpots.Count >= 2: SpawnPuzzle(PuzzleRoom.Kind.Chimes, room.FeatureSpots[1], room.FeatureSpots[0], room.Id); break;
                     case RoomFeature.Mirrors when room.FeatureSpots.Count >= 2: SpawnPuzzle(PuzzleRoom.Kind.Mirrors, room.FeatureSpots[1], room.FeatureSpots[0], room.Id); break;
+                    case RoomFeature.Draught when statDraughtPrefab != null && room.FeatureSpots.Count > 0: SpawnDraught(room, room.FeatureSpots[0]); break;
                     case RoomFeature.Scales when room.FeatureSpots.Count >= 2: SpawnPuzzle(PuzzleRoom.Kind.Scales, room.FeatureSpots[1], room.FeatureSpots[0], room.Id); break;
                     case RoomFeature.Panoply: SetupPanoply(room, layout); break;
                 }
@@ -520,7 +597,7 @@ namespace Deepbound.World
             if (Layout == null) return;
             foreach (var p in PlayerLife.All)
             {
-                if (p == null || p.transform.position.y > -3f) continue;
+                if (p == null || p.transform.position.y > -3f || Layout.InCellar(p.transform.position)) continue;
                 if (rescuedAt.TryGetValue(p, out var t) && Time.time - t < 2f) continue;
                 rescuedAt[p] = Time.time;
 
@@ -570,6 +647,7 @@ namespace Deepbound.World
             TickBossArena();
             TickAmbush();
             TickRoomClears();
+            TickEruptions();
             TickVault();
             TickFalls();
             TickBreaches();
@@ -720,7 +798,8 @@ namespace Deepbound.World
         /// Corridor traps take a third of the player's health (2026-11-05, the user), whatever the floor, class or difficulty.
         /// DEF is added back so armour does not soften it; a dodge, a block or a shield still does.
         /// </summary>
-        public static float TrapBite(Health h) => h.Max.Value * TrapHealthShare + h.Defense * Health.DefenseWeight;
+        public static float TrapBite(Health h) => (h.Max.Value * TrapHealthShare + h.Defense * Health.DefenseWeight)
+            * (h.TryGetComponent<Progression.PlayerProgress>(out var tp) ? tp.TrapScale : 1f);
 
         public const float TrapHealthShare = 1f / 3f;
 
@@ -1027,8 +1106,9 @@ namespace Deepbound.World
                 points[i] = p;
 
                 var prefab = PickEnemy(Layout.Depth, theme, ref brute, ref necro, out int _);
-                var obj = Instantiate(prefab, p, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f));
-                obj.Spawn(destroyWithScene: true);
+                // They come out of the walls (most), up through the floor or through rifts (2026-11-12).
+                var obj = SpawnEntering(prefab, p, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f), 0.6f, 0.15f);
+                points[i] = obj.transform.position;
                 var brain = obj.GetComponent<EnemyBrain>();
                 brain.ServerScale(players, Layout.Depth);
                 // The second wave is led by an elite.
@@ -1083,8 +1163,8 @@ namespace Deepbound.World
         {
             foreach (var p in points)
             {
+                // A warning ring where each will stand; the way in itself (wall, floor, rift) is EnemyEntrance's.
                 Telegraph.Show(p, 1.1f, 0.4f, null, new Color(0.15f, 0.05f, 0.2f, 0.6f));
-                Art.BoneBurst.Spawn(p - Vector3.up * 0.6f, 0.9f, false, Art.Mat.Rubble);
             }
             if (points.Length > 0) Art.Sfx.Play(Art.Sound.BoneBreak, points[0], 1f, 0.7f);
         }

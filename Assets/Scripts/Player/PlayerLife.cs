@@ -604,18 +604,42 @@ namespace Deepbound.Player
         }
 
         /// <summary>
-        /// Out-of-combat regeneration, scaled by VIT. Off for a few seconds after taking
-        /// damage, so it heals you between fights, not during them.
+        /// VIT mends you, slowly (2026-11-13, the user: "vit currently does nothing ... melees get more, and ranged get less"):
+        /// <see cref="VitRegen"/> health a second = VIT x <see cref="VitRegenPerPoint"/> x the class's share
+        /// (<see cref="VitShare"/>), halved for <see cref="VitHurtPause"/> s after a hit. The Thornhide Jerkin still adds its
+        /// own fast mend when badly hurt.
         /// </summary>
+        public const float VitRegenPerPoint = 0.02f, VitHurtPause = 4f, VitInCombat = 0.5f;
+        /// <summary>Smoke test only: let VIT mend in TestMode.</summary>
+        public static bool VitRegenInTests;
+
+        /// <summary>Melee classes stand in the blows and mend more; ranged ones less.</summary>
+        public static float VitShare(Classes.ClassId c)
+        {
+            switch (c)
+            {
+                case Classes.ClassId.Knight: case Classes.ClassId.Flagellant: return 1.3f;
+                case Classes.ClassId.Rogue: return 1.05f;
+                case Classes.ClassId.Cleric: return 0.85f;
+                default: return 0.65f; // Mage, Ranger, Plague Doctor
+            }
+        }
+
+        /// <summary>Health a second from VIT right now, out of a fight.</summary>
+        public static float VitRegen(float vit, Classes.ClassId c) => Mathf.Max(0f, vit) * VitRegenPerPoint * VitShare(c);
+
         private void ServerRegen()
         {
             if (progress == null || progress.Stats == null || !Health.IsAlive) return;
-            // No passive regeneration (play-test, 2026-10-16): healing comes from the potion pouch,
-            // the fountain, Holy Water and the Cleric. Only the Thornhide Jerkin still mends you, when badly hurt.
-            bool desperate = progress.DesperateRegen;
-            if (!desperate || Health.Current.Value >= Health.Max.Value) return;
-
-            regenCarry += (2f + progress.Value(StatType.VIT) * 0.12f) * 3f * Time.deltaTime;
+            if (Health.Current.Value >= Health.Max.Value) { regenCarry = 0f; return; }
+            // Tests measure exact health; only the regeneration check turns it on there.
+            if (World.DungeonDirector.TestMode && !VitRegenInTests && !progress.DesperateRegen) return;
+            float rate = VitRegen(progress.Value(StatType.VIT), progress.ClassId.Value);
+            rate *= progress.BuildRegenScale;
+            if (Time.time - Health.LastHurtTime < VitHurtPause) rate *= VitInCombat;
+            // Thornhide Jerkin: below 40% you mend fast, even mid-fight.
+            if (progress.DesperateRegen) rate += (2f + progress.Value(StatType.VIT) * 0.12f) * 3f;
+            regenCarry += rate * Time.deltaTime;
             if (regenCarry >= 1f)
             {
                 float whole = Mathf.Floor(regenCarry);

@@ -10,8 +10,11 @@ namespace Deepbound.Classes
     {
         public const int PathLevel = 2, MasteryLevel = 4;
 
+        public const int Count = 3;
+
         public static string Name(ClassId id, int path)
         {
+            if (path == PathTriads.Path) return PathTriads.Name(id);
             switch (id)
             {
                 case ClassId.Mage: return path == 1 ? "Pyromancer" : "Cryomancer";
@@ -26,6 +29,7 @@ namespace Deepbound.Classes
 
         public static string Describe(ClassId id, int path)
         {
+            if (path == PathTriads.Path) return PathTriads.Describe(id);
             switch (id)
             {
                 case ClassId.Mage: return path == 1
@@ -54,6 +58,7 @@ namespace Deepbound.Classes
 
         public static string Mastery(ClassId id, int path)
         {
+            if (path == PathTriads.Path) return PathTriads.Mastery(id);
             switch (id)
             {
                 case ClassId.Mage: return path == 1

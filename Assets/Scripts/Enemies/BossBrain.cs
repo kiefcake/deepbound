@@ -543,6 +543,9 @@ namespace Deepbound.Enemies
         /// </summary>
         public bool Dormant { get; set; }
 
+        /// <summary>The dash (EnemyBrain.ServerBossDash) waits while it sleeps, stands untouchable or makes its entrance.</summary>
+        protected override bool CanDash => base.CanDash && !Dormant && !Immune && !InEntrance && Hunts;
+
         protected override bool IsBoss => true;
         protected override bool Heavy => true;
 
@@ -572,6 +575,8 @@ namespace Deepbound.Enemies
                 // Hunts and their strikes tick here too: subclasses return early from Update mid-attack.
                 TickStrikes();
                 if (!IsStunned && !InEntrance) TickHunt();
+                TickDash();
+                TickRepulse();
             }
             TickBubble();
         }
@@ -781,8 +786,8 @@ namespace Deepbound.Enemies
                 float a = i * Mathf.PI * 2f / count;
                 var pos = transform.position + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * radius;
                 if (UnityEngine.AI.NavMesh.SamplePosition(pos, out var hit, 3f, UnityEngine.AI.NavMesh.AllAreas)) pos = hit.position;
-                var minion = Instantiate(minionPrefab, pos, Quaternion.LookRotation(transform.position - pos));
-                minion.Spawn(destroyWithScene: true);
+                // Summoned through rifts, or up through the floor (2026-11-12).
+                var minion = World.DungeonDirector.ServerSpawnEntering(minionPrefab, pos, Quaternion.LookRotation(transform.position - pos), 0f, 0.6f);
                 var brain = minion.GetComponent<EnemyBrain>();
                 brain.NoLoot = true;
                 brain.ServerScale(scaledPlayers, scaledDepth);

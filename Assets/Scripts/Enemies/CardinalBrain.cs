@@ -26,6 +26,7 @@ namespace Deepbound.Enemies
     /// </summary>
     public class CardinalBrain : BossBrain
     {
+        protected override DashStyle Dash => DashStyle.Leap;
         [SerializeField] private float judgementCooldown = 7.5f, judgementWindup = 1.5f, judgementRadius = 2.4f, judgementDamage = 38f;
 
         public override string DisplayName => "The Pale Cardinal";

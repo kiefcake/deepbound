@@ -312,7 +312,7 @@ namespace Deepbound.Enemies
             ApplySize();
             Title.OnValueChanged += (_, t) => { if (t.Length > 0) ScaleAsChampion(); };
             if (Title.Value.Length > 0) ScaleAsChampion();
-            if (Rig != null && !IsBoss && RisesFromGround(visualKind)) Rig.gameObject.AddComponent<RiseFromGround>();
+            StartEntrance(); // a way in (wall, floor, rift) or the old rise (EnemyBrain.Entrance)
             if (Rig != null && (IsBoss || Heavy || Rig.transform.lossyScale.y >= 1.12f)) FitBodyToRig();
             health.Hurt += OnHurtVisual;
             if (GetComponent<EnemyStatusFx>() == null) gameObject.AddComponent<EnemyStatusFx>();
@@ -621,7 +621,9 @@ namespace Deepbound.Enemies
             byte fx = (byte)((wardUp ? 1 : 0) | (Enraged && Time.time < enragedUntil ? 2 : 0) | (Severed ? 4 : 0));
             if (FxFlags.Value != fx) FxFlags.Value = fx;
 
-            if (Time.time < stunnedUntil)
+            // Still coming in through a wall, the floor or a rift: it waits (EnemyBrain.Entrance).
+            TickHunter();
+            if (Time.time < enteringUntil || Time.time < stunnedUntil)
             {
                 agent.isStopped = true;
                 return;
@@ -686,6 +688,7 @@ namespace Deepbound.Enemies
             }
 
             float dist = FlatDistance(target.transform.position);
+            if (TryBossDash(dist)) return;
             if (ChooseSpecialAttack(dist)) return;
             if (TryLunge(dist)) return;
 
@@ -815,6 +818,7 @@ namespace Deepbound.Enemies
             transform.rotation = Quaternion.LookRotation(lungeDir);
             currentMove = Move.Lunge;
             agent.isStopped = true;
+            lungeSpeedNow = LungeSpeed; lungeMaxNow = LungeMax; lungeDamageNow = 1.25f;
             lungeTravelled = 0f;
             lungeHit.Clear();
             float w = 0.55f;
@@ -825,10 +829,70 @@ namespace Deepbound.Enemies
             return true;
         }
         private float lungeStartAt = -1f;
+        private float lungeSpeedNow = LungeSpeed, lungeMaxNow = LungeMax, lungeDamageNow = 1.25f;
+
+        // ---- The guardians' dash (2026-11-12, the user: "give bosses a dash to close the distance with ranged classes").
+        // A guardian whose target has kept more than BossDashMin away for FarSeconds lines up (a long red line on the
+        // floor, BossDashTell) and charges along it at BossDashSpeed, up to a pace short of where its target stood,
+        // bowling over whoever it meets. Step out of the line. ----
+        public const float BossDashMin = 9f, BossDashMax = 18f, BossDashSpeed = 24f, BossDashCooldown = 9f, BossDashTell = 0.75f, FarSeconds = 2f;
+        protected float bossDashReadyAt;
+        private float farSince = -1f;
+        /// <summary>Server, tests: dashes made.</summary>
+        public int BossDashes { get; private set; }
+        /// <summary>Bosses that may not dash right now (asleep, untouchable, mid-change) say so.</summary>
+        protected virtual bool CanDash => IsBoss && moveSpeed > 0.5f;
+
+        private bool TryBossDash(float dist)
+        {
+            if (!CanDash || target == null) return false;
+            if (dist < BossDashMin) { farSince = -1f; return false; }
+            if (farSince < 0f) { farSince = Time.time; return false; }
+            if (Time.time - farSince < FarSeconds || Time.time < bossDashReadyAt) return false;
+            if (!CombatQuery.ClearLine(transform.position + Vector3.up * 1.2f, target)) return false;
+            return ServerBossDash();
+        }
+
+        /// <summary>Server: line up on the target and charge (tests call this too).</summary>
+        public virtual bool ServerBossDash()
+        {
+            if (target == null) target = PickTarget();
+            if (target == null || !agent.enabled || !agent.isOnNavMesh || IsStunned) return false;
+            float dist = FlatDistance(target.transform.position);
+            lungeDir = target.transform.position - transform.position;
+            lungeDir.y = 0f;
+            if (lungeDir.sqrMagnitude < 0.01f) return false;
+            lungeDir.Normalize();
+            transform.rotation = Quaternion.LookRotation(lungeDir);
+            currentMove = Move.Lunge;
+            attacking = false;
+            agent.isStopped = true;
+            lungeSpeedNow = BossDashSpeed;
+            lungeMaxNow = Mathf.Clamp(dist - 1.2f, 3f, BossDashMax);
+            lungeDamageNow = 0.9f;
+            lungeTravelled = 0f;
+            lungeHit.Clear();
+            lungeStartAt = Time.time + BossDashTell;
+            busyUntil = lungeStartAt + lungeMaxNow / BossDashSpeed + 0.4f + recovery * 0.5f;
+            bossDashReadyAt = Time.time + BossDashCooldown;
+            farSince = -1f;
+            BossDashes++;
+            PlayActionRpc(RigAction.Windup, BossDashTell);
+            LungeWarnRpc(transform.position, lungeDir, lungeMaxNow + 1.5f, BossDashTell);
+            DashRoarRpc(transform.position);
+            return true;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void DashRoarRpc(Vector3 at)
+        {
+            Sfx.Play(Sound.Roar, at + Vector3.up * 1.5f, 0.9f, 1.1f);
+            Vfx.Smoke(at, 3, 0.5f, 0.7f);
+        }
 
         private void StepLunge()
         {
-            float step = LungeSpeed * Time.deltaTime;
+            float step = lungeSpeedNow * Time.deltaTime;
             var before = transform.position;
             agent.Move(lungeDir * step);
             float moved = Vector3.Distance(before, transform.position);
@@ -836,9 +900,10 @@ namespace Deepbound.Enemies
             foreach (var victim in CombatQuery.Circle(transform.position + Vector3.up * 0.9f, 1.1f, Team.Players))
             {
                 if (!lungeHit.Add(victim)) continue;
-                victim.ServerDamage(damage * 1.25f, transform.position - lungeDir, NetworkObjectId);
+                victim.ServerDamage(damage * lungeDamageNow, transform.position - lungeDir, NetworkObjectId);
+                if (IsBoss && victim.TryGetComponent<KnockbackReceiver>(out var dashKb)) dashKb.KnockbackRpc(lungeDir * 7f + Vector3.up * 2.5f);
             }
-            if (moved < step * 0.3f || lungeTravelled >= LungeMax + 1f || lungeHit.Count > 0)
+            if (moved < step * 0.3f || lungeTravelled >= lungeMaxNow + 1f || lungeHit.Count > 0)
             {
                 lunging = false;
                 PlayActionRpc(RigAction.Swing, 0.3f);

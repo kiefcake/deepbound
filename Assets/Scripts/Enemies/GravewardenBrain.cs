@@ -26,6 +26,7 @@ namespace Deepbound.Enemies
     /// </summary>
     public class GravewardenBrain : BossBrain
     {
+        protected override DashStyle Dash => DashStyle.ShieldCharge;
         [SerializeField] private float chargeWindup = 1.3f;
         [SerializeField] private float chargeSpeed = 17f;
         [SerializeField] private float chargeDamage = 40f;

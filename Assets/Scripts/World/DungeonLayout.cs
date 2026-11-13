@@ -13,7 +13,7 @@ namespace Deepbound.World
     /// chamber (braziers empower the room's dead until smashed). Side rooms can be a
     /// Vault or a Fountain.
     /// </summary>
-    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply, Statues, Chimes, Mirrors, Scales }
+    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply, Statues, Chimes, Mirrors, Scales, Draught }
 
     /// <summary>Boss arena shapes: a colonnade (cover), a raised dais under the throne, or broken ruins.</summary>
     public enum BossArena : byte { Colonnade = 0, Dais = 1, Ruins = 2 }
@@ -63,6 +63,10 @@ namespace Deepbound.World
             public RoomKind Kind;
             /// <summary>No enemies here (the peddler's room): no spawns, no mimic.</summary>
             public bool Peaceful;
+            /// <summary>A CELLAR VAULT under this room (2026-11-13): a cracked tile at <see cref="HatchSpot"/>, a small room below.</summary>
+            public bool Cellar;
+            public Vector3 HatchSpot;
+            public Vector3 CellarCenter => new Vector3(HatchSpot.x, Center.y - CellarDrop, HatchSpot.z);
             /// <summary>Boss rooms: the arena's shape and its quirk (see <see cref="BossArena"/>, <see cref="BossQuirk"/>).</summary>
             public BossArena Arena;
             public BossQuirk Quirk;
@@ -80,7 +84,7 @@ namespace Deepbound.World
             }
 
             /// <summary>A side room with one of the special features (treasury, beggar, proving bell, armoury, mirror).</summary>
-            public bool Special => Feature == RoomFeature.Treasury || Feature == RoomFeature.Beggar || Feature == RoomFeature.Proving || Feature == RoomFeature.Armoury || Feature == RoomFeature.Mirror || Feature == RoomFeature.Oath || Feature == RoomFeature.Panoply || Feature == RoomFeature.Statues || Feature == RoomFeature.Chimes || Feature == RoomFeature.Mirrors || Feature == RoomFeature.Scales;
+            public bool Special => Feature == RoomFeature.Treasury || Feature == RoomFeature.Beggar || Feature == RoomFeature.Proving || Feature == RoomFeature.Armoury || Feature == RoomFeature.Mirror || Feature == RoomFeature.Oath || Feature == RoomFeature.Panoply || Feature == RoomFeature.Statues || Feature == RoomFeature.Chimes || Feature == RoomFeature.Mirrors || Feature == RoomFeature.Scales || Feature == RoomFeature.Draught;
             public Vector2Int Cell;
             public Vector3 Center;
             /// <summary>Interior floor size in metres (x, z).</summary>
@@ -142,6 +146,21 @@ namespace Deepbound.World
 
         /// <summary>From floor two: sometimes a wandering peddler sets up in a side room (null if not).</summary>
         public Vector3? PeddlerSpot;
+        /// <summary>Cellar vaults: how far below their room, how big, how high.</summary>
+        public const float CellarDrop = 14f, CellarSize = 9f, CellarHeight = 3.6f;
+        public static float CellarChance(int depth) => depth < 1 ? 0f : 0.45f;
+
+        /// <summary>Down in a cellar vault (the chasm's fall check leaves you be).</summary>
+        public bool InCellar(Vector3 p)
+        {
+            foreach (var r in Rooms)
+            {
+                if (!r.Cellar) continue;
+                var c = r.CellarCenter;
+                if (Mathf.Abs(p.x - c.x) < CellarSize / 2f + 1f && Mathf.Abs(p.z - c.z) < CellarSize / 2f + 1f && p.y > c.y - 2f && p.y < c.y + CellarHeight + 1f) return true;
+            }
+            return false;
+        }
         public Vector3 PeddlerFacing;
 
         public readonly List<Room> Rooms = new List<Room>();
@@ -439,7 +458,8 @@ namespace Deepbound.World
                 }
             }
 
-            Place(false, 1 + (rng.NextDouble() < 0.5 ? 1 : 0));
+            // More hidden rooms (2026-11-12, the user): two or three a floor, one more from the fourth floor.
+            Place(false, 2 + (rng.NextDouble() < 0.5 ? 1 : 0) + (layout.Depth >= 3 ? 1 : 0));
             Place(true, layout.Depth >= 1 ? 2 : 1);
         }
 
@@ -595,11 +615,16 @@ namespace Deepbound.World
                     room.Height = 9f;
                     bool alongX = room.Size.x >= room.Size.y;
                     float len = alongX ? room.Size.x : room.Size.y;
-                    int n = Mathf.Clamp(Mathf.FloorToInt(len / 7f), 2, 4);
+                    // How many, and whether they stand in a line or stagger to either side (a slalom), vary by room
+                    // (2026-11-12: every pendulum room was the same three blades in a row).
+                    int n = Mathf.Clamp(Mathf.FloorToInt(len / (5.5f + (float)rng.NextDouble() * 2f)), 2, 5);
+                    bool slalom = rng.NextDouble() < 0.5;
+                    float acrossHalf = (alongX ? room.Size.y : room.Size.x) / 2f;
                     for (int i = 0; i < n; i++)
                     {
-                        float t = -len / 2f + len * (i + 0.5f) / n;
-                        room.FeatureSpots.Add(room.Center + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)));
+                        float t = -len / 2f + len * (i + 0.5f) / n + (float)(rng.NextDouble() - 0.5) * 1.2f;
+                        float side = slalom ? (i % 2 == 0 ? 1f : -1f) * acrossHalf * 0.3f : 0f;
+                        room.FeatureSpots.Add(room.Center + (alongX ? new Vector3(t, 0f, side) : new Vector3(side, 0f, t)));
                     }
                     break;
                 case RoomFeature.Library:
@@ -826,6 +851,36 @@ namespace Deepbound.World
                     side.FeatureSpots.Add(side.Center - back * 1.2f);
                 }
                 else side.FeatureSpots.Add(side.Center + back * toBack);
+            }
+            // The Draught (2026-11-12): a flask on the floor that raises one stat for the run. It takes a plain side room the
+            // specials left (its own seeded roll, so the specials' draw is untouched: taking a special's place squeezed the
+            // chime room out of 40 seeds entirely). Hidden caches hold one now and then too.
+            // A cellar vault under one plain side room (its own roll; tests always get one).
+            {
+                var crng = new System.Random(layout.Seed ^ 0xce11);
+                var cand = sides.FindAll(r => r.Feature == RoomFeature.None && !r.Peaceful && r.Holes.Count == 0);
+                // Every side room taken by a feature (tests fill them all): any side room whose floor is not a puzzle or a vault.
+                if (cand.Count == 0) cand = sides.FindAll(r => !r.Peaceful && r.Holes.Count == 0 && r.Feature != RoomFeature.Vault && r.Feature != RoomFeature.Mirrors
+                    && r.Feature != RoomFeature.Statues && r.Feature != RoomFeature.Chimes && r.Feature != RoomFeature.Scales && r.Feature != RoomFeature.Oath);
+                if (cand.Count > 0 && (DungeonDirector.TestMode || crng.NextDouble() < CellarChance(layout.Depth)))
+                {
+                    var cr = cand[crng.Next(cand.Count)];
+                    cr.Cellar = true;
+                    float ox = (crng.NextDouble() < 0.5 ? -1f : 1f) * cr.Size.x * 0.22f, oz = (crng.NextDouble() < 0.5 ? -1f : 1f) * cr.Size.y * 0.22f;
+                    cr.HatchSpot = cr.Center + new Vector3(ox, 0f, oz);
+                }
+            }
+            var drng = new System.Random(layout.Seed ^ 0x0d4a);
+            var plain = sides.FindAll(r => r.Feature == RoomFeature.None && !r.Peaceful);
+            if (plain.Count > 0 && drng.NextDouble() < 0.6)
+            {
+                var dr = plain[drng.Next(plain.Count)];
+                dr.Feature = RoomFeature.Draught;
+                int de = 0;
+                for (int s = 0; s < 4; s++) if (dr.Doors[s]) de = s;
+                var dback = -new Vector3(Dir[de].x, 0f, Dir[de].y);
+                float dto = (de == 0 || de == 2 ? dr.Size.y : dr.Size.x) / 2f - 2.2f;
+                dr.FeatureSpots.Add(dr.Center + dback * dto * 0.5f);
             }
         }
 

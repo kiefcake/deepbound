@@ -323,8 +323,55 @@ namespace Deepbound.Progression
             int slot = OpenEdgeSlot;
             if (!IsServer || slot < 0 || System.Array.IndexOf(EdgeOffer(slot), e) < 0) return false;
             EdgeBits.Value |= (int)e << (8 * slot);
+            // The guard edges that are simply more of you (2026-11-12).
+            if (e == Edge.Bastion) ServerAddBonus(StatType.HP, Edges.BastionHP);
+            if (e == Edge.Ironhide) ServerAddBonus(StatType.DEF, Edges.IronhideDEF);
             EdgeChosenRpc((byte)e);
             return true;
+        }
+
+        /// <summary>
+        /// RESPEC (2026-11-13, the user: "A paid option at Ysolde or Hobb to swap one edge per run, so a bad early pick isn't
+        /// fatal"): at Hobb's anvil, once a run, for <see cref="RespecCost"/> gold, one forged edge comes out and its slot opens
+        /// again on the same offer.
+        /// </summary>
+        public readonly NetworkVariable<bool> EdgeRespecced = new NetworkVariable<bool>();
+        public int RespecCost => 150 + 50 * World.DungeonDirector.Act(Mathf.Max(0, World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.NextDepth.Value : 0));
+
+        public string CannotRespecReason(int slot)
+        {
+            if (EdgeRespecced.Value) return "Once a run";
+            if (slot < 0 || slot >= Edges.Slots || EdgeAt(slot) == Edge.None) return "No edge there";
+            if (Gold.Value < RespecCost) return "Not enough gold";
+            return null;
+        }
+
+        [Rpc(SendTo.Server)]
+        public void RespecEdgeRpc(byte slot)
+        {
+            if (World.Anvil.Near(transform.position) == null) return;
+            ServerRespecEdge(slot);
+        }
+
+        /// <summary>Server: take the edge in <paramref name="slot"/> back out (tests call this).</summary>
+        public bool ServerRespecEdge(int slot)
+        {
+            if (!IsServer || CannotRespecReason(slot) != null) return false;
+            var e = EdgeAt(slot);
+            ServerAddGold(-RespecCost);
+            if (e == Edge.Bastion) ServerAddBonus(StatType.HP, -Edges.BastionHP);
+            if (e == Edge.Ironhide) ServerAddBonus(StatType.DEF, -Edges.IronhideDEF);
+            EdgeBits.Value &= ~(0xFF << (8 * slot));
+            EdgeRespecced.Value = true;
+            RespecRpc((byte)e);
+            return true;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RespecRpc(byte e)
+        {
+            Art.Sfx.Play(Art.Sound.Shatter, transform.position + Vector3.up, 0.6f, 1.2f);
+            UI.GameHud.Feed(name + " has Hobb grind the " + Edges.Name((Edge)e).ToUpperInvariant() + " edge out: choose again", new Color(1f, 0.7f, 0.4f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -643,12 +690,14 @@ namespace Deepbound.Progression
         /// <summary>The best tier of this kind set in the weapon, or -1.</summary>
         public int RuneTier(Rune kind)
         {
+            // RUNE SPECIALISATION (2026-11-13): the first socket is the MAJOR socket - a rune there counts double
+            // (an "effective tier" of 2t + 2, so Runes.Power doubles: 1 -> 2, 1.5 -> 3, 2 -> 4).
             int best = -1;
             kind = Runes.Kind(kind);
             for (int s = 0; s < Runes.MaxSockets; s++)
             {
                 var r = Socketed(s);
-                if (r != Rune.None && Runes.Kind(r) == kind) best = Mathf.Max(best, Runes.Tier(r));
+                if (r != Rune.None && Runes.Kind(r) == kind) best = Mathf.Max(best, s == Runes.MajorSocket ? Runes.Tier(r) * 2 + 2 : Runes.Tier(r));
             }
             return best;
         }
@@ -758,7 +807,7 @@ namespace Deepbound.Progression
 
         public override void OnNetworkSpawn()
         {
-            if (IsServer) StartCoroutine(AddPrayerLast());
+            if (IsServer) { StartCoroutine(AddPrayerLast()); PathTriads.EnsureHook(); }
             if (IsServer && World.DungeonDirector.Instance != null && World.DungeonDirector.Instance.RunInProgress) LateJoiner.Value = true;
             WeaponLevel.OnValueChanged += (_, __) => StatsChanged?.Invoke();
             bonuses.OnListChanged += _ => StatsChanged?.Invoke();
@@ -839,6 +888,7 @@ namespace Deepbound.Progression
                 if (Pouch != null && Pouch.Bloodfury) m *= RareItems.BloodfuryDamage;
                 if (Wears(GearId.MartyrsShell)) m *= 1f + MartyrDamage * (1f - health.Fraction);
                 m *= 1f + Crafting.EdgeDamage * Whetted;
+                m *= BuildAttackScale;
                 return m;
             }
         }
@@ -853,7 +903,8 @@ namespace Deepbound.Progression
             * World.Carryable.SpeedFor(NetworkObjectId)
             * World.DungeonDirector.EventSpeed
             * (Wraithstepping ? WraithstepSpeed : 1f)
-            * (Player.PlayerLife.IsDragging(NetworkObjectId) ? Player.PlayerLife.DragSpeed : 1f);
+            * (Player.PlayerLife.IsDragging(NetworkObjectId) ? Player.PlayerLife.DragSpeed : 1f)
+            * BuildSpeedScale;
 
         /// <summary>Q and E cooldowns scale by this (Echo Stone).</summary>
         /// <summary>
@@ -863,7 +914,7 @@ namespace Deepbound.Progression
         /// </summary>
         public float CooldownMultiplier => (1f - Mathf.Min(MaxCooldownCut,
             (HasRelic(Relic.EchoStone) ? 0.2f * RelicPower(Relic.EchoStone) : 0f) + (Blessed(Blessing.Swiftness) ? 0.15f : 0f) + (HasEdge(Edge.Quickening) ? Edges.QuickeningCut : 0f)))
-            * World.DungeonDirector.OmenCooldown;
+            * World.DungeonDirector.OmenCooldown * BuildCooldownScale;
         public const float MaxCooldownCut = 0.4f;
 
         /// <summary>Rallying Bell: synced so speed and damage agree on every peer.</summary>
@@ -894,7 +945,7 @@ namespace Deepbound.Progression
         /// multiplied to x3 and a solo run ended on 15,000 gold), and gold relics grow half as much per tier.
         /// </summary>
         public float GoldMultiplier => 1f + (HasRelic(Relic.GildedSkull) ? 0.6f + 0.3f * RelicTier(Relic.GildedSkull) : 0f) + (Blessed(Blessing.Fortune) ? 0.5f : 0f)
-            + (HasRelic(Relic.TallymansLedger) ? 0.2f + 0.1f * RelicTier(Relic.TallymansLedger) : 0f);
+            + (HasRelic(Relic.TallymansLedger) ? 0.2f + 0.1f * RelicTier(Relic.TallymansLedger) : 0f) + BuildGoldBonus;
 
         // ---- Relics ----
 
@@ -1059,6 +1110,7 @@ namespace Deepbound.Progression
         private float EdgeDefense(float damage, Vector3 attackerPosition)
         {
             if (HasEdge(Edge.Stalwart)) damage *= Edges.StalwartTaken;
+            damage *= BuildIncomingScale * PathTriads.Incoming(this, attackerPosition);
             // Iron Psalter: bolts, spit and hexes from across the room glance off the hymns.
             if (HasRelic(Relic.IronPsalter) && Vector3.Distance(attackerPosition, transform.position) >= 5f) damage *= 1f - 0.15f * RelicPower(Relic.IronPsalter);
             return damage;
@@ -1108,6 +1160,19 @@ namespace Deepbound.Progression
                 var to = attackerPosition - transform.position;
                 to.y = 0f;
                 if (to.sqrMagnitude > 0.01f && Vector3.Angle(transform.forward, to) < 60f) damage *= 0.8f;
+            }
+            // Retribution (a guard edge, 2026-11-12): the one that struck you up close takes a share of it back.
+            if (HasEdge(Edge.Retribution) && damage > 0f && (attackerPosition - transform.position).sqrMagnitude < Edges.RetributionReach * Edges.RetributionReach)
+            {
+                Health striker = null;
+                float best = 2.5f;
+                foreach (var h in Health.All)
+                {
+                    if (h == null || h.Team != Team.Enemies || !h.IsAlive) continue;
+                    float d = Vector3.Distance(h.transform.position, attackerPosition);
+                    if (d < best) { best = d; striker = h; }
+                }
+                if (striker != null) striker.Tag("Retribution").ServerDamage(damage * Edges.RetributionShare, transform.position, NetworkObjectId);
             }
             if ((Wears(GearId.DrownedKnightsMail) || Wears(GearId.GorrsHide)) && (attackerPosition - transform.position).sqrMagnitude < 16f)
             {
@@ -1329,6 +1394,7 @@ namespace Deepbound.Progression
         public void ServerAddEmbers(int amount)
         {
             if (!IsServer) return;
+            if (amount > 0) amount = Mathf.RoundToInt(amount * BuildEmberScale);
             Embers.Value = Mathf.Max(0, Embers.Value + amount);
         }
 
@@ -1356,7 +1422,7 @@ namespace Deepbound.Progression
         public void ChoosePathRpc(byte path)
         {
             if (World.Anvil.Near(transform.position) == null) return;
-            if (WeaponPath.Value != 0 || WeaponLevel.Value < WeaponPaths.PathLevel || path < 1 || path > 2) return;
+            if (WeaponPath.Value != 0 || WeaponLevel.Value < WeaponPaths.PathLevel || path < 1 || path > WeaponPaths.Count) return;
             WeaponPath.Value = path;
             PathChosenRpc(path);
         }
@@ -1559,6 +1625,8 @@ namespace Deepbound.Progression
                 case Shop.ItemKind.Map: return ScoutMap.Value ? "Already have it" : null;
                 case Shop.ItemKind.Salts: return Salts.Value ? "Already carrying some" : null;
                 case Shop.ItemKind.Rope: return Rope.Value ? "Already carrying one" : null;
+                case Shop.ItemKind.Picks: return Picks.Value >= PicksPerSet ? "Your roll is full" : null;
+                case Shop.ItemKind.Lantern: return Lantern.Value ? "Already carrying one" : null;
                 case Shop.ItemKind.Restock: return null;
                 default: return Bonus(item.Stat) + item.Amount > item.Cap + 0.01f ? "Sold out" : null;
             }
@@ -1609,6 +1677,7 @@ namespace Deepbound.Progression
                 case Shop.ItemKind.Drill:
                     ServerAddBonus(item.Stat, item.Amount);
                     Drills.Value += 1UL << (4 * (int)item.Stat);
+                    CheckMastery(item.Stat);
                     bought = true;
                     break;
                 case Shop.ItemKind.Map:
@@ -1621,6 +1690,14 @@ namespace Deepbound.Progression
                     break;
                 case Shop.ItemKind.Rope:
                     Rope.Value = true;
+                    bought = true;
+                    break;
+                case Shop.ItemKind.Picks:
+                    Picks.Value = (byte)PicksPerSet;
+                    bought = true;
+                    break;
+                case Shop.ItemKind.Lantern:
+                    Lantern.Value = true;
                     bought = true;
                     break;
                 case Shop.ItemKind.Blessing:
@@ -1723,6 +1800,7 @@ namespace Deepbound.Progression
             WeaponLevel.Value = 0;
             WeaponPath.Value = 0;
             EdgeBits.Value = 0;
+            EdgeRespecced.Value = false;
             Hones.Value = 0;
             ServerMomentumUntil = 0f;
             ActiveBlessing.Value = 0;
@@ -1739,6 +1817,7 @@ namespace Deepbound.Progression
             Drills.Value = 0;
             Parts.Value = 0;
             ScoutMap.Value = MapRevealed.Value = Salts.Value = Rope.Value = false;
+            ResetBuildRun();
             StockRerolls.Value = 0;
             ShrineRerolls.Value = 0;
             Socket0.Value = Socket1.Value = Socket2.Value = 0;
@@ -1770,6 +1849,7 @@ namespace Deepbound.Progression
             if (Blessed(Blessing.Vigor)) hp *= 1.25f;
             if (CatPeed.Value) hp *= CatPeeHealth;
             if (MirrorCursed.Value) hp *= MirrorHealth;
+            hp *= BuildHealthScale;
             health.ServerSetMax(hp, refill);
             health.Defense = Stats.GetValue(StatType.DEF) + Lining * Crafting.LiningDefense;
         }

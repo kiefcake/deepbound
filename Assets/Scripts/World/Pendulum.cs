@@ -17,11 +17,31 @@ namespace Deepbound.World
         private Vector3 pivot, axis;
         private float arm;
         private int index;
+        private DungeonLayout.Room room;
         private Transform swing;
 
         public static double Clock => NetworkManager.Singleton != null && NetworkManager.Singleton.IsListening ? NetworkManager.Singleton.ServerTime.Time : Time.timeAsDouble;
 
         public static float Angle(int index, double time) => MaxAngle * Mathf.Sin((float)(time * 2.0 * Mathf.PI / Period) + index * 1.7f);
+
+        // ---- No two rooms alike (2026-11-12): from the room's DecorSeed, the swing's period (2.6-3.8 s) and how the
+        // blades are phased: a travelling wave, every other blade opposed, or each its own.
+        public static float PeriodOf(DungeonLayout.Room room) => 2.6f + ((room.DecorSeed >> 4) % 7) * 0.2f;
+        public static float PhaseOf(DungeonLayout.Room room, int index)
+        {
+            switch ((room.DecorSeed >> 8) % 3)
+            {
+                case 0: return index * 0.9f;
+                case 1: return index * Mathf.PI;
+                default:
+                {
+                    uint h = (uint)room.DecorSeed ^ (uint)(index * 2654435761u);
+                    h ^= h >> 15; h *= 0x2c1b3c6d; h ^= h >> 12;
+                    return (h & 1023) / 1023f * Mathf.PI * 2f;
+                }
+            }
+        }
+        public static float Angle(DungeonLayout.Room room, int index, double time) => MaxAngle * Mathf.Sin((float)(time * 2.0 * Mathf.PI / PeriodOf(room)) + PhaseOf(room, index));
 
         public static void Geometry(DungeonLayout.Room room, int index, out Vector3 pivot, out Vector3 axis, out float arm)
         {
@@ -36,14 +56,14 @@ namespace Deepbound.World
         public static Vector3 BladeCenter(DungeonLayout.Room room, int index, double time)
         {
             Geometry(room, index, out var pivot, out var axis, out float arm);
-            return pivot + Quaternion.AngleAxis(Angle(index, time), axis) * Vector3.down * arm;
+            return pivot + Quaternion.AngleAxis(Angle(room, index, time), axis) * Vector3.down * arm;
         }
 
         /// <summary>The blade's direction of travel right now (for knockback).</summary>
         public static Vector3 SwingDirection(DungeonLayout.Room room, int index, double time)
         {
             Geometry(room, index, out _, out var axis, out _);
-            float a0 = Angle(index, time), a1 = Angle(index, time + 0.02);
+            float a0 = Angle(room, index, time), a1 = Angle(room, index, time + 0.02);
             var across = Vector3.Cross(axis, Vector3.up).normalized;
             return across * Mathf.Sign(a1 - a0) * (axis == Vector3.right ? -1f : 1f);
         }
@@ -56,6 +76,7 @@ namespace Deepbound.World
             go.transform.position = pivot;
             var p = go.AddComponent<Pendulum>();
             p.pivot = pivot;
+            p.room = room;
             p.axis = axis;
             p.arm = arm;
             p.index = index;
@@ -84,10 +105,10 @@ namespace Deepbound.World
         private void Update()
         {
             double t = Clock;
-            float a = Angle(index, t);
+            float a = room != null ? Angle(room, index, t) : Angle(index, t);
             swing.localRotation = Quaternion.AngleAxis(a, axis);
             // A whoosh as it passes the bottom of its swing, when you are near enough to hear.
-            if (Mathf.Abs(a) < 8f && Time.time - lastWhoosh > Period * 0.4f)
+            if (Mathf.Abs(a) < 8f && Time.time - lastWhoosh > (room != null ? PeriodOf(room) : Period) * 0.4f)
             {
                 lastWhoosh = Time.time;
                 var cam = Art.ViewCamera.Current;

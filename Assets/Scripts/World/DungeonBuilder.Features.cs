@@ -588,6 +588,7 @@ namespace Deepbound.World
                 : room.Feature == RoomFeature.Chimes ? new Color(0.6f, 0.85f, 1f)
                 : room.Feature == RoomFeature.Mirrors ? new Color(1f, 0.9f, 0.65f)
                 : room.Feature == RoomFeature.Scales ? new Color(1f, 0.72f, 0.42f)
+                : room.Feature == RoomFeature.Draught ? new Color(0.75f, 0.55f, 1f)
                 : room.Feature == RoomFeature.Proving ? new Color(1f, 0.6f, 0.3f)
                 : room.Feature == RoomFeature.Armoury ? new Color(1f, 0.7f, 0.4f)
                 : room.Feature == RoomFeature.Panoply ? new Color(0.75f, 0.7f, 1f) : theme.TorchColor;

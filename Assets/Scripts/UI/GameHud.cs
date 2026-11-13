@@ -2145,7 +2145,8 @@ namespace Deepbound.UI
             var current = progress.Equipped(slot);
             var stats = new List<StatType>(Gear.StatsOf(item));
             if (compare) foreach (var s in Gear.StatsOf(current)) if (!stats.Contains(s)) stats.Add(s);
-            float ch = 66 + stats.Count * 18 + (compare ? 40 : 0);
+            string setLine = Progression.PlayerProgress.SetLine(item.Kind);
+            float ch = 66 + stats.Count * 18 + (compare ? 40 : 0) + (setLine != null ? 34 : 0);
             var qc = Gear.QualityColor(item.Quality);
             Rect(x - 2, y - 2, cw + 4, ch + 4, new Color(qc.r, qc.g, qc.b, 0.55f));
             Rect(x, y, cw, ch, new Color(0.04f, 0.035f, 0.03f, 0.93f));
@@ -2162,6 +2163,11 @@ namespace Deepbound.UI
                 ry += 18;
             }
             GUI.Label(new Rect(x + 10, ry + 2, cw - 20, 34), Gear.Effect(item.Kind), new GUIStyle(small) { wordWrap = true, normal = { textColor = Gold } });
+            if (setLine != null)
+            {
+                ry += 34;
+                GUI.Label(new Rect(x + 10, ry + 2, cw - 20, 34), setLine, new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.6f, 0.85f, 1f) } });
+            }
             if (compare)
             {
                 GUI.Label(new Rect(x + 10, ry + 34, cw - 20, 18), "Wearing: " + (current.IsEmpty ? "nothing" : Gear.Name(current)), small);
@@ -2235,6 +2241,7 @@ namespace Deepbound.UI
                 var use = Interactable.Nearest(player.AimOrigin, player.AimForward, progress);
                 if (use != null && !statsHeld) PromptLine(w, h, "F   " + use.Prompt(progress));
                 else if (use == null && !statsHeld && progress.CanUseRope) PromptLine(w, h, "F   Climb the rope back to camp  (the run goes on; this floor starts over)");
+                else if (use == null && !statsHeld && World.SpikeTrap.PromptFor(progress) is string jam) PromptLine(w, h, jam);
                 if (use is GearDrop gear && !statsHeld) DrawGearCard(gear.Item.Value, w / 2f - 180, h / 2f + 70, true);
                 return;
             }
@@ -2524,7 +2531,7 @@ namespace Deepbound.UI
             if (Shop.Position(Shop.Vendor.Smith) != null && GUI.Button(new Rect(x + 170, y0 + 10, 170, 24), "Hobb's wares (buy)"))
             { forgeOpen = false; shopOpen = true; shopVendor = Shop.Vendor.Smith; }
             GUI.Label(new Rect(x + pw - 300, y0 + 12, 284, 24), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil    " : " sigils    ") + progress.Embers.Value + " embers", new GUIStyle(label) { alignment = TextAnchor.UpperRight, normal = { textColor = ember } });
-            string[] tabNames = { "ANVIL  -  temper", "GRINDSTONE  -  hone, refine", "FORGE  -  scrap, attune" };
+            string[] tabNames = { "ANVIL: temper", "GRINDSTONE: hone", "FORGE: scrap" };
             for (int t = 0; t < 3; t++)
             {
                 var tr = new Rect(x + 16 + t * 208, y0 + 42, 200, 24);
@@ -2578,16 +2585,16 @@ namespace Deepbound.UI
                 // The two paths.
                 string head = path != 0 ? "PATH" : level >= WeaponPaths.PathLevel ? "CHOOSE A PATH (once per run)" : "PATHS  -  choose one at +" + WeaponPaths.PathLevel;
                 GUI.Label(new Rect(x + 16, y + 108, leftW, 20), head, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
-                for (int p = 1; p <= 2; p++)
+                for (int p = 1; p <= WeaponPaths.Count; p++)
                 {
-                    float cx = x + 16 + (p - 1) * ((leftW - 44) / 2f + 12), cw = (leftW - 44) / 2f, cy = y + 132, chh = 182;
+                    float cw = (leftW - 32f - 12f * (WeaponPaths.Count - 1)) / WeaponPaths.Count, cx = x + 16 + (p - 1) * (cw + 12), cy = y + 132, chh = 182;
                     bool chosen = path == p, locked = path != 0 && !chosen;
                     var border = chosen ? ember : new Color(1f, 1f, 1f, locked ? 0.06f : 0.18f);
                     Rect(cx - 2, cy - 2, cw + 4, chh + 4, border);
                     Rect(cx, cy, cw, chh, new Color(0.08f, 0.06f, 0.05f, 0.95f));
                     float alpha = locked ? 0.4f : 1f;
                     GUI.Label(new Rect(cx + 10, cy + 8, cw - 20, 22), WeaponPaths.Name(id, p).ToUpperInvariant(), new GUIStyle(label) { normal = { textColor = new Color(ember.r, ember.g, ember.b, alpha) } });
-                    var wrap = new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.9f, 0.88f, 0.85f, alpha) } };
+                    var wrap = new GUIStyle(small) { wordWrap = true, fontSize = Mathf.Max(10, small.fontSize - 1), normal = { textColor = new Color(0.9f, 0.88f, 0.85f, alpha) } };
                     // Stacked by measured height: at fixed spots a three-line mastery ran into the Choose button.
                     float describeH = wrap.CalcHeight(new GUIContent(WeaponPaths.Describe(id, p)), cw - 20);
                     GUI.Label(new Rect(cx + 10, cy + 32, cw - 20, describeH), WeaponPaths.Describe(id, p), wrap);
@@ -2627,11 +2634,20 @@ namespace Deepbound.UI
                     var ec = empty ? new Color(1f, 1f, 1f, 0.12f) : Edges.Color(e);
                     Rect(ecx - 2, ecy - 2, ecw + 4, ech + 4, offer != null ? new Color(ec.r, ec.g, ec.b, 0.75f) : new Color(ec.r, ec.g, ec.b, empty ? 0.18f : 0.45f));
                     Rect(ecx, ecy, ecw, ech, new Color(0.08f, 0.06f, 0.05f, 0.97f));
-                    GUI.Label(new Rect(ecx + 8, ecy + 6, ecw - 16, 20), empty ? "+" + Edges.Levels[i] + "  -  not yet" : Edges.Name(e).ToUpperInvariant(),
+                    GUI.Label(new Rect(ecx + 8, ecy + 6, ecw - 16, 20), empty ? "+" + Edges.Levels[i] + "  -  not yet" : Edges.Name(e).ToUpperInvariant() + "   " + Edges.Kind(e),
                         new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = false, normal = { textColor = empty ? new Color(1f, 1f, 1f, 0.4f) : UiSkin.Readable(ec) } });
                     GUI.Label(new Rect(ecx + 8, ecy + 26, ecw - 16, 50), empty ? "Temper to +" + Edges.Levels[i] + " to choose." : Edges.Describe(e),
                         new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.9f, 0.88f, 0.85f, empty ? 0.5f : 1f) } });
                     if (offer != null && !empty && GUI.Button(new Rect(ecx + 8, ecy + ech - 30, ecw - 16, 24), "Forge " + Edges.Name(e))) progress.ChooseEdgeRpc((byte)e);
+                    // Respec: grind a forged edge out (once a run, for gold) and choose that slot again.
+                    if (offer == null && !empty)
+                    {
+                        string why = progress.CannotRespecReason(i);
+                        GUI.enabled = why == null;
+                        if (GUI.Button(new Rect(ecx + 8, ecy + ech - 28, ecw - 16, 22), new GUIContent(why == null ? "Grind out  (" + progress.RespecCost + "g)" : "Grind out: " + why, "Hobb grinds this edge out so you can choose that slot again. Once a run.")))
+                            progress.RespecEdgeRpc((byte)i);
+                        GUI.enabled = true;
+                    }
                 }
             }
 
@@ -2799,9 +2815,9 @@ namespace Deepbound.UI
                 Rect(row.x, row.y, row.width, row.height, new Color(1f, 1f, 1f, picked ? 0.12f : 0.04f));
                 if (picked) Rect(row.x, row.y, 3, row.height, Gold);
                 Rect(row.x + 12, row.y + 10, 12, 12, open ? (r == Rune.None ? new Color(1f, 1f, 1f, 0.25f) : Runes.Color(r)) : new Color(1f, 1f, 1f, 0.06f));
-                GUI.Label(new Rect(row.x + 32, row.y + 4, lw - 44, 20), open ? (r == Rune.None ? "Empty socket" : Runes.Name(r)) : "Locked  (weapon +" + Runes.SocketLevels[sIdx] + ")",
+                GUI.Label(new Rect(row.x + 32, row.y + 4, lw - 44, 20), (sIdx == Runes.MajorSocket ? "MAJOR  " : "") + (open ? (r == Rune.None ? "Empty socket" : Runes.Name(r)) : "Locked  (weapon +" + Runes.SocketLevels[sIdx] + ")"),
                     new GUIStyle(label) { fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.55f) } });
-                string under = !open ? "" : r != Rune.None ? Runes.Describe(r) : picked ? "The next rune you set goes here." : "Click to choose this socket.";
+                string under = !open ? "" : r != Rune.None ? (sIdx == Runes.MajorSocket ? "x2: " : "") + Runes.Describe(r) : picked ? "The next rune you set goes here." : sIdx == Runes.MajorSocket ? "The MAJOR socket: a rune here works twice as hard." : "Click to choose this socket.";
                 var underSt = new GUIStyle(body) { wordWrap = false };
                 GUI.Label(new Rect(row.x + 32, row.y + 23, lw - 44, 20), UiSkin.Fit(under, underSt, lw - 44), underSt);
                 if (open && GUI.Button(row, GUIContent.none, GUIStyle.none)) runeSocketPick = picked ? -1 : sIdx;

@@ -70,7 +70,7 @@ namespace Deepbound.Core
                 case StatType.DEF: return "Reduces incoming damage.";
                 case StatType.SPD: return "Movement speed.";
                 case StatType.DEX: return "Attack and cast rate.";
-                case StatType.VIT: return "Health and mana regeneration.";
+                case StatType.VIT: return "Slow health regeneration (melee classes mend more, ranged less).";
                 case StatType.WIS: return "Healing and buff potency.";
                 default: return string.Empty;
             }

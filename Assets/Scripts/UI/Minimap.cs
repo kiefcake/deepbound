@@ -57,6 +57,9 @@ namespace Deepbound.UI
         private void Update()
         {
             var layout = DungeonDirector.Layout;
+            // M works at camp too (2026-11-13, the camp map).
+            var keyboard = Keyboard.current;
+            if (keyboard != null && Binds.Down(Bind.Map) && (layout != null || DungeonDirector.InLobby)) large = !large;
             if (layout == null) return;
 
             if (arenaSeen != DungeonDirector.ArenaId)
@@ -90,9 +93,6 @@ namespace Deepbound.UI
                 crackedWalls = FindObjectsByType<CrackedWall>(FindObjectsSortMode.None);
                 levers = FindObjectsByType<Lever>(FindObjectsSortMode.None);
             }
-
-            var keyboard = Keyboard.current;
-            if (keyboard != null && Binds.Down(Bind.Map)) large = !large;
         }
 
         private bool Neighbour(DungeonLayout layout, DungeonLayout.Room room)
@@ -130,8 +130,14 @@ namespace Deepbound.UI
             AfflictionOverlay.PaintOnce();
             if (GameHud.Cinematic) return;
             UiSkin.Apply();
+            if (player == null || CharacterSelect.Open || PauseMenu.Open) return;
+            if (DungeonDirector.InLobby)
+            {
+                if (large || Settings.ShowMinimap) DrawCamp();
+                return;
+            }
             var layout = DungeonDirector.Layout;
-            if (layout == null || player == null || CharacterSelect.Open || PauseMenu.Open) return;
+            if (layout == null) return;
 
             if (!large && !Settings.ShowMinimap) return;
             float w = UiScale.W, h = UiScale.H;
@@ -207,6 +213,7 @@ namespace Deepbound.UI
                     : room.Feature == RoomFeature.Chimes ? Color.Lerp(floor, new Color(0.2f, 0.4f, 0.5f), 0.45f)
                     : room.Feature == RoomFeature.Mirrors ? Color.Lerp(floor, new Color(0.5f, 0.45f, 0.25f), 0.45f)
                     : room.Feature == RoomFeature.Scales ? Color.Lerp(floor, new Color(0.55f, 0.38f, 0.2f), 0.45f)
+                    : room.Feature == RoomFeature.Draught ? Color.Lerp(floor, new Color(0.45f, 0.3f, 0.6f), 0.45f)
                     : room.Feature == RoomFeature.Lightless ? Color.Lerp(floor, Color.black, 0.6f)
                     : room.Feature == RoomFeature.Proving ? Color.Lerp(floor, new Color(0.5f, 0.25f, 0.1f), 0.45f)
                     : room.Feature == RoomFeature.Beggar || room.Feature == RoomFeature.Armoury ? Color.Lerp(floor, new Color(0.35f, 0.3f, 0.2f), 0.4f)
@@ -224,7 +231,7 @@ namespace Deepbound.UI
                 {
                     string label = room.Feature == RoomFeature.Treasury ? "TREASURY" : room.Feature == RoomFeature.Beggar ? "BEGGAR"
                         : room.Feature == RoomFeature.Proving ? "PROVING" : room.Feature == RoomFeature.Armoury ? "ARMOURY" : room.Feature == RoomFeature.Oath ? "OATH"
-                        : room.Feature == RoomFeature.Statues ? "WATCHERS" : room.Feature == RoomFeature.Chimes ? "CHIMES" : room.Feature == RoomFeature.Mirrors ? "MIRRORS" : room.Feature == RoomFeature.Scales ? "SCALES" : room.Feature == RoomFeature.Panoply ? "PANOPLY" : "MIRROR";
+                        : room.Feature == RoomFeature.Statues ? "WATCHERS" : room.Feature == RoomFeature.Chimes ? "CHIMES" : room.Feature == RoomFeature.Mirrors ? "MIRRORS" : room.Feature == RoomFeature.Scales ? "SCALES" : room.Feature == RoomFeature.Draught ? "DRAUGHT" : room.Feature == RoomFeature.Panoply ? "PANOPLY" : "MIRROR";
                     GUI.Label(new Rect(r.x - 20f, r.center.y - 9f, r.width + 40f, 18f), label, new GUIStyle(UiSkin.Small) { fontSize = large ? 12 : 9, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 0.88f, 0.55f, 0.9f) } });
                 }
                 // Raised ground: lighter blocks.
@@ -261,15 +268,19 @@ namespace Deepbound.UI
             if (layout.PeddlerSpot.HasValue && Visible(layout, layout.PeddlerSpot.Value)) MapIcons.Draw(MapIcons.Id.Coin, ToMap(layout.PeddlerSpot.Value), new Color(1f, 0.82f, 0.35f), px);
             MapIcons.Draw(MapIcons.Id.Waystone, ToMap(layout.WaystonePosition), new Color(0.55f, 0.85f, 1f), px);
 
+            var me0 = player.GetComponent<Progression.PlayerProgress>();
             // Legacy boons (client-only, from your own save's bits): chests and cracked walls near you, and the way to the guardian.
             if (Legacy.Has(player, Boon.TreasureSense) && chests != null)
                 foreach (var ch in chests)
                     if (ch != null && !ch.Opened.Value && (ch.transform.position - player.transform.position).sqrMagnitude < Legacy.ChestSenseRange * Legacy.ChestSenseRange)
                         MapIcons.Draw(MapIcons.Id.Chest, ToMap(ch.transform.position), new Color(1f, 0.8f, 0.35f, 0.8f), px);
-            if (Legacy.Has(player, Boon.Cartographer) && crackedWalls != null)
+            // Cartographer's boon, or a Mage's ARCANE SENSE (2026-11-13: a class gift, 12 m).
+            bool mageSense = me0 != null && me0.ClassId.Value == Classes.ClassId.Mage;
+            float wallRange = Legacy.Has(player, Boon.Cartographer) ? Legacy.WallSenseRange : mageSense ? 12f : 0f;
+            if (wallRange > 0f && crackedWalls != null)
                 foreach (var cw in crackedWalls)
                 {
-                    if (cw == null || !cw.isActiveAndEnabled || cw.Breach.Value || (cw.transform.position - player.transform.position).sqrMagnitude > Legacy.WallSenseRange * Legacy.WallSenseRange) continue;
+                    if (cw == null || !cw.isActiveAndEnabled || cw.Breach.Value || (cw.transform.position - player.transform.position).sqrMagnitude > wallRange * wallRange) continue;
                     var at = ToMap(cw.transform.position);
                     var wc = new Color(0.9f, 0.55f, 0.35f);
                     UiSkin.Rect(new Rect(at.x - 3f, at.y - 3f, 6f, 6f), wc);
@@ -297,7 +308,8 @@ namespace Deepbound.UI
             foreach (var hp in Health.All)
             {
                 if (hp == null || hp.Team != Team.Enemies || !hp.IsAlive) continue;
-                if (Vector3.Distance(hp.transform.position, player.transform.position) > RadarRange) continue;
+                // A Ranger's TRACKER gift sees the dead further out.
+                if (Vector3.Distance(hp.transform.position, player.transform.position) > RadarRange * (me0 != null && me0.ClassId.Value == Classes.ClassId.Ranger ? 1.6f : 1f)) continue;
                 if (hp.TryGetComponent<Enemies.GargoyleBrain>(out var stone) && !stone.Woken.Value) continue;
                 if (hp.GetComponent<Enemies.BossBrain>() != null) continue;
                 var at = ToMap(hp.transform.position);
@@ -308,6 +320,11 @@ namespace Deepbound.UI
                 GUI.DrawTexture(new Rect(at.x - s / 2f, at.y - s / 2f, s, s), MapIcons.Soft);
                 GUI.color = old;
             }
+            // Breach hunters at any range (orange, pinned to the edge), and rifts (violet): the things to watch for.
+            foreach (var eb in Enemies.EnemyBrain.All)
+                if (eb != null && !eb.IsDead && eb.Hunting.Value) Pinned(ToMap(eb.transform.position), size, MapIcons.Id.Skull, new Color(1f, 0.55f, 0.2f), px * 0.8f);
+            foreach (var rift in SoulRift.All)
+                if (rift != null && Vector3.Distance(rift.transform.position, player.transform.position) < RadarRange * 1.5f) MapIcons.Draw(MapIcons.Id.Gem, ToMap(rift.transform.position), new Color(0.65f, 0.35f, 1f), px);
             var bossNow = Enemies.BossBrain.Active;
             if (bossNow != null && !bossNow.IsDead && Vector3.Distance(bossNow.transform.position, player.transform.position) < RadarRange * 1.5f)
                 MapIcons.Draw(MapIcons.Id.Skull, ToMap(bossNow.transform.position), new Color(1f, 0.25f, 0.2f), px * 1.15f);
@@ -374,6 +391,223 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(frame.x, frame.yMax + 5f, frame.width - 6f, 18), hint, hintStyle);
             }
             else DrawLegend(layout, frame);
+        }
+
+        // ---------------- The camp map (2026-11-13, the user: "make a map for spawn area") ----------------
+
+        private static readonly Color Grass = new Color(0.13f, 0.17f, 0.11f), Cobble = new Color(0.3f, 0.28f, 0.25f), Roof = new Color(0.36f, 0.22f, 0.16f);
+
+        /// <summary>A place in Castle Ravenhold: where, what to call it, its mark and colour.</summary>
+        private struct CampPlace
+        {
+            public Vector3 At; public string Name; public bool HasIcon; public MapIcons.Id Icon; public Color Col;
+            public CampPlace(Vector3 at, string name, Color col) { At = at; Name = name; HasIcon = false; Icon = MapIcons.Id.Ping; Col = col; }
+            public CampPlace(Vector3 at, string name, MapIcons.Id icon, Color col) { At = at; Name = name; HasIcon = true; Icon = icon; Col = col; }
+        }
+
+        private static CampPlace[] campPlaces;
+        private static CampPlace[] CampPlaces => campPlaces ??= new[]
+        {
+            new CampPlace(Lobby.CarriageAt, "Carriage", MapIcons.Id.Exit, new Color(0.78f, 0.58f, 1f)),
+            new CampPlace(Lobby.BountySpot, "Quest board", MapIcons.Id.Book, new Color(0.93f, 0.86f, 0.66f)),
+            new CampPlace(Lobby.RecordsSpot, "Records", new Color(0.85f, 0.85f, 0.9f)),
+            new CampPlace(Lobby.OmenSpot, "Omen stone", MapIcons.Id.Altar, new Color(0.85f, 0.4f, 0.4f)),
+            new CampPlace(Lobby.AnvilSpot, "Forge", MapIcons.Id.Gear, new Color(1f, 0.6f, 0.3f)),
+            new CampPlace(Lobby.MerchantSpot, "Market", MapIcons.Id.Coin, new Color(1f, 0.82f, 0.35f)),
+            new CampPlace(Lobby.TailorSpot, "Tailor", new Color(0.8f, 0.5f, 0.85f)),
+            new CampPlace(Lobby.ShrineSpot, "Shrine", MapIcons.Id.Cross, new Color(1f, 0.9f, 0.6f)),
+            new CampPlace(Lobby.BellSpot, "Bells", new Color(0.9f, 0.8f, 0.5f)),
+            new CampPlace(Lobby.RunewrightSpot, "Rune stones", MapIcons.Id.Gem, new Color(0.55f, 0.75f, 1f)),
+            new CampPlace(Lobby.RangeCenter, "Archery range", new Color(0.75f, 0.65f, 0.45f)),
+            new CampPlace(Lobby.GongSpot, "Gong", new Color(0.9f, 0.75f, 0.35f)),
+            new CampPlace(Lobby.YardSpot, "Training yard", new Color(0.75f, 0.65f, 0.45f)),
+            new CampPlace(Lobby.KnifeSpot, "Knife board", new Color(0.75f, 0.65f, 0.45f)),
+            new CampPlace(Lobby.WellSpot, "Well", MapIcons.Id.Fountain, new Color(0.45f, 0.78f, 1f)),
+            new CampPlace(Lobby.FirePit, "Campfire", new Color(1f, 0.55f, 0.2f)),
+            new CampPlace(Lobby.TavernCenter, "Tavern", new Color(1f, 0.75f, 0.4f)),
+            new CampPlace(Lobby.TentCenter, "Gaming tent", new Color(0.9f, 0.4f, 0.35f)),
+        };
+
+        private static readonly (FolkId who, string name)[] CampFolkNames =
+        {
+            (FolkId.Silas, "Silas"), (FolkId.Hobb, "Hobb"), (FolkId.Aldric, "Aldric"), (FolkId.Vey, "Vey"), (FolkId.Corwin, "Corwin"),
+            (FolkId.Bones, "Mr Bones"), (FolkId.Brann, "Brann"), (FolkId.Ysolde, "Ysolde"), (FolkId.Marta, "Marta"),
+        };
+
+        /// <summary>
+        /// The camp has no room graph: draw Castle Ravenhold from the <see cref="Lobby"/> constants. Grass inside the curtain
+        /// wall, the gate and road north, the keep south, the tavern and the gaming tent, every station with its mark (named on
+        /// the large map, or on the small one when it is near), the townsfolk where they are right now, and the party.
+        /// </summary>
+        private void DrawCamp()
+        {
+            float w = UiScale.W, h = UiScale.H;
+            float size = large ? Mathf.Min(w * 0.6f, h * 0.84f) : SmallSize;
+            var frame = large ? new Rect(w / 2f - size / 2f - 120f, h / 2f - size / 2f, size, size) : new Rect(w - size - 18f, 18f, size, size);
+            float span = large ? Lobby.Radius * 2f + 16f : 62f;
+            float scale = size / span;
+            Vector3 centre = large ? Lobby.Origin + new Vector3(0f, 0f, 3f) : player.transform.position;
+            float px = large ? 2.4f : 1.8f;
+
+            if (large) UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.55f));
+            UiSkin.Panel(new Rect(frame.x - 6f, frame.y - 6f, frame.width + 12f, frame.height + 12f), large ? 0.96f : 0.85f);
+            UiSkin.Rect(frame, new Color(0.035f, 0.03f, 0.028f, 0.95f));
+            GUI.BeginGroup(frame);
+            Vector2 ToMap(Vector3 world) => new Vector2(size / 2f + (world.x - centre.x) * scale, size / 2f - (world.z - centre.z) * scale);
+            Rect WorldRect(Vector3 c, float sx, float sz)
+            {
+                var m = ToMap(c);
+                return new Rect(m.x - sx * scale / 2f, m.y - sz * scale / 2f, sx * scale, sz * scale);
+            }
+
+            var o = Lobby.Origin;
+            float R = Lobby.Radius;
+            // The pine road north through the gate, under everything.
+            UiSkin.Rect(WorldRect(o + new Vector3(0f, 0f, R + 8f), 5f, 26f), new Color(0.22f, 0.19f, 0.15f));
+            // Grass inside the wall: a disc in strips.
+            var oc = ToMap(o);
+            float rp = R * scale;
+            float step = Mathf.Max(1f, scale * 0.6f);
+            for (float dy = -rp; dy < rp; dy += step)
+            {
+                float mid = dy + step / 2f;
+                float half = Mathf.Sqrt(Mathf.Max(0f, rp * rp - mid * mid));
+                UiSkin.Rect(new Rect(oc.x - half, oc.y + dy, half * 2f, step + 0.5f), Grass);
+            }
+            // The cobbled road up to the gate and the square round the well.
+            UiSkin.Rect(WorldRect(o + new Vector3(0f, 0f, R * 0.35f), 6f, R * 1.3f), Cobble * 0.9f);
+            UiSkin.Rect(WorldRect(Lobby.WellSpot, 12f, 12f), Cobble);
+            // The curtain wall: stones round the circle, a gap for the gate, six towers.
+            float wallPx = Mathf.Max(2.5f, 1.4f * scale);
+            const int stones = 160;
+            for (int i = 0; i < stones; i++)
+            {
+                float a = i / (float)stones * Mathf.PI * 2f;
+                var dir = new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));
+                if (dir.z > 0f && Mathf.Abs(dir.x * R) < 3.2f) continue; // the gate
+                var p = ToMap(o + dir * (R + 0.6f));
+                UiSkin.Rect(new Rect(p.x - wallPx / 2f, p.y - wallPx / 2f, wallPx, wallPx), Wall);
+            }
+            float towerPx = Mathf.Max(6f, 3.2f * scale);
+            for (int t = 0; t < 6; t++)
+            {
+                float a = t * 60f * Mathf.Deg2Rad;
+                var p = ToMap(o + new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a)) * (R + 0.6f));
+                UiSkin.Rect(new Rect(p.x - towerPx / 2f, p.y - towerPx / 2f, towerPx, towerPx), Wall * 0.85f);
+            }
+            // The keep (south) and the buildings.
+            UiSkin.Rect(WorldRect(o + new Vector3(0f, 0f, -R + 3f), 16f, 7f), new Color(0.32f, 0.3f, 0.3f));
+            var tav = WorldRect(Lobby.TavernCenter, Lobby.TavernHalfX * 2f, Lobby.TavernHalfZ * 2f);
+            UiSkin.Rect(new Rect(tav.x - 1f, tav.y - 1f, tav.width + 2f, tav.height + 2f), Wall);
+            UiSkin.Rect(tav, Roof);
+            var tent = ToMap(Lobby.TentCenter);
+            float tr = 3.6f * scale;
+            for (float dy = -tr; dy < tr; dy += 1.5f)
+            {
+                float half = Mathf.Sqrt(Mathf.Max(0f, tr * tr - dy * dy));
+                bool stripe = Mathf.FloorToInt((dy + tr) / 4f) % 2 == 0;
+                UiSkin.Rect(new Rect(tent.x - half, tent.y + dy, half * 2f, 2f), stripe ? new Color(0.5f, 0.12f, 0.1f) : new Color(0.62f, 0.52f, 0.36f));
+            }
+            // The campfire glows.
+            var fire = ToMap(Lobby.FirePit);
+            var old = GUI.color;
+            float glow = (large ? 26f : 20f) * (0.9f + 0.1f * Mathf.Sin(Time.time * 7f));
+            GUI.color = new Color(1f, 0.55f, 0.2f, 0.55f);
+            GUI.DrawTexture(new Rect(fire.x - glow / 2f, fire.y - glow / 2f, glow, glow), MapIcons.Soft);
+            GUI.color = old;
+
+            // Stations: marks always; names on the large map, or near you on the small one.
+            var labelStyle = new GUIStyle(UiSkin.Small) { fontSize = large ? 12 : 9, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false, normal = { textColor = new Color(1f, 0.9f, 0.65f, 0.95f) } };
+            foreach (var pl in CampPlaces)
+            {
+                var at = ToMap(pl.At);
+                if (at.x < -40f || at.y < -20f || at.x > size + 40f || at.y > size + 20f) continue;
+                if (pl.HasIcon) MapIcons.Draw(pl.Icon, at, pl.Col, px);
+                else UiSkin.Rect(new Rect(at.x - 3f, at.y - 3f, 6f, 6f), pl.Col);
+                bool near = (pl.At - player.transform.position).sqrMagnitude < 18f * 18f;
+                if (!large && !near) continue;
+                float lw = labelStyle.CalcSize(new GUIContent(pl.Name)).x + 6f;
+                var lr = new Rect(at.x - lw / 2f, at.y + (large ? 9f : 7f), lw, large ? 16f : 13f);
+                UiSkin.Rect(lr, new Color(0f, 0f, 0f, 0.45f));
+                GUI.Label(lr, pl.Name, labelStyle);
+            }
+
+            // The townsfolk, where they are now (they walk errands).
+            var folkStyle = new GUIStyle(UiSkin.Small) { fontSize = 11, alignment = TextAnchor.MiddleLeft, wordWrap = false, normal = { textColor = new Color(0.75f, 0.95f, 0.75f) } };
+            foreach (var (who, name) in CampFolkNames)
+            {
+                var at = ToMap(FolkPlaces.Now(who));
+                if (at.x < 0f || at.y < 0f || at.x > size || at.y > size) continue;
+                GUI.color = new Color(0.55f, 0.95f, 0.55f);
+                GUI.DrawTexture(new Rect(at.x - 4f, at.y - 4f, 8f, 8f), MapIcons.Soft);
+                GUI.color = old;
+                if (large) GUI.Label(new Rect(at.x + 4f, at.y - 16f, 70f, 14f), name, folkStyle);
+            }
+
+            // Allies, then you.
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || p.gameObject == player.gameObject) continue;
+                var np = p.GetComponent<NetworkPlayer>();
+                var at = ToMap(p.transform.position);
+                if (!large && !new Rect(6f, 6f, size - 12f, size - 12f).Contains(at)) { EdgeChevron(at, size, np.SlotColor); continue; }
+                ArrowAt(at, p.transform.eulerAngles.y, np.SlotColor, 16f);
+            }
+            var mine = ToMap(player.transform.position);
+            float yaw = player.transform.eulerAngles.y;
+            var mtx = GUI.matrix;
+            UiScale.Rotate(yaw, mine);
+            GUI.color = new Color(1f, 0.95f, 0.8f, 0.28f);
+            float coneLen = large ? 70f : 60f;
+            GUI.DrawTexture(new Rect(mine.x - coneLen, mine.y - coneLen, coneLen * 2f, coneLen), MapIcons.Cone);
+            GUI.color = old;
+            GUI.matrix = mtx;
+            ArrowAt(mine, yaw, Color.Lerp(player.SlotColor, Color.white, 0.35f), 18f);
+            GUI.EndGroup();
+
+            GUI.Label(new Rect(frame.center.x - 15f, frame.y - 4f, 30f, 18f), "N", new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = UiSkin.Gold } });
+            if (!large)
+            {
+                UiSkin.Rect(new Rect(frame.x, frame.yMax + 4f, frame.width, 20f), new Color(0f, 0f, 0f, 0.55f));
+                var hintStyle = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperRight, wordWrap = false };
+                string hint = Binds.Live(Bind.Map) + " map";
+                float hintW = hintStyle.CalcSize(new GUIContent(hint)).x;
+                var placeStyle = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperLeft, clipping = TextClipping.Clip, wordWrap = false, normal = { textColor = UiSkin.Gold } };
+                GUI.Label(new Rect(frame.x + 6f, frame.yMax + 5f, frame.width - 20f - hintW, 18), UiSkin.Fit("CASTLE RAVENHOLD  ·  CAMP", placeStyle, frame.width - 20f - hintW), placeStyle);
+                GUI.Label(new Rect(frame.x, frame.yMax + 5f, frame.width - 6f, 18), hint, hintStyle);
+            }
+            else DrawCampLegend(frame);
+        }
+
+        private void DrawCampLegend(Rect frame)
+        {
+            var panel = new Rect(frame.xMax + 18f, frame.y, 240f, frame.height);
+            UiSkin.Panel(panel, 0.95f);
+            float y = panel.y + 14f;
+            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 24f), "CASTLE RAVENHOLD", new GUIStyle(UiSkin.Heading) { fontSize = 20 });
+            y += 26f;
+            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 40f), "The camp. Board Corwin's carriage at the gate to go down.", new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Italic, wordWrap = true });
+            y += 46f;
+            var entries = new (bool hasIcon, MapIcons.Id icon, Color col, string text)[]
+            {
+                (true, MapIcons.Id.Exit, new Color(0.78f, 0.58f, 1f), "Carriage (Corwin)"),
+                (true, MapIcons.Id.Gear, new Color(1f, 0.6f, 0.3f), "Forge (Hobb)"),
+                (true, MapIcons.Id.Coin, new Color(1f, 0.82f, 0.35f), "Market (Silas)"),
+                (true, MapIcons.Id.Gem, new Color(0.55f, 0.75f, 1f), "Rune stones (Ysolde)"),
+                (true, MapIcons.Id.Cross, new Color(1f, 0.9f, 0.6f), "Shrine (Aldric)"),
+                (true, MapIcons.Id.Book, new Color(0.93f, 0.86f, 0.66f), "Quest board"),
+                (true, MapIcons.Id.Altar, new Color(0.85f, 0.4f, 0.4f), "Omen stone"),
+                (true, MapIcons.Id.Fountain, new Color(0.45f, 0.78f, 1f), "Well (fishing)"),
+                (false, MapIcons.Id.Ping, new Color(0.75f, 0.65f, 0.45f), "Yard, range, knife board"),
+                (false, MapIcons.Id.Ping, new Color(0.55f, 0.95f, 0.55f), "Townsfolk, where they are now"),
+            };
+            foreach (var (hasIcon, icon, col, text) in entries)
+            {
+                if (hasIcon) MapIcons.Draw(icon, new Vector2(panel.x + 26f, y + 9f), col, 2f);
+                else UiSkin.Rect(new Rect(panel.x + 22f, y + 5f, 8f, 8f), col);
+                GUI.Label(new Rect(panel.x + 44f, y, panel.width - 54f, 20f), text, UiSkin.Small);
+                y += 23f;
+            }
         }
 
         /// <summary>Pathfinder: a dotted gold line along the room links from where you stand to the guardian's arena.</summary>

@@ -24,6 +24,9 @@ namespace Deepbound.Loot
         MarrowgutsRib = 21, DrownedKnightsMail = 22, AldousOath = 23, ChoirmastersBaton = 24, GorrsHide = 25,
         // The Panoply's armour (2026-11-07): only found in a guarded armoury crypt, never rolled.
         Rimecloak = 26, WraithstepCuirass = 27, MartyrsShell = 28, SunwardPlate = 29,
+        // Trade-offs (2026-11-12, the user: "a very tanky knight, but also if the player chooses to lean into dps that would
+        // be also allowed"): rollable pieces that give a lot of one thing for some of another.
+        BulwarkPlate = 30, BerserkersHarness = 31, PilgrimsMail = 32, GlassHeart = 33, StoneheartAmulet = 34, DuelistsSash = 35,
     }
 
     /// <summary>
@@ -52,7 +55,7 @@ namespace Deepbound.Loot
             { GearId.TidewovenRobe, new Def { Slot = GearSlot.Armor, Name = "Tidewoven Robe",
                 Effect = "All healing you receive is 30% stronger.", Stats = new[] { (StatType.HP, 2f), (StatType.WIS, 2f) } } },
             { GearId.ThornhideJerkin, new Def { Slot = GearSlot.Armor, Name = "Thornhide Jerkin",
-                Effect = "Below 40% health you slowly regenerate, even mid-fight (faster with VIT). Nothing else heals you on its own.", Stats = new[] { (StatType.DEF, 2f), (StatType.VIT, 2f) } } },
+                Effect = "Below 40% health you slowly regenerate, even mid-fight (faster with VIT), far faster than VIT alone.", Stats = new[] { (StatType.DEF, 2f), (StatType.VIT, 2f) } } },
             { GearId.KingsguardHauberk, new Def { Slot = GearSlot.Armor, Name = "Kingsguard Hauberk",
                 Effect = "Heavy: the most armour and health, at the cost of speed.", Stats = new[] { (StatType.DEF, 4f), (StatType.HP, 3f), (StatType.SPD, -1.5f) } } },
             { GearId.AshenShroud, new Def { Slot = GearSlot.Armor, Name = "Ashen Shroud",
@@ -103,6 +106,18 @@ namespace Deepbound.Loot
                 Effect = "The lower your health, the harder you hit (up to +45% near death); healing on you is 15% weaker.", Stats = new[] { (StatType.ATT, 3f), (StatType.HP, 1.5f) } } },
             { GearId.SunwardPlate, new Def { Slot = GearSlot.Armor, Name = "Sunward Plate",
                 Effect = "A halo of morning light: allies within 6 m mend 1% of their health a second (you, half that).", Stats = new[] { (StatType.DEF, 3f), (StatType.VIT, 2f) } } },
+            { GearId.BulwarkPlate, new Def { Slot = GearSlot.Armor, Name = "Bulwark Plate",
+                Effect = "A walking wall: the most armour and a deal of health, but slow feet and slow hands.", Stats = new[] { (StatType.DEF, 5f), (StatType.HP, 3f), (StatType.SPD, -2f), (StatType.DEX, -1.5f) } } },
+            { GearId.BerserkersHarness, new Def { Slot = GearSlot.Armor, Name = "Berserker's Harness",
+                Effect = "All edge, no guard: hit harder and faster, with next to nothing between you and the blow.", Stats = new[] { (StatType.ATT, 3f), (StatType.DEX, 2f), (StatType.DEF, -2f), (StatType.HP, -1f) } } },
+            { GearId.PilgrimsMail, new Def { Slot = GearSlot.Armor, Name = "Pilgrim's Mail",
+                Effect = "Built to last the road: deep health and quick mending, at the cost of quick hands.", Stats = new[] { (StatType.HP, 3.5f), (StatType.VIT, 3f), (StatType.DEX, -1.5f) } } },
+            { GearId.GlassHeart, new Def { Slot = GearSlot.Charm, Name = "Glass Heart",
+                Effect = "Strike like a hammer, break like a vase: great attack, less health.", Stats = new[] { (StatType.ATT, 4f), (StatType.HP, -2f) } } },
+            { GearId.StoneheartAmulet, new Def { Slot = GearSlot.Charm, Name = "Stoneheart Amulet",
+                Effect = "A cold weight on the chest: armour and health, a softer blow.", Stats = new[] { (StatType.DEF, 3f), (StatType.HP, 2.5f), (StatType.ATT, -1.5f) } } },
+            { GearId.DuelistsSash, new Def { Slot = GearSlot.Charm, Name = "Duelist's Sash",
+                Effect = "Light on your feet, quick with the blade, and nothing to stop a hit.", Stats = new[] { (StatType.DEX, 3f), (StatType.SPD, 2f), (StatType.DEF, -1.5f) } } },
             { GearId.CardinalVestments, new Def { Slot = GearSlot.Armor, Name = "Vestments of the Pale Cardinal",
                 Effect = "Your kills call down Judgement: a pillar of holy fire erupts there a moment later (once a second).", Stats = new[] { (StatType.DEF, 2f), (StatType.WIS, 2f), (StatType.ATT, 1.5f) } } },
         };
@@ -113,6 +128,7 @@ namespace Deepbound.Loot
             GearId.OssuaryPlate, GearId.GraveclothMantle, GearId.TidewovenRobe, GearId.ThornhideJerkin, GearId.KingsguardHauberk, GearId.AshenShroud,
             GearId.LanternOfTheLost, GearId.HuntersTooth, GearId.CrackedHourglass, GearId.Bloodstone, GearId.EmberLocket, GearId.LuckyKnucklebone,
             GearId.BellringersHauberk, GearId.GravediggersCoat, GearId.RosaryOfAsh, GearId.WitchboneFetish,
+            GearId.BulwarkPlate, GearId.BerserkersHarness, GearId.PilgrimsMail, GearId.GlassHeart, GearId.StoneheartAmulet, GearId.DuelistsSash,
         };
 
         /// <summary>The rollable pieces for one slot (the smith sells armour, Silas pendants).</summary>

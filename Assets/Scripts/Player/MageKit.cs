@@ -79,7 +79,7 @@ namespace Deepbound.Player
 
         private bool Active => progress.ClassId.Value == ClassId.Mage;
         private float ManaMax => progress.Value(StatType.MP);
-        private float ManaRegen => 3f + progress.Value(StatType.WIS) * 0.12f;
+        private float ManaRegen => 1.5f + progress.Value(StatType.WIS) * 0.09f; // 2026-11-12, the user: lower from the start (8.4/s -> 5.6/s at base WIS; Meditation matters)
 
         // ---- IClassKit ----
 

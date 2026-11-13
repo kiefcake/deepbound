@@ -370,6 +370,7 @@ namespace Deepbound.Player
             var k = (Kind)kind;
             if (!life.CanAct || Count(k) <= 0 || !Drunk(k)) return;
             Slot(k).Value--;
+            World.DungeonDirector.Instance?.QuestOnPotion();
             if (k == Kind.Health) StartCoroutine(Mend());
             else ManaOwnerRpc();
             DrinkFxRpc(kind);
@@ -380,7 +381,8 @@ namespace Deepbound.Player
         {
             const int ticks = 12;
             float each = life.Health.Max.Value * HealFraction / ticks
-                * (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasEdge(Progression.Edge.SecondWind) ? Progression.Edges.SecondWindHeal : 1f);
+                * (TryGetComponent<Progression.PlayerProgress>(out var pp) && pp.HasEdge(Progression.Edge.SecondWind) ? Progression.Edges.SecondWindHeal : 1f)
+                * (pp != null ? pp.BuildPotionScale : 1f);
             healingUntil = Time.time + HealSeconds;
             // Shared Vow: half as much again for the nearest standing ally within 12 m.
             Health ally = null;

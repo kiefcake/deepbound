@@ -83,6 +83,7 @@ namespace Deepbound.Art
 
             var shieldMount = MeshKit.Pivot(rig.ArmL, "ShieldMount", new Vector3(-0.08f, -0.42f, 0.04f), new Vector3(0f, -90f, 0f));
             BuildShield(shieldMount, teamColor, 1f);
+            rig.SetGuardShield(shieldMount, new Vector3(-0.12f, 0.28f, 0.6f), new Vector3(-4f, 12f, 0f));
 
             GothicKit.BlackenSteel(visual, new Color(0.58f, 0.58f, 0.64f));
             rig.StrideLength = 1.5f;
@@ -854,6 +855,8 @@ namespace Deepbound.Art
                 MeshKit.Part(shield, "Boss", MeshKit.Ball(0.08f, 8, 6), Mat.Steel, new Vector3(0f, 0.05f, 0.04f));
                 MeshKit.Part(shield, "SigilV", MeshKit.Box(new Vector3(0.05f, 0.5f, 0.02f)), Mat.Bone, new Vector3(0f, 0.05f, 0.035f));
                 MeshKit.Part(shield, "SigilH", MeshKit.Box(new Vector3(0.32f, 0.05f, 0.02f)), Mat.Bone, new Vector3(0f, 0.16f, 0.035f));
+                // Raised: a wall before the whole front of it, not through its ribs (HumanoidRig.GuardShield).
+                rig.SetGuardShield(shield, new Vector3(-0.08f, 0.12f, 0.58f), new Vector3(-3f, 8f, 0f));
                 MeshKit.Part(grip, "Shaft", MeshKit.Cylinder(0.02f, 0.02f, 1.5f, 6), Mat.Wood, new Vector3(0f, -0.5f, 0f));
                 MeshKit.Part(grip, "Spearhead", MeshKit.Lathe("spearhead", new[] { new Vector2(0.04f, 0f), new Vector2(0.03f, 0.08f), new Vector2(0f, 0.24f) }, 4), Mat.Steel, new Vector3(0f, 1f, 0f));
                 MeshKit.Part(rig.Head, "Helm", MeshKit.Lathe("kettleHelm", new[] { new Vector2(0.21f, 0.06f), new Vector2(0.15f, 0.09f), new Vector2(0.14f, 0.2f), new Vector2(0.06f, 0.27f), new Vector2(0f, 0.28f) }, 10), Mat.Steel, Vector3.zero);

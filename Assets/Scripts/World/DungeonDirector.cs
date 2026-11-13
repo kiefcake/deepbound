@@ -135,6 +135,7 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject plaguebearerPrefab, frostWightPrefab, hexerPrefab;
         /// <summary>The Black Cathedral's choristers (act 4 on, the Abyss too).</summary>
         [SerializeField] private NetworkObject acolytePrefab;
+        [SerializeField] private NetworkObject soulRiftPrefab;
         [SerializeField] private NetworkObject shaftCatPrefab;
 
         /// <summary>Tests: the cat, here.</summary>
@@ -322,14 +323,14 @@ namespace Deepbound.World
             {
                 var at = around + Quaternion.Euler(0f, i * 360f / count, 0f) * Vector3.forward * 2.5f;
                 if (NavMesh.SamplePosition(at, out var hit, 3f, NavMesh.AllAreas)) at = hit.position;
-                var obj = Spawn(PickEnemy(Layout.Depth, theme, ref brute, ref necro, out int _), at, Quaternion.identity);
+                var obj = SpawnEntering(PickEnemy(Layout.Depth, theme, ref brute, ref necro, out int _), at, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
                 var brain = obj.GetComponent<EnemyBrain>();
                 brain.ServerScale(players, Layout.Depth);
                 if (brain is NecromancerBrain nb) nb.SetMinionPrefab(skeletonPrefab);
                 if (champion && i == 0) brain.ServerMakeChampion();
                 else if (elite && i == 0) brain.ServerMakeElite();
                 spawned.Add(obj);
-                points.Add(at);
+                points.Add(obj.transform.position);
             }
             RiseFxRpc(points.ToArray());
         }
@@ -713,6 +714,16 @@ namespace Deepbound.World
             Put(omenStonePrefab, Lobby.OmenSpot, Vector3.left);
             Put(tavernKeepPrefab, Lobby.TavernKeepSpot, Vector3.right);
             Put(tavernBandPrefab, Lobby.TavernBandSpot, Vector3.forward);
+            // Things to smash round camp (2026-11-12, the user: "more breakable objects ... in spawn"): crates and casks by the
+            // stalls and the tavern door, an urn or two by the shrine. No loot at camp; they come back every visit.
+            if (breakablePrefab != null)
+                foreach (var (kind, at) in Lobby.CampBreakables)
+                {
+                    var bo = Instantiate(breakablePrefab, at, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
+                    bo.GetComponent<Breakable>().Type.Value = kind;
+                    bo.Spawn(destroyWithScene: true);
+                    spawned.Add(bo);
+                }
             // The camp's people get bodies that can be struck (and remember it).
             if (folkPrefab != null)
                 foreach (var (id, at) in Lobby.FolkBodies)
@@ -831,6 +842,7 @@ namespace Deepbound.World
             Hallowed.Value = false;
             ResetTally();
             ResetRoomClears();
+            ResetEruptions();
             RollFloorEvent(depth);
 
             // NetworkVariable callbacks do not fire for the writer's own change on every
@@ -845,6 +857,7 @@ namespace Deepbound.World
             SetupEncounters(Layout);
             SetupFeatures(Layout);
             SetupHoles(Layout);
+            SpawnCellars(Layout);
             ApplyOmen(true);
             SpawnEnemies(Layout);
             if (!Practice.Value) BeginContract(Layout.Depth);
@@ -1288,6 +1301,17 @@ namespace Deepbound.World
 
                 int urns = 2 + rng.Next(3);
                 for (int i = 0; i < urns; i++) SpawnBreakable(Breakable.Kind.Urn, WallSpot(room, rng));
+                // More to smash (2026-11-12): crates and casks stacked by the walls, a bone heap or two in the deep.
+                int stores = 1 + rng.Next(3);
+                for (int i = 0; i < stores; i++)
+                {
+                    var spot = WallSpot(room, rng);
+                    var kind = rng.NextDouble() < 0.5 ? Breakable.Kind.Crate : Breakable.Kind.Cask;
+                    SpawnBreakable(kind, spot);
+                    // Now and then a little stack: another beside it.
+                    if (rng.NextDouble() < 0.35) SpawnBreakable(rng.NextDouble() < 0.5 ? Breakable.Kind.Crate : Breakable.Kind.Cask, spot + new Vector3((float)rng.NextDouble() - 0.5f, 0f, (float)rng.NextDouble() - 0.5f).normalized * 0.85f);
+                }
+                if (rng.NextDouble() < 0.25 + 0.08 * layout.Depth) SpawnBreakable(Breakable.Kind.BoneHeap, WallSpot(room, rng));
                 // A great urn in about a third of rooms, half of the side rooms.
                 if (rng.NextDouble() < (room.Kind == RoomKind.Side ? 0.5 : 0.3)) SpawnBreakable(Breakable.Kind.GreatUrn, WallSpot(room, rng));
                 if (Act(layout.Depth) == 2 && room.Kind == RoomKind.Combat)
@@ -1299,6 +1323,19 @@ namespace Deepbound.World
                 }
             }
 
+            // Crates and casks against corridor walls (2026-11-12), clear of the middle.
+            foreach (var link in layout.Links)
+            {
+                if (rng.NextDouble() > 0.45) continue;
+                var la = layout.Rooms[link.A];
+                if (la.Kind == RoomKind.Boss || layout.Rooms[link.B].Kind == RoomKind.Boss) continue;
+                var ax = new Vector3(DungeonLayout.Dir[link.Dir].x, 0f, DungeonLayout.Dir[link.Dir].y);
+                var side = new Vector3(-ax.z, 0f, ax.x) * (rng.NextDouble() < 0.5 ? 1f : -1f);
+                var at = layout.CorridorMidpoint(link) + ax * ((float)rng.NextDouble() - 0.5f) * 3f + side * (DungeonLayout.CorridorWidth / 2f - 0.55f);
+                if (NavMesh.SamplePosition(at, out var ch, 1f, NavMesh.AllAreas)) at = ch.position;
+                SpawnBreakable(rng.NextDouble() < 0.5 ? Breakable.Kind.Crate : Breakable.Kind.Cask, at);
+            }
+
             if (trapPrefab != null)
             {
                 foreach (var link in layout.Links)
@@ -1306,7 +1343,16 @@ namespace Deepbound.World
                     var a = layout.Rooms[link.A];
                     var b = layout.Rooms[link.B];
                     if (a.Kind == RoomKind.Boss || b.Kind == RoomKind.Boss || a.Kind == RoomKind.Start) continue;
-                    if (rng.NextDouble() < 0.5) SpawnPlate(layout.CorridorMidpoint(link) + Vector3.up * 0.005f, layout.Depth, rng);
+                    if (rng.NextDouble() >= 0.5) continue;
+                    // A spike bed across the corridor, plates at both ends (2026-11-12): only where the corridor is long
+                    // enough to hold it, off its middle by a little so it is not always in the same place.
+                    var axis = new Vector3(DungeonLayout.Dir[link.Dir].x, 0f, DungeonLayout.Dir[link.Dir].y);
+                    bool alongXc = axis.x != 0f;
+                    float corridor = Vector3.Distance(b.Center, a.Center) - ((alongXc ? a.Size.x : a.Size.y) + (alongXc ? b.Size.x : b.Size.y)) / 2f - 1.6f;
+                    float need = SpikeTrap.Length + 2f * SpikeTrap.PlateLength + 1.2f;
+                    if (corridor < need) continue;
+                    float slide = ((float)rng.NextDouble() * 2f - 1f) * (corridor - need) / 2f;
+                    SpawnPlate(layout.CorridorMidpoint(link) + axis * slide + Vector3.up * 0.005f, Quaternion.LookRotation(axis), DungeonLayout.CorridorWidth, layout.Depth, rng);
                 }
                 // Rooms too (2026-10-20): a row of two or three pressure plates across a plain fight
                 // room's floor, off the doorways, in about half of them. Lure the dead across.
@@ -1317,21 +1363,18 @@ namespace Deepbound.World
                     if (f != RoomFeature.None && f != RoomFeature.GreatHall && f != RoomFeature.Gallery && f != RoomFeature.Ritual && f != RoomFeature.Library) continue;
                     if (rng.NextDouble() > 0.55) continue;
                     var shelves = DungeonLayout.LibraryShelves(room);
-                    int rows = room.Size.x * room.Size.y > 600f && rng.NextDouble() < 0.5 ? 2 : 1;
-                    for (int r = 0; r < rows; r++)
+                    // One spike bed (two in a big room), each its own way across, plates at both ends (2026-11-12).
+                    int beds = room.Size.x * room.Size.y > 600f && rng.NextDouble() < 0.5 ? 2 : 1;
+                    for (int r = 0; r < beds; r++)
                     {
-                        bool alongX = rng.NextDouble() < 0.5;
-                        var start = room.Center + new Vector3((float)(rng.NextDouble() - 0.5) * (room.Size.x - 9f), 0f, (float)(rng.NextDouble() - 0.5) * (room.Size.y - 9f));
-                        int count = 2 + rng.Next(2);
-                        for (int k = 0; k < count; k++)
-                        {
-                            var at = start + (alongX ? Vector3.right : Vector3.forward) * (k * 2.7f);
-                            if (!room.Contains(at, -3f)) continue;
-                            if (shelves.Exists(q => { var g = q; g.xMin -= 1f; g.yMin -= 1f; g.xMax += 1f; g.yMax += 1f; return g.Contains(new Vector2(at.x, at.z)); })) continue;
-                            if (Vector3.Distance(new Vector3(at.x, 0f, at.z), new Vector3(room.Center.x, 0f, room.Center.z)) < 2.5f) continue;
-                            if (!NavMesh.SamplePosition(at, out var hit, 1.2f, NavMesh.AllAreas) || Mathf.Abs(hit.position.y) > 0.3f) continue;
-                            SpawnPlate(hit.position + Vector3.up * 0.005f, layout.Depth, rng);
-                        }
+                        var dir = rng.NextDouble() < 0.5 ? Vector3.right : Vector3.forward;
+                        var at = room.Center + new Vector3((float)(rng.NextDouble() - 0.5) * (room.Size.x - 11f), 0f, (float)(rng.NextDouble() - 0.5) * (room.Size.y - 11f));
+                        float reach = SpikeTrap.Length / 2f + SpikeTrap.PlateLength + 0.6f;
+                        if (!room.Contains(at + dir * reach, -2f) || !room.Contains(at - dir * reach, -2f)) continue;
+                        if (shelves.Exists(q => { var g = q; g.xMin -= 3f; g.yMin -= 3f; g.xMax += 3f; g.yMax += 3f; return g.Contains(new Vector2(at.x, at.z)); })) continue;
+                        if (Vector3.Distance(new Vector3(at.x, 0f, at.z), new Vector3(room.Center.x, 0f, room.Center.z)) < 2.5f) continue;
+                        if (!NavMesh.SamplePosition(at, out var hit, 1.2f, NavMesh.AllAreas) || Mathf.Abs(hit.position.y - room.Center.y) > 0.3f) continue;
+                        SpawnPlate(hit.position + Vector3.up * 0.005f, Quaternion.LookRotation(dir), SpikeTrap.RoomWidth, layout.Depth, rng);
                     }
                 }
             }
@@ -1349,18 +1392,21 @@ namespace Deepbound.World
         }
 
         /// <summary>A spike plate; deeper down, some are laid in flagstone and hidden (<see cref="SpikeTrap.HiddenChance"/>).</summary>
-        private void SpawnPlate(Vector3 at, int depth, System.Random rng)
+        private void SpawnPlate(Vector3 at, Quaternion rot, float width, int depth, System.Random rng)
         {
             bool hidden = rng.NextDouble() < SpikeTrap.HiddenChance(depth);
-            var obj = Instantiate(trapPrefab, at, Quaternion.identity);
-            obj.GetComponent<SpikeTrap>().Hidden.Value = hidden;
+            var obj = Instantiate(trapPrefab, at, rot);
+            var trap = obj.GetComponent<SpikeTrap>();
+            trap.Hidden.Value = hidden;
+            trap.Width.Value = width;
             obj.Spawn(destroyWithScene: true);
         }
 
-        /// <summary>Tests: a plain (visible) spike plate here, for a floor that rolled none.</summary>
+        /// <summary>Tests: a plain (visible) spike bed here, running along +z, for a floor that rolled none.</summary>
         public SpikeTrap ServerDebugSpawnPlate(Vector3 at)
         {
             var obj = Instantiate(trapPrefab, at, Quaternion.identity);
+            obj.GetComponent<SpikeTrap>().Width.Value = SpikeTrap.RoomWidth;
             obj.Spawn(destroyWithScene: true);
             return obj.GetComponent<SpikeTrap>();
         }

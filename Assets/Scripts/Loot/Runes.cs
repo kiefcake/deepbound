@@ -30,7 +30,9 @@ namespace Deepbound.Loot
         public static int Tier(Rune r) => ((byte)r >> 4) & 3;
         public static Rune Make(Rune kind, int tier) => (Rune)((byte)Kind(kind) | (Mathf.Clamp(tier, 0, MaxTier) << 4));
         /// <summary>How hard a tier hits: I x1, II x1.5, III x2.</summary>
-        public static float Power(int tier) => 1f + 0.5f * Mathf.Clamp(tier, 0, MaxTier);
+        public static float Power(int tier) => 1f + 0.5f * Mathf.Clamp(tier, 0, MaxTier * 2 + 2);
+        /// <summary>The MAJOR socket (2026-11-13, the user: "Rune specialisation ... a rune's effect doubles"): the first.</summary>
+        public const int MajorSocket = 0;
         public static string TierName(int tier) => tier == 2 ? " III" : tier == 1 ? " II" : "";
         /// <summary>Embers Ysolde asks to meld three runes of one tier into one of the next.</summary>
         public static int MeldCost(int tier) => 25 + 35 * tier;
