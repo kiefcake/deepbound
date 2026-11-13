@@ -30,13 +30,19 @@ namespace Deepbound.World
         /// <summary>Which centrepiece a room has (deterministic from the room).</summary>
         public static Kind Of(DungeonLayout.Room room)
         {
-            if (Off || room == null || room.Kind != RoomKind.Combat || room.Feature != RoomFeature.None || room.Size.x < 16f || room.Size.y < 16f) return Kind.None;
+            // Every combat room has a mechanic (DungeonLayout hands them out), so "plain" is rare: the ones whose middle is
+            // free are plain rooms, great halls (open colonnades), crypts (coffins at the walls) and lightless halls.
+            if (Off || room == null || room.Kind != RoomKind.Combat || room.Size.x < 16f || room.Size.y < 16f) return Kind.None;
+            var f = room.Feature;
+            if (f != RoomFeature.None && f != RoomFeature.GreatHall && f != RoomFeature.Crypt && f != RoomFeature.Lightless) return Kind.None;
             unchecked
             {
                 int h = room.Id * 73856093 ^ Mathf.RoundToInt(room.Center.x * 7f) * 19349663 ^ Mathf.RoundToInt(room.Center.z * 13f) * 83492791;
                 h = (h ^ (h >> 13)) * 1274126177;
                 int roll = (h & 0x7fffffff) % 100;
                 if (roll < 22) return Kind.None;
+                // In a lightless hall the only thing worth finding in the dark is a fire.
+                if (f == RoomFeature.Lightless) return Kind.Hearth;
                 if (roll < 44) return Kind.Hearth;
                 if (roll < 59) return Kind.Bell;
                 if (roll < 74) return Kind.Columns;

@@ -5162,6 +5162,95 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(2.2f);
                 yield return Shot(dir, "ix_24_scales_level");
             }
+            // 2026-11-13: the centrepieces, the four debuff foes and what they do to you, the slump after a blow.
+            {
+                ClearFoes();
+                local.GetComponent<PlayerDebuffs>().ServerCleanse();
+                int cpShots = 0;
+                foreach (var cr in layout.Rooms)
+                {
+                    var kind = World.Centrepieces.Of(cr);
+                    if (kind == World.Centrepieces.Kind.None || cpShots >= 3) continue;
+                    var cc = cr.Center;
+                    var from = UnityEngine.AI.NavMesh.SamplePosition(cc + new Vector3(cr.Size.x * 0.32f, 0f, -cr.Size.y * 0.32f), out var fh, 3f, UnityEngine.AI.NavMesh.AllAreas) ? fh.position : cc + new Vector3(4f, 0f, -4f);
+                    Stand(from, cc + Vector3.up, 6f);
+                    yield return new WaitForSeconds(1f);
+                    yield return Shot(dir, "ix_25_centre_" + kind + "_" + cpShots);
+                    if (kind == World.Centrepieces.Kind.Hearth)
+                    {
+                        var hb = World.HearthBrazier.All.FirstOrDefault(h => h != null && Vector3.Distance(h.transform.position, cc) < 2f);
+                        if (hb != null) { hb.ServerLight(); yield return new WaitForSeconds(1.2f); yield return Shot(dir, "ix_25_centre_Hearth_lit"); }
+                    }
+                    cpShots++;
+                }
+                Debug.Log("[IxShots] centrepieces shot " + cpShots);
+                var foeAt = On(0f, 3.5f);
+                var ixStandAt = On(0f, -0.5f);
+                foreach (var kind in new[] { "magus", "lamprey", "hag", "ringer" })
+                {
+                    var ixFoe = dc.ServerDebugSpawn(kind, foeAt, false);
+                    if (ixFoe == null) continue;
+                    yield return new WaitForSeconds(0.5f);
+                    ixFoe.ServerStun(30f);
+                    var look = ixFoe.transform.position + ixFoe.transform.forward * 3f;
+                    Stand(look, ixFoe.transform.position + Vector3.up * 1.2f, 4f);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot(dir, "ix_26_foe_" + kind);
+                    ixFoe.GetComponent<Health>().ServerDamage(1e6f, ixFoe.transform.position);
+                    yield return new WaitForSeconds(0.3f);
+                }
+                var pdeb = local.GetComponent<PlayerDebuffs>();
+                Stand(ixStandAt, foeAt, 2f);
+                var mg = dc.ServerDebugSpawn("magus", On(0f, 8f), false) as RimeMagusBrain;
+                if (mg != null)
+                {
+                    mg.ServerDebugStorm(hp, 0.3f);
+                    yield return new WaitForSeconds(1.6f);
+                    yield return Shot(dir, "ix_27_blizzard");
+                    mg.GetComponent<Health>().ServerDamage(1e6f, mg.transform.position);
+                }
+                pdeb.ServerCleanse(); pdeb.ServerResetGrace();
+                pdeb.ServerBlind(5f);
+                yield return new WaitForSeconds(0.9f);
+                yield return Shot(dir, "ix_28_blinded");
+                pdeb.ServerCleanse();
+                yield return new WaitForSeconds(0.4f);
+                var hag = dc.ServerDebugSpawn("hag", On(0f, 8f), false) as WitheringHagBrain;
+                if (hag != null)
+                {
+                    yield return new WaitForSeconds(0.4f);
+                    hag.ServerDebugGaze(local.transform.position, 2.5f);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Shot(dir, "ix_29_evil_eye");
+                    yield return new WaitForSeconds(1.6f);
+                    yield return Shot(dir, "ix_30_cursed");
+                    hag.GetComponent<Health>().ServerDamage(1e6f, hag.transform.position);
+                }
+                pdeb.ServerCleanse();
+                var rg = dc.ServerDebugSpawn("ringer", On(0f, 6f), false) as BellringerBrain;
+                if (rg != null)
+                {
+                    yield return new WaitForSeconds(0.4f);
+                    rg.ServerDebugToll(0.8f);
+                    yield return new WaitForSeconds(1.15f);
+                    yield return Shot(dir, "ix_31_toll");
+                    rg.GetComponent<Health>().ServerDamage(1e6f, rg.transform.position);
+                }
+                pdeb.ServerCleanse();
+                var sk = dc.ServerDebugSpawn("skeleton", On(0f, 1.8f), false);
+                if (sk != null)
+                {
+                    yield return new WaitForSeconds(0.5f);
+                    bool began = false;
+                    for (int tries = 0; tries < 5 && !began; tries++) { began = sk.ServerDebugSwing(); if (!began) yield return new WaitForSeconds(0.2f); }
+                    for (float t = 0f; t < 3f && !sk.Recovering; t += 0.05f) yield return new WaitForSeconds(0.05f);
+                    yield return new WaitForSeconds(0.25f);
+                    Stand(sk.transform.position + sk.transform.forward * 2.6f, sk.transform.position + Vector3.up, 2f);
+                    yield return null;
+                    yield return Shot(dir, "ix_32_recover_slump");
+                    sk.GetComponent<Health>().ServerDamage(1e6f, sk.transform.position);
+                }
+            }
             Debug.Log("[IxShots] room " + room.Feature + " " + room.Size + ", delver " + (cage != null ? cage.Now.Value + " at " + Vector3.Distance(cage.transform.position, cageAt).ToString("F1") + " m from the cage" : "gone"));
             Debug.Log("[IxShots] done");
             yield return new WaitForSeconds(0.5f);

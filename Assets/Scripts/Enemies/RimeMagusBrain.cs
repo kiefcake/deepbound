@@ -96,10 +96,10 @@ namespace Deepbound.Enemies
             }
             if (!Application.isBatchMode && Time.time >= nextFx)
             {
-                nextFx = Time.time + 0.09f;
+                nextFx = Time.time + 0.05f;
                 var r = Random.insideUnitCircle * StormRadius;
-                var at = stormPos + new Vector3(r.x, Random.Range(1.6f, 3f), r.y);
-                Vfx.Embers(at, 1, new Color(0.92f, 0.97f, 1f), 1.6f, 0.05f, 1.1f);
+                var at = stormPos + new Vector3(r.x, Random.Range(1.2f, 3f), r.y);
+                Vfx.Embers(at, 2, new Color(0.92f, 0.97f, 1f), 1.8f, 0.085f, 1.2f);
                 if (Random.value < 0.25f) FxSprite.Billboard(FxSprite.AnySmoke, stormPos + new Vector3(r.x * 0.7f, 0.6f, r.y * 0.7f),
                     new Vector3(-r.y, 0.2f, r.x) * 0.5f, 1.4f, 1.2f, 2.2f, new Color(0.85f, 0.93f, 1f, 0.28f), 40f);
                 if (Random.value < 0.12f) Vfx.Ring(Vfx.Floor(stormPos) + Vector3.up * 0.05f, StormRadius, RimeColor, 0.6f);

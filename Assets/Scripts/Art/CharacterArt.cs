@@ -1005,13 +1005,13 @@ namespace Deepbound.Art
                 // A drowned thing in black weed, with a round mouth of hooked teeth where its face should be.
                 BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.06f, 0.07f, 0.09f), new Color(0.6f, 0.4f, 0.95f), false);
                 var mouth = MeshKit.Pivot(rig.Head, "LampreyMouth", new Vector3(0f, 0.02f, 0.15f));
-                ArtLibrary.Tint(MeshKit.Part(mouth, "Lip", MeshKit.Cylinder(0.13f, 0.13f, 0.05f, 14), Mat.Leather, Vector3.zero, new Vector3(90f, 0f, 0f)).GetComponent<Renderer>(), new Color(0.22f, 0.12f, 0.16f));
+                ArtLibrary.Tint(MeshKit.Part(mouth, "Lip", MeshKit.Cylinder(0.16f, 0.16f, 0.06f, 16), Mat.Leather, Vector3.zero, new Vector3(90f, 0f, 0f)).GetComponent<Renderer>(), new Color(0.62f, 0.32f, 0.36f));
                 ArtLibrary.Tint(MeshKit.Part(mouth, "Maw", MeshKit.Cylinder(0.085f, 0.085f, 0.052f, 12), Mat.Dark, new Vector3(0f, 0f, 0.004f), new Vector3(90f, 0f, 0f)).GetComponent<Renderer>(), new Color(0.05f, 0.01f, 0.04f));
                 for (int i = 0; i < 12; i++)
                 {
                     float a = i * 30f * Mathf.Deg2Rad;
-                    MeshKit.Part(mouth, "Tooth", MeshKit.Box(new Vector3(0.016f, 0.04f, 0.016f)), Mat.Bone,
-                        new Vector3(Mathf.Sin(a) * 0.1f, Mathf.Cos(a) * 0.1f, 0.03f), new Vector3(0f, 0f, -i * 30f));
+                    MeshKit.Part(mouth, "Tooth", MeshKit.Box(new Vector3(0.022f, 0.055f, 0.02f)), Mat.Bone,
+                        new Vector3(Mathf.Sin(a) * 0.115f, Mathf.Cos(a) * 0.115f, 0.035f), new Vector3(0f, 0f, -i * 30f));
                 }
                 var weed = new Color(0.08f, 0.16f, 0.1f);
                 for (int i = 0; i < 6; i++)

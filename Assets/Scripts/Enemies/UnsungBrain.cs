@@ -158,7 +158,7 @@ namespace Deepbound.Enemies
                     grasps.Add(new Grasp { At = at, When = Time.time + gw });
                     GraspWarnRpc(at, 2.6f, gw);
                 }
-                PlayActionRpc(RigAction.Cast, 0.9f);
+                PlayActionRpc(RigAction.Summon, 0.9f);
                 castUntil = Time.time + 0.9f;
                 busyUntil = castUntil;
                 return true;
@@ -182,7 +182,7 @@ namespace Deepbound.Enemies
                 dirs.Add(dir);
                 Arrows.ServerFire(origin, dir, damage * 0.55f, Team.Players, NetworkObjectId, BoltSpeed * (lastMorning ? 1.25f : 1f));
             }
-            PlayActionRpc(RigAction.Cast, 0.6f);
+            PlayActionRpc(RigAction.Hurl, 0.6f);
             BoltsRpc(origin, dirs.ToArray(), BoltSpeed * (lastMorning ? 1.25f : 1f));
         }
 
@@ -197,7 +197,7 @@ namespace Deepbound.Enemies
             float tell = Tell(EchoTell);
             castUntil = Time.time + 1f;
             busyUntil = castUntil;
-            PlayActionRpc(RigAction.Cast, 1f);
+            PlayActionRpc(RigAction.Channel, 1f);
             EchoRpc((byte)which);
             Debug.Log("[Boss] Unsung echo " + EchoNames[which]);
             var me = transform.position;

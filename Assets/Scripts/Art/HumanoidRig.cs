@@ -20,6 +20,11 @@ namespace Deepbound.Art
         WindSweep = 11,   // sunk low, the weapon dragged far back to one side, the whole body coiled
         SweepStrike = 12, // ...uncoiling into a wide flat swing that carries the torso round
         Recover = 13,     // spent after a blow: weapon hanging, hunched, heaving, eyes dim - the opening to punish
+        // 2026-11-13, the guardians' specials each get their own body (they all used Cast):
+        Charge = 14,      // head down, shoulder and shield forward, knees bent, pawing: a charge is coming down the line
+        Hurl = 15,        // the arm drawn far back and up, then thrown forward: a volley or a fan of lances
+        Summon = 16,      // crouched, hands low and wide pulling at the ground, then rising: the dead or the dark come up
+        Channel = 17,     // arms spread wide, head back, lifted onto the toes and swaying: a long working (spirals, echoes, hymns)
     }
 
     /// <summary>The emote wheel's gestures (2026-11-01), played on a player's rig for everyone to see.</summary>
@@ -320,16 +325,76 @@ namespace Deepbound.Art
                     break;
                 }
 
+                case RigAction.Charge:
+                {
+                    float c3 = Ease(Mathf.Clamp01(t * 2f));
+                    armL = Vector3.Lerp(armL, new Vector3(-70f, 25f, -10f), c3);
+                    armR = Vector3.Lerp(armR, new Vector3(-35f, -10f, 25f), c3);
+                    torso += new Vector3(32f, -10f, 0f) * c3;
+                    head += new Vector3(-26f, 8f, 0f) * c3;
+                    legL += new Vector3(-30f, 0f, 0f) * c3;
+                    legR += new Vector3(25f, 0f, 0f) * c3 + new Vector3(Mathf.Sin(Time.time * 14f) * 8f * Mathf.Clamp01(t * 3f - 1f), 0f, 0f);
+                    hipsOffset += new Vector3(0f, -0.12f, -0.04f) * c3;
+                    if (t > 0.7f) torso.z += Mathf.Sin(Time.time * 45f) * 1.5f;
+                    glow = 1f + 3.5f * t;
+                    break;
+                }
+
+                case RigAction.Hurl:
+                {
+                    float draw = Ease(Mathf.Clamp01(t / 0.62f)), fling = Ease(Mathf.Clamp01((t - 0.62f) / 0.18f));
+                    var back = new Vector3(-155f, -45f, 35f);
+                    var thrown = new Vector3(-88f, 15f, 0f);
+                    armR = Vector3.LerpUnclamped(Vector3.Lerp(armR, back, draw), thrown, fling);
+                    armL = Vector3.Lerp(armL, new Vector3(-75f, 20f, -10f), draw) * (1f - 0.5f * fling);
+                    torso += Vector3.Lerp(new Vector3(-8f, -32f, 0f) * draw, new Vector3(16f, 26f, 0f), fling);
+                    head += new Vector3(4f, 22f, 0f) * draw * (1f - fling);
+                    hipsOffset += new Vector3(0f, -0.04f, 0.05f * fling) * draw;
+                    glow = 1f + 3f * draw * (1f - fling);
+                    break;
+                }
+
+                case RigAction.Summon:
+                {
+                    float low = Ease(Mathf.Clamp01(t / 0.55f)), rise = Ease(Mathf.Clamp01((t - 0.55f) / 0.35f));
+                    var pull = new Vector3(-25f, 0f, 45f);
+                    var raisedUp = new Vector3(-165f, 0f, 30f);
+                    armR = Vector3.Lerp(Vector3.Lerp(armR, pull, low), raisedUp, rise);
+                    armL = Vector3.Lerp(Vector3.Lerp(armL, new Vector3(pull.x, 0f, -pull.z), low), new Vector3(raisedUp.x, 0f, -raisedUp.z), rise);
+                    torso += Vector3.Lerp(new Vector3(30f, 0f, 0f) * low, new Vector3(-14f, 0f, 0f), rise);
+                    head += Vector3.Lerp(new Vector3(20f, 0f, 0f) * low, new Vector3(-24f, 0f, 0f), rise);
+                    legL += new Vector3(-35f, 0f, 0f) * low * (1f - rise);
+                    legR += new Vector3(-35f, 0f, 0f) * low * (1f - rise);
+                    hipsOffset += new Vector3(0f, -0.18f * low * (1f - rise) + 0.04f * rise, 0f);
+                    glow = 1f + 4f * Mathf.Max(low * 0.5f, rise);
+                    break;
+                }
+
+                case RigAction.Channel:
+                {
+                    float ch = Ease(Mathf.Clamp01(t * Mathf.Max(1f, actionDuration / 0.6f))) * (1f - Ease(Mathf.Clamp01((t - 0.92f) / 0.08f)));
+                    float sway2 = Mathf.Sin(Time.time * 2.2f);
+                    armR = Vector3.Lerp(armR, new Vector3(-20f + 6f * sway2, 0f, 78f), ch);
+                    armL = Vector3.Lerp(armL, new Vector3(-20f - 6f * sway2, 0f, -78f), ch);
+                    torso += new Vector3(-8f, 0f, 4f * sway2) * ch;
+                    head += new Vector3(-22f, 0f, 0f) * ch;
+                    hipsOffset += new Vector3(0f, 0.06f + 0.03f * Mathf.Sin(Time.time * 3f), 0f) * ch;
+                    glow = 1f + (2.5f + 1.5f * Mathf.Sin(Time.time * 6f)) * ch;
+                    break;
+                }
+
                 case RigAction.Recover:
                 {
                     // In fast, held, out slow at the end so the next wind-up reads as a change.
                     float r = Ease(Mathf.Clamp01(t * 5f)) * (1f - Ease(Mathf.Clamp01((t - 0.85f) / 0.15f)));
                     float heave = Mathf.Sin(Time.time * 7f) * 3f;
-                    armR = Vector3.Lerp(armR, new Vector3(-12f, 10f * swingSide, 14f), r);
-                    armL = Vector3.Lerp(armL, new Vector3(-6f, 0f, -10f), r);
-                    torso += new Vector3(20f + heave, 6f * swingSide, 0f) * r;
-                    head += new Vector3(14f - heave, 0f, 0f) * r;
-                    hipsOffset += new Vector3(0f, -0.06f, 0f) * r;
+                    armR = Vector3.Lerp(armR, new Vector3(-4f, 18f * swingSide, 22f), r);
+                    armL = Vector3.Lerp(armL, new Vector3(-30f, 10f, -6f), r);
+                    torso += new Vector3(34f + heave, 10f * swingSide, 5f * swingSide) * r;
+                    head += new Vector3(22f - heave, -6f * swingSide, 0f) * r;
+                    legL += new Vector3(-16f, 0f, 0f) * r;
+                    legR += new Vector3(-16f, 0f, 0f) * r;
+                    hipsOffset += new Vector3(0f, -0.1f, -0.03f) * r;
                     glow = Mathf.Lerp(1f, 0.3f, r);
                     break;
                 }

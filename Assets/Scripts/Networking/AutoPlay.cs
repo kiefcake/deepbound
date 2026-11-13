@@ -1001,6 +1001,8 @@ namespace Deepbound.Networking
         /// floor 1 (2026-11-07) and stood idle. The error is a Problem in the log, then the routine starts over (3 times).
         /// </summary>
         private float nextSpinNote;
+        /// <summary>Things used this run, by kind (written to the log at each floor's end).</summary>
+        private readonly Dictionary<string, int> usedThings = new Dictionary<string, int>();
 
         private IEnumerator Guarded(System.Func<IEnumerator> routine)
         {
@@ -1370,9 +1372,18 @@ namespace Deepbound.Networking
                 }
                 else if (chest != null)
                 {
-                    goal = chest.transform.position; goalWhat = "chest";
+                    string what = chest is Chest ? "chest" : chest.GetType().Name;
+                    goal = chest.transform.position; goalWhat = what;
                     if (Vector3.Distance(chest.transform.position, me.transform.position) > 2f) yield return StepToward(chest.transform.position, 1.6f);
-                    else { chest.UseRpc(me.NetworkObject); openedChests.Add(chest.NetworkObjectId); L("opened a chest"); yield return new WaitForSeconds(0.6f); }
+                    else
+                    {
+                        string said = chest.Prompt(prog) ?? "";
+                        chest.UseRpc(me.NetworkObject);
+                        openedChests.Add(chest.NetworkObjectId);
+                        L(chest is Chest ? "opened a chest" : "used " + what + ": " + (said.Length > 110 ? said.Substring(0, 110) + "..." : said));
+                        usedThings[what] = usedThings.TryGetValue(what, out var n) ? n + 1 : 1;
+                        yield return new WaitForSeconds(0.6f);
+                    }
                 }
                 else
                 {
@@ -1390,6 +1401,7 @@ namespace Deepbound.Networking
             }
 
             float took = Time.time - floorStart;
+            if (usedThings.Count > 0) L("used so far this run: " + string.Join(", ", usedThings.Select(kv => kv.Key + " x" + kv.Value)));
             if (!follower && dd.Phase.Value == RunPhase.Exploring && !DungeonDirector.InLobby)
             {
                 Problem("floor not finished in " + (floorLimit / 60f).ToString("F0") + " min (" + LivingEnemies() + " enemies left, boss " + (BossBrain.Active != null ? BossBrain.Active.DisplayName + " " + (BossBrain.Active.GetComponent<Health>().Fraction * 100f).ToString("F0") + "%" : "none") + "): forcing it");
@@ -1509,13 +1521,22 @@ namespace Deepbound.Networking
             return best;
         }
 
+        /// <summary>
+        /// What the bot uses as it finds it (2026-11-13, the user: the playtest bot "should make use of everything they find
+        /// and record everything"): chests and every one-press thing on a floor. Not the puzzles (random turning solves
+        /// nothing) and not carried things (they need their own walk).
+        /// </summary>
+        private static bool Usable(Interactable c) => c is Chest || c is HearthBrazier || c is VigilCandle || c is FateWheel || c is BloodAltar
+            || c is BargainAltar || c is Lever || c is SideShrine || c is LorePage || c is PrisonerCage || c is Chandelier || c is CellarHatch
+            || c is SoulRift || c is Fountain || c is StatDraught;
+
         private Interactable NearestChest(HashSet<ulong> opened)
         {
             Interactable best = null;
             float bd = 22f;
             foreach (var c in Interactable.All)
             {
-                if (c == null || !(c is Chest) || opened.Contains(c.NetworkObjectId) || c.Prompt(prog) == null) continue;
+                if (c == null || !Usable(c) || opened.Contains(c.NetworkObjectId) || c.Prompt(prog) == null) continue;
                 float d = Vector3.Distance(c.transform.position, me.transform.position);
                 if (d < bd && Reachable(c.transform.position, new NavMeshPath())) { bd = d; best = c; }
             }

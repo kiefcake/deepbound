@@ -159,7 +159,7 @@ namespace Deepbound.Enemies
             nextBrand = Time.time + BrandCooldown * (LastRites ? 0.75f : 1f) / Cadence;
             castUntil = Time.time + 0.8f;
             busyUntil = castUntil;
-            PlayActionRpc(RigAction.Cast, 0.8f);
+            PlayActionRpc(RigAction.Hurl, 0.8f);
             BrandRpc(pick.NetworkObjectId, BrandRadius, seconds);
             Taunt(StandingParty > 1 ? "You. You are cast out. Take your sin away from them." : "I cast you out. Burn alone.");
             Debug.Log("[Boss] Cardinal brands " + pick.name);

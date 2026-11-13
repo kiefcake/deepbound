@@ -147,6 +147,9 @@ namespace Deepbound.World
             bool dark = room.Feature == RoomFeature.Lightless;
             if (!dark) PlaceWallTorches(room, lights, rng);
             if (room.Kind != RoomKind.Start && !dark) PlaceLightShafts(room, lights, dressing, rng);
+            // Something in the middle (2026-11-13; World/Centrepieces): plain rooms, great halls, crypts, lightless halls.
+            var middle = Centrepieces.Of(room);
+            if (middle != Centrepieces.Kind.None) Centrepieces.Build(room, middle, dressing, lights, new System.Random(room.Id * 7919 + 17));
 
             switch (room.Feature)
             {
@@ -422,8 +425,7 @@ namespace Deepbound.World
             float hx = room.Size.x / 2f, hz = room.Size.y / 2f;
             FloorStains(room, lights, rng);
             // Something in the middle (2026-11-13): cover, a landmark, or a hearth to light (World/Centrepieces).
-            var centre = Centrepieces.Of(room);
-            if (centre != Centrepieces.Kind.None) Centrepieces.Build(room, centre, b, lights, new System.Random(room.Id * 7919 + 17));
+            var centre = Centrepieces.Of(room); // built before the feature switch (DressRoomFeatures)
 
             // Large rooms get pillars: line-of-sight breaks for kiting and hiding.
             if (room.Size.x >= 16f && room.Size.y >= 16f)

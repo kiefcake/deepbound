@@ -108,9 +108,9 @@ namespace Deepbound.World
                 ArtLibrary.Tint(MeshKit.Part(transform, "Coal", MeshKit.Ball(0.13f, 6, 4), Mat.Rubble, new Vector3(r.x, 1.22f, r.y)).GetComponent<Renderer>(), new Color(0.12f, 0.1f, 0.09f));
             }
             MeshKit.MergeParts(transform);
-            flame = Props.AddFlame(transform, Vector3.up * 1.3f, 1.7f, Fire, 2.4f, 13f, true);
+            flame = Props.AddFlame(transform, Vector3.up * 1.3f, 2.8f, Fire, 4f, 16f, true);
             ring = MeshKit.Part(transform, "WarmRing", MeshKit.Cylinder(WarmRadius, WarmRadius, 0.005f, 32), Mat.Glow, Vector3.up * 0.14f).transform;
-            ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), Fire * 0.12f);
+            ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), Fire * 0.035f);
             ring.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             if (IsServer)
             {

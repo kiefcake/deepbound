@@ -267,7 +267,7 @@ namespace Deepbound.UI
             if (blindK <= 0f) return;
             ink ??= PaintInk();
             float k = Ease(blindK);
-            float s = Mathf.Max(w, h) * Mathf.Lerp(4.5f, 1.3f, k);
+            float s = Mathf.Max(w, h) * Mathf.Lerp(4.5f, 1.25f, k);
             var c = new Vector2(w * 0.5f + Mathf.Sin(t * 0.7f) * h * 0.015f, h * 0.5f + Mathf.Cos(t * 0.53f) * h * 0.012f);
             GUI.color = new Color(0.04f, 0.02f, 0.07f, 0.97f * Mathf.Clamp01(blindK * 1.4f));
             var keep = GUI.matrix;
@@ -287,8 +287,9 @@ namespace Deepbound.UI
                     float d = Mathf.Sqrt(dx * dx + dy * dy);
                     float n = Fbm(x / 40f, y / 40f, 37);
                     // Ink runs in tendrils toward the middle: the edge of the hole is ragged.
-                    float edge = 0.15f + (n - 0.5f) * 0.12f;
-                    float a = Mathf.Clamp01((d - edge) / 0.2f);
+                    // (First seen 2026-11-13: a hole of 0.15-0.35 left most of the screen clear. Now clear to ~0.08, black by ~0.2.)
+                    float edge = 0.075f + (n - 0.5f) * 0.06f;
+                    float a = Mathf.Clamp01((d - edge) / 0.12f);
                     cv.Px[y * Size + x] = new Color(1f, 1f, 1f, a * a * (3f - 2f * a));
                 }
             return cv.Bake();

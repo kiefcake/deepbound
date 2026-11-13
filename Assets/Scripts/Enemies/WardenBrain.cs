@@ -338,7 +338,7 @@ namespace Deepbound.Enemies
 
         private void BeginHymn()
         {
-            PlayActionRpc(RigAction.Cast, 1f);
+            PlayActionRpc(RigAction.Channel, 1f);
             busyUntil = Time.time + 1f;
             SingVerse();
             // The Second Verse: as the first circles break, a second set opens where everyone is heading next.
@@ -592,7 +592,7 @@ namespace Deepbound.Enemies
             if (target == null) return;
             var origin = transform.position + Vector3.up * 2.4f + transform.forward * 0.8f;
             var at = AimDir(origin, speed);
-            PlayActionRpc(RigAction.Cast, 0.6f);
+            PlayActionRpc(RigAction.Hurl, 0.6f);
             busyUntil = Time.time + 0.9f;
             for (int i = 0; i < count; i++)
             {
@@ -650,7 +650,7 @@ namespace Deepbound.Enemies
             charge = 1;
             chargeAt = Time.time + Tell(windup);
             trampled.Clear();
-            PlayActionRpc(RigAction.Windup, Tell(windup));
+            PlayActionRpc(RigAction.Charge, Tell(windup));
             LineTelegraphRpc(from, chargeDir, chargeLength + 1f, 2.6f, Tell(windup));
         }
 

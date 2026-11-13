@@ -54,7 +54,7 @@ namespace Deepbound.Enemies
             nextMaelstrom = Time.time + 20f;
             castUntil = Time.time + 1f;
             busyUntil = castUntil;
-            PlayActionRpc(RigAction.Cast, 1f);
+            PlayActionRpc(RigAction.Channel, 1f);
             MaelstromRpc(maelstromAt, MaelstromSeconds);
             Debug.Log("[Boss] Tide Lich maelstrom");
         }
@@ -123,7 +123,7 @@ namespace Deepbound.Enemies
                 Survive("The Drowning Deep", "Breathe while you still can.", "The spiral turns, reverses and follows the Lich: keep moving through its gaps", 12f, () => Taunt("Still breathing? Then drown slowly."));
                 pools.Clear();
                 volleyAt = -1f;
-                PlayActionRpc(RigAction.Cast, 12f);
+                PlayActionRpc(RigAction.Channel, 12f);
                 // Two emitters circling the Lich, wheeling one way then the other, with aimed bolts at
                 // anyone who stands still: the gaps move, so you have to move with them.
                 int arms = scaledPlayers <= 1 ? 3 : 4;
@@ -153,7 +153,7 @@ namespace Deepbound.Enemies
             if (nextWhirl > 0f && Time.time >= nextWhirl && !PatternRunning && !Dormant && !Immune)
             {
                 nextWhirl = Time.time + Mathf.Lerp(18f, 12f, Difficulty.Lead(scaledDepth));
-                PlayActionRpc(RigAction.Cast, 1f);
+                PlayActionRpc(RigAction.Channel, 1f);
                 StartPattern(new Pattern
                 {
                     Arms = 2, Interval = 0.08f, Speed = SpiralSpeed + 1f, Spin = 19f, Damage = Signature(boltDamage) * 0.45f,
@@ -257,7 +257,7 @@ namespace Deepbound.Enemies
                 volleyAt = Time.time + volleyWindup;
                 nextVolley = Time.time + volleyCooldown;
                 busyUntil = volleyAt + 0.5f;
-                PlayActionRpc(RigAction.Cast, volleyWindup + 0.2f);
+                PlayActionRpc(RigAction.Hurl, volleyWindup + 0.2f);
                 return true;
             }
 
@@ -287,7 +287,7 @@ namespace Deepbound.Enemies
             nextPool = Time.time + poolCooldown;
             castUntil = Time.time + 0.9f;
             busyUntil = castUntil;
-            PlayActionRpc(RigAction.Cast, 0.9f);
+            PlayActionRpc(RigAction.Summon, 0.9f);
 
             foreach (var p in PlayerLife.All)
             {

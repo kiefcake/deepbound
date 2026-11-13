@@ -819,7 +819,7 @@ namespace Deepbound.Enemies
             var minionPrefab = prefab;
             castUntil = Time.time + castTime;
             busyUntil = castUntil;
-            PlayActionRpc(RigAction.Cast, castTime);
+            PlayActionRpc(RigAction.Summon, castTime);
             SummonFxRpc();
 
             if (minionPrefab == null) return raised;
@@ -1032,7 +1032,7 @@ namespace Deepbound.Enemies
             int count = scaledDepth >= 6 ? 4 : 3;
             float tell = Tell(0.85f);
             GatherRpc(tell, 0.7f);
-            PlayActionRpc(RigAction.Cast, 0.6f);
+            PlayActionRpc(RigAction.Hurl, 0.6f);
             for (int k = 0; k < count && !IsDead; k++)
             {
                 foreach (var p in PlayerLife.All)

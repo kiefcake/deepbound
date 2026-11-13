@@ -287,7 +287,7 @@ namespace Deepbound.Enemies
             trampled.Clear();
 
             Debug.Log("[Boss] Gravewarden charge wind-up, lane " + chargeLength.ToString("F1") + "m");
-            PlayActionRpc(RigAction.Windup, Tell(chargeWindup));
+            PlayActionRpc(RigAction.Charge, Tell(chargeWindup));
             LineTelegraphRpc(from, chargeDir, chargeLength + 1f, 2.6f, Tell(chargeWindup));
         }
 
