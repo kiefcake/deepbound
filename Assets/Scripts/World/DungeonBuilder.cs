@@ -32,7 +32,7 @@ namespace Deepbound.World
             foreach (var room in layout.Rooms) BuildRoom(room, structure, dressing, lights);
             foreach (var room in layout.Rooms) if (room.Cellar) BuildCellar(room, structure, dressing, lights);
             foreach (var link in layout.Links) BuildCorridor(layout.Rooms[link.A], layout.Rooms[link.B], link.Dir, structure, dressing, lights);
-            foreach (var trap in layout.FlameTraps) FlameJet.Build(lights, trap, dressing);
+            for (int ti = 0; ti < layout.FlameTraps.Count; ti++) FlameJet.Build(lights, layout.FlameTraps[ti], dressing, ti);
             if (layout.PeddlerSpot.HasValue)
             {
                 // The peddler: the camp merchant's travelling cousin, with a lantern and his pack.

@@ -92,7 +92,7 @@ namespace Deepbound.Progression
             float tier = World.DungeonDirector.Tier(depth);
             if (camp && vendor == Vendor.Smith)
             {
-                list.Add(new Item { Name = "Tinker's Picks", Description = "A roll of " + 3 + " picks: kneel on a spike plate (hold F) for two seconds to jam it. A Rogue needs none",
+                list.Add(new Item { Name = "Tinker's Picks", Description = "A roll of " + 3 + " picks: kneel on a spike plate (hold F) for two seconds to jam it, or choke a flame vent from beside its grate. A Rogue needs none",
                     Price = UnityEngine.Mathf.RoundToInt(35 + 10 * tier), Kind = ItemKind.Picks, Seller = Vendor.Smith });
                 list.Add(new Item { Name = "Commission another piece", Description = "Hobb puts away the piece he made you and forges a fresh one (a new roll)",
                     Price = UnityEngine.Mathf.RoundToInt(30 + 15 * tier), Kind = ItemKind.Restock, Seller = Vendor.Smith });

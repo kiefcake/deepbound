@@ -30,6 +30,8 @@ namespace Deepbound.Progression
 
         /// <summary>The Knight's Bulwark shield charge, 0..1 (server-written, for the HUD).</summary>
         public readonly NetworkVariable<float> ShieldCharge = new NetworkVariable<float>();
+        /// <summary>How much less damage the survival path (path 3) takes right now, in percent (server-written, for the HUD).</summary>
+        public readonly NetworkVariable<byte> SurvivalCut = new NetworkVariable<byte>();
 
         /// <summary>Can this delver jam a spike plate (a Rogue's hands, or picks)?</summary>
         public bool CanDisarm => ClassId.Value == Classes.ClassId.Rogue || Picks.Value > 0;

@@ -90,11 +90,19 @@ namespace Deepbound.World
             {
                 // A paler flagstone, split across with dark cracks, a hair proud of the floor.
                 var t = MeshKit.Part(transform, "Tile", MeshKit.Box(new Vector3(1.3f, 0.05f, 1.3f)), Mat.Flagstone, Vector3.up * 0.025f);
-                ArtLibrary.Tint(t.GetComponent<Renderer>(), new Color(0.5f, 0.47f, 0.43f));
+                // 2026-11-13 shots: it read as a plain dark square. Paler stone, a pale chipped edge, and the cracks breathe a
+                // faint cold light from the vault below (with dust drifting up through them, Update).
+                ArtLibrary.Tint(t.GetComponent<Renderer>(), new Color(0.7f, 0.66f, 0.6f));
+                foreach (var (ex, ez, sx, sz) in new[] { (0f, 0.66f, 1.34f, 0.05f), (0f, -0.66f, 1.34f, 0.05f), (0.66f, 0f, 0.05f, 1.34f), (-0.66f, 0f, 0.05f, 1.34f) })
+                {
+                    var edge = MeshKit.Part(transform, "Edge", MeshKit.Box(new Vector3(sx, 0.06f, sz)), Mat.Flagstone, new Vector3(ex, 0.028f, ez));
+                    ArtLibrary.Tint(edge.GetComponent<Renderer>(), new Color(0.82f, 0.78f, 0.7f));
+                }
                 for (int k = 0; k < 4; k++)
                 {
-                    var c = MeshKit.Part(transform, "Crack", MeshKit.Box(new Vector3(0.7f, 0.055f, 0.03f)), Mat.Dark, new Vector3(0f, 0.03f, 0f), new Vector3(0f, k * 47f + 12f, 0f));
-                    ArtLibrary.Tint(c.GetComponent<Renderer>(), new Color(0.05f, 0.045f, 0.04f));
+                    var c = MeshKit.Part(transform, "Crack", MeshKit.Box(new Vector3(k % 2 == 0 ? 0.95f : 0.6f, 0.056f, 0.035f)), Mat.Glow, new Vector3(0f, 0.03f, 0f), new Vector3(0f, k * 47f + 12f, 0f));
+                    ArtLibrary.SetGlow(c.GetComponent<Renderer>(), new Color(0.16f, 0.2f, 0.26f));
+                    c.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                 }
                 tile = t.transform;
                 return;

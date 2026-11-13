@@ -288,8 +288,8 @@ namespace Deepbound.World
                 for (int i = 0; i < 2; i++)
                     for (int k = -1; k <= 1; k += 2)
                     {
-                        var wedge = MeshKit.Part(plates[i], "Wedge", MeshKit.Box(new Vector3(0.05f, 0.05f, 0.22f)), Mat.Steel, new Vector3(k * (w / 2f - 0.05f), 0.02f, 0f), new Vector3(0f, k * 20f, 0f));
-                        ArtLibrary.Tint(wedge.GetComponent<Renderer>(), new Color(0.6f, 0.55f, 0.45f));
+                        var wedge = MeshKit.Part(plates[i], "Wedge", MeshKit.Box(new Vector3(0.09f, 0.08f, 0.36f)), Mat.Steel, new Vector3(k * (w / 2f - 0.08f), 0.04f, 0f), new Vector3(0f, k * 24f, 0f));
+                        ArtLibrary.Tint(wedge.GetComponent<Renderer>(), new Color(0.85f, 0.78f, 0.6f));
                     }
             MeshKit.MergeParts(transform); // the spikes rise as one; holes and seams are a mesh each
         }

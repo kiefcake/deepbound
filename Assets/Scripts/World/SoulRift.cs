@@ -125,36 +125,81 @@ namespace Deepbound.World
 
         private void BuildArt()
         {
-            var root = MeshKit.Pivot(transform, "Rift", Vector3.up * 1.25f);
-            disc = MeshKit.Part(root, "Disc", MeshKit.Cylinder(0.8f, 0.8f, 0.04f, 22), Mat.Glow, Vector3.zero, new Vector3(90f, 0f, 0f), new Vector3(1f, 1f, 1.55f)).transform;
+            // 2026-11-13 shots: a flat violet disc read as a cheap sticker. Now: a tall tear (fixed ellipse) with a black
+            // void at its heart, a hot rim and two rings turning against each other, cracks running out into the air,
+            // bone shards circling, its own light and wisps drawn in toward the void.
+            var frame = MeshKit.Pivot(transform, "Rift", Vector3.up * 1.3f);
+            frame.localScale = new Vector3(1f, 1.55f, 1f);
+            var face = new Vector3(90f, 0f, 0f);
+            disc = MeshKit.Part(frame, "Disc", MeshKit.Cylinder(0.8f, 0.8f, 0.04f, 24), Mat.Glow, Vector3.zero, face).transform;
             discR = disc.GetComponent<Renderer>();
             discR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             ArtLibrary.SetGlow(discR, Violet * 1.4f);
-            rim = MeshKit.Part(root, "Rim", MeshKit.Cylinder(0.92f, 0.92f, 0.02f, 22), Mat.Glow, Vector3.forward * -0.03f, new Vector3(90f, 0f, 0f), new Vector3(1f, 1f, 1.55f)).transform;
-            var rr = rim.GetComponent<Renderer>();
-            rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            ArtLibrary.SetGlow(rr, new Color(0.12f, 0.04f, 0.25f) * 2f);
-            // Bone shards orbiting the tear.
-            for (int i = 0; i < 5; i++)
+            var core = MeshKit.Part(frame, "Void", MeshKit.Ball(0.6f, 20, 12), Mat.Dark, Vector3.zero, Vector3.zero, new Vector3(1f, 1f, 0.14f));   // a flattened ball: the cylinder caps showed pie slices
+            ArtLibrary.Tint(core.GetComponent<Renderer>(), new Color(0.015f, 0f, 0.03f));
+            core.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            var ringMesh = MeshKit.Lathe("riftRing", new[] { new Vector2(0.84f, 0f), new Vector2(0.9f, 0.012f), new Vector2(0.96f, 0f) }, 28, false);
+            rim = MeshKit.Pivot(frame, "RingA", Vector3.zero);
+            var ra = MeshKit.Part(rim, "Ring", ringMesh, Mat.Glow, Vector3.zero, face, new Vector3(1f, 3f, 1f));
+            ArtLibrary.SetGlow(ra.GetComponent<Renderer>(), new Color(0.95f, 0.6f, 1f) * 1.8f);
+            ringB = MeshKit.Pivot(frame, "RingB", Vector3.zero);
+            var rb = MeshKit.Part(ringB, "Ring", ringMesh, Mat.Glow, Vector3.zero, face, new Vector3(1.14f, 3f, 1.14f));
+            ArtLibrary.SetGlow(rb.GetComponent<Renderer>(), new Color(0.3f, 0.1f, 0.6f) * 1.6f);
+            foreach (var r in new[] { ra, rb }) r.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            // Cracks in the air, out from the rim.
+            var rng = new System.Random((int)(NetworkObjectId * 7919 + 11));
+            for (int i = 0; i < 9; i++)
             {
-                float a = i * 72f;
-                MeshKit.Part(root, "Shard", MeshKit.Box(new Vector3(0.07f, 0.24f, 0.05f)), Mat.Bone, Quaternion.Euler(0f, 0f, a) * Vector3.up * 1.15f, new Vector3(0f, 0f, a));
+                float a = i * 40f + (float)rng.NextDouble() * 22f, len = 0.25f + (float)rng.NextDouble() * 0.4f;
+                var dir = Quaternion.Euler(0f, 0f, a) * Vector3.up;
+                var crack = MeshKit.Part(frame, "Crack", MeshKit.Box(new Vector3(0.025f, len, 0.02f)), Mat.Glow, dir * (0.9f + len / 2f), new Vector3(0f, 0f, a));
+                ArtLibrary.SetGlow(crack.GetComponent<Renderer>(), Violet * (0.9f + (float)rng.NextDouble()));
+                crack.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
+            // Bone shards circling the tear (outside the stretched frame, so they stay bone-shaped).
+            shards = MeshKit.Pivot(transform, "Shards", Vector3.up * 1.3f);
+            for (int i = 0; i < 6; i++)
+            {
+                float a = i * 60f;
+                MeshKit.Part(shards, "Shard", MeshKit.Box(new Vector3(0.07f, 0.22f, 0.05f)), Mat.Bone, Quaternion.Euler(0f, 0f, a) * new Vector3(0f, 1.55f, 0f) * (i % 2 == 0 ? 1f : 0.85f), new Vector3(0f, 0f, a + 20f));
+            }
+            glow = new GameObject("RiftLight").AddComponent<Light>();
+            glow.transform.SetParent(transform, false);
+            glow.transform.localPosition = Vector3.up * 1.3f;
+            glow.type = LightType.Point;
+            glow.color = Violet;
+            glow.range = 6.5f;
+            glow.intensity = 2.5f;
+            glow.shadows = LightShadows.None;
             // A scorched ring on the floor.
             FxSprite.Scorch(transform.position + Vector3.up * 0.02f, 1.4f);
         }
 
+        private Transform ringB, shards;
+        private Light glow;
+        private float nextWisp;
+
         private void AnimateArt()
         {
             if (disc == null) return;
-            var root = disc.parent;
-            root.localRotation = Quaternion.Euler(0f, 0f, Time.time * 25f);
+            rim.localRotation = Quaternion.Euler(0f, 0f, Time.time * 40f);
+            ringB.localRotation = Quaternion.Euler(0f, 0f, -Time.time * 22f);
+            shards.localRotation = Quaternion.Euler(0f, 0f, Time.time * 18f);
             // The pulse up to a spawn.
             double left = NextAt.Value - Now;
             float pulse = left < PulseLead && left > 0 ? 1f - (float)(left / PulseLead) : 0f;
-            float k = 1f + 0.08f * Mathf.Sin(Time.time * 6f) + 0.35f * pulse;
-            disc.localScale = new Vector3(k, k, 1.55f * k);
+            float k = 1f + 0.06f * Mathf.Sin(Time.time * 6f) + 0.3f * pulse;
+            disc.localScale = new Vector3(k, 1f, k);
             ArtLibrary.SetGlow(discR, Violet * (1.2f + 1.6f * pulse));
+            if (glow != null) glow.intensity = 2.2f + 0.4f * Mathf.Sin(Time.time * 5f) + 3f * pulse;
+            // Wisps drawn in toward the void.
+            if (Time.time >= nextWisp)
+            {
+                nextWisp = Time.time + 0.18f;
+                var off = Quaternion.AngleAxis(Random.value * 360f, transform.forward) * transform.up;
+                off = new Vector3(off.x * 1.2f, off.y * 1.9f, off.z * 1.2f);
+                Vfx.Embers(transform.position + Vector3.up * 1.3f + off, 1, Color.Lerp(Violet, Color.white, 0.3f), 0.5f, 0.04f, 0.6f);
+            }
         }
     }
 }

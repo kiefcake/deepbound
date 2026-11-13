@@ -82,7 +82,7 @@ namespace Deepbound.World
         {
             base.OnNetworkSpawn();
             // A black stone altar, a bowl of blood, two black candles and a cracked idol whose eyes watch you.
-            var stone = new Color(0.16f, 0.14f, 0.15f);
+            var stone = new Color(0.3f, 0.26f, 0.27f);
             var slab = MeshKit.Part(transform, "Altar", MeshKit.Box(new Vector3(1.1f, 0.85f, 0.6f)), Mat.StoneWall, Vector3.up * 0.425f);
             ArtLibrary.Tint(slab.GetComponent<Renderer>(), stone);
             var top = MeshKit.Part(transform, "Top", MeshKit.Box(new Vector3(1.25f, 0.08f, 0.72f)), Mat.StoneWall, Vector3.up * 0.89f);
@@ -105,6 +105,22 @@ namespace Deepbound.World
             eyes = e.GetComponent<Renderer>();
             eyes.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             ArtLibrary.SetGlow(eyes, new Color(1f, 0.2f, 0.1f) * 1.3f);
+            // 2026-11-13 shots: in a dark niche the slab was a black box. Its own low red light, and a carved sigil on the
+            // front that smoulders.
+            var l = new GameObject("AltarLight").AddComponent<Light>();
+            l.transform.SetParent(transform, false);
+            l.transform.localPosition = new Vector3(0f, 1.35f, 0.75f);
+            l.type = LightType.Point;
+            l.color = new Color(1f, 0.35f, 0.25f);
+            l.range = 4.5f;
+            l.intensity = 1.8f;
+            l.shadows = LightShadows.None;
+            foreach (var (px, py, sx, sy, rz) in new[] { (0f, 0.45f, 0.04f, 0.5f, 0f), (0f, 0.55f, 0.36f, 0.04f, 0f), (-0.12f, 0.3f, 0.04f, 0.26f, 35f), (0.12f, 0.3f, 0.04f, 0.26f, -35f) })
+            {
+                var rune = MeshKit.Part(transform, "Sigil", MeshKit.Box(new Vector3(sx, sy, 0.02f)), Mat.Glow, new Vector3(px, py, 0.305f), new Vector3(0f, 0f, rz));
+                ArtLibrary.SetGlow(rune.GetComponent<Renderer>(), new Color(0.7f, 0.08f, 0.05f) * 1.2f);
+                rune.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            }
         }
     }
 }

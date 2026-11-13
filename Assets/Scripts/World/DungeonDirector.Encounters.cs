@@ -665,13 +665,17 @@ namespace Deepbound.World
 
         private readonly Dictionary<Health, float> burnedAt = new Dictionary<Health, float>();
 
+        /// <summary>Server, tests: delvers a flame vent has burned.</summary>
+        public int VentBurns { get; private set; }
+
         private void TickFlameJets()
         {
             if (Layout == null || Layout.FlameTraps.Count == 0) return;
             double now = Pendulum.Clock;
-            foreach (var trap in Layout.FlameTraps)
+            for (int ti = 0; ti < Layout.FlameTraps.Count; ti++)
             {
-                if (!FlameJet.Lit(trap.Phase, now)) continue;
+                var trap = Layout.FlameTraps[ti];
+                if (!JetBurning(ti, trap.Phase, now)) continue;
                 var along = Vector3.Cross(trap.Across, Vector3.up);
                 foreach (var h in Health.All)
                 {
@@ -681,6 +685,7 @@ namespace Deepbound.World
                     // A player is struck once a burst: the blow is the whole price, not a run of small burns.
                     if (burnedAt.TryGetValue(h, out float t) && Time.time - t < (h.Team == Team.Players ? FlameJet.Burn + 0.1f : 0.4f)) continue;
                     burnedAt[h] = Time.time;
+                    if (h.Team == Team.Players) VentBurns++;
                     // Traps hit hard (2026-10-21, the user: "damage on traps to go up"), on both sides; harder still since
                     // 2026-11-01 ("make them more dangerous"), and by the difficulty setting.
                     h.ServerDamage(h.Team == Team.Players ? TrapBite(h) : 50f + 15f * Tier(Layout.Depth), trap.At);

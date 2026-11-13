@@ -38,7 +38,7 @@ namespace Deepbound.Classes
             ClassId.Ranger => "SURVIVAL. The dead within 6 m hit you 20% softer; your hits on them mend you 2% (once a second).",
             ClassId.Flagellant => "SURVIVAL. Below half health you take 25% less.",
             ClassId.PlagueDoctor => "SURVIVAL. Each blighted foe within 8 m makes you take 4% less (up to 20%).",
-            _ => "SURVIVAL. Blocked blows build SHIELD CHARGE; full, your next block looses a shockwave (4 m: damage, a stun).",
+            _ => "SURVIVAL. Blocks build SHIELD CHARGE; when full, your next block looses a shockwave (4 m, damage and a stun).",
         };
 
         public static string Mastery(ClassId id) => id switch
@@ -49,7 +49,7 @@ namespace Deepbound.Classes
             ClassId.Ranger => "30% softer instead.",
             ClassId.Flagellant => "40% less instead.",
             ClassId.PlagueDoctor => "Up to 32%.",
-            _ => "The shockwave also shields you for 20% of your max health.",
+            _ => "The shockwave also shields you (20% of max health).",
         };
 
         private static bool hooked;
@@ -124,6 +124,17 @@ namespace Deepbound.Classes
                 }
             }
             return 1f;
+        }
+
+        /// <summary>Server: the cut a blow would get right now, for the HUD (the Pathwarden's counts when the dead are within reach).</summary>
+        public static float Readout(PlayerProgress p)
+        {
+            if (p == null || !p.OnPath(Path)) return 1f;
+            var at = p.transform.position + Vector3.forward * 999f;
+            if (p.ClassId.Value == ClassId.Ranger)
+                foreach (var e in Health.All)
+                    if (e != null && e.Team == Team.Enemies && e.IsAlive && (e.transform.position - p.transform.position).sqrMagnitude < PathwardenReach * PathwardenReach) { at = e.transform.position; break; }
+            return Incoming(p, at);
         }
 
         /// <summary>Server: a Knight on the Bulwark path turned <paramref name="blocked"/> damage on the shield. True when it looses the shockwave.</summary>

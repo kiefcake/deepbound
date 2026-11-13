@@ -14,7 +14,9 @@ namespace Deepbound.World
         // 2026-11-05 (the user: less downtime, "the player has to time their movement"): lit 1.2 s, dark 1 s (was 1.3 and 2.7).
         public const float Period = 2.2f, Burn = 1.2f, Warn = 0.4f, HalfWidth = 0.75f;
 
-        private int phase;
+        private int phase, index;
+        private DungeonLayout.FlameTrap trap;
+        private float chokeHeld;
         private Transform fire;
         private Transform[] tongues;
         private Light glow;
@@ -25,13 +27,15 @@ namespace Deepbound.World
         public static bool Warning(int phase, double time) => Phase(phase, time) > Period - Warn;
         private static float Phase(int phase, double time) => (float)((time + phase * 1.37) % Period);
 
-        public static void Build(Transform parent, DungeonLayout.FlameTrap trap, MeshKit.Batcher b)
+        public static void Build(Transform parent, DungeonLayout.FlameTrap trap, MeshKit.Batcher b, int index = -1)
         {
             var go = new GameObject("FlameJet");
             go.transform.SetParent(parent, false);
             go.transform.position = trap.At;
             var j = go.AddComponent<FlameJet>();
             j.phase = trap.Phase;
+            j.index = index;
+            j.trap = trap;
             // Iron grates in both walls, and the jet: a long flame across the corridor.
             foreach (float s in new[] { -1f, 1f })
                 b.AddBox(trap.At + trap.Across * s * (DungeonLayout.CorridorWidth / 2f - 0.05f) + Vector3.up * 0.5f,
@@ -75,18 +79,49 @@ namespace Deepbound.World
         private void Update()
         {
             double t = Pendulum.Clock;
-            bool lit = Lit(phase, t), warn = Warning(phase, t);
+            // Choked (DungeonDirector.Choke): dark for good, the vents a dead grey.
+            bool choked = DungeonDirector.Instance != null && DungeonDirector.Instance.JetChoked(index);
+            LocalChoke(choked);
+            bool lit = !choked && Lit(phase, t), warn = !choked && Warning(phase, t);
             fire.gameObject.SetActive(lit);
             if (lit)
                 for (int i = 0; i < tongues.Length; i++)
                     tongues[i].localScale = new Vector3(1f, 0.6f + 0.6f * Mathf.PerlinNoise(Time.time * 7f + i * 1.3f, phase), 1f);
             glow.intensity = lit ? 5f + Random.Range(-0.6f, 0.6f) : warn ? 1.2f : 0f;
-            ArtLibrary.SetGlow(vents, lit ? new Color(0.9f, 0.25f, 0.05f) * 0.8f : warn ? new Color(1f, 0.3f, 0.1f) * (0.6f + 0.6f * Mathf.Sin(Time.time * 30f)) : new Color(0.3f, 0.08f, 0.02f));
+            ArtLibrary.SetGlow(vents, choked ? new Color(0.06f, 0.05f, 0.05f) : lit ? new Color(0.9f, 0.25f, 0.05f) * 0.8f : warn ? new Color(1f, 0.3f, 0.1f) * (0.6f + 0.6f * Mathf.Sin(Time.time * 30f)) : new Color(0.3f, 0.08f, 0.02f));
             // Heard as well as seen: the grates grind as they warn, then the roar. Sfx rolls off with distance by itself.
             if (warn && !wasWarn) Sfx.Play(Sound.Creak, transform.position + Vector3.up, 0.45f, 1.6f);
             if (lit && !wasLit) Sfx.Play(Sound.Fire, transform.position + Vector3.up, 0.9f, 0.7f);
             wasWarn = warn;
             wasLit = lit;
+        }
+
+        /// <summary>Local: kneeling beside the grate with F held chokes the vent.</summary>
+        private void LocalChoke(bool choked)
+        {
+            var me = Player.NetworkPlayer.Local;
+            if (choked || me == null || index < 0 || DungeonDirector.Instance == null) { chokeHeld = 0f; return; }
+            var prog = me.GetComponent<Progression.PlayerProgress>();
+            bool beside = prog != null && prog.CanDisarm && DungeonDirector.BesideJet(trap, me.transform.position);
+            if (!beside || !UI.Binds.Held(UI.Bind.Use) || UI.GameHud.MenuOpen) { chokeHeld = 0f; return; }
+            chokeHeld += Time.deltaTime;
+            if (chokeHeld >= DungeonDirector.ChokeSeconds)
+            {
+                chokeHeld = 0f;
+                DungeonDirector.Instance.ChokeJetRpc(index, me.NetworkObject);
+            }
+        }
+
+        private void OnGUI()
+        {
+            if (chokeHeld <= 0f) return;
+            useGUILayout = false;
+            UI.UiSkin.Apply();
+            float W = UI.UiScale.W, H = UI.UiScale.H;
+            var r = new Rect(W / 2f - 110f, H * 0.62f, 220f, 14f);
+            UI.UiSkin.Rect(r, new Color(0f, 0f, 0f, 0.6f));
+            UI.UiSkin.Rect(new Rect(r.x, r.y, r.width * Mathf.Clamp01(chokeHeld / DungeonDirector.ChokeSeconds), r.height), new Color(0.9f, 0.8f, 0.5f));
+            GUI.Label(new Rect(r.x, r.y - 22f, r.width, 20f), "Choking the vent...", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
         }
     }
 }

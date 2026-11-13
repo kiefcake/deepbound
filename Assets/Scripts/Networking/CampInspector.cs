@@ -61,6 +61,7 @@ namespace Deepbound.Networking
                 new Station { Name = "tent_coffer", At = Lobby.CofferSpot, Front = Lobby.TentFacing },
                 new Station { Name = "tent_slots", At = Lobby.SlotSpot, Front = Lobby.TentFacing },
                 new Station { Name = "tent_blackjack", At = Lobby.BlackjackSpot, Front = Vector3.forward, Stand = 2.4f },
+                new Station { Name = "arm_wrestle", At = Lobby.WrestleSpot, Front = Lobby.WrestleFacing, Stand = 2.2f },
                 new Station { Name = "fire_logs", At = Lobby.FirePit, Front = Vector3.forward, Stand = 4.5f, Look = 0.8f },
             };
             for (int i = 0; i < list.Count; i++)

@@ -1228,6 +1228,12 @@ namespace Deepbound.Progression
         private void LateUpdate()
         {
             if (IsServer && Wears(GearId.GravediggersCoat)) StandingStill();
+            // The survival path's readout (2026-11-13): its cut, a few times a second, so the HUD shows it working.
+            if (IsServer && (Time.frameCount + (int)NetworkObjectId) % 8 == 0)
+            {
+                byte cut = OnPath(Classes.PathTriads.Path) ? (byte)Mathf.RoundToInt((1f - Classes.PathTriads.Readout(this)) * 100f) : (byte)0;
+                if (SurvivalCut.Value != cut) SurvivalCut.Value = cut;
+            }
         }
 
         [Rpc(SendTo.ClientsAndHost)]

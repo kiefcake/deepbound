@@ -1674,7 +1674,7 @@ namespace Deepbound.Networking
                     Log("ritual", "ward " + wardOn + " -> " + DungeonDirector.InRitualWard(ritual.Center), wardOn && !DungeonDirector.InRitualWard(ritual.Center));
                 }
                 // A mimic: reaching for it springs the beast.
-                var mimicChest = FindObjectsByType<Chest>(FindObjectsSortMode.None).FirstOrDefault(c => !c.Opened.Value);
+                var mimicChest = FindObjectsByType<Chest>(FindObjectsSortMode.None).FirstOrDefault(c => !c.Opened.Value && (DungeonDirector.Layout == null || !DungeonDirector.Layout.InCellar(c.transform.position)));
                 if (mimicChest != null)
                 {
                     mimicChest.Mimic.Value = true;
@@ -2627,6 +2627,37 @@ namespace Deepbound.Networking
                             ventMotor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                             Log("flame vent", "took " + tookVent.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " in one burst", tookVent >= ph.Max.Value * 0.2f && tookVent <= ph.Max.Value * 0.4f);
                             ph.ServerSetFraction(1f);
+                            // Choking it (2026-11-13): from beside the grate, with a pick; then it never burns.
+                            {
+                                var cdd = DungeonDirector.Instance;
+                                var cp = local.GetComponent<PlayerProgress>();
+                                byte cpicks = cp.Picks.Value;
+                                var along = Vector3.Cross(vent.Across, Vector3.up);
+                                ventMotor.Teleport(vent.At + along * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                                yield return new WaitForSeconds(0.2f);
+                                bool rogueC = cp.ClassId.Value == Classes.ClassId.Rogue;
+                                cp.Picks.Value = 0;
+                                bool refused = rogueC || !cdd.ServerChokeJet(0, cp);
+                                cp.Picks.Value = 1;
+                                bool fromJet = true;
+                                ventMotor.Teleport(vent.At + Vector3.up * 0.1f, local.transform.rotation);
+                                yield return new WaitForSeconds(0.2f);
+                                fromJet = !cdd.ServerChokeJet(0, cp);
+                                ventMotor.Teleport(vent.At + along * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
+                                yield return new WaitForSeconds(0.2f);
+                                bool choked = cdd.ServerChokeJet(0, cp) && cdd.JetChoked(0) && (rogueC || cp.Picks.Value == 0);
+                                bool cold = true;
+                                for (int k = 0; k < 40; k++) if (DungeonDirector.JetBurning(0, vent.Phase, Pendulum.Clock + k * 0.1)) cold = false;
+                                int burns0 = cdd.VentBurns;
+                                ventMotor.Teleport(vent.At + Vector3.up * 0.1f, local.transform.rotation);
+                                yield return new WaitForSeconds(FlameJet.Period + 0.2f);
+                                bool unburnt = cdd.VentBurns == burns0;   // counted at the vent (other blows on the delver do not count)
+                                cdd.ChokedJets.Value = 0;
+                                cp.Picks.Value = cpicks;
+                                ventMotor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                                Log("vent choke", "no tool refused " + refused + ", not from inside the jet " + fromJet + ", a pick chokes it " + choked + ", never burns " + cold + ", stood in it unburnt " + unburnt,
+                                    refused && fromJet && choked && cold && unburnt);
+                            }
                         }
                     }
                 }
@@ -5365,6 +5396,8 @@ namespace Deepbound.Networking
                 ("0x1_tavern_outside", Lobby.TavernCenter + new Vector3(10f, 0.1f, -4f), Lobby.TavernCenter + Vector3.up * 2f, -4f),
                 ("0x2_tavern_bar", Lobby.TavernCenter + new Vector3(3.2f, 0.1f, 1.8f), Lobby.TavernKeepSpot + Vector3.up * 1.3f, 0f),
                 ("0x3_tavern_band", Lobby.TavernCenter + new Vector3(0.2f, 0.1f, 2.2f), Lobby.TavernBandSpot + Vector3.up * 1.2f, 4f),
+                ("0x5_arm_wrestle", Lobby.WrestleSpot + Lobby.WrestleFacing * 3.4f + new Vector3(0f, 0.1f, -1.2f), Lobby.WrestleSpot + Vector3.up * 0.9f, -6f),
+                ("0x6_arm_wrestle_wide", Lobby.FirePit + new Vector3(-3f, 0.1f, 2.5f), Lobby.WrestleSpot + Vector3.up * 1f, -2f),
             };
             foreach (var (tname, tat, tlook, tpitch) in tour)
             {
@@ -6115,6 +6148,11 @@ namespace Deepbound.Networking
                 for (int w = 0; w < 120 && !FlameJet.Lit(trap.Phase, Pendulum.Clock + 0.2); w++) yield return new WaitForSeconds(0.05f);
                 yield return new WaitForSeconds(0.35f);
                 yield return Shot(dir, "1j_flame_trap");
+                // The same vent choked (2026-11-13): dark grates, no fire.
+                DungeonDirector.Instance.ChokedJets.Value |= 1UL;
+                yield return new WaitForSeconds(0.4f);
+                yield return Shot(dir, "1j6_vent_choked");
+                DungeonDirector.Instance.ChokedJets.Value = 0;
             }
             // A spike plate as it lies in the open, then the same plate hidden in flagstone, then the Ranger's net beside it.
             var shotPlate = FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).FirstOrDefault();
@@ -6132,12 +6170,68 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.3f);
                 yield return Shot(dir, "1j3_spike_plate_hidden");
                 shotPlate.Hidden.Value = false;
+                shotPlate.Jammed.Value = true;   // the wedges a Rogue or a pick leaves (2026-11-13)
+                yield return new WaitForSeconds(0.3f);
+                yield return Shot(dir, "1j5_spike_jammed");
+                shotPlate.Jammed.Value = false;
                 Art.SnareNet.Spawn(pp, Player.RangerKit.SnareRadius, 3f);
                 yield return new WaitForSeconds(0.45f);
                 yield return Shot(dir, "1j4_snare_net");
                 motor.SetPitch(0f);
                 yield return new WaitForSeconds(0.2f);
             }
+            // DEPTH ROUND (2026-11-13): a cellar hatch and the vault under it, a bargain altar, a soul rift, a spawn tell.
+            {
+                var cellar = layout.Rooms.FirstOrDefault(r => r.Cellar);
+                if (cellar != null)
+                {
+                    var hs = cellar.HatchSpot;
+                    var hp = hs + new Vector3(2.4f, 0.1f, 1.2f);
+                    motor.Teleport(hp, Quaternion.LookRotation(Flat3(hs - hp)));
+                    motor.SetPitch(38f);
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot(dir, "1q_cellar_hatch");
+                    var cc = cellar.CellarCenter;
+                    var ci = cc + new Vector3(-DungeonLayout.CellarSize * 0.38f, 0.1f, -DungeonLayout.CellarSize * 0.38f);
+                    motor.Teleport(ci, Quaternion.LookRotation(Flat3(cc - ci)));
+                    motor.SetPitch(4f);
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot(dir, "1q2_cellar_inside");
+                    motor.SetPitch(0f);
+                }
+                var spot = layout.PlayerSpawnFor(local.OwnerClientId);
+                var fwd = local.transform.forward;
+                motor.Teleport(spot, Quaternion.LookRotation(Flat3(fwd)));
+                yield return new WaitForSeconds(0.3f);
+                var ddS = DungeonDirector.Instance;
+                var altar = ddS.SpawnBargain(spot + Flat3(fwd) * 3f, Quaternion.LookRotation(-Flat3(fwd)), 0);
+                yield return new WaitForSeconds(0.5f);
+                yield return Shot(dir, "1r_bargain_altar");
+                if (altar != null && altar.IsSpawned) altar.NetworkObject.Despawn();
+                var rift = ddS.ServerDebugRift(spot + Flat3(fwd) * 4f + Vector3.up * 1.2f);
+                yield return new WaitForSeconds(0.8f);
+                yield return Shot(dir, "1s_soul_rift");
+                if (rift != null && rift.IsSpawned) rift.NetworkObject.Despawn();
+                var startRoom = layout.Rooms.OrderBy(r => (r.Center - spot).sqrMagnitude).First();
+                int before = EnemyBrain.All.Count;
+                ddS.ServerErupt(startRoom);
+                yield return null;
+                var first = EnemyBrain.All.Skip(before).FirstOrDefault(b => b != null);
+                if (first != null)
+                {
+                    var fp = first.transform.position;
+                    var from = spot;
+                    var toFoe = Flat3(fp - from);
+                    if (toFoe.magnitude > 4.5f) from = fp - toFoe.normalized * 4.5f;
+                    motor.Teleport(from + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(fp - from)));
+                }
+                yield return new WaitForSeconds(0.35f);
+                yield return Shot(dir, "1t_spawn_tell");
+                yield return new WaitForSeconds(0.7f);
+                yield return Shot(dir, "1t2_spawn_emerging");
+                foreach (var b in EnemyBrain.All.Skip(before).ToList()) if (b != null && b.IsSpawned) b.NetworkObject.Despawn();
+            }
+
             var champ = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => e.IsChampion && !e.IsDead);
             if (champ != null)
             {

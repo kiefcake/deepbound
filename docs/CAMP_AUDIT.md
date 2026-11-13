@@ -884,3 +884,11 @@ Files: `C:/Users/User/Desktop/game_prototype/Deepbound/Assets/Scripts/World/Lobb
 - NEW: a treadle GRINDSTONE at Hobb's stall's north front corner (`CampStations.GrindstoneSpot` = AnvilSpot + (0.45, 0, 1.4)), clear of the front post (z 1.8) and the sacks (z 2.2).
 - CHANGED: Hobb's stall has no counter, so the anvil (1.08 m behind the stall's front line, Hobb behind it) can be seen and used from the road.
 - Stand points (`CampStations.Station.Stand`): anvil +1.5 m east; grindstone +1.4 m east; forge SE of the hearth at (+1.0, -1.7), 4.6 m from the anvil, clear of the bellows; Silas's table +1.4 m east; Ysolde's table +1.3 m east, inside the ring's open side; Brann's board +1.5 m east, 0.7 m from the armour stand.
+
+## Round 9 (2026-11-13): camp breakables (shots 1b_camp_breakables_0/3/6/8)
+- Seen in windowed shots: crates, barrels and sacks by Silas's stall and the forge sit on the cobbles, clear of the counters and the walk to the anvil. Nothing to move.
+
+## Round 10 (2026-11-13): the arm-wrestle barrel moved by the tavern (camptour station `arm_wrestle`, shots 0x5/0x6)
+- `Lobby.WrestleSpot` = TavernCenter + (TavernHalfX + 3.2, 0, -3.6), facing east to the plaza: inspector `ok` (light 0.197, approach 0.175, turn 34 deg, 4.8 m from the tavern door, 6.5 m from the fire logs). Not on the door path or the plaza lane (plan_SW).
+- FIXED: Gorm was built from the Drinker figure and wore OLD HOLLIS's name tag; now "Big Gorm, Arm-wrestler".
+- Open: a station lamp post stands about a metre east of the barrel; it lights the bout and blocks nothing, so it stays.

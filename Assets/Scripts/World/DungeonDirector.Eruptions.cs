@@ -40,6 +40,7 @@ namespace Deepbound.World
             eruptPending.Clear();
             Eruptions = 0;
             ResetBreachPatrols();
+            if (IsServer) ChokedJets.Value = 0;
         }
 
         /// <summary>Server: a combat room was just won; it may not stay quiet.</summary>

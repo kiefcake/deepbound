@@ -1748,6 +1748,13 @@ namespace Deepbound.UI
                 Rect(x, y, bw * Mathf.Clamp01(health.Shield.Value / max), 7, new Color(1f, 0.85f, 0.4f, 0.95f));
             }
             GUI.Label(new Rect(x + 8, y + 1, bw, 22), Mathf.CeilToInt(hp) + " / " + Mathf.CeilToInt(max), label);
+            // The survival path at work (2026-11-13): its name and cut, right of the numbers, while it holds.
+            if (progress.SurvivalCut.Value > 0)
+            {
+                float pulse = 0.75f + 0.25f * Mathf.Sin(Time.time * 6f);
+                GUI.Label(new Rect(x, y + 1, bw - 8, 22), Classes.PathTriads.Name(progress.ClassId.Value).ToUpperInvariant() + "  -" + progress.SurvivalCut.Value + "%",
+                    new GUIStyle(small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(0.75f, 0.9f, 1f, pulse) } });
+            }
 
             // Low health: the frame pulses red, faster the lower it goes.
             float frac = hp / max;
@@ -2242,6 +2249,7 @@ namespace Deepbound.UI
                 if (use != null && !statsHeld) PromptLine(w, h, "F   " + use.Prompt(progress));
                 else if (use == null && !statsHeld && progress.CanUseRope) PromptLine(w, h, "F   Climb the rope back to camp  (the run goes on; this floor starts over)");
                 else if (use == null && !statsHeld && World.SpikeTrap.PromptFor(progress) is string jam) PromptLine(w, h, jam);
+                else if (use == null && !statsHeld && !DungeonDirector.InLobby && DungeonDirector.ChokePrompt(progress) is string choke) PromptLine(w, h, choke);
                 if (use is GearDrop gear && !statsHeld) DrawGearCard(gear.Item.Value, w / 2f - 180, h / 2f + 70, true);
                 return;
             }
@@ -2596,13 +2604,23 @@ namespace Deepbound.UI
                     GUI.Label(new Rect(cx + 10, cy + 8, cw - 20, 22), WeaponPaths.Name(id, p).ToUpperInvariant(), new GUIStyle(label) { normal = { textColor = new Color(ember.r, ember.g, ember.b, alpha) } });
                     var wrap = new GUIStyle(small) { wordWrap = true, fontSize = Mathf.Max(10, small.fontSize - 1), normal = { textColor = new Color(0.9f, 0.88f, 0.85f, alpha) } };
                     // Stacked by measured height: at fixed spots a three-line mastery ran into the Choose button.
-                    float describeH = wrap.CalcHeight(new GUIContent(WeaponPaths.Describe(id, p)), cw - 20);
-                    GUI.Label(new Rect(cx + 10, cy + 32, cw - 20, describeH), WeaponPaths.Describe(id, p), wrap);
+                    // Three cards are narrow (2026-11-13 shots: Bulwark's mastery ran under its button): shrink the text until
+                    // description + mastery fit above the button.
+                    string describe = WeaponPaths.Describe(id, p), mastery = WeaponPaths.Mastery(id, p);
+                    float room = chh - 32 - 36 - 15, describeH = 0f, masteryH = 0f;
+                    for (int fs = wrap.fontSize; fs >= 9; fs--)
+                    {
+                        wrap.fontSize = fs;
+                        describeH = wrap.CalcHeight(new GUIContent(describe), cw - 20);
+                        masteryH = wrap.CalcHeight(new GUIContent(mastery), cw - 20);
+                        if (describeH + masteryH <= room) break;
+                    }
+                    GUI.Label(new Rect(cx + 10, cy + 30, cw - 20, describeH), describe, wrap);
                     bool mastered = chosen && level >= WeaponPaths.MasteryLevel;
-                    float masteryY = cy + 36 + describeH;
+                    float masteryY = cy + 32 + describeH;
                     GUI.Label(new Rect(cx + 10, masteryY, cw - 20, 18), mastered ? "MASTERED" : "Mastery at +" + WeaponPaths.MasteryLevel,
                         new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(Gold.r, Gold.g, Gold.b, alpha) } });
-                    GUI.Label(new Rect(cx + 10, masteryY + 17, cw - 20, 44), WeaponPaths.Mastery(id, p), wrap);
+                    GUI.Label(new Rect(cx + 10, masteryY + 15, cw - 20, masteryH), mastery, wrap);
                     if (path == 0)
                     {
                         GUI.enabled = level >= WeaponPaths.PathLevel;

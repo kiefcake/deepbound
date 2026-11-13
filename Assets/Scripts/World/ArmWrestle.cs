@@ -528,7 +528,13 @@ namespace Deepbound.World
             // Big Gorm: a broad drover, stood leaning on his side of the barrel (scaled up a touch), pivoting at the hips.
             var hip = MeshKit.Pivot(transform, "GormHip", new Vector3(0f, 0f, -0.75f));
             var fig = Props.Townsfolk(hip, transform.position + transform.rotation * new Vector3(0f, 0f, -0.75f), transform.position + Vector3.up * 0.9f, Props.Folk.Drinker);
-            if (fig != null) fig.localScale = new Vector3(1.18f, 1.08f, 1.18f);
+            if (fig != null)
+            {
+                fig.localScale = new Vector3(1.18f, 1.08f, 1.18f);
+                // The Drinker body carries Old Hollis's name tag: Gorm is his own man (2026-11-13 shots).
+                var idle = fig.GetComponentInChildren<Art.FolkIdle>();
+                if (idle != null) { idle.DisplayName = "Big Gorm"; idle.Trade = "Arm-wrestler"; }
+            }
             gorm = hip;
         }
     }
