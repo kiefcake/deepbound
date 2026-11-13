@@ -536,7 +536,7 @@ namespace Deepbound.UI
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             var me = NetworkPlayer.Local;
             var cam = Art.ViewCamera.Current;
-            if (me == null || cam == null || PauseMenu.Open || GameHud.MenuOpen || GameHud.PanelShowing) return;
+            if (me == null || cam == null || PauseMenu.Open || GameHud.MenuOpen || GameHud.PanelShowing || Minimap.LargeOpen) return;
             UiSkin.Apply();
             float h = UiScale.H;
             DrawNames(cam, h);

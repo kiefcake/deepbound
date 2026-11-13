@@ -1,4 +1,5 @@
 using Deepbound.Classes;
+using Deepbound.Combat;
 using Deepbound.Core;
 using Deepbound.Loot;
 using Unity.Netcode;
@@ -87,8 +88,12 @@ namespace Deepbound.Progression
 
         // ---------------------------------------------------------------- bargains
 
-        public enum Bargain : byte { BloodForSteel = 0, GlassStride = 1, MisersOath = 2, HollowVigil = 3, BitterRoot = 4, EmberTithe = 5 }
-        public const int BargainCount = 6;
+        public enum Bargain : byte { BloodForSteel = 0, GlassStride = 1, MisersOath = 2, HollowVigil = 3, BitterRoot = 4, EmberTithe = 5, GravePact = 6, ThornCrown = 7 }
+        public const int BargainCount = 8;
+        /// <summary>The Gravedigger's Pact: a kill mends this share of max health (potions mend nothing).</summary>
+        public const float GravePactHeal = 0.03f;
+        /// <summary>The Thorned Crown: this share of a blow goes back into the nearest foe (within <see cref="ThornCrownReach"/> of the blow's origin).</summary>
+        public const float ThornCrownBack = 0.5f, ThornCrownReach = 6f, ThornCrownMendCut = 0.3f;
         public readonly NetworkVariable<ushort> Bargains = new NetworkVariable<ushort>();
         public bool HasBargain(Bargain b) => (Bargains.Value & (1 << (int)b)) != 0;
         /// <summary>A Cleric's faith blunts a bargain's price (half the curse).</summary>
@@ -101,6 +106,8 @@ namespace Deepbound.Progression
             Bargain.MisersOath => "The Miser's Oath",
             Bargain.HollowVigil => "The Hollow Vigil",
             Bargain.BitterRoot => "The Bitter Root",
+            Bargain.GravePact => "The Gravedigger's Pact",
+            Bargain.ThornCrown => "The Thorned Crown",
             _ => "The Ember Tithe",
         };
 
@@ -111,6 +118,8 @@ namespace Deepbound.Progression
             Bargain.MisersOath => "+40% gold for the run, potions mend 25% less",
             Bargain.HollowVigil => "+8% crit chance for the run, -6 DEF",
             Bargain.BitterRoot => "15% shorter cooldowns for the run, -10% max health",
+            Bargain.GravePact => "every kill mends 3% of your health for the run; health potions mend nothing",
+            Bargain.ThornCrown => "half of every blow on you goes back into the nearest foe; potions and VIT mend 30% less",
             _ => "+50% embers for the run, -10% damage",
         };
 
@@ -169,9 +178,47 @@ namespace Deepbound.Progression
         public float BuildCritBonus => (Mastered(StatType.DEX) ? 0.04f : 0f) + (HasBargain(Bargain.HollowVigil) ? 0.08f : 0f);
 
         public float BuildPotionScale => (WornSet == 3 ? SetChoirPotion : 1f) * (ClassId.Value == Classes.ClassId.PlagueDoctor ? 1.25f : 1f)
-            * (HasBargain(Bargain.MisersOath) ? 1f - 0.25f * CurseScale : 1f);
+            * (HasBargain(Bargain.MisersOath) ? 1f - 0.25f * CurseScale : 1f)
+            * (HasBargain(Bargain.GravePact) ? (ClassId.Value == Classes.ClassId.Cleric ? 0.5f : 0f) : 1f)
+            * (HasBargain(Bargain.ThornCrown) ? 1f - ThornCrownMendCut * CurseScale : 1f);
 
-        public float BuildRegenScale => Mastered(StatType.VIT) ? 1.6f : 1f;
+        public float BuildRegenScale => (Mastered(StatType.VIT) ? 1.6f : 1f) * (HasBargain(Bargain.ThornCrown) ? 1f - ThornCrownMendCut * CurseScale : 1f);
+
+        private static bool bargainHooked;
+
+        /// <summary>Server: listen for kills (the Gravedigger's Pact), once.</summary>
+        public static void EnsureBargainHook()
+        {
+            if (bargainHooked) return;
+            bargainHooked = true;
+            Health.ServerAnyDamaged += (target, lost, attackerId) =>
+            {
+                if (target == null || target.Team != Team.Enemies || target.IsAlive || lost <= 0f) return;
+                var nm = Unity.Netcode.NetworkManager.Singleton;
+                if (nm == null || !nm.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var obj) || !obj.TryGetComponent<PlayerProgress>(out var p)) return;
+                if (!p.HasBargain(Bargain.GravePact)) return;
+                var h = p.GetComponent<Health>();
+                if (h != null && h.IsAlive) h.ServerHeal(h.Max.Value * GravePactHeal);
+            };
+        }
+
+        /// <summary>Server: the Thorned Crown sends part of a blow back into the nearest foe. Returns what it sent.</summary>
+        public float ServerThornCrown(float damage, Vector3 attackerPosition)
+        {
+            if (!HasBargain(Bargain.ThornCrown) || damage <= 0f) return 0f;
+            Health nearest = null;
+            float best = ThornCrownReach;
+            foreach (var h in Health.All)
+            {
+                if (h == null || h.Team != Team.Enemies || !h.IsAlive) continue;
+                float d = Vector3.Distance(h.transform.position, attackerPosition);
+                if (d < best) { best = d; nearest = h; }
+            }
+            if (nearest == null) return 0f;
+            float back = damage * ThornCrownBack;
+            nearest.Tag("ThornCrown").ServerDamage(back, transform.position, NetworkObjectId);
+            return back;
+        }
         public float BuildBlockCostScale => Mastered(StatType.DEF) ? 0.7f : 1f;
 
         /// <summary>A trap's bite on this delver: the Knight's shield halves it, the Flagellant's scars take a third off.</summary>

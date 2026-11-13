@@ -2529,6 +2529,79 @@ namespace Deepbound.Networking
                                         sealedOk && att1 > att0 * 1.1f && max1 < max0 && once && Mathf.Abs(max2 - max0) < 1f);
                                 }
                                 else Log("bargain altar", "no prefab", false);
+                                // The Gilded Skull (2026-11-13, the user: "put else where and nerfed"): never a random roll, only the
+                                // Bone Hoarder's sack; +25% gold.
+                                {
+                                    bool neverRandom = true;
+                                    for (int k = 0; k < 600; k++) if (Loot.Relics.Random() == Loot.Relic.GildedSkull) { neverRandom = false; break; }
+                                    var seedRng = new System.Random(5);
+                                    for (int k = 0; k < 600; k++) if (Loot.Relics.FromSeed(seedRng) == Loot.Relic.GildedSkull) { neverRandom = false; break; }
+                                    bool silas = World.DungeonDirector.SignatureRelic(World.FolkId.Silas) != Loot.Relic.GildedSkull;
+                                    float g0 = jp.GoldMultiplier;
+                                    jp.ServerAddRelic(Loot.Relic.GildedSkull);
+                                    float g1 = jp.GoldMultiplier;
+                                    jp.ServerRemoveRelic(Loot.Relic.GildedSkull);
+                                    int drops0 = LootDrop.All.Count;
+                                    HoarderBrain.DebugAlwaysSkull = true;
+                                    var hoarder = dd.ServerDebugSpawn("hoarder", local.transform.position + local.transform.forward * 4f, false);
+                                    yield return null;
+                                    bool fromSack = false;
+                                    if (hoarder != null)
+                                    {
+                                        hoarder.NoLoot = true;
+                                        hoarder.GetComponent<Health>().ServerDamage(1e6f, local.transform.position, local.NetworkObjectId);
+                                        yield return null;
+                                        foreach (var ld in LootDrop.All.Skip(drops0).ToList())
+                                        {
+                                            if (ld == null) continue;
+                                            if (ld.Kind.Value == LootKind.Relic && ld.Amount.Value == (int)Loot.Relic.GildedSkull) fromSack = true;
+                                            if (ld.IsSpawned) ld.NetworkObject.Despawn();
+                                        }
+                                    }
+                                    HoarderBrain.DebugAlwaysSkull = false;
+                                    Log("gilded skull", "never a random roll " + neverRandom + ", not Silas's " + silas + ", gold x" + (g1 - g0 + 1f).ToString("F2") + ", from the hoarder's sack " + fromSack,
+                                        neverRandom && silas && Mathf.Abs(g1 - g0 - 0.25f) < 0.01f && fromSack);
+                                }
+                                // The Gravedigger's Pact and the Thorned Crown (2026-11-13).
+                                {
+                                    var gh = local.GetComponent<Health>();
+                                    var gAt = local.transform.position + local.transform.forward * 3f;
+                                    jp.Bargains.Value = 0;
+                                    jp.ServerStrikeBargain(PlayerProgress.Bargain.GravePact);
+                                    float potion = jp.BuildPotionScale;
+                                    gh.ServerSetFraction(0.5f);
+                                    float hp0 = gh.Current.Value;
+                                    var victim = dd.ServerDebugSpawn("skeleton", gAt, false);
+                                    yield return null;
+                                    float mended = 0f;
+                                    if (victim != null)
+                                    {
+                                        victim.NoLoot = true;   // its gold landed in the pet-fetch check
+                                        victim.GetComponent<Health>().ServerDamage(1e6f, local.transform.position, local.NetworkObjectId);
+                                        yield return null;
+                                        mended = gh.Current.Value - hp0;
+                                    }
+                                    jp.Bargains.Value = 0;
+                                    jp.ServerStrikeBargain(PlayerProgress.Bargain.ThornCrown);
+                                    var thornFoe = dd.ServerDebugSpawn("skeleton", gAt, false);
+                                    yield return null;
+                                    float back = 0f, foeLost = 0f;
+                                    if (thornFoe != null)
+                                    {
+                                        var th = thornFoe.GetComponent<Health>();
+                                        float f0 = th.Current.Value;
+                                        back = jp.ServerThornCrown(20f, thornFoe.transform.position);
+                                        foeLost = f0 - th.Current.Value;
+                                        if (thornFoe.IsSpawned) thornFoe.NetworkObject.Despawn();
+                                    }
+                                    float regenCut = jp.BuildRegenScale;
+                                    jp.Bargains.Value = 0;
+                                    gh.ServerSetFraction(1f);
+                                    bool clericPact = jp.ClassId.Value == Classes.ClassId.Cleric;
+                                    Log("cursed bargains", "pact: a kill mended " + mended.ToString("F1") + " (of " + gh.Max.Value.ToString("F0") + "), potions x" + potion.ToString("F2")
+                                        + "; crown: sent back " + back.ToString("F0") + ", the foe lost " + foeLost.ToString("F0") + ", regen x" + regenCut.ToString("F2"),
+                                        mended >= gh.Max.Value * PlayerProgress.GravePactHeal * 0.9f && (clericPact ? potion < 1f : potion == 0f) && back > 0f && foeLost > 0f && regenCut < 1f);
+                                }
                                 // A cellar vault: break the tile, drop in, climb out.
                                 var hatch = FindObjectsByType<CellarHatch>(FindObjectsSortMode.None).FirstOrDefault(c => c.What == CellarHatch.Mode.Hatch);
                                 var croom = layout.Rooms.FirstOrDefault(r => r.Cellar);
@@ -2902,23 +2975,34 @@ namespace Deepbound.Networking
                     {
                         yield return new WaitForSeconds(1.5f);
                         var bossFm = local.GetComponent<FirstPersonMotor>();
-                        var dashFrom = boss.transform.position;
-                        var away = Flat3(local.transform.position - dashFrom);
-                        if (away.sqrMagnitude < 1f) away = boss.transform.forward;
-                        var standAt = dashFrom + away.normalized * 13f;
-                        if (UnityEngine.AI.NavMesh.SamplePosition(standAt, out var sHit, 3f, UnityEngine.AI.NavMesh.AllAreas)) standAt = sHit.position;
-                        bossFm.Teleport(standAt + Vector3.up * 0.1f, Quaternion.LookRotation(-away));
-                        local.GetComponent<Health>().ServerSetFraction(1f);
-                        // The chandelier stuns it: a stunned guardian does not charge (wait that out).
-                        for (float w = 0f; w < 8f && boss.IsStunned; w += 0.2f) yield return new WaitForSeconds(0.2f);
-                        yield return new WaitForSeconds(0.2f);
-                        float gap0 = Vector3.Distance(Flat3(boss.transform.position), Flat3(local.transform.position));
+                        // The test's own ballista and winch stand in the arena; a charge stops on anything solid, so they go,
+                        // and a charge cut short by the arena's own dressing gets two more tries from other sides (2026-11-13).
+                        if (bal != null && bal.IsSpawned) bal.NetworkObject.Despawn();
+                        if (winch != null && winch.IsSpawned) winch.NetworkObject.Despawn();
+                        float gap0 = 0f, gap1 = 0f, bossMoved = 0f;
                         int dashes0 = boss.BossDashCount;
-                        var bossAt0 = boss.transform.position;
-                        bool began = boss.ServerBossDash();
-                        yield return new WaitForSeconds(EnemyBrain.BossDashTell + 1.2f);
-                        float gap1 = Vector3.Distance(Flat3(boss.transform.position), Flat3(local.transform.position));
-                        float bossMoved = Vector3.Distance(Flat3(boss.transform.position), Flat3(bossAt0));
+                        bool began = false;
+                        for (int attempt = 0; attempt < 3 && bossMoved <= 4f; attempt++)
+                        {
+                            var dashFrom = boss.transform.position;
+                            var away = Flat3(local.transform.position - dashFrom);
+                            if (away.sqrMagnitude < 1f) away = boss.transform.forward;
+                            away = Quaternion.Euler(0f, attempt * 120f, 0f) * away;
+                            var standAt = dashFrom + away.normalized * 13f;
+                            if (UnityEngine.AI.NavMesh.SamplePosition(standAt, out var sHit, 3f, UnityEngine.AI.NavMesh.AllAreas)) standAt = sHit.position;
+                            bossFm.Teleport(standAt + Vector3.up * 0.1f, Quaternion.LookRotation(-away));
+                            local.GetComponent<Health>().ServerSetFraction(1f);
+                            // The chandelier stuns it: a stunned guardian does not charge (wait that out).
+                            for (float w = 0f; w < 8f && boss.IsStunned; w += 0.2f) yield return new WaitForSeconds(0.2f);
+                            for (float w = 0f; w < 10f && boss.Dashing; w += 0.2f) yield return new WaitForSeconds(0.2f);
+                            yield return new WaitForSeconds(0.2f);
+                            gap0 = Vector3.Distance(Flat3(boss.transform.position), Flat3(local.transform.position));
+                            var bossAt0 = boss.transform.position;
+                            began = boss.ServerBossDash() || began;
+                            yield return new WaitForSeconds(EnemyBrain.BossDashTell + 1.2f);
+                            gap1 = Vector3.Distance(Flat3(boss.transform.position), Flat3(local.transform.position));
+                            bossMoved = Vector3.Distance(Flat3(boss.transform.position), Flat3(bossAt0));
+                        }
                         Log("boss dash", boss.GetType().Name + " began " + began + ", it moved " + bossMoved.ToString("F1") + " m (gap " + gap0.ToString("F1") + " -> " + gap1.ToString("F1") + "), dashes " + (boss.BossDashCount - dashes0),
                             began && boss.BossDashCount > dashes0 && bossMoved > 4f);
                         local.GetComponent<Health>().ServerSetFraction(1f);
@@ -5414,6 +5498,14 @@ namespace Deepbound.Networking
             yield return new WaitForSeconds(0.1f);
             yield return Shot(dir, "0x4_emote_wheel");
             shotEmotes.DebugShowWheel(false, Vector2.zero);
+            // The camp map (2026-11-13): M at camp.
+            {
+                var campMap = local.GetComponent<UI.Minimap>();
+                campMap.Large = true;
+                yield return new WaitForSeconds(0.3f);
+                yield return Shot(dir, "0y_camp_map");
+                campMap.Large = false;
+            }
 
             // The Mage: switch class, frost the dummy, catch the bolt and the chill.
             var prog = local.GetComponent<PlayerProgress>();
@@ -6315,6 +6407,42 @@ namespace Deepbound.Networking
                 motor.Teleport(df, Quaternion.LookRotation(deepRoom.Center - df));
                 yield return new WaitForSeconds(1.2f);
                 yield return Shot(dir, "5_floor4_deeper");
+            }
+
+            // BOSS DASHES (2026-11-13): the Cardinal's leap circle and the Tide Lich's blink, mid-telegraph; the repulse ring.
+            foreach (int bd in new[] { 3, 5, 7 })
+            {
+                DungeonDirector.Instance.ServerDebugStartFloor(bd);
+                yield return new WaitForSeconds(2.5f);
+                var db = BossBrain.Active;
+                if (db == null || (db.DashKind != BossBrain.DashStyle.Leap && db.DashKind != BossBrain.DashStyle.Blink)) continue;
+                db.Dormant = false;
+                var dbp = db.transform.position;
+                var dfw = Flat3(db.transform.forward);
+                var stand = dbp + dfw * 11f;
+                if (UnityEngine.AI.NavMesh.SamplePosition(stand, out var dHit, 3f, UnityEngine.AI.NavMesh.AllAreas)) stand = dHit.position;
+                motor.Teleport(stand + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(dbp - stand)));
+                db.ServerAddThreat(local.NetworkObjectId, 100f);
+                yield return new WaitForSeconds(0.6f);
+                string bn = db.GetType().Name.Replace("Brain", "");
+                bool began = db.ServerBossDash();
+                Debug.Log("[Shots] " + bn + " dash " + db.DashKind + " began " + began);
+                yield return new WaitForSeconds(EnemyBrain.BossDashTell * 0.6f);
+                yield return Shot(dir, "3d_" + bn + "_dash_tell");
+                yield return new WaitForSeconds(EnemyBrain.BossDashTell * 0.4f + 0.35f);
+                yield return Shot(dir, "3d_" + bn + "_dash_after");
+                if (db.DashKind == BossBrain.DashStyle.Leap)
+                {
+                    yield return new WaitForSeconds(1.5f);
+                    var rp = db.transform.position + Flat3(db.transform.forward) * 2.5f;
+                    motor.Teleport(rp + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(db.transform.position - rp)));
+                    motor.SetPitch(20f);
+                    db.ServerRepulse();
+                    yield return new WaitForSeconds(BossBrain.RepulseTell * 0.6f);
+                    yield return Shot(dir, "3d_repulse_tell");
+                    motor.SetPitch(0f);
+                }
+                local.GetComponent<Health>().ServerSetFraction(1f);
             }
 
             // One floor per later act (each the act's first: a Warden waits at the end of it).

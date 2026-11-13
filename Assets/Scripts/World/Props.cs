@@ -61,13 +61,55 @@ namespace Deepbound.World
 
         public static void Barrel(MeshKit.Batcher b, Vector3 floor)
         {
-            b.Add(MeshKit.Lathe("barrel", new[]
+            StavedBarrel((mesh, mat, pos, yaw) => b.Add(mesh, mat, Matrix4x4.TRS(floor + pos, Quaternion.Euler(0f, yaw, 0f), Vector3.one)),
+                1f, 0.32f, 0.42f, new[] { 0.22f, 0.72f }, (int)(floor.x * 7f + floor.z * 13f));
+        }
+
+        /// <summary>
+        /// A coopered barrel (2026-11-13 asset pass; it was one smooth lathe): twelve staves with dark seams between them over a
+        /// dark core, iron hoops with rivets, a sunken lid of planks with a bung. <paramref name="add"/> places one part
+        /// (mesh, material, local position, yaw), so it serves the static batcher and loose props alike.
+        /// </summary>
+        public static void StavedBarrel(System.Action<Mesh, string, Vector3, float> add, float height, float endR, float bellyR, float[] hoops, int seed)
+        {
+            const int Staves = 12;
+            float step = 360f / Staves;
+            var profile = new[]
             {
-                new Vector2(0f, 0f), new Vector2(0.32f, 0f), new Vector2(0.4f, 0.3f), new Vector2(0.42f, 0.5f),
-                new Vector2(0.4f, 0.7f), new Vector2(0.32f, 1f), new Vector2(0f, 1f),
-            }, 10), Mat.Wood, Matrix4x4.Translate(floor));
-            b.Add(MeshKit.Cylinder(0.41f, 0.43f, 0.06f, 10), Mat.Steel, Matrix4x4.Translate(floor + Vector3.up * 0.22f));
-            b.Add(MeshKit.Cylinder(0.43f, 0.41f, 0.06f, 10), Mat.Steel, Matrix4x4.Translate(floor + Vector3.up * 0.72f));
+                new Vector2(endR, 0f), new Vector2(Mathf.Lerp(endR, bellyR, 0.8f), height * 0.3f), new Vector2(bellyR, height * 0.5f),
+                new Vector2(Mathf.Lerp(endR, bellyR, 0.8f), height * 0.7f), new Vector2(endR, height),
+            };
+            string key = "stave" + height.ToString("F2") + endR.ToString("F2") + bellyR.ToString("F2");
+            var stave = MeshKit.Lathe(key, profile, 3, false, step - 2.2f);
+            var core = new Vector2[profile.Length + 2];
+            core[0] = new Vector2(0f, 0.01f);
+            for (int i = 0; i < profile.Length; i++) core[i + 1] = new Vector2(profile[i].x * 0.965f, Mathf.Clamp(profile[i].y, 0.01f, height - 0.01f));
+            core[core.Length - 1] = new Vector2(0f, height - 0.01f);
+            add(MeshKit.Lathe(key + "core", core, 12), Mat.Dark, Vector3.zero, 0f);
+            float twist = (seed & 7) * 3.7f;
+            for (int i = 0; i < Staves; i++) add(stave, Mat.Wood, Vector3.zero, twist + i * step);
+            float RadiusAt(float y)
+            {
+                for (int i = 0; i < profile.Length - 1; i++)
+                    if (y <= profile[i + 1].y) return Mathf.Lerp(profile[i].x, profile[i + 1].x, Mathf.InverseLerp(profile[i].y, profile[i + 1].y, y));
+                return endR;
+            }
+            foreach (float hy in hoops)
+            {
+                float y = hy * height, r = RadiusAt(y) + 0.012f;
+                add(MeshKit.Cylinder(r, r, 0.05f, 16), Mat.Steel, new Vector3(0f, y - 0.025f, 0f), 0f);
+                for (int k = 0; k < 4; k++)
+                {
+                    float a = (twist + 45f + k * 90f) * Mathf.Deg2Rad;
+                    add(MeshKit.Box(new Vector3(0.022f, 0.022f, 0.022f)), Mat.Steel, new Vector3(Mathf.Sin(a) * (r + 0.006f), y, Mathf.Cos(a) * (r + 0.006f)), 0f);
+                }
+            }
+            // The lid sits a little down inside the chime, planked, with a bung.
+            float lidY = height - 0.035f, lidR = endR * 0.93f;
+            add(MeshKit.Cylinder(lidR, lidR, 0.02f, 14), Mat.Wood, new Vector3(0f, lidY - 0.01f, 0f), twist);
+            for (int k = -1; k <= 1; k += 2)
+                add(MeshKit.Box(new Vector3(lidR * 1.8f, 0.012f, 0.012f)), Mat.Dark, new Vector3(0f, lidY + 0.004f, 0f) + Quaternion.Euler(0f, twist, 0f) * new Vector3(0f, 0f, k * lidR * 0.33f), twist);
+            add(MeshKit.Cylinder(0.035f, 0.03f, 0.03f, 8), Mat.Wood, new Vector3(lidR * 0.45f, lidY + 0.01f, 0f), 0f);
         }
 
         /// <summary>A scatter of bones and a skull — evidence of the last party that came through.</summary>

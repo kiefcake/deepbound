@@ -35,6 +35,8 @@ namespace Deepbound.UI
 
         /// <summary>True while a menu wants the cursor (the merchant's shop). The motor reads this.</summary>
         public static bool MenuOpen { get; private set; }
+        /// <summary>Seated at a table game (blackjack, skull poker, bones): its HUD has the screen, ours steps aside.</summary>
+        public static bool SeatedGame => BlackjackTable.LocalOpen || PokerDiceTable.LocalSeated || DiceTable.LocalOpen;
         /// <summary>Any HUD panel on screen, held ones (the stat sheet) included: world-space speech stays out of its way.</summary>
         public static bool PanelShowing { get; private set; }
 
@@ -644,7 +646,13 @@ namespace Deepbound.UI
                 string line = state == DungeonDirector.ContractStatus.Taken ? "Next floor: " + task
                     : state == DungeonDirector.ContractStatus.Active ? task + (q.Goal > 1 ? "  (" + (q.Progress + q.Held) + " / " + q.Goal + (q.Held > 0 ? ", " + q.Held + " held" : "") + ")" : "")
                     : state == DungeonDirector.ContractStatus.Fulfilled ? "COMPLETE" : state == DungeonDirector.ContractStatus.Failed ? "FAILED" : "";
+                // Racing the bell (2026-11-13): a job that must beat the Tallyman's bell counts down on its line, red in the last minute.
+                bool racing = state == DungeonDirector.ContractStatus.Active && !DungeonDirector.InLobby
+                    && (q.Clause == (byte)DungeonDirector.QuestClause.BeforeBell || q.Contract == Contract.SwiftBlade);
+                double bellLeft = racing ? d.FloorBegan.Value + d.TallyWarnSeconds - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time : 0;
+                if (racing && bellLeft > 0) line = Mathf.FloorToInt((float)bellLeft / 60f) + ":" + Mathf.FloorToInt((float)bellLeft % 60f).ToString("00") + "  " + line;
                 var col = state == DungeonDirector.ContractStatus.Fulfilled ? new Color(0.5f, 1f, 0.55f) : state == DungeonDirector.ContractStatus.Failed ? new Color(0.9f, 0.4f, 0.35f) : new Color(0.9f, 0.88f, 0.84f);
+                if (racing && bellLeft > 0 && bellLeft < 60) col = Color.Lerp(new Color(1f, 0.45f, 0.3f), new Color(1f, 0.85f, 0.6f), 0.5f + 0.5f * Mathf.Sin(Time.time * 8f));
                 float y = 36 + i * 38;
                 GUI.Label(new Rect(22, y, 340, 18), Dialogue.NameOf(q.Who) + "  ·  " + DungeonDirector.ContractName(q.Contract).ToUpperInvariant() + (q.Special ? "  ★" : ""),
                     new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.95f, 0.82f, 0.55f) } });
@@ -860,7 +868,7 @@ namespace Deepbound.UI
                 Rect(row.x, row.y, row.width, row.height, new Color(0f, 0f, 0f, over ? 0.5f : 0.3f));
                 string name = r.Kind == CraftKind.Potion && r.Arg == 1 ? Flasks.FullName(Flasks.Kind.Mana) : r.Name;
                 GUI.Label(new Rect(x + 8, y + 1, cw - 110, 18), name, new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = false });
-                GUI.Label(new Rect(x + 8, y + 15, cw - 110, 16), Crafting.Cost(r), new GUIStyle(small) { fontSize = 11, wordWrap = false, normal = { textColor = why == null ? new Color(0.8f, 0.78f, 0.7f) : new Color(0.6f, 0.45f, 0.4f) } });
+                GUI.Label(new Rect(x + 8, y + 15, cw - 110, 16), Crafting.Cost(r), new GUIStyle(small) { fontSize = 12, wordWrap = false, normal = { textColor = why == null ? new Color(0.85f, 0.83f, 0.74f) : new Color(0.9f, 0.62f, 0.5f) } });   // the short cost was near black on black (2026-11-13)
                 GUI.enabled = why == null;
                 if (GUI.Button(new Rect(x + cw - 96, y + 4, 90, 24), why == null ? "Make" : (why.StartsWith("Need") ? "Need parts" : why), new GUIStyle(UiSkin.Button) { fontSize = 12 })) progress.CraftRpc((byte)i);
                 GUI.enabled = true;
@@ -893,6 +901,8 @@ namespace Deepbound.UI
         {
             var v = PlayerVoice.LocalVoice;
             if (v == null || !PlayerVoice.MicAvailable || Settings.VoiceMode == 2) return;
+            // Alone there is nobody to hear you: the light only clutters the corner (2026-11-13 UI pass).
+            if (PlayerLife.All.Count < 2) return;
             bool on = v.Speaking;
             // Beside the vitals panel, clear of the status badges above it.
             float x = 270f, y = h - 142f;
@@ -1477,12 +1487,13 @@ namespace Deepbound.UI
             UiTimer.Mark("DrawSouls");
             DrawAllies(w, h);
             UiTimer.Mark("DrawAllies");
-            DrawCrosshair(w, h);
-            UiTimer.Mark("DrawCrosshair");
-            DrawVitals(w, h);
+            if (!SeatedGame)
+            {
+                DrawCrosshair(w, h);
+                DrawVitals(w, h);
+                DrawAbilities(w, h);
+            }
             UiTimer.Mark("DrawVitals");
-            DrawAbilities(w, h);
-            UiTimer.Mark("DrawAbilities");
             DrawBoss(w);
             UiTimer.Mark("DrawBoss");
             DrawTally(w, h);
@@ -1497,7 +1508,7 @@ namespace Deepbound.UI
             UiTimer.Mark("DrawPhase");
             DrawBanner(w, h);
             UiTimer.Mark("DrawBanner");
-            DrawTitleCard(w, h);
+            if (!statsHeld) DrawTitleCard(w, h);   // the Tab sheet has the screen (a LEGENDARY card sat on its relic list)
             UiTimer.Mark("DrawTitleCard");
             DrawBossIntro(w, h);
             UiTimer.Mark("DrawBossIntro");
@@ -2349,7 +2360,7 @@ namespace Deepbound.UI
         private void DrawControlsHint(float w, float h)
         {
             float age = Time.time - spawnTime;
-            if (age > 25f) return;
+            if (age > 25f || Minimap.LargeOpen) return;
             float a = Mathf.Clamp01((25f - age) / 3f);
             var style = new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 1f, 1f, a * 0.9f) } };
             UiSkin.Rect(new Rect(w - 380, Minimap.SmallBottom, 370, 206), new Color(0f, 0f, 0f, 0.5f * a));
@@ -2492,17 +2503,24 @@ namespace Deepbound.UI
             if (key != null) key = Binds.Show(key);
             var st = new GUIStyle(center) { fontSize = 15, wordWrap = false, alignment = TextAnchor.MiddleLeft };
             float tw = Mathf.Min(w * 0.7f, st.CalcSize(new GUIContent(body)).x + 16f);
+            // Too long for one line (a bargain's terms, 2026-11-13): wrap instead of clipping.
+            float th = 24f;
+            if (st.CalcSize(new GUIContent(body)).x + 16f > w * 0.7f)
+            {
+                st.wordWrap = true;
+                th = Mathf.Max(24f, st.CalcHeight(new GUIContent(body), tw));
+            }
             float badge = key != null ? 30f : 0f;
             float total = tw + badge + 12f;
             float x = w / 2f - total / 2f, y = h / 2f + dy;
-            Rect(x, y - 2, total, 28, new Color(0.02f, 0.02f, 0.02f, 0.62f));
-            Rect(x, y + 25, total, 1, new Color(Gold.r, Gold.g, Gold.b, 0.45f));
+            Rect(x, y - 2, total, th + 4, new Color(0.02f, 0.02f, 0.02f, 0.62f));
+            Rect(x, y + th + 1, total, 1, new Color(Gold.r, Gold.g, Gold.b, 0.45f));
             if (key != null)
             {
                 UiSkin.Panel(new Rect(x + 4, y + 1, 24, 22), 0.95f);
                 GUI.Label(new Rect(x + 4, y + 1, 24, 22), key, new GUIStyle(center) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = Gold } });
             }
-            GUI.Label(new Rect(x + badge + 8f, y, tw, 24), body, st);
+            GUI.Label(new Rect(x + badge + 8f, y, tw, th), body, st);
         }
 
         private Anvil NearAnvil() => life.Downed.Value ? null : Anvil.Near(player.transform.position);
@@ -3079,14 +3097,16 @@ namespace Deepbound.UI
                 cardY -= 66 + new List<StatType>(Gear.StatsOf(g)).Count * 18 + 12 + (Progression.PlayerProgress.SetLine(g.Kind) != null ? 34 : 0);
                 DrawGearCard(g, w - 300 - 24 - 360 - 12, cardY, false);
             }
-            // Relics, with what they do, to the left of the stat sheet.
+            // Relics, with what they do, to the left of the stat sheet - and ABOVE the gear cards (2026-11-13 shots: eight
+            // relics ran down over the armour card). Two columns when one will not fit in the room left.
             if (progress.RelicCount > 0)
             {
-                // One column for a few, two when the run has gathered many (it must stay on screen).
-                int count = progress.RelicCount, cols = count > 9 ? 2 : 1, perCol = (count + cols - 1) / cols;
-                float colW = 380, rw = colW * cols, relRowH = Mathf.Min(38f, (h - 140f) / Mathf.Max(1, perCol));
+                float room = cardY - 12f - 20f;
+                int count = progress.RelicCount;
+                int cols = count > 9 || 40f + count * 38f > room ? 2 : 1, perCol = (count + cols - 1) / cols;
+                float colW = 380, rw = colW * cols, relRowH = Mathf.Clamp((room - 40f) / Mathf.Max(1, perCol), 20f, 38f);
                 float rh = 40 + perCol * relRowH;
-                float rx = w - 300 - 24 - rw - 12, ry = Mathf.Max(20f, h / 2f - rh / 2f);
+                float rx = w - 300 - 24 - rw - 12, ry = Mathf.Max(20f, Mathf.Min(h / 2f - rh / 2f, cardY - 12f - rh));
                 Rect(rx, ry, rw, rh, Panel);
                 GUI.Label(new Rect(rx + 12, ry + 10, rw, 22), "RELICS  (" + count + " / " + Relics.MaxCarried + ")", new GUIStyle(label) { normal = { textColor = Gold } });
                 var desc = new GUIStyle(small) { wordWrap = false };

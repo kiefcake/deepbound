@@ -15,7 +15,8 @@ namespace Deepbound.World
     public class BlackjackView : MonoBehaviour
     {
         public const float FeltY = 0.92f, StoolRadius = 1.58f, BetRadius = 0.9f, CardRadius = 0.64f;
-        public const float CardW = 0.12f, CardH = 0.168f; // larger than life, so they read from the stool
+        // Larger than life so they read from the stool (2026-11-13: 0.12 x 0.168 was too small to read a rank).
+        public const float CardW = 0.155f, CardH = 0.217f, HandFan = 0.105f, HouseStep = 0.175f, HouseZ = -0.17f;
         public static readonly Vector3 ShoeLocal = new Vector3(0.62f, 1.0f, 0.12f);
 
         /// <summary>Stool k's direction from the table centre, on the players' side (-Z); k = 0..3 left to right as seen from the dealer.</summary>
@@ -74,7 +75,7 @@ namespace Deepbound.World
             var face = transform.TransformDirection(-StoolDir(stool));
             motor.Teleport(seat, Quaternion.LookRotation(face));
             motor.PinTo(seat);
-            motor.SetPitch(42f);
+            motor.SetPitch(SeatPitch);
         }
 
         /// <param name="moved">Something else moved the player (a teleport): let go where they are now.</param>
@@ -90,6 +91,9 @@ namespace Deepbound.World
             stool = -1;
             Clear();
         }
+
+        /// <summary>Looking down between your hand and the dealer's line, so both sit near the middle of the screen.</summary>
+        public const float SeatPitch = 36f;
 
         private Vector3 SeatPoint() => transform.TransformPoint(StoolDir(stool) * StoolRadius) + Vector3.up * 0.1f;
         private static float Flat(Vector3 v) { v.y = 0f; return v.magnitude; }
@@ -129,10 +133,10 @@ namespace Deepbound.World
             int idx = 0;
             for (int h = 0; h < hands.Length; h++)
             {
-                var basePos = d * CardRadius + tangent * ((h - (hands.Length - 1) * 0.5f) * 0.3f);
+                var basePos = d * CardRadius + tangent * ((h - (hands.Length - 1) * 0.5f) * 0.42f);
                 for (int i = 0; i < hands[h].Length; i++, idx++)
                 {
-                    var pos = basePos + tangent * (i * 0.075f) - d * (i * 0.015f) + Vector3.up * (FeltY + 0.002f + i * 0.0015f);
+                    var pos = basePos + tangent * (i * HandFan) - d * (i * 0.012f) + Vector3.up * (FeltY + 0.002f + i * 0.0015f);
                     var rot = Quaternion.LookRotation(-d) * Quaternion.Euler(0f, (i - 1) * 3f, 0f);
                     Place(mine, idx, hands[h][i], true, pos, rot);
                 }
@@ -140,7 +144,7 @@ namespace Deepbound.World
             for (int i = 0; i < houseCards.Length; i++)
             {
                 bool up = !(i == 1 && table.SeenHoleHidden);
-                var pos = new Vector3(-0.2f + i * 0.13f, FeltY + 0.002f + i * 0.0015f, -0.36f);
+                var pos = new Vector3(-0.26f + i * HouseStep, FeltY + 0.002f + i * 0.0015f, HouseZ);
                 Place(house, i, houseCards[i], up, pos, Quaternion.identity);
             }
             foreach (var c in mine) Animate(c);
@@ -233,10 +237,12 @@ namespace Deepbound.World
         {
             var d = StoolDir(Mathf.Max(0, stool));
             var tangent = new Vector3(-d.z, 0f, d.x);
-            return transform.TransformPoint(d * (CardRadius - 0.17f) + tangent * ((hand - (hands - 1) * 0.5f) * 0.3f) + Vector3.up * FeltY);
+            // Nearer you than the cards: on screen the total sits just under your hand, never on it.
+            return transform.TransformPoint(d * (CardRadius + CardH * 0.5f + 0.09f) + tangent * ((hand - (hands - 1) * 0.5f) * 0.42f) + Vector3.up * FeltY);
         }
 
-        public Vector3 HouseLabelPoint => transform.TransformPoint(new Vector3(0f, FeltY + 0.02f, -0.52f));
+        /// <summary>Beyond the dealer's cards (toward the dealer): on screen just above them.</summary>
+        public Vector3 HouseLabelPoint => transform.TransformPoint(new Vector3(0f, FeltY + 0.02f, HouseZ + CardH * 0.5f + 0.07f));
 
         private static Material CardMaterial()
         {

@@ -807,7 +807,7 @@ namespace Deepbound.Progression
 
         public override void OnNetworkSpawn()
         {
-            if (IsServer) { StartCoroutine(AddPrayerLast()); PathTriads.EnsureHook(); }
+            if (IsServer) { StartCoroutine(AddPrayerLast()); PathTriads.EnsureHook(); EnsureBargainHook(); }
             if (IsServer && World.DungeonDirector.Instance != null && World.DungeonDirector.Instance.RunInProgress) LateJoiner.Value = true;
             WeaponLevel.OnValueChanged += (_, __) => StatsChanged?.Invoke();
             bonuses.OnListChanged += _ => StatsChanged?.Invoke();
@@ -944,7 +944,7 @@ namespace Deepbound.Progression
         /// Gold found: the bonuses ADD (2026-10-23, the autoplay run: a Gilded Skull III, the Ledger and Fortune
         /// multiplied to x3 and a solo run ended on 15,000 gold), and gold relics grow half as much per tier.
         /// </summary>
-        public float GoldMultiplier => 1f + (HasRelic(Relic.GildedSkull) ? 0.6f + 0.3f * RelicTier(Relic.GildedSkull) : 0f) + (Blessed(Blessing.Fortune) ? 0.5f : 0f)
+        public float GoldMultiplier => 1f + (HasRelic(Relic.GildedSkull) ? 0.25f + 0.1f * RelicTier(Relic.GildedSkull) : 0f) + (Blessed(Blessing.Fortune) ? 0.5f : 0f)
             + (HasRelic(Relic.TallymansLedger) ? 0.2f + 0.1f * RelicTier(Relic.TallymansLedger) : 0f) + BuildGoldBonus;
 
         // ---- Relics ----
@@ -1004,6 +1004,13 @@ namespace Deepbound.Progression
         /// False if it cannot be taken (the drop stays for a teammate). A relic you carry is empowered
         /// instead; with a full tray, a new relic empowers your weakest one.
         /// </returns>
+        /// <summary>Server, tests: take every copy of <paramref name="r"/> back out of the tray.</summary>
+        public void ServerRemoveRelic(Relic r)
+        {
+            if (!IsServer) return;
+            for (int i = relics.Count - 1; i >= 0; i--) if (RelicAt(i) == r) relics.RemoveAt(i);
+        }
+
         public bool ServerAddRelic(Relic r)
         {
             if (!IsServer || !CanTakeRelic(r)) return false;
@@ -1111,6 +1118,7 @@ namespace Deepbound.Progression
         {
             if (HasEdge(Edge.Stalwart)) damage *= Edges.StalwartTaken;
             damage *= BuildIncomingScale * PathTriads.Incoming(this, attackerPosition);
+            ServerThornCrown(damage, attackerPosition);
             // Iron Psalter: bolts, spit and hexes from across the room glance off the hymns.
             if (HasRelic(Relic.IronPsalter) && Vector3.Distance(attackerPosition, transform.position) >= 5f) damage *= 1f - 0.15f * RelicPower(Relic.IronPsalter);
             return damage;

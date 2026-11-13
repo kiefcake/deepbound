@@ -439,15 +439,11 @@ namespace Deepbound.World
             }
             if (Type.Value == Kind.Cask)
             {
-                // A plain wine cask (no red band: that is the powder barrel), iron hoops.
-                MeshKit.Part(transform, "Cask", MeshKit.Lathe("cask", new[]
-                {
-                    new Vector2(0f, 0f), new Vector2(0.27f, 0f), new Vector2(0.33f, 0.25f), new Vector2(0.35f, 0.42f),
-                    new Vector2(0.33f, 0.6f), new Vector2(0.27f, 0.85f), new Vector2(0f, 0.85f),
-                }, 10), Mat.Wood, Vector3.zero);
-                foreach (float y in new[] { 0.12f, 0.73f })
-                    MeshKit.Part(transform, "Hoop", MeshKit.Cylinder(0.315f, 0.315f, 0.04f, 10), Mat.Steel, new Vector3(0f, y, 0f));
-                MeshKit.Part(transform, "Hoop", MeshKit.Cylinder(0.355f, 0.355f, 0.04f, 10), Mat.Steel, new Vector3(0f, 0.42f, 0f));
+                // A plain wine cask (no red band: that is the powder barrel): coopered staves, three riveted hoops, a planked lid
+                // (2026-11-13 asset pass), merged so the detail costs a renderer or two.
+                World.Props.StavedBarrel((mesh, mat, pos, yaw) => MeshKit.Part(transform, "Cask", mesh, mat, pos, new Vector3(0f, yaw, 0f)),
+                    0.85f, 0.27f, 0.35f, new[] { 0.14f, 0.5f, 0.86f }, (int)NetworkObjectId);
+                MeshKit.MergeParts(transform);
                 return;
             }
             if (Type.Value == Kind.BoneHeap)

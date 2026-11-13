@@ -113,7 +113,7 @@ namespace Deepbound.Loot
                 case Relic.BerserkersBrand: return "+40% damage while below half health.";
                 case Relic.BoneWard: return "Blocks one hit completely every 12 seconds (sooner per tier).";
                 case Relic.PhoenixFeather: return "Once per floor, rise again the moment you go down.";
-                case Relic.GildedSkull: return "+60% gold from everything you pick up (+30% more per tier).";
+                case Relic.GildedSkull: return "+25% gold from everything you pick up (+10% more per tier). Only the Bone Hoarder carries one.";
                 case Relic.FrostCharm: return "+5% critical chance, and your critical hits chill.";
                 case Relic.EchoStone: return "Ability cooldowns 20% shorter, and your ultimate charges 20% faster.";
                 case Relic.GhostLantern: return "+15% move speed, and dodge recovers twice as fast.";
@@ -174,6 +174,10 @@ namespace Deepbound.Loot
             }
         }
 
+        /// <summary>Never in a random roll: the Gilded Skull comes only from the Bone Hoarder (2026-11-13, the user: "put else where").</summary>
+        public static bool NotRandom(Relic r) => r == Relic.GildedSkull;
+        public const float HoarderSkullChance = 0.35f;
+
         /// <summary>A random relic; in a solo run never a party one.</summary>
         public static Relic Random()
         {
@@ -181,7 +185,7 @@ namespace Deepbound.Loot
             for (int i = 0; i < 20; i++)
             {
                 var r = (Relic)UnityEngine.Random.Range(0, Count);
-                if (!solo || !PartyOnly(r)) return r;
+                if ((!solo || !PartyOnly(r)) && !NotRandom(r)) return r;
             }
             return Relic.HeartOfTheDeep;
         }
@@ -193,7 +197,7 @@ namespace Deepbound.Loot
             for (int i = 0; i < 20; i++)
             {
                 var r = (Relic)rng.Next(Count);
-                if (!solo || !PartyOnly(r)) return r;
+                if ((!solo || !PartyOnly(r)) && !NotRandom(r)) return r;
             }
             return Relic.HeartOfTheDeep;
         }

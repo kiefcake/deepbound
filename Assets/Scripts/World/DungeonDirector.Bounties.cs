@@ -91,7 +91,7 @@ namespace Deepbound.World
         /// <summary>The relic a giver hands over for their special quest.</summary>
         public static Relic SignatureRelic(FolkId who) => who switch
         {
-            FolkId.Silas => Relic.GildedSkull,
+            FolkId.Silas => Relic.TallymansLedger,   // was the Gilded Skull (now the Bone Hoarder's alone)
             FolkId.Hobb => Relic.WhettedFang,
             FolkId.Aldric => Relic.IronPsalter,
             FolkId.Vey => Relic.LongShadow,

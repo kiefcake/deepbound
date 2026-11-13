@@ -93,21 +93,22 @@ namespace Deepbound.World
             var ink = red ? new Color32(176, 26, 30, 255) : new Color32(26, 22, 24, 255);
             var glyph = suit == 0 ? SpadeG : suit == 1 ? HeartG : suit == 2 ? DiamondG : ClubG;
             string rank = RankText(card);
-            // Rank and a small suit in the top-left corner, the same upside down in the bottom-right.
-            int tx = 3, ty = CH - 3;
-            foreach (char ch in rank) { Stamp(px, ox, oy, Font[ch], tx, ty, 1, ink, false); tx += rank.Length > 1 ? 5 : 6; }
-            Stamp(px, ox, oy, glyph, 3, CH - 12, 1, ink, false);
-            int bx = CW - 4;
-            foreach (char ch in rank) { Stamp(px, ox, oy, Font[ch], bx, 2, 1, ink, true); bx -= rank.Length > 1 ? 5 : 6; }
-            Stamp(px, ox, oy, glyph, CW - 4, 11, 1, ink, true);
-            // A big suit in the middle (pictures get a framed one).
-            int s = BlackjackTable.Rank(card) > 10 ? 2 : 3;
-            int w = 7 * s;
-            if (s == 2)
-                for (int y = 13; y < CH - 13; y++)
-                    for (int x = 9; x < CW - 9; x++)
-                        if (x == 9 || x == CW - 10 || y == 13 || y == CH - 14) px[(oy + y) * CW * Cols + ox + x] = ink;
-            Stamp(px, ox, oy, glyph, (CW - w) / 2, (CH + w) / 2, s, ink, false);
+            // JUMBO INDEX (2026-11-13, the user could not read the cards from the stool): the rank big across the top (three
+            // times the old corner glyph; "10" twice), the suit big beneath it, and a small suit in the top-left corner.
+            int rs = rank.Length > 1 ? 2 : 3, gap = rs, rw = rank.Length * 5 * rs + (rank.Length - 1) * gap;
+            int tx = (CW - rw) / 2 + 2, ty = CH - 5;
+            foreach (char ch in rank) { Stamp(px, ox, oy, Font[ch], tx, ty, rs, ink, false); tx += 5 * rs + gap; }
+            Stamp(px, ox, oy, glyph, 3, CH - 3, 1, ink, false);
+            int s = 3, w = 7 * s;
+            // Picture cards: a gold rule round the big suit.
+            if (BlackjackTable.Rank(card) > 10)
+            {
+                var gold = new Color32(190, 140, 50, 255);
+                for (int y = 4; y < 30; y++)
+                    for (int x = 7; x < CW - 7; x++)
+                        if (x == 7 || x == CW - 8 || y == 4 || y == 29) px[(oy + y) * CW * Cols + ox + x] = gold;
+            }
+            Stamp(px, ox, oy, glyph, (CW - w) / 2, 6 + w, s, ink, false);
         }
 
         /// <summary>Draws a glyph with its top-left at (x, y) (y counts up from the bottom), or rotated 180 degrees about that point.</summary>

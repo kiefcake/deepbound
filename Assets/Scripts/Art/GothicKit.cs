@@ -146,6 +146,87 @@ namespace Deepbound.Art
                     Paint(MeshKit.Part(b, "PatKnob", MeshKit.Ball(t * 0.72f, 7, 4), m, new Vector3(side * t * 0.5f, end * len * 0.5f, 0f), Vector3.zero, new Vector3(1f, 1f, 0.35f)), pat, false);
         }
 
+        /// <summary>A flat ellipse (+Z out), for wings, bodies and eyes.</summary>
+        private static GameObject FlatOval(Transform at, string name, Vector3 pos, Vector2 size, float roll, string mat)
+            => MeshKit.Part(at, name, MeshKit.Ball(0.5f, 10, 6), mat, pos, new Vector3(0f, 0f, roll), new Vector3(size.x, size.y, 0.1f * Mathf.Min(size.x, size.y) + 0.004f));
+
+        /// <summary>A death's-head moth: four wings with dark eye-spots, a furred body with a little skull on its back, antennae.</summary>
+        private static void FlatMoth(Transform at, float s, Progression.Cosmetics.Item pat)
+        {
+            string m = MotifMat(pat);
+            foreach (float side in new[] { -1f, 1f })
+            {
+                Paint(FlatOval(at, "PatWingUp", new Vector3(side * 0.42f * s, 0.16f * s, -0.004f), new Vector2(0.78f * s, 0.46f * s), side * -24f, m), pat, false);
+                Paint(FlatOval(at, "PatWingLow", new Vector3(side * 0.3f * s, -0.26f * s, -0.004f), new Vector2(0.48f * s, 0.34f * s), side * 30f, m), pat, false);
+                Paint(FlatOval(at, "PatSpot", new Vector3(side * 0.5f * s, 0.2f * s, 0.006f), new Vector2(0.17f * s, 0.17f * s), 0f, Mat.Dark), pat, true);
+                Paint(FlatOval(at, "PatSpotLow", new Vector3(side * 0.32f * s, -0.28f * s, 0.006f), new Vector2(0.1f * s, 0.1f * s), 0f, Mat.Dark), pat, true);
+                Paint(MeshKit.Part(at, "PatAntenna", MeshKit.Box(new Vector3(0.018f * s, 0.32f * s, 0.01f)), m, new Vector3(side * 0.08f * s, 0.5f * s, 0.004f), new Vector3(0f, 0f, side * -22f)), pat, false);
+            }
+            Paint(FlatOval(at, "PatBody", new Vector3(0f, -0.04f * s, 0.004f), new Vector2(0.17f * s, 0.78f * s), 0f, m), pat, false);
+            // The skull on its thorax, in the socket colour.
+            Paint(FlatOval(at, "PatMark", new Vector3(0f, 0.12f * s, 0.012f), new Vector2(0.12f * s, 0.12f * s), 0f, Mat.Dark), pat, true);
+            foreach (float side in new[] { -1f, 1f })
+                Paint(FlatOval(at, "PatMarkEye", new Vector3(side * 0.025f * s, 0.13f * s, 0.018f), new Vector2(0.03f * s, 0.035f * s), 0f, m), pat, false);
+            for (int i = 0; i < 3; i++)
+                Paint(MeshKit.Part(at, "PatStripe", MeshKit.Box(new Vector3(0.16f * s, 0.018f * s, 0.01f)), Mat.Dark, new Vector3(0f, (-0.12f - i * 0.1f) * s, 0.012f)), pat, true);
+        }
+
+        /// <summary>A raven, wings spread: body, head and beak, a fan of primaries each side, a tail fan, a red eye.</summary>
+        private static void FlatRaven(Transform at, float s, Progression.Cosmetics.Item pat)
+        {
+            string m = MotifMat(pat);
+            Paint(FlatOval(at, "PatBody", new Vector3(0f, -0.05f * s, 0f), new Vector2(0.26f * s, 0.58f * s), 0f, m), pat, false);
+            Paint(FlatOval(at, "PatHead", new Vector3(0f, 0.3f * s, 0f), new Vector2(0.2f * s, 0.2f * s), 0f, m), pat, false);
+            Paint(MeshKit.Part(at, "PatBeak", MeshKit.Box(new Vector3(0.06f * s, 0.16f * s, 0.01f)), m, new Vector3(0.09f * s, 0.27f * s, 0.002f), new Vector3(0f, 0f, 65f)), pat, false);
+            Paint(FlatOval(at, "PatEye", new Vector3(0.035f * s, 0.32f * s, 0.01f), new Vector2(0.04f * s, 0.04f * s), 0f, Mat.Dark), pat, true);
+            foreach (float side in new[] { -1f, 1f })
+                for (int f = 0; f < 6; f++)
+                {
+                    // Each primary longer than the last, fanned from the shoulder up and out.
+                    float ang = side * (-62f + f * 11f), len = (0.34f + f * 0.07f) * s;
+                    var dir = Quaternion.Euler(0f, 0f, ang) * Vector3.up;
+                    var root = new Vector3(side * 0.08f * s, 0.08f * s, -0.002f);
+                    Paint(MeshKit.Part(at, "PatFeather", MeshKit.Box(new Vector3(0.07f * s, len, 0.01f)), m, root + dir * len * 0.5f, new Vector3(0f, 0f, ang)), pat, false);
+                }
+            for (int f = -1; f <= 1; f++)
+                Paint(MeshKit.Part(at, "PatTail", MeshKit.Box(new Vector3(0.07f * s, 0.3f * s, 0.01f)), m, new Vector3(f * 0.06f * s, -0.42f * s, -0.002f), new Vector3(0f, 0f, f * 14f)), pat, false);
+        }
+
+        /// <summary>The watching eye: an almond, an iris and pupil, lashes, and rays all round.</summary>
+        private static void FlatEye(Transform at, float s, Progression.Cosmetics.Item pat)
+        {
+            string m = MotifMat(pat);
+            Paint(FlatOval(at, "PatAlmond", Vector3.zero, new Vector2(0.9f * s, 0.42f * s), 0f, m), pat, false);
+            Paint(FlatOval(at, "PatIris", new Vector3(0f, 0f, 0.008f), new Vector2(0.34f * s, 0.34f * s), 0f, Mat.Dark), pat, true);
+            Paint(FlatOval(at, "PatPupil", new Vector3(0f, 0f, 0.014f), new Vector2(0.08f * s, 0.24f * s), 0f, m), pat, false);
+            for (int i = 0; i < 12; i++)
+            {
+                float ang = i * 30f, len = (i % 2 == 0 ? 0.22f : 0.14f) * s;
+                var dir = Quaternion.Euler(0f, 0f, ang) * Vector3.up;
+                var p = new Vector3(dir.x * 0.6f * s, dir.y * 0.38f * s, -0.002f) + dir * len * 0.5f;
+                Paint(MeshKit.Part(at, "PatRay", MeshKit.Box(new Vector3(0.035f * s, len, 0.01f)), m, p, new Vector3(0f, 0f, ang)), pat, false);
+            }
+            for (int i = -2; i <= 2; i++)
+                Paint(MeshKit.Part(at, "PatLash", MeshKit.Box(new Vector3(0.02f * s, 0.09f * s, 0.01f)), Mat.Dark, new Vector3(i * 0.13f * s, 0.2f * s - Mathf.Abs(i) * 0.025f * s, 0.01f), new Vector3(0f, 0f, -i * 14f)), pat, true);
+        }
+
+        /// <summary>A skull under a crown of five points.</summary>
+        private static void FlatCrown(Transform at, float s, Progression.Cosmetics.Item pat)
+        {
+            string m = MotifMat(pat);
+            float y = 0.58f * s;
+            Paint(MeshKit.Part(at, "PatBand", MeshKit.Box(new Vector3(0.66f * s, 0.12f * s, 0.012f)), m, new Vector3(0f, y, 0.004f)), pat, false);
+            for (int i = -2; i <= 2; i++)
+            {
+                float h = (i == 0 ? 0.26f : Mathf.Abs(i) == 1 ? 0.2f : 0.16f) * s;
+                Paint(MeshKit.Part(at, "PatPoint", MeshKit.Box(new Vector3(0.09f * s, h, 0.012f)), m, new Vector3(i * 0.15f * s, y + 0.06f * s + h * 0.5f, 0.004f)), pat, false);
+                Paint(FlatOval(at, "PatJewel", new Vector3(i * 0.15f * s, y + 0.07f * s + h, 0.008f), new Vector2(0.07f * s, 0.07f * s), 0f, m), pat, false);
+            }
+            for (int i = -1; i <= 1; i++)
+                Paint(FlatOval(at, "PatGem", new Vector3(i * 0.2f * s, y, 0.012f), new Vector2(0.06f * s, 0.06f * s), 0f, Mat.Dark), pat, true);
+            FlatSkull(at, s, pat);
+        }
+
         private static void SewPattern(Transform hang, Vector3 drop, float top, float length, float flare, Progression.Cosmetics.Item pat)
         {
             float bottom = top - length;
@@ -203,6 +284,30 @@ namespace Deepbound.Art
                     var pelvis = OnCloak(hang, drop, spineEnd - 0.03f, 0f, top, length, flare, "PatternPelvis");
                     foreach (float side in new[] { -1f, 1f })
                         Paint(MeshKit.Part(pelvis, "PatHip", MeshKit.Ball(0.06f, 8, 5), MotifMat(pat), new Vector3(side * 0.055f, 0f, 0f), Vector3.zero, new Vector3(1f, 0.7f, 0.2f)), pat, false);
+                    break;
+                }
+                case Progression.Cosmetics.Motif.Moth:
+                {
+                    float s = Mathf.Clamp(length * 0.34f, 0.26f, 0.38f);
+                    FlatMoth(OnCloak(hang, drop, top - 0.22f - s * 0.5f, 0f, top, length, flare, "PatternMoth"), s, pat);
+                    break;
+                }
+                case Progression.Cosmetics.Motif.Raven:
+                {
+                    float s = Mathf.Clamp(length * 0.34f, 0.26f, 0.38f);
+                    FlatRaven(OnCloak(hang, drop, top - 0.2f - s * 0.55f, 0f, top, length, flare, "PatternRaven"), s, pat);
+                    break;
+                }
+                case Progression.Cosmetics.Motif.Eye:
+                {
+                    float s = Mathf.Clamp(length * 0.3f, 0.24f, 0.34f);
+                    FlatEye(OnCloak(hang, drop, top - 0.2f - s * 0.6f, 0f, top, length, flare, "PatternEye"), s, pat);
+                    break;
+                }
+                case Progression.Cosmetics.Motif.CrownedSkull:
+                {
+                    float s = Mathf.Clamp(length * 0.26f, 0.2f, 0.3f);
+                    FlatCrown(OnCloak(hang, drop, top - 0.3f - s * 0.6f, 0f, top, length, flare, "PatternCrown"), s, pat);
                     break;
                 }
                 case Progression.Cosmetics.Motif.SkullHem:

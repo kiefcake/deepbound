@@ -39,6 +39,10 @@ namespace Deepbound.UI
 
         /// <summary>Large overview on or off (M; the screenshot run also sets it).</summary>
         public bool Large { get => large; set => large = value; }
+        /// <summary>The local map is open full size (world name tags stay off it: 2026-11-13 shots showed them over the map).</summary>
+        public static bool LargeOpen { get; private set; }
+        private void LateUpdate() { if (player != null && player.IsOwner) LargeOpen = large; }
+        private void OnDestroy() { if (player != null && player.IsOwner) LargeOpen = false; }
 
         public void Init(NetworkPlayer owner) => player = owner;
 
@@ -130,7 +134,7 @@ namespace Deepbound.UI
             AfflictionOverlay.PaintOnce();
             if (GameHud.Cinematic) return;
             UiSkin.Apply();
-            if (player == null || CharacterSelect.Open || PauseMenu.Open) return;
+            if (player == null || CharacterSelect.Open || PauseMenu.Open || GameHud.SeatedGame) return;
             if (DungeonDirector.InLobby)
             {
                 if (large || Settings.ShowMinimap) DrawCamp();
@@ -422,6 +426,7 @@ namespace Deepbound.UI
             new CampPlace(Lobby.GongSpot, "Gong", new Color(0.9f, 0.75f, 0.35f)),
             new CampPlace(Lobby.YardSpot, "Training yard", new Color(0.75f, 0.65f, 0.45f)),
             new CampPlace(Lobby.KnifeSpot, "Knife board", new Color(0.75f, 0.65f, 0.45f)),
+            new CampPlace(Lobby.WrestleSpot, "Arm wrestling", new Color(0.85f, 0.6f, 0.4f)),
             new CampPlace(Lobby.WellSpot, "Well", MapIcons.Id.Fountain, new Color(0.45f, 0.78f, 1f)),
             new CampPlace(Lobby.FirePit, "Campfire", new Color(1f, 0.55f, 0.2f)),
             new CampPlace(Lobby.TavernCenter, "Tavern", new Color(1f, 0.75f, 0.4f)),
@@ -586,8 +591,12 @@ namespace Deepbound.UI
             float y = panel.y + 14f;
             GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 24f), "CASTLE RAVENHOLD", new GUIStyle(UiSkin.Heading) { fontSize = 20 });
             y += 26f;
-            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 40f), "The camp. Board Corwin's carriage at the gate to go down.", new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Italic, wordWrap = true });
-            y += 46f;
+            // Measured (2026-11-13 shot: three lines ran into the first legend row).
+            var blurb = new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Italic, wordWrap = true };
+            const string about = "The camp. Board Corwin's carriage at the gate to go down.";
+            float bh = blurb.CalcHeight(new GUIContent(about), panel.width - 28f);
+            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, bh), about, blurb);
+            y += bh + 8f;
             var entries = new (bool hasIcon, MapIcons.Id icon, Color col, string text)[]
             {
                 (true, MapIcons.Id.Exit, new Color(0.78f, 0.58f, 1f), "Carriage (Corwin)"),
@@ -599,6 +608,7 @@ namespace Deepbound.UI
                 (true, MapIcons.Id.Altar, new Color(0.85f, 0.4f, 0.4f), "Omen stone"),
                 (true, MapIcons.Id.Fountain, new Color(0.45f, 0.78f, 1f), "Well (fishing)"),
                 (false, MapIcons.Id.Ping, new Color(0.75f, 0.65f, 0.45f), "Yard, range, knife board"),
+                (false, MapIcons.Id.Ping, new Color(0.85f, 0.6f, 0.4f), "Arm wrestling (Big Gorm)"),
                 (false, MapIcons.Id.Ping, new Color(0.55f, 0.95f, 0.55f), "Townsfolk, where they are now"),
             };
             foreach (var (hasIcon, icon, col, text) in entries)

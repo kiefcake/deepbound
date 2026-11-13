@@ -96,7 +96,7 @@ namespace Deepbound.World
             useGUILayout = false;
             if (current == null || Time.time > until) return;
             var cam = ViewCamera.Current;
-            if (cam == null || NetworkPlayer.Local == null || PauseMenu.Open || GameHud.MenuOpen || GameHud.PanelShowing) return;
+            if (cam == null || NetworkPlayer.Local == null || PauseMenu.Open || GameHud.MenuOpen || GameHud.PanelShowing || Minimap.LargeOpen) return;
             float dist = Vector3.Distance(cam.transform.position, Head);
             if (dist > 12f) return;
             UiSkin.Apply();

@@ -18,8 +18,8 @@ namespace Deepbound.UI
         public static readonly string[] Keys =
         {
             "rift", "shieldcharge", "blink", "repulse", "breach", "bargain", "cellar", "jam", "choke",
-            "flamevents", "edges", "relictray", "hone", "corwin", "chat", "purse", "falloff", "entling", "rare", "necro", "hiddenplates", "gravewarden", "silenced",
-            "camp", "quests", "tavern", "emotewheel", "lore", "potions", "gamble2", "cat", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "tell", "bleed", "soul", "warden", "ult", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "mimic", "hoarder", "wheel", "bones", "tide", "lantern", "bell", "drills", "runewright", "altar", "library", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "highground", "orbweaver", "piper", "graze", "tallyman", "oath", "patrol", "acolyte", "abysseye", "lightless", "shelter", "cantor", "champtrait", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound", "casino3", "poker", "questfloor", "oil", "chandelier", "pillar", "vigil", "prisoner", "watchers", "chimes", "fishing", "knives", "bells", "wrestle", "mirrors", "scales", "counter", "draught", "eruption", "spikes",
+            "flamevents", "edges", "relictray", "hone", "purse", "falloff", "entling", "rare", "necro", "hiddenplates", "gravewarden", "silenced",
+            "camp", "quests", "tavern", "emotewheel", "potions", "gamble2", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "bleed", "soul", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "hoarder", "bones", "tide", "lantern", "bell", "altar", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "orbweaver", "piper", "graze", "tallyman", "oath", "acolyte", "abysseye", "lightless", "shelter", "cantor", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound", "casino3", "poker", "questfloor", "oil", "chandelier", "pillar", "vigil", "prisoner", "watchers", "chimes", "fishing", "knives", "bells", "wrestle", "mirrors", "scales", "counter", "draught", "eruption", "spikes",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -60,29 +60,23 @@ namespace Deepbound.UI
                     if (it is ArmWrestle) Offer("wrestle", "ARM-WRESTLE BIG GORM by the tavern: HOLD SPACE to strain, but it drains your grip - empty it and you cramp. Rest while he leans; when he gathers himself (!) brace, and when he tires, drive. Pin him for double (three times a visit). C challenges another delver: the winner takes both stakes.");
                     if (it is BellFrame) Offer("bells", "THE BELLS: take a rope (F) and ask Aldric for a peal (SPACE). Ring 1-4 as each strike reaches the line - share the ropes with friends. A clean peal blesses everyone who rang for the next floor.");
                     if (it is KnifeBoard) Offer("knives", "THE KNIFE BOARD: F at the chalk line, then F again to throw when the swinging mark is on the bull. Three knives a round; Brann pays once a visit for 24 or better.");
-                    if (it is CampCat) Offer("cat", "The castle cat. F pets it (sometimes it has found something for you). Shift+F picks it up... ask it first.");
                 }
-                Offer("camp", "CAMP: look at someone and press F to TALK - trade, work, news. Silas sells potions and charms, Hobb tempers at his anvil (F there) and sells armour, Ysolde ranks abilities and sets runes, Brother Aldric keeps the shrine, Vey the wardrobe, Marta the mead. They trade wherever they are, even on an errand. When ready, sit on the back of Corwin's carriage (F).");
-                Offer("quests", "QUESTS: ask the camp folk \"Got any work?\" or take a notice on the quest board - the same jobs. Up to three at once for the whole party; each pays gold and embers and wins that person's favour (cheaper prices, more to say). At favour 2 they offer a SPECIAL quest with their own relic.");
+                Offer("camp", "CAMP: look at anyone and press F to talk and trade. M shows who is where. To go down, sit on Corwin's carriage (F).");
+                Offer("quests", "QUESTS: ask the camp folk for work or take a notice from the board (three at once). Each one done wins that person's favour: better prices, and later a special job.");
                 var prog = player.GetComponent<Progression.PlayerProgress>();
                 if (prog != null && prog.OpenEdgeSlot >= 0) Offer("edges", "AN EDGE: your weapon has reached +" + Progression.Edges.Levels[prog.OpenEdgeSlot] + ". At the anvil (F) forge one of three edges into it - each makes it better at a different way of fighting. Tempering waits until you choose.");
                 if (prog != null && prog.RelicCount >= Loot.Relics.MaxCarried) Offer("relictray", "YOUR RELIC TRAY IS FULL (8). New relics now EMPOWER one you carry (II, III) instead of adding another.");
                 if (prog != null && prog.WeaponLevel.Value >= Anvil.MaxLevel && prog.Hones.Value == 0) Offer("hone", "FULLY TEMPERED. Hobb can still HONE the blade at the anvil: five times, +3% damage each, for embers and gold.");
-                if (Vector3.Distance(me, Lobby.YardSpot) < 6f) Offer("drills", "SERGEANT BRANN drills you for gold (F): a stat for the run. Each drill costs more than the last.");
-                if (Vector3.Distance(me, Lobby.RunewrightSpot) < 6f) Offer("runewright", "YSOLDE'S STONES (F): set runes, rank abilities with Sigils, and MELD three of the same rune into a stronger one.");
-                if (Vector3.Distance(me, Lobby.CarriageStall) < 6f) Offer("corwin", "CORWIN knows the way down: a SCOUT'S MAP charts the next floor; SMELLING SALTS get you up on your own once.");
                 if (PlayerLife.All.Count > 1 && PlayerVoice.MicAvailable && Settings.VoiceMode != 2)
                     Offer("voice", "PROXIMITY VOICE is on: players near you hear you, muffled through walls. SHOUTING wakes the dead nearby. Options has push-to-talk (T).");
                 if (PlayerLife.All.Count > 1) Offer("pingwheel", "GIVING: look at an ally up close and HOLD G: potions, 25 gold, 10 embers, your rare draught, or a high five. Hold on gold or embers to keep giving.");
                 if (PlayerLife.All.Count > 1) Offer("emotewheel", "EMOTES: tap H to wave (two players waving together HIGH FIVE). HOLD H for the emote wheel: cheer, bow, laugh, dance, point, beckon, sit.");
-                if (PlayerLife.All.Count > 1) Offer("chat", "TEXT CHAT: press Enter to type to your party, Enter to send.");
                 if (PlayerLife.All.Count > 1) Offer("purse", "PARTY LOOT is shared by default: gold and embers anyone picks up are split evenly. In the inventory (I) you can give gold, even out the purse, or ctrl-click a piece to hand it to the nearest ally.");
                 return;
             }
             var layout = DungeonDirector.Layout;
             if (layout == null) return;
 
-            var ult = player.GetComponent<Ultimates>();
             foreach (var pl in PlayerLife.All)
             {
                 if (pl == null || pl.gameObject == player.gameObject) continue;
@@ -95,7 +89,7 @@ namespace Deepbound.UI
             {
                 if (b == null || Vector3.Distance(b.transform.position, me) > 9f) continue;
                 if (b.Type.Value == Breakable.Kind.OilJar || b.Type.Value == Breakable.Kind.FireBowl)
-                    Offer("oil", "OIL JARS spill a slick when broken. Any fire lights it - a fire spell, a scorch, a powder barrel, a burning hand torch, or the FIRE BOWL knocked over (it tips away from your blow). Everything in it burns: lure the dead in, and stay out yourself.");
+                    Offer("oil", "OIL JARS spill a slick; any fire lights it (spells, a torch, a knocked-over FIRE BOWL). Lure the dead in, stay out yourself.");
                 if (b.Type.Value == Breakable.Kind.CrackedPillar)
                     Offer("pillar", "A CRACKED PILLAR: break it and it falls AWAY from your last blow, crushing whatever stands in that lane (the warning lane shows it). The rubble stays: cover from shots.");
             }
@@ -112,8 +106,7 @@ namespace Deepbound.UI
             if (questDir != null)
                 foreach (var q in questDir.Quests)
                     if (q.Status == DungeonDirector.ContractStatus.Active && (q.Contract == Contract.Cargo || q.Contract == Contract.Gather || q.Contract == Contract.Mark))
-                    { Offer("questfloor", "QUEST ON THIS FLOOR: cargo glows with a column of light - carry it (F) OUT: into the guardian's arena (left outside, it is lost), through the fight (it cannot be set down there) and up on the grave lift. Fragile cargo cracks when a hit knocks it loose. Finds glow and whisper in separate rooms; whoever holds one must ride the lift out - go down and you drop it. A named MARK walks the floor: hunt it before you take the lift."); break; }
-            if (DungeonDirector.IsWardenFloor(layout.Depth)) Offer("warden", "Each act's first floor ends at a WARDEN, the second at the act's master. Ten floors in all; the Unsung waits at the bottom.");
+                    { Offer("questfloor", "QUEST ON THIS FLOOR: cargo (a light column) must be CARRIED into the guardian's arena and up the lift; finds must be held when the lift rises; a named MARK must die first."); break; }
             var myKit = player.ActiveKit;
             if (myKit != null && myKit.AttackRange > 6f) Offer("falloff", "RANGED shots lose bite past half their range (60% at the very end), and arrows and knives DROP: aim a little high at distance.");
             if (EnemyBrain.All.Any(e => e is EntlingBrain && !e.IsDead && Vector3.Distance(e.transform.position, me) < 16f))
@@ -122,7 +115,7 @@ namespace Deepbound.UI
                 Offer("soulbound", "SOULBOUND TWINS, joined by a pale thread: strike one down and it only falls - it gets up again unless its twin dies within a few seconds. " + (party ? "Split up: one each, and finish them together." : "Bring one low, then the other, and finish them back to back."));
             var relic = Reliquary.Current;
             if (relic != null && !relic.Carried && Vector3.Distance(relic.transform.position, me) < 10f)
-                Offer("reliquary", "A RELIQUARY. Carry it (F) to the waystone in the start room: it raises the fallen, pays everyone, and HALLOWS the floor (its boss wakes weakened). Its hymn heals whoever walks beside the carrier. The carrier is slow and cannot fight, its hymn draws the dead, and every hit cracks it.");
+                Offer("reliquary", "A RELIQUARY: carry it (F) to the start room's waystone to raise the fallen, pay everyone and weaken the guardian. Its carrier is slow, cannot fight, and draws the dead.");
             var progT = player.GetComponent<Progression.PlayerProgress>();
             if (progT != null && progT.BagCount > 0)
                 Offer("inventory", "Gear you pick up goes straight on if that slot is empty, otherwise into your PACK. Press I for the inventory: click a piece to wear it, shift-click to drop. Scrap spares at Hobb's anvil.");
@@ -134,18 +127,14 @@ namespace Deepbound.UI
             {
                 var pouch = player.GetComponent<Flasks>();
                 if (pouch != null && pouch.Count(Flasks.Kind.Health) > 0)
-                    Offer("potions", "You do not heal on your own down here. Press 1 to drink a Health Potion (your pouch holds 5); the dead drop more, and Silas sells them at camp.");
+                    Offer("potions", "Hurt? 1 drinks a Health Potion (5 in the pouch). VIT mends you slowly; potions are what save a fight.");
             }
-            foreach (var it in Interactable.All)
-                if (it is LorePage && Vector3.Distance(it.transform.position, me) < 8f)
-                    Offer("lore", "A JOURNAL PAGE on a lectern. Press F to read it; every page you find is kept in your Journal (Esc > Guide), run after run.");
-            if (ult != null && ult.Ready) Offer("ult", "Your ULTIMATE is charged: press R.");
             var rarePouch = player.GetComponent<Flasks>();
             if (rarePouch != null && rarePouch.RareHeld != Progression.RareItem.None)
                 Offer("rare", "A RARE " + (Progression.RareItems.IsTome(rarePouch.RareHeld) ? "TOME" : "DRAUGHT") + " sits in your pouch's fifth slot: press 5 to use it. " + Progression.RareItems.Describe(rarePouch.RareHeld) + " You carry one at a time; save it for the moment that matters.");
 
             if (PlayerLife.All.Count > 1 && !DungeonDirector.InLobby)
-                Offer("teamwork", "Fighting together: strike an enemy from the OPPOSITE side to an ally for a PINCER (+15%); helping on a kill is an ASSIST (ultimate charge). Last one standing? LAST STAND: you hit harder - get them up for a CLUTCH.");
+                Offer("teamwork", "TOGETHER: hit a foe from the side opposite an ally for a PINCER (+15%). Last one standing hits harder.");
             var knight = player.GetComponent<KnightKit>();
             if (knight != null && knight.ShieldRaised && PlayerLife.All.Count > 1)
                 Offer("shelter", "Your shield is up: allies standing close BEHIND you are SHELTERED, taking half from blows at your shield. Hold the line for them.");
@@ -164,9 +153,7 @@ namespace Deepbound.UI
                 if (d > 14f) continue;
                 var b = h.GetComponent<EnemyBrain>();
                 if (b == null) continue; // a rift: a body with no brain
-                if (d < 9f && b != null && (b.Status.Value & 4) != 0) Offer("tell", "A red ! over an enemy means it is about to strike. Dodge (Ctrl), block, or step out of reach.");
                 if (b is BossBrain bb && bb.Immune) Offer("phases", "The boss is IMMUNE for now. A WARDED boss stays immune until its guards die; SURVIVE means dodge until the timer runs out. The boss bar says which.");
-                if (b != null && b.PatrolSynced) Offer("patrol", "A PATROL: a band of the dead led by an elite, marching between rooms. A cleared room is not always safe - listen for bones on the move.");
                 if (b is AbyssEyeBrain) Offer("abysseye", "An ABYSSAL EYE: when it locks on, a violet line runs along the floor toward you - step off it before the beam fires. Shoot the iris.");
                 if (b is ChoirAcolyteBrain) Offer("acolyte", "A CHOIR ACOLYTE: when its golden circle fills, every one of the dead inside is SHIELDED. Stun it or hit it hard while it sings to break the hymn - or kill it first.");
                 if (b is BossBrain staggered && staggered.Stagger.Value > 0.2f) Offer("stagger", "The gold line under the boss bar is its BREAK meter: weak points, headshots, stuns and kicks fill it. Full, the boss is BROKEN for a few seconds - it stops and takes half again. Save your big hits for it.");
@@ -174,7 +161,6 @@ namespace Deepbound.UI
                 if (b is UnsungBrain) Offer("eclipse", "THE UNSUNG sings ECHOES of the guardians you slew - their attacks, in their colours. At the very end, when POOLS OF DAWN open, stand in the light: the ECLIPSE strikes everyone outside one.");
                 if (b is NecromancerBrain) Offer("necro", "A NECROMANCER mends every one of the dead near it (green rings) and raises more. Kill it first, or stun it while its circle glows to break the spell.");
                 if (b is HollowKingBrain hk && hk.DecreesFallen > 0) Offer("decree", "The Hollow King's DECREES: BE STILL - whoever is still moving when it falls is struck (you can still swing and turn). BEGONE - whoever he can see is struck: put a pillar between you.");
-                if (b.IsChampion) Offer("champtrait", "A CHAMPION's epithet is how it fights: the feed says what it does as it stirs (the Pale frostbites, Ashenhand burns, the Unburied gets up once...). Read the name, then pick the fight.");
                 if (b is CantorBrain) Offer("cantor", "A TONGUELESS CANTOR: when its pale circle closes under you, you are SILENCED - no Q, E or ultimate for a few seconds. Step out of the circle, stun it mid-cast, or lift it with Holy Water. It is frail: reach it.");
                 if (b is BonePiperBrain) Offer("piper", "A BONE PIPER: each tune is a pattern - a ROSE that blooms, SCISSORS that sweep, SEEDPODS that burst where they land, a MARCH of walls with a gap. Its name floats up as it starts. It stands still to play: hit the glowing bag.");
                 if (b is BonePiperBrain || b is OrbweaverBrain) Offer("graze", "GRAZE: a shot that slips past you close without touching you counts toward a streak. Weave through patterns, do not just run from them.");
@@ -183,10 +169,9 @@ namespace Deepbound.UI
                 if (b is GravewardenBrain) Offer("gravewarden", "THE GRAVEWARDEN: its shield blocks from the front. Hit it right after each Mace Sweep (OPENING), from behind, or while it is dazed from charging into stone.");
                 if (b is ShieldbearerBrain sb && sb.ShieldUp) Offer("shield", "SHIELDBEARER: its shield blocks from the front. KICK it (V) or Shield Bash to knock the shield aside, or get behind it.");
                 else if (b is GargoyleBrain g && g.Woken.Value) Offer("gargoyle", "GARGOYLE: it dives along a marked line, then lands exposed. Sidestep, then punish.");
-                else if (b is HoarderBrain) Offer("hoarder", "BONE HOARDER: it runs with a sack of gold. Every hit spills coins; hit the sack for more. It escapes in 25 s.");
-                else if (b is MimicBrain) Offer("mimic", "MIMIC! Kill it for a chest's worth of loot - and watch for lids that breathe.");
+                else if (b is HoarderBrain) Offer("hoarder", "BONE HOARDER: it runs with a sack of gold. Every hit spills coins; hit the sack for more. It escapes in 25 s - and the GILDED SKULL is found nowhere but in its sack.");
                 if (d < 10f && h.GetComponentInChildren<WeakPoint>() != null)
-                    Offer("weak", "That GLOWING SPOT is a weak point: strike it and it BURSTS for big damage and a small blast (once every second or so). Beasts go ENRAGED when it bursts - faster, but they take more. Headshots deal extra too.");
+                    Offer("weak", "GLOWING SPOTS are weak points: hit one for a burst of damage. Headshots hit harder too.");
             }
 
             if (World.Tallyman.Active != null && !World.Tallyman.Active.Leaving.Value)
@@ -214,16 +199,12 @@ namespace Deepbound.UI
                 if (room.Feature == RoomFeature.Chimes) Offer("chimes", "THE CHIME ROOM: listen - the bells ring a tune. Step on the coloured plates in the same order. A wrong plate wakes the dead and the tune starts over; F at the coffer rings it again.");
                 if (room.Feature == RoomFeature.Oath) Offer("oath", "THE OATH ROOM: two plates must be held down at once. Stand on one each - or, alone, carry the Oath Stone (F) onto one and stand on the other.");
                 if (room.Feature == RoomFeature.Mirror) Offer("mirror", "THE DARK MIRROR: a relic and gold for whoever touches it... and it keeps a fifth of their health until camp.");
-                if (room.Feature == RoomFeature.Terrace || room.Feature == RoomFeature.Ziggurat) Offer("highground", "HIGH GROUND: take the ramps up. Archers up top see everything - and anything you knock off the edge has a long way to fall.");
-                if (room.Feature == RoomFeature.Library) Offer("library", "LIBRARY: the shelves block sight both ways. Archers lose you behind them - and the dead can wait round any corner.");
                 if (room.Feature == RoomFeature.Pyre) Offer("pyre", "PYRE HALL: the fire erupts on a beat. When the red ring fills, get out past it - and leave the dead inside.");
                 if (room.Feature == RoomFeature.Gauntlet) Offer("gauntlet", "SPIKE GAUNTLET: a wave of spikes runs down the hall. Rows glow before they fire: step between them, and let the dead walk in. A row that catches you PINS you for a moment.");
                 if (room.Feature == RoomFeature.Cistern) Offer("cistern", "CISTERN: the water slows everyone - but frost freezes anything standing in it.");
             }
-            if (Object.FindObjectsByType<FateWheel>(FindObjectsSortMode.None).Any(w => !w.Spun.Value && Vector3.Distance(w.transform.position, me) < 9f))
-                Offer("wheel", "WHEEL OF FATE: one spin for the whole party, sixteen fates. It usually gives... usually.");
-                if (Object.FindObjectsByType<BloodAltar>(FindObjectsSortMode.None).Any(b => !b.Spent.Value && Vector3.Distance(b.transform.position, me) < 9f))
-                    Offer("altar", "BLOOD ALTAR: three offerings fill the chalice (F, a fifth of your health each). Bleed together: a relic for each who bled, Bloodlust for all.");
+            if (Object.FindObjectsByType<BloodAltar>(FindObjectsSortMode.None).Any(b => !b.Spent.Value && Vector3.Distance(b.transform.position, me) < 9f))
+                Offer("altar", "BLOOD ALTAR: three offerings fill the chalice (F, a fifth of your health each). Bleed together: a relic for each who bled, Bloodlust for all.");
             int act = DungeonDirector.Act(layout.Depth);
             if (act == 0) Offer("bones", "THE OSSUARY: fallen skeletons pull themselves together. Walk over a bone pile to stamp it out.");
             if (act == 1) Offer("tide", "THE DROWNED VAULTS: when the water thickens it halves your speed (the dead barely slow). Get onto stairs, balconies or stones.");
@@ -271,16 +252,24 @@ namespace Deepbound.UI
             }
             float t = Time.time - shownAt;
             float a = Mathf.Clamp01(t * 4f) * Mathf.Clamp01((Duration - t) * 2f);
-            float pw = Mathf.Min(620f, w - 40f);
-            var style = new GUIStyle(UiSkin.Body) { fontSize = 15, wordWrap = true, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.95f, 0.92f, 0.85f, a) } };
-            float ph = style.CalcHeight(new GUIContent(current), pw - 40f) + 34f;
+            // 2026-11-13, the user: "make the popup more see through". A light veil instead of a solid panel (the world shows
+            // through it); the words carry a shadow so they still read over a bright room.
+            float pw = Mathf.Min(560f, w - 40f);
+            string text = Binds.Rekey(current);
+            var style = new GUIStyle(UiSkin.Body) { fontSize = 14, wordWrap = true, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.97f, 0.94f, 0.87f, a) } };
+            var shadowStyle = new GUIStyle(style) { normal = { textColor = new Color(0f, 0f, 0f, 0.85f * a) } };
+            float ph = style.CalcHeight(new GUIContent(text), pw - 40f) + 28f;
             // Below the floor banner, the boss bar and the rage meter (at 104 it sat on top of them).
             var r = new Rect(w / 2f - pw / 2f, 176f, pw, ph);
             BottomEdge = r.yMax;
             bottomSetAt = Time.frameCount;
-            UiSkin.Panel(r, 0.85f * a);
-            GUI.Label(new Rect(r.x + 20, r.y + 6, pw - 40, 18), "TIP", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, a) } });
-            GUI.Label(new Rect(r.x + 20, r.y + 24, pw - 40, ph - 30), Binds.Rekey(current), style);
+            UiSkin.Rect(r, new Color(0.03f, 0.025f, 0.02f, 0.38f * a));
+            UiSkin.Rect(new Rect(r.x, r.y, r.width, 1f), new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, 0.55f * a));
+            UiSkin.Rect(new Rect(r.x, r.yMax - 1f, r.width, 1f), new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, 0.25f * a));
+            GUI.Label(new Rect(r.x + 20, r.y + 4, pw - 40, 16), "TIP", new GUIStyle(UiSkin.Small) { fontSize = 11, alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, 0.9f * a) } });
+            var body = new Rect(r.x + 20, r.y + 20, pw - 40, ph - 24);
+            GUI.Label(new Rect(body.x + 1.5f, body.y + 1.5f, body.width, body.height), text, shadowStyle);
+            GUI.Label(body, text, style);
         }
     }
 }

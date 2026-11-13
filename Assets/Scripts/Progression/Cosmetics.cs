@@ -50,6 +50,14 @@ namespace Deepbound.Progression
             new Item { Name = "Frost Blue", Cloak = new Color(0.45f, 0.72f, 1f), Trim = new Color(0.95f, 0.97f, 1f), Cost = 140, NeedsBoss = -1 },
             new Item { Name = "Grave Rose", Cloak = new Color(0.92f, 0.42f, 0.6f), Trim = new Color(0.98f, 0.95f, 0.88f), Cost = 140, NeedsBoss = -1 },
             new Item { Name = "Candle Yellow", Cloak = new Color(1f, 0.84f, 0.3f), Trim = new Color(0.45f, 0.12f, 0.08f), Cost = 160, NeedsBoss = -1 },
+            // 2026-11-13, the user: "please also work on cosmetics, there needs to be more".
+            new Item { Name = "Moss and Iron", Cloak = new Color(0.3f, 0.42f, 0.22f), Trim = new Color(0.62f, 0.64f, 0.68f), Cost = 120, NeedsBoss = -1 },
+            new Item { Name = "Gravedust", Cloak = new Color(0.62f, 0.55f, 0.44f), Trim = new Color(0.3f, 0.22f, 0.16f), Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Wine Dark", Cloak = new Color(0.42f, 0.06f, 0.18f), Trim = new Color(0.95f, 0.8f, 0.55f), Cost = 140, NeedsBoss = -1 },
+            new Item { Name = "Penitent Sackcloth", Cloak = new Color(0.66f, 0.56f, 0.4f), Trim = new Color(0.55f, 0.08f, 0.06f), Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Witchlight", Cloak = new Color(0.18f, 0.7f, 0.4f), Trim = new Color(0.75f, 0.3f, 0.95f), Cost = 180, NeedsBoss = 1 },
+            new Item { Name = "Black and Gold", Cloak = new Color(0.1f, 0.09f, 0.08f), Trim = new Color(1f, 0.8f, 0.3f), Cost = 260, NeedsBoss = 2 },
+            new Item { Name = "Dawnshroud", Cloak = new Color(1f, 0.9f, 0.72f), Trim = new Color(0.95f, 0.55f, 0.2f), Cost = 360, NeedsBoss = 4 },
         };
 
         /// <summary>Motes that drift up around you. Index 0 is none. Append only.</summary>
@@ -61,6 +69,12 @@ namespace Deepbound.Progression
             new Item { Name = "Frostbreath", Cloak = new Color(0.6f, 0.9f, 1f), Cost = 140, NeedsBoss = 1 },
             new Item { Name = "Hollow Starlight", Cloak = new Color(0.75f, 0.65f, 1f), Cost = 200, NeedsBoss = 2 },
             new Item { Name = "Last Rites", Cloak = new Color(1f, 0.86f, 0.45f), Cost = 280, NeedsBoss = 3 },
+            new Item { Name = "Ashfall", Cloak = new Color(0.72f, 0.7f, 0.68f), Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Blood Moon", Cloak = new Color(1f, 0.15f, 0.12f), Cost = 140, NeedsBoss = -1 },
+            new Item { Name = "Moth Dust", Cloak = new Color(0.95f, 0.85f, 0.6f), Cost = 120, NeedsBoss = -1 },
+            new Item { Name = "Witch Fire", Cloak = new Color(0.35f, 1f, 0.75f), Cost = 180, NeedsBoss = 0 },
+            new Item { Name = "Void Motes", Cloak = new Color(0.55f, 0.25f, 1f), Cost = 240, NeedsBoss = 2 },
+            new Item { Name = "The Unsung's Dawn", Cloak = new Color(1f, 0.95f, 0.75f), Cost = 400, NeedsBoss = 4 },
         };
 
         /// <summary>
@@ -85,6 +99,11 @@ namespace Deepbound.Progression
             new Item { Name = "Cathedral Purple", Cloak = new Color(0.55f, 0.24f, 0.95f), Cost = 300, NeedsBoss = 3 },
             new Item { Name = "Bone", Cloak = new Color(0.93f, 0.89f, 0.76f), Cost = 100, NeedsBoss = -1 },
             new Item { Name = "Lime", Cloak = new Color(0.62f, 0.92f, 0.2f), Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Rust", Cloak = new Color(0.72f, 0.32f, 0.14f), Cost = 60, NeedsBoss = -1 },
+            new Item { Name = "Slate Blue", Cloak = new Color(0.36f, 0.46f, 0.62f), Cost = 60, NeedsBoss = -1 },
+            new Item { Name = "Bruise", Cloak = new Color(0.4f, 0.2f, 0.45f), Cost = 80, NeedsBoss = -1 },
+            new Item { Name = "Witch Green", Cloak = new Color(0.3f, 0.95f, 0.55f), Cost = 120, NeedsBoss = 0 },
+            new Item { Name = "Bloodgold", Cloak = new Color(0.9f, 0.3f, 0.12f), Cost = 260, NeedsBoss = 3 },
         };
 
         /// <summary>
@@ -106,9 +125,18 @@ namespace Deepbound.Progression
             new Item { Name = "Abyssal Spine", Cloak = new Color(0.72f, 0.45f, 1f), Trim = new Color(0.04f, 0.02f, 0.06f), Motif = Motif.Ribcage, Glows = true, Cost = 300, NeedsBoss = 3 },
             new Item { Name = "Black Bone Print", Cloak = new Color(0.08f, 0.08f, 0.1f), Trim = new Color(0.85f, 0.1f, 0.1f), Motif = Motif.BonePrint, Cost = 100, NeedsBoss = -1 },
             new Item { Name = "Ember Skull", Cloak = new Color(1f, 0.55f, 0.2f), Trim = new Color(0.1f, 0.03f, 0.01f), Motif = Motif.Skull, Glows = true, Cost = 180, NeedsBoss = 1 },
+            // 2026-11-13: four new motifs, each in a plain and a finer cut.
+            new Item { Name = "Death's-Head Moth", Cloak = new Color(0.9f, 0.82f, 0.62f), Trim = new Color(0.08f, 0.05f, 0.04f), Motif = Motif.Moth, Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Ghost Moth", Cloak = new Color(0.8f, 0.92f, 1f), Trim = new Color(0.04f, 0.06f, 0.12f), Motif = Motif.Moth, Glows = true, Cost = 200, NeedsBoss = 1 },
+            new Item { Name = "Gallows Raven", Cloak = new Color(0.86f, 0.84f, 0.8f), Trim = new Color(0.75f, 0.1f, 0.08f), Motif = Motif.Raven, Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Golden Raven", Cloak = new Color(1f, 0.82f, 0.36f), Trim = new Color(0.08f, 0.05f, 0.02f), Motif = Motif.Raven, Gilded = true, Cost = 240, NeedsBoss = 2 },
+            new Item { Name = "The Watching Eye", Cloak = new Color(0.95f, 0.92f, 0.84f), Trim = new Color(0.12f, 0.06f, 0.04f), Motif = Motif.Eye, Cost = 120, NeedsBoss = -1 },
+            new Item { Name = "Abyssal Gaze", Cloak = new Color(0.4f, 1f, 0.9f), Trim = new Color(0.02f, 0.05f, 0.05f), Motif = Motif.Eye, Glows = true, Cost = 320, NeedsBoss = 4 },
+            new Item { Name = "Crowned Skull", Cloak = new Color(0.96f, 0.93f, 0.84f), Trim = new Color(0.05f, 0.04f, 0.04f), Motif = Motif.CrownedSkull, Cost = 140, NeedsBoss = -1 },
+            new Item { Name = "Hollow King's Seal", Cloak = new Color(1f, 0.82f, 0.36f), Trim = new Color(0.08f, 0.05f, 0.02f), Motif = Motif.CrownedSkull, Gilded = true, Cost = 260, NeedsBoss = 2 },
         };
 
-        public enum Motif { None, Skull, Crossbones, BonePrint, Ribcage, SkullHem }
+        public enum Motif { None, Skull, Crossbones, BonePrint, Ribcage, SkullHem, Moth, Raven, Eye, CrownedSkull }
 
         /// <summary>
         /// Weapon glows (2026-10-24, the user: "work on more customisation"): a burning edge along your blade, staff or
@@ -125,6 +153,11 @@ namespace Deepbound.Progression
             new Item { Name = "Kingsgold", Cloak = new Color(1f, 0.82f, 0.35f), Cost = 220, NeedsBoss = 2 },
             new Item { Name = "Hymnlight", Cloak = new Color(1f, 0.97f, 0.85f), Cost = 260, NeedsBoss = 3 },
             new Item { Name = "Abyssal", Cloak = new Color(0.35f, 1f, 0.9f), Cost = 320, NeedsBoss = 4 },
+            new Item { Name = "Witchfire", Cloak = new Color(0.3f, 1f, 0.65f), Cost = 120, NeedsBoss = -1 },
+            new Item { Name = "Rosewater", Cloak = new Color(1f, 0.5f, 0.7f), Cost = 120, NeedsBoss = -1 },
+            new Item { Name = "Cold Iron", Cloak = new Color(0.7f, 0.78f, 0.9f), Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Tide Light", Cloak = new Color(0.2f, 0.7f, 1f), Cost = 180, NeedsBoss = 1 },
+            new Item { Name = "Cardinal's Wrath", Cloak = new Color(1f, 0.3f, 0.15f), Cost = 260, NeedsBoss = 3 },
         };
 
         /// <summary>Titles worn under your name on nameplates and the run summary. Index 0 is none. Append only.</summary>
@@ -141,6 +174,15 @@ namespace Deepbound.Progression
             new Item { Name = "Kingslayer", Cost = 200, NeedsBoss = 2 },
             new Item { Name = "Hymnbreaker", Cost = 250, NeedsBoss = 3 },
             new Item { Name = "Who Silenced the Unsung", Cost = 400, NeedsBoss = 4 },
+            new Item { Name = "the Candle-Keeper", Cost = 60, NeedsBoss = -1 },
+            new Item { Name = "Oathbreaker", Cost = 90, NeedsBoss = -1 },
+            new Item { Name = "the Twice-Buried", Cost = 110, NeedsBoss = -1 },
+            new Item { Name = "Friend of Rats", Cost = 50, NeedsBoss = -1 },
+            new Item { Name = "Gorm's Better", Cost = 120, NeedsBoss = -1 },
+            new Item { Name = "the Unbowed", Cost = 140, NeedsBoss = 0 },
+            new Item { Name = "Drowned and Returned", Cost = 170, NeedsBoss = 1 },
+            new Item { Name = "Crownless", Cost = 220, NeedsBoss = 2 },
+            new Item { Name = "Last of the Choir", Cost = 270, NeedsBoss = 3 },
         };
 
         /// <summary>
@@ -155,6 +197,10 @@ namespace Deepbound.Progression
             new Item { Name = "Bone Hound", Cloak = new Color(0.86f, 0.82f, 0.72f), Cost = 160, NeedsBoss = 0 },
             new Item { Name = "Castle Kitten", Cloak = new Color(0.45f, 0.4f, 0.36f), Cost = 120, NeedsBoss = -1 },
             new Item { Name = "Lantern Wisp", Cloak = new Color(0.6f, 0.85f, 1f), Cost = 220, NeedsBoss = 3 },
+            new Item { Name = "Grave Bat", Cloak = new Color(0.2f, 0.16f, 0.18f), Cost = 100, NeedsBoss = -1 },
+            new Item { Name = "Plague Toad", Cloak = new Color(0.4f, 0.52f, 0.22f), Cost = 90, NeedsBoss = -1 },
+            new Item { Name = "Candle Imp", Cloak = new Color(0.55f, 0.3f, 0.22f), Cost = 180, NeedsBoss = 1 },
+            new Item { Name = "Mourning Moth", Cloak = new Color(0.85f, 0.8f, 0.65f), Cost = 140, NeedsBoss = -1 },
         };
 
         public static Color? WeaponGlowColor(int i) => i > 0 && i < WeaponGlows.Length ? WeaponGlows[i].Cloak : (Color?)null;

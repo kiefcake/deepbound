@@ -27,6 +27,7 @@ namespace Deepbound.Enemies
     {
         public enum DashStyle : byte { Charge, ShieldCharge, Blink, Leap }
         protected virtual DashStyle Dash => DashStyle.Charge;
+        public DashStyle DashKind => Dash;
 
         public const float ShieldStopStagger = 0.3f, BlinkNovaDelay = 0.55f, BlinkNovaRadius = 3.4f, LeapRadius = 3.2f, LeapAir = 0.75f;
         public const float HugRange = 3.6f, HugSeconds = 3f, RepulseRadius = 4.8f, RepulseTell = 1.1f, RepulseCooldown = 13f, RepulseDamage = 1.3f;

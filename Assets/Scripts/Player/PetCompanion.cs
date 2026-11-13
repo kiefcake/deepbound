@@ -30,7 +30,7 @@ namespace Deepbound.Player
         public static float FetchRadiusOf(NetworkPlayer owner) => Legacy.Has(owner, Boon.KeenCompanion) ? Legacy.KeenFetchRadius : FetchRadius;
 
         /// <summary>Index into <see cref="Cosmetics.Pets"/>; append only.</summary>
-        public enum Kind { None, Raven, Rat, BoneHound, Kitten, Wisp }
+        public enum Kind { None, Raven, Rat, BoneHound, Kitten, Wisp, Bat, Toad, CandleImp, Moth }
 
         private NetworkPlayer owner;
         private Transform body, head, tail;
@@ -50,7 +50,9 @@ namespace Deepbound.Player
         public const float Size = 1.35f;
         private readonly HashSet<SpikeTrap> warned = new HashSet<SpikeTrap>();
 
-        private bool Flies => kind == Kind.Raven || kind == Kind.Wisp;
+        private bool Flies => kind == Kind.Raven || kind == Kind.Wisp || kind == Kind.Bat || kind == Kind.Moth;
+        /// <summary>Wings on <see cref="legs"/> that flap like the raven's (the bat's and the moth's).</summary>
+        private bool Flaps => kind == Kind.Raven || kind == Kind.Bat || kind == Kind.Moth;
 
         // Tricks.
         public enum Trick { None, Fetch, Chase, Spin, Come }
@@ -97,6 +99,10 @@ namespace Deepbound.Player
                 case Kind.BoneHound: BuildHound(root); break;
                 case Kind.Kitten: BuildKitten(root); break;
                 case Kind.Wisp: BuildWisp(root); break;
+                case Kind.Bat: BuildBat(root); break;
+                case Kind.Toad: BuildToad(root); break;
+                case Kind.CandleImp: BuildImp(root); break;
+                case Kind.Moth: BuildMoth(root); break;
             }
             // A size up, a shadow under it, and (your own pet) a faint warm glow so it is never a dark lump at your feet.
             root.localScale = Vector3.one * Size;
@@ -222,6 +228,97 @@ namespace Deepbound.Player
                 p.localRotation = Quaternion.Euler(i * 60f, i * 120f, 0f);
                 legs.Add(p);
             }
+        }
+
+        private void BuildBat(Transform root)
+        {
+            // A grave bat: a furred body, big ears, membrane wings with finger bones, two red pin eyes.
+            var fur = new Color(0.2f, 0.16f, 0.18f);
+            var skin = new Color(0.32f, 0.22f, 0.24f);
+            Tint(MeshKit.Part(root, "Body", MeshKit.Ball(0.1f, 8, 6), Mat.Cloth, Vector3.up * 0.22f, default, new Vector3(0.9f, 1.1f, 1f)), fur);
+            head = Pivot(root, "Head", new Vector3(0f, 0.33f, 0.04f));
+            Tint(MeshKit.Part(head, "Skull", MeshKit.Ball(0.065f, 8, 6), Mat.Cloth, Vector3.zero), fur);
+            Tint(MeshKit.Part(head, "Snout", MeshKit.Ball(0.03f, 6, 4), Mat.Cloth, new Vector3(0f, -0.015f, 0.055f)), skin);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Tint(MeshKit.Part(head, "Ear", MeshKit.Cylinder(0.035f, 0.002f, 0.11f, 4), Mat.Cloth, new Vector3(s * 0.045f, 0.08f, -0.01f), new Vector3(0f, 0f, s * -18f)), skin);
+                var eye = MeshKit.Part(head, "Eye", MeshKit.Ball(0.012f, 5, 4), Mat.Glow, new Vector3(s * 0.028f, 0.012f, 0.055f));
+                ArtLibrary.SetGlow(eye.GetComponent<Renderer>(), new Color(1f, 0.2f, 0.15f) * 0.9f);
+                var wing = Pivot(root, "Wing", new Vector3(s * 0.07f, 0.26f, 0f));
+                Tint(MeshKit.Part(wing, "Membrane", MeshKit.Box(new Vector3(0.3f, 0.012f, 0.18f)), Mat.Cloth, new Vector3(s * 0.15f, 0f, -0.04f)), skin);
+                for (int f = 0; f < 3; f++)
+                    Tint(MeshKit.Part(wing, "Finger", MeshKit.Box(new Vector3(0.012f, 0.016f, 0.2f)), Mat.Bone, new Vector3(s * (0.08f + f * 0.09f), 0.004f, -0.04f), new Vector3(0f, s * (20f - f * 20f), 0f)), fur * 1.6f);
+                legs.Add(wing);
+            }
+            tail = Pivot(root, "Tail", new Vector3(0f, 0.16f, -0.08f));
+        }
+
+        private void BuildToad(Transform root)
+        {
+            // A plague toad: squat and warty, a pale throat, gold eyes on top of its head; it hops on short legs.
+            var hide = new Color(0.4f, 0.52f, 0.22f);
+            Quadruped(root, Mat.Cloth, hide, 0.34f, 0.07f, 0.07f, 0.04f);
+            var torso = root.Find("Torso");
+            if (torso != null) { torso.localScale = new Vector3(0.3f, 0.17f, 0.32f); torso.localPosition = Vector3.up * 0.1f; }
+            Tint(MeshKit.Part(root, "Throat", MeshKit.Ball(0.08f, 6, 5), Mat.Cloth, new Vector3(0f, 0.07f, 0.1f), default, new Vector3(1.4f, 0.7f, 1f)), new Color(0.82f, 0.78f, 0.55f));
+            var rng = new System.Random(7);
+            for (int i = 0; i < 9; i++)
+                Tint(MeshKit.Part(root, "Wart", MeshKit.Ball(0.016f, 5, 4), Mat.Cloth, new Vector3((float)rng.NextDouble() * 0.2f - 0.1f, 0.17f, (float)rng.NextDouble() * 0.22f - 0.12f)), new Color(0.55f, 0.48f, 0.2f));
+            Tint(MeshKit.Part(head, "Skull", MeshKit.Ball(0.08f, 8, 6), Mat.Cloth, new Vector3(0f, -0.05f, 0f), default, new Vector3(1.3f, 0.7f, 1f)), hide);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Tint(MeshKit.Part(head, "Brow", MeshKit.Ball(0.03f, 6, 4), Mat.Cloth, new Vector3(s * 0.05f, -0.005f, 0.01f)), hide);
+                var eye = MeshKit.Part(head, "Eye", MeshKit.Ball(0.02f, 6, 4), Mat.Glow, new Vector3(s * 0.05f, 0.01f, 0.025f));
+                ArtLibrary.SetGlow(eye.GetComponent<Renderer>(), new Color(1f, 0.75f, 0.2f) * 0.8f);
+            }
+        }
+
+        private void BuildImp(Transform root)
+        {
+            // A candle imp: a small crouched wax-red creature with a lit candle stub on its head (a real little light).
+            var wax = new Color(0.55f, 0.3f, 0.22f);
+            Quadruped(root, Mat.Cloth, wax, 0.3f, 0.12f, 0.12f, 0.035f);
+            var torso = root.Find("Torso");
+            if (torso != null) torso.localRotation = Quaternion.Euler(-35f, 0f, 0f);
+            Tint(MeshKit.Part(head, "Skull", MeshKit.Ball(0.075f, 8, 6), Mat.Cloth, Vector3.up * 0.04f), wax);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Tint(MeshKit.Part(head, "Horn", MeshKit.Cylinder(0.018f, 0.002f, 0.07f, 5), Mat.Bone, new Vector3(s * 0.05f, 0.1f, -0.01f), new Vector3(0f, 0f, s * -30f)), new Color(0.9f, 0.85f, 0.7f));
+                var eye = MeshKit.Part(head, "Eye", MeshKit.Ball(0.015f, 5, 4), Mat.Glow, new Vector3(s * 0.03f, 0.05f, 0.065f));
+                ArtLibrary.SetGlow(eye.GetComponent<Renderer>(), new Color(1f, 0.85f, 0.3f));
+            }
+            Tint(MeshKit.Part(head, "Candle", MeshKit.Cylinder(0.025f, 0.025f, 0.09f, 8), Mat.Cloth, new Vector3(0f, 0.14f, 0f)), new Color(0.95f, 0.9f, 0.78f));
+            Tint(MeshKit.Part(head, "Drip", MeshKit.Ball(0.03f, 6, 4), Mat.Cloth, new Vector3(0f, 0.1f, 0f), default, new Vector3(1.4f, 0.5f, 1.4f)), new Color(0.95f, 0.9f, 0.78f));
+            var flame = MeshKit.Part(head, "Flame", MeshKit.Ball(0.02f, 6, 4), Mat.Glow, new Vector3(0f, 0.21f, 0f), default, new Vector3(0.8f, 1.6f, 0.8f));
+            ArtLibrary.SetGlow(flame.GetComponent<Renderer>(), new Color(1f, 0.65f, 0.25f) * 2f);
+            var l = new GameObject("ImpCandle").AddComponent<Light>();
+            l.transform.SetParent(head, false);
+            l.transform.localPosition = new Vector3(0f, 0.24f, 0f);
+            l.type = LightType.Point;
+            l.color = new Color(1f, 0.7f, 0.4f);
+            l.range = 2.6f;
+            l.intensity = 0.8f;
+            l.shadows = LightShadows.None;
+            Tint(MeshKit.Part(tail, "Tail", MeshKit.Cylinder(0.015f, 0.006f, 0.2f, 5), Mat.Cloth, new Vector3(0f, 0.06f, -0.08f), new Vector3(-50f, 0f, 0f)), wax);
+        }
+
+        private void BuildMoth(Transform root)
+        {
+            // A mourning moth: a furred body, feathered antennae, four dusty wings with dark eye-spots.
+            var dust = new Color(0.85f, 0.8f, 0.65f);
+            Tint(MeshKit.Part(root, "Body", MeshKit.Ball(0.05f, 8, 6), Mat.Cloth, Vector3.up * 0.2f, default, new Vector3(1f, 1f, 2.2f)), dust * 0.8f);
+            head = Pivot(root, "Head", new Vector3(0f, 0.21f, 0.1f));
+            Tint(MeshKit.Part(head, "Skull", MeshKit.Ball(0.035f, 6, 5), Mat.Cloth, Vector3.zero), dust * 0.7f);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Tint(MeshKit.Part(head, "Antenna", MeshKit.Box(new Vector3(0.025f, 0.006f, 0.1f)), Mat.Cloth, new Vector3(s * 0.025f, 0.03f, 0.05f), new Vector3(-30f, s * 25f, 0f)), dust * 0.7f);
+                var wing = Pivot(root, "Wing", new Vector3(s * 0.04f, 0.21f, 0.02f));
+                Tint(MeshKit.Part(wing, "Fore", MeshKit.Ball(0.5f, 8, 4), Mat.Cloth, new Vector3(s * 0.12f, 0f, 0.03f), new Vector3(0f, s * -15f, 0f), new Vector3(0.24f, 0.01f, 0.15f)), dust);
+                Tint(MeshKit.Part(wing, "Hind", MeshKit.Ball(0.5f, 8, 4), Mat.Cloth, new Vector3(s * 0.09f, -0.002f, -0.07f), new Vector3(0f, s * 20f, 0f), new Vector3(0.16f, 0.01f, 0.11f)), dust * 0.9f);
+                Tint(MeshKit.Part(wing, "Spot", MeshKit.Ball(0.5f, 6, 4), Mat.Cloth, new Vector3(s * 0.15f, 0.006f, 0.03f), default, new Vector3(0.05f, 0.005f, 0.05f)), new Color(0.15f, 0.1f, 0.08f));
+                legs.Add(wing);
+            }
+            tail = Pivot(root, "Tail", new Vector3(0f, 0.2f, -0.1f));
         }
 
         // ---------------------------------------------------------------- moves
@@ -435,11 +532,11 @@ namespace Deepbound.Player
                 if (head != null) head.localScale = Vector3.one * (1f + Mathf.Sin(t * 4f) * 0.08f);
                 return;
             }
-            if (kind == Kind.Raven)
+            if (Flaps)
             {
                 if (Sleeping) { for (int i = 0; i < legs.Count; i++) legs[i].localRotation = Quaternion.Euler(0f, 0f, (i == 0 ? 1f : -1f) * -8f); if (head != null) head.localRotation = Quaternion.Euler(35f, 150f, 0f); return; }
                 bool flying = speed > 1.2f || pos.y > owner.transform.position.y + 0.5f;
-                float flap = flying ? Mathf.Sin(t * 22f) * 55f : 0f;
+                float flap = flying ? Mathf.Sin(t * (kind == Kind.Moth ? 30f : kind == Kind.Bat ? 26f : 22f)) * (kind == Kind.Moth ? 40f : 55f) : 0f;
                 for (int i = 0; i < legs.Count; i++) legs[i].localRotation = Quaternion.Euler(0f, 0f, (i == 0 ? 1f : -1f) * (flying ? flap : -8f));
                 if (head != null) head.localRotation = Quaternion.Euler(Mathf.Sin(t * 3.1f) * 10f, Mathf.Sin(t * 1.3f) * 35f, 0f);
                 return;
@@ -502,6 +599,7 @@ namespace Deepbound.Player
             Kind.Rat => Sound.Squeak,
             Kind.Kitten => Sound.Meow,
             Kind.BoneHound => Sound.Growl,
+            Kind.Bat => Sound.Squeak,
             _ => Sound.Graze,
         };
     }

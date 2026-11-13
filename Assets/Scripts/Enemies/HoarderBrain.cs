@@ -37,6 +37,18 @@ namespace Deepbound.Enemies
             base.OnNetworkDespawn();
         }
 
+        /// <summary>Server, tests: force the Gilded Skull roll.</summary>
+        public static bool DebugAlwaysSkull;
+
+        protected override void OnDied(Health h)
+        {
+            bool first = !IsDead;
+            base.OnDied(h);
+            // The Gilded Skull lives in its sack and nowhere else (2026-11-13): a kill shakes it loose some of the time.
+            if (IsServer && first && !escaped && (DebugAlwaysSkull || Random.value < Relics.HoarderSkullChance))
+                World.DungeonDirector.Instance?.ServerDropLoot(transform.position + Vector3.up * 0.6f, LootKind.Relic, (int)Relic.GildedSkull, settle: false);
+        }
+
         private void OnAnyDamaged(Health hit, float dealt, ulong from)
         {
             if (hit != health || !health.IsAlive || Time.time < nextSpill) return;

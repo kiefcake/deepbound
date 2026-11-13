@@ -272,8 +272,13 @@ namespace Deepbound.World
                 // Held, not yet counted: no waystone delivery, and the finds wait for the lift.
                 bool waiting = Quests[baseCount].Status == ContractStatus.Active && Quests[baseCount + 1].Progress == 0 && Quests[baseCount + 1].Held == finds.Length;
                 why += ", held " + Quests[baseCount + 1].Held + " waiting " + waiting;
-                if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(markId, out var markObj)) markObj.GetComponent<Health>().ServerDamage(1e6f, markObj.transform.position);
-                yield return new WaitForSeconds(0.3f);
+                // A champion can get up once (the Unburied): strike until the mark is really gone (2026-11-13, a flaky run).
+                for (int strike = 0; strike < 4 && marks.ContainsKey(markId); strike++)
+                {
+                    if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(markId, out var markObj) && markObj.GetComponent<Health>().IsAlive)
+                        markObj.GetComponent<Health>().ServerDamage(1e6f, markObj.transform.position);
+                    yield return new WaitForSeconds(0.8f);
+                }
                 QuestSettleOnAscent();
                 yield return null;
                 for (int i = baseCount; i < Quests.Count; i++) if (Quests[i].Status == ContractStatus.Fulfilled) ok++;
