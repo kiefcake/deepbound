@@ -24,8 +24,8 @@ namespace Deepbound.UI
     public class AfflictionOverlay : MonoBehaviour
     {
         private const int Size = 512;
-        private static Texture2D vines, frost, veins, smoke, star;
-        private float vineK, frostK, poisonK, curseK, maniaK, silenceK, dazeK;
+        private static Texture2D vines, frost, veins, smoke, star, ink;
+        private float vineK, frostK, poisonK, curseK, maniaK, silenceK, dazeK, blindK, hexK;
         private float mendK, surgeK, barkK, furyK, stoneK, sanctK, lastStandK;
         private static float gulpAt = -10f, cleanseAt = -10f;
         private static Color gulpColor = Color.white;
@@ -43,7 +43,7 @@ namespace Deepbound.UI
         {
             cleanseAt = Time.time;
             if (instance == null) return;
-            instance.vineK = instance.frostK = instance.poisonK = instance.curseK = instance.maniaK = instance.silenceK = instance.dazeK = 0f;
+            instance.vineK = instance.frostK = instance.poisonK = instance.curseK = instance.maniaK = instance.silenceK = instance.dazeK = instance.blindK = instance.hexK = 0f;
         }
 
         private void Awake() => instance = this;
@@ -75,6 +75,8 @@ namespace Deepbound.UI
             Approach(ref maniaK, on && deb.Manic, dt, 4f, 1.6f);
             Approach(ref silenceK, on && deb.Silenced, dt, 3f, 1.5f);
             Approach(ref dazeK, on && deb.Dazed, dt, 5f, 1.8f);
+            Approach(ref blindK, on && deb.Blinded, dt, 5f, 1.4f);
+            Approach(ref hexK, on && deb.Accursed, dt, 2.5f, 1.2f);
             var pouch = me != null ? me.GetComponent<Player.Flasks>() : null;
             bool pon = pouch != null && !Application.isBatchMode;
             Approach(ref mendK, pon && pouch.Healing, dt, 4f, 1.5f);
@@ -143,7 +145,7 @@ namespace Deepbound.UI
         private void Paint()
         {
             bool flashes = Time.time - gulpAt < 0.9f || Time.time - cleanseAt < 0.8f;
-            if (vineK + frostK + poisonK + curseK + maniaK + silenceK + dazeK + mendK + surgeK + barkK + furyK + stoneK + sanctK + lastStandK < 0.001f && !flashes && sparks.Count == 0) return;
+            if (vineK + frostK + poisonK + curseK + maniaK + silenceK + dazeK + blindK + hexK + mendK + surgeK + barkK + furyK + stoneK + sanctK + lastStandK < 0.001f && !flashes && sparks.Count == 0) return;
             var me = Player.NetworkPlayer.Local;
             if (me == null || PauseMenu.Open || GameHud.Cinematic) return;
             if (me.TryGetComponent<Player.PlayerLife>(out var life) && life.Downed.Value) return;
@@ -173,6 +175,8 @@ namespace Deepbound.UI
             // Smoke and haze first (the soft layers), then the sharp pictures over them.
             if (poisonK > 0f) Corners(smoke, h * 0.62f, poisonK, new Color(0.35f, 0.75f, 0.15f, 0.55f * calm), t * 0.6f, 1.5f);
             if (curseK > 0f) Corners(smoke, h * 0.7f, curseK, new Color(0.45f, 0.15f, 0.7f, 0.7f * calm), t * 0.8f, 2f);
+            // The hag's curse: a sickly green-black rot creeping in, on a slow throb.
+            if (hexK > 0f) Corners(smoke, h * (0.66f + 0.04f * Mathf.Sin(t * 2.4f)), hexK, new Color(0.22f, 0.32f, 0.06f, 0.75f * calm), t * 0.5f, 1.5f);
             if (maniaK > 0f) Corners(smoke, h * 0.75f, maniaK, new Color(0.95f, 0.25f, 0.8f, (0.55f + 0.2f * Mathf.Sin(t * 9f)) * calm), t * 4f, 5f);
             if (silenceK > 0f) Corners(smoke, h * 0.75f, silenceK, new Color(0.62f, 0.62f, 0.78f, 0.55f * calm), t * 0.4f, 1f, topOnly: false);
             if (poisonK > 0f) Corners(veins, h * 0.45f, poisonK, new Color(0.42f, 0.72f, 0.2f, (0.5f + 0.12f * Mathf.Sin(t * 3f)) * calm), t, 0.6f);
@@ -200,6 +204,7 @@ namespace Deepbound.UI
                 GUI.color = new Color(sp.C.r, sp.C.g, sp.C.b, k * 0.9f * calm);
                 GUI.DrawTexture(new Rect(p.x - sp.Size, p.y - sp.Size, sp.Size * 2f, sp.Size * 2f), star);
             }
+            PaintBlind(w, h, t);
             float wash = Mathf.Clamp01(1f - (t - cleanseAt) / 0.8f);
             if (wash > 0f)
             {
@@ -252,6 +257,42 @@ namespace Deepbound.UI
         // ------------------------------------------------------------------
         // The pictures, painted once in code
         // ------------------------------------------------------------------
+
+        /// <summary>
+        /// BLINDED (the Ink Lamprey, 2026-11-13): ink over the eyes to a small clear hole round the crosshair. Drawn over
+        /// the other pictures; it closes in as it lands and drifts a little.
+        /// </summary>
+        private void PaintBlind(float w, float h, float t)
+        {
+            if (blindK <= 0f) return;
+            ink ??= PaintInk();
+            float k = Ease(blindK);
+            float s = Mathf.Max(w, h) * Mathf.Lerp(4.5f, 1.3f, k);
+            var c = new Vector2(w * 0.5f + Mathf.Sin(t * 0.7f) * h * 0.015f, h * 0.5f + Mathf.Cos(t * 0.53f) * h * 0.012f);
+            GUI.color = new Color(0.04f, 0.02f, 0.07f, 0.97f * Mathf.Clamp01(blindK * 1.4f));
+            var keep = GUI.matrix;
+            UiScale.Rotate(t * 6f, c);
+            GUI.DrawTexture(new Rect(c.x - s * 0.5f, c.y - s * 0.5f, s, s), ink);
+            GUI.matrix = keep;
+        }
+
+        private static Texture2D PaintInk()
+        {
+            var cv = new Canvas(Size);
+            float half = Size * 0.5f;
+            for (int y = 0; y < Size; y++)
+                for (int x = 0; x < Size; x++)
+                {
+                    float dx = (x - half) / Size, dy = (y - half) / Size;
+                    float d = Mathf.Sqrt(dx * dx + dy * dy);
+                    float n = Fbm(x / 40f, y / 40f, 37);
+                    // Ink runs in tendrils toward the middle: the edge of the hole is ragged.
+                    float edge = 0.15f + (n - 0.5f) * 0.12f;
+                    float a = Mathf.Clamp01((d - edge) / 0.2f);
+                    cv.Px[y * Size + x] = new Color(1f, 1f, 1f, a * a * (3f - 2f * a));
+                }
+            return cv.Bake();
+        }
 
         private static void EnsureTextures()
         {

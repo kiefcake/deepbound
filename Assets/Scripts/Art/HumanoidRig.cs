@@ -19,6 +19,7 @@ namespace Deepbound.Art
         Cleave = 10,      // ...and crashing down two-handed, bowed over, knees bent
         WindSweep = 11,   // sunk low, the weapon dragged far back to one side, the whole body coiled
         SweepStrike = 12, // ...uncoiling into a wide flat swing that carries the torso round
+        Recover = 13,     // spent after a blow: weapon hanging, hunched, heaving, eyes dim - the opening to punish
     }
 
     /// <summary>The emote wheel's gestures (2026-11-01), played on a player's rig for everyone to see.</summary>
@@ -316,6 +317,20 @@ namespace Deepbound.Art
                     torso += Vector3.LerpUnclamped(new Vector3(12f, -55f * swingSide, 0f), new Vector3(8f, 60f * swingSide, 0f), s2 + over2 * 0.7f);
                     head += Vector3.Lerp(new Vector3(-6f, 45f * swingSide, 0f), new Vector3(0f, -20f * swingSide, 0f), s2);
                     hipsOffset += new Vector3(0f, -0.1f, 0f) * (1f - s2) + new Vector3(0f, -0.03f, 0.04f) * Mathf.Sin(s2 * Mathf.PI);
+                    break;
+                }
+
+                case RigAction.Recover:
+                {
+                    // In fast, held, out slow at the end so the next wind-up reads as a change.
+                    float r = Ease(Mathf.Clamp01(t * 5f)) * (1f - Ease(Mathf.Clamp01((t - 0.85f) / 0.15f)));
+                    float heave = Mathf.Sin(Time.time * 7f) * 3f;
+                    armR = Vector3.Lerp(armR, new Vector3(-12f, 10f * swingSide, 14f), r);
+                    armL = Vector3.Lerp(armL, new Vector3(-6f, 0f, -10f), r);
+                    torso += new Vector3(20f + heave, 6f * swingSide, 0f) * r;
+                    head += new Vector3(14f - heave, 0f, 0f) * r;
+                    hipsOffset += new Vector3(0f, -0.06f, 0f) * r;
+                    glow = Mathf.Lerp(1f, 0.3f, r);
                     break;
                 }
 

@@ -101,6 +101,7 @@ MonoBehaviour:
   chandelierPrefab: {fileID: 931506198319307082, guid: be6cd7aa317dcfa46836047f5d6e13fb, type: 3}
   vigilCandlePrefab: {fileID: 3769822899982802960, guid: 15e0ac9b1bbd2a74eac0bd6a96dc07d8, type: 3}
   prisonerPrefab: {fileID: 1988850448541398791, guid: 3f5a6deefa962104d9ca92ad3541b2d8, type: 3}
+  hearthPrefab: {fileID: 1748497935164898033, guid: 0689a98b9b404564e92254db093dfaba, type: 3}
   puzzleMirrorPrefab: {fileID: 2631131412916418695, guid: ef875bc161d01d5428564124bd6a4809, type: 3}
   scaleWeightPrefab: {fileID: 6725833587995569330, guid: a66b8228c073df2449cb9acc08b4c5d1, type: 3}
   statDraughtPrefab: {fileID: 4508464783430533778, guid: e6548af449bc12a49a11330dcf83d462, type: 3}
@@ -143,6 +144,10 @@ MonoBehaviour:
   abyssEyePrefab: {fileID: 436945408862097884, guid: bab2d226deb87ee4185b939de9bed426, type: 3}
   bonePiperPrefab: {fileID: 2089347321912224805, guid: 276bb5f6daaadfb4780be9e8e65862a9, type: 3}
   cantorPrefab: {fileID: 4056981001575210563, guid: 7e3314b77febaa048ae17921074b8f79, type: 3}
+  magusPrefab: {fileID: 2041145244596695743, guid: a65c04822df1edf46a3f93da7f1f9e4a, type: 3}
+  lampreyPrefab: {fileID: 5148698724188142227, guid: f63c42ac0263c804c992b9b11d990e22, type: 3}
+  hagPrefab: {fileID: 2642255694079347852, guid: 412e1238b833aaa4e9c342f4cee8adbc, type: 3}
+  ringerPrefab: {fileID: 4523230964976537946, guid: 88b76b526dd6dca418fbdde0ad15dee5, type: 3}
   fateWheelPrefab: {fileID: 5332673811175829373, guid: f3cf4823e8237f04f855c69286e7b9d8, type: 3}
   bountyNoticePrefab: {fileID: 3915093814716477257, guid: 534f8b4084fc56a4bbd049eccaba92ad, type: 3}
   omenStonePrefab: {fileID: 382665563209428435, guid: 65d7f993c336c7d43b5975cc5e24fa6e, type: 3}

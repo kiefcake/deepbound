@@ -96,7 +96,7 @@ namespace Deepbound.Enemies
             for (int i = 0; i <= 12; i++) Vfx.Speck(Vector3.Lerp(from, to, i / 12f) + Random.insideUnitSphere * 0.08f, c * 2f);
             Vfx.Flash(to, c, 4f, 4f, 0.3f);
             Sfx.Play(Sound.Summon, to, 0.7f, 1.4f);
-            UI.GameHud.ShowCombo(to + Vector3.up * 0.8f, "CURSED", c);
+            UI.GameHud.ShowCombo(to + Vector3.up * 0.8f, "WEAKENED", c);
         }
     }
 }

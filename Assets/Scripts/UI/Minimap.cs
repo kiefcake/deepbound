@@ -133,6 +133,8 @@ namespace Deepbound.UI
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             AfflictionOverlay.PaintOnce();
             if (GameHud.Cinematic) return;
+            // Blinded (the Ink Lamprey): no map until your eyes clear.
+            if (Player.PlayerDebuffs.LocalBlind) return;
             UiSkin.Apply();
             if (player == null || CharacterSelect.Open || PauseMenu.Open || GameHud.SeatedGame) return;
             if (DungeonDirector.InLobby)

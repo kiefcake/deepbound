@@ -1000,6 +1000,8 @@ namespace Deepbound.Networking
         /// Runs a bot routine and keeps going if it throws: a follower once lost its whole run to one NullReference on
         /// floor 1 (2026-11-07) and stood idle. The error is a Problem in the log, then the routine starts over (3 times).
         /// </summary>
+        private float nextSpinNote;
+
         private IEnumerator Guarded(System.Func<IEnumerator> routine)
         {
             for (int attempt = 0; attempt < 4; attempt++)
@@ -1008,9 +1010,26 @@ namespace Deepbound.Networking
                 var stack = new System.Collections.Generic.Stack<IEnumerator>();
                 stack.Push(routine());
                 bool threw = false;
+                // 2026-11-13: the bot froze the whole game (one core at 100%, not responding) on floor 1 of the full
+                // playtest. Nested steps run here by hand, and a step that ends without waiting a frame, called in a
+                // loop, never handed the frame back. Now a long run of frameless steps waits a frame, and says so.
+                int frameless = 0;
                 while (stack.Count > 0)
                 {
                     object cur;
+                    if (++frameless > 400)
+                    {
+                        frameless = 0;
+                        if (Time.time >= nextSpinNote)
+                        {
+                            nextSpinNote = Time.time + 30f;
+                            string where = "";
+                            foreach (var e in stack) where = e.GetType().Name.Split('>')[0].TrimStart('<') + (where.Length > 0 ? " > " + where : "");
+                            Problem("bot loop ran 400 steps without a frame (" + where + "); waiting a frame");
+                        }
+                        yield return null;
+                        continue;
+                    }
                     try
                     {
                         var top = stack.Peek();
@@ -1024,6 +1043,7 @@ namespace Deepbound.Networking
                         threw = true;
                         break;
                     }
+                    frameless = 0;
                     yield return cur;
                 }
                 if (!threw) yield break;

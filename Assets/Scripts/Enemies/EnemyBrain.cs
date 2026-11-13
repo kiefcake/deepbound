@@ -651,6 +651,12 @@ namespace Deepbound.Enemies
                 return;
             }
 
+            if (recoverPoseAt > 0f && Time.time >= recoverPoseAt)
+            {
+                recoverPoseAt = -1f;
+                float left = busyUntil - Time.time;
+                if (left > 0.25f && !IsStunned && !attacking) PlayActionRpc(RigAction.Recover, left);
+            }
             if (Time.time < busyUntil)
             {
                 agent.isStopped = true;
@@ -776,6 +782,15 @@ namespace Deepbound.Enemies
         public Vector3 StrikeDirection => strikeDir;
         public bool WindingSwing => attacking;
 
+        /// <summary>
+        /// THE OPENING (2026-11-13, the user: "timings where i can weave into enemy range, hit them and go back before another
+        /// hit"). After a melee blow lands the creature is spent until its recovery ends: it slumps (RigAction.Recover, eyes
+        /// dim, Status bit 64) and takes PUNISH x<see cref="Classes.Combos.PunishMultiplier"/>. It cannot strike again until the
+        /// slump ends and a fresh wind-up plays.
+        /// </summary>
+        public bool Recovering => IsServer ? (!attacking && !IsStunned && Time.time < busyUntil && Time.time - lastStrikeAt < 3f) : (Status.Value & 64) != 0;
+        private float lastStrikeAt = -10f, recoverPoseAt = -1f;
+
         /// <summary>Guardians commit their swing to the direction of the floor warning; nothing turns it after.</summary>
         protected virtual bool LocksSwing => IsBoss;
         /// <summary>The direction the current swing was committed to (at the start of its wind-up).</summary>
@@ -820,6 +835,8 @@ namespace Deepbound.Enemies
                     kb.KnockbackRpc((victim.transform.position - transform.position).normalized * 6f + Vector3.up * 2f);
             }
             if (currentMove == Move.Heavy) ImpactThudRpc(transform.position + transform.forward * 1.2f);
+            lastStrikeAt = Time.time;
+            recoverPoseAt = flurryLeft > 0 ? -1f : Time.time + (currentMove == Move.Heavy ? 0.5f : currentMove == Move.Sweep ? 0.42f : 0.3f);
             // Flurry: the second blow follows fast.
             if (flurryLeft > 0)
             {
@@ -1309,7 +1326,7 @@ namespace Deepbound.Enemies
             // Bits: 1 stunned, 2 taunted, 4 winding up an attack (the HUD shows a "!" tell).
             bool lungeTell = lungeStartAt > 0f || lunging;
             byte s = (byte)((IsStunned ? 1 : 0) | (Taunter != null ? 2 : 0) | (attacking || lungeTell ? 4 : 0)
-                | (attacking && currentMove == Move.Heavy ? 8 : 0) | (attacking && currentMove == Move.Sweep ? 16 : 0) | (lungeTell ? 32 : 0));
+                | (attacking && currentMove == Move.Heavy ? 8 : 0) | (attacking && currentMove == Move.Sweep ? 16 : 0) | (lungeTell ? 32 : 0) | (Recovering ? 64 : 0));
             if (Status.Value != s) Status.Value = s;
         }
 

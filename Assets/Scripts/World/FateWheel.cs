@@ -202,7 +202,7 @@ namespace Deepbound.World
             Fate.Foresight => "The whole floor is on your map",
             Fate.Champion => "A champion steps out to meet you. It carries a hoard",
             Fate.Taxman => "Fate is cruel: a fifth of everyone's gold",
-            Fate.Hex => "Fate is cruel: everyone is cursed for 20 s",
+            Fate.Hex => "Fate is cruel: everyone is weakened for 20 s",
             Fate.Again => "Undecided. Spin again",
             _ => "",
         };

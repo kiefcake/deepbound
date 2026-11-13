@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Deepbound.Classes
 {
     /// <summary>APPEND ONLY: synced as a byte for the popup.</summary>
-    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed, WardBroken, ThermalShock, Pincer }
+    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed, WardBroken, ThermalShock, Pincer, Punish }
 
     /// <summary>
     /// How the classes play off each other. Each class leaves a state on enemies or allies
@@ -25,6 +25,7 @@ namespace Deepbound.Classes
     /// </summary>
     public static class Combos
     {
+        public const float PunishMultiplier = 1.2f;
         public const float ShatterMultiplier = 1.5f, ExposedMultiplier = 1.25f, DistractedMultiplier = 1.15f, BlessedMultiplier = 1.2f, InspiredMultiplier = 1.15f;
         public const float AegisBurstDamage = 35f, AegisBurstRadius = 3.5f;
 
@@ -41,6 +42,7 @@ namespace Deepbound.Classes
                 case ComboKind.WardBroken: return "WARD BROKEN";
                 case ComboKind.ThermalShock: return "THERMAL SHOCK";
                 case ComboKind.Pincer: return "PINCER";
+                case ComboKind.Punish: return "PUNISH";
                 default: return "BLESSED";
             }
         }
@@ -58,6 +60,7 @@ namespace Deepbound.Classes
                 case ComboKind.WardBroken: return new Color(0.73f, 0.66f, 1f);
                 case ComboKind.ThermalShock: return new Color(1f, 0.55f, 0.85f);
                 case ComboKind.Pincer: return new Color(0.6f, 0.95f, 0.75f);
+                case ComboKind.Punish: return new Color(1f, 0.82f, 0.35f);
                 default: return new Color(1f, 0.95f, 0.6f);
             }
         }
@@ -76,6 +79,7 @@ namespace Deepbound.Classes
                 case ComboKind.WardBroken: return "Ward Broken: stun or chill a Warded elite and its ward shatters.";
                 case ComboKind.ThermalShock: return "Thermal Shock: frost on a scorched enemy (or fire on a chilled one) cracks it for a burst of damage.";
                 case ComboKind.Pincer: return "Pincer: hit an enemy from the opposite side to an ally who just struck it for +15%.";
+                case ComboKind.Punish: return "Punish: hit one of the dead while it is spent after a blow (slumped, eyes dim) for +20%.";
                 default: return "Blessed: allies standing in consecrated ground deal +20% damage.";
             }
         }
@@ -124,6 +128,11 @@ namespace Deepbound.Classes
                 {
                     m *= ExposedMultiplier;
                     Popup(target, ComboKind.Exposed, attacker);
+                }
+                else if (brain.Recovering)
+                {
+                    m *= PunishMultiplier;
+                    Popup(target, ComboKind.Punish, attacker);
                 }
                 var taunter = brain.Taunter;
                 if (taunter != null && taunter.gameObject != attacker.gameObject)

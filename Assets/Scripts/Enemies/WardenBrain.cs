@@ -41,7 +41,7 @@ namespace Deepbound.Enemies
             "When the red circle fills around it, get out (or bash it). Jump its shockwaves.",
             "Leave the ring before the Black Tide breaks: it freezes your legs.",
             "It blocks from the front: get round it. Make it charge into a wall and it is open.",
-            "Spread out against the hex bolts. Its curse ends when it dies.",
+            "Spread out against the hex bolts. Its weakness ends when it dies.",
             "Keep moving: its spit and its pools poison. Holy water cleanses.",
         };
         private static readonly string[] SecondHints =

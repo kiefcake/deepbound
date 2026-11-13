@@ -149,6 +149,8 @@ namespace Deepbound.Player
                 nextStab = Time.time + StabInterval * progress.AttackTimeMultiplier;
                 player.ViewModelSwing(0.04f, StabInterval * 0.8f, side);
                 Sfx.Play(Sound.Swing, transform.position, 0.4f, 1.5f);
+                // Quick feet: the Rogue darts in further, less often.
+                MeleeStep.TryStepIn(motor, transform, player.AimForward, AttackRange, 12f, 0.9f);
                 StabRpc(player.AimOrigin, player.AimForward, side);
             }
 

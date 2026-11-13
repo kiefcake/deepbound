@@ -278,7 +278,7 @@ namespace Deepbound.World
                 if (Quests[i].Status == ContractStatus.Active && Quests[i].Contract == kind) FailQuest(i);
         }
 
-        private static bool IsCaster(EnemyBrain b) => b is NecromancerBrain || b is WraithBrain || b is HexerBrain || b is ChoirAcolyteBrain || b is CantorBrain || b is BonePiperBrain || b is OrbweaverBrain;
+        private static bool IsCaster(EnemyBrain b) => b is NecromancerBrain || b is WraithBrain || b is HexerBrain || b is ChoirAcolyteBrain || b is CantorBrain || b is RimeMagusBrain || b is WitheringHagBrain || b is BonePiperBrain || b is OrbweaverBrain;
         private static bool IsHeavy(EnemyBrain b) => b is BruteBrain || b is ShieldbearerBrain || b is FrostWightBrain || b is PlaguebearerBrain || b is GargoyleBrain;
 
         /// <summary>Server: called on every death on a floor (enemies and players).</summary>

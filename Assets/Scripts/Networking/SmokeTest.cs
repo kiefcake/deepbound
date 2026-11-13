@@ -58,6 +58,7 @@ namespace Deepbound.Networking
 
         public void Run(float seconds)
         {
+            World.Centrepieces.Off = true; // smoke runs stand players at room centres
             StartCoroutine(Sequence(seconds));
             // Watchdog: if the sequence throws, the coroutine dies silently and the
             // process would idle forever. Fail loudly instead.
@@ -2016,6 +2017,129 @@ namespace Deepbound.Networking
                             if (ct != null) ct.GetComponent<Health>().ServerDamage(1e6f, ct.transform.position);
                         }
                         else Log("cantor silence", "no prefab", false);
+                        // The debuff foes (2026-11-13): a following blizzard slows, ink blinds, the evil eye curses (+40% taken),
+                        // the toll silences; weakness (the Hexer) is now -40% damage.
+                        {
+                            var fdeb = local.GetComponent<PlayerDebuffs>();
+                            var fhp = local.GetComponent<Health>();
+                            var fwd = Flat3(local.transform.forward).normalized;
+                            string why = "";
+                            // Weakness.
+                            fdeb.ServerCleanse(); fdeb.ServerResetGrace();
+                            fdeb.ServerCurse(4f, ulong.MaxValue);
+                            yield return null;
+                            bool weak = Mathf.Abs(fdeb.DamageMultiplier - PlayerDebuffs.WeaknessDamage * (1f + PlayerDebuffs.DrunkCourage * fdeb.Drunk)) < 0.01f;
+                            fdeb.ServerCleanse();
+                            // Rime Magus: the storm follows and frostbites.
+                            bool slowed = false, followed = false;
+                            var mg = dd.ServerDebugSpawn("magus", local.transform.position + fwd * 9f, false) as RimeMagusBrain;
+                            if (mg != null)
+                            {
+                                mg.ServerDebugStorm(fhp, 0.3f);
+                                for (float t = 0f; t < 1.5f && !fdeb.Frostbitten; t += 0.1f) { fhp.ServerSetFraction(1f); mg.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                                slowed = fdeb.Frostbitten;
+                                var p0 = mg.StormPosition;
+                                var fmot = local.GetComponent<FirstPersonMotor>();
+                                fmot.Teleport(local.transform.position + Quaternion.Euler(0f, 90f, 0f) * fwd * 4f, local.transform.rotation);
+                                yield return new WaitForSeconds(0.8f);
+                                followed = mg.StormUp && Vector3.Distance(Flat3(mg.StormPosition), Flat3(p0)) > 0.8f;
+                                mg.GetComponent<Health>().ServerDamage(1e6f, mg.transform.position);
+                            }
+                            else why += " no magus";
+                            fdeb.ServerCleanse(); fdeb.ServerResetGrace();
+                            // Ink Lamprey: blinded, and the pool keeps it up.
+                            bool blind = false;
+                            var lp = dd.ServerDebugSpawn("lamprey", local.transform.position + fwd * 7f, false) as InkLampreyBrain;
+                            if (lp != null)
+                            {
+                                lp.ServerDebugSpit(local.transform.position, 0.3f);
+                                for (float t = 0f; t < 1.2f && !fdeb.Blinded; t += 0.1f) { fhp.ServerSetFraction(1f); lp.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                                blind = fdeb.Blinded && PlayerDebuffs.LocalBlind;
+                                lp.GetComponent<Health>().ServerDamage(1e6f, lp.transform.position);
+                            }
+                            else why += " no lamprey";
+                            fdeb.ServerCleanse(); fdeb.ServerResetGrace();
+                            // Withering Hag: in the lane = cursed; a blow lands x1.4; she dies, it lifts.
+                            bool cursed = false, harder = false, lifted = false;
+                            var hg = dd.ServerDebugSpawn("hag", local.transform.position + fwd * 8f, false) as WitheringHagBrain;
+                            if (hg != null)
+                            {
+                                hg.ServerDebugGaze(local.transform.position, 0.3f);
+                                for (float t = 0f; t < 1.2f && !fdeb.Accursed; t += 0.1f) { fhp.ServerSetFraction(1f); hg.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                                cursed = fdeb.Accursed;
+                                fhp.ServerSetFraction(1f);
+                                yield return null;
+                                float h0 = fhp.Current.Value;
+                                fhp.ServerDamage(20f, local.transform.position + Vector3.forward);
+                                float lostCursed = h0 - fhp.Current.Value;
+                                fdeb.HexUntil.Value = 0;
+                                fhp.ServerSetFraction(1f);
+                                yield return null;
+                                h0 = fhp.Current.Value;
+                                fhp.ServerDamage(20f, local.transform.position + Vector3.forward);
+                                float lostPlain = h0 - fhp.Current.Value;
+                                harder = lostPlain > 0f && Mathf.Abs(lostCursed / lostPlain - PlayerDebuffs.CurseTaken) < 0.08f;
+                                if (!harder) why += " taken " + lostCursed.ToString("F1") + " vs " + lostPlain.ToString("F1");
+                                fdeb.ServerAccurse(5f, hg.NetworkObjectId);
+                                hg.GetComponent<Health>().ServerDamage(1e6f, hg.transform.position);
+                                yield return new WaitForSeconds(0.3f);
+                                lifted = !fdeb.Accursed;
+                            }
+                            else why += " no hag";
+                            fdeb.ServerCleanse(); fdeb.ServerResetGrace();
+                            fhp.ServerSetFraction(1f);
+                            // Bell-ringer: the toll silences whoever it passes under.
+                            bool tolled = false;
+                            var rg = dd.ServerDebugSpawn("ringer", local.transform.position + fwd * 5f, false) as BellringerBrain;
+                            if (rg != null)
+                            {
+                                rg.ServerDebugToll(0.3f);
+                                for (float t = 0f; t < 2f && !fdeb.Silenced; t += 0.1f) { fhp.ServerSetFraction(1f); rg.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
+                                tolled = fdeb.Silenced;
+                                rg.GetComponent<Health>().ServerDamage(1e6f, rg.transform.position);
+                            }
+                            else why += " no ringer";
+                            fdeb.ServerCleanse(); fdeb.ServerResetGrace();
+                            fhp.ServerSetFraction(1f);
+                            // The opening: after a blow a skeleton slumps (Recovering, Status bit 64) and takes PUNISH x1.2.
+                            {
+                                var sk = dd.ServerDebugSpawn("skeleton", local.transform.position + fwd * 2.2f, false);
+                                bool began = false, spent = false, bit = false; float pm = 1f;
+                                if (sk != null)
+                                {
+                                    yield return null;
+                                    for (int tries = 0; tries < 5 && !began; tries++) { began = sk.ServerDebugSwing(); if (!began) yield return new WaitForSeconds(0.2f); }
+                                    for (float t = 0f; t < 3f && !sk.Recovering; t += 0.05f) { fhp.ServerSetFraction(1f); yield return new WaitForSeconds(0.05f); }
+                                    spent = sk.Recovering;
+                                    yield return null;
+                                    bit = (sk.Status.Value & 64) != 0;
+                                    if (spent) pm = Classes.Combos.ServerMultiplier(sk.GetComponent<Health>(), local.GetComponent<PlayerProgress>());
+                                    sk.GetComponent<Health>().ServerDamage(1e6f, sk.transform.position);
+                                }
+                                fhp.ServerSetFraction(1f);
+                                Log("punish the opening", "swung " + began + ", spent after the blow " + spent + ", synced " + bit + ", damage x" + pm.ToString("F2"),
+                                    began && spent && bit && pm >= Classes.Combos.PunishMultiplier - 0.001f);
+                            }
+                            // A hearth centrepiece: lit by F, it melts frostbite off whoever stands by it.
+                            {
+                                var hb = dd.ServerSpawnHearth(local.transform.position + Quaternion.Euler(0f, 90f, 0f) * fwd * 2.5f);
+                                bool litOk = false, warmed = false;
+                                if (hb != null)
+                                {
+                                    yield return null;
+                                    hb.ServerLight();
+                                    litOk = hb.Lit.Value;
+                                    fdeb.ServerCleanse(); fdeb.ServerFrostbite(6f);
+                                    yield return new WaitForSeconds(0.8f);
+                                    warmed = !fdeb.Frostbitten && World.HearthBrazier.Warms(local.transform.position);
+                                    hb.NetworkObject.Despawn();
+                                }
+                                Log("hearth brazier", "spawned " + (hb != null) + ", lit " + litOk + ", frost melted by it " + warmed, hb != null && litOk && warmed);
+                            }
+                            Log("debuff foes", "weakness x" + PlayerDebuffs.WeaknessDamage + " " + weak + ", blizzard slows " + slowed + " follows " + followed + ", ink blinds " + blind
+                                + ", evil eye curses " + cursed + " x" + PlayerDebuffs.CurseTaken + " " + harder + " lifts with the hag " + lifted + ", toll silences " + tolled + why,
+                                weak && slowed && followed && blind && cursed && harder && lifted && tolled);
+                        }
                         // Hushing and Concussive elites (2026-10-27): their blows silence and daze.
                         {
                             var adeb = local.GetComponent<PlayerDebuffs>();

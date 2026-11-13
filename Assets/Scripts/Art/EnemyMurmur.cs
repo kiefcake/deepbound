@@ -31,6 +31,10 @@ namespace Deepbound.Art
                 case "BruteBrain": sound = Sound.Step; pitch = 0.45f; volume = 0.45f; height = 0.3f; break;
                 case "NecromancerBrain": case "HexerBrain": sound = Sound.Whisper; pitch = 0.8f; volume = 0.25f; height = 1.6f; break;
                 case "CantorBrain": sound = Sound.Toll; pitch = 1.9f; volume = 0.12f; height = 1.6f; break;
+                case "BellringerBrain": sound = Sound.Toll; pitch = 1.1f; volume = 0.14f; height = 2f; break;
+                case "RimeMagusBrain": sound = Sound.Frost; pitch = 0.6f; volume = 0.12f; height = 1.6f; break;
+                case "InkLampreyBrain": sound = Sound.Slime; pitch = 0.7f; volume = 0.2f; height = 1.5f; break;
+                case "WitheringHagBrain": sound = Sound.Whisper; pitch = 1.3f; volume = 0.25f; height = 1.4f; break;
                 case "BonePiperBrain": sound = Sound.Pipe; pitch = 0.6f; volume = 0.2f; height = 1.3f; break;
                 case "PlaguebearerBrain": sound = Sound.Slime; pitch = 0.8f; volume = 0.35f; height = 1f; break;
                 case "MournerBrain": case "GargoyleBrain": case "MimicBrain": sound = Sound.Rattle; volume = 0f; break; // statues and chests keep their silence

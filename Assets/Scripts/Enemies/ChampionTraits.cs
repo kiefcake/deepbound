@@ -30,7 +30,7 @@ namespace Deepbound.Enemies
         {
             "it will not stay down the first time",
             "its blows daze and throw you",
-            "its blows curse you",
+            "its blows weaken you",
             "it heals on every blow it lands",
             "slow to swing, crushing when it lands",
             "its blows burn",

@@ -60,8 +60,11 @@ namespace Deepbound.UI
                 if (afflict.Entangled) list.Add(new Status { Glyph = "\u2618", Name = "Entangled", Text = "An Entling's roots hold your legs: you cannot move until it dies. You can still fight it.", Lasts = "Until the Entling dies", Color = new Color(0.55f, 0.85f, 0.35f) });
                 else if (afflict.Rooted) list.Add(Timed("\u2744", "Rooted", "Ice holds your feet: you cannot move, but you can still fight.", new Color(0.65f, 0.92f, 1f), afflict.RootUntil.Value - now, 2f));
                 if (afflict.Frostbitten) list.Add(Timed("❄", "Frostbitten", "-40% movement speed. Holy Water cleanses it.", new Color(0.6f, 0.85f, 1f), afflict.FrostUntil.Value - now, 6f));
-                if (afflict.Cursed) list.Add(Timed("✷", "Cursed", "-30% damage dealt and -50% healing received, until the Hexer that cursed you dies. Holy Water cleanses it.", new Color(0.75f, 0.45f, 1f), afflict.CurseUntil.Value - now, 20f));
+                if (afflict.Accursed) list.Add(Timed("\u2620", "Cursed", "The Withering Hag's evil eye: you take 40% more damage, until it runs out or she dies. Holy Water cleanses it.", Enemies.WitheringHagBrain.EyeColor, afflict.HexUntil.Value - now, Enemies.WitheringHagBrain.CurseSeconds));
+                if (afflict.Blinded) list.Add(Timed("\u25C9", "Blinded", "Ink in your eyes: no map and no health bars on the dead. Keep out of the ink pools. Holy Water washes it.", new Color(0.6f, 0.45f, 0.95f), afflict.BlindUntil.Value - now, Enemies.InkLampreyBrain.BlindSeconds));
+                if (afflict.Cursed) list.Add(Timed("✷", "Weakened", "-40% damage dealt and -50% healing received, until the Hexer that weakened you dies. Holy Water cleanses it.", new Color(0.75f, 0.45f, 1f), afflict.CurseUntil.Value - now, 20f));
             }
+            if (HearthBrazier.Warms(pos)) list.Add(new Status { Glyph = "\u2668", Name = "Warmed", Text = "By a lit hearth: frost cannot take hold, and you mend while no foe is near.", Lasts = "While you stand by it", Color = HearthBrazier.Fire });
             float water = DungeonDirector.WaterSlow(pos, true);
             if (water < 0.99f)
                 list.Add(new Status { Glyph = "≈", Name = DungeonDirector.Thickness > 0.05f ? "Mired" : "Wading",

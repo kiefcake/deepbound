@@ -28,7 +28,8 @@ namespace Deepbound.Enemies
                 or CharacterArt.SkeletonKind.Brute or CharacterArt.SkeletonKind.Necromancer or CharacterArt.SkeletonKind.Shieldbearer
                 or CharacterArt.SkeletonKind.Hoarder or CharacterArt.SkeletonKind.Plaguebearer or CharacterArt.SkeletonKind.FrostWight
                 or CharacterArt.SkeletonKind.Hexer or CharacterArt.SkeletonKind.Orbweaver or CharacterArt.SkeletonKind.ChoirAcolyte
-                or CharacterArt.SkeletonKind.BonePiper or CharacterArt.SkeletonKind.Cantor => true,
+                or CharacterArt.SkeletonKind.BonePiper or CharacterArt.SkeletonKind.Cantor or CharacterArt.SkeletonKind.RimeMagus
+                or CharacterArt.SkeletonKind.InkLamprey or CharacterArt.SkeletonKind.WitheringHag or CharacterArt.SkeletonKind.Bellringer => true,
             _ => false,
         };
 

@@ -689,7 +689,7 @@ namespace Deepbound.Art
         // ------------------------------------------------------------------
 
         /// <summary>APPEND ONLY: serialised as an int on enemy prefabs.</summary>
-        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling, Orbweaver, ChoirAcolyte, AbyssEye, BonePiper, Cantor }
+        public enum SkeletonKind { Warrior, King, Archer, Gravewarden, Lich, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Entling, Orbweaver, ChoirAcolyte, AbyssEye, BonePiper, Cantor, RimeMagus, InkLamprey, WitheringHag, Bellringer }
 
         /// <summary>
         /// The dungeon's rank-and-file enemy, and — scaled up, crowned and caped — its
@@ -729,7 +729,10 @@ namespace Deepbound.Art
                 : kind == SkeletonKind.Orbweaver ? new Color(1f, 0.62f, 0.2f)
                 : kind == SkeletonKind.ChoirAcolyte ? new Color(1f, 0.82f, 0.4f)
                 : kind == SkeletonKind.BonePiper ? new Color(0.4f, 1f, 0.9f)
-                : kind == SkeletonKind.Cantor ? new Color(0.78f, 0.78f, 1f)
+                : kind == SkeletonKind.Cantor || kind == SkeletonKind.Bellringer ? new Color(0.78f, 0.78f, 1f)
+                : kind == SkeletonKind.RimeMagus ? new Color(0.65f, 0.92f, 1f)
+                : kind == SkeletonKind.InkLamprey ? new Color(0.6f, 0.4f, 0.95f)
+                : kind == SkeletonKind.WitheringHag ? new Color(0.62f, 0.9f, 0.25f)
                 : kind == SkeletonKind.Necromancer ? new Color(0.75f, 0.35f, 1f)
                 : kind == SkeletonKind.Brute ? new Color(1f, 0.4f, 0.1f)
                 : new Color(1f, 0.25f, 0.1f);
@@ -981,6 +984,71 @@ namespace Deepbound.Art
                 // A stiff white choir collar (open at the front, the ruff of a cathedral singer).
                 var collar = MeshKit.Part(rig.Torso, "ChoirCollar", MeshKit.Lathe("choirCollar", new[] { new Vector2(0.17f, 0f), new Vector2(0.26f, 0.05f), new Vector2(0.25f, 0.08f) }, 14, true, 300f), Mat.Cloth, new Vector3(0f, 0.55f, 0f), new Vector3(0f, 30f, 0f));
                 ArtLibrary.Tint(collar.GetComponent<Renderer>(), new Color(0.92f, 0.9f, 0.84f));
+            }
+            else if (kind == SkeletonKind.RimeMagus)
+            {
+                // A frost-robed magus: pale blue vestments, a crown of ice shards, rime on the shoulders.
+                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.42f, 0.55f, 0.68f), new Color(0.65f, 0.92f, 1f), false);
+                var ice = new Color(0.7f, 0.9f, 1f);
+                for (int i = 0; i < 7; i++)
+                {
+                    float a = (i - 3) * 22f;
+                    var shard = MeshKit.Part(rig.Head, "IceShard", MeshKit.Box(new Vector3(0.035f, 0.12f + 0.05f * (3 - Mathf.Abs(i - 3)), 0.035f)), Mat.Glow,
+                        Quaternion.Euler(0f, a, 0f) * new Vector3(0f, 0.2f, 0.12f), new Vector3(-12f, a, 0f));
+                    ArtLibrary.SetGlow(shard.GetComponent<Renderer>(), ice * 0.9f);
+                }
+                for (int sx = -1; sx <= 1; sx += 2)
+                    ArtLibrary.Tint(MeshKit.Part(rig.Torso, "Rime", MeshKit.Ball(0.1f, 6, 4), Mat.Cloth, new Vector3(sx * 0.22f, 0.55f, 0f), Vector3.zero, new Vector3(1.2f, 0.45f, 1f)).GetComponent<Renderer>(), new Color(0.88f, 0.95f, 1f));
+            }
+            else if (kind == SkeletonKind.InkLamprey)
+            {
+                // A drowned thing in black weed, with a round mouth of hooked teeth where its face should be.
+                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.06f, 0.07f, 0.09f), new Color(0.6f, 0.4f, 0.95f), false);
+                var mouth = MeshKit.Pivot(rig.Head, "LampreyMouth", new Vector3(0f, 0.02f, 0.15f));
+                ArtLibrary.Tint(MeshKit.Part(mouth, "Lip", MeshKit.Cylinder(0.13f, 0.13f, 0.05f, 14), Mat.Leather, Vector3.zero, new Vector3(90f, 0f, 0f)).GetComponent<Renderer>(), new Color(0.22f, 0.12f, 0.16f));
+                ArtLibrary.Tint(MeshKit.Part(mouth, "Maw", MeshKit.Cylinder(0.085f, 0.085f, 0.052f, 12), Mat.Dark, new Vector3(0f, 0f, 0.004f), new Vector3(90f, 0f, 0f)).GetComponent<Renderer>(), new Color(0.05f, 0.01f, 0.04f));
+                for (int i = 0; i < 12; i++)
+                {
+                    float a = i * 30f * Mathf.Deg2Rad;
+                    MeshKit.Part(mouth, "Tooth", MeshKit.Box(new Vector3(0.016f, 0.04f, 0.016f)), Mat.Bone,
+                        new Vector3(Mathf.Sin(a) * 0.1f, Mathf.Cos(a) * 0.1f, 0.03f), new Vector3(0f, 0f, -i * 30f));
+                }
+                var weed = new Color(0.08f, 0.16f, 0.1f);
+                for (int i = 0; i < 6; i++)
+                {
+                    float a = (i * 60f + 20f) * Mathf.Deg2Rad;
+                    ArtLibrary.Tint(MeshKit.Part(rig.Torso, "Weed", MeshKit.Box(new Vector3(0.05f, 0.5f, 0.012f)), Mat.Cloth,
+                        new Vector3(Mathf.Sin(a) * 0.26f, 0.15f, Mathf.Cos(a) * 0.2f), new Vector3(Random.Range(-8f, 8f), i * 60f + 20f, Random.Range(-6f, 6f))).GetComponent<Renderer>(), weed);
+                }
+            }
+            else if (kind == SkeletonKind.WitheringHag)
+            {
+                // A bent crone: a mossy shawl, grey hair to her knees, a knotted-bone charm in her hand.
+                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.22f, 0.27f, 0.16f), new Color(0.62f, 0.9f, 0.25f), false);
+                var hair = new Color(0.62f, 0.62f, 0.58f);
+                for (int i = 0; i < 7; i++)
+                {
+                    float x = (i - 3) * 0.045f;
+                    ArtLibrary.Tint(MeshKit.Part(rig.Head, "Hair", MeshKit.Box(new Vector3(0.035f, 0.7f, 0.02f)), Mat.Cloth,
+                        new Vector3(x, -0.22f, -0.13f - Mathf.Abs(x) * 0.3f), new Vector3(8f, 0f, x * 30f)).GetComponent<Renderer>(), hair * (0.85f + 0.05f * (i % 3)));
+                }
+                ArtLibrary.Tint(MeshKit.Part(rig.Torso, "Shawl", MeshKit.Lathe("hagShawl", new[] { new Vector2(0.33f, 0.3f), new Vector2(0.3f, 0.48f), new Vector2(0.15f, 0.62f) }, 10, true, 290f), Mat.Cloth, Vector3.zero, new Vector3(0f, 215f, 0f)).GetComponent<Renderer>(), new Color(0.3f, 0.36f, 0.2f));
+                var charm = MeshKit.Pivot(rig.ArmL, "Charm", new Vector3(0f, -0.72f, 0.05f));
+                MeshKit.Part(charm, "Cord", MeshKit.Box(new Vector3(0.01f, 0.2f, 0.01f)), Mat.Leather, new Vector3(0f, -0.1f, 0f));
+                for (int k = 0; k < 3; k++)
+                    MeshKit.Part(charm, "Knucklebone", MeshKit.Box(new Vector3(0.05f, 0.025f, 0.025f)), Mat.Bone, new Vector3(0f, -0.2f - k * 0.04f, 0f), new Vector3(0f, k * 50f, 20f));
+                rig.Torso.localRotation = Quaternion.Euler(14f, 0f, 0f) * rig.Torso.localRotation;
+            }
+            else if (kind == SkeletonKind.Bellringer)
+            {
+                // A tall dead sexton: rust-brown cassock, a wooden yoke on its shoulders with a cracked bronze bell on its back.
+                BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.28f, 0.19f, 0.14f), new Color(0.78f, 0.78f, 1f), false);
+                MeshKit.Part(rig.Torso, "Yoke", MeshKit.Box(new Vector3(0.72f, 0.07f, 0.09f)), Mat.Wood, new Vector3(0f, 0.6f, -0.08f));
+                var bell = MeshKit.Pivot(rig.Torso, "BackBell", new Vector3(0f, 0.62f, -0.34f));
+                var cup = MeshKit.Part(bell, "Bell", MeshKit.Lathe("ringerBell", new[] { new Vector2(0.04f, 0f), new Vector2(0.14f, -0.06f), new Vector2(0.19f, -0.25f), new Vector2(0.24f, -0.42f), new Vector2(0.27f, -0.46f) }, 16, true), Mat.Gold, Vector3.zero);
+                ArtLibrary.Tint(cup.GetComponent<Renderer>(), new Color(0.48f, 0.36f, 0.22f));
+                MeshKit.Part(bell, "Crack", MeshKit.Box(new Vector3(0.012f, 0.22f, 0.012f)), Mat.Dark, new Vector3(0.12f, -0.3f, 0.17f), new Vector3(0f, 35f, 12f));
+                MeshKit.Part(bell, "BellStrap", MeshKit.Box(new Vector3(0.05f, 0.14f, 0.05f)), Mat.Leather, new Vector3(0f, 0.04f, 0f));
             }
             else if (kind == SkeletonKind.Cantor)
             {

@@ -145,6 +145,9 @@ namespace Deepbound.World
         /// <summary>Bone Pipers (2026-10-21): from the first act's second floor, they play bullet patterns.</summary>
         [SerializeField] private NetworkObject bonePiperPrefab;
         [SerializeField] private NetworkObject cantorPrefab;
+        /// <summary>The debuff foes (2026-11-13): Rime Magus (slow) and Ink Lamprey (blind) from act 2, Withering Hag (curse)
+        /// from act 3, Bell-ringer (silence) from act 4.</summary>
+        [SerializeField] private NetworkObject magusPrefab, lampreyPrefab, hagPrefab, ringerPrefab;
         [SerializeField] private NetworkObject fateWheelPrefab;
         [SerializeField] private NetworkObject bountyNoticePrefab;
         [SerializeField] private NetworkObject omenStonePrefab;
@@ -445,13 +448,13 @@ namespace Deepbound.World
 
         /// <summary>The rank-and-file prefabs (not bosses or Wardens), as network objects.</summary>
         private System.Collections.Generic.IEnumerable<NetworkObject> AllEnemyPrefabNetworkObjects() => new[] { skeletonPrefab, archerPrefab, ghoulPrefab, brutePrefab, necromancerPrefab, wraithPrefab,
-                shieldbearerPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, entlingPrefab, orbweaverPrefab, acolytePrefab, abyssEyePrefab, bonePiperPrefab, cantorPrefab };
+                shieldbearerPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, entlingPrefab, orbweaverPrefab, acolytePrefab, abyssEyePrefab, bonePiperPrefab, cantorPrefab, magusPrefab, lampreyPrefab, hagPrefab, ringerPrefab };
 
         /// <summary>Every enemy prefab the director can spawn (balance report).</summary>
         public System.Collections.Generic.IEnumerable<EnemyBrain> AllEnemyPrefabs()
         {
             var all = new System.Collections.Generic.List<NetworkObject> { skeletonPrefab, archerPrefab, ghoulPrefab, brutePrefab, necromancerPrefab, wraithPrefab,
-                shieldbearerPrefab, mimicPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, mournerPrefab, entlingPrefab, orbweaverPrefab, acolytePrefab, abyssEyePrefab, bonePiperPrefab, cantorPrefab };
+                shieldbearerPrefab, mimicPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, mournerPrefab, entlingPrefab, orbweaverPrefab, acolytePrefab, abyssEyePrefab, bonePiperPrefab, cantorPrefab, magusPrefab, lampreyPrefab, hagPrefab, ringerPrefab };
             if (bossPrefabs != null) all.AddRange(bossPrefabs);
             if (wardenPrefabs != null) all.AddRange(wardenPrefabs);
             foreach (var p in all) if (p != null && p.TryGetComponent<EnemyBrain>(out var b)) yield return b;
@@ -616,7 +619,7 @@ namespace Deepbound.World
                 "skeleton" => skeletonPrefab, "archer" => archerPrefab, "ghoul" => ghoulPrefab, "brute" => brutePrefab,
                 "necromancer" => necromancerPrefab, "wraith" => wraithPrefab, "shieldbearer" => shieldbearerPrefab, "gargoyle" => gargoylePrefab,
                 "plaguebearer" => plaguebearerPrefab, "frostwight" => frostWightPrefab, "hexer" => hexerPrefab, "mourner" => mournerPrefab,
-                "entling" => entlingPrefab, "orbweaver" => orbweaverPrefab, "mimic" => mimicPrefab, "hoarder" => hoarderPrefab, "acolyte" => acolytePrefab, "eye" => abyssEyePrefab, "piper" => bonePiperPrefab, "cantor" => cantorPrefab, _ => null,
+                "entling" => entlingPrefab, "orbweaver" => orbweaverPrefab, "mimic" => mimicPrefab, "hoarder" => hoarderPrefab, "acolyte" => acolytePrefab, "eye" => abyssEyePrefab, "piper" => bonePiperPrefab, "cantor" => cantorPrefab, "magus" => magusPrefab, "lamprey" => lampreyPrefab, "hag" => hagPrefab, "ringer" => ringerPrefab, _ => null,
             };
             if (prefab == null) return null;
             if (NavMesh.SamplePosition(at, out var hit, 4f, NavMesh.AllAreas)) at = hit.position;
@@ -1488,6 +1491,15 @@ namespace Deepbound.World
             // The Throne and below: Cantors hush the party's abilities.
             float cantor = cantorPrefab != null && act >= 2 ? 0.04f + 0.01f * tier : 0f;
             if ((roll -= cantor) < 0f) return cantorPrefab;
+            // The debuff foes (2026-11-13): blizzards and ink from the Vaults, the evil eye from the Throne, the toll in the Cathedral.
+            float magus = magusPrefab != null && act >= 1 ? 0.045f + 0.01f * tier : 0f;
+            if ((roll -= magus) < 0f) return magusPrefab;
+            float lamprey = lampreyPrefab != null && act >= 1 ? 0.045f + 0.01f * tier : 0f;
+            if ((roll -= lamprey) < 0f) return lampreyPrefab;
+            float hag = hagPrefab != null && act >= 2 ? 0.04f + 0.01f * tier : 0f;
+            if ((roll -= hag) < 0f) return hagPrefab;
+            float ringer = ringerPrefab != null && act >= 3 ? 0.05f + 0.01f * tier : 0f;
+            if ((roll -= ringer) < 0f) return ringerPrefab;
             // The Black Cathedral sings: choristers from act 4, warding the dead around them.
             float choir = acolytePrefab != null && act >= 3 ? 0.08f + 0.01f * tier : 0f;
             if ((roll -= choir) < 0f) return acolytePrefab;

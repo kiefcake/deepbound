@@ -19,7 +19,7 @@ namespace Deepbound.UI
         {
             "rift", "shieldcharge", "blink", "repulse", "breach", "bargain", "cellar", "jam", "choke",
             "flamevents", "edges", "relictray", "hone", "purse", "falloff", "entling", "rare", "necro", "hiddenplates", "gravewarden", "silenced",
-            "camp", "quests", "tavern", "emotewheel", "potions", "gamble2", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "bleed", "soul", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "hoarder", "bones", "tide", "lantern", "bell", "altar", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "orbweaver", "piper", "graze", "tallyman", "oath", "acolyte", "abysseye", "lightless", "shelter", "cantor", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound", "casino3", "poker", "questfloor", "oil", "chandelier", "pillar", "vigil", "prisoner", "watchers", "chimes", "fishing", "knives", "bells", "wrestle", "mirrors", "scales", "counter", "draught", "eruption", "spikes",
+            "camp", "quests", "tavern", "emotewheel", "potions", "gamble2", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "bleed", "soul", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "hoarder", "bones", "tide", "lantern", "bell", "altar", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "orbweaver", "piper", "graze", "tallyman", "oath", "acolyte", "abysseye", "lightless", "shelter", "cantor", "magus", "lamprey", "hag", "bellringer", "blinded", "accursed", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound", "casino3", "poker", "questfloor", "oil", "chandelier", "pillar", "vigil", "prisoner", "watchers", "chimes", "fishing", "knives", "bells", "wrestle", "mirrors", "scales", "counter", "draught", "eruption", "spikes",
         };
 
         private static readonly System.Collections.Generic.HashSet<string> sessionSeen = new System.Collections.Generic.HashSet<string>();
@@ -140,7 +140,15 @@ namespace Deepbound.UI
                 Offer("shelter", "Your shield is up: allies standing close BEHIND you are SHELTERED, taking half from blows at your shield. Hold the line for them.");
             var deb = player.GetComponent<PlayerDebuffs>();
             if (deb != null && (deb.Poisoned || deb.Frostbitten || deb.Cursed))
-                Offer("afflicted", "You are AFFLICTED. Holy Water (4) cleanses it; a curse also ends when its Hexer dies.");
+                Offer("afflicted", "You are AFFLICTED. Holy Water (4) cleanses it; weakness also ends when its Hexer dies.");
+            if (HearthBrazier.All.Count > 0)
+                foreach (var hb in HearthBrazier.All)
+                    if (hb != null && !hb.Lit.Value && Vector3.Distance(hb.transform.position, player.transform.position) < 9f)
+                    { Offer("hearth", "A HEARTH BRAZIER stands cold in the middle of this room. Light it (F): it lights the room, melts frost off anyone beside it, mends you between fights, and burns any of the dead you kick into it."); break; }
+            if (deb != null && deb.Blinded)
+                Offer("blinded", "BLINDED: ink in your eyes - no map, no health bars on the dead, only a small clear hole. Keep out of the black pools; Holy Water (4) washes it.");
+            if (deb != null && deb.Accursed)
+                Offer("accursed", "CURSED: you take 40% more damage until it runs out or the Withering Hag dies. Kill her, or lift it with Holy Water (4)."); 
             if (deb != null && deb.Dazed)
                 Offer("dazed", "DAZED: a heavy blow (a Brute's pound, a Gargoyle's dive) rang your head - you turn at half speed for a moment. Block or dodge the big ones.");
             if (deb != null && deb.Silenced)
@@ -161,6 +169,11 @@ namespace Deepbound.UI
                 if (b is UnsungBrain) Offer("eclipse", "THE UNSUNG sings ECHOES of the guardians you slew - their attacks, in their colours. At the very end, when POOLS OF DAWN open, stand in the light: the ECLIPSE strikes everyone outside one.");
                 if (b is NecromancerBrain) Offer("necro", "A NECROMANCER mends every one of the dead near it (green rings) and raises more. Kill it first, or stun it while its circle glows to break the spell.");
                 if (b is HollowKingBrain hk && hk.DecreesFallen > 0) Offer("decree", "The Hollow King's DECREES: BE STILL - whoever is still moving when it falls is struck (you can still swing and turn). BEGONE - whoever he can see is struck: put a pillar between you.");
+                if (b.Recovering) Offer("punish", "After a blow the dead SLUMP for a moment - weapon low, eyes dim. That is your opening: step in (a melee swing carries you a pace toward a foe just out of reach), hit it for PUNISH +20%, and step back out before its next wind-up.");
+                if (b is RimeMagusBrain) Offer("magus", "A RIME MAGUS calls a BLIZZARD that drifts after you: inside it you are slowed and the cold bites. Do not fight in it - walk or dodge clear, or kill the Magus and the storm dies.");
+                if (b is InkLampreyBrain) Offer("lamprey", "An INK LAMPREY spits where you are going - a dark circle. Caught under it you are BLINDED for a few seconds, and the ink pools there a while. Sidestep the circle; Holy Water washes your eyes.");
+                if (b is WitheringHagBrain) Offer("hag", "A WITHERING HAG fixes her EVIL EYE down a lane (it does not turn once drawn). Step out of it: caught, you are CURSED - +40% damage taken until she dies.");
+                if (b is BellringerBrain) Offer("bellringer", "A BELL-RINGER heaves and rings its bell: a low pale ring rolls out along the floor and SILENCES whoever it passes under. JUMP it, as you jump a guardian's shockwave.");
                 if (b is CantorBrain) Offer("cantor", "A TONGUELESS CANTOR: when its pale circle closes under you, you are SILENCED - no Q, E or ultimate for a few seconds. Step out of the circle, stun it mid-cast, or lift it with Holy Water. It is frail: reach it.");
                 if (b is BonePiperBrain) Offer("piper", "A BONE PIPER: each tune is a pattern - a ROSE that blooms, SCISSORS that sweep, SEEDPODS that burst where they land, a MARCH of walls with a gap. Its name floats up as it starts. It stands still to play: hit the glowing bag.");
                 if (b is BonePiperBrain || b is OrbweaverBrain) Offer("graze", "GRAZE: a shot that slips past you close without touching you counts toward a streak. Weave through patterns, do not just run from them.");

@@ -421,6 +421,9 @@ namespace Deepbound.World
             var c = room.Center;
             float hx = room.Size.x / 2f, hz = room.Size.y / 2f;
             FloorStains(room, lights, rng);
+            // Something in the middle (2026-11-13): cover, a landmark, or a hearth to light (World/Centrepieces).
+            var centre = Centrepieces.Of(room);
+            if (centre != Centrepieces.Kind.None) Centrepieces.Build(room, centre, b, lights, new System.Random(room.Id * 7919 + 17));
 
             // Large rooms get pillars: line-of-sight breaks for kiting and hiding.
             if (room.Size.x >= 16f && room.Size.y >= 16f)
@@ -467,9 +470,12 @@ namespace Deepbound.World
                 }
             }
 
-            if (rng.NextDouble() < 0.5) Props.BonePile(b, c + new Vector3((float)rng.NextDouble() * 4f - 2f, 0f, (float)rng.NextDouble() * 4f - 2f), rng);
+            // (The rng draws stay in the same order with or without a centrepiece, so the rest of the room dresses the same.)
+            bool pile = rng.NextDouble() < 0.5;
+            var pileAt = c + new Vector3((float)rng.NextDouble() * 4f - 2f, 0f, (float)rng.NextDouble() * 4f - 2f);
+            if (pile && centre == Centrepieces.Kind.None) Props.BonePile(b, pileAt, rng);
             GothicDressing(room, b, lights, rng);
-            if (room.Kind == RoomKind.Combat && room.Feature != RoomFeature.Lightless && rng.NextDouble() < 0.4) Props.Brazier(lights, c, theme.BrazierColor, true);
+            if (room.Kind == RoomKind.Combat && room.Feature != RoomFeature.Lightless && rng.NextDouble() < 0.4 && centre == Centrepieces.Kind.None) Props.Brazier(lights, c, theme.BrazierColor, true);
         }
 
         // ------------------------------------------------------------------

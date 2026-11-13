@@ -19,7 +19,16 @@ namespace Deepbound.World
     /// </summary>
     public partial class DungeonDirector
     {
-        [SerializeField] private NetworkObject oilSlickPrefab, chandelierPrefab, vigilCandlePrefab, prisonerPrefab;
+        [SerializeField] private NetworkObject oilSlickPrefab, chandelierPrefab, vigilCandlePrefab, prisonerPrefab, hearthPrefab;
+
+        /// <summary>Server: a hearth brazier here (the centrepiece's networked part; tests call it too).</summary>
+        public HearthBrazier ServerSpawnHearth(Vector3 at)
+        {
+            if (hearthPrefab == null) return null;
+            var obj = Instantiate(hearthPrefab, at, Quaternion.identity);
+            obj.Spawn(destroyWithScene: true);
+            return obj.GetComponent<HearthBrazier>();
+        }
         private byte nextVigil;
 
         /// <summary>What the camp shows: trophies and keepsakes (<see cref="CampMemory"/>), set by the host at camp.</summary>
@@ -50,6 +59,9 @@ namespace Deepbound.World
             nextVigil = 0;
             var combat = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && PlainEnough(r) && !r.Peaceful && !IsAmbushRoom(r));
             int act = Act(layout.Depth);
+            // Hearth centrepieces (World/Centrepieces): the builder laid the hearthstone, the brazier is networked.
+            foreach (var room in layout.Rooms)
+                if (Centrepieces.Of(room) == Centrepieces.Kind.Hearth) ServerSpawnHearth(room.Center + Vector3.up * 0.12f);
             foreach (var room in combat)
             {
                 // Oil: two or three jars and, mostly, a fire bowl to light them with.

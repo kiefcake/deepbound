@@ -72,6 +72,10 @@ namespace Deepbound.EditorTools
             var abyssEye = BuildEnemyPrefab("AbyssEye", EnemyType.AbyssEye, loot);
             var bonePiper = BuildEnemyPrefab("BonePiper", EnemyType.BonePiper, loot);
             var cantor = BuildEnemyPrefab("Cantor", EnemyType.Cantor, loot);
+            var magus = BuildEnemyPrefab("RimeMagus", EnemyType.RimeMagus, loot);
+            var lamprey = BuildEnemyPrefab("InkLamprey", EnemyType.InkLamprey, loot);
+            var hag = BuildEnemyPrefab("WitheringHag", EnemyType.WitheringHag, loot);
+            var ringer = BuildEnemyPrefab("Bellringer", EnemyType.Bellringer, loot);
             // The Wardens: one per act, at the end of the act's first floor.
             var wardens = new GameObject[5];
             for (int a = 0; a < wardens.Length; a++) wardens[a] = BuildEnemyPrefab("Warden" + a, EnemyType.Warden, loot, a);
@@ -110,6 +114,7 @@ namespace Deepbound.EditorTools
             var oilSlick = BuildObjectPrefab<OilSlick>("OilSlick", Vector3.zero);
             var chandelier = BuildObjectPrefab<Chandelier>("Chandelier", Vector3.zero);
             var vigilCandle = BuildObjectPrefab<VigilCandle>("VigilCandle", new Vector3(0.35f, 1.4f, 0.35f));
+            var hearth = BuildObjectPrefab<HearthBrazier>("HearthBrazier", new Vector3(1.6f, 1.4f, 1.6f));
             var prisoner = BuildPrisonerPrefab();
             var puzzleRoom = BuildObjectPrefab<PuzzleRoom>("PuzzleRoom", new Vector3(1.3f, 1.1f, 1.3f));
             var puzzleStatue = BuildObjectPrefab<PuzzleStatue>("PuzzleStatue", new Vector3(0.9f, 2.1f, 0.9f));
@@ -164,6 +169,10 @@ namespace Deepbound.EditorTools
             dso.FindProperty("abyssEyePrefab").objectReferenceValue = abyssEye.GetComponent<NetworkObject>();
             dso.FindProperty("bonePiperPrefab").objectReferenceValue = bonePiper.GetComponent<NetworkObject>();
             dso.FindProperty("cantorPrefab").objectReferenceValue = cantor.GetComponent<NetworkObject>();
+            dso.FindProperty("magusPrefab").objectReferenceValue = magus.GetComponent<NetworkObject>();
+            dso.FindProperty("lampreyPrefab").objectReferenceValue = lamprey.GetComponent<NetworkObject>();
+            dso.FindProperty("hagPrefab").objectReferenceValue = hag.GetComponent<NetworkObject>();
+            dso.FindProperty("ringerPrefab").objectReferenceValue = ringer.GetComponent<NetworkObject>();
             var wardenList = dso.FindProperty("wardenPrefabs");
             wardenList.arraySize = wardens.Length;
             for (int a = 0; a < wardens.Length; a++) wardenList.GetArrayElementAtIndex(a).objectReferenceValue = wardens[a].GetComponent<NetworkObject>();
@@ -179,6 +188,7 @@ namespace Deepbound.EditorTools
             dso.FindProperty("oilSlickPrefab").objectReferenceValue = oilSlick.GetComponent<NetworkObject>();
             dso.FindProperty("chandelierPrefab").objectReferenceValue = chandelier.GetComponent<NetworkObject>();
             dso.FindProperty("vigilCandlePrefab").objectReferenceValue = vigilCandle.GetComponent<NetworkObject>();
+            dso.FindProperty("hearthPrefab").objectReferenceValue = hearth.GetComponent<NetworkObject>();
             dso.FindProperty("prisonerPrefab").objectReferenceValue = prisoner.GetComponent<NetworkObject>();
             dso.FindProperty("puzzleRoomPrefab").objectReferenceValue = puzzleRoom.GetComponent<NetworkObject>();
             dso.FindProperty("puzzleStatuePrefab").objectReferenceValue = puzzleStatue.GetComponent<NetworkObject>();
@@ -207,7 +217,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix, handTorch, questCargo, questTrinket, poker, oilSlick, chandelier, vigilCandle, prisoner, puzzleRoom, puzzleStatue, wellFishing, knifeBoard, bellFrame, armWrestle, puzzleMirror, scaleWeight, statDraught, bargainAltar, soulRift, cellarHatch);
+            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix, handTorch, questCargo, questTrinket, poker, oilSlick, chandelier, vigilCandle, prisoner, puzzleRoom, puzzleStatue, wellFishing, knifeBoard, bellFrame, armWrestle, puzzleMirror, scaleWeight, statDraught, bargainAltar, soulRift, cellarHatch, hearth);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };
@@ -324,7 +334,7 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Warden, Entling, Orbweaver, ChoirAcolyte, AbyssEye, BonePiper, Cantor }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Warden, Entling, Orbweaver, ChoirAcolyte, AbyssEye, BonePiper, Cantor, RimeMagus, InkLamprey, WitheringHag, Bellringer }
 
         // A Warden is a giant of its act's rank and file.
         private static readonly Art.CharacterArt.SkeletonKind[] WardenKinds =
@@ -392,6 +402,10 @@ namespace Deepbound.EditorTools
                 case EnemyType.AbyssEye: brain = root.AddComponent<AbyssEyeBrain>(); break;
                 case EnemyType.BonePiper: brain = root.AddComponent<BonePiperBrain>(); break;
                 case EnemyType.Cantor: brain = root.AddComponent<CantorBrain>(); break;
+                case EnemyType.RimeMagus: brain = root.AddComponent<RimeMagusBrain>(); break;
+                case EnemyType.InkLamprey: brain = root.AddComponent<InkLampreyBrain>(); break;
+                case EnemyType.WitheringHag: brain = root.AddComponent<WitheringHagBrain>(); break;
+                case EnemyType.Bellringer: brain = root.AddComponent<BellringerBrain>(); break;
                 default: brain = root.AddComponent<EnemyBrain>(); break;
             }
 
@@ -507,6 +521,29 @@ namespace Deepbound.EditorTools
                     Kind(Art.CharacterArt.SkeletonKind.Cardinal);
                     Set("maxHealth", 3700f); Set("damage", 32f); Set("defense", 6f); Set("moveSpeed", 2.9f);
                     Set("attackRange", 3.4f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 60f);
+                    break;
+                case EnemyType.RimeMagus:
+                    // Hangs back: its blizzard is the threat. Frail; reach it and the storm dies.
+                    Kind(Art.CharacterArt.SkeletonKind.RimeMagus);
+                    Set("maxHealth", 110f); Set("damage", 11f); Set("defense", 0f); Set("moveSpeed", 3.1f);
+                    Set("attackRange", 13f); Set("windup", 0.8f); Set("recovery", 1.8f); Set("aggroRange", 19f);
+                    break;
+                case EnemyType.InkLamprey:
+                    // Closer than the casters: it spits from mid range and bites up close.
+                    Kind(Art.CharacterArt.SkeletonKind.InkLamprey);
+                    Set("maxHealth", 135f); Set("damage", 13f); Set("defense", 1f); Set("moveSpeed", 3.6f);
+                    Set("attackRange", 2.2f); Set("windup", 0.6f); Set("recovery", 1.1f); Set("aggroRange", 18f);
+                    break;
+                case EnemyType.WitheringHag:
+                    Kind(Art.CharacterArt.SkeletonKind.WitheringHag);
+                    Set("maxHealth", 120f); Set("damage", 12f); Set("defense", 0f); Set("moveSpeed", 2.9f);
+                    Set("attackRange", 12f); Set("windup", 0.8f); Set("recovery", 1.8f); Set("aggroRange", 18f);
+                    break;
+                case EnemyType.Bellringer:
+                    // A sturdy brawler: the toll is the trick, the clapper the threat.
+                    Kind(Art.CharacterArt.SkeletonKind.Bellringer);
+                    Set("maxHealth", 260f); Set("damage", 20f); Set("defense", 2f); Set("moveSpeed", 2.8f);
+                    Set("attackRange", 2.6f); Set("windup", 0.75f); Set("recovery", 1.2f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Cantor:
                     // Frail and far back: its hush is the threat, not its bolt.

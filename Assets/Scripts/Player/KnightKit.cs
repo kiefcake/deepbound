@@ -216,6 +216,7 @@ namespace Deepbound.Player
                 swingBusyUntil = Time.time + SwingWindup + SwingStrike + recovery;
                 player.ViewModelSwing(SwingWindup, SwingStrike + recovery, side);
                 Sfx.Play(Sound.Swing, transform.position, 0.6f);
+                MeleeStep.TryStepIn(motor, transform, player.AimForward, SwingRange * progress.ReachMultiplier, 9f);
             }
 
             if (swingPending && Time.time >= swingStrikeAt)

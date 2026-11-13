@@ -1458,7 +1458,7 @@ namespace Deepbound.UI
                 Rect(0, h - bar, w, bar, Color.black);
             }
 
-            DrawEnemyBars();
+            if (!Player.PlayerDebuffs.LocalBlind) DrawEnemyBars();
             DrawPylons();
             DrawPhoenixes();
             var stonePouch = player.GetComponent<Flasks>();
@@ -1468,7 +1468,7 @@ namespace Deepbound.UI
                 UiSkin.Shadowed(new Rect(0, UiScale.H * 0.3f, UiScale.W, 30), "GRAVE STILLNESS  -  nothing can touch you", new GUIStyle(big) { fontSize = 22, normal = { textColor = new Color(0.85f, 0.88f, 0.95f) } });
             }
             UiTimer.Mark("DrawEnemyBars");
-            DrawRelicTags();
+            if (!Player.PlayerDebuffs.LocalBlind) DrawRelicTags();
             UiTimer.Mark("DrawRelicTags");
             DrawDamageNumbers();
             UiTimer.Mark("DrawDamageNumbers");
@@ -3524,7 +3524,7 @@ namespace Deepbound.UI
         }
 
         private Player.PlayerDebuffs debuffs;
-        private bool wasPoison, wasFrost, wasCurse, wasMania, wasRoot, wasSilence, wasDaze;
+        private bool wasPoison, wasFrost, wasCurse, wasMania, wasRoot, wasSilence, wasDaze, wasHex, wasBlind;
         private string afflictText;
         private Color afflictColor;
         private float afflictAt = -10f;
@@ -3542,7 +3542,11 @@ namespace Deepbound.UI
             void Alert(bool now, bool was, string text, Color c) { if (now && !was) { afflictText = text; afflictColor = c; afflictAt = Time.time; } }
             Alert(poison, wasPoison, "POISONED  -  drink Holy Water or a potion", new Color(0.55f, 1f, 0.3f));
             Alert(frost, wasFrost, "FROSTBITTEN  -  you are slowed", new Color(0.55f, 0.85f, 1f));
-            Alert(curse, wasCurse, "CURSED  -  less damage and healing (kill the Hexer)", new Color(0.75f, 0.45f, 1f));
+            Alert(curse, wasCurse, "WEAKENED  -  40% less damage (kill the Hexer)", new Color(0.75f, 0.45f, 1f));
+            bool hex = debuffs.Accursed, blind = debuffs.Blinded;
+            Alert(hex, wasHex, "CURSED  -  you take 40% more damage (kill the Hag)", Enemies.WitheringHagBrain.EyeColor);
+            Alert(blind, wasBlind, "BLINDED  -  ink in your eyes (Holy Water washes it)", new Color(0.6f, 0.45f, 0.95f));
+            wasHex = hex; wasBlind = blind;
             Alert(mania, wasMania, "MANIA!  -  you cannot control your feet", new Color(1f, 0.4f, 0.9f));
             Alert(root, wasRoot, debuffs.Entangled ? "ENTANGLED  -  kill the Entling holding you" : "ROOTED  -  your feet are frozen", new Color(0.75f, 0.9f, 0.55f));
             Alert(daze, wasDaze, "DAZED  -  your head rings: turning is sluggish", new Color(0.95f, 0.85f, 0.55f));
@@ -3565,6 +3569,7 @@ namespace Deepbound.UI
             Edge(root, new Color(0.4f, 0.55f, 0.2f), 2f);
             Edge(silence, new Color(0.55f, 0.55f, 0.75f), 1.2f);
             Edge(daze, new Color(0.7f, 0.62f, 0.35f), 2.5f);
+            Edge(hex, new Color(0.35f, 0.5f, 0.1f), 1.8f);
             GUI.color = old;
 
             // Never over a boss's name card: the callout waits for the intro to finish.

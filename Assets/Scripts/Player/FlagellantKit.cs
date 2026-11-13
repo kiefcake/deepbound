@@ -146,6 +146,8 @@ namespace Deepbound.Player
                 swingBusyUntil = Time.time + SwingWindup + SwingStrike + SwingRecovery * speed;
                 player.ViewModelSwing(SwingWindup, SwingStrike + SwingRecovery * speed, side);
                 Sfx.Play(Sound.Swing, transform.position, 0.7f, 0.75f);
+                // Weave: a foe just out of reach is stepped to with the swing (MeleeStep).
+                MeleeStep.TryStepIn(motor, transform, player.AimForward, SwingRange * progress.ReachMultiplier, 10f);
             }
             if (swingPending && Time.time >= swingStrikeAt)
             {
@@ -417,12 +419,14 @@ namespace Deepbound.Player
                 Sfx.Play(Sound.Slam, crashAt, 0.9f, 1.1f);
                 Vfx.Ring(crashAt + Vector3.up * 0.05f, CrashRadius * (progress.OnPath(1) ? 1.5f : 1f), new Color(1f, 0.5f, 0.35f), 0.35f);
                 Vfx.Embers(crashAt + Vector3.up * 0.2f, 10, new Color(0.7f, 0.6f, 0.5f), 4f, 0.05f, 0.5f);
-                if (IsOwner) player.ConfirmHit(1.3f);
+                if (IsOwner) { player.ConfirmHit(1.8f); player.AddShake(0.22f); }
             }
             if (hit)
             {
                 Sfx.Play(Sound.Hit, transform.position + transform.forward * 1.5f + Vector3.up, 1f, 0.8f);
-                if (IsOwner && !crash) player.ConfirmHit(1f);
+                // The flail lands HEAVY (2026-11-13, the user: "i want to feel the flagellents swing more"): a harder
+                // kick and a shake, a thud of chain under the hit.
+                if (IsOwner && !crash) { player.ConfirmHit(1.5f); player.AddShake(0.12f); Sfx.Play(Sound.Chain, transform.position + transform.forward * 1.4f + Vector3.up, 0.55f, 0.7f); }
             }
         }
 
