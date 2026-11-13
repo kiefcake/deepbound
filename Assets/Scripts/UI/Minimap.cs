@@ -299,7 +299,7 @@ namespace Deepbound.UI
             {
                 if (drop == null) continue;
                 var k = drop.Kind.Value;
-                var c = k == LootKind.Relic ? Relics.GemColor((Relic)drop.Amount.Value) : k == LootKind.Sigil ? LootInfo.SigilColor : k == LootKind.Rune ? Runes.Color((Rune)drop.Amount.Value)
+                var c = k == LootKind.Relic ? Relics.GemColor(drop.RelicId) : k == LootKind.Sigil ? LootInfo.SigilColor : k == LootKind.Rune ? Runes.Color((Rune)drop.Amount.Value)
                     : k == LootKind.RareItem ? Progression.RareItems.Color((Progression.RareItem)drop.Amount.Value) : Color.clear;
                 if (c.a > 0f && Visible(layout, drop.transform.position)) MapIcons.Draw(MapIcons.Id.Gem, ToMap(drop.transform.position), c, px * 0.85f);
             }

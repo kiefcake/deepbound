@@ -2537,6 +2537,8 @@ namespace Deepbound.Networking
                                     var seedRng = new System.Random(5);
                                     for (int k = 0; k < 600; k++) if (Loot.Relics.FromSeed(seedRng) == Loot.Relic.GildedSkull) { neverRandom = false; break; }
                                     bool silas = World.DungeonDirector.SignatureRelic(World.FolkId.Silas) != Loot.Relic.GildedSkull;
+                                    jp.ServerRemoveRelic(Loot.Relic.GildedSkull);   // a fresh one, in a free slot (a held one only empowers)
+                                    while (jp.RelicCount >= Loot.Relics.MaxCarried) jp.ServerRemoveRelic(jp.RelicAt(0));
                                     float g0 = jp.GoldMultiplier;
                                     jp.ServerAddRelic(Loot.Relic.GildedSkull);
                                     float g1 = jp.GoldMultiplier;
@@ -2561,6 +2563,37 @@ namespace Deepbound.Networking
                                     HoarderBrain.DebugAlwaysSkull = false;
                                     Log("gilded skull", "never a random roll " + neverRandom + ", not Silas's " + silas + ", gold x" + (g1 - g0 + 1f).ToString("F2") + ", from the hoarder's sack " + fromSack,
                                         neverRandom && silas && Mathf.Abs(g1 - g0 - 0.25f) < 0.01f && fromSack);
+                                }
+                                // Setting a relic down mid run (2026-11-13, the user: "an easier way ... to switch between relics").
+                                {
+                                    var relMotor = local.GetComponent<FirstPersonMotor>();
+                                    var pick = Loot.Relic.EchoStone;
+                                    foreach (var cand in new[] { Loot.Relic.EchoStone, Loot.Relic.FrostCharm, Loot.Relic.LongShadow, Loot.Relic.ThunderSigil })
+                                        if (!jp.HasRelic(cand)) { pick = cand; break; }
+                                    jp.ServerRemoveRelic(pick);
+                                    while (jp.RelicCount >= Loot.Relics.MaxCarried) jp.ServerRemoveRelic(jp.RelicAt(0));
+                                    jp.ServerAddRelic(pick, 1);
+                                    int count0 = jp.RelicCount, idx = -1;
+                                    for (int k = 0; k < jp.RelicCount; k++) if (jp.RelicAt(k) == pick) idx = k;
+                                    var sd = jp.ServerSetDownRelic(idx);
+                                    yield return new WaitForSeconds(1.2f);
+                                    bool off = !jp.HasRelic(pick) && jp.RelicCount == count0 - 1;
+                                    bool kept = sd != null && sd.RelicId == pick && sd.RelicTier == 1;
+                                    bool stays = sd != null && sd.IsSpawned;
+                                    bool back = false;
+                                    if (stays)
+                                    {
+                                        var at = sd.transform.position;
+                                        relMotor.Teleport(at + Vector3.forward * 4f + Vector3.up * 0.1f, local.transform.rotation);
+                                        yield return new WaitForSeconds(0.4f);
+                                        relMotor.Teleport(at + Vector3.up * 0.1f, local.transform.rotation);
+                                        for (int w = 0; w < 20 && !jp.HasRelic(pick); w++) yield return new WaitForSeconds(0.1f);
+                                        back = jp.HasRelic(pick) && jp.RelicTier(pick) == 1;
+                                    }
+                                    jp.ServerRemoveRelic(pick);
+                                    relMotor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
+                                    Log("relic set down", "off the tray " + off + ", tier kept on the floor " + kept + ", not picked straight back " + stays + ", back at tier II " + back,
+                                        off && kept && stays && back);
                                 }
                                 // The Gravedigger's Pact and the Thorned Crown (2026-11-13).
                                 {
@@ -2746,16 +2779,23 @@ namespace Deepbound.Networking
                             if (!(e is BossBrain) && Vector3.Distance(e.transform.position, altarT.transform.position) < 16f) e.GetComponent<Health>().ServerDamage(1e6f, altarT.transform.position);
                         yield return new WaitForSeconds(0.3f);
                         int relics0 = ap2.RelicCount, emb0 = ap2.Embers.Value;
+                        float max0 = ah.Max.Value, att0 = ap2.AttackMultiplier, hs0 = ap2.BuildHealthScale;
                         for (int k = 0; k < BloodAltar.Offerings; k++)
                         {
                             ah.ServerSetFraction(1f);
                             altarT.UseRpc(local.NetworkObject);
                             yield return new WaitForSeconds(0.75f);
                         }
-                        bool bled = ah.Fraction < 0.95f;
+                        // 2026-11-13: each offering is -10% MAX health and +4% damage, for the run.
+                        float max1 = ah.Max.Value, att1 = ap2.AttackMultiplier, hs1 = ap2.BuildHealthScale;
+                        bool bled = ap2.BloodOffered.Value == BloodAltar.Offerings && Mathf.Abs(hs1 / hs0 - (1f - BloodAltar.OfferFraction * BloodAltar.Offerings)) < 0.03f;   // the scale: a relic won here may move max health too
+                        bool paid = att1 / att0 > 1f + BloodAltar.OfferDamage * BloodAltar.Offerings - 0.02f;
+                        ap2.BloodOffered.Value = 0;
+                        ap2.ServerAddBonus(Core.StatType.HP, 0f);
                         ah.ServerSetFraction(1f);
-                        Log("blood altar", "chalice " + altarT.Filled.Value + "/" + BloodAltar.Offerings + ", spent " + altarT.Spent.Value + ", bloodlust " + ap2.Bloodlust + ", relics " + relics0 + " -> " + ap2.RelicCount + ", embers " + emb0 + " -> " + ap2.Embers.Value + ", bled " + bled,
-                            altarT.Spent.Value && ap2.Bloodlust && ap2.RelicCount > relics0 && ap2.Embers.Value > emb0);
+                        Log("blood altar", "chalice " + altarT.Filled.Value + "/" + BloodAltar.Offerings + ", spent " + altarT.Spent.Value + ", bloodlust " + ap2.Bloodlust + ", relics " + relics0 + " -> " + ap2.RelicCount + ", embers " + emb0 + " -> " + ap2.Embers.Value
+                            + ", max health " + max0.ToString("F0") + " -> " + max1.ToString("F0") + " " + bled + ", damage x" + (att1 / att0).ToString("F2") + " " + paid,
+                            altarT.Spent.Value && ap2.Bloodlust && ap2.RelicCount > relics0 && ap2.Embers.Value > emb0 && bled && paid);
                     }
                     else Log("blood altar", "none on this floor", false);
                 }
@@ -3018,6 +3058,31 @@ namespace Deepbound.Networking
                         boss.ServerRepulse();
                         for (float w = 0f; w < BossBrain.RepulseTell + 2.5f && boss.Repulses == rep0; w += 0.1f) yield return new WaitForSeconds(0.1f);
                         Log("boss repulse", "repulses " + (boss.Repulses - rep0) + ", hp " + hp0.ToString("F0") + " -> " + hugHp.Current.Value.ToString("F0"), boss.Repulses > rep0 && hugHp.Current.Value < hp0);
+                        // The cleave wedge is locked (2026-11-13, the user: crescents "track the player ... impossible to dodge close
+                        // range"): once it is drawn, stepping round the guardian leaves it swinging at the empty wedge.
+                        {
+                            for (float w = 0f; w < 5f && (boss.IsStunned || boss.Immune || boss.Dashing); w += 0.2f) yield return new WaitForSeconds(0.2f);
+                            var bp = boss.transform.position;
+                            var front = bp + Flat3(boss.transform.forward).normalized * 3f;
+                            bossFm.Teleport(front + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(bp - front)));
+                            yield return new WaitForSeconds(0.1f);
+                            bool swung = false; float drift = 999f; var sdir = Vector3.zero;
+                            for (int tries = 0; tries < 6 && !swung; tries++)
+                            {
+                                swung = boss.ServerDebugSwing();
+                                if (!swung) yield return new WaitForSeconds(0.3f);
+                            }
+                            if (swung)
+                            {
+                                sdir = boss.StrikeDirection;
+                                var side = bp + Quaternion.Euler(0f, 100f, 0f) * sdir * 3f;
+                                bossFm.Teleport(side + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(bp - side)));
+                                yield return new WaitForSeconds(0.3f);
+                                if (boss.WindingSwing) drift = Vector3.Angle(Flat3(boss.transform.forward), Flat3(sdir));
+                                else drift = 0f;
+                            }
+                            Log("boss swing locked", boss.GetType().Name + " swung " + swung + ", turned " + drift.ToString("F1") + " deg toward you mid wind-up", swung && drift < 3f);
+                        }
                         hugHp.ServerSetFraction(1f);
                     }
                     boss.Dormant = wasAsleep;

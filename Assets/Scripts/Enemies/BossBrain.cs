@@ -732,7 +732,50 @@ namespace Deepbound.Enemies
         {
             base.BeginAttack();
             if (attacking && Rig != null)
-                ConeTelegraphRpc(transform.position, transform.forward, Mathf.Clamp(attackArc, 40f, 300f), attackRange + health.BodyRadius + 0.6f, windup);
+                // Exactly the wedge the swing will strike (its move's arc and reach, plus a body's width), in the locked direction,
+                // for the whole wind-up of that move.
+                ConeTelegraphRpc(transform.position, strikeDir, Mathf.Clamp(MoveArc, 40f, 300f), MoveReach + 0.45f, Mathf.Max(0.1f, strikeAt - Time.time));
+        }
+
+        protected override void Strike()
+        {
+            var apex = transform.position;
+            float arc = MoveArc, reach = MoveReach;
+            var dir = strikeDir;
+            bool heavy = currentMove == Move.Heavy;
+            base.Strike();
+            StrikeWakeRpc(apex, dir, arc, reach, heavy);
+            // A flurry's second blow gets its own wedge (same direction: it is locked).
+            if (attacking && Rig != null)
+                ConeTelegraphRpc(transform.position, strikeDir, Mathf.Clamp(MoveArc, 40f, 300f), MoveReach + 0.45f, Mathf.Max(0.1f, strikeAt - Time.time));
+        }
+
+        /// <summary>
+        /// Where a guardian's blow lands, the floor shows it (2026-11-13): grit thrown up along the edge of the wedge it struck, and
+        /// for a heavy blow a crack of dust and a ring where the weapon met the stone. Seen by everyone; harmless.
+        /// </summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        private void StrikeWakeRpc(Vector3 apex, Vector3 dir, float arc, float reach, bool heavy)
+        {
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 0.001f) return;
+            dir.Normalize();
+            var grit = new Color(0.55f, 0.48f, 0.4f);
+            int n = Mathf.Clamp(Mathf.RoundToInt(arc / 14f), 4, 16);
+            for (int i = 0; i < n; i++)
+            {
+                float yaw = Mathf.Lerp(-arc / 2f, arc / 2f, n == 1 ? 0.5f : i / (float)(n - 1));
+                var at = Vfx.Floor(apex + Quaternion.AngleAxis(yaw, Vector3.up) * dir * reach * Random.Range(0.8f, 1f)) + Vector3.up * 0.1f;
+                Vfx.Embers(at, 2, grit, 2.4f, 0.05f, 0.5f);
+            }
+            if (heavy)
+            {
+                var hit = Vfx.Floor(apex + dir * Mathf.Min(reach, 2.2f));
+                Vfx.Ring(hit + Vector3.up * 0.05f, 1.6f, new Color(1f, 0.55f, 0.3f), 0.4f);
+                Vfx.Smoke(hit, 4, 1.2f, 1.2f);
+                Vfx.Embers(hit + Vector3.up * 0.2f, 10, grit, 4.5f, 0.07f, 0.7f);
+                Sfx.Play(Sound.Slam, hit, 0.8f, 0.8f);
+            }
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -953,8 +996,8 @@ namespace Deepbound.Enemies
 
         public const float StrikeRadius = 2.2f, LanceLength = 24f, LanceWidth = 1.7f;
 
-        private struct Strike { public Vector3 At, Dir; public float When, Radius, Damage; public bool Line; }
-        private readonly List<Strike> strikes = new List<Strike>();
+        private struct PendingStrike { public Vector3 At, Dir; public float When, Radius, Damage; public bool Line; }
+        private readonly List<PendingStrike> strikes = new List<PendingStrike>();
         private float nextHunt = -1f;
         private int huntKind;
 
@@ -997,7 +1040,7 @@ namespace Deepbound.Enemies
                     if (p == null || !p.Targetable) continue;
                     var at = PredictedFeet(p, tell + 0.1f);
                     LastStrikeAt = at;
-                    strikes.Add(new Strike { At = at, When = Time.time + tell, Radius = StrikeRadius, Damage = damage * 0.55f });
+                    strikes.Add(new PendingStrike { At = at, When = Time.time + tell, Radius = StrikeRadius, Damage = damage * 0.55f });
                     TintedCircleRpc(at, StrikeRadius, tell, Telegraph.Harm);
                 }
                 yield return new WaitForSeconds(0.42f);
@@ -1022,7 +1065,7 @@ namespace Deepbound.Enemies
                 for (int i = 0; i < lines; i++)
                 {
                     var dir = Quaternion.Euler(0f, (i - (lines - 1) / 2f) * spread, 0f) * to;
-                    strikes.Add(new Strike { At = from, Dir = dir, When = Time.time + tell, Damage = damage * 0.65f, Line = true });
+                    strikes.Add(new PendingStrike { At = from, Dir = dir, When = Time.time + tell, Damage = damage * 0.65f, Line = true });
                     FreeLineTelegraphRpc(from, dir, LanceLength, LanceWidth, tell);
                 }
             }

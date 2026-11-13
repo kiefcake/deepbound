@@ -44,7 +44,7 @@ namespace Deepbound.World
             _ => "ghoul",
         };
 
-        public static string CargoTask(FolkId who) => "Find " + QuestCargo.NameOf(who) + " and carry it out: into the guardian's arena, through the fight, up on the grave lift";
+        public static string CargoTask(FolkId who) => "Find " + QuestCargo.NameOf(who) + " and carry it into the guardian's arena before the gates fall (it is safe there)";
         public static string GatherTask(FolkId who, int goal) => "Find " + goal + " " + (who == FolkId.Aldric ? "saint's knucklebones (gold glow, a whisper)" : who == FolkId.Brann ? "fallen standards of Brann's squad" : "humming rune shards") + " in different rooms and bring them out on the grave lift (go down and you drop them)";
 
         /// <summary>Server: finds held by each player (NetworkObjectId -> givers), counted when the lift rises.</summary>
@@ -113,18 +113,37 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void FindsDroppedRpc(string who, int n) => UI.GameHud.Feed(who + " went down and dropped " + n + " quest find" + (n > 1 ? "s" : "") + " - pick " + (n > 1 ? "them" : "it") + " up again.", new Color(1f, 0.6f, 0.4f));
 
-        /// <summary>Server, when the arena seals: cargo that is not inside with the party is left behind.</summary>
+        /// <summary>
+        /// Server, when the arena seals: cargo inside the arena is DELIVERED there and then - set safe by the gate - and cargo
+        /// outside is left behind (2026-11-13, the user: carrying it through the boss unharmed was "basically impossible on a
+        /// single player run").
+        /// </summary>
         private void QuestCargoAtSeal()
         {
             var room = Layout != null ? Layout.BossRoom : null;
             if (room == null) return;
             foreach (var c in FindObjectsByType<QuestCargo>(FindObjectsSortMode.None))
             {
-                if (c == null || !c.IsSpawned || room.Contains(c.transform.position, 0.5f)) continue;
+                if (c == null || !c.IsSpawned) continue;
+                if (room.Contains(c.transform.position, 0.5f))
+                {
+                    CargoSafeRpc(QuestCargo.NameOf(c.Who), c.transform.position);
+                    Advance(Contract.Cargo, 1, c.Who);
+                    c.NetworkObject.Despawn();
+                    continue;
+                }
                 LeftBehindRpc(QuestCargo.NameOf(c.Who));
                 ServerCargoRuined(c.Who);
                 c.NetworkObject.Despawn();
             }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void CargoSafeRpc(string what, Vector3 at)
+        {
+            Art.Sfx.Play(Art.Sound.Relic, at + Vector3.up, 0.7f, 1.1f);
+            Art.Vfx.Ring(at + Vector3.up * 0.05f, 1.2f, new Color(1f, 0.85f, 0.45f), 0.5f);
+            UI.GameHud.Feed("The gates fall - " + what + " is safe inside. Delivered.", new Color(0.6f, 1f, 0.6f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

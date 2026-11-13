@@ -119,7 +119,7 @@ namespace Deepbound.Enemies
                 if (now - o.Start >= o.Life || IsDead) { orbs.RemoveAt(i); PopRpc(o.Id, OrbPosition(o.From, o.To, o.Start, now)); continue; }
                 if (Time.time < o.NextShot) continue;
                 var at = OrbPosition(o.From, o.To, o.Start, now);
-                float dmg = damage * 0.5f;
+                float dmg = damage * 0.85f;   // 0.5 until 2026-11-13 (the user: bullets "way too little damage")
                 switch (o.Pattern)
                 {
                     case 0:

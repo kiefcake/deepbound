@@ -14,6 +14,11 @@ namespace Deepbound.Art
         Death = 6,
         Cast = 7,     // arms raised (boss summon, war cry)
         Draw = 8,     // bow raised and drawn — the archer's telegraph
+        // 2026-11-13, the user: "create animations for each bosses attacks". Each move now reads differently:
+        WindHeavy = 9,    // both hands up over the head, rising onto the toes, leaning back (the heavy blow coming)
+        Cleave = 10,      // ...and crashing down two-handed, bowed over, knees bent
+        WindSweep = 11,   // sunk low, the weapon dragged far back to one side, the whole body coiled
+        SweepStrike = 12, // ...uncoiling into a wide flat swing that carries the torso round
     }
 
     /// <summary>The emote wheel's gestures (2026-11-01), played on a player's rig for everyone to see.</summary>
@@ -162,7 +167,7 @@ namespace Deepbound.Art
         {
             if (action == RigAction.Death && kind != RigAction.None) return;
 
-            if (kind == RigAction.Swing) swingSide = -swingSide;
+            if (kind == RigAction.Swing || kind == RigAction.WindSweep) swingSide = -swingSide;
             action = kind;
             actionTime = 0f;
             actionDuration = Mathf.Max(0.05f, duration);
@@ -256,6 +261,63 @@ namespace Deepbound.Art
                     torso += Vector3.Lerp(new Vector3(-15f, 0f, 0f) * up, new Vector3(30f, 0f, 0f), down);
                     glow = 1f + 4f * up * (1f - down);
                     break;
+
+                case RigAction.WindHeavy:
+                {
+                    float h = Ease(Mathf.Clamp01(t * 1.25f));
+                    var high = new Vector3(-175f, 0f, 0f);
+                    armR = Vector3.Lerp(armR, high + new Vector3(0f, 0f, 8f), h);
+                    armL = Vector3.Lerp(armL, high + new Vector3(0f, 0f, -8f), h);
+                    torso += new Vector3(-18f, 0f, 0f) * h;
+                    head += new Vector3(-12f, 0f, 0f) * h;
+                    hipsOffset += new Vector3(0f, 0.04f, -0.04f) * h;
+                    if (t > 0.7f) { armR.x += Mathf.Sin(Time.time * 55f) * 3f; armL.x = armR.x; }
+                    glow = 1f + 4f * t;
+                    break;
+                }
+
+                case RigAction.Cleave:
+                {
+                    float c2 = Ease(Mathf.Clamp01(t * 2.2f));
+                    float settle = Mathf.Clamp01((t - 0.55f) / 0.45f);
+                    var cleaveDown = new Vector3(-35f, 0f, 0f);
+                    armR = Vector3.LerpUnclamped(new Vector3(-175f, 0f, 8f), cleaveDown + new Vector3(0f, 0f, 6f), c2);
+                    armL = Vector3.LerpUnclamped(new Vector3(-175f, 0f, -8f), cleaveDown + new Vector3(0f, 0f, -6f), c2);
+                    torso += Vector3.Lerp(new Vector3(-18f, 0f, 0f), new Vector3(34f, 0f, 0f), c2) * (1f - 0.5f * settle);
+                    head += new Vector3(-10f, 0f, 0f) * c2;
+                    legL += new Vector3(-22f, 0f, 0f) * c2 * (1f - settle);
+                    legR += new Vector3(-22f, 0f, 0f) * c2 * (1f - settle);
+                    hipsOffset += new Vector3(0f, -0.12f, 0.06f) * c2 * (1f - 0.6f * settle);
+                    glow = 1f + 3f * (1f - c2);
+                    break;
+                }
+
+                case RigAction.WindSweep:
+                {
+                    float w2 = Ease(Mathf.Clamp01(t * 1.3f));
+                    armR = Vector3.Lerp(armR, new Vector3(-80f, -95f * swingSide, 55f), w2);
+                    armL = Vector3.Lerp(armL, new Vector3(-60f, -40f * swingSide, -30f), w2);
+                    torso += new Vector3(12f, -55f * swingSide, 0f) * w2;
+                    head += new Vector3(-6f, 45f * swingSide, 0f) * w2;
+                    legL += new Vector3(-18f, 0f, -6f) * w2;
+                    legR += new Vector3(-18f, 0f, 6f) * w2;
+                    hipsOffset += new Vector3(0f, -0.1f, 0f) * w2;
+                    if (t > 0.75f) torso.y += Mathf.Sin(Time.time * 50f) * 2f;
+                    glow = 1f + 3f * t;
+                    break;
+                }
+
+                case RigAction.SweepStrike:
+                {
+                    float s2 = Ease(Mathf.Clamp01(t * 1.7f));
+                    float over2 = Mathf.Sin(Mathf.Clamp01((t - 0.5f) / 0.5f) * Mathf.PI) * 0.15f;
+                    armR = Vector3.LerpUnclamped(new Vector3(-80f, -95f * swingSide, 55f), new Vector3(-80f, 105f * swingSide, -20f), s2 + over2);
+                    armL = Vector3.Lerp(new Vector3(-60f, -40f * swingSide, -30f), armL, s2);
+                    torso += Vector3.LerpUnclamped(new Vector3(12f, -55f * swingSide, 0f), new Vector3(8f, 60f * swingSide, 0f), s2 + over2 * 0.7f);
+                    head += Vector3.Lerp(new Vector3(-6f, 45f * swingSide, 0f), new Vector3(0f, -20f * swingSide, 0f), s2);
+                    hipsOffset += new Vector3(0f, -0.1f, 0f) * (1f - s2) + new Vector3(0f, -0.03f, 0.04f) * Mathf.Sin(s2 * Mathf.PI);
+                    break;
+                }
 
                 case RigAction.Stagger:
                     // Rocked back on its heels, arms flung out, then catching itself.

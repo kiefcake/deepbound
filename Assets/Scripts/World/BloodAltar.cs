@@ -20,7 +20,12 @@ namespace Deepbound.World
     public class BloodAltar : Interactable
     {
         public const int Offerings = 3;
-        public const float OfferFraction = 0.2f, BloodlustSeconds = 90f;
+        // 2026-11-13, the user: "nerf the blood chest ... to 10% of max hp, permanently and adjust benefit". An offering now
+        // takes a tenth of your MAX health for the rest of the run (it used to be a fifth of your current health, which you
+        // mended); in return each offering is +4% damage for the run (PlayerProgress.BloodOffered), on top of the relic and the
+        // Bloodlust when the chalice brims.
+        public const float OfferFraction = 0.1f, BloodlustSeconds = 90f, OfferDamage = 0.04f;
+        public const int MaxOffered = 5;
 
         public readonly NetworkVariable<bool> Spent = new NetworkVariable<bool>();
         public readonly NetworkVariable<byte> Filled = new NetworkVariable<byte>();
@@ -34,8 +39,8 @@ namespace Deepbound.World
         {
             if (Spent.Value) return null;
             var hp = who.GetComponent<Health>();
-            if (hp != null && hp.Current.Value < hp.Max.Value * (OfferFraction + 0.1f)) return "Blood altar: you are too weak to bleed for it";
-            return "Offer blood (" + Mathf.RoundToInt(OfferFraction * 100f) + "% health)   chalice " + Filled.Value + " / " + Offerings + "   full: a relic each who bled, Bloodlust for all";
+            if (who.BloodOffered.Value >= MaxOffered) return "Blood altar: you have no more to give this run";
+            return "Offer blood: -" + Mathf.RoundToInt(OfferFraction * 100f) + "% MAX health for the run, +" + Mathf.RoundToInt(OfferDamage * 100f) + "% damage for the run   chalice " + Filled.Value + " / " + Offerings + "   full: a relic each who bled, Bloodlust for all";
         }
 
         public override void OnNetworkSpawn()
@@ -51,10 +56,10 @@ namespace Deepbound.World
         {
             if (Spent.Value || Time.time < nextOffer) return;
             var hp = who.GetComponent<Health>();
-            if (hp.Current.Value < hp.Max.Value * (OfferFraction + 0.1f)) return; // would nearly kill you: refuse
+            if (who.BloodOffered.Value >= MaxOffered) return;
             nextOffer = Time.time + 0.6f;
-            // Taken straight from the pool, not as a hit: blocks and wards do not apply.
-            hp.ServerSetFraction((hp.Current.Value - hp.Max.Value * OfferFraction) / hp.Max.Value);
+            // Taken from your MAX health for the run (not a hit: blocks and wards do not apply).
+            who.ServerOfferBlood();
             donors.Add(who.NetworkObjectId);
             int depth = DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0;
             who.ServerAddEmbers(Enemies.Difficulty.Embers(4 + Mathf.RoundToInt(2f * DungeonDirector.Tier(depth))));

@@ -103,6 +103,14 @@ namespace Deepbound.Loot
         private Transform visual;
         private float phase;
         private float pickupAllowedAt, bornAt;
+
+        /// <summary>A relic drop's relic (the low five bits; a relic SET DOWN keeps its tier in the next two).</summary>
+        public Relic RelicId => (Relic)(Amount.Value & 31);
+        public int RelicTier => (Amount.Value >> 5) & 3;
+        /// <summary>Server: who set this relic down; they do not pick it straight back up until they have stepped away.</summary>
+        public ulong SetDownBy = ulong.MaxValue;
+        private bool setterLeft;
+        public const float SetDownStepAway = 2.4f;
         private bool landed;
         private const float HopSeconds = 0.55f;
 
@@ -228,6 +236,11 @@ namespace Deepbound.Loot
                 if (life == null || life.Downed.Value) continue;
                 var d = life.transform.position - transform.position;
                 d.y *= 0.5f;
+                if (life.NetworkObjectId == SetDownBy && !setterLeft)
+                {
+                    if (d.magnitude > SetDownStepAway) setterLeft = true;
+                    continue;
+                }
                 if (d.magnitude > (Magnetic ? MagnetOf(life) : PickupRadius)) continue;
 
                 routedTo = null;
@@ -275,15 +288,16 @@ namespace Deepbound.Loot
             }
             if (kind == LootKind.Relic)
             {
-                var relic = (Relic)Amount.Value;
+                var relic = RelicId;
+                int keptTier = RelicTier;
                 var fair = FairShare(progress, p => p.RelicWealth, p => p.CanTakeRelic(relic));
-                if (fair != progress && fair.ServerAddRelic(relic)) return true;
+                if (fair != progress && fair.ServerAddRelic(relic, keptTier)) return true;
                 routedTo = null;
                 // A relic you already carry would only empower yours: leave it while a teammate lacks it.
                 bool teammateNeeds = false;
                 foreach (var pl in PlayerLife.All)
                     if (pl != null && pl.TryGetComponent<PlayerProgress>(out var other) && other != progress && !other.HasRelic(relic) && other.CanTakeRelic(relic)) teammateNeeds = true;
-                if ((!progress.HasRelic(relic) || !teammateNeeds) && progress.ServerAddRelic(relic)) return true;
+                if ((!progress.HasRelic(relic) || !teammateNeeds) && progress.ServerAddRelic(relic, keptTier)) return true;
                 // A relic nobody can take used to lie there for ever with its beam lit (the autoplay run stood
                 // on one for ten minutes). It breaks down into embers instead.
                 foreach (var pl in PlayerLife.All)
@@ -291,7 +305,7 @@ namespace Deepbound.Loot
                 int embers = 15 + 10 * Mathf.Max(0, World.DungeonDirector.Layout != null ? World.DungeonDirector.Layout.Depth : 0);
                 PlayerProgress.ServerShareEmbers(progress, embers);
                 crumbled = true;
-                World.DungeonDirector.Instance?.ServerFeedAll("A second " + Relics.Name((Relic)Amount.Value) + " crumbles into " + embers + " embers (you already carry one)", LootInfo.EmberColor);
+                World.DungeonDirector.Instance?.ServerFeedAll("A second " + Relics.Name(RelicId) + " crumbles into " + embers + " embers (you already carry one)", LootInfo.EmberColor);
                 return true;
             }
             if (kind == LootKind.PotionHP || kind == LootKind.PotionMP)
@@ -345,7 +359,7 @@ namespace Deepbound.Loot
                 else if (k == LootKind.Sigil) UI.GameHud.Pickup("sigil", 1, " Sigil", LootInfo.SigilColor);
                 else if (IsPart(k)) UI.GameHud.Pickup("part" + (int)k, Amount.Value, " " + Crafting.PartName(PartOf(k)), Crafting.PartColor(PartOf(k)));
                 else if (k == LootKind.Rune) UI.GameHud.Pickup("rune" + Amount.Value, 1, " " + Runes.Name((Rune)Amount.Value), Runes.Color((Rune)Amount.Value));
-                else if (k == LootKind.Relic) UI.GameHud.Pickup("relic" + Amount.Value, 1, " " + Relics.Name((Relic)Amount.Value), Relics.GemColor((Relic)Amount.Value), Relics.Describe((Relic)Amount.Value));
+                else if (k == LootKind.Relic) UI.GameHud.Pickup("relic" + Amount.Value, 1, " " + Relics.Name(RelicId) + (RelicTier > 0 ? " " + (RelicTier == 1 ? "II" : "III") : ""), Relics.GemColor(RelicId), Relics.Describe(RelicId));
                 // Potions: the pouch says it, with the count (Flasks.AddedRpc).
             }
             // Relics announce themselves; gold and embers just make their noise.
@@ -368,7 +382,7 @@ namespace Deepbound.Loot
 
             if (Kind.Value == LootKind.Relic)
             {
-                BuildRelicVisual((Relic)Amount.Value);
+                BuildRelicVisual(RelicId);
                 return;
             }
 

@@ -741,7 +741,7 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(cx, cy + 4, 320, 20), "POUCH   Health " + fl.Health.Value + "   Mana " + fl.Mana.Value + "   Frost " + fl.Frost.Value + "   Holy " + fl.Holy.Value + "   (5 each)", small);
                 cy += 28;
             }
-            GUI.Label(new Rect(cx, cy, 300, 22), "RELICS (" + progress.RelicCount + " / " + Relics.MaxCarried + ")", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            GUI.Label(new Rect(cx, cy, 300, 22), "RELICS (" + progress.RelicCount + " / " + Relics.MaxCarried + ")" + (progress.RelicCount > 0 ? "   right-click: set down" : ""), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
             cy += 22;
             string hoverText = null;
             bool party = PlayerLife.All.Count > 1;
@@ -756,8 +756,17 @@ namespace Deepbound.UI
                 if (rcy > py + ph - (party ? 150 : 20)) continue;
                 var rr = new Rect(cx + (i / relRows) * relColW, rcy, relColW - 4, 20);
                 var relSt = new GUIStyle(small) { wordWrap = false, normal = { textColor = rr.Contains(mouse) ? Color.white : UiSkin.Readable(Relics.GemColor(rel)) } };
-                GUI.Label(rr, UiSkin.Fit(progress.RelicLabel(i), relSt, rr.width), relSt);
-                if (rr.Contains(mouse)) hoverText = progress.RelicLabel(i) + ": " + Relics.Describe(rel) + (progress.RelicTierAt(i) > 0 ? "  (empowered: +" + Relics.TierPercent(progress.RelicTierAt(i)) + "% to its numbers)" : "");
+                bool overRel = rr.Contains(mouse);
+                // Set a relic down (2026-11-13): right-click the row, or the small button that shows on hover.
+                var setDown = new Rect(rr.xMax - 58, rr.y + 1, 56, 18);
+                GUI.Label(overRel ? new Rect(rr.x, rr.y, rr.width - 60, rr.height) : rr, UiSkin.Fit(progress.RelicLabel(i), relSt, overRel ? rr.width - 60 : rr.width), relSt);
+                if (overRel)
+                {
+                    if (GUI.Button(setDown, new GUIContent("set down", "Put it on the floor at your feet. It keeps its tier; pick it up again later, or let a teammate have it."), new GUIStyle(UiSkin.Button) { fontSize = 10 }))
+                        progress.SetDownRelicRpc((byte)i);
+                    else if (Event.current.type == EventType.MouseDown && Event.current.button == 1) { progress.SetDownRelicRpc((byte)i); Event.current.Use(); }
+                }
+                if (overRel) hoverText = progress.RelicLabel(i) + ": " + Relics.Describe(rel) + (progress.RelicTierAt(i) > 0 ? "  (empowered: +" + Relics.TierPercent(progress.RelicTierAt(i)) + "% to its numbers)" : "") + "   Right-click to set it down.";
             }
             cy = relTop + relRows * 20;
 

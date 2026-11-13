@@ -422,8 +422,12 @@ namespace Deepbound.World
         /// leaves it exactly where it was put (a niche's plinth).
         /// </summary>
         public void ServerDropLoot(Vector3 at, LootKind kind, int amount, Vector3? from = null, bool settle = true, bool fixedSum = false)
+            => ServerDropLootGet(at, kind, amount, from, settle, fixedSum);
+
+        /// <summary>The same, handing back the drop (a relic set down remembers who set it down).</summary>
+        public LootDrop ServerDropLootGet(Vector3 at, LootKind kind, int amount, Vector3? from = null, bool settle = true, bool fixedSum = false)
         {
-            if (lootPrefab == null) return;
+            if (lootPrefab == null) return null;
             if (!fixedSum && kind == LootKind.Gold) amount = Enemies.Difficulty.Gold(amount);
             if (!fixedSum && kind == LootKind.Embers) amount = Enemies.Difficulty.Embers(amount);
             var place = settle ? DropSpots.Settle(from ?? at, at) : at + Vector3.up * 0.05f;
@@ -432,6 +436,7 @@ namespace Deepbound.World
             drop.Kind.Value = kind;
             drop.Amount.Value = amount;
             obj.Spawn(destroyWithScene: true);
+            return drop;
         }
         [SerializeField] private NetworkObject trapPrefab;
         [SerializeField] private NetworkObject lootPrefab;

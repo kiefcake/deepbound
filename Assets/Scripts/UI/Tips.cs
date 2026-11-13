@@ -106,7 +106,7 @@ namespace Deepbound.UI
             if (questDir != null)
                 foreach (var q in questDir.Quests)
                     if (q.Status == DungeonDirector.ContractStatus.Active && (q.Contract == Contract.Cargo || q.Contract == Contract.Gather || q.Contract == Contract.Mark))
-                    { Offer("questfloor", "QUEST ON THIS FLOOR: cargo (a light column) must be CARRIED into the guardian's arena and up the lift; finds must be held when the lift rises; a named MARK must die first."); break; }
+                    { Offer("questfloor", "QUEST ON THIS FLOOR: cargo (a light column) must be CARRIED into the guardian's arena before the gates fall - then it is safe. Finds must be held when the lift rises; a named MARK must die first."); break; }
             var myKit = player.ActiveKit;
             if (myKit != null && myKit.AttackRange > 6f) Offer("falloff", "RANGED shots lose bite past half their range (60% at the very end), and arrows and knives DROP: aim a little high at distance.");
             if (EnemyBrain.All.Any(e => e is EntlingBrain && !e.IsDead && Vector3.Distance(e.transform.position, me) < 16f))
@@ -204,7 +204,7 @@ namespace Deepbound.UI
                 if (room.Feature == RoomFeature.Cistern) Offer("cistern", "CISTERN: the water slows everyone - but frost freezes anything standing in it.");
             }
             if (Object.FindObjectsByType<BloodAltar>(FindObjectsSortMode.None).Any(b => !b.Spent.Value && Vector3.Distance(b.transform.position, me) < 9f))
-                Offer("altar", "BLOOD ALTAR: three offerings fill the chalice (F, a fifth of your health each). Bleed together: a relic for each who bled, Bloodlust for all.");
+                Offer("altar", "BLOOD ALTAR: each offering (F) costs a tenth of your MAX health for the run and gives +4% damage for the run. Three fill the chalice: a relic for each who bled, Bloodlust for all.");
             int act = DungeonDirector.Act(layout.Depth);
             if (act == 0) Offer("bones", "THE OSSUARY: fallen skeletons pull themselves together. Walk over a bone pile to stamp it out.");
             if (act == 1) Offer("tide", "THE DROWNED VAULTS: when the water thickens it halves your speed (the dead barely slow). Get onto stairs, balconies or stones.");

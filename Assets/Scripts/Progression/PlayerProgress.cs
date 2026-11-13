@@ -1011,7 +1011,42 @@ namespace Deepbound.Progression
             for (int i = relics.Count - 1; i >= 0; i--) if (RelicAt(i) == r) relics.RemoveAt(i);
         }
 
-        public bool ServerAddRelic(Relic r)
+        /// <summary>
+        /// SETTING A RELIC DOWN (2026-11-13, the user: "need an easier way for players to switch between relics mid run"): from
+        /// the inventory, a carried relic goes on the floor at your feet with its tier kept (II, III), so the tray has room for
+        /// another. Picked up again (by you once you have stepped away, or by a teammate) it comes back as it was.
+        /// </summary>
+        [Rpc(SendTo.Server)]
+        public void SetDownRelicRpc(byte index) => ServerSetDownRelic(index);
+
+        /// <summary>Server: set relic <paramref name="index"/> down at your feet. Returns the drop (tests).</summary>
+        public LootDrop ServerSetDownRelic(int index)
+        {
+            if (!IsServer || index < 0 || index >= relics.Count || World.DungeonDirector.Instance == null) return null;
+            byte b = relics[index];
+            var r = RelicAt(index);
+            relics.RemoveAt(index);
+            if (r == Relic.HeartOfTheDeep || r == Relic.BloodPact) OnStatsChangedServer(StatType.HP);
+            var at = transform.position + transform.forward * 1.1f + Vector3.up * 0.1f;
+            var drop = World.DungeonDirector.Instance.ServerDropLootGet(at, LootKind.Relic, b, transform.position, settle: true, fixedSum: true);
+            if (drop != null) drop.SetDownBy = NetworkObjectId;
+            RelicSetDownRpc(b);
+            return drop;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void RelicSetDownRpc(byte b)
+        {
+            var r = (Relic)(b & 31);
+            int t = (b >> 5) & 3;
+            Art.Sfx.Play(Art.Sound.Relic, transform.position + Vector3.up, 0.5f, 0.8f);
+            UI.GameHud.Feed(name + " sets down " + Relics.Name(r) + (t > 0 ? (t == 1 ? " II" : " III") : "") + " (it keeps its power)", Relics.GemColor(r));
+        }
+
+        public bool ServerAddRelic(Relic r) => ServerAddRelic(r, 0);
+
+        /// <param name="tier">A relic that was set down comes back at the tier it had (only when it takes a new slot).</param>
+        public bool ServerAddRelic(Relic r, int tier)
         {
             if (!IsServer || !CanTakeRelic(r)) return false;
             if (HasRelic(r))
@@ -1033,7 +1068,7 @@ namespace Deepbound.Progression
                 ServerEmpower(pick[UnityEngine.Random.Range(0, pick.Count)], r);
                 return true;
             }
-            relics.Add((byte)r);
+            relics.Add((byte)((byte)r | (Mathf.Clamp(tier, 0, Relics.MaxTier) << 5)));
             if (r == Relic.HeartOfTheDeep || r == Relic.BloodPact) OnStatsChangedServer(StatType.HP);
             RelicGainedRpc((byte)r);
             // Completing a pair awakens its synergy.

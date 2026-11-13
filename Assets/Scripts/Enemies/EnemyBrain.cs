@@ -67,7 +67,7 @@ namespace Deepbound.Enemies
         protected float stunnedUntil;
         protected float busyUntil;
         protected bool attacking;
-        private float strikeAt;
+        protected float strikeAt;
         private Vector3 home;
         private Vector3 knockback;
         protected float repathAt;
@@ -639,7 +639,10 @@ namespace Deepbound.Enemies
 
             if (attacking)
             {
-                FaceTarget(0.35f);
+                // A guardian's swing is LOCKED to the wedge it drew on the floor (2026-11-13, the user: the crescents "track
+                // the player but stay on the ground and are impossible to dodge close range"). Common foes still track a little.
+                if (LocksSwing) transform.rotation = Quaternion.LookRotation(strikeDir);
+                else FaceTarget(0.35f);
                 if (Time.time >= strikeAt)
                 {
                     attacking = false;
@@ -761,26 +764,56 @@ namespace Deepbound.Enemies
             return r < 0.5f ? Move.Swing : r < 0.7f ? Move.Heavy : r < 0.86f ? Move.Flurry : Move.Sweep;
         }
 
+        /// <summary>Tests: start a melee swing at the current target now. True if it began.</summary>
+        public bool ServerDebugSwing()
+        {
+            if (target == null) target = PickTarget();
+            if (target == null || IsStunned) return false;
+            BeginAttack();
+            return attacking;
+        }
+        /// <summary>Tests: the committed swing direction, and whether a swing is winding up.</summary>
+        public Vector3 StrikeDirection => strikeDir;
+        public bool WindingSwing => attacking;
+
+        /// <summary>Guardians commit their swing to the direction of the floor warning; nothing turns it after.</summary>
+        protected virtual bool LocksSwing => IsBoss;
+        /// <summary>The direction the current swing was committed to (at the start of its wind-up).</summary>
+        protected Vector3 strikeDir = Vector3.forward;
+        /// <summary>The arc and reach the current move will strike with (the floor wedge draws exactly this).</summary>
+        protected float MoveArc => currentMove == Move.Heavy ? Mathf.Min(attackArc, 60f) : currentMove == Move.Sweep ? 220f : attackArc;
+        protected float MoveReach => attackRange + (currentMove == Move.Sweep ? 0.8f : 0.5f);
+
         protected virtual void BeginAttack()
         {
             currentMove = PickMove();
+            if (target != null)
+            {
+                var aim = target.transform.position - transform.position; aim.y = 0f;
+                if (aim.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(aim);
+            }
+            strikeDir = transform.forward; strikeDir.y = 0f;
+            if (strikeDir.sqrMagnitude < 0.001f) strikeDir = Vector3.forward;
+            strikeDir.Normalize();
             float w = windup * Pace * (currentMove == Move.Heavy ? 1.7f : currentMove == Move.Sweep ? 1.25f : 1f);
             flurryLeft = currentMove == Move.Flurry ? 1 : 0;
             attacking = true;
             agent.isStopped = true;
             strikeAt = Time.time + w;
             busyUntil = strikeAt + recovery * Pace * (currentMove == Move.Heavy ? 1.3f : 1f);
-            PlayActionRpc(RigAction.Windup, w);
+            PlayActionRpc(currentMove == Move.Heavy ? RigAction.WindHeavy : currentMove == Move.Sweep ? RigAction.WindSweep : RigAction.Windup, w);
         }
 
         protected virtual void Strike()
         {
-            PlayActionRpc(RigAction.Swing, 0.3f);
+            PlayActionRpc(currentMove == Move.Heavy ? RigAction.Cleave : currentMove == Move.Sweep ? RigAction.SweepStrike : RigAction.Swing,
+                currentMove == Move.Heavy ? 0.5f : currentMove == Move.Sweep ? 0.42f : 0.3f);
             float mult = currentMove == Move.Heavy ? 1.8f : currentMove == Move.Flurry ? 0.7f : currentMove == Move.Sweep ? 0.8f : 1f;
-            float arc = currentMove == Move.Heavy ? Mathf.Min(attackArc, 60f) : currentMove == Move.Sweep ? 220f : attackArc;
-            float reach = attackRange + (currentMove == Move.Sweep ? 0.8f : 0.5f);
+            float arc = MoveArc;
+            float reach = MoveReach;
             var origin = transform.position + Vector3.up * 1.2f;
-            foreach (var victim in CombatQuery.Arc(origin, transform.forward, reach, arc, Team.Players))
+            var swingDir = LocksSwing ? strikeDir : transform.forward;
+            foreach (var victim in CombatQuery.Arc(origin, swingDir, reach, arc, Team.Players))
             {
                 victim.ServerDamage(damage * mult, transform.position, NetworkObjectId);
                 if (currentMove == Move.Heavy && victim.TryGetComponent<KnockbackReceiver>(out var kb))
@@ -1457,7 +1490,10 @@ namespace Deepbound.Enemies
             float voice = VoicePitch;
             switch (action)
             {
-                case RigAction.Swing: Sfx.Play(Sound.Swing, transform.position + Vector3.up, 0.7f, 0.8f); break;
+                case RigAction.Swing: case RigAction.SweepStrike: Sfx.Play(Sound.Swing, transform.position + Vector3.up, 0.7f, action == RigAction.SweepStrike ? 0.65f : 0.8f); break;
+                case RigAction.Cleave: Sfx.Play(Sound.Swing, transform.position + Vector3.up, 0.8f, 0.55f); break;
+                case RigAction.WindHeavy:
+                case RigAction.WindSweep:
                 case RigAction.Windup:
                     if (voice > 0f && (Random.value < 0.35f || Elite.Value)) Sfx.Play(Sound.MonsterAttack, transform.position + Vector3.up * 1.4f, 0.7f, voice);
                     // The voiceless (bones) wound up in silence: the dodge window could not be heard from behind.

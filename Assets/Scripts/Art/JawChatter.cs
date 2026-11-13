@@ -27,7 +27,7 @@ namespace Deepbound.Art
                 nextClack = clackUntil + Random.Range(1.5f, 5f);
             }
             if (Time.time < clackUntil) want = Mathf.Abs(Mathf.Sin(Time.time * 26f + seed)) * 0.7f;
-            if (rig != null && (rig.Current == RigAction.Windup || rig.Current == RigAction.Death || rig.Current == RigAction.Cast)) want = 1f;
+            if (rig != null && (rig.Current == RigAction.Windup || rig.Current == RigAction.WindHeavy || rig.Current == RigAction.WindSweep || rig.Current == RigAction.Death || rig.Current == RigAction.Cast)) want = 1f;
             open = Mathf.MoveTowards(open, want, Time.deltaTime * 9f);
             transform.localRotation = Quaternion.Euler(open * 28f, 0f, 0f);
         }

@@ -51,8 +51,8 @@ namespace Deepbound.World
         protected override bool DeliversAtWaystone => false;
         protected override bool CanSetDown => DungeonDirector.Instance == null || !DungeonDirector.Instance.BossSealed;
         protected override string HoldOnText => "Hold on to " + ItemName + " - no setting it down in the guardian's arena";
-        protected override string CarryText => "Carry " + ItemName + " out: through the guardian, up on the grave lift";
-        public override string CarryingLine => "Carrying " + ItemName + ": out through the guardian's arena and up on the grave lift";
+        protected override string CarryText => "Carry " + ItemName + " into the guardian's arena";
+        public override string CarryingLine => "Carrying " + ItemName + ": into the guardian's arena before the gates fall (F sets it down)";
 
         public override string Prompt(PlayerProgress who)
         {

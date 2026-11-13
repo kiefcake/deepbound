@@ -125,7 +125,7 @@ namespace Deepbound.Player
                     var to = drop.transform.position + Vector3.up * 0.4f - origin;
                     if (to.magnitude > 30f) continue;
                     float angle = Vector3.Angle(dir, to);
-                    if (angle < best) { best = angle; kind = Kind.Loot; point = drop.transform.position; label = drop.Kind.Value == LootKind.Relic ? Relics.Name((Relic)drop.Amount.Value) : LootInfo.Name(drop.Kind.Value); targetId = drop.NetworkObjectId; }
+                    if (angle < best) { best = angle; kind = Kind.Loot; point = drop.transform.position; label = drop.Kind.Value == LootKind.Relic ? Relics.Name(drop.RelicId) : LootInfo.Name(drop.Kind.Value); targetId = drop.NetworkObjectId; }
                 }
             }
             if (kind == Kind.Spot && Physics.Raycast(origin, dir, out var hit, Range, ~0, QueryTriggerInteraction.Ignore)) point = hit.point;

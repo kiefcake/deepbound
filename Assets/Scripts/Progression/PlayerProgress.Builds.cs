@@ -31,6 +31,17 @@ namespace Deepbound.Progression
 
         /// <summary>The Knight's Bulwark shield charge, 0..1 (server-written, for the HUD).</summary>
         public readonly NetworkVariable<float> ShieldCharge = new NetworkVariable<float>();
+        /// <summary>Blood given at altars this run: each is -10% max health and +4% damage, for the run (2026-11-13).</summary>
+        public readonly NetworkVariable<byte> BloodOffered = new NetworkVariable<byte>();
+
+        /// <summary>Server: one offering at a blood altar.</summary>
+        public void ServerOfferBlood()
+        {
+            if (!IsServer) return;
+            BloodOffered.Value++;
+            ApplyToHealth(false);
+        }
+
         /// <summary>How much less damage the survival path (path 3) takes right now, in percent (server-written, for the HUD).</summary>
         public readonly NetworkVariable<byte> SurvivalCut = new NetworkVariable<byte>();
 
@@ -157,6 +168,7 @@ namespace Deepbound.Progression
                 if (Mastered(StatType.ATT)) m *= 1.05f;
                 if (HasBargain(Bargain.BloodForSteel)) m *= 1.15f;
                 if (HasBargain(Bargain.EmberTithe)) m *= 1f - 0.1f * CurseScale;
+                m *= 1f + World.BloodAltar.OfferDamage * BloodOffered.Value;
                 return m;
             }
         }
@@ -169,7 +181,7 @@ namespace Deepbound.Progression
         public float BuildGoldBonus => HasBargain(Bargain.MisersOath) ? 0.4f : 0f;
         public float BuildEmberScale => HasBargain(Bargain.EmberTithe) ? 1.5f : 1f;
 
-        public float BuildHealthScale => (Mastered(StatType.HP) ? 1.05f : 1f) * (HasBargain(Bargain.BloodForSteel) ? 1f - 0.15f * CurseScale : 1f)
+        public float BuildHealthScale => (1f - World.BloodAltar.OfferFraction * BloodOffered.Value) * (Mastered(StatType.HP) ? 1.05f : 1f) * (HasBargain(Bargain.BloodForSteel) ? 1f - 0.15f * CurseScale : 1f)
             * (HasBargain(Bargain.BitterRoot) ? 1f - 0.1f * CurseScale : 1f);
 
         public float BuildIncomingScale => (WornSet == 0 ? SetWallTaken : 1f) * (Mastered(StatType.DEF) ? 0.95f : 1f)
@@ -238,6 +250,8 @@ namespace Deepbound.Progression
             Picks.Value = 0;
             Lantern.Value = false;
             Bargains.Value = 0;
+            BloodOffered.Value = 0;
+            ApplyToHealth(false);
         }
 
         /// <summary>Server: after a drill: the sixth of one stat earns Brann's mastery.</summary>

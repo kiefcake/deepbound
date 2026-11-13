@@ -47,7 +47,8 @@ namespace Deepbound.Enemies
             order = Random.Range(0, Cycle.Length);
         }
 
-        private float SoulDamage => damage * 0.45f;
+        // 0.45 until 2026-11-13: a whole Rose read as scenery. Each shot now hurts (dodging them is the point).
+        private float SoulDamage => damage * 0.85f;
         private Vector3 Mouth => transform.position + Vector3.up * 1.25f + transform.forward * 0.35f;
         private static float TellScale => Difficulty.Tell(World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.Floor.Value.y : 0);
 
