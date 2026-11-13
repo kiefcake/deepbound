@@ -1001,6 +1001,9 @@ namespace Deepbound.Networking
         /// floor 1 (2026-11-07) and stood idle. The error is a Problem in the log, then the routine starts over (3 times).
         /// </summary>
         private float nextSpinNote;
+        /// <summary>Seconds on a floor before the bot stops clearing and heads for the guardian.</summary>
+        private const float HurryAfter = 390f;
+        private bool hurrying;
         /// <summary>Things used this run, by kind (written to the log at each floor's end).</summary>
         private readonly Dictionary<string, int> usedThings = new Dictionary<string, int>();
 
@@ -1070,6 +1073,7 @@ namespace Deepbound.Networking
             foreach (var m in party.Values) m.SavesFloor = 0;
             var partyStart = party.ToDictionary(kv => kv.Key, kv => (kv.Value.Dealt, kv.Value.Taken, kv.Value.BossDealt));
             float floorStart = Time.time, takenStart = taken, dealtStart = dealt;
+            hurrying = false;
             int killsStart = kills, downsStart = downs;
             L("== FLOOR " + (floorNo + 1) + " (" + DungeonTheme.FloorName(floorNo) + "), " + layout.Rooms.Count + " rooms, event " + dd.FloorEventValue.Value + " ==");
             Status("arrived");
@@ -1219,6 +1223,14 @@ namespace Deepbound.Networking
                 lastLootId = loot != null ? loot.NetworkObjectId : ulong.MaxValue;
                 var chest = follower ? null : NearestChest(openedChests);
                 var myGear = target == null || dist >= 14f ? NearestGear(22f) : null;
+                // HURRY (2026-11-13 playtest: on floor 8 rifts kept a choir coming, there was always something left to fight,
+                // and the bot never reached the Pale Cardinal in 11 minutes): after a while on a floor, push for the guardian - fight only what is in the way, leave the loot.
+                if (!follower && Time.time - floorStart > HurryAfter)
+                {
+                    if (!hurrying) { hurrying = true; L("hurrying to the guardian (" + ((Time.time - floorStart) / 60f).ToString("F1") + " min on the floor, " + LivingEnemies() + " still about)"); }
+                    loot = null; chest = null; myGear = null;
+                    if (target != null && dist > 6f && !(target.GetComponent<EnemyBrain>() is BossBrain)) target = null;
+                }
                 if (lead != null && target == null && loot == null && myGear == null)
                 {
                     goal = lead.transform.position; goalWhat = "the leader";
