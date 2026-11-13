@@ -3058,7 +3058,7 @@ namespace Deepbound.UI
             {
                 var g = progress.Equipped(slot);
                 if (g.IsEmpty) continue;
-                cardY -= 66 + new List<StatType>(Gear.StatsOf(g)).Count * 18 + 12;
+                cardY -= 66 + new List<StatType>(Gear.StatsOf(g)).Count * 18 + 12 + (Progression.PlayerProgress.SetLine(g.Kind) != null ? 34 : 0);
                 DrawGearCard(g, w - 300 - 24 - 360 - 12, cardY, false);
             }
             // Relics, with what they do, to the left of the stat sheet.
@@ -3082,7 +3082,7 @@ namespace Deepbound.UI
                 }
             }
 
-            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70 + 88 + 22 + 22 + 22;
+            float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70 + 88 + 22 + 22 + 22 + 22;
             float x = w - pw - 24, y = h / 2f - ph / 2f;
             Rect(x, y, pw, ph, Panel);
             // The two gear slots, at the foot of the sheet; hover-free: full cards sit left of it.
@@ -3122,6 +3122,20 @@ namespace Deepbound.UI
             var edgeStyle = new GUIStyle(small) { wordWrap = false, normal = { textColor = edgeList.Length > 0 ? new Color(1f, 0.6f, 0.35f) : new Color(1f, 1f, 1f, 0.4f) } };
             GUI.Label(new Rect(x + 80, gy, pw - 90, 20), UiSkin.Fit(edgeList.Length > 0 ? edgeList : "none yet (anvil +" + Edges.Levels[0] + ")", edgeStyle, pw - 90), edgeStyle);
             gy += 22;
+            // The build (2026-11-13): a whole set, Brann's masteries, bargains struck.
+            {
+                var parts = new List<string>();
+                int set = progress.WornSet;
+                if (set >= 0) parts.Add(Progression.PlayerProgress.Sets[set].Name);
+                foreach (StatType st in System.Enum.GetValues(typeof(StatType))) if (progress.Mastered(st) && Progression.PlayerProgress.MasteryText(st) != null) parts.Add(st + " mastery");
+                for (int b = 0; b < Progression.PlayerProgress.BargainCount; b++)
+                    if (progress.HasBargain((Progression.PlayerProgress.Bargain)b)) parts.Add(Progression.PlayerProgress.BargainName((Progression.PlayerProgress.Bargain)b));
+                GUI.Label(new Rect(x + 12, gy, 70, 20), "BUILD", small);
+                var bs = new GUIStyle(small) { wordWrap = false, normal = { textColor = parts.Count > 0 ? new Color(0.6f, 0.85f, 1f) : new Color(1f, 1f, 1f, 0.4f) } };
+                string text = parts.Count > 0 ? string.Join(", ", parts) : "no set, mastery or bargain yet";
+                GUI.Label(new Rect(x + 80, gy, pw - 90, 20), new GUIContent(UiSkin.Fit(text, bs, pw - 90), text), bs);
+                gy += 22;
+            }
             foreach (var slot in new[] { AbilitySlot.Q, AbilitySlot.E })
             {
                 GUI.Label(new Rect(x + 12, gy, 70, 20), slot.ToString(), small);

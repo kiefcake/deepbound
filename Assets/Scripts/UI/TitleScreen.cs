@@ -88,14 +88,14 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
-            "Chandeliers, burning oil, falling pillars, prisoners and vigils",
-            "Puzzle rooms: watchers, chimes, mirrors and the Scales",
-            "Quest cargo goes out past the guardian, on the lift",
-            "Trophies and keepsakes stay up in camp; the folk remember",
-            "Fish the well, throw knives, ring the bells, arm-wrestle Brann",
-            "New casino games, Skull Poker, and Old Wick at the table",
-            "Mist and rain at camp; pets fetch, chase the cat, nap by the fire",
-            "Old Hollis drinks at the bar to the fallen on the tavern wall",
+            "The dead claw out of walls, floors and rifts - watch for the cracks",
+            "Deep floors: breach patrols follow your trail; necromancers open rifts",
+            "Guardians close the gap their own way, and punish those who hug them",
+            "A third, survival path at the anvil; gear sets; Brann's masteries",
+            "Cellar vaults under cracked tiles; cursed bargains behind secret walls",
+            "Jam spike plates (Rogues, or Tinker's Picks); a Hooded Lantern",
+            "VIT mends you; quests carry a condition and can be failed",
+            "A map of camp, and arm-wrestling Big Gorm by the tavern",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)
