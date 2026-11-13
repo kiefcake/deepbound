@@ -1229,7 +1229,9 @@ namespace Deepbound.Networking
                 {
                     if (!hurrying) { hurrying = true; L("hurrying to the guardian (" + ((Time.time - floorStart) / 60f).ToString("F1") + " min on the floor, " + LivingEnemies() + " still about)"); }
                     loot = null; chest = null; myGear = null;
-                    if (target != null && dist > 6f && !(target.GetComponent<EnemyBrain>() is BossBrain)) target = null;
+                    // Not once the arena is sealed: a guardian's wards (the Cardinal's choir) are the way through (2026-11-13: the Knight
+                    // stood under an immune Cardinal for six minutes ignoring the choir 10 m away).
+                    if (target != null && dist > 6f && !dd.BossSealed && !(dd.AmbushWave >= 0 && dd.AmbushRoom != null && dd.AmbushRoom.Contains(me.transform.position, 0f)) && !(target.GetComponent<EnemyBrain>() is BossBrain)) target = null;
                 }
                 if (lead != null && target == null && loot == null && myGear == null)
                 {
@@ -1625,6 +1627,7 @@ namespace Deepbound.Networking
             float speed = 6.2f * prog.SpeedMultiplier;
             float budget = 0.35f;
             int corner = 1;
+            bool stepped = false;
             var pos = me.transform.position;
             while (budget > 0f && corner < path.corners.Length)
             {
@@ -1643,8 +1646,12 @@ namespace Deepbound.Networking
                 motor.Teleport(pos + Vector3.up * 0.05f, look.sqrMagnitude > 0.01f ? Quaternion.LookRotation(look) : me.transform.rotation);
                 motor.SetPitch(0f);
                 budget -= Time.deltaTime;
+                stepped = true;
                 yield return null;
             }
+            // Already there, rooted or pinned: still hand the frame back (callers loop on this; the frameless guard
+            // caught it nine times in the Knight run).
+            if (!stepped) yield return null;
         }
 
         private IEnumerator WalkTo(Vector3 to, float stopAt)

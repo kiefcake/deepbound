@@ -7,11 +7,17 @@ guardian minutes, kills, damage taken, near-downs (blows that would have downed 
 ## CURRENT problems (runs in the last 7 days)
 
 - 24x: Gilded (Rogue) dealt no damage this floor  (`0_Mage`, `0_Mage`, `0_Mage`)
+- 14x: stuck for 12 s going for the guardian's arena at 0,368 from 1,367 / PathComplete (ends 0,368); near: PaleCardinal(Clone)<PaleCardinal(Clone)>, Structure (Flagstone); obstacles:  (`run_2026-11-13_knight`)
+- 12x: bot loop ran 400 steps without a frame (Floor > StepToward); waiting a frame  (`run_2026-11-13`, `run_2026-11-13_knight`)
+- 10x: floor not finished in 11 min (33 enemies left, boss The Tide Lich 100%): forcing it  (`run_2026-11-13_knight`)
+- 8x: floor not finished in 11 min (8 enemies left, boss Sir Aldous Vane 80%): forcing it  (`run_2026-11-13_knight`)
+- 6x: floor not finished in 11 min (6 enemies left, boss The Pale Cardinal 33%): forcing it  (`run_2026-11-13`, `run_2026-11-13_knight`)
 - 6x: stuck for 12 s going for The Drowned Knight at -184,-40 from -74,-90 / line to target blocked by Portcullis(Clone) (-) at 0.6 m, PathPartial (ends -74,-90); near: Structure (Wood), Dressing (Wood), St  (`0_Mage`, `0_Mage`, `0_Mage`)
 - 6x: stuck for 12 s going for The Drowned Knight at -184,-40 from -108,-76 / line to target blocked by Structure (StoneWall) (Dungeon (seed 1563729165, depth 2)) at 0.8 m, PathPartial (ends -108,-76); near  (`1_Knight`, `2_Cleric`, `1_Knight`, `2_Cleric`)
-- 5x: floor not finished in 11 min (10 enemies left, boss The Pale Cardinal 100%): forcing it  (`run_2026-11-13`)
-- 4x: bot loop ran 400 steps without a frame (Floor > StepToward); waiting a frame  (`run_2026-11-13`)
+- 5x: stuck for 12 s going for the guardian's arena at 92,0 from 62,-30 / PathPartial (ends 62,-30); near: Structure (Flagstone), Structure (StoneWall); obstacles:  (`run_2026-11-13_knight`)
+- 5x: stuck for 12 s going for the guardian's arena at 0,368 from 1,366 / PathComplete (ends 0,368); near: Structure (Flagstone); obstacles:  (`run_2026-11-13_knight`)
 - 1x: bot loop ran 400 steps without a frame (Floor); waiting a frame  (`run_2026-11-13`)
+- 1x: stuck for 12 s going for the guardian's arena at 0,368 from 2,367 / line to target blocked by Dressing (StoneWall) (Dungeon (seed 759055230, depth 7)) at 8.4 m, PathComplete (ends 0,368); near: PaleCa  (`run_2026-11-13_knight`)
 
 ## History (older problems, probably fixed; top 15 by count)
 
@@ -26,10 +32,10 @@ guardian minutes, kills, damage taken, near-downs (blows that would have downed 
 - 15x: stuck for 12 s going for Ossric, the Hollow King at -46,52 from 31,127 / PathPartial (ends 32,128); near: BoneBrute(Clone)<BoneBrute(Clone)>
 - 12x: guardian at 99% has not lost health in 30 s of attacking: in swing arc True, flat dist 1.7 (body r 1.3), vertical 0.1 (centre h 1.8), clear 
 - 10x: guardian asleep for 381 s with 2 enemies left, me at 92,-80, goal The Unsung, outside the arena: client 2 at 92,-73
-- 9x: floor not finished in 11 min (31 enemies left, boss The Tide Lich 100%): forcing it
 - 9x: stuck for 12 s going for The Gravewarden at -46,-224 from -46,-205 / PathComplete (ends -46,-224); near: Dressing (Steel), Structure (StoneW
 - 8x: the lift never took me up (0 at the exit)
 - 8x: never got back to camp
+- 8x: stuck for 12 s going for The Drowned Knight at 0,328 from 0,260 / line to target blocked by Portcullis(Clone) (-) at 0.5 m, PathPartial (end
 
 ## Recent runs
 
@@ -77,6 +83,8 @@ guardian minutes, kills, damage taken, near-downs (blows that would have downed 
   - kit: Mage / weapon +10 hones 1 path Cryomancer (+14 tiers), edges Opportunist/Momentum/Cleaver / sockets [Keen Rune/Ember Rune/Hunter's Rune II] / armour Legendary Vestments of the Pale Cardinal d9 (44.4) / charm Legendary Choirmaster's Baton d9 (30.4) / Q5 E5 / dr
 **`Builds/AutoRun/run_2026-11-13/autoplay.txt`** (2026-11-13, Flagellant): F1 3.4m g0.9 k36 t1307 nd0 / F2 4.5m g1.8 k34 t3118 nd0 / F3 4.1m g1.3 k34 t1567 nd0 / F4 7.7m g2.6 k54 t2511 nd0 / F5 6.4m g1.2 k52 t3439 nd0 / F6 5.9m g2.4 k66 t5105 nd0 / F7 5.0m g1.2 k87 t2923 nd3 / F9 4.7m g0.9 k106 t4157 nd0 / F10 5.9m g2.3 k96 t9368 nd5
   - kit: Flagellant / weapon +10 hones 2 path Fanatic (+16 tiers), edges Opportunist/Momentum/Desperation / sockets [Ember Rune II/Keen Rune II/Frost Rune II] / armour Legendary Warden's Bulwark d9 (43.5) / charm Masterwork Ember Locket d9 (21.8) / Q5 E5 / drills 16 / 
+**`Builds/AutoRun/run_2026-11-13_knight/autoplay.txt`** (2026-11-13, Knight): F1 3.6m g1.4 k16 t1180 nd3 / F2 5.7m g2.5 k38 t3514 nd11 / F3 6.2m g2.0 k45 t3429 nd9 / F5 11.0m g0.4 k41 t7768 nd43 / F6 5.9m g3.3 k45 t4347 nd15 / F7 5.7m g1.7 k99 t4520 nd3 / F8 11.0m g5.9 k141 t16009 nd53 / F9 5.1m g1.0 k145 t3859 nd8 / F10 7.1m g2.0 k128 t6552 nd11
+  - kit: Knight / weapon +10 hones 0 path Riposte (+13 tiers), edges Opportunist/Desperation/Lone Wolf / sockets [Ember Rune II/Frost Rune II/Storm Rune II] / armour Legendary Mail of the Drowned Knight d9 (36.7) / charm Legendary Crown of the Hollow King d9 (34.6) / Q
 
 ## Older runs
 

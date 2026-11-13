@@ -15,6 +15,9 @@ namespace Deepbound.Enemies
     public partial class EnemyBrain
     {
         public const float SoulboundWindow = 5f, SoulboundSoloWindow = 8f, SoulboundRise = 0.5f, SoulboundRiseFade = 0.7f, SoulboundRiseFloor = 0.1f;
+        /// <summary>After this many rises the bond gives out and the next fall is for good (2026-11-13: a Knight bot
+        /// killed one Bone Piper over and over for six minutes while its twin stood rooms away).</summary>
+        public const int SoulboundMaxRises = 3;
         private int rises;
 
         /// <summary>The twin's NetworkObjectId (0 for everyone unbound). Synced for the thread.</summary>
@@ -61,6 +64,7 @@ namespace Deepbound.Enemies
             // Lying severed it cannot be hurt: the only way to finish it is through its twin.
             if (Severed) return 0f;
             if (dmg < health.Current.Value) return dmg;
+            if (rises >= SoulboundMaxRises) { BondBrokeRpc(); return dmg; }
             if (TwinStanding && !twin.Severed)
             {
                 severedUntil = Time.time + SoulboundSeconds;
@@ -97,6 +101,13 @@ namespace Deepbound.Enemies
             UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.4f, "SEVERED - KILL ITS TWIN", new Color(0.8f, 0.9f, 1f));
             Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 0.9f, 0.7f);
             Vfx.Ring(Vfx.Floor(transform.position) + Vector3.up * 0.05f, 1.8f, new Color(0.75f, 0.85f, 1f), 0.6f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BondBrokeRpc()
+        {
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.4f, "THE BOND BREAKS", new Color(0.75f, 0.85f, 1f));
+            Vfx.Ring(Vfx.Floor(transform.position) + Vector3.up * 0.05f, 2.6f, new Color(0.75f, 0.85f, 1f), 0.5f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
