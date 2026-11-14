@@ -137,43 +137,49 @@ namespace Deepbound.World
             // brought home are gilded, their keepsake on the shelf below with a candle; the rest dim; the fifth is scratched
             // out until all four are home, and then it reads JORY.
             {
-                var dir = Quaternion.Euler(0f, -300f, 0f) * Vector3.right; // 300 degrees round the tent, inside its wall
+                var dir = Quaternion.Euler(0f, -320f, 0f) * Vector3.right; // 320 degrees round the tent, inside its wall
                 var at = Lobby.TentCenter + dir * 3.9f;
                 var face = -dir;
                 var g = Group("ExpeditionRoll", at, face);
                 int home = Progression.Expedition.Count(bits);
-                Part(g, MeshKit.Box(new Vector3(1.25f, 1.5f, 0.05f)), Mat.Wood, new Vector3(0f, 1.45f, -0.03f), new Color(0.2f, 0.13f, 0.09f));
-                foreach (float s in new[] { -0.66f, 0.66f }) Part(g, MeshKit.Box(new Vector3(0.07f, 2.25f, 0.07f)), Mat.Wood, new Vector3(s, 1.12f, -0.03f), new Color(0.24f, 0.16f, 0.1f));
-                var head = SignArt.Plaque(g, g.TransformPoint(new Vector3(0f, 2.06f, 0f)), face, "EXPEDITION", SignArt.Icon.Anvil, 1.05f);
+                // Above the blackjack table's rim (it hid the lower names and the shelf at first: render 2026-11-14).
+                Part(g, MeshKit.Box(new Vector3(1.25f, 1.62f, 0.05f)), Mat.Wood, new Vector3(0f, 1.86f, -0.03f), new Color(0.2f, 0.13f, 0.09f));
+                foreach (float s in new[] { -0.66f, 0.66f }) Part(g, MeshKit.Box(new Vector3(0.07f, 2.75f, 0.07f)), Mat.Wood, new Vector3(s, 1.37f, -0.03f), new Color(0.24f, 0.16f, 0.1f));
+                var head = SignArt.Plaque(g, g.TransformPoint(new Vector3(0f, 2.5f, 0f)), face, "EXPEDITION", SignArt.Icon.Anvil, 1.05f);
                 head.material.SetColor("_BaseColor", new Color(0.9f, 0.82f, 0.62f));
                 for (int i = 0; i <= Progression.Expedition.Members; i++)
                 {
                     bool fifth = i == Progression.Expedition.Members;
                     bool found = fifth ? home >= Progression.Expedition.Members : (bits & Progression.Expedition.Bit(i)) != 0;
                     string name = fifth ? (found ? Progression.Expedition.Fifth : "") : Progression.Expedition.Roll[i].Short;
-                    var plaque = SignArt.Plaque(g, g.TransformPoint(new Vector3(0f, 1.78f - i * 0.25f, 0f)), face, name, SignArt.Icon.Candle, 0.82f);
+                    var plaque = SignArt.Plaque(g, g.TransformPoint(new Vector3(0f, 2.24f - i * 0.24f, 0f)), face, name, SignArt.Icon.Candle, 0.82f);
                     plaque.material.SetColor("_BaseColor", found ? new Color(1f, 0.88f, 0.6f) : new Color(0.38f, 0.34f, 0.3f));
                     if (fifth && !found)
                         for (int k = 0; k < 4; k++)
-                            Part(g, MeshKit.Box(new Vector3(0.6f, 0.012f, 0.01f)), Mat.Dark, new Vector3(0.05f, 0.78f + k * 0.03f, 0.03f), new Color(0.08f, 0.06f, 0.05f), null, new Vector3(0f, 0f, -6f + k * 5f));
+                            Part(g, MeshKit.Box(new Vector3(0.6f, 0.012f, 0.01f)), Mat.Dark, new Vector3(0.05f, 1.25f + k * 0.03f, 0.03f), new Color(0.08f, 0.06f, 0.05f), null, new Vector3(0f, 0f, -6f + k * 5f));
                 }
                 // The shelf, and on it what came home.
-                Part(g, MeshKit.Box(new Vector3(1.2f, 0.04f, 0.22f)), Mat.Wood, new Vector3(0f, 0.55f, 0.1f), new Color(0.24f, 0.16f, 0.1f));
+                Part(g, MeshKit.Box(new Vector3(1.2f, 0.04f, 0.22f)), Mat.Wood, new Vector3(0f, 1.08f, 0.1f), new Color(0.24f, 0.16f, 0.1f));
                 var tin = new Color(0.75f, 0.72f, 0.66f);
-                if ((bits & Progression.Expedition.Bit(0)) != 0) Part(g, MeshKit.Cylinder(0.015f, 0.015f, 0.22f, 8), Mat.Steel, new Vector3(-0.45f, 0.59f, 0.1f), tin, null, new Vector3(0f, 0f, 90f));
+                if ((bits & Progression.Expedition.Bit(0)) != 0) Part(g, MeshKit.Cylinder(0.015f, 0.015f, 0.22f, 8), Mat.Steel, new Vector3(-0.3f, 1.115f, 0.1f), tin, null, new Vector3(0f, 0f, 90f));
                 if ((bits & Progression.Expedition.Bit(1)) != 0)
                 {
-                    Part(g, MeshKit.Box(new Vector3(0.12f, 0.16f, 0.12f)), Mat.Steel, new Vector3(-0.17f, 0.65f, 0.1f), new Color(0.3f, 0.28f, 0.25f));
-                    Part(g, MeshKit.Box(new Vector3(0.09f, 0.11f, 0.13f)), Mat.Glow, new Vector3(-0.17f, 0.65f, 0.1f), null, new Color(1f, 0.7f, 0.35f) * 0.8f);
+                    Part(g, MeshKit.Box(new Vector3(0.12f, 0.16f, 0.12f)), Mat.Steel, new Vector3(-0.1f, 1.18f, 0.1f), new Color(0.3f, 0.28f, 0.25f));
+                    Part(g, MeshKit.Box(new Vector3(0.09f, 0.11f, 0.13f)), Mat.Glow, new Vector3(-0.1f, 1.18f, 0.1f), null, new Color(1f, 0.7f, 0.35f) * 0.8f);
                 }
                 if ((bits & Progression.Expedition.Bit(2)) != 0)
                     for (int k = 0; k < 10; k++)
-                        Part(g, MeshKit.Ball(0.014f, 5, 4), Mat.Wood, new Vector3(0.12f + Mathf.Cos(k * 0.63f) * 0.07f, 0.585f, 0.1f + Mathf.Sin(k * 0.63f) * 0.05f), new Color(0.3f, 0.18f, 0.1f));
-                if ((bits & Progression.Expedition.Bit(3)) != 0) Part(g, MeshKit.Cylinder(0.035f, 0.035f, 0.012f, 12), Mat.Steel, new Vector3(0.42f, 0.58f, 0.1f), new Color(0.35f, 0.33f, 0.32f));
+                        Part(g, MeshKit.Ball(0.014f, 5, 4), Mat.Wood, new Vector3(0.12f + Mathf.Cos(k * 0.63f) * 0.07f, 1.115f, 0.1f + Mathf.Sin(k * 0.63f) * 0.05f), new Color(0.3f, 0.18f, 0.1f));
+                if ((bits & Progression.Expedition.Bit(3)) != 0) Part(g, MeshKit.Cylinder(0.035f, 0.035f, 0.012f, 12), Mat.Steel, new Vector3(0.32f, 1.11f, 0.1f), new Color(0.35f, 0.33f, 0.32f));
                 if (home > 0)
                 {
-                    Props.Candles(g, g.TransformPoint(new Vector3(0.62f, 0f, 0.35f)), new Color(1f, 0.72f, 0.4f));
-                    Glow(g, new Vector3(0f, 1.3f, 0.7f), new Color(1f, 0.75f, 0.45f), 0.5f + 0.15f * home, 3f);
+                    // A stub of candle at each end of the shelf, lit for those brought home.
+                    foreach (float s in new[] { -0.52f, 0.52f })
+                    {
+                        Part(g, MeshKit.Cylinder(0.03f, 0.03f, 0.13f, 8), Mat.Bone, new Vector3(s, 1.165f, 0.1f), new Color(0.92f, 0.86f, 0.72f));
+                        Part(g, MeshKit.Ball(0.022f, 6, 5), Mat.Glow, new Vector3(s, 1.255f, 0.1f), null, new Color(1f, 0.65f, 0.25f) * 1.6f, default, new Vector3(1f, 1.6f, 1f));
+                    }
+                    Glow(g, new Vector3(0f, 1.6f, 0.6f), new Color(1f, 0.75f, 0.45f), 0.5f + 0.15f * home, 3f);
                 }
             }
 

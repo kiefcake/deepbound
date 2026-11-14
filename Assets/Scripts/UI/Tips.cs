@@ -30,8 +30,24 @@ namespace Deepbound.UI
         /// <summary>Seconds of quiet after a tip before the next one (they used to arrive back to back).</summary>
         private const float Gap = 9f, MaxWait = 25f;
 
+        /// <summary>
+        /// The tips that always show (2026-11-14, the user: "we are giving way too many tips, some things should be left to
+        /// the player to figure out"): controls, what is being done to you, co-op rescue, and the few rules that kill without a
+        /// tell. Everything else - enemies, guardians, rooms, traps, puzzles, secrets, finds, combat finesse - is for the
+        /// player to work out (telegraphs, prompts, the Bestiary and the Guide still say it). Options can turn the rest back on.
+        /// </summary>
+        public static readonly System.Collections.Generic.HashSet<string> Essential = new System.Collections.Generic.HashSet<string>
+        {
+            "camp", "quests", "questfloor", "potions", "inventory", "relictray", "rare", "pingwheel", "emotewheel", "purse", "voice",
+            "bleed", "soul", "reliquary",
+            "afflicted", "accursed", "silenced", "blinded", "dazed",
+            "tallyman", "mourner", "phases",
+            "fishing", "knives", "wrestle", "bells", "poker", "tavern",
+        };
+
         private static void Offer(string key, string text)
         {
+            if (!Settings.AllTips && !Essential.Contains(key)) return;
             if (!Settings.ShowTips || sessionSeen.Contains(key) || (Settings.TipSeen(key) && !Progression.Cosmetics.TestMode)) return;
             sessionSeen.Add(key);
             queue.Enqueue((key, text, DungeonDirector.InLobby, Time.time));

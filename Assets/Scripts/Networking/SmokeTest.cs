@@ -5189,15 +5189,21 @@ namespace Deepbound.Networking
                 ClearFoes();
                 local.GetComponent<PlayerDebuffs>().ServerCleanse();
                 int cpShots = 0;
+                var cpKinds = new System.Collections.Generic.HashSet<World.Centrepieces.Kind>();
                 foreach (var cr in layout.Rooms)
                 {
                     var kind = World.Centrepieces.Of(cr);
-                    if (kind == World.Centrepieces.Kind.None || cpShots >= 3) continue;
+                    if (kind == World.Centrepieces.Kind.None || cpShots >= 5 || !cpKinds.Add(kind)) continue;
                     var cc = cr.Center;
                     var from = UnityEngine.AI.NavMesh.SamplePosition(cc + new Vector3(cr.Size.x * 0.32f, 0f, -cr.Size.y * 0.32f), out var fh, 3f, UnityEngine.AI.NavMesh.AllAreas) ? fh.position : cc + new Vector3(4f, 0f, -4f);
                     Stand(from, cc + Vector3.up, 6f);
                     yield return new WaitForSeconds(1f);
                     yield return Shot(dir, "ix_25_centre_" + kind + "_" + cpShots);
+                    var nearFrom = cc + (from - cc).normalized * (World.Centrepieces.Radius(kind) + 4f);
+                    if (UnityEngine.AI.NavMesh.SamplePosition(nearFrom, out var nh, 2f, UnityEngine.AI.NavMesh.AllAreas)) nearFrom = nh.position;
+                    Stand(nearFrom, cc + Vector3.up, 4f);
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot(dir, "ix_25_centre_" + kind + "_" + cpShots + "_near");
                     if (kind == World.Centrepieces.Kind.Hearth)
                     {
                         var hb = World.HearthBrazier.All.FirstOrDefault(h => h != null && Vector3.Distance(h.transform.position, cc) < 2f);
@@ -5206,22 +5212,23 @@ namespace Deepbound.Networking
                     cpShots++;
                 }
                 Debug.Log("[IxShots] centrepieces shot " + cpShots);
-                // One of the first expedition, against a exWall of a room nobody is in.
+                // One of the first expedition, placed as in play: a quiet side room's wall.
                 {
-                    var er = layout.Rooms.FirstOrDefault(r2 => r2 != room && r2.Kind == World.RoomKind.Side) ?? layout.Rooms.FirstOrDefault(r2 => r2 != room);
-                    if (er != null)
+                    var er = layout.Rooms.FirstOrDefault(r2 => r2 != room && DungeonDirector.QuietForRemains(layout, r2, World.RoomKind.Side))
+                        ?? layout.Rooms.FirstOrDefault(r2 => r2 != room && DungeonDirector.QuietForRemains(layout, r2, World.RoomKind.Combat));
+                    var rem = er != null ? dc.ServerPlaceRemains(er, new System.Random(7), 1) : null;
+                    Debug.Log("[IxShots] expedition remains: " + (rem != null ? "in " + er.Kind + " " + er.Feature : "no quiet room on this floor"));
+                    if (rem != null)
                     {
-                        var exWall = er.Center + new Vector3(er.Size.x / 2f - 1.35f, 0f, 0f);
-                        if (UnityEngine.AI.NavMesh.SamplePosition(exWall, out var exWh, 2f, UnityEngine.AI.NavMesh.AllAreas)) exWall.y = exWh.position.y;
-                        var rem = dc.ServerDebugRemains(exWall, Vector3.left, 1);
                         yield return new WaitForSeconds(0.6f);
-                        Stand(exWall + Vector3.left * 3.2f + Vector3.forward * 0.8f, exWall + Vector3.up * 0.4f, 3f);
+                        var rp = rem.transform.position; var rf = rem.transform.forward;
+                        Stand(rp + rf * 3.4f + rem.transform.right * 0.9f, rp + Vector3.up * 0.4f, 3f);
                         yield return new WaitForSeconds(0.8f);
                         yield return Shot(dir, "ix_33_expedition_remains");
-                        Stand(exWall + Vector3.left * 1.5f, exWall + Vector3.up * 0.3f, 1.5f);
+                        Stand(rp + rf * 1.7f, rp + Vector3.up * 0.3f, 1.5f);
                         yield return new WaitForSeconds(0.6f);
                         yield return Shot(dir, "ix_33b_expedition_close");
-                        if (rem != null) rem.NetworkObject.Despawn();
+                        rem.NetworkObject.Despawn();
                     }
                 }
                 var foeAt = On(0f, 3.5f);
@@ -5676,15 +5683,19 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(1.5f);
                     local.Rig?.PlayEmote(Art.Emote.Point, 1.5f);
                     yield return new WaitForSeconds(1.1f);
+                    Debug.Log("[TalkShots] pet_1_fetch_out: pet at " + (pet != null && pet.BodyAt.HasValue ? (pet.BodyAt.Value - local.transform.position).ToString("F1") : "none") + ", facing " + local.transform.forward.ToString("F1"));
                     yield return Shot(dir, "pet_1_fetch_out");
                     yield return new WaitForSeconds(1.6f);
+                    Debug.Log("[TalkShots] pet_2_fetch_back: pet at " + (pet != null && pet.BodyAt.HasValue ? (pet.BodyAt.Value - local.transform.position).ToString("F1") : "none") + ", facing " + local.transform.forward.ToString("F1"));
                     yield return Shot(dir, "pet_2_fetch_back");
                     motor.SetPitch(40f);
                     yield return new WaitForSeconds(1.6f);
+                    Debug.Log("[TalkShots] pet_3_stick_dropped: pet at " + (pet != null && pet.BodyAt.HasValue ? (pet.BodyAt.Value - local.transform.position).ToString("F1") : "none") + ", facing " + local.transform.forward.ToString("F1"));
                     yield return Shot(dir, "pet_3_stick_dropped");
                     local.Rig?.PlayEmote(Art.Emote.Dance, 2f);
                     motor.SetPitch(30f);
                     yield return new WaitForSeconds(0.45f);
+                    Debug.Log("[TalkShots] pet_4_spin: pet at " + (pet != null && pet.BodyAt.HasValue ? (pet.BodyAt.Value - local.transform.position).ToString("F1") : "none") + ", facing " + local.transform.forward.ToString("F1"));
                     yield return Shot(dir, "pet_4_spin");
                     Debug.Log("[TalkShots] pet tricks: " + (pet != null ? pet.Doing.ToString() : "no pet component"));
                     yield return new WaitForSeconds(1.5f);

@@ -323,6 +323,9 @@ namespace Deepbound.Player
 
         // ---------------------------------------------------------------- moves
 
+        /// <summary>Where the pet's body is (tests and shots), or null with no pet.</summary>
+        public Vector3? BodyAt => body != null ? body.position : (Vector3?)null;
+
         private void Update()
         {
             if (body == null || owner == null) return;

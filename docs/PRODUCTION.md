@@ -13,7 +13,10 @@ Every threat must be readable before it hurts you.
 
 ## 2. Teach by play, not by manual
 - First-time contextual tips (`UI/Tips.cs`): each new mechanic is explained once, the first time
-  it is met, then never again (Options can reset or disable them). Any new mechanic adds a tip.
+  it is met, then never again (Options can reset or disable them). Since 2026-11-14 only `Tips.Essential` show by
+  default (controls, statuses done to you, co-op rescue, rules that kill without a tell); every other mechanic is left
+  for the player to discover (Options "Explain every mechanic" turns them back on). Do not add tips for new mechanics
+  unless they fall in those groups.
 - The floor banner states the floor's rule; the pause-menu Guide is the reference, not the tutorial.
 
 ## 3. Feedback for every action ("juice")

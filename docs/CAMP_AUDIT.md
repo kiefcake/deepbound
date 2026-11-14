@@ -892,3 +892,16 @@ Files: `C:/Users/User/Desktop/game_prototype/Deepbound/Assets/Scripts/World/Lobb
 - `Lobby.WrestleSpot` = TavernCenter + (TavernHalfX + 3.2, 0, -3.6), facing east to the plaza: inspector `ok` (light 0.197, approach 0.175, turn 34 deg, 4.8 m from the tavern door, 6.5 m from the fire logs). Not on the door path or the plaza lane (plan_SW).
 - FIXED: Gorm was built from the Drinker figure and wore OLD HOLLIS's name tag; now "Big Gorm, Arm-wrestler".
 - Open: a station lamp post stands about a metre east of the barrel; it lights the bout and blocks nothing, so it stays.
+
+## Round 2026-11-14: the expedition roll in the gaming tent
+
+- Added `CampMemory` "ExpeditionRoll": a board with an EXPEDITION header and five name plaques, a keepsake shelf, and candles.
+- First render (`tour/expedition_roll_*`, at 300 degrees round the tent, r 3.9): the plaques and gilding read clearly, and JORY appears when all four are home. Two problems:
+  1. The blackjack table's rim hid the lower two plaques (GERRIT, JORY) and the 0.55 m shelf. The floor candles stood in front of the names.
+  2. From the blackjack seat (`blackjack_seat`), the dealer's skull covered the middle of the board.
+- Fix:
+  - Moved the board to 320 degrees, away from the dealer's shoulder.
+  - Raised it: plaques 1.28 to 2.24 m, header 2.5 m, shelf 1.08 m.
+  - Replaced the floor candle cluster with two candle stubs on the shelf ends.
+- Re-render pending in the next tour (`expedition_roll_0..2`, `_wide`).
+- Re-rendered (`expedition_roll_1`, `_wide`, `blackjack_seat`): all five plaques and the shelf now clear the table, and the dealer no longer covers the names from the seat. Done.

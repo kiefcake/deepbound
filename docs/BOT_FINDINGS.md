@@ -17,6 +17,7 @@ guardian minutes, kills, damage taken, near-downs (blows that would have downed 
 - 1x: bot loop ran 400 steps without a frame (Floor); waiting a frame  (`run_2026-11-13`)
 - 1x: stuck for 12 s going for the guardian's arena at 0,368 from 2,367 / line to target blocked by Dressing (StoneWall) (Dungeon (seed 759055230, depth 7)) at 8.4 m, PathComplete (ends 0,368); near: PaleCa  (`run_2026-11-13_knight`)
 - 1x: guardian at 99% has not lost health in 30 s of attacking: in swing arc True, flat dist 1.3 (body r 0.9), vertical 0.0 (centre h 1.7), clear line True (SkeletonKing(Clone)/True), dormant False, immune   (`run_2026-11-13_knight2`)
+- 1x: guardian asleep for 91 s with 2 enemies left, me at 37,95, goal Elite Wraith, outside the arena: client 0 at 37,95  (`run_2026-11-14_mage`)
 
 ## History (older problems, probably fixed; top 15 by count)
 
@@ -46,6 +47,10 @@ guardian minutes, kills, damage taken, near-downs (blows that would have downed 
   - kit: Knight / weapon +7 hones 0 path Bulwark, edges Opportunist/Momentum / sockets [Storm Rune/Keen Rune/empty] / armour Masterwork Ossuary Plate d5 (20.2) / charm Masterwork Lucky Knucklebone d5 (9.6) / Q4 E4 / drills 5 / relics 7 [Echo Stone, Wraith Chain, Ghost 
 **`Builds/AutoRun/run_2026-11-13_rogue/autoplay.txt`** (2026-11-14, Rogue): F1 2.9m g0.9 k13 t1496 nd9 / F2 4.4m g2.2 k27 t2887 nd8 / F3 5.1m g1.2 k49 t2847 nd2 / F4 8.8m g3.9 k81 t4022 nd0 / F5 6.3m g1.5 k75 t2666 nd0 / F6 4.7m g1.5 k52 t4178 nd0 / F7 3.7m g0.8 k67 t1981 nd0 / F8 5.3m g1.1 k73 t3615 nd0 / F9 3.2m g0.5 k42 t3681 nd1 / F10 4.3m g1.5 k73 t6201 nd4
   - kit: Rogue / weapon +10 hones 2 path Shadowskin (+14 tiers), edges Cleaver/Momentum/Opportunist / sockets [Keen Rune II/Hunter's Rune/Ember Rune] / armour Legendary Warden's Bulwark d9 (43.5) / charm Legendary Lich's Phylactery d9 (25.7) / Q5 E5 / drills 14 / relic
+**`Builds/AutoRun/run_2026-11-14_mage/autoplay.txt`** (2026-11-14, Mage): F1 3.6m g1.0 k17 t1412 nd9 / F2 7.0m g2.2 k55 t1108 nd1 / F3 5.6m g1.6 k58 t347 nd0 / F4 5.8m g1.7 k66 t1230 nd0 / F5 5.3m g1.4 k75 t469 nd0 / F6 5.6m g1.5 k91 t748 nd0 / F7 5.2m g0.9 k81 t1399 nd1 / F8 5.2m g0.9 k97 t958 nd0 / F9 3.8m g0.6 k75 t709 nd0 / F10 7.1m g1.3 k187 t2261 nd2
+  - kit: Mage / weapon +10 hones 3 path Wardweaver (+14 tiers), edges Quickening/Opportunist/Lone Wolf / sockets [Hunter's Rune II/Frost Rune II/Keen Rune] / armour Masterwork Ossuary Plate d9 (30.2) / charm Legendary Crown of the Hollow King d9 (34.6) / Q5 E5 / drills
+**`Builds/AutoRun/run_2026-11-14_ranger/autoplay.txt`** (2026-11-14, Ranger): F1 3.1m g1.3 k21 t1112 nd5 / F2 4.6m g1.7 k34 t2574 nd0 / F3 4.7m g1.1 k44 t1471 nd0 / F4 7.6m g1.5 k85 t3016 nd8 / F5 5.5m g0.8 k96 t4230 nd10 / F6 4.9m g1.5 k74 t3254 nd0 / F7 5.1m g1.1 k70 t4002 nd12 / F8 5.3m g1.1 k69 t2974 nd6 / F9 6.4m g0.6 k122 t5547 nd24 / F10 5.1m g1.6 k86 t7302 nd28
+  - kit: Ranger / weapon +10 hones 1 path Sharpshooter (+11 tiers), edges Cleaver/Desperation/Momentum / sockets [Storm Rune/Ember Rune/Frost Rune] / armour Masterwork Kingsguard Hauberk d9 (37.8) / charm Legendary Choirmaster's Baton d9 (21.5) / Q5 E5 / drills 19 / re
 
 ## Older runs
 

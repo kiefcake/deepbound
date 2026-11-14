@@ -139,6 +139,28 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject shaftCatPrefab;
         [SerializeField] private NetworkObject remainsPrefab;
 
+        /// <summary>A room the remains may sit in: plain, not special, and not the peddler's (they sat behind his barrels in
+        /// the first render, 2026-11-14).</summary>
+        public static bool QuietForRemains(DungeonLayout layout, DungeonLayout.Room r, RoomKind kind)
+            => r.Kind == kind && !r.Special && !r.Peaceful
+               // Almost every combat room has a mechanic: great halls and crypts keep their walls free too (an ix floor had no
+               // plain room but the peddler's, so no remains at all).
+               && (r.Feature == RoomFeature.None || (kind == RoomKind.Combat && (r.Feature == RoomFeature.GreatHall || r.Feature == RoomFeature.Crypt)))
+               && !(layout.PeddlerSpot.HasValue && r.Contains(layout.PeddlerSpot.Value, 0.5f));
+
+        /// <summary>Server: sit expedition member <paramref name="member"/> against a wall of <paramref name="room"/>, facing in.</summary>
+        public ExpeditionRemains ServerPlaceRemains(DungeonLayout.Room room, System.Random rng, int member)
+        {
+            if (remainsPrefab == null) return null;
+            var at = WallSpot(room, rng);
+            var face = room.Center - at; face.y = 0f;
+            if (face.sqrMagnitude < 0.01f) face = Vector3.forward;
+            // WallSpot is a metre in from the wall; sit back against it.
+            at -= face.normalized * 0.35f;
+            if (NavMesh.SamplePosition(at, out var rhit, 1.5f, NavMesh.AllAreas)) at.y = rhit.position.y;
+            return ServerDebugRemains(at, face.normalized, member);
+        }
+
         /// <summary>Tests: one of the first expedition, here, facing <paramref name="face"/>.</summary>
         public ExpeditionRemains ServerDebugRemains(Vector3 at, Vector3 face, int member)
         {
@@ -1165,21 +1187,12 @@ namespace Deepbound.World
             if (remainsPrefab != null && !TestMode && exAct < Expedition.Members && !Expedition.Found(exAct) && UnityEngine.Random.value < Expedition.SpawnChance)
             {
                 var rrng = new System.Random(layout.Seed ^ 0xe4d);
-                var quiet = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side && !r.Special && !r.Peaceful && r.Feature == RoomFeature.None);
-                if (quiet.Count == 0) quiet = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && !IsAmbushRoom(r) && r.Feature == RoomFeature.None);
+                var quiet = layout.Rooms.FindAll(r => QuietForRemains(layout, r, RoomKind.Side));
+                if (quiet.Count == 0) quiet = layout.Rooms.FindAll(r => QuietForRemains(layout, r, RoomKind.Combat) && !IsAmbushRoom(r));
                 if (quiet.Count > 0)
                 {
                     var room = quiet[rrng.Next(quiet.Count)];
-                    var at = WallSpot(room, rrng);
-                    var face = room.Center - at; face.y = 0f;
-                    if (face.sqrMagnitude < 0.01f) face = Vector3.forward;
-                    // WallSpot is a metre in from the wall; sit back against it.
-                    at -= face.normalized * 0.35f;
-                    if (NavMesh.SamplePosition(at, out var rhit, 1.5f, NavMesh.AllAreas)) at.y = rhit.position.y;
-                    var obj = Instantiate(remainsPrefab, at, Quaternion.LookRotation(face.normalized));
-                    obj.GetComponent<ExpeditionRemains>().Member.Value = (byte)exAct;
-                    obj.Spawn(destroyWithScene: true);
-                    spawned.Add(obj);
+                    ServerPlaceRemains(room, rrng, exAct);
                     Debug.Log("[Director] expedition remains (" + Expedition.Roll[exAct].Short + ") in room " + room.Id);
                 }
             }

@@ -74,8 +74,9 @@ namespace Deepbound.World
                     }, 18, true);
                     var lay = rot * Quaternion.Euler(0f, 0f, 90f);
                     var at = c + Vector3.up * 1.3f + rot * new Vector3(-1.1f, 0f, 0f);
-                    b.Add(bell, Mat.Gold + "#" + ColorUtility.ToHtmlStringRGB(new Color(0.62f, 0.48f, 0.3f)), Matrix4x4.TRS(at, lay, Vector3.one));
-                    b.Add(MeshKit.Lathe("greatBellIn", new[] { new Vector2(1.4f, 0.15f), new Vector2(1.05f, 0.7f), new Vector2(0.75f, 1.6f), new Vector2(0.01f, 2.1f) }, 18, true), Mat.Gold + "#" + ColorUtility.ToHtmlStringRGB(new Color(0.2f, 0.14f, 0.09f)), Matrix4x4.TRS(at, lay, Vector3.one));
+                    // Matte bronze: on the metallic Gold material it rendered black in a dim hall (2026-11-14 shots).
+                    b.Add(bell, Mat.Marble + "#" + ColorUtility.ToHtmlStringRGB(new Color(0.62f, 0.46f, 0.26f)), Matrix4x4.TRS(at, lay, Vector3.one));
+                    b.Add(MeshKit.Lathe("greatBellIn", new[] { new Vector2(1.4f, 0.15f), new Vector2(1.05f, 0.7f), new Vector2(0.75f, 1.6f), new Vector2(0.01f, 2.1f) }, 18, true), Mat.Marble + "#" + ColorUtility.ToHtmlStringRGB(new Color(0.26f, 0.18f, 0.11f)), Matrix4x4.TRS(at, lay, Vector3.one));
                     b.AddBox(at + rot * new Vector3(0.6f, 0.55f, 0.7f), new Vector3(0.05f, 0.9f, 0.05f), Mat.Dark, rot * Quaternion.Euler(30f, 0f, 20f));
                     // The frame: two posts and a fallen beam.
                     var f = c + rot * new Vector3(1.6f, 0f, 1.2f);
@@ -84,6 +85,8 @@ namespace Deepbound.World
                     Props.Rubble(b, c + rot * new Vector3(0.6f, 0f, -1.6f), rng);
                     // Someone keeps votive candles at its lip: the bell was the only light in its room in the 2026-11-13 shots.
                     Props.Candles(lights, c + rot * new Vector3(0.2f, 0f, 1.8f), new Color(1f, 0.72f, 0.4f));
+                    // It read as a black shape in the room's middle (render 2026-11-14): a soft light over it.
+                    Landmark(lights, c + Vector3.up * 2.9f + rot * new Vector3(0.8f, 0f, 1.2f), new Color(1f, 0.78f, 0.5f), 8f, 5f);
                     break;
                 }
                 case Kind.Columns:
@@ -104,6 +107,7 @@ namespace Deepbound.World
                     b.AddBox(c + Vector3.up * 0.45f, new Vector3(1.8f, 0.9f, 0.9f), Mat.StoneWall, rot);
                     b.AddBox(c + Vector3.up * 0.93f, new Vector3(2f, 0.08f, 1.05f), Mat.StoneWall, rot);
                     Props.Candles(lights, c + Vector3.up * 0.97f + rot * new Vector3(0.6f, 0f, 0f), new Color(1f, 0.72f, 0.4f));
+                    Landmark(lights, c + Vector3.up * 2.8f, new Color(0.95f, 0.8f, 0.6f), 8.5f, 5f);
                     break;
                 }
                 case Kind.Statue:
@@ -117,6 +121,7 @@ namespace Deepbound.World
                     b.AddBox(sh + Vector3.up * 0.7f, new Vector3(1.6f, 1.4f, 1.3f), Mat.Marble, rot * Quaternion.Euler(0f, 25f, 8f));
                     b.Add(MeshKit.Cylinder(0.45f, 0.4f, 1.6f, 10), Mat.Marble, Matrix4x4.TRS(sh + Vector3.up * 0.45f + rot * new Vector3(0.6f, 0f, -1.1f), rot * Quaternion.Euler(90f, 30f, 0f), Vector3.one));
                     Props.Rubble(b, c + rot * new Vector3(0.2f, 0f, -1.8f), rng);
+                    Landmark(lights, c + Vector3.up * 3.2f + rot * new Vector3(0.6f, 0f, 1.6f), new Color(0.85f, 0.85f, 0.95f), 8.5f, 5f);
                     break;
                 }
                 case Kind.Well:
@@ -128,9 +133,26 @@ namespace Deepbound.World
                     foreach (float s in new[] { -1f, 1f }) b.AddBox(c + rot * new Vector3(s * 1.15f, 1.6f, 0f), new Vector3(0.16f, 1.3f, 0.16f), Mat.Wood, rot);
                     b.AddBox(c + rot * new Vector3(0f, 2.2f, 0f), new Vector3(2.5f, 0.14f, 0.14f), Mat.Wood, rot);
                     b.Add(MeshKit.Cylinder(0.18f, 0.15f, 0.3f, 8), Mat.Wood, Matrix4x4.TRS(c + rot * new Vector3(0.3f, 1.35f, 0f), rot, Vector3.one));
+                    // Cold light breathing up out of the shaft, and a little from above so the winch reads.
+                    Landmark(lights, c + Vector3.up * 0.5f, new Color(0.45f, 0.65f, 1f), 4.5f, 3f);
+                    Landmark(lights, c + Vector3.up * 2.9f, new Color(0.9f, 0.85f, 0.75f), 7f, 3.5f);
                     break;
                 }
             }
+        }
+
+        /// <summary>A soft unshadowed light on a centrepiece, so it reads as a landmark from across a dim room. URP falls off with
+        /// the square of distance: at 1-1.3 from 3 m up the first try barely touched the floor (render 2026-11-14).</summary>
+        private static void Landmark(Transform lights, Vector3 at, Color color, float range, float intensity)
+        {
+            var l = new GameObject("LandmarkLight").AddComponent<Light>();
+            l.transform.SetParent(lights, false);
+            l.transform.position = at;
+            l.type = LightType.Point;
+            l.color = color;
+            l.range = range;
+            l.intensity = intensity;
+            l.shadows = LightShadows.None;
         }
     }
 }

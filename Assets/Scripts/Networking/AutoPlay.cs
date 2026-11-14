@@ -1548,7 +1548,7 @@ namespace Deepbound.Networking
         /// and record everything"): chests and every one-press thing on a floor. Not the puzzles (random turning solves
         /// nothing) and not carried things (they need their own walk).
         /// </summary>
-        private static bool Usable(Interactable c) => c is Chest || c is HearthBrazier || c is VigilCandle || c is FateWheel || c is BloodAltar
+        private static bool Usable(Interactable c) => c is Chest || c is HearthBrazier || c is ExpeditionRemains || c is ShaftCat || c is VigilCandle || c is FateWheel || c is BloodAltar
             || c is BargainAltar || c is Lever || c is SideShrine || c is LorePage || c is PrisonerCage || c is Chandelier || c is CellarHatch
             || c is SoulRift || c is Fountain || c is StatDraught;
 

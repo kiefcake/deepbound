@@ -89,6 +89,8 @@ namespace Deepbound.World
             var old = transform.Find("Remains");
             if (old != null) Destroy(old.gameObject);
             var root = MeshKit.Pivot(transform, "Remains", Vector3.zero);
+            // A little over life size seated: at 1.0 it read as a child's bones in the first render (2026-11-14).
+            root.localScale = Vector3.one * 1.2f;
             var who = Expedition.Roll[Mathf.Clamp(member, 0, Expedition.Members - 1)];
             var bone = new Color(0.78f, 0.74f, 0.64f);
             var coat = member == 2 ? new Color(0.16f, 0.15f, 0.18f) : member == 1 ? new Color(0.35f, 0.3f, 0.22f) : new Color(0.3f, 0.22f, 0.16f);
@@ -103,10 +105,12 @@ namespace Deepbound.World
             P(MeshKit.Box(new Vector3(0.38f, 0.5f, 0.2f)), Mat.Cloth, new Vector3(0f, 0.45f, -0.48f), new Vector3(-14f, 0f, 0f), null, coat);
             for (int r = 0; r < 4; r++)
                 P(MeshKit.Box(new Vector3(0.34f, 0.025f, 0.05f)), Mat.Bone, new Vector3(0f, 0.36f + r * 0.09f, -0.36f - r * 0.022f), new Vector3(-14f, 0f, 0f), null, bone);
-            P(MeshKit.Ball(0.11f, 10, 8), Mat.Bone, new Vector3(0.1f, 0.78f, -0.5f), new Vector3(10f, 25f, 28f), new Vector3(0.95f, 1.05f, 1.1f), bone);
+            P(MeshKit.Ball(0.11f, 10, 8), Mat.Bone, new Vector3(0.1f, 0.78f, -0.5f), new Vector3(16f, 12f, 20f), new Vector3(0.95f, 1.05f, 1.1f), bone);
+            P(MeshKit.Box(new Vector3(0.12f, 0.04f, 0.08f)), Mat.Bone, new Vector3(0.11f, 0.69f, -0.43f), new Vector3(30f, 12f, 20f), null, bone);
             foreach (float s in new[] { -1f, 1f })
             {
-                P(MeshKit.Ball(0.02f, 5, 4), Mat.Dark, new Vector3(0.1f + s * 0.035f, 0.79f, -0.41f), default, null, new Color(0.04f, 0.03f, 0.03f));
+                // The sockets stand proud of the skull's face (inside it they were invisible).
+                P(MeshKit.Ball(0.03f, 6, 5), Mat.Dark, new Vector3(0.1f + s * 0.04f, 0.79f, -0.385f), default, null, new Color(0.03f, 0.02f, 0.02f));
                 // Legs out along the floor, one knee up.
                 bool knee = s > 0f;
                 P(MeshKit.Cylinder(0.035f, 0.03f, 0.42f, 6), Mat.Bone, new Vector3(s * 0.12f, knee ? 0.2f : 0.06f, -0.12f), new Vector3(knee ? 55f : 90f, 0f, 0f), null, bone);

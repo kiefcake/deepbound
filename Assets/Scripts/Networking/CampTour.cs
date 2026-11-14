@@ -215,7 +215,7 @@ namespace Deepbound.Networking
             var dd = World.DungeonDirector.Instance;
             if (dd != null && dd.IsServer)
             {
-                var rdir = Quaternion.Euler(0f, -300f, 0f) * Vector3.right;
+                var rdir = Quaternion.Euler(0f, -320f, 0f) * Vector3.right;
                 var roll = World.Lobby.TentCenter + rdir * 3.9f;
                 uint keep0 = dd.CampKeeps.Value;
                 var home = new uint[] { 0u, Progression.Expedition.Bit(0) | Progression.Expedition.Bit(2), Progression.Expedition.Bit(0) | Progression.Expedition.Bit(1) | Progression.Expedition.Bit(2) | Progression.Expedition.Bit(3) };

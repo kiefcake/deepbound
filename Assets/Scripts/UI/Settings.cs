@@ -55,6 +55,9 @@ namespace Deepbound.UI
         private static float? toggleSprint;
         public static bool ShowFps { get => (fps ??= Load(FpsKey, 0f)) > 0.5f; set { fps = value ? 1f : 0f; Save(FpsKey, fps.Value); } }
         public static bool ShowTips { get => (tips ??= Load(TipsKey, 1f)) > 0.5f; set { tips = value ? 1f : 0f; Save(TipsKey, tips.Value); } }
+        /// <summary>Off (default): only the essential tips (UI.Tips.Essential). On: every mechanic's tip, as before 2026-11-14.</summary>
+        public static bool AllTips { get => (allTips ??= Load("deepbound.alltips", 0f)) > 0.5f; set { allTips = value ? 1f : 0f; Save("deepbound.alltips", allTips.Value); } }
+        private static float? allTips;
 
         // Proximity voice.
         private const string VoiceModeKey = "deepbound.voicemode", VoiceVolKey = "deepbound.voicevol", MicThreshKey = "deepbound.micthresh", MicGainKey = "deepbound.micgain";

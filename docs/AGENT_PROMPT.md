@@ -14,7 +14,8 @@ runs that end in a satisfying summary and send you back to camp wanting one more
    backlog below. Keep it small enough to finish properly in one go.
 2. **Read before writing**: the code you will touch, `CLAUDE.md`, and `docs/PRODUCTION.md`.
 3. **Build it to the production rules**: every threat telegraphed or tagged; every new mechanic gets
-   a `UI/Tips` entry and a Guide line; every action has feedback; every punishment has counterplay;
+   a Guide line (a `UI/Tips` entry only if it is a control, a status done to you, or a rule that kills without a tell -
+   the user, 2026-11-14: "way too many tips, some things should be left to the player to figure out"); every action has feedback; every punishment has counterplay;
    numbers live in one place; no `Camera.main` (use `Art.ViewCamera.Current`).
 4. **Prove it**: a smoke-test check for the new behaviour; build (to `Builds/DeepboundNext` if the
    game is running — never kill it); smoke test with zero FAIL; screenshots (only when the game is

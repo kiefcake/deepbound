@@ -64,7 +64,8 @@ namespace Deepbound.UI
             Settings.DamageNumbers = PauseMenu.Check(Settings.DamageNumbers, "Damage numbers");
             Settings.ReduceFlashing = PauseMenu.Check(Settings.ReduceFlashing, "Reduce flashing effects");
             Settings.ColorBlind = PauseMenu.Check(Settings.ColorBlind, "Colour-blind telegraphs (magenta and yellow)");
-            Settings.ShowTips = PauseMenu.Check(Settings.ShowTips, "Show tips");
+            Settings.ShowTips = PauseMenu.Check(Settings.ShowTips, "Show tips (controls and what is happening to you)");
+            if (Settings.ShowTips) Settings.AllTips = PauseMenu.Check(Settings.AllTips, "Explain every mechanic (spoils the discoveries)");
             GUILayout.Space(6);
             if (GUILayout.Button("Show all tips again", UiSkin.Button, GUILayout.Height(30))) Settings.ResetTips();
             GUILayout.EndVertical();
