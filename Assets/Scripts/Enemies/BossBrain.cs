@@ -256,7 +256,7 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void DormantFxRpc(Vector3 at)
         {
-            UI.GameHud.ShowCombo(at, "ASLEEP: ENTER THE ARENA", new Color(0.6f, 0.75f, 1f));
+            UI.GameHud.ShowCombo(at, "ASLEEP", new Color(0.6f, 0.75f, 1f));
             Sfx.Play(Sound.Block, at, 0.4f, 1.6f);
         }
 

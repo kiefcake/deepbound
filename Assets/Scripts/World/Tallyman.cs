@@ -94,7 +94,6 @@ namespace Deepbound.World
         {
             Sfx.Play(Sound.Shatter, at, 0.8f, 0.7f);
             Vfx.Ring(transform.position + Vector3.up * 0.05f, 2.2f, new Color(1f, 0.9f, 0.6f), 0.6f);
-            UI.GameHud.ShowCombo(at, "REPELLED", new Color(1f, 0.9f, 0.6f));
             Progression.Deeds.Earn(Progression.Deeds.Deed.RepelledTallyman, "Held back the Tallyman");
         }
 

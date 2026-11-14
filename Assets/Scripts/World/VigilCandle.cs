@@ -103,7 +103,6 @@ namespace Deepbound.World
         {
             Vfx.Smoke(transform.position + Vector3.up * 1.5f, 2, 0.15f, 1.4f);
             Sfx.Play(Sound.Whisper, transform.position + Vector3.up * 1.4f, 0.8f, 0.9f);
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 1.9f, "SNUFFED", new Color(0.7f, 0.7f, 0.75f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

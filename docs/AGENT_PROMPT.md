@@ -15,7 +15,7 @@ runs that end in a satisfying summary and send you back to camp wanting one more
 2. **Read before writing**: the code you will touch, `CLAUDE.md`, and `docs/PRODUCTION.md`.
 3. **Build it to the production rules**: every threat telegraphed or tagged; every new mechanic gets
    a Guide line (a `UI/Tips` entry only if it is a control, a status done to you, or a rule that kills without a tell -
-   the user, 2026-11-14: "way too many tips, some things should be left to the player to figure out"); every action has feedback; every punishment has counterplay;
+   the user, 2026-11-14: "way too many tips, some things should be left to the player to figure out"); SHOW, DON'T TELL (the user, 2026-11-14: "clerics 'blessed' buff being a text box instead of an aura around the user"): every buff, debuff and state is worn on the body or the world (aura, ring, motes, light, posture) and seen by allies, not spelled out in floating words or crosshair text; a word only for what cannot be seen (an invisible save, a number, a name); every action has feedback; every punishment has counterplay;
    numbers live in one place; no `Camera.main` (use `Art.ViewCamera.Current`).
 4. **Prove it**: a smoke-test check for the new behaviour; build (to `Builds/DeepboundNext` if the
    game is running — never kill it); smoke test with zero FAIL; screenshots (only when the game is

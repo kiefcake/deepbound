@@ -86,7 +86,6 @@ namespace Deepbound.World
             Sfx.Play(Sound.Fire, transform.position + Vector3.up * 1.2f, 0.9f, 0.8f);
             Vfx.Flash(transform.position + Vector3.up * 1.4f, Fire, 4f, 10f, 0.4f);
             Vfx.Embers(transform.position + Vector3.up * 1.2f, 18, Fire, 4f, 0.05f, 1f);
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.2f, "HEARTH LIT", Fire);
         }
 
         public override void OnNetworkSpawn()

@@ -156,9 +156,8 @@ namespace Deepbound.Enemies
             {
                 RootCage.Attach(obj.transform, this);
                 Sfx.Play(Sound.Creak, obj.transform.position, 1f, 0.7f);
-                UI.GameHud.ShowCombo(obj.transform.position + Vector3.up * 2.1f, "ENTANGLED", new Color(0.55f, 0.85f, 0.35f));
                 if (obj.TryGetComponent<NetworkPlayer>(out var np) && np.IsOwner)
-                    UI.GameHud.Feed("Roots hold your legs: kill the Entling to break free", new Color(0.55f, 0.85f, 0.35f));
+                    UI.GameHud.Feed("Roots hold your legs", new Color(0.55f, 0.85f, 0.35f));
             }
             else
             {

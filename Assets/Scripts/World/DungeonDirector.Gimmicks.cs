@@ -111,7 +111,7 @@ namespace Deepbound.World
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void GraveboundRpc(Vector3 at) => UI.GameHud.ShowCombo(at, "IT WILL RISE - STAMP ITS BONES", new Color(0.75f, 0.8f, 0.7f));
+        private void GraveboundRpc(Vector3 at) { for (int i = 0; i < 6; i++) global::Deepbound.Art.Vfx.Mote(at - Vector3.up * 1.6f, new Color(0.75f, 0.8f, 0.7f)); global::Deepbound.Art.Vfx.Ring(at - Vector3.up * 1.55f, 0.8f, new Color(0.75f, 0.8f, 0.7f), 0.8f); }
 
         /// <summary>Server: a kill — if it was a plain skeleton on the Ossuary, it leaves a pile.</summary>
         private void OnKillForBones(Health target)
@@ -177,7 +177,6 @@ namespace Deepbound.World
                 {
                     Sfx.Play(Sound.BoneBreak, go.transform.position + Vector3.up * 0.3f, 0.9f, 1.3f);
                     BoneBurst.Spawn(go.transform.position + Vector3.up * 0.2f, 0.7f, false, Mat.Bone);
-                    UI.GameHud.ShowCombo(go.transform.position + Vector3.up * 0.8f, "SCATTERED", new Color(0.92f, 0.88f, 0.75f));
                 }
                 Destroy(go);
             }
@@ -240,8 +239,8 @@ namespace Deepbound.World
             // The full card the first time on a floor; after that a feed line and the sound (a card every 45 s
             // was a dozen cards a floor in the autoplay run).
             int floor = Floor.Value.y;
-            if (tideCardFloor != floor) { tideCardFloor = floor; UI.GameHud.ShowTitleCard("THE WATER THICKENS", "It drags at your legs: get to high ground", new Color(0.55f, 0.75f, 0.45f)); }
-            else UI.GameHud.Feed("The water thickens - get to high ground", new Color(0.55f, 0.75f, 0.45f));
+            if (tideCardFloor != floor) { tideCardFloor = floor; UI.GameHud.ShowTitleCard("THE WATER THICKENS", "It drags at your legs", new Color(0.55f, 0.75f, 0.45f)); }
+            else UI.GameHud.Feed("The water thickens", new Color(0.55f, 0.75f, 0.45f));
             Sfx.Play2D(Sound.Splash, 1f);
             Sfx.Play2D(Sound.Whisper, 0.6f);
         }

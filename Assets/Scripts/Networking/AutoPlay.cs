@@ -1082,6 +1082,7 @@ namespace Deepbound.Networking
             float nextShot = Time.time + 30f, nextStatus = Time.time + 60f, bossSeenAt = -1f, stuckSince = Time.time, nextAbility = Time.time + 2f;
             Vector3 lastPos = me.transform.position;
             Health target = null;
+            Health dmgTarget = null; float dmgHp = 0f, dmgSince = 0f;
             Vector3? goal = null;
             string goalWhat = "";
             float floorLimit = 11f * 60f;
@@ -1174,6 +1175,22 @@ namespace Deepbound.Networking
                 stuckTarget = target;
                 if (target == null && boss != null && !boss.IsDead) { target = boss.GetComponent<Health>(); dist = Vector3.Distance(target.transform.position, me.transform.position); }
                 stuckTarget = target;
+                // Busy but getting nowhere (2026-11-14, the Cleric: two floors of 11 min, moving the whole time so never "stuck",
+                // dealing no damage while an elite archer it could not hit shot it): a non-guardian that has not lost health in
+                // 20 s of being the target is given up, with the why.
+                if (target != dmgTarget) { dmgTarget = target; dmgHp = target != null ? target.Current.Value : 0f; dmgSince = Time.time; }
+                else if (target != null)
+                {
+                    if (target.Current.Value < dmgHp - 0.5f) { dmgHp = target.Current.Value; dmgSince = Time.time; }
+                    else if (Time.time - dmgSince > 20f && (boss == null || target != boss.GetComponent<Health>()))
+                    {
+                        Problem("no damage on " + Health.NameOf(target.NetworkObjectId) + " in 20 s at " + Fmt(target.transform.position) + " from " + Fmt(me.transform.position) + " (" + dist.ToString("F1") + " m, line " + (CombatQuery.ClearLine(me.transform.position + Vector3.up * 1.6f, target) ? "clear" : "blocked") + ") | " + WhyStuck(target.transform.position));
+                        yield return Shot("F" + (floorNo + 1) + "_nodamage");
+                        skip.Add(target.NetworkObjectId);
+                        dmgTarget = null;
+                        continue;
+                    }
+                }
                 // A healing pylon comes before the guardian, as it would for a player (the user watched a bot hit a boss
                 // that its pylons kept topping up).
                 if (target != null && boss != null && target == boss.GetComponent<Health>())

@@ -558,6 +558,10 @@ namespace Deepbound.UI
         }
         private const int MaxCombos = 6;
 
+        private static readonly HashSet<string> taught = new HashSet<string>();
+        /// <summary>True the first time <paramref name="key"/> is asked this session: a lethal rule says what to do once, then only its name.</summary>
+        public static bool FirstTime(string key) => taught.Add(key);
+
         private void DrawCombos()
         {
             var cam = player.Camera;
@@ -577,17 +581,10 @@ namespace Deepbound.UI
                 GUI.Label(rect, c.Text, style);
             }
 
-            // Standing in consecrated ground: say so, under the crosshair.
-            var buffs = new List<string>();
-            if (ClericKit.InConsecration(player.transform.position)) buffs.Add("BLESSED +20%");
-            if (ClericKit.IsInspired(health)) buffs.Add("INSPIRED +15%");
-            var emotes = player.GetComponent<Emotes>();
-            if (emotes != null && emotes.Brothers) buffs.Add("BROTHERS IN ARMS +10%");
+            // Buffs are no longer spelled out under the crosshair (2026-11-14, show don't tell): Blessed, Inspired,
+            // Brothers in Arms and the rest are worn on the body (Art.PlayerStatusFx) and glow at the edges of your view
+            // (AfflictionOverlay); the status row still names them on hover.
             DrawPouchFull();
-            if (Time.time < life.VeiledUntil || (life.IsServer == false && InRogueSmoke())) buffs.Add("SMOKE SCREEN");
-            if (buffs.Count > 0)
-                GUI.Label(new Rect(0, UiScale.H / 2f + 18, UiScale.W, 20), string.Join("   ", buffs),
-                    new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = Combos.Color(ComboKind.Blessed) } });
         }
 
         /// <summary>Clients do not run the veil; approximate it from any hidden Rogue nearby.</summary>
@@ -2151,7 +2148,7 @@ namespace Deepbound.UI
                 case BossBrain.Stance.Survival: stanceTag = "<color=#FFB070>SURVIVE " + Mathf.CeilToInt((float)System.Math.Max(0.0, left)) + "</color>"; break;
                 case BossBrain.Stance.Armored: stanceTag = "<color=#C8C8D0>ARMORED</color>"; break;
             }
-            if (boss.Broken.Value) stanceTag = "<color=#FFE6A0>BROKEN - STRIKE NOW</color>";
+            if (boss.Broken.Value) stanceTag = "<color=#FFE6A0>BROKEN</color>";
             if (stanceTag != null) tags = stanceTag + (tags.Length > 0 ? "   " + tags : "");
             else if (boss.Health.Fraction < 0.25f) tags = "<color=#E0403A>ENRAGED</color>" + (tags.Length > 0 ? "   " + tags : "");
             string hint = boss.PhaseHint.Value.ToString();
@@ -3461,14 +3458,7 @@ namespace Deepbound.UI
             if (brain is ShieldbearerBrain shieldB) { if (shieldB.ShieldUp) Tag("SHIELDED", "C8B48C"); else if (shieldB.GuardDown) Tag("OPEN", "FFD98A"); }
             if (brain is GargoyleBrain garg && !garg.Woken.Value) { sb.Clear(); return sb; }
             if (DungeonDirector.InRitualWard(brain != null ? brain.transform.position : hp.transform.position)) Tag("RITUAL WARD", "B266FF");
-            if (hp.Chilled.Value) Tag("CHILL", "8CD9FF");
-            if (hp.Scorched.Value) Tag("SCORCH", "FF9A4D");
-            if (hp.Marked.Value) Tag("MARK", "FF5A4D");
-            if (hp.Blighted.Value) Tag("BLIGHT", "8CFF59");
-            if (brain != null && (brain.Status.Value & 1) != 0) Tag("STUN", "FFD94D");
             if (brain is MournerBrain mo && mo.Seen.Value) Tag("WATCHED", "B8C4D6");
-            if (brain != null && (brain.Status.Value & 2) != 0) Tag("TAUNT", "FF8C59");
-            if (brain != null && brain.Enraged) Tag("ENRAGED", "FF3B26");
             return sb;
         }
 
@@ -3493,7 +3483,6 @@ namespace Deepbound.UI
                 Rect(0, 0, w, k, c); Rect(0, h - k, w, k, c); Rect(0, 0, k, h, c); Rect(w - k, 0, k, h, c);
             }
             float bw = 220, bx = w / 2f - bw / 2f, by = h / 2f + 90;
-            GUI.Label(new Rect(0, by - 22, w, 20), "HIDDEN  -  your next strike is an Ambush", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.8f, 0.65f, 1f) } });
             Rect(bx - 1, by - 1, bw + 2, 8, new Color(0f, 0f, 0f, 0.7f));
             Rect(bx, by, bw * left, 6, new Color(0.65f, 0.45f, 1f));
         }

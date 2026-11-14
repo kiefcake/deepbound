@@ -129,7 +129,6 @@ namespace Deepbound.Enemies
             Telegraph.Show(at, HymnRadius, HymnSeconds, this, Gilt);
             Sfx.Play(Sound.Toll, at + Vector3.up * 1.6f, 0.7f, 0.7f); // not the revive chime: this is the enemy's hymn
             Sfx.Play(Sound.Whisper, at + Vector3.up * 1.6f, 0.8f, 1.3f);
-            UI.GameHud.ShowCombo(at + Vector3.up * 2.3f, "HYMN - BREAK IT", Gilt);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -137,7 +136,7 @@ namespace Deepbound.Enemies
         {
             Telegraph.Cancel(this);
             Sfx.Play(Sound.Shatter, at, 0.7f, 0.8f);
-            UI.GameHud.ShowCombo(at, "HYMN BROKEN", new Color(0.9f, 0.9f, 0.9f));
+            global::Deepbound.Art.Vfx.Embers(at, 16, new Color(1f, 0.92f, 0.7f), 5f, 0.06f, 0.7f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -147,7 +146,7 @@ namespace Deepbound.Enemies
             foreach (var p in warded)
             {
                 Vfx.Ring(p - Vector3.up * 0.9f, 0.9f, Gilt, 0.5f);
-                UI.GameHud.ShowCombo(p + Vector3.up * 1.2f, "SHIELDED", Gilt);
+                global::Deepbound.Art.Vfx.Embers(p + Vector3.up * 0.4f, 6, Gilt, 1.5f, 0.05f, 0.8f);
             }
         }
     }

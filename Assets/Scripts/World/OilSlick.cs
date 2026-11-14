@@ -158,7 +158,6 @@ namespace Deepbound.World
             }
             Sfx.Play(Sound.Fire, transform.position + Vector3.up * 0.5f, 1f, 0.8f);
             Vfx.Flash(transform.position + Vector3.up * 0.6f, new Color(1f, 0.55f, 0.2f), 4f, Radius * 3f, 0.4f);
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 1.4f, "OIL ALIGHT", new Color(1f, 0.6f, 0.25f));
         }
 
         private void LocalFire()

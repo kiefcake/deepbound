@@ -115,9 +115,8 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void SpottedRpc()
         {
-            UI.GameHud.Feed("A Bone Hoarder! Catch it before it escapes!", new Color(1f, 0.82f, 0.35f));
+            UI.GameHud.Feed("Something heavy jingles off into the dark.", new Color(1f, 0.82f, 0.35f));
             Sfx.Play(Sound.Coins, transform.position + Vector3.up, 1f, 1.3f);
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.2f, "HOARDER!", new Color(1f, 0.82f, 0.35f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

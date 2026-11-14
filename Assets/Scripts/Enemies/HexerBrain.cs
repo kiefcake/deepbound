@@ -85,7 +85,7 @@ namespace Deepbound.Enemies
             if (NetworkPlayer.Local != null && NetworkPlayer.Local.NetworkObjectId == who && Time.time >= nextCurseFeed)
             {
                 nextCurseFeed = Time.time + 30f;
-                UI.GameHud.Feed("A Hexer is cursing you - break its line of sight!", new Color(0.75f, 0.45f, 1f));
+                UI.GameHud.Feed("A Hexer's eye is on you", new Color(0.75f, 0.45f, 1f));
             }
         }
 
@@ -96,7 +96,6 @@ namespace Deepbound.Enemies
             for (int i = 0; i <= 12; i++) Vfx.Speck(Vector3.Lerp(from, to, i / 12f) + Random.insideUnitSphere * 0.08f, c * 2f);
             Vfx.Flash(to, c, 4f, 4f, 0.3f);
             Sfx.Play(Sound.Summon, to, 0.7f, 1.4f);
-            UI.GameHud.ShowCombo(to + Vector3.up * 0.8f, "WEAKENED", c);
         }
     }
 }

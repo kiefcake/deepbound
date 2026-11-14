@@ -129,7 +129,7 @@ namespace Deepbound.Player
         {
             if (Time.time - lastShelterFx < 1.2f) return;
             lastShelterFx = Time.time;
-            UI.GameHud.ShowCombo(at, "SHELTERED", new Color(0.7f, 0.85f, 1f));
+            global::Deepbound.Art.Vfx.Embers(at, 6, new Color(0.7f, 0.85f, 1f), 2.5f, 0.05f, 0.4f);
         }
 
         private float AttackMultiplier => progress.AttackMultiplier;

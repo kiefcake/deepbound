@@ -248,32 +248,31 @@ namespace Deepbound.Player
             var at = transform.position + Vector3.up * 2.1f;
             if (kind == 0)
             {
-                UI.GameHud.ShowCombo(at, "MANIA", new Color(0.85f, 0.4f, 1f));
+                global::Deepbound.Art.Vfx.Embers(at - Vector3.up * 0.6f, 10, new Color(0.85f, 0.4f, 1f), 3f, 0.05f, 0.6f);
                 Sfx.Play(Sound.Summon, at, 0.7f, 1.6f);
             }
             else if (kind == 3)
             {
-                UI.GameHud.ShowCombo(at, "DAZED", new Color(0.95f, 0.85f, 0.55f));
+                global::Deepbound.Art.Vfx.Embers(at - Vector3.up * 0.3f, 8, new Color(0.95f, 0.85f, 0.55f), 2.5f, 0.05f, 0.5f);
                 Sfx.Play(Sound.Block, at, 0.5f, 0.5f);
             }
             else if (kind == 4)
             {
-                UI.GameHud.ShowCombo(at, "BLINDED", new Color(0.55f, 0.4f, 0.85f));
+                global::Deepbound.Art.Vfx.Smoke(at - Vector3.up * 0.5f, 3, 0.3f, 1.2f);
                 Sfx.Play(Sound.Splash, at, 0.6f, 0.7f);
             }
             else if (kind == 5)
             {
-                UI.GameHud.ShowCombo(at, "CURSED", new Color(0.62f, 0.85f, 0.25f));
+                global::Deepbound.Art.Vfx.Embers(at - Vector3.up * 0.4f, 10, new Color(0.4f, 0.6f, 0.1f), 2f, 0.05f, 0.8f);
                 Sfx.Play(Sound.Shade, at, 0.7f, 0.7f);
             }
             else if (kind == 2)
             {
-                UI.GameHud.ShowCombo(at, "SILENCED", Enemies.CantorBrain.HushColor);
+                global::Deepbound.Art.Vfx.Ring(transform.position + Vector3.up * 1.55f, 0.5f, Enemies.CantorBrain.HushColor, 0.6f);
                 Sfx.Play(Sound.Whisper, at, 0.8f, 0.6f);
             }
             else
             {
-                UI.GameHud.ShowCombo(at, "ROOTED", new Color(0.6f, 0.9f, 1f));
                 Sfx.Play(Sound.Frost, transform.position, 0.8f, 1.2f);
                 Vfx.IceSpikes(transform.position, 0.8f, 6);
             }

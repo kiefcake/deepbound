@@ -221,7 +221,6 @@ namespace Deepbound.World
             Sfx.Play(Sound.Shatter, at, 1f, 0.6f);
             Vfx.Flash(at, new Color(0.5f, 1f, 0.55f), 5f, 8f, 0.4f);
             Vfx.Embers(at, 20, new Color(0.5f, 1f, 0.55f), 6f, 0.06f, 0.8f);
-            UI.GameHud.ShowCombo(at + Vector3.up * 0.5f, "PYLON BROKEN", new Color(0.6f, 1f, 0.6f));
         }
 
         private void Explode()
@@ -385,7 +384,6 @@ namespace Deepbound.World
             Vfx.Ring(transform.position, 6f, soul, 0.5f);
             for (int i = 0; i < 18; i++) Vfx.Mote(transform.position + Random.insideUnitSphere * 1.5f, soul);
             Vfx.Embers(at, 16, soul, 4f, 0.05f, 1f);
-            UI.GameHud.ShowCombo(at + Vector3.up * 0.5f, "SOULS FREED", soul);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

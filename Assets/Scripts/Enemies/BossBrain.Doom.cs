@@ -98,10 +98,10 @@ namespace Deepbound.Enemies
             string who = Health.NameOf(targetId);
             if (mine)
             {
-                UI.GameHud.ShowCombo(obj.transform.position + Vector3.up * 2.4f, "DOOM ON YOU - STAND WITH YOUR PARTY", new Color(0.8f, 0.55f, 1f));
+                UI.GameHud.ShowCombo(obj.transform.position + Vector3.up * 2.4f, UI.GameHud.FirstTime("doom") ? "DOOM ON YOU - STAND WITH YOUR PARTY" : "DOOM", new Color(0.8f, 0.55f, 1f));
                 Sfx.Play(Sound.Summon, obj.transform.position, 0.7f, 0.6f);
             }
-            else UI.GameHud.Feed("DOOM on " + who + " - stand inside the ring to share it", new Color(0.8f, 0.55f, 1f));
+            else UI.GameHud.Feed("DOOM on " + who + (UI.GameHud.FirstTime("doomshare") ? " - stand inside the ring to share it" : ""), new Color(0.8f, 0.55f, 1f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

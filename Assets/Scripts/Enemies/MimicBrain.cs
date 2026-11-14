@@ -61,7 +61,6 @@ namespace Deepbound.Enemies
         {
             Sfx.Play(Sound.Hurt, transform.position + Vector3.up, 1f, 0.5f);
             Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 1f, 0.6f);
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 1.6f, "MIMIC!", new Color(1f, 0.4f, 0.3f));
             Vfx.Embers(transform.position + Vector3.up * 0.7f, 12, new Color(1f, 0.75f, 0.3f), 4f, 0.05f, 0.6f);
             var local = Player.NetworkPlayer.Local;
             if (local != null && Vector3.Distance(local.transform.position, transform.position) < 6f) local.AddShake(0.4f);

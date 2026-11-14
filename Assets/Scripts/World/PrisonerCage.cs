@@ -184,7 +184,6 @@ namespace Deepbound.World
             Sfx.Play(Sound.Chain, transform.position + Vector3.up, 1f, 1f);
             if (rig != null) rig.PlayEmote(Emote.None, 0f);
             UI.GameHud.Feed(DisplayName + " is free: \"I'll cut a way out with you. Lead on.\"", new Color(0.6f, 0.9f, 1f));
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.2f, "FREED", new Color(0.6f, 0.9f, 1f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

@@ -412,7 +412,7 @@ namespace Deepbound.Player
         {
             player.ActiveKit?.RestoreResource(ManaFraction);
             surgeUntil = Time.time + SurgeSeconds;
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.2f, "SURGE", DraughtColor(progress.ClassId.Value));
+            if (!IsOwner) global::Deepbound.Art.Vfx.Embers(transform.position + Vector3.up * 1.2f, 12, DraughtColor(progress.ClassId.Value), 3f, 0.05f, 0.7f);
         }
 
         /// <summary>Owner, each frame: hold the resource full while the draught surges.</summary>

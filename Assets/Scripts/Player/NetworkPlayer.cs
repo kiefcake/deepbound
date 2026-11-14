@@ -322,6 +322,9 @@ namespace Deepbound.Player
             if (!baseData.cameraStack.Contains(viewModelCamera)) baseData.cameraStack.Add(viewModelCamera);
         }
 
+        /// <summary>Shots only: draw your own body (for a camera standing outside it).</summary>
+        public static bool DebugShowSelf;
+
         /// <summary>A class's third-person body, in a cloak dye (also used by the tailor's mannequin).</summary>
         public static HumanoidRig BuildBody(ClassId cls, Transform root, Color slot, int dye, int pattern = 0)
         {
@@ -475,7 +478,7 @@ namespace Deepbound.Player
             if (IsOwner && viewModel != null && viewModel.Root.gameObject.activeSelf == hideHands) viewModel.Root.gameObject.SetActive(!hideHands);
             // Watching an ally from the floor, your own body is in the shot (play-test 2026-11-01: dragged while
             // spectating, you could not see yourself being dragged). Otherwise it only casts a shadow.
-            bool showSelf = Teamwork.Watching != null;
+            bool showSelf = Teamwork.Watching != null || DebugShowSelf;
             if (IsOwner && Rig != null && (showSelf != selfShown || Rig != selfShownRig))
             {
                 selfShown = showSelf;

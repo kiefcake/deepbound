@@ -409,7 +409,7 @@ namespace Deepbound.Enemies
                 Vfx.Flash(at + Vector3.up * 2f, new Color(1f, 0.85f, 0.5f), 3f, radius + 4f, seconds);
                 Vfx.Embers(at + Vector3.up * 0.3f, 10, new Color(1f, 0.85f, 0.5f), 1.5f, 0.05f, 1.5f);
             }
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 5f, "THE ECLIPSE: STAND IN THE LIGHT", new Color(1f, 0.85f, 0.45f));
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 5f, UI.GameHud.FirstTime("eclipse") ? "THE ECLIPSE: STAND IN THE LIGHT" : "THE ECLIPSE", new Color(1f, 0.85f, 0.45f));
             Sfx.Play2D(Sound.Toll, 0.6f);
         }
 

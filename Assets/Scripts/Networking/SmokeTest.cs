@@ -5231,6 +5231,42 @@ namespace Deepbound.Networking
                         rem.NetworkObject.Despawn();
                     }
                 }
+                // SHOW, DON'T TELL (2026-11-14): states worn on the body. Your own view first, then a shot camera outside the body.
+                {
+                    var fx = Art.PlayerStatusFx.DebugForce;
+                    var body = local.transform;
+                    var startRoom = layout.Rooms.FirstOrDefault(r2 => r2.Kind == World.RoomKind.Start) ?? room;
+                    var sc = startRoom.Center;
+                    var standAura = UnityEngine.AI.NavMesh.SamplePosition(sc, out var sh, 3f, UnityEngine.AI.NavMesh.AllAreas) ? sh.position : sc;
+                    Stand(standAura, standAura + Vector3.right * 6f + Vector3.up * 1.2f, 2f);
+                    fx.Clear(); fx.Add("blessed");
+                    yield return new WaitForSeconds(1.4f);
+                    yield return Shot(dir, "ix_34a_blessed_own_view");
+                    NetworkPlayer.DebugShowSelf = true;
+                    var auraCamGo = new GameObject("IxAuraCam");
+                    var auraCam = auraCamGo.AddComponent<Camera>();
+                    if (local.Camera != null) auraCam.CopyFrom(local.Camera);
+                    auraCam.depth = 100f; auraCam.nearClipPlane = 0.05f; auraCam.fieldOfView = 55f;
+                    var auraData = auraCamGo.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>();
+                    auraData.renderPostProcessing = true;
+                    auraCam.transform.position = body.position + body.forward * 3.2f + body.right * 0.6f + Vector3.up * 1.75f;
+                    auraCam.transform.LookAt(body.position + Vector3.up * 1.05f);
+                    yield return new WaitForSeconds(1f);
+                    yield return Shot(dir, "ix_34b_blessed_body");
+                    fx.Clear(); fx.Add("inspired"); fx.Add("zeal");
+                    yield return new WaitForSeconds(1f);
+                    yield return Shot(dir, "ix_34c_inspired_zeal_body");
+                    fx.Clear(); fx.Add("dazed"); fx.Add("silenced"); fx.Add("poison");
+                    yield return new WaitForSeconds(1f);
+                    yield return Shot(dir, "ix_34d_dazed_silenced_poison_body");
+                    fx.Clear(); fx.Add("hexed"); fx.Add("mania"); fx.Add("martyr");
+                    yield return new WaitForSeconds(1f);
+                    yield return Shot(dir, "ix_34e_hexed_mania_martyr_body");
+                    fx.Clear();
+                    NetworkPlayer.DebugShowSelf = false;
+                    Destroy(auraCamGo);
+                    Debug.Log("[IxShots] status auras shot");
+                }
                 var foeAt = On(0f, 3.5f);
                 var ixStandAt = On(0f, -0.5f);
                 foreach (var kind in new[] { "magus", "lamprey", "hag", "ringer" })

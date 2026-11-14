@@ -198,8 +198,8 @@ namespace Deepbound.Enemies
             if (!Unity.Netcode.NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(playerObject, out var obj)) return;
             FollowRing.Attach(obj.transform, radius, seconds, gold * 1.4f);
             Sfx.Play(Sound.Toll, obj.transform.position + Vector3.up * 2f, 0.7f, 1.3f);
-            if (obj.IsOwner) UI.GameHud.ShowCombo(obj.transform.position + Vector3.up * 2.4f, "EXCOMMUNICATED: MOVE AWAY FROM YOUR ALLIES", gold);
-            else UI.GameHud.ShowCombo(obj.transform.position + Vector3.up * 2.4f, "BRANDED: STAND CLEAR", gold);
+            if (obj.IsOwner) UI.GameHud.ShowCombo(obj.transform.position + Vector3.up * 2.4f, UI.GameHud.FirstTime("excommunicated") ? "EXCOMMUNICATED: MOVE AWAY FROM YOUR ALLIES" : "EXCOMMUNICATED", gold);
+            else UI.GameHud.ShowCombo(obj.transform.position + Vector3.up * 2.4f, UI.GameHud.FirstTime("branded") ? "BRANDED: STAND CLEAR" : "BRANDED", gold);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

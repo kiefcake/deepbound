@@ -98,7 +98,7 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void SeveredRpc()
         {
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.4f, "SEVERED - KILL ITS TWIN", new Color(0.8f, 0.9f, 1f));
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.4f, "SEVERED", new Color(0.8f, 0.9f, 1f));
             Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 0.9f, 0.7f);
             Vfx.Ring(Vfx.Floor(transform.position) + Vector3.up * 0.05f, 1.8f, new Color(0.75f, 0.85f, 1f), 0.6f);
         }

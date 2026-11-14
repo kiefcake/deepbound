@@ -436,7 +436,6 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Hit, transform.position + Vector3.up * 1.2f, 0.9f, 1.4f);
             Sfx.Play(Sound.Hurt, transform.position + Vector3.up * 1.2f, 0.6f, 0.8f);
             Vfx.Embers(transform.position + Vector3.up * 1.3f - transform.forward * 0.2f, 14, Blood, 3f, 0.05f, 0.6f);
-            if (IsOwner) UI.GameHud.ShowCombo(transform.position + Vector3.up * 2f + transform.forward, "ZEAL", new Color(1f, 0.35f, 0.25f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

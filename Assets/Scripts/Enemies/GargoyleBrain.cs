@@ -150,7 +150,6 @@ namespace Deepbound.Enemies
             Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.5f, 0.8f, 1.6f);
             Vfx.Smoke(transform.position, 3, 0.6f, 1.2f);
             BoneBurst.Spawn(transform.position + Vector3.up * 0.8f, 0.8f, false, Mat.StoneWall);
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.4f, "IT LIVES", new Color(0.9f, 0.4f, 0.3f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

@@ -404,7 +404,7 @@ namespace Deepbound.Enemies
         [Rpc(SendTo.ClientsAndHost)]
         private void EnrageRpc()
         {
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.6f, "ENRAGED!", new Color(1f, 0.25f, 0.15f));
+            global::Deepbound.Art.Vfx.Ring(transform.position + Vector3.up * 0.05f, 2f, new Color(1f, 0.25f, 0.15f), 0.5f); global::Deepbound.Art.Vfx.Embers(transform.position + Vector3.up * 1.6f, 12, new Color(1f, 0.25f, 0.15f), 4f, 0.06f, 0.6f);
             if (VoicePitch > 0f) Sfx.Play(Sound.Roar, transform.position + Vector3.up * 1.6f, 0.9f, VoicePitch);
             Vfx.Ring(transform.position + Vector3.up * 0.05f, 2f, new Color(1f, 0.25f, 0.15f), 0.5f);
         }
@@ -422,7 +422,6 @@ namespace Deepbound.Enemies
         private void FrenzyRpc()
         {
             Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.6f, 0.8f, 1.4f);
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.4f, "FRENZY!", new Color(1f, 0.3f, 0.22f));
             Vfx.Ring(transform.position + Vector3.up * 0.05f, 1.6f, new Color(1f, 0.3f, 0.22f), 0.5f);
         }
 

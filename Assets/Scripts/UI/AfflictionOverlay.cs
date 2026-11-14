@@ -27,6 +27,9 @@ namespace Deepbound.UI
         private static Texture2D vines, frost, veins, smoke, star, ink;
         private float vineK, frostK, poisonK, curseK, maniaK, silenceK, dazeK, blindK, hexK;
         private float mendK, surgeK, barkK, furyK, stoneK, sanctK, lastStandK;
+        // Buffs you see, not read (2026-11-14, show don't tell): blessed, inspired, zeal/martyr, the plague ward, brothers.
+        private float blessK, inspireK, zealK, martyrK, wardK, brotherK;
+        private float nextGold;
         private static float gulpAt = -10f, cleanseAt = -10f;
         private static Color gulpColor = Color.white;
         private Color surgeColor = Color.white;
@@ -86,6 +89,23 @@ namespace Deepbound.UI
             Approach(ref stoneK, pon && pouch.InStasis, dt, 6f, 3f);
             Approach(ref sanctK, pon && Player.Flasks.InSanctuary(me.transform.position), dt, 3f, 2f);
             Approach(ref lastStandK, me != null && !Application.isBatchMode && Player.Teamwork.LocalLastStand, dt, 2f, 1.5f);
+            bool live = me != null && !Application.isBatchMode;
+            var hp = live ? me.GetComponent<Combat.Health>() : null;
+            var fl = live ? me.GetComponent<Player.FlagellantKit>() : null;
+            var em = live ? me.GetComponent<Player.Emotes>() : null;
+            Approach(ref blessK, live && (Player.ClericKit.InConsecration(me.transform.position) || Art.PlayerStatusFx.Forced("blessed")), dt, 3f, 1.5f);
+            Approach(ref inspireK, hp != null && (Player.ClericKit.IsInspired(hp) || Art.PlayerStatusFx.Forced("inspired")), dt, 4f, 2f);
+            Approach(ref zealK, (fl != null && fl.Zealous) || Art.PlayerStatusFx.Forced("zeal"), dt, 4f, 1.5f);
+            Approach(ref martyrK, fl != null && fl.Martyr, dt, 5f, 1.5f);
+            Approach(ref wardK, on && deb.Warded, dt, 3f, 1.2f);
+            Approach(ref brotherK, em != null && em.Brothers, dt, 4f, 1f);
+            // Gold motes drifting up from the bottom of your view while you stand blessed (the same gold as your halo, seen by others).
+            if ((blessK > 0.3f || inspireK > 0.3f) && Time.time >= nextGold)
+            {
+                nextGold = Time.time + (inspireK > 0.3f ? 0.06f : 0.11f);
+                float h = UiScale.H, w = UiScale.W;
+                sparks.Add(new Spark { P = new Vector2(Random.Range(w * 0.05f, w * 0.95f), h + 4f), V = new Vector2(Random.Range(-12f, 12f), -Random.Range(h * 0.12f, h * 0.25f)), Born = Time.time, Life = Random.Range(1.2f, 2f), Size = h * Random.Range(0.004f, 0.009f), C = new Color(1f, 0.85f, 0.45f) });
+            }
             if (pon && pouch.Surging) surgeColor = Player.Flasks.DraughtColor(Player.Flasks.LocalClass);
             // Sparks rising up the edges while a potion works.
             if ((mendK > 0.3f || surgeK > 0.3f) && Time.time >= nextSpark)
@@ -145,7 +165,7 @@ namespace Deepbound.UI
         private void Paint()
         {
             bool flashes = Time.time - gulpAt < 0.9f || Time.time - cleanseAt < 0.8f;
-            if (vineK + frostK + poisonK + curseK + maniaK + silenceK + dazeK + blindK + hexK + mendK + surgeK + barkK + furyK + stoneK + sanctK + lastStandK < 0.001f && !flashes && sparks.Count == 0) return;
+            if (vineK + frostK + poisonK + curseK + maniaK + silenceK + dazeK + blindK + hexK + mendK + surgeK + barkK + furyK + stoneK + sanctK + lastStandK + blessK + inspireK + zealK + martyrK + wardK + brotherK < 0.001f && !flashes && sparks.Count == 0) return;
             var me = Player.NetworkPlayer.Local;
             if (me == null || PauseMenu.Open || GameHud.Cinematic) return;
             if (me.TryGetComponent<Player.PlayerLife>(out var life) && life.Downed.Value) return;
@@ -169,6 +189,23 @@ namespace Deepbound.UI
                 float beat = Mathf.Pow(Mathf.Abs(Mathf.Sin(t * 2.2f)), 4f);
                 Corners(smoke, h * (0.6f + 0.06f * beat), lastStandK, new Color(0.7f, 0.08f, 0.06f, (0.3f + 0.22f * beat) * calm), t * 0.4f, 1f);
             }
+            if (blessK > 0f)
+            {
+                // Consecrated ground: warm gold light welling up from below, the floor's glow on your view.
+                float rows = 10;
+                for (int i = 0; i < rows; i++)
+                {
+                    float f = i / rows;
+                    GUI.color = new Color(1f, 0.78f, 0.35f, 0.3f * (1f - f) * (1f - f) * blessK * calm * (0.85f + 0.15f * Mathf.Sin(t * 2f)));
+                    GUI.DrawTexture(new Rect(0, h * (1f - 0.32f * (f + 1f / rows)), w, h * 0.32f / rows + 1f), Texture2D.whiteTexture);
+                }
+                Corners(smoke, h * 0.6f, blessK, new Color(1f, 0.8f, 0.38f, 0.38f * calm), t * 0.3f, 1f);
+            }
+            if (inspireK > 0f) Corners(smoke, h * (0.5f + 0.04f * Mathf.Sin(t * 5f)), inspireK, new Color(1f, 0.92f, 0.6f, (0.28f + 0.1f * Mathf.Sin(t * 9f)) * calm), t * 3f, 1.5f);
+            if (zealK > 0f) Corners(smoke, h * (0.55f + 0.05f * Mathf.Abs(Mathf.Sin(t * 7f))), zealK, new Color(0.9f, 0.12f, 0.08f, (0.3f + 0.15f * Mathf.Abs(Mathf.Sin(t * 7f))) * calm), t * 1.5f, 2f);
+            if (martyrK > 0f) Corners(frost, h * 0.45f, martyrK, new Color(1f, 0.8f, 0.75f, (0.35f + 0.25f * Mathf.Abs(Mathf.Sin(t * 5f))) * calm), 0f, 0f);
+            if (wardK > 0f) Corners(smoke, h * 0.4f, wardK, new Color(0.4f, 0.8f, 0.5f, 0.22f * calm), t * 0.2f, 0.5f);
+            if (brotherK > 0f) Corners(smoke, h * 0.35f, brotherK, new Color(1f, 0.6f, 0.25f, 0.18f * calm), t * 0.6f, 1f);
             float gulp = Mathf.Clamp01(1f - (t - gulpAt) / 0.9f);
             if (gulp > 0f) Corners(smoke, h * (0.45f + 0.35f * (1f - gulp)), gulp, new Color(gulpColor.r, gulpColor.g, gulpColor.b, 0.6f * gulp * calm), 0f, 0f);
 

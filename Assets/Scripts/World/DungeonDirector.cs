@@ -1447,7 +1447,6 @@ namespace Deepbound.World
         {
             Art.Sfx.Play(Art.Sound.Frost, at, 1f, 0.8f);
             Art.Vfx.IceSpikes(at - Vector3.up * 0.9f, 0.9f, 8);
-            UI.GameHud.ShowCombo(at + Vector3.up * 0.8f, "FROZEN", new Color(0.6f, 0.9f, 1f));
         }
 
         /// <summary>A spike plate; deeper down, some are laid in flagstone and hidden (<see cref="SpikeTrap.HiddenChance"/>).</summary>

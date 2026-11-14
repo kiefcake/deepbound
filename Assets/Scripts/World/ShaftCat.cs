@@ -52,7 +52,7 @@ namespace Deepbound.World
         {
             wokeAt = Time.time;
             Sfx.Play(Sound.Purr, transform.position + Vector3.up * 0.3f, 0.9f);
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 0.8f, "PURRING", new Color(1f, 0.85f, 0.6f));
+            for (int i = 0; i < 8; i++) global::Deepbound.Art.Vfx.Mote(transform.position, new Color(1f, 0.8f, 0.55f));
             UI.GameHud.Feed("The castle cat, a long way from home. It purrs for " + who + ", then pads off into the dark.", new Color(0.85f, 0.8f, 0.7f));
             if (Player.NetworkPlayer.Local != null && Player.NetworkPlayer.Local.name == who) Progression.Deeds.Earn(Progression.Deeds.Deed.FoundCat, "Found the cat below");
         }
