@@ -6,18 +6,17 @@ guardian minutes, kills, damage taken, near-downs (blows that would have downed 
 
 ## CURRENT problems (runs in the last 7 days)
 
-- 24x: Gilded (Rogue) dealt no damage this floor  (`0_Mage`, `0_Mage`, `0_Mage`)
 - 14x: stuck for 12 s going for the guardian's arena at 0,368 from 1,367 / PathComplete (ends 0,368); near: PaleCardinal(Clone)<PaleCardinal(Clone)>, Structure (Flagstone); obstacles:  (`run_2026-11-13_knight`)
 - 12x: bot loop ran 400 steps without a frame (Floor > StepToward); waiting a frame  (`run_2026-11-13`, `run_2026-11-13_knight`)
 - 10x: floor not finished in 11 min (33 enemies left, boss The Tide Lich 100%): forcing it  (`run_2026-11-13_knight`)
 - 8x: floor not finished in 11 min (8 enemies left, boss Sir Aldous Vane 80%): forcing it  (`run_2026-11-13_knight`)
 - 6x: floor not finished in 11 min (6 enemies left, boss The Pale Cardinal 33%): forcing it  (`run_2026-11-13`, `run_2026-11-13_knight`)
-- 6x: stuck for 12 s going for The Drowned Knight at -184,-40 from -74,-90 / line to target blocked by Portcullis(Clone) (-) at 0.6 m, PathPartial (ends -74,-90); near: Structure (Wood), Dressing (Wood), St  (`0_Mage`, `0_Mage`, `0_Mage`)
-- 6x: stuck for 12 s going for The Drowned Knight at -184,-40 from -108,-76 / line to target blocked by Structure (StoneWall) (Dungeon (seed 1563729165, depth 2)) at 0.8 m, PathPartial (ends -108,-76); near  (`1_Knight`, `2_Cleric`, `1_Knight`, `2_Cleric`)
 - 5x: stuck for 12 s going for the guardian's arena at 92,0 from 62,-30 / PathPartial (ends 62,-30); near: Structure (Flagstone), Structure (StoneWall); obstacles:  (`run_2026-11-13_knight`)
 - 5x: stuck for 12 s going for the guardian's arena at 0,368 from 1,366 / PathComplete (ends 0,368); near: Structure (Flagstone); obstacles:  (`run_2026-11-13_knight`)
+- 2x: guardian at 100% has not lost health in 30 s of attacking: in swing arc False, flat dist 2.3 (body r 0.9), vertical 0.0 (centre h 1.7), clear line True (Dressing (StoneWall)/False), dormant False, imm  (`run_2026-11-13_knight2`)
 - 1x: bot loop ran 400 steps without a frame (Floor); waiting a frame  (`run_2026-11-13`)
 - 1x: stuck for 12 s going for the guardian's arena at 0,368 from 2,367 / line to target blocked by Dressing (StoneWall) (Dungeon (seed 759055230, depth 7)) at 8.4 m, PathComplete (ends 0,368); near: PaleCa  (`run_2026-11-13_knight`)
+- 1x: guardian at 99% has not lost health in 30 s of attacking: in swing arc True, flat dist 1.3 (body r 0.9), vertical 0.0 (centre h 1.7), clear line True (SkeletonKing(Clone)/True), dormant False, immune   (`run_2026-11-13_knight2`)
 
 ## History (older problems, probably fixed; top 15 by count)
 
@@ -29,62 +28,24 @@ guardian minutes, kills, damage taken, near-downs (blows that would have downed 
 - 29x: stuck for 12 s going for The Gravewarden at -46,-224 from -46,-205 / PathComplete (ends -46,-224); near: Structure (StoneWall), Structure (F
 - 29x: stuck for 12 s going for The Choirmaster at -138,-40 from -138,-14 / PathComplete (ends -138,-40); near: Structure (Flagstone), Dressing (Wo
 - 27x: stuck for 12 s going for Ossric, the Hollow King at -46,-224 from -99,-168 / PathPartial (ends -99,-168); near: Structure (Rubble), Structur
+- 24x: Gilded (Rogue) dealt no damage this floor
 - 15x: stuck for 12 s going for Ossric, the Hollow King at -46,52 from 31,127 / PathPartial (ends 32,128); near: BoneBrute(Clone)<BoneBrute(Clone)>
 - 12x: guardian at 99% has not lost health in 30 s of attacking: in swing arc True, flat dist 1.7 (body r 1.3), vertical 0.1 (centre h 1.8), clear 
 - 10x: guardian asleep for 381 s with 2 enemies left, me at 92,-80, goal The Unsung, outside the arena: client 2 at 92,-73
 - 9x: stuck for 12 s going for The Gravewarden at -46,-224 from -46,-205 / PathComplete (ends -46,-224); near: Dressing (Steel), Structure (StoneW
 - 8x: the lift never took me up (0 at the exit)
 - 8x: never got back to camp
-- 8x: stuck for 12 s going for The Drowned Knight at 0,328 from 0,260 / line to target blocked by Portcullis(Clone) (-) at 0.5 m, PathPartial (end
 
 ## Recent runs
 
-**`Builds/Deepbound/partycheck/0_Cleric/autoplay.txt`** (2026-11-07, Cleric): F1 4.8m g1.4 k24 t870 nd0 / F2 5.3m g2.7 k31 t2257 nd0 / F3 4.7m g1.3 k34 t1481 nd0 / F4 5.3m g2.4 k44 t743 nd0 / F5 6.6m g2.3 k43 t2245 nd0 / F6 4.5m g1.2 k79 t1104 nd0 / F7 5.2m g1.3 k78 t2287 nd0 / F8 5.4m g1.5 k75 t1943 nd0 / F9 4.5m g0.6 k83 t3451 nd0 / F10 5.5m g1.5 k72 t4803 nd1
-  - kit: Cleric / weapon +10 hones 5 path Shepherd (+16 tiers), edges Momentum/Opportunist/Desperation / sockets [Keen Rune/Holy Rune/Hunter's Rune] / armour Legendary Vestments of the Pale Cardinal d9 (44.4) / charm Legendary Marrowgut's Rib d9 (31.2) / Q5 E5 / drills
-**`Builds/DeepboundNext/partycheck/0_Cleric/autoplay.txt`** (2026-11-07, Cleric): F1 4.8m g1.4 k24 t870 nd0 / F2 5.3m g2.7 k31 t2257 nd0 / F3 4.7m g1.3 k34 t1481 nd0 / F4 5.3m g2.4 k44 t743 nd0 / F5 6.6m g2.3 k43 t2245 nd0 / F6 4.5m g1.2 k79 t1104 nd0 / F7 5.2m g1.3 k78 t2287 nd0 / F8 5.4m g1.5 k75 t1943 nd0 / F9 4.5m g0.6 k83 t3451 nd0 / F10 5.5m g1.5 k72 t4803 nd1
-  - kit: Cleric / weapon +10 hones 5 path Shepherd (+16 tiers), edges Momentum/Opportunist/Desperation / sockets [Keen Rune/Holy Rune/Hunter's Rune] / armour Legendary Vestments of the Pale Cardinal d9 (44.4) / charm Legendary Marrowgut's Rib d9 (31.2) / Q5 E5 / drills
-**`Builds/Deepbound/partycheck/0_Rogue/autoplay.txt`** (2026-11-07, Rogue): F1 2.6m g0.9 k18 t1123 nd5 / F2 4.1m g2.3 k15 t2420 nd13 / F3 4.7m g1.2 k44 t2969 nd9 / F4 6.2m g3.4 k48 t3321 nd16 / F5 4.1m g0.7 k54 t3005 nd6 / F6 5.3m g1.8 k41 t4480 nd18 / F7 5.6m g1.1 k65 t3798 nd11 / F8 3.4m g1.0 k59 t2158 nd7 / F9 6.2m g0.9 k57 t12558 nd45 / F10 3.8m g1.7 k51 t5248 nd4
-  - kit: Rogue / weapon +10 hones 5 path Assassin (+16 tiers), edges Momentum/Opportunist/Stalwart / sockets [Keen Rune/Holy Rune II/Hunter's Rune II] / armour Legendary Warden's Bulwark d9 (43.5) / charm Legendary Lich's Phylactery d9 (25.7) / Q5 E5 / drills 15 / reli
-**`Builds/DeepboundNext/partycheck/0_Rogue/autoplay.txt`** (2026-11-07, Rogue): F1 2.6m g0.9 k18 t1123 nd5 / F2 4.1m g2.3 k15 t2420 nd13 / F3 4.7m g1.2 k44 t2969 nd9 / F4 6.2m g3.4 k48 t3321 nd16 / F5 4.1m g0.7 k54 t3005 nd6 / F6 5.3m g1.8 k41 t4480 nd18 / F7 5.6m g1.1 k65 t3798 nd11 / F8 3.4m g1.0 k59 t2158 nd7 / F9 6.2m g0.9 k57 t12558 nd45 / F10 3.8m g1.7 k51 t5248 nd4
-  - kit: Rogue / weapon +10 hones 5 path Assassin (+16 tiers), edges Momentum/Opportunist/Stalwart / sockets [Keen Rune/Holy Rune II/Hunter's Rune II] / armour Legendary Warden's Bulwark d9 (43.5) / charm Legendary Lich's Phylactery d9 (25.7) / Q5 E5 / drills 15 / reli
-**`Builds/Deepbound/partycheck/3_Rogue/autoplay.txt`** (2026-11-07, Rogue): no finished floors
-  - kit: Rogue / weapon +0 hones 0 path none / sockets [] / armour Nothing d0 (0.0) / charm Nothing d0 (0.0) / Q1 E1 / drills 0 / relics 0 [] / stats HP 175 ATT 24 DEF 2 DEX 60 / held: gold 0, embers 0, sigils 0, spare runes [], pack 0, pouch H2 M1 F1 W1 rare empty
-**`Builds/DeepboundNext/partycheck/3_Rogue/autoplay.txt`** (2026-11-07, Rogue): no finished floors
-  - kit: Rogue / weapon +0 hones 0 path none / sockets [] / armour Nothing d0 (0.0) / charm Nothing d0 (0.0) / Q1 E1 / drills 0 / relics 0 [] / stats HP 175 ATT 24 DEF 2 DEX 60 / held: gold 0, embers 0, sigils 0, spare runes [], pack 0, pouch H2 M1 F1 W1 rare empty
-**`Builds/Deepbound/partycheck/0_Mage/autoplay.txt`** (2026-11-07, Mage): F1 3.1m g1.2 k9 t299 nd0 / F2 6.9m g3.9 k23 t2907 nd8 / F3 6.2m g1.7 k37 t1836 nd2 / F4 8.5m g4.5 k38 t2157 nd0 / F5 7.3m g2.5 k49 t1434 nd0 / F6 5.4m g2.0 k44 t1640 nd1 / F7 8.1m g2.5 k57 t3061 nd2 / F8 6.9m g2.5 k43 t4028 nd0 / F9 5.4m g1.3 k54 t1795 nd0 / F10 7.0m g3.3 k52 t8968 nd26
-  - kit: Mage / weapon +10 hones 1 path Cryomancer (+14 tiers), edges Opportunist/Momentum/Cleaver / sockets [Keen Rune/Ember Rune/Hunter's Rune II] / armour Legendary Vestments of the Pale Cardinal d9 (44.4) / charm Legendary Choirmaster's Baton d9 (30.4) / Q5 E5 / dr
-**`Builds/Deepbound/partycheck/1_Knight/autoplay.txt`** (2026-11-07, Knight): F1 3.1m g1.2 k0 t0 nd0 / F2 6.9m g3.9 k0 t0 nd0 / F3 6.2m g1.7 k0 t0 nd0 / F4 8.4m g4.5 k0 t0 nd0 / F5 7.3m g2.5 k0 t0 nd0 / F6 5.4m g2.0 k0 t0 nd0 / F7 8.1m g2.5 k0 t0 nd0 / F8 6.9m g2.5 k0 t0 nd0 / F9 5.4m g1.3 k0 t0 nd0 / F10 7.0m g3.4 k0 t0 nd0
-  - kit: Knight / weapon +10 hones 2 path Cleave (+14 tiers), edges Cleaver/Momentum/Opportunist / sockets [Storm Rune II/Ember Rune II/Keen Rune] / armour Legendary Mail of the Drowned Knight d9 (36.7) / charm Legendary Crown of the Hollow King d9 (34.6) / Q5 E5 / dri
-**`Builds/Deepbound/partycheck/2_Cleric/autoplay.txt`** (2026-11-07, Cleric): F1 3.1m g1.2 k0 t0 nd0 / F2 6.9m g3.9 k0 t0 nd0 / F3 6.2m g1.7 k0 t0 nd0 / F4 8.5m g4.5 k0 t0 nd0 / F5 7.3m g2.5 k0 t0 nd0 / F6 5.4m g2.0 k0 t0 nd0 / F7 8.1m g2.5 k0 t0 nd0 / F8 6.9m g2.5 k0 t0 nd0 / F9 5.4m g1.3 k0 t0 nd0 / F10 7.0m g3.4 k0 t0 nd0
-  - kit: Cleric / weapon +10 hones 1 path Shepherd (+15 tiers), edges Quickening/Desperation/Momentum / sockets [Holy Rune/Keen Rune/Ember Rune] / armour Legendary Oath of Sir Aldous d9 (39.7) / charm Legendary Crown of the Hollow King d9 (34.6) / Q5 E5 / drills 6 / re
-**`Builds/DeepboundNext/partycheck/0_Mage/autoplay.txt`** (2026-11-07, Mage): F1 3.1m g1.2 k9 t299 nd0 / F2 6.9m g3.9 k23 t2907 nd8 / F3 6.2m g1.7 k37 t1836 nd2 / F4 8.5m g4.5 k38 t2157 nd0 / F5 7.3m g2.5 k49 t1434 nd0 / F6 5.4m g2.0 k44 t1640 nd1 / F7 8.1m g2.5 k57 t3061 nd2 / F8 6.9m g2.5 k43 t4028 nd0 / F9 5.4m g1.3 k54 t1795 nd0 / F10 7.0m g3.3 k52 t8968 nd26
-  - kit: Mage / weapon +10 hones 1 path Cryomancer (+14 tiers), edges Opportunist/Momentum/Cleaver / sockets [Keen Rune/Ember Rune/Hunter's Rune II] / armour Legendary Vestments of the Pale Cardinal d9 (44.4) / charm Legendary Choirmaster's Baton d9 (30.4) / Q5 E5 / dr
-**`Builds/DeepboundNext/partycheck/1_Knight/autoplay.txt`** (2026-11-07, Knight): F1 3.1m g1.2 k0 t0 nd0 / F2 6.9m g3.9 k0 t0 nd0 / F3 6.2m g1.7 k0 t0 nd0 / F4 8.4m g4.5 k0 t0 nd0 / F5 7.3m g2.5 k0 t0 nd0 / F6 5.4m g2.0 k0 t0 nd0 / F7 8.1m g2.5 k0 t0 nd0 / F8 6.9m g2.5 k0 t0 nd0 / F9 5.4m g1.3 k0 t0 nd0 / F10 7.0m g3.4 k0 t0 nd0
-  - kit: Knight / weapon +10 hones 2 path Cleave (+14 tiers), edges Cleaver/Momentum/Opportunist / sockets [Storm Rune II/Ember Rune II/Keen Rune] / armour Legendary Mail of the Drowned Knight d9 (36.7) / charm Legendary Crown of the Hollow King d9 (34.6) / Q5 E5 / dri
-**`Builds/DeepboundNext/partycheck/2_Cleric/autoplay.txt`** (2026-11-07, Cleric): F1 3.1m g1.2 k0 t0 nd0 / F2 6.9m g3.9 k0 t0 nd0 / F3 6.2m g1.7 k0 t0 nd0 / F4 8.5m g4.5 k0 t0 nd0 / F5 7.3m g2.5 k0 t0 nd0 / F6 5.4m g2.0 k0 t0 nd0 / F7 8.1m g2.5 k0 t0 nd0 / F8 6.9m g2.5 k0 t0 nd0 / F9 5.4m g1.3 k0 t0 nd0 / F10 7.0m g3.4 k0 t0 nd0
-  - kit: Cleric / weapon +10 hones 1 path Shepherd (+15 tiers), edges Quickening/Desperation/Momentum / sockets [Holy Rune/Keen Rune/Ember Rune] / armour Legendary Oath of Sir Aldous d9 (39.7) / charm Legendary Crown of the Hollow King d9 (34.6) / Q5 E5 / drills 6 / re
-**`Builds/Deepbound/partycheck/0_Ranger/autoplay.txt`** (2026-11-07, Ranger): F1 2.5m g0.6 k19 t693 nd0 / F2 3.8m g1.7 k18 t1987 nd0 / F3 5.2m g1.5 k31 t2556 nd2 / F4 8.2m g3.1 k66 t4336 nd1 / F5 6.1m g2.9 k39 t4161 nd7 / F6 5.5m g2.5 k46 t5458 nd4 / F7 5.5m g1.5 k63 t6153 nd4 / F8 5.0m g2.0 k42 t6103 nd1 / F9 6.9m g1.6 k60 t8442 nd2 / F10 6.4m g3.0 k50 t11691 nd0
-  - kit: Ranger / weapon +10 hones 3 path Sharpshooter (+12 tiers), edges Cleaver/Momentum/Opportunist / sockets [Hunter's Rune II/Holy Rune II/Storm Rune II] / armour Legendary Mail of the Drowned Knight d9 (36.7) / charm Legendary Crown of the Hollow King d9 (34.6) /
-**`Builds/DeepboundNext/partycheck/0_Ranger/autoplay.txt`** (2026-11-07, Ranger): F1 2.5m g0.6 k19 t693 nd0 / F2 3.8m g1.7 k18 t1987 nd0 / F3 5.2m g1.5 k31 t2556 nd2 / F4 8.2m g3.1 k66 t4336 nd1 / F5 6.1m g2.9 k39 t4161 nd7 / F6 5.5m g2.5 k46 t5458 nd4 / F7 5.5m g1.5 k63 t6153 nd4 / F8 5.0m g2.0 k42 t6103 nd1 / F9 6.9m g1.6 k60 t8442 nd2 / F10 6.4m g3.0 k50 t11691 nd0
-  - kit: Ranger / weapon +10 hones 3 path Sharpshooter (+12 tiers), edges Cleaver/Momentum/Opportunist / sockets [Hunter's Rune II/Holy Rune II/Storm Rune II] / armour Legendary Mail of the Drowned Knight d9 (36.7) / charm Legendary Crown of the Hollow King d9 (34.6) /
-**`Builds/balance-logs/2026-11-07_econ/0_Ranger/autoplay.txt`** (2026-11-07, Ranger): F1 2.5m g0.6 k19 t693 nd0 / F2 3.8m g1.7 k18 t1987 nd0 / F3 5.2m g1.5 k31 t2556 nd2 / F4 8.2m g3.1 k66 t4336 nd1 / F5 6.1m g2.9 k39 t4161 nd7 / F6 5.5m g2.5 k46 t5458 nd4 / F7 5.5m g1.5 k63 t6153 nd4 / F8 5.0m g2.0 k42 t6103 nd1 / F9 6.9m g1.6 k60 t8442 nd2 / F10 6.4m g3.0 k50 t11691 nd0
-  - kit: Ranger / weapon +10 hones 3 path Sharpshooter (+12 tiers), edges Cleaver/Momentum/Opportunist / sockets [Hunter's Rune II/Holy Rune II/Storm Rune II] / armour Legendary Mail of the Drowned Knight d9 (36.7) / charm Legendary Crown of the Hollow King d9 (34.6) /
-**`Builds/balance-logs/2026-11-07_econ/0_Rogue/autoplay.txt`** (2026-11-07, Rogue): F1 2.6m g0.9 k18 t1123 nd5 / F2 4.1m g2.3 k15 t2420 nd13 / F3 4.7m g1.2 k44 t2969 nd9 / F4 6.2m g3.4 k48 t3321 nd16 / F5 4.1m g0.7 k54 t3005 nd6 / F6 5.3m g1.8 k41 t4480 nd18 / F7 5.6m g1.1 k65 t3798 nd11 / F8 3.4m g1.0 k59 t2158 nd7 / F9 6.2m g0.9 k57 t12558 nd45 / F10 3.8m g1.7 k51 t5248 nd4
-  - kit: Rogue / weapon +10 hones 5 path Assassin (+16 tiers), edges Momentum/Opportunist/Stalwart / sockets [Keen Rune/Holy Rune II/Hunter's Rune II] / armour Legendary Warden's Bulwark d9 (43.5) / charm Legendary Lich's Phylactery d9 (25.7) / Q5 E5 / drills 15 / reli
-**`Builds/balance-logs/2026-11-07_econ/0_Cleric/autoplay.txt`** (2026-11-07, Cleric): F1 4.8m g1.4 k24 t870 nd0 / F2 5.3m g2.7 k31 t2257 nd0 / F3 4.7m g1.3 k34 t1481 nd0 / F4 5.3m g2.4 k44 t743 nd0 / F5 6.6m g2.3 k43 t2245 nd0 / F6 4.5m g1.2 k79 t1104 nd0 / F7 5.2m g1.3 k78 t2287 nd0 / F8 5.4m g1.5 k75 t1943 nd0 / F9 4.5m g0.6 k83 t3451 nd0 / F10 5.5m g1.5 k72 t4803 nd1
-  - kit: Cleric / weapon +10 hones 5 path Shepherd (+16 tiers), edges Momentum/Opportunist/Desperation / sockets [Keen Rune/Holy Rune/Hunter's Rune] / armour Legendary Vestments of the Pale Cardinal d9 (44.4) / charm Legendary Marrowgut's Rib d9 (31.2) / Q5 E5 / drills
-**`Builds/balance-logs/2026-11-07_econ/3_Rogue/autoplay.txt`** (2026-11-07, Rogue): no finished floors
-  - kit: Rogue / weapon +0 hones 0 path none / sockets [] / armour Nothing d0 (0.0) / charm Nothing d0 (0.0) / Q1 E1 / drills 0 / relics 0 [] / stats HP 175 ATT 24 DEF 2 DEX 60 / held: gold 0, embers 0, sigils 0, spare runes [], pack 0, pouch H2 M1 F1 W1 rare empty
-**`Builds/balance-logs/2026-11-07_econ/1_Knight/autoplay.txt`** (2026-11-07, Knight): F1 3.1m g1.2 k0 t0 nd0 / F2 6.9m g3.9 k0 t0 nd0 / F3 6.2m g1.7 k0 t0 nd0 / F4 8.4m g4.5 k0 t0 nd0 / F5 7.3m g2.5 k0 t0 nd0 / F6 5.4m g2.0 k0 t0 nd0 / F7 8.1m g2.5 k0 t0 nd0 / F8 6.9m g2.5 k0 t0 nd0 / F9 5.4m g1.3 k0 t0 nd0 / F10 7.0m g3.4 k0 t0 nd0
-  - kit: Knight / weapon +10 hones 2 path Cleave (+14 tiers), edges Cleaver/Momentum/Opportunist / sockets [Storm Rune II/Ember Rune II/Keen Rune] / armour Legendary Mail of the Drowned Knight d9 (36.7) / charm Legendary Crown of the Hollow King d9 (34.6) / Q5 E5 / dri
-**`Builds/balance-logs/2026-11-07_econ/2_Cleric/autoplay.txt`** (2026-11-07, Cleric): F1 3.1m g1.2 k0 t0 nd0 / F2 6.9m g3.9 k0 t0 nd0 / F3 6.2m g1.7 k0 t0 nd0 / F4 8.5m g4.5 k0 t0 nd0 / F5 7.3m g2.5 k0 t0 nd0 / F6 5.4m g2.0 k0 t0 nd0 / F7 8.1m g2.5 k0 t0 nd0 / F8 6.9m g2.5 k0 t0 nd0 / F9 5.4m g1.3 k0 t0 nd0 / F10 7.0m g3.4 k0 t0 nd0
-  - kit: Cleric / weapon +10 hones 1 path Shepherd (+15 tiers), edges Quickening/Desperation/Momentum / sockets [Holy Rune/Keen Rune/Ember Rune] / armour Legendary Oath of Sir Aldous d9 (39.7) / charm Legendary Crown of the Hollow King d9 (34.6) / Q5 E5 / drills 6 / re
-**`Builds/balance-logs/2026-11-07_econ/0_Mage/autoplay.txt`** (2026-11-07, Mage): F1 3.1m g1.2 k9 t299 nd0 / F2 6.9m g3.9 k23 t2907 nd8 / F3 6.2m g1.7 k37 t1836 nd2 / F4 8.5m g4.5 k38 t2157 nd0 / F5 7.3m g2.5 k49 t1434 nd0 / F6 5.4m g2.0 k44 t1640 nd1 / F7 8.1m g2.5 k57 t3061 nd2 / F8 6.9m g2.5 k43 t4028 nd0 / F9 5.4m g1.3 k54 t1795 nd0 / F10 7.0m g3.3 k52 t8968 nd26
-  - kit: Mage / weapon +10 hones 1 path Cryomancer (+14 tiers), edges Opportunist/Momentum/Cleaver / sockets [Keen Rune/Ember Rune/Hunter's Rune II] / armour Legendary Vestments of the Pale Cardinal d9 (44.4) / charm Legendary Choirmaster's Baton d9 (30.4) / Q5 E5 / dr
 **`Builds/AutoRun/run_2026-11-13/autoplay.txt`** (2026-11-13, Flagellant): F1 3.4m g0.9 k36 t1307 nd0 / F2 4.5m g1.8 k34 t3118 nd0 / F3 4.1m g1.3 k34 t1567 nd0 / F4 7.7m g2.6 k54 t2511 nd0 / F5 6.4m g1.2 k52 t3439 nd0 / F6 5.9m g2.4 k66 t5105 nd0 / F7 5.0m g1.2 k87 t2923 nd3 / F9 4.7m g0.9 k106 t4157 nd0 / F10 5.9m g2.3 k96 t9368 nd5
   - kit: Flagellant / weapon +10 hones 2 path Fanatic (+16 tiers), edges Opportunist/Momentum/Desperation / sockets [Ember Rune II/Keen Rune II/Frost Rune II] / armour Legendary Warden's Bulwark d9 (43.5) / charm Masterwork Ember Locket d9 (21.8) / Q5 E5 / drills 16 / 
 **`Builds/AutoRun/run_2026-11-13_knight/autoplay.txt`** (2026-11-13, Knight): F1 3.6m g1.4 k16 t1180 nd3 / F2 5.7m g2.5 k38 t3514 nd11 / F3 6.2m g2.0 k45 t3429 nd9 / F5 11.0m g0.4 k41 t7768 nd43 / F6 5.9m g3.3 k45 t4347 nd15 / F7 5.7m g1.7 k99 t4520 nd3 / F8 11.0m g5.9 k141 t16009 nd53 / F9 5.1m g1.0 k145 t3859 nd8 / F10 7.1m g2.0 k128 t6552 nd11
   - kit: Knight / weapon +10 hones 0 path Riposte (+13 tiers), edges Opportunist/Desperation/Lone Wolf / sockets [Ember Rune II/Frost Rune II/Storm Rune II] / armour Legendary Mail of the Drowned Knight d9 (36.7) / charm Legendary Crown of the Hollow King d9 (34.6) / Q
+**`Builds/AutoRun/run_2026-11-13_knight2/autoplay.txt`** (2026-11-13, Knight): F3 8.3m g2.7 k56 t5688 nd28 / F4 10.3m g6.0 k64 t4811 nd19 / F5 8.4m g1.9 k72 t3293 nd3 / F6 9.2m g5.5 k97 t2940 nd4
+  - kit: Knight / weapon +7 hones 0 path Bulwark, edges Opportunist/Momentum / sockets [Storm Rune/Keen Rune/empty] / armour Masterwork Ossuary Plate d5 (20.2) / charm Masterwork Lucky Knucklebone d5 (9.6) / Q4 E4 / drills 5 / relics 7 [Echo Stone, Wraith Chain, Ghost 
+**`Builds/AutoRun/run_2026-11-13_rogue/autoplay.txt`** (2026-11-14, Rogue): F1 2.9m g0.9 k13 t1496 nd9 / F2 4.4m g2.2 k27 t2887 nd8 / F3 5.1m g1.2 k49 t2847 nd2 / F4 8.8m g3.9 k81 t4022 nd0 / F5 6.3m g1.5 k75 t2666 nd0 / F6 4.7m g1.5 k52 t4178 nd0 / F7 3.7m g0.8 k67 t1981 nd0 / F8 5.3m g1.1 k73 t3615 nd0 / F9 3.2m g0.5 k42 t3681 nd1 / F10 4.3m g1.5 k73 t6201 nd4
+  - kit: Rogue / weapon +10 hones 2 path Shadowskin (+14 tiers), edges Cleaver/Momentum/Opportunist / sockets [Keen Rune II/Hunter's Rune/Ember Rune] / armour Legendary Warden's Bulwark d9 (43.5) / charm Legendary Lich's Phylactery d9 (25.7) / Q5 E5 / drills 14 / relic
 
 ## Older runs
 
@@ -145,3 +106,24 @@ guardian minutes, kills, damage taken, near-downs (blows that would have downed 
 - `Builds/balance-logs/run_e/1_Knight/autoplay.txt` 2026-11-05 Knight: 0 floors, 0 near-downs, 0 problems
 - `Builds/balance-logs/run_e/2_Cleric/autoplay.txt` 2026-11-05 Cleric: 0 floors, 0 near-downs, 1 problems
 - `Builds/balance-logs/run_e/3_Rogue/autoplay.txt` 2026-11-05 Rogue: 0 floors, 0 near-downs, 3 problems
+- `Builds/Deepbound/partycheck/0_Cleric/autoplay.txt` 2026-11-07 Cleric: 10 floors, 1 near-downs, 0 problems
+- `Builds/DeepboundNext/partycheck/0_Cleric/autoplay.txt` 2026-11-07 Cleric: 10 floors, 1 near-downs, 0 problems
+- `Builds/Deepbound/partycheck/0_Rogue/autoplay.txt` 2026-11-07 Rogue: 10 floors, 134 near-downs, 0 problems
+- `Builds/DeepboundNext/partycheck/0_Rogue/autoplay.txt` 2026-11-07 Rogue: 10 floors, 134 near-downs, 0 problems
+- `Builds/Deepbound/partycheck/3_Rogue/autoplay.txt` 2026-11-07 Rogue: 0 floors, 0 near-downs, 0 problems
+- `Builds/DeepboundNext/partycheck/3_Rogue/autoplay.txt` 2026-11-07 Rogue: 0 floors, 0 near-downs, 0 problems
+- `Builds/Deepbound/partycheck/0_Mage/autoplay.txt` 2026-11-07 Mage: 10 floors, 39 near-downs, 10 problems
+- `Builds/Deepbound/partycheck/1_Knight/autoplay.txt` 2026-11-07 Knight: 10 floors, 0 near-downs, 1 problems
+- `Builds/Deepbound/partycheck/2_Cleric/autoplay.txt` 2026-11-07 Cleric: 10 floors, 0 near-downs, 1 problems
+- `Builds/DeepboundNext/partycheck/0_Mage/autoplay.txt` 2026-11-07 Mage: 10 floors, 39 near-downs, 10 problems
+- `Builds/DeepboundNext/partycheck/1_Knight/autoplay.txt` 2026-11-07 Knight: 10 floors, 0 near-downs, 1 problems
+- `Builds/DeepboundNext/partycheck/2_Cleric/autoplay.txt` 2026-11-07 Cleric: 10 floors, 0 near-downs, 1 problems
+- `Builds/Deepbound/partycheck/0_Ranger/autoplay.txt` 2026-11-07 Ranger: 10 floors, 21 near-downs, 0 problems
+- `Builds/DeepboundNext/partycheck/0_Ranger/autoplay.txt` 2026-11-07 Ranger: 10 floors, 21 near-downs, 0 problems
+- `Builds/balance-logs/2026-11-07_econ/0_Ranger/autoplay.txt` 2026-11-07 Ranger: 10 floors, 21 near-downs, 0 problems
+- `Builds/balance-logs/2026-11-07_econ/0_Rogue/autoplay.txt` 2026-11-07 Rogue: 10 floors, 134 near-downs, 0 problems
+- `Builds/balance-logs/2026-11-07_econ/0_Cleric/autoplay.txt` 2026-11-07 Cleric: 10 floors, 1 near-downs, 0 problems
+- `Builds/balance-logs/2026-11-07_econ/3_Rogue/autoplay.txt` 2026-11-07 Rogue: 0 floors, 0 near-downs, 0 problems
+- `Builds/balance-logs/2026-11-07_econ/1_Knight/autoplay.txt` 2026-11-07 Knight: 10 floors, 0 near-downs, 1 problems
+- `Builds/balance-logs/2026-11-07_econ/2_Cleric/autoplay.txt` 2026-11-07 Cleric: 10 floors, 0 near-downs, 1 problems
+- `Builds/balance-logs/2026-11-07_econ/0_Mage/autoplay.txt` 2026-11-07 Mage: 10 floors, 39 near-downs, 10 problems
