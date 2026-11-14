@@ -18,7 +18,7 @@ namespace Deepbound.UI
         public static readonly string[] Keys =
         {
             "rift", "shieldcharge", "blink", "repulse", "breach", "bargain", "cellar", "jam", "choke",
-            "flamevents", "edges", "relictray", "hone", "purse", "falloff", "entling", "rare", "necro", "hiddenplates", "gravewarden", "silenced",
+            "flamevents", "expedition", "edges", "relictray", "hone", "purse", "falloff", "entling", "rare", "necro", "hiddenplates", "gravewarden", "silenced",
             "camp", "quests", "tavern", "emotewheel", "potions", "gamble2", "levers", "voice", "phases", "mourner", "pingwheel", "reliquary", "inventory", "bleed", "soul", "shield", "weak", "afflicted", "gargoyle", "pendulum", "ritual", "cistern", "hoarder", "bones", "tide", "lantern", "bell", "altar", "pyre", "gauntlet", "treasury", "beggar", "proving", "armoury", "mirror", "orbweaver", "piper", "graze", "tallyman", "oath", "acolyte", "abysseye", "lightless", "shelter", "cantor", "magus", "lamprey", "hag", "bellringer", "blinded", "accursed", "dazed", "decree", "stagger", "brand", "eclipse", "teamwork", "soulbound", "casino3", "poker", "questfloor", "oil", "chandelier", "pillar", "vigil", "prisoner", "watchers", "chimes", "fishing", "knives", "bells", "wrestle", "mirrors", "scales", "counter", "draught", "eruption", "spikes",
         };
 
@@ -141,6 +141,9 @@ namespace Deepbound.UI
             var deb = player.GetComponent<PlayerDebuffs>();
             if (deb != null && (deb.Poisoned || deb.Frostbitten || deb.Cursed))
                 Offer("afflicted", "You are AFFLICTED. Holy Water (4) cleanses it; weakness also ends when its Hexer dies.");
+            foreach (var it in Interactable.All)
+                if (it is ExpeditionRemains er && !er.Searched.Value && Vector3.Distance(er.transform.position, me) < 9f)
+                { Offer("expedition", "THE FIRST EXPEDITION: five went down for the anvil. Four lie somewhere below, one in each of the first four acts. Search them (F): bring them all home and someone at camp will finally say who the fifth was."); break; }
             if (HearthBrazier.All.Count > 0)
                 foreach (var hb in HearthBrazier.All)
                     if (hb != null && !hb.Lit.Value && Vector3.Distance(hb.transform.position, player.transform.position) < 9f)

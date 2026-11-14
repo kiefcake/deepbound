@@ -163,8 +163,8 @@ namespace Deepbound.UI
             Rect(px - 6, py - 6, pw + 12, ph + 12, new Color(0.25f, 0.18f, 0.1f, 0.95f));
             Rect(px, py, pw, ph, new Color(0.9f, 0.84f, 0.68f, 0.98f));
             var ink = new Color(0.22f, 0.14f, 0.08f);
-            string[] floors = { "The Ossuary", "The Drowned Vaults", "The Hollow Throne", "The Black Cathedral", "Eulogies" };
-            GUI.Label(new Rect(px + 24, py + 16, pw - 48, 20), floors[Mathf.Clamp(e.Floor, 0, 4)].ToUpperInvariant() + (pageNew ? "   -   NEW PAGE  (" + Journal.Count + " / " + Journal.Entries.Length + ")" : ""),
+            string[] floors = { "The Ossuary", "The Drowned Vaults", "The Hollow Throne", "The Black Cathedral", "Eulogies", "The First Expedition" };
+            GUI.Label(new Rect(px + 24, py + 16, pw - 48, 20), floors[Mathf.Clamp(e.Floor, 0, 5)].ToUpperInvariant() + (pageNew ? "   -   NEW PAGE  (" + Journal.Count + " / " + Journal.Entries.Length + ")" : ""),
                 new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.45f, 0.25f, 0.12f) } });
             GUI.Label(new Rect(px + 24, py + 38, pw - 48, 34), e.Title, new GUIStyle(big) { fontSize = 26, alignment = TextAnchor.MiddleLeft, normal = { textColor = ink } });
             GUI.Label(new Rect(px + 24, py + 82, pw - 48, ph - 120), e.Text, new GUIStyle(label) { wordWrap = true, fontSize = 16, fontStyle = FontStyle.Italic, normal = { textColor = ink } });

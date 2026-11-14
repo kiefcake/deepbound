@@ -211,6 +211,27 @@ namespace Deepbound.Networking
                     lines.Add("blackjack seat camera " + vc.transform.position + " " + vc.transform.eulerAngles);
                 }
             }
+            // The roll of the first expedition (2026-11-14): bare (nobody home), half home, then all four and the fifth name.
+            var dd = World.DungeonDirector.Instance;
+            if (dd != null && dd.IsServer)
+            {
+                var rdir = Quaternion.Euler(0f, -300f, 0f) * Vector3.right;
+                var roll = World.Lobby.TentCenter + rdir * 3.9f;
+                uint keep0 = dd.CampKeeps.Value;
+                var home = new uint[] { 0u, Progression.Expedition.Bit(0) | Progression.Expedition.Bit(2), Progression.Expedition.Bit(0) | Progression.Expedition.Bit(1) | Progression.Expedition.Bit(2) | Progression.Expedition.Bit(3) };
+                for (int k = 0; k < home.Length; k++)
+                {
+                    dd.CampKeeps.Value = (keep0 & ~(0xFu << Progression.Expedition.FirstBit)) | home[k];
+                    yield return new WaitForSeconds(0.4f);
+                    cam.transform.position = roll - rdir * 2.4f + Vector3.up * 1.6f;
+                    cam.transform.rotation = Quaternion.LookRotation(roll + Vector3.up * 1.35f - cam.transform.position);
+                    yield return Render(cam, "expedition_roll_" + k, 1280, 720);
+                }
+                cam.transform.position = roll - rdir * 4.5f + Quaternion.Euler(0f, 90f, 0f) * rdir * 1.8f + Vector3.up * 1.8f;
+                cam.transform.rotation = Quaternion.LookRotation(roll + Vector3.up * 1f - cam.transform.position);
+                yield return Render(cam, "expedition_roll_wide", 1280, 720);
+                dd.CampKeeps.Value = keep0;
+            }
             File.WriteAllLines(Path.Combine(dir, "tour.txt"), lines);
             Debug.Log("[CampTour] done: " + n + " views");
             Application.Quit(0);

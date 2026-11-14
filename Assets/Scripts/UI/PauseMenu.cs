@@ -518,9 +518,9 @@ namespace Deepbound.UI
 
         private void DrawJournal(Rect panel, float colW, GUIStyle titleStyle, GUIStyle bodyStyle)
         {
-            string[] floors = { "THE OSSUARY", "THE DROWNED VAULTS", "THE HOLLOW THRONE", "THE BLACK CATHEDRAL", "EULOGIES" };
+            string[] floors = { "THE OSSUARY", "THE DROWNED VAULTS", "THE HOLLOW THRONE", "THE BLACK CATHEDRAL", "EULOGIES", "THE FIRST EXPEDITION" };
             float listX = panel.x + 24, y = panel.y + 58, listW = colW * 0.75f;
-            for (int f = 0; f < 5; f++)
+            for (int f = 0; f < 6; f++)
             {
                 GUI.Label(new Rect(listX, y, listW, 20), floors[f], titleStyle);
                 y += 20;
@@ -530,7 +530,7 @@ namespace Deepbound.UI
                     bool have = Journal.Has(i);
                     var r = new Rect(listX + 8, y, listW - 8, 19);
                     if (have && GUI.Button(r, (journalOpen == i ? "> " : "") + Journal.Entries[i].Title, new GUIStyle(UiSkin.Body) { fontSize = 14, normal = { textColor = journalOpen == i ? UiSkin.Gold : new Color(0.9f, 0.88f, 0.84f) } })) journalOpen = i;
-                    if (!have) GUI.Label(r, f == 4 ? "a guardian not yet felled" : "a page not yet found", new GUIStyle(UiSkin.Body) { fontSize = 14, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.55f, 0.52f, 0.48f) } });
+                    if (!have) GUI.Label(r, f == 4 ? "a guardian not yet felled" : f == 5 ? "someone not yet brought home" : "a page not yet found", new GUIStyle(UiSkin.Body) { fontSize = 14, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.55f, 0.52f, 0.48f) } });
                     y += 19;
                 }
                 y += 4;

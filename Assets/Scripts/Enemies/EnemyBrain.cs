@@ -1306,6 +1306,14 @@ namespace Deepbound.Enemies
         protected float heldUntil;
         public bool InEntrance => Time.time < heldUntil;
 
+        /// <summary>For the boss pose sheet (2026-11-14): hold still and strike <paramref name="action"/> for <paramref name="seconds"/>.</summary>
+        public void ServerDebugPose(RigAction action, float seconds)
+        {
+            if (!IsServer) return;
+            heldUntil = Time.time + seconds;
+            PlayActionRpc(action, seconds);
+        }
+
         protected bool HeldByStun()
         {
             if (!IsServer || IsDead || (!IsStunned && !InEntrance)) return false;

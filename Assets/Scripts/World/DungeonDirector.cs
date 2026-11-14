@@ -137,6 +137,19 @@ namespace Deepbound.World
         [SerializeField] private NetworkObject acolytePrefab;
         [SerializeField] private NetworkObject soulRiftPrefab;
         [SerializeField] private NetworkObject shaftCatPrefab;
+        [SerializeField] private NetworkObject remainsPrefab;
+
+        /// <summary>Tests: one of the first expedition, here, facing <paramref name="face"/>.</summary>
+        public ExpeditionRemains ServerDebugRemains(Vector3 at, Vector3 face, int member)
+        {
+            if (remainsPrefab == null) return null;
+            var obj = Instantiate(remainsPrefab, at, Quaternion.LookRotation(face));
+            var r = obj.GetComponent<ExpeditionRemains>();
+            r.Member.Value = (byte)member;
+            obj.Spawn(destroyWithScene: true);
+            spawned.Add(obj);
+            return r;
+        }
 
         /// <summary>Tests: the cat, here.</summary>
         public ShaftCat ServerDebugShaftCat(Vector3 at) => shaftCatPrefab == null ? null : Spawn(shaftCatPrefab, at, Quaternion.identity).GetComponent<ShaftCat>();
@@ -1143,6 +1156,31 @@ namespace Deepbound.World
                     var cat = room.Center + new Vector3((float)crng.NextDouble() * 4f - 2f, 0f, (float)crng.NextDouble() * 4f - 2f);
                     if (NavMesh.SamplePosition(cat, out var chit, 2f, NavMesh.AllAreas)) cat = chit.position;
                     spawned.Add(Spawn(shaftCatPrefab, cat, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f)));
+                }
+            }
+
+            // One of the FIRST EXPEDITION (2026-11-14): sat against a quiet wall, on acts whose member this camp has not yet
+            // brought home (Progression.Expedition), never in tests.
+            int exAct = Act(layout.Depth);
+            if (remainsPrefab != null && !TestMode && exAct < Expedition.Members && !Expedition.Found(exAct) && UnityEngine.Random.value < Expedition.SpawnChance)
+            {
+                var rrng = new System.Random(layout.Seed ^ 0xe4d);
+                var quiet = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side && !r.Special && !r.Peaceful && r.Feature == RoomFeature.None);
+                if (quiet.Count == 0) quiet = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && !IsAmbushRoom(r) && r.Feature == RoomFeature.None);
+                if (quiet.Count > 0)
+                {
+                    var room = quiet[rrng.Next(quiet.Count)];
+                    var at = WallSpot(room, rrng);
+                    var face = room.Center - at; face.y = 0f;
+                    if (face.sqrMagnitude < 0.01f) face = Vector3.forward;
+                    // WallSpot is a metre in from the wall; sit back against it.
+                    at -= face.normalized * 0.35f;
+                    if (NavMesh.SamplePosition(at, out var rhit, 1.5f, NavMesh.AllAreas)) at.y = rhit.position.y;
+                    var obj = Instantiate(remainsPrefab, at, Quaternion.LookRotation(face.normalized));
+                    obj.GetComponent<ExpeditionRemains>().Member.Value = (byte)exAct;
+                    obj.Spawn(destroyWithScene: true);
+                    spawned.Add(obj);
+                    Debug.Log("[Director] expedition remains (" + Expedition.Roll[exAct].Short + ") in room " + room.Id);
                 }
             }
 

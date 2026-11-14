@@ -236,6 +236,12 @@ secret:
 1. **The hidden floor** (built: see "The Abyss and the Unsung"). What lies below the Abyss?
 2. **The first expedition.** The anvil came back up. The people who carried it did not, all of
    them. One of them is the dealer at Deadman's Hand. It has never said which.
+   (Answered 2026-11-14, `Progression/Expedition` + `World/ExpeditionRemains`: five went down. OLD MAUD the guide
+   stopped on the Ossuary stair with her tin whistle; PELL the lamp boy kept the only lamp lit in the Drowned Vaults
+   while the water rose; SISTER INES traded the king one verse for the others' passage and is still singing it in the
+   Hollow Throne; GERRIT HALE sent the anvil up the rope and went back down under the Cathedral for the rest. JORY went
+   up the rope with the anvil and could not talk by the top: Jory is the dealer. Find all four below and the dealer
+   lays their keepsakes on the felt and turns the Jack of Spades with JORY scratched under it.)
 3. **The Baron's oath.** If the Gravewarden is the first Baron Ravenhold, who is the Baron now, and
    why does the current Baron never come down to the camp?
 4. **The cat.** It goes down the shaft at night. It comes back.

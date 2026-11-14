@@ -1140,9 +1140,15 @@ namespace Deepbound.Networking
                 // A potion below 40%.
                 if (flasks != null && hp.Current.Value < hp.Max.Value * 0.4f && flasks.Count(Flasks.Kind.Health) > 0)
                 {
+                    int before = flasks.Count(Flasks.Kind.Health);
                     yield return Press(UI.Bind.Potion1);
-                    abilityUses.TryGetValue("health potion", out int hn);
-                    abilityUses["health potion"] = hn + 1;
+                    yield return null;
+                    // Count drinks, not presses (2026-11-14: a press during the drink cooldown counted, 47 "drinks" on a floor).
+                    if (flasks.Count(Flasks.Kind.Health) < before)
+                    {
+                        abilityUses.TryGetValue("health potion", out int hn);
+                        abilityUses["health potion"] = hn + 1;
+                    }
                 }
                 if (me.ActiveKit != null && me.ActiveKit.Resource < me.ActiveKit.ResourceMax * 0.15f && flasks != null && flasks.Count(Flasks.Kind.Mana) > 0) yield return Press(UI.Bind.Potion2);
                 // The rare slot, as a player would: a defensive draught when it is going badly, the rest at the guardian.

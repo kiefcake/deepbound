@@ -98,6 +98,7 @@ namespace Deepbound.EditorTools
             var questCargo = BuildObjectPrefab<QuestCargo>("QuestCargo", Vector3.zero);
             var questTrinket = BuildObjectPrefab<QuestTrinket>("QuestTrinket", Vector3.zero);
             var shaftCat = BuildObjectPrefab<ShaftCat>("ShaftCat", Vector3.zero);
+            var remains = BuildObjectPrefab<ExpeditionRemains>("ExpeditionRemains", Vector3.zero);
             var soulSkull = BuildObjectPrefab<SoulSkull>("SoulSkull", Vector3.zero);
             var reliquary = BuildObjectPrefab<Reliquary>("Reliquary", Vector3.zero);
             var lorePage = BuildObjectPrefab<LorePage>("LorePage", new Vector3(0.6f, 1.1f, 0.5f));
@@ -150,6 +151,7 @@ namespace Deepbound.EditorTools
             dso.FindProperty("questCargoPrefab").objectReferenceValue = questCargo.GetComponent<NetworkObject>();
             dso.FindProperty("questTrinketPrefab").objectReferenceValue = questTrinket.GetComponent<NetworkObject>();
             dso.FindProperty("shaftCatPrefab").objectReferenceValue = shaftCat.GetComponent<NetworkObject>();
+            dso.FindProperty("remainsPrefab").objectReferenceValue = remains.GetComponent<NetworkObject>();
             dso.FindProperty("soulSkullPrefab").objectReferenceValue = soulSkull.GetComponent<NetworkObject>();
             dso.FindProperty("sarcophagusPrefab").objectReferenceValue = sarcophagus.GetComponent<NetworkObject>();
             dso.FindProperty("anvilPrefab").objectReferenceValue = anvil.GetComponent<NetworkObject>();
@@ -217,7 +219,7 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
-            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix, handTorch, questCargo, questTrinket, poker, oilSlick, chandelier, vigilCandle, prisoner, puzzleRoom, puzzleStatue, wellFishing, knifeBoard, bellFrame, armWrestle, puzzleMirror, scaleWeight, statDraught, bargainAltar, soulRift, cellarHatch, hearth);
+            RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix, handTorch, questCargo, questTrinket, poker, oilSlick, chandelier, vigilCandle, prisoner, puzzleRoom, puzzleStatue, wellFishing, knifeBoard, bellFrame, armWrestle, puzzleMirror, scaleWeight, statDraught, bargainAltar, soulRift, cellarHatch, hearth, remains);
             BuildScene(player, director);
 
             EditorBuildSettings.scenes = new[] { new EditorBuildSettingsScene(ScenePath, true) };

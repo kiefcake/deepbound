@@ -141,6 +141,7 @@ MonoBehaviour:
   acolytePrefab: {fileID: 2261373335432661186, guid: c6dbd86c0b184264ba54308f8bd2ec79, type: 3}
   soulRiftPrefab: {fileID: 4316799812595865892, guid: 56c02fcd2ec7e274183bdfe32a25417c, type: 3}
   shaftCatPrefab: {fileID: 7736194991897977138, guid: d36112bde4e7bd54b8253fe29152a8fb, type: 3}
+  remainsPrefab: {fileID: 7635441762980678569, guid: 48e1ac97f96c8de42bdcf47776d553e8, type: 3}
   abyssEyePrefab: {fileID: 436945408862097884, guid: bab2d226deb87ee4185b939de9bed426, type: 3}
   bonePiperPrefab: {fileID: 2089347321912224805, guid: 276bb5f6daaadfb4780be9e8e65862a9, type: 3}
   cantorPrefab: {fileID: 4056981001575210563, guid: 7e3314b77febaa048ae17921074b8f79, type: 3}

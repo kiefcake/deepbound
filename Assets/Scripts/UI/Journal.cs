@@ -37,7 +37,22 @@ namespace Deepbound.UI
             new Entry { Floor = 4, Title = "Eulogy for the Hollow King", Text = "Ossric, last king of Cathedra, promised a reign until the Last Morning. He ruled. He judged. He waited. He asked, at the end, whether the morning was always so cold. It is, your Majesty. We are sorry. Somebody should have told you." },
             new Entry { Floor = 4, Title = "Eulogy for the Pale Cardinal", Text = "The one who sang. For four hundred years the hymn took a little more of them each night: their sleep, their name, their face. What was left was only the note. You stopped the note. Brother Aldric sang for the Cardinal that night, badly, in the shrine. It was the first hymn sung for them in four centuries." },
             new Entry { Floor = 4, Title = "The Unsung", Text = "It had never been sung to. It did not know what a song was for. You showed it: a song is for the end of something. It understood, we think, at the very last. In the castle above, the dealer stopped shuffling, and the cat came in from the shaft and slept by the fire all night, for the first time anyone remembers." },
+            // The first expedition (2026-11-14): found on the remains, one an act (Progression.Expedition), and the dealer's name.
+            new Entry { Floor = 5, Title = "Old Maud's whistle", Text = Progression.Expedition.Roll[0].Note },
+            new Entry { Floor = 5, Title = "Pell's lantern", Text = Progression.Expedition.Roll[1].Note },
+            new Entry { Floor = 5, Title = "Sister Ines's beads", Text = Progression.Expedition.Roll[2].Note },
+            new Entry { Floor = 5, Title = "Gerrit's ring", Text = Progression.Expedition.Roll[3].Note },
+            new Entry { Floor = 5, Title = "The fifth name", Text = "The dealer laid four cards face up on the felt, and on each one, scratched with a fingerbone: a whistle, a lantern, a string of beads, a ring. Then it turned a fifth, the Jack of Spades, and under the jack was scratched JORY. Jory went up the rope with the anvil and told nobody, because by the time it reached the top it could not talk any more. It has been dealing cards in the tent ever since, waiting for someone to bring the others home. It deals you in." },
         };
+
+        /// <summary>The journal page of expedition member <paramref name="member"/> (0-3), or 4 for the fifth name.</summary>
+        public static int ExpeditionPage(int member)
+        {
+            int n = 0;
+            for (int i = 0; i < Entries.Length; i++)
+                if (Entries[i].Floor == 5) { if (n == member) return i; n++; }
+            return -1;
+        }
 
         private const string Key = "deepbound.journal";
         private static HashSet<int> found;

@@ -2284,6 +2284,28 @@ namespace Deepbound.Networking
                             }
                             else Log("shaft cat", "no prefab", false);
                         }
+                        // One of the first expedition (2026-11-14): searching spills a relic, gold and embers, writes the
+                        // note into the Journal, and touches no save in a test.
+                        {
+                            var fwd = local.transform.forward; fwd.y = 0f; fwd.Normalize();
+                            var rem = dd.ServerDebugRemains(local.transform.position + fwd * 1.6f, -fwd, 2);
+                            if (rem != null)
+                            {
+                                yield return new WaitForSeconds(0.3f);
+                                string prompt = rem.Prompt(sp);
+                                int drops0 = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
+                                int page = UI.Journal.ExpeditionPage(2);
+                                rem.ServerDebugUse(sp);
+                                // Counted at once: the drops land at the searcher's feet and are picked up a moment later.
+                                int drops1 = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
+                                yield return new WaitForSeconds(0.5f);
+                                bool noted = page >= 0 && UI.Journal.Has(page);
+                                Log("expedition remains", "prompt '" + prompt + "', searched " + rem.Searched.Value + ", drops +" + (drops1 - drops0) + ", page " + page + " noted " + noted + ", prompt after " + (rem.Prompt(sp) == null) + ", save untouched " + !Progression.Expedition.Found(2),
+                                    prompt != null && rem.Searched.Value && drops1 - drops0 >= 4 && noted && rem.Prompt(sp) == null && !Progression.Expedition.Found(2) && UI.Journal.ExpeditionPage(4) >= 0);
+                                rem.NetworkObject.Despawn();
+                            }
+                            else Log("expedition remains", "no prefab", false);
+                        }
                         // A hand torch: carrying it lights the way and empties your hands.
                         {
                             // A relic found earlier might already be Lamplighter's Oil (it lets the bearer fight): not yet.
@@ -5184,6 +5206,24 @@ namespace Deepbound.Networking
                     cpShots++;
                 }
                 Debug.Log("[IxShots] centrepieces shot " + cpShots);
+                // One of the first expedition, against a exWall of a room nobody is in.
+                {
+                    var er = layout.Rooms.FirstOrDefault(r2 => r2 != room && r2.Kind == World.RoomKind.Side) ?? layout.Rooms.FirstOrDefault(r2 => r2 != room);
+                    if (er != null)
+                    {
+                        var exWall = er.Center + new Vector3(er.Size.x / 2f - 1.35f, 0f, 0f);
+                        if (UnityEngine.AI.NavMesh.SamplePosition(exWall, out var exWh, 2f, UnityEngine.AI.NavMesh.AllAreas)) exWall.y = exWh.position.y;
+                        var rem = dc.ServerDebugRemains(exWall, Vector3.left, 1);
+                        yield return new WaitForSeconds(0.6f);
+                        Stand(exWall + Vector3.left * 3.2f + Vector3.forward * 0.8f, exWall + Vector3.up * 0.4f, 3f);
+                        yield return new WaitForSeconds(0.8f);
+                        yield return Shot(dir, "ix_33_expedition_remains");
+                        Stand(exWall + Vector3.left * 1.5f, exWall + Vector3.up * 0.3f, 1.5f);
+                        yield return new WaitForSeconds(0.6f);
+                        yield return Shot(dir, "ix_33b_expedition_close");
+                        if (rem != null) rem.NetworkObject.Despawn();
+                    }
+                }
                 var foeAt = On(0f, 3.5f);
                 var ixStandAt = On(0f, -0.5f);
                 foreach (var kind in new[] { "magus", "lamprey", "hag", "ringer" })
@@ -7117,6 +7157,25 @@ namespace Deepbound.Networking
                     // Walk toward the Lich mid-test, to provoke the blink.
                     // Wound it halfway through, to see the late-fight phases (summons, surges, enrage).
                     if (boss is TideLichBrain && i == 6) motor.Teleport(boss.transform.position + boss.transform.forward * 2f, local.transform.rotation);
+                }
+
+                // The pose sheet (2026-11-14): every guardian strikes each special's body - charge, hurl, summon,
+                // channel - and the two heavy wind-ups, shot from the side at the pose's peak.
+                {
+                    var side = boss.transform.position + boss.transform.right * 5.5f + boss.transform.forward * 2.5f;
+                    if (UnityEngine.AI.NavMesh.SamplePosition(side, out var sh, 3f, UnityEngine.AI.NavMesh.AllAreas)) side = sh.position;
+                    var poses = new[] { Art.RigAction.Charge, Art.RigAction.Hurl, Art.RigAction.Summon, Art.RigAction.Channel, Art.RigAction.WindHeavy, Art.RigAction.WindSweep };
+                    var peak = new[] { 0.75f, 0.55f, 0.45f, 0.6f, 0.85f, 0.85f };
+                    for (int k = 0; k < poses.Length; k++)
+                    {
+                        boss.ServerDebugPose(poses[k], 1.6f);
+                        motor.Teleport(side, Quaternion.LookRotation(boss.transform.position - side));
+                        yield return new WaitForSeconds(1.6f * peak[k]);
+                        hp.ServerSetFraction(1f);
+                        FaceBoss(local, boss);
+                        yield return Shot(dir, "boss" + (depth + 1) + "_pose_" + poses[k]);
+                        yield return new WaitForSeconds(1.6f * (1f - peak[k]) + 0.3f);
+                    }
                 }
 
                 // The Hollow King's decrees (2026-10-27): standing still obeys BE STILL; in plain sight, BEGONE strikes.

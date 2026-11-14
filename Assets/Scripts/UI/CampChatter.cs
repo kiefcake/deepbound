@@ -311,6 +311,7 @@ namespace Deepbound.UI
         private static DungeonDirector Dir => DungeonDirector.Instance;
         private static int FloorsDone => Dir != null ? Dir.NextDepth.Value : 0;
         private static int Seals => Dir != null ? Dir.SealCount : 0;
+        private static int ExpeditionHome => Progression.Expedition.Count(World.CampMemory.Now);
 
         private void Start()
         {
@@ -423,6 +424,10 @@ namespace Deepbound.UI
                 "*It deals itself a hand, looks at it, and folds. It always folds when nobody is playing.*",
                 "*It points one finger at the shoe, then at you, then at the shaft. Nobody knows what it means.*",
             }, () => Me != null && Me.Grudge(FolkId.Bones) >= 3 ? "*The dealer keeps one empty hand raised toward you. Not yet.*"
+                : ExpeditionHome >= Progression.Expedition.Members ? "*The dealer lays a whistle, a lantern, beads and a ring on the felt, then the Jack of Spades. Scratched under the jack: JORY. It deals you in.*"
+                : ExpeditionHome == 3 ? "*The dealer has stopped shuffling. It looks at the roll on the tent wall, at the one name scratched out, and then at you.*"
+                : ExpeditionHome == 2 ? "*The dealer sets two cards apart from the deck and will not deal them. It touches each one, gently.*"
+                : ExpeditionHome == 1 ? "*The dealer turns its skull toward the roll on the tent wall, and the candle under it, for a long time.*"
                 : Deeds.Has(Deeds.Deed.Unsung) ? "*The dealer stops shuffling. For the first time anyone can remember, it bows.*" : null);
 
             // The peddler has no voice at camp (he is off down the shaft); a silent placeholder keeps the order.

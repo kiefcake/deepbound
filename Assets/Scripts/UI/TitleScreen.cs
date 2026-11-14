@@ -88,9 +88,9 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
-            "The dead claw out of walls, floors and rifts - watch for the cracks",
-            "Deep floors: breach patrols follow your trail; necromancers open rifts",
-            "Guardians close the gap their own way, and punish those who hug them",
+            "The first expedition lies below: bring all four home. The dealer knows why",
+            "Cold hearths to light, fallen bells and broken columns in the rooms",
+            "Frost magi, ink lampreys, withering hags and bellringers",
             "A third, survival path at the anvil; gear sets; Brann's masteries",
             "Cellar vaults under cracked tiles; cursed bargains behind secret walls",
             "Jam spike plates (Rogues, or Tinker's Picks); a Hooded Lantern",

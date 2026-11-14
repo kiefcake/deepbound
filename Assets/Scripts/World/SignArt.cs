@@ -202,6 +202,19 @@ namespace Deepbound.World
             Face(parent, tex, centre - facing * 0.027f, rot, new Vector2(width, h), true);
         }
 
+        /// <summary>A small plaque (its own board and painted face, no batcher), for runtime dressing such as the camp's
+        /// keepsakes. Returns the face, so the caller can dim or gild it.</summary>
+        public static Renderer Plaque(Transform parent, Vector3 centre, Vector3 facing, string word, Icon icon, float width)
+        {
+            facing.y = 0f; facing.Normalize();
+            var rot = Quaternion.LookRotation(facing);
+            float h = width * H / W;
+            var board = MeshKit.Part(parent, "PlaqueBoard", MeshKit.Box(new Vector3(width + 0.04f, h + 0.04f, 0.04f)), Mat.Wood, Vector3.zero);
+            board.transform.SetPositionAndRotation(centre, rot);
+            ArtLibrary.Tint(board.GetComponent<Renderer>(), new Color(0.26f, 0.17f, 0.11f));
+            return Face(parent, Paint(word, icon), centre + facing * 0.022f, rot, new Vector2(width, h), false).GetComponent<Renderer>();
+        }
+
         /// <summary>A board fixed flat (on a wall, a beam, a post), its face toward <paramref name="facing"/>.</summary>
         public static void Flat(Transform parent, MeshKit.Batcher d, Vector3 centre, Vector3 facing, string word, Icon icon, float width = 1.15f)
         {
