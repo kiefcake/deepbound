@@ -48,11 +48,24 @@ namespace Deepbound.World
             const float th = DungeonLayout.DeckThickness;
             b.AddBox(new Vector3(r.center.x, top - th / 2f, r.center.y), new Vector3(r.width, th, r.height), Mat.Flagstone);
             var rb = room.Bounds;
+            // An undercroft's catwalks stand on the pit floor; everything else on the room's floor.
+            bool overPit = room.Feature == RoomFeature.Undercroft;
+            float baseY = overPit ? -DungeonLayout.UndercroftDepth : 0f;
             var edges = new System.Collections.Generic.List<(Vector3 a, Vector3 e, Vector3 n)>();
-            if (r.yMin > rb.yMin + 0.3f) edges.Add((new Vector3(r.xMin, 0f, r.yMin), new Vector3(r.xMax, 0f, r.yMin), Vector3.back));
-            if (r.yMax < rb.yMax - 0.3f) edges.Add((new Vector3(r.xMin, 0f, r.yMax), new Vector3(r.xMax, 0f, r.yMax), Vector3.forward));
-            if (r.xMin > rb.xMin + 0.3f) edges.Add((new Vector3(r.xMin, 0f, r.yMin), new Vector3(r.xMin, 0f, r.yMax), Vector3.left));
-            if (r.xMax < rb.xMax - 0.3f) edges.Add((new Vector3(r.xMax, 0f, r.yMin), new Vector3(r.xMax, 0f, r.yMax), Vector3.right));
+            // An edge is open (pillars and a parapet) unless it is against a wall, or (an undercroft) on the rim's solid ground.
+            bool Open(Vector3 mid) => !overPit || room.Low.Contains(new Vector2(mid.x, mid.z));
+            void Edge(Vector3 a, Vector3 e, Vector3 n) { if (Open((a + e) / 2f + n * 0.3f)) edges.Add((a, e, n)); }
+            if (r.yMin > rb.yMin + 0.3f) Edge(new Vector3(r.xMin, 0f, r.yMin), new Vector3(r.xMax, 0f, r.yMin), Vector3.back);
+            if (r.yMax < rb.yMax - 0.3f) Edge(new Vector3(r.xMin, 0f, r.yMax), new Vector3(r.xMax, 0f, r.yMax), Vector3.forward);
+            if (r.xMin > rb.xMin + 0.3f) Edge(new Vector3(r.xMin, 0f, r.yMin), new Vector3(r.xMin, 0f, r.yMax), Vector3.left);
+            if (r.xMax < rb.xMax - 0.3f) Edge(new Vector3(r.xMax, 0f, r.yMin), new Vector3(r.xMax, 0f, r.yMax), Vector3.right);
+            // Where another deck at this height carries on (catwalk into landing), no parapet and no pillar.
+            bool Continues(Vector3 p)
+            {
+                foreach (var (r2, h2) in room.Decks)
+                    if (r2 != r && Mathf.Abs(h2 - top) < 0.3f && r2.Contains(new Vector2(p.x, p.z))) return true;
+                return false;
+            }
             bool NearStair(Vector3 p)
             {
                 foreach (var (lo, hi, w) in room.Ramps)
@@ -70,17 +83,37 @@ namespace Deepbound.World
                 {
                     var p = a + dir * Mathf.Lerp(0.5f, len - 0.5f, i / (float)(count - 1)) - n * 0.4f;
                     // Keep the room's centre lines clear: that is where the doorways lead in.
-                    if (NearStair(p) || Mathf.Abs(alongX ? p.x - room.Center.x : p.z - room.Center.z) < CorridorClear) continue;
-                    b.AddBox(p + Vector3.up * ((top - th) / 2f), new Vector3(0.6f, top - th, 0.6f), Mat.StoneWall);
+                    if (NearStair(p) || Continues(p + n * 0.8f)) continue;
+                    if (!overPit && Mathf.Abs(alongX ? p.x - room.Center.x : p.z - room.Center.z) < CorridorClear) continue;
+                    float ph = top - th - baseY;
+                    b.AddBox(p + Vector3.up * (baseY + ph / 2f), new Vector3(0.6f, ph, 0.6f), Mat.StoneWall);
                 }
-                for (float t = 0.6f; t < len - 0.5f; t += 1.2f)
+                // High decks get a parapet; low catwalks only posts, with gaps wide enough to step off.
+                bool posts = top < 1f;
+                for (float t = 0.6f; t < len - 0.5f; t += posts ? 2.4f : 1.2f)
                 {
                     var p = a + dir * t - n * 0.2f;
-                    if (NearStair(p)) continue;
-                    b.AddBox(p + Vector3.up * (top + 0.45f), alongX ? new Vector3(1.1f, 0.9f, 0.3f) : new Vector3(0.3f, 0.9f, 1.1f), Mat.StoneWall);
+                    if (NearStair(p) || Continues(p + n * 0.6f)) continue;
+                    if (posts) b.AddBox(p + Vector3.up * (top + 0.3f), new Vector3(0.3f, 0.6f, 0.3f), Mat.StoneWall);
+                    else b.AddBox(p + Vector3.up * (top + 0.45f), alongX ? new Vector3(1.1f, 0.9f, 0.3f) : new Vector3(0.3f, 0.9f, 1.1f), Mat.StoneWall);
                 }
             }
-            Props.Brazier(lights, new Vector3(r.center.x, top, r.center.y), theme.TorchColor, false);
+            // A brazier toward the wall side, clear of the deck's middle (where its dead are posted and the navmesh is sampled).
+            var outDir = new Vector3(r.center.x - room.Center.x, 0f, r.center.y - room.Center.z);
+            if (r.width * r.height >= 25f && outDir.sqrMagnitude > 1f)
+            {
+                outDir = Mathf.Abs(outDir.x) > Mathf.Abs(outDir.z) ? new Vector3(Mathf.Sign(outDir.x), 0f, 0f) : new Vector3(0f, 0f, Mathf.Sign(outDir.z));
+                float reach = (Mathf.Abs(outDir.x) > 0.5f ? r.width : r.height) / 2f - 0.8f;
+                Props.Brazier(lights, new Vector3(r.center.x, top, r.center.y) + outDir * reach, theme.TorchColor, false);
+            }
+            // A high ledge throws a warm light down onto the floor below it (belfries were dark at the bottom).
+            if (top >= 5f)
+            {
+                var under = new GameObject("UnderLedge").AddComponent<Light>();
+                under.transform.SetParent(lights, false);
+                under.transform.position = new Vector3(r.center.x, top - 1.2f, r.center.y);
+                under.type = LightType.Point; under.color = theme.TorchColor; under.range = 11f; under.intensity = 1.6f; under.shadows = LightShadows.None;
+            }
         }
 
         private const float CorridorClear = DungeonLayout.CorridorWidth / 2f + 0.6f;
@@ -90,7 +123,7 @@ namespace Deepbound.World
         /// ring around it at floor level, the low floor, its walls, and a ramp down the
         /// middle of each edge.
         /// </summary>
-        private static void BuildLowFloor(DungeonLayout.Room room, float depth, float rampLength, MeshKit.Batcher b, MeshKit.Batcher dressing, string lowMat)
+        private static void BuildLowFloor(DungeonLayout.Room room, float depth, float rampLength, MeshKit.Batcher b, MeshKit.Batcher dressing, string lowMat, bool edgeRamps = true)
         {
             var c = room.Center;
             var low = room.Low;
@@ -115,14 +148,17 @@ namespace Deepbound.World
             b.AddBox(new Vector3(low.center.x, -depth / 2f, low.yMax - 0.2f), new Vector3(low.width, depth, 0.4f), Mat.StoneWall);
             b.AddBox(new Vector3(low.xMin + 0.2f, -depth / 2f, low.center.y), new Vector3(0.4f, depth, low.height), Mat.StoneWall);
             b.AddBox(new Vector3(low.xMax - 0.2f, -depth / 2f, low.center.y), new Vector3(0.4f, depth, low.height), Mat.StoneWall);
-            // A kerb along the lip.
-            dressing.AddBox(new Vector3(low.center.x, 0.06f, low.yMin + 0.2f), new Vector3(low.width, 0.12f, 0.5f), Mat.StoneWall);
-            dressing.AddBox(new Vector3(low.center.x, 0.06f, low.yMax - 0.2f), new Vector3(low.width, 0.12f, 0.5f), Mat.StoneWall);
-            dressing.AddBox(new Vector3(low.xMin + 0.2f, 0.06f, low.center.y), new Vector3(0.5f, 0.12f, low.height), Mat.StoneWall);
-            dressing.AddBox(new Vector3(low.xMax - 0.2f, 0.06f, low.center.y), new Vector3(0.5f, 0.12f, low.height), Mat.StoneWall);
+            // A kerb along the lip (not in an undercroft: it split the catwalks from the rim on the navmesh).
+            if (edgeRamps)
+            {
+                dressing.AddBox(new Vector3(low.center.x, 0.06f, low.yMin + 0.2f), new Vector3(low.width, 0.12f, 0.5f), Mat.StoneWall);
+                dressing.AddBox(new Vector3(low.center.x, 0.06f, low.yMax - 0.2f), new Vector3(low.width, 0.12f, 0.5f), Mat.StoneWall);
+                dressing.AddBox(new Vector3(low.xMin + 0.2f, 0.06f, low.center.y), new Vector3(0.5f, 0.12f, low.height), Mat.StoneWall);
+                dressing.AddBox(new Vector3(low.xMax - 0.2f, 0.06f, low.center.y), new Vector3(0.5f, 0.12f, low.height), Mat.StoneWall);
+            }
 
-            // Ramps down from the middle of each edge.
-            foreach (var (edge, inward) in new[]
+            // Ramps down from the middle of each edge (an undercroft has its own, by the corners).
+            if (edgeRamps) foreach (var (edge, inward) in new[]
             {
                 (new Vector3(low.center.x, 0f, low.yMax - 0.4f), Vector3.back),
                 (new Vector3(low.center.x, 0f, low.yMin + 0.4f), Vector3.forward),

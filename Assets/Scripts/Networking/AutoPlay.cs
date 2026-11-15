@@ -113,6 +113,7 @@ namespace Deepbound.Networking
                 L("   [" + kind + "] " + text);
             };
             PlayerLife.DownedRecap += (killer, lines) => L("!! DOWNED by " + killer + " | " + (lines ?? "").Replace("\n", "; ").Replace("\t", " "));
+            if (System.Array.IndexOf(args, "-navvert") >= 0) DungeonLayout.ForceFeatures = new[] { RoomFeature.Belfry, RoomFeature.Mezzanine, RoomFeature.Undercroft };
             StartCoroutine(System.Array.IndexOf(args, "-navcheck") >= 0 ? NavCheck() : Main());
         }
 
@@ -184,6 +185,47 @@ namespace Deepbound.Networking
                             }
                         if (pockets > 0) lost.Add("pocket in " + room.Feature + " room " + room.Id + ": " + pockets + " cut-off points, e.g. " + first);
                     }
+                    // Decks, ledges, catwalks and perches, and an undercroft's pit floor (2026-11-14): all must join the rest.
+                    foreach (var room in layout.Rooms)
+                    {
+                        if (!NavMesh.SamplePosition(start, out var sd, 4f, NavMesh.AllAreas)) break;
+                        var spots = new List<(string what, Vector3 at)>();
+                        foreach (var (dr, top) in room.Decks) spots.Add(("deck at " + top.ToString("F1") + " m", new Vector3(dr.center.x, top + 0.3f, dr.center.y)));
+                        if (room.Feature == RoomFeature.Undercroft)
+                        {
+                            string Probe(string what, Vector3 at)
+                            {
+                                bool on = NavMesh.SamplePosition(at, out var ph, 5f, NavMesh.AllAreas);
+                                bool ok = on && NavMesh.CalculatePath(sd.position, ph.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete;
+                                // Also from this room's own rim: a long route can come back partial when the search runs out of nodes.
+                                bool near = on && NavMesh.SamplePosition(new Vector3(room.Center.x, 0.3f, room.Low.yMin - 1.2f), out var rh, 1f, NavMesh.AllAreas)
+                                    && NavMesh.CalculatePath(rh.position, ph.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete;
+                                return what + (on ? " mesh y " + ph.position.y.ToString("F1") + " at " + Fmt(ph.position) + (ok ? " ok" : " " + path.status + (near ? " (from rim ok)" : " (from rim NOT)")) : " none");
+                            }
+                            var (lo0, hi0, _) = room.Ramps.Count > 0 ? room.Ramps[0] : (room.Center, room.Center, 0f);
+                            L("   undercroft " + room.Id + " centre " + Fmt(room.Center) + ": " + Probe("landing", room.Center + Vector3.up * 0.3f) + " | " + Probe("ramp top", hi0 + Vector3.up * 0.2f + (lo0 - hi0).normalized * 0.8f)
+                                + " | " + Probe("ramp mid", (lo0 + hi0) / 2f + Vector3.up * 0.2f) + " | " + Probe("ramp foot", lo0 + Vector3.up * 0.2f) + " | " + Probe("rim", new Vector3(room.Center.x, 0.3f, room.Low.yMin - 1.2f))
+                                + " | " + Probe("catwalk", room.Decks.Count > 1 ? new Vector3(room.Decks[1].r.center.x, 0.3f, room.Decks[1].r.center.y) : room.Center));
+                            if (!Application.isBatchMode && NavMesh.SamplePosition(room.Center + Vector3.up * 0.3f, out var lh2, 1f, NavMesh.AllAreas)
+                                && !(NavMesh.CalculatePath(sd.position, lh2.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete))
+                            {
+                                var um = NetworkPlayer.Local.GetComponent<FirstPersonMotor>();
+                                var from = new Vector3(room.Center.x, 0.1f, room.Low.yMin - 1.6f);
+                                um.Teleport(from, Quaternion.LookRotation(room.Center - from));
+                                um.SetPitch(25f);
+                                undercroftShots.Add(("nav_undercroft_" + room.Id + "_" + layout.Seed, from));
+                            }
+                        }
+                        if (room.Feature == RoomFeature.Undercroft) spots.Add(("pit floor", new Vector3(room.Low.center.x + room.Low.width * 0.25f, -DungeonLayout.UndercroftDepth + 0.3f, room.Low.yMin + 1.5f)));
+                        foreach (var (what, at) in spots)
+                        {
+                            bool onMesh = NavMesh.SamplePosition(at, out var th, 0.9f, NavMesh.AllAreas) && Mathf.Abs(th.position.y - at.y) < 0.8f;
+                            if (onMesh && NavMesh.CalculatePath(sd.position, th.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete) continue;
+                            lost.Add(what + " in " + room.Feature + " room " + room.Id + " (" + (onMesh ? path.status.ToString() : "no navmesh at " + Fmt(at)) + ")");
+                        }
+                    }
+                    foreach (var (nm, _) in undercroftShots) { yield return new WaitForSeconds(0.8f); yield return Shot(nm); }
+                    undercroftShots.Clear();
                     // The guardian's spot and the lift's (a dais is raised: its ramps must join the floor).
                     foreach (var (what, at) in new[] { ("boss spot", layout.BossSpawn), ("lift spot", layout.LiftSpot) })
                     {
@@ -1622,6 +1664,8 @@ namespace Deepbound.Networking
             var obstacles = FindObjectsByType<NavMeshObstacle>(FindObjectsSortMode.None).Where(o => o.enabled && Vector3.Distance(o.transform.position, me.transform.position) < 6f).Select(o => o.name + (o.carving ? "(carves)" : ""));
             return st + "; near: " + string.Join(", ", near) + "; obstacles: " + string.Join(", ", obstacles);
         }
+
+        private readonly List<(string, Vector3)> undercroftShots = new List<(string, Vector3)>();
 
         private bool Reachable(Vector3 to, NavMeshPath path)
         {

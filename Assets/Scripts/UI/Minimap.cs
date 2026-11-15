@@ -249,11 +249,13 @@ namespace Deepbound.UI
                 // Features: the chasm's pit, a sunken court or flooded cistern.
                 if (room.Feature == RoomFeature.Chasm && room.Pit.width > 0f)
                     UiSkin.Rect(WorldRect(room.Pit.center.x, room.Pit.center.y, room.Pit.width, room.Pit.height), new Color(0f, 0f, 0f, 0.92f));
-                if ((room.Feature == RoomFeature.SunkenCourt || room.Feature == RoomFeature.Cistern) && room.Low.width > 0f)
+                if ((room.Feature == RoomFeature.SunkenCourt || room.Feature == RoomFeature.Cistern || room.Feature == RoomFeature.Undercroft) && room.Low.width > 0f)
                 {
                     var low = WorldRect(room.Low.center.x, room.Low.center.y, room.Low.width, room.Low.height);
                     UiSkin.Rect(low, room.Feature == RoomFeature.Cistern ? new Color(0.12f, 0.28f, 0.33f, 0.95f) : fill * 0.65f);
                 }
+                // Decks, ledges, catwalks and perches: lighter, over whatever is under them.
+                foreach (var (dr, dtop) in room.Decks) UiSkin.Rect(WorldRect(dr.center.x, dr.center.y, dr.width, dr.height), new Color(1f, 0.95f, 0.85f, 0.10f + 0.012f * dtop));
                 if (depth == 1 && DungeonDirector.Thickness > 0.05f) UiSkin.Rect(r, new Color(0.25f, 0.3f, 0.12f, 0.35f * DungeonDirector.Thickness));
                 // Doorway gaps: the corridor's floor cut through the wall.
                 for (int side = 0; side < 4; side++)

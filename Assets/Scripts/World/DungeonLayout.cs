@@ -13,7 +13,7 @@ namespace Deepbound.World
     /// chamber (braziers empower the room's dead until smashed). Side rooms can be a
     /// Vault or a Fountain.
     /// </summary>
-    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply, Statues, Chimes, Mirrors, Scales, Draught, Mezzanine, Belfry }
+    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply, Statues, Chimes, Mirrors, Scales, Draught, Mezzanine, Belfry, Undercroft }
 
     /// <summary>Boss arena shapes: a colonnade (cover), a raised dais under the throne, or broken ruins.</summary>
     public enum BossArena : byte { Colonnade = 0, Dais = 1, Ruins = 2 }
@@ -425,7 +425,7 @@ namespace Deepbound.World
             bool Eligible(Room r, bool breach) =>
                 r.Kind != RoomKind.Start && r.Kind != RoomKind.Boss && (!breach || r.Kind == RoomKind.Combat) &&
                 r.Feature != RoomFeature.Chasm && r.Feature != RoomFeature.Vault && r.Feature != RoomFeature.Fountain && r.Holes.Count == 0 &&
-                !r.Special && r.Feature != RoomFeature.Terrace && r.Feature != RoomFeature.Ziggurat;
+                !r.Special && r.Feature != RoomFeature.Terrace && r.Feature != RoomFeature.Ziggurat && r.Decks.Count == 0 && r.Feature != RoomFeature.Undercroft;
 
             void Place(bool breach, int count)
             {
@@ -528,6 +528,7 @@ namespace Deepbound.World
             var extras = new List<RoomFeature> { RoomFeature.Gallery, RoomFeature.SunkenCourt, RoomFeature.Cistern, RoomFeature.Pendulums, RoomFeature.Ritual, RoomFeature.Library, RoomFeature.Pyre, RoomFeature.Gauntlet, RoomFeature.Terrace, RoomFeature.Ziggurat };
             extras.Add(RoomFeature.Mezzanine);
             extras.Add(RoomFeature.Belfry);
+            extras.Add(RoomFeature.Undercroft);
             // From the second floor, a hall with no light but the one you carry.
             if (layout.Depth >= 1) extras.Add(RoomFeature.Lightless);
             for (int i = extras.Count - 1; i > 0; i--)
@@ -537,7 +538,7 @@ namespace Deepbound.World
             }
             // VERTICALITY (2026-11-14, the user: "more verticality in general, think of dark and darker"): the first room dealt
             // always has high ground (a mezzanine, a belfry, balconies, a terrace or a ziggurat).
-            int hi = extras.FindIndex(f => f == RoomFeature.Mezzanine || f == RoomFeature.Belfry || f == RoomFeature.Gallery || f == RoomFeature.Terrace || f == RoomFeature.Ziggurat);
+            int hi = extras.FindIndex(f => f == RoomFeature.Mezzanine || f == RoomFeature.Belfry || f == RoomFeature.Undercroft || f == RoomFeature.Gallery || f == RoomFeature.Terrace || f == RoomFeature.Ziggurat);
             if (hi > 0) (extras[0], extras[hi]) = (extras[hi], extras[0]);
             // Shots: these features dealt first.
             if (ForceFeatures != null)
@@ -548,6 +549,9 @@ namespace Deepbound.World
                 if (room == null) break;
                 ShapeFeature(room, extras[k % extras.Count], rng);
             }
+            // PERCHES (2026-11-14): plain, ritual, pyre, lightless and pendulum rooms (nothing along their walls) sometimes get one or two archer perches in the corners.
+            foreach (var pr in layout.Rooms)
+                if (pr.Kind == RoomKind.Combat && (pr.Feature == RoomFeature.None || pr.Feature == RoomFeature.Ritual || pr.Feature == RoomFeature.Pyre || pr.Feature == RoomFeature.Lightless || pr.Feature == RoomFeature.Pendulums) && rng.NextDouble() < PerchChance) AddPerches(pr, rng);
 
             var sides = layout.Rooms.FindAll(r => r.Kind == RoomKind.Side);
             Room HostOf(Room side)
@@ -594,6 +598,24 @@ namespace Deepbound.World
         /// <summary>Deck heights: a mezzanine over a blank wall, one that must clear a doorway, the belfry's two ledges.</summary>
         /// <summary>Shots and tests: the combat-room features to deal first (null = by the seed).</summary>
         public static RoomFeature[] ForceFeatures;
+        public const float UndercroftDepth = 4f, UndercroftRim = 2.6f, PerchHeight = 3f, PerchSize = 3.6f, PerchChance = 0.45f;
+
+        /// <summary>One or two corner perches (decks at <see cref="PerchHeight"/>) with a stair along the wall, in a room 22 m or more.</summary>
+        private static void AddPerches(Room room, System.Random rng)
+        {
+            if (Mathf.Min(room.Size.x, room.Size.y) < 22f) return;
+            var corners = new List<(float sx, float sz)> { (1f, 1f), (-1f, 1f), (1f, -1f), (-1f, -1f) };
+            for (int i = corners.Count - 1; i > 0; i--) { int j = rng.Next(i + 1); (corners[i], corners[j]) = (corners[j], corners[i]); }
+            int n = rng.NextDouble() < 0.4 ? 2 : 1;
+            for (int i = 0; i < n; i++)
+            {
+                var (sx, sz) = corners[i];
+                var cc = room.Center + new Vector3(sx * (room.Size.x / 2f - PerchSize / 2f), 0f, sz * (room.Size.y / 2f - PerchSize / 2f));
+                room.Decks.Add((new Rect(cc.x - PerchSize / 2f, cc.z - PerchSize / 2f, PerchSize, PerchSize), PerchHeight));
+                var high = new Vector3(cc.x - sx * PerchSize / 2f, PerchHeight, cc.z);
+                room.Ramps.Add((high + new Vector3(-sx * PerchHeight / 0.62f, -PerchHeight, 0f), high, 2.2f));
+            }
+        }
         public const float MezzanineLow = 3.6f, MezzanineHigh = 5.4f, BelfryLow = 5.4f, BelfryHigh = 10f, DeckThickness = 0.4f, LedgeDepth = 3.4f;
 
         /// <summary>Give a combat room one of the newer mechanics, and the size and shape it needs.</summary>
@@ -742,6 +764,37 @@ namespace Deepbound.World
                     room.Ramps.Add((high - outward * (h / 0.58f) - Vector3.up * h, high, 2.6f));
                     break;
                 }
+                case RoomFeature.Undercroft:
+                {
+                    // An UNDERCROFT (2026-11-14): the floor is gone - a walkable pit 4 m down across most of the room, stone
+                    // catwalks from each doorway to a landing in the middle, and two stairs down by the corners. Hold the walks
+                    // or drop in.
+                    room.Size = new Vector2(Mathf.Max(room.Size.x, 24f), Mathf.Max(room.Size.y, 24f));
+                    room.Height = 10f;
+                    room.Low = new Rect(room.Center.x - room.Size.x / 2f + UndercroftRim, room.Center.z - room.Size.y / 2f + UndercroftRim, room.Size.x - UndercroftRim * 2f, room.Size.y - UndercroftRim * 2f);
+                    const float walk = 3f, landing = 5.5f;
+                    var uc = room.Center;
+                    room.Decks.Add((new Rect(uc.x - landing / 2f, uc.z - landing / 2f, landing, landing), 0f));
+                    int doorCount = 0;
+                    for (int sd = 0; sd < 4; sd++) if (room.Doors[sd]) doorCount++;
+                    for (int sd = 0; sd < 4; sd++)
+                    {
+                        if (!room.Doors[sd] && !(doorCount < 2 && room.Doors[(sd + 2) % 4])) continue;
+                        var dv = Dir[sd];
+                        bool runsZ = dv.x == 0;
+                        float halfSpan = (runsZ ? room.Size.y : room.Size.x) / 2f;
+                        float from = landing / 2f - 0.05f, to = halfSpan - 0.05f; // right to the wall: one flush walk from the doorway
+                        var mc = uc + new Vector3(dv.x, 0f, dv.y) * ((from + to) / 2f);
+                        float walkLen = to - from;
+                        room.Decks.Add((runsZ ? new Rect(mc.x - walk / 2f, mc.z - walkLen / 2f, walk, walkLen) : new Rect(mc.x - walkLen / 2f, mc.z - walk / 2f, walkLen, walk), 0f));
+                    }
+                    foreach (float sg in new[] { 1f, -1f })
+                    {
+                        var edge = new Vector3(uc.x + sg * (room.Low.width / 2f - 0.4f), 0f, uc.z + sg * (room.Low.height / 2f - 4.5f));
+                        room.Ramps.Add((edge + new Vector3(-sg * UndercroftDepth / 0.6f, -UndercroftDepth, 0f), edge, 2.6f));
+                    }
+                    break;
+                }
                 case RoomFeature.Belfry:
                 {
                     // A BELFRY (2026-11-14): a tall shaft with a ledge high on one wall and a higher one across from it, a stair to
@@ -847,6 +900,7 @@ namespace Deepbound.World
                     if (room.Feature == RoomFeature.Library && LibraryShelves(room).Exists(r => { var g = r; g.xMin -= 0.6f; g.yMin -= 0.6f; g.xMax += 0.6f; g.yMax += 0.6f; return g.Contains(new Vector2(p.x, p.z)); })) continue;
                     if (room.Feature == RoomFeature.SunkenCourt && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -SunkenDepth + 0.1f;
                     if (room.Feature == RoomFeature.Cistern && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -CisternDepth + 0.1f;
+                    if (room.Feature == RoomFeature.Undercroft && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -UndercroftDepth + 0.1f;
                     if (room.Raised.Count > 0) p.y = room.RaisedAt(p) + 0.1f;
                     room.EnemySpawns.Add(p);
                     i++;

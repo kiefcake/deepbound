@@ -119,6 +119,7 @@ namespace Deepbound.World
             if (room.Feature == RoomFeature.Chasm) BuildChasmFloor(room, structure, dressing, lights);
             else if (room.Feature == RoomFeature.SunkenCourt) BuildLowFloor(room, DungeonLayout.SunkenDepth, 4.6f, structure, dressing, Mat.Flagstone);
             else if (room.Feature == RoomFeature.Cistern) BuildLowFloor(room, DungeonLayout.CisternDepth, 1.8f, structure, dressing, Mat.Rubble);
+            else if (room.Feature == RoomFeature.Undercroft) BuildLowFloor(room, DungeonLayout.UndercroftDepth, 0f, structure, dressing, Mat.Rubble, edgeRamps: false);
             else structure.AddBox(c + Vector3.down * FloorThickness / 2f, new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), floorMat);
             structure.AddBox(c + Vector3.up * (h + FloorThickness / 2f), new Vector3(w + WallThickness * 2f, FloorThickness, d + WallThickness * 2f), Mat.StoneWall);
             // Raised ground (terraces, ziggurat tiers) and the ramps up onto it.
@@ -131,6 +132,10 @@ namespace Deepbound.World
             foreach (var (low, high, rw) in room.Ramps) Ramp(low, high, rw, structure, dressing);
             // Decks (mezzanines, belfry ledges): slabs on pillars, open beneath.
             foreach (var (dr, top) in room.Decks) BuildDeck(room, dr, top, structure, lights);
+            // The undercroft's pit is lit by four braziers in its corners.
+            if (room.Feature == RoomFeature.Undercroft)
+                foreach (var (sx, sz) in new[] { (1f, 1f), (-1f, 1f), (1f, -1f), (-1f, -1f) })
+                    Props.Brazier(lights, new Vector3(room.Low.center.x + sx * (room.Low.width / 2f - 1.4f), -DungeonLayout.UndercroftDepth, room.Low.center.y + sz * (room.Low.height / 2f - 1.4f)), theme.TorchColor, false);
 
             for (int side = 0; side < 4; side++) BuildWall(room, side, structure);
 
@@ -173,6 +178,10 @@ namespace Deepbound.World
                 case RoomFeature.Treasury: case RoomFeature.Beggar: case RoomFeature.Proving: case RoomFeature.Armoury: case RoomFeature.Mirror: case RoomFeature.Oath: case RoomFeature.Statues: case RoomFeature.Chimes: case RoomFeature.Mirrors: case RoomFeature.Scales: case RoomFeature.Draught:
                     DressSpecial(room, dressing, lights, rng); return;
                 case RoomFeature.Panoply: DressSpecial(room, dressing, lights, rng); DressPanoply(room, dressing, lights); return;
+                // The tall rooms keep their floors clear for the stairs and decks (no free-standing pillars, no theme heaps);
+                // an undercroft's dressing is its pit braziers (anything set on the floor line would hang over the pit).
+                case RoomFeature.Mezzanine: case RoomFeature.Belfry: DressRoom(room, dressing, lights, rng, pillars: false); return;
+                case RoomFeature.Undercroft: return;
             }
 
             switch (room.Kind)
@@ -421,7 +430,7 @@ namespace Deepbound.World
             }
         }
 
-        private static void DressRoom(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
+        private static void DressRoom(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng, bool pillars = true)
         {
             var c = room.Center;
             float hx = room.Size.x / 2f, hz = room.Size.y / 2f;
@@ -430,7 +439,7 @@ namespace Deepbound.World
             var centre = Centrepieces.Of(room); // built before the feature switch (DressRoomFeatures)
 
             // Large rooms get pillars: line-of-sight breaks for kiting and hiding.
-            if (room.Size.x >= 16f && room.Size.y >= 16f)
+            if (pillars && room.Size.x >= 16f && room.Size.y >= 16f)
             {
                 float px = hx * 0.5f, pz = hz * 0.5f;
                 Props.Pillar(b, c + new Vector3(px, 0f, pz), room.Height);

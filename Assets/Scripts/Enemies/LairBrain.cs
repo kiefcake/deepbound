@@ -45,7 +45,7 @@ namespace Deepbound.Enemies
                 health.IncomingModifiers.Insert(0, (dmg, from) =>
                 {
                     if (!IsEcho || dmg >= KillDamage) return dmg;
-                    EchoHit(dmg, from);
+                    if (!shattered) EchoHit(dmg, from);
                     return 0f;
                 });
         }
@@ -108,9 +108,13 @@ namespace Deepbound.Enemies
         protected virtual void EchoHit(float dmg, Vector3 from) { }
 
         /// <summary>Server: an echo breaks apart and is gone.</summary>
+        private bool shattered;
+
         public void Shatter(bool backlash)
         {
-            if (!IsServer || !IsSpawned) return;
+            // Once only: the backlash can set off a thorns relic that strikes this same glass again (a stack overflow, 2026-11-14).
+            if (!IsServer || !IsSpawned || shattered) return;
+            shattered = true;
             ShatterFxRpc(transform.position + Vector3.up * 1.2f, backlash);
             if (backlash)
                 foreach (var p in CombatQuery.Circle(transform.position, 3.2f, Team.Players))

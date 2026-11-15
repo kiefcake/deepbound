@@ -611,6 +611,9 @@ namespace Deepbound.World
             foreach (var p in PlayerLife.All)
             {
                 if (p == null || p.transform.position.y > -3f || Layout.InCellar(p.transform.position)) continue;
+                // An undercroft's pit is a floor, not a fall (2026-11-14).
+                var pitRoom = Layout.RoomAt(p.transform.position);
+                if (pitRoom != null && pitRoom.Feature == RoomFeature.Undercroft && p.transform.position.y > -DungeonLayout.UndercroftDepth - 1.5f) continue;
                 if (rescuedAt.TryGetValue(p, out var t) && Time.time - t < 2f) continue;
                 rescuedAt[p] = Time.time;
 

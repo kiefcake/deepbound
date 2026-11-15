@@ -1552,7 +1552,7 @@ namespace Deepbound.Networking
                 var chests = FindObjectsByType<Chest>(FindObjectsSortMode.None);
                 int urns = FindObjectsByType<Breakable>(FindObjectsSortMode.None).Count(b => b.Type.Value == Breakable.Kind.Urn);
                 Log("dungeon objects", chests.Length + " chests for " + sideRooms + " side rooms, " + urns + " urns, " +
-                    FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Length + " traps", chests.Length == sideRooms + (layout.Rooms.Any(r => r.Feature == RoomFeature.Vault) ? 2 : 0) + layout.Rooms.Sum(r => r.Holes.Count(hh => !hh.Breach)) - CacheDraughts(layout) - FindObjectsByType<BargainAltar>(FindObjectsSortMode.None).Length + 2 * layout.Rooms.Count(r => r.Cellar) && urns > 0);
+                    FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Length + " traps", chests.Length == sideRooms + (layout.Rooms.Any(r => r.Feature == RoomFeature.Vault) ? 2 : 0) + layout.Rooms.Sum(r => r.Holes.Count(hh => !hh.Breach)) - CacheDraughts(layout) - FindObjectsByType<BargainAltar>(FindObjectsSortMode.None).Length + 2 * layout.Rooms.Count(r => r.Cellar) + layout.Rooms.Count(r => r.Feature == RoomFeature.Belfry && r.FeatureSpots.Count > 0) && urns > 0);
                 if (chests.Length > 0)
                 {
                     int dropsBefore = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
@@ -4872,7 +4872,7 @@ namespace Deepbound.Networking
             // jump down from high ground onto whoever is below.
             if (net.IsServer && local != null)
             {
-                int mezz = 0, belf = 0, bad = 0;
+                int mezz = 0, belf = 0, under = 0, perched = 0, bad = 0;
                 for (int seed = 1; seed <= 30; seed++)
                 {
                     var vl = DungeonLayout.Generate(seed * 7919, 2 + seed % 6);
@@ -4880,6 +4880,8 @@ namespace Deepbound.Networking
                     {
                         if (r.Feature == RoomFeature.Mezzanine) { mezz++; if (r.Decks.Count != 1 || r.Ramps.Count != 1) bad++; }
                         if (r.Feature == RoomFeature.Belfry) { belf++; if (r.Decks.Count != 2 || r.Ramps.Count != 2 || r.FeatureSpots.Count != 1) bad++; }
+                        if (r.Feature == RoomFeature.Undercroft) { under++; if (r.Decks.Count < 3 || r.Ramps.Count != 2 || r.Low.width < 10f) bad++; }
+                        if (r.Feature != RoomFeature.Mezzanine && r.Feature != RoomFeature.Belfry && r.Feature != RoomFeature.Undercroft && r.Decks.Count > 0) { perched++; if (r.Ramps.Count != r.Decks.Count) bad++; }
                     }
                 }
                 var vhp = local.GetComponent<Health>();
@@ -4905,8 +4907,8 @@ namespace Deepbound.Networking
                     leaper.NetworkObject.Despawn();
                 }
                 vhp.ServerSetFraction(1f);
-                Log("verticality", "mezzanines " + mezz + " belfries " + belf + " malformed " + bad + ", " + drop.ToString("0.0") + " m fall left " + afterFall.ToString("0.00") + ", leaps " + leaps + " landed " + landed,
-                    mezz > 0 && belf > 0 && bad == 0 && (drop < 4.8f || afterFall < 0.99f) && afterFall > 0.5f && leaps == 1 && landed);
+                Log("verticality", "mezzanines " + mezz + " belfries " + belf + " undercrofts " + under + " perched rooms " + perched + " malformed " + bad + ", " + drop.ToString("0.0") + " m fall left " + afterFall.ToString("0.00") + ", leaps " + leaps + " landed " + landed,
+                    mezz > 0 && belf > 0 && under > 0 && perched > 0 && bad == 0 && (drop < 4.8f || afterFall < 0.99f) && afterFall > 0.5f && leaps == 1 && landed);
             }
 
             // THE CINDER PIT (2026-11-14): a negative-seed floor with its own theme, lava that burns the living, and Vharoth,
@@ -5187,7 +5189,7 @@ namespace Deepbound.Networking
             hp.IncomingModifiers.Add((d, f) => 0f);
             // VERTICALITY (2026-11-14): a belfry and a mezzanine, from the floor and from up high, and one of the dead leaping down.
             {
-                DungeonLayout.ForceFeatures = new[] { RoomFeature.Belfry, RoomFeature.Mezzanine };
+                DungeonLayout.ForceFeatures = new[] { RoomFeature.Belfry, RoomFeature.Mezzanine, RoomFeature.Undercroft };
                 dc.ServerDebugStartFloor(2);
                 yield return new WaitForSeconds(5f);
                 DungeonLayout.ForceFeatures = null;
@@ -5245,9 +5247,28 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(1f);
                         jumper.GetComponent<Health>().ServerDamage(1e6f, jumper.transform.position);
                     }
-                    VStand(deckC + Vector3.up * 0.1f - away * 1f, mz.Center, 18f);
+                    VStand(deckC + Vector3.up * 0.1f - away * 1f + new Vector3(away.z, 0f, -away.x) * 3f, mz.Center, 18f);
                     yield return new WaitForSeconds(0.8f);
                     yield return Shot(dir, "vx_7_mezzanine_top");
+                }
+                var uc = vl.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Undercroft);
+                if (uc != null)
+                {
+                    VStand(uc.Center + new Vector3(uc.Size.x * 0.44f, 0.1f, uc.Size.y * 0.44f), uc.Center, 20f);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Shot(dir, "vx_8_undercroft");
+                    VStand(uc.Center + new Vector3(uc.Size.x * 0.25f, -DungeonLayout.UndercroftDepth + 0.1f, -uc.Size.y * 0.3f), uc.Center, -12f);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot(dir, "vx_9_undercroft_pit");
+                }
+                var pr = vl.Rooms.FirstOrDefault(r => r.Feature != RoomFeature.Mezzanine && r.Feature != RoomFeature.Belfry && r.Feature != RoomFeature.Undercroft && r.Decks.Count > 0);
+                if (pr != null)
+                {
+                    var (pdr, ptop) = pr.Decks[0];
+                    var toward = pr.Center - new Vector3(pdr.center.x, 0f, pdr.center.y); toward.y = 0f; toward.Normalize();
+                    VStand(new Vector3(pdr.center.x, 0.1f, pdr.center.y) + toward * 9f, new Vector3(pdr.center.x, 0f, pdr.center.y), -10f);
+                    yield return new WaitForSeconds(1f);
+                    yield return Shot(dir, "vx_10_perch");
                 }
                 dc.ServerDebugStartFloor(1);
                 yield return new WaitForSeconds(5f);

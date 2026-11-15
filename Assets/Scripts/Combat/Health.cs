@@ -364,7 +364,8 @@ namespace Deepbound.Combat
             if (Marked.Value) dealt *= MarkedMultiplier;
             if (Blighted.Value) dealt *= BlightedMultiplier;
             if (Team == Team.Enemies && InPlagueCloud != null && InPlagueCloud(transform.position)) dealt *= 1.25f;
-            foreach (var modifier in IncomingModifiers) dealt = modifier(dealt, attackerPosition);
+            // A modifier can end its owner (a mirror copy shatters when struck): stop there, the rest would act on a despawned object.
+            foreach (var modifier in IncomingModifiers) { dealt = modifier(dealt, attackerPosition); if (!IsSpawned) return 0f; }
             if (dealt <= 0f) return 0f;
             if (Team == Team.Players && (attackerPosition - transform.position).sqrMagnitude > 0.25f) HurtFromRpc(attackerPosition);
 

@@ -1063,7 +1063,7 @@ namespace Deepbound.World
 
                     var prefab = PickEnemy(layout.Depth, theme, ref hasBrute, ref hasNecro, out int pack);
                     // High ground (2026-11-14): most posts up on a deck, ledge, balcony or terrace go to the bows and the casters.
-                    if (p.y > 1.5f && UnityEngine.Random.value < HighGroundRanged)
+                    if ((p.y > 1.5f || (room.Feature == RoomFeature.Undercroft && p.y > -1f)) && UnityEngine.Random.value < HighGroundRanged)
                     {
                         var up = PickHighGround(layout.Depth);
                         if (up != null) { prefab = up; pack = 1; }
