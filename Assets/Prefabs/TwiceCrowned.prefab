@@ -183,7 +183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.TwiceCrownedBrain
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 2800
+  maxHealth: 1700
   damage: 27
   defense: 5
   moveSpeed: 3

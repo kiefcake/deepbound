@@ -183,7 +183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.MotherMarrowBrain
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 1400
+  maxHealth: 800
   damage: 22
   defense: 3
   moveSpeed: 2.7

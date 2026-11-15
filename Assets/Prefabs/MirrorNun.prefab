@@ -183,7 +183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.MirrorNunBrain
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 3100
+  maxHealth: 1900
   damage: 29
   defense: 4
   moveSpeed: 2.8

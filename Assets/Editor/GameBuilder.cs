@@ -561,20 +561,20 @@ namespace Deepbound.EditorTools
                     Set("maxHealth", 120f); Set("damage", 12f); Set("defense", 0f); Set("moveSpeed", 2.9f);
                     Set("attackRange", 12f); Set("windup", 0.8f); Set("recovery", 1.8f); Set("aggroRange", 18f);
                     break;
-                // The lairs' keepers (2026-11-14): between a Warden and an act boss, before party scaling.
+                // The lairs' keepers (2026-11-14): about 60% of their act's Warden (a bot took 11 minutes on Mother Marrow at 1400): an optional side fight.
                 case EnemyType.MotherMarrow:
                     Kind(Art.CharacterArt.SkeletonKind.WitheringHag);
-                    Set("maxHealth", 1400f); Set("damage", 22f); Set("defense", 3f); Set("moveSpeed", 2.7f);
+                    Set("maxHealth", 800f); Set("damage", 22f); Set("defense", 3f); Set("moveSpeed", 2.7f);
                     Set("attackRange", 3f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 40f);
                     break;
                 case EnemyType.LanternFisher:
                     Kind(Art.CharacterArt.SkeletonKind.FrostWight);
-                    Set("maxHealth", 2200f); Set("damage", 25f); Set("defense", 4f); Set("moveSpeed", 2.6f);
+                    Set("maxHealth", 1300f); Set("damage", 25f); Set("defense", 4f); Set("moveSpeed", 2.6f);
                     Set("attackRange", 3.4f); Set("recovery", 1.2f); Set("aggroRange", 22f); Set("leashRange", 40f);
                     break;
                 case EnemyType.TwiceCrowned:
                     Kind(Art.CharacterArt.SkeletonKind.King);
-                    Set("maxHealth", 2800f); Set("damage", 27f); Set("defense", 5f); Set("moveSpeed", 3.0f);
+                    Set("maxHealth", 1700f); Set("damage", 27f); Set("defense", 5f); Set("moveSpeed", 3.0f);
                     Set("attackRange", 3f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 40f);
                     break;
                 case EnemyType.Vharoth:
@@ -585,7 +585,7 @@ namespace Deepbound.EditorTools
                     break;
                 case EnemyType.MirrorNun:
                     Kind(Art.CharacterArt.SkeletonKind.ChoirAcolyte);
-                    Set("maxHealth", 3100f); Set("damage", 29f); Set("defense", 4f); Set("moveSpeed", 2.8f);
+                    Set("maxHealth", 1900f); Set("damage", 29f); Set("defense", 4f); Set("moveSpeed", 2.8f);
                     Set("attackRange", 2.8f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 40f);
                     break;
                 case EnemyType.Bellringer:

@@ -1576,7 +1576,10 @@ namespace Deepbound.Networking
             {
                 if (h == null || !h.IsAlive || h.Team != Team.Enemies || skip.Contains(h.NetworkObjectId)) continue;
                 var b = h.GetComponent<EnemyBrain>();
-                if (b == null || (!allowBoss && b is BossBrain)) continue;
+                // A lair keeper that has woken (and its echoes) is fought where it stands, like any of the dead (2026-11-14: a bot
+                // sealed in Mother Marrow's lair walked at the gates for 7 minutes).
+                bool lairFight = b is LairBrain; // asleep too: the bot walks up and wakes it
+                if (b == null || (!allowBoss && b is BossBrain && !lairFight)) continue;
                 if (b is MournerBrain || b is GargoyleBrain g && !g.Woken.Value || b.SeveredNow) continue;
                 float d = Vector3.Distance(h.transform.position, me.transform.position);
                 if (follower && Leader != null && Vector3.Distance(h.transform.position, Leader.transform.position) > 16f) continue;

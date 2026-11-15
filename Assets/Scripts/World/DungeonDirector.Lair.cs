@@ -17,6 +17,8 @@ namespace Deepbound.World
     {
         [SerializeField] private NetworkObject[] lairPrefabs;
         public const float LairChance = 0.6f;
+        /// <summary>How close someone must come to the sleeping keeper to wake it.</summary>
+        public const float LairWakeRadius = 7.5f;
         /// <summary>Tests: a lair on every floor of acts 0-3, of this act's kind (or -1 for the floor's own).</summary>
         public static bool ForceLair;
 
@@ -46,7 +48,12 @@ namespace Deepbound.World
             if (room == null) return;
             lair = new LairState { Room = room };
             lair.Gates.AddRange(SpawnGates(room));
-            var at = UnityEngine.AI.NavMesh.SamplePosition(room.Center, out var h, 3f, UnityEngine.AI.NavMesh.AllAreas) ? h.position : room.Center;
+            // On open floor, off the room's middle: a lair room can hold a centrepiece, and a keeper asleep on top of it
+            // was out of reach and could not come down (2026-11-14 bot run: Mother Marrow at 100% for 11 minutes).
+            var at = room.Center;
+            float off = Mathf.Min(room.Size.x, room.Size.y) * 0.26f;
+            foreach (var o in new[] { new Vector3(0f, 0f, off), new Vector3(off, 0f, 0f), new Vector3(0f, 0f, -off), new Vector3(-off, 0f, 0f), Vector3.zero })
+                if (UnityEngine.AI.NavMesh.SamplePosition(room.Center + o, out var h, 1.5f, UnityEngine.AI.NavMesh.AllAreas) && Mathf.Abs(h.position.y - room.Center.y) < 0.3f) { at = h.position; break; }
             var obj = Spawn(lairPrefabs[act], at, Quaternion.LookRotation(layout.Rooms[0].Center - room.Center));
             var boss = obj.GetComponent<LairBrain>();
             if (boss == null) { obj.Despawn(); lair = null; return; }
@@ -83,6 +90,16 @@ namespace Deepbound.World
             {
                 int inside = InAmbushTrigger(room);
                 if (inside == 0 || boss == null) return;
+                // It sleeps until someone comes close (2026-11-14: a lair on the way through sealed on a bot just crossing the
+                // hall): skirt round it, or walk up and wake it.
+                bool roused = false;
+                foreach (var p in PlayerLife.All)
+                {
+                    if (p == null || !p.Targetable) continue;
+                    var d = p.transform.position - boss.transform.position; d.y = 0f;
+                    if (d.magnitude <= LairWakeRadius) roused = true;
+                }
+                if (!roused) return;
                 lair.State = 1;
                 SetGates(lair.Gates, true);
                 boss.ServerEngage(inside, Layout.Depth);
@@ -103,12 +120,21 @@ namespace Deepbound.World
                 return;
             }
             // Everyone shut in is down: lift the gates for the rest of the party; it fights on.
-            if (!lair.Opened && !AnyoneStandingIn(room))
+            // "Inside" means a metre past the walls: someone who slipped out under the falling gate and stands in the doorway is
+            // not shut in with it (2026-11-14 bot run: the keeper fought on behind the bars for six minutes).
+            if (!lair.Opened && !AnyoneWellInside(room))
             {
                 lair.Opened = true;
                 SetGates(lair.Gates, false);
                 TitleCardRpc("THE GATES LIFT", "Go to them");
             }
+        }
+
+        private static bool AnyoneWellInside(DungeonLayout.Room room)
+        {
+            foreach (var p in PlayerLife.All)
+                if (p != null && !p.Downed.Value && p.Health != null && p.Health.IsAlive && room.Contains(p.transform.position, -1f)) return true;
+            return false;
         }
 
         /// <summary>Tests: the lair's keeper, wherever it sleeps (or null).</summary>
