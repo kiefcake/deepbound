@@ -285,6 +285,18 @@ namespace Deepbound.Player
                 landDip = Mathf.Clamp((fallSpeed - 5f) * 0.018f, 0.02f, 0.16f) * Mathf.Clamp01(UI.Settings.ShakeScale + 0.25f);
                 Art.Sfx.Play(Art.Sound.Step, transform.position, Mathf.Clamp01(fallSpeed / 14f) * 0.6f, 0.75f);
             }
+            // FALLS HURT (2026-11-14, verticality): past SafeDrop the landing costs a share of max health (the server takes it).
+            // Cellars and the chasm rescue teleport, so they never count.
+            if (grounded && !wasGrounded && !Pinned && transform.position.y > -5f)
+            {
+                float drop = airTop - transform.position.y;
+                if (drop > SafeDrop)
+                {
+                    if (fallLife == null) fallLife = GetComponent<PlayerLife>();
+                    if (fallLife != null) fallLife.FallRpc(drop);
+                }
+            }
+            if (grounded || Pinned) airTop = transform.position.y; else airTop = Mathf.Max(airTop, transform.position.y);
             wasGrounded = grounded;
             if (!grounded) fallSpeed = Mathf.Max(0f, -verticalVelocity);
 
@@ -372,6 +384,12 @@ namespace Deepbound.Player
         /// <summary>Owner: riding something (the carriage seat). The body follows it; the head still turns.</summary>
         public bool Pinned { get; private set; }
 
+        /// <summary>Falls: no harm up to this drop (metres from the top of the arc); then <see cref="FallShare"/> of max health a
+        /// metre, at most <see cref="FallMax"/>. The belfry's high loft (10 m) costs about 44%.</summary>
+        public const float SafeDrop = 4.2f, FallShare = 0.075f, FallMax = 0.75f;
+        private float airTop;
+        private PlayerLife fallLife;
+
         public void PinTo(Vector3 position)
         {
             if (controller.enabled) controller.enabled = false;
@@ -400,6 +418,7 @@ namespace Deepbound.Player
             impulse = Vector3.zero;
             planar = Vector3.zero;
             fallSpeed = 0f;
+            airTop = position.y;
         }
 
         private static void SetCursorLocked(bool locked)

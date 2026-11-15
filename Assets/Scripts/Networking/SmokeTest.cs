@@ -63,7 +63,7 @@ namespace Deepbound.Networking
             // Watchdog: if the sequence throws, the coroutine dies silently and the
             // process would idle forever. Fail loudly instead.
             // x8 (was x6 until 2026-10-29): the checks had grown to fill the old 240 s on a headless host.
-            Invoke(nameof(Timeout), seconds * 10f); // 8x ran out on 2026-11-07 with a game open beside it
+            Invoke(nameof(Timeout), seconds * 13f); // 8x ran out on 2026-11-07 with a game open beside it; 10x on 2026-11-14 (lairs, the Pit)
         }
 
         private void Timeout()
@@ -2412,6 +2412,98 @@ namespace Deepbound.Networking
                             }
                             else Log("choir acolyte", "no prefab", false);
                         }
+                        // LAIRS (2026-11-14): each keeper's signature - the cocoon, the lure, the crown, the glass - and the boss bar
+                        // that is theirs only while they are fought.
+                        {
+                            var srL = DungeonDirector.Layout.StartRoom;
+                            var lc = srL.Center + Vector3.forward * 3f;
+                            var lsize = srL.Size;
+                            var hpL = local.GetComponent<Health>();
+                            string lwhy = "";
+                            bool lok = true;
+
+                            var mm = dd.ServerDebugSpawnLair(0, lc, lsize) as MotherMarrowBrain;
+                            if (mm != null)
+                            {
+                                for (float t = 0f; t < 3f; t += 0.25f) { hpL.ServerSetFraction(1f); yield return new WaitForSeconds(0.25f); }
+                                mm.Health.ServerDamage(mm.Health.Max.Value * 0.35f, mm.transform.position + Vector3.forward, local.NetworkObjectId);
+                                for (float t = 0f; t < 2.5f; t += 0.25f) { hpL.ServerSetFraction(1f); yield return new WaitForSeconds(0.25f); }
+                                bool cocoon = mm.CurrentStance == BossBrain.Stance.Invulnerable, bar = BossBrain.Active == mm;
+                                mm.Health.ServerDamage(BossBrain.KillDamage, mm.transform.position, local.NetworkObjectId);
+                                yield return new WaitForSeconds(1f);
+                                bool barBack = BossBrain.Active != mm;
+                                lwhy += "marrow cocoon " + cocoon + " bar " + bar + " back " + barBack;
+                                lok &= cocoon && bar && barBack;
+                            }
+                            else { lok = false; lwhy += "no marrow"; }
+                            foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None)) if (!(e is BossBrain) && e.IsSpawned && Vector3.Distance(e.transform.position, lc) < 14f) e.NetworkObject.Despawn();
+
+                            var lf = dd.ServerDebugSpawnLair(1, lc, lsize) as LanternFisherBrain;
+                            if (lf != null)
+                            {
+                                for (float t = 0f; t < 3f; t += 0.25f) { hpL.ServerSetFraction(1f); yield return new WaitForSeconds(0.25f); }
+                                bool sunk = lf.Submerged.Value;
+                                float fhp0 = lf.Health.Current.Value;
+                                lf.Health.ServerDamage(300f, lf.transform.position + Vector3.forward, local.NetworkObjectId);
+                                bool immune = lf.Health.Current.Value >= fhp0 - 0.5f;
+                                for (float t = 0f; t < 10f && lf.LoopsDone == 0; t += 0.25f) { hpL.ServerSetFraction(1f); yield return new WaitForSeconds(0.25f); }
+                                lwhy += ", fisher sunk " + sunk + " immune " + immune + " surfaced " + (lf.LoopsDone > 0);
+                                lok &= sunk && immune && lf.LoopsDone > 0;
+                                lf.Health.ServerDamage(BossBrain.KillDamage, lf.transform.position, local.NetworkObjectId);
+                                yield return new WaitForSeconds(0.6f);
+                            }
+                            else { lok = false; lwhy += ", no fisher"; }
+
+                            var tc = dd.ServerDebugSpawnLair(2, lc, lsize) as TwiceCrownedBrain;
+                            if (tc != null)
+                            {
+                                for (float t = 0f; t < 3f; t += 0.25f) { hpL.ServerSetFraction(1f); yield return new WaitForSeconds(0.25f); }
+                                TwiceCrownedBrain shadow = null;
+                                for (float t3 = 0f; t3 < 4f && shadow == null; t3 += 0.25f)
+                                {
+                                    foreach (var t2 in FindObjectsByType<TwiceCrownedBrain>(FindObjectsSortMode.None)) if (t2.Role.Value == 1 && t2.IsSpawned) shadow = t2;
+                                    if (shadow == null) yield return new WaitForSeconds(0.25f);
+                                }
+                                string tlist = "";
+                                foreach (var t4 in FindObjectsByType<TwiceCrownedBrain>(FindObjectsSortMode.None)) tlist += " [" + t4.Role.Value + (t4.IsSpawned ? "" : " unspawned") + (t4.IsDead ? " dead" : "") + "]";
+                                lwhy += ", twins seen" + tlist + " echoes " + tc.EchoCount;
+                                bool hadShadow = shadow != null;
+                                float thp0 = tc.Health.Current.Value;
+                                bool bareShadow = false;
+                                if (shadow != null && !shadow.Crowned.Value)
+                                {
+                                    shadow.Health.ServerDamage(250f, shadow.transform.position + Vector3.forward, local.NetworkObjectId);
+                                    bareShadow = tc.Health.Current.Value >= thp0 - 0.5f;
+                                }
+                                for (float t = 0f; t < 9f && tc.Passes == 0; t += 0.25f) { hpL.ServerSetFraction(1f); yield return new WaitForSeconds(0.25f); }
+                                tc.Health.ServerDamage(BossBrain.KillDamage, tc.transform.position, local.NetworkObjectId);
+                                yield return new WaitForSeconds(1f);
+                                bool shadowGone = shadow == null || !shadow.IsSpawned;
+                                lwhy += ", twins shadow " + hadShadow + " bare-immune " + bareShadow + " passes " + tc.Passes + " shadow gone " + shadowGone;
+                                lok &= hadShadow && bareShadow && tc.Passes > 0 && shadowGone;
+                            }
+                            else { lok = false; lwhy += ", no twins"; }
+
+                            var mn = dd.ServerDebugSpawnLair(3, lc, lsize) as MirrorNunBrain;
+                            if (mn != null)
+                            {
+                                for (float t = 0f; t < 3f; t += 0.25f) { hpL.ServerSetFraction(1f); yield return new WaitForSeconds(0.25f); }
+                                var glass = new System.Collections.Generic.List<MirrorNunBrain>();
+                                foreach (var m2 in FindObjectsByType<MirrorNunBrain>(FindObjectsSortMode.None)) if (m2.Role.Value == 2 && m2.IsSpawned) glass.Add(m2);
+                                int copies = glass.Count;
+                                if (glass.Count > 0) glass[0].Health.ServerDamage(50f, glass[0].transform.position + Vector3.forward, local.NetworkObjectId);
+                                yield return new WaitForSeconds(0.5f);
+                                lwhy += ", nun copies " + copies + " shattered " + mn.Shattered;
+                                lok &= copies >= 3 && mn.Shattered == 1;
+                                mn.Health.ServerDamage(BossBrain.KillDamage, mn.transform.position, local.NetworkObjectId);
+                                yield return new WaitForSeconds(1f);
+                            }
+                            else { lok = false; lwhy += ", no nun"; }
+                            foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                                if ((!(e is BossBrain) || e is LairBrain) && e.IsSpawned && Vector3.Distance(e.transform.position, lc) < 16f) e.NetworkObject.Despawn();
+                            hpL.ServerSetFraction(1f);
+                            Log("lair keepers", lwhy, lok);
+                        }
                         // An Abyssal Eye's beam hits a player standing on its line, and misses one who stepped off.
                         {
                             // Stage it in the start room, along its long side: wherever the player happened to stand, the eye
@@ -2876,8 +2968,9 @@ namespace Deepbound.Networking
                             for (int w = 0; w < 120 && !FlameJet.Lit(vent.Phase, Pendulum.Clock); w++) yield return new WaitForSeconds(0.02f);
                             for (int w = 0; w < 120 && FlameJet.Lit(vent.Phase, Pendulum.Clock); w++) yield return new WaitForSeconds(0.02f);
                             float tookVent = beforeVent - ph.Current.Value;
+                            string ventWhy = ", shield " + ph.Shield.Value.ToString("F0") + ", off the vent " + Vector3.Distance(local.transform.position, vent.At).ToString("F1") + " m, phase " + DungeonDirector.Instance.Phase.Value;
                             ventMotor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
-                            Log("flame vent", "took " + tookVent.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " in one burst", tookVent >= ph.Max.Value * 0.2f && tookVent <= ph.Max.Value * 0.4f);
+                            Log("flame vent", "took " + tookVent.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " in one burst" + ventWhy, tookVent >= ph.Max.Value * 0.2f && tookVent <= ph.Max.Value * 0.4f);
                             ph.ServerSetFraction(1f);
                             // Choking it (2026-11-13): from beside the grate, with a pick; then it never burns.
                             {
@@ -4544,16 +4637,18 @@ namespace Deepbound.Networking
                     freed.ServerOpen(true);
                     yield return new WaitForSeconds(4f);
                     bool fought = freed.IsFree && foe != null && foe.GetComponent<Health>().Current.Value < f0;
-                    int enemies0 = EnemyBrain.All.Count;
+                    var enemiesBefore = new System.Collections.Generic.HashSet<EnemyBrain>(EnemyBrain.All);
                     var bait = dc.ServerDebugPrisoner(Spot(6f, 6f), Quaternion.identity);
                     yield return null;
                     bait.ServerOpen(false);
                     yield return new WaitForSeconds(0.3f);
-                    bool baited = EnemyBrain.All.Count > enemies0 && (bait == null || !bait.IsSpawned);
+                    bool baited = false;
+                    foreach (var eb in EnemyBrain.All) if (eb != null && !enemiesBefore.Contains(eb)) baited = true;
+                    baited &= bait == null || !bait.IsSpawned;
                     ix.Append(", prisoner fought " + fought + ", bait " + baited);
                     ixOk &= fought && baited;
                     if (foe != null) made.Add(foe);
-                    for (int i = enemies0; i < EnemyBrain.All.Count; i++) made.Add(EnemyBrain.All[i]);
+                    foreach (var eb in EnemyBrain.All) if (eb != null && !enemiesBefore.Contains(eb)) made.Add(eb);
                     // Clean up: the dummies and the ghouls go, the freed delver and the props stay out of the way.
                     foreach (var e in made) if (e != null && !e.IsDead) e.GetComponent<Health>().ServerDamage(1e6f, e.transform.position);
                     if (freed != null && freed.IsSpawned) freed.NetworkObject.Despawn();
@@ -4771,6 +4866,89 @@ namespace Deepbound.Networking
                 Log("edges and hones", "forged " + Progression.Edges.Name(tp.EdgeAt(0)) + ", " + Progression.Edges.Name(tp.EdgeAt(1)) + ", " + Progression.Edges.Name(tp.EdgeAt(2))
                     + " (offered " + offered.Count + "), extra pick refused " + refused + ", hones " + hones + ", attack x" + preHone.ToString("F2") + " -> x" + tp.AttackMultiplier.ToString("F2"),
                     edgesOk && refused && offered.Count == 9 && hones == World.Anvil.MaxHones && tp.AttackMultiplier > preHone * 1.14f && tp.CannotTemperReason() != null);
+            }
+
+            // VERTICALITY (2026-11-14): mezzanines and belfries turn up with decks and stairs, a long fall hurts, and the dead
+            // jump down from high ground onto whoever is below.
+            if (net.IsServer && local != null)
+            {
+                int mezz = 0, belf = 0, bad = 0;
+                for (int seed = 1; seed <= 30; seed++)
+                {
+                    var vl = DungeonLayout.Generate(seed * 7919, 2 + seed % 6);
+                    foreach (var r in vl.Rooms)
+                    {
+                        if (r.Feature == RoomFeature.Mezzanine) { mezz++; if (r.Decks.Count != 1 || r.Ramps.Count != 1) bad++; }
+                        if (r.Feature == RoomFeature.Belfry) { belf++; if (r.Decks.Count != 2 || r.Ramps.Count != 2 || r.FeatureSpots.Count != 1) bad++; }
+                    }
+                }
+                var vhp = local.GetComponent<Health>();
+                var vm = local.GetComponent<FirstPersonMotor>();
+                var vsr = DungeonDirector.Layout.StartRoom;
+                vhp.ServerSetFraction(1f);
+                float drop = Mathf.Min(vsr.Height - 1f, 8.5f);
+                vm.Teleport(vsr.Center + Vector3.up * drop, local.transform.rotation);
+                yield return new WaitForSeconds(2f);
+                float afterFall = vhp.Fraction;
+                vhp.ServerSetFraction(1f);
+                vm.Teleport(vsr.Center + Vector3.up * 0.1f, local.transform.rotation);
+                yield return new WaitForSeconds(0.3f);
+                var leaper = DungeonDirector.Instance.ServerDebugSpawn("skeleton", vsr.Center + Vector3.right * 4f, false);
+                bool landed = false; int leaps = 0;
+                if (leaper != null)
+                {
+                    var landAt = leaper.transform.position + Vector3.forward * 3f;
+                    leaper.ServerDebugLeap(landAt);
+                    yield return new WaitForSeconds(EnemyBrain.LeapCrouch + EnemyBrain.LeapFlight + 0.4f);
+                    leaps = leaper.LeapsTaken;
+                    landed = Vector3.Distance(leaper.transform.position, landAt) < 1.2f;
+                    leaper.NetworkObject.Despawn();
+                }
+                vhp.ServerSetFraction(1f);
+                Log("verticality", "mezzanines " + mezz + " belfries " + belf + " malformed " + bad + ", " + drop.ToString("0.0") + " m fall left " + afterFall.ToString("0.00") + ", leaps " + leaps + " landed " + landed,
+                    mezz > 0 && belf > 0 && bad == 0 && (drop < 4.8f || afterFall < 0.99f) && afterFall > 0.5f && leaps == 1 && landed);
+            }
+
+            // THE CINDER PIT (2026-11-14): a negative-seed floor with its own theme, lava that burns the living, and Vharoth,
+            // whose stage loop turns and whose seekers burst on whoever they reach.
+            if (net.IsServer && local != null)
+            {
+                var pd = DungeonDirector.Instance;
+                int depthBefore = Mathf.Max(0, pd.Floor.Value.y);
+                pd.ServerDebugPit();
+                yield return new WaitForSeconds(2.5f);
+                bool inPit = DungeonDirector.InPit;
+                string pitTheme = DungeonTheme.ForDepth(DungeonDirector.Layout.Depth).Name;
+                int pools = DungeonDirector.Lava.Count;
+                var vh = BossBrain.Active as VharothBrain;
+                var hpP = local.GetComponent<Health>();
+                var lm = local.GetComponent<FirstPersonMotor>();
+                bool burned = false;
+                if (pools > 0)
+                {
+                    hpP.ServerSetFraction(1f);
+                    lm.Teleport(DungeonDirector.Lava[0].At + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(1.3f);
+                    burned = hpP.Fraction < 0.999f;
+                    lm.Teleport(DungeonDirector.Layout.StartRoom.Center + Vector3.up * 0.1f, local.transform.rotation);
+                    yield return new WaitForSeconds(0.3f);
+                }
+                int burst = 0, stages = 0;
+                if (vh != null)
+                {
+                    vh.Dormant = false;
+                    hpP.ServerSetFraction(1f);
+                    vh.ServerDebugSeeker(local.transform.position + local.transform.forward * 2.5f + Vector3.up);
+                    for (float t = 0f; t < 4f && vh.SeekersBurst == 0; t += 0.25f) { yield return new WaitForSeconds(0.25f); }
+                    burst = vh.SeekersBurst;
+                    stages = vh.StagesEntered;
+                    vh.Health.ServerDamage(BossBrain.KillDamage, vh.transform.position, local.NetworkObjectId);
+                }
+                hpP.ServerSetFraction(1f);
+                Log("cinder pit", "in pit " + inPit + ", theme " + pitTheme + ", lava pools " + pools + ", burns " + burned + ", lord " + (vh != null ? vh.DisplayName : "none") + ", stages " + stages + ", seekers burst " + burst,
+                    inPit && pitTheme == "The Cinder Pit" && pools > 0 && burned && vh != null && stages >= 1 && burst >= 1);
+                pd.ServerDebugStartFloor(depthBefore);
+                yield return new WaitForSeconds(2.5f);
             }
 
             // The climbing rope: from the waystone the party goes back to camp, and the same depth waits for them.
@@ -5007,6 +5185,73 @@ namespace Deepbound.Networking
             motor.enabled = false;
             var hp = local.GetComponent<Health>();
             hp.IncomingModifiers.Add((d, f) => 0f);
+            // VERTICALITY (2026-11-14): a belfry and a mezzanine, from the floor and from up high, and one of the dead leaping down.
+            {
+                DungeonLayout.ForceFeatures = new[] { RoomFeature.Belfry, RoomFeature.Mezzanine };
+                dc.ServerDebugStartFloor(2);
+                yield return new WaitForSeconds(5f);
+                DungeonLayout.ForceFeatures = null;
+                foreach (var e in EnemyBrain.All.ToArray()) if (e != null && !e.IsDead && !(e is BossBrain)) e.GetComponent<Health>().ServerDamage(1e6f, e.transform.position);
+                void VStand(Vector3 at, Vector3 look, float pitch)
+                {
+                    var f = look - at; f.y = 0f;
+                    motor.Teleport(at, Quaternion.LookRotation(f.sqrMagnitude > 0.01f ? f : Vector3.forward));
+                    motor.SetPitch(pitch);
+                }
+                var vl = DungeonDirector.Layout;
+                var bel = vl.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Belfry);
+                if (bel != null)
+                {
+                    var bc = bel.Center;
+                    var corner = bc + new Vector3(bel.Size.x * 0.42f, 0.1f, -bel.Size.y * 0.42f);
+                    VStand(corner, bc, -22f);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Shot(dir, "vx_1_belfry_floor");
+                    VStand(corner + new Vector3(-bel.Size.x * 0.84f, 0f, bel.Size.y * 0.84f), bc, -22f);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot(dir, "vx_2_belfry_floor_other");
+                    if (bel.FeatureSpots.Count > 0)
+                    {
+                        var loft = bel.FeatureSpots[0];
+                        var toC = bc - loft; toC.y = 0f;
+                        VStand(loft + toC.normalized * 1.2f + Vector3.up * 0.1f, bc, 28f);
+                        yield return new WaitForSeconds(0.8f);
+                        yield return Shot(dir, "vx_3_belfry_loft_down");
+                    }
+                }
+                var mz = vl.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Mezzanine);
+                if (mz != null && mz.Decks.Count > 0)
+                {
+                    var (dr, top) = mz.Decks[0];
+                    var deckC = new Vector3(dr.center.x, top, dr.center.y);
+                    var away = mz.Center - new Vector3(dr.center.x, 0f, dr.center.y); away.y = 0f; away.Normalize();
+                    var floorAt = mz.Center + away * (Mathf.Min(mz.Size.x, mz.Size.y) * 0.4f) + Vector3.up * 0.1f;
+                    VStand(floorAt, new Vector3(dr.center.x, 0f, dr.center.y), -10f);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Shot(dir, "vx_4_mezzanine");
+                    VStand(new Vector3(dr.center.x, 0.1f, dr.center.y) + away * 1.5f, mz.Center, 0f);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot(dir, "vx_5_mezzanine_under");
+                    // One of the dead on the deck jumps down toward the camera.
+                    var camAt = mz.Center + away * 2f + Vector3.up * 0.1f;
+                    var jumper = dc.ServerDebugSpawn("skeleton", deckC + away * (dr.width < dr.height ? dr.width : dr.height) * 0.3f, false);
+                    VStand(camAt + away * 6f, jumper != null ? jumper.transform.position : deckC, -8f);
+                    yield return new WaitForSeconds(0.6f);
+                    if (jumper != null)
+                    {
+                        jumper.ServerDebugLeap(UnityEngine.AI.NavMesh.SamplePosition(camAt, out var lh, 3f, UnityEngine.AI.NavMesh.AllAreas) ? lh.position : camAt);
+                        yield return new WaitForSeconds(EnemyBrain.LeapCrouch + EnemyBrain.LeapFlight * 0.45f);
+                        yield return Shot(dir, "vx_6_leap");
+                        yield return new WaitForSeconds(1f);
+                        jumper.GetComponent<Health>().ServerDamage(1e6f, jumper.transform.position);
+                    }
+                    VStand(deckC + Vector3.up * 0.1f - away * 1f, mz.Center, 18f);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot(dir, "vx_7_mezzanine_top");
+                }
+                dc.ServerDebugStartFloor(1);
+                yield return new WaitForSeconds(5f);
+            }
             var layout = DungeonDirector.Layout;
             var room = layout.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Combat && r.Feature == RoomFeature.None)
                 ?? layout.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Combat && (r.Feature == RoomFeature.GreatHall || r.Feature == RoomFeature.Crypt || r.Feature == RoomFeature.Library || r.Feature == RoomFeature.Lightless || r.Feature == RoomFeature.Ritual))
@@ -5253,7 +5498,7 @@ namespace Deepbound.Networking
                     auraCam.transform.LookAt(body.position + Vector3.up * 1.05f);
                     yield return new WaitForSeconds(1f);
                     yield return Shot(dir, "ix_34b_blessed_body");
-                    fx.Clear(); fx.Add("inspired"); fx.Add("zeal");
+                    fx.Clear(); fx.Add("inspired"); fx.Add("zeal"); fx.Add("shield");
                     yield return new WaitForSeconds(1f);
                     yield return Shot(dir, "ix_34c_inspired_zeal_body");
                     fx.Clear(); fx.Add("dazed"); fx.Add("silenced"); fx.Add("poison");
@@ -6233,6 +6478,10 @@ namespace Deepbound.Networking
                 local.GetComponent<UI.GameHud>().DebugOpenInventory(true);
                 yield return new WaitForSeconds(0.3f);
                 yield return Shot(dir, "1e_inventory");
+                local.GetComponent<UI.GameHud>().DebugInventoryTab(1);
+                yield return null;
+                yield return Shot(dir, "1e_craft");
+                local.GetComponent<UI.GameHud>().DebugInventoryTab(0);
                 local.GetComponent<UI.GameHud>().DebugOpenInventory(false);
                 ap.ServerResetRun();
             }

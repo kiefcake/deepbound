@@ -220,6 +220,83 @@ namespace Deepbound.Enemies
             health.ServerDamage(health.Max.Value * Mathf.Clamp(damageFraction, 0.05f, 0.4f), ground + Vector3.up * 3f, by);
         }
 
+        // ------------------------------------------------------------------
+        // LEAPING DOWN (2026-11-14, verticality): up on a deck, a ledge or a balcony with its quarry below and the stair the
+        // long way round, it crouches (a "!" and a circle where it will land) and jumps, striking whoever it lands on.
+        // ------------------------------------------------------------------
+
+        public const float LeapMinDrop = 1.6f, LeapMaxDrop = 11f, LeapReach = 11f, LeapCrouch = 0.45f, LeapFlight = 0.6f, LeapHitRadius = 1.8f, LeapDamage = 0.9f;
+        private float nextLeapCheck;
+        public int LeapsTaken { get; private set; }
+
+        /// <summary>Things that fly, float, stand as stone or guard an arena keep to their own ways down.</summary>
+        protected bool CanLeapDown => !(this is BossBrain) && !(this is GargoyleBrain) && !(this is MournerBrain) && !(this is WraithBrain)
+            && !(this is MimicBrain) && !(this is AbyssEyeBrain) && !Patrolling.Value;
+
+        private bool TryLeapDown(float dist)
+        {
+            if (target == null || Time.time < nextLeapCheck || !CanLeapDown) return false;
+            nextLeapCheck = Time.time + 0.5f;
+            var at = target.transform.position;
+            float drop = transform.position.y - at.y;
+            if (drop < LeapMinDrop || drop > LeapMaxDrop || dist > LeapReach) return false;
+            // Only when walking down is the long way round (an unknown remaining distance counts as long).
+            if (agent.pathPending || (agent.hasPath && agent.remainingDistance < dist * 1.6f + 3f)) return false;
+            var back = transform.position - at; back.y = 0f;
+            var want = at + (back.sqrMagnitude > 0.01f ? back.normalized * 1.4f : Vector3.zero);
+            if (!NavMesh.SamplePosition(want, out var hit, 2f, NavMesh.AllAreas) || Mathf.Abs(hit.position.y - at.y) > 1.2f) return false;
+            StartCoroutine(LeapDown(hit.position));
+            return true;
+        }
+
+        private System.Collections.IEnumerator LeapDown(Vector3 land)
+        {
+            LeapsTaken++;
+            busyUntil = Time.time + LeapCrouch + LeapFlight + 0.35f;
+            agent.isStopped = true;
+            var look = land - transform.position; look.y = 0f;
+            if (look.sqrMagnitude > 0.01f) transform.rotation = Quaternion.LookRotation(look);
+            PlayActionRpc(RigAction.Cast, LeapCrouch);
+            NoticeRpc();
+            LeapTellRpc(land, LeapCrouch + LeapFlight);
+            yield return new WaitForSeconds(LeapCrouch);
+            if (IsDead || !agent.enabled) yield break;
+            agent.updatePosition = false;
+            var from = transform.position;
+            for (float t = 0f; t < LeapFlight; t += Time.deltaTime)
+            {
+                float k = t / LeapFlight;
+                var p = Vector3.Lerp(from, land, k);
+                p.y += Mathf.Sin(k * Mathf.PI) * 1.1f;
+                transform.position = p;
+                yield return null;
+            }
+            transform.position = land;
+            if (agent.enabled) { agent.Warp(land); agent.updatePosition = true; }
+            if (IsDead) yield break;
+            foreach (var pl in PlayerLife.All)
+            {
+                if (pl == null || pl.Downed.Value) continue;
+                var d = pl.transform.position - land;
+                if (Mathf.Abs(d.y) > 1.6f || new Vector2(d.x, d.z).magnitude > LeapHitRadius) continue;
+                if (pl.TryGetComponent<Health>(out var victim)) victim.Tag("leap").ServerDamage(damage * LeapDamage, transform.position, NetworkObjectId);
+            }
+            LeapLandRpc(land);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void LeapTellRpc(Vector3 at, float seconds) => Telegraph.Show(at, LeapHitRadius, seconds, null, new Color(1f, 0.35f, 0.2f, 0.4f));
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void LeapLandRpc(Vector3 at)
+        {
+            Vfx.Smoke(at + Vector3.up * 0.2f, 3, 0.5f, 1.4f);
+            Sfx.Play(Sound.Step, at, 0.9f, 0.6f);
+        }
+
+        /// <summary>Tests: jump down to <paramref name="land"/> now.</summary>
+        public void ServerDebugLeap(Vector3 land) { if (IsServer && !IsDead) StartCoroutine(LeapDown(land)); }
+
         /// <summary>Server: shoved into a chasm. It does not climb back out.</summary>
         public void ServerFallIntoAbyss(Vector3 at, ulong by)
         {
@@ -303,6 +380,13 @@ namespace Deepbound.Enemies
             {
                 if (VisualScale != 1f) Rig.transform.localScale *= VisualScale;
                 DressRig(Rig);
+                // The Cinder Pit's dead are charred, with ember eyes (2026-11-14).
+                if (World.DungeonDirector.InPit && !IsBoss)
+                {
+                    foreach (var r in Rig.GetComponentsInChildren<Renderer>())
+                        if (r.sharedMaterial != null && !r.sharedMaterial.name.Contains("Glow")) ArtLibrary.Tint(r, new Color(0.3f, 0.2f, 0.17f));
+                    Rig.GlowColor = new Color(1f, 0.45f, 0.12f);
+                }
             }
             // Fewer, bigger meshes: same look, a fraction of the draw calls.
             MeshKit.MergeRig(Rig);
@@ -699,6 +783,7 @@ namespace Deepbound.Enemies
             if (TryBossDash(dist)) return;
             if (ChooseSpecialAttack(dist)) return;
             if (TryLunge(dist)) return;
+            if (TryLeapDown(dist)) return;
 
             if (dist <= attackRange)
             {

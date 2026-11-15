@@ -44,6 +44,7 @@ namespace Deepbound.UI
 
         /// <summary>Tests and screenshots: open the inventory panel.</summary>
         public void DebugOpenInventory(bool open) => invOpen = open;
+        public void DebugInventoryTab(int tab) => invTab = tab;
         public static bool InventoryOpen { get; private set; }
 
         /// <summary>Screenshots only: stage the forge panel open.</summary>
@@ -687,16 +688,57 @@ namespace Deepbound.UI
         }
 
         // ---- Inventory (I): what you wear, your pack, and everything else the run has given you. ----
+        // Rebuilt 2026-11-14 (the user: "fix bag ui"): three fixed columns that never run into each other, every
+        // item a card with its icon (worn gear, pack, flasks, relics, runes), names fitted instead of wrapping to three
+        // lines, and one hover card in a fixed place under the pack.
+        private static readonly Color FlaskHealth = new Color(0.95f, 0.3f, 0.25f), FlaskMana = new Color(0.4f, 0.6f, 1f),
+            FlaskFrost = new Color(0.6f, 0.9f, 1f), FlaskHoly = new Color(1f, 0.85f, 0.45f);
+
+        private void ItemFrame(Rect r, Color qc, bool over, bool empty)
+        {
+            Rect(r.x - 1, r.y - 1, r.width + 2, r.height + 2, new Color(qc.r, qc.g, qc.b, empty ? 0.18f : over ? 0.95f : 0.45f));
+            Rect(r.x, r.y, r.width, r.height, new Color(0.05f, 0.045f, 0.04f, 0.96f));
+            if (!empty) Rect(r.x, r.y, r.width, 3, new Color(qc.r, qc.g, qc.b, 0.75f));
+        }
+
+        private int invTab;
+
         private void DrawInventory(float w, float h)
         {
             Rect(0, 0, w, h, new Color(0f, 0f, 0f, 0.55f));
-            // Wider since 2026-11-07: a CRAFT column on the right.
-            float pw = Mathf.Min(1250f, w - 40f), ph = Mathf.Min(560f, h - 60f);
+            float pw = Mathf.Min(1250f, w - 40f), ph = Mathf.Min(580f, h - 60f);
             float px = w / 2f - pw / 2f, py = h / 2f - ph / 2f;
             UiSkin.Panel(new Rect(px - 12, py - 12, pw + 24, ph + 24), 0.96f);
-            GUI.Label(new Rect(px, py, pw, 30), "INVENTORY", new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleLeft, fontSize = 26 });
-            GUI.Label(new Rect(px, py + 4, pw, 24), progress.Gold.Value + " gold     " + progress.Embers.Value + " embers     " + progress.Sigils.Value + " sigil" + (progress.Sigils.Value == 1 ? "" : "s"),
-                new GUIStyle(label) { alignment = TextAnchor.MiddleRight, normal = { textColor = Gold } });
+            // Two tabs (2026-11-14, the user: "find a new place for crafting, also theres way too much writing"): the bag, and the
+            // workbench on its own page. Currencies as icons with numbers.
+            var tabSt = new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleLeft, fontSize = 24 };
+            foreach (var (tab, title, tx) in new[] { (0, "BAG", px), (1, "CRAFT", px + 90f) })
+            {
+                var tr = new Rect(tx, py, 84, 30);
+                bool on = invTab == tab;
+                GUI.color = on ? Color.white : (tr.Contains(Event.current.mousePosition) ? new Color(1f, 1f, 1f, 0.75f) : new Color(1f, 1f, 1f, 0.4f));
+                GUI.Label(tr, title, tabSt);
+                GUI.color = Color.white;
+                if (on) Rect(tr.x, tr.yMax - 2, 70, 2, Gold);
+                if (Event.current.type == EventType.MouseDown && tr.Contains(Event.current.mousePosition)) { invTab = tab; Event.current.Use(); }
+            }
+            {
+                float hx = px + pw;
+                void Purse(MapIcons.Id icon, int n, Color c)
+                {
+                    var st = new GUIStyle(label) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold, normal = { textColor = c } };
+                    float tw = st.CalcSize(new GUIContent(n.ToString())).x;
+                    hx -= tw;
+                    GUI.Label(new Rect(hx, py + 4, tw, 24), n.ToString(), st);
+                    hx -= 20;
+                    MapIcons.Draw(icon, new Vector2(hx + 8, py + 16), c, 2f);
+                    hx -= 18;
+                }
+                Purse(MapIcons.Id.Gem, progress.Sigils.Value, new Color(0.75f, 0.6f, 1f));
+                Purse(MapIcons.Id.Altar, progress.Embers.Value, new Color(1f, 0.55f, 0.25f));
+                Purse(MapIcons.Id.Coin, progress.Gold.Value, Gold);
+            }
+            if (invTab == 1) { DrawWorkbench(px, py + 44, pw, ph - 50); return; }
 
             var ev = Event.current;
             var mouse = ev.mousePosition;
@@ -704,110 +746,149 @@ namespace Deepbound.UI
             bool hoveredWorn = false;
             bool click = ev.type == EventType.MouseDown;
             int button = ev.button;
+            string hoverText = null, hintLine = null;
+            bool party = PlayerLife.All.Count > 1;
+            var head = new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } };
 
-            // ---- Equipped ----
+            // ======== Left column: worn, pouch, relics ========
+            const float LW = 320f;
             float cx = px, cy = py + 44;
-            GUI.Label(new Rect(cx, cy, 300, 22), "EQUIPPED", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            GUI.Label(new Rect(cx, cy, LW, 22), "WORN", head);
             cy += 24;
-            string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
-            Rect(cx, cy, 300, 46, new Color(0f, 0f, 0f, 0.45f));
-            GUI.Label(new Rect(cx + 10, cy + 4, 280, 20), weapon, new GUIStyle(label) { fontStyle = FontStyle.Bold });
-            string runes = "";
-            for (int s = 0; s < Runes.SocketsAt(progress.WeaponLevel.Value); s++) runes += (s > 0 ? ",  " : "") + Runes.Name(progress.Socketed(s));
-            GUI.Label(new Rect(cx + 10, cy + 24, 280, 18), runes.Length > 0 ? runes : "No rune sockets yet (anvil +1)", small);
-            cy += 54;
+            {
+                // The weapon: the class's own, with its sockets.
+                var r = new Rect(cx, cy, LW, 56);
+                ItemFrame(r, new Color(0.85f, 0.78f, 0.6f), r.Contains(mouse), false);
+                MapIcons.Draw(MapIcons.Id.Sword, new Vector2(r.x + 28, r.y + 28), new Color(0.9f, 0.88f, 0.8f), 4f);
+                string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
+                var nameSt = new GUIStyle(label) { fontStyle = FontStyle.Bold, wordWrap = false };
+                GUI.Label(new Rect(r.x + 58, r.y + 7, LW - 66, 22), UiSkin.Fit(weapon, nameSt, LW - 66), nameSt);
+                // Sockets as stones: filled in the rune's colour, hollow when empty; hover names them.
+                int sockets = Runes.SocketsAt(progress.WeaponLevel.Value);
+                string runes = "";
+                for (int s = 0; s < sockets; s++)
+                {
+                    var rune = progress.Socketed(s);
+                    bool empty = rune == default(Rune);
+                    var dot = new Rect(r.x + 58 + s * 20, r.y + 34, 14, 14);
+                    Rect(dot.x, dot.y, dot.width, dot.height, new Color(0.5f, 0.45f, 0.35f, 0.8f));
+                    Rect(dot.x + 2, dot.y + 2, dot.width - 4, dot.height - 4, empty ? new Color(0.06f, 0.05f, 0.04f) : Runes.Color(rune));
+                    runes += (s > 0 ? ", " : "") + Runes.Name(rune);
+                }
+                if (r.Contains(mouse)) hoverText = weapon + (sockets > 0 ? ": " + runes : ": sockets open at the anvil.");
+                cy += 62;
+            }
             foreach (var slot in new[] { GearSlot.Armor, GearSlot.Charm })
             {
                 var item = progress.Equipped(slot);
-                var r = new Rect(cx, cy, 300, 52);
+                var r = new Rect(cx, cy, LW, 56);
                 bool over = r.Contains(mouse);
                 var qc = item.IsEmpty ? new Color(0.4f, 0.4f, 0.4f) : Gear.QualityColor(item.Quality);
-                Rect(r.x - 1, r.y - 1, r.width + 2, r.height + 2, new Color(qc.r, qc.g, qc.b, over ? 0.8f : 0.35f));
-                Rect(r.x, r.y, r.width, r.height, new Color(0.05f, 0.045f, 0.04f, 0.95f));
-                GUI.Label(new Rect(r.x + 10, r.y + 4, 280, 18), slot.ToString().ToUpperInvariant(), small);
-                GUI.Label(new Rect(r.x + 10, r.y + 22, 280, 22), item.IsEmpty ? "(empty)" : Gear.Name(item), new GUIStyle(label) { normal = { textColor = qc } });
+                ItemFrame(r, qc, over, item.IsEmpty);
+                MapIcons.Draw(slot == GearSlot.Armor ? MapIcons.Id.Armor : MapIcons.Id.Charm, new Vector2(r.x + 28, r.y + 28), item.IsEmpty ? new Color(0.35f, 0.33f, 0.3f) : qc, 4f);
+                var nameSt = new GUIStyle(label) { wordWrap = false, normal = { textColor = item.IsEmpty ? new Color(0.45f, 0.43f, 0.4f) : qc } };
+                GUI.Label(new Rect(r.x + 58, r.y + 17, LW - 66, 22), item.IsEmpty ? "-" : UiSkin.Fit(Gear.Name(item), nameSt, LW - 66), nameSt);
                 if (over && !item.IsEmpty) { hovered = item; hoveredWorn = true; }
                 if (over && click && !item.IsEmpty && button == 1) { progress.UnequipRpc((byte)slot); ev.Use(); }
-                cy += 60;
+                cy += 62;
             }
 
-            // ---- Flasks and relics ----
+            // The pouch: four flasks, each with how many (of five).
             var fl = player.GetComponent<Flasks>();
             if (fl != null)
             {
-                GUI.Label(new Rect(cx, cy + 4, 320, 20), "POUCH   Health " + fl.Health.Value + "   Mana " + fl.Mana.Value + "   Frost " + fl.Frost.Value + "   Holy " + fl.Holy.Value + "   (5 each)", small);
-                cy += 28;
-            }
-            GUI.Label(new Rect(cx, cy, 300, 22), "RELICS (" + progress.RelicCount + " / " + Relics.MaxCarried + ")" + (progress.RelicCount > 0 ? "   right-click: set down" : ""), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
-            cy += 22;
-            string hoverText = null;
-            bool party = PlayerLife.All.Count > 1;
-            // Two columns once the list grows (a long run gathers a lot), hover for what each does.
-            int relCols = progress.RelicCount > 8 ? 2 : 1;
-            float relColW = 300f / relCols, relTop = cy;
-            int relRows = (progress.RelicCount + relCols - 1) / relCols;
-            for (int i = 0; i < progress.RelicCount; i++)
-            {
-                var rel = progress.RelicAt(i);
-                float rcy = relTop + (i % relRows) * 20;
-                if (rcy > py + ph - (party ? 150 : 20)) continue;
-                var rr = new Rect(cx + (i / relRows) * relColW, rcy, relColW - 4, 20);
-                var relSt = new GUIStyle(small) { wordWrap = false, normal = { textColor = rr.Contains(mouse) ? Color.white : UiSkin.Readable(Relics.GemColor(rel)) } };
-                bool overRel = rr.Contains(mouse);
-                // Set a relic down (2026-11-13): right-click the row, or the small button that shows on hover.
-                var setDown = new Rect(rr.xMax - 58, rr.y + 1, 56, 18);
-                GUI.Label(overRel ? new Rect(rr.x, rr.y, rr.width - 60, rr.height) : rr, UiSkin.Fit(progress.RelicLabel(i), relSt, overRel ? rr.width - 60 : rr.width), relSt);
-                if (overRel)
+                cy += 4;
+                GUI.Label(new Rect(cx, cy, LW, 22), "POUCH", head);
+                cy += 22;
+                var kinds = new[] { ("Health", fl.Health.Value, FlaskHealth), ("Mana", fl.Mana.Value, FlaskMana), ("Frost", fl.Frost.Value, FlaskFrost), ("Holy", fl.Holy.Value, FlaskHoly) };
+                float tw = (LW - 3 * 6f) / 4f;
+                for (int k = 0; k < kinds.Length; k++)
                 {
-                    if (GUI.Button(setDown, new GUIContent("set down", "Put it on the floor at your feet. It keeps its tier; pick it up again later, or let a teammate have it."), new GUIStyle(UiSkin.Button) { fontSize = 10 }))
-                        progress.SetDownRelicRpc((byte)i);
-                    else if (Event.current.type == EventType.MouseDown && Event.current.button == 1) { progress.SetDownRelicRpc((byte)i); Event.current.Use(); }
+                    var (fname, count, col) = kinds[k];
+                    var r = new Rect(cx + k * (tw + 6f), cy, tw, 40);
+                    bool over = r.Contains(mouse);
+                    ItemFrame(r, col, over, count == 0);
+                    MapIcons.Draw(MapIcons.Id.Flask, new Vector2(r.x + 20, r.y + 20), count > 0 ? col : new Color(0.3f, 0.3f, 0.3f), 3f);
+                    GUI.Label(new Rect(r.x + 36, r.y + 10, tw - 38, 20), count.ToString(), new GUIStyle(label) { fontStyle = FontStyle.Bold, normal = { textColor = count > 0 ? Color.white : new Color(0.5f, 0.5f, 0.5f) } });
+                    if (over) hoverText = fname + "  " + count + " / 5";
                 }
-                if (overRel) hoverText = progress.RelicLabel(i) + ": " + Relics.Describe(rel) + (progress.RelicTierAt(i) > 0 ? "  (empowered: +" + Relics.TierPercent(progress.RelicTierAt(i)) + "% to its numbers)" : "") + "   Right-click to set it down.";
+                cy += 48;
             }
-            cy = relTop + relRows * 20;
+
+            // Relics: a grid of gems, tier pips under each; hover says what it does, right-click sets it down.
+            GUI.Label(new Rect(cx, cy, LW, 22), "RELICS  " + progress.RelicCount + "/" + Relics.MaxCarried, head);
+            cy += 22;
+            {
+                const int perRow = 4;
+                float tw = (LW - (perRow - 1) * 6f) / perRow, th = 46f;
+                float bottom = py + ph - (party ? 150f : 30f);
+                for (int i = 0; i < Relics.MaxCarried; i++)
+                {
+                    var r = new Rect(cx + (i % perRow) * (tw + 6f), cy + (i / perRow) * (th + 6f), tw, th);
+                    if (r.yMax > bottom) break;
+                    if (i >= progress.RelicCount) { ItemFrame(r, new Color(0.3f, 0.3f, 0.3f), false, true); continue; }
+                    var rel = progress.RelicAt(i);
+                    var gem = UiSkin.Readable(Relics.GemColor(rel));
+                    bool over = r.Contains(mouse);
+                    ItemFrame(r, gem, over, false);
+                    MapIcons.Draw(MapIcons.Id.Gem, new Vector2(r.x + 16, r.y + th / 2f), gem, 3f);
+                    var nm = new GUIStyle(small) { fontSize = 11, wordWrap = true, alignment = TextAnchor.MiddleLeft, normal = { textColor = over ? Color.white : new Color(0.88f, 0.85f, 0.78f) } };
+                    GUI.Label(new Rect(r.x + 30, r.y + 2, tw - 32, th - 4), Relics.Name(rel), nm);
+                    int tier = progress.RelicTierAt(i);
+                    for (int p = 0; p < tier; p++) Rect(r.xMax - 8 - p * 7, r.y + 5, 4, 4, Gold);
+                    if (over)
+                    {
+                        hoverText = progress.RelicLabel(i) + ": " + Relics.Describe(rel) + (tier > 0 ? "  (+" + Relics.TierPercent(tier) + "%)" : "");
+                        hintLine = "right-click  set down";
+                        if (click && button == 1) { progress.SetDownRelicRpc((byte)i); ev.Use(); }
+                    }
+                }
+            }
 
             // ---- The party purse: give gold, or even it out ----
             if (party)
             {
                 float qy = py + ph - 144;
-                GUI.Label(new Rect(cx, qy, 300, 22), "PARTY PURSE" + (DungeonDirector.ShareLoot ? "  (loot is shared)" : "  (finders keepers)"), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+                GUI.Label(new Rect(cx, qy, LW, 22), "PARTY PURSE" + (DungeonDirector.ShareLoot ? "  (loot is shared)" : "  (finders keepers)"), head);
                 qy += 22;
                 int shown = 0;
                 foreach (var ally in PlayerLife.All)
                 {
                     if (ally == null || ally.gameObject == player.gameObject || shown >= 3) continue;
                     var ap = ally.GetComponent<PlayerProgress>();
-                    GUI.Label(new Rect(cx, qy, 190, 20), ally.name + "   " + ap.Gold.Value + "g", small);
+                    GUI.Label(new Rect(cx, qy, 200, 20), ally.name + "   " + ap.Gold.Value + "g", small);
                     GUI.enabled = progress.Gold.Value >= 25;
-                    if (GUI.Button(new Rect(cx + 196, qy, 104, 20), "Give 25 gold")) progress.GiveGoldRpc(ally.NetworkObjectId, 25);
+                    if (GUI.Button(new Rect(cx + LW - 110, qy, 110, 20), "Give 25 gold")) progress.GiveGoldRpc(ally.NetworkObjectId, 25);
                     GUI.enabled = true;
                     qy += 23;
                     shown++;
                 }
-                if (GUI.Button(new Rect(cx, qy + 2, 300, 22), "Even out gold  (share what you have over the average)")) progress.EvenOutGoldRpc();
+                if (GUI.Button(new Rect(cx, qy + 2, LW, 22), "Even out gold  (share what you have over the average)")) progress.EvenOutGoldRpc();
             }
 
-            // ---- The pack: a 4 x 2 grid ----
-            float gx = px + 330, gy = py + 44;
-            GUI.Label(new Rect(gx, gy, 400, 22), "PACK  " + progress.BagCount + " / " + PlayerProgress.BagSize, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+            // ======== Middle column: the pack (4 x 2), runes, and the hover card ========
+            float gx = px + LW + 24, gy = py + 44;
+            float MW = Mathf.Min(560f, pw - LW - 24f - 384f);
+            if (MW < 360f) MW = 360f;
+            GUI.Label(new Rect(gx, gy, MW, 22), "PACK  " + progress.BagCount + "/" + PlayerProgress.BagSize, head);
             gy += 24;
-            const float cell = 122f, gap = 8f;
+            float gap = 8f, cell = (MW - 3 * gap) / 4f, cellH = 104f;
             for (int i = 0; i < PlayerProgress.BagSize; i++)
             {
-                var r = new Rect(gx + (i % 4) * (cell + gap), gy + (i / 4) * (cell * 0.8f + gap), cell, cell * 0.8f);
+                var r = new Rect(gx + (i % 4) * (cell + gap), gy + (i / 4) * (cellH + gap), cell, cellH);
                 var item = progress.BagItem(i);
                 bool over = r.Contains(mouse);
                 var qc = item.IsEmpty ? new Color(0.3f, 0.3f, 0.3f) : Gear.QualityColor(item.Quality);
-                Rect(r.x - 1, r.y - 1, r.width + 2, r.height + 2, new Color(qc.r, qc.g, qc.b, over && !item.IsEmpty ? 0.9f : 0.35f));
-                Rect(r.x, r.y, r.width, r.height, new Color(0.05f, 0.045f, 0.04f, 0.95f));
+                ItemFrame(r, qc, over, item.IsEmpty);
                 if (item.IsEmpty) continue;
-                GUI.Label(new Rect(r.x + 6, r.y + 4, r.width - 12, 16), Gear.SlotOf(item.Kind) == GearSlot.Armor ? "ARMOR" : "CHARM", small);
-                GUI.Label(new Rect(r.x + 6, r.y + 20, r.width - 12, r.height - 22), Gear.Name(item),
-                    new GUIStyle(small) { wordWrap = true, fontStyle = FontStyle.Bold, normal = { textColor = qc } });
+                bool armor = Gear.SlotOf(item.Kind) == GearSlot.Armor;
+                MapIcons.Draw(armor ? MapIcons.Id.Armor : MapIcons.Id.Charm, new Vector2(r.center.x, r.y + 32), qc, 4f);
+                var nm = new GUIStyle(small) { fontSize = 12, wordWrap = true, alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = qc } };
+                GUI.Label(new Rect(r.x + 4, r.y + 60, r.width - 8, r.height - 62), Gear.Name(item), nm);
                 if (over)
                 {
                     hovered = item;
+                    hintLine = "click  wear      right-click  scrap at Hobb      shift-click  drop" + (party ? "      ctrl-click  give" : "");
                     if (click && button == 0 && ev.control && party) { progress.BagGiftRpc(i); ev.Use(); }
                     else if (click && button == 0 && ev.shift) { progress.BagDropRpc(i); ev.Use(); }
                     else if (click && button == 0) { progress.BagEquipRpc(i); Art.Sfx.Play2D(Art.Sound.Block, 0.4f); ev.Use(); }
@@ -819,22 +900,33 @@ namespace Deepbound.UI
                     }
                 }
             }
+            float ry = gy + 2 * (cellH + gap) + 6;
 
-            // ---- Runes waiting for a socket ----
-            float ry = gy + 2 * (cell * 0.8f + gap) + 8;
-            GUI.Label(new Rect(gx, ry, 400, 22), "RUNES IN THE BAG (" + progress.RuneBagCount + ")  -  set or meld them at Ysolde's stones", new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
-            ry += 22;
-            for (int i = 0; i < progress.RuneBagCount && i < 6; i++)
+            // Runes waiting for a socket: only when there are some (an empty heading wasted the column).
+            if (progress.RuneBagCount > 0)
             {
-                var rune = progress.RuneInBag(i);
-                var rr = new Rect(gx + (i % 3) * 132, ry + (i / 3) * 20, 128, 18);
-                GUI.Label(rr, Runes.Name(rune), new GUIStyle(small) { normal = { textColor = Runes.Color(rune) } });
-                if (rr.Contains(mouse)) hoverText = Runes.Name(rune) + ": " + Runes.Describe(rune);
+                GUI.Label(new Rect(gx, ry, MW, 22), "RUNES  " + progress.RuneBagCount, head);
+                ry += 22;
+                float rw = (MW - 2 * 6f) / 3f;
+                for (int i = 0; i < progress.RuneBagCount && i < 6; i++)
+                {
+                    var rune = progress.RuneInBag(i);
+                    var rr = new Rect(gx + (i % 3) * (rw + 6f), ry + (i / 3) * 30, rw, 26);
+                    bool over = rr.Contains(mouse);
+                    var rc = Runes.Color(rune);
+                    ItemFrame(rr, rc, over, false);
+                    MapIcons.Draw(MapIcons.Id.Rune, new Vector2(rr.x + 14, rr.y + 13), rc, 2f);
+                    var rs = new GUIStyle(small) { wordWrap = false, normal = { textColor = rc } };
+                    GUI.Label(new Rect(rr.x + 28, rr.y + 4, rw - 30, 18), UiSkin.Fit(Runes.Name(rune), rs, rw - 30), rs);
+                    if (over) hoverText = Runes.Name(rune) + ": " + Runes.Describe(rune);
+                }
+                ry += ((Mathf.Min(progress.RuneBagCount, 6) + 2) / 3) * 30;
             }
 
-            // ---- What the mouse is over ----
-            // Below the pack and runes, clear of the grid.
-            float dx = gx, dy = Mathf.Min(ry + 52f, py + ph - 214f);
+            // ---- What the mouse is over: one card, always in the same place under the pack ----
+            // The hover card sits in its own column right of the pack, so it never covers a cell.
+            float dx = gx + MW + 24f, dy = py + 68f;
+            if (dx + 360f > px + pw) { dx = gx; dy = Mathf.Min(ry + 8f, py + ph - 214f); }
             if (!hovered.IsEmpty) DrawGearCard(hovered, dx, dy, !hoveredWorn);
             else if (hoverText != null)
             {
@@ -842,11 +934,96 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(dx + 10, dy + 8, 340, 60), hoverText, new GUIStyle(small) { wordWrap = true });
             }
 
-            DrawCraft(px + 870f, py + 44f, pw - 870f, ph - 70f, mouse);
+            // The controls only for what the mouse is on, in one quiet line at the foot.
+            if (hoveredWorn) hintLine = "right-click  take off";
+            if (hintLine != null)
+                GUI.Label(new Rect(px, py + ph - 22, pw, 20), hintLine, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.62f, 0.58f, 0.5f) } });
+        }
 
-            GUI.Label(new Rect(px, py + ph - 22, pw, 20),
-                "Pack: click to wear   right-click to scrap (at Hobb's anvil)   shift-click to drop" + (party ? "   ctrl-click to give to the nearest ally" : "") + "      Worn: right-click to take off      I / Esc close",
-                new GUIStyle(small) { alignment = TextAnchor.MiddleCenter });
+        /// <summary>
+        /// The CRAFT tab (2026-11-14): every recipe a tile - its icon, its name, its cost as coloured part stones - click to
+        /// make; dimmed when you cannot. The run's upgrades as pips, the throwables with a Ready button. Words only on hover.
+        /// </summary>
+        private void DrawWorkbench(float x, float y, float w, float h)
+        {
+            var mouse = Event.current.mousePosition;
+            var head = new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } };
+            // Parts on hand.
+            float hx = x;
+            foreach (Part part in System.Enum.GetValues(typeof(Part)))
+            {
+                var c = Crafting.PartColor(part);
+                Rect(hx, y + 4, 14, 14, c);
+                GUI.Label(new Rect(hx + 20, y, 70, 22), progress.PartCount(part) + " " + Crafting.PartName(part), new GUIStyle(label) { fontStyle = FontStyle.Bold, normal = { textColor = c } });
+                hx += 110;
+            }
+            y += 40;
+            string hover = null;
+            const int cols = 3;
+            float gap = 10f, tw = Mathf.Min(230f, (w * 0.66f - (cols - 1) * gap) / cols), th = 92f;
+            for (int i = 0; i < Crafting.Recipes.Length; i++)
+            {
+                var r = Crafting.Recipes[i];
+                string why = progress.CannotCraftReason(i);
+                bool can = why == null;
+                var tile = new Rect(x + (i % cols) * (tw + gap), y + (i / cols) * (th + gap), tw, th);
+                bool over = tile.Contains(mouse);
+                MapIcons.Id icon; Color col;
+                switch (r.Kind)
+                {
+                    case CraftKind.Potion: icon = MapIcons.Id.Flask; col = r.Arg == 0 ? FlaskHealth : r.Arg == 1 ? FlaskMana : r.Arg == 2 ? FlaskFrost : FlaskHoly; break;
+                    case CraftKind.Lining: icon = MapIcons.Id.Armor; col = new Color(0.8f, 0.7f, 0.55f); break;
+                    case CraftKind.Edge: icon = MapIcons.Id.Sword; col = new Color(0.85f, 0.88f, 0.95f); break;
+                    case CraftKind.Boots: icon = MapIcons.Id.Gear; col = new Color(0.7f, 0.55f, 0.4f); break;
+                    case CraftKind.Caltrops: icon = MapIcons.Id.Gem; col = new Color(0.7f, 0.76f, 0.82f); break;
+                    default: icon = MapIcons.Id.Skull; col = new Color(0.92f, 0.88f, 0.76f); break;
+                }
+                ItemFrame(tile, can ? col : new Color(0.35f, 0.33f, 0.3f), over, !can);
+                MapIcons.Draw(icon, new Vector2(tile.x + 30, tile.y + 34), can ? col : new Color(col.r * 0.45f, col.g * 0.45f, col.b * 0.45f), 4f);
+                string name = r.Kind == CraftKind.Potion && r.Arg == 1 ? Flasks.FullName(Flasks.Kind.Mana) : r.Name;
+                var nm = new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = true, normal = { textColor = can ? new Color(0.95f, 0.92f, 0.85f) : new Color(0.6f, 0.57f, 0.52f) } };
+                GUI.Label(new Rect(tile.x + 60, tile.y + 10, tw - 70, 40), name, nm);
+                // The cost: a stone per part kind with the count, red when you are short.
+                float cxp = tile.x + 60;
+                foreach (var (part, need) in new[] { (Part.Bone, r.Bone), (Part.Cloth, r.Cloth), (Part.Iron, r.Iron) })
+                {
+                    if (need <= 0) continue;
+                    bool lacking = progress.PartCount(part) < need;
+                    Rect(cxp, tile.y + 64, 12, 12, Crafting.PartColor(part));
+                    GUI.Label(new Rect(cxp + 15, tile.y + 60, 30, 20), need.ToString(), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = lacking ? new Color(1f, 0.45f, 0.4f) : new Color(0.9f, 0.88f, 0.8f) } });
+                    cxp += 44;
+                }
+                // Upgrades show how many of three are made.
+                int made = r.Kind == CraftKind.Lining ? progress.Lining : r.Kind == CraftKind.Edge ? progress.Whetted : r.Kind == CraftKind.Boots ? progress.Boots : -1;
+                if (made >= 0) for (int p = 0; p < Crafting.MaxUpgrade; p++) Rect(tile.xMax - 12 - p * 9, tile.y + 8, 6, 6, p < made ? Gold : new Color(0.3f, 0.28f, 0.25f));
+                if (over)
+                {
+                    hover = name + ": " + r.Description + (can ? "" : "   (" + why + ")");
+                    if (can && Event.current.type == EventType.MouseDown && Event.current.button == 0) { progress.CraftRpc((byte)i); Art.Sfx.Play2D(Art.Sound.Block, 0.45f); Event.current.Use(); }
+                }
+            }
+            // The throwables: count and Ready.
+            float rx = x + cols * (tw + gap) + 14, ryy = y;
+            GUI.Label(new Rect(rx, ryy, 260, 22), "THROWN  (" + Binds.Label(Bind.Tool) + ")", head);
+            ryy += 26;
+            foreach (var tool in new[] { CraftKind.Caltrops, CraftKind.Rattle })
+            {
+                int n = progress.ToolCount(tool);
+                bool ready = progress.ReadiedTool == tool;
+                var row = new Rect(rx, ryy, 250, 40);
+                ItemFrame(row, ready ? Gold : new Color(0.45f, 0.42f, 0.38f), row.Contains(mouse), n == 0);
+                MapIcons.Draw(tool == CraftKind.Caltrops ? MapIcons.Id.Gem : MapIcons.Id.Skull, new Vector2(row.x + 20, row.y + 20), ready ? Gold : new Color(0.85f, 0.82f, 0.75f), 3f);
+                GUI.Label(new Rect(row.x + 40, row.y + 10, 130, 20), Crafting.ToolName(tool) + "  x" + n, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = ready ? Gold : new Color(0.9f, 0.87f, 0.8f) } });
+                GUI.enabled = n > 0 && !ready;
+                if (GUI.Button(new Rect(row.xMax - 76, row.y + 9, 70, 22), ready ? "Readied" : "Ready", new GUIStyle(UiSkin.Button) { fontSize = 12 })) progress.ReadyToolRpc((byte)tool);
+                GUI.enabled = true;
+                ryy += 48;
+            }
+            if (hover != null)
+            {
+                Rect(rx, ryy + 10, 260, 84, new Color(0.04f, 0.035f, 0.03f, 0.93f));
+                GUI.Label(new Rect(rx + 10, ryy + 18, 240, 72), hover, new GUIStyle(small) { wordWrap = true });
+            }
         }
 
         /// <summary>
@@ -1462,7 +1639,6 @@ namespace Deepbound.UI
             if (stonePouch != null && stonePouch.InStasis)
             {
                 Rect(0, 0, UiScale.W, UiScale.H, new Color(0.55f, 0.57f, 0.62f, 0.32f));
-                UiSkin.Shadowed(new Rect(0, UiScale.H * 0.3f, UiScale.W, 30), "GRAVE STILLNESS  -  nothing can touch you", new GUIStyle(big) { fontSize = 22, normal = { textColor = new Color(0.85f, 0.88f, 0.95f) } });
             }
             UiTimer.Mark("DrawEnemyBars");
             if (!Player.PlayerDebuffs.LocalBlind) DrawRelicTags();
@@ -3520,15 +3696,16 @@ namespace Deepbound.UI
 
         /// <summary>
         /// Afflictions you cannot miss (2026-10-20): each tints the screen's edge in its own colour and
-        /// pulses, and the moment one takes hold its name lands big in the middle of the screen with
-        /// what to do about it.
+        /// pulses; the first time one takes hold in a session its name lands big in the middle of the screen with
+        /// what to do about it (after that, only the picture).
         /// </summary>
         private void DrawAfflictions(float w, float h)
         {
             debuffs ??= player.GetComponent<Player.PlayerDebuffs>();
             if (debuffs == null) return;
             bool poison = debuffs.Poisoned, frost = debuffs.Frostbitten, curse = debuffs.Cursed, mania = debuffs.Manic, root = debuffs.Rooted, silence = debuffs.Silenced, daze = debuffs.Dazed;
-            void Alert(bool now, bool was, string text, Color c) { if (now && !was) { afflictText = text; afflictColor = c; afflictAt = Time.time; } }
+            // The words once a session per affliction (show, don't tell, 2026-11-14): after that its picture at the edges says it.
+            void Alert(bool now, bool was, string text, Color c) { if (now && !was && FirstTime("alert:" + text)) { afflictText = text; afflictColor = c; afflictAt = Time.time; } }
             Alert(poison, wasPoison, "POISONED  -  drink Holy Water or a potion", new Color(0.55f, 1f, 0.3f));
             Alert(frost, wasFrost, "FROSTBITTEN  -  you are slowed", new Color(0.55f, 0.85f, 1f));
             Alert(curse, wasCurse, "WEAKENED  -  40% less damage (kill the Hexer)", new Color(0.75f, 0.45f, 1f));

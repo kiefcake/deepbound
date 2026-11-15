@@ -129,6 +129,8 @@ namespace Deepbound.World
                 structure.AddBox(rc + Vector3.up * (top - 0.03f), new Vector3(rr.width - 0.1f, 0.08f, rr.height - 0.1f), Mat.Flagstone);
             }
             foreach (var (low, high, rw) in room.Ramps) Ramp(low, high, rw, structure, dressing);
+            // Decks (mezzanines, belfry ledges): slabs on pillars, open beneath.
+            foreach (var (dr, top) in room.Decks) BuildDeck(room, dr, top, structure, lights);
 
             for (int side = 0; side < 4; side++) BuildWall(room, side, structure);
 

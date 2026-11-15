@@ -38,7 +38,8 @@ namespace Deepbound.Art
         private Emotes emotes;
         private PlayerProgress progress;
 
-        private Transform halo, crown, star, stars, eye, gag;
+        private Transform halo, crown, star, stars, eye, gag, bubble;
+        private Renderer bubbleR;
         private Transform feetA, feetB;
         private Renderer haloR, crownR, starR, eyeR, gagR, feetAR, feetBR;
         private Light glow;
@@ -115,6 +116,24 @@ namespace Deepbound.Art
             if (lastStand) Showing.Add("laststand"); if (warded) Showing.Add("warded"); if (poison) Showing.Add("poison"); if (frost) Showing.Add("frost");
             if (mania) Showing.Add("mania"); if (silenced) Showing.Add("silenced"); if (dazed) Showing.Add("dazed"); if (hexed) Showing.Add("hexed");
             if (weak) Showing.Add("weakened"); if (blind) Showing.Add("blinded");
+            bool shielded = (health != null && health.Shield.Value > 0.5f) || Forced("shield");
+            if (shielded) Showing.Add("shield");
+
+            // A shield (the Cleric's Aegis and the like): a pale gold-white bubble round the body while it holds.
+            if (!mine && shielded)
+            {
+                if (bubble == null)
+                {
+                    bubble = MeshKit.Part(transform, "ShieldBubble", MeshKit.Ball(1f, 16, 10), Mat.Telegraph, Vector3.zero).transform;
+                    bubbleR = bubble.GetComponent<Renderer>();
+                    bubbleR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                }
+                bubble.gameObject.SetActive(true);
+                bubble.localPosition = Vector3.up * 1f;
+                bubble.localScale = new Vector3(1.5f, 2.3f, 1.5f);
+                ArtLibrary.Tint(bubbleR, new Color(1f, 0.92f, 0.7f, 0.13f + 0.04f * Mathf.Sin(t * 3f)));
+            }
+            else if (bubble != null) bubble.gameObject.SetActive(false);
 
             // Head height: only on others (your own camera sits there).
             bool head = !mine;
@@ -274,7 +293,7 @@ namespace Deepbound.Art
             if (hidden) return;
             hidden = true;
             Showing.Clear();
-            foreach (var x in new[] { halo, crown, star, stars, eye, gag, feetA, feetB })
+            foreach (var x in new[] { halo, crown, star, stars, eye, gag, feetA, feetB, bubble })
                 if (x != null) x.gameObject.SetActive(false);
             if (glow != null) glow.enabled = false;
         }

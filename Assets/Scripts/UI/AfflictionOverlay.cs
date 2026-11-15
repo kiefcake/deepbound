@@ -28,7 +28,7 @@ namespace Deepbound.UI
         private float vineK, frostK, poisonK, curseK, maniaK, silenceK, dazeK, blindK, hexK;
         private float mendK, surgeK, barkK, furyK, stoneK, sanctK, lastStandK;
         // Buffs you see, not read (2026-11-14, show don't tell): blessed, inspired, zeal/martyr, the plague ward, brothers.
-        private float blessK, inspireK, zealK, martyrK, wardK, brotherK;
+        private float blessK, inspireK, zealK, martyrK, wardK, brotherK, shieldK;
         private float nextGold;
         private static float gulpAt = -10f, cleanseAt = -10f;
         private static Color gulpColor = Color.white;
@@ -99,6 +99,7 @@ namespace Deepbound.UI
             Approach(ref martyrK, fl != null && fl.Martyr, dt, 5f, 1.5f);
             Approach(ref wardK, on && deb.Warded, dt, 3f, 1.2f);
             Approach(ref brotherK, em != null && em.Brothers, dt, 4f, 1f);
+            Approach(ref shieldK, (hp != null && hp.Shield.Value > 0.5f) || Art.PlayerStatusFx.Forced("shield"), dt, 5f, 2.5f);
             // Gold motes drifting up from the bottom of your view while you stand blessed (the same gold as your halo, seen by others).
             if ((blessK > 0.3f || inspireK > 0.3f) && Time.time >= nextGold)
             {
@@ -165,7 +166,7 @@ namespace Deepbound.UI
         private void Paint()
         {
             bool flashes = Time.time - gulpAt < 0.9f || Time.time - cleanseAt < 0.8f;
-            if (vineK + frostK + poisonK + curseK + maniaK + silenceK + dazeK + blindK + hexK + mendK + surgeK + barkK + furyK + stoneK + sanctK + lastStandK + blessK + inspireK + zealK + martyrK + wardK + brotherK < 0.001f && !flashes && sparks.Count == 0) return;
+            if (vineK + frostK + poisonK + curseK + maniaK + silenceK + dazeK + blindK + hexK + mendK + surgeK + barkK + furyK + stoneK + sanctK + lastStandK + blessK + inspireK + zealK + martyrK + wardK + brotherK + shieldK < 0.001f && !flashes && sparks.Count == 0) return;
             var me = Player.NetworkPlayer.Local;
             if (me == null || PauseMenu.Open || GameHud.Cinematic) return;
             if (me.TryGetComponent<Player.PlayerLife>(out var life) && life.Downed.Value) return;
@@ -205,6 +206,8 @@ namespace Deepbound.UI
             if (zealK > 0f) Corners(smoke, h * (0.55f + 0.05f * Mathf.Abs(Mathf.Sin(t * 7f))), zealK, new Color(0.9f, 0.12f, 0.08f, (0.3f + 0.15f * Mathf.Abs(Mathf.Sin(t * 7f))) * calm), t * 1.5f, 2f);
             if (martyrK > 0f) Corners(frost, h * 0.45f, martyrK, new Color(1f, 0.8f, 0.75f, (0.35f + 0.25f * Mathf.Abs(Mathf.Sin(t * 5f))) * calm), 0f, 0f);
             if (wardK > 0f) Corners(smoke, h * 0.4f, wardK, new Color(0.4f, 0.8f, 0.5f, 0.22f * calm), t * 0.2f, 0.5f);
+            // A shield on you: a pale glassy rime at the corners, like looking out through the bubble the others see.
+            if (shieldK > 0f) Corners(frost, h * 0.4f, shieldK, new Color(1f, 0.93f, 0.75f, 0.35f * calm), 0f, 0f);
             if (brotherK > 0f) Corners(smoke, h * 0.35f, brotherK, new Color(1f, 0.6f, 0.25f, 0.18f * calm), t * 0.6f, 1f);
             float gulp = Mathf.Clamp01(1f - (t - gulpAt) / 0.9f);
             if (gulp > 0f) Corners(smoke, h * (0.45f + 0.35f * (1f - gulp)), gulp, new Color(gulpColor.r, gulpColor.g, gulpColor.b, 0.6f * gulp * calm), 0f, 0f);

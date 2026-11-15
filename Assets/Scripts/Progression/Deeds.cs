@@ -11,7 +11,8 @@ namespace Deepbound.Progression
     {
         public enum Deed { Gravewarden = 0, TideLich = 1, HollowKing = 2, Cardinal = 3, Unsung = 4, SawAbyss = 5, FirstRun = 6, Warden = 7,
             KeptOath = 8, FoundCat = 9, RepelledTallyman = 10, OutranTallyman = 11, Torchbearer = 12, DailyFloor = 13,
-            ThreeEdges = 14, FullyHoned = 15, RelicThree = 16, ExpeditionHome = 17 }
+            ThreeEdges = 14, FullyHoned = 15, RelicThree = 16, ExpeditionHome = 17,
+            AldousVane = 18, Choirmaster = 19, LairCleared = 20, PitLord = 21 }
 
         /// <summary>The Hall of Records' list (2026-10-20): every deed with the name it is carved under.</summary>
         public static readonly (Deed deed, string name)[] Listed =

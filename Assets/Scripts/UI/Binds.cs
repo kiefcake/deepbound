@@ -103,7 +103,8 @@ namespace Deepbound.UI
             if (Time.unscaledTime - lockedPressAt < 0.4f) return;
             lockedPressAt = Time.unscaledTime;
             Art.Sfx.Play2D(Art.Sound.UiError, 0.5f);
-            GameHud.Feed("SILENCED - your abilities return in a moment (Holy Water lifts it)", Enemies.CantorBrain.HushColor);
+            // The dimmed, crossed slots and the error note say it; the words only the first time (show, don't tell).
+            if (GameHud.FirstTime("silencedpress")) GameHud.Feed("SILENCED - your abilities return in a moment (Holy Water lifts it)", Enemies.CantorBrain.HushColor);
         }
         public static bool Up(Bind b) { var c = Control(b); var p = Pad(b); return (c != null && c.wasReleasedThisFrame) || (p != null && p.wasReleasedThisFrame); }
 

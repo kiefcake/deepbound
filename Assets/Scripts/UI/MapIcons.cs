@@ -10,7 +10,7 @@ namespace Deepbound.UI
     /// </summary>
     public static class MapIcons
     {
-        public enum Id { Chest, Skull, Fountain, Book, Coin, Waystone, Exit, Cross, Ping, Gear, Gem, Lever, Altar }
+        public enum Id { Chest, Skull, Fountain, Book, Coin, Waystone, Exit, Cross, Ping, Gear, Gem, Lever, Altar, Armor, Charm, Sword, Flask, Rune, Lair }
 
         private static readonly Dictionary<Id, string[]> Masks = new Dictionary<Id, string[]>
         {
@@ -27,6 +27,13 @@ namespace Deepbound.UI
             [Id.Gem] = new[] { "...#...", "..###..", ".#####.", "#######", ".#####.", "..###..", "...#..." },
             [Id.Lever] = new[] { "......##", ".....##.", "....##..", "...##...", "..##....", "#######.", "#######." },
             [Id.Altar] = new[] { "...#...", "..###..", "...#...", "#######", ".#####.", ".#...#.", ".#...#." },
+            // The bag's icons (2026-11-14): a cuirass, an amulet, a blade, a flask, a rune stone; the map's lair horns.
+            [Id.Armor] = new[] { "##.....##", "###...###", "#########", ".#######.", ".###.###.", ".#######.", ".###.###.", ".#######.", "..#####.." },
+            [Id.Charm] = new[] { "#.......#", ".#.....#.", "..#...#..", "...#.#...", "...###...", "..#####..", "..##.##..", "..#####..", "...###..." },
+            [Id.Sword] = new[] { "........#", ".......##", "......##.", ".....##..", "#...##...", ".####....", "..##.....", ".#.##....", "#..#....." },
+            [Id.Flask] = new[] { "...##...", "...##...", "..####..", ".##..##.", "########", "########", "########", ".######." },
+            [Id.Rune] = new[] { ".#####.", "##.#.##", "#..#..#", "#.###.#", "#..#..#", "##.#.##", ".#####." },
+            [Id.Lair] = new[] { "#.......#", "##.....##", ".##...##.", ".#######.", "##.###.##", "#########", ".#.#.#.#.", "..#####.." },
         };
 
         private static readonly Dictionary<Id, Texture2D> cache = new Dictionary<Id, Texture2D>();

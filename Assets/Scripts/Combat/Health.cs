@@ -347,17 +347,20 @@ namespace Deepbound.Combat
         {
             string tag = DamageTag;
             DamageTag = null;
-            if (!IsServer || !IsAlive || amount <= 0f) return 0f;
+            if (!IsServer || !IsSpawned || !IsAlive || amount <= 0f) return 0f;
+            // A killing blow (BossBrain.KillDamage, 1e5: tests, falls into the abyss) is never scaled or softened by DEF, so every
+            // modifier that lets it through still sees it at full size.
+            bool overwhelming = amount >= 1e5f;
             LastHitFrom = attackerId;
-            if (zoneBoostTarget == this) amount *= zoneBoost;
-            amount *= OmenDamageScale;
+            if (zoneBoostTarget == this && !overwhelming) amount *= zoneBoost;
+            if (!overwhelming) amount *= OmenDamageScale;
             if (Team == Team.Players) amount *= FloorPlayerDamageScale;
             LastHitAt = attackerPosition;
-            if (ServerOutgoingMultiplier != null && attackerId != ulong.MaxValue) amount *= ServerOutgoingMultiplier(this, attackerId);
+            if (ServerOutgoingMultiplier != null && attackerId != ulong.MaxValue && !overwhelming) amount *= ServerOutgoingMultiplier(this, attackerId);
 
             // DEF turns aside half its value from each hit, never more than 80% of it: armour
             // matters, but the rank and file can always still hurt you.
-            float dealt = Mathf.Max(amount - Defense * DefenseWeight, amount * MinDamageFraction);
+            float dealt = overwhelming ? amount : Mathf.Max(amount - Defense * DefenseWeight, amount * MinDamageFraction);
             if (Marked.Value) dealt *= MarkedMultiplier;
             if (Blighted.Value) dealt *= BlightedMultiplier;
             if (Team == Team.Enemies && InPlagueCloud != null && InPlagueCloud(transform.position)) dealt *= 1.25f;

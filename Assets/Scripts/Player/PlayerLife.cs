@@ -35,6 +35,19 @@ namespace Deepbound.Player
 
         public readonly NetworkVariable<bool> Downed = new NetworkVariable<bool>();
 
+        /// <summary>Owner: came down <paramref name="drop"/> metres (<see cref="FirstPersonMotor.SafeDrop"/>). The share is of max
+        /// health with DEF added back (armour does not soften the ground); a dodge's i-frames and shields still count.</summary>
+        [Rpc(SendTo.Server)]
+        public void FallRpc(float drop)
+        {
+            if (Downed.Value) return;
+            var h = GetComponent<Health>();
+            if (h == null || !h.IsAlive) return;
+            float share = Mathf.Clamp((Mathf.Min(drop, 30f) - FirstPersonMotor.SafeDrop) * FirstPersonMotor.FallShare, 0f, FirstPersonMotor.FallMax);
+            if (share <= 0.001f) return;
+            h.Tag("fall").ServerDamage(h.Max.Value * share + h.Defense * Health.DefenseWeight, transform.position + Vector3.up * 2f);
+        }
+
         /// <summary>Downed and unrevived this long (while an ally still stands) and you bleed out.</summary>
         public const float BleedOutSeconds = 40f;
 

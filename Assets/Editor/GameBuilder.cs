@@ -79,6 +79,12 @@ namespace Deepbound.EditorTools
             // The Wardens: one per act, at the end of the act's first floor.
             var wardens = new GameObject[5];
             for (int a = 0; a < wardens.Length; a++) wardens[a] = BuildEnemyPrefab("Warden" + a, EnemyType.Warden, loot, a);
+            // The lairs' keepers (2026-11-14), one per act 0-3.
+            var lairs = new[] { BuildEnemyPrefab("MotherMarrow", EnemyType.MotherMarrow, loot), BuildEnemyPrefab("LanternFisher", EnemyType.LanternFisher, loot),
+                BuildEnemyPrefab("TwiceCrowned", EnemyType.TwiceCrowned, loot), BuildEnemyPrefab("MirrorNun", EnemyType.MirrorNun, loot) };
+            // The Cinder Pit's lord and the rift that leads to it (2026-11-14).
+            var vharoth = BuildEnemyPrefab("Vharoth", EnemyType.Vharoth, loot);
+            var rift = BuildObjectPrefab<EmberRift>("EmberRift", Vector3.zero);
             var dummy = BuildDummyPrefab();
             var chest = BuildObjectPrefab<Chest>("Chest", new Vector3(1.1f, 0.8f, 0.7f));
             var altar = BuildObjectPrefab<BloodAltar>("BloodAltar", new Vector3(1.4f, 0.9f, 1.0f));
@@ -178,6 +184,11 @@ namespace Deepbound.EditorTools
             var wardenList = dso.FindProperty("wardenPrefabs");
             wardenList.arraySize = wardens.Length;
             for (int a = 0; a < wardens.Length; a++) wardenList.GetArrayElementAtIndex(a).objectReferenceValue = wardens[a].GetComponent<NetworkObject>();
+            dso.FindProperty("pitBossPrefab").objectReferenceValue = vharoth.GetComponent<NetworkObject>();
+            dso.FindProperty("riftPrefab").objectReferenceValue = rift.GetComponent<NetworkObject>();
+            var lairList = dso.FindProperty("lairPrefabs");
+            lairList.arraySize = lairs.Length;
+            for (int a = 0; a < lairs.Length; a++) lairList.GetArrayElementAtIndex(a).objectReferenceValue = lairs[a].GetComponent<NetworkObject>();
             dso.FindProperty("reliquaryPrefab").objectReferenceValue = reliquary.GetComponent<NetworkObject>();
             dso.FindProperty("lorePagePrefab").objectReferenceValue = lorePage.GetComponent<NetworkObject>();
             dso.FindProperty("crackedWallPrefab").objectReferenceValue = crackedWall.GetComponent<NetworkObject>();
@@ -219,6 +230,9 @@ namespace Deepbound.EditorTools
             EditorUtility.SetDirty(director);
             AssetDatabase.SaveAssets();
 
+            RegisterNetworkPrefabs(lairs);
+            RegisterNetworkPrefabs(vharoth, rift);
+            RegisterNetworkPrefabs(wardens);
             RegisterNetworkPrefabs(player, skeleton, archer, warden, lich, king, director, loot, dummy, ghoul, brute, necro, chest, altar, trap, breakable, gate, lever, fountain, sarcophagus, anvil, gearDrop, crackedWall, diceTable, coffer, gong, shrine, rangeTarget, wraith, cardinal, unsung, shieldbearer, mimic, hoarder, fateWheel, bountyNotice, gargoyle, omenStone, plaguebearer, frostWight, hexer, soulSkull, mourner, reliquary, cat, slots, blackjack, lorePage, folkBody, phoenix, handTorch, questCargo, questTrinket, poker, oilSlick, chandelier, vigilCandle, prisoner, puzzleRoom, puzzleStatue, wellFishing, knifeBoard, bellFrame, armWrestle, puzzleMirror, scaleWeight, statDraught, bargainAltar, soulRift, cellarHatch, hearth, remains);
             BuildScene(player, director);
 
@@ -336,7 +350,7 @@ namespace Deepbound.EditorTools
             return SavePrefab(root, "Player");
         }
 
-        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Warden, Entling, Orbweaver, ChoirAcolyte, AbyssEye, BonePiper, Cantor, RimeMagus, InkLamprey, WitheringHag, Bellringer }
+        private enum EnemyType { Skeleton, Archer, Gravewarden, TideLich, HollowKing, Ghoul, Brute, Necromancer, Wraith, Cardinal, Shieldbearer, Mimic, Hoarder, Gargoyle, Plaguebearer, FrostWight, Hexer, Mourner, Unsung, Warden, Entling, Orbweaver, ChoirAcolyte, AbyssEye, BonePiper, Cantor, RimeMagus, InkLamprey, WitheringHag, Bellringer, MotherMarrow, LanternFisher, TwiceCrowned, MirrorNun, Vharoth }
 
         // A Warden is a giant of its act's rank and file.
         private static readonly Art.CharacterArt.SkeletonKind[] WardenKinds =
@@ -348,7 +362,8 @@ namespace Deepbound.EditorTools
 
         private static GameObject BuildEnemyPrefab(string name, EnemyType type, GameObject loot, int act = 0)
         {
-            float scale = type == EnemyType.Warden ? WardenScale[act] : type == EnemyType.HollowKing ? 1.75f : type == EnemyType.Gravewarden ? 2.0f : type == EnemyType.TideLich ? 1.45f : type == EnemyType.Cardinal ? 1.7f
+            float scale = type == EnemyType.Vharoth ? 1.8f : type == EnemyType.MotherMarrow ? 1.55f : type == EnemyType.LanternFisher ? 1.7f : type == EnemyType.TwiceCrowned ? 1.35f : type == EnemyType.MirrorNun ? 1.3f
+                : type == EnemyType.Warden ? WardenScale[act] : type == EnemyType.HollowKing ? 1.75f : type == EnemyType.Gravewarden ? 2.0f : type == EnemyType.TideLich ? 1.45f : type == EnemyType.Cardinal ? 1.7f
                 : type == EnemyType.Brute ? 1.45f : type == EnemyType.Plaguebearer ? 1.15f : type == EnemyType.Ghoul ? 0.92f : 1f;
             var root = new GameObject(name);
 
@@ -408,6 +423,11 @@ namespace Deepbound.EditorTools
                 case EnemyType.InkLamprey: brain = root.AddComponent<InkLampreyBrain>(); break;
                 case EnemyType.WitheringHag: brain = root.AddComponent<WitheringHagBrain>(); break;
                 case EnemyType.Bellringer: brain = root.AddComponent<BellringerBrain>(); break;
+                case EnemyType.MotherMarrow: brain = root.AddComponent<MotherMarrowBrain>(); break;
+                case EnemyType.LanternFisher: brain = root.AddComponent<LanternFisherBrain>(); break;
+                case EnemyType.TwiceCrowned: brain = root.AddComponent<TwiceCrownedBrain>(); break;
+                case EnemyType.MirrorNun: brain = root.AddComponent<MirrorNunBrain>(); break;
+                case EnemyType.Vharoth: brain = root.AddComponent<VharothBrain>(); break;
                 default: brain = root.AddComponent<EnemyBrain>(); break;
             }
 
@@ -541,6 +561,33 @@ namespace Deepbound.EditorTools
                     Set("maxHealth", 120f); Set("damage", 12f); Set("defense", 0f); Set("moveSpeed", 2.9f);
                     Set("attackRange", 12f); Set("windup", 0.8f); Set("recovery", 1.8f); Set("aggroRange", 18f);
                     break;
+                // The lairs' keepers (2026-11-14): between a Warden and an act boss, before party scaling.
+                case EnemyType.MotherMarrow:
+                    Kind(Art.CharacterArt.SkeletonKind.WitheringHag);
+                    Set("maxHealth", 1400f); Set("damage", 22f); Set("defense", 3f); Set("moveSpeed", 2.7f);
+                    Set("attackRange", 3f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 40f);
+                    break;
+                case EnemyType.LanternFisher:
+                    Kind(Art.CharacterArt.SkeletonKind.FrostWight);
+                    Set("maxHealth", 2200f); Set("damage", 25f); Set("defense", 4f); Set("moveSpeed", 2.6f);
+                    Set("attackRange", 3.4f); Set("recovery", 1.2f); Set("aggroRange", 22f); Set("leashRange", 40f);
+                    break;
+                case EnemyType.TwiceCrowned:
+                    Kind(Art.CharacterArt.SkeletonKind.King);
+                    Set("maxHealth", 2800f); Set("damage", 27f); Set("defense", 5f); Set("moveSpeed", 3.0f);
+                    Set("attackRange", 3f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 40f);
+                    break;
+                case EnemyType.Vharoth:
+                    // A floor guardian of the deep acts (the Pit opens on floors 5-8).
+                    Kind(Art.CharacterArt.SkeletonKind.Gargoyle);
+                    Set("maxHealth", 3600f); Set("damage", 31f); Set("defense", 5f); Set("moveSpeed", 3.0f);
+                    Set("attackRange", 3.4f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 60f);
+                    break;
+                case EnemyType.MirrorNun:
+                    Kind(Art.CharacterArt.SkeletonKind.ChoirAcolyte);
+                    Set("maxHealth", 3100f); Set("damage", 29f); Set("defense", 4f); Set("moveSpeed", 2.8f);
+                    Set("attackRange", 2.8f); Set("recovery", 1.1f); Set("aggroRange", 22f); Set("leashRange", 40f);
+                    break;
                 case EnemyType.Bellringer:
                     // A sturdy brawler: the toll is the trick, the clapper the threat.
                     Kind(Art.CharacterArt.SkeletonKind.Bellringer);
@@ -576,7 +623,9 @@ namespace Deepbound.EditorTools
                     // Lighter than the act's own boss on the floor after; health climbs with the floor's tier.
                     so.FindProperty("act").intValue = act;
                     Kind(WardenKinds[act]);
-                    float[] hp = { 900f, 1500f, 2000f, 2300f, 2700f }, dmg = { 22f, 24f, 26f, 28f, 30f }, def = { 4f, 4f, 6f, 5f, 6f }, spd = { 2.6f, 3.0f, 2.7f, 2.9f, 2.4f };
+                    // 2026-11-14: stronger (the user: "make mini bosses stronger and more threatening"); Sir Aldous and the Choirmaster are
+                    // guardians now, at an act boss's weight.
+                    float[] hp = { 1250f, 2000f, 3000f, 3500f, 3500f }, dmg = { 25f, 28f, 30f, 32f, 34f }, def = { 4f, 4f, 6f, 5f, 6f }, spd = { 2.6f, 3.0f, 2.7f, 2.9f, 2.4f };
                     Set("maxHealth", hp[act]); Set("damage", dmg[act]); Set("defense", def[act]); Set("moveSpeed", spd[act]);
                     Set("attackRange", 3.3f); Set("recovery", 1.2f); Set("aggroRange", 20f); Set("leashRange", 60f);
                     break;

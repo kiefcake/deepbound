@@ -86,7 +86,20 @@ namespace Deepbound.World
         };
 
         /// <summary>The theme of a floor: two floors to an act (see DungeonDirector.Act).</summary>
-        public static DungeonTheme ForDepth(int depth) => DungeonDirector.IsWardenFloor(depth) ? ForAct(DungeonDirector.Act(depth)) : Deeper(DungeonDirector.Act(depth));
+        public static DungeonTheme ForDepth(int depth) => DungeonDirector.InPit ? Pit
+            : DungeonDirector.IsWardenFloor(depth) ? ForAct(DungeonDirector.Act(depth)) : Deeper(DungeonDirector.Act(depth));
+
+        /// <summary>The Cinder Pit (2026-11-14): black basalt veined red, a smoky ember murk, fire for light.</summary>
+        public static readonly DungeonTheme Pit = new DungeonTheme
+        {
+            Name = "The Cinder Pit", ActIndex = 4,
+            Fog = new Color(0.05f, 0.015f, 0.01f), FogDensity = 0.04f,
+            AmbientSky = new Color(0.14f, 0.05f, 0.03f), AmbientEquator = new Color(0.1f, 0.035f, 0.02f), AmbientGround = new Color(0.07f, 0.025f, 0.015f),
+            TorchColor = new Color(1f, 0.5f, 0.2f), BrazierColor = new Color(1f, 0.4f, 0.12f),
+            StoneTint = new Color(0.48f, 0.36f, 0.33f), FloorTint = new Color(0.42f, 0.3f, 0.27f),
+            ShaftColor = new Color(1f, 0.4f, 0.15f),
+            ArcherChance = 0.25f,
+        };
 
         /// <summary>Which act a (possibly variant) theme belongs to; -1 for the originals (look them up).</summary>
         public int ActIndex = -1;
@@ -128,7 +141,7 @@ namespace Deepbound.World
             "The Nave", "The Choir Below",
             "The Last Stair", "Where the Hymn Ends",
         };
-        public static string FloorName(int depth) => FloorNames[Mathf.Clamp(depth, 0, FloorNames.Length - 1)];
+        public static string FloorName(int depth) => DungeonDirector.InPit ? "The Furnace Below" : FloorNames[Mathf.Clamp(depth, 0, FloorNames.Length - 1)];
         private static Color Max(Color a, Color b) => new Color(Mathf.Max(a.r, b.r), Mathf.Max(a.g, b.g), Mathf.Max(a.b, b.b), a.a);
     }
 }

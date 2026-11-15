@@ -394,10 +394,22 @@ namespace Deepbound.Enemies
 
         protected override LootTable Loot => LootTable.SkeletonKing;
 
+        /// <summary>The floor's guardian takes the boss bar as it spawns; a lair's mini boss only once it is fought (LairBrain).</summary>
+        protected virtual bool ClaimsActiveOnSpawn => true;
+
+        /// <summary>Any peer: put <paramref name="b"/> on the boss bar, or (null) hand it back to the floor's guardian.</summary>
+        public static void ClaimActive(BossBrain b)
+        {
+            if (b != null) { Active = b; return; }
+            Active = null;
+            foreach (var other in FindObjectsByType<BossBrain>(FindObjectsSortMode.None))
+                if (other != null && other.ClaimsActiveOnSpawn && other.IsSpawned && !other.IsDead) { Active = other; break; }
+        }
+
         public override void OnNetworkSpawn()
         {
             base.OnNetworkSpawn();
-            Active = this;
+            if (ClaimsActiveOnSpawn) Active = this;
             if (IsServer)
             {
                 health.IncomingModifiers.Add((dmg, from) => Broken.Value && dmg < KillDamage ? dmg * BreakTaken : dmg);
@@ -418,7 +430,7 @@ namespace Deepbound.Enemies
 
         public override void OnNetworkDespawn()
         {
-            if (Active == this) Active = null;
+            if (Active == this) { Active = null; if (!ClaimsActiveOnSpawn) ClaimActive(null); }
             base.OnNetworkDespawn();
         }
 

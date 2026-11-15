@@ -183,8 +183,8 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.WardenBrain
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 2300
-  damage: 28
+  maxHealth: 3500
+  damage: 32
   defense: 5
   moveSpeed: 2.9
   attackRange: 3.3

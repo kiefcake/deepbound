@@ -396,6 +396,7 @@ namespace Deepbound.World
             bossSealed = false;
             if (IsServer) BossSealedSync.Value = false;
             ambush = null;
+            lair = null;
             vault = null;
             leversAnnounced = 0;
             breaches.Clear();
@@ -422,7 +423,7 @@ namespace Deepbound.World
             foreach (var g in SpawnGates(layout.BossRoom)) bossGates.Add(g);
 
             var room = PickAmbushRoom(layout);
-            if (room == null) return;
+            if (room == null || IsLairRoom(room)) return;
             ambush = new Ambush { Room = room };
             ambush.Gates.AddRange(SpawnGates(ambush.Room));
         }
@@ -439,7 +440,8 @@ namespace Deepbound.World
             return candidates.Count == 0 ? null : candidates[rng.Next(candidates.Count)];
         }
 
-        private bool IsAmbushRoom(DungeonLayout.Room room) => ambush != null && ambush.Room == room;
+        /// <summary>The ambush room - or the lair, which is kept just as clear of everything else.</summary>
+        private bool IsAmbushRoom(DungeonLayout.Room room) => (ambush != null && ambush.Room == room) || IsLairRoom(room);
 
         /// <summary>Sarcophagi in crypts, the vault's gate, levers and treasure, and the fountain.</summary>
         private void SetupFeatures(DungeonLayout layout)
@@ -504,6 +506,17 @@ namespace Deepbound.World
                         ritualSummons = 0;
                         break;
 
+                    case RoomFeature.Belfry when chestPrefab != null && room.FeatureSpots.Count >= 1:
+                    {
+                        // The bell-loft's chest: the reward for the climb.
+                        var face = room.Center - room.FeatureSpots[0];
+                        face.y = 0f;
+                        var rot = face.sqrMagnitude > 0.01f ? Quaternion.LookRotation(face) : Quaternion.identity;
+                        var loft = Spawn(chestPrefab, room.FeatureSpots[0], rot);
+                        loft.GetComponent<Chest>().SetLootPrefab(lootPrefab);
+                        spawned.Add(loft);
+                        break;
+                    }
                     case RoomFeature.Lightless when handTorchPrefab != null && room.FeatureSpots.Count >= 2:
                     {
                         Spawn(handTorchPrefab, Art.Vfx.Floor(room.FeatureSpots[0]), Quaternion.identity);
@@ -646,6 +659,7 @@ namespace Deepbound.World
         {
             TickBossArena();
             TickAmbush();
+            TickLair();
             TickRoomClears();
             TickEruptions();
             TickVault();
@@ -677,7 +691,7 @@ namespace Deepbound.World
                 var trap = Layout.FlameTraps[ti];
                 if (!JetBurning(ti, trap.Phase, now)) continue;
                 var along = Vector3.Cross(trap.Across, Vector3.up);
-                foreach (var h in Health.All)
+                foreach (var h in JetScratch())
                 {
                     if (h == null || !h.IsAlive || h.Team == Team.Props) continue;
                     var d = h.transform.position - trap.At;
@@ -803,6 +817,10 @@ namespace Deepbound.World
         /// Corridor traps take a third of the player's health (2026-11-05, the user), whatever the floor, class or difficulty.
         /// DEF is added back so armour does not soften it; a dodge, a block or a shield still does.
         /// </summary>
+        // A burn can kill, and a death can spawn (bone piles, splits): walk a copy of Health.All.
+        private static readonly System.Collections.Generic.List<Health> jetScratch = new System.Collections.Generic.List<Health>();
+        private static System.Collections.Generic.List<Health> JetScratch() { jetScratch.Clear(); jetScratch.AddRange(Health.All); return jetScratch; }
+
         public static float TrapBite(Health h) => (h.Max.Value * TrapHealthShare + h.Defense * Health.DefenseWeight)
             * (h.TryGetComponent<Progression.PlayerProgress>(out var tp) ? tp.TrapScale : 1f);
 

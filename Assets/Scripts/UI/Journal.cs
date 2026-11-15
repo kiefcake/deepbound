@@ -37,6 +37,9 @@ namespace Deepbound.UI
             new Entry { Floor = 4, Title = "Eulogy for the Hollow King", Text = "Ossric, last king of Cathedra, promised a reign until the Last Morning. He ruled. He judged. He waited. He asked, at the end, whether the morning was always so cold. It is, your Majesty. We are sorry. Somebody should have told you." },
             new Entry { Floor = 4, Title = "Eulogy for the Pale Cardinal", Text = "The one who sang. For four hundred years the hymn took a little more of them each night: their sleep, their name, their face. What was left was only the note. You stopped the note. Brother Aldric sang for the Cardinal that night, badly, in the shrine. It was the first hymn sung for them in four centuries." },
             new Entry { Floor = 4, Title = "The Unsung", Text = "It had never been sung to. It did not know what a song was for. You showed it: a song is for the end of something. It understood, we think, at the very last. In the castle above, the dealer stopped shuffling, and the cat came in from the shaft and slept by the fire all night, for the first time anyone remembers." },
+            new Entry { Floor = 4, Title = "Eulogy for Sir Aldous Vane", Text = "The King's Shield. He was told to hold the door until the King came back, and the King never came back, and nobody ever told him to stop. He did not kneel to you. He fell over, which is different, and we will not argue the point with him." },
+            new Entry { Floor = 4, Title = "Eulogy for the Choirmaster", Text = "He taught the dead to sing in tune, which nobody had managed with the living. He kept time with a bone baton for four hundred years and never once missed the downbeat. The hymn missed him, after. You could hear the gap where he used to be." },
+            new Entry { Floor = 4, Title = "The Ember Archon", Text = "Vharoth, who kept the old furnace under the world, and grew and shrank with its breath. The fire was there before the castle and will be there after. It does not need a keeper. It had one anyway, for a while, and then you came down the burning stair and it had one fewer." },
             // The first expedition (2026-11-14): found on the remains, one an act (Progression.Expedition), and the dealer's name.
             new Entry { Floor = 5, Title = "Old Maud's whistle", Text = Progression.Expedition.Roll[0].Note },
             new Entry { Floor = 5, Title = "Pell's lantern", Text = Progression.Expedition.Roll[1].Note },
@@ -93,9 +96,12 @@ namespace Deepbound.UI
         /// <summary>The journal page written when a guardian falls (deed 0-4), or -1.</summary>
         public static int EulogyFor(int deed)
         {
+            // Deeds past the act bosses name their page (2026-11-14: Sir Aldous and the Choirmaster are guardians now).
+            string title = deed == 18 ? "Eulogy for Sir Aldous Vane" : deed == 19 ? "Eulogy for the Choirmaster" : deed == 21 ? "The Ember Archon" : null;
+            if (title != null) { for (int i = 0; i < Entries.Length; i++) if (Entries[i].Title == title) return i; return -1; }
             int n = 0;
             for (int i = 0; i < Entries.Length; i++)
-                if (Entries[i].Floor == 4) { if (n == deed) return i; n++; }
+                if (Entries[i].Floor == 4) { if (n == deed && deed <= 4) return i; n++; }
             return -1;
         }
 

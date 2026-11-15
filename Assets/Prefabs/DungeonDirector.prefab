@@ -102,6 +102,13 @@ MonoBehaviour:
   vigilCandlePrefab: {fileID: 3769822899982802960, guid: 15e0ac9b1bbd2a74eac0bd6a96dc07d8, type: 3}
   prisonerPrefab: {fileID: 1988850448541398791, guid: 3f5a6deefa962104d9ca92ad3541b2d8, type: 3}
   hearthPrefab: {fileID: 1748497935164898033, guid: 0689a98b9b404564e92254db093dfaba, type: 3}
+  lairPrefabs:
+  - {fileID: 670928092646327066, guid: 6773d4175fb7db543848ac34ef629a02, type: 3}
+  - {fileID: 7199358712742663777, guid: e3618e7860a725240a7b973588761a8b, type: 3}
+  - {fileID: 4396745586335258151, guid: 3959f07caae5cc744accecf4ae46969c, type: 3}
+  - {fileID: 2062832792219020808, guid: 991385ccaa970ba4c8af6555667d3f93, type: 3}
+  pitBossPrefab: {fileID: 4817415503594187636, guid: abaf3f08afe91dc44814c08e1bbf9b6f, type: 3}
+  riftPrefab: {fileID: 2541950566337156274, guid: 584620ec29db8ce4995759ca75b72c9a, type: 3}
   puzzleMirrorPrefab: {fileID: 2631131412916418695, guid: ef875bc161d01d5428564124bd6a4809, type: 3}
   scaleWeightPrefab: {fileID: 6725833587995569330, guid: a66b8228c073df2449cb9acc08b4c5d1, type: 3}
   statDraughtPrefab: {fileID: 4508464783430533778, guid: e6548af449bc12a49a11330dcf83d462, type: 3}

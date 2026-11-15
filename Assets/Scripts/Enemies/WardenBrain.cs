@@ -62,7 +62,18 @@ namespace Deepbound.Enemies
         };
 
         public override string DisplayName => Names[Mathf.Clamp(act, 0, 4)];
-        public override string Epithet => Epithets[Mathf.Clamp(act, 0, 4)];
+        public override string Epithet => Promoted ? PromotedEpithets[act] : Epithets[Mathf.Clamp(act, 0, 4)];
+
+        /// <summary>
+        /// 2026-11-14 (the user: "make mini bosses stronger and more threatening. lets change some of the wardens into actual
+        /// bosses"): Sir Aldous Vane and the Choirmaster are guardians in their own right now - three phase gates, a fight of
+        /// four movements, a eulogy and a deed of their own. The other three Wardens get a third, furious movement.
+        /// </summary>
+        public bool Promoted => act == 2 || act == 3;
+        private static readonly string[] PromotedEpithets = { "", "", "The King's Shield, Who Never Knelt", "Master of the Black Choir" };
+        /// <summary>The last movement: faster specials, double charges, endless hymns.</summary>
+        private bool fury;
+        private float Pace => fury ? 0.6f : 1f;
         public override string Hint => Hints[Mathf.Clamp(act, 0, 4)];
         /// <summary>Below half every Warden knows its second move.</summary>
         private bool Second => forceSecond || (health != null && health.Fraction < 0.5f);
@@ -88,9 +99,10 @@ namespace Deepbound.Enemies
         /// <summary>For tests: second moves used (toss, undertow, recharge, verse, rot pool).</summary>
         public int SecondMoves { get; private set; }
         public override string LastWords => Words[Mathf.Clamp(act, 0, 4)];
-        public override Progression.Deeds.Deed Deed => Progression.Deeds.Deed.Warden;
+        public override Progression.Deeds.Deed Deed => act == 2 ? Progression.Deeds.Deed.AldousVane : act == 3 ? Progression.Deeds.Deed.Choirmaster : Progression.Deeds.Deed.Warden;
 
-        protected override float[] PhaseGates => new[] { 0.5f };
+        private static readonly float[] PromotedGates = { 0.75f, 0.45f, 0.2f }, WardenGates = { 0.66f, 0.33f };
+        protected override float[] PhaseGates => Promoted ? PromotedGates : WardenGates;
         protected override float ShockwaveCooldown => health.Fraction < 0.5f ? 10f : 14f;
         protected override Color ShockwaveColor => act == 1 ? new Color(0.5f, 0.85f, 1f) : act == 3 ? new Color(0.75f, 0.45f, 1f) : act == 4 ? new Color(0.6f, 0.9f, 0.3f) : new Color(1f, 0.6f, 0.3f);
 
@@ -200,6 +212,7 @@ namespace Deepbound.Enemies
 
         protected override void OnPhaseGate(int index)
         {
+            if (index > 0) { LaterMovement(index); return; }
             // The second move, named as it is learned.
             HintFeedRpc(SecondHints[Mathf.Clamp(act, 0, 4)]);
             string[] taunts = { "More bones for the pile!", "Rise, drowned ones. Rise!", "To me, the King's guard!", "Sing, my choir. SING!", "Wake, all of you. Feed." };
@@ -250,9 +263,62 @@ namespace Deepbound.Enemies
         // What it throws at a fleeing party: the spear of the King's Shield, hex bolts, spit.
         protected override ProjectileKind? QuickKind => act == 2 ? ProjectileKind.Arrow : act == 3 ? ProjectileKind.ShadowBolt : act == 4 ? ProjectileKind.Spit : act == 1 ? ProjectileKind.Frostbolt : (ProjectileKind?)null;
 
+        /// <summary>The movements after the first: the promoted two get two set pieces each; the rest go into a fury.</summary>
+        private void LaterMovement(int index)
+        {
+            switch (act)
+            {
+                case 2 when index == 1:
+                    // The Royal Lance: three fans of lances, each aimed where you are going, then a fresh guard.
+                    Survive("The Royal Lance", "Down, all of you. DOWN!", "Lances follow your feet", 8.5f, () => Summon(scaledPlayers, 4f, 0.8f));
+                    StartCoroutine(LanceVolleys(3, 2.6f));
+                    break;
+                case 2:
+                    // Last of the King's Guard: no wall to hide behind any more. Every charge comes twice.
+                    Transition("Last of the King's Guard", "I have held this door four hundred years. I can hold it one more hour.", 1.8f, Rage);
+                    break;
+                case 3 when index == 1:
+                    // The Second Choir: acolytes sing a ward round him; he is untouchable while any of them still sing.
+                    var choir = SummonOf(guardPrefab != null ? guardPrefab : minionPrefab, 2 + scaledPlayers, 5f, 1.2f);
+                    InvulnerableWhile("The Second Choir", "Sing for me. Sing!", "His choir wards him", choir, 24f, () => Taunt("Alone, then. A solo."));
+                    break;
+                case 3:
+                    // Requiem: rings that close in from the walls, and his shadow bolts through them.
+                    Survive("Requiem", "Hear how it ends.", "The rings close in: slip through the gaps", 9f, Rage);
+                    for (int e = 0; e < 2; e++)
+                        StartPattern(new Pattern
+                        {
+                            Arms = 18, Interval = 1.1f, Speed = 7.5f, Spin = e == 0 ? 10f : -10f, Wobble = 6f, Damage = damage * 0.45f, Kind = ProjectileKind.ShadowBolt,
+                            Duration = 8.4f, AimedEvery = e == 0 ? 2.1f : 0f, Range = 24f, Origin = Orbit(0.5f, 0f, e * 10f, 1.4f),
+                        });
+                    break;
+                default:
+                    // The other Wardens: their last stand is a fury - its own dead at its side, and no rest between moves.
+                    string[] furyTaunts = { "BONES! MORE BONES!", "Down. Into. The. DARK.", "", "", "Rot... with... me..." };
+                    Transition("Fury", furyTaunts[Mathf.Clamp(act, 0, 4)], 1.5f, () => { Summon(1 + scaledPlayers, 4f, 0.8f); Rage(); });
+                    break;
+            }
+        }
+
+        private void Rage()
+        {
+            fury = true;
+            ServerEnrage(9999f);
+            nextSpecial = Time.time + 1.5f;
+        }
+
+        private System.Collections.IEnumerator LanceVolleys(int count, float gap)
+        {
+            for (int i = 0; i < count && !IsDead; i++)
+            {
+                ServerLanceFan();
+                yield return new WaitForSeconds(gap);
+            }
+        }
+
         protected override void BeginAttack()
         {
-            windup = health.Fraction < 0.5f ? 0.75f : 0.9f;
+            windup = fury ? 0.6f : health.Fraction < 0.5f ? 0.75f : 0.9f;
             attackArc = 150f;
             base.BeginAttack();
         }
@@ -265,32 +331,32 @@ namespace Deepbound.Enemies
             {
                 case 2:
                     if (distanceToTarget < 4.5f || !CombatQuery.ClearLine(transform.position + Vector3.up * 1.2f, target)) return false;
-                    rechargeLeft = Second ? 1 : 0;
-                    BeginChargeWindup(1.1f);
-                    nextSpecial = Time.time + 9f;
+                    rechargeLeft = Second || fury ? 1 : 0;
+                    BeginChargeWindup(fury ? 0.8f : 1.1f);
+                    nextSpecial = Time.time + 9f * Pace;
                     return true;
                 case 3:
                     // Alternates: a fan of hex bolts (and a curse on its prey), then the Hymn of Madness.
-                    if (hymnNext) { BeginHymn(); nextSpecial = Time.time + 7f; hymnNext = false; return true; }
+                    if (hymnNext) { BeginHymn(); nextSpecial = Time.time + 7f * Pace; hymnNext = fury; return true; }
                     Volley(ProjectileKind.ShadowBolt, 5, 14f, 15f);
                     if (target != null && target.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerCurse(8f, NetworkObjectId);
-                    nextSpecial = Time.time + 6.5f;
+                    nextSpecial = Time.time + 6.5f * Pace;
                     hymnNext = true;
                     return true;
                 case 4:
-                    if (distanceToTarget > SlamRadius + 3f) { Volley(ProjectileKind.Spit, 5, 12f, 13f); nextSpecial = Time.time + 6f; return true; }
+                    if (distanceToTarget > SlamRadius + 3f) { Volley(ProjectileKind.Spit, fury ? 7 : 5, 12f, 13f); nextSpecial = Time.time + 6f * Pace; return true; }
                     BeginSlam();
-                    nextSpecial = Time.time + 8f;
+                    nextSpecial = Time.time + 8f * Pace;
                     return true;
                 default:
                     if (distanceToTarget > SlamRadius + 1.5f)
                     {
                         if (!Second || !BoneToss()) return false;
-                        nextSpecial = Time.time + 6f;
+                        nextSpecial = Time.time + 6f * Pace;
                         return true;
                     }
                     BeginSlam();
-                    nextSpecial = Time.time + 8f;
+                    nextSpecial = Time.time + 8f * Pace;
                     return true;
             }
         }

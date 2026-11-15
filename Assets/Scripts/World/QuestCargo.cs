@@ -82,14 +82,33 @@ namespace Deepbound.World
         private void CrackFxRpc(byte cracks)
         {
             Sfx.Play(Who == FolkId.Marta ? Sound.Shatter : Sound.Creak, transform.position + Vector3.up * 0.4f, 0.9f, 1.1f);
-            UI.GameHud.ShowCombo(transform.position + Vector3.up * 0.9f, cracks >= MaxCracks ? "RUINED" : "CRACKED " + cracks + "/" + MaxCracks, new Color(1f, 0.5f, 0.35f));
+            // Shown on the cargo, not spelled out (2026-11-14): splinters fly and a dark split opens in it (VisualTick).
+            Vfx.Embers(transform.position + Vector3.up * 0.3f, 8, new Color(0.55f, 0.4f, 0.25f), 3f, 0.05f, 0.6f);
         }
 
         /// <summary>Never by the waystone: <see cref="DungeonDirector"/> settles cargo as the grave lift rises.</summary>
         protected override void ServerDelivered(NetworkObject carrier, DungeonLayout layout) { }
 
+        private int cracksShown;
+
         protected override void VisualTick(bool carried)
         {
+            // One dark split per crack, on every peer (late joiners too), so a carried crate shows how close it is to ruin.
+            while (visual != null && cracksShown < Cracks.Value)
+            {
+                cracksShown++;
+                var rng = new System.Random((int)NetworkObjectId * 31 + cracksShown);
+                float a = (float)rng.NextDouble() * 360f;
+                var dir = Quaternion.Euler(0f, a, 0f) * Vector3.forward;
+                var pos = dir * 0.2f + Vector3.up * (0.12f + 0.22f * (float)rng.NextDouble());
+                for (int k = 0; k < 3; k++)
+                {
+                    var seg = MeshKit.Part(visual, "Crack" + cracksShown + "_" + k, MeshKit.Box(new Vector3(0.016f, 0.1f, 0.016f)), Mat.Steel,
+                        pos + Vector3.up * (k - 1) * 0.08f + Quaternion.Euler(0f, a, 0f) * Vector3.right * ((k % 2) * 0.03f),
+                        new Vector3(0f, a, (k % 2 == 0 ? 25f : -30f)));
+                    ArtLibrary.Tint(seg.GetComponent<Renderer>(), new Color(0.04f, 0.03f, 0.02f));
+                }
+            }
             if (lamp != null) lamp.intensity = 2f + Mathf.Sin(Time.time * 9f) * 0.15f;
         }
 

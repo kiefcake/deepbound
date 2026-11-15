@@ -40,6 +40,52 @@ namespace Deepbound.World
         }
 
         /// <summary>
+        /// A DECK (2026-11-14): a stone slab with its top at <paramref name="top"/>, pillars along its open edges (none where
+        /// a stair arrives or on a doorway's line), a parapet broken where stairs and bridges land, and a brazier.
+        /// </summary>
+        private static void BuildDeck(DungeonLayout.Room room, Rect r, float top, MeshKit.Batcher b, Transform lights)
+        {
+            const float th = DungeonLayout.DeckThickness;
+            b.AddBox(new Vector3(r.center.x, top - th / 2f, r.center.y), new Vector3(r.width, th, r.height), Mat.Flagstone);
+            var rb = room.Bounds;
+            var edges = new System.Collections.Generic.List<(Vector3 a, Vector3 e, Vector3 n)>();
+            if (r.yMin > rb.yMin + 0.3f) edges.Add((new Vector3(r.xMin, 0f, r.yMin), new Vector3(r.xMax, 0f, r.yMin), Vector3.back));
+            if (r.yMax < rb.yMax - 0.3f) edges.Add((new Vector3(r.xMin, 0f, r.yMax), new Vector3(r.xMax, 0f, r.yMax), Vector3.forward));
+            if (r.xMin > rb.xMin + 0.3f) edges.Add((new Vector3(r.xMin, 0f, r.yMin), new Vector3(r.xMin, 0f, r.yMax), Vector3.left));
+            if (r.xMax < rb.xMax - 0.3f) edges.Add((new Vector3(r.xMax, 0f, r.yMin), new Vector3(r.xMax, 0f, r.yMax), Vector3.right));
+            bool NearStair(Vector3 p)
+            {
+                foreach (var (lo, hi, w) in room.Ramps)
+                    foreach (var end in new[] { lo, hi })
+                        if (Mathf.Abs(end.y - top) < 0.3f && Vector2.Distance(new Vector2(p.x, p.z), new Vector2(end.x, end.z)) < w / 2f + 0.9f) return true;
+                return false;
+            }
+            foreach (var (a, e, n) in edges)
+            {
+                float len = Vector3.Distance(a, e);
+                var dir = (e - a).normalized;
+                bool alongX = Mathf.Abs(dir.x) > 0.5f;
+                int count = Mathf.Max(2, Mathf.RoundToInt(len / 4.5f) + 1);
+                for (int i = 0; i < count; i++)
+                {
+                    var p = a + dir * Mathf.Lerp(0.5f, len - 0.5f, i / (float)(count - 1)) - n * 0.4f;
+                    // Keep the room's centre lines clear: that is where the doorways lead in.
+                    if (NearStair(p) || Mathf.Abs(alongX ? p.x - room.Center.x : p.z - room.Center.z) < CorridorClear) continue;
+                    b.AddBox(p + Vector3.up * ((top - th) / 2f), new Vector3(0.6f, top - th, 0.6f), Mat.StoneWall);
+                }
+                for (float t = 0.6f; t < len - 0.5f; t += 1.2f)
+                {
+                    var p = a + dir * t - n * 0.2f;
+                    if (NearStair(p)) continue;
+                    b.AddBox(p + Vector3.up * (top + 0.45f), alongX ? new Vector3(1.1f, 0.9f, 0.3f) : new Vector3(0.3f, 0.9f, 1.1f), Mat.StoneWall);
+                }
+            }
+            Props.Brazier(lights, new Vector3(r.center.x, top, r.center.y), theme.TorchColor, false);
+        }
+
+        private const float CorridorClear = DungeonLayout.CorridorWidth / 2f + 0.6f;
+
+        /// <summary>
         /// A floor with a lowered rectangle in it (a sunken court or a cistern basin): the
         /// ring around it at floor level, the low floor, its walls, and a ramp down the
         /// middle of each edge.

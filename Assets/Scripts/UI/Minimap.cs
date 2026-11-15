@@ -147,11 +147,15 @@ namespace Deepbound.UI
 
             if (!large && !Settings.ShowMinimap) return;
             float w = UiScale.W, h = UiScale.H;
-            float size = large ? Mathf.Min(w * 0.6f, h * 0.84f) : SmallSize;
-            var frame = large ? new Rect(w / 2f - size / 2f - 120f, h / 2f - size / 2f, size, size) : new Rect(w - size - 18f, 18f, size, size);
-            float span = large ? MapSpan(layout) : 62f;
+            // The large map (2026-11-14, the user: "fix map ui"): kept clear of the health and ability bars at the foot of the
+            // screen, and zoomed to what you know of the floor (charted rooms, the doorways off them, the guardian's room),
+            // not the whole floor's extent - a fresh floor was a few specks in a black square.
+            float size = large ? Mathf.Min(w * 0.58f, h - LargeTop - LargeFoot) : SmallSize;
+            var frame = large ? new Rect(w / 2f - size / 2f - 120f, LargeTop, size, size) : new Rect(w - size - 18f, 18f, size, size);
+            Vector3 centre = player.transform.position;
+            float span = 62f;
+            if (large) KnownBounds(layout, out centre, out span);
             float scale = size / span;
-            Vector3 centre = large ? MapCentre(layout) : player.transform.position;
             int depth = Mathf.Clamp(layout.Depth, 0, FloorCol.Length - 1);
             var floor = FloorCol[depth];
             float px = large ? 2.4f : 1.8f;
@@ -449,8 +453,8 @@ namespace Deepbound.UI
         private void DrawCamp()
         {
             float w = UiScale.W, h = UiScale.H;
-            float size = large ? Mathf.Min(w * 0.6f, h * 0.84f) : SmallSize;
-            var frame = large ? new Rect(w / 2f - size / 2f - 120f, h / 2f - size / 2f, size, size) : new Rect(w - size - 18f, 18f, size, size);
+            float size = large ? Mathf.Min(w * 0.58f, h - LargeTop - LargeFoot) : SmallSize;
+            var frame = large ? new Rect(w / 2f - size / 2f - 120f, LargeTop, size, size) : new Rect(w - size - 18f, 18f, size, size);
             float span = large ? Lobby.Radius * 2f + 16f : 62f;
             float scale = size / span;
             Vector3 centre = large ? Lobby.Origin + new Vector3(0f, 0f, 3f) : player.transform.position;
@@ -671,22 +675,22 @@ namespace Deepbound.UI
             y += 26f;
             int seen = 0;
             foreach (var r in layout.Rooms) if (explored.Contains(r.Id)) seen++;
-            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 20f), "Rooms charted  " + seen + " / " + layout.Rooms.Count, UiSkin.Small);
+            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 20f), seen + " / " + layout.Rooms.Count + " rooms", UiSkin.Small);
             y += 28f;
             var entries = new (MapIcons.Id icon, Color col, string text)[]
             {
-                (MapIcons.Id.Skull, new Color(1f, 0.35f, 0.3f), "The guardian"),
-                (MapIcons.Id.Waystone, new Color(0.55f, 0.85f, 1f), "Waystone (souls, the reliquary)"),
-                (MapIcons.Id.Chest, new Color(1f, 0.8f, 0.35f), "Unopened chest"),
+                (MapIcons.Id.Skull, new Color(1f, 0.35f, 0.3f), "Guardian"),
+                (MapIcons.Id.Waystone, new Color(0.55f, 0.85f, 1f), "Waystone"),
+                (MapIcons.Id.Chest, new Color(1f, 0.8f, 0.35f), "Chest"),
                 (MapIcons.Id.Fountain, new Color(0.45f, 0.78f, 1f), "Fountain"),
-                (MapIcons.Id.Book, new Color(0.93f, 0.86f, 0.66f), "Journal page"),
-                (MapIcons.Id.Lever, new Color(1f, 0.7f, 0.35f), "Vault lever"),
+                (MapIcons.Id.Book, new Color(0.93f, 0.86f, 0.66f), "Page"),
+                (MapIcons.Id.Lever, new Color(1f, 0.7f, 0.35f), "Lever"),
                 (MapIcons.Id.Coin, new Color(1f, 0.82f, 0.35f), "Peddler"),
                 (MapIcons.Id.Cross, new Color(1f, 0.86f, 0.45f), "Reliquary"),
-                (MapIcons.Id.Exit, new Color(0.78f, 0.58f, 1f), "The way out"),
-                (MapIcons.Id.Gem, new Color(0.75f, 0.55f, 1f), "Relic, sigil or rune"),
-                (MapIcons.Id.Gear, new Color(0.55f, 0.85f, 0.55f), "Gear for you"),
-                (MapIcons.Id.Ping, new Color(0.35f, 0.7f, 1f), "A ping"),
+                (MapIcons.Id.Exit, new Color(0.78f, 0.58f, 1f), "Way out"),
+                (MapIcons.Id.Gem, new Color(0.75f, 0.55f, 1f), "Relic"),
+                (MapIcons.Id.Gear, new Color(0.55f, 0.85f, 0.55f), "Gear"),
+                (MapIcons.Id.Ping, new Color(0.35f, 0.7f, 1f), "Ping"),
             };
             foreach (var (icon, col, text) in entries)
             {
@@ -694,8 +698,6 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(panel.x + 44f, y, panel.width - 54f, 20f), text, UiSkin.Small);
                 y += 23f;
             }
-            y += 6f;
-            GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 40f), "Dashed rooms with a ? lie beyond doors you have not taken.", new GUIStyle(UiSkin.Small) { wordWrap = true, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.75f, 0.72f, 0.65f) } });
         }
 
         private static void ArrowAt(Vector2 at, float yaw, Color color, float size)
@@ -749,6 +751,24 @@ namespace Deepbound.UI
                 UiSkin.Rect(new Rect(r.x, y, t, len), c);
                 UiSkin.Rect(new Rect(r.xMax - t, y, t, len), c);
             }
+        }
+
+        private const float LargeTop = 40f, LargeFoot = 150f;
+
+        /// <summary>The square that holds everything you know of the floor (and you), with a margin; at least 56 m across.</summary>
+        private void KnownBounds(DungeonLayout layout, out Vector3 centre, out float span)
+        {
+            float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;
+            void Take(float x0, float x1, float z0, float z1) { minX = Mathf.Min(minX, x0); maxX = Mathf.Max(maxX, x1); minZ = Mathf.Min(minZ, z0); maxZ = Mathf.Max(maxZ, z1); }
+            foreach (var r in layout.Rooms)
+            {
+                if (!explored.Contains(r.Id) && r.Kind != RoomKind.Boss && !Neighbour(layout, r)) continue;
+                Take(r.Center.x - r.Size.x / 2f, r.Center.x + r.Size.x / 2f, r.Center.z - r.Size.y / 2f, r.Center.z + r.Size.y / 2f);
+            }
+            var me = player.transform.position;
+            Take(me.x - 4f, me.x + 4f, me.z - 4f, me.z + 4f);
+            centre = new Vector3((minX + maxX) / 2f, 0f, (minZ + maxZ) / 2f);
+            span = Mathf.Max(56f, Mathf.Max(maxX - minX, maxZ - minZ) + 14f);
         }
 
         private static float MapSpan(DungeonLayout layout)

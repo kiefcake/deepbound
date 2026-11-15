@@ -492,6 +492,8 @@ namespace Deepbound.World
                 shieldbearerPrefab, mimicPrefab, hoarderPrefab, gargoylePrefab, plaguebearerPrefab, frostWightPrefab, hexerPrefab, mournerPrefab, entlingPrefab, orbweaverPrefab, acolytePrefab, abyssEyePrefab, bonePiperPrefab, cantorPrefab, magusPrefab, lampreyPrefab, hagPrefab, ringerPrefab };
             if (bossPrefabs != null) all.AddRange(bossPrefabs);
             if (wardenPrefabs != null) all.AddRange(wardenPrefabs);
+            if (lairPrefabs != null) all.AddRange(lairPrefabs);
+            if (pitBossPrefab != null) all.Add(pitBossPrefab);
             foreach (var p in all) if (p != null && p.TryGetComponent<EnemyBrain>(out var b)) yield return b;
         }
         [SerializeField] private NetworkObject dummyPrefab;
@@ -872,11 +874,12 @@ namespace Deepbound.World
             if (IsServer) StartFloor(depth);
         }
 
-        private void StartFloor(int depth)
+        private void StartFloor(int depth, bool pit = false)
         {
             ClearSpawned();
 
-            int seed = FloorSeed(depth);
+            // The Cinder Pit is marked by a negative seed (DungeonDirector.Pit).
+            int seed = pit ? -UnityEngine.Random.Range(1, int.MaxValue) : FloorSeed(depth);
             Player.Teamwork.ServerFloorStarted();
             Phase.Value = RunPhase.Exploring;
             PhaseEndsAt.Value = 0;
@@ -896,11 +899,13 @@ namespace Deepbound.World
                 - (DifficultyIndex.Value >= Difficulty.TormentIndex ? Difficulty.TormentTallySooner : 0f);
 
             BakeNavMesh();
+            SetupLair(Layout);
             SpawnObjects(Layout);
             SetupEncounters(Layout);
             SetupFeatures(Layout);
             SetupHoles(Layout);
             SpawnCellars(Layout);
+            MaybeSpawnRift(Layout);
             ApplyOmen(true);
             SpawnEnemies(Layout);
             if (!Practice.Value) BeginContract(Layout.Depth);
@@ -911,7 +916,7 @@ namespace Deepbound.World
                 if (p.TryGetComponent<PlayerProgress>(out var prog)) prog.ServerNewFloor();
             }
 
-            if (depth == AbyssDepth) AbyssArrivalRpc(SealCount);
+            if (depth == AbyssDepth && !pit) AbyssArrivalRpc(SealCount);
             Debug.Log("[Director] Floor " + (depth + 1) + " started, seed " + seed + ", " + spawned.Count + " enemies.");
         }
 
@@ -984,6 +989,7 @@ namespace Deepbound.World
             {
                 Layout = DungeonLayout.Generate(floor.x, floor.y);
                 built = DungeonBuilder.Build(Layout);
+                BuildLava(Layout, built != null ? built.transform : null);
             }
 
             // The geometry must exist in the physics scene before anyone is placed on it,
@@ -1056,6 +1062,12 @@ namespace Deepbound.World
                     if (i >= room.EnemySpawns.Count) p += new Vector3(UnityEngine.Random.Range(-1.5f, 1.5f), 0f, UnityEngine.Random.Range(-1.5f, 1.5f));
 
                     var prefab = PickEnemy(layout.Depth, theme, ref hasBrute, ref hasNecro, out int pack);
+                    // High ground (2026-11-14): most posts up on a deck, ledge, balcony or terrace go to the bows and the casters.
+                    if (p.y > 1.5f && UnityEngine.Random.value < HighGroundRanged)
+                    {
+                        var up = PickHighGround(layout.Depth);
+                        if (up != null) { prefab = up; pack = 1; }
+                    }
                     for (int k = 0; k < pack; k++)
                     {
                         var at = p + (k > 0 ? new Vector3(UnityEngine.Random.Range(-1f, 1f), 0f, UnityEngine.Random.Range(-1f, 1f)) : Vector3.zero);
@@ -1248,19 +1260,23 @@ namespace Deepbound.World
 
             var spawn = layout.BossSpawn;
             int act = Act(layout.Depth);
-            var bossPrefab = IsWardenFloor(layout.Depth) && wardenPrefabs != null && act < wardenPrefabs.Length && wardenPrefabs[act] != null
+            var bossPrefab = layout.Seed < 0 && pitBossPrefab != null ? pitBossPrefab
+                : IsWardenFloor(layout.Depth) && wardenPrefabs != null && act < wardenPrefabs.Length && wardenPrefabs[act] != null
                 ? wardenPrefabs[act] : bossPrefabs[Mathf.Clamp(act, 0, bossPrefabs.Length - 1)];
             var bossObj = Instantiate(bossPrefab, spawn, Quaternion.LookRotation(layout.BossRoom.Center - spawn + Vector3.back * 0.01f));
             bossObj.Spawn(destroyWithScene: true);
             boss = bossObj.GetComponent<BossBrain>();
             // The Lich raises archers from the water; everyone else raises swordsmen. Wardens call their act's dead.
-            if (boss is WardenBrain)
+            if (boss is VharothBrain)
+                boss.SetMinionPrefab(ghoulPrefab != null ? ghoulPrefab : skeletonPrefab);
+            else if (boss is WardenBrain)
                 boss.SetMinionPrefab(act == 1 && frostWightPrefab != null ? frostWightPrefab : act == 2 && shieldbearerPrefab != null ? shieldbearerPrefab
                     : act == 3 && wraithPrefab != null ? wraithPrefab : act == 4 && plaguebearerPrefab != null ? plaguebearerPrefab : skeletonPrefab);
             else
                 boss.SetMinionPrefab(boss is TideLichBrain && archerPrefab != null ? archerPrefab
                     : (boss is CardinalBrain || boss is UnsungBrain) && wraithPrefab != null ? wraithPrefab : skeletonPrefab);
-            boss.SetGuardPrefab(boss is UnsungBrain && mournerPrefab != null ? mournerPrefab : shieldbearerPrefab);
+            boss.SetGuardPrefab(boss is UnsungBrain && mournerPrefab != null ? mournerPrefab
+                : boss is WardenBrain wb && wb.Act == 3 && acolytePrefab != null ? acolytePrefab : shieldbearerPrefab);
             boss.ServerScaleBoss(players, layout.Depth);
             // Every Seal the party failed to break makes the thing at the bottom stronger.
             if (boss is UnsungBrain)
@@ -1507,11 +1523,34 @@ namespace Deepbound.World
         /// deeper floors bring archers, brutes and necromancers. At most one brute and one
         /// necromancer per room — they are the room's centrepiece, not its wallpaper.
         /// </summary>
+        public const float HighGroundRanged = 0.65f;
+
+        /// <summary>Who holds a high post: archers mostly, a hexer or an orbweaver deeper down.</summary>
+        private NetworkObject PickHighGround(int depth)
+        {
+            float r = UnityEngine.Random.value;
+            if (Act(depth) >= 1 && r < 0.18f && hexerPrefab != null) return hexerPrefab;
+            if (depth >= 1 && r < 0.3f && orbweaverPrefab != null) return orbweaverPrefab;
+            return archerPrefab;
+        }
+
         private NetworkObject PickEnemy(int depth, DungeonTheme theme, ref bool hasBrute, ref bool hasNecro, out int pack)
         {
             pack = 1;
             int act = Act(depth);
             float tier = Tier(depth);
+            if (InPit)
+            {
+                // The Pit's own: packs of charred ghouls (its imps), brutes, gargoyles (its demons), archers and plaguebearers.
+                float pr = UnityEngine.Random.value;
+                if (pr < 0.32f && ghoulPrefab != null) { pack = UnityEngine.Random.value < 0.5f ? 3 : 2; return ghoulPrefab; }
+                if (pr < 0.44f && brutePrefab != null && !hasBrute) { hasBrute = true; return brutePrefab; }
+                if (pr < 0.56f && gargoylePrefab != null) return gargoylePrefab;
+                if (pr < 0.74f && archerPrefab != null) return archerPrefab;
+                if (pr < 0.84f && plaguebearerPrefab != null) return plaguebearerPrefab;
+                if (pr < 0.90f && magusPrefab != null) return magusPrefab;
+                return skeletonPrefab;
+            }
             float brute = brutePrefab != null && !hasBrute ? 0.06f + 0.03f * tier : 0f;
             float necro = necromancerPrefab != null && !hasNecro && act >= 1 ? 0.06f + 0.03f * tier : 0f;
             float ghoul = ghoulPrefab != null ? 0.22f : 0f;
@@ -1616,6 +1655,7 @@ namespace Deepbound.World
                 case RunPhase.Exploring:
                     if (Layout == null) break;
                     TickEncounters();
+                    TickLava();
                     TickTally(now);
                     if (TickPractice(now)) break;
                     if (PartyWiped())

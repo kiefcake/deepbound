@@ -13,7 +13,7 @@ namespace Deepbound.World
     /// chamber (braziers empower the room's dead until smashed). Side rooms can be a
     /// Vault or a Fountain.
     /// </summary>
-    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply, Statues, Chimes, Mirrors, Scales, Draught }
+    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply, Statues, Chimes, Mirrors, Scales, Draught, Mezzanine, Belfry }
 
     /// <summary>Boss arena shapes: a colonnade (cover), a raised dais under the throne, or broken ruins.</summary>
     public enum BossArena : byte { Colonnade = 0, Dais = 1, Ruins = 2 }
@@ -74,6 +74,9 @@ namespace Deepbound.World
             public readonly List<(Rect r, float h)> Raised = new List<(Rect, float)>();
             /// <summary>Ramps up onto raised ground: low end, high end, width.</summary>
             public readonly List<(Vector3 low, Vector3 high, float w)> Ramps = new List<(Vector3, Vector3, float)>();
+            /// <summary>DECKS (2026-11-14): slabs on pillars with their top at the given height, open beneath (a mezzanine, belfry
+            /// ledges). Unlike <see cref="Raised"/> ground, the floor under them is still floor.</summary>
+            public readonly List<(Rect r, float h)> Decks = new List<(Rect, float)>();
 
             /// <summary>The height of the raised ground under a point (0 = the floor).</summary>
             public float RaisedAt(Vector3 p)
@@ -523,6 +526,8 @@ namespace Deepbound.World
             // Every other combat room gets one of the newer mechanics, shuffled, no repeats
             // until all have been used.
             var extras = new List<RoomFeature> { RoomFeature.Gallery, RoomFeature.SunkenCourt, RoomFeature.Cistern, RoomFeature.Pendulums, RoomFeature.Ritual, RoomFeature.Library, RoomFeature.Pyre, RoomFeature.Gauntlet, RoomFeature.Terrace, RoomFeature.Ziggurat };
+            extras.Add(RoomFeature.Mezzanine);
+            extras.Add(RoomFeature.Belfry);
             // From the second floor, a hall with no light but the one you carry.
             if (layout.Depth >= 1) extras.Add(RoomFeature.Lightless);
             for (int i = extras.Count - 1; i > 0; i--)
@@ -530,6 +535,13 @@ namespace Deepbound.World
                 int j = rng.Next(i + 1);
                 (extras[i], extras[j]) = (extras[j], extras[i]);
             }
+            // VERTICALITY (2026-11-14, the user: "more verticality in general, think of dark and darker"): the first room dealt
+            // always has high ground (a mezzanine, a belfry, balconies, a terrace or a ziggurat).
+            int hi = extras.FindIndex(f => f == RoomFeature.Mezzanine || f == RoomFeature.Belfry || f == RoomFeature.Gallery || f == RoomFeature.Terrace || f == RoomFeature.Ziggurat);
+            if (hi > 0) (extras[0], extras[hi]) = (extras[hi], extras[0]);
+            // Shots: these features dealt first.
+            if (ForceFeatures != null)
+                for (int fi = ForceFeatures.Length - 1; fi >= 0; fi--) { extras.Remove(ForceFeatures[fi]); extras.Insert(0, ForceFeatures[fi]); }
             for (int k = 0; ; k++)
             {
                 var room = Take();
@@ -579,6 +591,10 @@ namespace Deepbound.World
         }
 
         public const float BalconyHeight = 2.8f, BalconyDepth = 3.2f, SunkenDepth = 1.8f, CisternDepth = 0.6f, TerraceHeight = 1.8f, ZigguratStep = 0.8f;
+        /// <summary>Deck heights: a mezzanine over a blank wall, one that must clear a doorway, the belfry's two ledges.</summary>
+        /// <summary>Shots and tests: the combat-room features to deal first (null = by the seed).</summary>
+        public static RoomFeature[] ForceFeatures;
+        public const float MezzanineLow = 3.6f, MezzanineHigh = 5.4f, BelfryLow = 5.4f, BelfryHigh = 10f, DeckThickness = 0.4f, LedgeDepth = 3.4f;
 
         /// <summary>Give a combat room one of the newer mechanics, and the size and shape it needs.</summary>
         private static void ShapeFeature(Room room, RoomFeature feature, System.Random rng)
@@ -699,6 +715,66 @@ namespace Deepbound.World
                     room.FeatureSpots.Add(room.Center + Vector3.up * ZigguratStep * 3f);
                     break;
                 }
+                case RoomFeature.Mezzanine:
+                {
+                    // A MEZZANINE (2026-11-14): a stone deck on pillars over a third of the room and a stair up its face. Fight
+                    // under it or from it; its dead shoot down, and the bold ones jump.
+                    room.Size = new Vector2(Mathf.Max(room.Size.x, 24f), Mathf.Max(room.Size.y, 24f));
+                    room.Height = 10f;
+                    int side = -1;
+                    for (int sd = 0; sd < 4; sd++) if (!room.Doors[sd]) { side = sd; break; }
+                    // Over a blank wall it can sit low; over a doorway it must clear the arch.
+                    float h = side >= 0 ? MezzanineLow : MezzanineHigh;
+                    if (side < 0) side = rng.Next(4);
+                    var dd = Dir[side];
+                    var outward = new Vector3(dd.x, 0f, dd.y);
+                    bool mAlongX = side == 0 || side == 2;
+                    var along = mAlongX ? Vector3.right : Vector3.forward;
+                    float wallLen = mAlongX ? room.Size.x : room.Size.y, span = mAlongX ? room.Size.y : room.Size.x;
+                    float depth = Mathf.Min(Mathf.Clamp(span * 0.4f, 8f, 11f), span / 2f - CorridorWidth / 2f - 0.4f);
+                    var mid = room.Center + outward * (span / 2f - depth / 2f);
+                    var size = mAlongX ? new Vector2(wallLen, depth) : new Vector2(depth, wallLen);
+                    room.Decks.Add((new Rect(mid.x - size.x / 2f, mid.z - size.y / 2f, size.x, size.y), h));
+                    // The stair comes straight at the deck's face, off to one side.
+                    var face = room.Center + outward * (span / 2f - depth);
+                    float s = rng.NextDouble() < 0.5 ? 1f : -1f;
+                    var high = face + along * (s * wallLen * 0.3f) + Vector3.up * h;
+                    room.Ramps.Add((high - outward * (h / 0.58f) - Vector3.up * h, high, 2.6f));
+                    break;
+                }
+                case RoomFeature.Belfry:
+                {
+                    // A BELFRY (2026-11-14): a tall shaft with a ledge high on one wall and a higher one across from it, a stair to
+                    // the first and a narrow bridge climbing between them. The bell-loft holds a chest; the fall is a long one.
+                    room.Size = new Vector2(Mathf.Max(room.Size.x, 22f), Mathf.Max(room.Size.y, 22f));
+                    room.Height = 15f;
+                    bool bAlongX = rng.NextDouble() < 0.5;
+                    int sideA = bAlongX ? 0 : 1;
+                    if (rng.NextDouble() < 0.5) sideA = (sideA + 2) % 4;
+                    var outA = new Vector3(Dir[sideA].x, 0f, Dir[sideA].y);
+                    var along = bAlongX ? Vector3.right : Vector3.forward;
+                    float wallLen = bAlongX ? room.Size.x : room.Size.y, span = bAlongX ? room.Size.y : room.Size.x;
+                    Rect Ledge(Vector3 outward)
+                    {
+                        var m = room.Center + outward * (span / 2f - LedgeDepth / 2f);
+                        var sz = bAlongX ? new Vector2(wallLen, LedgeDepth) : new Vector2(LedgeDepth, wallLen);
+                        return new Rect(m.x - sz.x / 2f, m.z - sz.y / 2f, sz.x, sz.y);
+                    }
+                    room.Decks.Add((Ledge(outA), BelfryLow));
+                    room.Decks.Add((Ledge(-outA), BelfryHigh));
+                    var faceA = room.Center + outA * (span / 2f - LedgeDepth);
+                    var faceB = room.Center - outA * (span / 2f - LedgeDepth);
+                    float s = rng.NextDouble() < 0.5 ? 1f : -1f;
+                    // The stair up to the low ledge, from the middle of the floor.
+                    var highA = faceA + along * (s * wallLen * 0.28f) + Vector3.up * BelfryLow;
+                    room.Ramps.Add((highA - outA * (BelfryLow / 0.58f) - Vector3.up * BelfryLow, highA, 2.6f));
+                    // The bridge across, at the other end of the ledges.
+                    float bridgeAt = -s * wallLen * 0.22f;
+                    room.Ramps.Add((faceA + along * bridgeAt + Vector3.up * BelfryLow, faceB + along * bridgeAt + Vector3.up * BelfryHigh, 2f));
+                    // The loft's chest, at the far end from where the bridge lands.
+                    room.FeatureSpots.Add(room.Center - outA * (span / 2f - LedgeDepth / 2f - 0.3f) + along * (s * wallLen * 0.3f) + Vector3.up * BelfryHigh);
+                    break;
+                }
                 case RoomFeature.Ritual:
                     room.Size = new Vector2(Mathf.Max(room.Size.x, 20f), Mathf.Max(room.Size.y, 20f));
                     room.Height = 8f;
@@ -786,6 +862,17 @@ namespace Deepbound.World
                     float off = (alongX ? room.Size.y : room.Size.x) / 2f - BalconyDepth / 2f;
                     float t = (float)(rng.NextDouble() - 0.5) * (alongX ? room.Size.x : room.Size.y) * 0.4f;
                     room.EnemySpawns.Add(room.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)) + Vector3.up * (BalconyHeight + 0.1f));
+                }
+                // Decks and ledges post their own up high, one or two each (the director arms most of them with bows).
+                foreach (var (dr, top) in room.Decks)
+                {
+                    int n = 1 + (rng.NextDouble() < 0.6 ? 1 : 0);
+                    bool longX = dr.width >= dr.height;
+                    for (int k = 0; k < n; k++)
+                    {
+                        float f = n == 1 ? 0.1f : (k == 0 ? -0.3f : 0.32f);
+                        room.EnemySpawns.Add(new Vector3(dr.center.x + (longX ? dr.width * f : 0f), top + 0.1f, dr.center.y + (longX ? 0f : dr.height * f)));
+                    }
                 }
             }
         }
