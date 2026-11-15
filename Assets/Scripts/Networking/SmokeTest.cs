@@ -4930,6 +4930,15 @@ namespace Deepbound.Networking
                 vm.Teleport(vsr.Center + Vector3.up * 0.1f, local.transform.rotation);
                 yield return new WaitForSeconds(0.3f);
                 vhp.ServerSetFraction(1f);
+                // Formations: every company fills its first posts with someone.
+                {
+                    int filled = 0, asked = 0; bool fb = false, fn = false;
+                    foreach (DungeonDirector.Formation fm in new[] { DungeonDirector.Formation.ShieldWall, DungeonDirector.Formation.Horde, DungeonDirector.Formation.Coven })
+                        for (int fi = 0; fi < 5; fi++) { asked++; if (DungeonDirector.Instance.FormationPick(fm, fi, 4, ref fb, ref fn, out int fpack) != null && fpack >= 1) filled++; }
+                    bool pb = false, pn = false;
+                    var packLead = DungeonDirector.Instance.FormationPick(DungeonDirector.Formation.Pack, 0, 4, ref pb, ref pn, out int ghouls);
+                    Log("formations", filled + " / " + asked + " posts filled, pack leads with " + (packLead != null ? packLead.name : "nobody") + " x" + ghouls, filled == asked && packLead != null && ghouls == 2);
+                }
                 Log("mantle", "began " + began + ", on top " + onTop + " (y " + local.transform.position.y.ToString("F1") + "), tall wall refused " + refused, began && onTop && refused);
                 Log("verticality", "mezzanines " + mezz + " belfries " + belf + " undercrofts " + under + " perched rooms " + perched + " ruins " + ruins + " ramparts " + ramparts + " malformed " + bad + ", " + drop.ToString("0.0") + " m fall left " + afterFall.ToString("0.00") + ", leaps " + leaps + " landed " + landed,
                     mezz > 0 && belf > 0 && under > 0 && perched > 0 && ruins > 0 && ramparts > 0 && bad == 0 && (drop < 4.8f || afterFall < 0.99f) && afterFall > 0.5f && leaps == 1 && landed);

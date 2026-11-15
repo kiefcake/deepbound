@@ -181,6 +181,8 @@ namespace Deepbound.Player
 
             if (mantling) TickMantle();
             else if (controller.enabled) ApplyMovement(MoveInput, canMove && (CanSprint || manic) && sprintKey, canMove && jumpKey);
+            // Moved by something else (a seat, the lift, a drag): the fall tracker starts again from wherever we are put down.
+            if (!controller.enabled) airStale = true;
 
             // The world sways while madness has you.
             maniaRoll = Mathf.Lerp(maniaRoll, manic ? Mathf.Sin(Time.time * 4.3f) * 7f + Mathf.Sin(Time.time * 7.1f) * 3f : 0f, 1f - Mathf.Exp(-Time.deltaTime * 6f));
@@ -290,14 +292,17 @@ namespace Deepbound.Player
             // Cellars and the chasm rescue teleport, so they never count.
             if (grounded && !wasGrounded && !Pinned && transform.position.y > -5f)
             {
-                float drop = airTop - transform.position.y;
-                if (drop > SafeDrop)
+                float drop = airStale ? 0f : airTop - transform.position.y;
+                // The landing speed must bear the drop out (v^2 = 2gh): a stale height never counts (2026-11-15: after a lift or
+                // carriage ride the next step read as a long fall).
+                if (drop > SafeDrop && fallSpeed >= Mathf.Sqrt(2f * -gravity * drop) * 0.6f)
                 {
                     if (fallLife == null) fallLife = GetComponent<PlayerLife>();
                     if (fallLife != null) fallLife.FallRpc(drop);
                 }
             }
-            if (grounded || Pinned) airTop = transform.position.y; else airTop = Mathf.Max(airTop, transform.position.y);
+            if (grounded || Pinned || airStale) airTop = transform.position.y; else airTop = Mathf.Max(airTop, transform.position.y);
+            airStale = false;
             wasGrounded = grounded;
             if (!grounded) fallSpeed = Mathf.Max(0f, -verticalVelocity);
 
@@ -392,6 +397,7 @@ namespace Deepbound.Player
         /// metre, at most <see cref="FallMax"/>. The belfry's high loft (10 m) costs about 44%.</summary>
         public const float SafeDrop = 4.2f, FallShare = 0.075f, FallMax = 0.75f;
         private float airTop;
+        private bool airStale = true;
         private PlayerLife fallLife;
 
         public void PinTo(Vector3 position)

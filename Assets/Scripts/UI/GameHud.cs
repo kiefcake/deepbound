@@ -2548,7 +2548,7 @@ namespace Deepbound.UI
             UiSkin.Rect(new Rect(w - 380, Minimap.SmallBottom, 370, 206), new Color(0f, 0f, 0f, 0.5f * a));
             UiSkin.Rect(new Rect(w - 12, Minimap.SmallBottom, 2, 206), new Color(Gold.r, Gold.g, Gold.b, 0.6f * a));
             GUI.Label(new Rect(w - 370, Minimap.SmallBottom + 8f, 350, 190), Binds.Rekey(
-                "WASD move  ·  Shift sprint  ·  Space jump\n" +
+                "WASD move  ·  Shift sprint  ·  Space jump (into a ledge: climb)\n" +
                 (progress.ClassId.Value == ClassId.Flagellant
                     ? "LMB Flail (every third swing CRASHES)  ·  RMB Scourge yourself for Zeal\n" +
                       "Lower health = harder hits; every hit heals you\n" +

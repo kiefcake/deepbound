@@ -1055,13 +1055,23 @@ namespace Deepbound.World
                 // spawn points with a little jitter for the extras.
                 int count = Mathf.Max(2, Mathf.RoundToInt(room.EnemySpawns.Count * Difficulty.RoomCrowd * Difficulty.SpawnCount(players) * Difficulty.Level.SpawnMultiplier * OmenCrowd * EventCrowd));
                 bool hasBrute = false, hasNecro = false;
+                // FORMATIONS (2026-11-15, spawning logic): about a third of combat rooms are held by a company with a shape
+                // instead of whoever turned up. Never in tests (their counts stay as they were) or in the Pit.
+                var formation = Formation.None;
+                if (!TestMode && !InPit && room.Kind == RoomKind.Combat && UnityEngine.Random.value < FormationChance)
+                {
+                    formation = (Formation)UnityEngine.Random.Range(1, Act(layout.Depth) >= 1 ? 5 : 4);
+                    if (formation == Formation.Horde) count = Mathf.RoundToInt(count * 1.5f);
+                }
 
                 for (int i = 0; i < count; i++)
                 {
                     var p = room.EnemySpawns[i % room.EnemySpawns.Count];
                     if (i >= room.EnemySpawns.Count) p += new Vector3(UnityEngine.Random.Range(-1.5f, 1.5f), 0f, UnityEngine.Random.Range(-1.5f, 1.5f));
 
-                    var prefab = PickEnemy(layout.Depth, theme, ref hasBrute, ref hasNecro, out int pack);
+                    int pack = 1;
+                    NetworkObject prefab = formation != Formation.None ? FormationPick(formation, i, layout.Depth, ref hasBrute, ref hasNecro, out pack) : null;
+                    if (prefab == null) prefab = PickEnemy(layout.Depth, theme, ref hasBrute, ref hasNecro, out pack);
                     // High ground (2026-11-14): most posts up on a deck, ledge, balcony or terrace go to the bows and the casters.
                     if ((p.y > 1.5f || (room.Feature == RoomFeature.Undercroft && p.y > -1f)) && UnityEngine.Random.value < HighGroundRanged)
                     {
@@ -1523,6 +1533,38 @@ namespace Deepbound.World
         /// deeper floors bring archers, brutes and necromancers. At most one brute and one
         /// necromancer per room — they are the room's centrepiece, not its wallpaper.
         /// </summary>
+        /// <summary>A room's company: a shield wall with bows behind it, a ghoul pack, a horde of plain dead (half again
+        /// as many), or (from the second act) a coven of casters round a brute.</summary>
+        public enum Formation { None, ShieldWall, Pack, Horde, Coven }
+        public const float FormationChance = 0.35f;
+
+        /// <summary>The <paramref name="i"/>th of a formation (null = whoever turns up).</summary>
+        public NetworkObject FormationPick(Formation f, int i, int depth, ref bool hasBrute, ref bool hasNecro, out int pack)
+        {
+            pack = 1;
+            switch (f)
+            {
+                case Formation.ShieldWall:
+                    return i % 2 == 0 ? (shieldbearerPrefab != null ? shieldbearerPrefab : skeletonPrefab) : archerPrefab;
+                case Formation.Pack:
+                    if (ghoulPrefab == null) return null;
+                    pack = 2;
+                    return i < 3 ? ghoulPrefab : null;
+                case Formation.Horde:
+                    return skeletonPrefab;
+                case Formation.Coven:
+                    if (i == 0 && brutePrefab != null && !hasBrute) { hasBrute = true; return brutePrefab; }
+                    if (i == 1 && necromancerPrefab != null && !hasNecro) { hasNecro = true; return necromancerPrefab; }
+                    switch (i % 3)
+                    {
+                        case 0: return hexerPrefab != null ? hexerPrefab : archerPrefab;
+                        case 1: return orbweaverPrefab != null ? orbweaverPrefab : archerPrefab;
+                        default: return magusPrefab != null ? magusPrefab : hexerPrefab;
+                    }
+            }
+            return null;
+        }
+
         public const float HighGroundRanged = 0.65f;
 
         /// <summary>Who holds a high post: archers mostly, a hexer or an orbweaver deeper down.</summary>
