@@ -577,6 +577,55 @@ namespace Deepbound.World
         // Elevation (2026-10-20): a terrace, a ziggurat
         // ------------------------------------------------------------------
 
+        /// <summary>A ruin: rubble spilled round the fallen blocks, a broken tooth of wall on the tall ones, the usual corners.</summary>
+        private static void DressRuin(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
+        {
+            foreach (var (rr, top) in room.Raised)
+            {
+                var c = new Vector3(rr.center.x, 0f, rr.center.y);
+                for (int i = 0; i < 3; i++)
+                {
+                    float a = (float)rng.NextDouble() * Mathf.PI * 2f;
+                    var p = c + new Vector3(Mathf.Cos(a) * (rr.width / 2f + 0.35f), 0f, Mathf.Sin(a) * (rr.height / 2f + 0.35f));
+                    float s = 0.25f + (float)rng.NextDouble() * 0.3f;
+                    b.AddBox(p + Vector3.up * s * 0.4f, new Vector3(s * 1.4f, s * 0.8f, s), Mat.Rubble, Quaternion.Euler(0f, (float)rng.NextDouble() * 360f, (float)rng.NextDouble() * 18f));
+                }
+                // Fire on the tall stumps (out of reach), so the fallen blocks around them catch the light.
+                if (top > 2.5f) Props.Brazier(lights, c + Vector3.up * top - new Vector3(rr.width * 0.2f, 0f, 0f), theme.TorchColor, false);
+                if (top > 2.5f) b.AddBox(c + Vector3.up * (top + 0.35f) + new Vector3(rr.width * 0.2f, 0f, 0f), new Vector3(rr.width * 0.4f, 0.7f, Mathf.Min(rr.height, 0.8f)), Mat.StoneWall);
+            }
+            DressRoom(room, b, lights, rng, pillars: false);
+        }
+
+        /// <summary>A rampart: merlons along both edges of the walk (gaps to shoot and climb through), a brazier by each stair.</summary>
+        private static void DressRampart(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
+        {
+            foreach (var (rr, top) in room.Raised)
+            {
+                bool longX = rr.width >= rr.height;
+                float len = longX ? rr.width : rr.height, wid = longX ? rr.height : rr.width;
+                var c = new Vector3(rr.center.x, top, rr.center.y);
+                var along = longX ? Vector3.right : Vector3.forward;
+                var side = longX ? Vector3.forward : Vector3.right;
+                for (float t = -len / 2f + 0.5f; t < len / 2f - 0.3f; t += 1.8f)
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        var p = c + along * t + side * (s * (wid / 2f - 0.18f));
+                        if (room.Ramps.Exists(rp => Vector2.Distance(new Vector2(rp.high.x, rp.high.z), new Vector2(p.x, p.z)) < 1.7f)) continue;
+                        b.AddBox(p + Vector3.up * 0.3f, longX ? new Vector3(0.8f, 0.6f, 0.3f) : new Vector3(0.3f, 0.6f, 0.8f), Mat.StoneWall);
+                    }
+            }
+            // A brazier on the walk at each side of the gate (at a stair's foot it blocked the stair: navcheck 2026-11-15).
+            foreach (var (rr, top) in room.Raised)
+            {
+                var c = new Vector3(rr.center.x, top, rr.center.y);
+                var toGate = new Vector3(room.Center.x - c.x, 0f, room.Center.z - c.z);
+                toGate = rr.width >= rr.height ? new Vector3(Mathf.Sign(toGate.x), 0f, 0f) : new Vector3(0f, 0f, Mathf.Sign(toGate.z));
+                Props.Brazier(lights, c + toGate * (Mathf.Max(rr.width, rr.height) / 2f - 0.8f), theme.TorchColor, false);
+            }
+            DressRoom(room, b, lights, rng, pillars: false);
+        }
+
         private static void DressTerrace(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights, System.Random rng)
         {
             foreach (var (rr, top) in room.Raised)

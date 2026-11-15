@@ -183,7 +183,7 @@ MonoBehaviour:
   m_Name: 
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Enemies.BellringerBrain
   ShowTopMostFoldoutHeaderGroup: 1
-  maxHealth: 260
+  maxHealth: 180
   damage: 20
   defense: 2
   moveSpeed: 2.8

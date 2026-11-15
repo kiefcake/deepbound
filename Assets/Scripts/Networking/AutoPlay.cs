@@ -113,7 +113,7 @@ namespace Deepbound.Networking
                 L("   [" + kind + "] " + text);
             };
             PlayerLife.DownedRecap += (killer, lines) => L("!! DOWNED by " + killer + " | " + (lines ?? "").Replace("\n", "; ").Replace("\t", " "));
-            if (System.Array.IndexOf(args, "-navvert") >= 0) DungeonLayout.ForceFeatures = new[] { RoomFeature.Belfry, RoomFeature.Mezzanine, RoomFeature.Undercroft };
+            if (System.Array.IndexOf(args, "-navvert") >= 0) DungeonLayout.ForceFeatures = new[] { RoomFeature.Ruin, RoomFeature.Rampart, RoomFeature.Belfry, RoomFeature.Mezzanine, RoomFeature.Undercroft };
             StartCoroutine(System.Array.IndexOf(args, "-navcheck") >= 0 ? NavCheck() : Main());
         }
 

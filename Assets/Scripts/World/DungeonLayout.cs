@@ -13,7 +13,7 @@ namespace Deepbound.World
     /// chamber (braziers empower the room's dead until smashed). Side rooms can be a
     /// Vault or a Fountain.
     /// </summary>
-    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply, Statues, Chimes, Mirrors, Scales, Draught, Mezzanine, Belfry, Undercroft }
+    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply, Statues, Chimes, Mirrors, Scales, Draught, Mezzanine, Belfry, Undercroft, Ruin, Rampart }
 
     /// <summary>Boss arena shapes: a colonnade (cover), a raised dais under the throne, or broken ruins.</summary>
     public enum BossArena : byte { Colonnade = 0, Dais = 1, Ruins = 2 }
@@ -425,7 +425,7 @@ namespace Deepbound.World
             bool Eligible(Room r, bool breach) =>
                 r.Kind != RoomKind.Start && r.Kind != RoomKind.Boss && (!breach || r.Kind == RoomKind.Combat) &&
                 r.Feature != RoomFeature.Chasm && r.Feature != RoomFeature.Vault && r.Feature != RoomFeature.Fountain && r.Holes.Count == 0 &&
-                !r.Special && r.Feature != RoomFeature.Terrace && r.Feature != RoomFeature.Ziggurat && r.Decks.Count == 0 && r.Feature != RoomFeature.Undercroft;
+                !r.Special && r.Feature != RoomFeature.Terrace && r.Feature != RoomFeature.Ziggurat && r.Decks.Count == 0 && r.Feature != RoomFeature.Undercroft && r.Feature != RoomFeature.Ruin && r.Feature != RoomFeature.Rampart;
 
             void Place(bool breach, int count)
             {
@@ -529,6 +529,8 @@ namespace Deepbound.World
             extras.Add(RoomFeature.Mezzanine);
             extras.Add(RoomFeature.Belfry);
             extras.Add(RoomFeature.Undercroft);
+            extras.Add(RoomFeature.Ruin);
+            extras.Add(RoomFeature.Rampart);
             // From the second floor, a hall with no light but the one you carry.
             if (layout.Depth >= 1) extras.Add(RoomFeature.Lightless);
             for (int i = extras.Count - 1; i > 0; i--)
@@ -598,6 +600,7 @@ namespace Deepbound.World
         /// <summary>Deck heights: a mezzanine over a blank wall, one that must clear a doorway, the belfry's two ledges.</summary>
         /// <summary>Shots and tests: the combat-room features to deal first (null = by the seed).</summary>
         public static RoomFeature[] ForceFeatures;
+        public const float RampartHeight = 2f, RampartWidth = 2.6f;
         public const float UndercroftDepth = 4f, UndercroftRim = 2.6f, PerchHeight = 3f, PerchSize = 3.6f, PerchChance = 0.45f;
 
         /// <summary>One or two corner perches (decks at <see cref="PerchHeight"/>) with a stair along the wall, in a room 22 m or more.</summary>
@@ -764,6 +767,52 @@ namespace Deepbound.World
                     room.Ramps.Add((high - outward * (h / 0.58f) - Vector3.up * h, high, 2.6f));
                     break;
                 }
+                case RoomFeature.Ruin:
+                {
+                    // A RUIN (2026-11-15): the ceiling came down long ago. Broken blocks of masonry at every height from a step
+                    // to a wall: cover from bows, ledges to mantle onto (the dead cannot follow up; the bold ones leap down).
+                    room.Size = new Vector2(Mathf.Max(room.Size.x, 24f), Mathf.Max(room.Size.y, 24f));
+                    room.Height = 9f;
+                    float[] heights = { 0.9f, 1.3f, 1.7f, 2f, 2f, 3.4f };
+                    int want = 7 + rng.Next(3);
+                    for (int tries = 0; tries < 80 && room.Raised.Count < want; tries++)
+                    {
+                        float bw = 1.6f + (float)rng.NextDouble() * 2.6f, bd = 1.4f + (float)rng.NextDouble() * 2f;
+                        if (rng.NextDouble() < 0.5) (bw, bd) = (bd, bw);
+                        float bx = (float)(rng.NextDouble() - 0.5) * (room.Size.x - 5f - bw), bz = (float)(rng.NextDouble() - 0.5) * (room.Size.y - 5f - bd);
+                        // The ways in from the doors stay open.
+                        if (Mathf.Abs(bx) < CorridorWidth / 2f + 0.8f + bw / 2f || Mathf.Abs(bz) < CorridorWidth / 2f + 0.8f + bd / 2f) continue;
+                        var br = new Rect(room.Center.x + bx - bw / 2f, room.Center.z + bz - bd / 2f, bw, bd);
+                        var grown = new Rect(br.x - 1.6f, br.y - 1.6f, br.width + 3.2f, br.height + 3.2f);
+                        if (room.Raised.Exists(o => o.r.Overlaps(grown))) continue;
+                        room.Raised.Add((br, room.Raised.Count < 2 ? 3.4f : heights[rng.Next(heights.Length)]));
+                    }
+                    break;
+                }
+                case RoomFeature.Rampart:
+                {
+                    // A RAMPART (2026-11-15): a wall-walk two metres high across the hall, off the doors' line, with a gate gap
+                    // in the middle and a stair at each end on its far side. Bows hold the top; mantle it anywhere.
+                    room.Size = new Vector2(Mathf.Max(room.Size.x, 24f), Mathf.Max(room.Size.y, 24f));
+                    room.Height = 9f;
+                    bool runsX = rng.NextDouble() < 0.5;
+                    float sgn = rng.NextDouble() < 0.5 ? 1f : -1f;
+                    float rlen = runsX ? room.Size.x : room.Size.y, span = runsX ? room.Size.y : room.Size.x;
+                    var along = runsX ? Vector3.right : Vector3.forward;
+                    var across = (runsX ? Vector3.forward : Vector3.right) * sgn;
+                    float off = Mathf.Max(span * 0.18f, CorridorWidth / 2f + RampartWidth / 2f + 0.9f);
+                    var mid = room.Center + across * off;
+                    float gap = 2.6f, segLen = rlen / 2f - gap;
+                    foreach (float s in new[] { -1f, 1f })
+                    {
+                        var sc = mid + along * (s * (gap + segLen / 2f));
+                        room.Raised.Add((runsX ? new Rect(sc.x - segLen / 2f, sc.z - RampartWidth / 2f, segLen, RampartWidth)
+                                               : new Rect(sc.x - RampartWidth / 2f, sc.z - segLen / 2f, RampartWidth, segLen), RampartHeight));
+                        var high = mid + along * (s * (rlen / 2f - 1.6f)) + across * (RampartWidth / 2f) + Vector3.up * RampartHeight;
+                        room.Ramps.Add((high + across * (RampartHeight / 0.6f) - Vector3.up * RampartHeight, high, 2.2f));
+                    }
+                    break;
+                }
                 case RoomFeature.Undercroft:
                 {
                     // An UNDERCROFT (2026-11-14): the floor is gone - a walkable pit 4 m down across most of the room, stone
@@ -901,13 +950,18 @@ namespace Deepbound.World
                     if (room.Feature == RoomFeature.SunkenCourt && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -SunkenDepth + 0.1f;
                     if (room.Feature == RoomFeature.Cistern && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -CisternDepth + 0.1f;
                     if (room.Feature == RoomFeature.Undercroft && room.Low.Contains(new Vector2(p.x, p.z))) p.y = -UndercroftDepth + 0.1f;
-                    if (room.Raised.Count > 0) p.y = room.RaisedAt(p) + 0.1f;
+                    // A ruin's blocks are islands: nobody is posted on one by chance (they could not walk off it).
+                    if (room.Feature == RoomFeature.Ruin && room.Raised.Exists(o => { var g = o.r; g.xMin -= 0.7f; g.yMin -= 0.7f; g.xMax += 0.7f; g.yMax += 0.7f; return g.Contains(new Vector2(p.x, p.z)); })) continue;
                     room.EnemySpawns.Add(p);
                     i++;
                 }
                 // A terrace or ziggurat posts a couple of its dead up high.
                 foreach (var (rr, top) in room.Raised)
+                {
+                    // A ruin: only on blocks tall enough to leap down from and wide enough to stand on, and only now and then.
+                    if (room.Feature == RoomFeature.Ruin && (top < 1.7f || top > 2.5f || Mathf.Min(rr.width, rr.height) < 1.8f || rng.NextDouble() < 0.6)) continue;
                     if (rng.NextDouble() < 0.7) room.EnemySpawns.Add(new Vector3(rr.center.x, top + 0.1f, rr.center.y));
+                }
                 // A gallery posts some of its dead up on the balconies.
                 foreach (int side in room.Balconies)
                 {

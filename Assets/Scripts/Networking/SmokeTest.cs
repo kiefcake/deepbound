@@ -4872,7 +4872,7 @@ namespace Deepbound.Networking
             // jump down from high ground onto whoever is below.
             if (net.IsServer && local != null)
             {
-                int mezz = 0, belf = 0, under = 0, perched = 0, bad = 0;
+                int mezz = 0, belf = 0, under = 0, perched = 0, ruins = 0, ramparts = 0, bad = 0;
                 for (int seed = 1; seed <= 30; seed++)
                 {
                     var vl = DungeonLayout.Generate(seed * 7919, 2 + seed % 6);
@@ -4880,6 +4880,8 @@ namespace Deepbound.Networking
                     {
                         if (r.Feature == RoomFeature.Mezzanine) { mezz++; if (r.Decks.Count != 1 || r.Ramps.Count != 1) bad++; }
                         if (r.Feature == RoomFeature.Belfry) { belf++; if (r.Decks.Count != 2 || r.Ramps.Count != 2 || r.FeatureSpots.Count != 1) bad++; }
+                        if (r.Feature == RoomFeature.Ruin) { ruins++; if (r.Raised.Count < 4) bad++; }
+                        if (r.Feature == RoomFeature.Rampart) { ramparts++; if (r.Raised.Count != 2 || r.Ramps.Count != 2) bad++; }
                         if (r.Feature == RoomFeature.Undercroft) { under++; if (r.Decks.Count < 3 || r.Ramps.Count != 2 || r.Low.width < 10f) bad++; }
                         if (r.Feature != RoomFeature.Mezzanine && r.Feature != RoomFeature.Belfry && r.Feature != RoomFeature.Undercroft && r.Decks.Count > 0) { perched++; if (r.Ramps.Count != r.Decks.Count) bad++; }
                     }
@@ -4906,9 +4908,31 @@ namespace Deepbound.Networking
                     landed = Vector3.Distance(leaper.transform.position, landAt) < 1.2f;
                     leaper.NetworkObject.Despawn();
                 }
+                // Mantling: in the air against a 1.6 m block, the player climbs onto it.
+                var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                var blockAt = vsr.Center + new Vector3(-5f, 0.8f, 3f);
+                block.transform.position = blockAt;
+                block.transform.localScale = new Vector3(3f, 1.6f, 3f);
+                yield return new WaitForFixedUpdate();
+                vm.Teleport(blockAt + new Vector3(0f, -0.2f, -1.5f - 0.55f), Quaternion.LookRotation(Vector3.forward));
+                Physics.SyncTransforms();
+                yield return null;
+                bool began = vm.TryMantle();
+                yield return new WaitForSeconds(FirstPersonMotor.MantleSeconds + 0.3f);
+                bool onTop = Mathf.Abs(local.transform.position.y - 1.6f) < 0.35f && Mathf.Abs(local.transform.position.z - blockAt.z) < 1.5f;
+                // Too high: a 3 m wall is not climbed.
+                block.transform.localScale = new Vector3(3f, 6f, 3f);
+                vm.Teleport(blockAt + new Vector3(0f, -0.2f, -1.5f - 0.55f), Quaternion.LookRotation(Vector3.forward));
+                Physics.SyncTransforms();
+                yield return null;
+                bool refused = !vm.TryMantle();
+                Destroy(block);
+                vm.Teleport(vsr.Center + Vector3.up * 0.1f, local.transform.rotation);
+                yield return new WaitForSeconds(0.3f);
                 vhp.ServerSetFraction(1f);
-                Log("verticality", "mezzanines " + mezz + " belfries " + belf + " undercrofts " + under + " perched rooms " + perched + " malformed " + bad + ", " + drop.ToString("0.0") + " m fall left " + afterFall.ToString("0.00") + ", leaps " + leaps + " landed " + landed,
-                    mezz > 0 && belf > 0 && under > 0 && perched > 0 && bad == 0 && (drop < 4.8f || afterFall < 0.99f) && afterFall > 0.5f && leaps == 1 && landed);
+                Log("mantle", "began " + began + ", on top " + onTop + " (y " + local.transform.position.y.ToString("F1") + "), tall wall refused " + refused, began && onTop && refused);
+                Log("verticality", "mezzanines " + mezz + " belfries " + belf + " undercrofts " + under + " perched rooms " + perched + " ruins " + ruins + " ramparts " + ramparts + " malformed " + bad + ", " + drop.ToString("0.0") + " m fall left " + afterFall.ToString("0.00") + ", leaps " + leaps + " landed " + landed,
+                    mezz > 0 && belf > 0 && under > 0 && perched > 0 && ruins > 0 && ramparts > 0 && bad == 0 && (drop < 4.8f || afterFall < 0.99f) && afterFall > 0.5f && leaps == 1 && landed);
             }
 
             // THE CINDER PIT (2026-11-14): a negative-seed floor with its own theme, lava that burns the living, and Vharoth,
@@ -5189,7 +5213,7 @@ namespace Deepbound.Networking
             hp.IncomingModifiers.Add((d, f) => 0f);
             // VERTICALITY (2026-11-14): a belfry and a mezzanine, from the floor and from up high, and one of the dead leaping down.
             {
-                DungeonLayout.ForceFeatures = new[] { RoomFeature.Belfry, RoomFeature.Mezzanine, RoomFeature.Undercroft };
+                DungeonLayout.ForceFeatures = new[] { RoomFeature.Ruin, RoomFeature.Rampart, RoomFeature.Belfry, RoomFeature.Mezzanine, RoomFeature.Undercroft };
                 dc.ServerDebugStartFloor(2);
                 yield return new WaitForSeconds(5f);
                 DungeonLayout.ForceFeatures = null;
@@ -5260,6 +5284,17 @@ namespace Deepbound.Networking
                     VStand(uc.Center + new Vector3(uc.Size.x * 0.25f, -DungeonLayout.UndercroftDepth + 0.1f, -uc.Size.y * 0.3f), uc.Center, -12f);
                     yield return new WaitForSeconds(0.8f);
                     yield return Shot(dir, "vx_9_undercroft_pit");
+                }
+                foreach (var (feat, shot) in new[] { (RoomFeature.Ruin, "vx_11_ruin"), (RoomFeature.Rampart, "vx_12_rampart") })
+                {
+                    var fr = vl.Rooms.FirstOrDefault(r => r.Feature == feat);
+                    if (fr == null) continue;
+                    VStand(fr.Center + new Vector3(fr.Size.x * 0.42f, 0.1f, -fr.Size.y * 0.42f), fr.Center, 6f);
+                    yield return new WaitForSeconds(1.2f);
+                    yield return Shot(dir, shot);
+                    VStand(fr.Center + new Vector3(-fr.Size.x * 0.42f, 0.1f, fr.Size.y * 0.42f), fr.Center, 6f);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot(dir, shot + "_b");
                 }
                 var pr = vl.Rooms.FirstOrDefault(r => r.Feature != RoomFeature.Mezzanine && r.Feature != RoomFeature.Belfry && r.Feature != RoomFeature.Undercroft && r.Decks.Count > 0);
                 if (pr != null)

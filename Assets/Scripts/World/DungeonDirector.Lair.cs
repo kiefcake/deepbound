@@ -29,6 +29,7 @@ namespace Deepbound.World
             public LairBrain Boss;
             public int State; // 0 asleep, 1 fought, 2 done
             public bool Opened;
+            public float EmptySince = -1f;
         }
         private LairState lair;
 
@@ -74,7 +75,7 @@ namespace Deepbound.World
         {
             var rng = new System.Random(layout.Seed ^ 0x1A1C);
             var list = layout.Rooms.FindAll(r => r.Kind == RoomKind.Combat && r.Id >= 2 && !r.Special && !r.Peaceful
-                && (r.Feature == RoomFeature.None || r.Feature == RoomFeature.GreatHall || r.Feature == RoomFeature.Crypt)
+                && (r.Feature == RoomFeature.None || r.Feature == RoomFeature.GreatHall) && r.Decks.Count == 0 // not a crypt: its coffins boxed the fight in (bot run 2026-11-15)
                 && Mathf.Min(r.Size.x, r.Size.y) >= 12f
                 && !(layout.PeddlerSpot.HasValue && r.Contains(layout.PeddlerSpot.Value, 0.5f)));
             return list.Count == 0 ? null : list[rng.Next(list.Count)];
@@ -120,9 +121,11 @@ namespace Deepbound.World
                 return;
             }
             // Everyone shut in is down: lift the gates for the rest of the party; it fights on.
-            // "Inside" means a metre past the walls: someone who slipped out under the falling gate and stands in the doorway is
+            // "Inside" means within the walls for the last two seconds: someone who slipped out under the falling gate and stands in the doorway is
             // not shut in with it (2026-11-14 bot run: the keeper fought on behind the bars for six minutes).
-            if (!lair.Opened && !AnyoneWellInside(room))
+            if (AnyoneWellInside(room)) lair.EmptySince = -1f;
+            else if (lair.EmptySince < 0f) lair.EmptySince = Time.time;
+            if (!lair.Opened && lair.EmptySince >= 0f && Time.time - lair.EmptySince > 2f)
             {
                 lair.Opened = true;
                 SetGates(lair.Gates, false);
@@ -133,7 +136,7 @@ namespace Deepbound.World
         private static bool AnyoneWellInside(DungeonLayout.Room room)
         {
             foreach (var p in PlayerLife.All)
-                if (p != null && !p.Downed.Value && p.Health != null && p.Health.IsAlive && room.Contains(p.transform.position, -1f)) return true;
+                if (p != null && !p.Downed.Value && p.Health != null && p.Health.IsAlive && room.Contains(p.transform.position, -0.1f)) return true;
             return false;
         }
 

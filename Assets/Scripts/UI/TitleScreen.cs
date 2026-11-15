@@ -88,14 +88,14 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
-            "The first expedition lies below: bring all four home. The dealer knows why",
-            "Cold hearths to light, fallen bells and broken columns in the rooms",
-            "Frost magi, ink lampreys, withering hags and bellringers",
-            "A third, survival path at the anvil; gear sets; Brann's masteries",
-            "Cellar vaults under cracked tiles; cursed bargains behind secret walls",
-            "Jam spike plates (Rogues, or Tinker's Picks); a Hooded Lantern",
-            "VIT mends you; quests carry a condition and can be failed",
-            "A map of camp, and arm-wrestling Big Gorm by the tavern",
+            "Sealed lairs: four keepers asleep in side halls. Walk up to wake one",
+            "Sir Aldous and the Choirmaster are true bosses now, with later movements",
+            "An ember rift on the deep floors drops the party into the Cinder Pit",
+            "Belfries, mezzanines, undercrofts and archer perches: mind the fall",
+            "The dead leap down from high ground; bows hold the heights",
+            "Buffs show as auras and halos, not words; a CRAFT tab in the bag (I)",
+            "Cold hearths, fallen bells, cellar vaults, cursed bargains",
+            "The lone Knight swings harder; the first expedition still lies below",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)

@@ -182,6 +182,8 @@ namespace Deepbound.World
                 // an undercroft's dressing is its pit braziers (anything set on the floor line would hang over the pit).
                 case RoomFeature.Mezzanine: case RoomFeature.Belfry: DressRoom(room, dressing, lights, rng, pillars: false); return;
                 case RoomFeature.Undercroft: return;
+                case RoomFeature.Ruin: DressRuin(room, dressing, lights, rng); return;
+                case RoomFeature.Rampart: DressRampart(room, dressing, lights, rng); return;
             }
 
             switch (room.Kind)

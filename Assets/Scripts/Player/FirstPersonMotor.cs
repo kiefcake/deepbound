@@ -179,7 +179,8 @@ namespace Deepbound.Player
             if (manic) { MoveInput = ManiaInput(); sprintKey = true; jumpKey = false; }
             if (debuffs != null && debuffs.Rooted) jumpKey = false;
 
-            if (controller.enabled) ApplyMovement(MoveInput, canMove && (CanSprint || manic) && sprintKey, canMove && jumpKey);
+            if (mantling) TickMantle();
+            else if (controller.enabled) ApplyMovement(MoveInput, canMove && (CanSprint || manic) && sprintKey, canMove && jumpKey);
 
             // The world sways while madness has you.
             maniaRoll = Mathf.Lerp(maniaRoll, manic ? Mathf.Sin(Time.time * 4.3f) * 7f + Mathf.Sin(Time.time * 7.1f) * 3f : 0f, 1f - Mathf.Exp(-Time.deltaTime * 6f));
@@ -317,6 +318,9 @@ namespace Deepbound.Player
                 jumpPressedAt = -10f;
                 lastGroundedAt = -10f;
             }
+            // MANTLE: in the air, pushing forward into a ledge you can reach, you pull yourself up onto it.
+            if (grounded) groundY = transform.position.y;
+            else if (input.y > 0.3f && verticalVelocity < 4.5f && TryMantle()) return;
             // Let go of jump early for a short hop.
             if (jumping && verticalVelocity > 0f && !jumpHeldNow) verticalVelocity *= Mathf.Exp(-Time.deltaTime * 14f);
 
@@ -392,6 +396,7 @@ namespace Deepbound.Player
 
         public void PinTo(Vector3 position)
         {
+            mantling = false;
             if (controller.enabled) controller.enabled = false;
             transform.position = position;
             Pinned = true;
@@ -408,9 +413,75 @@ namespace Deepbound.Player
             verticalVelocity = 0f;
         }
 
+        // ------------------------------------------------------------------
+        // MANTLING (2026-11-15, verticality: "think of dark and darker"): jump at a ledge whose top is within MantleReach of
+        // the ground you left (a terrace, a sunken court's lip, a crate stack, rubble) and you climb onto it. Balconies,
+        // perches and decks are too high: those want their stairs.
+        // ------------------------------------------------------------------
+
+        public const float MantleReach = 2.2f, MantleSeconds = 0.32f;
+        public bool Mantling => mantling;
+        private bool mantling;
+        private Vector3 mantleFrom, mantleTo;
+        private float mantleT, groundY;
+
+        private static bool MantleSolid(Collider c) => c != null && !c.isTrigger && c.attachedRigidbody == null && c.GetComponentInParent<Combat.Health>() == null;
+
+        /// <summary>Owner: start a mantle if a reachable ledge is right ahead. True when it began.</summary>
+        public bool TryMantle()
+        {
+            if (mantling || Pinned || !controller.enabled) return false;
+            var pos = transform.position;
+            var fwd = transform.forward;
+            float r = controller.radius;
+            if (!Physics.Raycast(pos + Vector3.up * 0.9f, fwd, out var wall, r + 0.45f, ~0, QueryTriggerInteraction.Ignore)
+                && !Physics.Raycast(pos + Vector3.up * 0.3f, fwd, out wall, r + 0.45f, ~0, QueryTriggerInteraction.Ignore)) return false;
+            if (!MantleSolid(wall.collider) || Mathf.Abs(wall.normal.y) > 0.4f) return false;
+            var over = pos + fwd * (wall.distance + 0.4f);
+            float limit = Mathf.Min(pos.y + 1.75f, groundY + MantleReach);
+            float span = limit + 0.3f - pos.y - 0.45f;
+            if (span <= 0.05f || !Physics.Raycast(new Vector3(over.x, limit + 0.3f, over.z), Vector3.down, out var top, span, ~0, QueryTriggerInteraction.Ignore)) return false;
+            if (!MantleSolid(top.collider) || top.normal.y < 0.75f) return false;
+            // Room to stand up there (our own capsule out of the way while we look).
+            controller.enabled = false;
+            bool blocked = Physics.CheckCapsule(top.point + Vector3.up * (r + 0.12f), top.point + Vector3.up * (controller.height - r), r * 0.9f, ~0, QueryTriggerInteraction.Ignore);
+            if (blocked) { controller.enabled = true; return false; }
+            mantling = true;
+            mantleFrom = pos;
+            mantleTo = top.point + Vector3.up * 0.05f;
+            mantleT = 0f;
+            verticalVelocity = 0f;
+            planar = Vector3.zero;
+            impulse = Vector3.zero;
+            jumping = false;
+            Art.Sfx.Play(Art.Sound.Step, pos, 0.5f, 0.85f);
+            return true;
+        }
+
+        private void TickMantle()
+        {
+            mantleT += Time.deltaTime / MantleSeconds;
+            float k = Mathf.Clamp01(mantleT);
+            // Up first, then over the lip.
+            float up = Mathf.SmoothStep(0f, 1f, Mathf.Min(1f, k * 1.5f)), fwd = Mathf.SmoothStep(0f, 1f, Mathf.Max(0f, (k - 0.35f) / 0.65f));
+            var p = Vector3.Lerp(mantleFrom, mantleTo, fwd);
+            p.y = Mathf.Lerp(mantleFrom.y, mantleTo.y, up);
+            transform.position = p;
+            if (k < 1f) return;
+            mantling = false;
+            controller.enabled = !Pinned;
+            verticalVelocity = -2f;
+            fallSpeed = 0f;
+            airTop = groundY = mantleTo.y;
+            wasGrounded = true;
+            lastGroundedAt = Time.time;
+            landDip = 0.05f * Mathf.Clamp01(UI.Settings.ShakeScale + 0.25f);
+        }
+
         public void Teleport(Vector3 position, Quaternion rotation)
         {
             bool wasEnabled = controller.enabled;
+            if (mantling) { mantling = false; wasEnabled = !Pinned; }
             controller.enabled = false;
             transform.SetPositionAndRotation(position, rotation);
             controller.enabled = wasEnabled;

@@ -591,7 +591,7 @@ namespace Deepbound.EditorTools
                 case EnemyType.Bellringer:
                     // A sturdy brawler: the toll is the trick, the clapper the threat.
                     Kind(Art.CharacterArt.SkeletonKind.Bellringer);
-                    Set("maxHealth", 260f); Set("damage", 20f); Set("defense", 2f); Set("moveSpeed", 2.8f);
+                    Set("maxHealth", 180f); Set("damage", 20f); Set("defense", 2f); Set("moveSpeed", 2.8f);
                     Set("attackRange", 2.6f); Set("windup", 0.75f); Set("recovery", 1.2f); Set("aggroRange", 18f);
                     break;
                 case EnemyType.Cantor:

@@ -38,6 +38,10 @@ namespace Deepbound.Player
         public const float SwingWindup = 0.16f, SwingStrike = 0.14f, SwingRecovery = 0.3f;
         /// <summary>Rebalanced 2026-10-17: the tank no longer out-damages the damage classes (34 -> 29); it holds rage instead.</summary>
         public const float SwingRange = 2.7f, SwingArc = 110f, SwingDamage = 35f;
+        /// <summary>Alone, the tank has nobody to hold the line for: swings hit harder (2026-11-15; solo bot Knights took 3-6 minutes a
+        /// guardian and 40-50 near-downs on the worst floors, every other class 1-2 minutes). Like the lone Cleric's smite.</summary>
+        public const float LoneSwingBonus = 1.25f;
+        private static float LoneSwing => PlayerLife.All.Count <= 1 ? LoneSwingBonus : 1f;
         public float AttackRange => SwingRange * (progress != null ? progress.ReachMultiplier : 1f);
         private float ReachMul => progress != null ? progress.ReachMultiplier : 1f;
         public const float BashCooldown = 7f, BashRange = 2.4f, BashDamage = 24f, BashStun = 1.6f;
@@ -294,7 +298,7 @@ namespace Deepbound.Player
             bool riposte = counter && progress.OnPath(2);
             riposteUntil = -10f;
             float range = (cleave ? SwingRange + 0.6f : SwingRange) * ReachMul, arc = cleave ? 160f : SwingArc;
-            float damage = SwingDamage * AttackMultiplier * (riposte ? RiposteDamage : counter ? CounterDamage : 1f);
+            float damage = SwingDamage * AttackMultiplier * (riposte ? RiposteDamage : counter ? CounterDamage : 1f) * LoneSwing;
 
             bool hitAny = false;
             bool chillSwing = cleave && progress.Mastered(1) && ++cleaveSwings % 3 == 0;
