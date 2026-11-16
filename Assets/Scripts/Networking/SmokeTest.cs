@@ -118,13 +118,36 @@ namespace Deepbound.Networking
             // Not a virtual pad: input events are dropped when the window loses focus, and classes after that read 0 dps.
             FirstPersonMotor.BotControl = true;
             float dealt = 0f;
-            System.Action<Health, float, ulong> count = (h, amount, from) => { if (h == dummy && from == me.NetworkObjectId) dealt += amount; };
+            int landed = 0;
+            var struckWhat = new System.Collections.Generic.Dictionary<string, int>();
+            System.Action<Health, float, ulong> count = (h, amount, from) =>
+            {
+                if (from != me.NetworkObjectId) return;
+                if (h == dummy) { dealt += amount; landed++; }
+                string k = h == dummy ? "dummy" : h.name + "@" + Vector3.Distance(h.transform.position, dummy.transform.position).ToString("F1");
+                struckWhat.TryGetValue(k, out int c); struckWhat[k] = c + 1;
+            };
             Health.ServerAnyDamaged += count;
+            // Every blow on the dummy by tag and source, so a hit from something else (a proc, a burst) shows.
+            var byTag = new System.Collections.Generic.Dictionary<string, float>();
+            System.Action<Health, float, ulong, string> tagged = (h, lost, from, tag) =>
+            {
+                if (h != dummy) return;
+                string k = (tag ?? "untagged") + (from == me.NetworkObjectId ? "" : "/from " + from);
+                byTag.TryGetValue(k, out float v); byTag[k] = v + lost;
+            };
+            Health.ServerHitTagged += tagged;
             var rows = new System.Collections.Generic.List<string>();
             bool allHit = true;
+            // Every class on every weapon path at mastery (2026-11-16: the balance notes never had the Pyromancer measured).
+            int level0 = progressMe.WeaponLevel.Value; byte path0 = progressMe.WeaponPath.Value;
             foreach (Classes.ClassId id in System.Enum.GetValues(typeof(Classes.ClassId)))
+            for (int path = 0; path <= Classes.WeaponPaths.Count; path++)
             {
                 progressMe.ClassId.Value = id;
+                progressMe.WeaponPath.Value = (byte)path;
+                progressMe.WeaponLevel.Value = path == 0 ? 0 : Classes.WeaponPaths.MasteryLevel;
+                string pathName = path == 0 ? "base" : Classes.WeaponPaths.Name(id, path);
                 yield return new WaitForSeconds(0.4f);
                 bool melee = id == Classes.ClassId.Knight || id == Classes.ClassId.Rogue || id == Classes.ClassId.Flagellant;
                 float range = melee ? 1.7f : 7f;
@@ -136,6 +159,14 @@ namespace Deepbound.Networking
                 foreach (var kit in me.GetComponents<IClassKit>()) kit.RestoreResource(1f);
                 yield return new WaitForSeconds(0.4f);
                 dealt = 0f;
+                landed = 0;
+                struckWhat.Clear();
+                byTag.Clear();
+                var rogueKit = me.GetComponent<RogueKit>();
+                int flourish0 = rogueKit != null ? rogueKit.Flourishes : 0;
+                // A fresh dummy each row: it only refills after 2.5 s untouched, and the rows ran back to back, so by the
+                // Duelist (row 15) the 5,000 had run out and it lay dead for a third of the row (2026-11-16).
+                dummy.ServerSetFraction(1f);
                 // Hold and release the trigger: a long draw for the Ranger, quick presses for swings.
                 float hold = id == Classes.ClassId.Ranger ? 1.0f : 0.4f;
                 float t0 = Time.time;
@@ -150,11 +181,14 @@ namespace Deepbound.Networking
                 }
                 yield return new WaitForSeconds(0.6f);
                 float dps = dealt / 6f;
-                rows.Add(id + " " + dps.ToString("F1"));
-                Debug.Log("[ClassDps] " + id + " | " + (melee ? "melee" : "ranged") + " | " + dealt.ToString("F0") + " in 6 s | " + dps.ToString("F1") + " dps");
+                rows.Add(id + "/" + pathName + " " + dps.ToString("F1"));
+                Debug.Log("[ClassDps] " + id + " | " + pathName + " | " + (melee ? "melee" : "ranged") + " | " + dealt.ToString("F0") + " in 6 s | " + dps.ToString("F1") + " dps | " + landed + " hits" + (id == Classes.ClassId.Rogue && rogueKit != null ? ", flourishes " + (rogueKit.Flourishes - flourish0) : "") + ", path " + progressMe.WeaponPath.Value + " lvl " + progressMe.WeaponLevel.Value + ", struck " + string.Join(" ", struckWhat.Select(kv => kv.Key + " x" + kv.Value)) + ", by tag " + string.Join(" ", byTag.Select(kv => kv.Key + " " + kv.Value.ToString("F0"))));
                 if (dealt <= 0f) allHit = false;
             }
             Health.ServerAnyDamaged -= count;
+            Health.ServerHitTagged -= tagged;
+            progressMe.WeaponPath.Value = path0;
+            progressMe.WeaponLevel.Value = level0;
             FirstPersonMotor.BotControl = false;
             motor.SetPitch(0f);
             Log("class dps", string.Join(", ", rows), allHit);
@@ -2043,6 +2077,7 @@ namespace Deepbound.Networking
                                 fmot.Teleport(local.transform.position + Quaternion.Euler(0f, 90f, 0f) * fwd * 4f, local.transform.rotation);
                                 yield return new WaitForSeconds(0.8f);
                                 followed = mg.StormUp && Vector3.Distance(Flat3(mg.StormPosition), Flat3(p0)) > 0.8f;
+                                if (!followed) why += " (storm up " + mg.StormUp + ", moved " + Vector3.Distance(Flat3(mg.StormPosition), Flat3(p0)).ToString("F2") + " m, magus alive " + !mg.IsDead + ")";
                                 mg.GetComponent<Health>().ServerDamage(1e6f, mg.transform.position);
                             }
                             else why += " no magus";
@@ -2597,12 +2632,14 @@ namespace Deepbound.Networking
                         var ph = local.GetComponent<Health>();
                         var pdeb = local.GetComponent<PlayerDebuffs>();
                         pdeb.ServerResetGrace();
+                        local.GetComponent<PlayerProgress>().ServerDebugSpendBoneWard();
                         ph.Shield.Value = 0f;
                         ph.ServerSetFraction(1f);
                         yield return new WaitForSeconds(SpikeTrap.Rearm + 0.2f);
                         // A shield regrown during the wait (a relic) soaked the first bite while the pin still took: clear both now.
                         ph.Shield.Value = 0f;
                         pdeb.ServerResetGrace();
+                        local.GetComponent<PlayerProgress>().ServerDebugSpendBoneWard();
                         float before = ph.Current.Value;
                         // A spike bed (2026-11-12): the bed itself is safe to stand on; a tread on a plate fires it.
                         var bedMotor = local.GetComponent<FirstPersonMotor>();
@@ -2627,7 +2664,7 @@ namespace Deepbound.Networking
                         }
                         yield return null;
                         bool pinned = pdeb.Rooted;
-                        Log("spike plate", "bed quiet untrod " + bedQuiet + ", took " + took.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " (hidden " + plate.Hidden.Value + "), pinned " + pinned, bedQuiet && took >= ph.Max.Value * 0.2f && took <= ph.Max.Value * 0.4f && pinned);
+                        Log("spike plate", "bed quiet untrod " + bedQuiet + ", took " + took.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " (hidden " + plate.Hidden.Value + "), pinned " + pinned + (took <= 0f ? ", zeroed by " + ph.LastZeroedBy + " now " + Time.time.ToString("F1") : ""), bedQuiet && took >= ph.Max.Value * 0.2f && took <= ph.Max.Value * 0.4f && pinned);
                         local.GetComponent<FirstPersonMotor>().Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                         ph.ServerSetFraction(1f);
                         yield return new WaitForSeconds(SpikeTrap.ImpaleSeconds);
@@ -2961,14 +2998,16 @@ namespace Deepbound.Networking
                             var vent = layout.FlameTraps[0];
                             var ventMotor = local.GetComponent<FirstPersonMotor>();
                             pdeb.ServerResetGrace();
+                            local.GetComponent<PlayerProgress>().ServerDebugSpendBoneWard();
                             ph.ServerSetFraction(1f);
                             for (int w = 0; w < 120 && FlameJet.Lit(vent.Phase, Pendulum.Clock); w++) yield return new WaitForSeconds(0.02f);
                             float beforeVent = ph.Current.Value;
+                            int burnsBefore = DungeonDirector.Instance.VentBurns;
                             ventMotor.Teleport(vent.At + Vector3.up * 0.1f, local.transform.rotation);
                             for (int w = 0; w < 120 && !FlameJet.Lit(vent.Phase, Pendulum.Clock); w++) yield return new WaitForSeconds(0.02f);
                             for (int w = 0; w < 120 && FlameJet.Lit(vent.Phase, Pendulum.Clock); w++) yield return new WaitForSeconds(0.02f);
                             float tookVent = beforeVent - ph.Current.Value;
-                            string ventWhy = ", shield " + ph.Shield.Value.ToString("F0") + ", off the vent " + Vector3.Distance(local.transform.position, vent.At).ToString("F1") + " m, phase " + DungeonDirector.Instance.Phase.Value;
+                            string ventWhy = ", zeroed by " + ph.LastZeroedBy + ", last landed " + ph.LastLanded.ToString("F0") + " now " + Time.time.ToString("F1") + ", burns " + (DungeonDirector.Instance.VentBurns - burnsBefore) + ", choked " + DungeonDirector.Instance.JetChoked(0) + ", player dmg x" + Health.FloorPlayerDamageScale.ToString("F2") + ", shield " + ph.Shield.Value.ToString("F0") + ", off the vent " + Vector3.Distance(local.transform.position, vent.At).ToString("F1") + " m, phase " + DungeonDirector.Instance.Phase.Value;
                             ventMotor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                             Log("flame vent", "took " + tookVent.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " in one burst" + ventWhy, tookVent >= ph.Max.Value * 0.2f && tookVent <= ph.Max.Value * 0.4f);
                             ph.ServerSetFraction(1f);

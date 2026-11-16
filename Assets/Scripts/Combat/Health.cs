@@ -343,6 +343,10 @@ namespace Deepbound.Combat
         public static Action<Health, float, ulong, string> ServerHitTagged;
         public Health Tag(string source) { DamageTag = source; return this; }
 
+        /// <summary>Diagnostics (tests): the modifier that last turned a hit to nothing, and what the last hit to land was worth.</summary>
+        public string LastZeroedBy { get; private set; } = "none";
+        public float LastLanded { get; private set; }
+
         public float ServerDamage(float amount, Vector3 attackerPosition, ulong attackerId = ulong.MaxValue)
         {
             string tag = DamageTag;
@@ -365,8 +369,15 @@ namespace Deepbound.Combat
             if (Blighted.Value) dealt *= BlightedMultiplier;
             if (Team == Team.Enemies && InPlagueCloud != null && InPlagueCloud(transform.position)) dealt *= 1.25f;
             // A modifier can end its owner (a mirror copy shatters when struck): stop there, the rest would act on a despawned object.
-            foreach (var modifier in IncomingModifiers) { dealt = modifier(dealt, attackerPosition); if (!IsSpawned) return 0f; }
+            foreach (var modifier in IncomingModifiers)
+            {
+                float was = dealt;
+                dealt = modifier(dealt, attackerPosition);
+                if (!IsSpawned) return 0f;
+                if (was > 0f && dealt <= 0f) LastZeroedBy = modifier.Method.DeclaringType?.Name + "." + modifier.Method.Name + " at " + Time.time.ToString("F1");
+            }
             if (dealt <= 0f) return 0f;
+            LastLanded = dealt;
             if (Team == Team.Players && (attackerPosition - transform.position).sqrMagnitude > 0.25f) HurtFromRpc(attackerPosition);
 
             // Shields soak what is left before health does.

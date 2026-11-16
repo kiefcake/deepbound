@@ -128,6 +128,9 @@ namespace Deepbound.UI
             UiTimer.Mark("Minimap");
         }
 
+        private GUIStyle placeSt;
+        private string placeText, placeFit;
+
         private void OnGUIBody()
         {
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
@@ -207,7 +210,7 @@ namespace Deepbound.UI
                     // Known only by its doorway: a faint dashed outline and a question mark (the boss room, a skull).
                     DashedRect(outer, boss ? new Color(0.85f, 0.3f, 0.25f, 0.7f) : new Color(Wall.r, Wall.g, Wall.b, 0.45f), wallPx);
                     if (boss) MapIcons.Draw(MapIcons.Id.Skull, r.center, new Color(0.9f, 0.3f, 0.25f, 0.85f), px);
-                    else if (r.width > 18f) GUI.Label(new Rect(r.center.x - 15f, r.center.y - 12f, 30f, 24f), "?", new GUIStyle(UiSkin.Small) { fontSize = large ? 18 : 13, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.8f, 0.75f, 0.65f, 0.5f) } });
+                    else if (r.width > 18f) GUI.Label(new Rect(r.center.x - 15f, r.center.y - 12f, 30f, 24f), "?", UiSkin.Derive(UiSkin.Small, new Color(0.8f, 0.75f, 0.65f, 0.5f), large ? 18 : 13, null, TextAnchor.MiddleCenter));
                     continue;
                 }
 
@@ -242,7 +245,7 @@ namespace Deepbound.UI
                     string label = room.Feature == RoomFeature.Treasury ? "TREASURY" : room.Feature == RoomFeature.Beggar ? "BEGGAR"
                         : room.Feature == RoomFeature.Proving ? "PROVING" : room.Feature == RoomFeature.Armoury ? "ARMOURY" : room.Feature == RoomFeature.Oath ? "OATH"
                         : room.Feature == RoomFeature.Statues ? "WATCHERS" : room.Feature == RoomFeature.Chimes ? "CHIMES" : room.Feature == RoomFeature.Mirrors ? "MIRRORS" : room.Feature == RoomFeature.Scales ? "SCALES" : room.Feature == RoomFeature.Draught ? "DRAUGHT" : room.Feature == RoomFeature.Panoply ? "PANOPLY" : "MIRROR";
-                    GUI.Label(new Rect(r.x - 20f, r.center.y - 9f, r.width + 40f, 18f), label, new GUIStyle(UiSkin.Small) { fontSize = large ? 12 : 9, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 0.88f, 0.55f, 0.9f) } });
+                    GUI.Label(new Rect(r.x - 20f, r.center.y - 9f, r.width + 40f, 18f), label, UiSkin.Derive(UiSkin.Small, new Color(1f, 0.88f, 0.55f, 0.9f), large ? 12 : 9, FontStyle.Bold, TextAnchor.MiddleCenter));
                 }
                 // Raised ground: lighter blocks.
                 foreach (var (rr, top) in room.Raised) UiSkin.Rect(WorldRect(rr.center.x, rr.center.y, rr.width, rr.height), new Color(1f, 1f, 1f, 0.06f + 0.03f * top));
@@ -388,18 +391,19 @@ namespace Deepbound.UI
             GUI.EndGroup();
 
             // Compass and caption.
-            GUI.Label(new Rect(frame.center.x - 15f, frame.y - 4f, 30f, 18f), "N", new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = UiSkin.Gold } });
+            GUI.Label(new Rect(frame.center.x - 15f, frame.y - 4f, 30f, 18f), "N", UiSkin.Derive(UiSkin.Small, UiSkin.Gold, 0, FontStyle.Bold, TextAnchor.MiddleCenter));
             if (!large)
             {
                 string place = "FLOOR " + (layout.Depth + 1) + (layout.Depth >= DungeonDirector.AbyssDepth ? " ABYSS" : "") + "  ·  " + DungeonTheme.FloorName(layout.Depth);
                 // A dark strip under the frame, so the caption reads over bright rooms.
                 UiSkin.Rect(new Rect(frame.x, frame.yMax + 4f, frame.width, 20f), new Color(0f, 0f, 0f, 0.55f));
                 // The key hint on the right; the place name gets what is left (clipped, never under the hint).
-                var hintStyle = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperRight, wordWrap = false };
+                var hintStyle = UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, 0, null, TextAnchor.UpperRight, false);
                 string hint = Binds.Live(Bind.Map) + " map";
                 float hintW = hintStyle.CalcSize(new GUIContent(hint)).x;
-                var placeStyle = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperLeft, clipping = TextClipping.Clip, wordWrap = false, normal = { textColor = UiSkin.Gold } };
-                GUI.Label(new Rect(frame.x + 6f, frame.yMax + 5f, frame.width - 20f - hintW, 18), UiSkin.Fit(place, placeStyle, frame.width - 20f - hintW), placeStyle);
+                placeSt ??= new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperLeft, clipping = TextClipping.Clip, wordWrap = false, normal = { textColor = UiSkin.Gold } };
+                var placeStyle = placeSt;
+                GUI.Label(new Rect(frame.x + 6f, frame.yMax + 5f, frame.width - 20f - hintW, 18), UiSkin.FitCached(ref placeText, ref placeFit, place, placeStyle, frame.width - 20f - hintW), placeStyle);
                 GUI.Label(new Rect(frame.x, frame.yMax + 5f, frame.width - 6f, 18), hint, hintStyle);
             }
             else DrawLegend(layout, frame);
@@ -530,7 +534,7 @@ namespace Deepbound.UI
             GUI.color = old;
 
             // Stations: marks always; names on the large map, or near you on the small one.
-            var labelStyle = new GUIStyle(UiSkin.Small) { fontSize = large ? 12 : 9, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false, normal = { textColor = new Color(1f, 0.9f, 0.65f, 0.95f) } };
+            var labelStyle = UiSkin.Derive(UiSkin.Small, new Color(1f, 0.9f, 0.65f, 0.95f), large ? 12 : 9, FontStyle.Bold, TextAnchor.MiddleCenter, false);
             foreach (var pl in CampPlaces)
             {
                 var at = ToMap(pl.At);
@@ -546,7 +550,7 @@ namespace Deepbound.UI
             }
 
             // The townsfolk, where they are now (they walk errands).
-            var folkStyle = new GUIStyle(UiSkin.Small) { fontSize = 11, alignment = TextAnchor.MiddleLeft, wordWrap = false, normal = { textColor = new Color(0.75f, 0.95f, 0.75f) } };
+            var folkStyle = UiSkin.Derive(UiSkin.Small, new Color(0.75f, 0.95f, 0.75f), 11, null, TextAnchor.MiddleLeft, false);
             foreach (var (who, name) in CampFolkNames)
             {
                 var at = ToMap(FolkPlaces.Now(who));
@@ -578,14 +582,15 @@ namespace Deepbound.UI
             ArrowAt(mine, yaw, Color.Lerp(player.SlotColor, Color.white, 0.35f), 18f);
             GUI.EndGroup();
 
-            GUI.Label(new Rect(frame.center.x - 15f, frame.y - 4f, 30f, 18f), "N", new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = UiSkin.Gold } });
+            GUI.Label(new Rect(frame.center.x - 15f, frame.y - 4f, 30f, 18f), "N", UiSkin.Derive(UiSkin.Small, UiSkin.Gold, 0, FontStyle.Bold, TextAnchor.MiddleCenter));
             if (!large)
             {
                 UiSkin.Rect(new Rect(frame.x, frame.yMax + 4f, frame.width, 20f), new Color(0f, 0f, 0f, 0.55f));
-                var hintStyle = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperRight, wordWrap = false };
+                var hintStyle = UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, 0, null, TextAnchor.UpperRight, false);
                 string hint = Binds.Live(Bind.Map) + " map";
                 float hintW = hintStyle.CalcSize(new GUIContent(hint)).x;
-                var placeStyle = new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperLeft, clipping = TextClipping.Clip, wordWrap = false, normal = { textColor = UiSkin.Gold } };
+                placeSt ??= new GUIStyle(UiSkin.Small) { alignment = TextAnchor.UpperLeft, clipping = TextClipping.Clip, wordWrap = false, normal = { textColor = UiSkin.Gold } };
+                var placeStyle = placeSt;
                 GUI.Label(new Rect(frame.x + 6f, frame.yMax + 5f, frame.width - 20f - hintW, 18), UiSkin.Fit("CASTLE RAVENHOLD  ·  CAMP", placeStyle, frame.width - 20f - hintW), placeStyle);
                 GUI.Label(new Rect(frame.x, frame.yMax + 5f, frame.width - 6f, 18), hint, hintStyle);
             }

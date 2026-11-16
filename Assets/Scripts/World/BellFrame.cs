@@ -218,6 +218,7 @@ namespace Deepbound.World
 
         private void OnGUI()
         {
+            useGUILayout = false;
             if (!LocalOpen || localFrame != this) return;
             useGUILayout = false;
             UI.UiSkin.Apply();

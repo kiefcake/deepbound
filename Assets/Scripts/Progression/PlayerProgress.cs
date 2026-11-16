@@ -782,6 +782,8 @@ namespace Deepbound.Progression
 
         // Server-side relic state.
         private float boneWardReadyAt;
+        /// <summary>Tests: the Bone Ward has just turned a blow (a trap test measures the trap, not the relic).</summary>
+        public void ServerDebugSpendBoneWard() => boneWardReadyAt = Time.time + 60f;
         private bool phoenixSpent;
 
         /// <summary>Server only.</summary>

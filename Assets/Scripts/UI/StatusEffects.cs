@@ -136,7 +136,7 @@ namespace Deepbound.UI
                 if (over) hover = i;
                 UiSkin.Rect(new Rect(r.x - 1.5f, r.y - 1.5f, size + 3f, size + 3f), new Color(s.Color.r, s.Color.g, s.Color.b, over ? 1f : 0.75f));
                 UiSkin.Rect(r, new Color(0.05f, 0.04f, 0.035f, 0.92f));
-                var g = new GUIStyle(GUI.skin.label) { font = glyphFont, fontSize = 18, alignment = TextAnchor.MiddleCenter, normal = { textColor = s.Color } };
+                var g = UiSkin.Derive(GUI.skin.label, s.Color, 18, null, TextAnchor.MiddleCenter, null, glyphFont);
                 GUI.Label(new Rect(r.x, r.y - 1f, size, size), s.Glyph, g);
                 if (s.Total > 0f)
                 {
@@ -147,7 +147,7 @@ namespace Deepbound.UI
             if (DebugHover >= 0 && DebugHover < all.Count) hover = DebugHover;
             float rowEnd = x + all.Count * (size + gap);
             if (!cursorFree)
-                GUI.Label(new Rect(rowEnd, y + 7f, 120f, 18f), "ALT: inspect", new GUIStyle(UiSkin.Small) { fontSize = 11, normal = { textColor = new Color(0.75f, 0.72f, 0.65f, 0.75f) } });
+                GUI.Label(new Rect(rowEnd, y + 7f, 120f, 18f), "ALT: inspect", UiSkin.Derive(UiSkin.Small, new Color(0.75f, 0.72f, 0.65f, 0.75f), 11));
             if (hover < 0) return;
 
             // The tooltip card above the badge.

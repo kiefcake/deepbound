@@ -105,6 +105,7 @@ namespace Deepbound.World
             bool beside = prog != null && prog.CanDisarm && DungeonDirector.BesideJet(trap, me.transform.position);
             if (!beside || !UI.Binds.Held(UI.Bind.Use) || UI.GameHud.MenuOpen) { chokeHeld = 0f; return; }
             chokeHeld += Time.deltaTime;
+            UI.GameHud.ShowHold("Choking the vent...", chokeHeld / DungeonDirector.ChokeSeconds);
             if (chokeHeld >= DungeonDirector.ChokeSeconds)
             {
                 chokeHeld = 0f;
@@ -112,16 +113,5 @@ namespace Deepbound.World
             }
         }
 
-        private void OnGUI()
-        {
-            if (chokeHeld <= 0f) return;
-            useGUILayout = false;
-            UI.UiSkin.Apply();
-            float W = UI.UiScale.W, H = UI.UiScale.H;
-            var r = new Rect(W / 2f - 110f, H * 0.62f, 220f, 14f);
-            UI.UiSkin.Rect(r, new Color(0f, 0f, 0f, 0.6f));
-            UI.UiSkin.Rect(new Rect(r.x, r.y, r.width * Mathf.Clamp01(chokeHeld / DungeonDirector.ChokeSeconds), r.height), new Color(0.9f, 0.8f, 0.5f));
-            GUI.Label(new Rect(r.x, r.y - 22f, r.width, 20f), "Choking the vent...", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
-        }
     }
 }

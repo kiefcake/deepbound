@@ -84,6 +84,29 @@ the first eight found and the weapon path is picked at random. No bot played a p
   not confirmed.
 - **Untested:** Pyromancer (the Mage bot was Cryomancer in every run read), the other three classes, and real players.
 
+## Main attack by path (2026-11-16, `-classdps`)
+
+Solo (so the Knight's lone-swing x1.25 applies), main attack only, held on the camp dummy for 6 s from the front, each
+path at mastery. Abilities, crits from behind and multi-target effects are not in it.
+
+| Class | Base | Path 1 | Path 2 | Path 3 |
+|---|---|---|---|---|
+| Knight | 72.2 | Cleave 72.2 | Riposte 72.2 | Bulwark 72.2 |
+| Mage | 50.8 | Pyromancer 50.8 | Cryomancer 50.8 | Wardweaver 50.8 |
+| Cleric | 42.6 | Zealot 57.5 | Shepherd 42.6 | Anchorite 42.6 |
+| Rogue | 55.2 | Assassin 55.2 (front) | Duelist 92.9 | Shadowskin 55.2 |
+| Ranger | 41.2 | Sharpshooter 69.6 | Trapper 48.0 | Pathwarden 41.2 |
+| Flagellant | 46.5 | Fanatic 52.8 | Penitent 46.6 | Scarred 46.6 |
+| Plague Doctor | 39.1 | Pestilence 55.8 | Physician 44.3 | Mithridate 44.3 |
+
+- The solo Knight's swing is no longer the weakest (it was 26 in the first table). Counters and Riposte are not in it (no
+  blocks here); Cleave only widens the arc.
+- Pyromancer and Cryomancer equal the base on one target: their gain is splash and pierce, which a lone dummy cannot show.
+- The Duelist's x1.25 front and a flourish every 4th stab make it the top single-target main attack; the Assassin from
+  behind (x2) would be about 110, so front play still pays less than flanking.
+- Harness fix: the dummy refills only after 2.5 s untouched and the rows ran back to back, so the 5,000 ran out during the
+  Duelist and it read 53 (dead for a third of the row). Each row now starts on a full dummy.
+
 ## Reading the tally
 
 An `other` entry the same size as `Relics` is not extra damage. It is the hit that set off the proc: the proc's nested hit

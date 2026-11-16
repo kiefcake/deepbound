@@ -686,6 +686,7 @@ namespace Deepbound.World
         // ---- The panel ----
         private void OnGUI()
         {
+            useGUILayout = false;
             if (mySeat < 0 || localTable != this) return;
             var me = NetworkPlayer.Local;
             var prog = me != null ? me.GetComponent<PlayerProgress>() : null;

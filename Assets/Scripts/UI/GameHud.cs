@@ -1672,10 +1672,12 @@ namespace Deepbound.UI
             if (!SeatedGame)
             {
                 DrawCrosshair(w, h);
+                UiTimer.Mark("Crosshair");
                 DrawVitals(w, h);
+                UiTimer.Mark("Vitals.Rest");
                 DrawAbilities(w, h);
             }
-            UiTimer.Mark("DrawVitals");
+            UiTimer.Mark("Abilities");
             DrawBoss(w);
             UiTimer.Mark("DrawBoss");
             DrawTally(w, h);
@@ -1703,6 +1705,7 @@ namespace Deepbound.UI
             bool panel = shopOpen || forgeOpen || runeOpen || invOpen || statsHeld || pageShown >= 0;
             if (!panel && !MenuOpen) DrawControlsHint(w, h);
             UiTimer.Mark("DrawControlsHint");
+            DrawHold(w, h);
             if (!panel)
             {
                 Tips.Draw(w, h);
@@ -1732,6 +1735,32 @@ namespace Deepbound.UI
             if (invOpen) DrawInventory(w, h);
             UiTimer.Mark("DrawInventory");
             DrawFade(w, h);
+        }
+
+        // ------------------------------------------------------------------
+
+        // A held action's progress (choking a vent, jamming a plate): set each frame by whatever is being held, drawn
+        // once here (2026-11-16 perf: every vent and plate on a floor used to carry its own OnGUI).
+        private static string holdText;
+        private static float holdFrac;
+        private static int holdFrame = -10;
+        private static GUIStyle holdStyle;
+
+        public static void ShowHold(string text, float fraction)
+        {
+            holdText = text;
+            holdFrac = Mathf.Clamp01(fraction);
+            holdFrame = Time.frameCount;
+        }
+
+        private void DrawHold(float w, float h)
+        {
+            if (holdFrame < Time.frameCount - 1 || string.IsNullOrEmpty(holdText)) return;
+            var r = new Rect(w / 2f - 110f, h * 0.62f, 220f, 14f);
+            UiSkin.Rect(r, new Color(0f, 0f, 0f, 0.6f));
+            UiSkin.Rect(new Rect(r.x, r.y, r.width * holdFrac, r.height), new Color(0.9f, 0.8f, 0.5f));
+            holdStyle ??= new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter };
+            GUI.Label(new Rect(r.x, r.y - 22f, r.width, 20f), holdText, holdStyle);
         }
 
         // ------------------------------------------------------------------
@@ -1925,12 +1954,16 @@ namespace Deepbound.UI
             GUI.matrix = crossKeep;
         }
 
+        private string infoText, infoFit;
+
         private void DrawVitals(float w, float h)
         {
             float x = 24, y = h - 110, bw = 300;
             DrawRelicRow(x, y - 44);
+            UiTimer.Mark("Vitals.Relics");
             // What is affecting you: badges, hover (ALT) to read them.
             StatusEffects.Draw(player, x, progress.RelicCount > 0 ? y - 84 : y - 50, MenuOpen);
+            UiTimer.Mark("Vitals.Status");
             Rect(x - 8, y - 10, bw + 16, 96, Panel);
 
             float hp = health.Current.Value, max = Mathf.Max(1f, health.Max.Value);
@@ -1946,7 +1979,7 @@ namespace Deepbound.UI
             {
                 float pulse = 0.75f + 0.25f * Mathf.Sin(Time.time * 6f);
                 GUI.Label(new Rect(x, y + 1, bw - 8, 22), Classes.PathTriads.Name(progress.ClassId.Value).ToUpperInvariant() + "  -" + progress.SurvivalCut.Value + "%",
-                    new GUIStyle(small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(0.75f, 0.9f, 1f, pulse) } });
+                    UiSkin.Derive(small, new Color(0.75f, 0.9f, 1f, pulse), 0, FontStyle.Bold, TextAnchor.MiddleRight));
             }
 
             // Low health: the frame pulses red, faster the lower it goes.
@@ -1958,22 +1991,25 @@ namespace Deepbound.UI
                 Rect(x - 8, y - 10, bw + 16, 2, pc); Rect(x - 8, y + 84, bw + 16, 2, pc);
                 Rect(x - 8, y - 10, 2, 96, pc); Rect(x + bw + 6, y - 10, 2, 96, pc);
             }
+            UiTimer.Mark("Vitals.Health");
             var kit = player.ActiveKit;
             Bar(x, y + 32, bw, 12, kit.ResourceMax > 0f ? kit.Resource / kit.ResourceMax : 0f, kit.ResourceColor);
             GUI.Label(new Rect(x + 6, y + 29, bw - 12, 16), kit.ResourceName.ToUpperInvariant() + "  " + Mathf.FloorToInt(kit.Resource) + " / " + Mathf.RoundToInt(kit.ResourceMax),
-                new GUIStyle(small) { fontSize = 10, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(1f, 1f, 1f, 0.85f) } });
+                UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.85f), 10, FontStyle.Bold, TextAnchor.MiddleRight));
             string cls = progress.Class.Name.ToUpperInvariant();
             string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
-            var infoLine = new GUIStyle(small) { wordWrap = false };
+            var infoLine = UiSkin.Derive(small, small.normal.textColor, 0, null, null, false);
             string info = (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Floor " + (CurrentDepth() + 1) + "/" + DungeonDirector.FloorsPerRun + (CurrentDepth() >= DungeonDirector.AbyssDepth ? " Abyss" : ""))
                 + (DungeonDirector.Instance != null && DungeonDirector.Instance.SealCount > 0 ? "  ·  Seals " + DungeonDirector.Instance.SealCount + "/" + DungeonDirector.SealTotal : "") + "  ·  " + weapon;
             // One line: it wrapped over the embers line below once a run had seals and a longer weapon name.
-            GUI.Label(new Rect(x, y + 46, bw, 20), UiSkin.Fit(info, infoLine, bw), infoLine);
-            GUI.Label(new Rect(x, y + 64, bw, 20), progress.Embers.Value + " embers", new GUIStyle(small) { normal = { textColor = LootInfo.EmberColor } });
+            GUI.Label(new Rect(x, y + 46, bw, 20), UiSkin.FitCached(ref infoText, ref infoFit, info, infoLine, bw), infoLine);
+            GUI.Label(new Rect(x, y + 64, bw, 20), progress.Embers.Value + " embers", UiSkin.Derive(small, LootInfo.EmberColor));
             if (progress.Sigils.Value > 0)
-                GUI.Label(new Rect(x + 90, y + 64, bw, 20), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil" : " sigils"), new GUIStyle(small) { normal = { textColor = LootInfo.SigilColor } });
-            GUI.Label(new Rect(x, y + 64, bw, 20), progress.Gold.Value + " gold", new GUIStyle(small) { alignment = TextAnchor.UpperRight, normal = { textColor = Gold } });
+                GUI.Label(new Rect(x + 90, y + 64, bw, 20), progress.Sigils.Value + (progress.Sigils.Value == 1 ? " sigil" : " sigils"), UiSkin.Derive(small, LootInfo.SigilColor));
+            GUI.Label(new Rect(x, y + 64, bw, 20), progress.Gold.Value + " gold", UiSkin.Derive(small, Gold, 0, null, TextAnchor.UpperRight));
         }
+
+        private GUIStyle rareSt;
 
         private void DrawAbilities(float w, float h)
         {
@@ -2004,7 +2040,7 @@ namespace Deepbound.UI
                 if (qi < 0) qi = 2;
                 var band = new Rect(x + (size + gap) * qi - 2, y + size / 2f - 11, size * 2 + gap + 4, 22);
                 Rect(band.x, band.y, band.width, band.height, new Color(0.05f, 0.05f, 0.09f, 0.85f));
-                UiSkin.Shadowed(band, "SILENCED", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14, fontStyle = FontStyle.Bold, normal = { textColor = c } });
+                UiSkin.Shadowed(band, "SILENCED", UiSkin.Derive(UiSkin.Small, c, 14, FontStyle.Bold, TextAnchor.MiddleCenter));
             }
 
             // The potion pouch, just above the bar: four little bottles with their counts.
@@ -2036,7 +2072,8 @@ namespace Deepbound.UI
                 Rect(rx + 2, y - 30, rw - 4, 24, new Color(0.05f, 0.04f, 0.03f, 0.85f));
                 Rect(rx + 8, y - 25, 10, 14, rare != RareItem.None ? rc : rc * 0.5f);
                 pouchSt.normal.textColor = rare != RareItem.None ? UiSkin.Readable(rc) : new Color(0.55f, 0.55f, 0.55f);
-                var rareSt = new GUIStyle(pouchSt) { wordWrap = false, clipping = TextClipping.Clip };
+                rareSt ??= new GUIStyle(pouchSt) { wordWrap = false, clipping = TextClipping.Clip };
+                rareSt.normal.textColor = pouchSt.normal.textColor;
                 GUI.Label(new Rect(rx + 22, y - 30, rw - 24, 24), Binds.Live(Bind.Rare) + "  " + RareItems.Short(rare), rareSt);
             }
         }
@@ -3253,7 +3290,7 @@ namespace Deepbound.UI
                 float cx = x + shown * 30;
                 Rect(cx - 1, y - 1, 34, 26, new Color(Gold.r, Gold.g, Gold.b, 0.7f));
                 Rect(cx, y, 32, 24, new Color(0.04f, 0.035f, 0.03f, 0.92f));
-                GUI.Label(new Rect(cx, y + 2, 32, 20), "+" + (n - shown), new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
+                GUI.Label(new Rect(cx, y + 2, 32, 20), "+" + (n - shown), UiSkin.Derive(small, Gold, 0, FontStyle.Bold, TextAnchor.MiddleCenter));
             }
             if (hover < 0) return;
             var hr = progress.RelicAt(hover);

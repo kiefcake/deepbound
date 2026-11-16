@@ -248,10 +248,13 @@ namespace Deepbound.UI
             UiTimer.Mark("PauseMenu");
         }
 
+        // Layout only while open (2026-11-16 perf): a closed menu still paid IMGUI's Layout event every frame.
+        private void LateUpdate() => useGUILayout = Open;
+
         private void OnGUIBody()
         {
             UiSkin.Apply();
-            if (!Open) return;
+            if (!Open || !useGUILayout) return;
             float w = UiScale.W, h = UiScale.H;
             GUI.depth = -20;
 

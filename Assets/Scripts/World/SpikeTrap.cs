@@ -168,6 +168,7 @@ namespace Deepbound.World
             bool onPlate = OnPlate(me.transform.position) && prog.CanDisarm && (!Hidden.Value || prog.ClassId.Value == Classes.ClassId.Rogue || jamHeld > 0f || Seen);
             if (!onPlate || !UI.Binds.Held(UI.Bind.Use) || UI.GameHud.MenuOpen) { jamHeld = 0f; return; }
             jamHeld += Time.deltaTime;
+            UI.GameHud.ShowHold("Jamming the plate...", jamHeld / JamSeconds);
             if (jamHeld >= JamSeconds)
             {
                 jamHeld = 0f;
@@ -208,17 +209,6 @@ namespace Deepbound.World
                 UI.GameHud.Feed(who + (rogue ? " wedges the plate with a knife blade. The spikes stay down." : " jams the plate with a pick. The spikes stay down."), new Color(0.85f, 0.85f, 0.7f));
         }
 
-        private void OnGUI()
-        {
-            if (jamHeld <= 0f) return;
-            useGUILayout = false;
-            UI.UiSkin.Apply();
-            float W = UI.UiScale.W, H = UI.UiScale.H;
-            var r = new Rect(W / 2f - 110f, H * 0.62f, 220f, 14f);
-            UI.UiSkin.Rect(r, new Color(0f, 0f, 0f, 0.6f));
-            UI.UiSkin.Rect(new Rect(r.x, r.y, r.width * Mathf.Clamp01(jamHeld / JamSeconds), r.height), new Color(0.9f, 0.8f, 0.5f));
-            GUI.Label(new Rect(r.x, r.y - 22f, r.width, 20f), "Jamming the plate...", new GUIStyle(UI.UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
-        }
 
         /// <summary>The prompt text for the HUD when standing on a plate (null when there is nothing to say).</summary>
         public static string PromptFor(PlayerProgress p)

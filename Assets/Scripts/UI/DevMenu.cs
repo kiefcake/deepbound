@@ -57,9 +57,11 @@ namespace Deepbound.UI
             scroll.y = float.MaxValue;
         }
 
+        private void LateUpdate() => useGUILayout = Open;
+
         private void OnGUI()
         {
-            if (!Open || player == null) return;
+            if (!Open || player == null || !useGUILayout) return;
             UiSkin.Apply();
             GUI.depth = -40;
             float pw = 720f, ph = 560f, x = UiScale.W - pw - 20f, y = 40f;

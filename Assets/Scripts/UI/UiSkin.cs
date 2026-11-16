@@ -140,6 +140,38 @@ namespace Deepbound.UI
         }
 
         /// <summary>Text cut to fit a width on one line, ending "..." when it had to be shortened.</summary>
+        /// <summary>
+        /// A style derived from <paramref name="from"/>, made once and reused (2026-11-16 perf: the HUD built several
+        /// new GUIStyles every pass, each a native object). The colour is set on each call, so use it right away.
+        /// </summary>
+        public static GUIStyle Derive(GUIStyle from, Color color, int fontSize = 0, FontStyle? fontStyle = null, TextAnchor? align = null, bool? wrap = null, Font font = null)
+        {
+            var key = (from, fontSize, fontStyle.HasValue ? (int)fontStyle.Value : -1, align.HasValue ? (int)align.Value : -1, wrap.HasValue ? (wrap.Value ? 1 : 0) : -1, font);
+            if (!derived.TryGetValue(key, out var s))
+            {
+                if (derived.Count > 400) derived.Clear();
+                s = new GUIStyle(from);
+                if (fontSize > 0) s.fontSize = fontSize;
+                if (fontStyle.HasValue) s.fontStyle = fontStyle.Value;
+                if (align.HasValue) s.alignment = align.Value;
+                if (wrap.HasValue) s.wordWrap = wrap.Value;
+                if (font != null) s.font = font;
+                derived[key] = s;
+            }
+            s.normal.textColor = color;
+            return s;
+        }
+        private static readonly System.Collections.Generic.Dictionary<(GUIStyle, int, int, int, int, Font), GUIStyle> derived = new System.Collections.Generic.Dictionary<(GUIStyle, int, int, int, int, Font), GUIStyle>();
+
+        /// <summary><see cref="Fit"/>, remembered for the last text and width it was asked about (it measures a lot).</summary>
+        public static string FitCached(ref string lastText, ref string lastFit, string text, GUIStyle style, float width)
+        {
+            // Keyed on the text and the width it must fit (the same caption is drawn on the small and the large map).
+            string key = text + "" + Mathf.RoundToInt(width);
+            if (key != lastText) { lastText = key; lastFit = Fit(text, style, width); }
+            return lastFit;
+        }
+
         public static string Fit(string text, GUIStyle style, float width)
         {
             if (string.IsNullOrEmpty(text) || style.CalcSize(new GUIContent(text)).x <= width) return text;

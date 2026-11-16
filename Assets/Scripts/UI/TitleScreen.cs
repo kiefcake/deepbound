@@ -31,10 +31,13 @@ namespace Deepbound.UI
 
         private bool Connected => NetworkManager.Singleton != null && (NetworkManager.Singleton.IsClient || NetworkManager.Singleton.IsServer);
 
+        // Layout only while the title shows (2026-11-16 perf).
+        private void LateUpdate() => useGUILayout = launcher != null && !Connected;
+
         private void OnGUI()
         {
             UiSkin.Apply();
-            if (launcher == null || Connected) return;
+            if (launcher == null || Connected || !useGUILayout) return;
             float w = UiScale.W, h = UiScale.H;
             float fade = Mathf.Clamp01((Time.time - shownAt) / 1.2f);
 

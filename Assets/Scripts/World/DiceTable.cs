@@ -152,6 +152,7 @@ namespace Deepbound.World
 
         private void OnGUI()
         {
+            useGUILayout = false;
             if (!LocalOpen || localTable != this) return;
             var me = NetworkPlayer.Local;
             var prog = me != null ? me.GetComponent<PlayerProgress>() : null;

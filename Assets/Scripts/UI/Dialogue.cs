@@ -247,6 +247,7 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
+            useGUILayout = false;
             if (!Open || player == null || !player.IsOwner) return;
             useGUILayout = false;
             UiSkin.Apply();

@@ -715,6 +715,9 @@ namespace Deepbound.World
         /// <summary>Cobweb strands across an upper corner (translucent, catches the torchlight).</summary>
         public static void Cobweb(Transform parent, Vector3 corner, Vector3 alongA, Vector3 alongB, float size)
         {
+            // Its own pivot, merged at the end (2026-11-16 perf: eight strand renderers a web became two).
+            var web = MeshKit.Pivot(parent, "Cobweb", Vector3.zero);
+            parent = web;
             var strand = MeshKit.Box(new Vector3(0.008f, 0.008f, 1f));
             for (int i = 0; i <= 4; i++)
             {
@@ -732,6 +735,7 @@ namespace Deepbound.World
                 var s = MeshKit.Part(parent, "WebRing", strand, Mat.Smoke, mid, Quaternion.LookRotation(c - a).eulerAngles, new Vector3(1f, 1f, Vector3.Distance(a, c)));
                 ArtLibrary.Tint(s.GetComponent<Renderer>(), new Color(0.75f, 0.75f, 0.72f, 0.4f));
             }
+            MeshKit.MergeParts(web);
         }
 
         /// <summary>A rack of spare arms against a wall: swords and a spear.</summary>

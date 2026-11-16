@@ -228,6 +228,7 @@ namespace Deepbound.World
 
         private void OnGUI()
         {
+            useGUILayout = false;
             if (Now.Value != State.Free || health == null) return;
             var cam = ViewCamera.Current;
             var me = NetworkPlayer.Local;
