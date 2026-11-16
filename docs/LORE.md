@@ -163,6 +163,34 @@ Cardinal is singing them to wake.
 
 *(Design note: the Cardinal is a bare skull under a two-peaked mitre, never a hood over a face.)*
 
+### The lair keepers (built 2026-11-14)
+
+Not every terrible thing below Ravenhold guards a door. Some simply made a home, sealed it, and went to
+sleep. Each act has one: a side chamber whose gates drop behind whoever wakes its keeper, and lift
+again only when one of them is dead or the room is empty.
+
+**Mother Marrow, of the Ossuary.** She was the bonesetter of Cathedra, the one the dying were carried
+to. She never stopped mending. Her knitters bring her what they find and she knits it into a cocoon
+around herself, and while a knitter still stands no blade gets through. Cut the knitters first. She
+does not forgive it.
+
+**The Lantern Fisher, of the Drowned Vaults.** When the river came, the vault-clerks who could not
+swim held their lamps up to the last. Something under the water learned that the drowning swim toward
+a light. Only its lure shows above the black water. When it comes up to take what it hooked, that is
+the only time it can be hurt.
+
+**The Twice-Crowned, of the Hollow Throne.** Ossric's elder brother, who should have been king, and
+whom the Cardinal crowned too, in secret, so that Cathedra would have a king whichever way the war
+went. He and his shadow share one crown. Only the head wearing it can bleed, and they pass it between
+them.
+
+**Mother Veyle, of the Black Cathedral.** The abbess of the mirror cloister, who taught the novices to
+look at themselves until they could not stop. Her copies stand in the glass and step out of it; strike
+one and it bursts in your face. Only the true Veyle casts a shadow, because only she still has one.
+
+*(Design note: the keepers sleep off-centre on open floor, wake only when someone comes close, and
+scale to however many came in: a fight for one or for four.)*
+
 ### The dead
 
 - **Skeletons** are Cathedra's common dead, still holding the tools of whoever they were.
@@ -227,6 +255,20 @@ who stood over the seals, and they move the same way they always have: only when
 
 > *"You broke my seals. Then meet the ones who kept them."*
 > *"The morning they waited for. It is mine."*
+
+### The Cinder Pit and Vharoth (built 2026-11-14)
+Not every way down goes through the Cathedral. The **Ember Rift** opens in the floor on some
+descents: a crack that glows, and smells of the forges Cathedra put out before it was buried. Below
+it is **the Cinder Pit**, the furnace that warmed the city of the buried, still burning with nobody
+left to feed it. It feeds itself now.
+
+**Vharoth, the Ember Archon**, was its stoker, and then its fuel, and then its master. He keeps the
+fire the way the fire taught him: in turns. He strides, he kindles, he runs the walls as a single
+ember, he looses seekers that hunt whoever is nearest, and then he does it all again, faster, no
+matter how hurt he is. When he is nearly spent the Furnace Heart opens in him, and for a while nothing
+can touch him at all.
+
+> *"Feed the fire. You will do."*
 
 ## Open threads (for later)
 

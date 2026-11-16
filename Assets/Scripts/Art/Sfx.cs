@@ -56,6 +56,8 @@ namespace Deepbound.Art
             sameFrame.TryGetValue(sound, out int n);
             sameFrame[sound] = n + 1;
             if (n >= MaxSameFrame) return;
+            // Footsteps and critter squeaks are background: they never take the last voices a fight needs.
+            if (Background(sound) && Busy() >= MaxVoices - BackgroundReserve) return;
             var src = Borrow();
             // A full pool used to drop whatever came next, your own hurt or a boss slam included: those take the quietest voice.
             if (src == null && Vital(sound)) src = Steal();
@@ -69,7 +71,64 @@ namespace Deepbound.Art
             src.maxDistance = 35f;
             src.rolloffMode = AudioRolloffMode.Linear;
             src.dopplerLevel = 0f;
+            // HEARING THE DUNGEON (2026-11-16): UI clicks are dry; everything else rings in the room (Acoustics). A sound
+            // beyond a wall comes through muffled and lower, and far sounds lose their top end, so the dead scraping in
+            // the next room sound like the next room.
+            bool dry = Dry(sound);
+            src.reverbZoneMix = dry ? 0f : 1f;
+            float cutoff = 22000f;
+            if (!dry && TryEar(out var ear))
+            {
+                float dist = Vector3.Distance(ear, position);
+                cutoff = Mathf.Lerp(22000f, AirCutoff, Mathf.InverseLerp(6f, src.maxDistance, dist));
+                if (dist > 2.5f && Occluded(ear, position))
+                {
+                    cutoff = WallCutoff;
+                    src.volume *= WallGain;
+                }
+            }
+            var lp = src.GetComponent<AudioLowPassFilter>();
+            if (lp != null) lp.cutoffFrequency = cutoff;
+            LastCutoff = cutoff;
             src.Play();
+        }
+
+        /// <summary>Muffling: a sound through a wall is cut to this (Hz) and this loud; a sound at the edge of hearing to AirCutoff.</summary>
+        public const float WallCutoff = 1100f, WallGain = 0.55f, AirCutoff = 6500f;
+        public const int BackgroundReserve = 14;
+        /// <summary>The low-pass the last sound was given (tests).</summary>
+        public static float LastCutoff { get; private set; } = 22000f;
+
+        private static bool Dry(Sound s) => s == Sound.UiClick || s == Sound.UiOpen || s == Sound.UiClose || s == Sound.UiError;
+        private static bool Background(Sound s) => s == Sound.Step || s == Sound.StepSoft || s == Sound.Squeak;
+
+        private static int Busy()
+        {
+            int n = 0;
+            foreach (var v in voices) if (v != null && v.isPlaying) n++;
+            return n;
+        }
+
+        private static bool TryEar(out Vector3 ear)
+        {
+            var cam = ViewCamera.Current;
+            if (cam != null) { ear = cam.transform.position; return true; }
+            ear = Vector3.zero;
+            return false;
+        }
+
+        /// <summary>
+        /// True if solid stone stands between the ear and a sound: the first thing the line meets is not a creature, a
+        /// player or something loose. The sound is heard from a little above where it is made (most are at the feet).
+        /// </summary>
+        public static bool Occluded(Vector3 ear, Vector3 at)
+        {
+            var to = at + Vector3.up * 0.6f;
+            if (!Physics.Linecast(ear, to, out var hit, ~(1 << 2), QueryTriggerInteraction.Ignore)) return false;
+            if ((to - hit.point).sqrMagnitude < 0.35f * 0.35f) return false;
+            var c = hit.collider;
+            if (c.attachedRigidbody != null || c is CharacterController) return false;
+            return c.GetComponentInParent<Combat.Health>() == null;
         }
 
         /// <summary>
@@ -113,6 +172,8 @@ namespace Deepbound.Art
             go.transform.SetParent(voiceRoot, false);
             var s = go.AddComponent<AudioSource>();
             s.playOnAwake = false;
+            var lp = go.AddComponent<AudioLowPassFilter>();
+            lp.cutoffFrequency = 22000f;
             voices.Add(s);
             return s;
         }

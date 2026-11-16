@@ -88,6 +88,14 @@ namespace Deepbound.UI
         }
         private static float? sfxVol;
 
+        /// <summary>How much the rooms ring (Art.Acoustics reverb), 0 (dry) to 1.5.</summary>
+        public static float RoomEcho
+        {
+            get => roomEcho ??= Load("deepbound.roomecho", 1f);
+            set { roomEcho = Mathf.Clamp(value, 0f, 1.5f); Save("deepbound.roomecho", roomEcho.Value); }
+        }
+        private static float? roomEcho;
+
         /// <summary>How loud other players' voices are, 0-1.5.</summary>
         public static float VoiceVolume
         {

@@ -166,6 +166,9 @@ namespace Deepbound.UI
             float s = Settings.SfxVolume;
             Slider("Effects  " + Mathf.RoundToInt(s * 100f) + "%", ref s, 0f, 1f);
             Settings.SfxVolume = s;
+            float e = Settings.RoomEcho;
+            Slider("Room echo  " + Mathf.RoundToInt(e * 100f) + "%", ref e, 0f, 1.5f);
+            if (!Mathf.Approximately(e, Settings.RoomEcho)) Settings.RoomEcho = e;
             Settings.MuteInBackground = PauseMenu.Check(Settings.MuteInBackground, "Mute when the game is in the background");
             GUILayout.EndVertical();
             GUILayout.Space(50);

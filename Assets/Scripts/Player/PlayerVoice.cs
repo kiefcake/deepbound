@@ -287,6 +287,8 @@ namespace Deepbound.Player
             reverb.reverbPreset = AudioReverbPreset.Stoneroom;
             reverb.dryLevel = 0f;
             reverb.room = -1800f;
+            // It carries its own little echo; the room's reverb zone (Art.Acoustics) would double it.
+            source.reverbZoneMix = 0f;
             muffle = head.AddComponent<AudioLowPassFilter>();
             muffle.cutoffFrequency = 22000f;
             source.Play();

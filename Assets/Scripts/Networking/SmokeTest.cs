@@ -4944,6 +4944,50 @@ namespace Deepbound.Networking
                     mezz > 0 && belf > 0 && under > 0 && perched > 0 && ruins > 0 && ramparts > 0 && bad == 0 && (drop < 4.8f || afterFall < 0.99f) && afterFall > 0.5f && leaps == 1 && landed);
             }
 
+            // HEARING THE DUNGEON (2026-11-16): rooms and corridors sound different, stone between you and a sound muffles it
+            // (a creature or a loose crate does not), and the dead are heard walking.
+            if (net.IsServer && local != null && DungeonDirector.Layout != null && !DungeonDirector.InLobby)
+            {
+                var al = DungeonDirector.Layout;
+                var ar = al.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Combat && r.Feature == RoomFeature.None) ?? al.Rooms[0];
+                var big = al.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Boss);
+                string roomSpace = Art.Acoustics.SpaceAt(ar.Center + Vector3.up).Name;
+                string corSpace = al.Links.Count > 0 ? Art.Acoustics.SpaceAt(al.CorridorMidpoint(al.Links[0]) + Vector3.up).Name : "none";
+                string bossSpace = big != null ? Art.Acoustics.SpaceAt(big.Center + Vector3.up).Name : "none";
+                // Out in empty space far below the floor: open air, a stone slab, a loose crate.
+                var earT = new Vector3(0f, -80f, 0f);
+                var soundT = earT + new Vector3(0f, -0.6f, 9f);
+                bool open = !Art.Sfx.Occluded(earT, soundT);
+                var slab = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                slab.transform.position = earT + new Vector3(0f, 0f, 4.5f);
+                slab.transform.localScale = new Vector3(6f, 6f, 0.5f);
+                Physics.SyncTransforms();
+                bool walled = Art.Sfx.Occluded(earT, soundT);
+                slab.AddComponent<Rigidbody>().isKinematic = true;
+                Physics.SyncTransforms();
+                bool loose = !Art.Sfx.Occluded(earT, soundT);
+                Destroy(slab);
+                // Through the real playback path: a wall right in front of the camera muffles a hit behind it.
+                var cam = Art.ViewCamera.Current;
+                float muffled = -1f;
+                if (cam != null)
+                {
+                    var wall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                    wall.transform.position = cam.transform.position + cam.transform.forward * 1.5f;
+                    wall.transform.rotation = Quaternion.LookRotation(cam.transform.forward);
+                    wall.transform.localScale = new Vector3(5f, 5f, 0.4f);
+                    Physics.SyncTransforms();
+                    Art.Sfx.Play(Art.Sound.Hit, cam.transform.position + cam.transform.forward * 4f, 0.01f);
+                    muffled = Art.Sfx.LastCutoff;
+                    Destroy(wall);
+                }
+                yield return new WaitForSeconds(0.6f);
+                Log("hearing", "room " + roomSpace + ", corridor " + corSpace + ", boss " + bossSpace + ", now " + Art.Acoustics.Current.Name
+                    + "; open " + open + " stone " + walled + " loose crate clear " + loose + ", hit behind a wall at " + muffled.ToString("0") + " Hz, steps heard " + Art.HumanoidRig.SoftSteps,
+                    corSpace == "corridor" && roomSpace != "corridor" && roomSpace != "outdoors" && bossSpace == "nave" && open && walled && loose
+                    && (cam == null || Mathf.Approximately(muffled, Art.Sfx.WallCutoff)) && Art.HumanoidRig.SoftSteps > 0);
+            }
+
             // THE CINDER PIT (2026-11-14): a negative-seed floor with its own theme, lava that burns the living, and Vharoth,
             // whose stage loop turns and whose seekers burst on whoever they reach.
             if (net.IsServer && local != null)
@@ -5241,7 +5285,7 @@ namespace Deepbound.Networking
                     var corner = bc + new Vector3(bel.Size.x * 0.42f, 0.1f, -bel.Size.y * 0.42f);
                     VStand(corner, bc, -22f);
                     yield return new WaitForSeconds(1.2f);
-                    yield return Shot(dir, "vx_1_belfry_floor");
+                    yield return Shot(dir, "vx_1_belfry_floor"); yield return SamplePerf("vx_1_belfry_floor");
                     VStand(corner + new Vector3(-bel.Size.x * 0.84f, 0f, bel.Size.y * 0.84f), bc, -22f);
                     yield return new WaitForSeconds(0.8f);
                     yield return Shot(dir, "vx_2_belfry_floor_other");
@@ -5263,7 +5307,7 @@ namespace Deepbound.Networking
                     var floorAt = mz.Center + away * (Mathf.Min(mz.Size.x, mz.Size.y) * 0.4f) + Vector3.up * 0.1f;
                     VStand(floorAt, new Vector3(dr.center.x, 0f, dr.center.y), -10f);
                     yield return new WaitForSeconds(1.2f);
-                    yield return Shot(dir, "vx_4_mezzanine");
+                    yield return Shot(dir, "vx_4_mezzanine"); yield return SamplePerf("vx_4_mezzanine");
                     VStand(new Vector3(dr.center.x, 0.1f, dr.center.y) + away * 1.5f, mz.Center, 0f);
                     yield return new WaitForSeconds(0.8f);
                     yield return Shot(dir, "vx_5_mezzanine_under");
@@ -5289,7 +5333,7 @@ namespace Deepbound.Networking
                 {
                     VStand(uc.Center + new Vector3(uc.Size.x * 0.44f, 0.1f, uc.Size.y * 0.44f), uc.Center, 20f);
                     yield return new WaitForSeconds(1.2f);
-                    yield return Shot(dir, "vx_8_undercroft");
+                    yield return Shot(dir, "vx_8_undercroft"); yield return SamplePerf("vx_8_undercroft");
                     VStand(uc.Center + new Vector3(uc.Size.x * 0.25f, -DungeonLayout.UndercroftDepth + 0.1f, -uc.Size.y * 0.3f), uc.Center, -12f);
                     yield return new WaitForSeconds(0.8f);
                     yield return Shot(dir, "vx_9_undercroft_pit");
@@ -5301,6 +5345,7 @@ namespace Deepbound.Networking
                     VStand(fr.Center + new Vector3(fr.Size.x * 0.42f, 0.1f, -fr.Size.y * 0.42f), fr.Center, 6f);
                     yield return new WaitForSeconds(1.2f);
                     yield return Shot(dir, shot);
+                    yield return SamplePerf(shot);
                     VStand(fr.Center + new Vector3(-fr.Size.x * 0.42f, 0.1f, fr.Size.y * 0.42f), fr.Center, 6f);
                     yield return new WaitForSeconds(0.8f);
                     yield return Shot(dir, shot + "_b");

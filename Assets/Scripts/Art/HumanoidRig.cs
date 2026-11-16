@@ -159,13 +159,46 @@ namespace Deepbound.Art
         {
             float size = transform.lossyScale.y;
             bool heavy = size >= 1.4f;
-            if (!heavy && speed < 5.5f) return;
             var cam = ViewCamera.Current;
-            if (cam == null || (cam.transform.position - transform.position).sqrMagnitude > (heavy ? 26f * 26f : 14f * 14f)) return;
+            if (cam == null) return;
+            float far = (cam.transform.position - transform.position).sqrMagnitude;
+            // Every walker is heard now (2026-11-16): the dead shuffling closer round a corner, a teammate on the stair.
+            // Quiet, and muffled through walls (Sfx), so you hear them before you see them.
+            if (!heavy && far < StepEarshot * StepEarshot) SoftStep(size, speed);
+            if (!heavy && speed < 5.5f) return;
+            if (far > (heavy ? 26f * 26f : 14f * 14f)) return;
             var foot = transform.position + Vector3.up * 0.05f;
             var dust = new Color(0.36f, 0.31f, 0.26f);
             Vfx.Embers(foot, heavy ? 5 : 2, dust, heavy ? 1.6f : 0.9f, heavy ? 0.07f : 0.045f, 0.6f);
             if (heavy) Sfx.Play(Sound.Step, foot, Mathf.Clamp01(0.25f * size), Mathf.Lerp(0.8f, 0.45f, Mathf.InverseLerp(1.4f, 2.2f, size)));
+        }
+
+        public const float StepEarshot = 20f;
+        /// <summary>Walkers' steps played this session (tests).</summary>
+        public static int SoftSteps;
+        private int stepper = -1; // -1 unknown, 0 silent (you, hidden, lying still), 1 enemy, 2 another player
+        private Player.NetworkPlayer stepPlayer;
+
+        private void SoftStep(float size, float speed)
+        {
+            if (stepper < 0)
+            {
+                stepPlayer = GetComponentInParent<Player.NetworkPlayer>();
+                stepper = stepPlayer != null ? 2 : GetComponentInParent<Enemies.EnemyBrain>() != null ? 1 : 0;
+            }
+            if (stepper == 0 || speed < 1.2f) return;
+            if (stepper == 2)
+            {
+                // Your own feet are NetworkPlayer.Footsteps; a hidden rogue makes no sound.
+                if (stepPlayer == null || stepPlayer.IsOwner) return;
+                var life = stepPlayer.GetComponent<Player.PlayerLife>();
+                if (life != null && (life.Hidden.Value || life.Downed.Value)) return;
+            }
+            bool camp = World.DungeonDirector.InLobby;
+            float vol = (stepper == 2 ? 0.2f : 0.16f) * Mathf.Lerp(0.8f, 1.25f, Mathf.InverseLerp(4f, 7f, speed));
+            float pitch = Mathf.Lerp(1.2f, 0.85f, Mathf.InverseLerp(0.7f, 1.35f, size));
+            Sfx.Play(camp ? Sound.StepSoft : Sound.Step, transform.position + Vector3.up * 0.05f, vol, pitch);
+            SoftSteps++;
         }
 
         /// <summary>Plays an action whose length matches the gameplay timing that triggered it.</summary>

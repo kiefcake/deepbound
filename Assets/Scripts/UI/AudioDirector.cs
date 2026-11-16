@@ -65,6 +65,7 @@ namespace Deepbound.UI
             sting = gameObject.AddComponent<AudioSource>();
             sting.spatialBlend = 0f;
             sting.playOnAwake = false;
+            sting.reverbZoneMix = 0f;
             campAir.Play();
             deepAir.Play();
             cavernAir.Play();
@@ -101,6 +102,8 @@ namespace Deepbound.UI
             s.volume = 0f;
             s.spatialBlend = 0f;
             s.playOnAwake = false;
+            // Music and the air under it are not in the room: the room's reverb (Art.Acoustics) leaves them alone.
+            s.reverbZoneMix = 0f;
             return s;
         }
 
