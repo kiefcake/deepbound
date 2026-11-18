@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Deepbound.Enemies;
 using Deepbound.Player;
 using Unity.Netcode;
@@ -30,6 +31,9 @@ namespace Deepbound.World
             public int State; // 0 asleep, 1 fought, 2 done
             public bool Opened;
             public float EmptySince = -1f;
+            public float OutSince = -1f, NextDiag;
+            /// <summary>Tests: times the keeper was put back inside.</summary>
+            public int PutBack;
         }
         private LairState lair;
 
@@ -106,7 +110,9 @@ namespace Deepbound.World
                 SetGates(lair.Gates, true);
                 boss.ServerEngage(inside, Layout.Depth);
                 BossIntroRpc(boss.DisplayName.ToUpperInvariant(), boss.Epithet, boss.Hint);
-                Debug.Log("[Director] lair sealed on " + inside + ": " + boss.DisplayName);
+                Debug.Log("[Director] lair sealed on " + inside + ": " + boss.DisplayName + " | room " + room.Center + " size " + room.Size + ", keeper " + boss.transform.position
+                    + ", gates " + string.Join(" ", lair.Gates.Where(g => g != null).Select(g => g.transform.position.ToString()))
+                    + ", players " + string.Join(" ", PlayerLife.All.Where(p => p != null).Select(p => p.transform.position.ToString())));
                 return;
             }
             if (boss == null || boss.IsDead)
@@ -121,9 +127,29 @@ namespace Deepbound.World
                 TitleCardRpc("THE LAIR FALLS", "Its hoard is yours");
                 return;
             }
+            // The keeper never leaves its lair (2026-11-18: Mother Marrow stood in the corridor outside her own gate, lashing the
+            // party through the bars at 100% for the whole floor). Out of the walls for a moment: back in, toward the middle.
+            if (!room.Contains(boss.transform.position, -0.5f))
+            {
+                if (lair.OutSince < 0f) lair.OutSince = Time.time;
+                else if (Time.time - lair.OutSince > 0.8f)
+                {
+                    var inward = room.Center - boss.transform.position; inward.y = 0f;
+                    boss.ServerDebugPlace(boss.transform.position + inward.normalized * Mathf.Min(inward.magnitude, 6f));
+                    lair.OutSince = -1f;
+                    lair.PutBack++;
+                    Debug.Log("[Director] lair keeper was outside its lair: put back in");
+                }
+            }
+            else lair.OutSince = -1f;
             // Everyone shut in is down: lift the gates for the rest of the party; it fights on.
             // "Inside" means within the walls for the last two seconds: someone who slipped out under the falling gate and stands in the doorway is
             // not shut in with it (2026-11-14 bot run: the keeper fought on behind the bars for six minutes).
+            if (Time.time >= lair.NextDiag)
+            {
+                lair.NextDiag = Time.time + 20f;
+                Debug.Log("[Director] lair: keeper " + boss.transform.position + " in " + room.Contains(boss.transform.position, -0.5f) + ", players " + string.Join(" ", PlayerLife.All.Where(p => p != null).Select(p => p.transform.position + (room.Contains(p.transform.position, -0.1f) ? " in" : " out"))) + ", opened " + lair.Opened);
+            }
             if (AnyoneWellInside(room)) lair.EmptySince = -1f;
             else if (lair.EmptySince < 0f) lair.EmptySince = Time.time;
             if (!lair.Opened && lair.EmptySince >= 0f && Time.time - lair.EmptySince > 2f)
@@ -140,6 +166,9 @@ namespace Deepbound.World
                 if (p != null && !p.Downed.Value && p.Health != null && p.Health.IsAlive && room.Contains(p.transform.position, -0.1f)) return true;
             return false;
         }
+
+        /// <summary>Tests: times a keeper was put back inside its lair this floor.</summary>
+        public int LairPutBack => lair?.PutBack ?? 0;
 
         /// <summary>Tests: the lair's keeper, wherever it sleeps (or null).</summary>
         public LairBrain ServerDebugLair() => lair?.Boss;

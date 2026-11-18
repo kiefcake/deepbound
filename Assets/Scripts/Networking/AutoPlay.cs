@@ -96,7 +96,9 @@ namespace Deepbound.Networking
             if (ap >= 0 && ap + 1 < args.Length && int.TryParse(args[ap + 1], out var n0)) partySize = Mathf.Clamp(n0, 1, 4);
             int fl = System.Array.IndexOf(args, "-autofloors");
             if (fl >= 0 && fl + 1 < args.Length && int.TryParse(args[fl + 1], out var fl0)) floorsWanted = Mathf.Max(1, fl0);
-            int af = System.Array.IndexOf(args, "-autofollow");
+            // -forcelair: a lair on every floor (to watch the keepers fought).
+            if (System.Array.IndexOf(args, "-forcelair") >= 0) DungeonDirector.ForceLair = true;
+                        int af = System.Array.IndexOf(args, "-autofollow");
             if (af >= 0) { follower = true; seatNo = af + 1 < args.Length && int.TryParse(args[af + 1], out var k0) ? Mathf.Clamp(k0, 1, 3) : 1; startFloor = 0; }
             // Never touch the real save; the dungeon still behaves as in play (DungeonDirector.TestMode stays off).
             Cosmetics.TestMode = true;
@@ -1235,6 +1237,20 @@ namespace Deepbound.Networking
                         dmgTarget = null;
                         continue;
                     }
+                    else if (Time.time - dmgSince > 20f && target.GetComponent<EnemyBrain>() is BossBrain bb0)
+                    {
+                        // A guardian or keeper untouched for 20 s: say exactly why a swing would miss (2026-11-18, Mother Marrow at 100%).
+                        dmgSince = Time.time;
+                        var eye = me.transform.position + Vector3.up * 1.6f;
+                        string blocker = Physics.Linecast(eye, target.Center, out var lh, ~0, QueryTriggerInteraction.Ignore) ? lh.collider.name + (lh.collider.GetComponentInParent<Health>() != null ? "(health)" : "") : "nothing";
+                        var toT = Flat(target.transform.position) - Flat(me.transform.position);
+                        float reachNow = me.ActiveKit != null ? me.ActiveKit.AttackRange : 0f;
+                        bool inArc = CombatQuery.Arc(eye, me.transform.forward, reachNow, 120f, Team.Enemies).Contains(target);
+                        Problem("no damage on guardian " + bb0.DisplayName + " in 20 s: flat " + toT.magnitude.ToString("F1") + " body " + target.BodyRadius.ToString("F1") + " reach " + reachNow.ToString("F1")
+                            + " angle " + Vector3.Angle(Flat(me.transform.forward), toT).ToString("F0") + " in arc " + inArc + ", line hits " + blocker + ", immune " + bb0.Immune + " stance " + bb0.CurrentStance
+                            + " dormant " + bb0.Dormant + " entrance " + bb0.InEntrance + " shield " + target.Shield.Value.ToString("F0") + ", dealt total " + dealt.ToString("F0"));
+                        yield return Shot("F" + (floorNo + 1) + "_guardian_nodamage");
+                    }
                 }
                 // A healing pylon comes before the guardian, as it would for a player (the user watched a bot hit a boss
                 // that its pylons kept topping up).
@@ -1325,7 +1341,9 @@ namespace Deepbound.Networking
                     // (run 13, the Ranger, shot a dormant boss from outside for eight minutes).
                     // Not "boss.Dormant": that lives on the server, so a client always read it as awake and a Cleric on a client stood at
                     // range in the doorway holding the fight up (F2 of one run, F10 of the next, 2026-11-04). Outside is outside.
-                    if (boss != null && target == boss.GetComponent<Health>() && !layout.BossRoom.Contains(me.transform.position, -1.5f))
+                    // Not a lair keeper: it holds the boss bar while fought, but it lives in its own lair, not the arena (2026-11-18: the
+                    // bot walked at the lair's gate toward the floor's arena for whole floors and never swung at Mother Marrow).
+                    if (boss != null && !(boss is LairBrain) && target == boss.GetComponent<Health>() && !layout.BossRoom.Contains(me.transform.position, -1.5f))
                     {
                         yield return StepToward(layout.BossRoom.Center, 2f);
                         continue;
@@ -1715,7 +1733,15 @@ namespace Deepbound.Networking
                 yield break;
             }
             var path = new NavMeshPath();
-            if (!NavMesh.CalculatePath(a.position, b.position, NavMesh.AllAreas, path) || path.corners.Length < 2) { yield return null; yield break; }
+            if (!NavMesh.CalculatePath(a.position, b.position, NavMesh.AllAreas, path) || path.corners.Length < 2 || path.status != NavMeshPathStatus.PathComplete)
+            {
+                // Standing in the hole a shut gate carves (a lair doorway), the nearest floor can be on the far side of the bars
+                // and no way leads anywhere (2026-11-18: 0.8 m inside Mother Marrow's gate for ten minutes). Plan from a step ahead.
+                var ahead = Flat(to) - Flat(me.transform.position);
+                if (ahead.sqrMagnitude > 0.01f && NavMesh.SamplePosition(me.transform.position + ahead.normalized * 1.3f, out var a2, 0.9f, NavMesh.AllAreas)
+                    && NavMesh.CalculatePath(a2.position, b.position, NavMesh.AllAreas, path) && path.corners.Length >= 2) { }
+                else if (path.corners.Length < 2) { yield return null; yield break; }
+            }
             float speed = 6.2f * prog.SpeedMultiplier;
             float budget = 0.35f;
             int corner = 1;

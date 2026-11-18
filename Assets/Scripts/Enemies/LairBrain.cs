@@ -63,6 +63,16 @@ namespace Deepbound.Enemies
 
         protected virtual void OnEngaged() { }
 
+        /// <summary>It chases only within its own walls: a keeper that followed you into the doorway was shut out by its own gates.</summary>
+        protected override Vector3 ChaseDestination(float distanceToTarget)
+        {
+            var p = base.ChaseDestination(distanceToTarget);
+            float hx = Mathf.Max(1f, RoomSize.x / 2f - 1.2f), hz = Mathf.Max(1f, RoomSize.y / 2f - 1.2f);
+            p.x = Mathf.Clamp(p.x, RoomCenter.x - hx, RoomCenter.x + hx);
+            p.z = Mathf.Clamp(p.z, RoomCenter.z - hz, RoomCenter.z + hz);
+            return p;
+        }
+
         /// <summary>Any peer: the boss bar is ours only while we are fought and alive - otherwise hand it back.</summary>
         protected override void LateUpdate()
         {

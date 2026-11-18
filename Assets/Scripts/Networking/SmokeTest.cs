@@ -2643,6 +2643,8 @@ namespace Deepbound.Networking
                         ph.ServerSetFraction(1f);
                         yield return new WaitForSeconds(SpikeTrap.Rearm + 0.2f);
                         // A shield regrown during the wait (a relic) soaked the first bite while the pin still took: clear both now.
+                        // Afflictions too: a poison still ticking from an earlier check hurt the player on the bed (2026-11-18).
+                        pdeb.ServerCleanse();
                         ph.Shield.Value = 0f;
                         pdeb.ServerResetGrace();
                         local.GetComponent<PlayerProgress>().ServerDebugSpendBoneWard();
