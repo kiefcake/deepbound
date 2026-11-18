@@ -98,7 +98,7 @@ namespace Deepbound.UI
             "Belfries, mezzanines, undercrofts and archer perches: mind the fall",
             "The dead leap down from high ground; bows hold the heights",
             "Buffs show as auras and halos, not words; a CRAFT tab in the bag (I)",
-            "The lone Knight swings harder; the first expedition still lies below",
+            "Packs take turns to swing; break their sight and they lose you",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)

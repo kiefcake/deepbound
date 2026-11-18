@@ -620,6 +620,95 @@ namespace Deepbound.Enemies
             return dealt * (IsBoss ? Difficulty.BossBackstabMultiplier : Difficulty.BackstabMultiplier);
         }
 
+        // ------------------------------------------------------------------
+        // ENEMY AI ROUND (2026-11-18): swing turns and losing track.
+        // SWING TURNS: at most MaxSwingers rank-and-file melee foes wind up on one player at once; the rest circle a step
+        // out (TurnRing) and wait for a gap, so a pack reads as a fight rather than a blender.
+        // LOSING TRACK: one that has not seen its target for LoseSightSeconds (and is not right on it) loses it: it
+        // stops following by rage alone (BlindSeconds, until it sees you, hears you or you hit it) and searches where you
+        // were last seen (ServerInvestigate, the grey ?). A Rogue who slips into hiding mid-fight is searched for the same way.
+        // ------------------------------------------------------------------
+
+        public const int MaxSwingers = 3;
+        public const float TurnRing = 1.3f, LoseSightSeconds = 6f, LoseSightNear = 6f, BlindSeconds = 12f, SearchSeconds = 8f;
+
+        private float swingUntil, circleDir, nextSightCheck, lastSeenTime, blindUntil;
+        private Vector3 lastSeenAt;
+        private Health lastSeenOf, blindTo;
+        /// <summary>Winding up or recovering from a blow it took its turn for.</summary>
+        public bool Swinging => attacking || Time.time < swingUntil;
+        /// <summary>Server, tests: times it held off for a turn / lost its target.</summary>
+        public int TurnsWaited { get; private set; }
+        public int LostTrack { get; private set; }
+
+        /// <summary>Rank-and-file melee take turns; bosses, casters and archers do not.</summary>
+        protected virtual bool TakesTurns => !IsBoss && attackRange <= 3.5f;
+        /// <summary>Ones that hunt by sight (statues, mimics and mourners keep their own rules).</summary>
+        private bool Searcher => !IsBoss && agent != null && agent.enabled && visualKind != CharacterArt.SkeletonKind.Mourner
+            && visualKind != CharacterArt.SkeletonKind.Mimic && visualKind != CharacterArt.SkeletonKind.Gargoyle;
+        private bool LostTo(Health h) => h != null && h == blindTo && Time.time < blindUntil;
+
+        private bool WaitForTurn()
+        {
+            if (!TakesTurns || target == null || Swinging) return false;
+            int busy = 0;
+            foreach (var e in All)
+                if (e != null && e != this && !e.IsDead && e.target == target && e.TakesTurns && e.Swinging) busy++;
+            int max = MaxSwingers + (Difficulty.Level == Difficulty.Settings[Difficulty.TormentIndex] ? 1 : 0);
+            if (busy < max) return false;
+            // Full: pace round them a step out, facing in, until a gap opens.
+            TurnsWaited++;
+            if (circleDir == 0f) circleDir = NetworkObjectId % 2 == 0 ? 1f : -1f;
+            surroundAngle += circleDir * 35f * Time.deltaTime;
+            agent.isStopped = false;
+            if (Time.time >= repathAt)
+            {
+                repathAt = Time.time + 0.3f;
+                var t = target.transform.position;
+                var slot = t + Quaternion.Euler(0f, surroundAngle, 0f) * Vector3.forward * (attackRange + TurnRing);
+                agent.SetDestination(NavMesh.SamplePosition(slot, out var hit, 1.5f, NavMesh.AllAreas) ? hit.position : transform.position);
+            }
+            FaceTarget(0.25f);
+            return true;
+        }
+
+        private void TickSight()
+        {
+            if (Time.time < nextSightCheck) return;
+            nextSightCheck = Time.time + 0.3f + (NetworkObjectId % 4) * 0.03f;
+            if (lastSeenOf != target) { lastSeenOf = target; lastSeenAt = target.transform.position; lastSeenTime = Time.time; }
+            if (taunter != null && Time.time < tauntUntil) return;
+            if (CombatQuery.ClearLine(transform.position + Vector3.up * 1.5f, target))
+            {
+                lastSeenAt = target.transform.position;
+                lastSeenTime = Time.time;
+                return;
+            }
+            if (Time.time - lastSeenTime < LoseSightSeconds || FlatDistance(target.transform.position) < LoseSightNear) return;
+            blindTo = target;
+            blindUntil = Time.time + BlindSeconds;
+            LostTrack++;
+            target = null;
+        }
+
+        private void SearchFor(Health lost)
+        {
+            if (lost == null || !lost.IsAlive || FlatDistance(home) > leashRange * 0.8f) return;
+            if (lost.TryGetComponent<PlayerLife>(out var pl) && pl.Downed.Value) return;
+            var at = lastSeenOf == lost ? lastSeenAt : lost.transform.position;
+            ServerInvestigate(at, SearchSeconds);
+        }
+
+        /// <summary>Tests: lose the current target now, as if it had been out of sight too long.</summary>
+        public void ServerDebugLoseTrack()
+        {
+            if (target == null) return;
+            lastSeenOf = target; lastSeenAt = target.transform.position;
+            blindTo = target; blindUntil = Time.time + BlindSeconds; LostTrack++;
+            var was = target; target = null;
+            SearchFor(was);
+        }
+
         /// <summary>Server, tests: openers that caught this one unaware.</summary>
         public int Openers { get; private set; }
 
@@ -775,7 +864,11 @@ namespace Deepbound.Enemies
                 if (Time.time >= repathAt) { repathAt = Time.time + 0.4f; agent.SetDestination(lureAt); }
                 return;
             }
+            var hadTarget = target;
             target = PickTarget();
+            if (target != null && Searcher) TickSight();
+            // Lost you (out of sight too long, or a Rogue slipped into hiding): search where you were last seen.
+            if (target == null && hadTarget != null && Searcher) SearchFor(hadTarget);
             // First sight of you: a beat to rear up and rattle, so being spotted reads (and costs them a moment).
             if (target != null && !engaged)
             {
@@ -816,9 +909,11 @@ namespace Deepbound.Enemies
             if (TryLunge(dist)) return;
             if (TryLeapDown(dist)) return;
 
+            if (dist <= attackRange + TurnRing + 0.6f && WaitForTurn()) return;
             if (dist <= attackRange)
             {
                 BeginAttack();
+                swingUntil = busyUntil;
                 return;
             }
 
@@ -1089,12 +1184,12 @@ namespace Deepbound.Enemies
             float ragedThreat = 0f, currentThreat = 0f;
             foreach (var p in PlayerLife.All)
             {
-                if (p == null || !PlayerLife.CanTarget(p.Health) || FlatDistance(p.transform.position) > leashRange) continue;
+                if (p == null || !PlayerLife.CanTarget(p.Health) || FlatDistance(p.transform.position) > leashRange || LostTo(p.Health)) continue;
                 threat.TryGetValue(p.NetworkObjectId, out var t);
                 if (target == p.Health) currentThreat = t;
                 if (t > ragedThreat) { ragedThreat = t; raged = p.Health; }
             }
-            bool targetValid = target != null && PlayerLife.CanTarget(target) && FlatDistance(target.transform.position) < leashRange && FlatDistance(home) < leashRange;
+            bool targetValid = target != null && PlayerLife.CanTarget(target) && FlatDistance(target.transform.position) < leashRange && FlatDistance(home) < leashRange && !LostTo(target);
             if (raged != null && FlatDistance(home) < leashRange)
             {
                 if (!targetValid || (raged != target && ragedThreat > currentThreat * SwitchThreshold)) return raged;
@@ -1120,6 +1215,7 @@ namespace Deepbound.Enemies
                 }
             }
 
+            if (best != null && best == blindTo) blindTo = null;
             if (best != null && target == null) AlertPack(best);
             if (best != null) ServerAddThreat(best.NetworkObjectId, 1f);
             return best;
@@ -1527,6 +1623,7 @@ namespace Deepbound.Enemies
 
         private void OnDamagedServer(float amount, ulong attackerId)
         {
+            if (blindTo != null && blindTo.NetworkObjectId == attackerId) blindTo = null;
             if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(attackerId, out var who) && who.TryGetComponent<Progression.PlayerProgress>(out var hitter))
                 ServerAddThreat(attackerId, amount * ClassThreat(hitter.ClassId.Value));
             // Poise: a big enough single hit breaks a wind-up.

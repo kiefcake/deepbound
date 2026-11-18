@@ -1585,6 +1585,9 @@ namespace Deepbound.Networking
                 if (follower && Leader != null && Vector3.Distance(h.transform.position, Leader.transform.position) > 16f) continue;
                 // A player kills the healer first: a Necromancer within 16 m counts as much closer than it is.
                 float rank = b is NecromancerBrain && d < 16f ? d * 0.3f : d;
+                // A guardian that cannot be hurt right now (Mother Marrow's cocoon, a shielded phase): its adds first
+                // (2026-11-18: the bot spent ten minutes hitting the cocoon while the knitters lived).
+                if (b is BossBrain bb && bb.Immune) rank += 40f;
                 if (rank >= dist) continue;
                 if (d > 6f && !Reachable(h.transform.position, path)) continue;
                 best = h; dist = rank;

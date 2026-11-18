@@ -5051,6 +5051,7 @@ namespace Deepbound.Networking
                 Physics.SyncTransforms();
                 var listener = hd.ServerDebugSpawn("skeleton", earAt, false, true);
                 bool quiet = false, heard = false, sawFirst = false, silentWalk = false, loudRun = false;
+                bool hadListener = listener != null;
                 if (listener != null)
                 {
                     yield return new WaitForSeconds(1.6f);
@@ -5086,10 +5087,38 @@ namespace Deepbound.Networking
                 }
                 Log("unaware opener", "calm " + calm + ", first blow " + first.ToString("0.0") + ", next " + second.ToString("0.0") + ", openers " + openers,
                     sleeper != null && calm && openers == 1 && second > 0f && first > second * 1.4f);
+                // ENEMY AI (2026-11-18): five round you take turns (three swing at most), and one that loses you searches.
+                {
+                    var crowd = new System.Collections.Generic.List<EnemyBrain>();
+                    for (int i = 0; i < 5; i++)
+                    {
+                        var c = hd.ServerDebugSpawn("skeleton", local.transform.position + Quaternion.Euler(0f, 72f * i + 180f, 0f) * hfwd * 2f, false);
+                        if (c != null) crowd.Add(c);
+                    }
+                    int most = 0;
+                    for (float t = 0f; t < 3.5f; t += Time.deltaTime)
+                    {
+                        hhp.ServerSetFraction(1f);
+                        most = Mathf.Max(most, crowd.Count(c => c != null && !c.IsDead && c.Swinging));
+                        yield return null;
+                    }
+                    int waited = crowd.Sum(c => c != null ? c.TurnsWaited : 0);
+                    var losing = crowd.FirstOrDefault(c => c != null && !c.IsDead && c.HasTarget);
+                    bool searched = false;
+                    if (losing != null)
+                    {
+                        losing.ServerDebugLoseTrack();
+                        searched = !losing.HasTarget && losing.Investigating && losing.LostTrack == 1;
+                    }
+                    foreach (var c in crowd) if (c != null && !c.IsDead) c.GetComponent<Health>().ServerDamage(1e6f, c.transform.position);
+                    hhp.ServerSetFraction(1f);
+                    Log("swing turns", crowd.Count + " round you, most swinging at once " + most + " (cap " + EnemyBrain.MaxSwingers + "), waits " + waited + ", lost one searches " + searched,
+                        crowd.Count == 5 && most >= 1 && most <= EnemyBrain.MaxSwingers && waited > 0 && searched);
+                }
                 Destroy(hwall);
                 hhp.ServerSetFraction(1f);
                 Log("noise draws the dead", "unheard standing " + quiet + " (saw through the wall " + sawFirst + "), a fight heard " + heard + ", walking silent " + silentWalk + ", sprinting carries " + loudRun + ", heard so far " + hd.NoisesHeard,
-                    listener != null && quiet && !sawFirst && heard && silentWalk && loudRun);
+                    hadListener && quiet && !sawFirst && heard && silentWalk && loudRun);
             }
 
             // THE CINDER PIT (2026-11-14): a negative-seed floor with its own theme, lava that burns the living, and Vharoth,
