@@ -174,6 +174,12 @@ namespace Deepbound.Enemies
         public const float BackstabMultiplier = 1.35f;
         /// <summary>From behind on a boss (they did not used to take backstabs at all).</summary>
         public const float BossBackstabMultiplier = 1.2f;
+        /// <summary>
+        /// The opener on one that has noticed no one (no target, not off looking for a noise, unhurt for
+        /// <see cref="UnawareCalm"/> s; never a boss). Pairs with hearing: walk up quietly and the first blow lands hard.
+        /// Stacks with a backstab.
+        /// </summary>
+        public const float UnawareMultiplier = 1.5f, UnawareCalm = 4f;
 
         private static int Extra(int players) => Mathf.Max(0, players - 1);
     }

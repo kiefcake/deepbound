@@ -411,6 +411,7 @@ namespace Deepbound.Enemies
             health.DamagedServer += OnDamagedServer;
             // From behind hurts more - bosses too, if someone holds their rage so another can get round them.
             health.IncomingModifiers.Add(BackstabModifier);
+            health.IncomingModifiers.Add(UnawareModifier);
             health.IncomingModifiers.Add((d, from) => Enraged ? d * EnrageTaken : d);
             // Each enemy takes its own place around whoever it is fighting, so a pack
             // surrounds you instead of queueing in a line.
@@ -619,6 +620,27 @@ namespace Deepbound.Enemies
             return dealt * (IsBoss ? Difficulty.BossBackstabMultiplier : Difficulty.BackstabMultiplier);
         }
 
+        /// <summary>Server, tests: openers that caught this one unaware.</summary>
+        public int Openers { get; private set; }
+
+        private float UnawareModifier(float dealt, Vector3 attackerPosition)
+        {
+            if (IsBoss || target != null || Investigating || Entering || dealt >= BossBrain.KillDamage) return dealt;
+            if (Time.time - health.LastHurtTime < Difficulty.UnawareCalm) return dealt;
+            Openers++;
+            UnawareRpc();
+            return dealt * Difficulty.UnawareMultiplier;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void UnawareRpc()
+        {
+            // Caught it unaware: a pale gold mark over the head and a heavier thud (show, don't tell).
+            float top = Rig != null ? Rig.transform.lossyScale.y * 2.1f : 2.1f;
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * top, "UNAWARE", new Color(0.95f, 0.85f, 0.55f));
+            Sfx.Play(Sound.Hit, transform.position + Vector3.up * 1.2f, 0.9f, 0.6f);
+        }
+
         private bool eliteGrown;
 
         /// <summary>A gilded enemy: bigger, gold-eyed, wreathed in a slow gold ring.</summary>
@@ -773,6 +795,15 @@ namespace Deepbound.Enemies
                 championAnnounced = true;
                 ChampionSeenRpc(Title.Value.ToString());
             }
+            if (target == null && Time.time < investigateUntil)
+            {
+                // Heard something: go and look (still watching - PickTarget above sees you on the way).
+                agent.isStopped = false;
+                if (Time.time >= repathAt) { repathAt = Time.time + 0.4f; agent.SetDestination(investigateAt); }
+                if (FlatDistance(investigateAt) < 1.4f) investigateUntil = Mathf.Min(investigateUntil, Time.time + 1.2f);
+                return;
+            }
+            if (target != null) investigateUntil = 0f;
             if (target == null)
             {
                 ReturnHome();
@@ -1358,6 +1389,42 @@ namespace Deepbound.Enemies
             target = null;
             taunter = null;
             attacking = false;
+        }
+
+        // ------------------------------------------------------------------
+        // HEARING (2026-11-16): running and fighting carry; an idle one goes to look where the noise came from
+        // (DungeonDirector.TickHearing). Unlike a lure it keeps its eyes open on the way.
+        // ------------------------------------------------------------------
+
+        private Vector3 investigateAt;
+        private float investigateUntil;
+        public bool Investigating => Time.time < investigateUntil;
+        /// <summary>Server: it has someone to fight.</summary>
+        public bool HasTarget => target != null;
+        /// <summary>Server, tests: noises that sent this one to look.</summary>
+        public int Heard { get; private set; }
+
+        /// <summary>Server: something was heard at <paramref name="at"/>; idle, it walks over to look for a while.</summary>
+        public virtual bool ServerInvestigate(Vector3 at, float seconds)
+        {
+            if (!IsServer || IsDead || IsBoss || target != null || Lured) return false;
+            if (visualKind == CharacterArt.SkeletonKind.Mourner || visualKind == CharacterArt.SkeletonKind.Mimic || visualKind == CharacterArt.SkeletonKind.Gargoyle) return false;
+            bool fresh = !Investigating;
+            investigateAt = at;
+            investigateUntil = Time.time + seconds;
+            Heard++;
+            if (fresh) HeardRpc();
+            return true;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void HeardRpc()
+        {
+            // A head turned your way: a grey "?" and a low sound, so you know you were heard (show, don't tell).
+            float top = Rig != null ? Rig.transform.lossyScale.y * 2.1f : 2.1f;
+            UI.GameHud.ShowCombo(transform.position + Vector3.up * top, "?", new Color(0.78f, 0.76f, 0.7f));
+            if (VoicePitch > 0f) Sfx.Play(Sound.Growl, transform.position + Vector3.up * 1.4f, 0.35f, VoicePitch * 0.9f);
+            else Sfx.Play(Sound.Rattle, transform.position + Vector3.up * 1.4f, 0.3f, Random.Range(0.8f, 0.95f));
         }
 
         /// <summary>Server: a player shouted nearby (proximity voice). Idle enemies turn on them.</summary>

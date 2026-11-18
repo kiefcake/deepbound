@@ -648,7 +648,7 @@ namespace Deepbound.World
         public void ServerDebugCamp() { if (IsServer) EnterLobby(keepRun: true); }
 
         /// <summary>Server (developer menu): spawn one of the rank and file by name at a spot.</summary>
-        public EnemyBrain ServerDebugSpawn(string kind, Vector3 at, bool elite)
+        public EnemyBrain ServerDebugSpawn(string kind, Vector3 at, bool elite, bool calm = false)
         {
             if (!IsServer) return null;
             NetworkObject prefab = kind switch
@@ -664,7 +664,8 @@ namespace Deepbound.World
             var b = obj.GetComponent<EnemyBrain>();
             b.ServerScale(Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count), Layout != null ? Layout.Depth : 0);
             if (elite) b.ServerMakeElite();
-            b.ServerAggroNearest();
+            // Calm (tests of hearing and openers): it stands where it was put until it sees or hears someone.
+            if (!calm) b.ServerAggroNearest();
             spawned.Add(obj);
             return b;
         }

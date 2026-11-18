@@ -673,6 +673,7 @@ namespace Deepbound.World
             TickRitual();
             TickGimmicks();
             TickFlameJets();
+            TickHearing();
             TickContract();
         }
 

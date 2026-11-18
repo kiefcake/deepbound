@@ -2188,14 +2188,16 @@ namespace Deepbound.Networking
                                 conc.ServerMakeElite(EliteAffix.Concussive);
                                 adeb.ServerCleanse();
                                 adeb.ServerResetGrace();
+                                local.GetComponent<PlayerProgress>().ServerDebugSpendBoneWard();
                                 yield return new WaitForSeconds(0.1f);
                                 ahp.ServerSetFraction(1f);
+                                ahp.Shield.Value = 0f;
                                 ahp.ServerDamage(5f, hush.transform.position, hush.NetworkObjectId);
                                 ahp.ServerDamage(5f, conc.transform.position, conc.NetworkObjectId);
                                 yield return null;
                                 bool sil = adeb.Silenced, daz = adeb.Dazed;
                                 adeb.ServerCleanse();
-                                Log("hushing and concussive", "silenced " + sil + ", dazed " + daz + ", tags " + EliteAffixes.Tag(EliteAffix.Hushing) + "/" + EliteAffixes.Tag(EliteAffix.Concussive), sil && daz);
+                                Log("hushing and concussive", "silenced " + sil + ", dazed " + daz + ", zeroed by " + ahp.LastZeroedBy + ", tags " + EliteAffixes.Tag(EliteAffix.Hushing) + "/" + EliteAffixes.Tag(EliteAffix.Concussive), sil && daz);
                                 hush.GetComponent<Health>().ServerDamage(1e6f, hush.transform.position);
                                 conc.GetComponent<Health>().ServerDamage(1e6f, conc.transform.position);
                             }
@@ -2664,7 +2666,7 @@ namespace Deepbound.Networking
                         }
                         yield return null;
                         bool pinned = pdeb.Rooted;
-                        Log("spike plate", "bed quiet untrod " + bedQuiet + ", took " + took.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " (hidden " + plate.Hidden.Value + "), pinned " + pinned + (took <= 0f ? ", zeroed by " + ph.LastZeroedBy + " now " + Time.time.ToString("F1") : ""), bedQuiet && took >= ph.Max.Value * 0.2f && took <= ph.Max.Value * 0.4f && pinned);
+                        Log("spike plate", "bed quiet untrod " + bedQuiet + ", took " + took.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " (hidden " + plate.Hidden.Value + "), pinned " + pinned + (!bedQuiet ? ", bed hit by " + ph.LastHitFrom : "") + (took <= 0f ? ", zeroed by " + ph.LastZeroedBy + " now " + Time.time.ToString("F1") : ""), bedQuiet && took >= ph.Max.Value * 0.2f && took <= ph.Max.Value * 0.4f && pinned);
                         local.GetComponent<FirstPersonMotor>().Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                         ph.ServerSetFraction(1f);
                         yield return new WaitForSeconds(SpikeTrap.ImpaleSeconds);
@@ -3224,6 +3226,8 @@ namespace Deepbound.Networking
                 {
                     var eh = eliteTest.GetComponent<Health>();
                     eliteTest.ServerMakeElite(EliteAffix.Warded);
+                    // Awake, so the first blow is not an UNAWARE opener (x1.5) and the two hits compare.
+                    eliteTest.ServerAggroNearest();
                     if (eliteTest.AffixKind == EliteAffix.Warded)
                     {
                         float hpA = eh.Current.Value;
@@ -3330,12 +3334,15 @@ namespace Deepbound.Networking
                         bossFm.Teleport(hugAt + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(boss.transform.position - hugAt)));
                         yield return new WaitForSeconds(0.15f);
                         var hugHp = local.GetComponent<Health>();
+                        local.GetComponent<PlayerProgress>().ServerDebugSpendBoneWard();
+                        local.GetComponent<PlayerDebuffs>().ServerResetGrace();
+                        hugHp.Shield.Value = 0f;
                         float hp0 = hugHp.Current.Value;
                         int rep0 = boss.Repulses;
                         for (float w = 0f; w < 5f && (boss.IsStunned || boss.Immune); w += 0.2f) yield return new WaitForSeconds(0.2f);
                         boss.ServerRepulse();
                         for (float w = 0f; w < BossBrain.RepulseTell + 2.5f && boss.Repulses == rep0; w += 0.1f) yield return new WaitForSeconds(0.1f);
-                        Log("boss repulse", "repulses " + (boss.Repulses - rep0) + ", hp " + hp0.ToString("F0") + " -> " + hugHp.Current.Value.ToString("F0"), boss.Repulses > rep0 && hugHp.Current.Value < hp0);
+                        Log("boss repulse", "repulses " + (boss.Repulses - rep0) + ", hp " + hp0.ToString("F0") + " -> " + hugHp.Current.Value.ToString("F0") + ", zeroed by " + hugHp.LastZeroedBy, boss.Repulses > rep0 && hugHp.Current.Value < hp0);
                         // The cleave wedge is locked (2026-11-13, the user: crescents "track the player ... impossible to dodge close
                         // range"): once it is drawn, stepping round the guardian leaves it swinging at the empty wedge.
                         {
@@ -5025,6 +5032,64 @@ namespace Deepbound.Networking
                     + "; open " + open + " stone " + walled + " loose crate clear " + loose + ", hit behind a wall at " + muffled.ToString("0") + " Hz, steps heard " + Art.HumanoidRig.SoftSteps,
                     corSpace == "corridor" && roomSpace != "corridor" && roomSpace != "outdoors" && bossSpace == "nave" && open && walled && loose
                     && (cam == null || Mathf.Approximately(muffled, Art.Sfx.WallCutoff)) && Art.HumanoidRig.SoftSteps > 0);
+            }
+
+            // THE DEAD HEAR YOU (2026-11-16): standing still behind stone you are not heard; a fight is, and an idle one
+            // goes to look (without seeing you first). Walking is silent, sprinting carries.
+            if (net.IsServer && local != null && DungeonDirector.Layout != null && !DungeonDirector.InLobby)
+            {
+                var hd = DungeonDirector.Instance;
+                var hlife = local.GetComponent<PlayerLife>();
+                var hhp = local.GetComponent<Health>();
+                var hfwd = local.transform.forward; hfwd.y = 0f; hfwd.Normalize();
+                var earAt = local.transform.position + hfwd * 6f;
+                if (UnityEngine.AI.NavMesh.SamplePosition(earAt, out var hnav, 2f, UnityEngine.AI.NavMesh.AllAreas)) earAt = hnav.position;
+                var hwall = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                hwall.transform.position = (local.transform.position + earAt) / 2f + Vector3.up * 2f;
+                hwall.transform.rotation = Quaternion.LookRotation(hfwd);
+                hwall.transform.localScale = new Vector3(8f, 5f, 0.5f);
+                Physics.SyncTransforms();
+                var listener = hd.ServerDebugSpawn("skeleton", earAt, false, true);
+                bool quiet = false, heard = false, sawFirst = false, silentWalk = false, loudRun = false;
+                if (listener != null)
+                {
+                    yield return new WaitForSeconds(1.6f);
+                    sawFirst = listener.HasTarget;
+                    quiet = !listener.Investigating && listener.Heard == 0;
+                    local.GetComponent<PlayerProgress>().ServerDebugSpendBoneWard();
+                    hhp.ServerDamage(4f, local.transform.position + hfwd);
+                    for (float t = 0f; t < 1f && !listener.Investigating; t += 0.05f) yield return new WaitForSeconds(0.05f);
+                    heard = listener.Investigating && listener.Heard > 0;
+                    yield return new WaitForSeconds(0.8f);
+                    silentWalk = DungeonDirector.NoiseOf(hlife, 4f) <= 0f;
+                    loudRun = DungeonDirector.NoiseOf(hlife, 7f) >= DungeonDirector.SprintNoise;
+                    listener.GetComponent<Health>().ServerDamage(1e6f, listener.transform.position);
+                }
+                // UNAWARE: one behind the wall that has noticed no one takes x1.5 from the first blow, not the next.
+                var sleeper = hd.ServerDebugSpawn("skeleton", earAt, false, true);
+                bool calm = false; float first = 0f, second = 0f; int openers = 0;
+                if (sleeper != null)
+                {
+                    yield return new WaitForSeconds(1.2f);
+                    calm = !sleeper.HasTarget && !sleeper.Investigating;
+                    var shp = sleeper.GetComponent<Health>();
+                    var front = sleeper.transform.position + sleeper.transform.forward * 1.2f;
+                    shp.ServerDamage(10f, front, local.NetworkObjectId);
+                    first = shp.LastLanded;
+                    yield return new WaitForSeconds(0.3f);
+                    // It turned toward the blow: strike its new front, or the second is a backstab (x1.35).
+                    front = sleeper.transform.position + sleeper.transform.forward * 1.2f;
+                    shp.ServerDamage(10f, front, local.NetworkObjectId);
+                    second = shp.LastLanded;
+                    openers = sleeper.Openers;
+                    shp.ServerDamage(1e6f, sleeper.transform.position);
+                }
+                Log("unaware opener", "calm " + calm + ", first blow " + first.ToString("0.0") + ", next " + second.ToString("0.0") + ", openers " + openers,
+                    sleeper != null && calm && openers == 1 && second > 0f && first > second * 1.4f);
+                Destroy(hwall);
+                hhp.ServerSetFraction(1f);
+                Log("noise draws the dead", "unheard standing " + quiet + " (saw through the wall " + sawFirst + "), a fight heard " + heard + ", walking silent " + silentWalk + ", sprinting carries " + loudRun + ", heard so far " + hd.NoisesHeard,
+                    listener != null && quiet && !sawFirst && heard && silentWalk && loudRun);
             }
 
             // THE CINDER PIT (2026-11-14): a negative-seed floor with its own theme, lava that burns the living, and Vharoth,

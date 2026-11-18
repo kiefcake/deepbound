@@ -91,13 +91,13 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
+            "The dead hear you run and fight, even through walls: walk up and strike first",
+            "Rooms ring, walls muffle, and you can hear the dead shuffling close",
             "Sealed lairs: four keepers asleep in side halls. Walk up to wake one",
-            "Sir Aldous and the Choirmaster are true bosses now, with later movements",
             "An ember rift on the deep floors drops the party into the Cinder Pit",
             "Belfries, mezzanines, undercrofts and archer perches: mind the fall",
             "The dead leap down from high ground; bows hold the heights",
             "Buffs show as auras and halos, not words; a CRAFT tab in the bag (I)",
-            "Cold hearths, fallen bells, cellar vaults, cursed bargains",
             "The lone Knight swings harder; the first expedition still lies below",
         };
 
