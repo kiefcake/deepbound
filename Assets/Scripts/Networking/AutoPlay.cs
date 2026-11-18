@@ -370,7 +370,7 @@ namespace Deepbound.Networking
                     takenBy.TryGetValue(who, out var v);
                     takenBy[who] = v + amount;
                 }
-                else if (from == me.NetworkObjectId) { dealt += amount; if (BossBrain.Active != null && h == BossBrain.Active.GetComponent<Health>()) { bossHits++; bossDealt += amount; } if (!h.IsAlive && h.Team == Team.Enemies) kills++; }
+                else if (from == me.NetworkObjectId) { dealt += amount; lastDealtAt = Time.time; if (BossBrain.Active != null && h == BossBrain.Active.GetComponent<Health>()) { bossHits++; bossDealt += amount; } if (!h.IsAlive && h.Team == Team.Enemies) kills++; }
             };
 
             // A bot cannot dodge like a person: a blow that would put it down leaves it at 1 HP instead,
@@ -1155,6 +1155,9 @@ namespace Deepbound.Networking
                 // once froze the bot without a word, 2026-10-27).
                 // Stuck: no progress for 12 s.
                 if ((me.transform.position - lastPos).sqrMagnitude > 1f) { lastPos = me.transform.position; stuckSince = Time.time; gateWaitSince = -1f; }
+                // Standing still while landing blows is fighting, not being stuck (2026-11-18: the "stuck" skip dropped Mother
+                // Marrow every 12 s and the bot stood idle under her).
+                else if (Time.time - lastDealtAt < 3f) stuckSince = Time.time;
                 else if (Time.time - stuckSince > 12f && ShutGateNear(me.transform.position) && (gateWaitSince < 0f || Time.time - gateWaitSince < 90f))
                 {
                     // A gate shut in front of us (an ambush sprung on whoever was inside, an arena sealed): by design it lifts
@@ -1354,7 +1357,9 @@ namespace Deepbound.Networking
                     }
                     else if (flatDist > want || (!clear && !melee)) yield return StepToward(target.transform.position, want * 0.9f);
                     // Rooted (an Entling holding you): no stepping anywhere, so fight what is in reach.
-                    else if (melee && flatDist < edge + 0.6f && !(me.GetComponent<PlayerDebuffs>() is PlayerDebuffs rootedNow && rootedNow.Rooted))
+                    // Only with room behind: backed against a wall it swings from where it stands (2026-11-18: pinned to a wall
+                    // by Mother Marrow it "stepped back" into the stone for ten minutes and never swung).
+                    else if (melee && flatDist < edge + 0.6f && !(me.GetComponent<PlayerDebuffs>() is PlayerDebuffs rootedNow && rootedNow.Rooted) && RoomBehind(target))
                     {
                         // Too close (inside its reach and ours is wasted): step back out to the edge.
                         var back = Flat(me.transform.position) - Flat(target.transform.position);
@@ -1565,6 +1570,18 @@ namespace Deepbound.Networking
                 if (spawned.TryGetValue(b.TwinId.Value, out var o) && o.TryGetComponent<Health>(out var other) && other.IsAlive) return other;
             }
             return null;
+        }
+
+        private float lastDealtAt = -100f;
+
+        /// <summary>Is there walkable floor 1.5 m straight back from <paramref name="from"/>?</summary>
+        private bool RoomBehind(Health from)
+        {
+            var back = Flat(me.transform.position) - Flat(from.transform.position);
+            if (back.sqrMagnitude < 0.01f) back = -me.transform.forward;
+            var to = me.transform.position + back.normalized * 1.5f;
+            if (!NavMesh.SamplePosition(me.transform.position, out var here, 1.5f, NavMesh.AllAreas)) return false;
+            return !NavMesh.Raycast(here.position, to, out _, NavMesh.AllAreas);
         }
 
         private Health NearestEnemy(HashSet<ulong> skip, out float dist, bool allowBoss)

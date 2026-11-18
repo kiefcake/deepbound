@@ -434,24 +434,28 @@ namespace Deepbound.Player
         private static bool MantleSolid(Collider c) => c != null && !c.isTrigger && c.attachedRigidbody == null && c.GetComponentInParent<Combat.Health>() == null;
 
         /// <summary>Owner: start a mantle if a reachable ledge is right ahead. True when it began.</summary>
+        /// <summary>Tests: why the last <see cref="TryMantle"/> said no.</summary>
+        public string MantleWhy { get; private set; } = "";
+
         public bool TryMantle()
         {
+            MantleWhy = mantling ? "mantling" : Pinned ? "pinned" : !controller.enabled ? "controller off" : "";
             if (mantling || Pinned || !controller.enabled) return false;
             var pos = transform.position;
             var fwd = transform.forward;
             float r = controller.radius;
             if (!Physics.Raycast(pos + Vector3.up * 0.9f, fwd, out var wall, r + 0.45f, ~0, QueryTriggerInteraction.Ignore)
-                && !Physics.Raycast(pos + Vector3.up * 0.3f, fwd, out wall, r + 0.45f, ~0, QueryTriggerInteraction.Ignore)) return false;
-            if (!MantleSolid(wall.collider) || Mathf.Abs(wall.normal.y) > 0.4f) return false;
+                && !Physics.Raycast(pos + Vector3.up * 0.3f, fwd, out wall, r + 0.45f, ~0, QueryTriggerInteraction.Ignore)) { MantleWhy = "no wall ahead"; return false; }
+            if (!MantleSolid(wall.collider) || Mathf.Abs(wall.normal.y) > 0.4f) { MantleWhy = "wall " + wall.collider.name + " not solid/upright"; return false; }
             var over = pos + fwd * (wall.distance + 0.4f);
             float limit = Mathf.Min(pos.y + 1.75f, groundY + MantleReach);
             float span = limit + 0.3f - pos.y - 0.45f;
-            if (span <= 0.05f || !Physics.Raycast(new Vector3(over.x, limit + 0.3f, over.z), Vector3.down, out var top, span, ~0, QueryTriggerInteraction.Ignore)) return false;
-            if (!MantleSolid(top.collider) || top.normal.y < 0.75f) return false;
+            if (span <= 0.05f || !Physics.Raycast(new Vector3(over.x, limit + 0.3f, over.z), Vector3.down, out var top, span, ~0, QueryTriggerInteraction.Ignore)) { MantleWhy = "no top within reach (span " + span.ToString("F2") + ", ground " + groundY.ToString("F2") + ")"; return false; }
+            if (!MantleSolid(top.collider) || top.normal.y < 0.75f) { MantleWhy = "top " + top.collider.name + " not solid/flat"; return false; }
             // Room to stand up there (our own capsule out of the way while we look).
             controller.enabled = false;
             bool blocked = Physics.CheckCapsule(top.point + Vector3.up * (r + 0.12f), top.point + Vector3.up * (controller.height - r), r * 0.9f, ~0, QueryTriggerInteraction.Ignore);
-            if (blocked) { controller.enabled = true; return false; }
+            if (blocked) { controller.enabled = true; MantleWhy = "no room on top"; return false; }
             mantling = true;
             mantleFrom = pos;
             mantleTo = top.point + Vector3.up * 0.05f;

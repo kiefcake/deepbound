@@ -1959,6 +1959,9 @@ namespace Deepbound.Networking
                             yield return new WaitForSeconds(0.3f);
                             int v0 = bp.VolleysFired;
                             var songs = new System.Collections.Generic.List<string>();
+                            // Untouchable for the recital: a burst of notes inside one 0.2 s top-up once downed the player and
+                            // wiped the whole run back to camp (2026-11-18, 65 checks lost).
+                            local.GetComponent<PlayerLife>().ServerDebugInvulnerable(20f);
                             foreach (BonePiperBrain.Song sg in System.Enum.GetValues(typeof(BonePiperBrain.Song)))
                             {
                                 int before = bp.VolleysFired;
@@ -1968,6 +1971,7 @@ namespace Deepbound.Networking
                                 if (bp == null) break;
                                 if (bp.VolleysFired > before) songs.Add(sg.ToString());
                             }
+                            local.GetComponent<PlayerLife>().ServerDebugInvulnerable(0f);
                             Log("bone piper", "tunes played " + string.Join(", ", songs) + ", volleys " + (bp != null ? bp.VolleysFired - v0 : -1), songs.Count == 4);
                             if (bp == null) { Log("graze", "the piper died first", false); }
                             else {
@@ -4963,7 +4967,14 @@ namespace Deepbound.Networking
                 vm.Teleport(blockAt + new Vector3(0f, -0.2f, -1.5f - 0.55f), Quaternion.LookRotation(Vector3.forward));
                 Physics.SyncTransforms();
                 yield return null;
-                bool began = vm.TryMantle();
+                // A few frames' grace: the teleport can land a frame before the controller settles against the block.
+                bool began = false; string mantleWhy = "";
+                for (int tries = 0; tries < 4 && !began; tries++)
+                {
+                    began = vm.TryMantle();
+                    mantleWhy = vm.MantleWhy;
+                    if (!began) { vm.Teleport(blockAt + new Vector3(0f, -0.2f, -1.5f - 0.55f), Quaternion.LookRotation(Vector3.forward)); Physics.SyncTransforms(); yield return new WaitForFixedUpdate(); }
+                }
                 yield return new WaitForSeconds(FirstPersonMotor.MantleSeconds + 0.3f);
                 bool onTop = Mathf.Abs(local.transform.position.y - 1.6f) < 0.35f && Mathf.Abs(local.transform.position.z - blockAt.z) < 1.5f;
                 // Too high: a 3 m wall is not climbed.
@@ -4985,7 +4996,7 @@ namespace Deepbound.Networking
                     var packLead = DungeonDirector.Instance.FormationPick(DungeonDirector.Formation.Pack, 0, 4, ref pb, ref pn, out int ghouls);
                     Log("formations", filled + " / " + asked + " posts filled, pack leads with " + (packLead != null ? packLead.name : "nobody") + " x" + ghouls, filled == asked && packLead != null && ghouls == 2);
                 }
-                Log("mantle", "began " + began + ", on top " + onTop + " (y " + local.transform.position.y.ToString("F1") + "), tall wall refused " + refused, began && onTop && refused);
+                Log("mantle", "began " + began + ", on top " + onTop + " (y " + local.transform.position.y.ToString("F1") + "), tall wall refused " + refused + (began ? "" : ", refused because " + mantleWhy), began && onTop && refused);
                 Log("verticality", "mezzanines " + mezz + " belfries " + belf + " undercrofts " + under + " perched rooms " + perched + " ruins " + ruins + " ramparts " + ramparts + " malformed " + bad + ", " + drop.ToString("0.0") + " m fall left " + afterFall.ToString("0.00") + ", leaps " + leaps + " landed " + landed,
                     mezz > 0 && belf > 0 && under > 0 && perched > 0 && ruins > 0 && ramparts > 0 && bad == 0 && (drop < 4.8f || afterFall < 0.99f) && afterFall > 0.5f && leaps == 1 && landed);
             }

@@ -632,6 +632,34 @@ namespace Deepbound.World
             }
         }
 
+        /// <summary>
+        /// Server: anyone standing under a gate as it falls is pushed through it into the room (2026-11-18: a bot in a lair's
+        /// doorway was shut OUT as the lair sealed on it, and the keeper hit it through the bars for minutes while the
+        /// "nobody inside" rule never fired, the doorway counting as the room). Returns how many were moved.
+        /// </summary>
+        public const float UnderGate = 1.7f;
+        private int ShoveUnderGates(List<Portcullis> gates, DungeonLayout.Room room)
+        {
+            int moved = 0;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || !p.Targetable) continue;
+                foreach (var g in gates)
+                {
+                    if (g == null) continue;
+                    var d = p.transform.position - g.transform.position; d.y = 0f;
+                    if (d.magnitude > UnderGate) continue;
+                    var inward = room.Center - g.transform.position; inward.y = 0f;
+                    var to = g.transform.position + inward.normalized * 2.4f;
+                    if (NavMesh.SamplePosition(to, out var hit, 1.5f, NavMesh.AllAreas)) to = hit.position;
+                    p.GetComponent<NetworkPlayer>().ShoveRpc(to + Vector3.up * 0.1f);
+                    moved++;
+                    break;
+                }
+            }
+            return moved;
+        }
+
         private List<Portcullis> SpawnGates(DungeonLayout.Room room)
         {
             var gates = new List<Portcullis>();
@@ -1067,6 +1095,7 @@ namespace Deepbound.World
                 if (inside == 0) return;
                 ambush.Party = inside;
                 Debug.Log("[Director] ambush sprung on " + inside + " in room " + room.Id + " at " + room.Center + " (" + string.Join(", ", PlayerLife.All.Where(p => p != null).Select(p => p.name + " " + p.transform.position)) + ")");
+                ShoveUnderGates(ambush.Gates, room);
                 SetGates(ambush.Gates, true);
                 TitleCardRpc("AMBUSH!", "Survive the dead");
                 SpawnWave(1);

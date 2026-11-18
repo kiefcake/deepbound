@@ -102,6 +102,7 @@ namespace Deepbound.World
                 }
                 if (!roused) return;
                 lair.State = 1;
+                ShoveUnderGates(lair.Gates, room);
                 SetGates(lair.Gates, true);
                 boss.ServerEngage(inside, Layout.Depth);
                 BossIntroRpc(boss.DisplayName.ToUpperInvariant(), boss.Epithet, boss.Hint);

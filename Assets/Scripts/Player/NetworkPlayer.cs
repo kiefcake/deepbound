@@ -454,6 +454,10 @@ namespace Deepbound.Player
             Sfx.Play(wet ? Sound.Splash : DungeonDirector.InLobby ? Sound.StepSoft : Sound.Step, p, wet ? 0.35f : 0.25f);
         }
 
+        /// <summary>Server → owner: a gate fell on you; you are through it, here (no words: the gate says it).</summary>
+        [Rpc(SendTo.Owner)]
+        public void ShoveRpc(Vector3 at) => motor.Teleport(at, transform.rotation);
+
         /// <summary>Server → owner: you fell; climb out here.</summary>
         [Rpc(SendTo.Owner)]
         public void RescueRpc(Vector3 at)
