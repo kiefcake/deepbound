@@ -159,6 +159,7 @@ namespace Deepbound.Enemies
                             Arrows.ServerFire(at, d2, dmg, Team.Players, NetworkObjectId, BoltSpeed * 1.3f, null, false, 26f);
                             ShotRpc(at, d2, BoltSpeed * 1.3f);
                         }
+                        AimedFxRpc(at);
                         VolleysFired++;
                         break;
                     }
@@ -220,6 +221,10 @@ namespace Deepbound.Enemies
             for (int a = 3; a < 12; a++) Arrows.SpawnVisual(at, Quaternion.Euler(0f, angle + a * 30f, 0f) * Vector3.forward, ProjectileKind.Firebolt, speed, 26f);
             Sfx.Play(Sound.Fire, at, 0.5f, 1.4f);
         }
+
+        /// <summary>READABILITY (2026-11-19): the orb's aimed bursts were the only volley with no sound.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        private void AimedFxRpc(Vector3 at) => Sfx.Play(Sound.Fire, at, 0.45f, 1.6f);
 
         [Rpc(SendTo.ClientsAndHost)]
         private void ShotRpc(Vector3 at, Vector3 dir, float speed) => Arrows.SpawnVisual(at, dir, ProjectileKind.Firebolt, speed, 26f);

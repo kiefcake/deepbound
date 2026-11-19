@@ -71,11 +71,16 @@ namespace Deepbound.Enemies
 
         protected override void BeginAttack()
         {
-            // The tell is short: a crouch and a rattle of twigs, then the leap.
-            windup = 0.35f;
+            // The tell is short: a crouch and a rattle of twigs, then the leap. READABILITY (2026-11-19): 0.45 s (was 0.35) and the
+            // twigs creak every time - the latch holds you for up to 12 s, so it has to be a blow you could have stepped away from.
+            windup = 0.45f;
             attackArc = 80f;
             base.BeginAttack();
+            if (WindingUp) CreakRpc();
         }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void CreakRpc() => Sfx.Play(Sound.Creak, transform.position + Vector3.up, 0.9f, 1.3f);
 
         protected override void Strike()
         {

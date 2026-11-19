@@ -29,7 +29,8 @@ namespace Deepbound.Player
     public class Teamwork : NetworkBehaviour
     {
         public const float PincerWindow = 2.5f, PincerAngle = 120f, PincerMultiplier = 1.15f, PincerReach = 25f;
-        public const float AssistWindow = 6f, AssistCharge = 3f;
+        // 2026-11-19 balance pass: AssistCharge 3 -> 1.1 (3 / 2.7). It predates the 2026-11-01 ~2.7x ult slowdown and in a four out-charged the damage itself (docs/BALANCE_2026-11.md).
+        public const float AssistWindow = 6f, AssistCharge = 1.1f;
         public const float LastStandDamage = 1.25f, LastStandTaken = 0.8f, ClutchCharge = 15f;
         public const float VengeanceSeconds = 20f, AvengeBleedBack = 15f, AvengeCharge = 10f;
         public const float WatchBack = 2.8f, WatchUp = 0.9f;

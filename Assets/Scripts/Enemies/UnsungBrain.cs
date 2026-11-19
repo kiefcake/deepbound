@@ -434,8 +434,11 @@ namespace Deepbound.Enemies
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void GraspWarnRpc(Vector3 at, float radius, float seconds) =>
+        private void GraspWarnRpc(Vector3 at, float radius, float seconds)
+        {
             Telegraph.Show(at, radius, seconds, null, Telegraph.Madness);
+            Sfx.Play(Sound.Shade, at + Vector3.up, 0.7f, 0.5f); // READABILITY (2026-11-19): the grasp under you made no sound
+        }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void GraspFxRpc(Vector3 at)

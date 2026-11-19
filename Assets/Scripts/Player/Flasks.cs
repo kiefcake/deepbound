@@ -470,7 +470,8 @@ namespace Deepbound.Player
                 case Kind.Frost:
                     foreach (var foe in CombatQuery.Circle(at, 3.6f, Team.Enemies).ToArray())
                     {
-                        foe.Tag("Flasks").ServerDamage(10f * att, at, NetworkObjectId);
+                        // 2026-11-19 balance pass: 10 -> 20, Holy Water's damage per gold (24 for 30 -> 20 for 25); it out-hit, out-reached and out-stunned Frost.
+                        foe.Tag("Flasks").ServerDamage(20f * att, at, NetworkObjectId);
                         foe.ServerChill(4f);
                     }
                     break;

@@ -154,11 +154,14 @@ namespace Deepbound.Enemies
             {
                 nextWhirl = Time.time + Mathf.Lerp(18f, 12f, Difficulty.Lead(scaledDepth));
                 PlayActionRpc(RigAction.Channel, 1f);
-                StartPattern(new Pattern
+                // READABILITY (2026-11-19): the whirl spat its first bolts the instant it began; now it gathers (and is heard) first.
+                GatherRpc(WhirlTell, 0.8f);
+                var whirl = StartPattern(new Pattern
                 {
                     Arms = 2, Interval = 0.08f, Speed = SpiralSpeed + 1f, Spin = 19f, Damage = Signature(boltDamage) * 0.45f,
-                    Kind = ProjectileKind.Frostbolt, Duration = 2.6f, Origin = Orbit(1.6f, 120f, 0f, 1.15f),
+                    Kind = ProjectileKind.Frostbolt, Duration = 2.6f + WhirlTell, Origin = Orbit(1.6f, 120f, 0f, 1.15f),
                 });
+                whirl.NextAt += WhirlTell;
             }
         }
 
@@ -176,6 +179,7 @@ namespace Deepbound.Enemies
         }
 
         private float nextWhirl = -1f;
+        private const float WhirlTell = 0.6f;
         private const float SpiralSpeed = 12.5f;
 
         // Its volleys already reach; it does not need a quick shot as well.
@@ -258,6 +262,7 @@ namespace Deepbound.Enemies
                 nextVolley = Time.time + volleyCooldown;
                 busyUntil = volleyAt + 0.5f;
                 PlayActionRpc(RigAction.Hurl, volleyWindup + 0.2f);
+                GatherRpc(volleyWindup, 0.6f); // READABILITY (2026-11-19): the second of drawing back was silent
                 return true;
             }
 

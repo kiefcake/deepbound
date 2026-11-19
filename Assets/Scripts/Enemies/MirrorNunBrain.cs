@@ -152,8 +152,13 @@ namespace Deepbound.Enemies
                 Arrows.ServerFire(origin, d, damage * 0.45f, Team.Players, NetworkObjectId, 11f, null, false, 24f);
                 BoltFxRpc(origin, d);
             }
+            CastFxRpc(origin);
             return true;
         }
+
+        /// <summary>READABILITY (2026-11-19): her fans (and every copy's) left in silence.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        private void CastFxRpc(Vector3 at) => Sfx.Play(Sound.Whisper, at, 0.7f, 1.4f);
 
         [Rpc(SendTo.ClientsAndHost)]
         private void BoltFxRpc(Vector3 origin, Vector3 dir) => Arrows.SpawnVisual(origin, dir, ProjectileKind.Smite, 11f, 24f);

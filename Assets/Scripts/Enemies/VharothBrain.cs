@@ -184,6 +184,7 @@ namespace Deepbound.Enemies
                 Arrows.ServerFire(origin, d, damage * 0.55f, Team.Players, NetworkObjectId, 13f, null, false, 26f);
                 BoltFxRpc(origin, d, 13f);
             }
+            HurlFxRpc(origin);
             return true;
         }
 
@@ -210,7 +211,7 @@ namespace Deepbound.Enemies
                 if (s.Fuse < 0f)
                 {
                     if (near != null) s.Pos = Vector3.MoveTowards(s.Pos, near.transform.position + Vector3.up, SeekerSpeed * Time.deltaTime);
-                    if (nd < SeekerReach) s.Fuse = Time.time + SeekerFuse;
+                    if (nd < SeekerReach) { s.Fuse = Time.time + SeekerFuse; SeekerLitRpc(s.Pos); }
                     else if (Time.time - s.Born > SeekerLife) { seekers.RemoveAt(i); SeekerFizzleRpc(s.Pos); continue; }
                 }
                 else if (Time.time >= s.Fuse)
@@ -266,8 +267,20 @@ namespace Deepbound.Enemies
             Vfx.Ring(at - Vector3.up * 1.2f, SeekerBurst, Fire, 0.4f);
         }
 
+        /// <summary>READABILITY (2026-11-19): a lit seeker only flickered; now the ground it will burn shows, and it hisses.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SeekerLitRpc(Vector3 at)
+        {
+            Telegraph.Show(at - Vector3.up, SeekerBurst, SeekerFuse, null, Telegraph.Harm);
+            Sfx.Play(Sound.Fire, at, 0.7f, 1.6f);
+        }
+
         [Rpc(SendTo.ClientsAndHost)]
         private void SeekerFizzleRpc(Vector3 at) { Vfx.Smoke(at, 2, 0.3f, 1f); }
+
+        /// <summary>READABILITY (2026-11-19): the striding fan left his hand in silence.</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        private void HurlFxRpc(Vector3 at) => Sfx.Play(Sound.Fire, at, 0.8f, 1.3f);
 
         [Rpc(SendTo.ClientsAndHost)]
         private void BoltFxRpc(Vector3 origin, Vector3 dir, float speed) => Arrows.SpawnVisual(origin, dir, ProjectileKind.Firebolt, speed, 26f);

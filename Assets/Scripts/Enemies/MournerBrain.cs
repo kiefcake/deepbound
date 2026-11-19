@@ -24,6 +24,26 @@ namespace Deepbound.Enemies
         public readonly NetworkVariable<bool> Seen = new NetworkVariable<bool>(true);
 
         private float nextScrape;
+
+        /// <summary>
+        /// READABILITY (2026-11-19): it only strikes while nobody watches it, so its wind-up can never be SEEN - it has to be
+        /// HEARD. A grinding sob before every blow, and long enough to turn and look (looking stops it cold): 0.45 s, was 0.3.
+        /// </summary>
+        public const float MinWindup = 0.45f;
+
+        protected override void BeginAttack()
+        {
+            windup = Mathf.Max(windup, MinWindup);
+            base.BeginAttack();
+            if (WindingUp) GrindRpc();
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void GrindRpc()
+        {
+            Sfx.Play(Sound.Rattle, transform.position + Vector3.up, 1f, 0.35f);
+            Sfx.Play(Sound.Whisper, transform.position + Vector3.up * 1.6f, 1f, 0.6f);
+        }
         private Vector3 lastPos;
 
         public override void OnNetworkSpawn()

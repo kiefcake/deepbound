@@ -40,7 +40,15 @@ namespace Deepbound.Enemies
 
         private enum Stage { Lure, Surfaced, Reel }
         private Stage stage = Stage.Surfaced;
-        private float stageEnds, nextBite;
+        private float stageEnds, nextBite, biteAt = -1f;
+        private Vector3 biteSpot;
+        private bool surfaceWarned;
+        /// <summary>
+        /// READABILITY (2026-11-19): the jaws under the lure used to close the instant you came near, and the surfacing struck
+        /// with no warning. Now the jaws rise first (a circle under the lure, a splash) and the lure stops a second before the
+        /// body breaks the water there, its circle on the floor.
+        /// </summary>
+        public const float BiteRadius = 1.9f, BiteTell = 0.45f, SurfaceTell = 1f, SurfaceRadius = 2.4f;
         private PlayerLife lureTarget;
         private float reelHp;
         private bool deep;
@@ -60,6 +68,8 @@ namespace Deepbound.Enemies
         {
             stage = Stage.Lure;
             stageEnds = Time.time + (deep ? 6f : 8f);
+            biteAt = -1f;
+            surfaceWarned = false;
             lureTarget = NearestStanding(transform.position);
             Submerged.Value = true;
             LurePos.Value = transform.position + Vector3.up * 1.6f;
@@ -77,7 +87,8 @@ namespace Deepbound.Enemies
             stageEnds = Time.time + 6.5f;
             SplashFxRpc(transform.position);
             ImpactFxRpc(transform.position, 12f);
-            foreach (var v in CombatQuery.Circle(transform.position, 2.4f, Team.Players)) v.ServerDamage(Signature(damage * 1.2f), transform.position, NetworkObjectId);
+            biteAt = -1f;
+            foreach (var v in CombatQuery.Circle(transform.position, SurfaceRadius, Team.Players)) v.ServerDamage(Signature(damage * 1.2f), transform.position, NetworkObjectId);
             if (agent != null && agent.enabled) agent.isStopped = false;
             nextSpecial = Time.time + 2.5f;
             LoopsDone++;
@@ -112,7 +123,25 @@ namespace Deepbound.Enemies
                 Arrows.ServerFire(origin, d, damage * 0.5f, Team.Players, NetworkObjectId, 12f, null, false, 22f);
                 InkFxRpc(origin, d);
             }
+            SprayFxRpc(origin);
             return true;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SprayFxRpc(Vector3 at) => Sfx.Play(Sound.Slime, at, 0.9f, 0.8f);
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void BiteWarnRpc(Vector3 at, float radius, float seconds)
+        {
+            Telegraph.Show(at, radius, seconds, null, Telegraph.Harm);
+            Sfx.Play(Sound.Splash, at + Vector3.up, 0.8f, 1.3f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SurfaceWarnRpc(Vector3 at, float radius, float seconds)
+        {
+            Telegraph.Show(at, radius, seconds, null, Telegraph.Harm);
+            Sfx.Play(Sound.Splash, at + Vector3.up, 1f, 0.45f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -136,7 +165,13 @@ namespace Deepbound.Enemies
                     // The lure drifts toward its chosen one, bobbing; the jaws snap under it at anyone in reach.
                     if (lureTarget == null || !lureTarget.Targetable) lureTarget = NearestStanding(LurePos.Value);
                     var lp = LurePos.Value;
-                    if (lureTarget != null)
+                    bool surfacing = Time.time >= stageEnds - SurfaceTell;
+                    if (surfacing && !surfaceWarned)
+                    {
+                        surfaceWarned = true;
+                        SurfaceWarnRpc(new Vector3(lp.x, transform.position.y, lp.z), SurfaceRadius, Mathf.Max(0.1f, stageEnds - Time.time));
+                    }
+                    if (lureTarget != null && !surfacing)
                     {
                         var goal = lureTarget.transform.position + Vector3.up * 1.6f;
                         lp = Vector3.MoveTowards(lp, goal, (deep ? 3.6f : 2.8f) * Time.deltaTime);
@@ -144,15 +179,29 @@ namespace Deepbound.Enemies
                         lp.x = Mathf.Clamp(lp.x, c.x - r, c.x + r); lp.z = Mathf.Clamp(lp.z, c.z - r, c.z + r);
                         LurePos.Value = lp;
                     }
-                    if (Time.time >= nextBite)
+                    if (biteAt > 0f && Time.time >= biteAt)
+                    {
+                        // The jaws close where they rose: the first one still over them is bitten.
+                        biteAt = -1f;
+                        nextBite = Time.time + 1.2f;
+                        foreach (var p in Standing())
+                        {
+                            var flat = p.transform.position - biteSpot; flat.y = 0f;
+                            if (flat.magnitude > BiteRadius) continue;
+                            p.Health.ServerDamage(Signature(damage * 1.4f), biteSpot, NetworkObjectId);
+                            Bites++;
+                            BiteFxRpc(new Vector3(biteSpot.x, p.transform.position.y, biteSpot.z));
+                            break;
+                        }
+                    }
+                    else if (biteAt < 0f && Time.time >= nextBite && !surfacing)
                         foreach (var p in Standing())
                         {
                             var flat = p.transform.position - lp; flat.y = 0f;
-                            if (flat.magnitude > 1.9f) continue;
-                            nextBite = Time.time + 1.2f;
-                            p.Health.ServerDamage(Signature(damage * 1.4f), lp, NetworkObjectId);
-                            Bites++;
-                            BiteFxRpc(new Vector3(lp.x, p.transform.position.y, lp.z));
+                            if (flat.magnitude > BiteRadius) continue;
+                            biteAt = Time.time + BiteTell;
+                            biteSpot = lp;
+                            BiteWarnRpc(new Vector3(lp.x, p.transform.position.y, lp.z), BiteRadius, BiteTell);
                             break;
                         }
                     if (Time.time >= stageEnds) Surface();

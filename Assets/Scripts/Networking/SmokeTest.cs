@@ -3187,10 +3187,13 @@ namespace Deepbound.Networking
                 // Kill a handful of skeletons and confirm they drop loot that a player can take.
                 // Only the dead standing in rooms: a breach's ambushers wait in a sealed niche with no floor to walk to yet.
                 var victims = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain) && layout.RoomAt(e.transform.position, 0f) != null).Take(6).ToList();
+                // Only these kills' drops: loot from an earlier check's kill inside a sealed breach niche (no floor until it opens)
+                // once failed this (2026-11-18, "room none, nearest mesh none").
+                var lootBeforeKills = new System.Collections.Generic.HashSet<LootDrop>(FindObjectsByType<LootDrop>(FindObjectsSortMode.None));
                 foreach (var v in victims) v.GetComponent<Health>().ServerDamage(1e6f, v.transform.position, local.NetworkObjectId);
                 yield return new WaitForSeconds(0.3f);
 
-                var drops = FindObjectsByType<LootDrop>(FindObjectsSortMode.None);
+                var drops = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Where(d => !lootBeforeKills.Contains(d)).ToArray();
                 Log("loot drops", drops.Length + " from " + victims.Count + " kills", drops.Length > 0);
                 // Every drop landed where you can walk to it (not in a wall, on a ledge or inside a prop).
                 int reachable = drops.Count(d => d != null && UnityEngine.AI.NavMesh.SamplePosition(d.transform.position, out _, 0.7f, UnityEngine.AI.NavMesh.AllAreas));
@@ -5081,11 +5084,14 @@ namespace Deepbound.Networking
                 }
                 // UNAWARE: one behind the wall that has noticed no one takes x1.5 from the first blow, not the next.
                 var sleeper = hd.ServerDebugSpawn("skeleton", earAt, false, true);
-                bool calm = false; float first = 0f, second = 0f; int openers = 0;
+                bool calm = false; float first = 0f, second = 0f; int openers = 0; string calmWhy = "";
                 if (sleeper != null)
                 {
                     yield return new WaitForSeconds(1.2f);
+                    // Settle: a noise from the check before can still send it to look for a few seconds.
+                    for (float t = 0f; t < 8f && (sleeper.HasTarget || sleeper.Investigating); t += 0.2f) yield return new WaitForSeconds(0.2f);
                     calm = !sleeper.HasTarget && !sleeper.Investigating;
+                    calmWhy = "target " + sleeper.HasTarget + " looking " + sleeper.Investigating + " heard " + sleeper.Heard;
                     var shp = sleeper.GetComponent<Health>();
                     var front = sleeper.transform.position + sleeper.transform.forward * 1.2f;
                     shp.ServerDamage(10f, front, local.NetworkObjectId);
@@ -5098,7 +5104,7 @@ namespace Deepbound.Networking
                     openers = sleeper.Openers;
                     shp.ServerDamage(1e6f, sleeper.transform.position);
                 }
-                Log("unaware opener", "calm " + calm + ", first blow " + first.ToString("0.0") + ", next " + second.ToString("0.0") + ", openers " + openers,
+                Log("unaware opener", "calm " + calm + " (" + calmWhy + "), first blow " + first.ToString("0.0") + ", next " + second.ToString("0.0") + ", openers " + openers,
                     sleeper != null && calm && openers == 1 && second > 0f && first > second * 1.4f);
                 // ENEMY AI (2026-11-18): five round you take turns (three swing at most), and one that loses you searches.
                 {

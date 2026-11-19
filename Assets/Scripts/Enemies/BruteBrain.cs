@@ -23,7 +23,9 @@ namespace Deepbound.Enemies
             base.BeginAttack();
             // The pound is centred a little in front of it, where the maul lands.
             var at = transform.position + transform.forward * 1.2f;
-            TelegraphRpc(at, poundRadius, windup);
+            // READABILITY (2026-11-19): the circle used the bare wind-up, but the move set stretches it (heavy x1.7, sweep x1.25)
+            // and rage/frenzy shrink it: the circle filled long before the blow, or the blow landed before it was full.
+            TelegraphRpc(at, poundRadius, Mathf.Max(0.1f, strikeAt - Time.time));
         }
 
         protected override void Strike()

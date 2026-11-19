@@ -71,6 +71,9 @@ namespace Deepbound.Enemies
             nextPounce = Time.time + pounceCooldown;
             PlayActionRpc(RigAction.Windup, pounceWindup);
             HissRpc();
+            // READABILITY (2026-11-19): the pounce had only a crouch and a hiss; now its lane shows on the floor too
+            // (as wide as the bite it carries: 1.3 m either side).
+            PounceLaneRpc(transform.position, pounceDir, pounceLength + 1.3f, pounceWindup);
             return true;
         }
 
@@ -102,16 +105,24 @@ namespace Deepbound.Enemies
 
         protected override void InterruptWindup(float stagger)
         {
+            if (windingPounce) CancelLaneRpc();
             windingPounce = false;
             base.InterruptWindup(stagger);
         }
 
         public override void ServerStun(float seconds)
         {
+            if (windingPounce) CancelLaneRpc();
             windingPounce = false;
             pouncing = false;
             base.ServerStun(seconds);
         }
+
+        [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
+        private void PounceLaneRpc(Vector3 from, Vector3 dir, float length, float seconds) => Telegraph.ShowLine(from, dir, length, 2.6f, seconds, this);
+
+        [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
+        private void CancelLaneRpc() => Telegraph.Cancel(this);
 
         [Unity.Netcode.Rpc(Unity.Netcode.SendTo.ClientsAndHost)]
         private void HissRpc() => Sfx.Play(Sound.Whisper, transform.position + Vector3.up, 0.9f, 1.5f);

@@ -99,7 +99,7 @@ namespace Deepbound.Enemies
         {
             base.BeginAttack();
             // Replace the melee wind-up animation with the bow draw.
-            PlayActionRpc(RigAction.Draw, windup);
+            PlayActionRpc(RigAction.Draw, Mathf.Max(0.1f, strikeAt - Time.time));
         }
 
         protected override void Strike()

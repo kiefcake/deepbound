@@ -285,7 +285,12 @@ namespace Deepbound.Enemies
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void LeapTellRpc(Vector3 at, float seconds) => Telegraph.Show(at, LeapHitRadius, seconds, null, new Color(1f, 0.35f, 0.2f, 0.4f));
+        private void LeapTellRpc(Vector3 at, float seconds)
+        {
+            Telegraph.Show(at, LeapHitRadius, seconds, null, new Color(1f, 0.35f, 0.2f, 0.4f));
+            // Heard too (readability audit 2026-11-19): a crouching rattle overhead before it drops.
+            Sfx.Play(Sound.Rattle, transform.position + Vector3.up * 1.2f, 0.7f, 0.75f);
+        }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void LeapLandRpc(Vector3 at)
@@ -459,6 +464,8 @@ namespace Deepbound.Enemies
         /// says so once. Burst it down from high, or stun it when it turns.
         /// </summary>
         public const float FrenzyPace = 0.6f;
+        /// <summary>The shortest wind-up any move may have, whatever speeds it up.</summary>
+        public const float MinWindup = 0.3f;
         private bool frenzyAnnounced;
         public bool Frenzied => AffixKind == EliteAffix.Frenzied && health != null && health.Fraction < 0.5f;
 
@@ -1020,7 +1027,8 @@ namespace Deepbound.Enemies
             strikeDir = transform.forward; strikeDir.y = 0f;
             if (strikeDir.sqrMagnitude < 0.001f) strikeDir = Vector3.forward;
             strikeDir.Normalize();
-            float w = windup * Pace * (currentMove == Move.Heavy ? 1.7f : currentMove == Move.Sweep ? 1.25f : 1f);
+            // Never quicker than MinWindup (readability audit 2026-11-19): Frenzied under the Quickened Dead halved a ghoul's swing to 0.17 s.
+            float w = Mathf.Max(MinWindup, windup * Pace * (currentMove == Move.Heavy ? 1.7f : currentMove == Move.Sweep ? 1.25f : 1f));
             flurryLeft = currentMove == Move.Flurry ? 1 : 0;
             attacking = true;
             agent.isStopped = true;
@@ -1708,7 +1716,12 @@ namespace Deepbound.Enemies
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void VolatileWarnRpc(Vector3 at) => Telegraph.Show(at, 3.2f, 1.3f, null, new Color(1f, 0.45f, 0.1f, 0.4f));
+        private void VolatileWarnRpc(Vector3 at)
+        {
+            Telegraph.Show(at, 3.2f, 1.3f, null, new Color(1f, 0.45f, 0.1f, 0.4f));
+            // A fuse you can hear (readability audit 2026-11-19).
+            Sfx.Play(Sound.Fire, at + Vector3.up * 0.8f, 0.8f, 0.7f);
+        }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void VolatileBoomRpc(Vector3 at)

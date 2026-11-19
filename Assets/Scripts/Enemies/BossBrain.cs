@@ -896,6 +896,13 @@ namespace Deepbound.Enemies
         /// <summary>Any peer: the boss crouches, draws embers in and swells a core of light for <paramref name="seconds"/>.</summary>
         protected void Gather(float seconds, float k)
         {
+            // READABILITY (2026-11-19): every big tell is heard as well as seen - a deep intake of breath as it gathers, once per
+            // wind-up (fans and chains of circles call this many times in a frame). Its plain swings (k 0.5) rattle instead.
+            if (k >= 0.6f && seconds >= 0.35f && Time.time >= nextGatherSoundAt)
+            {
+                nextGatherSoundAt = Time.time + 0.5f;
+                Sfx.Play(Sound.Whisper, transform.position + Vector3.up * (health != null ? health.CenterHeight * 1.6f : 2f), 1f, 0.45f);
+            }
             if (Rig == null) return;
             BossWindup.For(gameObject, Rig, health != null ? health.CenterHeight * 2f : 2f).Anticipate(seconds, k);
             // A turning circle of runes under it as it gathers (a sprite, at most every few seconds).
@@ -906,7 +913,7 @@ namespace Deepbound.Enemies
             }
         }
 
-        private float nextCircleAt;
+        private float nextCircleAt, nextGatherSoundAt;
         private float BodyRadiusForFx => health != null ? health.BodyRadius : 1f;
 
         [Rpc(SendTo.ClientsAndHost)]

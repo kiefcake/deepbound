@@ -338,13 +338,12 @@ namespace Deepbound.Enemies
                 case 3:
                     // Alternates: a fan of hex bolts (and a curse on its prey), then the Hymn of Madness.
                     if (hymnNext) { BeginHymn(); nextSpecial = Time.time + 7f * Pace; hymnNext = fury; return true; }
-                    Volley(ProjectileKind.ShadowBolt, 5, 14f, 15f);
-                    if (target != null && target.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerCurse(8f, NetworkObjectId);
+                    BeginVolley(ProjectileKind.ShadowBolt, 5, 14f, 15f, true);
                     nextSpecial = Time.time + 6.5f * Pace;
                     hymnNext = true;
                     return true;
                 case 4:
-                    if (distanceToTarget > SlamRadius + 3f) { Volley(ProjectileKind.Spit, fury ? 7 : 5, 12f, 13f); nextSpecial = Time.time + 6f * Pace; return true; }
+                    if (distanceToTarget > SlamRadius + 3f) { BeginVolley(ProjectileKind.Spit, fury ? 7 : 5, 12f, 13f, false); nextSpecial = Time.time + 6f * Pace; return true; }
                     BeginSlam();
                     nextSpecial = Time.time + 8f * Pace;
                     return true;
@@ -373,6 +372,13 @@ namespace Deepbound.Enemies
                     if (Time.time >= slamAt) ResolveSlam();
                     return;
                 }
+                if (volleyAt > 0f)
+                {
+                    agent.isStopped = true;
+                    FaceTarget(0.3f);
+                    if (Time.time >= volleyAt) ReleaseVolley();
+                    return;
+                }
                 if (charge == 1)
                 {
                     agent.isStopped = true;
@@ -391,6 +397,7 @@ namespace Deepbound.Enemies
             // A bash in the wind-up snuffs the slam or the charge, as with the rank and file.
             if (slamAt > 0f) { slamAt = -1f; CancelTelegraphRpc(); }
             if (charge == 1) { charge = 0; CancelTelegraphRpc(); }
+            volleyAt = -1f;
             if (charge == 2) return;
             base.ServerStun(Mathf.Min(seconds, 0.8f));
         }
@@ -504,6 +511,7 @@ namespace Deepbound.Enemies
         protected override void OnBroken()
         {
             slamAt = -1f;
+            volleyAt = -1f;
             secondVerseAt = -1f;
             if (charge != 0) { charge = 0; rechargeLeft = 0; }
         }
@@ -652,6 +660,34 @@ namespace Deepbound.Enemies
         }
 
         // ---- Volley: a fan of bolts or spit at its prey ----
+
+        /// <summary>
+        /// READABILITY (2026-11-19): the fans used to leave its hand the instant it chose them (and the Choirmaster's curse landed
+        /// with no tell at all). Now it rears back and gathers, heard and seen, and the curse goes with the release.
+        /// </summary>
+        public const float VolleyTell = 0.6f;
+        private float volleyAt = -1f, volleySpeed, volleyRange;
+        private ProjectileKind volleyKind;
+        private int volleyCount;
+        private bool volleyCurse;
+
+        private void BeginVolley(ProjectileKind kind, int count, float speed, float range, bool curse)
+        {
+            if (target == null) return;
+            float tell = Tell(VolleyTell);
+            volleyKind = kind; volleyCount = count; volleySpeed = speed; volleyRange = range; volleyCurse = curse;
+            volleyAt = Time.time + tell;
+            busyUntil = volleyAt + 0.9f;
+            PlayActionRpc(RigAction.Hurl, tell + 0.3f);
+            GatherRpc(tell, 0.7f);
+        }
+
+        private void ReleaseVolley()
+        {
+            volleyAt = -1f;
+            Volley(volleyKind, volleyCount, volleySpeed, volleyRange);
+            if (volleyCurse && target != null && target.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerCurse(8f, NetworkObjectId);
+        }
 
         private void Volley(ProjectileKind kind, int count, float speed, float range)
         {
