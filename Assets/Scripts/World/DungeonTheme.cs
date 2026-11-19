@@ -141,7 +141,9 @@ namespace Deepbound.World
             "The Nave", "The Choir Below",
             "The Last Stair", "Where the Hymn Ends",
         };
-        public static string FloorName(int depth) => DungeonDirector.InPit ? "The Furnace Below" : FloorNames[Mathf.Clamp(depth, 0, FloorNames.Length - 1)];
+        public static string FloorName(int depth) => DungeonDirector.InPit ? "The Furnace Below"
+            : DungeonDirector.Endless ? DungeonDirector.EndlessFloorName(FloorNames[Mathf.Max(0, depth) % FloorNames.Length], depth)
+            : FloorNames[Mathf.Clamp(depth, 0, FloorNames.Length - 1)];
         private static Color Max(Color a, Color b) => new Color(Mathf.Max(a.r, b.r), Mathf.Max(a.g, b.g), Mathf.Max(a.b, b.b), a.a);
     }
 }

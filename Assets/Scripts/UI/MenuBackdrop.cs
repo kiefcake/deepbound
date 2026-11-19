@@ -17,17 +17,24 @@ namespace Deepbound.UI
     /// <item><b>Battle</b>: the Knight braced under his shield, the Ranger loosing arrows, the Rogue
     ///   cutting at a flank and the Cleric's beam on the Knight, against the Hollow King: his slam
     ///   circle fills and breaks into a shockwave, and his crown of blades wheels out.</item>
+    /// <item><b>Descent</b> (2026-11-19, the user: "more animated scenes"): the grave lift going down the shaft with the
+    ///   Knight, the Cleric and the Rogue in the cage under a swinging lantern; torches and broken ledges slide up past
+    ///   them, dust drifts up, the chains shiver.</item>
     /// </list>
     /// Torn down (hidden) once the local player spawns. Sits on the menu camera, which it positions.
     /// </summary>
     public class MenuBackdrop : MonoBehaviour
     {
         private static readonly Vector3 Origin = new Vector3(0f, -500f, 0f);
-        private static readonly Vector3 RestAt = Origin + new Vector3(-80f, 0f, 0f), BattleAt = Origin + new Vector3(80f, 0f, 0f);
+        private static readonly Vector3 RestAt = Origin + new Vector3(-80f, 0f, 0f), BattleAt = Origin + new Vector3(80f, 0f, 0f), DescentAt = Origin + new Vector3(0f, 0f, 120f);
+        private const int SceneCount = 3;
+        // Descent
+        private Transform shaft, cage, lantern;
+        private const float ShaftSegment = 8f, DescentSpeed = 1.6f;
         private const float SceneSeconds = 15f, FadeSeconds = 1.1f;
 
         private GameObject set;
-        private int scene;               // 0 rest, 1 battle
+        private int scene;               // 0 rest, 1 battle, 2 descent
         private float sceneStart, cutAt = -1f;
 
         // Rest
@@ -44,7 +51,8 @@ namespace Deepbound.UI
             set = new GameObject("MenuBackdrop");
             BuildRest();
             BuildBattle();
-            scene = Random.value < 0.5f ? 0 : 1;
+            BuildDescent();
+            scene = Random.Range(0, SceneCount);
             Show(scene);
         }
 
@@ -147,6 +155,110 @@ namespace Deepbound.UI
             l.range = range;
         }
 
+        // ------------------------------------------------------------------
+        // The descent: the grave lift going down the shaft
+        // ------------------------------------------------------------------
+
+        private void BuildDescent()
+        {
+            var o = DescentAt;
+            const float half = 3.6f;
+            // The shaft: four walls, tall, with ledges, beams and torches; it slides up past the cage on a loop.
+            shaft = new GameObject("DescentShaft").transform;
+            shaft.SetParent(set.transform, false);
+            var b = new MeshKit.Batcher();
+            for (int s = 0; s < 4; s++)
+            {
+                var n = Quaternion.Euler(0f, s * 90f, 0f) * Vector3.forward;
+                var across = Quaternion.Euler(0f, s * 90f, 0f) * Vector3.right;
+                b.AddBox(o + n * (half + 0.5f), new Vector3(Mathf.Abs(across.x) * (half * 2f + 2f) + Mathf.Abs(n.x), 64f, Mathf.Abs(across.z) * (half * 2f + 2f) + Mathf.Abs(n.z)), Mat.StoneWall);
+            }
+            for (int i = -4; i <= 4; i++)
+            {
+                float y = i * ShaftSegment;
+                int s = (i + 8) % 4;
+                var n = Quaternion.Euler(0f, s * 90f, 0f) * Vector3.forward;
+                var across = Quaternion.Euler(0f, s * 90f, 0f) * Vector3.right;
+                // A broken ledge on one wall and a timber cross-beam on the next: things to watch go by.
+                b.AddBox(o + n * (half - 0.3f) + across * 1.2f + Vector3.up * (y + 1.1f), new Vector3(Mathf.Abs(across.x) * 2.4f + Mathf.Abs(n.x) * 0.6f, 0.3f, Mathf.Abs(across.z) * 2.4f + Mathf.Abs(n.z) * 0.6f), Mat.Rubble);
+                var n2 = Quaternion.Euler(0f, (s + 1) * 90f, 0f) * Vector3.forward;
+                b.AddBox(o + n2 * (half - 0.15f) + Vector3.up * (y - 2.4f), new Vector3(Mathf.Abs(n2.z) * 7.2f + Mathf.Abs(n2.x) * 0.3f, 0.28f, Mathf.Abs(n2.x) * 7.2f + Mathf.Abs(n2.z) * 0.3f), Mat.Wood);
+            }
+            b.Build(shaft, "ShaftWalls", collide: false);
+            for (int i = -3; i <= 3; i++)
+            {
+                int s = (i + 9) % 4;
+                var n = Quaternion.Euler(0f, s * 90f, 0f) * Vector3.forward;
+                Props.WallTorch(shaft, o + n * half + Vector3.up * (i * ShaftSegment + 0.6f) - Quaternion.Euler(0f, s * 90f, 0f) * Vector3.right * 1.4f, -n, false, new Color(1f, 0.6f, 0.3f));
+            }
+
+            // The cage: planks, posts, bars on three sides, a roof frame and its chains, a lantern under the roof.
+            cage = new GameObject("DescentCage").transform;
+            cage.SetParent(set.transform, false);
+            cage.position = o;
+            var c = new MeshKit.Batcher();
+            c.AddBox(o + Vector3.down * 0.08f, new Vector3(2.8f, 0.16f, 2.8f), Mat.Wood);
+            foreach (var (x, z) in new[] { (-1.35f, -1.35f), (1.35f, -1.35f), (-1.35f, 1.35f), (1.35f, 1.35f) })
+                c.AddBox(o + new Vector3(x, 1.4f, z), new Vector3(0.12f, 2.8f, 0.12f), Mat.Steel);
+            // An open roof frame (a solid lid hid the riders from the camera).
+            foreach (var (pos, size) in new[] { (new Vector3(0f, 2.85f, 1.4f), new Vector3(2.9f, 0.1f, 0.1f)), (new Vector3(0f, 2.85f, -1.4f), new Vector3(2.9f, 0.1f, 0.1f)),
+                (new Vector3(1.4f, 2.85f, 0f), new Vector3(0.1f, 0.1f, 2.9f)), (new Vector3(-1.4f, 2.85f, 0f), new Vector3(0.1f, 0.1f, 2.9f)), (new Vector3(0f, 2.85f, 0f), new Vector3(2.9f, 0.08f, 0.08f)) })
+                c.AddBox(o + pos, size, Mat.Steel);
+            for (int i = 1; i < 8; i++)
+            {
+                float k = -1.35f + i * 2.7f / 8f;
+                c.Add(MeshKit.Cylinder(0.025f, 0.025f, 2.7f, 5), Mat.Steel, Matrix4x4.Translate(o + new Vector3(k, 0.05f, 1.35f)));
+                c.Add(MeshKit.Cylinder(0.025f, 0.025f, 2.7f, 5), Mat.Steel, Matrix4x4.Translate(o + new Vector3(-1.35f, 0.05f, k)));
+                c.Add(MeshKit.Cylinder(0.025f, 0.025f, 2.7f, 5), Mat.Steel, Matrix4x4.Translate(o + new Vector3(1.35f, 0.05f, k)));
+            }
+            c.AddBox(o + new Vector3(0f, 1.1f, 1.35f), new Vector3(2.8f, 0.08f, 0.08f), Mat.Steel);
+            foreach (var (x, z) in new[] { (-1.2f, -1.2f), (1.2f, -1.2f), (-1.2f, 1.2f), (1.2f, 1.2f) })
+                c.Add(MeshKit.Cylinder(0.035f, 0.035f, 30f, 5), Mat.Steel, Matrix4x4.Translate(o + new Vector3(x, 2.9f, z)));
+            c.Build(cage, "Cage", collide: false);
+            lantern = MeshKit.Pivot(cage, "CageLantern", o + new Vector3(0f, 2.8f, 0f));
+            MeshKit.Part(lantern, "Chain", MeshKit.Cylinder(0.012f, 0.012f, 0.4f, 4), Mat.Steel, new Vector3(0f, -0.4f, 0f));
+            MeshKit.Part(lantern, "Cage", MeshKit.Box(new Vector3(0.18f, 0.24f, 0.18f)), Mat.Steel, new Vector3(0f, -0.55f, 0f));
+            Props.AddFlame(lantern, new Vector3(0f, -0.58f, 0f), 0.5f, new Color(1f, 0.62f, 0.3f), 4.5f, 9f, true);
+            // A cold fill from the open side of the cage, so the riders read against the dark shaft.
+            var fill = new GameObject("CageFill").AddComponent<Light>();
+            fill.transform.SetParent(cage, false);
+            fill.transform.position = o + new Vector3(0f, 1.8f, -2.6f);
+            fill.type = LightType.Point; fill.color = new Color(0.55f, 0.65f, 0.9f); fill.intensity = 2.2f; fill.range = 6f;
+
+            HumanoidRig Rider(System.Func<Transform, Color, HumanoidRig> build, Vector3 at, float yaw, int slot)
+            {
+                var root = new GameObject("Rider").transform;
+                root.SetParent(cage, false);
+                root.SetPositionAndRotation(o + at, Quaternion.Euler(0f, yaw, 0f));
+                return build(root, NetworkPlayer.SlotColors[slot % NetworkPlayer.SlotColors.Length]);
+            }
+            Rider(CharacterArt.BuildKnight, new Vector3(-0.55f, 0f, 0.35f), 160f, 0);
+            Rider(CharacterArt.BuildCleric, new Vector3(0.6f, 0f, 0.45f), 200f, 1);
+            var rogue = Rider(CharacterArt.BuildRogue, new Vector3(0.1f, 0f, -0.6f), 20f, 2);
+            rogue.Head.localRotation = Quaternion.Euler(-25f, 0f, 0f); // looking up the shaft, at where they came from
+        }
+
+        private void TickDescent(float t)
+        {
+            var o = DescentAt;
+            // The shaft goes up past the cage (the cage stays put: the world moves), looping a segment at a time.
+            shaft.position = Vector3.up * Mathf.Repeat(Time.time * DescentSpeed, ShaftSegment);
+            // The cage sways on its chains; the lantern swings a beat behind.
+            float sway = Mathf.Sin(Time.time * 0.7f);
+            cage.rotation = Quaternion.Euler(sway * 1.2f, 0f, Mathf.Sin(Time.time * 0.53f) * 1.4f);
+            cage.position = o + Vector3.up * Mathf.Sin(Time.time * 6.1f) * 0.012f;
+            lantern.localRotation = Quaternion.Euler(Mathf.Sin(Time.time * 0.7f - 0.6f) * 9f, 0f, Mathf.Sin(Time.time * 0.53f - 0.5f) * 11f);
+            // Dust and grit drifting up past them.
+            if (Random.value < Time.deltaTime * 14f)
+                Vfx.Embers(o + new Vector3(Random.Range(-3f, 3f), -2.5f, Random.Range(-3f, 3f)), 1, new Color(0.6f, 0.55f, 0.48f), 1.2f, 0.025f, 2.6f);
+            if (Random.value < Time.deltaTime * 0.25f) Sfx.Play(Sound.Chain, o + Vector3.up * 3f, 0.25f, 0.7f);
+            // The camera hangs in a corner of the shaft, a little above the roof, turning slowly round the riders.
+            float a = Mathf.Lerp(-30f, 30f, t / SceneSeconds) * Mathf.Deg2Rad;
+            // Outside the open side of the cage, at shoulder height, close to the shaft wall.
+            var cam = o + new Vector3(Mathf.Sin(a) * 3.1f, 2.1f, -Mathf.Cos(a) * 3.1f);
+            transform.SetPositionAndRotation(cam, Quaternion.LookRotation(o + Vector3.up * 1.2f - cam));
+        }
+
         private void BuildBattle()
         {
             var o = BattleAt;
@@ -194,7 +306,7 @@ namespace Deepbound.UI
 
         // ------------------------------------------------------------------
 
-        /// <summary>Tests: cut to a scene now (0 rest, 1 battle).</summary>
+        /// <summary>Tests: cut to a scene now (0 rest, 1 battle, 2 descent).</summary>
         public static void DebugShow(int s)
         {
             var m = FindAnyObjectByType<MenuBackdrop>();
@@ -209,6 +321,14 @@ namespace Deepbound.UI
             {
                 Lobby.ApplyCastleAtmosphere();
                 TickRest(0f);
+            }
+            else if (scene == 2)
+            {
+                DungeonBuilder.ApplyAtmosphere();
+                RenderSettings.ambientSkyColor = new Color(0.1f, 0.1f, 0.14f);
+                RenderSettings.ambientEquatorColor = new Color(0.08f, 0.07f, 0.08f);
+                RenderSettings.ambientGroundColor = new Color(0.03f, 0.03f, 0.03f);
+                TickDescent(0f);
             }
             else
             {
@@ -237,9 +357,9 @@ namespace Deepbound.UI
 
             float t = Time.time - sceneStart;
             if (cutAt < 0f && t >= SceneSeconds) cutAt = Time.time;
-            if (cutAt > 0f && Time.time - cutAt >= FadeSeconds) { cutAt = -1f; Show(1 - scene); t = 0f; }
+            if (cutAt > 0f && Time.time - cutAt >= FadeSeconds) { cutAt = -1f; Show((scene + 1) % SceneCount); t = 0f; }
 
-            if (scene == 0) TickRest(t); else TickBattle(t);
+            if (scene == 0) TickRest(t); else if (scene == 2) TickDescent(t); else TickBattle(t);
         }
 
         private void TickRest(float t)

@@ -10,7 +10,7 @@ namespace Deepbound.Progression
     /// </summary>
     public static class Records
     {
-        private const string KeyDeep = "db.rec.deep", KeyKills = "db.rec.kills", KeyGold = "db.rec.gold", KeyFast = "db.rec.fast", KeyWins = "db.rec.wins", KeyRun = "db.rec.run", KeyDailyDate = "db.rec.dailydate", KeyDailyFloor = "db.rec.dailyfloor", KeyFallen = "db.rec.fallen";
+        private const string KeyDeep = "db.rec.deep", KeyKills = "db.rec.kills", KeyGold = "db.rec.gold", KeyFast = "db.rec.fast", KeyWins = "db.rec.wins", KeyRun = "db.rec.run", KeyDailyDate = "db.rec.dailydate", KeyDailyFloor = "db.rec.dailyfloor", KeyFallen = "db.rec.fallen", KeyEndless = "db.rec.endless";
         /// <summary>How many lost parties the slab remembers.</summary>
         public const int FallenKept = 6;
         /// <summary>Between memorial lines in the saved string (a newline).</summary>
@@ -30,6 +30,9 @@ namespace Deepbound.Progression
             return s / 60 + ":" + (s % 60).ToString("00");
         }
 
+        /// <summary>The Endless Descent's high score: the deepest floor reached before going down (0 = never tried).</summary>
+        public static int EndlessBest => Test ? 0 : PlayerPrefs.GetInt(KeyEndless, 0);
+
         /// <summary>Today's best daily floor (0 if none today).</summary>
         public static int DailyBest(int today) => Test || PlayerPrefs.GetInt(KeyDailyDate, 0) != today ? 0 : PlayerPrefs.GetInt(KeyDailyFloor, 0);
 
@@ -48,14 +51,16 @@ namespace Deepbound.Progression
         /// <summary>One memorial line: the party's names and where they fell.</summary>
         public static string FallenLine(string names, int floorReached) => (string.IsNullOrEmpty(names) ? "Nameless delvers" : names) + "  -  fell on floor " + floorReached;
 
-        public static List<string> SubmitRun(double runKey, int floorReached, int kills, int gold, bool won, int dailyDate = 0, string party = null)
+        public static List<string> SubmitRun(double runKey, int floorReached, int kills, int gold, bool won, int dailyDate = 0, string party = null, bool endless = false)
         {
             var beaten = new List<string>();
             if (Test) return beaten;
             string key = runKey.ToString("F3");
             if (PlayerPrefs.GetString(KeyRun, "") == key) return beaten;
             PlayerPrefs.SetString(KeyRun, key);
-            if (floorReached > Deepest) { PlayerPrefs.SetInt(KeyDeep, floorReached); beaten.Add("deepest descent: floor " + floorReached); }
+            // The endless floor is a score of its own: it never counts as the ten-floor run's deepest.
+            if (endless) { if (floorReached > EndlessBest) { PlayerPrefs.SetInt(KeyEndless, floorReached); beaten.Add("endless descent: floor " + floorReached); } }
+            else if (floorReached > Deepest) { PlayerPrefs.SetInt(KeyDeep, floorReached); beaten.Add("deepest descent: floor " + floorReached); }
             if (kills > BestKills) { PlayerPrefs.SetInt(KeyKills, kills); beaten.Add("most kills in a run: " + kills); }
             if (gold > BestGold) { PlayerPrefs.SetInt(KeyGold, gold); beaten.Add("most gold in a run: " + gold); }
             if (won) { PlayerPrefs.SetInt(KeyWins, Wins + 1); beaten.Add("victories: " + (Wins)); }
@@ -66,7 +71,7 @@ namespace Deepbound.Progression
                 foreach (var old in Fallen) if (list.Count < FallenKept) list.Add(old);
                 PlayerPrefs.SetString(KeyFallen, string.Join(Sep.ToString(), list));
             }
-            if (dailyDate != 0 && floorReached > DailyBest(dailyDate))
+            if (dailyDate != 0 && !endless && floorReached > DailyBest(dailyDate))
             {
                 PlayerPrefs.SetInt(KeyDailyDate, dailyDate);
                 PlayerPrefs.SetInt(KeyDailyFloor, floorReached);
@@ -96,6 +101,7 @@ namespace Deepbound.Progression
             "Most gold in a run   " + (BestGold > 0 ? BestGold.ToString() : "-"),
             "Victories            " + Wins,
             "Today's daily        " + (DailyBest(World.DungeonDirector.Today) > 0 ? "floor " + DailyBest(World.DungeonDirector.Today) : "-"),
+            "Endless descent      " + (EndlessBest > 0 ? "floor " + EndlessBest : "-"),
         };
     }
 }

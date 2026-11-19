@@ -50,7 +50,7 @@ namespace Deepbound.World
         public const int AbyssDepth = 8;
 
         /// <summary>Which act (and theme) a floor belongs to: 0 Ossuary, 1 Drowned Vaults, 2 Hollow Throne, 3 Black Cathedral, 4 Abyss.</summary>
-        public static int Act(int depth) => Mathf.Clamp(Mathf.Max(0, depth) / 2, 0, ActCount - 1);
+        public static int Act(int depth) => Endless ? Mathf.Max(0, depth) / 2 % ActCount : Mathf.Clamp(Mathf.Max(0, depth) / 2, 0, ActCount - 1);
         /// <summary>The first floor of an act ends at a Warden; the second at the act's boss.</summary>
         public static bool IsWardenFloor(int depth) => depth % 2 == 0;
         /// <summary>
@@ -850,8 +850,9 @@ namespace Deepbound.World
             Loot.Relics.ResetRun();
             Loot.GearEffects.ResetRun();
             Loot.Runes.ResetRun();
+            EndlessCheckAtStart();
             // A lone delver has nobody to drag them up (2026-10-23, the solo loop): one set of Smelling Salts to start.
-            if (Player.PlayerLife.All.Count == 1)
+            if (Player.PlayerLife.All.Count == 1 && !EndlessRun.Value)
                 foreach (var pl in Player.PlayerLife.All)
                     if (pl != null && pl.TryGetComponent<Progression.PlayerProgress>(out var solo) && !solo.Salts.Value)
                     {
@@ -1710,7 +1711,7 @@ namespace Deepbound.World
                         ContractOnFloorCleared();
                         if (!Practice.Value) Player.Teamwork.ServerFloorHonours();
                         // No timer: a portal opens where the boss stood, and the party leaves when everyone steps in.
-                        ExitFinal.Value = Floor.Value.y >= FinalDepth;
+                        ExitFinal.Value = Floor.Value.y >= FinalDepth && !EndlessRun.Value;
                         EnterPhase(RunPhase.FloorCleared, 0f);
                         phaseTimer = double.MaxValue;
                         PhaseEndsAt.Value = 0;
@@ -1816,6 +1817,7 @@ namespace Deepbound.World
         {
             Art.ExitPortal.Ascend();
             UI.GameHud.BeginFadeOut(Art.ExitPortal.AscendSeconds);
+            UI.LoadingScreen.Begin(UI.LoadingScreen.Kind.Camp, Art.ExitPortal.AscendSeconds);
         }
 
         private System.Collections.IEnumerator AfterAscent()
@@ -1897,6 +1899,12 @@ namespace Deepbound.World
         private static bool PartyWiped()
         {
             if (PlayerLife.All.Count == 0) return false;
+            // The Endless Descent ends the first time anyone goes down (no salts, no bleeding out).
+            if (Endless)
+            {
+                foreach (var p in PlayerLife.All) if (p != null && p.Downed.Value) return true;
+                return false;
+            }
             foreach (var p in PlayerLife.All)
             {
                 if (!p.Downed.Value || p.GettingUp) return false;

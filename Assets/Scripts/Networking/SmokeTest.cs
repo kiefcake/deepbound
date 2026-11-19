@@ -1590,13 +1590,19 @@ namespace Deepbound.Networking
                 if (chests.Length > 0)
                 {
                     int dropsBefore = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
+                    // New drops, or gold the coin magnet already swept up (2026-11-19: "drops 17 -> 15", the gold gone into the purse in 0.3 s).
+                    var seenDrops = new System.Collections.Generic.HashSet<LootDrop>(FindObjectsByType<LootDrop>(FindObjectsSortMode.None));
+                    var chestProg = local.GetComponent<PlayerProgress>();
+                    int goldBeforeChest = chestProg.GoldEarned.Value;
                     var cmotor = local.GetComponent<FirstPersonMotor>();
                     cmotor.Teleport(chests[0].transform.position + chests[0].transform.forward * 2f, local.transform.rotation);
                     yield return new WaitForSeconds(0.3f);
                     chests[0].UseRpc(local.NetworkObject);
                     yield return new WaitForSeconds(0.3f);
                     int dropsAfter = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
-                    Log("open chest", "opened " + chests[0].Opened.Value + ", drops " + dropsBefore + " -> " + dropsAfter, chests[0].Opened.Value && dropsAfter > dropsBefore);
+                    int newDrops = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Count(dr => !seenDrops.Contains(dr));
+                    int goldGained = chestProg.GoldEarned.Value - goldBeforeChest;
+                    Log("open chest", "opened " + chests[0].Opened.Value + ", drops " + dropsBefore + " -> " + dropsAfter + " (" + newDrops + " new, +" + goldGained + " gold taken)", chests[0].Opened.Value && (newDrops > 0 || goldGained > 0));
                     cmotor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                 }
                 var barrel = FindObjectsByType<Breakable>(FindObjectsSortMode.None).FirstOrDefault(b => b.Type.Value == Breakable.Kind.PowderBarrel);
@@ -4012,6 +4018,19 @@ namespace Deepbound.Networking
                     Log("daily seeds", "today d3 " + DungeonDirector.DailySeed(20261020, 3) + " again " + DungeonDirector.DailySeed(20261020, 3) + ", d4 " + DungeonDirector.DailySeed(20261020, 4) + ", tomorrow " + DungeonDirector.DailySeed(20261021, 3),
                         DungeonDirector.DailySeed(20261020, 3) == DungeonDirector.DailySeed(20261020, 3) && DungeonDirector.DailySeed(20261020, 3) != DungeonDirector.DailySeed(20261020, 4)
                         && DungeonDirector.DailySeed(20261020, 3) != DungeonDirector.DailySeed(20261021, 3) && DungeonDirector.DailySeed(20261020, 3) > 0);
+                    // The Endless Descent: past floor 10 the acts come round again and the name says which time down; off, nothing changes.
+                    {
+                        var ed = DungeonDirector.Instance;
+                        bool wasEndless = ed.EndlessRun.Value;
+                        int offAct = DungeonDirector.Act(12);
+                        ed.EndlessRun.Value = true;
+                        int a10 = DungeonDirector.Act(10), a13 = DungeonDirector.Act(13), a19 = DungeonDirector.Act(19), a21 = DungeonDirector.Act(21);
+                        string n12 = DungeonTheme.FloorName(12), n3 = DungeonTheme.FloorName(3);
+                        ed.EndlessRun.Value = wasEndless;
+                        Log("endless descent", "off: floor 13 act " + offAct + "; on: acts " + a10 + "/" + a13 + "/" + a19 + "/" + a21 + ", floor 13 '" + n12 + "', floor 4 '" + n3 + "', laps " + DungeonDirector.Lap(9) + "/" + DungeonDirector.Lap(10) + "/" + DungeonDirector.Lap(25),
+                            offAct == DungeonDirector.ActCount - 1 && a10 == 0 && a13 == 1 && a19 == 4 && a21 == 0 && n12.Contains("2nd time down") && !n3.Contains("time down")
+                            && DungeonDirector.Lap(9) == 0 && DungeonDirector.Lap(10) == 1 && DungeonDirector.Lap(25) == 2);
+                    }
                     // Colour-blind telegraphs: red and green move apart; blue stays (a test override, the player's setting untouched).
                     {
                         Telegraph.ForceColorBlind = true;
@@ -7677,6 +7696,11 @@ namespace Deepbound.Networking
         private IEnumerator PortraitSequence(string dir, NetworkLauncher launcher)
         {
             System.IO.Directory.CreateDirectory(dir);
+            // The title's third scene (the grave lift going down the shaft), before anyone hosts.
+            yield return new WaitForSeconds(1.5f);
+            UI.MenuBackdrop.DebugShow(2);
+            yield return new WaitForSeconds(2.5f);
+            yield return Shot(dir, "title_descent");
             launcher.StartHost();
             yield return new WaitForSeconds(2f);
             var local = NetworkPlayer.Local;
@@ -7685,6 +7709,13 @@ namespace Deepbound.Networking
             for (float t = 0f; t < 5f && !DungeonDirector.InLobby; t += 0.2f) yield return new WaitForSeconds(0.2f);
             var dd = DungeonDirector.Instance;
             dd.ServerDebugStartFloor(4);
+            yield return new WaitForSeconds(3f);
+            // The loading card, as it shows on the way down.
+            UI.LoadingScreen.AllowInTests = true;
+            UI.LoadingScreen.Begin(UI.LoadingScreen.Kind.Descent, 0f);
+            yield return new WaitForSeconds(1.4f);
+            yield return Shot(dir, "loading_card");
+            UI.LoadingScreen.Cancel(); UI.LoadingScreen.AllowInTests = false;
             yield return new WaitForSeconds(3f);
             // A key light that follows the subject: the shots judge the model, not the room's lighting.
             var key = new GameObject("PortraitKey").AddComponent<Light>();

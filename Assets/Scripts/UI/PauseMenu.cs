@@ -70,7 +70,7 @@ namespace Deepbound.UI
             ("INVENTORY", "I opens it. CRAFT (right column, anywhere, even mid-floor): BONE, CLOTH and IRON drop from the dead, urns and chests, and scrapping gear gives iron; they make potions and flasks, run upgrades (padded lining +2 DEF, whetted edge +3% damage, hobnailed boots +3% speed; three of each) and tools thrown with Z at the floor you aim at (CALTROPS chill and cut what walks them for 8 s; a BONE RATTLE draws the dead within 10 m to the noise for 4 s and they forget you). Parts last the run. Gear you pick up goes into your PACK (8 slots); wearing a piece sends the old one back to it. In the pack: click to wear, right-click to scrap for embers (only at Hobb's anvil), shift-click to drop. Right-click worn gear to take it off. Everything is lost when the run ends (unspent gold is tithed into Renown: 1 per 100 gold, up to 50). With friends: loot is SHARED by default (gold and embers split evenly; the host toggles it with L at camp). Give gold or even out the purse in the inventory, and ctrl-click a pack piece to hand it to the nearest ally."),
             ("GIVING", "Look at an ally within a few steps and HOLD G for the give wheel: Health, their draught, Frost, Holy water (one each, if they have room), 25 gold or 10 embers (hold on the slice to keep giving), your rare draught or tome, a high five, salute or bow. Flick toward a slice and let go."),
             ("VOICE", "Proximity voice: anyone within about 30 m hears you, muffled through walls. Shouting wakes the dead within 10 m, statues too. The bled-out can only whisper. Push to talk (T) or turn it off in Options. Every key can be moved in Options > Controls. A GAMEPAD plays too: sticks move and look, A jump, B dodge, X use, Y talk/trade, LB/RB abilities, RT attack, LT secondary, L3 sprint, R3 kick, d-pad up ultimate, left/right/down potions, View the map, Start pauses. In menus and shops the left stick moves the pointer, A clicks, the right stick scrolls. TEXT CHAT: press Enter, type, Enter to send (Esc cancels); the game ignores your keys while you type."),
-            ("AT CAMP", "Trade is split by craft: SILAS sells potions and provisions, HOBB at the anvil tempers weapons, scraps gear, refines armour and sells embers, plate and a piece fitted for you, YSOLDE at the standing stones does runes, sigils and ability ranks (and melds runes), and the SHRINE offers holy water, relics and Brother Aldric's paid PRAYER (it catches one blow that would down you). At THE GUTTED LANTERN, the tavern north-west of the tent, Marta sells MEAD (8 gold a horn: Tipsy, Merry, Sloshed - +4% damage a level, and the world sways; Sloshed scrambles your feet - your movement keys go the wrong way; it wears off a level at a time) and the band plays four tunes of its own: pay them 15 gold for the next. Take a CONTRACT at the bounty board for the next floor. Turn the OMEN STONE before a run for a harder descent and more Renown. Spin the WHEEL OF FATE when you find one: it usually gives. From floor 2 a PEDDLER sometimes trades in a side room, at a markup. SERGEANT BRANN in the training yard sells drills (a stat for the run, dearer each time), MISTER BONES deals blackjack for up to four players (bets 5-100; win 300 in one visit and he cuts you off until the next floor), and CORWIN at the carriage (who also offers the DAILY DESCENT: today's floors, the same for everyone who plays today; your best is on the Hall of Records) sells a SCOUT'S MAP of the next floor and SMELLING SALTS (get up on your own once) and a CLIMBING ROPE (from floor 2, F at the start room's waystone takes the party back to camp before the guardian; the run goes on but that floor starts over by a new road). Corwin sets the road: Normal, Hard, Nightmare and, once you have finished a descent, TORMENT (the Tallyman comes early). From +6 the anvil wants gold as well as embers; it goes to +10 (+8 ASCENDED, +10 MASTERWORK, a third rune socket at +6). Sigils take abilities to rank 8. All cosmetics at the tailor are free for now. LEGACY (pause menu, anywhere): spend Renown on small boons (a keener pet, a Quartermaster's starting parts, faster revives, a wider coin magnet, bigger tool belts, and minimap marks for chests, cracked walls and the way to the guardian), and choose an HEIRLOOM from the relics of your last run: at camp, before the carriage leaves, BRING THE HEIRLOOM and it joins the next run as a plain relic, once. Mistress Vey also has COMPANIONS (the PETS tab): a raven, a rat, a bone hound, a kitten or a lantern wisp follows you down, fetches gold and embers lying within 8 m (12 with Keen Companion) in sight of you, and runs to sit on a HIDDEN spike plate near you and calls out. The host has a DEVELOPER MENU on F1. PRACTICE: before a run, the host can take the party from Corwin's carriage straight to any guardian already beaten on this machine - only the guardian, blows at 60%, nothing lost or won."),
+            ("AT CAMP", "Trade is split by craft: SILAS sells potions and provisions, HOBB at the anvil tempers weapons, scraps gear, refines armour and sells embers, plate and a piece fitted for you, YSOLDE at the standing stones does runes, sigils and ability ranks (and melds runes), and the SHRINE offers holy water, relics and Brother Aldric's paid PRAYER (it catches one blow that would down you). At THE GUTTED LANTERN, the tavern north-west of the tent, Marta sells MEAD (8 gold a horn: Tipsy, Merry, Sloshed - +4% damage a level, and the world sways; Sloshed scrambles your feet - your movement keys go the wrong way; it wears off a level at a time) and the band plays four tunes of its own: pay them 15 gold for the next. Take a CONTRACT at the bounty board for the next floor. Turn the OMEN STONE before a run for a harder descent and more Renown. Spin the WHEEL OF FATE when you find one: it usually gives. From floor 2 a PEDDLER sometimes trades in a side room, at a markup. SERGEANT BRANN in the training yard sells drills (a stat for the run, dearer each time), MISTER BONES deals blackjack for up to four players (bets 5-100; win 300 in one visit and he cuts you off until the next floor), and CORWIN at the carriage (who also offers the DAILY DESCENT: today's floors, the same for everyone who plays today; your best is on the Hall of Records, and, alone, the ENDLESS DESCENT: no last floor, the acts come round again ever harder, and the first time you go down it is over - the floor you reach is your score) sells a SCOUT'S MAP of the next floor and SMELLING SALTS (get up on your own once) and a CLIMBING ROPE (from floor 2, F at the start room's waystone takes the party back to camp before the guardian; the run goes on but that floor starts over by a new road). Corwin sets the road: Normal, Hard, Nightmare and, once you have finished a descent, TORMENT (the Tallyman comes early). From +6 the anvil wants gold as well as embers; it goes to +10 (+8 ASCENDED, +10 MASTERWORK, a third rune socket at +6). Sigils take abilities to rank 8. All cosmetics at the tailor are free for now. LEGACY (pause menu, anywhere): spend Renown on small boons (a keener pet, a Quartermaster's starting parts, faster revives, a wider coin magnet, bigger tool belts, and minimap marks for chests, cracked walls and the way to the guardian), and choose an HEIRLOOM from the relics of your last run: at camp, before the carriage leaves, BRING THE HEIRLOOM and it joins the next run as a plain relic, once. Mistress Vey also has COMPANIONS (the PETS tab): a raven, a rat, a bone hound, a kitten or a lantern wisp follows you down, fetches gold and embers lying within 8 m (12 with Keen Companion) in sight of you, and runs to sit on a HIDDEN spike plate near you and calls out. The host has a DEVELOPER MENU on F1. PRACTICE: before a run, the host can take the party from Corwin's carriage straight to any guardian already beaten on this machine - only the guardian, blows at 60%, nothing lost or won."),
             ("RELIC SYNERGIES", "Some pairs awaken more: Frost Shard + Winter's Tooth, Vampiric Fang + Blood Pact, Thunder Idol + Echo Stone, Executioner's Coin + Berserker's Brand, Phoenix Feather + Heart of the Deep."),
         };
         private int guidePage, lastGuidePage = -1;
@@ -100,7 +100,7 @@ namespace Deepbound.UI
             GUILayout.BeginHorizontal();
             for (int i = 0; i < names.Length; i++)
             {
-                if (GUILayout.Button(names[i], UiSkin.Button, GUILayout.Height(30))) current = i;
+                if (UiSkin.Btn(names[i], UiSkin.Button, GUILayout.Height(30))) current = i;
                 if (i == current && Event.current.type == EventType.Repaint)
                 {
                     var r = GUILayoutUtility.GetLastRect();
@@ -127,6 +127,7 @@ namespace Deepbound.UI
             var g = Gamepad.current;
             if (g == null || !Open || capturing.HasValue) return;
             bool back = g.buttonEast.wasPressedThisFrame, ok = g.buttonSouth.wasPressedThisFrame;
+            if (confirm != 0) { if (back) confirm = 0; else if (ok) Confirmed(); return; }
             if (invitesOpen) { if (back) invitesOpen = false; return; }
             if (guide)
             {
@@ -158,6 +159,36 @@ namespace Deepbound.UI
             if (ok) Choose(padFocus);
         }
 
+        /// <summary>0 none; 4 leave the party, 5 quit: asked once more before it happens (2026-11-19).</summary>
+        private int confirm;
+
+        private void Confirmed()
+        {
+            int what = confirm;
+            confirm = 0;
+            if (what == 4) { Open = false; NetworkManager.Singleton.Shutdown(); }
+            else if (what == 5) Application.Quit();
+        }
+
+        private void DrawConfirm(float w, float h)
+        {
+            var net = NetworkManager.Singleton;
+            bool hosting = net != null && net.IsHost && net.ConnectedClientsIds.Count > 1;
+            bool midRun = World.DungeonDirector.Instance != null && World.DungeonDirector.Instance.RunInProgress;
+            string head = confirm == 4 ? "LEAVE THE PARTY?" : "QUIT THE GAME?";
+            string body = hosting ? "You are hosting: everyone else is sent back to the title."
+                : midRun ? "The run goes on without you." + (confirm == 5 ? " Your camp progress is saved." : "")
+                : confirm == 5 ? "Your camp progress is saved." : "You go back to the title screen.";
+            var panel = new Rect(w / 2f - 230f, h / 2f - 105f, 460f, 210f);
+            UiSkin.Panel(panel, 0.97f);
+            GUI.Label(new Rect(panel.x, panel.y + 22, panel.width, 34), head, new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleCenter, fontSize = 26 });
+            UiSkin.Ornament(panel.center.x - 100f, panel.y + 60f, 200f, 1f);
+            GUI.Label(new Rect(panel.x + 24, panel.y + 74, panel.width - 48, 50), body, new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
+            if (UiSkin.Btn(new Rect(panel.x + 30, panel.yMax - 62, 190, 42), confirm == 4 ? "LEAVE" : "QUIT", UiSkin.Button)) Confirmed();
+            if (UiSkin.Btn(new Rect(panel.xMax - 220, panel.yMax - 62, 190, 42), "STAY", UiSkin.Button)) confirm = 0;
+            GUI.Label(new Rect(panel.x, panel.yMax - 16, panel.width, 14), "Esc / B: stay", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 10 });
+        }
+
         private void Choose(int i)
         {
             switch (i)
@@ -166,8 +197,8 @@ namespace Deepbound.UI
                 case 1: guide = true; break;
                 case 2: options = true; break;
                 case 3: legacy = true; break;
-                case 4: Open = false; NetworkManager.Singleton.Shutdown(); break;
-                case 5: Application.Quit(); break;
+                case 4: confirm = 4; break;
+                case 5: confirm = 5; break;
             }
         }
 
@@ -202,8 +233,10 @@ namespace Deepbound.UI
                 }
                 return;
             }
+            if (confirm != 0 && keyboard != null && keyboard.escapeKey.wasPressedThisFrame) { confirm = 0; Deepbound.Art.Sfx.Play2D(Deepbound.Art.Sound.UiClose, 0.6f); return; }
             if (((keyboard != null && keyboard.escapeKey.wasPressedThisFrame) || Binds.PauseDown) && !OtherMenuOpenLastFrame)
             {
+                confirm = 0;
                 Open = !Open;
                 Deepbound.Art.Sfx.Play2D(Open ? Deepbound.Art.Sound.UiOpen : Deepbound.Art.Sound.UiClose, 0.8f);
                 options = guide = controls = invitesOpen = legacy = false;
@@ -259,6 +292,11 @@ namespace Deepbound.UI
             GUI.depth = -20;
 
             UiSkin.Rect(new Rect(0, 0, w, h), new Color(0f, 0f, 0f, 0.6f));
+            if (confirm != 0)
+            {
+                DrawConfirm(w, h);
+                return;
+            }
             if (guide)
             {
                 DrawGuide(w, h);
@@ -296,28 +334,28 @@ namespace Deepbound.UI
                 OptionsPanel.Draw();
                 GUILayout.FlexibleSpace();
                 GUILayout.BeginHorizontal();
-                if (GUILayout.Button("CONTROLS", UiSkin.Button, GUILayout.Height(42))) controls = true;
-                if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(42))) options = false;
+                if (UiSkin.Btn("CONTROLS", UiSkin.Button, GUILayout.Height(42))) controls = true;
+                if (UiSkin.Btn("BACK", UiSkin.Button, GUILayout.Height(42))) options = false;
                 GUILayout.EndHorizontal();
             }
             else
             {
-                if (GUILayout.Button("RESUME", UiSkin.ButtonBig, GUILayout.Height(54))) Choose(0);
+                if (UiSkin.Btn("RESUME", UiSkin.ButtonBig, GUILayout.Height(54))) Choose(0);
                 PadFrame(0);
                 GUILayout.Space(8);
-                if (GUILayout.Button("GUIDE", UiSkin.Button, GUILayout.Height(44))) Choose(1);
+                if (UiSkin.Btn("GUIDE", UiSkin.Button, GUILayout.Height(44))) Choose(1);
                 PadFrame(1);
                 GUILayout.Space(8);
-                if (GUILayout.Button("OPTIONS", UiSkin.Button, GUILayout.Height(44))) Choose(2);
+                if (UiSkin.Btn("OPTIONS", UiSkin.Button, GUILayout.Height(44))) Choose(2);
                 PadFrame(2);
                 GUILayout.Space(8);
-                if (GUILayout.Button("LEGACY", UiSkin.Button, GUILayout.Height(44))) Choose(3);
+                if (UiSkin.Btn("LEGACY", UiSkin.Button, GUILayout.Height(44))) Choose(3);
                 PadFrame(3);
                 GUILayout.Space(8);
-                if (GUILayout.Button("LEAVE PARTY", UiSkin.Button, GUILayout.Height(44))) Choose(4);
+                if (UiSkin.Btn("LEAVE PARTY", UiSkin.Button, GUILayout.Height(44))) Choose(4);
                 PadFrame(4);
                 GUILayout.Space(8);
-                if (GUILayout.Button("QUIT GAME", UiSkin.Button, GUILayout.Height(44))) Choose(5);
+                if (UiSkin.Btn("QUIT GAME", UiSkin.Button, GUILayout.Height(44))) Choose(5);
                 PadFrame(5);
                 GUILayout.Space(10);
                 var net = NetworkManager.Singleton;
@@ -328,7 +366,7 @@ namespace Deepbound.UI
                 if (net != null && net.IsHost && launcherHere != null && launcherHere.OverSteam)
                 {
                     GUILayout.Space(4);
-                    if (GUILayout.Button("INVITE STEAM FRIENDS", UiSkin.Button, GUILayout.Height(38))) invitesOpen = true;
+                    if (UiSkin.Btn("INVITE STEAM FRIENDS", UiSkin.Button, GUILayout.Height(38))) invitesOpen = true;
                 }
                 // An invite from someone else's party: joining leaves this one.
                 if (Networking.SteamPlatform.Ready && Networking.SteamPlatform.Instance.Invites.Count > 0)
@@ -348,9 +386,9 @@ namespace Deepbound.UI
                     string lan = Networking.PortMapper.LocalIp ?? Networking.PortMapper.GuessLocalIp(null);
                     GUILayout.BeginHorizontal();
                     if (Networking.PortMapper.Current == Networking.PortMapper.State.Open && !Networking.PortMapper.SharedAddress && !string.IsNullOrEmpty(Networking.PortMapper.ExternalIp)
-                        && GUILayout.Button("Copy internet address", UiSkin.Button, GUILayout.Height(30)))
+                        && UiSkin.Btn("Copy internet address", UiSkin.Button, GUILayout.Height(30)))
                         GUIUtility.systemCopyBuffer = Networking.PortMapper.ExternalIp + portTag;
-                    if (!string.IsNullOrEmpty(lan) && GUILayout.Button("Copy home address (" + lan + ")", UiSkin.Button, GUILayout.Height(30)))
+                    if (!string.IsNullOrEmpty(lan) && UiSkin.Btn("Copy home address (" + lan + ")", UiSkin.Button, GUILayout.Height(30)))
                         GUIUtility.systemCopyBuffer = lan + portTag;
                     GUILayout.EndHorizontal();
                 }
@@ -425,12 +463,12 @@ namespace Deepbound.UI
             bool ready = chosen.HasValue && atCamp && prog != null;
             bool was2 = GUI.enabled;
             GUI.enabled = ready;
-            if (GUI.Button(new Rect(8, y, 260, 40), "BRING THE HEIRLOOM", UiSkin.Button) && ready) { Legacy.Note = ""; prog.BringHeirloomRpc((byte)((int)chosen.Value + 1)); }
+            if (UiSkin.Btn(new Rect(8, y, 260, 40), "BRING THE HEIRLOOM", UiSkin.Button) && ready) { Legacy.Note = ""; prog.BringHeirloomRpc((byte)((int)chosen.Value + 1)); }
             GUI.enabled = was2;
             string note = !string.IsNullOrEmpty(Legacy.Note) ? Legacy.Note : block;
             GUI.Label(new Rect(280, y + 10, cw - 280, 24), note, UiSkin.Small);
             GUI.EndScrollView();
-            if (GUI.Button(new Rect(panel.x + pw / 2f - 90, panel.yMax - 56, 180, 40), "BACK", UiSkin.Button)) legacy = false;
+            if (UiSkin.Btn(new Rect(panel.x + pw / 2f - 90, panel.yMax - 56, 180, 40), "BACK", UiSkin.Button)) legacy = false;
         }
 
         /// <summary>The host's invite list: online Steam friends, each with INVITE (2026-10-26).</summary>
@@ -445,8 +483,8 @@ namespace Deepbound.UI
             FriendsPanel.DrawInviteList(330f);
             GUILayout.Space(8);
             GUILayout.BeginHorizontal();
-            if (GUILayout.Button("STEAM OVERLAY", UiSkin.Button, GUILayout.Height(40))) Networking.SteamPlatform.OpenInviteOverlay();
-            if (GUILayout.Button("BACK", UiSkin.Button, GUILayout.Height(40))) invitesOpen = false;
+            if (UiSkin.Btn("STEAM OVERLAY", UiSkin.Button, GUILayout.Height(40))) Networking.SteamPlatform.OpenInviteOverlay();
+            if (UiSkin.Btn("BACK", UiSkin.Button, GUILayout.Height(40))) invitesOpen = false;
             GUILayout.EndHorizontal();
             GUILayout.EndArea();
         }
@@ -481,8 +519,8 @@ namespace Deepbound.UI
                 if (GUI.Button(r, GUIContent.none, GUIStyle.none)) capturing = live ? (Bind?)null : d.bind;
             }
             float by = area.yMax - 46f;
-            if (GUI.Button(new Rect(area.x, by, 250, 42), "RESET TO DEFAULTS", UiSkin.Button)) { Binds.ResetAll(); capturing = null; }
-            if (GUI.Button(new Rect(area.xMax - 250, by, 250, 42), "BACK", UiSkin.Button)) { controls = false; capturing = null; }
+            if (UiSkin.Btn(new Rect(area.x, by, 250, 42), "RESET TO DEFAULTS", UiSkin.Button)) { Binds.ResetAll(); capturing = null; }
+            if (UiSkin.Btn(new Rect(area.xMax - 250, by, 250, 42), "BACK", UiSkin.Button)) { controls = false; capturing = null; }
         }
 
         private static string LabelOf(Bind b)
@@ -608,8 +646,8 @@ namespace Deepbound.UI
                     GUI.Label(new Rect(view.x, view.yMax - 2, view.width, 18), "scroll for more", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic, normal = { textColor = UiSkin.Gold } });
             }
             string[] next = { "THE DUNGEON >", "JOURNAL >", "BESTIARY >", "PROGRESSION >" };
-            if (GUI.Button(new Rect(panel.x + pw / 2f - 280, panel.yMax - 56, 180, 40), next[guidePage], UiSkin.Button)) guidePage = (guidePage + 1) % 4;
-            if (GUI.Button(new Rect(panel.x + pw / 2f + 100, panel.yMax - 56, 180, 40), "BACK", UiSkin.Button)) guide = false;
+            if (UiSkin.Btn(new Rect(panel.x + pw / 2f - 280, panel.yMax - 56, 180, 40), next[guidePage], UiSkin.Button)) guidePage = (guidePage + 1) % 4;
+            if (UiSkin.Btn(new Rect(panel.x + pw / 2f + 100, panel.yMax - 56, 180, 40), "BACK", UiSkin.Button)) guide = false;
         }
     }
 }

@@ -70,6 +70,7 @@ namespace Deepbound.World
         private void RetreatRpc(string who)
         {
             UI.GameHud.BeginFadeOut(1.5f);
+            UI.LoadingScreen.Begin(UI.LoadingScreen.Kind.Camp, 1.5f);
             Art.Sfx.Play2D(Art.Sound.Rattle, 0.8f);
             UI.GameHud.Feed(who + " throws the rope: the party climbs back to camp. This floor will be another road next time.", new Color(0.85f, 0.75f, 0.55f));
         }

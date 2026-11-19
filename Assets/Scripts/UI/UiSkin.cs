@@ -40,6 +40,38 @@ namespace Deepbound.UI
         private static GUIStyle button, buttonBig, title, heading, body, small, field;
 
         public static GUIStyle Button => button ??= MakeButton(18);
+
+        // ---- Menu feel (2026-11-19, the user: "more menu logic that is seen in other games") ----
+        private static int hoverKey, hoverFrame = -1;
+        /// <summary>A layout button that ticks when the pointer comes onto it and clicks when pressed.</summary>
+        public static bool Btn(string text, GUIStyle style, params GUILayoutOption[] options)
+        {
+            bool hit = GUILayout.Button(text, style, options);
+            Feedback(GUILayoutUtility.GetLastRect(), text, hit);
+            return hit;
+        }
+
+        /// <summary>The same, at a fixed rect.</summary>
+        public static bool Btn(Rect rect, string text, GUIStyle style)
+        {
+            bool hit = GUI.Button(rect, text, style);
+            Feedback(rect, text, hit);
+            return hit;
+        }
+
+        private static void Feedback(Rect r, string text, bool hit)
+        {
+            if (hit) Art.Sfx.Play2D(Art.Sound.UiClick, 0.75f);
+            var e = Event.current;
+            if (e == null || e.type != EventType.Repaint || !GUI.enabled) return;
+            int key = (text ?? "").GetHashCode() ^ ((int)r.y * 397) ^ (int)r.x;
+            if (r.Contains(e.mousePosition))
+            {
+                if (key != hoverKey || Time.frameCount - hoverFrame > 2) { if (key != hoverKey) Art.Sfx.Play2D(Art.Sound.UiClick, 0.18f); hoverKey = key; }
+                hoverFrame = Time.frameCount;
+            }
+            else if (key == hoverKey && Time.frameCount - hoverFrame > 2) hoverKey = 0;
+        }
         public static GUIStyle ButtonBig => buttonBig ??= MakeButton(24);
         public static GUIStyle Title => title ??= MakeTitle();
 

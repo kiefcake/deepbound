@@ -1,0 +1,73 @@
+#DEEPBOUND
+A prototype, built with Claude
+
+#Art
+Every model and animation is made by the game's own code (fine detail textures: below)
+
+
+#Sound effects
+RPG Audio  -  Kenney (kenney.nl)
+Impact Sounds  -  Kenney (kenney.nl)
+Casino Audio  -  Kenney (kenney.nl)
+Interface Sounds  -  Kenney (kenney.nl)
+80 CC0 creature SFX #2  -  rubberduck
+RPG Sound Pack  -  artisticdude
+40 CC0 water / splash / slime SFX  -  rubberduck
+80 CC0 RPG SFX  -  rubberduck
+Bones Rattle  -  congusbongus
+Bones 2  -  AntumDeluge
+Male Grunt/Yelling Sounds  -  HaelDB
+Cure Magic  -  Someoneman
+Fantasy Accessory SFX Library  -  Vehicle
+Spinning glass potions (bottle.wav)  -  KillGorack
+Glass bottle (open & close)  -  sinny
+Medieval sound effects - Weapon Textures  -  Ben Jaszczak & Brian Nelson
+Ice Spells  -  bart
+Ghost Monster Voice Moaning & Growling  -  qubodup
+Meow  -  IgnasD
+Cat Purr & Meow  -  Kerzoven
+Crow Caw  -  zeroisnotnull
+Squeaky Rat  -  qubodup
+Heartbeat sounds  -  bart
+Pleasing Bell Sound Effect  -  Spring Spring
+Win Jingle  -  Fupi
+(reused) Interface Sounds / Casino Audio  -  Kenney
+
+#Music
+File in game  -  Original
+explore.mp3  -  Forgoten_tombs_1.mp3
+explore_cathedral.ogg  -  Dark Shrine Loop
+explore_deep.ogg  -  dungeon002.ogg ("Dungeon ambience")
+combat.mp3  -  Battle.mp3 ("Battle theme")
+boss.wav  -  Epic Boss Battle [Seamlessly Looping]
+boss_final.ogg  -  the_final_battle.ogg ("The Final Battle")
+boss_intro.wav  -  Heavy Concept A Bass Master ("Dramatic Boss Encounter")
+
+#Room tone
+File in game  -  Original
+dungeon.ogg  -  dungeon_ambient_1.ogg ("Loopable dungeon ambience")
+fire_crackle.wav  -  fire-1.wav ("Fire Crackling")
+cavern.ogg  -  dark_cavern_ambient_002.ogg
+camp.ogg  -  wind woosh loop.ogg ("Wind Whoosh Loop")
+rain.ogg  -  3.ogg from "Rain OGG.zip" ("Rain (loopable)")
+
+#Textures
+File in game  -  Original
+rock_grain_normal.jpg  -  rock_surface (nor_gl, 1k)
+cloth_weave_normal.jpg  -  fabric_pattern_05 (nor_gl, 1k)
+leather_grain_normal.jpg  -  leather_red_02 (nor_gl, 1k)
+metal_wear_normal.jpg  -  rusty_metal_02 (nor_gl, 1k)
+wood_grain_normal.jpg  -  wood_table_001 (nor_gl, 1k)
+
+#Effect sprites
+Files in game  -  Original
+smoke_01/04/07/10, spark_01/05, star_01/06/08, flare_01, light_01, circle_02/05, magic_01/03/05, scorch_01-03, dirt_01-03, twirl_02, fire_01/02, flame_03, trace_01 (.png)  -  Particle Pack (80+ sprites)
+
+#Code libraries
+Library  -  Author
+Steamworks.NET 2025.164.1  -  Riley Labrecque
+
+#Thank you
+Every sound and texture above is CC0: given away so games like this can exist.
+
+Thank you for playing.

@@ -370,6 +370,9 @@ namespace Deepbound.UI
             fadeOutLength = Mathf.Max(0.1f, seconds);
         }
 
+        /// <summary>Hold the player still a while (the loading card is up: nobody walks blind out of it).</summary>
+        public static void HoldStill(float seconds) => freezeUntil = Mathf.Max(freezeUntil, UnityEngine.Time.time + seconds);
+
         /// <summary>The descent cutscene holds the player still: while the beam takes them, and a moment after arriving.</summary>
         public static bool CutsceneFreeze => departStart >= 0f || UnityEngine.Time.time < freezeUntil;
         /// <summary>The carriage ride out: no HUD, no hands, just the road.</summary>
@@ -394,6 +397,7 @@ namespace Deepbound.UI
             departStart = UnityEngine.Time.time;
             departLength = seconds;
             arrivingFromBeam = true;
+            LoadingScreen.Begin(LoadingScreen.Kind.Descent, seconds * 0.97f);
         }
 
         private void OnArenaBuilt(int _)
@@ -427,6 +431,7 @@ namespace Deepbound.UI
                 bannerHint = DungeonDirector.GimmickHint(depth);
                 var dd0 = DungeonDirector.Instance;
                 if (dd0 != null && dd0.DailyRun.Value) bannerSub += "  ·  DAILY DESCENT " + DungeonDirector.DateLabel(dd0.DailyDate.Value);
+                if (dd0 != null && dd0.EndlessRun.Value) bannerSub += "  ·  ENDLESS DESCENT" + (Records.EndlessBest > 0 ? " (best: floor " + Records.EndlessBest + ")" : "");
             }
         }
 
@@ -1999,7 +2004,7 @@ namespace Deepbound.UI
             string cls = progress.Class.Name.ToUpperInvariant();
             string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
             var infoLine = UiSkin.Derive(small, small.normal.textColor, 0, null, null, false);
-            string info = (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Floor " + (CurrentDepth() + 1) + "/" + DungeonDirector.FloorsPerRun + (CurrentDepth() >= DungeonDirector.AbyssDepth ? " Abyss" : ""))
+            string info = (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Floor " + (CurrentDepth() + 1) + (DungeonDirector.Endless ? " · Endless" : "/" + DungeonDirector.FloorsPerRun + (CurrentDepth() >= DungeonDirector.AbyssDepth ? " Abyss" : "")))
                 + (DungeonDirector.Instance != null && DungeonDirector.Instance.SealCount > 0 ? "  ·  Seals " + DungeonDirector.Instance.SealCount + "/" + DungeonDirector.SealTotal : "") + "  ·  " + weapon;
             // One line: it wrapped over the embers line below once a run had seals and a longer weapon name.
             GUI.Label(new Rect(x, y + 46, bw, 20), UiSkin.FitCached(ref infoText, ref infoFit, info, infoLine, bw), infoLine);
@@ -3205,6 +3210,13 @@ namespace Deepbound.UI
                 {
                     GUI.enabled = host;
                     if (GUI.Button(new Rect(x + pw - 214, dy + 2, 200, 24), "Loot: " + (dir.FindersKeepers.Value ? "finders keepers" : "shared"))) dir.SetLootRuleRpc(!dir.FindersKeepers.Value);
+                    GUI.enabled = true;
+                }
+                else if (dir != null)
+                {
+                    // The Endless Descent: alone, floor after floor, until you go down. The floor is your score.
+                    GUI.enabled = host && !locked;
+                    if (GUI.Button(new Rect(x + pw - 214, dy + 2, 200, 24), "Endless descent: " + (dir.EndlessRun.Value ? "ON" : "off") + (Records.EndlessBest > 0 ? "  (best " + Records.EndlessBest + ")" : ""))) dir.SetEndlessRpc(!dir.EndlessRun.Value);
                     GUI.enabled = true;
                 }
                 string note = locked ? "Set for this run. \"Same road as before, then.\"" : host ? diff.Blurb : diff.Blurb + "  (the host chooses)";

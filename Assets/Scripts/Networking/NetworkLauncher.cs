@@ -244,6 +244,7 @@ namespace Deepbound.Networking
                 return;
             }
             status = "";
+            UI.LoadingScreen.Begin(UI.LoadingScreen.Kind.Hosting, 0f);
             Instantiate(directorPrefab).Spawn();
             SteamPlatform.OpenLobby();
         }
@@ -256,6 +257,7 @@ namespace Deepbound.Networking
             steam.TargetSteamId = hostSteamId;
             steamHostName = string.IsNullOrEmpty(hostName) ? "your friend" : hostName;
             status = Net.StartClient() ? "Joining " + steamHostName + "'s party through Steam..." : "Could not start the Steam connection.";
+            if (Net.IsClient) UI.LoadingScreen.Begin(UI.LoadingScreen.Kind.Joining, 0f);
         }
 
         /// <summary>Host on this PC's address (LAN, a VPN, a forwarded port): the way it worked before Steam.</summary>
@@ -272,6 +274,7 @@ namespace Deepbound.Networking
             }
 
             status = "";
+            UI.LoadingScreen.Begin(UI.LoadingScreen.Kind.Hosting, 0f);
             Instantiate(directorPrefab).Spawn();
             // Ask the home router to let friends in (UPnP; nothing outside the house is contacted).
             if (!TestRun) PortMapper.Open(port);
@@ -318,6 +321,7 @@ namespace Deepbound.Networking
             UseTransport(false);
             Transport.SetConnectionData(address, port);
             status = Net.StartClient() ? "Connecting to " + address + ":" + port + "..." : "Could not start client.";
+            if (Net.IsClient) UI.LoadingScreen.Begin(UI.LoadingScreen.Kind.Joining, 0f);
         }
 
         private UnityTransport Transport => unity != null ? unity : (UnityTransport)Net.NetworkConfig.NetworkTransport;

@@ -46,10 +46,12 @@ namespace Deepbound.UI
             var panel = new Rect(w / 2f - pw / 2f, h / 2f - ph / 2f, pw, ph);
             UiSkin.Panel(panel, 0.95f);
 
-            UiSkin.Shadowed(new Rect(panel.x, panel.y + 14, pw, 50), won ? "THE DEPTHS ARE CLEARED" : "YOUR PARTY HAS FALLEN",
+            bool endless = d.EndlessRun.Value;
+            UiSkin.Shadowed(new Rect(panel.x, panel.y + 14, pw, 50), won ? "THE DEPTHS ARE CLEARED" : endless ? "THE ENDLESS DESCENT ENDS" : "YOUR PARTY HAS FALLEN",
                 new GUIStyle(UiSkin.Title) { fontSize = 38, normal = { textColor = won ? UiSkin.Gold : new Color(0.85f, 0.25f, 0.2f) } });
             GUI.Label(new Rect(panel.x, panel.y + 66, pw, 24),
                 (won ? "All " + DungeonDirector.FloorsPerRun + " floors conquered, the Unsung silenced"
+                    : endless ? "Went down on floor " + floor + "   ·   Endless best: floor " + Mathf.Max(floor, Records.EndlessBest)
                     : "Fell on floor " + floor + " of " + DungeonDirector.FloorsPerRun + (floor - 1 >= DungeonDirector.AbyssDepth ? ", in the Abyss" : "")) + "   ·   Run time " + time,
                 new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter });
 
@@ -111,7 +113,7 @@ namespace Deepbound.UI
                 if (got >= 0) { renownEarned = got; Legacy.SaveRelics(me); }
                 // The Hall of Records: anything this run beat is carved at camp (once per run).
                 string party = string.Join(", ", System.Linq.Enumerable.Select(System.Linq.Enumerable.Where(PlayerLife.All, p => p != null), p => p.name));
-                foreach (var line in Records.SubmitRun(d.RunStartedAt.Value, floor, me.Kills.Value, me.GoldEarned.Value, won, d.DailyRun.Value ? d.DailyDate.Value : 0, party))
+                foreach (var line in Records.SubmitRun(d.RunStartedAt.Value, floor, me.Kills.Value, me.GoldEarned.Value, won, d.DailyRun.Value ? d.DailyDate.Value : 0, party, endless))
                     GameHud.Feed("NEW RECORD - " + line, new Color(1f, 0.85f, 0.4f));
                 GUI.Label(new Rect(panel.x + 30, panel.yMax - 104, pw - 60, 28), Epitaph(me, won, floor),
                     new GUIStyle(UiSkin.Body) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Italic, wordWrap = true, normal = { textColor = new Color(0.85f, 0.8f, 0.72f) } });
