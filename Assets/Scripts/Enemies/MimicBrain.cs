@@ -43,7 +43,7 @@ namespace Deepbound.Enemies
         {
             base.OnDied(h);
             // Its hoard: a real chest's gear roll on top of the chest loot table.
-            GearDrop.ServerSpawnForParty(transform.position + transform.forward * 0.8f, 0.8f, 0);
+            GearDrop.ServerSpawnForParty(transform.position + transform.forward * 0.8f, 0.8f * Difficulty.DropCut, 0);
         }
 
         private void LateUpdate()

@@ -358,11 +358,11 @@ namespace Deepbound.EditorTools
             Art.CharacterArt.SkeletonKind.Brute, Art.CharacterArt.SkeletonKind.FrostWight, Art.CharacterArt.SkeletonKind.Shieldbearer,
             Art.CharacterArt.SkeletonKind.Hexer, Art.CharacterArt.SkeletonKind.Plaguebearer,
         };
-        private static readonly float[] WardenScale = { 2.1f, 1.9f, 1.9f, 1.95f, 1.95f };
+        private static readonly float[] WardenScale = { 2.1f, 1.9f, 2.1f, 1.95f, 1.95f };
 
         private static GameObject BuildEnemyPrefab(string name, EnemyType type, GameObject loot, int act = 0)
         {
-            float scale = type == EnemyType.Vharoth ? 1.8f : type == EnemyType.MotherMarrow ? 1.55f : type == EnemyType.LanternFisher ? 1.7f : type == EnemyType.TwiceCrowned ? 1.35f : type == EnemyType.MirrorNun ? 1.3f
+            float scale = type == EnemyType.Vharoth ? 1.8f : type == EnemyType.MotherMarrow ? 1.55f : type == EnemyType.LanternFisher ? 1.7f : type == EnemyType.TwiceCrowned ? 1.55f : type == EnemyType.MirrorNun ? 1.3f
                 : type == EnemyType.Warden ? WardenScale[act] : type == EnemyType.HollowKing ? 1.75f : type == EnemyType.Gravewarden ? 2.0f : type == EnemyType.TideLich ? 1.45f : type == EnemyType.Cardinal ? 1.7f
                 : type == EnemyType.Brute ? 1.45f : type == EnemyType.Plaguebearer ? 1.15f : type == EnemyType.Ghoul ? 0.92f : 1f;
             var root = new GameObject(name);

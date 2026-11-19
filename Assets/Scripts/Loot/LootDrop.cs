@@ -129,10 +129,10 @@ namespace Deepbound.Loot
                 else if (r.Item1 == LootKind.Embers) embers += r.Item2;
                 else rolls.Add(r);
             }
-            gold = Enemies.Difficulty.Gold(gold);
+            gold = Enemies.Difficulty.Gold(Mathf.RoundToInt(gold * Enemies.Difficulty.DropCut));
             if (gold > 0) rolls.Add((LootKind.Gold, gold));
             // Omens and floor events promise more embers: most embers come through here, and they used to miss the bonus.
-            embers = Enemies.Difficulty.Embers(Mathf.RoundToInt(embers * World.DungeonDirector.OmenEmbers * World.DungeonDirector.EventEmbers));
+            embers = Enemies.Difficulty.Embers(Mathf.RoundToInt(embers * World.DungeonDirector.OmenEmbers * World.DungeonDirector.EventEmbers * Enemies.Difficulty.DropCut));
             if (embers > 0) rolls.Add((LootKind.Embers, embers));
             for (int i = 0; i < rolls.Count; i++)
             {

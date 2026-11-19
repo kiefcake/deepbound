@@ -27,7 +27,7 @@ namespace Deepbound.Enemies
         public override string Epithet => "Two Kings of One Throne";
         public override string LastWords => "Which... of us... was real...?";
         public override string Hint => "Strike whoever wears the crown.";
-        protected override float VisualScale => 1.35f;
+        protected override float VisualScale => 1.5f;
         protected override float[] PhaseGates => IsEcho ? System.Array.Empty<float>() : new[] { 0.66f, 0.33f };
         protected override Color ShockwaveColor => new Color(1f, 0.82f, 0.4f);
         public static readonly Color CrownGold = new Color(1f, 0.82f, 0.35f);
@@ -201,9 +201,32 @@ namespace Deepbound.Enemies
 
         protected override void DressRig(HumanoidRig rig)
         {
-            if (rig.Torso == null) return;
-            // A torn royal cloak and a two-handed sword.
-            TintPart(MeshKit.Part(rig.Torso, "Cloak", MeshKit.Box(new Vector3(0.5f, 0.9f, 0.04f)), Mat.Cloth, new Vector3(0f, 0.05f, -0.2f), new Vector3(8f, 0f, 0f)), new Color(0.35f, 0.08f, 0.12f));
+            if (rig.Torso == null || rig.Head == null) return;
+            // A torn royal cloak behind blackened war plate (2026-11-19, the user: "chunky and bigger... not just like a
+            // skeleton"): horned open helm, burning eyes, a wound of gold light in the chest, and a heavier greatsword.
+            TintPart(MeshKit.Part(rig.Torso, "Cloak", MeshKit.Box(new Vector3(0.62f, 1.0f, 0.04f)), Mat.Cloth, new Vector3(0f, 0.02f, -0.25f), new Vector3(8f, 0f, 0f)), new Color(0.35f, 0.08f, 0.12f));
+            // The king's own crown goes: the only crown is the one that leaps between them (LairCrown).
+            var drop = new List<GameObject>();
+            foreach (Transform c in rig.Head)
+                if (c.name == "Crown" || c.name == "CrownBand" || c.name.StartsWith("CrownPoint") || c.name.StartsWith("Gem") || c.name.StartsWith("Tine")) drop.Add(c.gameObject);
+            foreach (var g in drop) DestroyImmediate(g);
+            var glow = PlateKit.Armour(rig, new PlateKit.Look { Plate = new Color(0.25f, 0.23f, 0.27f), Trim = new Color(0.75f, 0.58f, 0.25f), Glow = new Color(1f, 0.62f, 0.2f), ClosedHelm = false, Horns = true });
+            foreach (var n in new[] { "EyeL", "EyeR" }) { var e = rig.Head.Find(n); if (e != null) glow.Add(e.GetComponent<Renderer>()); }
+            var grip = rig.ArmR != null ? rig.ArmR.Find("Grip") : null;
+            if (grip != null)
+            {
+                foreach (var (n, scale, y) in new[] { ("Blade", new Vector3(1.8f, 1.2f, 1.6f), 0.73f), ("Rune", new Vector3(1.5f, 1.2f, 1f), 0.69f), ("Guard", new Vector3(1.4f, 1.6f, 1.4f), 0.04f) })
+                {
+                    var p = grip.Find(n);
+                    if (p == null) continue;
+                    p.localScale = Vector3.Scale(p.localScale, scale);
+                    p.localPosition = new Vector3(0f, y, 0f);
+                    if (n == "Rune") glow.Add(p.GetComponent<Renderer>());
+                }
+            }
+            rig.GlowRenderers = glow.ToArray();
+            rig.GlowColor = new Color(1f, 0.62f, 0.2f);
+            rig.StrideLength = 1.8f;
         }
     }
 }

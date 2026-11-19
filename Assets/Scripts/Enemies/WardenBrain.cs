@@ -111,7 +111,7 @@ namespace Deepbound.Enemies
         private const float SlamRadius = 5.5f, SlamWindup = 1.3f;
 
         // Built at each kind's own size (Brute 1.45, Plaguebearer 1.15, the rest 1): these make them giants.
-        private static readonly float[] Giant = { 1.45f, 1.9f, 1.9f, 1.95f, 1.5f };
+        private static readonly float[] Giant = { 1.45f, 1.9f, 2.1f, 1.95f, 1.5f };
         protected override float VisualScale => Giant[Mathf.Clamp(act, 0, 4)];
 
         /// <summary>Each Warden's own look on top of its kind: trophies, weed, a plume, a candle halo, plague sacs.</summary>
@@ -148,15 +148,24 @@ namespace Deepbound.Enemies
                     Tint(MeshKit.Part(head, "Crest", MeshKit.Box(new Vector3(0.025f, 0.12f, 0.3f)), Mat.Steel, new Vector3(0f, 0.28f, -0.02f)), new Color(0.35f, 0.55f, 0.5f));
                     break;
                 case 2:
-                    // Sir Aldous Vane: a tall crimson plume, gold pauldrons and the King's tabard.
+                {
+                    // Sir Aldous Vane (2026-11-19, the user: "not just like a skeleton"): full war plate under the King's
+                    // tabard, a closed great helm with a burning slit and a crimson plume, and a bigger tower shield.
+                    var kettle = head.Find("Helm");
+                    if (kettle != null) DestroyImmediate(kettle.gameObject);
+                    var aglow = PlateKit.Armour(rig, new PlateKit.Look { Plate = new Color(0.55f, 0.55f, 0.6f), Trim = new Color(0.8f, 0.62f, 0.28f), Glow = new Color(1f, 0.3f, 0.15f), ClosedHelm = true, Horns = false });
+                    rig.GlowRenderers = aglow.ToArray();
+                    rig.GlowColor = new Color(1f, 0.3f, 0.15f);
+                    var tower = rig.ArmL != null ? rig.ArmL.Find("TowerShield") : null;
+                    if (tower != null) tower.localScale *= 1.2f;
+                    rig.StrideLength = 1.6f;
                     for (int i = 0; i < 5; i++)
                         Tint(MeshKit.Part(head, "Plume", MeshKit.Box(new Vector3(0.05f, 0.3f - i * 0.03f, 0.06f)), Mat.Cloth, new Vector3(0f, 0.3f + i * 0.04f, -0.02f - i * 0.06f), new Vector3(-30f - i * 12f, 0f, 0f)),
                             new Color(0.7f, 0.08f, 0.1f));
-                    foreach (float s in new[] { -1f, 1f })
-                        MeshKit.Part(t, "Pauldron", MeshKit.Ball(0.13f, 8, 6), Mat.Gold, new Vector3(s * 0.26f, 0.58f, 0f), default, new Vector3(1.1f, 0.6f, 1f));
-                    Tint(MeshKit.Part(t, "Tabard", MeshKit.Box(new Vector3(0.34f, 0.62f, 0.02f)), Mat.Cloth, new Vector3(0f, 0.22f, 0.19f)), new Color(0.32f, 0.08f, 0.36f));
-                    MeshKit.Part(t, "TabardCrown", MeshKit.Box(new Vector3(0.14f, 0.07f, 0.01f)), Mat.Gold, new Vector3(0f, 0.36f, 0.205f));
+                    Tint(MeshKit.Part(t, "Tabard", MeshKit.Box(new Vector3(0.3f, 0.7f, 0.02f)), Mat.Cloth, new Vector3(0f, 0.1f, 0.215f), new Vector3(-4f, 0f, 0f)), new Color(0.32f, 0.08f, 0.36f));
+                    MeshKit.Part(t, "TabardCrown", MeshKit.Box(new Vector3(0.14f, 0.07f, 0.01f)), Mat.Gold, new Vector3(0f, 0.3f, 0.23f));
                     break;
+                }
                 case 3:
                 {
                     // The Choirmaster: no hood (a boss never hides its face under one); a choir circlet and

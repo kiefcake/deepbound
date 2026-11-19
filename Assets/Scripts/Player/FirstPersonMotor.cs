@@ -52,6 +52,8 @@ namespace Deepbound.Player
 
         /// <summary>Scales walk and sprint speed. Blocking and the SPD stat both feed this.</summary>
         public float SpeedMultiplier { get; set; } = 1f;
+        /// <summary>Everyone moves at 80% of the old pace (2026-11-19, the user: "take away 20%"): walk, sprint and slide.</summary>
+        public const float PaceCut = 0.8f;
 
         /// <summary>No movement input while true (downed); gravity and look still apply.</summary>
         public bool Frozen { get; set; }
@@ -177,6 +179,7 @@ namespace Deepbound.Player
             if (debuffs == null) debuffs = GetComponent<PlayerDebuffs>();
             bool manic = debuffs != null && debuffs.Manic && canMove;
             if (manic) { MoveInput = ManiaInput(); sprintKey = true; jumpKey = false; }
+            else if (debuffs != null && debuffs.Confused && canMove) MoveInput = ConfuseInput(MoveInput);
             if (debuffs != null && debuffs.Rooted) jumpKey = false;
 
             if (mantling) TickMantle();
@@ -232,6 +235,26 @@ namespace Deepbound.Player
         private float lastBobY;
         private float maniaRoll, nextManiaTurn;
         private Vector3 maniaDir;
+
+        /// <summary>
+        /// Owner, while CONFUSED (Sloshed, 2026-11-19, the user: like RotMG's Confused): your keys do not go where they
+        /// say - forward might walk you left or back. The mapping holds for <see cref="PlayerDebuffs.ConfuseShuffle"/> s,
+        /// then scrambles again; it is never the true one.
+        /// </summary>
+        private Vector2 ConfuseInput(Vector2 v)
+        {
+            if (Time.time >= confuseUntil) { confuseMap = Random.Range(1, 6); confuseUntil = Time.time + PlayerDebuffs.ConfuseShuffle; }
+            switch (confuseMap)
+            {
+                case 1: return new Vector2(v.x, -v.y);  // forward and back swapped
+                case 2: return new Vector2(-v.x, v.y);  // left and right swapped
+                case 3: return new Vector2(v.y, -v.x);  // turned a quarter right
+                case 4: return new Vector2(-v.y, v.x);  // a quarter left
+                default: return -v;                     // all of it backwards
+            }
+        }
+        private int confuseMap;
+        private float confuseUntil;
 
         /// <summary>Owner, while manic: a wild run that lurches to a new heading every half second or so.</summary>
         private Vector2 ManiaInput()
@@ -333,13 +356,13 @@ namespace Deepbound.Player
 
             // Sprint only counts moving forward-ish; sprinting sideways or backwards is not a thing.
             IsSprinting = sprint && input.y > 0.1f;
-            float speed = (IsSprinting ? sprintSpeed : walkSpeed) * SpeedMultiplier;
+            float speed = (IsSprinting ? sprintSpeed : walkSpeed) * SpeedMultiplier * PaceCut;
             Vector3 wish = (transform.right * input.x + transform.forward * input.y) * speed;
             if (IsSliding)
             {
                 // Fast at first, easing off; steering is locked to the direction you slid.
                 float k = (slideUntil - Time.time) / SlideSeconds;
-                wish = slideDir * sprintSpeed * SpeedMultiplier * Mathf.Lerp(0.9f, 1.7f, k);
+                wish = slideDir * sprintSpeed * SpeedMultiplier * PaceCut * Mathf.Lerp(0.9f, 1.7f, k);
                 IsSprinting = true;
                 planar = wish;
             }

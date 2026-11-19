@@ -35,7 +35,9 @@ namespace Deepbound.Loot
         {
             foreach (var e in entries)
             {
-                if (Random.value > e.Chance) continue;
+                bool part = e.Kind == LootKind.Bone || e.Kind == LootKind.Cloth || e.Kind == LootKind.Iron;
+                float chance = e.Kind == LootKind.Gold || e.Kind == LootKind.Embers ? e.Chance : e.Chance * (part ? Enemies.Difficulty.MaterialCut : Enemies.Difficulty.DropCut);
+                if (Random.value > chance) continue;
                 int amount = Random.Range(e.MinAmount, e.MaxAmount + 1);
                 if (e.Kind == LootKind.Relic) amount = (int)Relics.Random();
                 if (e.Kind == LootKind.Rune) amount = (int)Runes.Random();

@@ -51,7 +51,7 @@ namespace Deepbound.UI
             if (afflict != null)
             {
                 if (afflict.Drunk > 0) list.Add(Timed("☕", PlayerDebuffs.DrunkName(afflict.Drunk) + (afflict.Drunk > 1 ? " (" + afflict.Drunk + " meads)" : ""),
-                    "Mead from the tavern: +" + Mathf.RoundToInt(PlayerDebuffs.DrunkCourage * 100f * afflict.Drunk) + "% damage, and the world will not hold still. Wears off a level at a time.",
+                    "Mead from the tavern: +" + Mathf.RoundToInt(PlayerDebuffs.DrunkCourage * 100f * afflict.Drunk) + "% damage, and the world will not hold still." + (afflict.Confused ? " SLOSHED: your feet go the wrong way (movement keys scrambled)." : "") + " Wears off a level at a time.",
                     new Color(0.95f, 0.72f, 0.3f), afflict.DrunkUntil.Value - now, PlayerDebuffs.DrunkSecondsPerLevel));
                 if (afflict.Poisoned) list.Add(Timed("☠", "Poisoned", "You are losing health over time. Holy Water cleanses it.", Bad, afflict.PoisonUntil.Value - now, 8f));
                 if (afflict.Dazed) list.Add(Timed("\u2736", "Dazed", "A heavy blow rang your head: you turn at half speed. Block or dodge the big hits. Holy Water clears it.", new Color(0.95f, 0.85f, 0.55f), afflict.DazeUntil.Value - now, 1.6f));

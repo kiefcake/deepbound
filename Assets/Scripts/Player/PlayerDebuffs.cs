@@ -89,6 +89,9 @@ namespace Deepbound.Player
         /// <summary>Liquid courage: +4% damage a level. The world sways with it (the camera, and your body for others).</summary>
         public const float DrunkCourage = 0.04f;
         public int Drunk => DrunkLevel.Value > 0 && Now < DrunkUntil.Value ? DrunkLevel.Value : 0;
+        /// <summary>Sloshed (the third mead) is CONFUSED: your movement keys are scrambled, RotMG-style (<c>FirstPersonMotor.ConfuseInput</c>).</summary>
+        public bool Confused => Drunk >= DrunkMax;
+        public const float ConfuseShuffle = 9f;
         public static string DrunkName(int level) => level >= 3 ? "Sloshed" : level == 2 ? "Merry" : "Tipsy";
 
         /// <summary>Server: down a mead. One more level (to <see cref="DrunkMax"/>); the clock starts over for the level.</summary>

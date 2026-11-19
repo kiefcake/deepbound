@@ -2516,6 +2516,17 @@ namespace Deepbound.Networking
                                     shadow.Health.ServerDamage(250f, shadow.transform.position + Vector3.forward, local.NetworkObjectId);
                                     bareShadow = tc.Health.Current.Value >= thp0 - 0.5f;
                                 }
+                                // The floor boss's healing pylons feed only it, and only in reach (2026-11-19: a lair keeper healed from them).
+                                dd.ServerDebugPylon(tc.transform.position + Vector3.right * 4f);
+                                yield return new WaitForSeconds(0.3f);
+                                tc.Health.ServerDamage(tc.Health.Max.Value * 0.1f, tc.transform.position + tc.transform.forward, local.NetworkObjectId);
+                                float tcHurt = tc.Health.Current.Value;
+                                bool fed = false;
+                                for (float t = 0f; t < 2f; t += 0.25f) { hpL.ServerSetFraction(1f); foreach (var py in Breakable.Pylons) fed |= py != null && py.Feeding.Value; yield return new WaitForSeconds(0.25f); }
+                                bool unhealed = !fed && tc.Health.Current.Value <= tcHurt + 0.5f;
+                                foreach (var py in Breakable.Pylons.ToArray()) if (py != null && py.IsSpawned) py.NetworkObject.Despawn();
+                                lwhy += ", pylon fed keeper " + fed + " hp " + tcHurt.ToString("F0") + "->" + tc.Health.Current.Value.ToString("F0");
+                                lok &= unhealed;
                                 for (float t = 0f; t < 9f && tc.Passes == 0; t += 0.25f) { hpL.ServerSetFraction(1f); yield return new WaitForSeconds(0.25f); }
                                 tc.Health.ServerDamage(BossBrain.KillDamage, tc.transform.position, local.NetworkObjectId);
                                 yield return new WaitForSeconds(1f);
@@ -3186,7 +3197,7 @@ namespace Deepbound.Networking
 
                 // Kill a handful of skeletons and confirm they drop loot that a player can take.
                 // Only the dead standing in rooms: a breach's ambushers wait in a sealed niche with no floor to walk to yet.
-                var victims = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain) && layout.RoomAt(e.transform.position, 0f) != null).Take(6).ToList();
+                var victims = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain) && layout.RoomAt(e.transform.position, 0f) != null).Take(14).ToList(); // 14: drops were cut 20% (2026-11-19) and 6 kills came up empty
                 // Only these kills' drops: loot from an earlier check's kill inside a sealed breach niche (no floor until it opens)
                 // once failed this (2026-11-18, "room none, nearest mesh none").
                 var lootBeforeKills = new System.Collections.Generic.HashSet<LootDrop>(FindObjectsByType<LootDrop>(FindObjectsSortMode.None));
@@ -3381,6 +3392,7 @@ namespace Deepbound.Networking
                     }
                     boss.Dormant = wasAsleep;
                 }
+                Art.ExitPortal.LocalRode = false;
                 boss.Health.ServerDamage(1e6f, boss.transform.position);
                 yield return new WaitForSeconds(1f);
                 var phase = DungeonDirector.Instance.Phase.Value;
@@ -3407,8 +3419,10 @@ namespace Deepbound.Networking
             // After the boss the party goes home to camp, run intact; spend there, then ride down.
             // (The local player rides the grave lift up: pinned to its floor, then let go at camp.)
             float campBy = Time.time + 20f;
-            bool rodeLift = false;
+            // (Any ride since the guardian fell counts: the cage can leave while the checks above are still waiting.)
+            bool rodeLift = Art.ExitPortal.LocalRode;
             while (net.IsServer && DungeonDirector.Instance.Phase.Value != RunPhase.Lobby && Time.time < campBy) { rodeLift |= Art.ExitPortal.LocalRiding; yield return null; }
+            rodeLift |= Art.ExitPortal.LocalRode;
             yield return new WaitForSeconds(1f);
             if (net.IsServer && local != null)
                 Log("grave lift ride", "rode up " + rodeLift + ", free at camp " + !local.GetComponent<FirstPersonMotor>().Pinned, rodeLift && !local.GetComponent<FirstPersonMotor>().Pinned);
@@ -7656,6 +7670,73 @@ namespace Deepbound.Networking
         /// capturing frames. Run windowed: <c>-bosstest C:\\temp\\boss</c>.
         /// </summary>
         public void BossTest(string dir, NetworkLauncher launcher) => StartCoroutine(BossSequence(dir, launcher));
+
+        /// <summary>-portraits: close looks at the Hollow Throne's two big knights (Sir Aldous, the Twice-Crowned), then quit.</summary>
+        public void Portraits(string dir, NetworkLauncher launcher) => StartCoroutine(PortraitSequence(dir, launcher));
+
+        private IEnumerator PortraitSequence(string dir, NetworkLauncher launcher)
+        {
+            System.IO.Directory.CreateDirectory(dir);
+            launcher.StartHost();
+            yield return new WaitForSeconds(2f);
+            var local = NetworkPlayer.Local;
+            var motor = local.GetComponent<FirstPersonMotor>();
+            local.GetComponent<Health>().IncomingModifiers.Insert(0, (d, f) => 0f);
+            for (float t = 0f; t < 5f && !DungeonDirector.InLobby; t += 0.2f) yield return new WaitForSeconds(0.2f);
+            var dd = DungeonDirector.Instance;
+            dd.ServerDebugStartFloor(4);
+            yield return new WaitForSeconds(3f);
+            // A key light that follows the subject: the shots judge the model, not the room's lighting.
+            var key = new GameObject("PortraitKey").AddComponent<Light>();
+            key.type = LightType.Point; key.range = 14f; key.intensity = 3.5f; key.color = new Color(1f, 0.92f, 0.8f);
+            IEnumerator Around(EnemyBrain e, string name, float dist)
+            {
+                foreach (var (yaw, tag) in new[] { (0f, "front"), (40f, "quarter"), (110f, "side") })
+                {
+                    if (e == null || !e.IsSpawned) yield break;
+                    e.ServerStun(30f);
+                    var dir3 = Quaternion.Euler(0f, yaw, 0f) * e.transform.forward;
+                    var at = e.transform.position + dir3 * dist + Vector3.up * 0.1f;
+                    motor.Teleport(at, Quaternion.LookRotation(Flat3(e.transform.position - at)));
+                    key.transform.position = at + Vector3.up * 3.5f;
+                    motor.SetPitch(-14f);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot(dir, name + "_" + tag);
+                }
+                motor.SetPitch(0f);
+            }
+            var boss = BossBrain.Active;
+            Debug.Log("[Portraits] guardian " + (boss != null ? boss.DisplayName : "none"));
+            if (boss != null)
+            {
+                // Into the arena so it wakes, past its entrance and the title card, then hold it still.
+                var inside = DungeonDirector.Layout.BossRoom.Center + Vector3.up * 0.1f;
+                motor.Teleport(inside, Quaternion.LookRotation(Flat3(boss.transform.position - inside)));
+                yield return new WaitForSeconds(9f);
+                yield return Around(boss, "aldous", 7.5f);
+                boss.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, boss.transform.position, local.NetworkObjectId);
+                yield return new WaitForSeconds(5f);
+            }
+            var br = DungeonDirector.Layout.BossRoom;
+            var tc = dd.ServerDebugSpawnLair(2, br.Center, br.Size);
+            yield return new WaitForSeconds(3.2f);
+            foreach (var t2 in FindObjectsByType<TwiceCrownedBrain>(FindObjectsSortMode.None)) t2.ServerStun(30f);
+            yield return new WaitForSeconds(0.5f);
+            if (tc != null) yield return Around(tc, "twicecrowned", 6.5f);
+            // Both kings in one frame.
+            if (tc != null)
+            {
+                var at = tc.transform.position + tc.transform.forward * 10f + Vector3.up * 0.1f;
+                motor.Teleport(at, Quaternion.LookRotation(Flat3(tc.transform.position - at)));
+                key.transform.position = tc.transform.position + tc.transform.forward * 4f + Vector3.up * 4f;
+                key.range = 20f;
+                motor.SetPitch(-8f);
+                yield return new WaitForSeconds(0.8f);
+                yield return Shot(dir, "twicecrowned_pair");
+            }
+            Debug.Log("[Portraits] done");
+            Application.Quit();
+        }
 
         private IEnumerator BossSequence(string dir, NetworkLauncher launcher)
         {

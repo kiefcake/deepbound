@@ -88,7 +88,7 @@ namespace Deepbound.World
         /// that heals from pillars" - three or four at 0.8% each healed faster than a party could hurt it), and
         /// stops for <see cref="PylonHitPause"/> s whenever it is hit.
         /// </summary>
-        public const float PylonHeal = 0.0035f, PylonHitPause = 4f;
+        public const float PylonHeal = 0.0035f, PylonHitPause = 4f, PylonRange = 26f;
         private float stunnedUntil;
         private Transform beam;
         private float nextPylonTick;
@@ -97,7 +97,10 @@ namespace Deepbound.World
         {
             if (Type.Value != Kind.HealPylon || broken) return;
             var boss = Enemies.BossBrain.Active;
-            bool feeding = IsServer ? boss != null && !boss.IsDead && !boss.Dormant && boss.Health.Fraction < 0.999f && Time.time >= stunnedUntil : Feeding.Value;
+            // Only the arena's own boss, and only in reach (2026-11-19: a far-off lair keeper was being healed by them).
+            bool feeding = IsServer ? boss != null && !boss.IsDead && !boss.Dormant && !(boss is Enemies.LairBrain)
+                && (boss.transform.position - transform.position).sqrMagnitude <= PylonRange * PylonRange
+                && boss.Health.Fraction < 0.999f && Time.time >= stunnedUntil : Feeding.Value;
             if (IsServer && Feeding.Value != feeding) Feeding.Value = feeding;
             if (IsServer && feeding && Time.time >= nextPylonTick)
             {

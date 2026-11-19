@@ -129,10 +129,10 @@ CapsuleCollider:
   m_ProvidesContacts: 0
   m_Enabled: 1
   serializedVersion: 2
-  m_Radius: 0.66499996
-  m_Height: 3.4199998
+  m_Radius: 0.73499995
+  m_Height: 3.7799997
   m_Direction: 1
-  m_Center: {x: 0, y: 1.7099999, z: 0}
+  m_Center: {x: 0, y: 1.8899999, z: 0}
 --- !u!195 &8416188187014769842
 NavMeshAgent:
   m_ObjectHideFlags: 0
@@ -142,7 +142,7 @@ NavMeshAgent:
   m_GameObject: {fileID: 7938977820815040882}
   m_Enabled: 0
   m_AgentTypeID: 0
-  m_Radius: 0.76
+  m_Radius: 0.84
   m_Speed: 3.5
   m_Acceleration: 8
   avoidancePriority: 50
@@ -151,7 +151,7 @@ NavMeshAgent:
   m_AutoTraverseOffMeshLink: 1
   m_AutoBraking: 1
   m_AutoRepath: 1
-  m_Height: 3.4199998
+  m_Height: 3.7799997
   m_BaseOffset: 0
   m_WalkableMask: 4294967295
   m_ObstacleAvoidanceType: 4
@@ -169,7 +169,7 @@ MonoBehaviour:
   m_EditorClassIdentifier: Assembly-CSharp::Deepbound.Combat.Health
   ShowTopMostFoldoutHeaderGroup: 1
   team: 1
-  centerHeight: 1.805
+  centerHeight: 1.9949999
 --- !u!114 &4715028586526195239
 MonoBehaviour:
   m_ObjectHideFlags: 0

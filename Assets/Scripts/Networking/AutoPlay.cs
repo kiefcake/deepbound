@@ -1254,12 +1254,12 @@ namespace Deepbound.Networking
                 }
                 // A healing pylon comes before the guardian, as it would for a player (the user watched a bot hit a boss
                 // that its pylons kept topping up).
-                if (target != null && boss != null && target == boss.GetComponent<Health>())
+                if (target != null && boss != null && !(boss is LairBrain) && target == boss.GetComponent<Health>())
                 {
                     Breakable pylon = null;
                     float pd = float.MaxValue;
                     foreach (var p in Breakable.Pylons)
-                        if (p != null && p.Health != null && p.Health.IsAlive && Vector3.Distance(p.transform.position, me.transform.position) < pd) { pd = Vector3.Distance(p.transform.position, me.transform.position); pylon = p; }
+                        if (p != null && p.Health != null && p.Health.IsAlive && Vector3.Distance(p.transform.position, boss.transform.position) <= Breakable.PylonRange && Vector3.Distance(p.transform.position, me.transform.position) < pd) { pd = Vector3.Distance(p.transform.position, me.transform.position); pylon = p; }
                     // Any standing pylon, not only a feeding one: a hit stops the beam for 4 s, so 'feeding' flickered off after
                     // each swing and the bot went back to the guardian, which two pylons out-healed (2026-11-13, Hollow King, 5 min).
                     if (pylon != null) { target = pylon.Health; dist = pd; }

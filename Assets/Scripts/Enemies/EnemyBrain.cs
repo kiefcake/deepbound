@@ -1699,7 +1699,7 @@ namespace Deepbound.Enemies
                     // Guardians no longer drop a Sigil each (2026-11-07 economy): with the champions' that was 20 a run
                     // against the 14 that rank both abilities to 5. Champions, chests, elites and the dungeon's odd corners carry them.
                 }
-                else if (Elite.Value) GearDrop.ServerSpawnForParty(transform.position, 0.18f, 0);
+                else if (Elite.Value) GearDrop.ServerSpawnForParty(transform.position, 0.18f * Difficulty.DropCut, 0);
             }
             Invoke(nameof(Despawn), 4f);
         }

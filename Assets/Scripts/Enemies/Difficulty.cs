@@ -45,6 +45,14 @@ namespace Deepbound.Enemies
         /// <summary>What one unit of dungeon embers is worth on this setting.</summary>
         public static float EmberIncome => EconomyEmbers * Level.Embers;
         /// <summary>Scale a base reward, never below 1.</summary>
+        /// <summary>
+        /// Drops cut (2026-11-19, the user: "reduce all drops - gold, embers, equipment, runes etc down by 20%"; "less
+        /// crafting material drops, like 50%"). <see cref="DropCut"/> scales gold and embers that drop (tables and single
+        /// drops, not rewards paid into the purse), every item chance in a loot table, and gear from elites and mimics
+        /// (a guardian's and a champion's gear stay certain). Crafting parts drop at <see cref="MaterialCut"/> of their old
+        /// chance in all (not stacked with the 20%).
+        /// </summary>
+        public const float DropCut = 0.8f, MaterialCut = 0.5f;
         public static int Gold(int amount) => amount <= 0 ? amount : Mathf.Max(1, Mathf.RoundToInt(amount * GoldIncome));
         public static int Embers(int amount) => amount <= 0 ? amount : Mathf.Max(1, Mathf.RoundToInt(amount * EmberIncome));
 

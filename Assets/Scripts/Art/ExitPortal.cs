@@ -26,6 +26,8 @@ namespace Deepbound.Art
 
         /// <summary>For tests: is the local player riding the cage up?</summary>
         public static bool LocalRiding => current != null && current.riding != null;
+        /// <summary>Tests: the local player has ridden a cage since this was last cleared.</summary>
+        public static bool LocalRode;
         private static readonly Color Lamp = new Color(1f, 0.78f, 0.45f);
 
         public static void Spawn(Vector3 at, Transform levelRoot)
@@ -64,6 +66,7 @@ namespace Deepbound.Art
             {
                 if (flat.magnitude > World.DungeonDirector.ExitRadius + 0.3f) return;
                 riding = motor;
+                LocalRode = true;
             }
             // Stay inside the bars, standing on the planks as they climb.
             float r = World.DungeonDirector.ExitRadius - 0.5f;
