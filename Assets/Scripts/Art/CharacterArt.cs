@@ -1199,18 +1199,28 @@ namespace Deepbound.Art
                 MeshKit.Part(bowGrip, "String", MeshKit.Box(new Vector3(0.006f, 0.64f, 0.006f)), Mat.Bone, new Vector3(0f, 0f, -0.111f));
                 rig.OffhandItem = bowGrip;
                 MeshKit.Part(rig.Torso, "Quiver", MeshKit.Cylinder(0.06f, 0.07f, 0.5f, 6), Mat.Leather, new Vector3(0.1f, 0.25f, -0.16f), new Vector3(-15f, 0f, 20f));
-                for (int i = 0; i < 3; i++)
+                // 2026-11-20 silhouettes: a full quiver (shafts and pale fletching standing well clear of the shoulder),
+                // a tattered hunter's cloak to the knee, and a leather bracer on the bow arm.
+                for (int i = 0; i < 6; i++)
                 {
-                    MeshKit.Part(rig.Torso, "Fletch" + i, MeshKit.Box(new Vector3(0.015f, 0.12f, 0.04f)), Mat.Cloth,
-                        new Vector3(0.14f + i * 0.02f, 0.76f, -0.25f + i * 0.02f), new Vector3(-15f, 0f, 20f));
+                    var tip = new Vector3(0.12f + (i % 3) * 0.025f, 0.62f + (i / 3) * 0.03f, -0.24f + (i % 2) * 0.02f);
+                    MeshKit.Part(rig.Torso, "Shaft" + i, MeshKit.Cylinder(0.008f, 0.008f, 0.22f, 4), Mat.Wood, tip, new Vector3(-15f, 0f, 20f + (i - 2.5f) * 3f));
+                    ArtLibrary.Tint(MeshKit.Part(rig.Torso, "Fletch" + i, MeshKit.Box(new Vector3(0.012f, 0.1f, 0.04f)), Mat.Cloth,
+                        tip + new Vector3(0.05f, 0.18f, -0.02f), new Vector3(-15f, i * 30f, 20f)).GetComponent<Renderer>(), i % 2 == 0 ? new Color(0.85f, 0.82f, 0.74f) : new Color(0.55f, 0.18f, 0.14f));
                 }
+                ArtLibrary.Tint(MeshKit.Part(rig.ArmL, "Bracer", MeshKit.Cylinder(0.05f, 0.045f, 0.16f, 8), Mat.Leather, new Vector3(0f, -0.48f, 0f)).GetComponent<Renderer>(), new Color(0.32f, 0.22f, 0.14f));
                 var hood = MeshKit.Part(rig.Head, "Hood", MeshKit.Lathe("archerHood", new[]
                 {
                     new Vector2(0.15f, -0.02f), new Vector2(0.16f, 0.1f), new Vector2(0.12f, 0.2f), new Vector2(0.03f, 0.26f), new Vector2(0f, 0.27f),
                 }, 8, true, 280f), Mat.Cloth, new Vector3(0f, 0.05f, -0.01f), new Vector3(0f, 40f, 0f));
                 var vr = new System.Random(SkeletonVariant);
                 var hoodCols = new[] { new Color(0.22f, 0.2f, 0.16f), new Color(0.18f, 0.22f, 0.17f), new Color(0.26f, 0.17f, 0.14f), new Color(0.16f, 0.16f, 0.2f) };
-                ArtLibrary.Tint(hood.GetComponent<Renderer>(), hoodCols[vr.Next(hoodCols.Length)]);
+                var hoodCol = hoodCols[vr.Next(hoodCols.Length)];
+                ArtLibrary.Tint(hood.GetComponent<Renderer>(), hoodCol);
+                GothicKit.Cloak(rig.Torso, hoodCol * 0.85f, 0.62f, 0.1f, null, tattered: true);
+                // A hunter's shoulder mantle, open at the throat: the archer's outline from the front.
+                ArtLibrary.Tint(MeshKit.Part(rig.Torso, "Mantle", MeshKit.Lathe("archerMantle", new[] { new Vector2(0.3f, 0.36f), new Vector2(0.27f, 0.5f), new Vector2(0.14f, 0.62f) }, 10, true, 300f), Mat.Cloth,
+                    Vector3.zero, new Vector3(0f, 30f, 0f), new Vector3(1.05f, 1f, 0.95f)).GetComponent<Renderer>(), hoodCol * 1.1f);
                 if (vr.NextDouble() < 0.5)
                 {
                     var scarf = MeshKit.Part(rig.Torso, "Scarf", MeshKit.Cylinder(0.13f, 0.11f, 0.08f, 8), Mat.Cloth, new Vector3(0f, 0.58f, 0f), Vector3.zero, new Vector3(1f, 1f, 0.85f));
@@ -1682,8 +1692,22 @@ namespace Deepbound.Art
             {
                 var sleeve = MeshKit.Part(arm, "Sleeve", MeshKit.Cylinder(0.12f, 0.08f, 0.45f, 8), Mat.Smoke, new Vector3(0f, -0.45f, 0f));
                 ArtLibrary.Tint(sleeve.GetComponent<Renderer>(), shroud);
-                for (int f = 0; f < 3; f++)
-                    MeshKit.Part(arm, "Claw" + f, MeshKit.Box(new Vector3(0.015f, 0.16f, 0.015f)), Mat.Bone, new Vector3((f - 1) * 0.03f, -0.7f, 0.02f), new Vector3(15f, 0f, (f - 1) * 8f));
+                // Long grasping fingers (2026-11-20: the short claws read as stumps at range).
+                for (int f = 0; f < 4; f++)
+                    MeshKit.Part(arm, "Claw" + f, MeshKit.Lathe("wraithFinger", new[] { new Vector2(0.012f, 0f), new Vector2(0.008f, 0.16f), new Vector2(0f, 0.3f) }, 4), Mat.Bone,
+                        new Vector3((f - 1.5f) * 0.026f, -0.66f, 0.02f), new Vector3(170f + f * 4f, 0f, (f - 1.5f) * 9f));
+            }
+            // A ragged mantle: strips of shroud hanging from the shoulders all round, longer behind, so the wraith
+            // is a wide torn shape and not a skeleton in a sheet.
+            for (int i = 0; i < 12; i++)
+            {
+                float a = i * 30f;
+                if (Mathf.Cos(a * Mathf.Deg2Rad) > 0.6f) continue; // the front stays open: the ribs and skull show
+                float back = Mathf.Cos(a * Mathf.Deg2Rad) < 0f ? 1f : 0f;
+                float len = 0.5f + back * 0.35f + (i % 3) * 0.08f;
+                var strip = MeshKit.Part(rig.Torso, "Mantle" + i, MeshKit.Box(new Vector3(0.12f, len, 0.012f)), Mat.Smoke,
+                    Quaternion.Euler(0f, a, 0f) * new Vector3(0f, 0f, 0.26f) + new Vector3(0f, 0.62f - len * 0.5f, 0f), new Vector3(back * 6f - 4f, a, (i % 2 == 0 ? 5f : -5f)));
+                ArtLibrary.Tint(strip.GetComponent<Renderer>(), shroud * (0.8f + 0.1f * (i % 3)));
             }
             var glow = new GameObject("WraithGlow").AddComponent<Light>();
             glow.transform.SetParent(visual, false);
