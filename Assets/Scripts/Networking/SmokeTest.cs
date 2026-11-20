@@ -5050,10 +5050,14 @@ namespace Deepbound.Networking
                 // A clear patch of the start room (random dressing can stand on any fixed spot): the block, the run-up
                 // in front of it and the headroom over it all empty.
                 var blockAt = vsr.Center + new Vector3(-5f, 0.8f, 3f);
-                foreach (var off in new[] { new Vector3(-5f, 0f, 3f), new Vector3(5f, 0f, 3f), new Vector3(-5f, 0f, -3f), new Vector3(5f, 0f, -3f), new Vector3(0f, 0f, 4f), new Vector3(0f, 0f, -4f), new Vector3(-3f, 0f, 0f), new Vector3(3f, 0f, 0f) })
+                // Only what matters is checked: headroom over the block's top (1.6 to 3.6 m) and the run-up in front of it
+                // (a box the size of the whole thing reached the walls of a 12 m room and failed every spot).
+                foreach (var off in new[] { new Vector3(-5f, 0f, 3f), new Vector3(-3f, 0f, 3f), new Vector3(3f, 0f, 3f), new Vector3(-3f, 0f, -2f), new Vector3(3f, 0f, -2f), new Vector3(0f, 0f, 3.5f), new Vector3(-4f, 0f, 0f), new Vector3(4f, 0f, 0f), new Vector3(5f, 0f, 3f) })
                 {
                     var cand = vsr.Center + off + Vector3.up * 0.8f;
-                    if (Physics.CheckBox(cand + new Vector3(0f, 1.3f, -0.6f), new Vector3(1.6f, 2.0f, 2.3f), Quaternion.identity, ~0, QueryTriggerInteraction.Ignore)) continue;
+                    bool head = Physics.CheckBox(new Vector3(cand.x, 2.6f + vsr.Center.y, cand.z), new Vector3(1.1f, 0.95f, 1.1f), Quaternion.identity, ~0, QueryTriggerInteraction.Ignore);
+                    bool runUp = Physics.CheckBox(new Vector3(cand.x, vsr.Center.y + 1.15f, cand.z - 2.1f), new Vector3(0.5f, 0.8f, 0.55f), Quaternion.identity, ~0, QueryTriggerInteraction.Ignore);
+                    if (head || runUp) continue;
                     blockAt = cand;
                     break;
                 }
