@@ -106,6 +106,9 @@ namespace Deepbound.Art
         public Emote EmoteNow { get; private set; }
         private float emoteStart, emoteUntil;
 
+        /// <summary>An emote is playing right now.</summary>
+        public bool Emoting => EmoteNow != Emote.None && Time.time < emoteUntil;
+
         public void PlayEmote(Emote e, float seconds)
         {
             EmoteNow = e;

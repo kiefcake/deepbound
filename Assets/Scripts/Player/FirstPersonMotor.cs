@@ -478,7 +478,13 @@ namespace Deepbound.Player
             // Room to stand up there (our own capsule out of the way while we look).
             controller.enabled = false;
             bool blocked = Physics.CheckCapsule(top.point + Vector3.up * (r + 0.12f), top.point + Vector3.up * (controller.height - r), r * 0.9f, ~0, QueryTriggerInteraction.Ignore);
-            if (blocked) { controller.enabled = true; MantleWhy = "no room on top"; return false; }
+            if (blocked)
+            {
+                var hits = Physics.OverlapCapsule(top.point + Vector3.up * (r + 0.12f), top.point + Vector3.up * (controller.height - r), r * 0.9f, ~0, QueryTriggerInteraction.Ignore);
+                controller.enabled = true;
+                MantleWhy = "no room on top (" + (hits.Length > 0 ? hits[0].name + " near " + hits[0].ClosestPoint(top.point + Vector3.up * 1f).ToString("F2") : "?") + ", top " + top.point.ToString("F2") + ")";
+                return false;
+            }
             mantling = true;
             mantleFrom = pos;
             mantleTo = top.point + Vector3.up * 0.05f;

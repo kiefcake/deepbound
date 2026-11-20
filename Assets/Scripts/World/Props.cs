@@ -27,6 +27,8 @@ namespace Deepbound.World
 
         public static void Crate(MeshKit.Batcher b, Vector3 floor, float size, float yaw)
         {
+            // A downloaded crate (2026-11-20, docs/CREDITS.md) when it is in the build; the code-built one below otherwise.
+            if (b.AddModel(((int)(floor.x * 3f + floor.z * 5f) & 1) == 0 ? "wooden_crate_01" : "wooden_crate_02", size, floor, yaw)) return;
             var rot = Quaternion.Euler(0f, yaw, 0f);
             var c = floor + Vector3.up * size / 2f;
             b.AddBox(c, Vector3.one * size, Mat.Wood, rot);
@@ -61,6 +63,8 @@ namespace Deepbound.World
 
         public static void Barrel(MeshKit.Batcher b, Vector3 floor)
         {
+            int seed = (int)(floor.x * 7f + floor.z * 13f);
+            if (b.AddModel("wine_barrel_01", 0.95f + (seed & 3) * 0.04f, floor, (seed * 37) % 360)) return;
             StavedBarrel((mesh, mat, pos, yaw) => b.Add(mesh, mat, Matrix4x4.TRS(floor + pos, Quaternion.Euler(0f, yaw, 0f), Vector3.one)),
                 1f, 0.32f, 0.42f, new[] { 0.22f, 0.72f }, (int)(floor.x * 7f + floor.z * 13f));
         }

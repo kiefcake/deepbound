@@ -219,11 +219,11 @@ namespace Deepbound.Progression
         /// <summary>Ranks actually bought with Sigils (what the anvil can still raise).</summary>
         public int BoughtRank(AbilitySlot slot) => slot == AbilitySlot.Q ? RankQ.Value : RankE.Value;
 
-        /// <summary>A quiet 10% a rank: the choices are the headline, this keeps the ability up with the deeper floors.</summary>
+        /// <summary>A quiet bit of strength a rank: the choices are the headline, this keeps the ability up with the deeper floors.</summary>
         public float Potency(AbilitySlot slot) => 1f + AbilityRanks.PotencyPerRank * (Rank(slot) - 1);
 
         /// <summary>Q/E cooldown scale: relics and gear.</summary>
-        public float CooldownFor(AbilitySlot slot) => CooldownMultiplier;
+        public float CooldownFor(AbilitySlot slot) => CooldownMultiplier * (1f - AbilityRanks.CooldownPerRank * (Rank(slot) - 1));
 
         public void ServerAddSigil()
         {

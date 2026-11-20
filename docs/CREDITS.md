@@ -70,7 +70,27 @@ Added 2026-11-01, when the last synthesised sounds were replaced ("no more coded
 | `cloth_weave_normal.jpg` | fabric_pattern_05 (nor_gl, 1k) | Poly Haven | https://polyhaven.com/a/fabric_pattern_05 | CC0 | weave on cloth (cloaks, banners) |
 | `leather_grain_normal.jpg` | leather_red_02 (nor_gl, 1k) | Poly Haven | https://polyhaven.com/a/leather_red_02 | CC0 | grain on leather |
 | `metal_wear_normal.jpg` | rusty_metal_02 (nor_gl, 1k) | Poly Haven | https://polyhaven.com/a/rusty_metal_02 | CC0 | wear and pitting on steel and gold |
+| `bone_pores_normal.jpg` | Plaster003 (NormalGL, 1K-JPG) | ambientCG | https://ambientcg.com/a/Plaster003 | CC0 | pores and pitting on bone (2026-11-20) |
 | `wood_grain_normal.jpg` | wood_table_001 (nor_gl, 1k) | Poly Haven | https://polyhaven.com/a/wood_table_001 | CC0 | fine grain over the wood |
+
+## Models (`Assets/Resources/Models/<name>/`)
+
+3D models from Poly Haven (FBX + 1k colour/normal maps, textures capped at 512 px on import). Materials are rebuilt for URP by `Editor/ArtBaker.BakeModels`, toned a little toward the dungeon palette; `Art/ModelKit` places them. Downloaded 2026-11-20. In use: crates, casks, powder barrels, urns, great urns and oil jars (`World/Breakable`), dressing crates and barrels (`World/Props`), room-corner buckets, baskets and pots, library reading tables.
+
+| Model | Author | Source | Licence |
+|---|---|---|---|
+| `wine_barrel_01` | Poly Haven | https://polyhaven.com/a/wine_barrel_01 | CC0 |
+| `wooden_crate_01` | Poly Haven | https://polyhaven.com/a/wooden_crate_01 | CC0 |
+| `wooden_crate_02` | Poly Haven | https://polyhaven.com/a/wooden_crate_02 | CC0 |
+| `ceramic_vase_01` | Poly Haven | https://polyhaven.com/a/ceramic_vase_01 | CC0 |
+| `ceramic_vase_02` | Poly Haven | https://polyhaven.com/a/ceramic_vase_02 | CC0 |
+| `ceramic_vase_03` | Poly Haven | https://polyhaven.com/a/ceramic_vase_03 | CC0 |
+| `ceramic_vase_04` | Poly Haven | https://polyhaven.com/a/ceramic_vase_04 | CC0 |
+| `antique_ceramic_vase_01` | Poly Haven | https://polyhaven.com/a/antique_ceramic_vase_01 | CC0 |
+| `planter_pot_clay` | Poly Haven | https://polyhaven.com/a/planter_pot_clay | CC0 |
+| `wooden_bucket_01` | Poly Haven | https://polyhaven.com/a/wooden_bucket_01 | CC0 |
+| `wicker_basket_02` | Poly Haven | https://polyhaven.com/a/wicker_basket_02 | CC0 |
+| `WoodenTable_01` | Poly Haven | https://polyhaven.com/a/WoodenTable_01 | CC0 |
 
 cynicmusic asks to be told when the music is used: worth a note to them if Deepbound ships.
 

@@ -419,8 +419,87 @@ namespace Deepbound.World
             BoneBurst.Spawn(at, 1.2f, false, Mat.Wood);
         }
 
+        /// <summary>A downloaded model in place of the code-built one (2026-11-20; null when missing, then the old build runs).</summary>
+        private Transform Model(string slug, float height)
+        {
+            float yaw = (NetworkObjectId * 73) % 360;
+            return ModelKit.Place(slug, transform, Vector3.zero, yaw, height);
+        }
+
+        private static void TintAll(Transform t, Color c)
+        {
+            foreach (var r in t.GetComponentsInChildren<Renderer>()) ArtLibrary.Tint(r, c);
+        }
+
         private void BuildVisual()
         {
+            // Downloaded CC0 models first (2026-11-20, the user: "replace all poorly code generated assets with ones
+            // downloaded if available in the same look"); the code-built versions below stay as the fallback.
+            uint pick = (uint)NetworkObjectId;
+            switch (Type.Value)
+            {
+                case Kind.Crate:
+                    if (Model(pick % 2 == 0 ? "wooden_crate_01" : "wooden_crate_02", 0.62f + (pick % 3) * 0.06f) != null) return;
+                    break;
+                case Kind.Cask:
+                    if (Model("wine_barrel_01", 0.85f + (pick % 3) * 0.06f) != null) return;
+                    break;
+                case Kind.Urn:
+                {
+                    // The glazed vases come clean and white: fired clay, aged, suits the dungeon better.
+                    var urns = new[] { "ceramic_vase_01", "ceramic_vase_02", "ceramic_vase_04", "planter_pot_clay" };
+                    var m = Model(urns[pick % 4], 0.95f + (pick % 3) * 0.12f);
+                    if (m != null)
+                    {
+                        if (pick % 4 != 3) TintAll(m, new Color(0.78f, 0.56f, 0.42f));
+                        return;
+                    }
+                    break;
+                }
+                case Kind.GreatUrn:
+                {
+                    // Chest high, darker glaze and a red wax seal: grave goods, not a kitchen pot.
+                    var m = Model("antique_ceramic_vase_01", 1.7f);
+                    if (m != null)
+                    {
+                        TintAll(m, new Color(0.55f, 0.38f, 0.32f));
+                        return;
+                    }
+                    break;
+                }
+                case Kind.OilJar:
+                {
+                    // Black-glazed and weeping oil, with a dark stain round its foot and a painted flame: this one burns.
+                    var m = Model("ceramic_vase_03", 0.9f);
+                    if (m != null)
+                    {
+                        TintAll(m, new Color(0.3f, 0.26f, 0.22f));
+                        var fp = ModelKit.Footprint("ceramic_vase_03", 0.9f);
+                        var stain = MeshKit.Part(transform, "Stain", MeshKit.Cylinder(0.55f, 0.55f, 0.008f, 12), Mat.Dark, new Vector3(0.1f, 0.01f, 0.1f));
+                        ArtLibrary.Tint(stain.GetComponent<Renderer>(), new Color(0.05f, 0.04f, 0.03f));
+                        var mark = MeshKit.Part(transform, "FlameMark", MeshKit.Box(new Vector3(0.11f, 0.14f, 0.01f)), Mat.Glow, new Vector3(0f, 0.42f, -fp.y * 0.5f - 0.005f));
+                        ArtLibrary.SetGlow(mark.GetComponent<Renderer>(), new Color(1f, 0.45f, 0.1f) * 0.7f);
+                        return;
+                    }
+                    break;
+                }
+                case Kind.PowderBarrel:
+                {
+                    // A real barrel with a red warning band and a lit fuse on the lid.
+                    var m = Model("wine_barrel_01", 1f);
+                    if (m != null)
+                    {
+                        var fp = ModelKit.Footprint("wine_barrel_01", 1f);
+                        float r = Mathf.Max(fp.x, fp.y) * 0.5f;
+                        var paint = MeshKit.Part(transform, "Warning", MeshKit.Cylinder(r * 1.01f, r * 1.01f, 0.16f, 14), Mat.Cloth, new Vector3(0f, 0.42f, 0f));
+                        ArtLibrary.Tint(paint.GetComponent<Renderer>(), new Color(0.75f, 0.1f, 0.06f));
+                        var fuse = MeshKit.Part(transform, "Fuse", MeshKit.Ball(0.04f, 6, 4), Mat.Glow, new Vector3(0.1f, 1.03f, 0f));
+                        ArtLibrary.SetGlow(fuse.GetComponent<Renderer>(), new Color(1f, 0.5f, 0.1f) * 2f);
+                        return;
+                    }
+                    break;
+                }
+            }
             if (Type.Value == Kind.Crate)
             {
                 // A plank crate: boards, a frame of darker battens, a cross brace on the faces.

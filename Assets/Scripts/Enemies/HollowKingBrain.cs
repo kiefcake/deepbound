@@ -29,6 +29,9 @@ namespace Deepbound.Enemies
         [SerializeField] private float cleaveWindup = 0.85f;
 
         public override string DisplayName => "Ossric, the Hollow King";
+
+        /// <summary>Black royal plate round a hollow chest of light (2026-11-20 visual pass: not "just a skeleton").</summary>
+        protected override void DressRig(HumanoidRig rig) => GuardianKit.HollowKing(rig);
         public override string Epithet => "Sovereign of the Empty Throne";
         protected override byte EntranceStyle => 3;
         public override string LastWords => "The morning... was it always this cold? Take the crown. It was never mine.";

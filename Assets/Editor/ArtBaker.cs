@@ -67,7 +67,9 @@ namespace Deepbound.EditorTools
             ApplyDetail("Leather", "Assets/Textures/Detail/leather_grain_normal.jpg", 4f, 0.4f);
             ApplyDetail("Steel", "Assets/Textures/Detail/metal_wear_normal.jpg", 3f, 0.25f);
             ApplyDetail("Gold", "Assets/Textures/Detail/metal_wear_normal.jpg", 3f, 0.2f);
-            ApplyDetail("Bone", "Assets/Textures/Detail/rock_grain_normal.jpg", 8f, 0.22f);
+            ApplyDetail("Bone", "Assets/Textures/Detail/bone_pores_normal.jpg", 6f, 0.3f);
+            // Downloaded models (2026-11-20, Poly Haven CC0, docs/CREDITS.md): one URP Lit material per texture set.
+            BakeModels(lit);
 
             BakeFlat("Dark", lit, new Color(0.05f, 0.05f, 0.06f), 0.4f, 0.3f);
 
@@ -137,6 +139,65 @@ namespace Deepbound.EditorTools
                 mat.DisableKeyword("_SMOOTHNESS_TEXTURE_ALBEDO_CHANNEL_A");
             }
             EditorUtility.SetDirty(mat);
+        }
+
+        private const string ModelDir = "Assets/Resources/Models";
+
+        /// <summary>
+        /// Every texture set beside a downloaded model (Resources/Models/&lt;slug&gt;/textures/&lt;stem&gt;_diff_1k) becomes a URP
+        /// Lit material Resources/Materials/Models/&lt;stem&gt;.mat (colour + normal), toned a touch toward the dungeon palette.
+        /// <see cref="Deepbound.Art.ModelKit"/> swaps them onto the model's renderers by material name at spawn.
+        /// </summary>
+        private static void BakeModels(Shader lit)
+        {
+            if (!AssetDatabase.IsValidFolder(ModelDir)) return;
+            EnsureFolder(MaterialDir + "/Models");
+            foreach (var guid in AssetDatabase.FindAssets("t:Texture2D", new[] { ModelDir }))
+            {
+                var diff = AssetDatabase.GUIDToAssetPath(guid);
+                var file = Path.GetFileNameWithoutExtension(diff);
+                int at = file.IndexOf("_diff_", StringComparison.Ordinal);
+                if (at < 0) continue;
+                string stem = file.Substring(0, at);
+                string dir = Path.GetDirectoryName(diff).Replace('\\', '/');
+                string nor = null;
+                foreach (var ext in new[] { ".png", ".jpg" })
+                {
+                    var p = dir + "/" + stem + "_nor_gl_1k" + ext;
+                    if (File.Exists(p)) { nor = p; break; }
+                }
+                if (nor != null && AssetImporter.GetAtPath(nor) is TextureImporter ni && ni.textureType != TextureImporterType.NormalMap)
+                {
+                    ni.textureType = TextureImporterType.NormalMap;
+                    ni.SaveAndReimport();
+                }
+                var matPath = MaterialDir + "/Models/" + stem + ".mat";
+                var mat = AssetDatabase.LoadAssetAtPath<Material>(matPath);
+                if (mat == null) { mat = new Material(lit); AssetDatabase.CreateAsset(mat, matPath); }
+                mat.shader = lit;
+                mat.SetTexture("_BaseMap", AssetDatabase.LoadAssetAtPath<Texture2D>(diff));
+                var nt = nor != null ? AssetDatabase.LoadAssetAtPath<Texture2D>(nor) : null;
+                if (nt != null) { mat.SetTexture("_BumpMap", nt); mat.SetFloat("_BumpScale", 1f); mat.EnableKeyword("_NORMALMAP"); }
+                string s = stem.ToLowerInvariant();
+                bool glass = s.EndsWith("_glass");
+                bool metal = s.Contains("brass") || s.Contains("trim") || s.Contains("clamp") || s.Contains("sledgehammer") || s.Contains("chandelier");
+                mat.SetColor("_BaseColor", glass ? new Color(1f, 0.78f, 0.45f, 0.45f) : new Color(0.86f, 0.82f, 0.78f, 1f));
+                mat.SetFloat("_Metallic", metal ? 0.55f : 0f);
+                mat.SetFloat("_Smoothness", glass ? 0.8f : metal ? 0.45f : 0.18f);
+                if (glass)
+                {
+                    mat.SetFloat("_Surface", 1f);
+                    mat.SetFloat("_Blend", 0f);
+                    mat.SetFloat("_SrcBlend", (float)BlendMode.SrcAlpha);
+                    mat.SetFloat("_DstBlend", (float)BlendMode.OneMinusSrcAlpha);
+                    mat.SetFloat("_ZWrite", 0f);
+                    mat.EnableKeyword("_SURFACE_TYPE_TRANSPARENT");
+                    mat.renderQueue = (int)RenderQueue.Transparent;
+                    mat.EnableKeyword("_EMISSION");
+                    mat.SetColor("_EmissionColor", new Color(1f, 0.6f, 0.25f) * 0.6f);
+                }
+                EditorUtility.SetDirty(mat);
+            }
         }
 
         /// <summary>A detail normal map on a baked material (URP Lit's detail inputs; the detail albedo stays neutral grey).</summary>

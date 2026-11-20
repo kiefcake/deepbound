@@ -377,6 +377,8 @@ namespace Deepbound.UI
         public static bool CutsceneFreeze => departStart >= 0f || UnityEngine.Time.time < freezeUntil;
         /// <summary>The carriage ride out: no HUD, no hands, just the road.</summary>
         public static bool Cinematic => departStart >= 0f;
+        /// <summary>Tests (-gallery): no HUD, no minimap, no hands: just the world.</summary>
+        public static bool PhotoMode;
 
         /// <summary>Lines of the Cardinal's hymn, one shown on each descent.</summary>
         private static readonly string[] Hymn =
@@ -1626,6 +1628,7 @@ namespace Deepbound.UI
             float w = UiScale.W, h = UiScale.H;
             UiTimer.Begin();
             if (Cinematic) { DrawFade(w, h); return; }
+            if (PhotoMode) return;
             // Afflictions and potions at the edges of the view, under the whole HUD.
             AfflictionOverlay.PaintOnce();
             // Arriving: out of white, letterboxed for a moment - under the HUD, so the bars never hide your health.

@@ -123,7 +123,9 @@ namespace Deepbound.Enemies
             switch (act)
             {
                 case 0:
-                    // Marrowgut: a ridge of bone spikes down the back and a string of skulls across the chest.
+                    // Marrowgut (2026-11-20 visual pass: "not just a skeleton"): a hunched colossus of fused bone.
+                    GuardianKit.Colossus(rig);
+                    // A ridge of bone spikes down the back and a string of skulls across the chest.
                     for (int i = 0; i < 6; i++)
                         MeshKit.Part(t, "BackSpike", MeshKit.Lathe("wardenSpike", new[] { new Vector2(0.05f, 0f), new Vector2(0f, 0.32f) }, 5), Mat.Bone,
                             new Vector3(0f, 0.12f + i * 0.09f, -0.2f), new Vector3(-55f, 0f, (i % 2 == 0 ? 10f : -10f)));
@@ -136,7 +138,9 @@ namespace Deepbound.Enemies
                     }
                     break;
                 case 1:
-                    // The Drowned Knight: weed hanging from shoulders and arms, barnacles, a corroded crest.
+                    // The Drowned Knight (2026-11-20): corroded plate, a weed cloak, barnacles, an anchor chain.
+                    GuardianKit.Drowned(rig);
+                    // Weed hanging from shoulders and arms, barnacles, a corroded crest.
                     for (int i = 0; i < 10; i++)
                     {
                         float x = -0.24f + i * 0.053f;
@@ -193,7 +197,9 @@ namespace Deepbound.Enemies
                 }
                 default:
                 {
-                    // Gorr: bloated, glowing plague sacs on its back and belly (the weak points), and a cloud of flies.
+                    // Gorr (2026-11-20): a bloated hulk with a torn jaw and butcher's hooks in his back.
+                    GuardianKit.Rot(rig);
+                    // Bloated, glowing plague sacs on its back and belly (the weak points), and a cloud of flies.
                     foreach (var (at, r) in new[] { (new Vector3(-0.1f, 0.42f, -0.22f), 0.12f), (new Vector3(0.12f, 0.3f, -0.24f), 0.1f), (new Vector3(0f, 0.12f, 0.2f), 0.14f) })
                     {
                         var sac = MeshKit.Part(t, "PlagueSac", MeshKit.Ball(r, 9, 7), Mat.Glow, at);

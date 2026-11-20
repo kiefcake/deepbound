@@ -508,8 +508,11 @@ namespace Deepbound.World
             {
                 if (Mathf.Abs(t) < DungeonLayout.CorridorWidth / 2f + 1.8f) continue;
                 var at = room.Center + (ax ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t));
-                b.AddBox(at + Vector3.up * 0.55f, new Vector3(1.1f, 0.08f, 0.7f), Mat.Wood, Quaternion.Euler(0f, ax ? 0f : 90f, 0f));
-                b.AddBox(at + Vector3.up * 0.27f, new Vector3(0.12f, 0.55f, 0.12f), Mat.Wood);
+                if (!b.AddModel("WoodenTable_01", 0.6f, at, ax ? 0f : 90f))
+                {
+                    b.AddBox(at + Vector3.up * 0.55f, new Vector3(1.1f, 0.08f, 0.7f), Mat.Wood, Quaternion.Euler(0f, ax ? 0f : 90f, 0f));
+                    b.AddBox(at + Vector3.up * 0.27f, new Vector3(0.12f, 0.55f, 0.12f), Mat.Wood);
+                }
                 b.AddBox(at + Vector3.up * 0.62f, new Vector3(0.4f, 0.05f, 0.3f), Mat.Bone, Quaternion.Euler(0f, (float)rng.NextDouble() * 40f - 20f, 0f));
                 Props.Candles(lights, at + Vector3.up * 0.6f + (ax ? new Vector3(0.38f, 0f, 0.2f) : new Vector3(0.2f, 0f, 0.38f)), theme.TorchColor);
             }
@@ -794,8 +797,18 @@ namespace Deepbound.World
                 if (rng.NextDouble() < 0.45) continue;
                 float sx = (corner & 1) == 0 ? -1f : 1f, sz = (corner & 2) == 0 ? -1f : 1f;
                 var p = c + new Vector3(sx * (hx - 1.3f), 0f, sz * (hz - 1.3f));
-                if (rng.Next(2) == 0) { Props.Barrel(b, p); Props.Barrel(b, p + new Vector3(-sx * 0.9f, 0f, 0f)); }
-                else Props.Rubble(b, p, rng);
+                // Corner leavings (2026-11-20: downloaded CC0 models, docs/CREDITS.md): barrels, rubble, a store corner
+                // (crate, bucket, basket) or a cluster of old pots; the code-built barrels when a model is missing.
+                float yaw = rng.Next(360);
+                int kind = rng.Next(4);
+                if (kind == 2 && b.AddModel("wooden_bucket_01", 0.45f, p + new Vector3(-sx * 0.95f, 0f, 0.1f * sz), yaw)
+                    && b.AddModel("wicker_basket_02", 0.4f, p + new Vector3(0.1f * sx, 0f, -sz * 0.95f), yaw + 40f))
+                    Props.Crate(b, p, 0.8f, yaw);
+                else if (kind == 3 && b.AddModel("planter_pot_clay", 0.7f, p, yaw)
+                    && b.AddModel("ceramic_vase_02", 0.9f, p + new Vector3(-sx * 0.75f, 0f, 0.15f * sz), yaw + 70f))
+                    b.AddModel("ceramic_vase_04", 0.55f, p + new Vector3(0.2f * sx, 0f, -sz * 0.7f), yaw + 130f);
+                else if (kind == 1) Props.Rubble(b, p, rng);
+                else { Props.Barrel(b, p); Props.Barrel(b, p + new Vector3(-sx * 0.9f, 0f, 0f)); }
             }
         }
     }

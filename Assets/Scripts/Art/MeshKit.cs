@@ -344,6 +344,17 @@ namespace Deepbound.Art
                 AddBox(center, size, material + "#" + ColorUtility.ToHtmlStringRGB(tint), rotation);
             }
 
+            /// <summary>A downloaded model (2026-11-20, <see cref="ModelKit"/>) merged into the batch; false if it is missing.</summary>
+            public bool AddModel(string slug, float height, Vector3 floor, float yaw)
+            {
+                return ModelKit.Batch(slug, height, Matrix4x4.TRS(floor, Quaternion.Euler(0f, yaw, 0f), Vector3.one), (mesh, sub, mat, m) =>
+                {
+                    string key = "@" + mat.name;
+                    if (!parts.TryGetValue(key, out var list)) parts[key] = list = new List<CombineInstance>();
+                    list.Add(new CombineInstance { mesh = mesh, subMeshIndex = sub, transform = m });
+                });
+            }
+
             /// <summary>Builds the combined meshes under <paramref name="parent"/>.</summary>
             /// <param name="collide">Add MeshColliders, so the geometry is walkable and navmesh-bakeable.</param>
             /// <param name="tint">Optional per-material tint (a theme recolouring stone, say). Null or white = none.</param>
@@ -362,6 +373,12 @@ namespace Deepbound.Art
                     var renderer = go.AddComponent<MeshRenderer>();
                     int hash = pair.Key.IndexOf('#');
                     string matName = hash >= 0 ? pair.Key.Substring(0, hash) : pair.Key;
+                    if (matName.StartsWith("@"))
+                    {
+                        renderer.sharedMaterial = ModelKit.Baked(matName.Substring(1));
+                        if (collide) go.AddComponent<MeshCollider>().sharedMesh = mesh;
+                        continue;
+                    }
                     renderer.sharedMaterial = ArtLibrary.Get(matName);
                     if (hash >= 0 && ColorUtility.TryParseHtmlString(pair.Key.Substring(hash), out var own)) ArtLibrary.Tint(renderer, own);
                     else if (tint != null)

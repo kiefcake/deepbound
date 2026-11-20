@@ -16,7 +16,9 @@ namespace Deepbound.Classes
     public static class AbilityRanks
     {
         public const int MaxRank = 5, Tiers = 4;
-        public const float PotencyPerRank = 0.1f;
+        /// <summary>Each rank past 1: +15% strength and 6% off the cooldown (rank 5: x1.6, x0.76). Tuned 2026-11-20 after a floor-7
+        /// Mage bot run with +10%/rank and no cooldown cut took three times the usual damage.</summary>
+        public const float PotencyPerRank = 0.15f, CooldownPerRank = 0.06f;
 
         /// <summary>Sigils to go from <paramref name="rank"/> to the next: 1, 1, 2, 3 (seven to master one ability).</summary>
         public static int SigilCost(int rank) => rank >= 4 ? 3 : rank >= 3 ? 2 : 1;

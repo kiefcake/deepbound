@@ -15,6 +15,7 @@ namespace Deepbound.Player
     /// it and a line over your head; let go in the middle to cancel. The wave on the wheel is the same as a tap.
     /// </para>
     /// </summary>
+    [DefaultExecutionOrder(10001)]
     public class Emotes : NetworkBehaviour
     {
         public const float Window = 2f, Reach = 3.5f, BuffSeconds = 20f;
@@ -50,6 +51,35 @@ namespace Deepbound.Player
         public readonly NetworkVariable<double> BrothersUntil = new NetworkVariable<double>();
 
         public bool Brothers => NetworkManager != null && NetworkManager.IsListening && NetworkManager.ServerTime.Time < BrothersUntil.Value;
+
+        // ---- See yourself emote (2026-11-20, the user: "players see their model ... when they emote") ----
+        /// <summary>Owner: the camera has swung out to show you your own emote.</summary>
+        public static bool LocalShowing { get; private set; }
+        public const float ShowDistance = 2.7f;
+        private float showK;
+
+        /// <summary>Owner: while an emote plays the camera eases out in front of you (a little to the side) and looks back at you.</summary>
+        private void LateUpdate()
+        {
+            if (!IsOwner) return;
+            var rig = player != null ? player.Rig : null;
+            bool on = rig != null && rig.Emoting && Teamwork.Watching == null && !UI.GameHud.Cinematic;
+            LocalShowing = on || showK > 0.05f;
+            showK = Mathf.MoveTowards(showK, on ? 1f : 0f, Time.deltaTime * 2.5f);
+            if (showK <= 0f) return;
+            var cam = ViewCamera.Current;
+            if (cam == null) return;
+            var head = transform.position + Vector3.up * 1.55f;
+            var dir = (transform.forward * 0.9f + transform.right * 0.45f + Vector3.up * 0.18f).normalized;
+            float dist = ShowDistance;
+            foreach (var hit in Physics.SphereCastAll(head, 0.2f, dir, ShowDistance, ~0, QueryTriggerInteraction.Ignore))
+                if (!hit.collider.transform.IsChildOf(transform) && hit.distance < dist) dist = Mathf.Max(0.6f, hit.distance - 0.15f);
+            var pos = head + dir * dist;
+            var look = Quaternion.LookRotation(transform.position + Vector3.up * 1.15f - pos);
+            float k = Mathf.SmoothStep(0f, 1f, showK);
+            cam.transform.position = Vector3.Lerp(cam.transform.position, pos, k);
+            cam.transform.rotation = Quaternion.Slerp(cam.transform.rotation, look, k);
+        }
 
         private void Awake()
         {

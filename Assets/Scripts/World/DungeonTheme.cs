@@ -55,7 +55,7 @@ namespace Deepbound.World
                 // The king's halls: cold blue, violet shadows, gilded stone.
                 Name = "The Hollow Throne",
                 Fog = new Color(0.02f, 0.018f, 0.035f), FogDensity = 0.038f,
-                AmbientSky = new Color(0.07f, 0.065f, 0.12f), AmbientEquator = new Color(0.05f, 0.045f, 0.08f), AmbientGround = new Color(0.03f, 0.025f, 0.04f),
+                AmbientSky = new Color(0.085f, 0.08f, 0.14f), AmbientEquator = new Color(0.06f, 0.055f, 0.095f), AmbientGround = new Color(0.036f, 0.03f, 0.048f),
                 TorchColor = new Color(0.55f, 0.7f, 1f), BrazierColor = new Color(0.35f, 0.65f, 1f),
                 StoneTint = new Color(0.78f, 0.76f, 0.92f), FloorTint = new Color(0.75f, 0.72f, 0.85f),
                 ShaftColor = new Color(0.68f, 0.6f, 1f),
@@ -66,9 +66,10 @@ namespace Deepbound.World
                 // The Black Cathedral: blood-red candlelight, black stone, a wine-dark murk.
                 Name = "The Black Cathedral",
                 Fog = new Color(0.03f, 0.012f, 0.016f), FogDensity = 0.036f,
-                AmbientSky = new Color(0.1f, 0.05f, 0.06f), AmbientEquator = new Color(0.07f, 0.035f, 0.04f), AmbientGround = new Color(0.04f, 0.02f, 0.02f),
+                // 2026-11-20 visual pass: a little more light in the stone (the deep acts read as black in every shot).
+                AmbientSky = new Color(0.12f, 0.06f, 0.072f), AmbientEquator = new Color(0.085f, 0.042f, 0.048f), AmbientGround = new Color(0.048f, 0.024f, 0.024f),
                 TorchColor = new Color(1f, 0.45f, 0.3f), BrazierColor = new Color(0.95f, 0.3f, 0.2f),
-                StoneTint = new Color(0.62f, 0.55f, 0.58f), FloorTint = new Color(0.6f, 0.5f, 0.52f),
+                StoneTint = new Color(0.7f, 0.62f, 0.65f), FloorTint = new Color(0.68f, 0.58f, 0.6f),
                 ShaftColor = new Color(1f, 0.5f, 0.38f),
                 ArcherChance = 0.3f,
             },
@@ -76,10 +77,10 @@ namespace Deepbound.World
             {
                 // The Abyss (secret, below the Cathedral): black stone veined violet, thick dark, cold violet fire.
                 Name = "The Abyss",
-                Fog = new Color(0.012f, 0.006f, 0.022f), FogDensity = 0.048f,
-                AmbientSky = new Color(0.06f, 0.035f, 0.1f), AmbientEquator = new Color(0.04f, 0.022f, 0.07f), AmbientGround = new Color(0.02f, 0.012f, 0.035f),
+                Fog = new Color(0.012f, 0.006f, 0.022f), FogDensity = 0.043f,
+                AmbientSky = new Color(0.075f, 0.045f, 0.125f), AmbientEquator = new Color(0.05f, 0.028f, 0.088f), AmbientGround = new Color(0.026f, 0.015f, 0.044f),
                 TorchColor = new Color(0.7f, 0.45f, 1f), BrazierColor = new Color(0.55f, 0.3f, 1f),
-                StoneTint = new Color(0.45f, 0.4f, 0.55f), FloorTint = new Color(0.42f, 0.38f, 0.5f),
+                StoneTint = new Color(0.56f, 0.5f, 0.66f), FloorTint = new Color(0.52f, 0.47f, 0.6f),
                 ShaftColor = new Color(0.6f, 0.4f, 1f),
                 ArcherChance = 0.35f,
             },
@@ -121,8 +122,8 @@ namespace Deepbound.World
             t.AmbientEquator *= 0.8f;
             t.AmbientGround *= 0.85f;
             // Darker, not black: under the retro pass's ink crush the second floor of the deeper acts lost everything.
-            t.AmbientSky = Max(t.AmbientSky, new Color(0.07f, 0.06f, 0.09f));
-            t.AmbientEquator = Max(t.AmbientEquator, new Color(0.05f, 0.04f, 0.065f));
+            t.AmbientSky = Max(t.AmbientSky, new Color(0.08f, 0.07f, 0.1f));
+            t.AmbientEquator = Max(t.AmbientEquator, new Color(0.058f, 0.048f, 0.072f));
             t.AmbientGround = Max(t.AmbientGround, new Color(0.03f, 0.025f, 0.04f));
             t.TorchColor = Color.Lerp(t.TorchColor, new Color(1f, 0.35f, 0.2f), 0.2f);
             t.StoneTint *= 0.88f;

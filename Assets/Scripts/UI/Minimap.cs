@@ -133,6 +133,7 @@ namespace Deepbound.UI
 
         private void OnGUIBody()
         {
+            if (GameHud.PhotoMode) return;
             useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
             AfflictionOverlay.PaintOnce();
             if (GameHud.Cinematic) return;

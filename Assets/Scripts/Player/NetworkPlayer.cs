@@ -125,15 +125,20 @@ namespace Deepbound.Player
             spot = default;
             var dir = AimForward;
             var point = AimRay(range, out var hit) ? hit.point : AimOrigin + dir * range;
-            // Drop to the floor beneath wherever the crosshair landed (a wall, an enemy, the ceiling).
-            var from = point + Vector3.up * 0.5f - dir * 0.3f;
+            // Drop to the floor beneath wherever the crosshair landed (a wall, an enemy, the ceiling). Start a little back
+            // toward you and no higher than the hit (2026-11-20, the user: meteors "can land in the air"): from half a metre
+            // above a ceiling hit the drop found the ceiling's top and the strike landed up there.
+            var from = point - dir * 0.35f + Vector3.up * 0.05f;
             foreach (var h in Physics.RaycastAll(from, Vector3.down, 40f, ~(1 << ViewModelLayerIndex), QueryTriggerInteraction.Ignore))
             {
-                // The floor itself: not the top of whoever stands there.
-                if (h.collider.transform.IsChildOf(transform) || h.collider.GetComponentInParent<Health>() != null) continue;
+                // The floor itself: not the top of whoever stands there, nor the slope of a wall or a beam's edge.
+                if (h.collider.transform.IsChildOf(transform) || h.collider.GetComponentInParent<Health>() != null || h.normal.y < 0.6f) continue;
                 if (spot == default || h.point.y > spot.y) spot = h.point;
             }
-            return spot != default;
+            if (spot == default) return false;
+            // Never more than a storey above you (a ledge you cannot see the top of is not where it lands).
+            if (spot.y > transform.position.y + 5f) return false;
+            return true;
         }
 
         private Health health;
@@ -325,6 +330,19 @@ namespace Deepbound.Player
         /// <summary>Shots only: draw your own body (for a camera standing outside it).</summary>
         public static bool DebugShowSelf;
 
+        /// <summary>Part of the legs (or hung straight on the hips, not the torso): drawn in first person.</summary>
+        private bool LowerBody(Transform t)
+        {
+            if (Rig == null) return false;
+            for (var p = t; p != null && p != Rig.transform; p = p.parent)
+            {
+                if (p == Rig.LegL || p == Rig.LegR) return true;
+                if (p == Rig.Torso || p == Rig.Head || p == Rig.ArmL || p == Rig.ArmR) return false;
+                if (p == Rig.Hips) return t.parent == Rig.Hips;
+            }
+            return false;
+        }
+
         /// <summary>A class's third-person body, in a cloak dye (also used by the tailor's mannequin).</summary>
         public static HumanoidRig BuildBody(ClassId cls, Transform root, Color slot, int dye, int pattern = 0)
         {
@@ -478,16 +496,20 @@ namespace Deepbound.Player
             // and with no occlusion culling everything past the walls would otherwise still be drawn.
             // The hands are put away for the carriage ride.
             // Hidden in cutscenes, and while watching an ally from down on the floor (Teamwork spectating).
-            bool hideHands = GameHud.Cinematic || Teamwork.Watching != null || World.BlackjackTable.LocalOpen || World.PokerDiceTable.LocalSeated || CampSeat.SeatedLocal; // seated at the cards or by the fire: hands away
+            bool hideHands = GameHud.Cinematic || GameHud.PhotoMode || Teamwork.Watching != null || Emotes.LocalShowing || World.BlackjackTable.LocalOpen || World.PokerDiceTable.LocalSeated || CampSeat.SeatedLocal; // seated at the cards or by the fire: hands away
             if (IsOwner && viewModel != null && viewModel.Root.gameObject.activeSelf == hideHands) viewModel.Root.gameObject.SetActive(!hideHands);
             // Watching an ally from the floor, your own body is in the shot (play-test 2026-11-01: dragged while
             // spectating, you could not see yourself being dragged). Otherwise it only casts a shadow.
-            bool showSelf = Teamwork.Watching != null || DebugShowSelf;
+            // Emoting, the camera swings out to show you (Emotes). In first person your LEGS are drawn (2026-11-20, the user:
+            // "players see their model when they look down"); the rest of you only casts a shadow, so the head and arms
+            // never fill the view.
+            bool showSelf = Teamwork.Watching != null || DebugShowSelf || Emotes.LocalShowing;
             if (IsOwner && Rig != null && (showSelf != selfShown || Rig != selfShownRig))
             {
                 selfShown = showSelf;
                 selfShownRig = Rig;
-                foreach (var r in Rig.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = showSelf ? ShadowCastingMode.On : ShadowCastingMode.ShadowsOnly;
+                foreach (var r in Rig.GetComponentsInChildren<Renderer>())
+                    r.shadowCastingMode = showSelf || LowerBody(r.transform) ? ShadowCastingMode.On : ShadowCastingMode.ShadowsOnly;
             }
             if (IsOwner && playerCamera != null)
                 playerCamera.farClipPlane = DungeonDirector.InLobby ? 220f : Mathf.Clamp(2.6f / Mathf.Max(0.001f, RenderSettings.fogDensity), 45f, 120f);

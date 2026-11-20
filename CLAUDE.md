@@ -456,3 +456,10 @@ balance pass driven by the user's play feedback; GitHub remote (needs the user).
   - Paths: Knight GREATBLADE (160 deg + the chain's overhead sends a slash wave) / SPIKED SHIELD (blocked melee hurts the striker, riposte x2.2) / Bulwark; Mage INFERNO (held flame stream, `ServerFlame`) / STORMCALLER (instant forking lightning, `ServerStorm`) / WARDWEAVER (`WardShards`, `PathTriads.Absorb`); Cleric ZEALOT hammer of light / SHEPHERD smites heal allies they pass / ANCHORITE `Planted`; Rogue Assassin (+bleed) / Duelist / Shadowskin (+kill shroud); Ranger SPLITSHOT / BLASTHEAD / Pathwarden point-blank; Flagellant FANATIC (crash every other swing, burning ground) / PENITENT (360 whirl) / SCARRED eruption; Plague Doctor PESTILENCE puddles / PHYSICIAN vials heal allies / MITHRIDATE blights melee strikers.
   - Marta sells a glass of milk (`TavernKeep.MilkRpc`, 4 gold, `PlayerDebuffs.ServerSober`) from her conversation while you are drunk.
   - Smoke: "rank choices", "ability rank", "mage paths". The bot takes random options and logs them by name.
+
+## DOWNLOADED MODELS (2026-11-20)
+- CC0 Poly Haven FBX models live in `Assets/Resources/Models/<slug>/<slug>.fbx` + `textures/` (credited in docs/CREDITS.md). Only models in use ship; spares wait in the git-ignored `ArtStash/Models/` (move one into Resources/Models to use it).
+- `Editor/ModelImportSettings` (meshes only, readable, textures 512) and `ArtBaker.BakeModels` (URP Lit per texture set -> `Resources/Materials/Models/<stem>.mat`) run in the build.
+- `Art/ModelKit.Place(slug, parent, localPos, yaw, height)` for live objects; `MeshKit.Batcher.AddModel(slug, height, floor, yaw)` for static dressing. Both return null/false when the model is missing so the procedural build stays as fallback.
+- Guardian bodies: `Art/GuardianKit` (Marrowgut, Drowned Knight, Hollow King, Gorr) on top of PlateKit (`Look.NoHelm` added).
+- Gallery: `Deepbound.exe -gallery <ABS dir> [-galpart sgrple]` (self, guardians, rooms, props, lairs, enemies). Positive SetPitch looks DOWN.

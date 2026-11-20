@@ -19,6 +19,8 @@ namespace Deepbound.Art
             /// <summary>True: a closed great helm with an eye slit. False: an open-faced helm with great horns.</summary>
             public bool ClosedHelm;
             public bool Horns;
+            /// <summary>No helm at all (the Hollow King keeps his crowned skull bare).</summary>
+            public bool NoHelm;
         }
 
         /// <summary>Every peer: armour the rig. Returns the new glowing parts (the wound, the eyes) for the rig's glow list.</summary>
@@ -90,7 +92,8 @@ namespace Deepbound.Art
 
             // The helm.
             var h = rig.Head;
-            if (look.ClosedHelm)
+            if (look.NoHelm) { }
+            else if (look.ClosedHelm)
             {
                 Plate(MeshKit.Part(h, "GreatHelm", MeshKit.Lathe("plateGreatHelm", new[]
                 {

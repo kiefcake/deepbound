@@ -5038,7 +5038,17 @@ namespace Deepbound.Networking
                 }
                 // Mantling: in the air against a 1.6 m block, the player climbs onto it.
                 var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
+                // A clear patch of the start room (random dressing can stand on any fixed spot): the block, the run-up
+                // in front of it and the headroom over it all empty.
                 var blockAt = vsr.Center + new Vector3(-5f, 0.8f, 3f);
+                foreach (var off in new[] { new Vector3(-5f, 0f, 3f), new Vector3(5f, 0f, 3f), new Vector3(-5f, 0f, -3f), new Vector3(5f, 0f, -3f), new Vector3(0f, 0f, 4f), new Vector3(0f, 0f, -4f), new Vector3(-3f, 0f, 0f), new Vector3(3f, 0f, 0f) })
+                {
+                    var cand = vsr.Center + off + Vector3.up * 0.8f;
+                    if (Physics.CheckBox(cand + new Vector3(0f, 1.3f, -0.6f), new Vector3(1.6f, 2.0f, 2.3f), Quaternion.identity, ~0, QueryTriggerInteraction.Ignore)) continue;
+                    blockAt = cand;
+                    break;
+                }
+                Debug.Log("[Smoke] mantle block at " + (blockAt - vsr.Center).ToString("F1") + " in a start room " + vsr.Size + " high " + vsr.Height);
                 block.transform.position = blockAt;
                 block.transform.localScale = new Vector3(3f, 1.6f, 3f);
                 yield return new WaitForFixedUpdate();
@@ -7750,6 +7760,186 @@ namespace Deepbound.Networking
 
         /// <summary>-portraits: close looks at the Hollow Throne's two big knights (Sir Aldous, the Twice-Crowned), then quit.</summary>
         public void Portraits(string dir, NetworkLauncher launcher) => StartCoroutine(PortraitSequence(dir, launcher));
+
+        /// <summary>
+        /// -gallery (2026-11-20, the user: "take my previous critiques and apply them to current dungeon assets"): every guardian,
+        /// warden, lair keeper and enemy kind, held still under a key light and shot from the front and a quarter, so each model
+        /// can be judged against the notes (not "just a skeleton", not "capsules joined together"). Quits when done.
+        /// </summary>
+        public void Gallery(string dir, NetworkLauncher launcher) => StartCoroutine(GallerySequence(dir, launcher));
+
+        private IEnumerator GallerySequence(string dir, NetworkLauncher launcher)
+        {
+            System.IO.Directory.CreateDirectory(dir);
+            yield return new WaitForSeconds(1f);
+            launcher.StartHost();
+            yield return new WaitForSeconds(2f);
+            var local = NetworkPlayer.Local;
+            var motor = local.GetComponent<FirstPersonMotor>();
+            local.GetComponent<Health>().IncomingModifiers.Insert(0, (d, f) => 0f);
+            for (float t = 0f; t < 5f && !DungeonDirector.InLobby; t += 0.2f) yield return new WaitForSeconds(0.2f);
+            var dd = DungeonDirector.Instance;
+            // -galpart letters pick sections (s self, g guardians, r rooms, p props, l lairs, e enemies); all by default.
+            var cl = System.Environment.GetCommandLineArgs();
+            int gp = System.Array.IndexOf(cl, "-galpart");
+            string part = gp >= 0 && gp + 1 < cl.Length ? cl[gp + 1] : "sgrple";
+            UI.GameHud.PhotoMode = true;
+            if (part.Contains("s"))
+            {
+            // Yourself, in the dungeon (the class picker covers the lobby): looking down in first person, and mid-emote.
+            dd.ServerDebugStartFloor(0);
+            yield return new WaitForSeconds(4f);
+            foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                if (e != null && e.IsSpawned) e.ServerStun(60f);
+            motor.SetPitch(75f);
+            yield return new WaitForSeconds(0.6f);
+            yield return Shot(dir, "self_lookdown");
+            motor.SetPitch(0f);
+            local.Rig?.PlayEmote(Art.Emote.Wave, 4f);
+            yield return new WaitForSeconds(1.4f);
+            yield return Shot(dir, "self_emote_wave");
+            local.Rig?.PlayEmote(Art.Emote.Dance, 4f);
+            yield return new WaitForSeconds(1.6f);
+            yield return Shot(dir, "self_emote_dance");
+            local.Rig?.PlayEmote(Art.Emote.None, 0f);
+            yield return new WaitForSeconds(1f);
+            }
+            var key = new GameObject("GalleryKey").AddComponent<Light>();
+            key.type = LightType.Point; key.range = 16f; key.intensity = 3.2f; key.color = new Color(1f, 0.92f, 0.8f);
+            UnityEngine.Object.DontDestroyOnLoad(key.gameObject);
+            IEnumerator Pose(EnemyBrain e, string name, float dist, bool both)
+            {
+                foreach (var (yaw, tag) in both ? new[] { (0f, "front"), (45f, "quarter") } : new[] { (25f, "front") })
+                {
+                    if (e == null || !e.IsSpawned) yield break;
+                    e.ServerStun(30f);
+                    var dir3 = Quaternion.Euler(0f, yaw, 0f) * Flat3(e.transform.forward).normalized;
+                    var at = e.transform.position + dir3 * dist + Vector3.up * 0.1f;
+                    motor.Teleport(at, Quaternion.LookRotation(Flat3(e.transform.position - at)));
+                    key.transform.position = at + Vector3.up * 3f;
+                    motor.SetPitch(dist > 5f ? -6f : 0f);
+                    yield return new WaitForSeconds(0.7f);
+                    yield return Shot(dir, name + "_" + tag);
+                }
+                motor.SetPitch(0f);
+            }
+            // Guardians: every floor's (wardens on even depths, act bosses on odd, the Unsung last).
+            for (int depth = 0; depth < DungeonDirector.FloorsPerRun && part.Contains("g"); depth++)
+            {
+                dd.ServerDebugStartFloor(depth);
+                yield return new WaitForSeconds(3.5f);
+                var boss = BossBrain.Active;
+                if (boss == null) { Debug.Log("[Gallery] no guardian on depth " + depth); continue; }
+                var inside = DungeonDirector.Layout.BossRoom.Center + Vector3.up * 0.1f;
+                motor.Teleport(inside, Quaternion.LookRotation(Flat3(boss.transform.position - inside)));
+                yield return new WaitForSeconds(8f);
+                string nm = "g" + depth + "_" + boss.DisplayName.Replace(" ", "").Replace("'", "");
+                float size = Mathf.Clamp(boss.transform.lossyScale.y * 2.2f, 3.6f, 6f);
+                yield return Pose(boss, nm, size, true);
+                Debug.Log("[Gallery] " + nm);
+                boss.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, boss.transform.position, local.NetworkObjectId);
+                yield return new WaitForSeconds(3f);
+            }
+            // What lies in the dungeon, act by act: wide looks at rooms, then a close look at one of each kind of thing.
+            IEnumerator Close(Transform t, string name, float dist)
+            {
+                if (t == null) yield break;
+                var c = t.position;
+                var fwd = Flat3(t.forward).sqrMagnitude > 0.01f ? Flat3(t.forward).normalized : Vector3.forward;
+                // The first side with open floor and a clear look at it (props by walls put the camera in the wall).
+                var at = c + Quaternion.Euler(0f, 30f, 0f) * fwd * dist + Vector3.up * 0.1f;
+                for (int k = 0; k < 8; k++)
+                {
+                    var side = Quaternion.Euler(0f, 30f + k * 45f, 0f) * fwd;
+                    var cand = c + side * dist;
+                    if (Physics.Linecast(c + Vector3.up * 1.2f, cand + Vector3.up * 1.6f, out var block, ~0, QueryTriggerInteraction.Ignore) && !block.collider.transform.IsChildOf(t)) continue;
+                    if (!Physics.Raycast(cand + Vector3.up * 1f, Vector3.down, 2.5f, ~0, QueryTriggerInteraction.Ignore)) continue;
+                    at = cand + Vector3.up * 0.1f;
+                    break;
+                }
+                motor.Teleport(at, Quaternion.LookRotation(Flat3(c - at)));
+                key.transform.position = at + Vector3.up * 2.5f;
+                motor.SetPitch(30f);
+                yield return new WaitForSeconds(0.6f);
+                yield return Shot(dir, name);
+            }
+            for (int depth = 0; depth < DungeonDirector.FloorsPerRun && (part.Contains("r") || part.Contains("p")); depth += 2)
+            {
+                dd.ServerDebugStartFloor(depth);
+                yield return new WaitForSeconds(3.5f);
+                foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                    if (e != null && e.IsSpawned && !(e is BossBrain)) e.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, e.transform.position, local.NetworkObjectId);
+                yield return new WaitForSeconds(3.5f);
+                key.intensity = 1.2f;
+                var lay = DungeonDirector.Layout;
+                int shotRooms = 0;
+                for (int r = 0; r < lay.Rooms.Count && shotRooms < 6 && part.Contains("r"); r++)
+                {
+                    var rm = lay.Rooms[r];
+                    if (rm.Kind == RoomKind.Boss) continue;
+                    var corner = rm.Center + new Vector3(rm.Size.x * 0.38f, 0f, -rm.Size.y * 0.38f);
+                    var floorAt = Art.Vfx.Floor(corner + Vector3.up * 2f);
+                    motor.Teleport(floorAt + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(rm.Center - corner)));
+                    key.transform.position = rm.Center + Vector3.up * 4f;
+                    motor.SetPitch(6f);
+                    yield return new WaitForSeconds(0.8f);
+                    yield return Shot(dir, "r" + depth + "_" + r + "_" + rm.Kind + "_" + rm.Feature);
+                    shotRooms++;
+                }
+                key.intensity = 3.2f;
+                if (!part.Contains("p")) continue;
+                string a = "p" + depth + "_";
+                var kinds = new System.Collections.Generic.HashSet<Breakable.Kind>();
+                foreach (var b in FindObjectsByType<Breakable>(FindObjectsSortMode.None))
+                    if (b != null && kinds.Add(b.Type.Value)) yield return Close(b.transform, a + "break_" + b.Type.Value, 1.9f);
+                Component Any<T>() where T : Component => FindObjectsByType<T>(FindObjectsSortMode.None).FirstOrDefault();
+                foreach (var (c, nm, d) in new (Component, string, float)[] {
+                    (Any<Chest>(), "chest", 2.6f), (Any<Sarcophagus>(), "sarcophagus", 3.2f), (Any<SideShrine>(), "sideshrine", 3f),
+                    (Any<PrisonerCage>(), "cage", 3.2f), (Any<VigilCandle>(), "vigil", 2.2f), (Any<Chandelier>(), "chandelier", 4f),
+                    (Any<LorePage>(), "lectern", 2.4f), (Any<FateWheel>(), "wheel", 3.5f), (Any<BloodAltar>(), "altar", 3f),
+                    (Any<Fountain>(), "fountain", 4f), (Any<Portcullis>(), "portcullis", 4f), (Any<SpikeTrap>(), "spikes", 2.6f),
+                    (Any<Lever>(), "lever", 2.2f), (Any<CrackedWall>(), "crackedwall", 3f), (Any<Reliquary>(), "reliquary", 2.4f), (Any<PuzzleRoom>(), "puzzle", 3.2f) })
+                    if (c != null) yield return Close(c.transform, a + nm, d);
+            }
+            // Lair keepers and the rank and file, in one floor's boss room.
+            dd.ServerDebugStartFloor(4);
+            yield return new WaitForSeconds(3.5f);
+            // A big combat room, the guardian left asleep in its arena (killing it would clear the floor and send us to camp).
+            // A plain one (no centrepiece in the frame) when there is one.
+            var room = DungeonDirector.Layout.Rooms.Where(rr => rr.Kind == RoomKind.Combat).OrderByDescending(rr => (rr.Feature == RoomFeature.None ? 1000f : 0f) + rr.Size.x * rr.Size.y).First();
+            foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                if (e != null && e.IsSpawned && !(e is BossBrain)) e.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, e.transform.position, local.NetworkObjectId);
+            yield return new WaitForSeconds(2f);
+            for (int act = 0; act < 5 && part.Contains("l"); act++)
+            {
+                var lair = dd.ServerDebugSpawnLair(act, room.Center, room.Size);
+                yield return new WaitForSeconds(3.2f);
+                if (lair != null)
+                {
+                    foreach (var other in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None)) if (other != lair) other.ServerStun(30f);
+                    yield return Pose(lair, "l" + act + "_" + lair.DisplayName.Replace(" ", "").Replace("'", ""), 6.5f, true);
+                }
+                foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                    if (e != null && e.IsSpawned && e != BossBrain.Active) e.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, e.transform.position, local.NetworkObjectId);
+                yield return new WaitForSeconds(2.5f);
+            }
+            foreach (var kind in new[] { "skeleton", "archer", "ghoul", "brute", "necromancer", "wraith", "shieldbearer", "gargoyle", "plaguebearer", "frostwight", "hexer", "mourner", "entling", "orbweaver", "mimic", "hoarder", "acolyte", "eye", "piper", "cantor", "magus", "lamprey", "hag", "ringer" })
+            {
+                if (!part.Contains("e")) break;
+                var e = dd.ServerDebugSpawn(kind, room.Center, false, true);
+                yield return new WaitForSeconds(1.2f);
+                if (e != null)
+                {
+                    float d = Mathf.Max(3.2f, e.transform.lossyScale.y * 2.6f);
+                    yield return Pose(e, "e_" + kind, d, false);
+                    if (e != null && e.IsSpawned) e.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, e.transform.position, local.NetworkObjectId);
+                }
+                else Debug.Log("[Gallery] could not spawn " + kind);
+                yield return new WaitForSeconds(2.2f);
+            }
+            Debug.Log("[Gallery] done");
+            Application.Quit();
+        }
 
         private IEnumerator PortraitSequence(string dir, NetworkLauncher launcher)
         {
