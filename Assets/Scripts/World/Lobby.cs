@@ -1116,15 +1116,21 @@ namespace Deepbound.World
             d.AddBox(TavernBandSpot + new Vector3(0f, 0.12f, -0.95f), new Vector3(3.2f, 0.25f, 1.6f), Mat.Wood, plank * 0.9f);
             foreach (var at in new[] { c + new Vector3(0.1f, 0f, 0.9f), c + new Vector3(2.4f, 0f, 1.6f), c + new Vector3(-0.4f, 0f, -1.6f) })
             {
-                d.Add(MeshKit.Cylinder(0.08f, 0.14f, 0.75f, 8), Mat.Wood, Matrix4x4.Translate(at));
-                d.Add(MeshKit.Cylinder(0.6f, 0.6f, 0.06f, 14), Mat.Wood, Matrix4x4.Translate(at + Vector3.up * 0.75f));
+                // 2026-11-20: downloaded CC0 furniture (a round table, stools, goblets) where it is in the build.
+                if (!d.AddModel("round_wooden_table_01", 0.78f, at, at.x * 37f))
+                {
+                    d.Add(MeshKit.Cylinder(0.08f, 0.14f, 0.75f, 8), Mat.Wood, Matrix4x4.Translate(at));
+                    d.Add(MeshKit.Cylinder(0.6f, 0.6f, 0.06f, 14), Mat.Wood, Matrix4x4.Translate(at + Vector3.up * 0.75f));
+                }
                 for (int k = 0; k < 3; k++)
                 {
                     float a = k * 120f * Mathf.Deg2Rad + 0.4f;
                     var stool = at + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 0.95f;
-                    d.Add(MeshKit.Cylinder(0.18f, 0.16f, 0.45f, 8), Mat.Wood, Matrix4x4.Translate(stool));
+                    if (!d.AddModel(k == 1 ? "wooden_stool_02" : "wooden_stool_01", 0.47f, stool, k * 50f + at.z * 20f))
+                        d.Add(MeshKit.Cylinder(0.18f, 0.16f, 0.45f, 8), Mat.Wood, Matrix4x4.Translate(stool));
                 }
-                d.Add(MeshKit.Cylinder(0.05f, 0.05f, 0.13f, 8), Mat.Wood, Matrix4x4.Translate(at + new Vector3(0.15f, 0.78f, 0.1f)));
+                if (!d.AddModel("brass_goblets", 0.16f, at + new Vector3(0.15f, 0.78f, 0.1f), at.x * 50f))
+                    d.Add(MeshKit.Cylinder(0.05f, 0.05f, 0.13f, 8), Mat.Wood, Matrix4x4.Translate(at + new Vector3(0.15f, 0.78f, 0.1f)));
                 // One stub of candle on each table (a floor cluster of them was the size of a bonfire up here).
                 d.Add(MeshKit.Cylinder(0.03f, 0.03f, 0.1f, 6), Mat.Bone, Matrix4x4.Translate(at + new Vector3(-0.2f, 0.78f, -0.1f)));
                 var wick = MeshKit.Part(lights, "TableCandle", MeshKit.Ball(0.022f, 6, 4), Mat.Glow, at + new Vector3(-0.2f, 0.91f, -0.1f), default, new Vector3(1f, 1.6f, 1f));

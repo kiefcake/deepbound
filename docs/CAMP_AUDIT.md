@@ -905,3 +905,12 @@ Files: `C:/Users/User/Desktop/game_prototype/Deepbound/Assets/Scripts/World/Lobb
   - Replaced the floor candle cluster with two candle stubs on the shelf ends.
 - Re-render pending in the next tour (`expedition_roll_0..2`, `_wide`).
 - Re-rendered (`expedition_roll_1`, `_wide`, `blackjack_seat`): all five plaques and the shelf now clear the table, and the dealer no longer covers the names from the seat. Done.
+
+## Round 2026-11-20: tavern furniture from downloaded models
+- CHANGED: the tavern's three round tables, nine stools and the mug on each table are now Poly Haven CC0 models
+  (`round_wooden_table_01` at 0.78 m, `wooden_stool_01/02` at 0.47 m, `brass_goblets`), same spots and heights; the
+  table candles still stand on the tops. Code-built cylinders stay as the fallback (`Lobby.BuildTavern`).
+- Seen (`tour_q/sheet_07` tavern_band use view; `sheet_07` approach through the door): table, candle and stools sit on
+  the floorboards in front of the stage, nothing floating or sunk; the door view shows the tables inside.
+- Inspector: tavern_door ok, tavern_band ok, arm_wrestle ok. tavern_keep_marta NO-ROOM-TO-STAND is unchanged from
+  earlier tours (she stands behind the counter; the probe has no room there). Open, not caused by this change.
