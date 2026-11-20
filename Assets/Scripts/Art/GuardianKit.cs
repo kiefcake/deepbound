@@ -371,6 +371,54 @@ namespace Deepbound.Art
         }
 
         // ------------------------------------------------------------------
+        // The Lantern Fisher (a lair keeper)
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// An angler of the drowned dark: a hunched, scaled back with a ridge of fin spines webbed between them, long arms
+        /// webbed to the elbow ending in hooked claws, and a net of rusted chain and hooks hanging from its belt.
+        /// </summary>
+        public static void Fisher(HumanoidRig rig)
+        {
+            var t = rig.Torso;
+            if (t == null) return;
+            var hide = new Color(0.16f, 0.22f, 0.2f);
+            var fin = new Color(0.3f, 0.4f, 0.36f);
+            var rust = new Color(0.36f, 0.24f, 0.16f);
+            // The hunch: a scaled hump over the shoulders.
+            Tint(MeshKit.Part(t, "Hump", MeshKit.Ball(0.28f, 10, 8), Mat.Leather, new Vector3(0f, 0.52f, -0.16f), Vector3.zero, new Vector3(1.25f, 0.9f, 1f)), hide);
+            // A ridge of spines down the back, webbed between.
+            for (int i = 0; i < 6; i++)
+            {
+                float y = 0.75f - i * 0.11f, len = 0.36f - Mathf.Abs(i - 1.5f) * 0.05f;
+                Tint(MeshKit.Part(t, "FinSpine", MeshKit.Cylinder(0.018f, 0.004f, len, 5), Mat.Bone, new Vector3(0f, y, -0.36f + i * 0.02f), new Vector3(-60f + i * 6f, 0f, 0f)), new Color(0.7f, 0.68f, 0.58f));
+                Tint(MeshKit.Part(t, "FinWeb", MeshKit.Box(new Vector3(0.012f, len * 0.8f, 0.12f)), Mat.Cloth, new Vector3(0f, y - 0.02f, -0.42f + i * 0.02f), new Vector3(-60f + i * 6f, 0f, 0f)), fin);
+            }
+            // Long arms, webbed to the elbow, with hooked claws.
+            foreach (var arm in new[] { rig.ArmL, rig.ArmR })
+            {
+                if (arm == null) continue;
+                Tint(MeshKit.Part(arm, "ArmHide", MeshKit.Cylinder(0.07f, 0.055f, 0.55f, 7), Mat.Leather, new Vector3(0f, -0.38f, 0f)), hide);
+                Tint(MeshKit.Part(arm, "ArmWeb", MeshKit.Box(new Vector3(0.012f, 0.4f, 0.16f)), Mat.Cloth, new Vector3(0f, -0.3f, -0.1f)), fin);
+                for (int k = 0; k < 3; k++)
+                    Tint(MeshKit.Part(arm, "HookClaw", MeshKit.Lathe("fisherClaw", new[] { new Vector2(0.016f, 0f), new Vector2(0f, 0.13f) }, 4), Mat.Bone,
+                        new Vector3((k - 1) * 0.03f, -0.68f, 0.05f), new Vector3(150f, 0f, (k - 1) * 12f)), new Color(0.7f, 0.68f, 0.58f));
+            }
+            // The net: a skirt of rusted chain links and hooks from the belt.
+            var belt = rig.Hips != null ? rig.Hips : t;
+            for (int i = 0; i < 9; i++)
+            {
+                float a = (-80f + i * 20f) * Mathf.Deg2Rad;
+                var top = new Vector3(Mathf.Sin(a) * 0.22f, -0.05f, Mathf.Cos(a) * 0.19f);
+                for (int k = 0; k < 4; k++)
+                    Tint(MeshKit.Part(belt, "NetLink", MeshKit.Box(new Vector3(0.022f, 0.06f, 0.012f)), Mat.Steel, top + new Vector3(0f, -0.07f * k, 0.008f * k), new Vector3(0f, a * Mathf.Rad2Deg + (k % 2) * 90f, 0f)), rust);
+                if (i % 2 == 0)
+                    Tint(MeshKit.Part(belt, "NetHook", MeshKit.Lathe("netHook", new[] { new Vector2(0.05f, 0f), new Vector2(0.058f, 0.008f), new Vector2(0.05f, 0.016f) }, 6, true, 220f), Mat.Steel,
+                        top + new Vector3(0f, -0.3f, 0.02f), new Vector3(90f, a * Mathf.Rad2Deg, 0f)), rust);
+            }
+        }
+
+        // ------------------------------------------------------------------
         // Gorr, the Rot Below (on a Plaguebearer)
         // ------------------------------------------------------------------
 

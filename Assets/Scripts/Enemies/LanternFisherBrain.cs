@@ -301,6 +301,9 @@ namespace Deepbound.Enemies
             GlowPart(MeshKit.Part(stalk, "Lantern", MeshKit.Ball(0.1f, 8, 6), Mat.Glow, new Vector3(0f, 1.05f, 0.95f)), LureColor * 1.6f);
             for (int i = 0; i < 9; i++)
                 MeshKit.Part(rig.Head, "Tooth", MeshKit.Cylinder(0.018f, 0f, 0.11f, 4), Mat.Bone, new Vector3(-0.12f + i * 0.03f, -0.08f, 0.16f), new Vector3(180f, 0f, 0f));
+            // 2026-11-20 visual pass: a hunched back with a ridge of fin spines, long webbed arms, and a fisher's net of
+            // chain and hooks hung from its belt.
+            GuardianKit.Fisher(rig);
         }
     }
 }
