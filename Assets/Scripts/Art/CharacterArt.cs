@@ -1420,7 +1420,8 @@ namespace Deepbound.Art
             MeshKit.Part(rig.Torso, "Belt", MeshKit.Cylinder(0.2f, 0.2f, 0.09f, 8), Mat.Leather, new Vector3(0f, 0.05f, 0f), Vector3.zero, new Vector3(1f, 1f, 0.7f));
             // Maul: a thick haft and a rough stone block.
             MeshKit.Part(grip, "Haft", MeshKit.Cylinder(0.035f, 0.035f, 0.95f, 6), Mat.Wood, new Vector3(0f, -0.15f, 0f));
-            MeshKit.Part(grip, "Head", MeshKit.Box(new Vector3(0.38f, 0.26f, 0.26f)), Mat.Rubble, new Vector3(0f, 0.85f, 0f), new Vector3(0f, 12f, 4f));
+            // A weathered stone head, darkened (2026-11-20: the pale rubble blew out to a white block under torchlight).
+            ArtLibrary.Tint(MeshKit.Part(grip, "Head", MeshKit.Box(new Vector3(0.38f, 0.26f, 0.26f)), Mat.Rubble, new Vector3(0f, 0.85f, 0f), new Vector3(0f, 12f, 4f)).GetComponent<Renderer>(), new Color(0.45f, 0.41f, 0.37f));
             MeshKit.Part(grip, "Band", MeshKit.Box(new Vector3(0.4f, 0.06f, 0.28f)), Mat.Steel, new Vector3(0f, 0.85f, 0f), new Vector3(0f, 12f, 4f));
             // Iron bands at both ends and spikes driven through: a maul, not a brick on a stick.
             var head = MeshKit.Pivot(grip, "MaulHead", new Vector3(0f, 0.85f, 0f), new Vector3(0f, 12f, 4f));
