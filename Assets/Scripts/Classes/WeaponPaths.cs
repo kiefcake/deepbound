@@ -17,13 +17,13 @@ namespace Deepbound.Classes
             if (path == PathTriads.Path) return PathTriads.Name(id);
             switch (id)
             {
-                case ClassId.Mage: return path == 1 ? "Pyromancer" : "Cryomancer";
+                case ClassId.Mage: return path == 1 ? "Inferno" : "Stormcaller";
                 case ClassId.Cleric: return path == 1 ? "Zealot" : "Shepherd";
                 case ClassId.Rogue: return path == 1 ? "Assassin" : "Duelist";
-                case ClassId.Ranger: return path == 1 ? "Sharpshooter" : "Trapper";
+                case ClassId.Ranger: return path == 1 ? "Splitshot" : "Blasthead";
                 case ClassId.Flagellant: return path == 1 ? "Fanatic" : "Penitent";
                 case ClassId.PlagueDoctor: return path == 1 ? "Pestilence" : "Physician";
-                default: return path == 1 ? "Cleave" : "Riposte";
+                default: return path == 1 ? "Greatblade" : "Spiked Shield";
             }
         }
 
@@ -33,26 +33,26 @@ namespace Deepbound.Classes
             switch (id)
             {
                 case ClassId.Mage: return path == 1
-                    ? "Firebolts burst on impact, hitting everything within 2 m for half damage."
-                    : "Frostbolts pierce through every enemy in a line, and chill for 6 s.";
+                    ? "The staff breathes fire: hold LMB for a short roaring flame stream instead of bolts. It scorches all it washes over."
+                    : "The staff calls lightning: LMB strikes the enemy you aim at at once, then forks to two more nearby.";
                 case ClassId.Cleric: return path == 1
-                    ? "Smite hits 35% harder, and each hit heals the most wounded ally nearby for 40% of it."
-                    : "Mending Beam heals 40% more; healing past full builds a shield of up to 40.";
+                    ? "Smite becomes a HAMMER OF LIGHT: slower and heavier, it bursts where it lands, and mends the most wounded ally nearby."
+                    : "Smites pass through your allies and heal each one they touch, and fly on through the dead.";
                 case ClassId.Rogue: return path == 1
-                    ? "Ambush hits from behind deal x2.0 instead of x1.5 (x1.6 instead of x1.3 on bosses)."
+                    ? "Stabs from behind deal x2.0 instead of x1.5 and leave the foe bleeding."
                     : "Stabs strike two enemies and hit 25% harder from the front; every 5th stab in a row on one foe is a FLOURISH (x2.5, staggers).";
                 case ClassId.Flagellant: return path == 1
-                    ? "Crashes hit 30% harder and burst half again as wide."
-                    : "Penance heals twice as much from every hit.";
+                    ? "The crash comes every OTHER swing, and it leaves the ground burning."
+                    : "The flail whirls all round you (at 70%), and Penance heals twice as much.";
                 case ClassId.PlagueDoctor: return path == 1
-                    ? "Vials splash 40% wider, and blight burns 40% hotter."
-                    : "Tonics heal 40% more, shield for 20, and come back sooner.";
+                    ? "Vials leave a puddle of plague where they burst that blights anything walking through it."
+                    : "Vials splash your allies too, and heal what they touch.";
                 case ClassId.Ranger: return path == 1
-                    ? "Full-draw arrows deal 40% more damage."
-                    : "Snares burst 40% wider and come back 40% sooner.";
+                    ? "A full draw looses THREE arrows in a fan."
+                    : "Arrows have blasting heads: they burst where they strike, scorching everything near.";
                 default: return path == 1
-                    ? "Swings sweep a far wider arc (160°) and reach further."
-                    : "Your counter after a block becomes a riposte: x2.2 damage instead of x1.4.";
+                    ? "A two-handed sweep (160°, longer reach). Every third swing in a chain, the overhead, sends a SLASH WAVE rolling ahead."
+                    : "Spikes on the shield: melee blows you block hurt the one who struck, and the counter after a block is a riposte (x2.2).";
             }
         }
 
@@ -62,11 +62,11 @@ namespace Deepbound.Classes
             switch (id)
             {
                 case ClassId.Mage: return path == 1
-                    ? "The burst grows to 3 m and deals three quarters damage."
-                    : "Shatter deals x2.5 instead of x1.75.";
+                    ? "Enemies kept in the flame for over a second catch fire and burn on."
+                    : "The fork leaps to four, and every strike jolts (a short stun).";
                 case ClassId.Cleric: return path == 1
-                    ? "Consecrated ground burns twice as hot."
-                    : "Divine Aegis is 60% stronger and recharges 30% faster.";
+                    ? "The hammer's burst stuns."
+                    : "Mending Beam heals 40% more, and healing past full builds a shield.";
                 case ClassId.Rogue: return path == 1
                     ? "Killing an enemy from behind resets Shadowstep."
                     : "A flourish every 4th stab, and Fan of Knives throws five knives.";
@@ -77,11 +77,11 @@ namespace Deepbound.Classes
                     ? "A blighted death spreads it to everything near, not just the nearest."
                     : "Tonics also cleanse afflictions.";
                 case ClassId.Ranger: return path == 1
-                    ? "A full-draw hit marks its target at once."
-                    : "Volley rains nine waves over a wider circle.";
+                    ? "The middle arrow of the fan marks its target at once."
+                    : "Full-draw blasts are twice as wide and stagger what they hit.";
                 default: return path == 1
-                    ? "Every third swing chills what it hits (sets up Shatter)."
-                    : "A riposte also stuns its targets for 1.2 s.";
+                    ? "The slash wave runs further and chills what it cuts (sets up Shatter)."
+                    : "Blocked blows also stun the one who struck (1 s), and a riposte stuns too.";
             }
         }
     }

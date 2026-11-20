@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Deepbound.Art;
 using Deepbound.Classes;
 using Deepbound.Combat;
@@ -53,7 +54,7 @@ namespace Deepbound.Player
         private float lastServerSmite;
         private BeamVisual beam;
 
-        private struct Zone { public Vector3 At; public float Until; }
+        private struct Zone { public Vector3 At; public float Until, NextPillar; public bool Follow; }
         private readonly List<Zone> zones = new List<Zone>();
         private float zoneTick;
 
@@ -84,7 +85,7 @@ namespace Deepbound.Player
         private void OnDisable() => AllClerics.Remove(this);
 
         /// <summary>Consecrate's radius (grows with its rank).</summary>
-        public float ZoneRadius => ConsecrateRadius * (progress != null && progress.Twist(AbilitySlot.Q) ? 1.5f : 1f);
+        public float ZoneRadius => ConsecrateRadius;
 
         private void Awake()
         {
@@ -131,6 +132,7 @@ namespace Deepbound.Player
             {
                 ServerBeamTick();
                 ServerZoneTick();
+                ServerTickPlant();
             }
             DrawBeam();
 
@@ -169,7 +171,7 @@ namespace Deepbound.Player
             if (wantBeam == 0 && UI.Binds.PrimaryHeld && Time.time >= nextSmite && Mana >= SmiteMana)
             {
                 Mana -= SmiteMana;
-                nextSmite = Time.time + SmiteInterval * progress.AttackTimeMultiplier;
+                nextSmite = Time.time + SmiteInterval * progress.AttackTimeMultiplier * (progress.OnPath(1) ? HammerInterval : 1f);
                 player.ViewModelCast(false);
                 SmiteRpc(player.AimOrigin + player.AimForward * 0.6f, player.AimForward);
             }
@@ -180,14 +182,16 @@ namespace Deepbound.Player
                 Mana -= ConsecrateMana;
                 consecrateReadyAt = Time.time + ConsecrateCooldown * progress.CooldownFor(AbilitySlot.Q);
                 player.ViewModelCast(true);
-                ConsecrateRpc();
+                // Thrown Blessing (rank 2 B): it lands where you aim.
+                if (progress.B(AbilitySlot.Q, 1) && player.TryAimFloor(ThrowRange * RangeMul, out var aimed)) ConsecrateAtRpc(aimed);
+                else ConsecrateRpc();
             }
 
             // --- E: Divine Aegis ---
             if (UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= aegisReadyAt && Mana >= AegisMana)
             {
                 Mana -= AegisMana;
-                aegisReadyAt = Time.time + AegisCooldown * progress.CooldownFor(AbilitySlot.E) * (progress.Mastered(2) ? 0.7f : 1f);
+                aegisReadyAt = Time.time + AegisCooldown * progress.CooldownFor(AbilitySlot.E);
                 player.ViewModelCast(true);
                 AegisRpc();
             }
@@ -225,8 +229,8 @@ namespace Deepbound.Player
             if (target != health && Vector3.Distance(target.transform.position, transform.position) > BeamReach + 2f) return;
 
             // Shepherd: stronger beam, and healing past full becomes a shield.
-            float rate = BeamHealPerSec * Potency * (target == health ? 0.33f : 1f) * (progress.OnPath(2) ? 1.4f : 1f);
-            if (progress.OnPath(2) && target.Current.Value >= target.Max.Value - 0.01f)
+            float rate = BeamHealPerSec * Potency * (target == health ? 0.33f : 1f) * (progress.Mastered(2) ? 1.4f : 1f);
+            if (progress.Mastered(2) && target.Current.Value >= target.Max.Value - 0.01f)
                 target.ServerShield(Mathf.Min(40f, target.Shield.Value + rate * Time.deltaTime), 4f);
             target.ServerHeal(rate * Time.deltaTime);
             Enemies.EnemyBrain.ServerHealThreat(health, rate * Time.deltaTime);
@@ -237,6 +241,40 @@ namespace Deepbound.Player
         /// 6-9 min against 4-5 for every other class): +35% smite damage with no other player in the party.
         /// </summary>
         public const float LoneSmiteBonus = 1.35f;
+        // ---- Hobb's paths (2026-11-20) ----
+        public const float HammerDamage = 1.8f, HammerRadius = 2.5f, HammerInterval = 1.6f, ShepherdHeal = 14f, PlantAfter = 1f, PlantedTaken = 0.7f;
+        private float stillSince = -1f;
+        /// <summary>Server: the Anchorite has stood still long enough to plant.</summary>
+        public bool Planted => IsServer && progress != null && progress.OnPath(Classes.PathTriads.Path) && stillSince >= 0f && Time.time - stillSince >= PlantAfter;
+        private bool wasPlanted;
+        private float nextPlantMend;
+
+        /// <summary>Server: watch for the Anchorite standing still.</summary>
+        private void ServerTickPlant()
+        {
+            if (!progress.OnPath(Classes.PathTriads.Path) || !Active) { stillSince = -1f; wasPlanted = false; return; }
+            bool still = life.ServerVelocity.sqrMagnitude < 0.25f && !life.Downed.Value;
+            if (!still) stillSince = -1f;
+            else if (stillSince < 0f) stillSince = Time.time;
+            bool now = Planted;
+            if (now != wasPlanted) { wasPlanted = now; PlantFxRpc(now); }
+            if (now && progress.Mastered(Classes.PathTriads.Path) && Time.time >= nextPlantMend)
+            {
+                nextPlantMend = Time.time + 0.5f;
+                foreach (var ally in CombatQuery.Circle(transform.position, 5f, Team.Players).ToArray())
+                    if (ally != health) ally.ServerHeal(ally.Max.Value * 0.01f);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PlantFxRpc(bool planted)
+        {
+            if (!planted) return;
+            var gold = new Color(1f, 0.85f, 0.45f);
+            Vfx.Ring(transform.position + Vector3.up * 0.05f, 1.2f, gold, 0.5f);
+            FxSprite.Decal("magic_03", transform.position, 1.6f, 1.8f, 1.2f, new Color(gold.r, gold.g, gold.b, 0.6f), 30f);
+            if (IsOwner) UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.2f, "PLANTED", gold);
+        }
         private static float LoneSmite => PlayerLife.All.Count <= 1 ? LoneSmiteBonus : 1f;
 
         [Rpc(SendTo.Server)]
@@ -245,35 +283,105 @@ namespace Deepbound.Player
             if (!life.CanAct || Time.time - lastServerSmite < SmiteInterval * 0.5f) return;
             lastServerSmite = Time.time;
             if (Vector3.Distance(origin, transform.position + Vector3.up * 1.6f) > 2.5f) origin = transform.position + Vector3.up * 1.6f;
+            float smite = SmiteDamage * progress.AttackMultiplier * LoneSmite;
+            ulong me = NetworkObjectId;
             if (progress.OnPath(1))
             {
-                // Zealot: harder smites that mend the most wounded ally in reach.
-                float dmg = SmiteDamage * progress.AttackMultiplier * 1.35f * LoneSmite;
-                ulong me = NetworkObjectId;
-                Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, SmiteSpeed, h =>
+                // Zealot: a hammer of light: heavier, bursts where it lands, and mends the most wounded ally.
+                float dmg = smite * HammerDamage;
+                bool stun = progress.Mastered(1);
+                Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, SmiteSpeed * 0.8f, h => { }, false, SmiteRange * RangeMul, 0f, at =>
                 {
-                    h.Tag("Smite").ServerDamage(dmg, origin, me);
                     if (this == null) return;
+                    float dealt = 0f;
+                    foreach (var h in CombatQuery.Circle(at, HammerRadius, Team.Enemies).ToArray())
+                    {
+                        dealt += h.Tag("Hammer of Light").ServerDamage(dmg * (Vector3.Distance(h.transform.position, at) < 1.2f ? 1f : 0.6f), at, me);
+                        if (stun) AbilityKit.Stun(h, 0.5f);
+                    }
+                    progress.AbilityBurstRpc(at, HammerRadius, PlayerProgress.FxKind.Holy);
                     Health worst = null;
                     foreach (var ally in CombatQuery.Circle(transform.position, 12f, Team.Players))
                         if (ally.IsAlive && (worst == null || ally.Fraction < worst.Fraction)) worst = ally;
-                    if (worst != null) worst.ServerHeal(dmg * 0.4f * Potency);
-                }, false, SmiteRange * RangeMul);
+                    if (worst != null && dealt > 0f) worst.ServerHeal(dealt * 0.4f * Potency);
+                });
             }
-            else Arrows.ServerFire(origin, direction, SmiteDamage * progress.AttackMultiplier * LoneSmite, Team.Enemies, NetworkObjectId, SmiteSpeed, null, false, SmiteRange * RangeMul);
+            else if (progress.OnPath(2))
+            {
+                // Shepherd: the smite flies on through the dead, and heals every ally it passes.
+                Arrows.ServerFire(origin, direction, smite, Team.Enemies, me, SmiteSpeed, null, true, SmiteRange * RangeMul);
+                var healed = new HashSet<Health>();
+                Arrows.ServerFire(origin, direction, 0f, Team.Players, me, SmiteSpeed, h =>
+                {
+                    if (this == null || h == health || !healed.Add(h)) return;
+                    h.ServerHeal(ShepherdHeal * Potency);
+                    progress.AbilityBurstRpc(h.Center, 0.6f, PlayerProgress.FxKind.Holy);
+                }, true, SmiteRange * RangeMul);
+            }
+            else Arrows.ServerFire(origin, direction, smite, Team.Enemies, me, SmiteSpeed, null, false, SmiteRange * RangeMul);
+            // Anchorite: planted, the smites fly in pairs.
+            if (Planted)
+            {
+                var twin = Quaternion.AngleAxis(4f, Vector3.up) * direction;
+                Arrows.ServerFire(origin + transform.right * 0.25f, twin, smite * 0.8f, Team.Enemies, me, SmiteSpeed, null, false, SmiteRange * RangeMul);
+                SmiteFxRpc(origin + transform.right * 0.25f, twin);
+            }
             SmiteFxRpc(origin, direction);
         }
+
+        // ---- Ysolde's options for Consecrate and Divine Aegis (2026-11-20) ----
+        public const float ThrowRange = 16f, PillarEvery = 1.5f, HaloRadius = 5f, HaloSeconds = 4f;
 
         [Rpc(SendTo.Server)]
         private void ConsecrateRpc() => ServerConsecrate();
 
-        /// <summary>Server: lay holy ground at your feet. Public for the smoke test.</summary>
-        public void ServerConsecrate()
+        [Rpc(SendTo.Server)]
+        private void ConsecrateAtRpc(Vector3 at)
+        {
+            if (Vector3.Distance(at, transform.position) > ThrowRange * RangeMul + 3f) at = transform.position;
+            ServerConsecrate(at);
+        }
+
+        /// <summary>Server: lay holy ground at your feet (or where you aimed). Public for the smoke test.</summary>
+        public void ServerConsecrate() => ServerConsecrate(transform.position);
+
+        public void ServerConsecrate(Vector3 at)
         {
             if (!life.CanAct) return;
-            zones.Add(new Zone { At = transform.position, Until = Time.time + (progress.Twist(AbilitySlot.Q) ? 9f : ConsecrateSeconds) });
-            ConsecrateFxRpc(transform.position);
+            bool follow = progress.A(AbilitySlot.Q, 1);
+            if (follow) at = transform.position;
+            zones.Add(new Zone { At = at, Until = Time.time + ConsecrateSeconds, NextPillar = Time.time + 0.6f, Follow = follow });
+            AbilityKit.ServerClearSanctuary(NetworkObjectId);
+            // Searing Ground (rank 3 A): it sears as it lands.
+            if (progress.A(AbilitySlot.Q, 2))
+            {
+                AbilityKit.Blast(at, ZoneRadius, ConsecrateBurnPerSec * progress.AttackMultiplier, NetworkObjectId, "Searing Ground", h => { h.ServerScorch(4f, NetworkObjectId); AbilityKit.Stun(h, 1f); });
+                progress.AbilityBurstRpc(at, ZoneRadius, PlayerProgress.FxKind.Fire);
+            }
+            ConsecrateFxRpc(at, follow);
         }
+
+        private Vector3 ZoneAt(Zone z) => z.Follow ? transform.position : z.At;
+
+        /// <summary>Server: an enemy died; Everburning keeps the ground burning longer and heals those in it.</summary>
+        private void OnEnemyDied(Health dead)
+        {
+            if (!IsServer || !Active || !progress.B(AbilitySlot.Q, 4) || dead == null || dead.Team != Team.Enemies) return;
+            for (int i = 0; i < zones.Count; i++)
+            {
+                var z = zones[i];
+                if (Time.time > z.Until || Vector3.Distance(ZoneAt(z), dead.transform.position) > ZoneRadius + 0.5f) continue;
+                z.Until += 2f;
+                zones[i] = z;
+                foreach (var ally in CombatQuery.Circle(ZoneAt(z), ZoneRadius, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.05f);
+                progress.AbilityBurstRpc(dead.transform.position, 1f, PlayerProgress.FxKind.Holy);
+                ZoneExtendRpc(i, 2f);
+                break;
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ZoneExtendRpc(int index, float seconds) => UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.2f, "EVERBURNING +" + seconds.ToString("F0") + "s", new Color(1f, 0.85f, 0.45f));
 
         private void ServerZoneTick()
         {
@@ -286,11 +394,44 @@ namespace Deepbound.Player
             for (int i = zones.Count - 1; i >= 0; i--)
             {
                 var z = zones[i];
-                if (Time.time > z.Until) { zones.RemoveAt(i); continue; }
-                foreach (var ally in CombatQuery.Circle(z.At, ZoneRadius, Team.Players).ToArray())
+                var at = ZoneAt(z);
+                if (Time.time > z.Until)
+                {
+                    zones.RemoveAt(i);
+                    // Hallowed Burst (rank 5 A): it ends in a burst.
+                    if (progress.A(AbilitySlot.Q, 4))
+                    {
+                        foreach (var ally in CombatQuery.Circle(at, ZoneRadius, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.2f);
+                        AbilityKit.Blast(at, ZoneRadius, ConsecrateBurnPerSec * 2.5f * progress.AttackMultiplier, NetworkObjectId, "Hallowed Burst", h => AbilityKit.Stun(h, 1f));
+                        progress.AbilityBurstRpc(at, ZoneRadius, PlayerProgress.FxKind.Holy);
+                    }
+                    continue;
+                }
+                foreach (var ally in CombatQuery.Circle(at, ZoneRadius, Team.Players).ToArray())
+                {
                     ally.ServerHeal(ConsecrateHealPerSec * Potency * progress.Potency(AbilitySlot.Q) * dt);
-                foreach (var foe in CombatQuery.Circle(z.At, ZoneRadius, Team.Enemies).ToArray())
-                    foe.Tag("Consecrate").ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q) * dt * (progress.Mastered(1) ? 2f : 1f), z.At, NetworkObjectId);
+                    // Sanctuary (rank 3 B): a downing blow leaves 1 health, once each per cast.
+                    if (progress.B(AbilitySlot.Q, 2)) AbilityKit.ServerSanctuary(ally, 0.6f, NetworkObjectId);
+                    // Purifying (rank 4 B): afflictions wash away inside.
+                    if (progress.B(AbilitySlot.Q, 3) && ally.TryGetComponent<PlayerDebuffs>(out var db) && db.AnyAffliction) { db.ServerCleanse(); progress.AbilityTextRpc(ally.Center + Vector3.up, "PURIFIED", PlayerProgress.FxKind.Holy); }
+                }
+                foreach (var foe in CombatQuery.Circle(at, ZoneRadius, Team.Enemies).ToArray())
+                    foe.Tag("Consecrate").ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q) * dt, at, NetworkObjectId);
+                // Judgement (rank 4 A): pillars of light on what stands inside.
+                if (progress.A(AbilitySlot.Q, 3) && Time.time >= z.NextPillar)
+                {
+                    z.NextPillar = Time.time + PillarEvery;
+                    zones[i] = z;
+                    var foes = CombatQuery.Circle(at, ZoneRadius, Team.Enemies).Where(h => h.IsAlive).ToList();
+                    if (foes.Count > 0)
+                    {
+                        var t = foes[Random.Range(0, foes.Count)];
+                        t.Tag("Judgement").ServerDamage(SmiteDamage * 1.6f * progress.AttackMultiplier, t.transform.position + Vector3.up * 6f, NetworkObjectId);
+                        AbilityKit.Stun(t, 0.4f);
+                        progress.AbilityLinkRpc(t.transform.position + Vector3.up * 7f, t.transform.position, PlayerProgress.FxKind.Holy);
+                        progress.AbilityBurstRpc(t.transform.position, 1.2f, PlayerProgress.FxKind.Holy);
+                    }
+                }
             }
         }
 
@@ -301,11 +442,39 @@ namespace Deepbound.Player
         public void ServerAegis()
         {
             if (!life.CanAct) return;
-            foreach (var ally in CombatQuery.Circle(transform.position, AegisRadius, Team.Players))
+            var allies = CombatQuery.Circle(transform.position, AegisRadius, Team.Players).ToList();
+            Health worst = null;
+            foreach (var ally in allies) if (ally.IsAlive && (worst == null || ally.Fraction < worst.Fraction)) worst = ally;
+            foreach (var ally in allies)
             {
-                ally.ServerShield(AegisAmount * Potency * progress.Potency(AbilitySlot.E) * (progress.Mastered(2) ? 1.6f : 1f), AegisSeconds);
-                if (progress.Twist(AbilitySlot.E)) ally.ServerHeal(ally.Max.Value * 0.25f);
+                float amount = AegisAmount * Potency * progress.Potency(AbilitySlot.E);
+                // Martyr's Share (rank 4 B): the most wounded gets twice the shield.
+                if (progress.B(AbilitySlot.E, 3) && ally == worst && allies.Count > 1) { amount *= 2f; progress.AbilityTextRpc(ally.Center + Vector3.up, "MARTYR'S SHARE", PlayerProgress.FxKind.Holy); }
+                ally.ServerShield(amount, AegisSeconds);
+                aegisOn[ally] = Time.time + AegisSeconds;
+                // Thorned Aegis (rank 2 A).
+                if (progress.A(AbilitySlot.E, 1)) AbilityKit.ServerThorn(ally, AegisSeconds);
+                // Swift Wings (rank 2 B).
+                if (progress.B(AbilitySlot.E, 1) && ally.TryGetComponent<PlayerProgress>(out var ap)) ap.ServerRally(4f, 1f);
+                // Mending (rank 3 A).
+                if (progress.A(AbilitySlot.E, 2)) ally.ServerHeal(ally.Max.Value * 0.25f);
+                // Purge (rank 3 B).
+                if (progress.B(AbilitySlot.E, 2) && ally.TryGetComponent<PlayerDebuffs>(out var db)) { db.ServerCleanse(); db.ServerWard(4f); }
+                // Echo of Grace (rank 5 B): what is left when it runs out comes back as healing.
+                if (progress.B(AbilitySlot.E, 4))
+                {
+                    var who = ally;
+                    AbilityKit.Later(this, AegisSeconds - 0.15f, () =>
+                    {
+                        if (who == null || !who.IsAlive || who.Shield.Value <= 0f) return;
+                        float left = who.Shield.Value;
+                        who.ServerHeal(left);
+                        progress.AbilityTextRpc(who.Center + Vector3.up, "GRACE +" + Mathf.RoundToInt(left), PlayerProgress.FxKind.Holy);
+                    });
+                }
             }
+            // Halo (rank 4 A): a ring of light throws back what crosses it.
+            if (progress.A(AbilitySlot.E, 3)) StartCoroutine(Halo());
             AegisFxRpc();
         }
 
@@ -321,10 +490,53 @@ namespace Deepbound.Player
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
         }
 
-        [Rpc(SendTo.ClientsAndHost)]
-        private void ConsecrateFxRpc(Vector3 at)
+        /// <summary>Server: Halo: for a few seconds anything that comes inside 5 m is thrown back out.</summary>
+        private System.Collections.IEnumerator Halo()
         {
-            HolyGround.Spawn(at, ConsecrateRadius, ConsecrateSeconds);
+            progress.AbilityCircleRpc(transform.position, HaloRadius, HaloSeconds, PlayerProgress.FxKind.Holy);
+            var at = transform.position;
+            float end = Time.time + HaloSeconds;
+            while (Time.time < end)
+            {
+                foreach (var h in CombatQuery.Circle(at, HaloRadius, Team.Enemies).ToArray())
+                {
+                    if (AbilityKit.IsBoss(h)) continue;
+                    var away = h.transform.position - at; away.y = 0f;
+                    AbilityKit.Push(h, away.normalized * 11f);
+                    AbilityKit.Stun(h, 0.3f);
+                }
+                yield return new WaitForSeconds(0.3f);
+            }
+        }
+
+        /// <summary>Server: Breaking Light: an ally's Aegis broke; the enemies round them pay for it.</summary>
+        private void OnShieldBroken(Health who)
+        {
+            if (!IsServer || !Active || who == null || !progress.A(AbilitySlot.E, 4)) return;
+            if (!aegisOn.TryGetValue(who, out var until) || Time.time > until) return;
+            aegisOn.Remove(who);
+            AbilityKit.Blast(who.transform.position, 3.5f, AegisAmount * 0.6f * progress.AttackMultiplier, NetworkObjectId, "Breaking Light", h => AbilityKit.Stun(h, 1.2f));
+            progress.AbilityBurstRpc(who.transform.position, 3.5f, PlayerProgress.FxKind.Holy);
+        }
+
+        private readonly Dictionary<Health, float> aegisOn = new Dictionary<Health, float>();
+
+        public override void OnNetworkSpawn()
+        {
+            if (IsServer) { Health.ServerShieldBroken += OnShieldBroken; Health.AnyDied += OnEnemyDied; }
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            if (IsServer) { Health.ServerShieldBroken -= OnShieldBroken; Health.AnyDied -= OnEnemyDied; }
+            base.OnNetworkDespawn();
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ConsecrateFxRpc(Vector3 at, bool follow)
+        {
+            var g = HolyGround.Spawn(at, ConsecrateRadius, ConsecrateSeconds);
+            if (follow) g.Follow = transform;
             // Runes turning in the hallowed ground for as long as it lasts.
             FxSprite.Decal("magic_05", at, ConsecrateRadius * 1.9f, ConsecrateRadius * 2f, ConsecrateSeconds, new Color(1f, 0.85f, 0.45f, 0.55f), 18f);
             Sfx.Play(Sound.Revive, at + Vector3.up, 0.9f, 0.85f);

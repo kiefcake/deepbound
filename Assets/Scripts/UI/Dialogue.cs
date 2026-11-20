@@ -182,6 +182,15 @@ namespace Deepbound.UI
                 return;
             }
             options.Add((DialogueLines.TradeLabel(who), Trade));
+            if (who == FolkId.Marta && TryGetComponent<Player.PlayerDebuffs>(out var drunk) && drunk.Drunk > 0)
+                options.Add(("A glass of milk, please. (" + TavernKeep.MilkPrice + " gold, sobers you up)", () =>
+                {
+                    var keep = TavernKeep.Instance;
+                    if (keep == null) { line = "The bar's shut, love."; return; }
+                    if (progress.Gold.Value < TavernKeep.MilkPrice) { line = "Milk's " + TavernKeep.MilkPrice + " gold. Even milk, love."; return; }
+                    keep.MilkRpc(player.NetworkObject);
+                    line = "*Marta pours a glass of milk and pushes it over.* Drink up. The Deep wants you steady.";
+                }));
             if (who == FolkId.Hobb && Anvil.Near(transform.position) != null) options.Add(("Work the forge.", () => { Close(); Hud?.OpenForge(); }));
             var craft = DialogueLines.CraftLabel(who);
             if (craft != null) options.Add((craft, () => { line = DialogueLines.Craft(who, player); }));

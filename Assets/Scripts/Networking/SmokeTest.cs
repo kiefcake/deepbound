@@ -404,19 +404,30 @@ namespace Deepbound.Networking
                 Log("firebolt shatters", "chill consumed " + !dummy.Chilled.Value + ", dealt " + (before - dummy.Current.Value).ToString("F0"),
                     !dummy.Chilled.Value && before - dummy.Current.Value > MageKit.FireboltDamage);
 
-                // Cryomancer path: one frostbolt pierces both dummies, which stand in a line.
+                // Hobb's Mage paths (2026-11-20): Stormcaller's bolt strikes at once and forks; Inferno breathes a scorching stream.
                 var dummiesAll = FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None).Select(d => d.GetComponent<Health>()).OrderBy(d => d.transform.position.z).ToArray();
                 if (dummiesAll.Length >= 2)
                 {
-                    foreach (var d in dummiesAll) d.ServerConsumeChill();
+                    foreach (var d in dummiesAll) { d.ServerConsumeChill(); d.ServerSetFraction(1f); }
                     progressMe.WeaponPath.Value = 2;
                     var near = dummiesAll[0].transform.position;
                     me.GetComponent<FirstPersonMotor>().Teleport(near + Vector3.back * 5f, Quaternion.LookRotation(Vector3.forward));
                     yield return new WaitForSeconds(0.2f);
                     var cfrom = me.transform.position + Vector3.up * 1.6f;
-                    mage.ServerBolt(cfrom, dummiesAll[1].Center - cfrom, true);
-                    yield return new WaitForSeconds(0.8f);
-                    Log("cryomancer pierce", "chilled " + dummiesAll[0].Chilled.Value + " and " + dummiesAll[1].Chilled.Value, dummiesAll[0].Chilled.Value && dummiesAll[1].Chilled.Value);
+                    float h0 = dummiesAll[0].Current.Value, h1 = dummiesAll[1].Current.Value;
+                    mage.ServerBolt(cfrom, dummiesAll[0].Center - cfrom, false);
+                    yield return new WaitForSeconds(0.2f);
+                    bool forked = dummiesAll[0].Current.Value < h0 && dummiesAll[1].Current.Value < h1;
+                    float gap = Vector3.Distance(dummiesAll[0].transform.position, dummiesAll[1].transform.position);
+                    progressMe.WeaponPath.Value = 1;
+                    dummiesAll[0].ServerSetFraction(1f);
+                    float h2 = dummiesAll[0].Current.Value;
+                    yield return new WaitForSeconds(0.3f);
+                    mage.ServerFlame(me.transform.position + Vector3.up * 1.6f, (dummiesAll[0].Center - (me.transform.position + Vector3.up * 1.6f)).normalized);
+                    yield return new WaitForSeconds(0.1f);
+                    bool flamed = dummiesAll[0].Current.Value < h2 && dummiesAll[0].Scorched.Value;
+                    Log("mage paths", "stormcaller forked " + forked + " (dummies " + gap.ToString("F1") + " m apart), inferno scorched " + flamed,
+                        (forked || gap > MageKit.ForkRange) && flamed);
                     progressMe.WeaponPath.Value = 0;
                 }
 
@@ -4116,17 +4127,18 @@ namespace Deepbound.Networking
                             tier2 == tier2Before + 1 && progress.RuneCount(Rune.Ember) == plain - 3);
                     }
 
-                    // Sigils: rank Q twice at the stones; the cooldown scale drops at rank 3.
-                    float cdBefore = progress.CooldownFor(Classes.AbilitySlot.Q);
+                    // Sigils: rank Q twice at the stones, taking option A then option B; each is locked in.
+                    float potBefore = progress.Potency(Classes.AbilitySlot.Q);
                     int sigilsBefore = progress.Sigils.Value;
                     progress.ServerAddSigil();
                     progress.ServerAddSigil();
-                    progress.EmpowerRpc(0);
+                    progress.EmpowerRpc(0, false);
                     yield return new WaitForSeconds(0.2f);
-                    progress.EmpowerRpc(0);
+                    progress.EmpowerRpc(0, true);
                     yield return new WaitForSeconds(0.2f);
-                    Log("ability rank", "Q rank " + progress.RankQ.Value + ", sigils left " + progress.Sigils.Value + ", Q cooldown x" + cdBefore + " -> x" + progress.CooldownFor(Classes.AbilitySlot.Q),
-                        progress.RankQ.Value == 3 && progress.Sigils.Value == sigilsBefore && progress.CooldownFor(Classes.AbilitySlot.Q) < cdBefore);
+                    Log("ability rank", "Q rank " + progress.RankQ.Value + ", sigils left " + progress.Sigils.Value + ", picks " + progress.Pick(Classes.AbilitySlot.Q, 1) + "/" + progress.Pick(Classes.AbilitySlot.Q, 2) + "/" + progress.Pick(Classes.AbilitySlot.Q, 3) + ", potency x" + potBefore.ToString("F2") + " -> x" + progress.Potency(Classes.AbilitySlot.Q).ToString("F2"),
+                        progress.RankQ.Value == 3 && progress.Sigils.Value == sigilsBefore && progress.A(Classes.AbilitySlot.Q, 1) && progress.B(Classes.AbilitySlot.Q, 2) && progress.Pick(Classes.AbilitySlot.Q, 3) == 0
+                        && progress.Potency(Classes.AbilitySlot.Q) > potBefore);
 
                     // Boss legendary: the Hollow Crown lifts both abilities a rank.
                     int qBefore = progress.Rank(Classes.AbilitySlot.Q), eBefore = progress.Rank(Classes.AbilitySlot.E);
@@ -4168,7 +4180,7 @@ namespace Deepbound.Networking
                         progress.Rank(Classes.AbilitySlot.E) == Mathf.Min(3, eBefore + 1));
                     if (!oldCharm.IsEmpty) progress.ServerEquip(oldCharm);
 
-                    // +3 needs a path; choose Cleave and check the swing now reaches wider. Tempering is back at the anvil.
+                    // +3 needs a path; choose Greatblade and check the swing now reaches wider. Tempering is back at the anvil.
                     motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
                         progress.ServerAddEmbers(Anvil.Cost(2));
@@ -5320,14 +5332,32 @@ namespace Deepbound.Networking
                         scorched && !shockT.Scorched.Value && shockT.Current.Value < shockHp); // chill may come back from another source at once
                 }
 
-                // Rank 5 is a choice: Hastened trades strength for cooldown.
-                synP.RankQ.Value = 5;
-                synP.RankChoice.Value = 0;
-                float overP = synP.Potency(Classes.AbilitySlot.Q), overCd = synP.CooldownFor(Classes.AbilitySlot.Q);
-                synP.RankChoice.Value = 1;
-                float hasteP = synP.Potency(Classes.AbilitySlot.Q), hasteCd = synP.CooldownFor(Classes.AbilitySlot.Q);
-                Log("rank five choice", "overcharged x" + overP.ToString("F2") + " / cd x" + overCd.ToString("F2") + ", hastened x" + hasteP.ToString("F2") + " / cd x" + hasteCd.ToString("F2"),
-                    overP > hasteP && hasteCd < overCd);
+                // Ysolde's choices: two named, described options at every rank for every class, and none repeats within an ability.
+                int optionsFound = 0, optionsBad = 0;
+                foreach (Classes.ClassId cid in System.Enum.GetValues(typeof(Classes.ClassId)))
+                    foreach (var sl in new[] { Classes.AbilitySlot.Q, Classes.AbilitySlot.E })
+                    {
+                        var names = new System.Collections.Generic.HashSet<string>();
+                        for (int t = 1; t <= Classes.AbilityRanks.Tiers; t++)
+                            foreach (bool ob in new[] { false, true })
+                            {
+                                var o = Classes.AbilityRanks.Get(cid, sl, t, ob);
+                                if (string.IsNullOrEmpty(o.Name) || string.IsNullOrEmpty(o.Text) || !names.Add(o.Name)) optionsBad++; else optionsFound++;
+                            }
+                    }
+                // The ally guards some options lay down: Bastion (a quarter less near its Knight) and Sanctuary (a downing blow leaves 1).
+                var synLife = local.GetComponent<PlayerLife>();
+                var synH = local.GetComponent<Health>();
+                synH.ServerSetFraction(1f);
+                Classes.AbilityKit.ServerDamageZone(local.transform.position, 3f, 0.5f, 0.75f, null, "test");
+                float bastioned = Classes.AbilityKit.AllyIncoming(synLife, 100f, local.transform.position);
+                yield return new WaitForSeconds(0.6f);
+                Classes.AbilityKit.ServerSanctuary(synH, 2f, 424242);
+                float sanctified = Classes.AbilityKit.AllyIncoming(synLife, synH.Current.Value * 3f, local.transform.position);
+                float second = Classes.AbilityKit.AllyIncoming(synLife, synH.Current.Value * 3f, local.transform.position);
+                Classes.AbilityKit.ServerClearSanctuary(424242);
+                Log("rank choices", optionsFound + " options, " + optionsBad + " missing or repeated; bastion 100 -> " + bastioned.ToString("F0") + ", sanctuary leaves " + (synH.Current.Value - sanctified).ToString("F0") + " (then " + (synH.Current.Value - second).ToString("F0") + ")",
+                    optionsBad == 0 && optionsFound == 112 && Mathf.Abs(bastioned - 75f) < 0.5f && Mathf.Abs(synH.Current.Value - sanctified - 1f) < 0.01f && second > synH.Current.Value);
 
                 // Co-op loot: each of four players gets about a solo player's share.
                 float k4 = Difficulty.KillLootShare(4), perPlayer = Difficulty.SpawnCount(4) / Difficulty.SpawnCount(1) * k4 / 4f;
@@ -6721,8 +6751,8 @@ namespace Deepbound.Networking
                 local.GetComponent<UI.GameHud>().DebugOpenRunewright();
                 yield return null;
                 yield return Shot(dir, "1b_runewright_panel");
-                // Rank five's choice: Overcharged or Hastened.
-                ap.RankQ.Value = 4;
+                // The next rank's choice of two.
+                ap.RankQ.Value = 3;
                 for (int i = 0; i < 3; i++) ap.ServerAddSigil();
                 yield return null;
                 yield return Shot(dir, "1b_runewright_rank5");

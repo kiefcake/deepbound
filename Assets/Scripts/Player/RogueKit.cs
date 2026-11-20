@@ -115,6 +115,96 @@ namespace Deepbound.Player
         public override void OnNetworkSpawn()
         {
             life.Hidden.OnValueChanged += (_, now) => OnHiddenChanged(now);
+            if (IsServer) Health.AnyDied += OnSomethingDied;
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            if (IsServer) Health.AnyDied -= OnSomethingDied;
+            base.OnNetworkDespawn();
+        }
+
+        // ---- Ysolde's options for Shadowstep and Smoke Bomb (2026-11-20) ----
+        public const float FreeStepWindow = 3f, DanceRange = 8f, UnseenSeconds = 1.5f, SmokeChainGap = 4f;
+        private float freeStepUntil, smokeWindowUntil, lastSmokeChain = -10f;
+
+        /// <summary>Owner -> server: you arrived behind <paramref name="targetId"/> from <paramref name="from"/>.</summary>
+        [Rpc(SendTo.Server)]
+        private void StepArrivedRpc(ulong targetId, Vector3 from)
+        {
+            if (!NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(targetId, out var obj) || !obj.TryGetComponent<Health>(out var t)) return;
+            ServerStepArrived(t, from);
+        }
+
+        /// <summary>Server: what the step does on arrival. Public for the smoke test.</summary>
+        public void ServerStepArrived(Health t, Vector3 from)
+        {
+            if (t == null || !t.IsAlive) return;
+            float att = progress.AttackMultiplier;
+            ulong me = NetworkObjectId;
+            // Shadow Gash (rank 2 A).
+            if (progress.A(AbilitySlot.Q, 1)) { AbilityKit.Bleed(this, t, StabDamage * att * 1.3f, 4f, me, "Shadow Gash"); progress.AbilityTextRpc(t.Center + Vector3.up, "GASHED", PlayerProgress.FxKind.Blood); }
+            // Opener (rank 3 A).
+            if (progress.A(AbilitySlot.Q, 2)) { openerArmed = true; openerExpires = Time.time + 2f; }
+            // Switch (rank 3 B): it is flung to where you stood.
+            if (progress.B(AbilitySlot.Q, 2) && !AbilityKit.IsBoss(t)) { AbilityKit.PullTo(t, from, 1.2f); AbilityKit.Stun(t, 1f); progress.AbilityTextRpc(t.Center + Vector3.up, "SWITCH", PlayerProgress.FxKind.Shadow); }
+            // Death Mark (rank 4 A).
+            if (progress.A(AbilitySlot.Q, 3)) { t.ServerMark(6f); progress.AbilityTextRpc(t.Center + Vector3.up * 1.4f, "DEATH MARK", PlayerProgress.FxKind.Shadow); }
+            // Hamstring (rank 4 B).
+            if (progress.B(AbilitySlot.Q, 3)) t.ServerChill(4f);
+            // Blade Dance (rank 5 A): two more cuts on the way.
+            if (progress.A(AbilitySlot.Q, 4))
+            {
+                var cut = new HashSet<Health> { t };
+                var last = t;
+                for (int i = 0; i < 2; i++)
+                {
+                    var next = AbilityKit.Nearest(last.transform.position, DanceRange, cut);
+                    if (next == null) break;
+                    cut.Add(next);
+                    next.Tag("Blade Dance").ServerDamage(StabDamage * OpenerMultiplier * att, last.transform.position, me);
+                    progress.AbilityLinkRpc(last.Center, next.Center, PlayerProgress.FxKind.Shadow);
+                    last = next;
+                }
+            }
+            // Unseen (rank 5 B).
+            if (progress.B(AbilitySlot.Q, 4)) ServerUnseen(UnseenSeconds);
+        }
+
+        private void ServerUnseen(float seconds)
+        {
+            life.VeiledUntil = Mathf.Max(life.VeiledUntil, Time.time + seconds);
+            foreach (var brain in FindObjectsByType<Enemies.EnemyBrain>(FindObjectsSortMode.None))
+                if (!brain.IsDead && Vector3.Distance(brain.transform.position, transform.position) < 20f) brain.ServerForget(health);
+            progress.AbilityTextRpc(transform.position + Vector3.up * 2.2f, "UNSEEN", PlayerProgress.FxKind.Shadow);
+        }
+
+        /// <summary>Server: Smoke Chain: a kill from the smoke drops a fresh bomb.</summary>
+        private void OnSomethingDied(Health dead)
+        {
+            if (!Active || dead == null || dead.Team != Team.Enemies || dead.LastHitFrom != NetworkObjectId) return;
+            // Shadowskin: every kill shrouds you.
+            if (progress.OnPath(Classes.PathTriads.Path)) ServerUnseen(1.5f);
+            if (!progress.A(AbilitySlot.E, 4) || Time.time > smokeWindowUntil || Time.time - lastSmokeChain < SmokeChainGap) return;
+            lastSmokeChain = Time.time;
+            progress.AbilityTextRpc(transform.position + Vector3.up * 2.2f, "SMOKE CHAIN", PlayerProgress.FxKind.Shadow);
+            ServerSmoke(true);
+        }
+
+        /// <summary>Server: Choking Smoke and Caltrops: what lies in the cloud hurts.</summary>
+        private System.Collections.IEnumerator SmokeHazard(Vector3 at, float seconds, bool choke, bool caltrops)
+        {
+            float end = Time.time + seconds;
+            float att = progress.AttackMultiplier;
+            while (Time.time < end)
+            {
+                yield return new WaitForSeconds(0.5f);
+                foreach (var h in CombatQuery.Circle(at, SmokeCloudRadius, Team.Enemies).ToArray())
+                {
+                    if (choke) h.Tag("Choking Smoke").ServerDamage(StabDamage * 0.6f * att * 0.5f, at, NetworkObjectId);
+                    if (caltrops) { h.Tag("Caltrops").ServerDamage(StabDamage * 0.35f * att * 0.5f, at, NetworkObjectId); h.ServerChill(1f); }
+                }
+            }
         }
 
         // ==================================================================
@@ -164,10 +254,14 @@ namespace Deepbound.Player
             }
 
             // --- Q: Shadowstep ---
-            if (UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= stepReadyAt)
+            bool freeStep = Time.time < freeStepUntil;
+            if (UI.Binds.Down(UI.Bind.AbilityQ) && (Time.time >= stepReadyAt || freeStep))
             {
-                if (TryShadowstep()) stepReadyAt = Time.time + StepCooldown * progress.CooldownFor(AbilitySlot.Q);
-                else if (TryShadowDash()) stepReadyAt = Time.time + StepCooldown * DashCooldownShare * progress.CooldownFor(AbilitySlot.Q);
+                bool stepped = false;
+                if (TryShadowstep()) { if (!freeStep) stepReadyAt = Time.time + StepCooldown * progress.CooldownFor(AbilitySlot.Q); stepped = true; }
+                else if (TryShadowDash()) { if (!freeStep) stepReadyAt = Time.time + StepCooldown * DashCooldownShare * progress.CooldownFor(AbilitySlot.Q); stepped = true; }
+                // Double Step (rank 2 B): a free second step, once.
+                if (stepped) freeStepUntil = freeStep ? 0f : progress.B(AbilitySlot.Q, 1) ? Time.time + FreeStepWindow : 0f;
             }
 
             // --- E: Smoke Bomb ---
@@ -187,7 +281,7 @@ namespace Deepbound.Player
             {
                 if (h == null || h.Team != Team.Enemies || !h.IsAlive) continue;
                 var to = h.Center - player.AimOrigin;
-                if (to.magnitude > StepRange * progress.Potency(AbilitySlot.Q) * RangeMul) continue;
+                if (to.magnitude > StepRange * RangeMul) continue;
                 float angle = Vector3.Angle(player.AimForward, to);
                 if (angle < bestAngle && CombatQuery.ClearLine(player.AimOrigin, h)) { bestAngle = angle; best = h; }
             }
@@ -209,7 +303,7 @@ namespace Deepbound.Player
             face.y = 0f;
             motor.Teleport(floor.point + Vector3.up * 0.05f, Quaternion.LookRotation(face));
             StepFxRpc(from, transform.position);
-            if (progress.Twist(AbilitySlot.Q)) ArmStepOpenerRpc();
+            StepArrivedRpc(best.NetworkObjectId, from);
             return true;
         }
 
@@ -223,7 +317,7 @@ namespace Deepbound.Player
             if (flat.sqrMagnitude < 0.01f) return false;
             flat.Normalize();
             var chest = transform.position + Vector3.up * 1.0f;
-            float dist = DashRange * progress.Potency(AbilitySlot.Q);
+            float dist = DashRange;
             if (Physics.SphereCast(chest, 0.3f, flat, out var wall, dist, ~0, QueryTriggerInteraction.Ignore)) dist = wall.distance - 0.4f;
             if (dist < 1.5f) return false;
             var spot = chest + flat * dist;
@@ -311,6 +405,8 @@ namespace Deepbound.Player
                 var zone = HitZones.Aimed(target, origin, forward, Reach, out var zonePoint);
                 m *= HitZones.Multiplier(target, zone, false);
                 target.Tag("Stab").ServerDamage(StabDamage * m, transform.position, NetworkObjectId);
+                // Assassin: a stab from behind leaves the foe bleeding.
+                if (progress.OnPath(1) && lastHitFromBehind && target.IsAlive) AbilityKit.Bleed(this, target, StabDamage * progress.AttackMultiplier * 0.8f, 3f, NetworkObjectId, "Bleed");
                 if (zone != HitZone.Body) Arrows.ReportZone(NetworkObjectId, zonePoint, zone);
                 AfterHit(target, opener);
                 if (flourish)
@@ -380,10 +476,14 @@ namespace Deepbound.Player
         private void SmokeRpc() => ServerSmoke();
 
         /// <summary>Server: vanish. Public for the smoke test.</summary>
-        public void ServerSmoke()
+        public void ServerSmoke() => ServerSmoke(false);
+
+        private void ServerSmoke(bool chained)
         {
             if (!life.CanAct) return;
-            hiddenUntil = Time.time + SmokeSeconds * progress.Potency(AbilitySlot.E);
+            float smokeFor = SmokeSeconds * progress.Potency(AbilitySlot.E);
+            hiddenUntil = Time.time + smokeFor;
+            smokeWindowUntil = hiddenUntil + 1f;
             smokeCloudAt = transform.position;
             smokeCloudUntil = hiddenUntil;
             openerArmed = true;
@@ -394,11 +494,31 @@ namespace Deepbound.Player
                 if (!brain.IsDead && Vector3.Distance(brain.transform.position, transform.position) < 25f && brain.ServerForget(health))
                     lost.Add(brain.GetComponent<Health>().Center + Vector3.up * 1.2f);
             if (lost.Count > 0) LostYouRpc(lost.ToArray());
-            // Rank 3: the burst of smoke staggers everything close — Exposed for the party.
-            if (progress.Twist(AbilitySlot.E))
-                foreach (var h in CombatQuery.Circle(transform.position, 5f, Team.Enemies).ToArray())
-                    if (h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.5f);
-            SmokeFxRpc(transform.position, SmokeSeconds * progress.Potency(AbilitySlot.E));
+            var at = transform.position;
+            // Blinding Flash (rank 2 B): the burst staggers everything close - Exposed for the party.
+            if (progress.B(AbilitySlot.E, 1))
+                foreach (var h in CombatQuery.Circle(at, 5f, Team.Enemies).ToArray())
+                    AbilityKit.Stun(h, 1.5f);
+            // Choking Smoke (rank 2 A) and Caltrops (rank 3 A).
+            if (progress.A(AbilitySlot.E, 1) || progress.A(AbilitySlot.E, 2)) StartCoroutine(SmokeHazard(at, smokeFor, progress.A(AbilitySlot.E, 1), progress.A(AbilitySlot.E, 2)));
+            // Vanishing Act (rank 3 B).
+            if (progress.B(AbilitySlot.E, 2) && !chained)
+            {
+                health.ServerHeal(health.Max.Value * 0.15f);
+                if (TryGetComponent<PlayerDebuffs>(out var db)) db.ServerCleanse();
+            }
+            // Flashpowder (rank 4 A).
+            if (progress.A(AbilitySlot.E, 3))
+            {
+                AbilityKit.Blast(at, 4f, StabDamage * 3f * progress.AttackMultiplier, NetworkObjectId, "Flashpowder", h => h.ServerScorch(4f, NetworkObjectId));
+                progress.AbilityBurstRpc(at, 4f, PlayerProgress.FxKind.Fire);
+            }
+            // Ghost's Stride (rank 4 B).
+            if (progress.B(AbilitySlot.E, 3)) progress.ServerRally(smokeFor, 1f);
+            // Marked for Death (rank 5 B).
+            if (progress.B(AbilitySlot.E, 4))
+                foreach (var h in CombatQuery.Circle(at, 8f, Team.Enemies).ToArray()) { h.ServerMark(6f); progress.AbilityTextRpc(h.Center + Vector3.up, "MARKED", PlayerProgress.FxKind.Shadow); }
+            SmokeFxRpc(at, smokeFor);
         }
 
         /// <summary>

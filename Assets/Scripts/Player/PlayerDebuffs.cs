@@ -59,6 +59,8 @@ namespace Deepbound.Player
         public bool Manic => Now < ManiaUntil.Value;
         public bool Silenced => Now < SilenceUntil.Value;
         public bool Dazed => Now < DazeUntil.Value;
+        /// <summary>Anything a cleanse would take away.</summary>
+        public bool AnyAffliction => Poisoned || Frostbitten || Cursed || Silenced || Dazed || Manic || Now < RootUntil.Value;
         /// <summary>The Withering Hag's curse: +40% damage taken.</summary>
         public bool Accursed => Now < HexUntil.Value;
         public bool Blinded => Now < BlindUntil.Value;
@@ -100,6 +102,14 @@ namespace Deepbound.Player
             if (!IsServer) return;
             DrunkLevel.Value = (byte)Mathf.Min(DrunkMax, Drunk + 1);
             DrunkUntil.Value = Now + DrunkSecondsPerLevel;
+        }
+
+        /// <summary>Server: Marta's milk - every level of drink gone at once.</summary>
+        public void ServerSober()
+        {
+            if (!IsServer) return;
+            DrunkLevel.Value = 0;
+            DrunkUntil.Value = 0;
         }
 
         /// <summary>Server: the drink wears off a level at a time.</summary>

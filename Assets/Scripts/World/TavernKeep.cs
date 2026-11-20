@@ -14,6 +14,8 @@ namespace Deepbound.World
     public class TavernKeep : Interactable
     {
         public const int MeadPrice = 8;
+        /// <summary>A glass of milk (2026-11-20, the user): sobers you up at once.</summary>
+        public const int MilkPrice = 4;
         public static TavernKeep Instance { get; private set; }
         /// <summary>Where Marta stands, behind the bar.</summary>
         public Vector3 MartaAt => transform.position - transform.forward * 0.9f;
@@ -38,6 +40,30 @@ namespace Deepbound.World
             if (d == null) return;
             d.ServerDrink();
             DrinkFxRpc(who.NetworkObject, d.Drunk);
+        }
+
+        /// <summary>Any peer -> server: buy a glass of milk; every level of drink is gone at once.</summary>
+        [Rpc(SendTo.Server, RequireOwnership = false)]
+        public void MilkRpc(NetworkObjectReference whoRef)
+        {
+            if (!whoRef.TryGet(out var obj) || !obj.TryGetComponent<PlayerProgress>(out var who)) return;
+            if (Vector3.Distance(who.transform.position, MartaAt) > 6f) return;
+            var d = who.GetComponent<PlayerDebuffs>();
+            if (d == null || d.Drunk == 0 || Time.time < busyUntil || !who.ServerSpendGold(MilkPrice)) return;
+            busyUntil = Time.time + 0.6f;
+            d.ServerSober();
+            MilkFxRpc(who.NetworkObject);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void MilkFxRpc(NetworkObjectReference whoRef)
+        {
+            if (!whoRef.TryGet(out var who)) return;
+            var at = who.transform.position + Vector3.up * 1.6f;
+            Sfx.Play(Sound.Drink, at, 0.8f, 1.15f);
+            Sfx.Play(Sound.Coins, transform.position + Vector3.up, 0.4f, 1.2f);
+            UI.GameHud.ShowCombo(at + Vector3.up * 0.5f, "SOBER", new Color(0.95f, 0.95f, 0.9f));
+            UI.GameHud.Feed(who.name + " drinks a glass of milk and sobers up", new Color(0.95f, 0.95f, 0.9f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]

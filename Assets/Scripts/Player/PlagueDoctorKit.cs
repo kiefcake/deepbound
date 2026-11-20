@@ -50,7 +50,7 @@ namespace Deepbound.Player
         public float Reagents { get; private set; } = ReagentMax;
         private float nextVial, tonicReadyAt, miasmaReadyAt, maskReadyAt;
 
-        private struct Cloud { public Vector3 At; public float Radius, Until, Dps; public bool Black; }
+        private struct Cloud { public Vector3 At; public float Radius, Until, Dps, NextChoke; public bool Black, Small; public int Id; }
         private readonly List<Cloud> clouds = new List<Cloud>();
         private float nextCloudTick;
 
@@ -89,6 +89,7 @@ namespace Deepbound.Player
         {
             if (!IsServer) return;
             all.Add(this);
+            health.DamagedServer += OnHurt;
             Health.InPlagueCloud = InBlackDeath;
             if (contagionHooked) return;
             contagionHooked = true;
@@ -101,7 +102,55 @@ namespace Deepbound.Player
             };
         }
 
-        public override void OnNetworkDespawn() => all.Remove(this);
+        public override void OnNetworkDespawn()
+        {
+            all.Remove(this);
+            if (IsServer) Health.AnyDied -= OnSomethingDied;
+        }
+
+        // ---- Hobb's paths (2026-11-20) ----
+        public const float PuddleSeconds = 2.5f, VialHeal = 0.06f, MithridateReachMelee = 3.5f;
+
+        /// <summary>Server: the Mithridate: whatever strikes you in melee is blighted.</summary>
+        private void OnHurt(float lost, ulong from)
+        {
+            if (!Active || !progress.OnPath(Classes.PathTriads.Path) || !NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(from, out var obj)) return;
+            if (!obj.TryGetComponent<Health>(out var foe) || foe.Team != Team.Enemies || !foe.IsAlive) return;
+            if (Vector3.Distance(foe.transform.position, transform.position) > MithridateReachMelee) return;
+            foe.ServerBlight(BlightSeconds, BlightDps * BlightPower, NetworkObjectId);
+        }
+
+        // ---- Ysolde's options for Miasma and Plague Mask (2026-11-20) ----
+        public const float DriftSpeed = 1.2f, ChokeEvery = 2f, VolatileShare = 3.5f, WindRadius = 10f, RepelRadius = 5f, LordRadius = 8f;
+        private int nextCloudId;
+        private bool diedHooked;
+        private static readonly Dictionary<int, SmokeCloud> shownClouds = new Dictionary<int, SmokeCloud>();
+
+        /// <summary>Server: Contagious: an enemy that dies inside one of my clouds bursts into a small cloud.</summary>
+        private void OnSomethingDied(Health dead)
+        {
+            if (!Active || dead == null || dead.Team != Team.Enemies || !progress.A(AbilitySlot.Q, 2)) return;
+            foreach (var c in clouds)
+                if (!c.Black && !c.Small && Time.time < c.Until && Vector3.Distance(c.At, dead.transform.position) < c.Radius)
+                {
+                    AddCloud(dead.transform.position, MiasmaRadius * 0.5f, MiasmaSeconds * 0.6f, MiasmaDps * progress.Potency(AbilitySlot.Q) * 0.6f, true);
+                    return;
+                }
+        }
+
+        private void AddCloud(Vector3 at, float radius, float seconds, float dps, bool small)
+        {
+            if (!diedHooked && IsServer) { diedHooked = true; Health.AnyDied += OnSomethingDied; }
+            int id = ++nextCloudId;
+            clouds.Add(new Cloud { At = at, Radius = radius, Until = Time.time + seconds, Dps = dps, Small = small, Id = id, NextChoke = Time.time + ChokeEvery });
+            CloudFxRpc(at, radius, seconds, false, id);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void CloudDriftRpc(int id, Vector3 to)
+        {
+            if (shownClouds.TryGetValue(NetworkObjectId.GetHashCode() * 1000 + id, out var c) && c != null) c.DriftTo = Vfx.Floor(to);
+        }
 
         // ==================================================================
         // Owner
@@ -134,7 +183,7 @@ namespace Deepbound.Player
             if (UI.Binds.SecondaryDown && Time.time >= tonicReadyAt && Reagents >= TonicCost)
             {
                 Reagents -= TonicCost;
-                tonicReadyAt = Time.time + TonicCooldown * (progress.OnPath(2) ? 0.85f : 1f);
+                tonicReadyAt = Time.time + TonicCooldown;
                 player.ViewModelCast(false);
                 TonicRpc(player.AimOrigin + player.AimForward * 0.6f, LobDirection());
             }
@@ -172,7 +221,7 @@ namespace Deepbound.Player
         // Server
         // ==================================================================
 
-        private float BlightPower => progress.AttackMultiplier * (progress.OnPath(1) ? 1.4f : 1f);
+        private float BlightPower => progress.AttackMultiplier;
 
         [Rpc(SendTo.Server)]
         private void VialRpc(Vector3 origin, Vector3 direction)
@@ -194,8 +243,26 @@ namespace Deepbound.Player
         /// <summary>Server: a vial shatters here: damage and blight in a small splash.</summary>
         public void ServerSplash(Vector3 at)
         {
-            float radius = SplashRadius * (progress.OnPath(1) ? 1.4f : 1f);
+            float radius = SplashRadius;
             float p = BlightPower;
+            // Pestilence: a puddle of plague lingers where the vial burst.
+            if (progress.OnPath(1)) AddCloud(at, radius, PuddleSeconds, BlightDps * 0.6f, true);
+            // Physician: the splash heals the allies it touches.
+            if (progress.OnPath(2))
+                foreach (var ally in CombatQuery.Circle(at, radius + 0.4f, Team.Players).ToArray())
+                    if (ally.IsAlive) ally.ServerHeal(ally.Max.Value * VialHeal);
+            // Volatile (rank 4 B): a vial into my cloud sets it off.
+            if (progress.B(AbilitySlot.Q, 3))
+                for (int i = clouds.Count - 1; i >= 0; i--)
+                {
+                    var c = clouds[i];
+                    if (c.Black || Time.time >= c.Until || Vector3.Distance(c.At, at) > c.Radius) continue;
+                    clouds.RemoveAt(i);
+                    AbilityKit.Blast(c.At, c.Radius + 0.5f, VialDamage * VolatileShare * p, NetworkObjectId, "Volatile", h => h.ServerScorch(4f, NetworkObjectId));
+                    progress.AbilityBurstRpc(c.At, c.Radius + 0.5f, PlayerProgress.FxKind.Fire);
+                    progress.AbilityTextRpc(c.At + Vector3.up * 2f, "IGNITED", PlayerProgress.FxKind.Fire);
+                    CloudGoneRpc(c.Id);
+                }
             foreach (var h in CombatQuery.Circle(at, radius, Team.Enemies).ToArray())
             {
                 h.Tag("PlagueDoctorKit").ServerDamage(VialDamage * p, at, NetworkObjectId);
@@ -218,14 +285,13 @@ namespace Deepbound.Player
         /// <summary>Server: a tonic bursts: heal every ally in the mist. Public for the smoke test.</summary>
         public int ServerTonic(Vector3 at)
         {
-            float heal = TonicHeal * (progress.OnPath(2) ? 1.4f : 1f);
+            float heal = TonicHeal;
             int n = 0;
             foreach (var ally in PlayerLife.All)
             {
                 if (ally == null || ally.Downed.Value || !ally.Health.IsAlive) continue;
                 if (Vector3.Distance(ally.transform.position, at) > TonicRadius + 0.6f) continue;
                 ally.Health.ServerHeal(ally.Health.Max.Value * heal);
-                if (progress.OnPath(2)) ally.Health.ServerShield(20f, 6f);
                 if (progress.Mastered(2) && ally.TryGetComponent<PlayerDebuffs>(out var db)) db.ServerCleanse();
                 n++;
             }
@@ -245,16 +311,22 @@ namespace Deepbound.Player
         public void ServerMiasma(Vector3 at)
         {
             float potency = progress.Potency(AbilitySlot.Q);
-            float radius = MiasmaRadius * (progress.Twist(AbilitySlot.Q) ? 1.5f : 1f);
-            clouds.Add(new Cloud { At = at, Radius = radius, Until = Time.time + MiasmaSeconds, Dps = MiasmaDps * potency });
-            CloudFxRpc(at, radius, MiasmaSeconds, false);
+            float radius = MiasmaRadius;
+            // Twin Clouds (rank 5 A): one each side of where you aim.
+            if (progress.A(AbilitySlot.Q, 4))
+            {
+                var side = transform.right; side.y = 0f; side.Normalize();
+                AddCloud(at + side * radius * 0.9f, radius, MiasmaSeconds, MiasmaDps * potency, false);
+                AddCloud(at - side * radius * 0.9f, radius, MiasmaSeconds, MiasmaDps * potency, false);
+            }
+            else AddCloud(at, radius, MiasmaSeconds, MiasmaDps * potency, false);
         }
 
         /// <summary>Server: the ultimate, Black Death: a vast cloud that rots everything inside.</summary>
         public void ServerBlackDeath(Vector3 at)
         {
-            clouds.Add(new Cloud { At = at, Radius = 8f, Until = Time.time + 8f, Dps = MiasmaDps * 2.2f, Black = true });
-            CloudFxRpc(at, 8f, 8f, true);
+            clouds.Add(new Cloud { At = at, Radius = 8f, Until = Time.time + 8f, Dps = MiasmaDps * 2.2f, Black = true, Id = ++nextCloudId });
+            CloudFxRpc(at, 8f, 8f, true, nextCloudId);
         }
 
         /// <summary>Server: is this spot inside a Black Death cloud (+25% damage taken)?</summary>
@@ -276,12 +348,44 @@ namespace Deepbound.Player
             for (int i = clouds.Count - 1; i >= 0; i--)
             {
                 var c = clouds[i];
-                if (Time.time >= c.Until) { clouds.RemoveAt(i); continue; }
+                if (Time.time >= c.Until)
+                {
+                    clouds.RemoveAt(i);
+                    // Plague Wind (rank 5 B): it ends by blowing outward.
+                    if (!c.Black && !c.Small && progress.B(AbilitySlot.Q, 4))
+                    {
+                        foreach (var h in CombatQuery.Circle(c.At, WindRadius, Team.Enemies).ToArray()) h.ServerBlight(BlightSeconds, BlightDps * p, NetworkObjectId);
+                        progress.AbilityBurstRpc(c.At, WindRadius, PlayerProgress.FxKind.Poison);
+                    }
+                    continue;
+                }
+                bool mine = !c.Black;
+                // Creeping Cloud (rank 2 A): it drifts toward the nearest enemy.
+                if (mine && progress.A(AbilitySlot.Q, 1))
+                {
+                    var near = AbilityKit.Nearest(c.At, 14f);
+                    if (near != null && Vector3.Distance(near.transform.position, c.At) > 0.8f)
+                    {
+                        c.At = Vector3.MoveTowards(c.At, near.transform.position, DriftSpeed * 0.5f);
+                        clouds[i] = c;
+                        CloudDriftRpc(c.Id, c.At);
+                    }
+                }
+                bool choke = mine && progress.A(AbilitySlot.Q, 3) && Time.time >= c.NextChoke;
+                if (choke) { c.NextChoke = Time.time + ChokeEvery; clouds[i] = c; }
                 foreach (var h in CombatQuery.Circle(c.At, c.Radius, Team.Enemies).ToArray())
                 {
                     h.ServerBlight(1.5f, c.Dps * p, NetworkObjectId);
                     if (c.Black && h.TryGetComponent<Enemies.EnemyBrain>(out var b)) b.ServerAddThreat(NetworkObjectId, 2f);
+                    // Clinging Fog (rank 2 B).
+                    if (mine && progress.B(AbilitySlot.Q, 1)) h.ServerChill(1f);
+                    // Choking (rank 4 A): their wind-ups are cut short.
+                    if (choke && !AbilityKit.IsBoss(h)) AbilityKit.Stun(h, 0.35f);
                 }
+                if (choke) progress.AbilityTextRpc(c.At + Vector3.up * 2f, "CHOKING", PlayerProgress.FxKind.Poison);
+                // Fog of Mercy (rank 3 B): allies inside are healed.
+                if (mine && progress.B(AbilitySlot.Q, 2))
+                    foreach (var ally in CombatQuery.Circle(c.At, c.Radius, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.03f * 0.5f);
             }
         }
 
@@ -310,15 +414,56 @@ namespace Deepbound.Player
         {
             if (!life.CanAct) return 0;
             float potency = progress.Potency(AbilitySlot.E);
+            float ward = MaskWard * (progress.B(AbilitySlot.E, 2) ? 2f : 1f);
             int n = 0;
+            bool lifted = false;
             foreach (var ally in PlayerLife.All)
             {
-                if (ally == null || ally.Downed.Value || !ally.Health.IsAlive || Vector3.Distance(ally.transform.position, transform.position) > MaskRadius) continue;
-                if (ally.TryGetComponent<PlayerDebuffs>(out var db)) { db.ServerCleanse(); db.ServerWard(MaskWard); }
+                if (ally == null || Vector3.Distance(ally.transform.position, transform.position) > MaskRadius) continue;
+                // Last Breath (rank 5 B): one downed ally in reach is lifted.
+                if (ally.Downed.Value && !lifted && progress.B(AbilitySlot.E, 4) && !ally.Soul.Value)
+                {
+                    lifted = true;
+                    ally.ServerRevive(0.25f);
+                    progress.AbilityTextRpc(ally.transform.position + Vector3.up * 2f, "LAST BREATH", PlayerProgress.FxKind.Poison);
+                    continue;
+                }
+                if (ally.Downed.Value || !ally.Health.IsAlive) continue;
+                if (ally.TryGetComponent<PlayerDebuffs>(out var db))
+                {
+                    // Purge (rank 3 A): what is cleansed burns the enemies round them.
+                    if (progress.A(AbilitySlot.E, 2) && db.AnyAffliction)
+                    {
+                        AbilityKit.Blast(ally.transform.position, 3f, VialDamage * 2f * BlightPower, NetworkObjectId, "Purge", h => h.ServerBlight(BlightSeconds, BlightDps * BlightPower, NetworkObjectId));
+                        progress.AbilityBurstRpc(ally.transform.position, 3f, PlayerProgress.FxKind.Poison);
+                    }
+                    db.ServerCleanse();
+                    db.ServerWard(ward);
+                }
                 ally.Health.ServerHeal(ally.Health.Max.Value * MaskHeal * potency);
-                // Rank 3: the mask's breath steadies the hand too.
-                if (progress.Twist(AbilitySlot.E) && ally.TryGetComponent<PlayerProgress>(out var ap)) ap.BloodlustEnds.Value = System.Math.Max(ap.BloodlustEnds.Value, NetworkManager.ServerTime.Time + 6.0);
+                // Bloodlust (rank 2 A): the breath steadies the hand too.
+                if (progress.A(AbilitySlot.E, 1) && ally.TryGetComponent<PlayerProgress>(out var bp)) bp.BloodlustEnds.Value = System.Math.Max(bp.BloodlustEnds.Value, NetworkManager.ServerTime.Time + 6.0);
+                // Vapour Shield (rank 2 B).
+                if (progress.B(AbilitySlot.E, 1)) ally.Health.ServerShield(ally.Health.Max.Value * 0.15f, 8f);
+                // Deep Breath (rank 3 B): it mends while the ward holds.
+                if (progress.B(AbilitySlot.E, 2)) { var who = ally; AbilityKit.Repeat(this, ward, 0.5f, () => { if (who != null && who.Health.IsAlive && !who.Downed.Value) who.Health.ServerHeal(who.Health.Max.Value * 0.01f); }); }
                 n++;
+            }
+            // Exhale (rank 4 A): a cloud at your feet.
+            if (progress.A(AbilitySlot.E, 3)) AddCloud(transform.position, MiasmaRadius, MiasmaSeconds, MiasmaDps * progress.Potency(AbilitySlot.Q), false);
+            // Repel (rank 4 B).
+            if (progress.B(AbilitySlot.E, 3))
+                foreach (var h in CombatQuery.Circle(transform.position, RepelRadius, Team.Enemies).ToArray())
+                {
+                    var away = h.transform.position - transform.position; away.y = 0f;
+                    AbilityKit.Push(h, away.normalized * 12f);
+                    AbilityKit.Stun(h, 0.5f);
+                }
+            // Plague Lord (rank 5 A).
+            if (progress.A(AbilitySlot.E, 4))
+            {
+                foreach (var h in CombatQuery.Circle(transform.position, LordRadius, Team.Enemies).ToArray()) h.ServerBlight(BlightSeconds * 1.5f, BlightDps * BlightPower, NetworkObjectId);
+                progress.AbilityBurstRpc(transform.position, LordRadius, PlayerProgress.FxKind.Poison);
             }
             MaskFxRpc(transform.position);
             return n;
@@ -350,12 +495,21 @@ namespace Deepbound.Player
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void CloudFxRpc(Vector3 at, float radius, float seconds, bool black)
+        private void CloudFxRpc(Vector3 at, float radius, float seconds, bool black, int id)
         {
             Sfx.Play(Sound.Whisper, at + Vector3.up, 0.8f, black ? 0.5f : 0.8f);
-            SmokeCloud.Spawn(at, radius, seconds, black ? new Color(0.15f, 0.28f, 0.08f) : new Color(0.35f, 0.7f, 0.2f));
+            var shown = SmokeCloud.Spawn(at, radius, seconds, black ? new Color(0.15f, 0.28f, 0.08f) : new Color(0.35f, 0.7f, 0.2f));
+            int key = NetworkObjectId.GetHashCode() * 1000 + id;
+            shownClouds[key] = shown;
+            if (shownClouds.Count > 40) { var stale = new List<int>(); foreach (var kv in shownClouds) if (kv.Value == null) stale.Add(kv.Key); foreach (var k in stale) shownClouds.Remove(k); }
             Vfx.Ring(at + Vector3.up * 0.05f, radius, black ? new Color(0.25f, 0.6f, 0.15f) : Plague, 0.5f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.3f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void CloudGoneRpc(int id)
+        {
+            if (shownClouds.TryGetValue(NetworkObjectId.GetHashCode() * 1000 + id, out var c) && c != null) Destroy(c.gameObject);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

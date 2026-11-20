@@ -18,6 +18,23 @@ namespace Deepbound.Classes
         public const float BulwarkCharge = 100f, BulwarkRadius = 4f, BulwarkStun = 0.8f, BulwarkShield = 0.2f;
         public const float WardPerHit = 0.04f, WardCap = 0.25f, WardCapMastered = 0.4f, WardSeconds = 6f;
         public const float AnchoriteHeal = 0.3f, ShadowSeconds = 1f, PathwardenReach = 6f, PathwardenHeal = 0.02f, MithridateReach = 8f;
+        /// <summary>The Wardweaver: a shard at most every <see cref="ShardEvery"/> s, each soaking up to <see cref="ShardSoak"/> of max health.</summary>
+        public const float ShardEvery = 1.5f, ShardSoak = 0.15f, ShardBurst = 3f;
+        public const int Shards = 3, ShardsMastered = 5;
+        private static readonly Dictionary<ulong, float> nextShard = new Dictionary<ulong, float>();
+
+        /// <summary>Server: the Wardweaver's shards take what they can of a blow.</summary>
+        public static float Absorb(PlayerProgress p, float damage)
+        {
+            if (p == null || damage <= 0f || !p.OnPath(Path) || p.ClassId.Value != ClassId.Mage || p.WardShards.Value == 0) return damage;
+            var h = p.GetComponent<Health>();
+            if (h == null) return damage;
+            p.WardShards.Value--;
+            float soak = h.Max.Value * ShardSoak;
+            if (p.Mastered(Path)) AbilityKit.Blast(p.transform.position, ShardBurst, 20f * p.AttackMultiplier, p.NetworkObjectId, "Ward Shard", e => AbilityKit.Stun(e, 0.3f));
+            p.AbilityBurstRpc(p.transform.position + Vector3.up * 1.1f, p.Mastered(Path) ? ShardBurst : 0.6f, PlayerProgress.FxKind.Frost);
+            return Mathf.Max(0f, damage - soak);
+        }
 
         public static string Name(ClassId id) => id switch
         {
@@ -32,22 +49,22 @@ namespace Deepbound.Classes
 
         public static string Describe(ClassId id) => id switch
         {
-            ClassId.Mage => "SURVIVAL. Every spell that lands wards you for 4% of your max health (up to 25%).",
-            ClassId.Cleric => "SURVIVAL. Your hits heal you for 30% of the damage, and you take 10% less.",
-            ClassId.Rogue => "SURVIVAL. For a second after each hit you land, you take 25% less.",
-            ClassId.Ranger => "SURVIVAL. The dead within 6 m hit you 20% softer; your hits on them mend you 2% (once a second).",
-            ClassId.Flagellant => "SURVIVAL. Below half health you take 25% less.",
-            ClassId.PlagueDoctor => "SURVIVAL. Each blighted foe within 8 m makes you take 4% less (up to 20%).",
+            ClassId.Mage => "SURVIVAL. Spells that land spin WARD SHARDS round you (up to 3); each one swallows a blow (up to 15% of your health) and is gone.",
+            ClassId.Cleric => "SURVIVAL. Stand still for a second and you PLANT: you take 30% less and your smites fly in pairs until you move.",
+            ClassId.Rogue => "SURVIVAL. For a second after each hit you land you take 25% less, and every kill shrouds you (unseen for 1.5 s).",
+            ClassId.Ranger => "SURVIVAL. The dead within 6 m hit you 20% softer, and a shot at one that close is a POINT-BLANK shot: it hurls it back and stuns it.",
+            ClassId.Flagellant => "SURVIVAL. A blow that takes you below half health makes you ERUPT: you heal 10% and stun everything within 4 m (every 20 s). Below half you take 25% less.",
+            ClassId.PlagueDoctor => "SURVIVAL. Whatever strikes you in melee is blighted, and each blighted foe within 8 m makes you take 4% less (up to 20%).",
             _ => "SURVIVAL. Blocks build SHIELD CHARGE; when full, your next block looses a shockwave (4 m, damage and a stun).",
         };
 
         public static string Mastery(ClassId id) => id switch
         {
-            ClassId.Mage => "The ward holds up to 40%, and while it holds you take 15% less.",
-            ClassId.Cleric => "You take 15% less instead.",
+            ClassId.Mage => "Up to five shards, and each one bursts on the enemies round you as it breaks.",
+            ClassId.Cleric => "Planted, you also mend allies within 5 m (2% a second).",
             ClassId.Rogue => "35% less instead.",
             ClassId.Ranger => "30% softer instead.",
-            ClassId.Flagellant => "40% less instead.",
+            ClassId.Flagellant => "40% less instead, and the eruption comes every 12 s.",
             ClassId.PlagueDoctor => "Up to 32%.",
             _ => "The shockwave also shields you (20% of max health).",
         };
@@ -81,22 +98,25 @@ namespace Deepbound.Classes
             {
                 case ClassId.Mage:
                 {
-                    float cap = (p.Mastered(Path) ? WardCapMastered : WardCap) * me.Max.Value;
-                    me.ServerShield(Mathf.Min(cap, me.Shield.Value + WardPerHit * me.Max.Value), WardSeconds);
+                    int cap = p.Mastered(Path) ? ShardsMastered : Shards;
+                    if (p.WardShards.Value >= cap || (nextShard.TryGetValue(p.NetworkObjectId, out var ns) && Time.time < ns)) break;
+                    nextShard[p.NetworkObjectId] = Time.time + ShardEvery;
+                    p.WardShards.Value++;
                     break;
                 }
-                case ClassId.Cleric:
-                    me.ServerHeal(lost * AnchoriteHeal);
-                    break;
                 case ClassId.Rogue:
                     shadowUntil[p.NetworkObjectId] = Time.time + ShadowSeconds;
                     break;
                 case ClassId.Ranger:
-                    if ((target.transform.position - p.transform.position).sqrMagnitude < PathwardenReach * PathwardenReach
-                        && (!mendReady.TryGetValue(p.NetworkObjectId, out var r) || Time.time >= r))
+                    // Point-blank: a shot at something this close hurls it back and stuns it (once a second each).
+                    if ((target.transform.position - p.transform.position).sqrMagnitude < PathwardenReach * PathwardenReach && !AbilityKit.IsBoss(target)
+                        && (!mendReady.TryGetValue(target.NetworkObjectId, out var r) || Time.time >= r))
                     {
-                        mendReady[p.NetworkObjectId] = Time.time + 1f;
-                        me.ServerHeal(me.Max.Value * PathwardenHeal);
+                        mendReady[target.NetworkObjectId] = Time.time + 1f;
+                        var away = target.transform.position - p.transform.position; away.y = 0f;
+                        AbilityKit.Push(target, away.normalized * 11f);
+                        AbilityKit.Stun(target, 0.6f);
+                        p.AbilityTextRpc(target.Center + Vector3.up, "POINT BLANK", PlayerProgress.FxKind.Earth);
                     }
                     break;
             }
@@ -110,8 +130,8 @@ namespace Deepbound.Classes
             var h = p.GetComponent<Health>();
             switch (p.ClassId.Value)
             {
-                case ClassId.Mage: return m && h != null && h.Shield.Value > 0f ? 0.85f : 1f;
-                case ClassId.Cleric: return m ? 0.85f : 0.9f;
+                case ClassId.Mage: return 1f;
+                case ClassId.Cleric: return p.TryGetComponent<Player.ClericKit>(out var ck) && ck.Planted ? Player.ClericKit.PlantedTaken : 1f;
                 case ClassId.Rogue: return shadowUntil.TryGetValue(p.NetworkObjectId, out var u) && Time.time < u ? (m ? 0.65f : 0.75f) : 1f;
                 case ClassId.Ranger: return (attackerPosition - p.transform.position).sqrMagnitude < PathwardenReach * PathwardenReach ? (m ? 0.7f : 0.8f) : 1f;
                 case ClassId.Flagellant: return h != null && h.Fraction < 0.5f ? (m ? 0.6f : 0.75f) : 1f;

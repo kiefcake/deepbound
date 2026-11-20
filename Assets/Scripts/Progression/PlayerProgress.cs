@@ -200,9 +200,18 @@ namespace Deepbound.Progression
         public readonly NetworkVariable<byte> RankQ = new NetworkVariable<byte>(1);
         public readonly NetworkVariable<byte> RankE = new NetworkVariable<byte>(1);
 
-        /// <summary>Rank 5's choice per ability: bit 0 = Q Hastened, bit 1 = E Hastened (else Overcharged).</summary>
+        /// <summary>
+        /// The choice taken at each rank (2026-11-20 rework): bit (slot x 4 + tier - 1) set = option B at that tier (tier 1-4 =
+        /// rank 2-5). Locked for the run; cleared by <see cref="ServerResetRun"/>. The Hollow Crown's free rank takes option A.
+        /// </summary>
         public readonly NetworkVariable<byte> RankChoice = new NetworkVariable<byte>();
-        public bool Hastened(AbilitySlot slot) => (RankChoice.Value & (1 << (int)slot)) != 0;
+
+        /// <summary>0 = that tier not reached, 1 = option A taken, 2 = option B taken.</summary>
+        public int Pick(AbilitySlot slot, int tier) => tier < 1 || Rank(slot) < tier + 1 ? 0 : ((RankChoice.Value >> ((int)slot * 4 + tier - 1)) & 1) + 1;
+        /// <summary>Took option A at <paramref name="tier"/> (1-4).</summary>
+        public bool A(AbilitySlot slot, int tier) => Pick(slot, tier) == 1;
+        /// <summary>Took option B at <paramref name="tier"/> (1-4).</summary>
+        public bool B(AbilitySlot slot, int tier) => Pick(slot, tier) == 2;
 
         /// <summary>Effective rank: bought ranks, plus one for the Hollow Crown (max 5).</summary>
         public int Rank(AbilitySlot slot) => Mathf.Min(AbilityRanks.MaxRank, (slot == AbilitySlot.Q ? RankQ.Value : RankE.Value) + (Wears(GearId.HollowCrown) ? 1 : 0));
@@ -210,16 +219,11 @@ namespace Deepbound.Progression
         /// <summary>Ranks actually bought with Sigils (what the anvil can still raise).</summary>
         public int BoughtRank(AbilitySlot slot) => slot == AbilitySlot.Q ? RankQ.Value : RankE.Value;
 
-        /// <summary>Rank 2 and up: 30% stronger.</summary>
-        public float Potency(AbilitySlot slot) => (Rank(slot) >= 2 ? AbilityRanks.Rank2Potency : 1f) * (Rank(slot) >= 4 ? AbilityRanks.Rank4Potency : 1f)
-            * (Rank(slot) >= 5 && !Hastened(slot) ? AbilityRanks.OverchargedPotency : 1f);
+        /// <summary>A quiet 10% a rank: the choices are the headline, this keeps the ability up with the deeper floors.</summary>
+        public float Potency(AbilitySlot slot) => 1f + AbilityRanks.PotencyPerRank * (Rank(slot) - 1);
 
-        /// <summary>Rank 3: the twist.</summary>
-        public bool Twist(AbilitySlot slot) => Rank(slot) >= 3;
-
-        /// <summary>Q/E cooldown scale: relics and gear, and a quarter off at rank 3.</summary>
-        public float CooldownFor(AbilitySlot slot) => CooldownMultiplier * (Twist(slot) ? AbilityRanks.Rank3Cooldown : 1f)
-            * (Rank(slot) >= 5 && Hastened(slot) ? AbilityRanks.HastenedCooldown : 1f);
+        /// <summary>Q/E cooldown scale: relics and gear.</summary>
+        public float CooldownFor(AbilitySlot slot) => CooldownMultiplier;
 
         public void ServerAddSigil()
         {
@@ -231,27 +235,26 @@ namespace Deepbound.Progression
         [Rpc(SendTo.ClientsAndHost)]
         private void SigilRpc() => UI.GameHud.Feed(name + " found a Sigil  -  rank an ability at Ysolde's stones", LootInfo.SigilColor);
 
-        /// <summary>Owner → server: spend a Sigil on Q or E, at the anvil.</summary>
+        /// <summary>Owner -> server: spend Sigils on the next rank of Q or E at Ysolde's stones, taking option A or B.</summary>
         [Rpc(SendTo.Server)]
-        public void EmpowerRpc(byte slot) => ServerEmpowerAbility(slot, false);
+        public void EmpowerRpc(byte slot, bool optionB) => ServerEmpowerAbility(slot, optionB);
 
-        /// <summary>Owner -> server: the final rank, taken as HASTENED (EmpowerRpc takes it Overcharged).</summary>
-        [Rpc(SendTo.Server)]
-        public void EmpowerHastenedRpc(byte slot) => ServerEmpowerAbility(slot, true);
-
-        private void ServerEmpowerAbility(byte slot, bool hastened)
+        /// <summary>Server: raise a rank and lock in its choice. Public for the tests.</summary>
+        public bool ServerEmpowerAbility(byte slot, bool optionB)
         {
-            if (!AtRunewright || slot > 1) return;
+            if (!AtRunewright || slot > 1) return false;
             var rank = slot == 0 ? RankQ : RankE;
-            if (rank.Value >= AbilityRanks.MaxRank || Rank((AbilitySlot)slot) >= AbilityRanks.MaxRank) return;
+            if (rank.Value >= AbilityRanks.MaxRank || Rank((AbilitySlot)slot) >= AbilityRanks.MaxRank) return false;
             int cost = AbilityRanks.SigilCost(Rank((AbilitySlot)slot));
-            if (Sigils.Value < cost) return;
+            if (Sigils.Value < cost) return false;
             Sigils.Value -= cost;
             rank.Value++;
-            if (rank.Value >= AbilityRanks.MaxRank)
-                RankChoice.Value = (byte)(hastened ? RankChoice.Value | (1 << slot) : RankChoice.Value & ~(1 << slot));
+            int tier = Rank((AbilitySlot)slot) - 1;
+            int bit = 1 << (slot * 4 + tier - 1);
+            RankChoice.Value = (byte)(optionB ? RankChoice.Value | bit : RankChoice.Value & ~bit);
             MeldedFxRpc();
-            EmpoweredRpc(slot, rank.Value);
+            EmpoweredRpc(slot, rank.Value, (byte)tier, optionB);
+            return true;
         }
 
         /// <summary>Owner → server: with both abilities at their top rank, a spare Sigil melts into embers.</summary>
@@ -265,10 +268,11 @@ namespace Deepbound.Progression
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void EmpoweredRpc(byte slot, byte rank)
+        private void EmpoweredRpc(byte slot, byte rank, byte tier, bool optionB)
         {
             string ability = ClassDefinition.AbilityName(ClassId.Value, (AbilitySlot)slot);
-            UI.GameHud.Feed(name + "'s " + ability + " reaches rank " + rank, LootInfo.SigilColor);
+            var opt = AbilityRanks.Get(ClassId.Value, (AbilitySlot)slot, tier, optionB);
+            UI.GameHud.Feed(name + "'s " + ability + " reaches rank " + rank + ": " + opt.Name.ToUpperInvariant(), LootInfo.SigilColor);
         }
 
         /// <summary>The weapon's chosen path: 0 = not yet, 1 or 2. See <see cref="WeaponPaths"/>.</summary>
@@ -1155,6 +1159,7 @@ namespace Deepbound.Progression
         {
             if (HasEdge(Edge.Stalwart)) damage *= Edges.StalwartTaken;
             damage *= BuildIncomingScale * PathTriads.Incoming(this, attackerPosition);
+            damage = PathTriads.Absorb(this, damage);
             ServerThornCrown(damage, attackerPosition);
             // Iron Psalter: bolts, spit and hexes from across the room glance off the hymns.
             if (HasRelic(Relic.IronPsalter) && Vector3.Distance(attackerPosition, transform.position) >= 5f) damage *= 1f - 0.15f * RelicPower(Relic.IronPsalter);
@@ -1272,6 +1277,7 @@ namespace Deepbound.Progression
 
         private void LateUpdate()
         {
+            TickWardShardFx();
             if (IsServer && Wears(GearId.GravediggersCoat)) StandingStill();
             // The survival path's readout (2026-11-13): its cut, a few times a second, so the HUD shows it working.
             if (IsServer && (Time.frameCount + (int)NetworkObjectId) % 8 == 0)

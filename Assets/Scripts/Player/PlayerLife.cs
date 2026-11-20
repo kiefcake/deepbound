@@ -128,6 +128,8 @@ namespace Deepbound.Player
                 });
                 // Behind a blocking Knight's shield, blows from the front land at half strength.
                 Health.IncomingModifiers.Add((dmg, from) => dmg > 0f && KnightKit.ShelterFor(this, from) ? dmg * KnightKit.ShelterScale : dmg);
+                // Ysolde's ability options that guard allies: Bastion, Sanctuary, Thorned Aegis, Sheltering Rain.
+                Health.IncomingModifiers.Add((dmg, from) => Classes.AbilityKit.AllyIncoming(this, dmg, from));
             }
             Downed.OnValueChanged += HandleDownedChanged;
         }

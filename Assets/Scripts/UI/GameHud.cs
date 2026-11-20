@@ -3027,33 +3027,60 @@ namespace Deepbound.UI
             float lx = x + 20, lw = leftW - 32, ly = y + 58;
 
             // ---- Abilities ----
-            GUI.Label(new Rect(lx, ly, lw, 20), "ABILITIES  -  a Sigil raises a rank (up to " + AbilityRanks.MaxRank + ")", new GUIStyle(section) { normal = { textColor = LootInfo.SigilColor } });
+            GUI.Label(new Rect(lx, ly, lw, 20), "ABILITIES  -  every rank is a choice of two, kept for the run", new GUIStyle(section) { normal = { textColor = LootInfo.SigilColor } });
             ly += 26;
+            string hover = null;
             foreach (var slot in new[] { AbilitySlot.Q, AbilitySlot.E })
             {
                 int rank = progress.Rank(slot);
-                var card = new Rect(lx, ly, lw, 104);
+                var card = new Rect(lx, ly, lw, 156);
                 Rect(card.x, card.y, card.width, card.height, new Color(1f, 1f, 1f, 0.04f));
-                GUI.Label(new Rect(card.x + 12, card.y + 8, lw - 150, 22), Binds.Live(slot == AbilitySlot.Q ? Bind.AbilityQ : Bind.AbilityE) + "   " + ClassDefinition.AbilityName(id, slot),
+                GUI.Label(new Rect(card.x + 12, card.y + 6, lw - 150, 22), Binds.Live(slot == AbilitySlot.Q ? Bind.AbilityQ : Bind.AbilityE) + "   " + ClassDefinition.AbilityName(id, slot) + "   rank " + rank,
                     new GUIStyle(label) { fontSize = 16, fontStyle = FontStyle.Bold });
                 for (int r = 0; r < AbilityRanks.MaxRank; r++)
-                    Rect(card.xMax - 12 - (AbilityRanks.MaxRank - r) * 14, card.y + 13, 10, 12, r < rank ? LootInfo.SigilColor : new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.2f));
-                GUI.Label(new Rect(card.x + 12, card.y + 34, lw - 24, 36), AbilityRanks.NextRank(id, slot, rank), body);
-                int sigilCost = AbilityRanks.SigilCost(rank);
-                bool maxed = rank >= AbilityRanks.MaxRank;
-                GUI.enabled = !maxed && progress.Sigils.Value >= sigilCost;
-                string costText = progress.Sigils.Value >= sigilCost ? "(" + sigilCost + (sigilCost == 1 ? " sigil)" : " sigils)") : "needs " + sigilCost + (sigilCost == 1 ? " Sigil" : " Sigils");
-                if (!maxed && rank == AbilityRanks.MaxRank - 1)
+                    Rect(card.xMax - 12 - (AbilityRanks.MaxRank - r) * 14, card.y + 11, 10, 12, r < rank ? LootInfo.SigilColor : new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.2f));
+                // What you have taken so far (hover a name for what it does).
+                float tx = card.x + 12;
+                var chip = new GUIStyle(small) { fontSize = 12, fontStyle = FontStyle.Bold, wordWrap = false, normal = { textColor = LootInfo.SigilColor } };
+                if (rank <= 1) GUI.Label(new Rect(tx, card.y + 30, lw - 24, 18), "No choices taken yet.", new GUIStyle(chip) { normal = { textColor = new Color(1f, 1f, 1f, 0.45f) } });
+                for (int t = 1; t < rank && t <= AbilityRanks.Tiers; t++)
                 {
-                    float half = (lw - 30) / 2f;
-                    if (GUI.Button(new Rect(card.x + 12, card.yMax - 32, half, 26), "Overcharged  " + costText)) progress.EmpowerRpc((byte)slot);
-                    if (GUI.Button(new Rect(card.x + 18 + half, card.yMax - 32, half, 26), "Hastened  " + costText)) progress.EmpowerHastenedRpc((byte)slot);
+                    var o = AbilityRanks.Get(id, slot, t, progress.B(slot, t));
+                    float cw = chip.CalcSize(new GUIContent(o.Name.ToUpperInvariant())).x + 12;
+                    var cr = new Rect(tx, card.y + 30, cw, 18);
+                    Rect(cr.x, cr.y, cr.width, cr.height, new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.14f));
+                    GUI.Label(new Rect(cr.x + 6, cr.y, cw, 18), o.Name.ToUpperInvariant(), chip);
+                    if (cr.Contains(Event.current.mousePosition)) hover = o.Name + ": " + o.Text;
+                    tx += cw + 6;
                 }
-                else if (GUI.Button(new Rect(card.x + 12, card.yMax - 32, lw - 24, 26), maxed ? "Mastered  -  " + (progress.Hastened(slot) ? "HASTENED (-30% cooldown)" : "OVERCHARGED (+30% strength)") : "Empower  " + costText))
-                    progress.EmpowerRpc((byte)slot);
-                GUI.enabled = true;
-                ly += 112;
+                bool maxed = rank >= AbilityRanks.MaxRank;
+                int sigilCost = AbilityRanks.SigilCost(rank);
+                if (maxed)
+                {
+                    GUI.Label(new Rect(card.x + 12, card.y + 54, lw - 24, card.height - 60), "MASTERED. Hover a choice above to read it.", body);
+                }
+                else
+                {
+                    int tier = rank; // the rank being bought is rank + 1, i.e. tier rank
+                    bool can = progress.Sigils.Value >= sigilCost;
+                    string costText = (can ? "" : "needs ") + sigilCost + (sigilCost == 1 ? " Sigil" : " Sigils");
+                    GUI.Label(new Rect(card.x + 12, card.y + 50, lw - 24, 18), "RANK " + (rank + 1) + "  -  choose one  (" + costText + ")", new GUIStyle(small) { fontSize = 12, wordWrap = false });
+                    float half = (lw - 30) / 2f;
+                    for (int k = 0; k < 2; k++)
+                    {
+                        var o = AbilityRanks.Get(id, slot, tier, k == 1);
+                        var box = new Rect(card.x + 12 + k * (half + 6), card.y + 70, half, card.height - 76);
+                        Rect(box.x, box.y, box.width, box.height, new Color(1f, 1f, 1f, 0.05f));
+                        GUI.Label(new Rect(box.x + 8, box.y + 4, box.width - 16, 18), o.Name.ToUpperInvariant(), new GUIStyle(small) { fontSize = 13, fontStyle = FontStyle.Bold, wordWrap = false, normal = { textColor = LootInfo.SigilColor } });
+                        GUI.Label(new Rect(box.x + 8, box.y + 21, box.width - 16, box.height - 48), o.Text, new GUIStyle(body) { fontSize = 12 });
+                        GUI.enabled = can;
+                        if (GUI.Button(new Rect(box.x + 6, box.yMax - 26, box.width - 12, 22), "Take " + o.Name)) progress.EmpowerRpc((byte)slot, k == 1);
+                        GUI.enabled = true;
+                    }
+                }
+                ly += card.height + 8;
             }
+            runeHover = hover;
             if (progress.Rank(AbilitySlot.Q) >= AbilityRanks.MaxRank && progress.Rank(AbilitySlot.E) >= AbilityRanks.MaxRank && progress.Sigils.Value > 0)
             {
                 if (GUI.Button(new Rect(lx, ly, lw, 26), "Melt a spare Sigil into " + AbilityRanks.MeltEmbers + " embers")) progress.MeltSigilRpc();
@@ -3128,7 +3155,16 @@ namespace Deepbound.UI
                     GUI.Label(new Rect(rx, view.yMax + 2, rw, 18), kinds.Count + " kinds of rune  -  scroll for more", new GUIStyle(small) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Italic, normal = { textColor = blue } });
             }
             GUI.Label(new Rect(x + 20, y + ph - 26, pw - 40, 20), "F or Esc to close", new GUIStyle(small) { normal = { textColor = new Color(0.6f, 0.58f, 0.55f) } });
+            if (runeHover != null)
+            {
+                var mp = Event.current.mousePosition;
+                var tipSt = new GUIStyle(small) { fontSize = 13, wordWrap = true };
+                float th = tipSt.CalcHeight(new GUIContent(runeHover), 320f) + 12;
+                UiSkin.Panel(new Rect(mp.x + 14, mp.y + 10, 334, th), 0.98f);
+                GUI.Label(new Rect(mp.x + 21, mp.y + 16, 320, th - 12), runeHover, tipSt);
+            }
         }
+        private string runeHover;
 
         private float[] shopRowH = new float[16];
         private static readonly string[] PracticeNames = { "Marrow", "Warden", "Drowned", "Lich", "Aldous", "King", "Choir", "Cardinal", "Gorr", "Unsung" };

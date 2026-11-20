@@ -14,7 +14,10 @@ namespace Deepbound.Art
         private float[] phase, size;
         private float age, life, radius;
 
-        public static void Spawn(Vector3 at, float radius, float seconds, Color? tint = null)
+        /// <summary>Creeping Cloud (2026-11-20): where the cloud is drifting to (it glides there).</summary>
+        public Vector3? DriftTo;
+
+        public static SmokeCloud Spawn(Vector3 at, float radius, float seconds, Color? tint = null)
         {
             at = Vfx.Floor(at);
             var go = new GameObject("SmokeCloud");
@@ -48,11 +51,13 @@ namespace Deepbound.Art
                 c.puffs[i] = ball.transform;
             }
             Destroy(go, seconds + 1.2f);
+            return c;
         }
 
         private void Update()
         {
             age += Time.deltaTime;
+            if (DriftTo.HasValue) transform.position = Vector3.MoveTowards(transform.position, DriftTo.Value, Time.deltaTime * 2.5f);
             var lp = Player.NetworkPlayer.Local;
             var cam = lp != null && lp.Camera != null ? lp.Camera.transform : (ViewCamera.Current != null ? ViewCamera.Current.transform : null);
             // Billows out fast, holds, then thins over the last second.

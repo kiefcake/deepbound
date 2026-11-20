@@ -63,7 +63,7 @@ namespace Deepbound.Player
         private readonly Dictionary<ulong, float> snaredUntil = new Dictionary<ulong, float>();
         /// <summary>Tests: how many the last snare caught.</summary>
         public int LastSnareCaught { get; private set; } = -1;
-        private struct Volley { public Vector3 At; public float Next; public int Left; }
+        private struct Volley { public Vector3 At, Away; public float Next; public int Left; public Dictionary<Health, int> Hits; }
         private readonly List<Volley> volleys = new List<Volley>();
         private float lastServerShot;
 
@@ -151,10 +151,17 @@ namespace Deepbound.Player
             }
 
             // --- Q: Snare Shot along the crosshair ---
-            if (UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= snareReadyAt && Focus >= SnareFocus)
+            bool freeNet = Time.time < freeNetUntil;
+            if (UI.Binds.Down(UI.Bind.AbilityQ) && ((Time.time >= snareReadyAt && Focus >= SnareFocus) || freeNet))
             {
-                Focus -= SnareFocus;
-                snareReadyAt = Time.time + SnareCooldownNow;
+                if (freeNet) freeNetUntil = 0f;
+                else
+                {
+                    Focus -= SnareFocus;
+                    snareReadyAt = Time.time + SnareCooldownNow;
+                    // Second Net (rank 3 B): another, free, within 3 s.
+                    if (progress.B(AbilitySlot.Q, 2)) freeNetUntil = Time.time + FreeNetWindow;
+                }
                 player.ViewModelCast(true);
                 SnareRpc(player.AimOrigin + player.AimForward * 0.6f, player.AimForward);
             }
@@ -189,21 +196,29 @@ namespace Deepbound.Player
             float dmg = Mathf.Lerp(ArrowMinDamage, ArrowMaxDamage, charge) * progress.AttackMultiplier;
             var kit = this;
             bool pierce = charge >= 1f;
-            if (pierce && progress.OnPath(1)) dmg *= 1.4f; // Sharpshooter
-            bool instantMark = pierce && progress.Mastered(1);
             ulong me = NetworkObjectId;
             var from = transform.position;
-            Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, ArrowSpeed * (0.7f + 0.3f * charge), h =>
+            // Splitshot: a full draw looses three arrows in a fan (the middle one marks, mastered).
+            bool split = pierce && progress.OnPath(1);
+            // Blasthead: arrows burst where they strike.
+            bool blast = progress.OnPath(2);
+            for (int a = split ? -1 : 0; a <= (split ? 1 : 0); a++)
             {
-                h.Tag("RangerKit").ServerDamage(dmg * (pierce && h.Team == Team.Enemies ? Combos.TryShatter(h, progress) : 1f) * (kit != null ? kit.Snared(h) : 1f), from, me);
-                if (this == null) return;
-                if (instantMark && h.Team == Team.Enemies)
+                var dir = Quaternion.AngleAxis(a * SplitAngle, Vector3.up) * direction;
+                bool instantMark = split && a == 0 && progress.Mastered(1);
+                Arrows.ServerFire(origin, dir, 0f, Team.Enemies, me, ArrowSpeed * (0.7f + 0.3f * charge), h =>
                 {
-                    h.ServerMark(MarkSeconds);
-                    MarkFxRpc(h.Center);
-                }
-                else CountMark(h);
-            }, pierce, ArrowRange(charge, RangeMul), ArrowGravity(charge));
+                    h.Tag("RangerKit").ServerDamage(dmg * (pierce && h.Team == Team.Enemies ? Combos.TryShatter(h, progress) : 1f) * (kit != null ? kit.Snared(h) : 1f), from, me);
+                    if (this == null) return;
+                    if (instantMark && h.Team == Team.Enemies)
+                    {
+                        h.ServerMark(MarkSeconds);
+                        MarkFxRpc(h.Center);
+                    }
+                    else CountMark(h);
+                }, pierce && !blast, ArrowRange(charge, RangeMul), ArrowGravity(charge), blast ? at => { if (this != null) ServerBlasthead(at, charge, dmg); } : (System.Action<Vector3>)null);
+                if (a != 0) ShotFxRpc(origin, dir, charge);
+            }
             ShotFxRpc(origin, direction, charge);
         }
 
@@ -227,8 +242,20 @@ namespace Deepbound.Player
         // ---- Q: Snare Shot ----
 
         /// <summary>The Trapper path: snares come back 40% sooner and burst 40% wider.</summary>
-        private float SnareCooldownNow => SnareCooldown * progress.CooldownFor(AbilitySlot.Q) * (progress.OnPath(2) ? 0.6f : 1f);
-        public float SnareRadiusNow => SnareRadius * (progress != null && progress.OnPath(2) ? 1.4f : 1f);
+        private float SnareCooldownNow => SnareCooldown * progress.CooldownFor(AbilitySlot.Q);
+        public float SnareRadiusNow => SnareRadius;
+
+        // ---- Hobb's paths (2026-11-20) ----
+        public const float SplitAngle = 6f, BlastRadius = 1.6f, BlastShare = 0.5f;
+
+        /// <summary>Server: a Blasthead arrow bursts where it struck.</summary>
+        private void ServerBlasthead(Vector3 at, float charge, float dmg)
+        {
+            bool big = charge >= 1f && progress.Mastered(2);
+            float r = BlastRadius * (big ? 2f : 1f) * (0.7f + 0.3f * charge);
+            AbilityKit.Blast(at, r, dmg * BlastShare, NetworkObjectId, "Blasthead", h => { h.ServerScorch(3f, NetworkObjectId); if (big) AbilityKit.Stun(h, 0.4f); });
+            progress.AbilityBurstRpc(at, r, PlayerProgress.FxKind.Fire);
+        }
 
         /// <summary>Server: the extra the Ranger's own hits deal to something still struggling in a net.</summary>
         public float Snared(Health h) => h != null && snaredUntil.TryGetValue(h.NetworkObjectId, out var until) && Time.time < until ? SnareExposed : 1f;
@@ -247,26 +274,96 @@ namespace Deepbound.Player
             SnareShotFxRpc(origin, direction);
         }
 
+        // ---- Ysolde's options for Snare Shot and Volley (2026-11-20) ----
+        public const float FreeNetWindow = 3f, LarderRefund = 4f, LarderFocus = 15f, BlastDelay = 0.6f, ChainNetRange = 10f;
+        private float freeNetUntil;
+
+        public override void OnNetworkSpawn()
+        {
+            if (IsServer) Health.AnyDied += OnSomethingDied;
+        }
+
+        public override void OnNetworkDespawn()
+        {
+            if (IsServer) Health.AnyDied -= OnSomethingDied;
+            base.OnNetworkDespawn();
+        }
+
+        /// <summary>Server: Hunter's Larder: a snared kill readies the next net sooner.</summary>
+        private void OnSomethingDied(Health dead)
+        {
+            if (!Active || dead == null || dead.LastHitFrom != NetworkObjectId || !progress.B(AbilitySlot.Q, 3) || Snared(dead) <= 1f) return;
+            snaredUntil.Remove(dead.NetworkObjectId);
+            LarderRpc();
+            progress.AbilityTextRpc(dead.Center + Vector3.up, "LARDER", PlayerProgress.FxKind.Earth);
+        }
+
+        [Rpc(SendTo.Owner)]
+        private void LarderRpc() { snareReadyAt -= LarderRefund; Focus = Mathf.Min(FocusMax, Focus + LarderFocus); }
+
         /// <summary>Server: the net opens at <paramref name="at"/>. Public for the smoke test.</summary>
-        public void ServerSnareBurst(Vector3 at)
+        public void ServerSnareBurst(Vector3 at) => ServerSnareBurst(at, true);
+
+        private void ServerSnareBurst(Vector3 at, bool first)
         {
             // Lie on the floor under where it struck (an arrow in a wall drops its net at the wall's foot).
             var ground = Physics.Raycast(at + Vector3.up * 0.5f, Vector3.down, out var hit, 6f, ~0, QueryTriggerInteraction.Ignore) && hit.collider.GetComponentInParent<Health>() == null ? hit.point : at;
             float r = SnareRadiusNow;
             int caught = 0;
+            var net = new List<Health>();
             foreach (var h in CombatQuery.Circle(ground, r, Team.Enemies).ToArray())
             {
                 if (Mathf.Abs(h.transform.position.y - ground.y) > 2.5f) continue;
                 caught++;
+                net.Add(h);
                 h.Tag("RangerKit").ServerDamage(SnareDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q), ground + Vector3.up, NetworkObjectId);
                 if (!h.IsAlive) continue;
                 // Bosses shrug a stun off sooner (their own ServerStun), but are snared for the full time.
                 if (h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(SnareHold);
                 if (h.TryGetComponent<Enemies.BossBrain>(out var boss)) boss.ServerAddStagger(Enemies.BossBrain.StaggerStun);
                 snaredUntil[h.NetworkObjectId] = Time.time + SnareSeconds;
-                if (progress.Twist(AbilitySlot.Q)) { h.ServerMark(MarkSeconds); MarkFxRpc(h.Center); }
+                // Marking Net (rank 2 A) / Barbed Net (rank 2 B).
+                if (progress.A(AbilitySlot.Q, 1)) { h.ServerMark(MarkSeconds); MarkFxRpc(h.Center); }
+                if (progress.B(AbilitySlot.Q, 1)) AbilityKit.Bleed(this, h, SnareDamage * progress.AttackMultiplier * 0.6f, 4f, NetworkObjectId, "Barbed Net");
+                // Tether (rank 3 A): hauled into the middle.
+                if (progress.A(AbilitySlot.Q, 2) && !AbilityKit.IsBoss(h)) AbilityKit.PullTo(h, ground, 0.9f);
             }
             LastSnareCaught = caught;
+            ulong me = NetworkObjectId;
+            float att = progress.AttackMultiplier;
+            // Shock Net (rank 4 A): it shocks as it lets go.
+            if (progress.A(AbilitySlot.Q, 3) && net.Count > 0)
+                AbilityKit.Later(this, SnareSeconds - 0.2f, () =>
+                {
+                    foreach (var h in net)
+                    {
+                        if (h == null || !h.IsAlive || Vector3.Distance(h.transform.position, ground) > r + 2f) continue;
+                        h.Tag("Shock Net").ServerDamage(SnareDamage * att * 0.8f, ground, me);
+                        AbilityKit.Stun(h, 1f);
+                        progress.AbilityLinkRpc(ground + Vector3.up * 0.3f, h.Center, PlayerProgress.FxKind.Storm);
+                    }
+                });
+            // Weighted Blast (rank 5 A): the stones go off.
+            if (progress.A(AbilitySlot.Q, 4))
+            {
+                progress.AbilityCircleRpc(ground, r, BlastDelay, PlayerProgress.FxKind.Fire);
+                AbilityKit.Later(this, BlastDelay, () =>
+                {
+                    AbilityKit.Blast(ground, r, SnareDamage * att * 1.6f, me, "Weighted Blast");
+                    progress.AbilityBurstRpc(ground, r, PlayerProgress.FxKind.Fire);
+                });
+            }
+            // Chain Net (rank 5 B): a second net onto the nearest foe it missed.
+            if (first && progress.B(AbilitySlot.Q, 4))
+            {
+                var next = AbilityKit.Nearest(ground, ChainNetRange, net);
+                if (next != null)
+                {
+                    var to = next.transform.position;
+                    progress.AbilityLinkRpc(ground + Vector3.up * 0.5f, to + Vector3.up * 0.5f, PlayerProgress.FxKind.Earth);
+                    AbilityKit.Later(this, 0.35f, () => ServerSnareBurst(to, false));
+                }
+            }
             if (snaredUntil.Count > 64)
             {
                 var stale = new List<ulong>();
@@ -280,7 +377,11 @@ namespace Deepbound.Player
         private void VolleyRpc(Vector3 at)
         {
             if (!life.CanAct) return;
-            volleys.Add(new Volley { At = at, Next = Time.time + VolleyDelay, Left = progress.Mastered(2) ? 9 : VolleyWaves });
+            int waves = VolleyWaves;
+            var away = at - transform.position; away.y = 0f;
+            volleys.Add(new Volley { At = at, Away = away.sqrMagnitude > 0.01f ? away.normalized : transform.forward, Next = Time.time + VolleyDelay, Left = waves, Hits = new Dictionary<Health, int>() });
+            // Sheltering Rain (rank 4 B): allies under the arrows take a fifth less.
+            if (progress.B(AbilitySlot.E, 3)) AbilityKit.ServerDamageZone(at, VolleyRadius + 1f, VolleyDelay + waves * 0.33f, 0.8f, null, "Sheltering Rain");
             VolleyWarnRpc(at);
         }
 
@@ -290,13 +391,41 @@ namespace Deepbound.Player
             {
                 var v = volleys[i];
                 if (Time.time < v.Next) continue;
-                foreach (var h in CombatQuery.Circle(v.At, progress.Mastered(2) ? 5f : VolleyRadius, Team.Enemies).ToArray())
+                // Seeker Volley (rank 5 A): the rain follows the nearest snared or marked foe.
+                if (progress.A(AbilitySlot.E, 4))
                 {
-                    h.Tag("RangerKit").ServerDamage(VolleyDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.E) * Snared(h), v.At + Vector3.up * 6f, NetworkObjectId);
-                    if (progress.Twist(AbilitySlot.E)) h.ServerChill(2f);
+                    Health seek = null; float best = 9f;
+                    foreach (var h in CombatQuery.Circle(v.At, 9f, Team.Enemies))
+                    {
+                        if (!h.IsAlive || (!h.Marked.Value && Snared(h) <= 1f)) continue;
+                        float d = Vector3.Distance(h.transform.position, v.At);
+                        if (d < best) { best = d; seek = h; }
+                    }
+                    if (seek != null) v.At = Vector3.MoveTowards(v.At, seek.transform.position, 3f);
+                }
+                bool last = v.Left == 1 && progress.A(AbilitySlot.E, 3);
+                float radius = VolleyRadius;
+                foreach (var h in CombatQuery.Circle(v.At, radius, Team.Enemies).ToArray())
+                {
+                    float dmg = VolleyDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.E) * Snared(h) * (last ? 3f : 1f);
+                    h.Tag(last ? "The Last Arrow" : "RangerKit").ServerDamage(dmg, v.At + Vector3.up * 6f, NetworkObjectId);
+                    if (progress.A(AbilitySlot.E, 1)) h.ServerChill(2f);
+                    if (progress.B(AbilitySlot.E, 1)) h.ServerScorch(3f, NetworkObjectId);
+                    if (progress.B(AbilitySlot.E, 2) && !AbilityKit.IsBoss(h)) AbilityKit.Stun(h, 0.3f);
+                    if (last) AbilityKit.Push(h, (h.transform.position - v.At).normalized * 10f);
+                    // Rain of Marks (rank 5 B).
+                    if (progress.B(AbilitySlot.E, 4) && v.Hits != null)
+                    {
+                        v.Hits.TryGetValue(h, out int n);
+                        v.Hits[h] = ++n;
+                        if (n == 3) { h.ServerMark(MarkSeconds); MarkFxRpc(h.Center); }
+                    }
                     CountMark(h);
                 }
+                if (last) { progress.AbilityBurstRpc(v.At, radius, PlayerProgress.FxKind.Steel); progress.AbilityTextRpc(v.At + Vector3.up * 2f, "THE LAST ARROW", PlayerProgress.FxKind.Steel); }
                 VolleyWaveRpc(v.At);
+                // Creeping Barrage (rank 3 A): it walks away from you.
+                if (progress.A(AbilitySlot.E, 2)) v.At = Vfx.Floor(v.At + v.Away * 1f + Vector3.up * 0.5f);
                 v.Left--;
                 v.Next = Time.time + 0.33f;
                 if (v.Left <= 0) volleys.RemoveAt(i); else volleys[i] = v;

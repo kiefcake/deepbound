@@ -144,6 +144,8 @@ namespace Deepbound.Combat
 
         /// <summary>Server: a shield on this was broken by damage (the Aegis burst).</summary>
         public static event Action<Health> ServerShieldBroken;
+        /// <summary>Server: anything died (after its own <see cref="Died"/>).</summary>
+        public static event Action<Health> AnyDied;
 
         /// <summary>Server: scales healing this receives (Tidewoven Robe).</summary>
         public float HealMultiplier { get; set; } = 1f;
@@ -402,7 +404,7 @@ namespace Deepbound.Combat
             ServerAnyDamaged?.Invoke(this, lost, attackerId);
 
             if (Current.Value <= 0f && Blighted.Value) { Blighted.Value = false; BlightedDied?.Invoke(this, blightSource); }
-            if (Current.Value <= 0f) Died?.Invoke(this);
+            if (Current.Value <= 0f) { Died?.Invoke(this); AnyDied?.Invoke(this); }
             return dealt;
         }
 

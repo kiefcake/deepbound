@@ -465,6 +465,7 @@ namespace Deepbound.Networking
                 }
                 prog.RankQ.Value = (byte)Mathf.Min(Classes.AbilityRanks.MaxRank, 1 + startFloor / 3 + 1);
                 prog.RankE.Value = (byte)Mathf.Min(Classes.AbilityRanks.MaxRank, 1 + startFloor / 3);
+                prog.RankChoice.Value = (byte)Random.Range(0, 256); // a random build of Ysolde's choices
                 for (int i = 0; i < startFloor; i++) prog.ServerAddRelic(Relics.Random());
                 prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Armor)[0], (byte)Mathf.Min(2, startFloor / 3), (byte)startFloor));
                 prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Charm)[0], (byte)Mathf.Min(2, startFloor / 3), (byte)startFloor));
@@ -775,10 +776,13 @@ namespace Deepbound.Networking
             for (int i = 0; i < 8 && RankWorkLeft(out byte slot); i++)
             {
                 int before = prog.Sigils.Value;
-                prog.EmpowerRpc(slot);
+                bool optionB = Random.value < 0.5f;
+                var sl = slot == 0 ? Classes.AbilitySlot.Q : Classes.AbilitySlot.E;
+                var opt = Classes.AbilityRanks.Get(prog.ClassId.Value, sl, prog.Rank(sl), optionB);
+                prog.EmpowerRpc(slot, optionB);
                 yield return new WaitForSeconds(0.4f);
                 if (prog.Sigils.Value == before) { L("could not empower (" + before + " sigils, Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E) + ")"); break; }
-                L("empowered " + (slot == 0 ? "Q" : "E") + " -> Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E));
+                L("empowered " + (slot == 0 ? "Q" : "E") + " with " + opt.Name.ToUpperInvariant() + " -> Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E));
             }
             for (int i = 0; i < 6 && prog.Sigils.Value > 0 && prog.Rank(Classes.AbilitySlot.Q) >= Classes.AbilityRanks.MaxRank && prog.Rank(Classes.AbilitySlot.E) >= Classes.AbilityRanks.MaxRank; i++)
             {

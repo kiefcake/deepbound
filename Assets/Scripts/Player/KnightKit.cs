@@ -1,4 +1,5 @@
 using System.Collections.Generic;
+using System.Linq;
 using Deepbound.Art;
 using Deepbound.Classes;
 using Deepbound.Combat;
@@ -140,6 +141,8 @@ namespace Deepbound.Player
         private float riposteUntil = -10f;
         /// <summary>COUNTER (2026-11-08, every Knight): a swing within <see cref="CounterWindow"/> s of turning a blow aside hits x<see cref="CounterDamage"/>; the Riposte path makes it x2.2 (and its mastery stuns).</summary>
         public const float CounterWindow = 1.6f, CounterDamage = 1.4f, RiposteDamage = 2.2f;
+        /// <summary>The Spiked Shield path: a blocked blow from within reach comes back at x this (of the blow before the block).</summary>
+        public const float SpikeReach = 3.5f, SpikeShare = 0.6f;
         /// <summary>Server: a counter is ready now.</summary>
         public bool CounterReady => Time.time < riposteUntil;
         /// <summary>Tests: hold the shield up as if RMB were down.</summary>
@@ -234,7 +237,7 @@ namespace Deepbound.Player
             {
                 BashReadyAt = Time.time + BashCooldown * progress.CooldownFor(AbilitySlot.Q);
                 var forward = transform.forward;
-                motor.AddImpulse(forward * 13f);
+                motor.AddImpulse(forward * (progress.B(AbilitySlot.Q, 1) ? 22f : 13f));
                 player.ViewModelBash();
                 BashRpc(transform.position + Vector3.up, forward);
             }
@@ -261,7 +264,9 @@ namespace Deepbound.Player
         private void BlockedHitRpc()
         {
             UI.Tips.OfferNow("counter", "COUNTER: you turned a blow on your shield. Swing within " + CounterWindow + " s of a block and the swing hits x" + CounterDamage + " (x" + RiposteDamage + " on the Riposte path).");
-            Stamina = Mathf.Max(0f, Stamina - BlockedHitStamina * (progress != null ? progress.BuildBlockCostScale : 1f));
+            // Unbreakable (War Cry, rank 3 B): while the cry lasts, blocks cost nothing.
+            bool unbreakable = progress != null && progress.B(AbilitySlot.E, 2) && WarCryEnds.Value > NetworkManager.ServerTime.Time;
+            if (!unbreakable) Stamina = Mathf.Max(0f, Stamina - BlockedHitStamina * (progress != null ? progress.BuildBlockCostScale : 1f));
             staminaRegenAt = Time.time + 0.8f;
             if (Stamina <= 0f)
             {
@@ -275,7 +280,21 @@ namespace Deepbound.Player
         // Server: hit resolution
         // ==================================================================
 
-        private int cleaveSwings;
+        private int chainSwings;
+        private float lastChainSwing = -10f;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void SlashWaveRpc(Vector3 from, Vector3 dir, float len, bool frost)
+        {
+            var c = frost ? new Color(0.6f, 0.85f, 1f) : new Color(1f, 0.9f, 0.65f);
+            for (int i = 1; i <= 10; i++)
+            {
+                var p = from + dir * (len * i / 10f);
+                Vfx.Embers(p, 2, c, 1.5f, 0.07f, 0.35f);
+            }
+            FxSprite.Billboard("trace_01", from + dir * 1.5f, dir * len * 2.2f, len / (len * 2.2f) + 0.05f, 1.6f, 1.8f, new Color(c.r, c.g, c.b, 0.85f));
+            Sfx.Play(Sound.Swing, from + dir * 2f, 0.9f, 0.6f);
+        }
 
         [Rpc(SendTo.Server)]
         private void SwingRpc(Vector3 origin, Vector3 forward, float swingSide)
@@ -301,17 +320,42 @@ namespace Deepbound.Player
             float damage = SwingDamage * AttackMultiplier * (riposte ? RiposteDamage : counter ? CounterDamage : 1f) * LoneSwing;
 
             bool hitAny = false;
-            bool chillSwing = cleave && progress.Mastered(1) && ++cleaveSwings % 3 == 0;
+            // The chain: forehand, backhand, OVERHEAD (the owner's view model plays the same order).
+            chainSwings = Time.time - lastChainSwing < SwingWindup + SwingStrike + SwingRecovery * progress.AttackTimeMultiplier + 0.6f ? chainSwings + 1 : 1;
+            lastChainSwing = Time.time;
+            bool overhead = chainSwings % 3 == 0;
             foreach (var target in CombatQuery.Arc(origin, forward, range, arc, Team.Enemies))
             {
                 var zone = HitZones.Aimed(target, origin, forward, range, out var zonePoint);
-                target.Tag("Swing").ServerDamage(damage * HitZones.Multiplier(target, zone, false), transform.position, NetworkObjectId);
+                // Hilt Strike (Bash, rank 3 B): the first swing on a bashed foe is a hilt-blow.
+                bool hilt = hiltUntil.TryGetValue(target, out var hu) && Time.time < hu;
+                if (hilt) hiltUntil.Remove(target);
+                target.Tag(hilt ? "Hilt Strike" : "Swing").ServerDamage(damage * (hilt ? HiltDamage : 1f) * HitZones.Multiplier(target, zone, false), transform.position, NetworkObjectId);
+                if (hilt)
+                {
+                    AbilityKit.Push(target, Flat(target.transform.position - transform.position) * 15f);
+                    progress.AbilityTextRpc(target.Center + Vector3.up, "HILT STRIKE", PlayerProgress.FxKind.Steel);
+                    progress.AbilityBurstRpc(target.Center, 1.2f, PlayerProgress.FxKind.Steel);
+                }
                 if (zone != HitZone.Body) Arrows.ReportZone(NetworkObjectId, zonePoint, zone);
-                if (chillSwing) target.ServerChill(2.5f);
                 if (riposte && progress.Mastered(2) && target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.2f);
                 hitAny = true;
             }
             if (counter && hitAny) Sfx2Rpc(riposte);
+            // Greatblade: the overhead sends a slash wave rolling ahead.
+            if (cleave && overhead)
+            {
+                var dir = Flat(forward);
+                bool far = progress.Mastered(1);
+                float len = (far ? 10f : 7f) * ReachMul;
+                var start = transform.position + dir * 1.2f;
+                foreach (var h in AbilityKit.Lane(start, dir, len, 0.9f))
+                {
+                    h.Tag("Slash Wave").ServerDamage(damage * 0.7f, start, NetworkObjectId);
+                    if (far) h.ServerChill(2.5f);
+                }
+                SlashWaveRpc(start + Vector3.up * 1.1f, dir, len, far);
+            }
 
             SwingFxRpc(swingSide, hitAny);
         }
@@ -332,30 +376,132 @@ namespace Deepbound.Player
             }
         }
 
+        // ---- Ysolde's options for Shield Bash (2026-11-20) ----
+        public const float RicochetRange = 6f, AftershockRadius = 3.5f, AftershockDelay = 0.7f, HiltDamage = 3f, HiltWindow = 2.5f;
+        public const float DominoRadius = 2f, BracedSeconds = 2f, ThrowLength = 12f, SplitLength = 8f, SplitDelay = 0.5f;
+        private readonly Dictionary<Health, float> hiltUntil = new Dictionary<Health, float>();
+        private float bracedUntil = -10f;
+
+        private static Vector3 Flat(Vector3 v) { v.y = 0f; return v.sqrMagnitude > 0.0001f ? v.normalized : Vector3.forward; }
+
         [Rpc(SendTo.Server)]
-        private void BashRpc(Vector3 origin, Vector3 forward)
+        private void BashRpc(Vector3 origin, Vector3 forward) => ServerBash(origin, forward);
+
+        /// <summary>Server: the bash and every option taken for it. Public for the smoke test.</summary>
+        public void ServerBash(Vector3 origin, Vector3 forward)
         {
             if (!life.CanAct) return;
-            // The lunge carries the Knight ~1.5m, so the hit reaches a little further than
-            // the shield itself.
-            // Rank 2: harder and longer; rank 3: a shockwave half-circle, a metre further.
+            // The lunge carries the Knight ~1.5 m, so the hit reaches a little further than the shield itself.
             float potency = progress.Potency(AbilitySlot.Q);
-            bool wave = progress.Twist(AbilitySlot.Q);
-            foreach (var target in CombatQuery.Arc(origin, forward, (BashRange + 1.5f + (wave ? 1f : 0f)) * ReachMul, wave ? 180f : 100f, Team.Enemies))
+            bool rush = progress.B(AbilitySlot.Q, 1);
+            float reach = (BashRange + 1.5f + (rush ? 1.5f : 0f)) * ReachMul;
+            var hits = CombatQuery.Arc(origin, forward, reach, 100f, Team.Enemies).ToList();
+            var struck = new HashSet<Health>(hits);
+            Health first = null;
+            foreach (var target in hits)
             {
-                target.Tag("Bash").ServerDamage(BashDamage * AttackMultiplier * potency * Combos.TryShatter(target, progress), transform.position, NetworkObjectId);
-                if (target.TryGetComponent<Enemies.EnemyBrain>(out var bashed)) bashed.ServerAddThreat(NetworkObjectId, 80f * potency); // a shield in the face
-                if (target.TryGetComponent<ICrowdControl>(out var cc))
+                if (first == null || (target.transform.position - origin).sqrMagnitude < (first.transform.position - origin).sqrMagnitude) first = target;
+            }
+            foreach (var target in hits) BashHit(target, forward, potency, rush && target == first, struck);
+
+            // Ricochet (rank 2 A): the force leaps on to the nearest other enemy.
+            if (progress.A(AbilitySlot.Q, 1) && first != null)
+            {
+                var next = AbilityKit.Nearest(first.transform.position, RicochetRange, struck);
+                if (next != null)
                 {
-                    cc.ServerStun(BashStun * potency);
-                    if (target.TryGetComponent<Enemies.ShieldbearerBrain>(out var sb)) sb.ServerBreakGuard(3f);
-                    var push = target.transform.position - transform.position;
-                    push.y = 0f;
-                    cc.ServerKnockback(push.normalized * 8f);
-                    World.DungeonDirector.Instance?.ServerCheckShove(target, push.normalized * 10f, NetworkObjectId);
+                    struck.Add(next);
+                    progress.AbilityLinkRpc(first.Center, next.Center, PlayerProgress.FxKind.Steel);
+                    BashHit(next, Flat(next.transform.position - first.transform.position), potency, false, struck);
+                    progress.AbilityTextRpc(next.Center + Vector3.up, "RICOCHET", PlayerProgress.FxKind.Steel);
                 }
             }
+
+            var front = transform.position + Flat(forward) * 1.8f;
+            // Aftershock (rank 3 A): the ground heaves a moment later.
+            if (progress.A(AbilitySlot.Q, 2))
+            {
+                var at = Vfx.Floor(front);
+                progress.AbilityCircleRpc(at, AftershockRadius, AftershockDelay, PlayerProgress.FxKind.Earth);
+                float dmg = BashDamage * AttackMultiplier * potency * 0.6f;
+                ulong me = NetworkObjectId;
+                AbilityKit.Later(this, AftershockDelay, () =>
+                {
+                    AbilityKit.Blast(at, AftershockRadius, dmg, me, "Aftershock", h => AbilityKit.Stun(h, 1f));
+                    progress.AbilityBurstRpc(at, AftershockRadius, PlayerProgress.FxKind.Earth);
+                });
+            }
+            // Braced (rank 4 B): the shield guards every side for a moment.
+            if (progress.B(AbilitySlot.Q, 3)) { bracedUntil = Time.time + BracedSeconds; progress.AbilityTextRpc(transform.position + Vector3.up * 2.3f, "BRACED", PlayerProgress.FxKind.Steel); }
+            // Shield Throw (rank 5 A): a ghostly shield out along the aim and back.
+            if (progress.A(AbilitySlot.Q, 4))
+            {
+                var dir = Flat(forward);
+                float len = ThrowLength * ReachMul;
+                if (Physics.Raycast(origin, dir, out var wall, len, ~0, QueryTriggerInteraction.Ignore) && wall.collider.GetComponentInParent<Health>() == null) len = Mathf.Max(2f, wall.distance - 0.3f);
+                float dmg = BashDamage * AttackMultiplier * potency * 0.8f;
+                ulong me = NetworkObjectId;
+                var from = transform.position;
+                progress.AbilityLinkRpc(origin, origin + dir * len, PlayerProgress.FxKind.Steel);
+                foreach (var h in AbilityKit.Lane(from, dir, len, 0.9f)) { h.Tag("Shield Throw").ServerDamage(dmg, from, me); AbilityKit.Stun(h, 0.5f); }
+                AbilityKit.Later(this, 0.6f, () =>
+                {
+                    progress.AbilityLinkRpc(origin + dir * len, transform.position + Vector3.up * 1.2f, PlayerProgress.FxKind.Steel);
+                    foreach (var h in AbilityKit.Lane(from, dir, len, 0.9f)) h.Tag("Shield Throw").ServerDamage(dmg * 0.6f, from, me);
+                });
+            }
+            // Earthsplitter (rank 5 B): a fissure runs ahead and bursts.
+            if (progress.B(AbilitySlot.Q, 4))
+            {
+                var dir = Flat(forward);
+                var start = Vfx.Floor(transform.position + dir * 0.8f);
+                float len = SplitLength * ReachMul;
+                progress.AbilityLaneRpc(start, dir, len, 2.4f, SplitDelay, PlayerProgress.FxKind.Earth);
+                float dmg = BashDamage * AttackMultiplier * potency * 1.1f;
+                ulong me = NetworkObjectId;
+                AbilityKit.Later(this, SplitDelay, () =>
+                {
+                    foreach (var h in AbilityKit.Lane(start, dir, len, 1.2f)) { h.Tag("Earthsplitter").ServerDamage(dmg, start, me); AbilityKit.Stun(h, 1.2f); }
+                    for (int i = 1; i <= 4; i++) progress.AbilityBurstRpc(start + dir * (len * i / 4f), 1.3f, PlayerProgress.FxKind.Earth);
+                });
+            }
             BashFxRpc();
+        }
+
+        /// <summary>Server: one enemy takes the bash.</summary>
+        private void BashHit(Health target, Vector3 forward, float potency, bool rushed, HashSet<Health> struck)
+        {
+            if (target == null || !target.IsAlive) return;
+            target.Tag("Bash").ServerDamage(BashDamage * AttackMultiplier * potency * Combos.TryShatter(target, progress), transform.position, NetworkObjectId);
+            if (target.TryGetComponent<Enemies.EnemyBrain>(out var bashed)) bashed.ServerAddThreat(NetworkObjectId, 80f * potency); // a shield in the face
+            if (progress.B(AbilitySlot.Q, 2)) hiltUntil[target] = Time.time + HiltWindow;
+            if (!target.TryGetComponent<ICrowdControl>(out var cc)) return;
+            cc.ServerStun(BashStun);
+            if (target.TryGetComponent<Enemies.ShieldbearerBrain>(out var sb)) sb.ServerBreakGuard(3f);
+            var push = Flat(target.transform.position - transform.position);
+            // Shield Rush (rank 2 B): the first foe is driven before you and hurled back.
+            float force = rushed ? 18f : 8f;
+            cc.ServerKnockback(push * force);
+            World.DungeonDirector.Instance?.ServerCheckShove(target, push * (rushed ? 16f : 10f), NetworkObjectId);
+            // Domino (rank 4 A): hurled into the ones behind it.
+            if (progress.A(AbilitySlot.Q, 3))
+            {
+                var landing = target.transform.position + push * (force * 0.22f);
+                float dmg = BashDamage * AttackMultiplier * potency * 0.7f;
+                ulong me = NetworkObjectId;
+                AbilityKit.Later(this, 0.3f, () =>
+                {
+                    foreach (var h in CombatQuery.Circle(landing, DominoRadius, Team.Enemies).ToArray())
+                    {
+                        if (h == null || !h.IsAlive || struck.Contains(h)) continue;
+                        struck.Add(h);
+                        h.Tag("Domino").ServerDamage(dmg, landing, me);
+                        AbilityKit.Stun(h, BashStun * 0.7f);
+                        AbilityKit.Push(h, Flat(h.transform.position - landing) * 6f);
+                        progress.AbilityTextRpc(h.Center + Vector3.up, "DOMINO", PlayerProgress.FxKind.Steel);
+                    }
+                });
+            }
         }
 
         /// <summary>The riposte's ring of steel.</summary>
@@ -372,32 +518,65 @@ namespace Deepbound.Player
             if (!IsOwner) player.Rig?.Play(RigAction.Bash, 0.4f);
             Sfx.Play(Sound.Bash, transform.position + transform.forward + Vector3.up);
             // A shove of force off the shield face: ring and grit, wider when ranked.
-            bool wave = progress.Twist(AbilitySlot.Q);
             var front = transform.position + transform.forward * 1.6f;
-            Vfx.Ring(front, wave ? 3.5f : 2.2f, new Color(1f, 0.9f, 0.7f), 0.3f);
+            Vfx.Ring(front, 2.2f, new Color(1f, 0.9f, 0.7f), 0.3f);
             Vfx.Smoke(front, 2, 0.6f, 1f);
             Vfx.Embers(front + Vector3.up, 6, new Color(1f, 0.8f, 0.5f), 4f, 0.05f, 0.5f);
         }
 
+        public const float DreadSeconds = 1.5f, BastionRadius = 8f, BastionScale = 0.75f, EchoDelay = 3f;
+
         [Rpc(SendTo.Server)]
-        private void WarCryRpc()
+        private void WarCryRpc() => ServerWarCry();
+
+        /// <summary>Server: the cry and every option taken for it. Public for the smoke test.</summary>
+        public void ServerWarCry()
         {
             if (!life.CanAct) return;
-            float potency = progress.Potency(AbilitySlot.E);
-            float duration = WarCryDuration * potency;
+            float duration = WarCryDuration * progress.Potency(AbilitySlot.E);
             warCryUntil = Time.time + duration;
             WarCryEnds.Value = NetworkManager.ServerTime.Time + duration;
+            lastOathSpent = false;
+            Cry(duration);
+            // Rally (rank 2 B): the party runs faster and hits harder while it lasts.
+            if (progress.B(AbilitySlot.E, 1))
+                foreach (var p in PlayerLife.All)
+                    if (p != null && !p.Downed.Value && Vector3.Distance(p.transform.position, transform.position) <= WarCryRadius && p.TryGetComponent<PlayerProgress>(out var pp))
+                        pp.ServerRally(duration, 1f);
+            // Bastion (rank 4 B): allies near you take a quarter less.
+            if (progress.B(AbilitySlot.E, 3)) AbilityKit.ServerDamageZone(transform.position, BastionRadius, duration, BastionScale, health, "Bastion");
+            // Echo (rank 5 A): the cry again, three seconds on.
+            if (progress.A(AbilitySlot.E, 4))
+                AbilityKit.Later(this, EchoDelay, () =>
+                {
+                    if (!health.IsAlive || life.Downed.Value) return;
+                    warCryUntil = Mathf.Max(warCryUntil, Time.time + 2f);
+                    Cry(duration * 0.6f);
+                    progress.AbilityTextRpc(transform.position + Vector3.up * 2.4f, "ECHO", PlayerProgress.FxKind.Fire);
+                });
+        }
 
-            foreach (var target in CombatQuery.Circle(transform.position, WarCryRadius * potency, Team.Enemies))
+        /// <summary>Server: one shout: taunt, Challenge, Dread.</summary>
+        private void Cry(float duration)
+        {
+            Health toughest = null;
+            foreach (var target in CombatQuery.Circle(transform.position, WarCryRadius, Team.Enemies).ToArray())
             {
                 if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerTaunt(health, duration);
+                if (toughest == null || target.Current.Value > toughest.Current.Value) toughest = target;
+                // Dread (rank 4 A): the rank and file cower before they come.
+                if (progress.A(AbilitySlot.E, 3) && !AbilityKit.IsBoss(target)) AbilityKit.Stun(target, DreadSeconds);
             }
-            // Rank 3: the cry steels the party — a shield each (which can Aegis-burst).
-            if (progress.Twist(AbilitySlot.E))
-                foreach (var ally in CombatQuery.Circle(transform.position, WarCryRadius, Team.Players))
-                    ally.ServerShield(40f, duration);
+            // Challenge (rank 2 A): the toughest is marked for the party.
+            if (progress.A(AbilitySlot.E, 1) && toughest != null)
+            {
+                toughest.ServerMark(duration + 3f);
+                progress.AbilityTextRpc(toughest.Center + Vector3.up * 1.4f, "CHALLENGED", PlayerProgress.FxKind.Fire);
+            }
             WarCryFxRpc();
         }
+
+        private bool lastOathSpent;
 
         [Rpc(SendTo.ClientsAndHost)]
         private void WarCryFxRpc()
@@ -405,7 +584,7 @@ namespace Deepbound.Player
             player.Rig?.Play(RigAction.Cast, 0.7f);
             Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.6f);
             // The cry as a pressure wave: two rings racing out to the taunt radius.
-            float r = WarCryRadius * progress.Potency(AbilitySlot.E);
+            float r = WarCryRadius;
             Vfx.Ring(transform.position, r, new Color(1f, 0.45f, 0.2f), 0.55f);
             Vfx.Ring(transform.position, r * 0.6f, new Color(1f, 0.8f, 0.4f), 0.35f);
             Vfx.Flash(transform.position + Vector3.up * 1.6f, new Color(1f, 0.55f, 0.25f), 5f, 8f, 0.4f);
@@ -415,23 +594,46 @@ namespace Deepbound.Player
         private float ModifyIncoming(float damage, Vector3 attackerPosition)
         {
             if (!Active) return damage;
-            if (Time.time < warCryUntil) damage *= 0.5f;
+            bool crying = Time.time < warCryUntil;
+            if (crying)
+            {
+                // Iron Thorns (War Cry, rank 3 A): whatever strikes you takes half the blow back.
+                if (progress.A(AbilitySlot.E, 2)) AbilityKit.Thorn(health, damage * 0.5f);
+                damage *= 0.5f;
+            }
 
-            if (Blocking.Value)
+            bool braced = Time.time < bracedUntil;
+            if (Blocking.Value || braced)
             {
                 var to = attackerPosition - transform.position;
                 to.y = 0f;
-                if (Vector3.Angle(transform.forward, to) < 75f)
+                if (braced || Vector3.Angle(transform.forward, to) < 75f)
                 {
                     // Turning a blow aside infuriates whoever threw it.
                     if (NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(health.LastHitFrom, out var foe) && foe.TryGetComponent<Enemies.EnemyBrain>(out var angry))
                         angry.ServerAddThreat(NetworkObjectId, damage * 3f + 15f);
                     if (Classes.PathTriads.OnKnightBlock(progress, damage, SwingDamage)) BulwarkFxRpc();
+                    // Spiked Shield: a melee blow on the spikes hurts the one who struck (and stuns, mastered).
+                    if (progress.OnPath(2) && to.magnitude < SpikeReach)
+                    {
+                        AbilityKit.Thorn(health, damage * SpikeShare * AttackMultiplier);
+                        if (progress.Mastered(2) && NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(health.LastHitFrom, out var struck) && struck.TryGetComponent<Health>(out var sh)) AbilityKit.Stun(sh, 1f);
+                    }
                     damage *= 0.2f;
                     riposteUntil = Time.time + CounterWindow;
-                    BlockedHitRpc();
+                    if (!braced) BlockedHitRpc();
                     BlockFxRpc();
                 }
+            }
+            // Last Oath (War Cry, rank 5 B): a downing blow leaves 1 health and ends the cry instead.
+            if (crying && !lastOathSpent && progress.B(AbilitySlot.E, 4) && damage >= health.Current.Value && health.Current.Value > 1f)
+            {
+                lastOathSpent = true;
+                damage = health.Current.Value - 1f;
+                warCryUntil = 0f;
+                WarCryEnds.Value = NetworkManager.ServerTime.Time;
+                progress.AbilityTextRpc(transform.position + Vector3.up * 2.4f, "LAST OATH", PlayerProgress.FxKind.Holy);
+                progress.AbilityBurstRpc(transform.position + Vector3.up, 2.5f, PlayerProgress.FxKind.Holy);
             }
             return damage;
         }

@@ -99,6 +99,7 @@ namespace Deepbound.Player
             if (!IsServer) return;
             health.IncomingModifiers.Add(ModifyIncoming);
             Health.ServerAnyDamaged += OnAnyDamaged;
+            health.DamagedServer += OnHurt;
         }
 
         public override void OnNetworkDespawn()
@@ -166,7 +167,7 @@ namespace Deepbound.Player
             // --- Q: Chains of Penance ---
             if (canAct && UI.Binds.Down(UI.Bind.AbilityQ) && Time.time >= chainReadyAt)
             {
-                var target = AimedEnemy(ChainRange * progress.Potency(AbilitySlot.Q) * progress.RangeMultiplier);
+                var target = AimedEnemy(ChainRange * progress.RangeMultiplier);
                 if (target == null) UI.GameHud.Feed("No enemy in reach of the chain", new Color(0.8f, 0.75f, 0.7f));
                 else
                 {
@@ -177,9 +178,16 @@ namespace Deepbound.Player
             }
 
             // --- E: Penitent Leap ---
-            if (canAct && UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= leapReadyAt)
+            bool freeLeap = Time.time < freeLeapUntil;
+            if (canAct && UI.Binds.Down(UI.Bind.AbilityE) && (Time.time >= leapReadyAt || freeLeap))
             {
-                leapReadyAt = Time.time + LeapCooldown * progress.CooldownFor(AbilitySlot.E);
+                if (freeLeap) freeLeapUntil = 0f;
+                else
+                {
+                    leapReadyAt = Time.time + LeapCooldown * progress.CooldownFor(AbilitySlot.E);
+                    // Second Leap (rank 3 A): another, free, within a few seconds of landing.
+                    if (progress.A(AbilitySlot.E, 2)) freeLeapUntil = Time.time + 0.6f + SecondLeapWindow;
+                }
                 var to = LeapTarget();
                 var flat = to - transform.position;
                 flat.y = 0f;
@@ -259,12 +267,15 @@ namespace Deepbound.Player
         {
             if (Vector3.Distance(origin, transform.position + Vector3.up * 1.5f) > 2f) origin = transform.position + Vector3.up * 1.5f;
             swings++;
-            bool crash = swings % CrashEvery == 0;
+            // Fanatic: the crash comes every other swing.
+            bool crash = swings % (progress.OnPath(1) ? 2 : CrashEvery) == 0;
             float range = SwingRange * progress.ReachMultiplier;
-            float dmg = SwingDamage * DamageMultiplier * (crash ? CrashMultiplier * (progress.OnPath(1) ? 1.3f : 1f) : 1f);
+            // Penitent: the flail whirls all round you, a little lighter.
+            bool whirl = progress.OnPath(2);
+            float dmg = SwingDamage * DamageMultiplier * (crash ? CrashMultiplier : 1f) * (whirl && !crash ? WhirlShare : 1f);
             float total = 0f;
             var hit = new HashSet<Health>();
-            foreach (var target in CombatQuery.Arc(origin, forward, range, SwingArc, Team.Enemies))
+            foreach (var target in CombatQuery.Arc(origin, forward, range, whirl && !crash ? 360f : SwingArc, Team.Enemies))
             {
                 var zone = HitZones.Aimed(target, origin, forward, range, out var zonePoint);
                 total += target.Tag("FlagellantKit").ServerDamage(dmg * HitZones.Multiplier(target, zone, false) * Combos.TryShatter(target, progress), transform.position, NetworkObjectId);
@@ -275,7 +286,9 @@ namespace Deepbound.Player
             if (crash)
             {
                 // The overhead crash bursts where it lands: Zealots' wider, and stunning at mastery.
-                float radius = CrashRadius * (progress.OnPath(1) ? 1.5f : 1f);
+                float radius = CrashRadius;
+                // Fanatic: the ground burns where it lands.
+                if (progress.OnPath(1)) StartCoroutine(BurnGround(crashAt));
                 foreach (var target in CombatQuery.Circle(crashAt, radius, Team.Enemies))
                 {
                     if (!hit.Contains(target)) total += target.Tag("FlagellantKit").ServerDamage(dmg * 0.6f, crashAt, NetworkObjectId);
@@ -317,28 +330,69 @@ namespace Deepbound.Player
         }
 
         /// <summary>Server: the chain. Drags the target to you, or you to it if it is too heavy. Public for the smoke test.</summary>
-        public bool ServerChain(Health target)
+        // ---- Ysolde's options for Chains of Penance and Penitent Leap (2026-11-20) ----
+        public const float SecondLeapWindow = 3f, PullRadius = 8f, QuakeRadius = 6f, BrandSeconds = 4f, DoubleChainRange = 8f;
+        private float freeLeapUntil;
+
+        public bool ServerChain(Health target) => ServerChain(target, true);
+
+        private bool ServerChain(Health target, bool first)
         {
             float potency = progress.Potency(AbilitySlot.Q);
-            if (Vector3.Distance(target.transform.position, transform.position) > ChainRange * potency * progress.RangeMultiplier + 2f) return false;
+            if (Vector3.Distance(target.transform.position, transform.position) > ChainRange * progress.RangeMultiplier + 2f) return false;
             var from = transform.position;
             var toMe = Flat(target.transform.position - from);
             var spot = from + toMe * 1.6f;
+            var startAt = target.transform.position;
             bool dragged = target.TryGetComponent<Enemies.EnemyBrain>(out var brain) && brain.ServerYank(spot);
             target.Tag("FlagellantKit").ServerDamage(ChainDamage * DamageMultiplier * potency, from, NetworkObjectId);
-            if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(ChainStun * (dragged ? 1f : 0.6f));
-            // Rank 3: everything near the target comes along too.
-            if (progress.Twist(AbilitySlot.Q))
-                foreach (var other in CombatQuery.Circle(target.transform.position, 3f, Team.Enemies).ToArray())
+            // Shackled (rank 4 A): held twice as long, and marked.
+            bool shackle = progress.A(AbilitySlot.Q, 3);
+            if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(ChainStun * (dragged ? 1f : 0.6f) * (shackle ? 2f : 1f));
+            if (shackle) target.ServerMark(5f);
+            ulong me = NetworkObjectId;
+            // Dragnet (rank 2 A): everything near the target comes along too.
+            if (progress.A(AbilitySlot.Q, 1))
+                foreach (var other in CombatQuery.Circle(startAt, 3f, Team.Enemies).ToArray())
                     if (other != target && other.TryGetComponent<Enemies.EnemyBrain>(out var ob))
                     {
                         ob.ServerYank(spot + Random.insideUnitSphere.normalized * 1.2f);
-                        if (other.TryGetComponent<ICrowdControl>(out var occ)) occ.ServerStun(ChainStun * 0.7f);
+                        AbilityKit.Stun(other, ChainStun * 0.7f);
                     }
+            // Lash (rank 2 B): the chain whips what lies along its line.
+            if (progress.B(AbilitySlot.Q, 1))
+                foreach (var h in AbilityKit.Lane(from, startAt - from, Vector3.Distance(from, startAt), 1f))
+                    if (h != target) { h.Tag("Lash").ServerDamage(ChainDamage * DamageMultiplier * potency, from, me); AbilityKit.Stun(h, 0.4f); }
+            // Hooked (rank 3 A): it bleeds into you.
+            if (progress.A(AbilitySlot.Q, 2))
+                AbilityKit.Bleed(this, target, ChainDamage * DamageMultiplier * 0.8f, 4f, me, "Hooked", d => { if (health.IsAlive) health.ServerHeal(d); });
+            // Chain Sweep (rank 3 B): haul it in with a sweep round you.
+            if (progress.B(AbilitySlot.Q, 2) && dragged)
+                AbilityKit.Later(this, 0.25f, () =>
+                {
+                    AbilityKit.Blast(transform.position, 2.5f, ChainDamage * DamageMultiplier * 1.2f, me, "Chain Sweep", h => AbilityKit.Stun(h, 0.6f));
+                    progress.AbilityBurstRpc(transform.position, 2.5f, PlayerProgress.FxKind.Blood);
+                });
+            // Reel-In Crash (rank 4 B): dragged to something heavy, you land in a crash.
+            if (progress.B(AbilitySlot.Q, 3) && !dragged)
+                AbilityKit.Later(this, 0.55f, () =>
+                {
+                    float dmg = SwingDamage * DamageMultiplier * CrashMultiplier;
+                    AfterHits(AbilityKit.Blast(transform.position + Flat(target != null ? target.transform.position - transform.position : transform.forward) * 1.2f, CrashRadius * 1.4f, dmg, me, "Reel-In Crash", h => AbilityKit.Stun(h, 0.6f)).Count > 0 ? dmg : 0f);
+                    progress.AbilityBurstRpc(transform.position, CrashRadius * 1.4f, PlayerProgress.FxKind.Blood);
+                });
+            // Penance (rank 5 B): every one you drag mends you and feeds the Fervor.
+            if (progress.B(AbilitySlot.Q, 4)) { health.ServerHeal(health.Max.Value * 0.06f); Fervor.Value = Mathf.Min(FervorMax, Fervor.Value + 20f); }
             Fervor.Value = Mathf.Min(FervorMax, Fervor.Value + FervorPerHit);
             lastHitAt = Time.time;
             ChainFxRpc(transform.position + Vector3.up * 1.3f, target.Center, dragged);
-            if (!dragged) DragMeRpc(target.transform.position - toMe * 1.8f);
+            if (!dragged && first) DragMeRpc(target.transform.position - toMe * 1.8f);
+            // Double Chain (rank 5 A): it leaps on to a second foe.
+            if (first && progress.A(AbilitySlot.Q, 4))
+            {
+                var next = AbilityKit.Nearest(startAt, DoubleChainRange, new[] { target });
+                if (next != null) AbilityKit.Later(this, 0.2f, () => { if (next != null && next.IsAlive) ServerChain(next, false); });
+            }
             return true;
         }
 
@@ -370,19 +424,100 @@ namespace Deepbound.Player
             float fervor = Fervor.Value;
             Fervor.Value = 0f;
             float dmg = LeapDamage * DamageMultiplier * potency * (1f + fervor / 100f);
-            bool twist = progress.Twist(AbilitySlot.E);
+            ulong me = NetworkObjectId;
+            // Crater Pull (rank 4 A): the dead near are dragged in first.
+            if (progress.A(AbilitySlot.E, 3))
+            {
+                foreach (var h in CombatQuery.Circle(at, PullRadius, Team.Enemies).ToArray())
+                    if (!AbilityKit.IsBoss(h) && h.TryGetComponent<Enemies.EnemyBrain>(out var pb)) pb.ServerYank(at + Random.insideUnitSphere.normalized * 1.3f);
+                progress.AbilityBurstRpc(at, PullRadius * 0.5f, PlayerProgress.FxKind.Shadow);
+            }
+            // Martyr's Fall (rank 4 B): it costs you, and it hits twice as hard.
+            if (progress.B(AbilitySlot.E, 3) && health.Fraction > 0.15f)
+            {
+                health.ServerSetFraction(health.Fraction - 0.1f);
+                dmg *= 2f;
+                progress.AbilityTextRpc(at + Vector3.up * 2.2f, "MARTYR'S FALL", PlayerProgress.FxKind.Blood);
+            }
+            bool shockwave = progress.A(AbilitySlot.E, 1);
             float total = 0f;
             foreach (var target in CombatQuery.Circle(at, LeapRadius, Team.Enemies).ToArray())
             {
-                total += target.Tag("FlagellantKit").ServerDamage(dmg, at, NetworkObjectId);
+                total += target.Tag("FlagellantKit").ServerDamage(dmg, at, me);
                 if (target.TryGetComponent<ICrowdControl>(out var cc))
                 {
-                    cc.ServerStun(LeapStun * (twist ? 1.5f : 1f));
-                    if (twist) cc.ServerKnockback(Flat(target.transform.position - at) * 7f);
+                    cc.ServerStun(LeapStun * (shockwave ? 1.5f : 1f));
+                    if (shockwave) cc.ServerKnockback(Flat(target.transform.position - at) * 7f);
                 }
+            }
+            // Quake (rank 5 A): everything within 6 m is stunned for 2 s.
+            if (progress.A(AbilitySlot.E, 4))
+            {
+                foreach (var h in CombatQuery.Circle(at, QuakeRadius, Team.Enemies).ToArray()) AbilityKit.Stun(h, 2f);
+                progress.AbilityBurstRpc(at, QuakeRadius, PlayerProgress.FxKind.Earth);
+            }
+            // Afterquake (rank 5 B): three ripples, each wider.
+            if (progress.B(AbilitySlot.E, 4))
+                for (int i = 1; i <= 3; i++)
+                {
+                    float r = LeapRadius + i * 1.6f;
+                    AbilityKit.Later(this, i * 0.4f, () =>
+                    {
+                        AbilityKit.Blast(at, r, LeapDamage * DamageMultiplier * potency * 0.35f, me, "Afterquake", h => AbilityKit.Stun(h, 0.4f));
+                        progress.AbilityBurstRpc(at, r, PlayerProgress.FxKind.Earth);
+                    });
+                }
+            // Brand (rank 2 B): holy fire stays on the ground.
+            if (progress.B(AbilitySlot.E, 1)) StartCoroutine(Brand(at));
+            // Blood Rain (rank 3 B): the Fervor spent mends the party round you.
+            if (progress.B(AbilitySlot.E, 2) && fervor > 0f)
+            {
+                foreach (var ally in CombatQuery.Circle(at, 5f, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.2f * (fervor / FervorMax));
+                progress.AbilityBurstRpc(at, 5f, PlayerProgress.FxKind.Blood);
             }
             AfterHits(total);
             LeapFxRpc(at, fervor);
+        }
+
+        // ---- Hobb's paths (2026-11-20) ----
+        public const float WhirlShare = 0.7f, BurnSeconds = 2f, EruptRadius = 4f, EruptEvery = 20f, EruptEveryMastered = 12f;
+        private float nextErupt;
+
+        /// <summary>Server: the Fanatic's crash leaves the ground burning.</summary>
+        private IEnumerator BurnGround(Vector3 at)
+        {
+            progress.AbilityCircleRpc(at, CrashRadius, BurnSeconds, PlayerProgress.FxKind.Fire);
+            for (int i = 0; i < 4; i++)
+            {
+                yield return new WaitForSeconds(0.5f);
+                AbilityKit.Blast(at, CrashRadius, 6f * DamageMultiplier * 0.5f, NetworkObjectId, "Burning Ground", h => h.ServerScorch(2f, NetworkObjectId));
+            }
+        }
+
+        /// <summary>Server: the Scarred: a blow that takes you below half makes you erupt.</summary>
+        private void OnHurt(float lost, ulong from)
+        {
+            if (!Active || !progress.OnPath(Classes.PathTriads.Path) || !health.IsAlive || Time.time < nextErupt) return;
+            float before = (health.Current.Value + lost) / Mathf.Max(1f, health.Max.Value);
+            if (before < 0.5f || health.Fraction >= 0.5f) return;
+            nextErupt = Time.time + (progress.Mastered(Classes.PathTriads.Path) ? EruptEveryMastered : EruptEvery);
+            health.ServerHeal(health.Max.Value * 0.1f);
+            foreach (var h in CombatQuery.Circle(transform.position, EruptRadius, Team.Enemies).ToArray()) AbilityKit.Stun(h, 1.2f);
+            progress.AbilityBurstRpc(transform.position, EruptRadius, PlayerProgress.FxKind.Blood);
+            progress.AbilityTextRpc(transform.position + Vector3.up * 2.3f, "SCARRED", PlayerProgress.FxKind.Blood);
+        }
+
+        /// <summary>Server: Brand: holy fire burns where you landed.</summary>
+        private IEnumerator Brand(Vector3 at)
+        {
+            progress.AbilityCircleRpc(at, LeapRadius, BrandSeconds, PlayerProgress.FxKind.Holy);
+            float end = Time.time + BrandSeconds;
+            while (Time.time < end)
+            {
+                yield return new WaitForSeconds(0.5f);
+                AbilityKit.Blast(at, LeapRadius, 10f * DamageMultiplier * 0.5f, NetworkObjectId, "Brand", h => h.ServerScorch(2f, NetworkObjectId));
+                progress.AbilityBurstRpc(at + Random.insideUnitSphere * LeapRadius * 0.6f, 0.4f, PlayerProgress.FxKind.Holy);
+            }
         }
 
         /// <summary>Server: the ultimate, Martyrdom.</summary>
@@ -417,7 +552,7 @@ namespace Deepbound.Player
             if (crash)
             {
                 Sfx.Play(Sound.Slam, crashAt, 0.9f, 1.1f);
-                Vfx.Ring(crashAt + Vector3.up * 0.05f, CrashRadius * (progress.OnPath(1) ? 1.5f : 1f), new Color(1f, 0.5f, 0.35f), 0.35f);
+                Vfx.Ring(crashAt + Vector3.up * 0.05f, CrashRadius, new Color(1f, 0.5f, 0.35f), 0.35f);
                 Vfx.Embers(crashAt + Vector3.up * 0.2f, 10, new Color(0.7f, 0.6f, 0.5f), 4f, 0.05f, 0.5f);
                 if (IsOwner) { player.ConfirmHit(1.8f); player.AddShake(0.22f); }
             }

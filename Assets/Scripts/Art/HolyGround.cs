@@ -13,7 +13,10 @@ namespace Deepbound.Art
         private Transform[] motes;
         private Renderer ring;
 
-        public static void Spawn(Vector3 at, float radius, float seconds)
+        /// <summary>Holy Stride (2026-11-20): the ground walks with this transform.</summary>
+        public Transform Follow;
+
+        public static HolyGround Spawn(Vector3 at, float radius, float seconds)
         {
             at = Vfx.Floor(at);
             var go = new GameObject("HolyGround");
@@ -53,6 +56,7 @@ namespace Deepbound.Art
             h.glow.range = radius * 2.2f;
             h.glow.intensity = 3f;
             Destroy(go, seconds + 0.5f);
+            return h;
         }
 
         private void Update()
@@ -70,6 +74,7 @@ namespace Deepbound.Art
             }
             ring.transform.localScale = new Vector3(ring.transform.localScale.x, 1f, ring.transform.localScale.z);
             transform.Rotate(0f, Time.deltaTime * 12f, 0f);
+            if (Follow != null) transform.position = Vfx.Floor(Follow.position + Vector3.up * 0.5f) + Vector3.up * 0.03f;
         }
     }
 }
