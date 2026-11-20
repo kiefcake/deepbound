@@ -1534,7 +1534,10 @@ namespace Deepbound.World
                 float t = (float)(rng.NextDouble() * 2.0 - 1.0) * half;
                 if (room.Doors[side] && Mathf.Abs(t) < DungeonLayout.CorridorWidth) continue;
                 float off = (alongX ? room.Size.y : room.Size.x) / 2f - 1.0f;
-                return room.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t));
+                var spot = room.Center + new Vector3(d.x, 0f, d.y) * off + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t));
+                // Not inside the dressing (2026-11-20: a pot spawned in a corner bookcase): the spot must stand empty.
+                if (tries < 7 && Physics.CheckBox(spot + Vector3.up * 0.9f, new Vector3(0.4f, 0.65f, 0.4f), Quaternion.identity, ~0, QueryTriggerInteraction.Ignore)) continue;
+                return spot;
             }
             return room.Center + new Vector3(room.Size.x / 2f - 1.2f, 0f, room.Size.y / 2f - 1.2f);
         }

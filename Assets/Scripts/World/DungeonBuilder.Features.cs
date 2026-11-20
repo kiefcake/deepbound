@@ -508,7 +508,9 @@ namespace Deepbound.World
             {
                 if (Mathf.Abs(t) < DungeonLayout.CorridorWidth / 2f + 1.8f) continue;
                 var at = room.Center + (ax ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t));
-                if (!b.AddModel("WoodenTable_01", 0.6f, at, ax ? 0f : 90f))
+                if (b.AddModel("WoodenTable_01", 0.6f, at, ax ? 0f : 90f))
+                    b.AddModel("decorative_book_set_01", 0.22f, at + Vector3.up * 0.6f + (ax ? new Vector3(-0.35f, 0f, 0f) : new Vector3(0f, 0f, -0.35f)), ax ? 0f : 90f);
+                else
                 {
                     b.AddBox(at + Vector3.up * 0.55f, new Vector3(1.1f, 0.08f, 0.7f), Mat.Wood, Quaternion.Euler(0f, ax ? 0f : 90f, 0f));
                     b.AddBox(at + Vector3.up * 0.27f, new Vector3(0.12f, 0.55f, 0.12f), Mat.Wood);
@@ -742,13 +744,20 @@ namespace Deepbound.World
                 {
                     float t = -room.Size.x / 2f + 2f + k * (room.Size.x - 4f) / 5f;
                     var foot = new Vector3(c.x + t, 0f, c.z + room.Size.y / 2f - 0.45f);
-                    string slug = k % 3 == 1 ? "sledgehammer_01" : k % 3 == 2 ? "wooden_axe" : "kite_shield";
-                    float h = slug == "kite_shield" ? 1.05f : 0.95f;
+                    string slug = k % 3 == 1 ? (k == 1 ? "ornate_war_hammer" : "ornate_medieval_mace") : k % 3 == 2 ? "antique_estoc" : "kite_shield";
+                    float h = slug == "kite_shield" ? 1.05f : slug == "antique_estoc" ? 1.15f : 0.95f;
                     // Leaning back against the wall, a little askew.
                     var lean = Quaternion.Euler(0f, 180f + (k % 2 == 0 ? 8f : -8f), 0f) * Quaternion.Euler(-12f, 0f, 0f);
                     if (!b.AddModel(slug, h, Matrix4x4.TRS(foot, lean, Vector3.one)))
                         b.AddBox(new Vector3(c.x + t, 1f, c.z + room.Size.y / 2f - 0.3f), new Vector3(0.08f, 2f, 0.1f), Mat.Steel, Quaternion.Euler(0f, 0f, (k % 2 == 0 ? 6f : -6f)));
                 }
+            }
+            if (room.Feature == RoomFeature.Treasury)
+            {
+                // 2026-11-20: an iron-bound strongbox (dressing: the real chest is the feature) and a marble bust looking on.
+                b.AddModel("treasure_chest", 0.75f, c + new Vector3(-room.Size.x / 2f + 1.4f, 0f, room.Size.y / 2f - 1.4f), 135f);
+                if (b.AddModel("GothicCommode_01", 0.95f, c + new Vector3(room.Size.x / 2f - 0.5f, 0f, room.Size.y / 2f - 2f), -90f))
+                    b.AddModel("marble_bust_01", 0.5f, c + new Vector3(room.Size.x / 2f - 0.5f, 0.95f, room.Size.y / 2f - 2f), -90f);
             }
             if (room.Feature == RoomFeature.Treasury)
                 for (int k = 0; k < 10; k++)
@@ -798,7 +807,17 @@ namespace Deepbound.World
         /// A furnished corner from the downloaded models (2026-11-20): kind 4 a table left laid (goblets, a plate, a stool),
         /// 5 a worn bookcase against the nearer wall, 6 a saint in stone looking into the room. False when the model is missing.
         /// </summary>
+        /// <summary>For the gallery: each furnished corner on this floor (where, which kind).</summary>
+        public static readonly System.Collections.Generic.List<(Vector3 at, int kind)> Furnished = new System.Collections.Generic.List<(Vector3, int)>();
+
         private static bool CornerFurniture(MeshKit.Batcher b, Vector3 c, float hx, float hz, float sx, float sz, Vector3 p, int kind, System.Random rng)
+        {
+            bool placed = CornerFurnitureInner(b, c, hx, hz, sx, sz, p, kind, rng);
+            if (placed) Furnished.Add((p, kind));
+            return placed;
+        }
+
+        private static bool CornerFurnitureInner(MeshKit.Batcher b, Vector3 c, float hx, float hz, float sx, float sz, Vector3 p, int kind, System.Random rng)
         {
             float yaw = rng.Next(360);
             float inward = Mathf.Atan2(-sx, -sz) * Mathf.Rad2Deg;
@@ -810,10 +829,20 @@ namespace Deepbound.World
                 var top = p + Vector3.up * 0.78f;
                 b.AddModel("brass_goblets", 0.2f, top + new Vector3(0.15f, 0f, 0.05f), yaw);
                 b.AddModel("carved_wooden_plate", 0.04f, top + new Vector3(-0.25f, 0f, -0.05f), yaw);
+                b.AddModel("decorative_book_set_01", 0.22f, top + Quaternion.Euler(0f, inward + 90f, 0f) * new Vector3(0.45f, 0f, 0f), inward + 90f);
                 b.AddModel("wooden_stool_02", 0.48f, p + Quaternion.Euler(0f, inward, 0f) * new Vector3(0f, 0f, 0.85f), yaw);
                 return true;
             }
-            if (kind == 5) return b.AddModel("wooden_bookshelf_worn", 2.1f, againstWall, wallFacing);
+            if (kind == 5)
+            {
+                // A tall gothic cabinet against the wall.
+                return b.AddModel("GothicCabinet_01", 1.9f, againstWall, wallFacing);
+            }
+            if (kind == 7 && b.AddModel("GothicCommode_01", 0.95f, againstWall, wallFacing))
+            {
+                b.AddModel("brass_candleholders", 0.32f, againstWall + Vector3.up * 0.95f, wallFacing);
+                return true;
+            }
             if (kind == 6 && b.AddModel("gothic_statue", 2.2f, p, inward))
             {
                 b.AddModel("rock_moss_set_01", 0.25f, p + Quaternion.Euler(0f, inward, 0f) * new Vector3(0.5f, 0f, 0.6f), yaw);
@@ -835,7 +864,7 @@ namespace Deepbound.World
                 // (crate, bucket, basket), a cluster of old pots, a table left laid, a worn bookcase against the wall, or a
                 // saint in stone watching the room; the code-built barrels when a model is missing.
                 float yaw = rng.Next(360);
-                int kind = rng.Next(7);
+                int kind = rng.Next(8);
                 if (kind >= 4 && CornerFurniture(b, c, hx, hz, sx, sz, p, kind, rng)) continue;
                 if (kind >= 4) kind = rng.Next(4);
                 // The flooded act: moss on the stone instead of dry rubble.

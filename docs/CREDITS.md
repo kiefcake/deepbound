@@ -75,22 +75,37 @@ Added 2026-11-01, when the last synthesised sounds were replaced ("no more coded
 
 ## Models (`Assets/Resources/Models/<name>/`)
 
-3D models from Poly Haven (FBX + 1k colour/normal maps, textures capped at 512 px on import). Materials are rebuilt for URP by `Editor/ArtBaker.BakeModels`, toned a little toward the dungeon palette; `Art/ModelKit` places them. Downloaded 2026-11-20. In use: crates, casks, powder barrels, urns, great urns and oil jars (`World/Breakable`), dressing crates and barrels (`World/Props`), room-corner buckets, baskets and pots, library reading tables.
+3D models from Poly Haven (FBX + 1k colour/normal maps, textures capped at 512 px on import). Materials are rebuilt for URP by `Editor/ArtBaker.BakeModels`, toned a little toward the dungeon palette; `Art/ModelKit` places them. Downloaded 2026-11-20. In use: crates, casks, powder barrels, urns, great urns and oil jars (`World/Breakable`), dressing crates and barrels (`World/Props`), furnished room corners (tables laid with goblets, plates and books, stools, gothic cabinets and commodes with brass candleholders, statues, mossy rocks, buckets, baskets and pots), the armoury's arms (kite shields, war hammer, mace, estoc), the treasury's strongbox and bust, library tables.
 
 | Model | Author | Source | Licence |
 |---|---|---|---|
-| `wine_barrel_01` | Poly Haven | https://polyhaven.com/a/wine_barrel_01 | CC0 |
-| `wooden_crate_01` | Poly Haven | https://polyhaven.com/a/wooden_crate_01 | CC0 |
-| `wooden_crate_02` | Poly Haven | https://polyhaven.com/a/wooden_crate_02 | CC0 |
+| `GothicCabinet_01` | Poly Haven | https://polyhaven.com/a/GothicCabinet_01 | CC0 |
+| `GothicCommode_01` | Poly Haven | https://polyhaven.com/a/GothicCommode_01 | CC0 |
+| `WoodenTable_01` | Poly Haven | https://polyhaven.com/a/WoodenTable_01 | CC0 |
+| `antique_ceramic_vase_01` | Poly Haven | https://polyhaven.com/a/antique_ceramic_vase_01 | CC0 |
+| `antique_estoc` | Poly Haven | https://polyhaven.com/a/antique_estoc | CC0 |
+| `brass_candleholders` | Poly Haven | https://polyhaven.com/a/brass_candleholders | CC0 |
+| `brass_goblets` | Poly Haven | https://polyhaven.com/a/brass_goblets | CC0 |
+| `carved_wooden_plate` | Poly Haven | https://polyhaven.com/a/carved_wooden_plate | CC0 |
 | `ceramic_vase_01` | Poly Haven | https://polyhaven.com/a/ceramic_vase_01 | CC0 |
 | `ceramic_vase_02` | Poly Haven | https://polyhaven.com/a/ceramic_vase_02 | CC0 |
 | `ceramic_vase_03` | Poly Haven | https://polyhaven.com/a/ceramic_vase_03 | CC0 |
 | `ceramic_vase_04` | Poly Haven | https://polyhaven.com/a/ceramic_vase_04 | CC0 |
-| `antique_ceramic_vase_01` | Poly Haven | https://polyhaven.com/a/antique_ceramic_vase_01 | CC0 |
+| `decorative_book_set_01` | Poly Haven | https://polyhaven.com/a/decorative_book_set_01 | CC0 |
+| `gothic_statue` | Poly Haven | https://polyhaven.com/a/gothic_statue | CC0 |
+| `kite_shield` | Poly Haven | https://polyhaven.com/a/kite_shield | CC0 |
+| `marble_bust_01` | Poly Haven | https://polyhaven.com/a/marble_bust_01 | CC0 |
+| `ornate_medieval_mace` | Poly Haven | https://polyhaven.com/a/ornate_medieval_mace | CC0 |
+| `ornate_war_hammer` | Poly Haven | https://polyhaven.com/a/ornate_war_hammer | CC0 |
 | `planter_pot_clay` | Poly Haven | https://polyhaven.com/a/planter_pot_clay | CC0 |
-| `wooden_bucket_01` | Poly Haven | https://polyhaven.com/a/wooden_bucket_01 | CC0 |
+| `rock_moss_set_01` | Poly Haven | https://polyhaven.com/a/rock_moss_set_01 | CC0 |
+| `treasure_chest` | Poly Haven | https://polyhaven.com/a/treasure_chest | CC0 |
 | `wicker_basket_02` | Poly Haven | https://polyhaven.com/a/wicker_basket_02 | CC0 |
-| `WoodenTable_01` | Poly Haven | https://polyhaven.com/a/WoodenTable_01 | CC0 |
+| `wine_barrel_01` | Poly Haven | https://polyhaven.com/a/wine_barrel_01 | CC0 |
+| `wooden_bucket_01` | Poly Haven | https://polyhaven.com/a/wooden_bucket_01 | CC0 |
+| `wooden_crate_01` | Poly Haven | https://polyhaven.com/a/wooden_crate_01 | CC0 |
+| `wooden_crate_02` | Poly Haven | https://polyhaven.com/a/wooden_crate_02 | CC0 |
+| `wooden_stool_02` | Poly Haven | https://polyhaven.com/a/wooden_stool_02 | CC0 |
 
 cynicmusic asks to be told when the music is used: worth a note to them if Deepbound ships.
 

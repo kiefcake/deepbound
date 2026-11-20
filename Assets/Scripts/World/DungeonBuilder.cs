@@ -21,6 +21,7 @@ namespace Deepbound.World
         public static GameObject Build(DungeonLayout layout)
         {
             theme = DungeonTheme.ForDepth(layout.Depth);
+            Furnished.Clear();
             var root = new GameObject("Dungeon (seed " + layout.Seed + ", depth " + layout.Depth + ")");
             ThemeSpots.Clear();
             var structure = new MeshKit.Batcher();
@@ -457,7 +458,7 @@ namespace Deepbound.World
                 float sx = (corner & 1) == 0 ? -1f : 1f, sz = (corner & 2) == 0 ? -1f : 1f;
                 var p = c + new Vector3(sx * (hx - 1.3f), 0f, sz * (hz - 1.3f));
                 // 2026-11-20: three furnished corners join the clutter (a laid table, a bookcase, a statue).
-                int kind = rng.Next(7);
+                int kind = rng.Next(8);
                 // Never in front of a hollow wall: a rubble heap there ate shots meant for a secret cache
                 // (2026-10-23 smoke test; the "unbreakable wall" the user hit), and crates boxed breach dead in.
                 bool byHole = false;

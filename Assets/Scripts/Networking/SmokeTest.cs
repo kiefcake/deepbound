@@ -7906,6 +7906,20 @@ namespace Deepbound.Networking
                 var kinds = new System.Collections.Generic.HashSet<Breakable.Kind>();
                 foreach (var b in FindObjectsByType<Breakable>(FindObjectsSortMode.None))
                     if (b != null && kinds.Add(b.Type.Value)) yield return Close(b.transform, a + "break_" + b.Type.Value, 1.9f);
+                // The furnished corners: one of each kind on this floor, seen from the room.
+                var seenKinds = new System.Collections.Generic.HashSet<int>();
+                foreach (var (fat, fk) in DungeonBuilder.Furnished.ToArray())
+                {
+                    if (!seenKinds.Add(fk)) continue;
+                    var rmF = DungeonDirector.Layout.Rooms.OrderBy(rr => (rr.Center - fat).sqrMagnitude).First();
+                    var toward = Flat3(rmF.Center - fat).normalized;
+                    var camAt = Art.Vfx.Floor(fat + toward * 2.8f + Vector3.up * 1.5f) + Vector3.up * 0.1f;
+                    motor.Teleport(camAt, Quaternion.LookRotation(Flat3(fat - camAt)));
+                    key.transform.position = camAt + Vector3.up * 2.2f;
+                    motor.SetPitch(18f);
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot(dir, a + "furn" + fk);
+                }
                 Component Any<T>() where T : Component => FindObjectsByType<T>(FindObjectsSortMode.None).FirstOrDefault();
                 foreach (var (c, nm, d) in new (Component, string, float)[] {
                     (Any<Chest>(), "chest", 2.6f), (Any<Sarcophagus>(), "sarcophagus", 3.2f), (Any<SideShrine>(), "sideshrine", 3f),
