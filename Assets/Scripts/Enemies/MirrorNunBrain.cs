@@ -199,6 +199,13 @@ namespace Deepbound.Enemies
                 var c = Quaternion.Euler(0f, i * 45f, 0f) * Vector3.forward * 0.36f;
                 GlowPart(MeshKit.Part(halo, "Shard", MeshKit.Box(new Vector3(0.07f, 0.16f, 0.01f)), Mat.Glow, c, new Vector3(0f, i * 45f, 15f)), Glass * 0.8f);
             }
+            // 2026-11-20 visual pass: a full black habit to the floor, a white collar, a long scapular, and her mirror in hand.
+            // The chorister's pale surplice dyed black: a nun's habit, the white of the wimple and collar standing out.
+            foreach (var r in rig.GetComponentsInChildren<Renderer>(true))
+                if (r.name.StartsWith("Robe") || r.name.StartsWith("Mantle")) ArtLibrary.Tint(r, new Color(0.08f, 0.07f, 0.09f));
+            TintPart(MeshKit.Part(rig.Torso, "Collar", MeshKit.Cylinder(0.25f, 0.17f, 0.08f, 12), Mat.Cloth, new Vector3(0f, 0.56f, 0f)), new Color(0.9f, 0.88f, 0.84f));
+            TintPart(MeshKit.Part(rig.Torso, "Scapular", MeshKit.Box(new Vector3(0.18f, 1.1f, 0.02f)), Mat.Cloth, new Vector3(0f, 0.0f, 0.2f), new Vector3(-3f, 0f, 0f)), new Color(0.12f, 0.1f, 0.13f));
+            if (rig.ArmL != null) ModelKit.Place("ornate_mirror_01", rig.ArmL, new Vector3(0f, -0.95f, 0.12f), 0f, 0.6f, false);
         }
     }
 }

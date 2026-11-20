@@ -166,6 +166,9 @@ namespace Deepbound.Enemies
             foreach (var arm in new[] { rig.ArmL, rig.ArmR })
                 if (arm != null) MeshKit.Part(arm, "Needle", MeshKit.Cylinder(0.02f, 0f, 0.9f, 5), Mat.Bone, new Vector3(0f, -0.75f, 0.12f), new Vector3(70f, 0f, 0f));
             GlowPart(MeshKit.Part(rig.Head, "Eyes", MeshKit.Box(new Vector3(0.14f, 0.025f, 0.01f)), Mat.Glow, new Vector3(0f, 0.08f, 0.15f)), BoneLight * 1.6f);
+            // 2026-11-20 visual pass (a keeper should not read as a thin hag): a hump of woven bone, a headdress of
+            // finger bones, and a cradle of small skulls in her arms.
+            GuardianKit.Marrow(rig, BoneLight);
         }
     }
 }

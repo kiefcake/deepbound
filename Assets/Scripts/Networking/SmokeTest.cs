@@ -3250,10 +3250,13 @@ namespace Deepbound.Networking
                     progress.Gold.Value > goldBefore || progress.Embers.Value > 0);
 
                 // Class combos: a stunned enemy is Exposed; a heavy hit Shatters chill.
-                var foe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead);
+                // One standing idle (an enemy recovering from its own swing is Punished x1.2: that is not "plain").
+                var foe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain) && !e.IsDead)
+                    .OrderBy(e => e.Recovering || e.IsStunned || e.Taunter != null ? 1 : 0).FirstOrDefault();
                 if (foe != null)
                 {
                     var fh = foe.GetComponent<Health>();
+                    for (int w = 0; w < 20 && (foe.Recovering || foe.IsStunned); w++) yield return new WaitForSeconds(0.1f);
                     float plain = Classes.Combos.ServerMultiplier(fh, progress);
                     foe.ServerStun(2f);
                     float exposed = Classes.Combos.ServerMultiplier(fh, progress);

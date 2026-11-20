@@ -75,7 +75,7 @@ Added 2026-11-01, when the last synthesised sounds were replaced ("no more coded
 
 ## Models (`Assets/Resources/Models/<name>/`)
 
-3D models from Poly Haven (FBX + 1k colour/normal maps, textures capped at 512 px on import). Materials are rebuilt for URP by `Editor/ArtBaker.BakeModels`, toned a little toward the dungeon palette; `Art/ModelKit` places them. Downloaded 2026-11-20. In use: crates, casks, powder barrels, urns, great urns and oil jars (`World/Breakable`), dressing crates and barrels (`World/Props`), furnished room corners (tables laid with goblets, plates and books, stools, gothic cabinets and commodes with brass candleholders, statues, mossy rocks, buckets, baskets and pots), the armoury's arms (kite shields, war hammer, mace, estoc), the treasury's strongbox and bust, library tables.
+3D models from Poly Haven (FBX + 1k colour/normal maps, textures capped at 512 px on import). Materials are rebuilt for URP by `Editor/ArtBaker.BakeModels`, toned a little toward the dungeon palette; `Art/ModelKit` places them. Downloaded 2026-11-20. In use: crates, casks, powder barrels, urns, great urns and oil jars (`World/Breakable`), dressing crates and barrels (`World/Props`), furnished room corners (tables laid with goblets, plates and books, stools, gothic cabinets and commodes with brass candleholders, statues, mossy rocks, buckets, baskets and pots), the armoury's arms (kite shields, war hammer, mace, estoc), the treasury's strongbox and bust, library tables, corridor barrels and buckets, Mother Veyle's hand mirror.
 
 | Model | Author | Source | Licence |
 |---|---|---|---|
@@ -96,6 +96,7 @@ Added 2026-11-01, when the last synthesised sounds were replaced ("no more coded
 | `kite_shield` | Poly Haven | https://polyhaven.com/a/kite_shield | CC0 |
 | `marble_bust_01` | Poly Haven | https://polyhaven.com/a/marble_bust_01 | CC0 |
 | `ornate_medieval_mace` | Poly Haven | https://polyhaven.com/a/ornate_medieval_mace | CC0 |
+| `ornate_mirror_01` | Poly Haven | https://polyhaven.com/a/ornate_mirror_01 | CC0 |
 | `ornate_war_hammer` | Poly Haven | https://polyhaven.com/a/ornate_war_hammer | CC0 |
 | `planter_pot_clay` | Poly Haven | https://polyhaven.com/a/planter_pot_clay | CC0 |
 | `rock_moss_set_01` | Poly Haven | https://polyhaven.com/a/rock_moss_set_01 | CC0 |

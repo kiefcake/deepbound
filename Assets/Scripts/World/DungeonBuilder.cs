@@ -889,6 +889,12 @@ namespace Deepbound.World
                             puddle.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
                         }
                         break;
+                    case 5:
+                        // Something left against the wall on the way down (2026-11-20, downloaded CC0 models).
+                        var by = start + axis * t + side * s * (w / 2f - 0.4f);
+                        if (crng.Next(2) == 0) dressing.AddModel("wine_barrel_01", 0.8f, by, crng.Next(360));
+                        else dressing.AddModel("wooden_bucket_01", 0.42f, by, crng.Next(360));
+                        break;
                 }
             }
 

@@ -320,6 +320,57 @@ namespace Deepbound.Art
         }
 
         // ------------------------------------------------------------------
+        // Mother Marrow (a lair keeper, on a Withering Hag)
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// The bone-knitter: a great hump of woven bone on her back like a basket she never puts down, a headdress of long
+        /// finger bones, a heavy layered shawl, and a cradle of small skulls held to her chest, their eyes lit like hers.
+        /// </summary>
+        public static void Marrow(HumanoidRig rig, Color light)
+        {
+            var t = rig.Torso; var head = rig.Head;
+            if (t == null || head == null) return;
+            var glow = new List<Renderer>();
+            var bone = new Color(0.8f, 0.74f, 0.62f);
+            var old = new Color(0.6f, 0.54f, 0.44f);
+            // The hump: a basket of woven bone, ribbed.
+            Tint(MeshKit.Part(t, "BoneBasket", MeshKit.Lathe("marrowBasket", new[]
+            {
+                new Vector2(0.16f, 0f), new Vector2(0.26f, 0.12f), new Vector2(0.3f, 0.3f), new Vector2(0.27f, 0.46f), new Vector2(0.18f, 0.56f), new Vector2(0f, 0.6f),
+            }, 9), Mat.Bone, new Vector3(0f, 0.2f, -0.22f), new Vector3(-20f, 0f, 0f), new Vector3(1.1f, 1f, 0.85f)), old);
+            for (int i = 0; i < 4; i++)
+                Tint(MeshKit.Part(t, "BasketRib", MeshKit.Cylinder(0.25f + Mathf.Sin(i / 3f * Mathf.PI) * 0.06f, 0.25f + Mathf.Sin(i / 3f * Mathf.PI) * 0.06f, 0.03f, 10), Mat.Bone,
+                    new Vector3(0f, 0.28f + i * 0.11f, -0.25f + i * 0.03f), new Vector3(-20f, 0f, 0f), new Vector3(1.12f, 1f, 0.88f)), bone);
+            // Long bones sticking out of the basket.
+            for (int i = 0; i < 5; i++)
+                Tint(MeshKit.Part(t, "BasketBone", MeshKit.Cylinder(0.022f, 0.016f, 0.5f + i * 0.06f, 5), Mat.Bone,
+                    new Vector3(-0.16f + i * 0.08f, 0.62f, -0.36f), new Vector3(-35f + i * 4f, 0f, (i - 2) * 14f)), bone);
+            // A heavy shawl in three layers.
+            for (int k = 0; k < 3; k++)
+                Tint(MeshKit.Part(t, "Shawl", MeshKit.Cylinder(0.27f - k * 0.025f, 0.3f - k * 0.02f, 0.09f, 12), Mat.Cloth,
+                    new Vector3(0f, 0.5f - k * 0.08f, 0f), Vector3.zero, new Vector3(1.05f, 1f, 0.9f)), new Color(0.22f - k * 0.03f, 0.18f - k * 0.02f, 0.15f));
+            // A headdress of long finger bones fanned behind the head.
+            for (int i = 0; i < 7; i++)
+            {
+                float a = -60f + i * 20f;
+                Tint(MeshKit.Part(head, "FingerBone", MeshKit.Cylinder(0.014f, 0.008f, 0.28f + (i % 2) * 0.1f, 5), Mat.Bone,
+                    new Vector3(Mathf.Sin(a * Mathf.Deg2Rad) * 0.1f, 0.18f, -0.06f), new Vector3(-25f, 0f, -a * 0.6f)), bone);
+            }
+            // The cradle of skulls held to her chest.
+            Tint(MeshKit.Part(t, "Cradle", MeshKit.Lathe("marrowCradle", new[] { new Vector2(0.05f, 0f), new Vector2(0.16f, 0.03f), new Vector2(0.18f, 0.08f) }, 10), Mat.Bone,
+                new Vector3(0f, 0.28f, 0.2f), new Vector3(10f, 0f, 0f), new Vector3(1.2f, 1f, 0.8f)), old);
+            for (int i = 0; i < 3; i++)
+            {
+                var at = new Vector3(-0.08f + i * 0.08f, 0.36f + (i == 1 ? 0.03f : 0f), 0.22f);
+                Tint(MeshKit.Part(t, "BabySkull", MeshKit.Ball(0.055f, 8, 6), Mat.Bone, at, Vector3.zero, new Vector3(1f, 0.95f, 1.05f)), bone);
+                foreach (float x in new[] { -0.018f, 0.018f })
+                    Glow(MeshKit.Part(t, "BabyEye", MeshKit.Ball(0.009f, 5, 3), Mat.Glow, at + new Vector3(x, 0.005f, 0.05f)), light * 1.4f, glow);
+            }
+            AddGlow(rig, glow);
+        }
+
+        // ------------------------------------------------------------------
         // Gorr, the Rot Below (on a Plaguebearer)
         // ------------------------------------------------------------------
 
