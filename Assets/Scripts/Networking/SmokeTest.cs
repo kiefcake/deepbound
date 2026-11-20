@@ -986,6 +986,58 @@ namespace Deepbound.Networking
                     hp0.ClassId.Value = classBefore;
                     Log("sheltered", "blow from the front sheltered " + fromFront + ", from behind " + fromRear, fromFront && !fromRear);
                 }
+                // The class reworks (2026-11-20): Twin Wyrms reach a foe 8 m ahead; Pandemic plagues it (+25% taken);
+                // the Flagellant's chain hauls it in over time, not in one frame; the Red Litany hurts what stands close.
+                {
+                    var rp = local.GetComponent<PlayerProgress>();
+                    var rcls0 = rp.ClassId.Value;
+                    var ultR = local.GetComponent<Ultimates>();
+                    var rfwd = local.transform.forward; rfwd.y = 0f; rfwd.Normalize();
+                    var rfoe = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + rfwd * 8f, false);
+                    bool wyrm = false, plague = false, extra = false, notWarped = false, arrived = false, litany = false, chained = false;
+                    float rd0 = 0f, rd1 = 0f, rd2 = 0f;
+                    if (rfoe != null)
+                    {
+                        rfoe.ServerStun(30f);
+                        var rfh = rfoe.GetComponent<Health>();
+                        rfh.ServerSetMax(20000f, refill: true);
+                        yield return new WaitForSeconds(0.5f);
+                        rp.ClassId.Value = Classes.ClassId.Ranger;
+                        yield return new WaitForSeconds(0.3f);
+                        float rh0 = rfh.Current.Value;
+                        ultR.ServerDebugCast(rfoe.transform.position);
+                        yield return new WaitForSeconds(1.6f);
+                        wyrm = rfh.Current.Value < rh0;
+                        rp.ClassId.Value = Classes.ClassId.PlagueDoctor;
+                        yield return new WaitForSeconds(0.3f);
+                        ultR.ServerDebugCast(rfoe.transform.position);
+                        yield return new WaitForSeconds(0.2f);
+                        plague = PlagueDoctorKit.IsPlagued(rfh);
+                        extra = Health.InPlagueCloud != null && Health.InPlagueCloud(rfh);
+                        rp.ClassId.Value = Classes.ClassId.Flagellant;
+                        yield return new WaitForSeconds(0.3f);
+                        var rfk = local.GetComponent<FlagellantKit>();
+                        rfoe.ServerStun(30f);
+                        rd0 = Vector3.Distance(rfoe.transform.position, local.transform.position);
+                        chained = rfk.ServerChain(rfh);
+                        yield return new WaitForSeconds(0.05f);
+                        rd1 = Vector3.Distance(rfoe.transform.position, local.transform.position);
+                        notWarped = rd1 > rd0 - 1.5f;
+                        yield return new WaitForSeconds(1.3f);
+                        rd2 = Vector3.Distance(rfoe.transform.position, local.transform.position);
+                        arrived = rd2 < 3.2f;
+                        float rh1 = rfh.Current.Value;
+                        rfk.ServerLitany();
+                        yield return new WaitForSeconds(1f);
+                        litany = rfh.Current.Value < rh1;
+                        yield return new WaitForSeconds(5.6f);
+                        if (rfoe != null && rfoe.IsSpawned) rfoe.NetworkObject.Despawn();
+                    }
+                    rp.ClassId.Value = rcls0;
+                    local.GetComponent<Health>().ServerSetFraction(1f);
+                    Log("class reworks", "wyrms bit " + wyrm + ", plagued " + plague + " (+25% " + extra + "), chain " + chained + " " + rd0.ToString("F1") + " m -> " + rd1.ToString("F1") + " after 0.05 s -> " + rd2.ToString("F1") + ", litany hurt " + litany,
+                        wyrm && plague && extra && chained && notWarped && arrived && litany);
+                }
                 // The Knight's COUNTER (2026-11-08): a swing soon after a block hits harder than a plain one; late, it does not.
                 {
                     var kk = local.GetComponent<KnightKit>();

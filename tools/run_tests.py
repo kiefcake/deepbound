@@ -18,7 +18,7 @@ build = os.path.abspath(args.build)
 
 REQUIRED = [
     'camp folk rounds', 'trade follows the person', 'folk hold still', 'npc dialogue', 'quests', 'quest progress', 'quests on the floor', 'bone reels pot', 'skull poker', 'dungeon interactables', 'camp memory', 'puzzle rooms', 'camp pastimes', 'camp weather', 'bell peal', 'arm wrestling', 'old wick', 'tavern regular', 'knight counter', 'rogue duelist and dash', 'workstations', 'build choices', 'enemy entrances', 'room eruption', 'stat draught', 'boss dash', 'vit regeneration', 'spawn telegraph', 'boss repulse', 'swarm by act', 'breach patrol', 'soul rift', 'spike jam', 'bargain altar', 'cellar vault', 'build identity', 'path triads', 'cursed bargains', 'gilded skull', 'relic set down', 'boss swing locked', 'debuff foes', 'punish the opening', 'hearth brazier', 'expedition remains', 'lair keepers', 'cinder pit', 'verticality', 'mantle', 'formations', 'hearing', 'noise draws the dead', 'unaware opener', 'swing turns', 'endless descent', 'arena devices placed', 'rank choices', 'ability rank', 'mage paths',
-    'fire logs',
+    'fire logs', 'class reworks',
     'ui scale', 'ui space', 'options lists', 'every sound recorded', 'party numbers', 'trap numbers', 'minimap layout',
     'pad Knight', 'pad Mage', 'pad Cleric', 'pad Rogue', 'pad Ranger', 'pad Flagellant', 'pad PlagueDoctor',
     'bot hands Knight', 'bot hands Mage', 'bot hands Cleric', 'bot hands Rogue', 'bot hands Ranger', 'bot hands Flagellant', 'bot hands PlagueDoctor',
