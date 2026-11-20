@@ -154,6 +154,7 @@ namespace Deepbound.World
             // A lightless hall has no torches, shafts or braziers: only the torch you carry.
             bool dark = room.Feature == RoomFeature.Lightless;
             if (!dark) PlaceWallTorches(room, lights, rng);
+            WallBays(room, dressing);
             if (room.Kind != RoomKind.Start && !dark) PlaceLightShafts(room, lights, dressing, rng);
             // Something in the middle (2026-11-13; World/Centrepieces): plain rooms, great halls, crypts, lightless halls.
             var middle = Centrepieces.Of(room);
@@ -354,6 +355,57 @@ namespace Deepbound.World
             {
                 // A little plinth at the back for whatever was hidden here.
                 b.AddBox(start + outward * (depth - 0.5f) + Vector3.up * 0.3f, S(1.6f, 0.6f, 0.6f), Mat.StoneWall);
+            }
+        }
+
+        /// <summary>
+        /// Gothic wall bays (2026-11-20 visual pass: long walls were flat sheets of brick): a stone pilaster from floor to
+        /// ceiling halfway between each pair of torches, on a stepped plinth, with a corbel under the ceiling. Not where a
+        /// door, a hollow wall or a balcony is, and not in rooms whose walls carry windows, shelves or galleries.
+        /// </summary>
+        private static void WallBays(DungeonLayout.Room room, MeshKit.Batcher b)
+        {
+            if (room.Kind == RoomKind.Boss || room.Height < 4.5f) return;
+            switch (room.Feature)
+            {
+                case RoomFeature.GreatHall: case RoomFeature.Library: case RoomFeature.Gallery: case RoomFeature.Mezzanine: case RoomFeature.Belfry:
+                case RoomFeature.Chasm: case RoomFeature.SunkenCourt: case RoomFeature.Cistern: case RoomFeature.Undercroft: case RoomFeature.Ruin: case RoomFeature.Rampart: case RoomFeature.Terrace: case RoomFeature.Ziggurat:
+                    return;
+            }
+            float spacing = 7f;
+            for (int side = 0; side < 4; side++)
+            {
+                if (room.Balconies.Contains(side)) continue;
+                bool alongX = side == 0 || side == 2;
+                float len = alongX ? room.Size.x : room.Size.y;
+                var dir = DungeonLayout.Dir[side];
+                var inward = -new Vector3(dir.x, 0f, dir.y);
+                float offset = (alongX ? room.Size.y : room.Size.x) / 2f;
+                int count = Mathf.Max(1, Mathf.FloorToInt(len / spacing));
+                var hole = room.HoleOn(side);
+                // Where PlaceWallTorches hangs this wall's torches (a door nudges one aside): keep the pilasters off them.
+                var torchAt = new System.Collections.Generic.List<float>();
+                for (int k = 0; k < count; k++)
+                {
+                    float tt = -len / 2f + (k + 0.5f) * len / count;
+                    if (room.Doors[side] && Mathf.Abs(tt) < DungeonLayout.CorridorWidth) tt += tt >= 0f ? DungeonLayout.CorridorWidth : -DungeonLayout.CorridorWidth;
+                    torchAt.Add(tt);
+                }
+                for (int i = 1; i < count; i++)
+                {
+                    float t = -len / 2f + i * len / count;
+                    bool byTorch = false;
+                    foreach (var tt in torchAt) if (Mathf.Abs(tt - t) < 1.1f) byTorch = true;
+                    if (byTorch) continue;
+                    if (room.Doors[side] && Mathf.Abs(t) < DungeonLayout.CorridorWidth + 0.9f) continue;
+                    if (hole != null && Mathf.Abs(t - hole.Along) < WallHole.Width + 0.6f) continue;
+                    var foot = room.Center + new Vector3(dir.x, 0f, dir.y) * offset + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)) + inward * 0.17f;
+                    var rot = Quaternion.LookRotation(inward);
+                    b.AddBox(foot + Vector3.up * room.Height / 2f, new Vector3(0.62f, room.Height, 0.34f), Mat.StoneWall, new Color(0.74f, 0.72f, 0.7f), rot);
+                    b.AddBox(foot + inward * 0.05f + Vector3.up * 0.25f, new Vector3(0.82f, 0.5f, 0.44f), Mat.StoneWall, new Color(0.74f, 0.72f, 0.7f), rot);
+                    b.AddBox(foot + inward * 0.07f + Vector3.up * 0.56f, new Vector3(0.72f, 0.12f, 0.48f), Mat.StoneWall, new Color(0.74f, 0.72f, 0.7f), rot);
+                    b.AddBox(foot + inward * 0.1f + Vector3.up * (room.Height - 0.45f), new Vector3(0.78f, 0.3f, 0.54f), Mat.StoneWall, new Color(0.74f, 0.72f, 0.7f), rot);
+                }
             }
         }
 
