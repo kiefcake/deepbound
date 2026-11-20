@@ -411,6 +411,10 @@ namespace Deepbound.Networking
                     foreach (var d in dummiesAll) { d.ServerConsumeChill(); d.ServerSetFraction(1f); }
                     progressMe.WeaponPath.Value = 2;
                     var near = dummiesAll[0].transform.position;
+                    // The second dummy stands too far for a fork (6.8 m against 6): bring it to 3 m beside the first for the check.
+                    var farHome = dummiesAll[1].transform.position;
+                    dummiesAll[1].transform.position = near + Vector3.right * 3f;
+                    Physics.SyncTransforms();
                     me.GetComponent<FirstPersonMotor>().Teleport(near + Vector3.back * 5f, Quaternion.LookRotation(Vector3.forward));
                     yield return new WaitForSeconds(0.2f);
                     var cfrom = me.transform.position + Vector3.up * 1.6f;
@@ -419,6 +423,8 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     bool forked = dummiesAll[0].Current.Value < h0 && dummiesAll[1].Current.Value < h1;
                     float gap = Vector3.Distance(dummiesAll[0].transform.position, dummiesAll[1].transform.position);
+                    dummiesAll[1].transform.position = farHome;
+                    Physics.SyncTransforms();
                     progressMe.WeaponPath.Value = 1;
                     dummiesAll[0].ServerSetFraction(1f);
                     float h2 = dummiesAll[0].Current.Value;
@@ -427,7 +433,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.1f);
                     bool flamed = dummiesAll[0].Current.Value < h2 && dummiesAll[0].Scorched.Value;
                     Log("mage paths", "stormcaller forked " + forked + " (dummies " + gap.ToString("F1") + " m apart), inferno scorched " + flamed,
-                        (forked || gap > MageKit.ForkRange) && flamed);
+                        forked && flamed);
                     progressMe.WeaponPath.Value = 0;
                 }
 
@@ -5241,7 +5247,11 @@ namespace Deepbound.Networking
                 if (pools > 0)
                 {
                     hpP.ServerSetFraction(1f);
-                    lm.Teleport(DungeonDirector.Lava[0].At + Vector3.up * 0.1f, local.transform.rotation);
+                    // A pool with nothing standing in it (a pillar or a prop over a pool would hold the player up out of it).
+                    var pool = DungeonDirector.Lava[0];
+                    foreach (var lp in DungeonDirector.Lava)
+                        if (!Physics.CheckCapsule(lp.At + Vector3.up * 0.5f, lp.At + Vector3.up * 1.6f, 0.45f, ~0, QueryTriggerInteraction.Ignore)) { pool = lp; break; }
+                    lm.Teleport(pool.At + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(1.3f);
                     burned = hpP.Fraction < 0.999f;
                     lm.Teleport(DungeonDirector.Layout.StartRoom.Center + Vector3.up * 0.1f, local.transform.rotation);
@@ -7834,7 +7844,11 @@ namespace Deepbound.Networking
                 motor.Teleport(inside, Quaternion.LookRotation(Flat3(boss.transform.position - inside)));
                 yield return new WaitForSeconds(8f);
                 string nm = "g" + depth + "_" + boss.DisplayName.Replace(" ", "").Replace("'", "");
-                float size = Mathf.Clamp(boss.transform.lossyScale.y * 2.2f, 3.6f, 6f);
+                // Frame by the body as drawn (the Unsung's size lives inside its visual, not on the root).
+                float tall = 2f;
+                foreach (var rr in boss.GetComponentsInChildren<Renderer>())
+                    if (rr.enabled && !(rr is ParticleSystemRenderer)) tall = Mathf.Max(tall, rr.bounds.max.y - boss.transform.position.y);
+                float size = Mathf.Clamp(tall * 1.35f, 3.6f, 10f);
                 yield return Pose(boss, nm, size, true);
                 Debug.Log("[Gallery] " + nm);
                 boss.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, boss.transform.position, local.NetworkObjectId);

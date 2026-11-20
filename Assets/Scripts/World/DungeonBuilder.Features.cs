@@ -737,11 +737,17 @@ namespace Deepbound.World
             Props.Candelabra(lights, b, c + new Vector3(-2.8f, 0f, -2.8f), mood);
             if (room.Feature == RoomFeature.Armoury)
             {
-                // Racks of old weapons along the walls.
+                // Old arms leaning along the back wall (2026-11-20: downloaded CC0 models): kite shields, a war hammer, an axe.
                 for (int k = 0; k < 6; k++)
                 {
                     float t = -room.Size.x / 2f + 2f + k * (room.Size.x - 4f) / 5f;
-                    b.AddBox(new Vector3(c.x + t, 1f, c.z + room.Size.y / 2f - 0.3f), new Vector3(0.08f, 2f, 0.1f), Mat.Steel, Quaternion.Euler(0f, 0f, (k % 2 == 0 ? 6f : -6f)));
+                    var foot = new Vector3(c.x + t, 0f, c.z + room.Size.y / 2f - 0.45f);
+                    string slug = k % 3 == 1 ? "sledgehammer_01" : k % 3 == 2 ? "wooden_axe" : "kite_shield";
+                    float h = slug == "kite_shield" ? 1.05f : 0.95f;
+                    // Leaning back against the wall, a little askew.
+                    var lean = Quaternion.Euler(0f, 180f + (k % 2 == 0 ? 8f : -8f), 0f) * Quaternion.Euler(-12f, 0f, 0f);
+                    if (!b.AddModel(slug, h, Matrix4x4.TRS(foot, lean, Vector3.one)))
+                        b.AddBox(new Vector3(c.x + t, 1f, c.z + room.Size.y / 2f - 0.3f), new Vector3(0.08f, 2f, 0.1f), Mat.Steel, Quaternion.Euler(0f, 0f, (k % 2 == 0 ? 6f : -6f)));
                 }
             }
             if (room.Feature == RoomFeature.Treasury)
@@ -788,6 +794,34 @@ namespace Deepbound.World
         }
 
         /// <summary>The same corner clutter ordinary rooms get, for feature rooms that want it.</summary>
+        /// <summary>
+        /// A furnished corner from the downloaded models (2026-11-20): kind 4 a table left laid (goblets, a plate, a stool),
+        /// 5 a worn bookcase against the nearer wall, 6 a saint in stone looking into the room. False when the model is missing.
+        /// </summary>
+        private static bool CornerFurniture(MeshKit.Batcher b, Vector3 c, float hx, float hz, float sx, float sz, Vector3 p, int kind, System.Random rng)
+        {
+            float yaw = rng.Next(360);
+            float inward = Mathf.Atan2(-sx, -sz) * Mathf.Rad2Deg;
+            bool wallX = rng.Next(2) == 0;
+            var againstWall = wallX ? c + new Vector3(sx * (hx - 0.45f), 0f, sz * (hz - 1.6f)) : c + new Vector3(sx * (hx - 1.6f), 0f, sz * (hz - 0.45f));
+            float wallFacing = wallX ? (sx > 0 ? -90f : 90f) : (sz > 0 ? 180f : 0f);
+            if (kind == 4 && b.AddModel("WoodenTable_01", 0.78f, p, inward + 90f))
+            {
+                var top = p + Vector3.up * 0.78f;
+                b.AddModel("brass_goblets", 0.2f, top + new Vector3(0.15f, 0f, 0.05f), yaw);
+                b.AddModel("carved_wooden_plate", 0.04f, top + new Vector3(-0.25f, 0f, -0.05f), yaw);
+                b.AddModel("wooden_stool_02", 0.48f, p + Quaternion.Euler(0f, inward, 0f) * new Vector3(0f, 0f, 0.85f), yaw);
+                return true;
+            }
+            if (kind == 5) return b.AddModel("wooden_bookshelf_worn", 2.1f, againstWall, wallFacing);
+            if (kind == 6 && b.AddModel("gothic_statue", 2.2f, p, inward))
+            {
+                b.AddModel("rock_moss_set_01", 0.25f, p + Quaternion.Euler(0f, inward, 0f) * new Vector3(0.5f, 0f, 0.6f), yaw);
+                return true;
+            }
+            return false;
+        }
+
         private static void DressRoomCorners(DungeonLayout.Room room, MeshKit.Batcher b, System.Random rng)
         {
             var c = room.Center;
@@ -798,9 +832,14 @@ namespace Deepbound.World
                 float sx = (corner & 1) == 0 ? -1f : 1f, sz = (corner & 2) == 0 ? -1f : 1f;
                 var p = c + new Vector3(sx * (hx - 1.3f), 0f, sz * (hz - 1.3f));
                 // Corner leavings (2026-11-20: downloaded CC0 models, docs/CREDITS.md): barrels, rubble, a store corner
-                // (crate, bucket, basket) or a cluster of old pots; the code-built barrels when a model is missing.
+                // (crate, bucket, basket), a cluster of old pots, a table left laid, a worn bookcase against the wall, or a
+                // saint in stone watching the room; the code-built barrels when a model is missing.
                 float yaw = rng.Next(360);
-                int kind = rng.Next(4);
+                int kind = rng.Next(7);
+                if (kind >= 4 && CornerFurniture(b, c, hx, hz, sx, sz, p, kind, rng)) continue;
+                if (kind >= 4) kind = rng.Next(4);
+                // The flooded act: moss on the stone instead of dry rubble.
+                if (kind == 1 && theme.WaterDepth > 0f && b.AddModel("rock_moss_set_01", 0.55f, p, yaw)) continue;
                 if (kind == 2 && b.AddModel("wooden_bucket_01", 0.45f, p + new Vector3(-sx * 0.95f, 0f, 0.1f * sz), yaw)
                     && b.AddModel("wicker_basket_02", 0.4f, p + new Vector3(0.1f * sx, 0f, -sz * 0.95f), yaw + 40f))
                     Props.Crate(b, p, 0.8f, yaw);

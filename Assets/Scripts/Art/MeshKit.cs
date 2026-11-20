@@ -355,6 +355,17 @@ namespace Deepbound.Art
                 });
             }
 
+            /// <summary>A downloaded model at any pose (tilted, leaning): <paramref name="at"/> places its base centre.</summary>
+            public bool AddModel(string slug, float height, Matrix4x4 at)
+            {
+                return ModelKit.Batch(slug, height, at, (mesh, sub, mat, m) =>
+                {
+                    string key = "@" + mat.name;
+                    if (!parts.TryGetValue(key, out var list)) parts[key] = list = new List<CombineInstance>();
+                    list.Add(new CombineInstance { mesh = mesh, subMeshIndex = sub, transform = m });
+                });
+            }
+
             /// <summary>Builds the combined meshes under <paramref name="parent"/>.</summary>
             /// <param name="collide">Add MeshColliders, so the geometry is walkable and navmesh-bakeable.</param>
             /// <param name="tint">Optional per-material tint (a theme recolouring stone, say). Null or white = none.</param>

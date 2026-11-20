@@ -456,13 +456,16 @@ namespace Deepbound.World
                 if (rng.NextDouble() < 0.35) continue;
                 float sx = (corner & 1) == 0 ? -1f : 1f, sz = (corner & 2) == 0 ? -1f : 1f;
                 var p = c + new Vector3(sx * (hx - 1.3f), 0f, sz * (hz - 1.3f));
-                int kind = rng.Next(4);
+                // 2026-11-20: three furnished corners join the clutter (a laid table, a bookcase, a statue).
+                int kind = rng.Next(7);
                 // Never in front of a hollow wall: a rubble heap there ate shots meant for a secret cache
                 // (2026-10-23 smoke test; the "unbreakable wall" the user hit), and crates boxed breach dead in.
                 bool byHole = false;
                 foreach (var hole in room.Holes)
                     if (Vector3.Distance(room.HoleFace(hole), p) < WallHole.Width / 2f + 2.6f) byHole = true;
                 if (byHole) continue;
+                if (kind >= 4 && CornerFurniture(b, c, hx, hz, sx, sz, p, kind, rng)) continue;
+                if (kind >= 4) kind -= 4;
 
                 switch (kind)
                 {
@@ -605,6 +608,28 @@ namespace Deepbound.World
                 Props.Gargoyle(b, wall - along * 2.2f, face);
                 Props.Candelabra(lights, b, wall + along * 0.0f - new Vector3(d.x, 0f, d.y) * 0.3f, theme.TorchColor);
                 break;
+            }
+            // Ribbed vaulting (2026-11-20 visual pass: the ceilings were flat and bare): two stone ribs crossing corner to
+            // corner to a carved boss, and transverse ribs across a long room. High overhead, clear of every fight.
+            if (room.Height >= 5f && room.Size.x >= 10f && room.Size.y >= 10f && room.Feature != RoomFeature.Chasm && room.Feature != RoomFeature.Lightless)
+            {
+                float yTop = room.Height - 0.2f;
+                foreach (float s in new[] { -1f, 1f })
+                {
+                    var dir = new Vector3(hx, 0f, s * hz);
+                    float len = dir.magnitude * 2f - 0.6f;
+                    b.AddBox(c + Vector3.up * yTop, new Vector3(0.32f, 0.36f, len), Mat.StoneWall, Quaternion.LookRotation(dir.normalized));
+                }
+                b.AddBox(c + Vector3.up * (yTop - 0.22f), new Vector3(0.7f, 0.3f, 0.7f), Mat.StoneWall, Quaternion.Euler(0f, 45f, 0f));
+                b.AddBox(c + Vector3.up * (yTop - 0.4f), new Vector3(0.38f, 0.2f, 0.38f), Mat.Gold, theme.TorchColor * 0.5f + new Color(0.35f, 0.3f, 0.2f), Quaternion.Euler(0f, 45f, 0f));
+                bool longX = room.Size.x >= room.Size.y;
+                float run = longX ? hx : hz;
+                for (float t = -run + 4f; t <= run - 4f; t += 4f)
+                {
+                    if (Mathf.Abs(t) < 1.5f) continue;
+                    var at = c + (longX ? new Vector3(t, yTop, 0f) : new Vector3(0f, yTop, t));
+                    b.AddBox(at, longX ? new Vector3(0.26f, 0.3f, room.Size.y - 0.2f) : new Vector3(room.Size.x - 0.2f, 0.3f, 0.26f), Mat.StoneWall);
+                }
             }
             // Cobwebs in two or three of the high corners.
             for (int corner = 0; corner < 4; corner++)

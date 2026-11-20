@@ -1715,6 +1715,8 @@ namespace Deepbound.Art
             glow.shadows = LightShadows.None;
             rig.GlowRenderers = eyes.ToArray();
             rig.StrideLength = 2f;
+            // 2026-11-20 visual pass: a heavier body and a silhouette of its own (organ pipes, shroud, great ribs).
+            GuardianKit.Unsung(rig);
             return rig;
         }
 

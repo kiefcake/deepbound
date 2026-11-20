@@ -330,18 +330,6 @@ namespace Deepbound.Player
         /// <summary>Shots only: draw your own body (for a camera standing outside it).</summary>
         public static bool DebugShowSelf;
 
-        /// <summary>Part of the legs (or hung straight on the hips, not the torso): drawn in first person.</summary>
-        private bool LowerBody(Transform t)
-        {
-            if (Rig == null) return false;
-            for (var p = t; p != null && p != Rig.transform; p = p.parent)
-            {
-                if (p == Rig.LegL || p == Rig.LegR) return true;
-                if (p == Rig.Torso || p == Rig.Head || p == Rig.ArmL || p == Rig.ArmR) return false;
-                if (p == Rig.Hips) return t.parent == Rig.Hips;
-            }
-            return false;
-        }
 
         /// <summary>A class's third-person body, in a cloak dye (also used by the tailor's mannequin).</summary>
         public static HumanoidRig BuildBody(ClassId cls, Transform root, Color slot, int dye, int pattern = 0)
@@ -509,7 +497,7 @@ namespace Deepbound.Player
                 selfShown = showSelf;
                 selfShownRig = Rig;
                 foreach (var r in Rig.GetComponentsInChildren<Renderer>())
-                    r.shadowCastingMode = showSelf || LowerBody(r.transform) ? ShadowCastingMode.On : ShadowCastingMode.ShadowsOnly;
+                    r.shadowCastingMode = showSelf ? ShadowCastingMode.On : ShadowCastingMode.ShadowsOnly;
             }
             if (IsOwner && playerCamera != null)
                 playerCamera.farClipPlane = DungeonDirector.InLobby ? 220f : Mathf.Clamp(2.6f / Mathf.Max(0.001f, RenderSettings.fogDensity), 45f, 120f);

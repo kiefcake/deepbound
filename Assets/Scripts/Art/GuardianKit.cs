@@ -244,6 +244,82 @@ namespace Deepbound.Art
         }
 
         // ------------------------------------------------------------------
+        // The Unsung (its own floating rig)
+        // ------------------------------------------------------------------
+
+        /// <summary>
+        /// The last song no one sang: great curved ribs closing round the dark heart, shoulder blades like shields, a black
+        /// shroud torn to ribbons hanging from the shoulders, heavy bone arms, and behind it a fan of cracked organ pipes
+        /// rising like wings, violet light breathing from their mouths. Coordinates are those of CharacterArt.BuildUnsung.
+        /// </summary>
+        public static void Unsung(HumanoidRig rig)
+        {
+            var t = rig.Torso; var head = rig.Head;
+            if (t == null || head == null) return;
+            var glow = new List<Renderer>();
+            var bone = new Color(0.62f, 0.6f, 0.66f);
+            var dark = new Color(0.36f, 0.34f, 0.4f);
+            var violet = new Color(0.6f, 0.3f, 1f);
+            // The thin ribs give way to great curved ones.
+            Strip(t, "Rib");
+            for (int i = 0; i < 6; i++)
+            {
+                float y = 0.12f + i * 0.09f, r = 0.2f + Mathf.Sin(i / 5f * Mathf.PI) * 0.07f;
+                Tint(MeshKit.Part(t, "GreatRib", MeshKit.Lathe("unsungRib" + i, new[]
+                {
+                    new Vector2(r, 0f), new Vector2(r + 0.045f, 0.02f), new Vector2(r, 0.04f),
+                }, 10, true, 250f), Mat.Bone, new Vector3(0f, y, -0.04f), new Vector3(-8f, -35f, 0f), new Vector3(1.15f, 1f, 1f)), bone);
+            }
+            // Shoulder blades like shields, a collar of vertebrae.
+            foreach (float s in new[] { -1f, 1f })
+            {
+                Tint(MeshKit.Part(t, "Blade", MeshKit.Box(new Vector3(0.24f, 0.32f, 0.04f)), Mat.Bone, new Vector3(s * 0.17f, 0.56f, -0.2f), new Vector3(10f, s * -20f, s * 8f)), dark);
+                Tint(MeshKit.Part(t, "ShoulderKnob", MeshKit.Ball(0.09f, 8, 6), Mat.Bone, new Vector3(s * 0.27f, 0.66f, 0f)), bone);
+            }
+            for (int i = 0; i < 5; i++)
+                Tint(MeshKit.Part(t, "Collar", MeshKit.Ball(0.05f, 6, 5), Mat.Bone, new Vector3(-0.16f + i * 0.08f, 0.72f, -0.02f - Mathf.Abs(i - 2) * 0.02f), Vector3.zero, new Vector3(1f, 0.7f, 1f)), bone);
+            // The shroud: black ribbons from the shoulders, the torn hem trailing below the spine.
+            for (int i = 0; i < 11; i++)
+            {
+                float x = -0.3f + i * 0.06f;
+                float len = 0.9f + (i % 3) * 0.25f + Mathf.Abs(i - 5) * 0.04f;
+                Tint(MeshKit.Part(t, "Shroud", MeshKit.Box(new Vector3(0.07f, len, 0.012f)), Mat.Cloth,
+                    new Vector3(x, 0.66f - len / 2f, -0.24f - Mathf.Abs(i - 5) * 0.012f), new Vector3(6f, 0f, (i - 5) * 2.5f)), new Color(0.06f, 0.05f, 0.08f));
+            }
+            // Heavier arms: thick bone over the stick limbs, a knuckled claw.
+            foreach (var arm in new[] { rig.ArmL, rig.ArmR })
+            {
+                if (arm == null) continue;
+                Tint(MeshKit.Part(arm, "UpperBone", MeshKit.Cylinder(0.055f, 0.045f, 0.5f, 7), Mat.Bone, new Vector3(0f, -0.5f, 0f)), bone);
+                Tint(MeshKit.Part(arm, "Elbow", MeshKit.Ball(0.065f, 7, 5), Mat.Bone, new Vector3(0f, -0.52f, 0.02f)), dark);
+                Tint(MeshKit.Part(arm, "ForeBone", MeshKit.Cylinder(0.045f, 0.035f, 0.5f, 7), Mat.Bone, new Vector3(0f, -1.0f, 0.05f)), bone);
+                Tint(MeshKit.Part(arm, "Knuckles", MeshKit.Box(new Vector3(0.14f, 0.06f, 0.08f)), Mat.Bone, new Vector3(0f, -1.0f, 0.07f)), dark);
+            }
+            // The pipes: a fan of cracked organ pipes rising behind it, violet breath in their mouths.
+            var fan = MeshKit.Pivot(t, "PipeFan", new Vector3(0f, 0.5f, -0.3f), new Vector3(-12f, 0f, 0f));
+            for (int i = 0; i < 9; i++)
+            {
+                float k = i - 4f;
+                float len = 1.25f - Mathf.Abs(k) * 0.13f;
+                float rr = 0.05f - Mathf.Abs(k) * 0.003f;
+                var pipe = MeshKit.Pivot(fan, "Pipe" + i, new Vector3(k * 0.1f, 0f, Mathf.Abs(k) * 0.02f), new Vector3(0f, 0f, -k * 9f));
+                Tint(MeshKit.Part(pipe, "PipeBody", MeshKit.Cylinder(rr, rr, len, 8), Mat.Steel, Vector3.zero), new Color(0.62f, 0.6f, 0.68f));
+                Tint(MeshKit.Part(pipe, "PipeBand", MeshKit.Cylinder(rr * 1.25f, rr * 1.25f, 0.03f, 8), Mat.Gold, new Vector3(0f, len * 0.3f, 0f)), new Color(0.55f, 0.45f, 0.3f));
+                MeshKit.Part(pipe, "PipeMouth", MeshKit.Box(new Vector3(rr * 1.2f, rr * 1.4f, 0.01f)), Mat.Dark, new Vector3(0f, len * 0.22f, rr + 0.002f));
+                Glow(MeshKit.Part(pipe, "PipeBreath", MeshKit.Box(new Vector3(rr * 1.1f, rr * 1.3f, 0.01f)), Mat.Glow, new Vector3(0f, len * 0.22f, rr + 0.006f)), violet * 1.2f, glow);
+                Tint(MeshKit.Part(pipe, "PipeTip", MeshKit.Cylinder(rr, 0f, rr * 3f, 8), Mat.Steel, new Vector3(0f, len, 0f)), new Color(0.62f, 0.6f, 0.68f));
+            }
+            // A crown of broken bell-rims round the skull.
+            for (int i = 0; i < 6; i++)
+            {
+                float a = i * 60f;
+                Tint(MeshKit.Part(head, "BellShard", MeshKit.Lathe("bellShard" + (i % 2), new[] { new Vector2(0.03f, 0f), new Vector2(0.005f, 0.14f + (i % 2) * 0.07f) }, 4), Mat.Gold,
+                    new Vector3(0f, 0.22f, 0f) + Quaternion.Euler(0f, a, 0f) * new Vector3(0f, 0f, 0.14f), new Vector3(18f, a, 0f)), new Color(0.5f, 0.42f, 0.3f));
+            }
+            AddGlow(rig, glow);
+        }
+
+        // ------------------------------------------------------------------
         // Gorr, the Rot Below (on a Plaguebearer)
         // ------------------------------------------------------------------
 

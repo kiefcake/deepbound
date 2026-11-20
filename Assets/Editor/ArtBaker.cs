@@ -44,17 +44,18 @@ namespace Deepbound.EditorTools
             var unlit = Shader.Find("Universal Render Pipeline/Unlit");
 
             // Stone is damp down here: a gloss map makes torchlight catch on wet streaks and puddles.
-            BakeSurface("StoneWall", lit, StoneBricks, 0.75f, 0f, 2.2f, StoneWallGloss);
-            BakeSurface("Flagstone", lit, Flagstones, 0.95f, 0f, 2.6f, FlagstoneGloss);
+            // 2026-11-20 (the user: "make everything less reflective"): about half the gloss it had; damp streaks still catch a little.
+            BakeSurface("StoneWall", lit, StoneBricks, 0.36f, 0f, 2.2f, StoneWallGloss);
+            BakeSurface("Flagstone", lit, Flagstones, 0.45f, 0f, 2.6f, FlagstoneGloss);
             BakeSurface("Wood", lit, WoodPlanks, 0.2f, 0f, 1.6f);
             // Steel: a little less metallic and a little smoother, so torchlight catches it instead of it reading as a dark plank.
-            BakeSurface("Steel", lit, BrushedMetal, 0.72f, 0.65f, 0.6f);
-            BakeSurface("Gold", lit, (x, y) => Tint(BrushedMetal(x, y), new Color(1f, 0.78f, 0.35f)), 0.7f, 1f, 0.5f);
-            BakeSurface("Bone", lit, BoneSurface, 0.25f, 0f, 1.4f);
-            BakeSurface("Cloth", lit, ClothWeave, 0.08f, 0f, 0.45f);
-            BakeSurface("Leather", lit, LeatherSurface, 0.32f, 0f, 0.4f);
+            BakeSurface("Steel", lit, BrushedMetal, 0.48f, 0.6f, 0.6f);
+            BakeSurface("Gold", lit, (x, y) => Tint(BrushedMetal(x, y), new Color(1f, 0.78f, 0.35f)), 0.45f, 0.9f, 0.5f);
+            BakeSurface("Bone", lit, BoneSurface, 0.12f, 0f, 1.4f);
+            BakeSurface("Cloth", lit, ClothWeave, 0.05f, 0f, 0.45f);
+            BakeSurface("Leather", lit, LeatherSurface, 0.18f, 0f, 0.4f);
             BakeSurface("Rubble", lit, Rubble, 0.08f, 0f, 3f);
-            BakeSurface("Marble", lit, Marble, 0.18f, 0f, 0.5f);
+            BakeSurface("Marble", lit, Marble, 0.1f, 0f, 0.5f);
 
             // Fine grain on top (2026-10-24): a CC0 detail normal from Poly Haven tiled small over the baked surfaces, so
             // stone and wood catch the light grain by grain. Colour and the brick layout stay ours (docs/CREDITS.md).
@@ -71,7 +72,7 @@ namespace Deepbound.EditorTools
             // Downloaded models (2026-11-20, Poly Haven CC0, docs/CREDITS.md): one URP Lit material per texture set.
             BakeModels(lit);
 
-            BakeFlat("Dark", lit, new Color(0.05f, 0.05f, 0.06f), 0.4f, 0.3f);
+            BakeFlat("Dark", lit, new Color(0.05f, 0.05f, 0.06f), 0.2f, 0.2f);
 
             // Emissive surfaces: torch flames, enemy eyes, the boss's crown gems. Colour is
             // set per renderer at runtime through a property block, so one material serves
@@ -183,7 +184,7 @@ namespace Deepbound.EditorTools
                 bool metal = s.Contains("brass") || s.Contains("trim") || s.Contains("clamp") || s.Contains("sledgehammer") || s.Contains("chandelier");
                 mat.SetColor("_BaseColor", glass ? new Color(1f, 0.78f, 0.45f, 0.45f) : new Color(0.86f, 0.82f, 0.78f, 1f));
                 mat.SetFloat("_Metallic", metal ? 0.55f : 0f);
-                mat.SetFloat("_Smoothness", glass ? 0.8f : metal ? 0.45f : 0.18f);
+                mat.SetFloat("_Smoothness", glass ? 0.7f : metal ? 0.3f : 0.08f);
                 if (glass)
                 {
                     mat.SetFloat("_Surface", 1f);
@@ -336,7 +337,7 @@ namespace Deepbound.EditorTools
         {
             var mat = GetOrCreateMaterial(name, shader);
             mat.SetColor("_BaseColor", new Color(0.06f, 0.16f, 0.14f, 0.72f));
-            mat.SetFloat("_Smoothness", 0.88f);
+            mat.SetFloat("_Smoothness", 0.6f);
             mat.SetFloat("_Metallic", 0f);
             // Ripples: a tileable wave field (whole-number sine waves + soft noise). URP Lit samples the
             // normal with the base UVs and the detail normal with its own: WaterFlow scrolls the two
