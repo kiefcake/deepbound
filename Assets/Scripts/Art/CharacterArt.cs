@@ -1382,11 +1382,40 @@ namespace Deepbound.Art
                 var arm = i == 0 ? rig.ArmL : rig.ArmR;
                 for (int c = 0; c < 3; c++)
                 {
-                    var claw = MeshKit.Part(arm, "Claw" + c, MeshKit.Lathe("claw", new[] { new Vector2(0.012f, 0f), new Vector2(0f, 0.16f) }, 4), Mat.Bone,
-                        new Vector3(-0.025f + c * 0.025f, -0.66f, 0.02f), new Vector3(160f, 0f, 0f));
-                    ArtLibrary.Tint(claw.GetComponent<Renderer>(), new Color(0.3f, 0.28f, 0.22f));
+                    // Long hooked talons (2026-11-20: the short claws vanished at any distance).
+                    var claw = MeshKit.Part(arm, "Claw" + c, MeshKit.Lathe("ghoulClaw", new[] { new Vector2(0.018f, 0f), new Vector2(0.012f, 0.12f), new Vector2(0f, 0.26f) }, 4), Mat.Bone,
+                        new Vector3(-0.03f + c * 0.03f, -0.66f, 0.03f), new Vector3(150f + c * 6f, 0f, (c - 1) * 10f));
+                    ArtLibrary.Tint(claw.GetComponent<Renderer>(), new Color(0.24f, 0.22f, 0.17f));
                 }
             }
+            // 2026-11-20 visual pass: a gaunt beast, not a green skeleton. Grey-green hide drawn tight over the back
+            // (the ribs still show in front), a hump of sinew between the shoulders with the spine knuckled through
+            // it, shoulder blades jutting like wings, and lank hair hanging from the skull.
+            var hide = new Color(0.34f, 0.4f, 0.29f);
+            var t = rig.Torso;
+            if (t != null)
+            {
+                ArtLibrary.Tint(MeshKit.Part(t, "Hide", MeshKit.Lathe("ghoulHide", new[]
+                {
+                    new Vector2(0.12f, 0.02f), new Vector2(0.16f, 0.2f), new Vector2(0.18f, 0.38f), new Vector2(0.16f, 0.5f), new Vector2(0.08f, 0.56f),
+                }, 10, true, 290f), Mat.Leather, new Vector3(0f, 0f, -0.01f), new Vector3(0f, 35f, 0f), new Vector3(1.05f, 1f, 0.85f)).GetComponent<Renderer>(), hide);
+                // The hump rides up behind the head, so the silhouette is hunched even from the front.
+                ArtLibrary.Tint(MeshKit.Part(t, "Hump", MeshKit.Ball(0.17f, 10, 8), Mat.Leather, new Vector3(0f, 0.56f, -0.12f), Vector3.zero, new Vector3(1.45f, 1.05f, 1f)).GetComponent<Renderer>(), hide * 0.9f);
+                // A slack, swollen gut below the ribs.
+                ArtLibrary.Tint(MeshKit.Part(t, "Gut", MeshKit.Ball(0.13f, 10, 8), Mat.Leather, new Vector3(0f, 0.1f, 0.03f), Vector3.zero, new Vector3(1.05f, 0.85f, 0.95f)).GetComponent<Renderer>(), hide * 1.08f);
+                for (int k = 0; k < 6; k++)
+                    ArtLibrary.Tint(MeshKit.Part(t, "SpineKnob", MeshKit.Ball(0.032f - k * 0.002f, 6, 4), Mat.Bone, new Vector3(0f, 0.56f - k * 0.09f, -0.2f + k * 0.012f - (k == 1 ? 0.05f : 0f))).GetComponent<Renderer>(), flesh * 1.15f);
+                foreach (float side in new[] { -1f, 1f })
+                    ArtLibrary.Tint(MeshKit.Part(t, "Blade", MeshKit.Box(new Vector3(0.13f, 0.17f, 0.025f)), Mat.Bone, new Vector3(side * 0.11f, 0.4f, -0.17f), new Vector3(-20f, side * 25f, side * 12f)).GetComponent<Renderer>(), flesh);
+            }
+            if (rig.Head != null)
+                for (int k = 0; k < 11; k++)
+                {
+                    // Lank hair all round but the face: strands at the temples hang over the shoulders, seen from the front.
+                    float a = (-120f + k * 24f) * Mathf.Deg2Rad;
+                    ArtLibrary.Tint(MeshKit.Part(rig.Head, "Hair", MeshKit.Box(new Vector3(0.018f, 0.24f + (k % 3) * 0.06f, 0.012f)), Mat.Cloth,
+                        new Vector3(Mathf.Sin(a) * 0.1f, 0.06f - (k % 3) * 0.03f, -Mathf.Cos(a) * 0.08f - 0.02f), new Vector3(-12f, 0f, Mathf.Sin(a) * 8f)).GetComponent<Renderer>(), new Color(0.1f, 0.1f, 0.09f));
+                }
             var rags = MeshKit.Part(rig.Hips, "Rags", MeshKit.Lathe("ghoulRags", new[]
             {
                 new Vector2(0.18f, -0.35f), new Vector2(0.17f, 0f), new Vector2(0.15f, 0.06f),

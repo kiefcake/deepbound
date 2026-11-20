@@ -7998,6 +7998,12 @@ namespace Deepbound.Networking
             foreach (var kind in new[] { "skeleton", "archer", "ghoul", "brute", "necromancer", "wraith", "shieldbearer", "gargoyle", "plaguebearer", "frostwight", "hexer", "mourner", "entling", "orbweaver", "mimic", "hoarder", "acolyte", "eye", "piper", "cantor", "magus", "lamprey", "hag", "ringer" })
             {
                 if (!part.Contains("e")) break;
+                // -galkinds ghoul,brute shoots only those.
+                int gk = System.Array.IndexOf(cl, "-galkinds");
+                if (gk >= 0 && gk + 1 < cl.Length && System.Array.IndexOf(cl[gk + 1].Split(','), kind) < 0) continue;
+                // Nothing else in the frame: a straggler (a raised pile, a wanderer) stood in front of the ghoul.
+                foreach (var other in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                    if (other != null && other.IsSpawned && !(other is BossBrain)) other.NetworkObject.Despawn();
                 var e = dd.ServerDebugSpawn(kind, room.Center, false, true);
                 yield return new WaitForSeconds(1.2f);
                 if (e != null)
@@ -8008,6 +8014,9 @@ namespace Deepbound.Networking
                 }
                 else Debug.Log("[Gallery] could not spawn " + kind);
                 yield return new WaitForSeconds(2.2f);
+                // Sweep up what the dead dropped: relic beams and loot pillars crowded every later shot.
+                foreach (var ld in FindObjectsByType<Loot.LootDrop>(FindObjectsSortMode.None)) if (ld != null && ld.IsSpawned) ld.NetworkObject.Despawn();
+                foreach (var gd in FindObjectsByType<Loot.GearDrop>(FindObjectsSortMode.None)) if (gd != null && gd.IsSpawned) gd.NetworkObject.Despawn();
             }
             // An elite under its ward (the bubble must not hide the creature). No stun: a stun breaks the ward.
             if (part.Contains("e"))
