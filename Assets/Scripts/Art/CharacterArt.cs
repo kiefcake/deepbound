@@ -1710,8 +1710,9 @@ namespace Deepbound.Art
             glow.transform.SetParent(visual, false);
             glow.transform.localPosition = new Vector3(0f, 1.3f, 0.5f);
             glow.color = violet;
-            glow.range = 8f;
-            glow.intensity = 2f;
+            // 2026-11-20: brighter and wider, so its own ribs and pipes show against the dark nave.
+            glow.range = 11f;
+            glow.intensity = 3.2f;
             glow.shadows = LightShadows.None;
             rig.GlowRenderers = eyes.ToArray();
             rig.StrideLength = 2f;

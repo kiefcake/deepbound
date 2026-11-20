@@ -7851,7 +7851,7 @@ namespace Deepbound.Networking
                 float tall = 2f;
                 foreach (var rr in boss.GetComponentsInChildren<Renderer>())
                     if (rr.enabled && !(rr is ParticleSystemRenderer)) tall = Mathf.Max(tall, rr.bounds.max.y - boss.transform.position.y);
-                float size = Mathf.Clamp(tall * 1.35f, 3.6f, 10f);
+                float size = Mathf.Clamp(tall * 1.2f, 3.6f, 7.5f);
                 yield return Pose(boss, nm, size, true);
                 Debug.Log("[Gallery] " + nm);
                 boss.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, boss.transform.position, local.NetworkObjectId);
