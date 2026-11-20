@@ -918,6 +918,15 @@ namespace Deepbound.Art
             else if (kind == SkeletonKind.Necromancer)
             {
                 BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.24f, 0.12f, 0.3f), new Color(0.75f, 0.35f, 1f), false);
+                // 2026-11-20 silhouettes: the six robed casters differed only by colour. The necromancer wears long
+                // swept-back horns of bone and a mantle of spines rising behind its shoulders.
+                CasterHorns(rig.Head, new Color(0.78f, 0.72f, 0.6f));
+                for (int i = 0; i < 5; i++)
+                {
+                    float a = (i - 2) * 24f;
+                    MeshKit.Part(rig.Torso, "MantleSpine", MeshKit.Cylinder(0.025f, 0f, 0.42f - Mathf.Abs(i - 2) * 0.07f, 5), Mat.Bone,
+                        new Vector3(Mathf.Sin(a * Mathf.Deg2Rad) * 0.2f, 0.56f, -0.12f), new Vector3(-28f, 0f, -a * 0.9f));
+                }
             }
             else if (kind == SkeletonKind.Plaguebearer)
             {
@@ -962,6 +971,20 @@ namespace Deepbound.Art
             else if (kind == SkeletonKind.Hexer)
             {
                 BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.14f, 0.2f, 0.1f), new Color(0.65f, 0.25f, 0.95f), false);
+                // The hexer: a long pale mask with a third eye cut in the brow, and a crown of bare black twigs.
+                ArtLibrary.Tint(MeshKit.Part(rig.Head, "HexMask", MeshKit.Box(new Vector3(0.17f, 0.3f, 0.03f)), Mat.Wood, new Vector3(0f, 0.06f, 0.15f), new Vector3(-4f, 0f, 0f)).GetComponent<Renderer>(), new Color(0.82f, 0.78f, 0.68f));
+                foreach (var (x, y) in new[] { (-0.04f, 0.08f), (0.04f, 0.08f), (0f, 0.15f) })
+                {
+                    var eye = MeshKit.Part(rig.Head, "HexEye", MeshKit.Box(new Vector3(0.028f, 0.018f, 0.01f)), Mat.Glow, new Vector3(x, y, 0.168f));
+                    ArtLibrary.SetGlow(eye.GetComponent<Renderer>(), new Color(0.65f, 0.25f, 0.95f) * 1.5f);
+                }
+                for (int i = 0; i < 6; i++)
+                {
+                    float a = (i - 2.5f) * 22f;
+                    var twig = MeshKit.Pivot(rig.Head, "Twig", new Vector3(Mathf.Sin(a * Mathf.Deg2Rad) * 0.1f, 0.2f, -0.02f), new Vector3(-10f, 0f, -a));
+                    MeshKit.Part(twig, "Stick", MeshKit.Cylinder(0.012f, 0.005f, 0.3f, 4), Mat.Dark, Vector3.zero);
+                    MeshKit.Part(twig, "Fork", MeshKit.Cylinder(0.007f, 0.003f, 0.12f, 4), Mat.Dark, Vector3.up * 0.16f, new Vector3(0f, 0f, i % 2 == 0 ? 35f : -35f));
+                }
             }
             else if (kind == SkeletonKind.Orbweaver)
             {
@@ -984,6 +1007,11 @@ namespace Deepbound.Art
                 // A stiff white choir collar (open at the front, the ruff of a cathedral singer).
                 var collar = MeshKit.Part(rig.Torso, "ChoirCollar", MeshKit.Lathe("choirCollar", new[] { new Vector2(0.17f, 0f), new Vector2(0.26f, 0.05f), new Vector2(0.25f, 0.08f) }, 14, true, 300f), Mat.Cloth, new Vector3(0f, 0.55f, 0f), new Vector3(0f, 30f, 0f));
                 ArtLibrary.Tint(collar.GetComponent<Renderer>(), new Color(0.92f, 0.9f, 0.84f));
+                // A gilt nimbus standing behind the head, rayed like a saint's in a window.
+                var nimbus = MeshKit.Pivot(rig.Head, "Nimbus", new Vector3(0f, 0.14f, -0.14f));
+                MeshKit.Part(nimbus, "Ring", MeshKit.Lathe("nimbusRing", new[] { new Vector2(0.21f, -0.012f), new Vector2(0.24f, 0f), new Vector2(0.21f, 0.012f) }, 20, false), Mat.Gold, Vector3.zero, new Vector3(90f, 0f, 0f));
+                for (int i = 0; i < 12; i++)
+                    MeshKit.Part(nimbus, "Ray", MeshKit.Box(new Vector3(0.012f, 0.09f, 0.008f)), Mat.Gold, Quaternion.Euler(0f, 0f, i * 30f) * Vector3.up * 0.28f, new Vector3(0f, 0f, i * 30f));
             }
             else if (kind == SkeletonKind.RimeMagus)
             {
@@ -999,6 +1027,14 @@ namespace Deepbound.Art
                 }
                 for (int sx = -1; sx <= 1; sx += 2)
                     ArtLibrary.Tint(MeshKit.Part(rig.Torso, "Rime", MeshKit.Ball(0.1f, 6, 4), Mat.Cloth, new Vector3(sx * 0.22f, 0.55f, 0f), Vector3.zero, new Vector3(1.2f, 0.45f, 1f)).GetComponent<Renderer>(), new Color(0.88f, 0.95f, 1f));
+                // Great shards of ice grown up out of each shoulder, splayed like a frozen collar.
+                for (int sx = -1; sx <= 1; sx += 2)
+                    for (int k = 0; k < 3; k++)
+                    {
+                        var big = MeshKit.Part(rig.Torso, "ShoulderIce", MeshKit.Lathe("iceSpike", new[] { new Vector2(0.05f, 0f), new Vector2(0.035f, 0.2f), new Vector2(0f, 0.38f) }, 4), Mat.Glow,
+                            new Vector3(sx * (0.17f + k * 0.05f), 0.56f, -0.04f - k * 0.04f), new Vector3(-10f - k * 8f, 45f, -sx * (18f + k * 16f)), Vector3.one * (1f - k * 0.2f));
+                        ArtLibrary.SetGlow(big.GetComponent<Renderer>(), ice * 0.75f);
+                    }
             }
             else if (kind == SkeletonKind.InkLamprey)
             {
@@ -1037,6 +1073,13 @@ namespace Deepbound.Art
                 MeshKit.Part(charm, "Cord", MeshKit.Box(new Vector3(0.01f, 0.2f, 0.01f)), Mat.Leather, new Vector3(0f, -0.1f, 0f));
                 for (int k = 0; k < 3; k++)
                     MeshKit.Part(charm, "Knucklebone", MeshKit.Box(new Vector3(0.05f, 0.025f, 0.025f)), Mat.Bone, new Vector3(0f, -0.2f - k * 0.04f, 0f), new Vector3(0f, k * 50f, 20f));
+                // A broad sagging hat with a crooked, dented crown: her shape from across a room.
+                var hat = MeshKit.Pivot(rig.Head, "HagHat", new Vector3(0f, 0.22f, -0.01f), new Vector3(-8f, 0f, 6f));
+                hat.localScale = Vector3.one * 1.7f;
+                var felt = new Color(0.14f, 0.16f, 0.1f);
+                ArtLibrary.Tint(MeshKit.Part(hat, "Brim", MeshKit.Lathe("hagBrim", new[] { new Vector2(0.36f, -0.05f), new Vector2(0.3f, -0.01f), new Vector2(0.14f, 0.01f) }, 14), Mat.Cloth, Vector3.zero).GetComponent<Renderer>(), felt);
+                ArtLibrary.Tint(MeshKit.Part(hat, "Crown", MeshKit.Lathe("hagCrown", new[] { new Vector2(0.14f, 0f), new Vector2(0.11f, 0.14f), new Vector2(0.06f, 0.26f), new Vector2(0f, 0.34f) }, 10), Mat.Cloth, Vector3.zero, new Vector3(-14f, 0f, 10f)).GetComponent<Renderer>(), felt * 1.15f);
+                MeshKit.Part(hat, "HatBand", MeshKit.Cylinder(0.142f, 0.135f, 0.03f, 10), Mat.Leather, new Vector3(0f, 0.025f, 0f));
                 rig.Torso.localRotation = Quaternion.Euler(14f, 0f, 0f) * rig.Torso.localRotation;
             }
             else if (kind == SkeletonKind.Bellringer)
@@ -1058,6 +1101,15 @@ namespace Deepbound.Art
                 var linen = new Color(0.78f, 0.74f, 0.64f);
                 ArtLibrary.Tint(MeshKit.Part(rig.Head, "Gag", MeshKit.Box(new Vector3(0.2f, 0.05f, 0.2f)), Mat.Cloth, new Vector3(0f, -0.07f, 0.03f)).GetComponent<Renderer>(), linen);
                 ArtLibrary.Tint(MeshKit.Part(rig.Head, "GagKnot", MeshKit.Ball(0.03f, 6, 4), Mat.Cloth, new Vector3(0f, -0.06f, -0.09f)).GetComponent<Renderer>(), linen * 0.85f);
+                // An iron cage locked over the skull (a scold's bridle), topped with a ring: no other caster has a head like it.
+                for (int i = 0; i < 8; i++)
+                {
+                    float a = i * 45f * Mathf.Deg2Rad;
+                    MeshKit.Part(rig.Head, "CageBar", MeshKit.Box(new Vector3(0.016f, 0.36f, 0.016f)), Mat.Steel, new Vector3(Mathf.Sin(a) * 0.15f, 0.1f, Mathf.Cos(a) * 0.15f));
+                }
+                foreach (float y in new[] { -0.06f, 0.27f })
+                    MeshKit.Part(rig.Head, "CageHoop", MeshKit.Lathe("cageHoop", new[] { new Vector2(0.145f, -0.012f), new Vector2(0.16f, 0f), new Vector2(0.145f, 0.012f) }, 12, false), Mat.Steel, new Vector3(0f, y, 0f));
+                MeshKit.Part(rig.Head, "CageRing", MeshKit.Lathe("cageTopRing", new[] { new Vector2(0.05f, -0.01f), new Vector2(0.062f, 0f), new Vector2(0.05f, 0.01f) }, 10, false), Mat.Steel, new Vector3(0f, 0.33f, 0f), new Vector3(90f, 0f, 0f));
                 for (int sx = -1; sx <= 1; sx += 2)
                     ArtLibrary.Tint(MeshKit.Part(rig.Torso, "Stole", MeshKit.Box(new Vector3(0.06f, 0.55f, 0.02f)), Mat.Cloth, new Vector3(sx * 0.09f, 0.3f, 0.2f), new Vector3(-6f, 0f, sx * 4f)).GetComponent<Renderer>(), new Color(0.62f, 0.62f, 0.72f));
                 var bell = MeshKit.Pivot(rig.ArmL, "HandBell", new Vector3(0f, -0.7f, 0.06f));
@@ -1370,6 +1422,23 @@ namespace Deepbound.Art
         /// Ghoul: not clean bone but grey-green dried flesh over it, long hooked claws, no
         /// weapon. Slightly smaller than a skeleton, so a pack reads as a swarm.
         /// </summary>
+        /// <summary>Two long horns of bone swept back and up from the temples, each a chain of tapering segments.</summary>
+        private static void CasterHorns(Transform head, Color bone)
+        {
+            if (head == null) return;
+            foreach (float sx in new[] { -1f, 1f })
+            {
+                var at = MeshKit.Pivot(head, "Horn", new Vector3(sx * 0.1f, 0.17f, -0.02f), new Vector3(-30f, 0f, -sx * 28f));
+                float r = 0.05f;
+                for (int k = 0; k < 5; k++)
+                {
+                    ArtLibrary.Tint(MeshKit.Part(at, "HornSeg", MeshKit.Cylinder(r, r * 0.8f, 0.16f, 6), Mat.Bone, Vector3.zero).GetComponent<Renderer>(), bone * (1f - k * 0.05f));
+                    at = MeshKit.Pivot(at, "HornJoint", Vector3.up * 0.15f, new Vector3(-18f, 0f, -sx * 6f));
+                    r *= 0.78f;
+                }
+            }
+        }
+
         private static void BuildGhoul(HumanoidRig rig, Renderer eyeL, Renderer eyeR)
         {
             var flesh = new Color(0.55f, 0.62f, 0.5f);

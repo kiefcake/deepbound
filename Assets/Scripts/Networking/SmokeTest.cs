@@ -8008,7 +8008,7 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(1.2f);
                 if (e != null)
                 {
-                    float d = Mathf.Max(3.2f, e.transform.lossyScale.y * 2.6f);
+                    float d = Mathf.Max(2.3f, e.transform.lossyScale.y * 1.9f);
                     yield return Pose(e, "e_" + kind, d, false);
                     if (e != null && e.IsSpawned) e.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, e.transform.position, local.NetworkObjectId);
                 }
