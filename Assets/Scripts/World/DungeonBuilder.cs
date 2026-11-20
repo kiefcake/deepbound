@@ -154,7 +154,7 @@ namespace Deepbound.World
             // A lightless hall has no torches, shafts or braziers: only the torch you carry.
             bool dark = room.Feature == RoomFeature.Lightless;
             if (!dark) PlaceWallTorches(room, lights, rng);
-            WallBays(room, dressing);
+            WallBays(room, dressing, lights);
             if (room.Kind != RoomKind.Start && !dark) PlaceLightShafts(room, lights, dressing, rng);
             // Something in the middle (2026-11-13; World/Centrepieces): plain rooms, great halls, crypts, lightless halls.
             var middle = Centrepieces.Of(room);
@@ -363,16 +363,19 @@ namespace Deepbound.World
         /// ceiling halfway between each pair of torches, on a stepped plinth, with a corbel under the ceiling. Not where a
         /// door, a hollow wall or a balcony is, and not in rooms whose walls carry windows, shelves or galleries.
         /// </summary>
-        private static void WallBays(DungeonLayout.Room room, MeshKit.Batcher b)
+        private static void WallBays(DungeonLayout.Room room, MeshKit.Batcher b, Transform lights)
         {
-            if (room.Kind == RoomKind.Boss || room.Height < 4.5f) return;
+            if (room.Height < 4.5f) return;
+            // A guardian's arena hangs banners between its torches instead: the act's colour and a deep crimson by turns.
+            bool arena = room.Kind == RoomKind.Boss;
+            int hung = 0;
             switch (room.Feature)
             {
                 case RoomFeature.GreatHall: case RoomFeature.Library: case RoomFeature.Gallery: case RoomFeature.Mezzanine: case RoomFeature.Belfry:
                 case RoomFeature.Chasm: case RoomFeature.SunkenCourt: case RoomFeature.Cistern: case RoomFeature.Undercroft: case RoomFeature.Ruin: case RoomFeature.Rampart: case RoomFeature.Terrace: case RoomFeature.Ziggurat:
                     return;
             }
-            float spacing = 7f;
+            float spacing = arena ? 6.5f : 7f; // as PlaceWallTorches
             for (int side = 0; side < 4; side++)
             {
                 if (room.Balconies.Contains(side)) continue;
@@ -401,6 +404,12 @@ namespace Deepbound.World
                     if (hole != null && Mathf.Abs(t - hole.Along) < WallHole.Width + 0.6f) continue;
                     var foot = room.Center + new Vector3(dir.x, 0f, dir.y) * offset + (alongX ? new Vector3(t, 0f, 0f) : new Vector3(0f, 0f, t)) + inward * 0.17f;
                     var rot = Quaternion.LookRotation(inward);
+                    if (arena)
+                    {
+                        var col = hung++ % 2 == 0 ? Color.Lerp(theme.BrazierColor, new Color(0.1f, 0.08f, 0.1f), 0.55f) : new Color(0.36f, 0.05f, 0.07f);
+                        Props.Banner(lights, foot - inward * 0.12f + Vector3.up * Mathf.Min(room.Height - 0.7f, 5.2f), inward, col);
+                        continue;
+                    }
                     b.AddBox(foot + Vector3.up * room.Height / 2f, new Vector3(0.62f, room.Height, 0.34f), Mat.StoneWall, new Color(0.74f, 0.72f, 0.7f), rot);
                     b.AddBox(foot + inward * 0.05f + Vector3.up * 0.25f, new Vector3(0.82f, 0.5f, 0.44f), Mat.StoneWall, new Color(0.74f, 0.72f, 0.7f), rot);
                     b.AddBox(foot + inward * 0.07f + Vector3.up * 0.56f, new Vector3(0.72f, 0.12f, 0.48f), Mat.StoneWall, new Color(0.74f, 0.72f, 0.7f), rot);
