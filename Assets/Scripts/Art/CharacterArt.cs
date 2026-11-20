@@ -934,12 +934,29 @@ namespace Deepbound.Art
                 BuildGhoul(rig, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>());
                 foreach (var r in rig.GetComponentsInChildren<Renderer>())
                     if (r.sharedMaterial != null && r.sharedMaterial.name.Contains("Bone")) ArtLibrary.Tint(r, new Color(0.45f, 0.6f, 0.32f));
-                var belly = MeshKit.Part(rig.Torso, "Belly", MeshKit.Ball(0.3f, 10, 8), Mat.Cloth, new Vector3(0f, 0.22f, 0.1f), Vector3.zero, new Vector3(1.1f, 1f, 1.05f));
-                ArtLibrary.Tint(belly.GetComponent<Renderer>(), new Color(0.42f, 0.5f, 0.25f));
-                for (int i = 0; i < 6; i++)
+                // 2026-11-20 visual pass: the belly was a green ball stuck on the ribs. Now a sagging sack of hide that
+                // hangs from under the ribs to the thighs, sewn shut down the middle, bound with a filthy strap, the
+                // pustules sitting on its skin.
+                var skin = new Color(0.4f, 0.47f, 0.26f);
+                var sack = new[]
                 {
-                    var dir = Quaternion.Euler(Random.Range(-40f, 40f), i * 60f, 0f) * Vector3.forward;
-                    var pus = MeshKit.Part(rig.Torso, "Pustule" + i, MeshKit.Ball(0.045f, 6, 4), Mat.Glow, new Vector3(0f, 0.25f, 0.1f) + dir * 0.31f);
+                    new Vector2(0f, -0.2f), new Vector2(0.16f, -0.16f), new Vector2(0.29f, -0.04f), new Vector2(0.33f, 0.1f), new Vector2(0.3f, 0.24f), new Vector2(0.2f, 0.38f), new Vector2(0.1f, 0.46f),
+                };
+                float SackR(float y) { for (int q = 1; q < sack.Length; q++) if (y <= sack[q].y) return Mathf.Lerp(sack[q - 1].x, sack[q].x, Mathf.InverseLerp(sack[q - 1].y, sack[q].y, y)); return 0.1f; }
+                var belly = MeshKit.Part(rig.Torso, "Belly", MeshKit.Lathe("plagueSack", sack, 12), Mat.Leather, new Vector3(0f, 0.04f, 0.11f), Vector3.zero, new Vector3(1.05f, 1f, 1f));
+                ArtLibrary.Tint(belly.GetComponent<Renderer>(), skin);
+                // The seam: dark stitches down the front.
+                for (int k = 0; k < 7; k++)
+                {
+                    float y = 0.34f - k * 0.07f;
+                    MeshKit.Part(rig.Torso, "Stitch", MeshKit.Box(new Vector3(0.07f, 0.012f, 0.014f)), Mat.Dark, new Vector3(0f, 0.04f + y, 0.11f + SackR(y) - 0.002f), new Vector3(0f, 0f, k % 2 == 0 ? 20f : -20f));
+                }
+                // A strap of filthy cloth round the middle.
+                ArtLibrary.Tint(MeshKit.Part(rig.Torso, "Strap", MeshKit.Cylinder(0.345f, 0.345f, 0.06f, 12), Mat.Cloth, new Vector3(0f, 0.12f, 0.11f), new Vector3(0f, 0f, 8f), new Vector3(1.05f, 1f, 1f)).GetComponent<Renderer>(), new Color(0.3f, 0.26f, 0.18f));
+                for (int i = 0; i < 7; i++)
+                {
+                    var dir = Quaternion.Euler(Random.Range(-35f, 25f), -100f + i * 33f, 0f) * Vector3.forward;
+                    var pus = MeshKit.Part(rig.Torso, "Pustule" + i, MeshKit.Ball(0.035f + (i % 3) * 0.012f, 6, 4), Mat.Glow, new Vector3(0f, 0.14f, 0.11f) + dir * SackR(0.1f + dir.y * 0.32f));
                     ArtLibrary.SetGlow(pus.GetComponent<Renderer>(), new Color(0.5f, 0.95f, 0.2f) * 1.1f);
                 }
                 // The plague sac on its belly: burst it.
