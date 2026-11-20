@@ -173,6 +173,9 @@ namespace Deepbound.Enemies
             Debug.Log("[Boss] " + DisplayName + " stance " + stance + " (" + PhaseName.Value + ")");
         }
 
+        /// <summary>Server: end a Survive stance early (a lure that surfaces before its clock runs out).</summary>
+        protected void EndSurvival() { if (CurrentStance == Stance.Survival) EndStance(); }
+
         private void EndStance()
         {
             var then = stanceThen;

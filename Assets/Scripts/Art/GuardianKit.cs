@@ -350,12 +350,30 @@ namespace Deepbound.Art
             for (int k = 0; k < 3; k++)
                 Tint(MeshKit.Part(t, "Shawl", MeshKit.Cylinder(0.27f - k * 0.025f, 0.3f - k * 0.02f, 0.09f, 12), Mat.Cloth,
                     new Vector3(0f, 0.5f - k * 0.08f, 0f), Vector3.zero, new Vector3(1.05f, 1f, 0.9f)), new Color(0.22f - k * 0.03f, 0.18f - k * 0.02f, 0.15f));
-            // A headdress of long finger bones fanned behind the head.
-            for (int i = 0; i < 7; i++)
+            // A headdress of long finger bones fanned behind the head like a crown seen from the front (2026-11-20: the
+            // first cut was too short to clear the head; now they rise well above it, jointed, knuckle-tipped).
+            for (int i = 0; i < 9; i++)
             {
-                float a = -60f + i * 20f;
-                Tint(MeshKit.Part(head, "FingerBone", MeshKit.Cylinder(0.014f, 0.008f, 0.28f + (i % 2) * 0.1f, 5), Mat.Bone,
-                    new Vector3(Mathf.Sin(a * Mathf.Deg2Rad) * 0.1f, 0.18f, -0.06f), new Vector3(-25f, 0f, -a * 0.6f)), bone);
+                float a = -72f + i * 18f;
+                float len = 0.42f + (i % 2 == 0 ? 0.14f : 0f) - Mathf.Abs(a) / 72f * 0.12f;
+                var finger = MeshKit.Pivot(head, "FingerBone", new Vector3(Mathf.Sin(a * Mathf.Deg2Rad) * 0.11f, 0.14f, -0.07f), new Vector3(-14f, 0f, -a * 0.75f));
+                Tint(MeshKit.Part(finger, "Phalanx", MeshKit.Cylinder(0.016f, 0.012f, len * 0.55f, 5), Mat.Bone, Vector3.zero), bone);
+                Tint(MeshKit.Part(finger, "Knuckle", MeshKit.Ball(0.02f, 5, 4), Mat.Bone, Vector3.up * len * 0.55f), old);
+                Tint(MeshKit.Part(finger, "Phalanx", MeshKit.Cylinder(0.012f, 0.005f, len * 0.45f, 5), Mat.Bone, Vector3.up * len * 0.55f, new Vector3(-12f, 0f, 0f)), bone);
+            }
+            // Shoulder spurs: three curved ribs on each shoulder, rising and splaying out (her silhouette from the front).
+            foreach (float side in new[] { -1f, 1f })
+                for (int k = 0; k < 3; k++)
+                    Tint(MeshKit.Part(t, "ShoulderRib", MeshKit.Lathe("marrowSpur", new[] { new Vector2(0.3f, 0f), new Vector2(0.32f, 0.014f), new Vector2(0.3f, 0.028f) }, 8, true, 80f), Mat.Bone,
+                        new Vector3(side * (0.2f + k * 0.03f), 0.5f + k * 0.05f, -0.04f - k * 0.05f), new Vector3(0f, side > 0 ? 180f : 0f, side * (70f + k * 8f))), k == 1 ? old : bone);
+            // Strands of knitted vertebrae hanging from the shawl's hem, swinging as she walks.
+            for (int i = 0; i < 8; i++)
+            {
+                float a = (-100f + i * 28.5f) * Mathf.Deg2Rad;
+                var top = new Vector3(Mathf.Sin(a) * 0.29f, 0.3f, Mathf.Cos(a) * 0.25f);
+                int beads = 3 + i % 3;
+                for (int k = 0; k < beads; k++)
+                    Tint(MeshKit.Part(t, "Strand", MeshKit.Box(new Vector3(0.04f, 0.035f, 0.035f)), Mat.Bone, top + new Vector3(0f, -0.055f * k, 0.01f * k), new Vector3(0f, a * Mathf.Rad2Deg + k * 30f, 0f)), k % 2 == 0 ? bone : old);
             }
             // The cradle of skulls held to her chest.
             Tint(MeshKit.Part(t, "Cradle", MeshKit.Lathe("marrowCradle", new[] { new Vector2(0.05f, 0f), new Vector2(0.16f, 0.03f), new Vector2(0.18f, 0.08f) }, 10), Mat.Bone,

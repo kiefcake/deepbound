@@ -78,11 +78,15 @@ namespace Deepbound.Enemies
             if (agent != null && agent.enabled) agent.isStopped = true;
         }
 
+        /// Gallery shots: bring it up now so its body is in the frame (it is otherwise caught under the water).
+        public void ServerDebugSurface() { if (IsServer && Submerged.Value) Surface(); }
+
         private void Surface()
         {
             var at = LurePos.Value; at.y = transform.position.y;
             Warp(UnityEngine.AI.NavMesh.SamplePosition(at, out var h, 3f, UnityEngine.AI.NavMesh.AllAreas) ? h.position : at);
             Submerged.Value = false;
+            EndSurvival();
             stage = Stage.Surfaced;
             stageEnds = Time.time + 6.5f;
             SplashFxRpc(transform.position);

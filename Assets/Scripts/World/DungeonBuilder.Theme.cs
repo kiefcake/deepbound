@@ -140,6 +140,22 @@ namespace Deepbound.World
         // ---------------- The Hollow Throne ----------------
         private static void ToppledStatue(MeshKit.Batcher b, Vector3 at, Quaternion face, System.Random rng)
         {
+            // 2026-11-20 visual pass: the downloaded gothic statue (CC0) knocked off its plinth and fallen back against
+            // the wall, with mossy rubble where it broke (the lathe courtier read as a pale blob up close). Lying flat it
+            // floated: its own base is deeper than the figure, so it leans instead, base on the floor.
+            var along = face * Vector3.right;
+            var inward = face * Vector3.forward;
+            if (ModelKit.Has("gothic_statue"))
+            {
+                var rest = Quaternion.AngleAxis(-28f, along) * Quaternion.AngleAxis(-12f + (float)rng.NextDouble() * 24f, inward) * face;
+                if (b.AddModel("gothic_statue", 1.8f, Matrix4x4.TRS(at + inward * 0.25f - along * 0.4f, rest, Vector3.one)))
+                {
+                    b.AddBox(at + face * Vector3.back * 0.3f + Vector3.up * 0.2f - along * 1.6f, new Vector3(0.7f, 0.4f, 0.7f), Mat.Marble, face);
+                    b.AddModel("rock_moss_set_01", 0.22f, at - along * 1.3f + face * Vector3.forward * 0.5f, (float)rng.NextDouble() * 360f);
+                    b.AddModel("rock_moss_set_01", 0.16f, at + along * 1.2f + face * Vector3.forward * 0.2f, (float)rng.NextDouble() * 360f);
+                    return;
+                }
+            }
             // A courtier in marble, fallen on its side, its head rolled a little way off.
             var lying = face * Quaternion.Euler(0f, 90f, 90f);
             b.Add(MeshKit.Lathe("statueBody", new[] { new Vector2(0.3f, 0f), new Vector2(0.26f, 0.6f), new Vector2(0.22f, 1.2f), new Vector2(0.25f, 1.45f), new Vector2(0.1f, 1.6f) }, 10),

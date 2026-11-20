@@ -7840,6 +7840,7 @@ namespace Deepbound.Networking
                     key.transform.position = at + Vector3.up * 3f;
                     motor.SetPitch(dist > 5f ? -6f : 0f);
                     yield return new WaitForSeconds(0.7f);
+                    Debug.Log("[Gallery] pose " + name + "_" + tag + " wanted " + dist.ToString("F1") + " m, camera at " + (Art.ViewCamera.Current != null ? Vector3.Distance(Art.ViewCamera.Current.transform.position, e.transform.position).ToString("F1") : "?") + " m, me at " + Vector3.Distance(local.transform.position, at).ToString("F1") + " m off the mark");
                     yield return Shot(dir, name + "_" + tag);
                 }
                 motor.SetPitch(0f);
@@ -7911,12 +7912,38 @@ namespace Deepbound.Networking
                     yield return Shot(dir, "r" + depth + "_" + r + "_" + rm.Kind + "_" + rm.Feature);
                     shotRooms++;
                 }
+                // The guardian's arena from a corner (banners on the walls, the arena dressing), the guardian held still.
+                var arena = lay.Rooms.FirstOrDefault(rr => rr.Kind == RoomKind.Boss);
+                if (arena != null && part.Contains("r"))
+                {
+                    if (BossBrain.Active != null) BossBrain.Active.ServerStun(20f);
+                    var corner = arena.Center + new Vector3(arena.Size.x * 0.42f, 0f, -arena.Size.y * 0.42f);
+                    motor.Teleport(Art.Vfx.Floor(corner + Vector3.up * 2f) + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(arena.Center - corner)));
+                    key.transform.position = arena.Center + Vector3.up * 5f;
+                    motor.SetPitch(-4f);
+                    yield return new WaitForSeconds(0.9f);
+                    yield return Shot(dir, "r" + depth + "_arena");
+                }
                 key.intensity = 3.2f;
                 if (!part.Contains("p")) continue;
                 string a = "p" + depth + "_";
                 var kinds = new System.Collections.Generic.HashSet<Breakable.Kind>();
                 foreach (var b in FindObjectsByType<Breakable>(FindObjectsSortMode.None))
                     if (b != null && kinds.Add(b.Type.Value)) yield return Close(b.transform, a + "break_" + b.Type.Value, 1.9f);
+                // The act's own wall dressing (toppled statues, pews, strongboxes...): the first three spots, seen from the room.
+                int themeShots = 0;
+                foreach (var (tat, tin) in DungeonBuilder.ThemeSpots.ToArray())
+                {
+                    if (themeShots >= 3) break;
+                    var from = tat + tin.normalized * 3.6f + Vector3.up * 0.1f;
+                    motor.Teleport(Art.Vfx.Floor(from + Vector3.up * 1.5f) + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(tat - from)));
+                    key.transform.position = from + Vector3.up * 2.5f;
+                    motor.SetPitch(14f);
+                    yield return new WaitForSeconds(0.7f);
+                    yield return Shot(dir, a + "theme_" + themeShots);
+                    themeShots++;
+                }
+                motor.SetPitch(0f);
                 // The furnished corners: one of each kind on this floor, seen from the room.
                 var seenKinds = new System.Collections.Generic.HashSet<int>();
                 foreach (var (fat, fk) in DungeonBuilder.Furnished.ToArray())
@@ -7956,6 +7983,12 @@ namespace Deepbound.Networking
                 if (lair != null)
                 {
                     foreach (var other in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None)) if (other != lair) other.ServerStun(30f);
+                    if (lair is LanternFisherBrain fisher)
+                    {
+                        fisher.ServerDebugSurface();
+                        fisher.ServerStun(12f);
+                        yield return new WaitForSeconds(1.2f);
+                    }
                     yield return Pose(lair, "l" + act + "_" + lair.DisplayName.Replace(" ", "").Replace("'", ""), 6.5f, true);
                 }
                 foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
