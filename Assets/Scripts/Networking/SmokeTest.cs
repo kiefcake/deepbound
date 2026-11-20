@@ -7829,6 +7829,8 @@ namespace Deepbound.Networking
             // straight and look east"): walk north from the spawn and look east, at a few distances and pitches.
             if (part.Contains("c"))
             {
+                yield return new WaitForSeconds(1.5f);
+                foreach (var cs in FindObjectsByType<UI.CharacterSelect>(FindObjectsSortMode.None)) cs.Close();
                 var spawn = World.Lobby.SpawnFor(local.OwnerClientId);
                 foreach (float ahead in new[] { 10f, 13f, 16f, 19f })
                     foreach (float pitch in new[] { 0f, 25f })
