@@ -147,7 +147,7 @@ namespace Deepbound.UI
             }
             var rarePouch = player.GetComponent<Flasks>();
             if (rarePouch != null && rarePouch.RareHeld != Progression.RareItem.None)
-                Offer("rare", "A RARE " + (Progression.RareItems.IsTome(rarePouch.RareHeld) ? "TOME" : "DRAUGHT") + " sits in your pouch's fifth slot: press 5 to use it. " + Progression.RareItems.Describe(rarePouch.RareHeld) + " You carry one at a time; save it for the moment that matters.");
+                Offer("rare", "A RARE " + (Progression.RareItems.IsTome(rarePouch.RareHeld) ? "TOME" : "DRAUGHT") + " sits in your pouch's fifth slot: press 5 to use it. One at a time.");
 
             if (PlayerLife.All.Count > 1 && !DungeonDirector.InLobby)
                 Offer("teamwork", "TOGETHER: hit a foe from the side opposite an ally for a PINCER (+15%). Last one standing hits harder.");
