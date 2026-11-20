@@ -12,6 +12,9 @@ namespace Deepbound.UI
     /// Esc while playing: resume, options, or leave the party. A co-op game cannot stop
     /// time, so this only frees your mouse and covers the screen — the dungeon keeps
     /// moving, which is also why it is quick to get out of.
+    /// SOLO (2026-11-20, the user: "pause menu while solo does not work"): a host with nobody else connected
+    /// stops the world while the menu is open (Time.timeScale 0); it starts again on closing, or the moment
+    /// someone joins.
     /// </summary>
     public class PauseMenu : MonoBehaviour
     {
@@ -114,7 +117,25 @@ namespace Deepbound.UI
         /// <summary>Set by other menus each frame; Esc closes them rather than opening this.</summary>
         public static bool OtherMenuOpenLastFrame;
 
-        private void OnDestroy() => Open = false;
+        private void OnDestroy() { Open = false; if (worldPaused) { worldPaused = false; Time.timeScale = 1f; } }
+
+        private static bool worldPaused;
+        /// <summary>True while the solo pause holds the world still.</summary>
+        public static bool WorldPaused => worldPaused;
+
+        private static bool SoloHost()
+        {
+            var nm = NetworkManager.Singleton;
+            return nm != null && nm.IsListening && nm.IsServer && nm.ConnectedClientsIds.Count <= 1 && !Networking.NetworkLauncher.TestRun;
+        }
+
+        private static void TickSoloPause()
+        {
+            bool want = Open && SoloHost();
+            if (want == worldPaused) return;
+            worldPaused = want;
+            Time.timeScale = want ? 0f : 1f;
+        }
 
         // ---- Gamepad (2026-10-20): the main list, the guide's pages and Back work on a pad ----
         private int padFocus;
@@ -217,6 +238,7 @@ namespace Deepbound.UI
 
         private void Update()
         {
+            TickSoloPause();
             InOptions = Open && (options || invitesOpen || legacy);
             PadNavigate();
             var keyboard = Keyboard.current;

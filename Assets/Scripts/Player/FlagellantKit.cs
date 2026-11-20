@@ -107,11 +107,12 @@ namespace Deepbound.Player
             if (IsServer) Health.ServerAnyDamaged -= OnAnyDamaged;
         }
 
-        /// <summary>Martyrdom: you cannot fall while it burns.</summary>
+        /// <summary>The Red Litany takes a fifth off every blow while it whirls (it used to be "cannot fall": the user
+        /// found it a panic button, 2026-11-20).</summary>
         private float ModifyIncoming(float dmg, Vector3 from)
         {
             if (!Active || !Martyr) return dmg;
-            return Mathf.Min(dmg, Mathf.Max(0f, health.Current.Value - 1f));
+            return dmg * LitanyTaken;
         }
 
         private void OnAnyDamaged(Health t, float dealt, ulong from)
@@ -344,11 +345,12 @@ namespace Deepbound.Player
             var toMe = Flat(target.transform.position - from);
             var spot = from + toMe * 1.6f;
             var startAt = target.transform.position;
-            bool dragged = target.TryGetComponent<Enemies.EnemyBrain>(out var brain) && brain.ServerYank(spot);
+            float haulFor = Enemies.EnemyBrain.HaulSeconds(Vector3.Distance(target.transform.position, spot));
+            bool dragged = target.TryGetComponent<Enemies.EnemyBrain>(out var brain) && brain.ServerYank(spot, Art.ChainLink.ReachSeconds);
             target.Tag("FlagellantKit").ServerDamage(ChainDamage * DamageMultiplier * potency, from, NetworkObjectId);
             // Shackled (rank 4 A): held twice as long, and marked.
             bool shackle = progress.A(AbilitySlot.Q, 3);
-            if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(ChainStun * (dragged ? 1f : 0.6f) * (shackle ? 2f : 1f));
+            if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(ChainStun * (dragged ? 1f : 0.6f) * (shackle ? 2f : 1f) + (dragged ? haulFor + Art.ChainLink.ReachSeconds : 0f));
             if (shackle) target.ServerMark(5f);
             ulong me = NetworkObjectId;
             // Dragnet (rank 2 A): everything near the target comes along too.
@@ -356,8 +358,8 @@ namespace Deepbound.Player
                 foreach (var other in CombatQuery.Circle(startAt, 3f, Team.Enemies).ToArray())
                     if (other != target && other.TryGetComponent<Enemies.EnemyBrain>(out var ob))
                     {
-                        ob.ServerYank(spot + Random.insideUnitSphere.normalized * 1.2f);
-                        AbilityKit.Stun(other, ChainStun * 0.7f);
+                        ob.ServerYank(spot + Random.insideUnitSphere.normalized * 1.2f, Art.ChainLink.ReachSeconds);
+                        AbilityKit.Stun(other, ChainStun * 0.7f + haulFor);
                     }
             // Lash (rank 2 B): the chain whips what lies along its line.
             if (progress.B(AbilitySlot.Q, 1))
@@ -368,7 +370,7 @@ namespace Deepbound.Player
                 AbilityKit.Bleed(this, target, ChainDamage * DamageMultiplier * 0.8f, 4f, me, "Hooked", d => { if (health.IsAlive) health.ServerHeal(d); });
             // Chain Sweep (rank 3 B): haul it in with a sweep round you.
             if (progress.B(AbilitySlot.Q, 2) && dragged)
-                AbilityKit.Later(this, 0.25f, () =>
+                AbilityKit.Later(this, Art.ChainLink.ReachSeconds + haulFor, () =>
                 {
                     AbilityKit.Blast(transform.position, 2.5f, ChainDamage * DamageMultiplier * 1.2f, me, "Chain Sweep", h => AbilityKit.Stun(h, 0.6f));
                     progress.AbilityBurstRpc(transform.position, 2.5f, PlayerProgress.FxKind.Blood);
@@ -385,7 +387,7 @@ namespace Deepbound.Player
             if (progress.B(AbilitySlot.Q, 4)) { health.ServerHeal(health.Max.Value * 0.06f); Fervor.Value = Mathf.Min(FervorMax, Fervor.Value + 20f); }
             Fervor.Value = Mathf.Min(FervorMax, Fervor.Value + FervorPerHit);
             lastHitAt = Time.time;
-            ChainFxRpc(transform.position + Vector3.up * 1.3f, target.Center, dragged);
+            ChainFxRpc(transform.position + Vector3.up * 1.3f, target.Center, dragged, target.NetworkObjectId, dragged ? haulFor : 0.2f);
             if (!dragged && first) DragMeRpc(target.transform.position - toMe * 1.8f);
             // Double Chain (rank 5 A): it leaps on to a second foe.
             if (first && progress.A(AbilitySlot.Q, 4))
@@ -520,18 +522,85 @@ namespace Deepbound.Player
             }
         }
 
-        /// <summary>Server: the ultimate, Martyrdom.</summary>
-        public void ServerMartyrdom(float seconds)
+        // ---- The ultimate: THE RED LITANY (2026-11-20, replaces Martyrdom; the user: "not just an anti death button
+        // for a couple of seconds, can be used off cooldown") ----
+        // For LitanySeconds the flail whirls round you on its own: every LitanyTick it strikes everything within
+        // LitanyRadius (the hits heal you through Penance and feed Fervor like any swing), you move faster, take a
+        // fifth less and hit 30% harder; then the litany ends in a great crash that throws the dead down.
+        public const float LitanySeconds = 6f, LitanyTick = 0.3f, LitanyRadius = 3.4f, LitanyShare = 0.75f, LitanyTaken = 0.8f;
+        public const float LitanySpeed = 1.25f, AmenRadius = 5f, AmenMultiplier = 3f, AmenStun = 1.2f;
+
+        /// <summary>Server: the ultimate, the Red Litany.</summary>
+        public void ServerMartyrdom(float seconds) => ServerLitany();
+
+        public void ServerLitany()
         {
-            MartyrEnds.Value = Now + seconds;
+            MartyrEnds.Value = Now + LitanySeconds;
             Fervor.Value = FervorMax;
-            StartCoroutine(MartyrEnd(seconds));
+            StartCoroutine(Litany());
         }
 
-        private IEnumerator MartyrEnd(float seconds)
+        private IEnumerator Litany()
         {
-            yield return new WaitForSeconds(seconds);
-            if (health.IsAlive) health.ServerHeal(health.Max.Value * 0.3f);
+            float end = Time.time + LitanySeconds;
+            int beat = 0;
+            while (Time.time < end && health.IsAlive)
+            {
+                float total = 0f;
+                foreach (var h in AbilityKit.Blast(transform.position, LitanyRadius, 0f, NetworkObjectId, "Red Litany"))
+                {
+                    if (h == null || !h.IsAlive) continue;
+                    float before = h.Current.Value;
+                    h.Tag("Red Litany").ServerDamage(SwingDamage * LitanyShare * DamageMultiplier, transform.position, NetworkObjectId);
+                    total += Mathf.Max(0f, before - h.Current.Value);
+                }
+                if (total > 0f) { AfterHits(total); Fervor.Value = Mathf.Min(FervorMax, Fervor.Value + FervorPerHit * 0.5f); }
+                LitanyFxRpc(beat++, total > 0f);
+                yield return new WaitForSeconds(LitanyTick);
+            }
+            if (!health.IsAlive) yield break;
+            // Amen: the crash that ends it.
+            float amen = SwingDamage * AmenMultiplier * DamageMultiplier;
+            float dealt = 0f;
+            foreach (var h in AbilityKit.Blast(transform.position, AmenRadius, 0f, NetworkObjectId, "Amen"))
+            {
+                if (h == null || !h.IsAlive) continue;
+                float before = h.Current.Value;
+                h.Tag("Amen").ServerDamage(amen, transform.position, NetworkObjectId);
+                dealt += Mathf.Max(0f, before - h.Current.Value);
+                AbilityKit.Stun(h, AmenStun);
+            }
+            AfterHits(dealt);
+            AmenFxRpc(transform.position);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void LitanyFxRpc(int beat, bool hit)
+        {
+            SwingTrail.Spawn(transform, LitanyRadius * 0.9f, 360f, beat % 2 == 0 ? 1f : -1f, player.TrailColor(new Color(1f, 0.3f, 0.25f)));
+            if (!IsOwner) player.Rig?.Play(RigAction.Swing, LitanyTick);
+            // The flail's reach drawn on the floor each beat (first person shows little else of the whirl).
+            Vfx.Ring(transform.position + Vector3.up * 0.06f, LitanyRadius, new Color(1f, 0.22f, 0.16f) * (hit ? 1f : 0.7f), LitanyTick * 0.9f);
+            if (beat % 3 == 0) Vfx.Embers(transform.position + Vector3.up * 0.4f, 4, Blood, 3f, 0.04f, 0.4f);
+            if (beat % 2 == 0) Sfx.Play(Sound.Swing, transform.position + Vector3.up, 0.6f, 0.7f + (beat % 3) * 0.06f);
+            if (beat % 4 == 0) Sfx.Play(Sound.Chain, transform.position + Vector3.up, 0.5f, 0.9f);
+            if (hit)
+            {
+                Vfx.Embers(transform.position + Vector3.up * 0.9f, 6, Blood, 4f, 0.05f, 0.4f);
+                if (IsOwner) player.ConfirmHit(0.5f);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void AmenFxRpc(Vector3 at)
+        {
+            Sfx.Play(Sound.Slam, at, 1f, 0.7f);
+            Sfx.Play(Sound.Toll, at, 0.6f, 1.2f);
+            Vfx.Ring(at + Vector3.up * 0.05f, AmenRadius, new Color(1f, 0.3f, 0.22f), 0.55f);
+            Vfx.Embers(at + Vector3.up * 0.3f, 26, Blood, 6f, 0.06f, 0.8f);
+            Vfx.Flash(at + Vector3.up, new Color(1f, 0.3f, 0.2f), 6f, 10f, 0.4f);
+            FxSprite.Decal("dirt_02", at, AmenRadius * 1.2f, AmenRadius * 1.3f, 7f, new Color(0.25f, 0.03f, 0.02f, 0.6f));
+            if (IsOwner) { player.ConfirmHit(2f); player.AddShake(0.4f); }
         }
 
         // ==================================================================
@@ -574,11 +643,13 @@ namespace Deepbound.Player
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void ChainFxRpc(Vector3 from, Vector3 to, bool dragged)
+        private void ChainFxRpc(Vector3 from, Vector3 to, bool dragged, ulong targetId, float haulFor)
         {
             Sfx.Play(Sound.Chain, from, 0.9f, 1.1f);
             Sfx.Play(Sound.Hit, to, 0.8f, 0.9f);
-            ChainLink.Spawn(from, to, 0.35f);
+            Transform toT = NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(targetId, out var tobj) ? tobj.transform : null;
+            ChainLink.Spawn(from, to, ChainLink.ReachSeconds + haulFor + 0.1f, transform, toT);
+            if (dragged) Sfx.Play(Sound.Chain, to, 0.7f, 0.8f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
         }
 

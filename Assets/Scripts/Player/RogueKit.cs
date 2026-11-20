@@ -64,7 +64,8 @@ namespace Deepbound.Player
         private bool lastHitFromBehind;
         private Vector3 smokeCloudAt;
         private float smokeCloudUntil;
-        public const float SmokeCloudRadius = 3.5f;
+        public const float SmokeCloudRadius = 3.5f, SelfVeilSeconds = 3f;
+        private float selfVeilUntil;
         private float side = 1f;
         private float lastServerStab;
         // Server: the Duelist's run of stabs on one enemy.
@@ -219,6 +220,11 @@ namespace Deepbound.Player
                 foreach (var ally in PlayerLife.All)
                     if (ally != null && ally != life && Vector3.Distance(ally.transform.position, smokeCloudAt) < SmokeCloudRadius)
                         ally.VeiledUntil = Time.time + 0.25f;
+            // 2026-11-20 (the user: "untargetable while he is in his smoke for a couple seconds"): for the first
+            // SelfVeilSeconds the Rogue himself cannot be targeted while he stands in the cloud, even after he
+            // strikes from it (a strike ends Hidden, not the veil).
+            if (IsServer && Time.time < selfVeilUntil && Vector3.Distance(transform.position, smokeCloudAt) < SmokeCloudRadius)
+                life.VeiledUntil = Mathf.Max(life.VeiledUntil, Time.time + 0.25f);
 
             if (!IsOwner || !Active) return;
 
@@ -486,6 +492,7 @@ namespace Deepbound.Player
             smokeWindowUntil = hiddenUntil + 1f;
             smokeCloudAt = transform.position;
             smokeCloudUntil = hiddenUntil;
+            selfVeilUntil = Time.time + SelfVeilSeconds;
             openerArmed = true;
             life.Hidden.Value = true;
             // Everything hunting you loses you: they stop, look about, and pick someone else.

@@ -1620,13 +1620,42 @@ namespace Deepbound.Enemies
             if (!Heavy) knockback += velocity;
         }
 
-        /// <summary>Server: drag this enemy to a spot (the Flagellant's chain). False if it is too heavy to move.</summary>
-        public bool ServerYank(Vector3 to)
+        /// <summary>
+        /// Server: haul this enemy to a spot (the Flagellant's chain). False if it is too heavy to move.
+        /// 2026-11-20 (the user: "not an instant teleport"): it is dragged along the floor at <see cref="HaulSpeed"/>,
+        /// sliding round what is in the way, after the chain has had <paramref name="delay"/> to reach it.
+        /// </summary>
+        public bool ServerYank(Vector3 to, float delay = 0f)
         {
             if (Heavy || IsBoss || IsDead || agent == null) return false;
             if (!NavMesh.SamplePosition(to, out var hit, 2.5f, NavMesh.AllAreas)) return false;
-            agent.Warp(hit.position);
+            if (haul != null) StopCoroutine(haul);
+            haul = StartCoroutine(Haul(hit.position, delay));
             return true;
+        }
+
+        public const float HaulSpeed = 15f;
+        private Coroutine haul;
+
+        /// <summary>Seconds a haul of this length takes (the chain's art holds taut that long).</summary>
+        public static float HaulSeconds(float distance) => 0.12f + distance / HaulSpeed;
+
+        private System.Collections.IEnumerator Haul(Vector3 to, float delay)
+        {
+            if (delay > 0f) yield return new WaitForSeconds(delay);
+            float t0 = Time.time, limit = HaulSeconds(Vector3.Distance(transform.position, to)) + 0.4f;
+            while (!IsDead && agent != null && agent.enabled && agent.isOnNavMesh && Time.time - t0 < limit)
+            {
+                var d = to - transform.position;
+                d.y = 0f;
+                // A jerk off its feet, then the long drag in.
+                float speed = HaulSpeed * Mathf.Lerp(0.45f, 1f, Mathf.Clamp01((Time.time - t0) / 0.12f));
+                float step = speed * Time.deltaTime;
+                if (d.magnitude <= step) { agent.Move(d); break; }
+                agent.Move(d.normalized * step);
+                yield return null;
+            }
+            haul = null;
         }
 
         private void OnDamagedServer(float amount, ulong attackerId)

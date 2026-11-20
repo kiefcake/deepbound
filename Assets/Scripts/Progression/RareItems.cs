@@ -17,7 +17,7 @@ namespace Deepbound.Progression
         public const float IronbarkSeconds = 8f, IronbarkTaken = 0.5f, IronbarkShield = 0.25f;
         public const float BloodfurySeconds = 8f, BloodfuryDamage = 1.4f, BloodfuryAttackTime = 0.8f;
         public const float StasisSeconds = 3f, StasisGrace = 1f;
-        public const float PhoenixSeconds = 30f;
+        public const float PhoenixSeconds = 45f;
         public const float StormSeconds = 10f, StormEvery = 0.6f, StormRange = 14f, StormDamage = 24f, StormStun = 0.5f;
         public const float SanctuarySeconds = 10f, SanctuaryRadius = 6f, SanctuaryTaken = 0.65f, SanctuaryHealPerSecond = 0.03f;
 
@@ -59,7 +59,7 @@ namespace Deepbound.Progression
                 case RareItem.Ironbark: return "For 8 s take half damage, gain a shield of a quarter of your health, and shrug off knockback, roots, frostbite and mania.";
                 case RareItem.Bloodfury: return "For 8 s deal 40% more damage and attack 25% faster.";
                 case RareItem.GraveStillness: return "Turn to stone for 3 s: nothing can hurt you and the dead forget you, but you cannot move or act.";
-                case RareItem.PhoenixTome: return "Call a phoenix for 30 s. It circles you and dives at the dead, scorching them; struck down, it bursts into flame and is reborn.";
+                case RareItem.PhoenixTome: return "Call a phoenix for 45 s. It circles you and dives at the dead again and again, scorching all around; struck down, it bursts into flame and is reborn.";
                 case RareItem.StormTome: return "For 10 s lightning strikes the dead within 14 m of you, again and again, stunning each it hits for a moment (Exposed).";
                 case RareItem.SanctuaryTome: return "A holy circle 12 m wide for 10 s: you and your allies inside take 35% less damage and mend 3% a second.";
                 default: return "";

@@ -7825,6 +7825,56 @@ namespace Deepbound.Networking
             local.Rig?.PlayEmote(Art.Emote.None, 0f);
             yield return new WaitForSeconds(1f);
             }
+            // -galpart c: a camp spot the user reported (2026-11-20: "weird visual shadow bug, from spawn, 20 steps
+            // straight and look east"): walk north from the spawn and look east, at a few distances and pitches.
+            if (part.Contains("c"))
+            {
+                var spawn = World.Lobby.SpawnFor(local.OwnerClientId);
+                foreach (float ahead in new[] { 10f, 13f, 16f, 19f })
+                    foreach (float pitch in new[] { 0f, 25f })
+                    {
+                        var at = spawn + Vector3.forward * ahead;
+                        if (Physics.Raycast(at + Vector3.up * 20f, Vector3.down, out var hit, 40f)) at = hit.point + Vector3.up * 0.1f;
+                        motor.Teleport(at, Quaternion.LookRotation(Vector3.right));
+                        motor.SetPitch(pitch);
+                        yield return new WaitForSeconds(1f);
+                        yield return Shot(dir, "c_ahead" + ahead.ToString("F0") + "_p" + pitch.ToString("F0"));
+                    }
+                motor.SetPitch(0f);
+            }
+            // -galpart u: the reworked ultimates, cast in the start room and caught mid-flight (2026-11-20).
+            if (part.Contains("u"))
+            {
+                dd.ServerDebugStartFloor(0);
+                yield return new WaitForSeconds(4f);
+                foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                    if (e != null && e.IsSpawned && !(e is BossBrain)) e.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, e.transform.position, local.NetworkObjectId);
+                // The biggest combat room, standing at one end looking down its length.
+                var uroom = DungeonDirector.Layout.Rooms.Where(rr => rr.Kind == RoomKind.Combat).OrderByDescending(rr => rr.Size.x * rr.Size.y).First();
+                var ulong3 = uroom.Size.x >= uroom.Size.y ? Vector3.right : Vector3.forward;
+                float ulen = Mathf.Max(uroom.Size.x, uroom.Size.y);
+                var ustand = Art.Vfx.Floor(uroom.Center - ulong3 * ulen * 0.38f + Vector3.up * 2f) + Vector3.up * 0.1f;
+                yield return new WaitForSeconds(1f);
+                var ult = local.GetComponent<Ultimates>();
+                var prog = local.GetComponent<PlayerProgress>();
+                foreach (var (cls, nm, wait, pitch) in new[] { (Classes.ClassId.Ranger, "u_twin_wyrms", 0.75f, 0f), (Classes.ClassId.PlagueDoctor, "u_pandemic", 0.5f, 30f), (Classes.ClassId.Flagellant, "u_red_litany", 1.5f, 30f) })
+                {
+                    prog.ClassId.Value = cls;
+                    yield return new WaitForSeconds(0.8f);
+                    foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None)) if (e != null && e.IsSpawned) e.ServerStun(10f);
+                    motor.Teleport(ustand, Quaternion.LookRotation(ulong3));
+                    yield return new WaitForSeconds(0.4f);
+                    motor.SetPitch(0f);
+                    ult.ServerDebugCast(local.transform.position + local.transform.forward * 10f);
+                    motor.SetPitch(pitch);
+                    yield return new WaitForSeconds(wait);
+                    yield return Shot(dir, nm);
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot(dir, nm + "_b");
+                    yield return new WaitForSeconds(6f);
+                }
+                motor.SetPitch(0f);
+            }
             var key = new GameObject("GalleryKey").AddComponent<Light>();
             key.type = LightType.Point; key.range = 16f; key.intensity = 3.2f; key.color = new Color(1f, 0.92f, 0.8f);
             UnityEngine.Object.DontDestroyOnLoad(key.gameObject);

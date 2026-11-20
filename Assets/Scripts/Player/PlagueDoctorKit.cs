@@ -97,6 +97,12 @@ namespace Deepbound.Player
             Health.BlightedDied += (dead, source) =>
             {
                 if (dead == null || dead.Team != Team.Enemies) return;
+                // The Pandemic: a plagued death bursts and passes the plague on, whoever laid the last blight.
+                if (plagued.TryGetValue(dead, out var pl))
+                {
+                    plagued.Remove(dead);
+                    if (Time.time < pl.until && pl.kit != null) pl.kit.ServerPandemicSpread(dead.transform.position, pl.until - Time.time);
+                }
                 if (NetworkManager.Singleton == null || !NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(source, out var obj) || !obj.TryGetComponent<PlagueDoctorKit>(out var kit)) return;
                 kit.ServerContagion(dead.transform.position);
             };
@@ -322,24 +328,83 @@ namespace Deepbound.Player
             else AddCloud(at, radius, MiasmaSeconds, MiasmaDps * potency, false);
         }
 
-        /// <summary>Server: the ultimate, Black Death: a vast cloud that rots everything inside.</summary>
-        public void ServerBlackDeath(Vector3 at)
+        // ---- The ultimate: PANDEMIC (2026-11-20, replaces Black Death, a cloud at the crosshair: the user found it weak) ----
+        // Every enemy within PandemicRadius of you is struck at once (PandemicBurst), rots hard for PandemicSeconds
+        // (a blight PandemicRot times the vials') and takes 25% more from everyone. A plagued creature that dies
+        // bursts and plagues everything within PandemicSpread for what was left of its time (at least
+        // PandemicMinSpread), so a crowd goes down in a chain. Allies within the radius are healed PandemicHeal.
+        public const float PandemicRadius = 12f, PandemicSeconds = 10f, PandemicBurst = 30f, PandemicRot = 3f;
+        public const float PandemicSpread = 6f, PandemicMinSpread = 5f, PandemicSpreadBurst = 0.6f, PandemicHeal = 0.2f;
+        private static readonly Dictionary<Health, (float until, PlagueDoctorKit kit)> plagued = new Dictionary<Health, (float until, PlagueDoctorKit kit)>();
+
+        /// <summary>Server: the ultimate (the old entry point; the crosshair no longer matters).</summary>
+        public void ServerBlackDeath(Vector3 at) => ServerPandemic();
+
+        public int ServerPandemic()
         {
-            clouds.Add(new Cloud { At = at, Radius = 8f, Until = Time.time + 8f, Dps = MiasmaDps * 2.2f, Black = true, Id = ++nextCloudId });
-            CloudFxRpc(at, 8f, 8f, true, nextCloudId);
+            var at = transform.position;
+            int n = 0;
+            foreach (var h in CombatQuery.Circle(at, PandemicRadius, Team.Enemies).ToArray())
+                if (Afflict(h, PandemicSeconds, PandemicBurst)) n++;
+            foreach (var ally in CombatQuery.Circle(at, PandemicRadius, Team.Players).ToArray())
+                ally.ServerHeal(ally.Max.Value * PandemicHeal);
+            PandemicFxRpc(at, PandemicRadius);
+            return n;
         }
 
-        /// <summary>Server: is this spot inside a Black Death cloud (+25% damage taken)?</summary>
+        private bool Afflict(Health h, float seconds, float burst)
+        {
+            if (h == null || !h.IsAlive) return false;
+            float p = BlightPower;
+            plagued[h] = (Time.time + seconds, this);
+            if (h.TryGetComponent<Enemies.EnemyBrain>(out var b)) b.ServerAddThreat(NetworkObjectId, 10f);
+            h.ServerBlight(seconds, BlightDps * PandemicRot * p, NetworkObjectId);
+            if (burst > 0f) h.Tag("Pandemic").ServerDamage(burst * p, transform.position, NetworkObjectId);
+            return true;
+        }
+
+        /// <summary>Server: a plagued death bursts: everything near catches what was left of it.</summary>
+        public void ServerPandemicSpread(Vector3 at, float left)
+        {
+            float seconds = Mathf.Max(PandemicMinSpread, left);
+            foreach (var h in CombatQuery.Circle(at, PandemicSpread, Team.Enemies).ToArray())
+                if (!plagued.TryGetValue(h, out var pl) || pl.until - Time.time < seconds - 0.5f) Afflict(h, seconds, PandemicBurst * PandemicSpreadBurst);
+            PandemicBurstFxRpc(at);
+        }
+
+        /// <summary>Server: is this creature plagued (+25% damage taken)?</summary>
+        public static bool IsPlagued(Health h) => h != null && plagued.TryGetValue(h, out var pl) && Time.time < pl.until;
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PandemicFxRpc(Vector3 at, float radius)
+        {
+            Sfx.Play(Sound.Slime, at, 1f, 0.6f);
+            Sfx.Play(Sound.Toll, at, 0.6f, 0.7f);
+            Vfx.Ring(at + Vector3.up * 0.1f, radius, Plague, 0.9f);
+            Vfx.Ring(at + Vector3.up * 0.1f, radius * 0.6f, new Color(0.12f, 0.16f, 0.08f), 0.7f);
+            for (int i = 0; i < 10; i++)
+            {
+                var p = at + Quaternion.Euler(0f, i * 36f, 0f) * Vector3.forward * radius * Random.Range(0.3f, 0.9f);
+                Vfx.Smoke(p + Vector3.up * 0.6f, 2, 1.2f, 2f);
+            }
+            Vfx.Embers(at + Vector3.up, 30, Plague, 6f, 0.06f, 1f);
+            UI.GameHud.ShowCombo(at + Vector3.up * 2.4f, "PANDEMIC", Plague);
+            if (IsOwner) player.AddShake(0.3f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PandemicBurstFxRpc(Vector3 at)
+        {
+            Sfx.Play(Sound.Slime, at, 0.8f, 0.8f);
+            Vfx.Ring(at + Vector3.up * 0.1f, PandemicSpread, Plague, 0.45f);
+            Vfx.Smoke(at + Vector3.up * 0.8f, 3, 1f, 1.8f);
+            Vfx.Embers(at + Vector3.up, 14, Plague, 4f, 0.05f, 0.7f);
+        }
+
         private static readonly List<PlagueDoctorKit> all = new List<PlagueDoctorKit>();
 
-        public static bool InBlackDeath(Vector3 at)
-        {
-            foreach (var k in all)
-                if (k != null)
-                foreach (var c in k.clouds)
-                    if (c.Black && Time.time < c.Until && Vector3.Distance(at, c.At) < c.Radius) return true;
-            return false;
-        }
+        /// <summary>Server: the +25% hook in <see cref="Health"/> (named for the old cloud).</summary>
+        public static bool InBlackDeath(Health h) => IsPlagued(h);
 
         private void TickClouds()
         {

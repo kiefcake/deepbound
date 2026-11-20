@@ -125,7 +125,7 @@ namespace Deepbound.Classes
                 ("LMB", "Twin Daggers", "Very fast, short stabs, one target at a time."),
                 ("RMB", "Fan of Knives", "Throw three knives in a narrow spread."),
                 ("Q", "Shadowstep", "Reappear behind the enemy under your crosshair. No enemy there: dash a few metres the way you look (half the cooldown)."),
-                ("E", "Smoke Bomb", "Vanish: enemies lose you. Your first strike from the smoke deals double and stuns."),
+                ("E", "Smoke Bomb", "Vanish: enemies lose you. For 3 s nothing can target you while you stand in the cloud, even after you strike. Your first strike from the smoke deals double and stuns."),
             }
             : id == ClassId.Cleric
             ? new[]

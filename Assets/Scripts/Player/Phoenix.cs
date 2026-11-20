@@ -24,8 +24,11 @@ namespace Deepbound.Player
         public readonly NetworkVariable<bool> Egg = new NetworkVariable<bool>();
         public readonly NetworkVariable<double> EndsAt = new NetworkVariable<double>();
 
-        public const float OrbitRadius = 2.6f, OrbitHeight = 2.8f, SeekRange = 14f, DiveSpeed = 16f, DiveEvery = 1.4f;
-        public const float DiveDamage = 22f, BurstDamage = 30f, BurstRadius = 4f, EggSeconds = 3f, HealthShare = 0.3f;
+        // 2026-11-20 (the user: "make the phoenix stronger"): dives hit almost twice as hard, twice as often, from
+        // further; the splash is wider; the bird is tougher, hatches faster and burns hotter when it falls.
+        public const float OrbitRadius = 2.6f, OrbitHeight = 2.8f, SeekRange = 18f, DiveSpeed = 20f, DiveEvery = 0.8f;
+        public const float DiveDamage = 40f, BurstDamage = 70f, BurstRadius = 5f, EggSeconds = 1.8f, HealthShare = 0.6f;
+        public const float SplashRadius = 2.4f, SplashShare = 0.6f;
 
         private Health health;
         private PlayerProgress owner;
@@ -140,8 +143,12 @@ namespace Deepbound.Player
             float att = owner != null ? owner.AttackMultiplier : 1f;
             t.Tag("Phoenix").ServerDamage(DiveDamage * att, Pos.Value, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
             if (t.IsAlive) t.ServerScorch(5f, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
-            foreach (var near in CombatQuery.Circle(t.transform.position, 1.6f, Team.Enemies).ToArray())
-                if (near != t) near.Tag("Phoenix").ServerDamage(DiveDamage * 0.4f * att, Pos.Value, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
+            foreach (var near in CombatQuery.Circle(t.transform.position, SplashRadius, Team.Enemies).ToArray())
+                if (near != t)
+                {
+                    near.Tag("Phoenix").ServerDamage(DiveDamage * SplashShare * att, Pos.Value, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
+                    if (near.IsAlive) near.ServerScorch(3f, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
+                }
             StrikeFxRpc(Pos.Value);
         }
 

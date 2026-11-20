@@ -8,13 +8,24 @@ namespace Deepbound.Art
         private float born, life;
         private Transform[] links;
         private Vector3 from, to;
+        // 2026-11-20: the chain follows its two ends while the target is hauled in (it used to warp).
+        private Transform fromT, toT;
+        private Vector3 fromOff, toOff;
+        public const float ReachSeconds = 0.15f;
 
-        public static void Spawn(Vector3 from, Vector3 to, float life)
+        public static void Spawn(Vector3 from, Vector3 to, float life) => Spawn(from, to, life, null, null);
+
+        /// <summary>A chain whose ends ride on <paramref name="fromFollow"/> and <paramref name="toFollow"/> (either may be null).</summary>
+        public static void Spawn(Vector3 from, Vector3 to, float life, Transform fromFollow, Transform toFollow)
         {
             var go = new GameObject("ChainLink");
             var c = go.AddComponent<ChainLink>();
             c.from = from;
             c.to = to;
+            c.fromT = fromFollow;
+            c.toT = toFollow;
+            if (fromFollow != null) c.fromOff = from - fromFollow.position;
+            if (toFollow != null) c.toOff = to - toFollow.position;
             c.life = life;
             c.born = Time.time;
             int n = Mathf.Clamp(Mathf.RoundToInt(Vector3.Distance(from, to) / 0.16f), 4, 120);
@@ -32,8 +43,10 @@ namespace Deepbound.Art
         {
             float t = (Time.time - born) / life;
             if (t >= 1.6f) { Destroy(gameObject); return; }
-            // Out to the target in the first third, taut, then it sags as it is hauled back.
-            float reach = Mathf.Clamp01(t * 3f);
+            if (fromT != null) from = fromT.position + fromOff;
+            if (toT != null) to = toT.position + toOff;
+            // Out to the target fast, taut while it is hauled, then it sags and drops away.
+            float reach = Mathf.Clamp01((Time.time - born) / ReachSeconds);
             float sag = t > 1f ? (t - 1f) * 2.5f : 0f;
             var dir = to - from;
             var rot = Quaternion.LookRotation(dir.sqrMagnitude > 0.001f ? dir : Vector3.forward) * Quaternion.Euler(90f, 0f, 0f);

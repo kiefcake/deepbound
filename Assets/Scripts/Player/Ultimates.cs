@@ -27,8 +27,9 @@ namespace Deepbound.Player
     ///   party is healed to at least 70% and shielded.</item>
     /// <item><b>Rogue — Death From Shadow.</b> Step behind the enemy under the crosshair and
     ///   strike for a huge backstab that leaves it Exposed (stunned).</item>
-    /// <item><b>Ranger — Rain of Arrows.</b> A storm of arrows on the crosshair for 4 s:
-    ///   damage every half second, and everything in it is chilled.</item>
+    /// <item><b>Ranger — Twin Wyrms</b> (2026-11-20, replaced Rain of Arrows; the user asked for something like a
+    ///   certain archer's dragon volley): a spirit arrow splits into two coiling wyrms that run straight ahead
+    ///   through walls for 44 m, tearing at everything they pass (a heavy first bite, then every 0.2 s) and chilling it.</item>
     /// </list>
     ///
     /// <para>Charge is server-owned; the owner reads input and sends the aim.</para>
@@ -65,9 +66,9 @@ namespace Deepbound.Player
                 case ClassId.Mage: return "Cataclysm";
                 case ClassId.Cleric: return "Hymn of Return";
                 case ClassId.Rogue: return "Death From Shadow";
-                case ClassId.Ranger: return "Rain of Arrows";
-                case ClassId.Flagellant: return "Martyrdom";
-                case ClassId.PlagueDoctor: return "Black Death";
+                case ClassId.Ranger: return "Twin Wyrms";
+                case ClassId.Flagellant: return "The Red Litany";
+                case ClassId.PlagueDoctor: return "Pandemic";
                 default: return "Rallying Banner";
             }
         }
@@ -79,9 +80,9 @@ namespace Deepbound.Player
                 case ClassId.Mage: return "Five meteors rain around the crosshair over two seconds.";
                 case ClassId.Cleric: return "Raise every downed ally within 18 m; heal the party to at least 70% and shield it.";
                 case ClassId.Rogue: return "Step behind the enemy you aim at and strike: a huge backstab that leaves it Exposed.";
-                case ClassId.Ranger: return "A storm of arrows on the crosshair for 4 s, chilling all it hits.";
-                case ClassId.Flagellant: return "For 8 s you cannot fall below 1 health, hit 30% harder and heal for a quarter of it. Then you mend 30%.";
-                case ClassId.PlagueDoctor: return "A vast plague cloud at the crosshair for 8 s: everything inside rots and takes 25% more damage.";
+                case ClassId.Ranger: return "Loose a spirit arrow that splits into two wyrms: they coil straight ahead through walls for 44 m, savaging and chilling everything they pass.";
+                case ClassId.Flagellant: return "For 6 s your flail whirls round you on its own, scourging everything near; you move faster, take a fifth less and hit 30% harder. It ends in a crash that stuns.";
+                case ClassId.PlagueDoctor: return "Every enemy within 12 m is struck with the plague: a burst, heavy rot for 10 s and 25% more damage from all. A plagued death bursts and passes it on. Allies nearby are healed 20%.";
                 default: return "Plant a war banner: allies near it take 35% less damage and deal 20% more for 8 s.";
             }
         }
@@ -224,6 +225,14 @@ namespace Deepbound.Player
         // Server
         // ==================================================================
 
+        /// <summary>Server, tests and the gallery: cast now, charged or not.</summary>
+        public void ServerDebugCast(Vector3 aim)
+        {
+            Charge.Value = ChargeMax;
+            lockedUntil = 0f;
+            CastRpc(aim, ulong.MaxValue);
+        }
+
         [Rpc(SendTo.Server)]
         private void CastRpc(Vector3 aim, ulong targetId)
         {
@@ -241,8 +250,8 @@ namespace Deepbound.Player
                 case ClassId.Mage: StartCoroutine(Cataclysm(aim, att)); break;
                 case ClassId.Cleric: Hymn(); break;
                 case ClassId.Rogue: DeathFromShadow(targetId, att); break;
-                case ClassId.Ranger: StartCoroutine(RainOfArrows(aim, att)); break;
-                case ClassId.Flagellant: GetComponent<FlagellantKit>().ServerMartyrdom(8f); break;
+                case ClassId.Ranger: StartCoroutine(TwinWyrms(aim, att)); break;
+                case ClassId.Flagellant: GetComponent<FlagellantKit>().ServerLitany(); break;
                 case ClassId.PlagueDoctor: GetComponent<PlagueDoctorKit>().ServerBlackDeath(aim); break;
                 default:
                     var at = transform.position;
@@ -304,6 +313,52 @@ namespace Deepbound.Player
             target.Tag("Ultimates").ServerDamage(150f * att * Combos.TryShatter(target, progress), target.transform.position - target.transform.forward, NetworkObjectId);
             if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.8f);
             StrikeFxRpc(target.Center);
+        }
+
+        // ---- Twin Wyrms ----
+        public const float WyrmSpeed = 15f, WyrmRange = 44f, WyrmRadius = 2.3f, WyrmLength = 6f, WyrmTick = 0.2f, WyrmWindup = 0.35f;
+        public const float WyrmBite = 55f, WyrmGnaw = 26f;
+
+        private IEnumerator TwinWyrms(Vector3 aim, float att)
+        {
+            var dir = aim - transform.position;
+            dir.y = 0f;
+            if (dir.sqrMagnitude < 0.25f) dir = transform.forward;
+            dir.y = 0f;
+            dir.Normalize();
+            var origin = transform.position + Vector3.up * 1.15f + dir * 0.8f;
+            WyrmFxRpc(origin, dir);
+            yield return new WaitForSeconds(WyrmWindup);
+            var bitten = new HashSet<Health>();
+            float travelled = 0f;
+            while (travelled < WyrmRange + WyrmLength)
+            {
+                travelled += WyrmSpeed * WyrmTick;
+                float head = Mathf.Min(travelled, WyrmRange), tail = Mathf.Clamp(travelled - WyrmLength, 0f, WyrmRange);
+                var a = origin + dir * tail;
+                var b = origin + dir * head;
+                foreach (var h in Health.All.ToArray())
+                {
+                    if (h == null || !h.IsAlive || h.Team != Team.Enemies) continue;
+                    if (!h.SegmentTouchesBody(a, b, WyrmRadius)) continue;
+                    // The first touch is the bite; while it is inside the coils it is gnawed every tick.
+                    bool first = bitten.Add(h);
+                    h.Tag("Ultimates").ServerDamage((first ? WyrmBite : WyrmGnaw) * att, b, NetworkObjectId);
+                    if (h.IsAlive) h.ServerChill(2f);
+                }
+                yield return new WaitForSeconds(WyrmTick);
+            }
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void WyrmFxRpc(Vector3 origin, Vector3 dir)
+        {
+            var c = new Color(0.45f, 1f, 0.85f);
+            SpiritWyrms.Spawn(origin, dir, WyrmWindup, WyrmSpeed, WyrmRange, WyrmLength, c);
+            Sfx.Play(Sound.Bow, origin, 1f, 0.8f);
+            Sfx.Play(Sound.Roar, origin + dir * 3f, 0.9f, 1.35f);
+            Vfx.Flash(origin, c, 5f, 8f, 0.35f);
+            if (IsOwner) player.AddShake(0.25f);
         }
 
         private IEnumerator RainOfArrows(Vector3 at, float att)

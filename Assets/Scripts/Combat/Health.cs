@@ -97,8 +97,8 @@ namespace Deepbound.Combat
         public ulong BlightSource => blightSource;
         /// <summary>Server: raised when a blighted creature dies (the Plague Doctor's Contagion).</summary>
         public static System.Action<Health, ulong> BlightedDied;
-        /// <summary>Server: is this spot inside a Black Death cloud (set by the Plague Doctor)?</summary>
-        public static System.Func<Vector3, bool> InPlagueCloud;
+        /// <summary>Server: is this creature plagued (the Plague Doctor's Pandemic, +25% damage taken)?</summary>
+        public static System.Func<Health, bool> InPlagueCloud;
 
         public void ServerBlight(float seconds, float dps, ulong source)
         {
@@ -369,7 +369,7 @@ namespace Deepbound.Combat
             float dealt = overwhelming ? amount : Mathf.Max(amount - Defense * DefenseWeight, amount * MinDamageFraction);
             if (Marked.Value) dealt *= MarkedMultiplier;
             if (Blighted.Value) dealt *= BlightedMultiplier;
-            if (Team == Team.Enemies && InPlagueCloud != null && InPlagueCloud(transform.position)) dealt *= 1.25f;
+            if (Team == Team.Enemies && InPlagueCloud != null && InPlagueCloud(this)) dealt *= 1.25f;
             // A modifier can end its owner (a mirror copy shatters when struck): stop there, the rest would act on a despawned object.
             foreach (var modifier in IncomingModifiers)
             {
