@@ -194,8 +194,7 @@ namespace Deepbound.World
             var points = new Vector3[2];
             for (int i = 0; i < 2; i++)
             {
-                var p = at + Quaternion.Euler(0f, i * 180f + 90f, 0f) * Vector3.forward * 1.1f;
-                if (NavMesh.SamplePosition(p, out var hit, 2f, NavMesh.AllAreas)) p = hit.position;
+                var p = DropSpots.Stand(at, at + Quaternion.Euler(0f, i * 180f + 90f, 0f) * Vector3.forward * 1.1f, 0.3f, 0.8f);
                 var obj = Spawn(skeletonPrefab, p, Quaternion.identity);
                 var brain = obj.GetComponent<EnemyBrain>();
                 brain.NoLoot = true;
@@ -228,8 +227,9 @@ namespace Deepbound.World
                     for (int i = 0; i < n; i++)
                     {
                         float a = (i * 360f / n + 30f) * Mathf.Deg2Rad;
-                        var at = c + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * 11.5f;
-                        if (NavMesh.SamplePosition(at, out var hit, 2f, NavMesh.AllAreas)) at = hit.position;
+                        // A ring that fits the arena (it was a fixed 11.5 m: in a small arena the pylons stood in or behind the walls).
+                        float ring = Mathf.Min(11.5f, Mathf.Min(room.Size.x, room.Size.y) / 2f - 2.2f);
+                        var at = DropSpots.Stand(c, c + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * ring, 0.6f, 1.8f);
                         SpawnBreakable(Breakable.Kind.HealPylon, at);
                     }
                     break;
@@ -250,7 +250,7 @@ namespace Deepbound.World
 
         private ArenaEngine SpawnEngine(ArenaEngine.Kind kind, Vector3 at, Vector3 face, Vector3 target)
         {
-            if (NavMesh.SamplePosition(at, out var hit, 2.5f, NavMesh.AllAreas)) at = hit.position;
+            at = DropSpots.Stand(face, at, 0.8f, 1.4f);
             var look = face - at;
             look.y = 0f;
             var obj = Instantiate(arenaEnginePrefab, at, look.sqrMagnitude > 0.01f ? Quaternion.LookRotation(look) : Quaternion.identity);
@@ -260,6 +260,17 @@ namespace Deepbound.World
             e.Target.Value = target;
             spawned.Add(obj);
             return e;
+        }
+
+        /// <summary>Tests: the boss arena's quirk <paramref name="q"/> set up as for a party of four, whatever the arena rolled.</summary>
+        public void ServerDebugArenaQuirk(BossQuirk q)
+        {
+            var room = Layout?.BossRoom;
+            if (room == null) return;
+            var keep = room.Quirk;
+            room.Quirk = q;
+            SpawnArenaQuirk(Layout, 4);
+            room.Quirk = keep;
         }
 
         /// <summary>Tests: a healing pylon at a spot.</summary>
@@ -326,8 +337,7 @@ namespace Deepbound.World
             {
                 // A loose column: the leader in front, the rest two by two behind it.
                 var offset = i == 0 ? Vector3.zero : rot * new Vector3(((i - 1) % 2 == 0 ? -1f : 1f) * 1.1f, 0f, -1.6f * ((i + 1) / 2));
-                var at = points[0] + offset;
-                if (NavMesh.SamplePosition(at, out var hit, 3f, NavMesh.AllAreas)) at = hit.position;
+                var at = DropSpots.Stand(points[0], points[0] + offset, 0.3f, 0.8f);
                 var obj = Spawn(skeletonPrefab, at, rot);
                 var brain = obj.GetComponent<EnemyBrain>();
                 brain.ServerScale(players, Layout.Depth);
@@ -359,8 +369,7 @@ namespace Deepbound.World
             var points = new System.Collections.Generic.List<Vector3>();
             for (int i = 0; i < count; i++)
             {
-                var at = around + Quaternion.Euler(0f, i * 360f / count, 0f) * Vector3.forward * 2.5f;
-                if (NavMesh.SamplePosition(at, out var hit, 3f, NavMesh.AllAreas)) at = hit.position;
+                var at = DropSpots.Stand(around, around + Quaternion.Euler(0f, i * 360f / count, 0f) * Vector3.forward * 2.5f, 0.3f, 0.8f);
                 var obj = SpawnEntering(PickEnemy(Layout.Depth, theme, ref brute, ref necro, out int _), at, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
                 var brain = obj.GetComponent<EnemyBrain>();
                 brain.ServerScale(players, Layout.Depth);
@@ -1253,7 +1262,7 @@ namespace Deepbound.World
                 {
                     var room = sides[UnityEngine.Random.Range(0, sides.Count)];
                     var rat = atWall ? WallSpot(room, new System.Random(layout.Seed ^ 0x71c)) : room.Center + new Vector3(0.8f, 0f, 0.8f);
-                    if (NavMesh.SamplePosition(rat, out var rhit, 3f, NavMesh.AllAreas)) rat = rhit.position;
+                    rat = DropSpots.Stand(room.Center, rat, 0.4f, 0.6f);
                     Spawn(reliquaryPrefab, rat, Quaternion.Euler(0f, UnityEngine.Random.Range(0f, 360f), 0f));
                 }
             }

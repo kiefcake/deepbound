@@ -37,6 +37,7 @@ namespace Deepbound.Networking
         private int floorNo = -1;
         /// <summary>-autodepth N: start at floor N with a loadout like a run's by then (to see the deep floors sooner).</summary>
         private int startFloor;
+        private bool endless;
 
         private NetworkPlayer me;
         private FirstPersonMotor motor;
@@ -91,7 +92,9 @@ namespace Deepbound.Networking
             int c = System.Array.IndexOf(args, "-autoclass");
             if (c >= 0 && c + 1 < args.Length && System.Enum.TryParse<Classes.ClassId>(args[c + 1], true, out var parsed)) cls = parsed;
             int ad = System.Array.IndexOf(args, "-autodepth");
-            if (ad >= 0 && ad + 1 < args.Length && int.TryParse(args[ad + 1], out var d0)) startFloor = Mathf.Clamp(d0, 1, DungeonDirector.FloorsPerRun) - 1;
+            // -endless: the Endless Descent (solo), so -autodepth may go past floor 10 (2026-11-20: the first run past the last floor).
+            endless = System.Array.IndexOf(args, "-endless") >= 0;
+            if (ad >= 0 && ad + 1 < args.Length && int.TryParse(args[ad + 1], out var d0)) startFloor = Mathf.Clamp(d0, 1, endless ? 60 : DungeonDirector.FloorsPerRun) - 1;
             int ap = System.Array.IndexOf(args, "-autoparty");
             if (ap >= 0 && ap + 1 < args.Length && int.TryParse(args[ap + 1], out var n0)) partySize = Mathf.Clamp(n0, 1, 4);
             int fl = System.Array.IndexOf(args, "-autofloors");
@@ -145,9 +148,23 @@ namespace Deepbound.Networking
                     var lost = new List<string>();
                     foreach (var room in layout.Rooms)
                     {
-                        if (!NavMesh.SamplePosition(room.Center, out var c, 4f, NavMesh.AllAreas)) { lost.Add(room.Id + " " + room.Kind + "/" + room.Feature + " (no navmesh at its centre)"); continue; }
+                        // The Vault waits behind its portcullis until the levers are thrown: shut on a fresh floor by design.
+                        if (room.Feature == RoomFeature.Vault) continue;
                         if (!NavMesh.SamplePosition(start, out var s0, 4f, NavMesh.AllAreas)) continue;
-                        if (!NavMesh.CalculatePath(s0.position, c.position, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete)
+                        // Not just the centre: a crypt's tomb or a gallery's centrepiece stands there, and its top is an island of
+                        // navmesh no one walks to (2026-11-20, three false alarms). The room is reached if any of five spots is.
+                        NavMeshHit c = default;
+                        bool anyMesh = false, reached = false;
+                        foreach (var off in new[] { Vector2.zero, new Vector2(0.3f, 0.3f), new Vector2(-0.3f, 0.3f), new Vector2(0.3f, -0.3f), new Vector2(-0.3f, -0.3f) })
+                        {
+                            var probe = room.Center + new Vector3(off.x * room.Size.x, 0f, off.y * room.Size.y);
+                            if (!NavMesh.SamplePosition(probe, out var ph, 2f, NavMesh.AllAreas)) continue;
+                            if (!anyMesh) c = ph;
+                            anyMesh = true;
+                            if (NavMesh.CalculatePath(s0.position, ph.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete) { reached = true; break; }
+                        }
+                        if (!anyMesh) { lost.Add(room.Id + " " + room.Kind + "/" + room.Feature + " (no navmesh in it)"); continue; }
+                        if (!reached && (!NavMesh.CalculatePath(s0.position, c.position, NavMesh.AllAreas, path) || path.status != NavMeshPathStatus.PathComplete))
                         {
                             var end = path.corners.Length > 0 ? path.corners[path.corners.Length - 1] : s0.position;
                             var near = Physics.OverlapSphere(end + Vector3.up, 2.5f, ~0, QueryTriggerInteraction.Ignore).Select(x => x.name).Distinct().Take(6);
@@ -235,6 +252,33 @@ namespace Deepbound.Networking
                         bool onMesh = NavMesh.SamplePosition(at, out var ta, 1.5f, NavMesh.AllAreas);
                         bool ok = onMesh && NavMesh.CalculatePath(sa.position, ta.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete;
                         if (!ok) lost.Add(what + " in a " + layout.BossRoom.Arena + " arena (" + (onMesh ? path.status.ToString() : "no navmesh within 1.5 m of " + at.ToString("F1")) + ")");
+                    }
+                    // Every arena device as four players would meet it (2026-11-20: pylons stood outside a small arena):
+                    // each inside the arena and walkable from its middle.
+                    {
+                        var ar = layout.BossRoom;
+                        var arMid = NavMesh.SamplePosition(ar.Center, out var amh, 4f, NavMesh.AllAreas) ? amh.position : ar.Center;
+                        int devices = 0;
+                        foreach (var q in new[] { BossQuirk.Pylons, BossQuirk.Ballistas, BossQuirk.Sanctum, BossQuirk.Chandelier })
+                        {
+                            var pyl = new HashSet<Breakable>(Breakable.Pylons);
+                            var eng = new HashSet<ArenaEngine>(FindObjectsByType<ArenaEngine>(FindObjectsSortMode.None));
+                            dd.ServerDebugArenaQuirk(q);
+                            yield return null;
+                            var fresh = new List<Unity.Netcode.NetworkBehaviour>();
+                            fresh.AddRange(Breakable.Pylons.Where(x => x != null && !pyl.Contains(x)));
+                            fresh.AddRange(FindObjectsByType<ArenaEngine>(FindObjectsSortMode.None).Where(x => !eng.Contains(x)));
+                            foreach (var dev in fresh)
+                            {
+                                devices++;
+                                var dp = dev.transform.position;
+                                bool inside = ar.Contains(dp, -0.5f);
+                                bool reach = NavMesh.SamplePosition(dp, out var dvh, 2.5f, NavMesh.AllAreas) && DropSpots.Reachable(arMid, dvh.position);
+                                if (!inside || !reach) lost.Add(q + " device " + (inside ? "unreachable" : "OUTSIDE") + " in a " + ar.Arena + " " + ar.Size.x.ToString("F0") + "x" + ar.Size.y.ToString("F0") + " arena at " + Fmt(dp - ar.Center));
+                                if (dev.IsSpawned) dev.NetworkObject.Despawn();
+                            }
+                        }
+                        L("   arena " + ar.Arena + " " + ar.Size.x.ToString("F0") + "x" + ar.Size.y.ToString("F0") + ": " + devices + " devices checked");
                     }
                     L("floor " + (depth + 1) + " seed " + layout.Seed + ": " + layout.Rooms.Count + " rooms, " + (lost.Count == 0 ? "all reachable" : lost.Count + " UNREACHABLE: " + string.Join(" | ", lost)));
                     if (lost.Count > 0)
@@ -335,6 +379,12 @@ namespace Deepbound.Networking
             yield return new WaitForSeconds(3f);
             me = NetworkPlayer.Local;
             if (me == null) { L("no local player"); Application.Quit(1); yield break; }
+            if (endless && !follower)
+            {
+                DungeonDirector.Instance.ServerSetEndless(true);
+                yield return null;
+                L("== ENDLESS DESCENT: " + DungeonDirector.Instance.EndlessRun.Value + " ==");
+            }
             motor = me.GetComponent<FirstPersonMotor>();
             life = me.GetComponent<PlayerLife>();
             prog = me.GetComponent<PlayerProgress>();
@@ -424,7 +474,7 @@ namespace Deepbound.Networking
                 DungeonDirector.Instance.ServerDebugStartFloor(startFloor);
                 yield return Guarded(Floor);
             }
-            for (int f = startFloor > 0 ? startFloor + 1 : 0; f < DungeonDirector.FloorsPerRun; f++)
+            for (int f = startFloor > 0 ? startFloor + 1 : 0; f < (endless ? startFloor + floorsWanted + 1 : DungeonDirector.FloorsPerRun); f++)
             {
                 yield return Camp();
                 yield return Guarded(Floor);

@@ -293,8 +293,7 @@ namespace Deepbound.Enemies
                 float startAngle = Random.Range(0f, 360f);
                 for (int i = 0; i < pools; i++)
                 {
-                    var at = centre + Quaternion.Euler(0f, startAngle + i * 360f / pools, 0f) * Vector3.forward * Random.Range(5f, 8.5f);
-                    if (UnityEngine.AI.NavMesh.SamplePosition(at, out var hit, 3f, UnityEngine.AI.NavMesh.AllAreas)) at = hit.position;
+                    var at = World.DropSpots.Stand(centre, centre + Quaternion.Euler(0f, startAngle + i * 360f / pools, 0f) * Vector3.forward * Random.Range(5f, 8.5f), 0f, 2f);
                     dawnPools.Add(at);
                 }
                 eclipseAt = Time.time + EclipseWarning;

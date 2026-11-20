@@ -3292,6 +3292,34 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(BossBrain.EntranceSeconds);
                 }
                 {
+                    // Every arena device, set up as a party of four would meet it, stands inside the arena on floor you can walk
+                    // to from its middle (2026-11-20: floor 5's healing pylons stood outside the arena).
+                    var ar = layout.BossRoom;
+                    var arMid = UnityEngine.AI.NavMesh.SamplePosition(ar.Center, out var arh, 4f, UnityEngine.AI.NavMesh.AllAreas) ? arh.position : ar.Center;
+                    int placed = 0;
+                    string outside = "";
+                    foreach (var q in new[] { BossQuirk.Pylons, BossQuirk.Ballistas, BossQuirk.Sanctum, BossQuirk.Chandelier })
+                    {
+                        var pylonsBefore = new System.Collections.Generic.HashSet<Breakable>(Breakable.Pylons);
+                        var enginesBefore = new System.Collections.Generic.HashSet<ArenaEngine>(FindObjectsByType<ArenaEngine>(FindObjectsSortMode.None));
+                        DungeonDirector.Instance.ServerDebugArenaQuirk(q);
+                        yield return null;
+                        var fresh = new System.Collections.Generic.List<NetworkBehaviour>();
+                        fresh.AddRange(Breakable.Pylons.Where(pz => pz != null && !pylonsBefore.Contains(pz)));
+                        fresh.AddRange(FindObjectsByType<ArenaEngine>(FindObjectsSortMode.None).Where(en => !enginesBefore.Contains(en)));
+                        foreach (var dev in fresh)
+                        {
+                            placed++;
+                            var dp = dev.transform.position;
+                            bool inside = ar.Contains(dp, -0.5f);
+                            bool reach = UnityEngine.AI.NavMesh.SamplePosition(dp, out var dh, 2.5f, UnityEngine.AI.NavMesh.AllAreas) && DropSpots.Reachable(arMid, dh.position);
+                            if (!inside || !reach) outside += " " + q + " at " + (dp - ar.Center).ToString("F1") + (inside ? " (no way to it)" : " (outside)");
+                            if (dev.IsSpawned) dev.NetworkObject.Despawn();
+                        }
+                    }
+                    Log("arena devices placed", placed + " devices in a " + ar.Size.x.ToString("F0") + "x" + ar.Size.y.ToString("F0") + " arena" + (outside.Length == 0 ? ", all inside and reachable" : ";" + outside), placed >= 8 && outside.Length == 0);
+                }
+                {
                     // Arena machinery: a ballista bolt and a dropped chandelier both hurt the guardian.
                     var bq = layout.BossRoom;
                     Log("arena", "shape " + bq.Arena + ", quirk " + bq.Quirk, true);
@@ -5138,7 +5166,7 @@ namespace Deepbound.Networking
                     shp.ServerDamage(1e6f, sleeper.transform.position);
                 }
                 Log("unaware opener", "calm " + calm + " (" + calmWhy + "), first blow " + first.ToString("0.0") + ", next " + second.ToString("0.0") + ", openers " + openers,
-                    sleeper != null && calm && openers == 1 && second > 0f && first > second * 1.4f);
+                    sleeper != null && calm && openers == 1 && second > 0f && first > second * 1.1f); // the opener counter proves it fired once; the second blow can carry a stagger or relic bonus (x1.25) of its own
                 // ENEMY AI (2026-11-18): five round you take turns (three swing at most), and one that loses you searches.
                 {
                     var crowd = new System.Collections.Generic.List<EnemyBrain>();

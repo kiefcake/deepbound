@@ -99,7 +99,7 @@ namespace Deepbound.Enemies
         protected LairBrain SpawnEcho(byte role, Vector3 at)
         {
             if (minionPrefab == null) return null;
-            if (UnityEngine.AI.NavMesh.SamplePosition(at, out var hit, 3f, UnityEngine.AI.NavMesh.AllAreas)) at = hit.position;
+            at = World.DropSpots.Stand(transform.position, at, 0.4f, 1.2f);
             var obj = World.DungeonDirector.ServerSpawnEntering(minionPrefab, at, transform.rotation, 0f, 0f);
             var echo = obj.GetComponent<LairBrain>();
             echo.NoLoot = true;

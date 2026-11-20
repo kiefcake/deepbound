@@ -292,7 +292,7 @@ namespace Deepbound.World
         {
             var d = Instance;
             if (d == null || !d.IsServer || d.soulRiftPrefab == null || through == null) return null;
-            if (NavMesh.SamplePosition(at, out var hit, 2.5f, NavMesh.AllAreas)) at = hit.position;
+            at = DropSpots.Stand(at, at, 0f, 0.8f);
             var obj = Instantiate(d.soulRiftPrefab, at, rot);
             var rift = obj.GetComponent<SoulRift>();
             rift.Prepare(through, Mathf.Max(1, d.NetworkManager.ConnectedClientsIds.Count), Layout != null ? Layout.Depth : 0);

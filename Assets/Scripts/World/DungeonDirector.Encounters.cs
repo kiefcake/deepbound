@@ -207,8 +207,7 @@ namespace Deepbound.World
                     int guards = 2 + (layout.Depth >= 4 ? 1 : 0);
                     for (int i = 0; i < guards; i++)
                     {
-                        var at = cc + new Vector3((i - 1) * 1.6f, 0f, -half + 1.4f);
-                        if (UnityEngine.AI.NavMesh.SamplePosition(at, out var hit, 2f, UnityEngine.AI.NavMesh.AllAreas)) at = hit.position;
+                        var at = DropSpots.Stand(cc, cc + new Vector3((i - 1) * 1.6f, 0f, -half + 1.4f), 0.3f, 0.9f);
                         var e = Instantiate(i == 2 && brutePrefab != null ? brutePrefab : skeletonPrefab, at, Quaternion.LookRotation(Vector3.forward));
                         e.Spawn(destroyWithScene: true);
                         var b = e.GetComponent<Enemies.EnemyBrain>();
@@ -1157,8 +1156,7 @@ namespace Deepbound.World
 
             for (int i = 0; i < count; i++)
             {
-                var p = room.Center + new Vector3(Random.Range(-1f, 1f) * (room.Size.x / 2f - 2f), 0f, Random.Range(-1f, 1f) * (room.Size.y / 2f - 2f));
-                if (NavMesh.SamplePosition(p, out var hit, 3f, NavMesh.AllAreas)) p = hit.position;
+                var p = DropSpots.Stand(room.Center, room.Center + new Vector3(Random.Range(-1f, 1f) * (room.Size.x / 2f - 2f), 0f, Random.Range(-1f, 1f) * (room.Size.y / 2f - 2f)), 0.3f, 1.2f);
                 points[i] = p;
 
                 var prefab = PickEnemy(Layout.Depth, theme, ref brute, ref necro, out int _);

@@ -73,6 +73,51 @@ namespace Deepbound.World
             return want;
         }
 
+        /// <summary>
+        /// Server: where something brought in near <paramref name="anchor"/> (a summon round its caster, a healing pylon or a
+        /// ballista round the arena's middle, an ambusher in its room) actually stands (2026-11-20, the user: "work on
+        /// placement of where things spawn"; the floor-5 pylons stood outside the arena because a fixed 11.5 m ring and a
+        /// 2 m navmesh search found floor on the far side of the wall, or none and kept the spot in the stone). It stays in the
+        /// anchor's room (a margin off its walls), on this side of any wall between it and the anchor, on floor that can be
+        /// walked to from the anchor, and out of the props; failing that it comes in toward the anchor, and at worst stands
+        /// on the anchor's own floor.
+        /// </summary>
+        public static Vector3 Stand(Vector3 anchor, Vector3 want, float clearance = 0.35f, float wallMargin = 1.3f)
+        {
+            var layout = DungeonDirector.Layout;
+            var room = layout?.RoomAt(anchor, 0.5f);
+            if (room != null)
+            {
+                float hx = Mathf.Max(0.4f, room.Size.x / 2f - wallMargin), hz = Mathf.Max(0.4f, room.Size.y / 2f - wallMargin);
+                want.x = Mathf.Clamp(want.x, room.Center.x - hx, room.Center.x + hx);
+                want.z = Mathf.Clamp(want.z, room.Center.z - hz, room.Center.z + hz);
+            }
+            var anchorFloor = NavMesh.SamplePosition(anchor, out var ah, 3f, NavMesh.AllAreas) ? ah.position : anchor;
+            for (int step = 0; step <= 6; step++)
+            {
+                var p = Vector3.Lerp(want, anchorFloor, step / 6f);
+                if (!NavMesh.SamplePosition(p, out var h, 1.6f, NavMesh.AllAreas)) continue;
+                var at = h.position;
+                if (room != null && !room.Contains(at, -0.4f)) continue;
+                if (!Reachable(anchorFloor, at)) continue;
+                if (clearance > 0f && Blocked(at, clearance)) continue;
+                return at;
+            }
+            return anchorFloor;
+        }
+
+        private static readonly NavMeshPath standPath = new NavMeshPath();
+
+        /// <summary>A walk from one to the other, not much longer than the straight line (the far side of a wall is a long way round).</summary>
+        public static bool Reachable(Vector3 from, Vector3 to)
+        {
+            if (!NavMesh.CalculatePath(from, to, NavMesh.AllAreas, standPath) || standPath.status != NavMeshPathStatus.PathComplete) return false;
+            float len = 0f;
+            var c = standPath.corners;
+            for (int i = 1; i < c.Length; i++) len += Vector3.Distance(c[i - 1], c[i]);
+            return len <= Vector3.Distance(from, to) * 2f + 4f;
+        }
+
         private static bool Blocked(Vector3 at, float r)
         {
             int n = Physics.OverlapSphereNonAlloc(at + Vector3.up * (r + 0.12f), r, overlaps, ~0, QueryTriggerInteraction.Ignore);

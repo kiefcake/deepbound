@@ -839,8 +839,7 @@ namespace Deepbound.Enemies
             for (int i = 0; i < count; i++)
             {
                 float a = i * Mathf.PI * 2f / count;
-                var pos = transform.position + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * radius;
-                if (UnityEngine.AI.NavMesh.SamplePosition(pos, out var hit, 3f, UnityEngine.AI.NavMesh.AllAreas)) pos = hit.position;
+                var pos = World.DropSpots.Stand(transform.position, transform.position + new Vector3(Mathf.Cos(a), 0f, Mathf.Sin(a)) * radius, 0.3f, 1f);
                 // Summoned through rifts, or up through the floor (2026-11-12).
                 var minion = World.DungeonDirector.ServerSpawnEntering(minionPrefab, pos, Quaternion.LookRotation(transform.position - pos), 0f, 0.6f);
                 var brain = minion.GetComponent<EnemyBrain>();

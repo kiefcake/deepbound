@@ -104,8 +104,7 @@ namespace Deepbound.World
                 for (int i = 0; i < VigilCandle.PerVigil; i++)
                 {
                     float sx = (i % 2 == 0 ? -1f : 1f), sz = (i < 2 ? -1f : 1f);
-                    var at = room.Center + new Vector3(sx * (room.Size.x / 2f - 3f), 0f, sz * (room.Size.y / 2f - 3f));
-                    if (NavMesh.SamplePosition(at, out var ch, 2.5f, NavMesh.AllAreas)) at = ch.position;
+                    var at = DropSpots.Stand(room.Center, room.Center + new Vector3(sx * (room.Size.x / 2f - 3f), 0f, sz * (room.Size.y / 2f - 3f)), 0.3f, 2f);
                     var obj = Instantiate(vigilCandlePrefab, at, Quaternion.identity);
                     obj.GetComponent<VigilCandle>().Vigil.Value = id;
                     obj.Spawn(destroyWithScene: true);

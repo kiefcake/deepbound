@@ -83,8 +83,7 @@ namespace Deepbound.Enemies
                 }
                 for (int i = 0; i < 2; i++)
                 {
-                    var pos = transform.position + Quaternion.Euler(0f, i * 180f + 45f, 0f) * Vector3.forward * 2.5f;
-                    if (NavMesh.SamplePosition(pos, out var hit, 2f, NavMesh.AllAreas)) pos = hit.position;
+                    var pos = World.DropSpots.Stand(transform.position, transform.position + Quaternion.Euler(0f, i * 180f + 45f, 0f) * Vector3.forward * 2.5f, 0.3f, 0.8f);
                     var m = World.DungeonDirector.ServerSpawnEntering(minionPrefab, pos, transform.rotation, 0f, 0f); // raised: up through the floor
                     var brain = m.GetComponent<EnemyBrain>();
                     brain.NoLoot = true;
