@@ -530,13 +530,25 @@ namespace Deepbound.World
             {
                 // A heap of old bones with a skull on top: the leavings of something.
                 var rng = new System.Random((int)NetworkObjectId);
-                for (int i = 0; i < 9; i++)
+                // 2026-11-20 visual pass: a real heap (it was nine thin sticks): thicker long bones with knobbed ends piled high,
+                // a broken ribcage, and a second skull half buried.
+                var tones = new[] { new Color(0.82f, 0.77f, 0.66f), new Color(0.7f, 0.64f, 0.53f), new Color(0.6f, 0.55f, 0.45f) };
+                for (int i = 0; i < 15; i++)
                 {
-                    float a = (float)rng.NextDouble() * 360f, r = (float)rng.NextDouble() * 0.32f;
-                    var at = Quaternion.Euler(0f, a, 0f) * Vector3.forward * r + Vector3.up * (0.05f + (0.32f - r) * 0.5f);
-                    MeshKit.Part(transform, "Bone", MeshKit.Cylinder(0.03f, 0.025f, 0.38f + (float)rng.NextDouble() * 0.2f, 5), Mat.Bone, at,
-                        new Vector3((float)rng.NextDouble() * 80f + 50f, (float)rng.NextDouble() * 360f, 0f));
+                    float a = (float)rng.NextDouble() * 360f, r = (float)rng.NextDouble() * 0.4f;
+                    var at = Quaternion.Euler(0f, a, 0f) * Vector3.forward * r + Vector3.up * (0.05f + (0.4f - r) * 0.55f);
+                    float len = 0.36f + (float)rng.NextDouble() * 0.24f;
+                    var bone = MeshKit.Pivot(transform, "Bone", at, new Vector3((float)rng.NextDouble() * 80f + 50f, (float)rng.NextDouble() * 360f, 0f));
+                    var tone = tones[rng.Next(tones.Length)];
+                    ArtLibrary.Tint(MeshKit.Part(bone, "Shaft", MeshKit.Cylinder(0.034f, 0.028f, len, 6), Mat.Bone, Vector3.zero).GetComponent<Renderer>(), tone);
+                    ArtLibrary.Tint(MeshKit.Part(bone, "Knob", MeshKit.Ball(0.045f, 6, 4), Mat.Bone, Vector3.zero).GetComponent<Renderer>(), tone);
+                    ArtLibrary.Tint(MeshKit.Part(bone, "Knob", MeshKit.Ball(0.04f, 6, 4), Mat.Bone, Vector3.up * len).GetComponent<Renderer>(), tone);
                 }
+                // A broken ribcage on its side.
+                for (int k = 0; k < 4; k++)
+                    ArtLibrary.Tint(MeshKit.Part(transform, "Rib", MeshKit.Lathe("heapRib", new[] { new Vector2(0.14f, 0f), new Vector2(0.155f, 0.012f), new Vector2(0.14f, 0.024f) }, 8, true, 200f), Mat.Bone,
+                        new Vector3(-0.22f + k * 0.05f, 0.12f, -0.12f), new Vector3(80f, 30f, 0f)).GetComponent<Renderer>(), tones[1]);
+                ArtLibrary.Tint(MeshKit.Part(transform, "Skull2", MeshKit.Ball(0.1f, 8, 6), Mat.Bone, new Vector3(-0.2f, 0.08f, 0.18f), new Vector3(30f, -60f, 70f), new Vector3(1f, 0.9f, 1.15f)).GetComponent<Renderer>(), tones[2]);
                 MeshKit.Part(transform, "Skull", MeshKit.Ball(0.11f, 8, 6), Mat.Bone, new Vector3(0.05f, 0.27f, 0.02f), new Vector3(-20f, 30f, 0f), new Vector3(1f, 0.9f, 1.15f));
                 MeshKit.Part(transform, "Socket", MeshKit.Ball(0.03f, 5, 4), Mat.Dark, new Vector3(0.09f, 0.29f, 0.11f));
                 MeshKit.Part(transform, "Socket", MeshKit.Ball(0.03f, 5, 4), Mat.Dark, new Vector3(0.01f, 0.29f, 0.12f));

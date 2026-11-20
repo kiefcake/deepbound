@@ -2681,6 +2681,10 @@ namespace Deepbound.Networking
                         pdeb.ServerCleanse();
                         ph.Shield.Value = 0f;
                         pdeb.ServerResetGrace();
+                        // A ward (holy water, a blessing) or Ironbark from an earlier check shrugs the pin off: clear them too.
+                        pdeb.WardUntil.Value = 0;
+                        var pflasks = local.GetComponent<Flasks>();
+                        if (pflasks != null) pflasks.IronbarkUntil.Value = 0;
                         local.GetComponent<PlayerProgress>().ServerDebugSpendBoneWard();
                         float before = ph.Current.Value;
                         // A spike bed (2026-11-12): the bed itself is safe to stand on; a tread on a plate fires it.
@@ -2706,7 +2710,7 @@ namespace Deepbound.Networking
                         }
                         yield return null;
                         bool pinned = pdeb.Rooted;
-                        Log("spike plate", "bed quiet untrod " + bedQuiet + ", took " + took.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " (hidden " + plate.Hidden.Value + "), pinned " + pinned + (!bedQuiet ? ", bed hit by " + ph.LastHitFrom : "") + (took <= 0f ? ", zeroed by " + ph.LastZeroedBy + " now " + Time.time.ToString("F1") : ""), bedQuiet && took >= ph.Max.Value * 0.2f && took <= ph.Max.Value * 0.4f && pinned);
+                        Log("spike plate", "bed quiet untrod " + bedQuiet + ", took " + took.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " (hidden " + plate.Hidden.Value + "), pinned " + pinned + (pinned ? "" : " (warded " + pdeb.Warded + ", downed " + local.GetComponent<PlayerLife>().Downed.Value + ")") + (!bedQuiet ? ", bed hit by " + ph.LastHitFrom : "") + (took <= 0f ? ", zeroed by " + ph.LastZeroedBy + " now " + Time.time.ToString("F1") : ""), bedQuiet && took >= ph.Max.Value * 0.2f && took <= ph.Max.Value * 0.4f && pinned);
                         local.GetComponent<FirstPersonMotor>().Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                         ph.ServerSetFraction(1f);
                         yield return new WaitForSeconds(SpikeTrap.ImpaleSeconds);
