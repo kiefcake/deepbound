@@ -8009,6 +8009,21 @@ namespace Deepbound.Networking
                 else Debug.Log("[Gallery] could not spawn " + kind);
                 yield return new WaitForSeconds(2.2f);
             }
+            // An elite under its ward (the bubble must not hide the creature). No stun: a stun breaks the ward.
+            if (part.Contains("e"))
+            {
+                var we = dd.ServerDebugSpawn("skeleton", room.Center, false, true);
+                if (we != null)
+                {
+                    we.ServerMakeElite(EliteAffix.Warded);
+                    yield return new WaitForSeconds(1.2f);
+                    var wat = we.transform.position + Flat3(we.transform.forward).normalized * 3.2f + Vector3.up * 0.1f;
+                    motor.Teleport(wat, Quaternion.LookRotation(Flat3(we.transform.position - wat)));
+                    key.transform.position = wat + Vector3.up * 3f;
+                    yield return new WaitForSeconds(0.6f);
+                    yield return Shot(dir, "e_warded_front");
+                }
+            }
             Debug.Log("[Gallery] done");
             Application.Quit();
         }

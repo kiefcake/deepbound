@@ -99,7 +99,9 @@ namespace Deepbound.Art
                 float r = Mathf.Max(0.8f, health.BodyRadius * 1.6f) * 1f;
                 bubble.localPosition = Vector3.up * health.CenterHeight;
                 bubble.localScale = new Vector3(r * 2f, health.CenterHeight * 2.4f, r * 2f);
-                ArtLibrary.Tint(bubbleR, new Color(0.7f, 0.5f, 1f, 0.16f + 0.05f * Mathf.Sin(t * 3f)));
+                // 2026-11-20: rendered far denser than its alpha suggests (a solid pink blob that hid the creature and,
+                // up close, the whole view): a faint sheen now, the creature plainly visible inside.
+                ArtLibrary.Tint(bubbleR, new Color(0.62f, 0.48f, 0.95f, 0.06f + 0.025f * Mathf.Sin(t * 3f)));
             }
             else if (bubble != null) bubble.gameObject.SetActive(false);
 

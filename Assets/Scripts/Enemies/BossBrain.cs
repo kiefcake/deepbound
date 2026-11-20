@@ -314,7 +314,7 @@ namespace Deepbound.Enemies
             bubble.gameObject.SetActive(show);
             if (!show) return;
             var c = CurrentStance == Stance.Survival ? new Color(1f, 0.55f, 0.3f) : new Color(0.55f, 0.75f, 1f);
-            c.a = 0.11f + 0.04f * Mathf.Sin(Time.time * 4f);
+            c.a = 0.05f + 0.02f * Mathf.Sin(Time.time * 4f); // 2026-11-20: faint, so the guardian shows inside (it hid the Lantern Fisher)
             ArtLibrary.Tint(bubbleRenderer, c);
         }
         protected float castUntil;
