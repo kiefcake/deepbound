@@ -1932,8 +1932,15 @@ namespace Deepbound.Art
             Bark(MeshKit.Part(rig.Head, "Knot", MeshKit.Ball(0.17f, 9, 7), Mat.Wood, new Vector3(0f, 0.08f, 0f), default, new Vector3(1f, 0.85f, 0.95f)));
             Bark(MeshKit.Part(rig.Head, "Brow", MeshKit.Box(new Vector3(0.3f, 0.05f, 0.08f)), Mat.Wood, new Vector3(0f, 0.13f, 0.13f), new Vector3(-15f, 0f, 0f)), 0.75f);
             var mouth = MeshKit.Part(rig.Head, "Mouth", MeshKit.Box(new Vector3(0.14f, 0.035f, 0.03f)), Mat.Dark, new Vector3(0f, 0.0f, 0.15f));
-            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.022f, 6, 4), Mat.Glow, new Vector3(-0.065f, 0.095f, 0.145f));
-            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.022f, 6, 4), Mat.Glow, new Vector3(0.065f, 0.095f, 0.145f));
+            // 2026-11-20: bigger eyes and glowing sap in the cracks of its bark: in a dark room it was a shadow you
+            // could not see coming, and it is the thing that sprints at you and latches on.
+            var eyeL = MeshKit.Part(rig.Head, "EyeL", MeshKit.Ball(0.034f, 6, 4), Mat.Glow, new Vector3(-0.065f, 0.095f, 0.15f));
+            var eyeR = MeshKit.Part(rig.Head, "EyeR", MeshKit.Ball(0.034f, 6, 4), Mat.Glow, new Vector3(0.065f, 0.095f, 0.15f));
+            foreach (var (pos, rot, len) in new[] { (new Vector3(-0.08f, 0.42f, 0.25f), new Vector3(-8f, 0f, 14f), 0.26f), (new Vector3(0.09f, 0.18f, 0.26f), new Vector3(-4f, 0f, -18f), 0.22f), (new Vector3(-0.13f, 0.12f, 0.23f), new Vector3(0f, 25f, 8f), 0.18f), (new Vector3(0.12f, 0.5f, 0.21f), new Vector3(-10f, -20f, -10f), 0.16f) })
+            {
+                var sap = MeshKit.Part(rig.Torso, "Sap", MeshKit.Box(new Vector3(0.018f, len, 0.012f)), Mat.Glow, pos, rot);
+                ArtLibrary.SetGlow(sap.GetComponent<Renderer>(), new Color(1f, 0.6f, 0.15f) * 0.9f);
+            }
             // Crown of dead twigs, and a few sick leaves.
             for (int i = 0; i < 7; i++)
             {

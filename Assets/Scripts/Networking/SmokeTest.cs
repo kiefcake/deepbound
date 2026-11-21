@@ -7896,6 +7896,34 @@ namespace Deepbound.Networking
                     }
                 motor.SetPitch(0f);
             }
+            // -galpart k: one of each room centrepiece (hearth, bell, columns, statue, well), seen from a corner.
+            if (part.Contains("k"))
+            {
+                var seenK = new System.Collections.Generic.HashSet<Centrepieces.Kind>();
+                for (int depth = 0; depth < DungeonDirector.FloorsPerRun && seenK.Count < 5; depth++)
+                {
+                    dd.ServerDebugStartFloor(depth);
+                    yield return new WaitForSeconds(3.5f);
+                    foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                        if (e != null && e.IsSpawned && !(e is BossBrain)) e.NetworkObject.Despawn();
+                    foreach (var rmK in DungeonDirector.Layout.Rooms)
+                    {
+                        var kk = Centrepieces.Of(rmK);
+                        if (kk == Centrepieces.Kind.None || !seenK.Add(kk)) continue;
+                        string probe = "";
+                        foreach (var off in new[] { Vector3.zero, Vector3.right * 1.5f, Vector3.forward * 1.5f, Vector3.left * 3f })
+                            probe += Physics.Raycast(rmK.Center + off + Vector3.up * 5f, Vector3.down, out var ph, 10f) ? " " + ph.collider.name + "@" + ph.point.y.ToString("F1") : " none";
+                        Debug.Log("[Gallery] centrepiece " + kk + " room " + rmK.Id + " at " + rmK.Center + ", probe" + probe + ", me " + local.transform.position);
+                        var cornerK = rmK.Center + new Vector3(rmK.Size.x * 0.36f, 0f, -rmK.Size.y * 0.36f);
+                        motor.Teleport(Art.Vfx.Floor(cornerK + Vector3.up * 2f) + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(rmK.Center - cornerK)));
+                        motor.SetPitch(8f);
+                        yield return new WaitForSeconds(0.9f);
+                        Debug.Log("[Gallery] centrepiece shot from " + local.transform.position + " cam " + (Art.ViewCamera.Current != null ? Art.ViewCamera.Current.transform.position.ToString() : "?") + " looking " + (Art.ViewCamera.Current != null ? Art.ViewCamera.Current.transform.forward.ToString() : "?"));
+                        yield return Shot(dir, "k" + depth + "_" + kk);
+                    }
+                }
+                motor.SetPitch(0f);
+            }
             // -galpart u: the reworked ultimates, cast in the start room and caught mid-flight (2026-11-20).
             if (part.Contains("u"))
             {

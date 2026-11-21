@@ -112,6 +112,21 @@ namespace Deepbound.World
                 }
                 case Kind.Statue:
                 {
+                    // 2026-11-20 visual pass: the downloaded gothic statue (CC0) at giant size, toppled across the room and
+                    // fallen against its own rubble, base sunk in the floor (the ball-and-box giant read as pale blobs).
+                    if (ModelKit.Has("gothic_statue"))
+                    {
+                        var fall = rot * Vector3.right;
+                        var tilt = Quaternion.AngleAxis(74f, Vector3.Cross(Vector3.up, fall)) * Quaternion.LookRotation(rot * Vector3.forward);
+                        if (b.AddModel("gothic_statue", 5.4f, Matrix4x4.TRS(c - fall * 2.4f + Vector3.down * 0.35f, tilt, Vector3.one)))
+                        {
+                            Props.Rubble(b, c - fall * 2.6f + rot * new Vector3(0f, 0f, 0.9f), rng);
+                            Props.Rubble(b, c + fall * 2.2f + rot * new Vector3(0f, 0f, -0.8f), rng);
+                            b.AddModel("rock_moss_set_01", 0.45f, c + rot * new Vector3(0.4f, 0f, -1.4f), (float)rng.NextDouble() * 360f);
+                            Landmark(lights, c + Vector3.up * 3.2f + rot * new Vector3(0.6f, 0f, 1.6f), new Color(0.85f, 0.85f, 0.95f), 8.5f, 5f);
+                            break;
+                        }
+                    }
                     // A toppled giant: the helmed head on its cheek and a broken shoulder with the arm stump.
                     var head = c + rot * new Vector3(-0.8f, 0f, 0f);
                     b.Add(MeshKit.Ball(1.15f, 12, 8), Mat.Marble, Matrix4x4.TRS(head + Vector3.up * 0.95f, rot * Quaternion.Euler(0f, 0f, 70f), new Vector3(1f, 1.15f, 1f)));
