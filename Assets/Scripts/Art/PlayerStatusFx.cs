@@ -40,6 +40,8 @@ namespace Deepbound.Art
 
         private Transform halo, crown, star, stars, eye, gag, bubble;
         private Renderer bubbleR;
+        private Transform[] bubbleRings;
+        private MaterialPropertyBlock bubbleBlock;
         private Transform feetA, feetB;
         private Renderer haloR, crownR, starR, eyeR, gagR, feetAR, feetBR;
         private Light glow;
@@ -124,14 +126,37 @@ namespace Deepbound.Art
             {
                 if (bubble == null)
                 {
-                    bubble = MeshKit.Part(transform, "ShieldBubble", MeshKit.Ball(1f, 16, 10), Mat.Telegraph, Vector3.zero).transform;
-                    bubbleR = bubble.GetComponent<Renderer>();
+                    // 2026-11-21: additive light, not a tinted shell (the shell read as an opaque beige egg over the ally):
+                    // a faint glow of a ball and three slow gold rings turning round it, the Aegis gyroscope at rest.
+                    bubble = new GameObject("ShieldBubble").transform;
+                    bubble.SetParent(transform, false);
+                    var shell = MeshKit.Part(bubble, "Shell", MeshKit.Ball(1f, 16, 10), Mat.Glow, Vector3.zero);
+                    bubbleR = shell.GetComponent<Renderer>();
+                    bubbleR.sharedMaterial = FxShape.SolidMat;
                     bubbleR.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    bubbleRings = new Transform[3];
+                    for (int i = 0; i < 3; i++)
+                    {
+                        var pivot = new GameObject("Ring").transform;
+                        pivot.SetParent(bubble, false);
+                        var ring = MeshKit.Part(pivot, "Hoop", Shapes.Hoop(0.12f), Mat.Glow, Vector3.zero);
+                        var rr = ring.GetComponent<Renderer>();
+                        rr.sharedMaterial = FxShape.SoftMat;
+                        rr.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                        var ringBlock = new MaterialPropertyBlock();
+                        ringBlock.SetColor("_BaseColor", new Color(2.4f, 2f, 1.2f, 0.55f));
+                        rr.SetPropertyBlock(ringBlock);
+                        bubbleRings[i] = pivot;
+                    }
                 }
                 bubble.gameObject.SetActive(true);
                 bubble.localPosition = Vector3.up * 1f;
-                bubble.localScale = new Vector3(1.5f, 2.3f, 1.5f);
-                ArtLibrary.Tint(bubbleR, new Color(1f, 0.92f, 0.7f, 0.13f + 0.04f * Mathf.Sin(t * 3f)));
+                bubble.localScale = new Vector3(0.75f, 1.15f, 0.75f);
+                bubbleBlock ??= new MaterialPropertyBlock();
+                bubbleBlock.SetColor("_BaseColor", new Color(1.2f, 1f, 0.6f, 0.025f + 0.015f * Mathf.Sin(t * 3f)));
+                bubbleR.SetPropertyBlock(bubbleBlock);
+                for (int i = 0; i < 3; i++)
+                    bubbleRings[i].localRotation = Quaternion.Euler(i == 0 ? 0f : 65f, t * (40f + i * 25f) + i * 120f, i == 2 ? 50f : 0f);
             }
             else if (bubble != null) bubble.gameObject.SetActive(false);
 

@@ -89,6 +89,8 @@ namespace Deepbound.Combat
             public float Range;
             /// <summary>Visual copies of spell bolts: the colour of the small burst where it ends (alpha 0 = none).</summary>
             public Color Burst;
+            /// <summary>Visual copies: what was thrown (a smite stands up a cross where it lands, a knife nicks).</summary>
+            public ProjectileKind Kind;
             public bool ServerSide;
             /// <summary>Server: replaces the default damage on hit (for chill, shatter and the like).</summary>
             public System.Action<Health> OnHit;
@@ -182,7 +184,9 @@ namespace Deepbound.Combat
                 Visual = kind == ProjectileKind.Arrow ? BuildVisual(origin, direction)
                     : kind == ProjectileKind.Knife ? BuildKnife(origin, direction)
                     : kind == ProjectileKind.Soul ? BuildSoul(origin, direction)
+                    : kind == ProjectileKind.Vial || kind == ProjectileKind.Tonic ? BuildFlask(origin, direction, kind)
                     : BuildBolt(origin, direction, kind),
+                Kind = kind,
                 Quiet = kind == ProjectileKind.Soul,
                 Burst = kind == ProjectileKind.Arrow || kind == ProjectileKind.Knife || kind == ProjectileKind.Soul ? Color.clear : BoltColor(kind),
             });
@@ -216,7 +220,13 @@ namespace Deepbound.Combat
                     // Stick in the wall for a moment, then vanish (bolts burst instead).
                     a.Position = wall.point;
                     done = true;
-                    if (a.Visual != null && a.Burst.a > 0f) { Art.BoltFx.Burst(wall.point, a.Burst); Destroy(a.Visual.gameObject); a.Visual = null; }
+                    if (a.Visual != null && a.Burst.a > 0f)
+                    {
+                        Art.BoltFx.Burst(wall.point, a.Burst);
+                        if (a.Kind == ProjectileKind.Smite) Art.ClassFx.SmiteLanded(wall.point);
+                        Destroy(a.Visual.gameObject);
+                        a.Visual = null;
+                    }
                     if (a.Visual != null)
                     {
                         a.Visual.position = wall.point - step.normalized * 0.3f;
@@ -229,6 +239,7 @@ namespace Deepbound.Combat
                     // Into the body it hit, and gone (a bolt bursts there).
                     a.Position += step * 0.5f;
                     done = true;
+                    if (a.Kind == ProjectileKind.Knife) Art.ClassFx.RogueNick(a.Position, 0.45f);
                 }
                 else
                 {
@@ -249,6 +260,7 @@ namespace Deepbound.Combat
                 {
                     if (a.ServerSide && a.OnEnd != null) { try { a.OnEnd(a.Position); } catch (System.Exception e) { Debug.LogException(e); } }
                     if (a.Burst.a > 0f && a.Visual != null) Art.BoltFx.Burst(a.Position, a.Burst);
+                    if (a.Kind == ProjectileKind.Smite && a.Visual != null) Art.ClassFx.SmiteLanded(a.Position);
                     if (a.Visual != null) Destroy(a.Visual.gameObject);
                     live.RemoveAt(i);
                 }
@@ -356,6 +368,21 @@ namespace Deepbound.Combat
             light.range = 5f;
             light.intensity = 3f;
             if (kind == ProjectileKind.Seedpod) root.localScale = Vector3.one * 2.2f;
+            // The Cleric's smite flies as a spinning cross of light (2026-11-21: every ability its own shape).
+            if (kind == ProjectileKind.Smite)
+            {
+                var cross = new GameObject("Cross").transform;
+                cross.SetParent(root, false);
+                cross.localRotation = Quaternion.Euler(90f, 0f, 0f);
+                cross.gameObject.AddComponent<Art.Spin>().DegreesPerSecond = 540f;
+                var arm1 = MeshKit.Part(cross, "Arm", MeshKit.Box(new Vector3(0.05f, 0.04f, 0.4f)), Mat.Glow, new Vector3(0f, 0f, -0.02f));
+                var arm2 = MeshKit.Part(cross, "Arm", MeshKit.Box(new Vector3(0.27f, 0.04f, 0.05f)), Mat.Glow, new Vector3(0f, 0f, 0.07f));
+                foreach (var bar in new[] { arm1, arm2 })
+                {
+                    bar.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                    ArtLibrary.SetGlow(bar.GetComponent<Renderer>(), color * 2.4f);
+                }
+            }
             var fx = root.gameObject.AddComponent<Art.BoltFx>();
             fx.Color = color;
             fx.Core = core.transform;
@@ -375,6 +402,22 @@ namespace Deepbound.Combat
                 : fire ? new Color(1f, 0.45f, 0.12f) : new Color(0.45f, 0.8f, 1f);
         }
 
+        /// <summary>The Plague Doctor's vial or tonic: a tumbling flask (Art/ClassFx), dripping as it flies.</summary>
+        private static Transform BuildFlask(Vector3 origin, Vector3 direction, ProjectileKind kind)
+        {
+            var color = BoltColor(kind);
+            var root = Art.ClassFx.Flask(origin, direction, color, kind == ProjectileKind.Tonic);
+            var light = new GameObject("Light").AddComponent<Light>();
+            light.transform.SetParent(root, false);
+            light.type = LightType.Point;
+            light.color = color;
+            light.range = 3.5f;
+            light.intensity = 2f;
+            var fx = root.gameObject.AddComponent<Art.BoltFx>();
+            fx.Color = color;
+            return root;
+        }
+
         /// <summary>A thrown knife: a steel blade and a leather grip, with a pale glint.</summary>
         private static Transform BuildKnife(Vector3 origin, Vector3 direction)
         {
@@ -385,6 +428,7 @@ namespace Deepbound.Combat
             var glint = MeshKit.Part(root, "Glint", MeshKit.Ball(0.02f, 6, 4), Mat.Glow, new Vector3(0f, 0f, 0.14f));
             ArtLibrary.SetGlow(glint.GetComponent<Renderer>(), new Color(0.8f, 0.85f, 1f) * 2f);
             foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+            Art.ClassFx.KnifeTrail(root);
             return root;
         }
 

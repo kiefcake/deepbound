@@ -7957,136 +7957,241 @@ namespace Deepbound.Networking
                 }
                 motor.SetPitch(0f);
             }
-            // -galpart a: every ability's effect (2026-11-21, "make all abilities more visual"): each cast in the biggest
-            // combat room against a stunned skeleton 7 m ahead, shot from a camera off to the side and from your own eyes.
+            // -galpart a: every class ability (2026-11-21, the user: "every ability should be discernable in battle, and look
+            // distinct"). A bare stage far off to the side of the dungeon (at floor height: below y -3 the pit rescue takes you back) (its own floor, navmesh and lights, nothing to block the camera), one
+            // station per ability 40 m apart so nothing lingers into the next shot. Each cast is shot from a three-quarter view
+            // beside the caster, twice (_1 early, _2 later) to see it move; a few from the caster's own eyes (_eye).
             if (part.Contains("a"))
             {
                 dd.ServerDebugStartFloor(0);
                 yield return new WaitForSeconds(4f);
                 foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
                     if (e != null && e.IsSpawned && !(e is BossBrain)) e.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, e.transform.position, local.NetworkObjectId);
-                var aroom = DungeonDirector.Layout.Rooms.Where(rr => rr.Kind == RoomKind.Combat).OrderByDescending(rr => rr.Size.x * rr.Size.y).First();
-                var along = aroom.Size.x >= aroom.Size.y ? Vector3.right : Vector3.forward;
-                var astand = Art.Vfx.Floor(aroom.Center - along * 4f + Vector3.up * 2f) + Vector3.up * 0.1f;
+                var stage = new GameObject("GalStage");
+                stage.transform.position = new Vector3(4000f, 0f, -200f);
+                var floorGo = Art.MeshKit.Part(stage.transform, "GalStageStructure", Art.MeshKit.Box(new Vector3(30f, 1f, 1500f)), Art.Mat.Flagstone, new Vector3(0f, -0.5f, 740f));
+                floorGo.AddComponent<BoxCollider>();
+                var wallGo = Art.MeshKit.Part(stage.transform, "GalStageStructureWall", Art.MeshKit.Box(new Vector3(1f, 6f, 1500f)), Art.Mat.StoneWall, new Vector3(-9f, 3f, 740f));
+                wallGo.AddComponent<BoxCollider>();
+                var surf = stage.AddComponent<Unity.AI.Navigation.NavMeshSurface>();
+                surf.collectObjects = Unity.AI.Navigation.CollectObjects.Children;
+                surf.BuildNavMesh();
                 var prog = local.GetComponent<PlayerProgress>();
-                var side = Vector3.Cross(Vector3.up, along);
+                var along = Vector3.forward;
+                var side = Vector3.right;
                 var camGo = new GameObject("GalAbilityCam");
                 var acam = camGo.AddComponent<Camera>();
                 if (local.Camera != null) acam.CopyFrom(local.Camera);
-                acam.depth = 100f; acam.nearClipPlane = 0.05f; acam.fieldOfView = 60f;
+                acam.depth = 100f; acam.nearClipPlane = 0.05f; acam.fieldOfView = 62f;
                 camGo.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>().renderPostProcessing = true;
                 camGo.SetActive(false);
+                int station = 0;
+                Vector3 astand = stage.transform.position;
                 Health dummy = null;
-                IEnumerator Ready(Classes.ClassId cls)
+                var extras = new System.Collections.Generic.List<Health>();
+                void Call(object o, string m, params object[] args) =>
+                    o.GetType().GetMethod(m, System.Reflection.BindingFlags.Public | System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance).Invoke(o, args);
+                Health SpawnFoe(Vector3 at)
                 {
+                    var sk = dd.ServerDebugSpawn("skeleton", at, false);
+                    if (sk == null) return null;
+                    var h = sk.GetComponent<Health>();
+                    h.ServerSetMax(50000f, refill: true);
+                    sk.transform.rotation = Quaternion.LookRotation(-along);
+                    sk.ServerStun(60f);
+                    return h;
+                }
+                IEnumerator Ready(Classes.ClassId cls, int foes = 1)
+                {
+                    if (dummy != null && dummy.IsSpawned) dummy.NetworkObject.Despawn();
+                    foreach (var x in extras) if (x != null && x.IsSpawned) x.NetworkObject.Despawn();
+                    extras.Clear();
+                    station++;
+                    astand = stage.transform.position + along * (20f + station * 40f);
+                    var lamp = new GameObject("GalLamp").AddComponent<Light>();
+                    lamp.type = LightType.Point; lamp.color = new Color(1f, 0.78f, 0.55f); lamp.intensity = 2.2f; lamp.range = 18f;
+                    lamp.transform.position = astand + side * 3f + Vector3.up * 4.5f + along * 3f;
                     prog.ClassId.Value = cls;
                     local.GetComponent<Health>().ServerSetFraction(1f);
-                    yield return new WaitForSeconds(0.6f);
-                    motor.Teleport(astand, Quaternion.LookRotation(along));
-                    motor.SetPitch(8f);
-                    if (dummy == null || !dummy.IsAlive)
-                    {
-                        var sk = dd.ServerDebugSpawn("skeleton", astand + along * 7f, false);
-                        dummy = sk != null ? sk.GetComponent<Health>() : null;
-                        if (dummy != null) dummy.ServerSetMax(50000f, refill: true);
-                    }
-                    if (dummy != null) { dummy.GetComponent<EnemyBrain>().ServerStun(30f); dummy.ServerSetFraction(1f); }
                     yield return new WaitForSeconds(0.5f);
+                    motor.Teleport(astand + Vector3.up * 0.05f, Quaternion.LookRotation(along));
+                    motor.SetPitch(6f);
+                    dummy = SpawnFoe(astand + along * 6f);
+                    if (foes >= 3) { extras.Add(SpawnFoe(astand + along * 5f + side * 3f)); extras.Add(SpawnFoe(astand + along * 5f - side * 3f)); }
+                    yield return new WaitForSeconds(0.6f);
+                    foreach (var h in extras.Append(dummy)) if (h != null) h.GetComponent<EnemyBrain>().ServerStun(60f);
                 }
                 IEnumerator Snap(string nm, float wait, bool outside = true)
                 {
                     yield return new WaitForSeconds(wait);
                     if (outside)
                     {
-                        NetworkPlayer.DebugShowSelf = true;
                         camGo.SetActive(true);
-                        camGo.transform.position = astand + side * 6.5f + along * 2.5f + Vector3.up * 3.2f;
-                        camGo.transform.LookAt(astand + along * 3.5f + Vector3.up * 0.8f);
+                        camGo.transform.position = astand + side * 5.2f - along * 2.2f + Vector3.up * 2.5f;
+                        camGo.transform.LookAt(astand + along * 3f + Vector3.up * 1.0f);
                         yield return Shot(dir, "a_" + nm);
                         camGo.SetActive(false);
-                        NetworkPlayer.DebugShowSelf = false;
                     }
-                    else yield return Shot(dir, "a_" + nm + "_eye");
+                    else
+                    {
+                        NetworkPlayer.DebugShowSelf = false;
+                        yield return Shot(dir, "a_" + nm + "_eye");
+                        NetworkPlayer.DebugShowSelf = true;
+                    }
                 }
                 Vector3 Eye() => local.Camera != null ? local.Camera.transform.position : local.transform.position + Vector3.up * 1.6f;
-                Vector3 AimAt() => dummy != null ? dummy.Center : astand + along * 7f + Vector3.up;
+                Vector3 AimAt() => dummy != null ? dummy.Center : astand + along * 6f + Vector3.up;
+                Vector3 AimDir() => (AimAt() - Eye()).normalized;
+                NetworkPlayer.DebugShowSelf = true;
+                var ultA = local.GetComponent<Ultimates>();
 
+                // ---- Knight ----
                 yield return Ready(Classes.ClassId.Knight);
                 var kk = local.GetComponent<KnightKit>();
-                kk.ServerBash(local.transform.position + Vector3.up, along);
-                yield return Snap("knight_bash", 0.12f);
+                kk.ServerDebugSwing(local.transform.position + Vector3.up, along);
+                yield return Snap("knight_swing_1", 0.04f);
+                yield return Snap("knight_swing_2", 0.06f);
                 yield return Ready(Classes.ClassId.Knight);
+                kk.DebugHoldBlock = true;
+                yield return Snap("knight_block_1", 0.5f);
+                Call(kk, "BlockFxRpc");
+                yield return Snap("knight_block_2", 0.04f);
+                kk.DebugHoldBlock = false;
+                yield return Ready(Classes.ClassId.Knight);
+                kk.ServerBash(local.transform.position + Vector3.up, along);
+                yield return Snap("knight_bash_1", 0.08f);
+                yield return Snap("knight_bash_2", 0.12f);
+                yield return Ready(Classes.ClassId.Knight);
+                kk.ServerBash(local.transform.position + Vector3.up, along);
+                yield return Snap("knight_bash", 0.1f, false);
+                yield return Ready(Classes.ClassId.Knight, 3);
                 kk.ServerWarCry();
-                yield return Snap("knight_warcry", 0.15f);
-                yield return Snap("knight_warcry", 0.05f, false);
+                yield return Snap("knight_warcry_1", 0.15f);
+                yield return Snap("knight_warcry_2", 0.8f);
+                yield return Ready(Classes.ClassId.Knight);
+                ultA.ServerDebugCast(astand + along * 3f);
+                yield return Snap("ult_knight_1", 0.35f);
+                yield return Snap("ult_knight_2", 1.6f);
 
-                yield return Ready(Classes.ClassId.Mage);
-                var mk = local.GetComponent<MageKit>();
-                mk.ServerBolt(Eye(), (AimAt() - Eye()).normalized, false);
-                yield return Snap("mage_firebolt", 0.05f, false);
-                yield return new WaitForSeconds(0.3f);
-                yield return Snap("mage_firebolt_hit", 0f);
-                yield return Ready(Classes.ClassId.Mage);
-                mk.ServerBolt(Eye(), (AimAt() - Eye()).normalized, true);
-                yield return Snap("mage_frostbolt_hit", 0.4f);
-                yield return Ready(Classes.ClassId.Mage);
-                mk.ServerWave(along);
-                yield return Snap("mage_wave", 0.25f);
-                yield return Ready(Classes.ClassId.Mage);
-                mk.ServerMeteor(astand + along * 7f);
-                yield return Snap("mage_meteor_warn", 0.4f);
-                yield return Snap("mage_meteor_hit", MageKit.MeteorDelay - 0.3f);
-
+                // ---- Cleric ----
                 yield return Ready(Classes.ClassId.Cleric);
                 var ck = local.GetComponent<ClericKit>();
+                Call(ck, "SmiteRpc", Eye(), AimDir());
+                yield return Snap("cleric_smite_1", 0.08f);
+                yield return Snap("cleric_smite_2", 0.16f);
+                yield return Ready(Classes.ClassId.Cleric);
                 ck.ServerConsecrate(astand + along * 3f);
-                yield return Snap("cleric_consecrate", 0.25f);
+                yield return Snap("cleric_consecrate_1", 0.1f);
+                yield return Snap("cleric_consecrate_2", 0.9f);
                 yield return Ready(Classes.ClassId.Cleric);
                 ck.ServerAegis();
-                yield return Snap("cleric_aegis", 0.2f);
+                yield return Snap("cleric_aegis_1", 0.12f);
+                yield return Snap("cleric_aegis_2", 0.45f);
+                yield return Ready(Classes.ClassId.Cleric);
+                ck.ServerAegis();
+                yield return Snap("cleric_aegis", 0.2f, false);
+                yield return Ready(Classes.ClassId.Cleric);
+                if (dummy != null) ck.DebugBeamTarget = dummy.NetworkObjectId;
+                yield return Snap("cleric_beam", 0.7f);
+                ck.DebugBeamTarget = 0;
+                yield return Ready(Classes.ClassId.Cleric);
+                ultA.ServerDebugCast(AimAt());
+                yield return Snap("ult_cleric_1", 0.35f);
+                yield return Snap("ult_cleric_2", 0.5f);
 
-                yield return Ready(Classes.ClassId.Rogue);
-                local.GetComponent<RogueKit>().ServerSmoke();
-                yield return Snap("rogue_smoke", 0.15f);
-
-                yield return Ready(Classes.ClassId.Ranger);
-                var rk = local.GetComponent<RangerKit>();
-                rk.ServerShoot(Eye(), (AimAt() - Eye()).normalized, 1f);
-                yield return Snap("ranger_full_draw", 0.06f, false);
-                yield return Ready(Classes.ClassId.Ranger);
-                rk.ServerSnareBurst(astand + along * 7f);
-                yield return Snap("ranger_snare", 0.15f);
-
-                yield return Ready(Classes.ClassId.PlagueDoctor);
-                var pk = local.GetComponent<PlagueDoctorKit>();
-                pk.ServerSplash(astand + along * 6f);
-                yield return Snap("pd_splash", 0.15f);
-                yield return Ready(Classes.ClassId.PlagueDoctor);
-                pk.ServerMiasma(astand + along * 6f);
-                yield return Snap("pd_miasma", 0.3f);
-
+                // ---- Flagellant ----
                 yield return Ready(Classes.ClassId.Flagellant);
                 var fk = local.GetComponent<FlagellantKit>();
+                fk.ServerSwing(local.transform.position + Vector3.up, along, 1f);
+                yield return Snap("flag_swing", 0.08f);
+                yield return Ready(Classes.ClassId.Flagellant);
+                for (int i = 0; i < 2; i++) { fk.ServerSwing(local.transform.position + Vector3.up, along, i % 2 == 0 ? 1f : -1f); yield return new WaitForSeconds(0.7f); }
+                fk.ServerSwing(local.transform.position + Vector3.up, along, 1f);
+                yield return Snap("flag_crash_1", 0.1f);
+                yield return Snap("flag_crash_2", 0.6f);
+                yield return Ready(Classes.ClassId.Flagellant);
                 fk.ServerScourge();
-                yield return Snap("flag_scourge", 0.15f);
+                yield return Snap("flag_scourge_1", 0.07f);
+                yield return Snap("flag_scourge_2", 0.12f);
+                yield return Ready(Classes.ClassId.Flagellant);
+                fk.ServerScourge();
+                yield return Snap("flag_scourge", 0.08f, false);
                 yield return Ready(Classes.ClassId.Flagellant);
                 if (dummy != null) fk.ServerChain(dummy);
-                yield return Snap("flag_chain", 0.2f);
+                yield return Snap("flag_chain_1", 0.1f);
+                yield return Snap("flag_chain_2", 0.25f);
                 yield return Ready(Classes.ClassId.Flagellant);
-                fk.ServerLeapCrash(astand + along * 5f);
-                yield return Snap("flag_leap", 0.12f);
+                Art.ClassFx.FlagLeapTrail(local.transform, 0.65f);
+                motor.AddImpulse(along * 6f + Vector3.up * 7f);
+                yield return Snap("flag_leap_1", 0.3f);
+                yield return new WaitForSeconds(0.5f);
+                fk.ServerLeapCrash(local.transform.position);
+                yield return Snap("flag_leap_2", 0.1f);
+                yield return Snap("flag_leap_3", 0.8f);
+                yield return Ready(Classes.ClassId.Flagellant);
+                ultA.ServerDebugCast(AimAt());
+                yield return Snap("ult_flag_1", 0.7f);
+                yield return Snap("ult_flag", 0.4f, false);
+                yield return Snap("ult_flag_2", 5.4f);
 
-                var ultA = local.GetComponent<Ultimates>();
-                foreach (var cls in new[] { Classes.ClassId.Knight, Classes.ClassId.Cleric, Classes.ClassId.Rogue })
-                {
-                    yield return Ready(cls);
-                    ultA.ServerDebugCast(AimAt());
-                    yield return Snap("ult_" + cls.ToString().ToLowerInvariant(), 0.25f);
-                    yield return new WaitForSeconds(2f);
-                }
+                // ---- Rogue ----
+                yield return Ready(Classes.ClassId.Rogue);
+                var rk = local.GetComponent<RogueKit>();
+                rk.ServerStab(local.transform.position + Vector3.up, along);
+                yield return Snap("rogue_stab", 0.05f);
+                yield return Ready(Classes.ClassId.Rogue);
+                Call(rk, "FanRpc", Eye(), AimDir());
+                yield return Snap("rogue_fan_1", 0.08f);
+                yield return Snap("rogue_fan_2", 0.12f);
+                yield return Ready(Classes.ClassId.Rogue);
+                var stepFrom = local.transform.position;
+                motor.Teleport(astand + along * 4.6f + side * 0.4f, Quaternion.LookRotation(along));
+                Call(rk, "StepFxRpc", stepFrom, astand + along * 4.6f + side * 0.4f);
+                yield return Snap("rogue_step_1", 0.1f);
+                yield return Snap("rogue_step_2", 0.45f);
+                yield return Ready(Classes.ClassId.Rogue);
+                rk.ServerSmoke();
+                yield return Snap("rogue_smoke_1", 0.12f);
+                yield return Snap("rogue_smoke_2", 0.5f);
+                yield return Ready(Classes.ClassId.Rogue);
+                if (dummy != null) Call(rk, "OpenerFxRpc", dummy.Center);
+                yield return Snap("rogue_opener", 0.08f);
+                yield return Ready(Classes.ClassId.Rogue);
+                if (dummy != null) motor.Teleport(dummy.transform.position + along * 1.3f, Quaternion.LookRotation(-along));
+                yield return new WaitForSeconds(0.2f);
+                ultA.ServerDebugCast(AimAt(), dummy);
+                yield return Snap("ult_rogue_1", 0.1f);
+                yield return Snap("ult_rogue_2", 0.2f);
+
+                // ---- Plague Doctor ----
+                yield return Ready(Classes.ClassId.PlagueDoctor);
+                var pk = local.GetComponent<PlagueDoctorKit>();
+                pk.ServerVial(Eye(), (AimAt() + Vector3.up * 1.2f - Eye()).normalized);
+                yield return Snap("pd_vial_1", 0.15f);
+                yield return Snap("pd_vial_2", 0.45f);
+                yield return Snap("pd_vial_3", 1.0f);
+                yield return Ready(Classes.ClassId.PlagueDoctor);
+                Call(pk, "TonicRpc", Eye(), (astand + along * 3f + Vector3.up * 1.5f - Eye()).normalized);
+                yield return Snap("pd_tonic_1", 0.35f);
+                yield return Snap("pd_tonic_2", 0.4f);
+                yield return Ready(Classes.ClassId.PlagueDoctor);
+                pk.ServerMiasma(astand + along * 6f);
+                yield return Snap("pd_miasma_1", 0.5f);
+                yield return Snap("pd_miasma_2", 1.5f);
+                yield return Ready(Classes.ClassId.PlagueDoctor);
+                Call(pk, "MaskRpc");
+                yield return Snap("pd_mask_1", 0.3f);
+                yield return Snap("pd_mask_2", 0.5f);
+                yield return Ready(Classes.ClassId.PlagueDoctor, 3);
+                ultA.ServerDebugCast(AimAt());
+                yield return Snap("ult_pd_1", 0.3f);
+                yield return Snap("ult_pd_2", 0.9f);
+
+                NetworkPlayer.DebugShowSelf = false;
                 Destroy(camGo);
                 motor.SetPitch(0f);
                 if (dummy != null && dummy.IsSpawned) dummy.NetworkObject.Despawn();
+                foreach (var x in extras) if (x != null && x.IsSpawned) x.NetworkObject.Despawn();
             }
             var key = new GameObject("GalleryKey").AddComponent<Light>();
             key.type = LightType.Point; key.range = 16f; key.intensity = 3.2f; key.color = new Color(1f, 0.92f, 0.8f);

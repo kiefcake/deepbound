@@ -380,27 +380,20 @@ namespace Deepbound.Player
         {
             Sfx.Play(Sound.Slime, at, 1f, 0.6f);
             Sfx.Play(Sound.Toll, at, 0.6f, 0.7f);
-            Vfx.Ring(at + Vector3.up * 0.1f, radius, Plague, 0.9f);
-            Vfx.Ring(at + Vector3.up * 0.1f, radius * 0.6f, new Color(0.12f, 0.16f, 0.08f), 0.7f);
-            for (int i = 0; i < 10; i++)
-            {
-                var p = at + Quaternion.Euler(0f, i * 36f, 0f) * Vector3.forward * radius * Random.Range(0.3f, 0.9f);
-                Vfx.Smoke(p + Vector3.up * 0.6f, 2, 1.2f, 2f);
-            }
             Vfx.Embers(at + Vector3.up, 30, Plague, 6f, 0.06f, 1f);
-            // 2026-11-21 (more visual): a sickly pillar where it takes, the ground welling, and a thread of
-            // plague to every creature it reaches (who is plagued, at a glance).
-            AbilityFx.Column(at, 7f, Plague, 1.4f, 1.6f);
-            AbilityFx.Bubbles(at, radius * 0.6f, Plague, 24);
-            AbilityFx.Burst(at, radius, Plague, 1.1f, mark: true);
-            int threads = 0;
+            // 2026-11-21 (distinct abilities): black veins creep over the floor from the Doctor to every creature it takes,
+            // and the flies go to each of them (who is plagued, at a glance).
+            var taken = new List<Vector3>();
             foreach (var h in Health.All)
             {
-                if (threads >= 10) break;
+                if (taken.Count >= 12) break;
                 if (h == null || h.Team != Team.Enemies || !h.IsAlive || Vector3.Distance(h.transform.position, at) > radius) continue;
-                AbilityFx.Streak(at + Vector3.up * 1.2f, h.Center, Plague, 0.7f, 0.6f);
-                threads++;
+                taken.Add(h.transform.position);
+                ClassFx.Flies(h.transform, h.transform.position, 0.7f, Mathf.Max(1.2f, (h.Center.y - h.transform.position.y) * 1.8f), 5f, 9);
             }
+            ClassFx.Veins(at, taken, 3.5f, 0.55f);
+            ClassFx.Shock(at, radius, Plague, 0.6f, 0.6f);
+            ClassFx.Flies(null, Vfx.Floor(at), 1.2f, 1.4f, 3f, 14);
             UI.GameHud.ShowCombo(at + Vector3.up * 2.4f, "PANDEMIC", Plague);
             if (IsOwner) player.AddShake(0.3f);
         }
@@ -409,11 +402,13 @@ namespace Deepbound.Player
         private void PandemicBurstFxRpc(Vector3 at)
         {
             Sfx.Play(Sound.Slime, at, 0.8f, 0.8f);
-            Vfx.Ring(at + Vector3.up * 0.1f, PandemicSpread, Plague, 0.45f);
             Vfx.Smoke(at + Vector3.up * 0.8f, 3, 1f, 1.8f);
             Vfx.Embers(at + Vector3.up, 14, Plague, 4f, 0.05f, 0.7f);
-            AbilityFx.Bubbles(at, 1.5f, Plague, 10);
-            AbilityFx.Burst(at, PandemicSpread * 0.5f, Plague, 0.6f);
+            // A plagued death bursts: short veins split out of it and its flies hang over the spot.
+            var spokes = new List<Vector3>();
+            for (int i = 0; i < 5; i++) spokes.Add(at + Quaternion.Euler(0f, i * 72f + Random.Range(-20f, 20f), 0f) * Vector3.forward * PandemicSpread * Random.Range(0.3f, 0.5f));
+            ClassFx.Veins(at, spokes, 2.2f, 0.3f);
+            ClassFx.Flies(null, Vfx.Floor(at), 0.8f, 1f, 2.5f, 8);
         }
 
         private static readonly List<PlagueDoctorKit> all = new List<PlagueDoctorKit>();
@@ -560,7 +555,6 @@ namespace Deepbound.Player
         private void VialFxRpc(Vector3 origin, Vector3 direction, bool tonic)
         {
             Arrows.SpawnVisual(origin, direction, tonic ? ProjectileKind.Tonic : ProjectileKind.Vial, VialSpeed, VialRange * RangeMul, VialGravity);
-            AbilityFx.Muzzle(player.FxHand, direction, tonic ? TonicColor : Plague, player.FxHandScale);
             if (!IsOwner) { player.Rig?.Play(RigAction.Cast, 0.25f); Sfx.Play(Sound.Swing, transform.position, 0.35f, 1.7f); }
         }
 
@@ -570,12 +564,11 @@ namespace Deepbound.Player
             var c = tonic ? TonicColor : Plague;
             Sfx.Play(Sound.Shatter, at, 0.6f, tonic ? 1.6f : 1.3f);
             Sfx.Play(tonic ? Sound.Potion : Sound.Splash, at, 0.5f, 1.2f);
-            Vfx.Ring(at + Vector3.up * 0.05f, radius, c, 0.35f);
-            Vfx.Embers(at + Vector3.up * 0.3f, 10, c, 2.5f, 0.05f, 0.7f);
+            Vfx.Embers(at + Vector3.up * 0.3f, 6, c, 2.5f, 0.05f, 0.7f);
             if (tonic) SmokeCloud.Spawn(at, radius * 0.8f, 0.9f, TonicColor);
-            // 2026-11-21 (more visual): it bubbles where it breaks; a plague vial stains the floor a while.
-            AbilityFx.Bubbles(at, radius, c, tonic ? 6 : 10);
-            AbilityFx.Burst(at, radius, c, 0.5f, mark: !tonic);
+            // 2026-11-21 (distinct abilities): the flask bursts in glass; a vial leaves a bubbling pool of sick green, a tonic
+            // a rose mist lifting off the floor.
+            ClassFx.FlaskBurst(at, radius, tonic, 3f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -588,8 +581,8 @@ namespace Deepbound.Player
             if (shownClouds.Count > 40) { var stale = new List<int>(); foreach (var kv in shownClouds) if (kv.Value == null) stale.Add(kv.Key); foreach (var k in stale) shownClouds.Remove(k); }
             Vfx.Ring(at + Vector3.up * 0.05f, radius, black ? new Color(0.25f, 0.6f, 0.15f) : Plague, 0.5f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.3f);
-            AbilityFx.Bubbles(at, radius, Plague, 14);
-            AbilityFx.Burst(at, radius, Plague, 0.5f, mark: true);
+            // 2026-11-21 (distinct abilities): the Miasma is the cloud with the FLIES in it; they ride it where it drifts.
+            if (shown != null) ClassFx.Flies(shown.transform, shown.transform.position, radius * 0.6f, 1.6f, seconds, 22, dark: true);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -602,7 +595,7 @@ namespace Deepbound.Player
         private void ContagionFxRpc(Vector3 at)
         {
             Vfx.Embers(at + Vector3.up, 12, Plague, 3f, 0.05f, 0.7f);
-            AbilityFx.Bubbles(at, 1.2f, Plague, 8);
+            ClassFx.Flies(null, Vfx.Floor(at), 0.6f, 1.1f, 2f, 6);
             UI.GameHud.ShowCombo(at + Vector3.up * 1.4f, "CONTAGION", Plague);
         }
 
@@ -611,18 +604,12 @@ namespace Deepbound.Player
         {
             Sfx.Play(Sound.Potion, at + Vector3.up, 0.9f, 0.8f);
             Sfx.Play(Sound.Whisper, at + Vector3.up, 0.6f, 1.3f);
-            Vfx.Ring(at + Vector3.up * 0.05f, MaskRadius, new Color(0.7f, 1f, 0.65f), 0.5f);
-            Vfx.Embers(at + Vector3.up, 16, new Color(0.75f, 1f, 0.7f), 3f, 0.05f, 0.8f);
-            // 2026-11-21 (more visual): pale green light on everyone the mask cleanses and wards.
-            var pale = new Color(0.7f, 1f, 0.65f);
-            AbilityFx.Cast(at, player.FxHand, pale, 1.2f, 0.8f);
+            // 2026-11-21 (distinct abilities): a ghostly beaked mask rises over the Doctor; a ring of pale smoke lifts round
+            // every ally it cleanses and wards.
+            var warded = new List<Transform>();
             foreach (var ally in PlayerLife.All)
-            {
-                if (ally == null || ally.Downed.Value || Vector3.Distance(ally.transform.position, at) > MaskRadius) continue;
-                AbilityFx.Column(ally.transform.position, 2.6f, pale, 0.9f, 0.9f);
-                AbilityFx.Uplift(ally.transform.position, pale, 8);
-                if (ally.gameObject != gameObject) AbilityFx.Streak(at + Vector3.up * 1.3f, ally.transform.position + Vector3.up * 1.2f, pale, 0.7f, 0.45f);
-            }
+                if (ally != null && !ally.Downed.Value && Vector3.Distance(ally.transform.position, at) <= MaskRadius) warded.Add(ally.transform);
+            ClassFx.PlagueMask(transform, warded);
         }
     }
 }

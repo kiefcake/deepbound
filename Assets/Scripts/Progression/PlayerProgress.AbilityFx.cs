@@ -41,12 +41,33 @@ namespace Deepbound.Progression
             {
                 case FxKind.Fire: Vfx.Fireball(at + Vector3.up * 0.5f, Mathf.Max(0.8f, radius * 0.5f), c); Sfx.Play(Sound.Fire, at, 0.8f, 0.9f); break;
                 case FxKind.Frost: Vfx.IceSpikes(floor, Mathf.Max(1f, radius * 0.7f), 10); Sfx.Play(Sound.Frost, at, 0.8f, 0.9f); break;
-                case FxKind.Earth: Vfx.Smoke(floor, 3, radius * 0.4f, 1.4f); Sfx.Play(Sound.Slam, at, 0.8f, 0.9f); break;
-                case FxKind.Poison: Vfx.Smoke(floor + Vector3.up * 0.4f, 3, radius * 0.4f, 1.8f); Sfx.Play(Sound.Slime, at, 0.6f, 1.1f); break;
+                // 2026-11-21 (distinct abilities): each kind in its own shape, the same language as the class kits (Art/ClassFx).
+                case FxKind.Earth:
+                    Vfx.Smoke(floor, 3, radius * 0.4f, 1.4f); Sfx.Play(Sound.Slam, at, 0.8f, 0.9f);
+                    ClassFx.Cracks(floor, radius, 7, c, 3f); ClassFx.Rubble(floor, 8, 3.5f); ClassFx.Shock(floor, radius, c, 0.7f, 0.35f);
+                    break;
+                case FxKind.Poison:
+                    Vfx.Smoke(floor + Vector3.up * 0.4f, 3, radius * 0.4f, 1.8f); Sfx.Play(Sound.Slime, at, 0.6f, 1.1f);
+                    var spokes = new System.Collections.Generic.List<Vector3>();
+                    for (int i = 0; i < 5; i++) spokes.Add(floor + Quaternion.Euler(0f, i * 72f, 0f) * Vector3.forward * radius * 0.8f);
+                    ClassFx.Veins(floor, spokes, 2.2f, 0.3f); ClassFx.Flies(null, floor, Mathf.Min(1.2f, radius * 0.5f), 1.1f, 2.5f, 8);
+                    break;
                 case FxKind.Water: Sfx.Play(Sound.Splash, at, 0.8f, 0.9f); break;
                 case FxKind.Storm: Sfx.Play(Sound.Shatter, at, 0.6f, 1.6f); break;
-                case FxKind.Blood: Sfx.Play(Sound.Hit, at, 0.8f, 0.7f); break;
-                case FxKind.Shadow: Vfx.Smoke(floor + Vector3.up * 0.3f, 2, radius * 0.3f, 1.2f); Sfx.Play(Sound.Shade, at, 0.5f, 1.2f); break;
+                case FxKind.Blood: Sfx.Play(Sound.Hit, at, 0.8f, 0.7f); ClassFx.FlagCrater(floor, radius, 0.7f); break;
+                case FxKind.Shadow:
+                    Vfx.Smoke(floor + Vector3.up * 0.3f, 2, radius * 0.3f, 1.2f); Sfx.Play(Sound.Shade, at, 0.5f, 1.2f);
+                    ClassFx.CrossCut(at + Vector3.up * 0.8f, Mathf.Clamp(radius * 0.8f, 1f, 2.6f));
+                    break;
+                case FxKind.Holy:
+                    Sfx.Play(Sound.Revive, at, 0.6f, 1.3f);
+                    ClassFx.HolyCross(at + Vector3.up * 0.9f, Mathf.Clamp(radius * 0.6f, 1f, 2.2f), new Color(2.6f, 2.2f, 1.4f, 1f), 0.6f, Vector3.up * 0.4f);
+                    ClassFx.Shock(floor, radius, c, 0.5f, 0.4f);
+                    break;
+                case FxKind.Steel:
+                    Sfx.Play(Sound.Revive, at, 0.6f, 1.3f);
+                    ClassFx.Glint(at + Vector3.up * 0.6f, c, 1.2f, 0.2f, 45f); ClassFx.Shards(at + Vector3.up * 0.6f, Vector3.up, 8, c * 2.2f, 5f);
+                    break;
                 default: Sfx.Play(Sound.Revive, at, 0.6f, 1.3f); break;
             }
         }
@@ -72,8 +93,11 @@ namespace Deepbound.Progression
         public void AbilityLinkRpc(Vector3 from, Vector3 to, FxKind kind)
         {
             var c = FxColor(kind);
-            int n = Mathf.Clamp(Mathf.RoundToInt(Vector3.Distance(from, to) * 1.5f), 3, 24);
+            int n = Mathf.Clamp(Mathf.RoundToInt(Vector3.Distance(from, to) * 0.8f), 2, 12);
             for (int i = 0; i <= n; i++) Vfx.Embers(Vector3.Lerp(from, to, i / (float)n), 1, c, 0.8f, 0.07f, 0.5f);
+            // A band of the kind's light along it (2026-11-21), and a glint where it lands.
+            ClassFx.Tether(from, to, new Color(c.r * 2.2f, c.g * 2.2f, c.b * 2.2f, 0.85f), 0.16f, 0.4f);
+            ClassFx.Glint(to, c, 0.8f, 0.18f, 30f);
             if (kind == FxKind.Storm) LightningBolt.Spawn(from, new[] { to });
         }
 

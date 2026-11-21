@@ -233,6 +233,14 @@ namespace Deepbound.Player
             CastRpc(aim, ulong.MaxValue);
         }
 
+        /// <summary>Server, the gallery: cast at a chosen target (the Rogue's Death From Shadow needs one).</summary>
+        public void ServerDebugCast(Vector3 aim, Health target)
+        {
+            Charge.Value = ChargeMax;
+            lockedUntil = 0f;
+            CastRpc(aim, target != null ? target.NetworkObjectId : ulong.MaxValue);
+        }
+
         [Rpc(SendTo.Server)]
         private void CastRpc(Vector3 aim, ulong targetId)
         {
@@ -389,18 +397,18 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Relic, transform.position + Vector3.up * 1.5f, 1f, 0.8f);
             Vfx.Flash(transform.position + Vector3.up * 1.6f, c, 6f, 8f, 0.5f);
             Vfx.Ring(transform.position, 3f, c, 0.45f);
-            // 2026-11-21 (more visual): every ultimate is announced the same way, in the class's colour: a great rune
-            // circle, a pillar of light on the caster and motes climbing round them, so the whole party sees it.
-            AbilityFx.Cast(transform.position, player.FxHand, c, 2.2f, 1.2f);
-            AbilityFx.Column(transform.position, 8f, c, 1.2f, 1.8f);
-            AbilityFx.Spiral(transform.position, c, 1.2f, 3.5f, 20, 1.3f);
+            // 2026-11-21: the Mage's and Ranger's ultimates are announced with a great rune circle and a pillar on the caster;
+            // the others' ultimates are their own shapes (banner wall, halos, flails, the death mark, the veins: Art/ClassFx).
+            if ((ClassId)cls == ClassId.Mage || (ClassId)cls == ClassId.Ranger)
+            {
+                AbilityFx.Cast(transform.position, player.FxHand, c, 2.2f, 1.2f);
+                AbilityFx.Column(transform.position, 8f, c, 1.2f, 1.8f);
+                AbilityFx.Spiral(transform.position, c, 1.2f, 3.5f, 20, 1.3f);
+            }
             if ((ClassId)cls == ClassId.Cleric)
                 foreach (var ally in PlayerLife.All)
                     if (ally != null && Vector3.Distance(ally.transform.position, transform.position) <= 18f)
-                    {
-                        AbilityFx.Column(ally.transform.position, 4f, c, 1.2f, 1.1f);
-                        AbilityFx.Uplift(ally.transform.position, c, 12);
-                    }
+                        ClassFx.HymnHalo(ally.transform, ally.Downed.Value);
             // Your own ultimate needs no feed line (it filled the feed); an ally's does.
             if (!IsOwner) UI.GameHud.Feed(name + ": " + Name((ClassId)cls).ToUpperInvariant() + "!", c);
         }
@@ -419,7 +427,8 @@ namespace Deepbound.Player
         {
             RallyBanner.Spawn(at, NetworkPlayer.SlotColors[(int)(OwnerClientId % 4)], 8f, BannerRadius);
             FxSprite.Decal("circle_02", at, BannerRadius * 1.9f, BannerRadius * 2f, 8f, new Color(1f, 0.8f, 0.4f, 0.35f), 10f);
-            AbilityFx.Burst(at, BannerRadius, new Color(1f, 0.8f, 0.4f), 1.1f);
+            // The banner's ground walled in gold light for as long as it stands (stand inside it).
+            ClassFx.KnightBanner(at, BannerRadius, 8f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -447,10 +456,8 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Hit, at, 1f, 0.7f);
             Sfx.Play(Sound.Whisper, at, 0.8f, 0.6f);
             Vfx.Flash(at, c, 5f, 6f, 0.35f);
-            Vfx.Embers(at, 18, c, 5f, 0.05f, 0.6f);
-            AbilityFx.Streak(transform.position + Vector3.up * 1.2f, at, c, 1.3f, 0.6f);
-            AbilityFx.Burst(at, 2f, c, 1.2f);
-            FxSprite.Billboard("twirl_02", at, Vector3.zero, 0.45f, 0.3f, 2.2f, new Color(c.r, c.g, c.b, 0.8f), -700f);
+            // A star of three cuts and a pit of black closing on the mark.
+            ClassFx.DeathMark(at);
             if (IsOwner) player.ConfirmHit(2f);
         }
 

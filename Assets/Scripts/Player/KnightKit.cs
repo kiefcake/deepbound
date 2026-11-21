@@ -96,7 +96,11 @@ namespace Deepbound.Player
             {
                 health.IncomingModifiers.Add(ModifyIncoming);
             }
+            // The raised shield's ward of light, for everyone else (your own view has the shield itself).
+            if (!Application.isBatchMode) ward = ClassFx.KnightWard(transform, () => this != null && ShieldRaised, () => IsOwner && !NetworkPlayer.DebugShowSelf);
         }
+
+        private ClassFx.Ward ward;
 
         /// <summary>
         /// Sheltered (2026-10-20, co-op glue): an ally within <see cref="ShelterRange"/> behind a Knight who is
@@ -364,6 +368,9 @@ namespace Deepbound.Player
         private void SwingFxRpc(float swingSide, bool hit)
         {
             SwingTrail.Spawn(transform, SwingRange * 0.85f, progress.OnPath(1) ? 160f : SwingArc, swingSide, player.TrailColor(new Color(1f, 0.85f, 0.6f) * 1.1f));
+            // Others see the cut as a broad steel crescent (your own view has the blade and its trail).
+            if (!IsOwner || NetworkPlayer.DebugShowSelf) ClassFx.KnightCut(transform, swingSide, SwingRange * ReachMul, progress.OnPath(1) ? 160f : SwingArc, player.TrailColor(new Color(1f, 0.9f, 0.7f)));
+            if (hit) ClassFx.SteelBite(transform.position + transform.forward * 1.5f + Vector3.up * 1.1f, transform.position + Vector3.up * 1.2f);
             if (!IsOwner)
             {
                 player.Rig?.Play(RigAction.Swing, SwingStrike + 0.15f);
@@ -521,10 +528,8 @@ namespace Deepbound.Player
             var front = transform.position + transform.forward * 1.6f;
             Vfx.Ring(front, 2.2f, new Color(1f, 0.9f, 0.7f), 0.3f);
             Vfx.Smoke(front, 2, 0.6f, 1f);
-            // 2026-11-21 (more visual): the shove fans out off the shield face, and the floor ahead takes it.
-            AbilityFx.Cone(transform.position + Vector3.up * 1.1f + transform.forward * 0.6f, transform.forward, 2.6f, 60f, new Color(1f, 0.85f, 0.55f), 20);
-            AbilityFx.Burst(front, 1.6f, new Color(1f, 0.85f, 0.55f), 0.7f);
-            Vfx.Embers(front + Vector3.up, 6, new Color(1f, 0.8f, 0.5f), 4f, 0.05f, 0.5f);
+            // 2026-11-21 (distinct abilities): the kite of the shield itself, hurled forward in light, shattering at its reach.
+            ClassFx.KnightBash(transform, BashRange + 1.5f);
         }
 
         public const float DreadSeconds = 1.5f, BastionRadius = 8f, BastionScale = 0.75f, EchoDelay = 3f;
@@ -591,19 +596,17 @@ namespace Deepbound.Player
             Vfx.Ring(transform.position, r, new Color(1f, 0.45f, 0.2f), 0.55f);
             Vfx.Ring(transform.position, r * 0.6f, new Color(1f, 0.8f, 0.4f), 0.35f);
             Vfx.Flash(transform.position + Vector3.up * 1.6f, new Color(1f, 0.55f, 0.25f), 5f, 8f, 0.4f);
-            // 2026-11-21 (more visual): the roar under the Knight's feet, the ground taking it, and a line of fury to
-            // every foe it pulls (the taunt you can see).
-            var cry = new Color(1f, 0.45f, 0.2f);
-            AbilityFx.Cast(transform.position, player.FxHand, cry, 1.5f, 0.9f);
-            AbilityFx.Burst(transform.position, r * 0.45f, cry, 1.2f);
-            FxSprite.Billboard("circle_05", transform.position + Vector3.up * 1.6f + transform.forward * 0.3f, Vector3.zero, 0.45f, 0.4f, 4.5f, new Color(1f, 0.6f, 0.3f, 0.6f));
-            int lines = 0;
+            // 2026-11-21 (distinct abilities): walls of sound and a roar out of the mouth; a burning chevron over every foe
+            // it pulls (the taunt you can see), snapped back to the Knight by a tether.
+            ClassFx.KnightWarCry(transform, r);
+            int marks = 0;
             foreach (var h in Health.All)
             {
-                if (lines >= 8) break;
+                if (marks >= 12) break;
                 if (h == null || h.Team != Team.Enemies || !h.IsAlive || Vector3.Distance(h.transform.position, transform.position) > r) continue;
-                AbilityFx.Streak(h.Center, transform.position + Vector3.up * 1.3f, cry, 0.8f, 0.5f);
-                lines++;
+                float tall = Mathf.Max(1.2f, (h.Center.y - h.transform.position.y) * 2f);
+                ClassFx.TauntMark(h.transform, tall, WarCryDuration, transform.position + Vector3.up * 1.4f, h.Center);
+                marks++;
             }
         }
 
@@ -662,6 +665,7 @@ namespace Deepbound.Player
             // Sparks off the shield face, thrown back toward the attacker (seen by everyone, owner included).
             var face = transform.position + transform.forward * 0.75f + Vector3.up * 1.25f;
             Vfx.HitImpact(face, face + transform.forward, 0.8f, new Color(1f, 0.8f, 0.45f), Mat.Steel);
+            ward?.Hit();
             if (IsOwner) player.ViewModelBlockImpact();
         }
     }

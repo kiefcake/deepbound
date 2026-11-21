@@ -39,6 +39,9 @@ namespace Deepbound.Player
         public const float AegisCooldown = 16f, AegisMana = 60f, AegisRadius = 12f, AegisAmount = 60f, AegisSeconds = 8f;
 
         /// <summary>Who the beam is on: a player's NetworkObjectId, the Cleric itself, or 0 for off. Owner-written.</summary>
+        /// <summary>Shots and tests: hold the beam on this object as if RMB were held on it (0 = off).</summary>
+        public ulong DebugBeamTarget { get; set; }
+
         public readonly NetworkVariable<ulong> BeamTarget = new NetworkVariable<ulong>(0,
             NetworkVariableReadPermission.Everyone, NetworkVariableWritePermission.Owner);
 
@@ -164,6 +167,7 @@ namespace Deepbound.Player
             {
                 Mana = Mathf.Min(ManaMax, Mana + ManaRegen * Time.deltaTime);
             }
+            if (DebugBeamTarget != 0) wantBeam = DebugBeamTarget;
             if (BeamTarget.Value != wantBeam) BeamTarget.Value = wantBeam;
 
             if (!canAct) return;
@@ -541,11 +545,8 @@ namespace Deepbound.Player
             if (follow) g.Follow = transform;
             // Runes turning in the hallowed ground for as long as it lasts.
             FxSprite.Decal("magic_05", at, ConsecrateRadius * 1.9f, ConsecrateRadius * 2f, ConsecrateSeconds, new Color(1f, 0.85f, 0.45f, 0.55f), 18f);
-            // 2026-11-21 (more visual): light comes down on the hallowed ground and washes out across it.
-            var gold = new Color(1f, 0.85f, 0.45f);
-            AbilityFx.Cast(transform.position, player.FxHand, gold, 1.2f, 0.8f);
-            AbilityFx.Column(at, 6f, gold, 1.2f, ConsecrateRadius * 0.5f);
-            AbilityFx.Burst(at, ConsecrateRadius, gold, 0.8f);
+            // 2026-11-21 (distinct abilities): a shaft of light drops onto the spot and a cross burns into the ground.
+            ClassFx.ClericConsecrate(at, ConsecrateRadius, ConsecrateSeconds, transform.forward, follow ? transform : null);
             Sfx.Play(Sound.Revive, at + Vector3.up, 0.9f, 0.85f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.5f);
         }
@@ -555,19 +556,14 @@ namespace Deepbound.Player
         {
             Sfx.Play(Sound.Relic, transform.position + Vector3.up, 0.9f, 1.2f);
             var gold = new Color(1f, 0.85f, 0.45f);
-            Vfx.Ring(transform.position, AegisRadius, gold, 0.5f);
             Vfx.Flash(transform.position + Vector3.up * 1.5f, gold, 4f, 10f, 0.5f);
-            Vfx.Embers(transform.position + Vector3.up * 0.5f, 16, gold, 3.5f, 0.06f, 0.9f);
-            FxSprite.Billboard("light_01", transform.position + Vector3.up * 1.4f, Vector3.up * 0.4f, 0.7f, 1f, 3.2f, new Color(gold.r, gold.g, gold.b, 0.7f));
             player.Rig?.Play(RigAction.Cast, 0.6f);
-            // 2026-11-21 (more visual): a ray of light from the Cleric to each ally the Aegis takes, a column on them.
-            AbilityFx.Cast(transform.position, player.FxHand, gold, 1.3f, 0.8f);
+            // 2026-11-21 (distinct abilities): a gyroscope of gold rings closes round every ally the Aegis takes, then
+            // settles into the shield bubble each wears (PlayerStatusFx).
             foreach (var ally in PlayerLife.All)
             {
                 if (ally == null || ally.Downed.Value || Vector3.Distance(ally.transform.position, transform.position) > AegisRadius) continue;
-                AbilityFx.Column(ally.transform.position, 2.8f, gold, 0.9f, 0.9f);
-                AbilityFx.Uplift(ally.transform.position, gold, 10);
-                if (ally.gameObject != gameObject) AbilityFx.Streak(transform.position + Vector3.up * 1.3f, ally.transform.position + Vector3.up * 1.2f, gold, 0.8f, 0.5f);
+                ClassFx.AegisGyro(ally.transform, transform.position + Vector3.up * 1.3f, ally.gameObject == gameObject);
             }
         }
 
@@ -591,8 +587,8 @@ namespace Deepbound.Player
             // 2026-11-21 (more visual): the mending shows on the one being mended: motes of light rising off them.
             if (Time.time >= nextMendMote)
             {
-                nextMendMote = Time.time + 0.12f;
-                AbilityFx.Uplift(to.position, new Color(1f, 0.9f, 0.55f), 2);
+                nextMendMote = Time.time + 0.2f;
+                ClassFx.MendMote(to);
             }
         }
 
