@@ -112,14 +112,14 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
-            "ENDLESS DESCENT (solo, at Corwin): no last floor; the floor you go down on is your score",
-            "Loading screens, a credits roll, and a third title scene: the grave lift going down",
-            "The Twice-Crowned and Sir Aldous are bigger, in full war plate",
-            "Healing pylons only feed their own guardian now",
-            "Sloshed scrambles your feet: your movement keys go the wrong way",
-            "Leaner loot (20% less, parts halved) and a slower, heavier pace",
-            "The dead hear you run and fight, even through walls: walk up and strike first",
-            "Sealed lairs: four keepers asleep in side halls. Walk up to wake one",
+            "New ultimates: Ranger TWIN WYRMS, Plague Doctor PANDEMIC, Flagellant RED LITANY",
+            "The Flagellant's chains haul the dead in along the floor",
+            "Rogue: nothing can target you in your own smoke for 3 s",
+            "Solo? The pause menu now stops the world",
+            "The Tome of the Phoenix burns longer and dives far harder",
+            "Every robed caster has its own shape; ghouls, archers, wraiths remade",
+            "Guardians and lair keepers remade: chunkier, scarier, no bare skeletons",
+            "Real furniture, statues and barrels in the halls; everything less shiny",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)
