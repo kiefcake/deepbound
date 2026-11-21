@@ -1011,6 +1011,17 @@ namespace Deepbound.Art
                 ArtLibrary.SetGlow(hand.GetComponent<Renderer>(), new Color(1f, 0.62f, 0.2f) * 1.3f);
                 var ring = MeshKit.Part(rig.ArmL, "OrbRing", MeshKit.Lathe("orbRingSmall", new[] { new Vector2(0.15f, -0.01f), new Vector2(0.17f, 0f), new Vector2(0.15f, 0.01f) }, 16, false), Mat.Glow, new Vector3(0f, -0.72f, 0.12f), new Vector3(70f, 0f, 0f));
                 ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), new Color(1f, 0.62f, 0.2f));
+                // 2026-11-20 silhouettes: an armillary of brass rings standing behind its shoulders with five small
+                // orbs set on it, so it is not one more robe with a staff.
+                var arm = MeshKit.Pivot(rig.Torso, "Armillary", new Vector3(0f, 0.72f, -0.22f), new Vector3(0f, 0f, 0f));
+                foreach (var (rot, r) in new[] { (new Vector3(90f, 0f, 0f), 0.42f), (new Vector3(90f, 0f, 35f), 0.36f), (new Vector3(90f, 0f, -35f), 0.36f) })
+                    MeshKit.Part(arm, "ArmRing", MeshKit.Lathe("armillaryRing" + r.ToString("F2"), new[] { new Vector2(r - 0.012f, -0.008f), new Vector2(r, 0f), new Vector2(r - 0.012f, 0.008f) }, 24, false), Mat.Gold, Vector3.zero, rot);
+                for (int i = 0; i < 5; i++)
+                {
+                    float a = (90f + i * 72f) * Mathf.Deg2Rad;
+                    var o = MeshKit.Part(arm, "ArmOrb", MeshKit.Ball(0.05f, 8, 6), Mat.Glow, new Vector3(Mathf.Cos(a) * 0.42f, Mathf.Sin(a) * 0.42f, 0f));
+                    ArtLibrary.SetGlow(o.GetComponent<Renderer>(), new Color(1f, 0.62f, 0.2f) * 1.2f);
+                }
             }
             else if (kind == SkeletonKind.ChoirAcolyte)
             {
@@ -1104,11 +1115,22 @@ namespace Deepbound.Art
                 // A tall dead sexton: rust-brown cassock, a wooden yoke on its shoulders with a cracked bronze bell on its back.
                 BuildLich(rig, grip, eyeL.GetComponent<Renderer>(), eyeR.GetComponent<Renderer>(), new Color(0.28f, 0.19f, 0.14f), new Color(0.78f, 0.78f, 1f), false);
                 MeshKit.Part(rig.Torso, "Yoke", MeshKit.Box(new Vector3(0.72f, 0.07f, 0.09f)), Mat.Wood, new Vector3(0f, 0.6f, -0.08f));
-                var bell = MeshKit.Pivot(rig.Torso, "BackBell", new Vector3(0f, 0.62f, -0.34f));
+                // The bell rides high, its crown above the skull, so the sexton is known from the front (2026-11-20).
+                var bell = MeshKit.Pivot(rig.Torso, "BackBell", new Vector3(0f, 1.02f, -0.34f));
+                bell.localScale = Vector3.one * 1.35f;
+                MeshKit.Part(rig.Torso, "BellPost", MeshKit.Box(new Vector3(0.05f, 0.5f, 0.05f)), Mat.Wood, new Vector3(0f, 0.85f, -0.3f));
                 var cup = MeshKit.Part(bell, "Bell", MeshKit.Lathe("ringerBell", new[] { new Vector2(0.04f, 0f), new Vector2(0.14f, -0.06f), new Vector2(0.19f, -0.25f), new Vector2(0.24f, -0.42f), new Vector2(0.27f, -0.46f) }, 16, true), Mat.Gold, Vector3.zero);
                 ArtLibrary.Tint(cup.GetComponent<Renderer>(), new Color(0.48f, 0.36f, 0.22f));
                 MeshKit.Part(bell, "Crack", MeshKit.Box(new Vector3(0.012f, 0.22f, 0.012f)), Mat.Dark, new Vector3(0.12f, -0.3f, 0.17f), new Vector3(0f, 35f, 12f));
                 MeshKit.Part(bell, "BellStrap", MeshKit.Box(new Vector3(0.05f, 0.14f, 0.05f)), Mat.Leather, new Vector3(0f, 0.04f, 0f));
+                // A bronze bell hanging from each end of the yoke: seen from the front, a sexton bowed under bells.
+                foreach (float sx in new[] { -1f, 1f })
+                {
+                    var side = MeshKit.Pivot(rig.Torso, "YokeBell", new Vector3(sx * 0.38f, 0.56f, -0.08f));
+                    MeshKit.Part(side, "Rope", MeshKit.Box(new Vector3(0.015f, 0.12f, 0.015f)), Mat.Leather, new Vector3(0f, -0.06f, 0f));
+                    ArtLibrary.Tint(MeshKit.Part(side, "Cup", MeshKit.Lathe("yokeBell", new[] { new Vector2(0.025f, 0f), new Vector2(0.07f, -0.04f), new Vector2(0.09f, -0.14f), new Vector2(0.12f, -0.2f) }, 12, true), Mat.Gold,
+                        new Vector3(0f, -0.1f, 0f)).GetComponent<Renderer>(), new Color(0.66f, 0.5f, 0.28f));
+                }
             }
             else if (kind == SkeletonKind.Cantor)
             {
