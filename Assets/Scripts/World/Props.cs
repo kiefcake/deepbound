@@ -1004,15 +1004,21 @@ namespace Deepbound.World
             root.SetParent(parent, false);
             root.position = floor;
 
+            // 2026-11-20: wrought-iron legs (the brushed steel striped under its own fire), splayed feet and a ring
+            // binding them halfway up.
             for (int i = 0; i < 3; i++)
             {
-                MeshKit.Part(root, "Leg" + i, MeshKit.Box(new Vector3(0.06f, 1.0f, 0.06f)), Mat.Steel,
-                    Quaternion.Euler(0f, i * 120f, 0f) * new Vector3(0f, 0.5f, 0.25f), new Vector3(-12f, i * 120f, 0f));
+                var dirL = Quaternion.Euler(0f, i * 120f, 0f);
+                MeshKit.Part(root, "Leg" + i, MeshKit.Box(new Vector3(0.06f, 1.0f, 0.06f)), Mat.Dark,
+                    dirL * new Vector3(0f, 0.5f, 0.25f), new Vector3(-12f, i * 120f, 0f));
+                MeshKit.Part(root, "Foot" + i, MeshKit.Box(new Vector3(0.09f, 0.05f, 0.2f)), Mat.Dark, dirL * new Vector3(0f, 0.025f, 0.38f), new Vector3(0f, i * 120f, 0f));
             }
-            MeshKit.Part(root, "Bowl", MeshKit.Lathe("brazierBowl", new[]
+            MeshKit.Part(root, "LegRing", MeshKit.Cylinder(0.27f, 0.27f, 0.04f, 10), Mat.Dark, new Vector3(0f, 0.45f, 0f));
+            // A blackened iron bowl (bright steel glared white under its own fire).
+            ArtLibrary.Tint(MeshKit.Part(root, "Bowl", MeshKit.Lathe("brazierBowl", new[]
             {
                 new Vector2(0.1f, 0f), new Vector2(0.42f, 0.15f), new Vector2(0.5f, 0.3f), new Vector2(0.44f, 0.3f), new Vector2(0f, 0.18f),
-            }, 10), Mat.Steel, new Vector3(0f, 0.95f, 0f));
+            }, 10), Mat.Steel, new Vector3(0f, 0.95f, 0f)).GetComponent<Renderer>(), new Color(0.34f, 0.31f, 0.29f));
             MeshKit.Part(root, "Coals", MeshKit.Cylinder(0.2f, 0.44f, 0.07f, 10), Mat.Glow, new Vector3(0f, 1.17f, 0f)); // fills the bowl: lower, it hid under the inner steel, which the flame lit to white
             // Embers, not a lamp: a 0.8 m disc at fire x1.4 bloomed into a flat white plate under the flame. Deep, saturated, dim.
             Color.RGBToHSV(fire, out float ch, out float cs, out _);

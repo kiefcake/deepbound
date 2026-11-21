@@ -582,6 +582,7 @@ namespace Deepbound.Player
             // The flail's reach drawn on the floor each beat (first person shows little else of the whirl).
             Vfx.Ring(transform.position + Vector3.up * 0.06f, LitanyRadius, new Color(1f, 0.22f, 0.16f) * (hit ? 1f : 0.7f), LitanyTick * 0.9f);
             if (beat % 3 == 0) Vfx.Embers(transform.position + Vector3.up * 0.4f, 4, Blood, 3f, 0.04f, 0.4f);
+            if (beat % 4 == 0) AbilityFx.Spiral(transform.position, Blood, LitanyRadius * 0.5f, 1.6f, 10, 0.6f);
             if (beat % 2 == 0) Sfx.Play(Sound.Swing, transform.position + Vector3.up, 0.6f, 0.7f + (beat % 3) * 0.06f);
             if (beat % 4 == 0) Sfx.Play(Sound.Chain, transform.position + Vector3.up, 0.5f, 0.9f);
             if (hit)
@@ -600,6 +601,8 @@ namespace Deepbound.Player
             Vfx.Embers(at + Vector3.up * 0.3f, 26, Blood, 6f, 0.06f, 0.8f);
             Vfx.Flash(at + Vector3.up, new Color(1f, 0.3f, 0.2f), 6f, 10f, 0.4f);
             FxSprite.Decal("dirt_02", at, AmenRadius * 1.2f, AmenRadius * 1.3f, 7f, new Color(0.25f, 0.03f, 0.02f, 0.6f));
+            AbilityFx.Burst(at, AmenRadius, new Color(1f, 0.25f, 0.18f), 1.5f);
+            AbilityFx.Column(at, 5f, new Color(1f, 0.25f, 0.18f), 0.9f, 1.4f);
             if (IsOwner) { player.ConfirmHit(2f); player.AddShake(0.4f); }
         }
 
@@ -623,6 +626,7 @@ namespace Deepbound.Player
                 Sfx.Play(Sound.Slam, crashAt, 0.9f, 1.1f);
                 Vfx.Ring(crashAt + Vector3.up * 0.05f, CrashRadius, new Color(1f, 0.5f, 0.35f), 0.35f);
                 Vfx.Embers(crashAt + Vector3.up * 0.2f, 10, new Color(0.7f, 0.6f, 0.5f), 4f, 0.05f, 0.5f);
+                AbilityFx.Burst(crashAt, CrashRadius, new Color(1f, 0.45f, 0.3f), 0.7f);
                 if (IsOwner) { player.ConfirmHit(1.8f); player.AddShake(0.22f); }
             }
             if (hit)
@@ -640,6 +644,10 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Hit, transform.position + Vector3.up * 1.2f, 0.9f, 1.4f);
             Sfx.Play(Sound.Hurt, transform.position + Vector3.up * 1.2f, 0.6f, 0.8f);
             Vfx.Embers(transform.position + Vector3.up * 1.3f - transform.forward * 0.2f, 14, Blood, 3f, 0.05f, 0.6f);
+            // 2026-11-21 (more visual): the lash leaves blood at the feet and zeal rising off the body.
+            FxSprite.Decal("dirt_02", transform.position, 0.7f, 0.9f, 5f, new Color(0.3f, 0.03f, 0.02f, 0.6f));
+            AbilityFx.Spiral(transform.position, Blood, 0.5f, 2.2f, 14, 0.9f);
+            Vfx.Flash(transform.position + Vector3.up * 1.2f, new Color(1f, 0.25f, 0.18f), 3f, 4f, 0.3f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -649,6 +657,9 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Hit, to, 0.8f, 0.9f);
             Transform toT = NetworkManager.SpawnManager.SpawnedObjects.TryGetValue(targetId, out var tobj) ? tobj.transform : null;
             ChainLink.Spawn(from, to, ChainLink.ReachSeconds + haulFor + 0.1f, transform, toT);
+            // 2026-11-21 (more visual): sparks where the hook bites, a flash where it leaves the hand.
+            AbilityFx.Muzzle(player.FxHand, (to - from).normalized, new Color(1f, 0.6f, 0.4f), player.FxHandScale);
+            Vfx.HitImpact(to, from, 0.8f, new Color(1f, 0.65f, 0.4f), Mat.Steel);
             if (dragged) Sfx.Play(Sound.Chain, to, 0.7f, 0.8f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
         }
@@ -663,6 +674,8 @@ namespace Deepbound.Player
             Vfx.Flash(at + Vector3.up, new Color(1f, 0.3f, 0.2f), 4f * k, 8f, 0.35f);
             // The landing cracks the floor and leaves blood on it.
             FxSprite.Decal("dirt_02", at, LeapRadius * 1.3f, LeapRadius * 1.4f, 6f, new Color(0.25f, 0.03f, 0.02f, 0.6f));
+            AbilityFx.Burst(at, LeapRadius, new Color(1f, 0.3f, 0.2f), 0.9f + 0.4f * (k - 1f));
+            Vfx.Smoke(at, 3, LeapRadius * 0.4f, 1.4f);
             if (IsOwner) player.ConfirmHit(1.5f);
         }
     }

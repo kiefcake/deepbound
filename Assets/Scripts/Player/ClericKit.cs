@@ -53,6 +53,7 @@ namespace Deepbound.Player
         private float nextSmite, consecrateReadyAt, aegisReadyAt;
         private float lastServerSmite;
         private BeamVisual beam;
+        private float nextMendMote;
 
         private struct Zone { public Vector3 At; public float Until, NextPillar; public bool Follow; }
         private readonly List<Zone> zones = new List<Zone>();
@@ -486,6 +487,7 @@ namespace Deepbound.Player
         private void SmiteFxRpc(Vector3 origin, Vector3 direction)
         {
             Arrows.SpawnVisual(origin, direction, ProjectileKind.Smite, SmiteSpeed, SmiteRange * RangeMul);
+            AbilityFx.Muzzle(player.FxHand, direction, new Color(1f, 0.85f, 0.45f), player.FxHandScale);
             Sfx.Play(Sound.Frost, origin, 0.45f, 0.7f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
         }
@@ -539,6 +541,11 @@ namespace Deepbound.Player
             if (follow) g.Follow = transform;
             // Runes turning in the hallowed ground for as long as it lasts.
             FxSprite.Decal("magic_05", at, ConsecrateRadius * 1.9f, ConsecrateRadius * 2f, ConsecrateSeconds, new Color(1f, 0.85f, 0.45f, 0.55f), 18f);
+            // 2026-11-21 (more visual): light comes down on the hallowed ground and washes out across it.
+            var gold = new Color(1f, 0.85f, 0.45f);
+            AbilityFx.Cast(transform.position, player.FxHand, gold, 1.2f, 0.8f);
+            AbilityFx.Column(at, 6f, gold, 1.2f, ConsecrateRadius * 0.5f);
+            AbilityFx.Burst(at, ConsecrateRadius, gold, 0.8f);
             Sfx.Play(Sound.Revive, at + Vector3.up, 0.9f, 0.85f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.5f);
         }
@@ -553,6 +560,15 @@ namespace Deepbound.Player
             Vfx.Embers(transform.position + Vector3.up * 0.5f, 16, gold, 3.5f, 0.06f, 0.9f);
             FxSprite.Billboard("light_01", transform.position + Vector3.up * 1.4f, Vector3.up * 0.4f, 0.7f, 1f, 3.2f, new Color(gold.r, gold.g, gold.b, 0.7f));
             player.Rig?.Play(RigAction.Cast, 0.6f);
+            // 2026-11-21 (more visual): a ray of light from the Cleric to each ally the Aegis takes, a column on them.
+            AbilityFx.Cast(transform.position, player.FxHand, gold, 1.3f, 0.8f);
+            foreach (var ally in PlayerLife.All)
+            {
+                if (ally == null || ally.Downed.Value || Vector3.Distance(ally.transform.position, transform.position) > AegisRadius) continue;
+                AbilityFx.Column(ally.transform.position, 2.8f, gold, 0.9f, 0.9f);
+                AbilityFx.Uplift(ally.transform.position, gold, 10);
+                if (ally.gameObject != gameObject) AbilityFx.Streak(transform.position + Vector3.up * 1.3f, ally.transform.position + Vector3.up * 1.2f, gold, 0.8f, 0.5f);
+            }
         }
 
         /// <summary>Every peer draws the beam from its Cleric's hand to the target.</summary>
@@ -572,6 +588,12 @@ namespace Deepbound.Player
             beam.gameObject.SetActive(true);
             var from = IsOwner ? player.AimOrigin + player.AimForward * 0.5f - Vector3.up * 0.25f : transform.position + Vector3.up * 1.4f + transform.forward * 0.4f;
             beam.Set(from, to.position + Vector3.up * 1.1f);
+            // 2026-11-21 (more visual): the mending shows on the one being mended: motes of light rising off them.
+            if (Time.time >= nextMendMote)
+            {
+                nextMendMote = Time.time + 0.12f;
+                AbilityFx.Uplift(to.position, new Color(1f, 0.9f, 0.55f), 2);
+            }
         }
 
         public override void OnDestroy()

@@ -92,6 +92,10 @@ namespace Deepbound.Player
         public Camera Camera => playerCamera;
 
         public Vector3 AimOrigin => playerCamera.transform.position;
+        /// <summary>Where an ability leaves the hand, for effects: low in front of the view for the owner, at the body's hand for others.</summary>
+        public Vector3 FxHand => IsOwner && playerCamera != null ? AimOrigin + AimForward * 1.1f - Vector3.up * 0.3f + playerCamera.transform.right * 0.2f : transform.position + Vector3.up * 1.35f + transform.forward * 0.45f;
+        /// <summary>Hand flares are drawn smaller in your own view (they sit a metre from the eye).</summary>
+        public float FxHandScale => IsOwner ? 0.4f : 1f;
         public Vector3 AimForward => playerCamera.transform.forward;
         private bool selfShown;
         private HumanoidRig selfShownRig;

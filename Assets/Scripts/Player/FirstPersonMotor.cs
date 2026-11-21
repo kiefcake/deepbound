@@ -243,7 +243,14 @@ namespace Deepbound.Player
         /// </summary>
         private Vector2 ConfuseInput(Vector2 v)
         {
-            if (Time.time >= confuseUntil) { confuseMap = Random.Range(1, 6); confuseUntil = Time.time + PlayerDebuffs.ConfuseShuffle; }
+            if (Time.time >= confuseUntil)
+            {
+                // A swap is always to a different scramble (2026-11-21: every 30 s), with a lurch you feel.
+                int was = confuseMap;
+                do confuseMap = Random.Range(1, 6); while (confuseMap == was);
+                confuseUntil = Time.time + PlayerDebuffs.ConfuseShuffle;
+                if (was != 0) { Art.Sfx.Play(Art.Sound.Potion, transform.position + Vector3.up * 1.5f, 0.35f, 0.55f); GetComponent<NetworkPlayer>()?.AddShake(0.15f); }
+            }
             switch (confuseMap)
             {
                 case 1: return new Vector2(v.x, -v.y);  // forward and back swapped

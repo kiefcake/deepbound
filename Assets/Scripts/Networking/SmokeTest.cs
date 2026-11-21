@@ -7957,6 +7957,137 @@ namespace Deepbound.Networking
                 }
                 motor.SetPitch(0f);
             }
+            // -galpart a: every ability's effect (2026-11-21, "make all abilities more visual"): each cast in the biggest
+            // combat room against a stunned skeleton 7 m ahead, shot from a camera off to the side and from your own eyes.
+            if (part.Contains("a"))
+            {
+                dd.ServerDebugStartFloor(0);
+                yield return new WaitForSeconds(4f);
+                foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
+                    if (e != null && e.IsSpawned && !(e is BossBrain)) e.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, e.transform.position, local.NetworkObjectId);
+                var aroom = DungeonDirector.Layout.Rooms.Where(rr => rr.Kind == RoomKind.Combat).OrderByDescending(rr => rr.Size.x * rr.Size.y).First();
+                var along = aroom.Size.x >= aroom.Size.y ? Vector3.right : Vector3.forward;
+                var astand = Art.Vfx.Floor(aroom.Center - along * 4f + Vector3.up * 2f) + Vector3.up * 0.1f;
+                var prog = local.GetComponent<PlayerProgress>();
+                var side = Vector3.Cross(Vector3.up, along);
+                var camGo = new GameObject("GalAbilityCam");
+                var acam = camGo.AddComponent<Camera>();
+                if (local.Camera != null) acam.CopyFrom(local.Camera);
+                acam.depth = 100f; acam.nearClipPlane = 0.05f; acam.fieldOfView = 60f;
+                camGo.AddComponent<UnityEngine.Rendering.Universal.UniversalAdditionalCameraData>().renderPostProcessing = true;
+                camGo.SetActive(false);
+                Health dummy = null;
+                IEnumerator Ready(Classes.ClassId cls)
+                {
+                    prog.ClassId.Value = cls;
+                    local.GetComponent<Health>().ServerSetFraction(1f);
+                    yield return new WaitForSeconds(0.6f);
+                    motor.Teleport(astand, Quaternion.LookRotation(along));
+                    motor.SetPitch(8f);
+                    if (dummy == null || !dummy.IsAlive)
+                    {
+                        var sk = dd.ServerDebugSpawn("skeleton", astand + along * 7f, false);
+                        dummy = sk != null ? sk.GetComponent<Health>() : null;
+                        if (dummy != null) dummy.ServerSetMax(50000f, refill: true);
+                    }
+                    if (dummy != null) { dummy.GetComponent<EnemyBrain>().ServerStun(30f); dummy.ServerSetFraction(1f); }
+                    yield return new WaitForSeconds(0.5f);
+                }
+                IEnumerator Snap(string nm, float wait, bool outside = true)
+                {
+                    yield return new WaitForSeconds(wait);
+                    if (outside)
+                    {
+                        NetworkPlayer.DebugShowSelf = true;
+                        camGo.SetActive(true);
+                        camGo.transform.position = astand + side * 6.5f + along * 2.5f + Vector3.up * 3.2f;
+                        camGo.transform.LookAt(astand + along * 3.5f + Vector3.up * 0.8f);
+                        yield return Shot(dir, "a_" + nm);
+                        camGo.SetActive(false);
+                        NetworkPlayer.DebugShowSelf = false;
+                    }
+                    else yield return Shot(dir, "a_" + nm + "_eye");
+                }
+                Vector3 Eye() => local.Camera != null ? local.Camera.transform.position : local.transform.position + Vector3.up * 1.6f;
+                Vector3 AimAt() => dummy != null ? dummy.Center : astand + along * 7f + Vector3.up;
+
+                yield return Ready(Classes.ClassId.Knight);
+                var kk = local.GetComponent<KnightKit>();
+                kk.ServerBash(local.transform.position + Vector3.up, along);
+                yield return Snap("knight_bash", 0.12f);
+                yield return Ready(Classes.ClassId.Knight);
+                kk.ServerWarCry();
+                yield return Snap("knight_warcry", 0.15f);
+                yield return Snap("knight_warcry", 0.05f, false);
+
+                yield return Ready(Classes.ClassId.Mage);
+                var mk = local.GetComponent<MageKit>();
+                mk.ServerBolt(Eye(), (AimAt() - Eye()).normalized, false);
+                yield return Snap("mage_firebolt", 0.05f, false);
+                yield return new WaitForSeconds(0.3f);
+                yield return Snap("mage_firebolt_hit", 0f);
+                yield return Ready(Classes.ClassId.Mage);
+                mk.ServerBolt(Eye(), (AimAt() - Eye()).normalized, true);
+                yield return Snap("mage_frostbolt_hit", 0.4f);
+                yield return Ready(Classes.ClassId.Mage);
+                mk.ServerWave(along);
+                yield return Snap("mage_wave", 0.25f);
+                yield return Ready(Classes.ClassId.Mage);
+                mk.ServerMeteor(astand + along * 7f);
+                yield return Snap("mage_meteor_warn", 0.4f);
+                yield return Snap("mage_meteor_hit", MageKit.MeteorDelay - 0.3f);
+
+                yield return Ready(Classes.ClassId.Cleric);
+                var ck = local.GetComponent<ClericKit>();
+                ck.ServerConsecrate(astand + along * 3f);
+                yield return Snap("cleric_consecrate", 0.25f);
+                yield return Ready(Classes.ClassId.Cleric);
+                ck.ServerAegis();
+                yield return Snap("cleric_aegis", 0.2f);
+
+                yield return Ready(Classes.ClassId.Rogue);
+                local.GetComponent<RogueKit>().ServerSmoke();
+                yield return Snap("rogue_smoke", 0.15f);
+
+                yield return Ready(Classes.ClassId.Ranger);
+                var rk = local.GetComponent<RangerKit>();
+                rk.ServerShoot(Eye(), (AimAt() - Eye()).normalized, 1f);
+                yield return Snap("ranger_full_draw", 0.06f, false);
+                yield return Ready(Classes.ClassId.Ranger);
+                rk.ServerSnareBurst(astand + along * 7f);
+                yield return Snap("ranger_snare", 0.15f);
+
+                yield return Ready(Classes.ClassId.PlagueDoctor);
+                var pk = local.GetComponent<PlagueDoctorKit>();
+                pk.ServerSplash(astand + along * 6f);
+                yield return Snap("pd_splash", 0.15f);
+                yield return Ready(Classes.ClassId.PlagueDoctor);
+                pk.ServerMiasma(astand + along * 6f);
+                yield return Snap("pd_miasma", 0.3f);
+
+                yield return Ready(Classes.ClassId.Flagellant);
+                var fk = local.GetComponent<FlagellantKit>();
+                fk.ServerScourge();
+                yield return Snap("flag_scourge", 0.15f);
+                yield return Ready(Classes.ClassId.Flagellant);
+                if (dummy != null) fk.ServerChain(dummy);
+                yield return Snap("flag_chain", 0.2f);
+                yield return Ready(Classes.ClassId.Flagellant);
+                fk.ServerLeapCrash(astand + along * 5f);
+                yield return Snap("flag_leap", 0.12f);
+
+                var ultA = local.GetComponent<Ultimates>();
+                foreach (var cls in new[] { Classes.ClassId.Knight, Classes.ClassId.Cleric, Classes.ClassId.Rogue })
+                {
+                    yield return Ready(cls);
+                    ultA.ServerDebugCast(AimAt());
+                    yield return Snap("ult_" + cls.ToString().ToLowerInvariant(), 0.25f);
+                    yield return new WaitForSeconds(2f);
+                }
+                Destroy(camGo);
+                motor.SetPitch(0f);
+                if (dummy != null && dummy.IsSpawned) dummy.NetworkObject.Despawn();
+            }
             var key = new GameObject("GalleryKey").AddComponent<Light>();
             key.type = LightType.Point; key.range = 16f; key.intensity = 3.2f; key.color = new Color(1f, 0.92f, 0.8f);
             UnityEngine.Object.DontDestroyOnLoad(key.gameObject);

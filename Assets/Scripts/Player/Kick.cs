@@ -95,6 +95,13 @@ namespace Deepbound.Player
             if (!IsOwner) player.Rig?.Play(RigAction.Bash, 0.35f);
             Sfx.Play(hit ? Sound.Bash : Sound.Swing, transform.position + transform.forward + Vector3.up, 0.8f, hit ? 0.8f : 1.3f);
             if (hit) Vfx.Smoke(transform.position + transform.forward * 1.6f, 1, 0.4f, 0.8f);
+            // 2026-11-21 (more visual): the boot lands with a crack of dust and grit thrown forward.
+            if (hit)
+            {
+                var foot = transform.position + transform.forward * 1.3f + Vector3.up * 0.6f;
+                Art.Vfx.HitImpact(foot, transform.position, slide ? 1f : 0.6f, new Color(1f, 0.8f, 0.5f), Art.Mat.Rubble);
+                Art.AbilityFx.Cone(transform.position + Vector3.up * 0.5f + transform.forward * 0.6f, transform.forward, slide ? 2.4f : 1.6f, 50f, new Color(0.85f, 0.75f, 0.6f), slide ? 16 : 9);
+            }
         }
     }
 }

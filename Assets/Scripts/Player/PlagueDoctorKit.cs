@@ -388,6 +388,19 @@ namespace Deepbound.Player
                 Vfx.Smoke(p + Vector3.up * 0.6f, 2, 1.2f, 2f);
             }
             Vfx.Embers(at + Vector3.up, 30, Plague, 6f, 0.06f, 1f);
+            // 2026-11-21 (more visual): a sickly pillar where it takes, the ground welling, and a thread of
+            // plague to every creature it reaches (who is plagued, at a glance).
+            AbilityFx.Column(at, 7f, Plague, 1.4f, 1.6f);
+            AbilityFx.Bubbles(at, radius * 0.6f, Plague, 24);
+            AbilityFx.Burst(at, radius, Plague, 1.1f, mark: true);
+            int threads = 0;
+            foreach (var h in Health.All)
+            {
+                if (threads >= 10) break;
+                if (h == null || h.Team != Team.Enemies || !h.IsAlive || Vector3.Distance(h.transform.position, at) > radius) continue;
+                AbilityFx.Streak(at + Vector3.up * 1.2f, h.Center, Plague, 0.7f, 0.6f);
+                threads++;
+            }
             UI.GameHud.ShowCombo(at + Vector3.up * 2.4f, "PANDEMIC", Plague);
             if (IsOwner) player.AddShake(0.3f);
         }
@@ -399,6 +412,8 @@ namespace Deepbound.Player
             Vfx.Ring(at + Vector3.up * 0.1f, PandemicSpread, Plague, 0.45f);
             Vfx.Smoke(at + Vector3.up * 0.8f, 3, 1f, 1.8f);
             Vfx.Embers(at + Vector3.up, 14, Plague, 4f, 0.05f, 0.7f);
+            AbilityFx.Bubbles(at, 1.5f, Plague, 10);
+            AbilityFx.Burst(at, PandemicSpread * 0.5f, Plague, 0.6f);
         }
 
         private static readonly List<PlagueDoctorKit> all = new List<PlagueDoctorKit>();
@@ -545,6 +560,7 @@ namespace Deepbound.Player
         private void VialFxRpc(Vector3 origin, Vector3 direction, bool tonic)
         {
             Arrows.SpawnVisual(origin, direction, tonic ? ProjectileKind.Tonic : ProjectileKind.Vial, VialSpeed, VialRange * RangeMul, VialGravity);
+            AbilityFx.Muzzle(player.FxHand, direction, tonic ? TonicColor : Plague, player.FxHandScale);
             if (!IsOwner) { player.Rig?.Play(RigAction.Cast, 0.25f); Sfx.Play(Sound.Swing, transform.position, 0.35f, 1.7f); }
         }
 
@@ -557,6 +573,9 @@ namespace Deepbound.Player
             Vfx.Ring(at + Vector3.up * 0.05f, radius, c, 0.35f);
             Vfx.Embers(at + Vector3.up * 0.3f, 10, c, 2.5f, 0.05f, 0.7f);
             if (tonic) SmokeCloud.Spawn(at, radius * 0.8f, 0.9f, TonicColor);
+            // 2026-11-21 (more visual): it bubbles where it breaks; a plague vial stains the floor a while.
+            AbilityFx.Bubbles(at, radius, c, tonic ? 6 : 10);
+            AbilityFx.Burst(at, radius, c, 0.5f, mark: !tonic);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -569,6 +588,8 @@ namespace Deepbound.Player
             if (shownClouds.Count > 40) { var stale = new List<int>(); foreach (var kv in shownClouds) if (kv.Value == null) stale.Add(kv.Key); foreach (var k in stale) shownClouds.Remove(k); }
             Vfx.Ring(at + Vector3.up * 0.05f, radius, black ? new Color(0.25f, 0.6f, 0.15f) : Plague, 0.5f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.3f);
+            AbilityFx.Bubbles(at, radius, Plague, 14);
+            AbilityFx.Burst(at, radius, Plague, 0.5f, mark: true);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -581,6 +602,7 @@ namespace Deepbound.Player
         private void ContagionFxRpc(Vector3 at)
         {
             Vfx.Embers(at + Vector3.up, 12, Plague, 3f, 0.05f, 0.7f);
+            AbilityFx.Bubbles(at, 1.2f, Plague, 8);
             UI.GameHud.ShowCombo(at + Vector3.up * 1.4f, "CONTAGION", Plague);
         }
 
@@ -591,6 +613,16 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Whisper, at + Vector3.up, 0.6f, 1.3f);
             Vfx.Ring(at + Vector3.up * 0.05f, MaskRadius, new Color(0.7f, 1f, 0.65f), 0.5f);
             Vfx.Embers(at + Vector3.up, 16, new Color(0.75f, 1f, 0.7f), 3f, 0.05f, 0.8f);
+            // 2026-11-21 (more visual): pale green light on everyone the mask cleanses and wards.
+            var pale = new Color(0.7f, 1f, 0.65f);
+            AbilityFx.Cast(at, player.FxHand, pale, 1.2f, 0.8f);
+            foreach (var ally in PlayerLife.All)
+            {
+                if (ally == null || ally.Downed.Value || Vector3.Distance(ally.transform.position, at) > MaskRadius) continue;
+                AbilityFx.Column(ally.transform.position, 2.6f, pale, 0.9f, 0.9f);
+                AbilityFx.Uplift(ally.transform.position, pale, 8);
+                if (ally.gameObject != gameObject) AbilityFx.Streak(at + Vector3.up * 1.3f, ally.transform.position + Vector3.up * 1.2f, pale, 0.7f, 0.45f);
+            }
         }
     }
 }

@@ -389,6 +389,18 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Relic, transform.position + Vector3.up * 1.5f, 1f, 0.8f);
             Vfx.Flash(transform.position + Vector3.up * 1.6f, c, 6f, 8f, 0.5f);
             Vfx.Ring(transform.position, 3f, c, 0.45f);
+            // 2026-11-21 (more visual): every ultimate is announced the same way, in the class's colour: a great rune
+            // circle, a pillar of light on the caster and motes climbing round them, so the whole party sees it.
+            AbilityFx.Cast(transform.position, player.FxHand, c, 2.2f, 1.2f);
+            AbilityFx.Column(transform.position, 8f, c, 1.2f, 1.8f);
+            AbilityFx.Spiral(transform.position, c, 1.2f, 3.5f, 20, 1.3f);
+            if ((ClassId)cls == ClassId.Cleric)
+                foreach (var ally in PlayerLife.All)
+                    if (ally != null && Vector3.Distance(ally.transform.position, transform.position) <= 18f)
+                    {
+                        AbilityFx.Column(ally.transform.position, 4f, c, 1.2f, 1.1f);
+                        AbilityFx.Uplift(ally.transform.position, c, 12);
+                    }
             // Your own ultimate needs no feed line (it filled the feed); an ally's does.
             if (!IsOwner) UI.GameHud.Feed(name + ": " + Name((ClassId)cls).ToUpperInvariant() + "!", c);
         }
@@ -407,6 +419,7 @@ namespace Deepbound.Player
         {
             RallyBanner.Spawn(at, NetworkPlayer.SlotColors[(int)(OwnerClientId % 4)], 8f, BannerRadius);
             FxSprite.Decal("circle_02", at, BannerRadius * 1.9f, BannerRadius * 2f, 8f, new Color(1f, 0.8f, 0.4f, 0.35f), 10f);
+            AbilityFx.Burst(at, BannerRadius, new Color(1f, 0.8f, 0.4f), 1.1f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -414,6 +427,7 @@ namespace Deepbound.Player
         {
             Telegraph.Show(at, MageKit.MeteorRadius, MageKit.MeteorDelay + 0.4f, null, new Color(1f, 0.5f, 0.15f, 0.3f));
             MeteorFall.Spawn(at, MageKit.MeteorDelay + 0.4f * 0f, 1000 + i);
+            FxSprite.MagicCircle(at, MageKit.MeteorRadius * 0.7f, MageKit.MeteorDelay, new Color(1f, 0.5f, 0.15f));
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -421,6 +435,7 @@ namespace Deepbound.Player
         {
             Sfx.Play(Sound.Slam, at, 1f, 0.8f);
             MeteorImpact.Spawn(at, MageKit.MeteorRadius, false);
+            AbilityFx.Burst(at, MageKit.MeteorRadius, new Color(1f, 0.5f, 0.15f), 1.2f);
             var local = NetworkPlayer.Local;
             if (local != null && Vector3.Distance(local.transform.position, at) < 14f) local.AddShake(0.4f);
         }
@@ -433,6 +448,9 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Whisper, at, 0.8f, 0.6f);
             Vfx.Flash(at, c, 5f, 6f, 0.35f);
             Vfx.Embers(at, 18, c, 5f, 0.05f, 0.6f);
+            AbilityFx.Streak(transform.position + Vector3.up * 1.2f, at, c, 1.3f, 0.6f);
+            AbilityFx.Burst(at, 2f, c, 1.2f);
+            FxSprite.Billboard("twirl_02", at, Vector3.zero, 0.45f, 0.3f, 2.2f, new Color(c.r, c.g, c.b, 0.8f), -700f);
             if (IsOwner) player.ConfirmHit(2f);
         }
 
@@ -440,6 +458,7 @@ namespace Deepbound.Player
         private void RainWarnRpc(Vector3 at, float radius)
         {
             Telegraph.Show(at, radius, 4.3f, null, new Color(0.55f, 0.95f, 0.5f, 0.22f));
+            FxSprite.MagicCircle(at, radius * 0.7f, 4.3f, new Color(0.55f, 0.95f, 0.5f));
             Sfx.Play(Sound.Bow, at + Vector3.up * 3f, 1f, 0.7f);
         }
 
@@ -451,6 +470,7 @@ namespace Deepbound.Player
             {
                 var p = at + Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward * Random.Range(0f, radius);
                 Arrows.SpawnVisual(p + new Vector3(0.6f, 9f, 0.4f), Vector3.down + new Vector3(-0.06f, 0f, -0.04f), ProjectileKind.Arrow, 30f);
+                if (i < 2) Vfx.Smoke(p, 1, 0.25f, 0.7f);
             }
         }
     }

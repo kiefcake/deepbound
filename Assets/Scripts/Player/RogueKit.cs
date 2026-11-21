@@ -581,6 +581,7 @@ namespace Deepbound.Player
         {
             // As many knives as the server threw (the Duelist's mastery throws five; three were drawn).
             for (int i = -spread; i <= spread; i++) Arrows.SpawnVisual(origin, Quaternion.Euler(0f, i * 7f, 0f) * direction, ProjectileKind.Knife, FanSpeed, FanRange * RangeMul, FanGravity);
+            AbilityFx.Muzzle(player.FxHand, direction, new Color(0.8f, 0.75f, 1f), player.FxHandScale + 0.2f);
             Sfx.Play(Sound.Bow, origin, 0.6f, 1.6f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
         }
@@ -597,6 +598,8 @@ namespace Deepbound.Player
             Vfx.Embers(to + Vector3.up, 10, shadow, 3f, 0.05f, 0.6f);
             FxSprite.Billboard("twirl_02", from + Vector3.up, Vector3.zero, 0.35f, 1.1f, 0.1f, new Color(0.35f, 0.2f, 0.6f, 0.85f), 600f);
             FxSprite.Billboard("twirl_02", to + Vector3.up, Vector3.zero, 0.35f, 0.2f, 1.2f, new Color(0.35f, 0.2f, 0.6f, 0.7f), -600f);
+            // 2026-11-21 (more visual): the path through the dark, drawn as a streak of shadow.
+            AbilityFx.Streak(from + Vector3.up, to + Vector3.up, shadow, 1.1f, 0.55f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -608,6 +611,7 @@ namespace Deepbound.Player
             Vfx.Ring(at, SmokeCloudRadius, new Color(0.5f, 0.42f, 0.65f), 0.35f);
             Vfx.Embers(at + Vector3.up * 0.5f, 12, new Color(0.6f, 0.4f, 0.95f), 4f, 0.05f, 0.6f);
             SmokeCloud.Spawn(at, SmokeCloudRadius, seconds);
+            AbilityFx.Burst(at, SmokeCloudRadius, new Color(0.6f, 0.4f, 0.95f), 0.8f);
             if (IsOwner) hiddenFor = seconds;
         }
 
@@ -628,6 +632,7 @@ namespace Deepbound.Player
             UI.GameHud.Feed("Ambush!", new Color(0.75f, 0.55f, 1f));
             Vfx.Flash(at, new Color(0.7f, 0.4f, 1f), 5f, 5f, 0.3f);
             Vfx.Embers(at, 14, new Color(0.75f, 0.45f, 1f), 5f, 0.06f, 0.6f);
+            AbilityFx.Burst(at, 1.4f, new Color(0.75f, 0.45f, 1f), 0.9f);
         }
     }
 }

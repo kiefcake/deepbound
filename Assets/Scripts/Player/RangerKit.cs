@@ -441,6 +441,12 @@ namespace Deepbound.Player
         {
             Arrows.SpawnVisual(origin, direction, ProjectileKind.Arrow, ArrowSpeed * (0.7f + 0.3f * charge), ArrowRange(charge, RangeMul), ArrowGravity(charge));
             Sfx.Play(Sound.Bow, origin, 0.6f + 0.4f * charge, 1.2f - 0.3f * charge);
+            // 2026-11-21 (more visual): a full draw leaves the bow with a flash and a trail of light.
+            if (charge > 0.9f)
+            {
+                AbilityFx.Muzzle(player.FxHand, direction, new Color(0.55f, 0.95f, 0.5f), player.FxHandScale + 0.3f);
+                AbilityFx.Streak(origin + direction * 1.2f, origin + direction * 6f, new Color(0.6f, 1f, 0.55f), 0.6f, 0.3f);
+            }
             if (!IsOwner) player.Rig?.Play(RigAction.Draw, 0.2f);
         }
 
@@ -448,6 +454,7 @@ namespace Deepbound.Player
         private void SnareShotFxRpc(Vector3 origin, Vector3 direction)
         {
             Arrows.SpawnVisual(origin, direction, ProjectileKind.Arrow, SnareSpeed, SnareRange * RangeMul, SnareGravity);
+            AbilityFx.Muzzle(player.FxHand, direction, new Color(0.85f, 0.7f, 0.45f), player.FxHandScale + 0.2f);
             Sfx.Play(Sound.Bow, origin, 0.85f, 0.75f);
             if (!IsOwner) player.Rig?.Play(RigAction.Draw, 0.2f);
         }
@@ -459,6 +466,9 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Chain, at + Vector3.up * 0.4f, 0.7f, 1.25f);
             if (caught > 0) Sfx.Play(Sound.Block, at + Vector3.up * 0.4f, 0.6f, 0.8f);
             Vfx.Ring(at + Vector3.up * 0.04f, radius, new Color(0.62f, 0.5f, 0.32f), 0.35f);
+            // 2026-11-21 (more visual): the net slaps down: grit and a burst along the floor.
+            AbilityFx.Burst(at, radius, new Color(0.85f, 0.7f, 0.45f), caught > 0 ? 1f : 0.6f);
+            Vfx.Smoke(at, 2, radius * 0.4f, 1.2f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -466,6 +476,8 @@ namespace Deepbound.Player
         {
             Sfx.Play(Sound.Dodge, transform.position + Vector3.up, 0.8f, 0.9f);
             SmokePuff.Spawn(transform.position, 0.5f);
+            AbilityFx.Burst(transform.position, 1.6f, new Color(0.7f, 0.95f, 0.6f), 0.6f);
+            AbilityFx.Cone(transform.position + Vector3.up * 0.3f, transform.forward, 1.8f, 70f, new Color(0.75f, 0.7f, 0.55f), 12);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -484,6 +496,10 @@ namespace Deepbound.Player
         {
             Telegraph.Show(at, VolleyRadius, VolleyDelay, null, Telegraph.Friendly);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.5f);
+            // 2026-11-21 (more visual): the Ranger looses skyward; a hunter's sigil marks where it all comes down.
+            var green = new Color(0.55f, 0.95f, 0.5f);
+            AbilityFx.Muzzle(player.FxHand, Vector3.up, green, player.FxHandScale + 0.4f);
+            FxSprite.MagicCircle(at, VolleyRadius * 0.7f, VolleyDelay + 1f, green);
         }
 
         /// <summary>Each wave: a handful of arrows dropping out of the dark onto the circle.</summary>
@@ -495,6 +511,7 @@ namespace Deepbound.Player
                 var land = at + new Vector3(Random.Range(-1f, 1f), 0f, Random.Range(-1f, 1f)) * VolleyRadius * 0.8f;
                 var from = land + new Vector3(Random.Range(-1.5f, 1.5f), 7f, Random.Range(-1.5f, 1.5f));
                 Arrows.SpawnVisual(from, land - from, ProjectileKind.Arrow, 26f);
+                if (i < 3) Vfx.Smoke(land, 1, 0.25f, 0.8f);
             }
             Sfx.Play(Sound.Hit, at + Vector3.up, 0.5f, 1.4f);
         }

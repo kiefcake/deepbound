@@ -521,6 +521,9 @@ namespace Deepbound.Player
             var front = transform.position + transform.forward * 1.6f;
             Vfx.Ring(front, 2.2f, new Color(1f, 0.9f, 0.7f), 0.3f);
             Vfx.Smoke(front, 2, 0.6f, 1f);
+            // 2026-11-21 (more visual): the shove fans out off the shield face, and the floor ahead takes it.
+            AbilityFx.Cone(transform.position + Vector3.up * 1.1f + transform.forward * 0.6f, transform.forward, 2.6f, 60f, new Color(1f, 0.85f, 0.55f), 20);
+            AbilityFx.Burst(front, 1.6f, new Color(1f, 0.85f, 0.55f), 0.7f);
             Vfx.Embers(front + Vector3.up, 6, new Color(1f, 0.8f, 0.5f), 4f, 0.05f, 0.5f);
         }
 
@@ -588,6 +591,20 @@ namespace Deepbound.Player
             Vfx.Ring(transform.position, r, new Color(1f, 0.45f, 0.2f), 0.55f);
             Vfx.Ring(transform.position, r * 0.6f, new Color(1f, 0.8f, 0.4f), 0.35f);
             Vfx.Flash(transform.position + Vector3.up * 1.6f, new Color(1f, 0.55f, 0.25f), 5f, 8f, 0.4f);
+            // 2026-11-21 (more visual): the roar under the Knight's feet, the ground taking it, and a line of fury to
+            // every foe it pulls (the taunt you can see).
+            var cry = new Color(1f, 0.45f, 0.2f);
+            AbilityFx.Cast(transform.position, player.FxHand, cry, 1.5f, 0.9f);
+            AbilityFx.Burst(transform.position, r * 0.45f, cry, 1.2f);
+            FxSprite.Billboard("circle_05", transform.position + Vector3.up * 1.6f + transform.forward * 0.3f, Vector3.zero, 0.45f, 0.4f, 4.5f, new Color(1f, 0.6f, 0.3f, 0.6f));
+            int lines = 0;
+            foreach (var h in Health.All)
+            {
+                if (lines >= 8) break;
+                if (h == null || h.Team != Team.Enemies || !h.IsAlive || Vector3.Distance(h.transform.position, transform.position) > r) continue;
+                AbilityFx.Streak(h.Center, transform.position + Vector3.up * 1.3f, cry, 0.8f, 0.5f);
+                lines++;
+            }
         }
 
         /// <summary>Bulwark and War Cry. Runs inside Health.ServerDamage, after DEF.</summary>

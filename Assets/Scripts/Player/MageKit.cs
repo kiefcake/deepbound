@@ -518,6 +518,8 @@ namespace Deepbound.Player
         {
             if (ring) for (int i = 0; i < 4; i++) TidalWave.Spawn(from, Quaternion.Euler(0f, i * 90f, 0f) * dir, length, 90f, WaveSeconds, wet);
             else TidalWave.Spawn(from, dir, length, WaveArc, WaveSeconds, wet);
+            AbilityFx.Cast(transform.position, player.FxHand, new Color(0.35f, 0.65f, 1f), 1.3f, 0.7f);
+            AbilityFx.Cone(from + Vector3.up * 0.4f, dir, length * 0.5f, ring ? 360f : WaveArc, new Color(0.55f, 0.8f, 1f), 22);
             Sfx.Play(Sound.Splash, from + Vector3.up, 1f, 0.75f);
             Sfx.Play(Sound.Splash, from + dir * (length * 0.5f) + Vector3.up, 0.8f, 0.6f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.4f);
@@ -619,6 +621,7 @@ namespace Deepbound.Player
         private void BoltFxRpc(Vector3 origin, Vector3 direction, bool frost)
         {
             Arrows.SpawnVisual(origin, direction, frost ? ProjectileKind.Frostbolt : ProjectileKind.Firebolt, frost ? FrostboltSpeed : FireboltSpeed, (frost ? FrostboltRange : FireboltRange) * RangeMul);
+            AbilityFx.Muzzle(player.FxHand, direction, frost ? new Color(0.55f, 0.85f, 1f) : new Color(1f, 0.5f, 0.15f), player.FxHandScale + (frost ? 0.3f : 0f));
             Sfx.Play(frost ? Sound.Frost : Sound.Fire, origin, 0.55f);
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
         }
@@ -633,6 +636,10 @@ namespace Deepbound.Player
             Vfx.Embers(at, frost ? 6 : 8, frost ? ice : fire, 4f, 0.05f, 0.5f);
             if (!frost) Vfx.Fireball(at, shatter ? 1.4f : 0.8f, fire);
             if (shatter) Vfx.Embers(at, 14, ice, 7f, 0.08f, 0.8f);
+            // 2026-11-21 (more visual): where a bolt lands it marks the floor: a rime crown for frost, a scorch for fire.
+            AbilityFx.Burst(at, shatter ? 2f : 1.1f, frost ? ice : fire, shatter ? 1.2f : 0.5f);
+            if (frost) Vfx.IceSpikes(Vfx.Floor(at), shatter ? 1.4f : 0.7f, shatter ? 12 : 6);
+            else FxSprite.Scorch(at, shatter ? 0.8f : 0.45f);
             if (IsOwner) player.ConfirmHit(shatter ? 1.5f : 0.5f);
         }
 
@@ -647,6 +654,11 @@ namespace Deepbound.Player
             if (twin) MeteorFall.Spawn(at, MeteorDelay, seed + 1, 0.7f);
             // The caster's hand flares as the sky answers.
             if (IsOwner) Vfx.Flash(player.AimOrigin + player.AimForward * 0.6f, new Color(1f, 0.5f, 0.15f), 4f, 4f, 0.5f);
+            // 2026-11-21 (more visual): runes under the caster, and a burning sigil turning on the spot until it lands.
+            var fire = new Color(1f, 0.5f, 0.15f);
+            AbilityFx.Cast(transform.position, player.FxHand, fire, 1.4f, 1f);
+            FxSprite.MagicCircle(at, MeteorRadius * 0.7f, MeteorDelay, fire);
+            AbilityFx.Column(at, 6f, fire, MeteorDelay, 1.2f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -661,6 +673,7 @@ namespace Deepbound.Player
                 if (d < 20f) local.AddShake(Mathf.Lerp(0.6f, 0.1f, d / 20f));
             }
             MeteorImpact.Spawn(at, radius, shattered);
+            AbilityFx.Burst(at, radius, shattered ? new Color(0.55f, 0.85f, 1f) : new Color(1f, 0.5f, 0.15f), 1.3f);
         }
     }
 
