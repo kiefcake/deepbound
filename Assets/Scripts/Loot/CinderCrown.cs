@@ -12,7 +12,7 @@ namespace Deepbound.Loot
     /// </summary>
     public static class CinderCrown
     {
-        public const float Radius = 1.6f, Seconds = 4f, PerTick = 6f;
+        public const float Radius = 1.6f, Seconds = 4f, PerTick = 6f, RebornHeal = 0.015f;
         private struct Patch { public Vector3 At; public float Until; public ulong By; public float Hit; }
         private static readonly List<Patch> patches = new List<Patch>();
         private static float nextTick;
@@ -41,6 +41,14 @@ namespace Deepbound.Loot
             {
                 var pt = patches[i];
                 if (Time.time > pt.Until) { patches.RemoveAt(i); continue; }
+                // Reborn in Flame (Cinder Crown + Phoenix Feather): the bearer mends standing in their own fire.
+                var nm = Unity.Netcode.NetworkManager.Singleton;
+                if (nm != null && nm.SpawnManager.SpawnedObjects.TryGetValue(pt.By, out var owner) && owner.TryGetComponent<PlayerProgress>(out var pp)
+                    && Relics.Has(pp, Relics.Synergy.RebornInFlame) && owner.TryGetComponent<Health>(out var oh) && oh.IsAlive)
+                {
+                    var d = owner.transform.position - pt.At; d.y = 0f;
+                    if (d.magnitude <= Radius) oh.ServerHeal(oh.Max.Value * RebornHeal);
+                }
                 foreach (var foe in CombatQuery.Circle(pt.At, Radius, Team.Enemies))
                 {
                     if (foe == null || !foe.IsAlive) continue;

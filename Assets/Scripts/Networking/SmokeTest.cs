@@ -2443,6 +2443,22 @@ namespace Deepbound.Networking
                                 bool scorched = sh != null && sh.Scorched.Value;
                                 if (sh != null && sh.IsAlive) sh.ServerDamage(1e6f, local.transform.position, local.NetworkObjectId);
                                 if (!had) cp.ServerRemoveRelic(Relic.CinderCrown);
+                                // Reborn in Flame: the bearer standing in their own patch mends.
+                                {
+                                    bool hadPh = cp.HasRelic(Relic.PhoenixFeather);
+                                    if (!cp.HasRelic(Relic.CinderCrown)) cp.ServerAddRelic(Relic.CinderCrown);
+                                    if (!hadPh) cp.ServerAddRelic(Relic.PhoenixFeather);
+                                    var myH = local.GetComponent<Health>();
+                                    myH.ServerSetFraction(0.6f);
+                                    float rb0 = myH.Current.Value;
+                                    Loot.CinderCrown.ServerDrop(cp, local.transform.position);
+                                    yield return new WaitForSeconds(1.2f);
+                                    float rb1 = myH.Current.Value;
+                                    if (!hadPh) cp.ServerRemoveRelic(Relic.PhoenixFeather);
+                                    if (!had) cp.ServerRemoveRelic(Relic.CinderCrown);
+                                    myH.ServerSetFraction(1f);
+                                    Log("reborn in flame", "standing in own patch " + rb0.ToString("F0") + " -> " + rb1.ToString("F0"), rb1 > rb0);
+                                }
                                 Log("cinder crown", "patches " + live0 + " -> " + live1 + ", foe in it " + hp0.ToString("F0") + " -> " + hp1.ToString("F0") + ", scorched " + scorched,
                                     live1 > live0 && hp1 < hp0);
                             }
