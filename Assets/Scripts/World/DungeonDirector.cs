@@ -488,8 +488,8 @@ namespace Deepbound.World
         public LootDrop ServerDropLootGet(Vector3 at, LootKind kind, int amount, Vector3? from = null, bool settle = true, bool fixedSum = false)
         {
             if (lootPrefab == null) return null;
-            if (!fixedSum && kind == LootKind.Gold) amount = Enemies.Difficulty.Gold(Mathf.RoundToInt(amount * Enemies.Difficulty.DropCut));
-            if (!fixedSum && kind == LootKind.Embers) amount = Enemies.Difficulty.Embers(Mathf.RoundToInt(amount * Enemies.Difficulty.DropCut));
+            if (!fixedSum && kind == LootKind.Gold) amount = Enemies.Difficulty.Gold(Mathf.RoundToInt(amount * Enemies.Difficulty.CoinCut));
+            if (!fixedSum && kind == LootKind.Embers) amount = Enemies.Difficulty.Embers(Mathf.RoundToInt(amount * Enemies.Difficulty.CoinCut));
             var place = settle ? DropSpots.Settle(from ?? at, at) : at + Vector3.up * 0.05f;
             var obj = Instantiate(lootPrefab, place, Quaternion.identity);
             var drop = obj.GetComponent<LootDrop>();

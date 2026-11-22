@@ -1403,8 +1403,10 @@ namespace Deepbound.UI
             var dd = DungeonDirector.Instance;
             if (dd == null || Unity.Netcode.NetworkManager.Singleton == null) return;
             var phase = dd.Phase.Value;
+            if (lastPhase != RunPhase.Exploring && phase == RunPhase.Exploring) FloorReport.Begin();
             if (lastPhase == RunPhase.Exploring && phase == RunPhase.FloorCleared)
             {
+                FloorReport.Finish(CurrentDepth() + 1);
                 float took = (float)(Unity.Netcode.NetworkManager.Singleton.ServerTime.Time - dd.FloorBegan.Value);
                 if (floorTimesRun != dd.RunStartedAt.Value) { floorTimesRun = dd.RunStartedAt.Value; FloorTimes.Clear(); }
                 FloorTimes.Add(took);
@@ -1661,6 +1663,7 @@ namespace Deepbound.UI
             UiTimer.Mark("DrawCampReadouts");
             DrawRecords(w, h);
             UiTimer.Mark("DrawRecords");
+            FloorReport.Draw(w, h);
             DrawHidden(w, h);
             UiTimer.Mark("DrawHidden");
             DrawPings(w, h);
@@ -2008,7 +2011,10 @@ namespace Deepbound.UI
                 UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.85f), 10, FontStyle.Bold, TextAnchor.MiddleRight));
             string resHint = kit.ResourceHint;
             if (!string.IsNullOrEmpty(resHint))
-                GUI.Label(new Rect(x + 6, y + 29, bw * 0.62f, 16), resHint, UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.8f), 10, FontStyle.Normal, TextAnchor.MiddleLeft));
+            {
+                var hintSt = UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.8f), 10, FontStyle.Normal, TextAnchor.MiddleLeft);
+                GUI.Label(new Rect(x + 6, y + 29, bw * 0.62f, 16), UiSkin.Fit(resHint, hintSt, bw * 0.62f), hintSt);
+            }
             string cls = progress.Class.Name.ToUpperInvariant();
             string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
             var infoLine = UiSkin.Derive(small, small.normal.textColor, 0, null, null, false);
@@ -3069,7 +3075,7 @@ namespace Deepbound.UI
                 var slot = ysTab == 0 ? AbilitySlot.Q : AbilitySlot.E;
                 int rank = progress.Rank(slot);
                 var intro = new GUIStyle(body) { fontSize = 13, normal = { textColor = new Color(0.78f, 0.76f, 0.72f) } };
-                GUI.Label(new Rect(x + 20, top, pw - 40, 20), "Each rank from 2 to 5 is a choice of two. What you take is kept for the run; the other is gone. Every rank also adds +15% strength and 6% off the cooldown.", intro);
+                GUI.Label(new Rect(x + 20, top, pw - 40, 20), "Each rank from 2 to 5 offers a choice of two upgrades, locked for the run. Every rank also grants +15% potency and 6% cooldown reduction.", intro);
                 top += 28f;
                 float labelW = 120f, gap = 10f, cardW = (pw - 40f - labelW - gap * 2f) / 2f;
                 var nameSt = new GUIStyle(label) { fontSize = 15, fontStyle = FontStyle.Bold, wordWrap = false };

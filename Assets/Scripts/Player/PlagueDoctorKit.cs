@@ -251,7 +251,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.Owner)]
         private void HarvestRpc(float amount) => Reagents = Mathf.Min(ReagentMax, Reagents + amount);
 
-        public string ResourceHint => Reagents >= VialCost ? "vials blight  ·  blighted kills refill" : "DILUTE: vials won't blight";
+        public string ResourceHint => Reagents >= VialCost ? "Vials apply Blight  ·  Blighted kills restore reagents" : "Depleted: vials will not Blight";
 
         /// <summary>Server: throw one vial. Public for the smoke test.</summary>
         public void ServerVial(Vector3 origin, Vector3 direction, bool dilute = false)

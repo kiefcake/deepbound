@@ -6,12 +6,13 @@ namespace Deepbound.Enemies
     /// play together: stun or chill a Warded elite to break its ward, Mark a Vampiric one
     /// to stop it healing, chill a Swift one to bring it back to walking pace.
     /// </summary>
-    public enum EliteAffix : byte { None = 0, Warded = 1, Vampiric = 2, Volatile = 3, Swift = 4, Splitting = 5, Thorned = 6, Frenzied = 7, Gravebound = 8, Hushing = 9, Concussive = 10, Soulbound = 11 }
+    public enum EliteAffix : byte { None = 0, Warded = 1, Vampiric = 2, Volatile = 3, Swift = 4, Splitting = 5, Thorned = 6, Frenzied = 7, Gravebound = 8, Hushing = 9, Concussive = 10, Soulbound = 11, Emberbound = 12 }
 
     public static class EliteAffixes
     {
-        /// <summary>Affixes rolled at random (1..Count). SOULBOUND comes after: only the director binds a pair.</summary>
-        public const int Count = 10;
+        /// <summary>Affixes rolled at random: 1..10 and EMBERBOUND (12). SOULBOUND (11) is never rolled: only the director binds a pair.</summary>
+        public const int Count = 11;
+        public static EliteAffix Roll() { int r = UnityEngine.Random.Range(1, Count + 1); return r == 11 ? EliteAffix.Emberbound : (EliteAffix)r; }
 
         public static string Tag(EliteAffix a)
         {
@@ -28,6 +29,7 @@ namespace Deepbound.Enemies
                 case EliteAffix.Hushing: return "HUSHING";
                 case EliteAffix.Concussive: return "CONCUSSIVE";
                 case EliteAffix.Soulbound: return "SOULBOUND";
+                case EliteAffix.Emberbound: return "EMBERBOUND";
                 default: return "";
             }
         }
@@ -46,6 +48,7 @@ namespace Deepbound.Enemies
                 case EliteAffix.Hushing: return "C7C7FF";
                 case EliteAffix.Concussive: return "F2D98C";
                 case EliteAffix.Soulbound: return "C4D6FF";
+                case EliteAffix.Emberbound: return "FF7A2A";
                 default: return "9AF0A0";
             }
         }

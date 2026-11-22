@@ -81,7 +81,7 @@ namespace Deepbound.Player
         public ClassId Class => ClassId.Flagellant;
         public string ResourceName => "Fervor";
         /// <summary>Fervor in a few words: what it adds now, and that the Leap spends it (2026-11-22, "explain flagellant bar").</summary>
-        public string ResourceHint => Fervor.Value < 1f ? "hit or be hit to build" : "+" + Mathf.RoundToInt(Fervor.Value / 5f) + "% dmg  ·  Leap spends it";
+        public string ResourceHint => Fervor.Value < 1f ? "Builds from dealing and taking damage" : "+" + Mathf.RoundToInt(Fervor.Value / 5f) + "% damage  ·  Spent by Penitent Leap";
         public Color ResourceColor => new Color(0.9f, 0.2f, 0.15f);
         public float Resource => Fervor.Value;
         public float ResourceMax => FervorMax;

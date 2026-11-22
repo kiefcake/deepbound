@@ -77,17 +77,80 @@ namespace Deepbound.Player
         {
             switch (cls)
             {
-                case ClassId.Mage: return "Five meteors rain around the crosshair over two seconds.";
-                case ClassId.Cleric: return "Raise every downed ally within 18 m; heal the party to at least 70% and shield it.";
-                case ClassId.Rogue: return "Step behind the enemy you aim at and strike: a huge backstab that leaves it Exposed.";
-                case ClassId.Ranger: return "Loose a spirit arrow that splits into two wyrms: they coil straight ahead through walls for 44 m, savaging and chilling everything they pass.";
-                case ClassId.Flagellant: return "For 6 s your flail whirls round you on its own, scourging everything near; you move faster, take a fifth less and hit 30% harder. It ends in a crash that stuns.";
-                case ClassId.PlagueDoctor: return "Every enemy within 12 m is struck with the plague: a burst, heavy rot for 10 s and 25% more damage from all. A plagued death bursts and passes it on. Allies nearby are healed 20%.";
-                default: return "Plant a war banner: allies near it take 35% less damage and deal 20% more for 8 s.";
+                case ClassId.Mage: return "Five meteors strike around the target point over two seconds.";
+                case ClassId.Cleric: return "Revive all downed allies within 18 m, heal the party to at least 70%, and shield it.";
+                case ClassId.Rogue: return "Teleport behind the targeted enemy for a massive backstab that leaves it Exposed.";
+                case ClassId.Ranger: return "Fire a spirit arrow that splits into two wyrms, passing through walls for 44 m and damaging and chilling every enemy in their path.";
+                case ClassId.Flagellant: return "For 6 s your flail whirls around you, striking nearby enemies. You move faster, take 20% less damage and deal 30% more. Ends in a stunning Crash.";
+                case ClassId.PlagueDoctor: return "Infect all enemies within 12 m with plague: heavy damage over 10 s and 25% more damage taken from all sources. It spreads on death. Nearby allies are healed for 20%.";
+                default: return "Plant a war banner: nearby allies take 35% less damage and deal 20% more for 8 s.";
             }
         }
 
         public bool Ready => Charge.Value >= ChargeMax;
+
+        // ---- CONVERGENCE (2026-11-22, "perma cook new things"; the user wants the classes to play well together) ----
+        /// <summary>
+        /// Two different players casting their ultimates within <see cref="ConvergeWindow"/> s and <see cref="ConvergeRange"/> m
+        /// of each other CONVERGE: a burst at the point between them (<see cref="ConvergeRadius"/> m, damage scaling with depth)
+        /// stuns every enemy for <see cref="ConvergeStun"/> s, and every player within 25 m gains Bloodlust for
+        /// <see cref="ConvergeBloodlust"/> s. A cast converges once.
+        /// </summary>
+        public const float ConvergeWindow = 4f, ConvergeRange = 20f, ConvergeRadius = 9f, ConvergeStun = 1.5f, ConvergeBloodlust = 8f, ConvergeDamage = 45f;
+        private struct UltCast { public ulong Who; public Vector3 At; public float Time; public byte Cls; public bool Used; public float Star; }
+        private static readonly List<UltCast> recentCasts = new List<UltCast>();
+
+        /// <summary>Server: note a cast; true (and the partner) if it converges with another player's recent one.</summary>
+        public static bool ServerNoteCast(ulong who, Vector3 at, byte cls, float now, out Vector3 partnerAt, out byte partnerCls) =>
+            ServerNoteCast(who, at, cls, now, 0f, out partnerAt, out partnerCls, out _);
+
+        /// <summary><paramref name="star"/>: this caster's Convergent Star power (0 without it); the stronger of the pair is returned.</summary>
+        public static bool ServerNoteCast(ulong who, Vector3 at, byte cls, float now, float star, out Vector3 partnerAt, out byte partnerCls, out float pairStar)
+        {
+            partnerAt = at; partnerCls = cls; pairStar = star;
+            recentCasts.RemoveAll(c => now - c.Time > ConvergeWindow);
+            int found = -1;
+            for (int i = recentCasts.Count - 1; i >= 0; i--)
+            {
+                var c = recentCasts[i];
+                if (c.Used || c.Who == who || Vector3.Distance(c.At, at) > ConvergeRange) continue;
+                found = i; break;
+            }
+            if (found >= 0)
+            {
+                var c = recentCasts[found];
+                c.Used = true; recentCasts[found] = c;
+                partnerAt = c.At; partnerCls = c.Cls; pairStar = Mathf.Max(star, c.Star);
+            }
+            recentCasts.Add(new UltCast { Who = who, At = at, Time = now, Cls = cls, Used = found >= 0, Star = star });
+            return found >= 0;
+        }
+
+        private void ServerConverge(Vector3 partnerAt, byte partnerCls, float star = 0f)
+        {
+            // Convergent Star: +50% radius and stun (scaled by its tier) when either caster carries it.
+            float grow = 1f + 0.5f * star;
+            var mid = (transform.position + partnerAt) * 0.5f;
+            if (UnityEngine.AI.NavMesh.SamplePosition(mid, out var nh, 3f, UnityEngine.AI.NavMesh.AllAreas)) mid = nh.position;
+            int depth = DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0;
+            float dmg = ConvergeDamage * (1f + 0.6f * DungeonDirector.Tier(depth));
+            AbilityKit.Blast(mid, ConvergeRadius * grow, dmg, NetworkObjectId, "Convergence", h => AbilityKit.Stun(h, ConvergeStun * grow));
+            double until = NetworkManager.ServerTime.Time + ConvergeBloodlust;
+            foreach (var p in PlayerLife.All)
+                if (p != null && !p.Downed.Value && Vector3.Distance(p.transform.position, mid) < 25f && p.TryGetComponent<PlayerProgress>(out var pp))
+                    pp.BloodlustEnds.Value = System.Math.Max(pp.BloodlustEnds.Value, until);
+            Combos.Popup(life.Health, ComboKind.Convergence, progress);
+            ConvergenceFxRpc(mid, (byte)progress.ClassId.Value, partnerCls, ConvergeRadius * grow);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ConvergenceFxRpc(Vector3 at, byte clsA, byte clsB, float radius)
+        {
+            Sfx.Play(Sound.Toll, at + Vector3.up, 0.9f, 1.3f);
+            Sfx.Play(Sound.Slam, at, 0.8f, 0.7f);
+            ClassFx.Convergence(Vfx.Floor(at), UI.CharacterSelect.Accent((ClassId)clsA), UI.CharacterSelect.Accent((ClassId)clsB), radius);
+            if (NetworkPlayer.Local != null && Vector3.Distance(NetworkPlayer.Local.transform.position, at) < 25f) NetworkPlayer.Local.AddShake(0.35f);
+        }
 
         /// <summary>Dev menu 'ult' (host, 2026-11-22, the user: "a command for full ultimate, let me test them in spawn"):
         /// the bar refills itself and ultimates cast in camp too.</summary>
@@ -146,7 +209,7 @@ namespace Deepbound.Player
             if (progress.HasRelic(Relic.WarlordsHorn)) amount *= 1f + 0.5f * progress.RelicPower(Relic.WarlordsHorn);
             if (progress.HasRelic(Relic.EchoStone)) amount *= 1f + 0.2f * progress.RelicPower(Relic.EchoStone);
             if (progress.Wears(GearId.RosaryOfAsh)) amount *= 1.35f;
-            amount *= DungeonDirector.OmenUltCharge;
+            amount *= DungeonDirector.OmenUltCharge * DungeonDirector.EventUltCharge;
             // The Rogue's Death From Shadow fills faster (2026-11-12, the user): an assassin lives on the opening.
             if (progress.ClassId.Value == ClassId.Rogue) amount *= RogueChargeScale;
             Charge.Value = Mathf.Min(ChargeMax, Charge.Value + amount);
@@ -275,6 +338,8 @@ namespace Deepbound.Player
                     break;
             }
             CastFxRpc((byte)cls);
+            float myStar = progress.HasRelic(Relic.ConvergentStar) ? progress.RelicPower(Relic.ConvergentStar) : 0f;
+            if (ServerNoteCast(OwnerClientId, transform.position, (byte)cls, Time.time, myStar, out var partnerAt, out var partnerCls, out var pairStar)) ServerConverge(partnerAt, partnerCls, pairStar);
         }
 
         private IEnumerator Cataclysm(Vector3 center, float att)

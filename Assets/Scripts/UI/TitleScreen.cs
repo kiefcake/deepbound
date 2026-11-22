@@ -112,14 +112,15 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
-            "Pets help out: each has a trick (light, purring, coins, chests, elites...)",
-            "Plague Doctor reagents matter: run dry and vials dilute; blighted kills refill",
-            "Class draughts are gone: the pouch is Health, Frost Flask and Holy Water",
-            "Ysolde's stones: each ability's whole path, rank by rank, on its own tab",
-            "New character select cards; an UNSTUCK button in the pause menu",
-            "Softer ability light; the hearth brazier is a coal fire, not a blinding torch",
-            "New combos: PURGE (Cleric on blight), PLAGUE CRASH (Flagellant spreads it)",
-            "Endless Descent: each lap past floor 10 adds a new danger",
+            "Convergence: two ultimates cast together unleash a stunning burst",
+            "Pets: every companion now has its own perk",
+            "Ranger Focus builds to a Deadeye shot; frontal Rogue stabs cost Energy",
+            "Plague Doctor vials cost reagents; Blighted kills restore them",
+            "Class draughts removed: the pouch holds Health, Frost Flask and Holy Water",
+            "Ysolde's stones: one tab per ability, with the full upgrade path",
+            "New character select cards, clearer descriptions, and an Unstuck button",
+            "Reduced ability brightness; reworked hearth braziers",
+            "Gold and ember drops increased by 15%",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)

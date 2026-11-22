@@ -526,6 +526,23 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.4f);
                 }
                 Log("ranger mark", "marked " + dummy.Marked.Value + ", dummy " + dummy.Current.Value.ToString("F0") + " / " + dummy.Max.Value.ToString("F0"), dummy.Marked.Value);
+                // FOCUS builds as arrows land; a DEADEYE (spent Focus) hits far harder (2026-11-22).
+                {
+                    float focus = ranger.Focus;
+                    dummy.ServerSetFraction(1f);
+                    var o = me.transform.position + Vector3.up * 1.6f;
+                    float deHp0 = dummy.Current.Value;
+                    ranger.ServerShoot(o, dummy.Center - o, 1f);
+                    yield return new WaitForSeconds(0.5f);
+                    float plain = deHp0 - dummy.Current.Value;
+                    dummy.ServerSetFraction(1f);
+                    deHp0 = dummy.Current.Value;
+                    ranger.ServerShoot(o, dummy.Center - o, 1f, true);
+                    yield return new WaitForSeconds(0.5f);
+                    float dead = deHp0 - dummy.Current.Value;
+                    Log("ranger deadeye", "focus after three hits " + focus.ToString("F0") + ", full draw " + plain.ToString("F0") + ", deadeye " + dead.ToString("F0"),
+                        focus > 10f && plain > 0f && dead > plain * 1.4f);
+                }
                 // Snare Shot: the net-arrow bursts on the dummy, catches it, and the next arrow hits 25% harder.
                 dummy.ServerSetFraction(1f);
                 {
@@ -2340,6 +2357,23 @@ namespace Deepbound.Networking
                                 bool smoulders = tideFoe.Scorched.Value;
                                 dd.ServerDebugEvent(FloorEvent.None);
                                 Log("embertide", "struck foe scorched " + smoulders + ", player damage x" + Health.FloorPlayerDamageScale.ToString("F2") + " after", smoulders && Mathf.Approximately(Health.FloorPlayerDamageScale, 1f));
+                            }
+                            // ASCENDANT and THE RESTLESS DEAD (2026-11-22).
+                            {
+                                dd.ServerDebugEvent(FloorEvent.Ascendant);
+                                float ultX = DungeonDirector.EventUltCharge, hurtX = Health.FloorPlayerDamageScale;
+                                dd.ServerDebugEvent(FloorEvent.Restless);
+                                DungeonDirector.ForceRestless = true;
+                                int piles0 = dd.GraveboundPilesMade;
+                                var rest = dd.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 6f, false);
+                                var restH = rest != null ? rest.GetComponent<Health>() : null;
+                                if (restH != null) restH.ServerDamage(restH.Max.Value * 10f, local.transform.position, local.NetworkObjectId);
+                                yield return new WaitForSeconds(0.3f);
+                                int piles1 = dd.GraveboundPilesMade;
+                                DungeonDirector.ForceRestless = false;
+                                dd.ServerDebugEvent(FloorEvent.None);
+                                Log("ascendant and restless", "ascendant ult x" + ultX.ToString("F2") + " hurt x" + hurtX.ToString("F2") + ", restless piles " + piles0 + " -> " + piles1 + ", names '" + DungeonDirector.EventName(FloorEvent.Ascendant) + "' '" + DungeonDirector.EventName(FloorEvent.Restless) + "'",
+                                    Mathf.Approximately(ultX, 1.5f) && Mathf.Approximately(hurtX, 1.1f) && piles1 > piles0 && DungeonDirector.EventName(FloorEvent.Restless).Length > 0);
                             }
                             Log("floor event", "blood tithe hit " + plain.ToString("F1") + " -> " + tithe.ToString("F1") + ", kill mends " + mended + ", back to none " + (DungeonDirector.CurrentEvent == FloorEvent.None),
                                 (plain <= 0f || tithe > plain) && mended && DungeonDirector.CurrentEvent == FloorEvent.None);
@@ -5431,6 +5465,63 @@ namespace Deepbound.Networking
                     if (crashNear != null && crashNear.IsSpawned) crashNear.NetworkObject.Despawn();
                 }
 
+                // EMBERBOUND (2026-11-22): the elite leaves burning patches that hurt players standing in them.
+                {
+                    var emb = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f, false);
+                    var embLife = local.GetComponent<PlayerLife>();
+                    if (embLife.Downed.Value) { embLife.ServerRevive(1f); yield return null; }
+                    var embHp = local.GetComponent<Health>();
+                    float e0 = 0f, e1 = 0f; int patches = 0; string tag = "";
+                    if (emb != null)
+                    {
+                        emb.ServerMakeElite(EliteAffix.Emberbound);
+                        tag = EliteAffixes.Tag(emb.AffixKind);
+                        embHp.ServerSetFraction(1f);
+                        e0 = embHp.Current.Value;
+                        emb.ServerDropEmber(local.transform.position);
+                        patches = emb.EmberPatchCount;
+                        yield return new WaitForSeconds(1.1f);
+                        e1 = embHp.Current.Value;
+                        emb.NetworkObject.Despawn();
+                        embHp.ServerSetFraction(1f);
+                    }
+                    Log("emberbound", tag + ": patches " + patches + ", standing in it " + e0.ToString("F0") + " -> " + e1.ToString("F0"), tag == "EMBERBOUND" && patches == 1 && e1 < e0);
+                }
+
+                // CONVERGENCE (2026-11-22): two players' ultimates close in time and space converge; one alone, the same
+                // player twice, too far apart or too late do not.
+                {
+                    var c0 = new Vector3(5000f, 0f, 5000f);
+                    float t0 = Time.time + 10000f;
+                    bool alone = Ultimates.ServerNoteCast(901, c0, 0, t0, out _, out _);
+                    bool samePlayer = Ultimates.ServerNoteCast(901, c0 + Vector3.right, 0, t0 + 1f, out _, out _);
+                    bool far = Ultimates.ServerNoteCast(902, c0 + Vector3.right * 40f, 1, t0 + 1.5f, out _, out _);
+                    bool pair = Ultimates.ServerNoteCast(903, c0 + Vector3.right * 6f, 2, t0 + 2f, out var pAt, out var pCls);
+                    bool late = Ultimates.ServerNoteCast(904, c0, 3, t0 + 20f, out _, out _);
+                    // Plague Censer: a hit on a Blighted enemy restores a sliver of health.
+                    var cenProg = local.GetComponent<PlayerProgress>();
+                    var cenHp = local.GetComponent<Health>();
+                    var cenLife = local.GetComponent<PlayerLife>();
+                    if (cenLife.Downed.Value) { cenLife.ServerRevive(1f); yield return null; }
+                    var cenFoe = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 5f, false);
+                    float cen0 = 0f, cen1 = 0f;
+                    if (cenFoe != null && cenProg.ServerAddRelic(Loot.Relic.PlagueCenser))
+                    {
+                        var cfh = cenFoe.GetComponent<Health>();
+                        cfh.ServerBlight(4f, PlagueDoctorKit.BlightDps, local.NetworkObjectId);
+                        cenHp.ServerSetFraction(0.5f);
+                        cen0 = cenHp.Current.Value;
+                        Classes.Combos.ServerMultiplier(cfh, cenProg);
+                        cen1 = cenHp.Current.Value;
+                        cenProg.ServerRemoveRelic(Loot.Relic.PlagueCenser);
+                        cenHp.ServerSetFraction(1f);
+                    }
+                    if (cenFoe != null && cenFoe.IsSpawned) cenFoe.NetworkObject.Despawn();
+                    Log("plague censer", "health " + cen0.ToString("F1") + " -> " + cen1.ToString("F1"), cen1 > cen0);
+                    Log("convergence", "alone " + alone + ", same player " + samePlayer + ", 40 m apart " + far + ", pair " + pair + " (partner class " + pCls + "), 18 s late " + late,
+                        !alone && !samePlayer && !far && pair && pCls == 0 && !late);
+                }
+
                 // DILUTE vials, PET PERKS and UNSTUCK (2026-11-22).
                 {
                     var pdk = local.GetComponent<PlagueDoctorKit>();
@@ -5461,6 +5552,24 @@ namespace Deepbound.Networking
                     bool poisonedFirst = pdeb.Poisoned;
                     yield return new WaitForSeconds(0.8f);
                     bool gulped = !pdeb.Poisoned;
+                    // Mimic Pup: a chest opened near you may cough up a Health Potion. Ember Salamander: whatever hits you is scorched.
+                    local.PetKind.Value = (byte)PetCompanion.Kind.MimicPup;
+                    PetPerks.ForceChance = true;
+                    int pots0 = LootDrop.All.Count(d => d != null && d.Kind.Value == LootKind.PotionHP);
+                    PetPerks.ServerChestOpened(local.transform.position);
+                    int pots1 = LootDrop.All.Count(d => d != null && d.Kind.Value == LootKind.PotionHP);
+                    PetPerks.ForceChance = false;
+                    local.PetKind.Value = (byte)PetCompanion.Kind.Salamander;
+                    var sal = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 1.5f, false);
+                    bool salScorched = false;
+                    if (sal != null)
+                    {
+                        yield return null;
+                        local.GetComponent<Health>().ServerDamage(1f, sal.transform.position, sal.NetworkObjectId);
+                        salScorched = sal.GetComponent<Health>().Scorched.Value;
+                        sal.NetworkObject.Despawn();
+                    }
+                    Log("new pets", "mimic pup potions " + pots0 + " -> " + pots1 + ", salamander scorched the attacker " + salScorched, pots1 > pots0 && salScorched);
                     local.PetKind.Value = oldPet;
                     string mothLine = PetPerks.Short(PetCompanion.Kind.Moth);
                     Log("pet perks", "(was downed " + wasDowned + ") poisoned " + poisonedFirst + " -> toad gulped " + gulped + "; wardrobe lines e.g. '" + mothLine + "'",
@@ -7976,6 +8085,20 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.9f);
                         Debug.Log("[Gallery] centrepiece shot from " + local.transform.position + " cam " + (Art.ViewCamera.Current != null ? Art.ViewCamera.Current.transform.position.ToString() : "?") + " looking " + (Art.ViewCamera.Current != null ? Art.ViewCamera.Current.transform.forward.ToString() : "?"));
                         yield return Shot(dir, "k" + depth + "_" + kk);
+                        // The hearth lit, close (2026-11-22: reworked after the user's screenshot of a blinding one).
+                        if (kk == Centrepieces.Kind.Hearth)
+                        {
+                            var hearth = FindObjectsByType<HearthBrazier>(FindObjectsSortMode.None).OrderBy(x => Vector3.Distance(x.transform.position, rmK.Center)).FirstOrDefault();
+                            if (hearth != null)
+                            {
+                                hearth.ServerLight();
+                                var nearK = rmK.Center + Flat3(cornerK - rmK.Center).normalized * 4.5f;
+                                motor.Teleport(Art.Vfx.Floor(nearK + Vector3.up * 2f) + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(rmK.Center - nearK)));
+                                motor.SetPitch(10f);
+                                yield return new WaitForSeconds(1.2f);
+                                yield return Shot(dir, "k" + depth + "_" + kk + "_lit_near");
+                            }
+                        }
                     }
                 }
                 motor.SetPitch(0f);
@@ -8277,6 +8400,9 @@ namespace Deepbound.Networking
                 rgk.ServerShoot(Eye(), AimDir(), 1f);
                 yield return Snap("ranger_full_draw", 0.08f);
                 yield return Ready(Classes.ClassId.Ranger);
+                rgk.ServerShoot(Eye(), AimDir(), 1f, true);
+                yield return Snap("ranger_deadeye", 0.1f);
+                yield return Ready(Classes.ClassId.Ranger);
                 rgk.ServerSnareBurst(astand + along * 6f);
                 yield return Snap("ranger_snare", 0.2f);
                 yield return Ready(Classes.ClassId.Ranger);
@@ -8293,6 +8419,19 @@ namespace Deepbound.Networking
                 yield return Ready(Classes.ClassId.Ranger);
                 ultA.ServerDebugCast(astand + along * 10f);
                 yield return Snap("ult_ranger", 1.1f);
+
+                // ---- 2026-11-22: Convergence, Emberbound ----
+                yield return Ready(Classes.ClassId.Knight, 3);
+                Art.ClassFx.Convergence(Art.Vfx.Floor(astand + along * 6f), UI.CharacterSelect.Accent(Classes.ClassId.Knight), UI.CharacterSelect.Accent(Classes.ClassId.Mage), Ultimates.ConvergeRadius);
+                yield return Snap("convergence_1", 0.15f);
+                yield return Snap("convergence_2", 0.35f);
+                yield return Ready(Classes.ClassId.Knight);
+                if (dummy != null && dummy.TryGetComponent<EnemyBrain>(out var embB))
+                {
+                    embB.ServerMakeElite(EliteAffix.Emberbound);
+                    for (int ei = 0; ei < 4; ei++) embB.ServerDropEmber(astand + along * (3f + ei * 1.4f) + side * (ei % 2 == 0 ? 0.6f : -0.6f));
+                }
+                yield return Snap("emberbound", 1.2f);
 
                 NetworkPlayer.DebugShowSelf = false;
                 Destroy(camGo);

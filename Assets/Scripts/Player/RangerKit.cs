@@ -52,9 +52,10 @@ namespace Deepbound.Player
         /// DEADEYE: x<see cref="DeadeyeDamage"/> damage, and it spends the bar.
         /// </summary>
         public const float FocusPerHit = 9f, FocusFullDraw = 7f, FocusHold = 5f, FocusFade = 8f, DeadeyeDamage = 2.2f;
-        private float lastFocusGain = -99f;
+        private float lastFocusGain = -99f, nextDeadeyeGlint;
+        private bool deadeyeWasReady;
         public bool DeadeyeReady => Focus >= FocusMax - 0.5f;
-        public string ResourceHint => DeadeyeReady ? "DEADEYE: loose a full draw" : "land arrows to fill  ·  full = Deadeye";
+        public string ResourceHint => DeadeyeReady ? "Deadeye ready: release a full draw" : "Builds from landed arrows  ·  Full: Deadeye";
 
         /// <summary>Server -> owner: an arrow landed; build Focus.</summary>
         [Rpc(SendTo.Owner)]
@@ -127,6 +128,17 @@ namespace Deepbound.Player
             }
 
             if (Time.time - lastFocusGain > FocusHold && Focus > 0f) Focus = Mathf.Max(0f, Focus - FocusFade * Time.deltaTime);
+            // Show, don't tell: a ready Deadeye glints gold at the bow hand (and chimes once when it fills).
+            if (DeadeyeReady)
+            {
+                if (!deadeyeWasReady) { Sfx.Play2D(Sound.Relic, 0.5f); deadeyeWasReady = true; }
+                if (Time.time >= nextDeadeyeGlint)
+                {
+                    nextDeadeyeGlint = Time.time + 0.5f;
+                    ClassFx.Glint(player.FxHand, new Color(1f, 0.9f, 0.5f), 0.35f, 0.25f, Random.Range(0f, 90f));
+                }
+            }
+            else deadeyeWasReady = false;
             // Drawing a bow slows you; that is the price of the big shot.
             motor.SpeedMultiplier = progress.SpeedMultiplier * (drawStart >= 0f ? 0.6f : 1f);
             motor.CanSprint = drawStart < 0f;
@@ -236,7 +248,7 @@ namespace Deepbound.Player
                 }, pierce && !blast, ArrowRange(charge, RangeMul), ArrowGravity(charge), blast ? at => { if (this != null) ServerBlasthead(at, charge, dmg); } : (System.Action<Vector3>)null);
                 if (a != 0) ShotFxRpc(origin, dir, charge);
             }
-            ShotFxRpc(origin, direction, charge);
+            ShotFxRpc(origin, direction, charge, deadeye);
         }
 
         /// <summary>Hunter's Mark: three hits on the same enemy in a row marks it.</summary>
@@ -454,12 +466,17 @@ namespace Deepbound.Player
         // ==================================================================
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void ShotFxRpc(Vector3 origin, Vector3 direction, float charge)
+        private void ShotFxRpc(Vector3 origin, Vector3 direction, float charge, bool deadeye = false)
         {
+            if (deadeye)
+            {
+                ClassFx.Deadeye(origin, direction, Mathf.Min(20f, ArrowRange(charge, RangeMul)));
+                Sfx.Play(Sound.Shatter, origin, 0.6f, 1.6f);
+            }
             Arrows.SpawnVisual(origin, direction, ProjectileKind.Arrow, ArrowSpeed * (0.7f + 0.3f * charge), ArrowRange(charge, RangeMul), ArrowGravity(charge));
             Sfx.Play(Sound.Bow, origin, 0.6f + 0.4f * charge, 1.2f - 0.3f * charge);
             // A full draw pierces: it leaves a green streak through everything in line (2026-11-22).
-            if (charge > 0.9f) ClassFx.PiercingShot(origin, direction, Mathf.Min(16f, ArrowRange(charge, RangeMul)));
+            if (!deadeye && charge > 0.9f) ClassFx.PiercingShot(origin, direction, Mathf.Min(16f, ArrowRange(charge, RangeMul)));
             if (!IsOwner) player.Rig?.Play(RigAction.Draw, 0.2f);
         }
 

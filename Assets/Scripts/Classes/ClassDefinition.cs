@@ -94,89 +94,89 @@ namespace Deepbound.Classes
         public static (string key, string name, string desc)[] Kit(ClassId id) => id == ClassId.Flagellant
             ? new[]
             {
-                ("PASSIVE", "Mortification", "The more wounded you are, the harder you hit (up to +40%). Every hit heals you a little."),
-                ("LMB", "Flail", "Heavy swinging arcs. Every third swing is an overhead CRASH that bursts where it lands."),
-                ("RMB", "Scourge", "Lash yourself: lose 10% health, gain Fervor and ZEAL (faster, harder swings) for 5 s."),
-                ("Q", "Chains of Penance", "Drag the enemy under your crosshair to you, stunned. Too heavy to move? It drags you."),
-                ("E", "Penitent Leap", "Leap at the crosshair and crash down. Spends all your Fervor for damage."),
+                ("PASSIVE", "Mortification", "Deal up to 40% more damage as your health drops. Every hit restores a little health."),
+                ("LMB", "Flail", "Wide, heavy swings. Every third swing is an overhead Crash that bursts on impact."),
+                ("RMB", "Scourge", "Sacrifice 10% health to gain Fervor and Zeal: faster, stronger swings for 5 s."),
+                ("Q", "Chains of Penance", "Pull the targeted enemy to you and stun it. Heavy enemies pull you to them instead."),
+                ("E", "Penitent Leap", "Leap to the target point and slam down, spending all Fervor for bonus damage."),
             }
             : id == ClassId.PlagueDoctor
             ? new[]
             {
-                ("PASSIVE", "Contagion", "Vials BLIGHT the dead: poison, and +10% damage from everyone. A blighted death spreads it."),
-                ("LMB", "Vial", "Lob vials in an arc; they shatter in a small splash where they land. Each costs reagents: run dry and they DILUTE (weak, no blight). Blighted kills refill you."),
-                ("RMB", "Tonic", "Lob a tonic: a healing mist for every ally where it bursts, you included."),
-                ("Q", "Miasma", "A lingering plague cloud at your crosshair that rots anything inside."),
-                ("E", "Plague Mask", "Cleanse every ally nearby, heal them, and ward them against afflictions for 4 s."),
+                ("PASSIVE", "Contagion", "Vials inflict Blight: poison damage, and the target takes 10% more damage from all sources. Blight spreads when its host dies."),
+                ("LMB", "Vial", "Lob a vial that shatters in a small splash. Costs reagents; without them, vials deal reduced damage and do not Blight. Blighted kills restore reagents."),
+                ("RMB", "Tonic", "Lob a tonic that heals all allies caught in its burst, including you."),
+                ("Q", "Miasma", "Create a lingering plague cloud that damages enemies inside it."),
+                ("E", "Plague Mask", "Cleanse and heal nearby allies, and make them immune to afflictions for 4 s."),
             }
             : id == ClassId.Ranger
             ? new[]
             {
-                ("PASSIVE", "Hunter's Mark", "Three hits on one enemy mark it: +25% damage from everyone."),
-                ("LMB", "Longbow", "Hold to draw, release to loose. A full draw pierces."),
-                ("RMB", "Disengage", "Leap backwards out of reach."),
-                ("Q", "Snare Shot", "Loose a weighted net: everything where it lands is held and hurt, and your arrows hit it 25% harder."),
-                ("E", "Volley", "Rain arrows on the circle at your crosshair."),
+                ("PASSIVE", "Hunter's Mark", "Three consecutive hits Mark an enemy: it takes 25% more damage from all sources. Landed arrows build Focus; at full Focus, your next full draw is a Deadeye shot (2.2x damage)."),
+                ("LMB", "Longbow", "Hold to draw, release to fire. Fully drawn arrows pierce."),
+                ("RMB", "Disengage", "Leap backwards out of danger."),
+                ("Q", "Snare Shot", "Fire a weighted net that roots and damages enemies where it lands. Snared enemies take 25% more damage from your arrows."),
+                ("E", "Volley", "Rain arrows on the target area."),
             }
             : id == ClassId.Rogue
             ? new[]
             {
-                ("PASSIVE", "Ambush", "Hits from behind deal a further +50% (+30% on bosses). Your crosshair turns violet when the foe in reach has its back to you."),
-                ("LMB", "Twin Daggers", "Very fast, short stabs, one target at a time."),
+                ("PASSIVE", "Ambush", "Attacks from behind deal 50% more damage (30% against bosses) and cost no Energy. Frontal stabs cost Energy; at zero you are Winded and attack slower. Your crosshair turns violet when you are behind a target."),
+                ("LMB", "Twin Daggers", "Rapid, short-range stabs against a single target."),
                 ("RMB", "Fan of Knives", "Throw three knives in a narrow spread."),
-                ("Q", "Shadowstep", "Reappear behind the enemy under your crosshair. No enemy there: dash a few metres the way you look (half the cooldown)."),
-                ("E", "Smoke Bomb", "Vanish: enemies lose you. For 3 s nothing can target you while you stand in the cloud, even after you strike. Your first strike from the smoke deals double and stuns."),
+                ("Q", "Shadowstep", "Teleport behind the targeted enemy. With no target, dash a short distance forward at half the cooldown."),
+                ("E", "Smoke Bomb", "Vanish and lose all enemies. You cannot be targeted inside the cloud for 3 s, even after attacking. Your first strike from the smoke deals double damage and stuns."),
             }
             : id == ClassId.Cleric
             ? new[]
             {
-                ("PASSIVE", "Grace", "You revive fallen allies twice as fast."),
-                ("LMB", "Smite", "Hurl bolts of holy light (+35% when you fight alone)."),
-                ("RMB", "Mending Beam", "Hold on an ally to heal them. Aim at nothing to heal yourself, slowly."),
-                ("Q", "Consecrate", "Bless the ground: allies inside heal, enemies inside burn."),
-                ("E", "Divine Aegis", "Shield every ally nearby against the next 60 damage."),
+                ("PASSIVE", "Grace", "Revive downed allies twice as fast."),
+                ("LMB", "Smite", "Fire bolts of holy light. Deals 35% more damage when playing solo."),
+                ("RMB", "Mending Beam", "Hold on an ally to heal them; with no target, slowly heal yourself. Drains mana while active."),
+                ("Q", "Consecrate", "Bless an area: allies inside are healed and enemies inside burn."),
+                ("E", "Divine Aegis", "Shield all nearby allies against the next 60 damage."),
             }
             : id == ClassId.Mage
             ? new[]
             {
-                ("PASSIVE", "Shatter", "Fire on a chilled enemy deals +75% and consumes the chill."),
-                ("LMB", "Firebolt", "Hold to hurl fast bolts of fire. Costs no mana."),
-                ("RMB", "Frostbolt", "A heavy bolt that hits hard and chills: the target is slowed and primed to shatter."),
-                ("Q", "Tidal Wave", "A wave flows out in front of you, washing the dead back and stunning them for half a second. On a flooded floor, or standing in water, it hits harder and stuns for a full second."),
-                ("E", "Meteor", "Call down a meteor at your crosshair. Shatters everything chilled beneath it."),
+                ("PASSIVE", "Shatter", "Fire damage against a chilled enemy deals 75% more and consumes the chill."),
+                ("LMB", "Firebolt", "Hold to cast rapid firebolts. Costs no mana."),
+                ("RMB", "Frostbolt", "A heavy bolt that chills the target, slowing it and priming it to Shatter."),
+                ("Q", "Tidal Wave", "Send a wave forward that pushes enemies back and stuns them for 0.5 s. In water it hits harder and stuns for 1 s."),
+                ("E", "Meteor", "Call a meteor down on the target point. Shatters every chilled enemy in the blast."),
             }
             : new[]
             {
-                ("PASSIVE", "Bulwark", "Blocking stops 80% of damage from the front, at a stamina cost. Swing within 1.6 s of a block to COUNTER for x1.4."),
-                ("LMB", "Sword Swing", "A quick wind-up, then a wide arc. Alternates sides (+25% when you fight alone)."),
-                ("RMB", "Block", "Hold to raise your shield. Slows you while held."),
-                ("Q", "Shield Bash", "Lunge and stun. Cancels enemy wind-ups — even a boss's."),
-                ("E", "War Cry", "Taunt every enemy nearby onto you and halve the damage you take."),
+                ("PASSIVE", "Bulwark", "Blocking negates 80% of frontal damage at a stamina cost. Attacking within 1.6 s of a block Counters for 40% more damage."),
+                ("LMB", "Sword Swing", "A wide sweeping arc that alternates sides. Deals 25% more damage when playing solo."),
+                ("RMB", "Block", "Hold to raise your shield. Reduces movement speed."),
+                ("Q", "Shield Bash", "Lunge forward and stun the target. Interrupts enemy attacks, including those of bosses."),
+                ("E", "War Cry", "Taunt all nearby enemies and halve the damage you take."),
             };
 
         /// <summary>How the class plays with the others (see <see cref="Combos"/>).</summary>
         public static string ComboLine(ClassId id) => id == ClassId.Flagellant
-            ? "Chains pull stragglers into the Knight's and Mage's reach; crashes Shatter chill, and a crash on a blighted enemy is a PLAGUE CRASH (the rot spreads). Your Scourge heals allies at Penitent mastery."
+            ? "Chains pull enemies into your allies' reach. Crashes Shatter chilled enemies, and a Crash on a Blighted enemy spreads the Blight to everything nearby (Plague Crash)."
             : id == ClassId.PlagueDoctor
-            ? "Blight makes the dead take +10% from everyone and spreads on death. The Cleric PURGES blighted foes (+25%); the Flagellant's crash spreads your blight. The Mask cleanses curses, poison and mania."
+            ? "Blighted enemies take 10% more damage from all sources. The Cleric deals 25% more to them (Purge), and the Flagellant's Crash spreads your Blight. Plague Mask removes curses, poison and mania."
             : id == ClassId.Mage
-            ? "Frost chills for everyone's heavy hits to Shatter. Your fire Shatters for x1.75; Meteor feasts on stunned crowds."
+            ? "Frost chills enemies so any heavy hit can Shatter them. Your fire Shatters for 75% bonus damage, and Meteor excels against stunned groups."
             : id == ClassId.Cleric
-            ? "Consecrate Blesses allies inside (+20% damage); the ally in your Mending Beam is Inspired (+15%). A broken Aegis shield bursts. Your holy hits PURGE the Plague Doctor's blight (+25%)."
+            ? "Allies in Consecrate deal 20% more damage (Blessed); your beam target deals 15% more (Inspired). A broken Aegis shield explodes. Holy damage deals 25% more to Blighted enemies (Purge)."
             : id == ClassId.Rogue
-            ? "Openers stun (Exposed: +25% for all); Ambush hits Shatter chill. Allies in your smoke cloud are hidden too (Smoke Screen)."
+            ? "Openers stun, making enemies take 25% more damage from everyone (Exposed). Ambush hits Shatter chilled enemies. Allies inside your smoke are hidden as well."
             : id == ClassId.Ranger
-            ? "Marks give everyone +25% and spread when the target dies. Traps stun (Exposed); full draws Shatter chill."
-            : "Bash stuns (Exposed: +25% for all) and Shatters chill. War Cry Distracts enemies: +15% damage from everyone else.";
+            ? "Marked enemies take 25% more damage from all sources, and the Mark transfers when the target dies. Snares stun (Exposed); full draws Shatter chilled enemies."
+            : "Shield Bash stuns, making enemies take 25% more damage from everyone (Exposed), and Shatters chilled enemies. Taunted enemies take 15% more damage from your allies (Distracted).";
 
         /// <summary>Difficulty hint for the class picker.</summary>
-        public static string Difficulty(ClassId id) => id == ClassId.Flagellant ? "Medium - live dangerously low, heal by hitting"
-            : id == ClassId.PlagueDoctor ? "Medium - lead your vials, mind your friends"
-            : id == ClassId.Mage ? "Hard - fragile, rewards combos and positioning"
-            : id == ClassId.Cleric ? "Medium - watch your party, not just the enemy"
-            : id == ClassId.Rogue ? "Hard - all about getting behind things"
-            : id == ClassId.Ranger ? "Medium - keep your distance, aim your draws"
-            : "Easy - forgiving, holds the line";
+        public static string Difficulty(ClassId id) => id == ClassId.Flagellant ? "Medium · Strongest at low health; sustains by attacking"
+            : id == ClassId.PlagueDoctor ? "Medium · Lead your throws and support your allies"
+            : id == ClassId.Mage ? "Hard · Fragile; rewards combos and positioning"
+            : id == ClassId.Cleric ? "Medium · Keeps the party alive"
+            : id == ClassId.Rogue ? "Hard · Relies on attacking from behind"
+            : id == ClassId.Ranger ? "Medium · Keep your distance and aim carefully"
+            : "Easy · A durable frontline";
 
         /// <summary>The name of the class's Q or E, from its kit list.</summary>
         public static string AbilityName(ClassId id, AbilitySlot slot)
@@ -202,17 +202,17 @@ namespace Deepbound.Classes
 
         /// <summary>One line for the class picker.</summary>
         public static string Pitch(ClassId id) => id == ClassId.Flagellant
-            ? "Flagellant: bleed for power, crash into the crowd, heal by hitting. Strongest near death."
+            ? "Trades health for power and sustains through the damage dealt. Strongest near death."
             : id == ClassId.PlagueDoctor
-            ? "Plague Doctor: rot the dead with vials and miasma, patch your friends with tonics."
+            ? "Weakens enemies with Blight and miasma while healing allies with tonics."
             : id == ClassId.Ranger
-            ? "Ranger: mark the target, trap the path, rain arrows. The party hits harder with you."
+            ? "Marks, snares and volleys from range, making the whole party hit harder."
             : id == ClassId.Rogue
-            ? "Rogue: vanish, step behind them, strike. Deadly from behind, fragile in front."
+            ? "A mobile assassin: lethal from behind, vulnerable from the front."
             : id == ClassId.Cleric
-            ? "Cleric: heal, shield and raise the fallen. The reason the party lives."
+            ? "Heals, shields and revives. Keeps the party alive."
             : id == ClassId.Mage
-            ? "Mage: chill with frost, shatter with fire. Fragile, deadly at range."
-            : "Knight: block, bash and taunt. Holds the line so others can kill.";
+            ? "Chills with frost and shatters with fire. Fragile, but devastating at range."
+            : "Blocks, bashes and taunts, holding the line so others can strike.";
     }
 }

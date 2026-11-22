@@ -528,7 +528,7 @@ namespace Deepbound.Enemies
             health.ServerSetMax(health.Max.Value * 2.2f, refill: true);
             health.Defense += 3f;
 
-            var affix = forced != EliteAffix.None ? forced : (EliteAffix)UnityEngine.Random.Range(1, EliteAffixes.Count + 1);
+            var affix = forced != EliteAffix.None ? forced : EliteAffixes.Roll();
             Affix.Value = (byte)affix;
             if (affix == EliteAffix.Warded)
             {
@@ -810,6 +810,7 @@ namespace Deepbound.Enemies
             if (IsServer)
             {
                 if (!IsDead) ServerTickThreat();
+                ServerTickEmberbound();
                 ServerSyncStatus();
                 if (wardUp && (IsStunned || health.Chilled.Value)) ServerBreakWard();
             }
@@ -1700,6 +1701,7 @@ namespace Deepbound.Enemies
             if (AffixKind == EliteAffix.Splitting) World.DungeonDirector.Instance?.ServerSpawnSplit(transform.position, scaledPlayersBase, depthForLoot);
             // Gravebound: its bones gather to rise again, unless someone stamps them out.
             if (AffixKind == EliteAffix.Gravebound) World.DungeonDirector.Instance?.ServerGravebound(this);
+            else World.DungeonDirector.Instance?.ServerRestless(this);
             IsDead = true;
             attacking = false;
             agent.isStopped = true;

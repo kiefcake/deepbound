@@ -53,6 +53,10 @@ namespace Deepbound.Enemies
         /// chance in all (not stacked with the 20%).
         /// </summary>
         public const float DropCut = 0.8f, MaterialCut = 0.5f;
+
+        /// <summary>Gold and embers that drop (2026-11-22, the user: "increase gold and ember drops by 15%"): the cut x1.15.
+        /// Item, gear and rune chances keep <see cref="DropCut"/>.</summary>
+        public const float CoinCut = DropCut * 1.15f;
         public static int Gold(int amount) => amount <= 0 ? amount : Mathf.Max(1, Mathf.RoundToInt(amount * GoldIncome));
         public static int Embers(int amount) => amount <= 0 ? amount : Mathf.Max(1, Mathf.RoundToInt(amount * EmberIncome));
 

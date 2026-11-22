@@ -1088,6 +1088,66 @@ namespace Deepbound.Art
             Glint(from + dir * 0.8f, Hunter, 0.9f, 0.16f, 0f);
         }
 
+        /// <summary>
+        /// CONVERGENCE (2026-11-22): two ultimates meet. Two rings in the two casters' colours spin in opposite directions
+        /// and race outward across the floor, a pillar of both colours stands up from the meeting point, and a white
+        /// flash bursts at its foot.
+        /// </summary>
+        public static void Convergence(Vector3 at, Color a, Color b, float radius)
+        {
+            if (!Live) return;
+            var s = FxShape.Make("Convergence", at + Vector3.up * 0.06f, Quaternion.identity, 1.1f);
+            var ringA = s.Pivot(Vector3.zero, Quaternion.identity);
+            var ringB = s.Pivot(Vector3.zero, Quaternion.identity);
+            s.Light(Shapes.Hoop(0.08f), H(a, 2.4f, 1f), Vector3.zero, Quaternion.identity, null, true, ringA);
+            s.Light(Shapes.Hoop(0.08f), H(b, 2.4f, 1f), Vector3.zero, Quaternion.identity, null, true, ringB);
+            for (int i = 0; i < 6; i++)
+            {
+                var spoke = Quaternion.Euler(0f, i * 60f, 0f);
+                s.Light(Shapes.Spindle(0.5f, 0.06f), H(i % 2 == 0 ? a : b, 2.2f, 0.9f), spoke * Vector3.forward * 0.85f, spoke * Quaternion.Euler(90f, 0f, 0f), null, true, i % 2 == 0 ? ringA : ringB);
+            }
+            s.Tick = (sh, k) =>
+            {
+                float r = Mathf.Lerp(0.6f, radius, EaseOut(Mathf.Clamp01(k * 1.6f)));
+                ringA.localScale = new Vector3(r, 1f, r); ringB.localScale = new Vector3(r * 0.9f, 1f, r * 0.9f);
+                ringA.localRotation = Quaternion.Euler(0f, k * 220f, 0f); ringB.localRotation = Quaternion.Euler(0f, -k * 220f, 0f);
+                sh.Bright = Env(k, 0.05f, 0.45f);
+            };
+            Tether(at, at + Vector3.up * 7f, H(a, 2.4f, 0.8f), 0.5f, 0.7f);
+            Tether(at, at + Vector3.up * 6f, H(b, 2.4f, 0.8f), 0.3f, 0.8f);
+            Glint(at + Vector3.up * 0.8f, Color.white, 2.4f, 0.3f, 0f);
+            Rubble(at, 10, 4.5f);
+        }
+
+        /// <summary>
+        /// DEADEYE (2026-11-22, the Ranger's spent Focus): not the full draw's thin streak but a wide pale-gold beam with a
+        /// rifling of rings that run down it from the bow to the far end and open as they go - read from anywhere as
+        /// "that shot was the big one".
+        /// </summary>
+        public static void Deadeye(Vector3 from, Vector3 dir, float length)
+        {
+            if (!Live) return;
+            dir = dir.normalized;
+            var gold = new Color(1f, 0.92f, 0.55f);
+            Tether(from + dir * 0.8f, from + dir * length, H(gold, 2.6f, 0.95f), 0.22f, 0.5f);
+            Tether(from + dir * 0.8f, from + dir * length, H(Hunter, 2.2f, 0.8f), 0.07f, 0.65f);
+            var s = FxShape.Make("Deadeye", from, Quaternion.LookRotation(dir), 0.7f);
+            const int rings = 6;
+            var parts = new Transform[rings];
+            for (int i = 0; i < rings; i++)
+                parts[i] = s.Light(Shapes.Hoop(0.16f), H(i % 2 == 0 ? gold : Hunter, 2.4f, 1f), Vector3.forward * (1.2f + i * (length - 1.5f) / rings), Quaternion.Euler(90f, 0f, 0f), Vector3.one * 0.18f);
+            s.Tick = (sh, k) =>
+            {
+                for (int i = 0; i < rings; i++)
+                {
+                    float local = Mathf.Clamp01((k - i * 0.06f) / 0.5f);
+                    parts[i].localScale = Vector3.one * Mathf.Lerp(0.15f, 0.7f, EaseOut(local));
+                    sh.Dim(parts[i], local <= 0f ? 0f : 1f - local);
+                }
+            };
+            Glint(from + dir * 0.8f, gold, 1.4f, 0.22f, 0f);
+        }
+
         /// <summary>Hunter's Mark: a reticle snaps onto the quarry (a closing ring and four ticks), then a red diamond holds.</summary>
         public static void HuntersMark(Transform quarry, Vector3 at)
         {

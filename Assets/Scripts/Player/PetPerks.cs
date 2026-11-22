@@ -32,20 +32,24 @@ namespace Deepbound.Player
         public const float RavenSight = 22f, HoundEvery = 5f, HoundReach = 2.8f, QuietRadius = 12f, PurrPerSecond = 0.004f,
             ToadEvery = 10f, ImpReach = 6f, MothReach = 16f, BatBehind = 5.5f, RatCoins = 3f;
 
-        public enum Cue : byte { Bite, Gulp, Kindle, Coins, Behind, Elite, Purr }
+        public enum Cue : byte { Bite, Gulp, Kindle, Coins, Behind, Elite, Purr, Scorch, Cough }
+        public const float SalamanderEvery = 3f, MimicPupChance = 0.35f;
+        private float nextScorch;
 
         /// <summary>The pet's one-line trick, for Mistress Vey's wardrobe.</summary>
         public static string Short(PetCompanion.Kind k) => k switch
         {
-            PetCompanion.Kind.Raven => "Spots elites from afar",
-            PetCompanion.Kind.Rat => "Digs up coins when a room is cleared",
-            PetCompanion.Kind.BoneHound => "Snaps at foes that close on you",
-            PetCompanion.Kind.Kitten => "Purrs: a little healing out of a fight",
-            PetCompanion.Kind.Wisp => "Lights the dark around you",
-            PetCompanion.Kind.Bat => "Warns of foes behind you; hears plates",
-            PetCompanion.Kind.Toad => "Gulps poison off you",
-            PetCompanion.Kind.CandleImp => "Lights hearths, carries a candle",
-            PetCompanion.Kind.Moth => "Finds chests (never a mimic)",
+            PetCompanion.Kind.Raven => "Reveals elites at range",
+            PetCompanion.Kind.Rat => "Finds extra gold in cleared rooms",
+            PetCompanion.Kind.BoneHound => "Bites enemies attacking you",
+            PetCompanion.Kind.Kitten => "Slowly heals you out of combat",
+            PetCompanion.Kind.Wisp => "Provides light",
+            PetCompanion.Kind.Bat => "Warns of enemies behind you; detects traps",
+            PetCompanion.Kind.Toad => "Removes poison every 10 s",
+            PetCompanion.Kind.CandleImp => "Lights hearths; provides light",
+            PetCompanion.Kind.Moth => "Locates chests and ignores mimics",
+            PetCompanion.Kind.Salamander => "Scorches enemies that hit you",
+            PetCompanion.Kind.MimicPup => "Chests may yield an extra potion",
             _ => "",
         };
 
@@ -67,7 +71,38 @@ namespace Deepbound.Player
             life = owner.GetComponent<PlayerLife>();
             debuffs = owner.GetComponent<PlayerDebuffs>();
             pet = owner.GetComponent<PetCompanion>();
+            // Ember Salamander: an enemy that strikes you is scorched (setting up Thermal Shock for the party's frost).
+            if (owner.TryGetComponent<Health>(out var hp))
+                hp.DamagedServer += (lost, by) =>
+                {
+                    if (Kind != PetCompanion.Kind.Salamander || !InDungeon || Time.time < nextScorch || by == ulong.MaxValue) return;
+                    var nm = Unity.Netcode.NetworkManager.Singleton;
+                    if (nm == null || !nm.SpawnManager.SpawnedObjects.TryGetValue(by, out var o) || !o.TryGetComponent<Health>(out var foe) || foe.Team != Team.Enemies || !foe.IsAlive) return;
+                    if ((foe.transform.position - transform.position).sqrMagnitude > 4f * 4f) return;
+                    nextScorch = Time.time + SalamanderEvery;
+                    foe.ServerScorch(5f, np.NetworkObjectId);
+                    np.PetCueRpc((byte)Cue.Scorch, foe.transform.position);
+                };
         }
+
+        /// <summary>Server: a chest was opened; a Mimic Pup owner nearby may get a Health Potion coughed up.</summary>
+        public static void ServerChestOpened(Vector3 at)
+        {
+            var dd = DungeonDirector.Instance;
+            if (dd == null) return;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || p.Downed.Value || !p.TryGetComponent<NetworkPlayer>(out var who)) continue;
+                if ((PetCompanion.Kind)who.PetKind.Value != PetCompanion.Kind.MimicPup || Vector3.Distance(p.transform.position, at) > 12f) continue;
+                if (Random.value >= (ForceChance ? 1f : MimicPupChance)) continue;
+                var spot = p.transform.position + p.transform.forward * 0.8f;
+                dd.ServerDropLoot(spot, LootKind.PotionHP, 1);
+                who.PetCueRpc((byte)Cue.Cough, spot);
+            }
+        }
+
+        /// <summary>Tests: perks with a chance always fire.</summary>
+        public static bool ForceChance;
 
         private void Update()
         {
@@ -243,6 +278,16 @@ namespace Deepbound.Player
                 case Cue.Behind:
                     Sfx.Play2D(Sound.Squeak, 0.8f);
                     UI.GameHud.ShowCombo(at, "BEHIND!", new Color(1f, 0.55f, 0.4f));
+                    break;
+                case Cue.Scorch:
+                    pet?.Visit(at, 0.4f);
+                    Sfx.Play(Sound.Fire, at, 0.5f, 1.5f);
+                    UI.GameHud.ShowCombo(at + Vector3.up * 1.4f, "SCORCHED", new Color(1f, 0.55f, 0.2f));
+                    break;
+                case Cue.Cough:
+                    pet?.Visit(at, 0.6f);
+                    Sfx.Play(Sound.Chest, at, 0.45f, 1.6f);
+                    if (np.IsOwner) UI.GameHud.ShowCombo(at + Vector3.up * 1f, "+1 HEALTH POTION", new Color(0.95f, 0.35f, 0.3f));
                     break;
                 case Cue.Elite:
                     Sfx.Play2D(Sound.Caw, 0.6f);

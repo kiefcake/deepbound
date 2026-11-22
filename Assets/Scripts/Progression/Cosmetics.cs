@@ -201,6 +201,8 @@ namespace Deepbound.Progression
             new Item { Name = "Plague Toad", Cloak = new Color(0.4f, 0.52f, 0.22f), Cost = 90, NeedsBoss = -1 },
             new Item { Name = "Candle Imp", Cloak = new Color(0.55f, 0.3f, 0.22f), Cost = 180, NeedsBoss = 1 },
             new Item { Name = "Mourning Moth", Cloak = new Color(0.85f, 0.8f, 0.65f), Cost = 140, NeedsBoss = -1 },
+            new Item { Name = "Ember Salamander", Cloak = new Color(0.95f, 0.45f, 0.15f), Cost = 170, NeedsBoss = 2 },
+            new Item { Name = "Mimic Pup", Cloak = new Color(0.55f, 0.35f, 0.18f), Cost = 200, NeedsBoss = -1 },
         };
 
         public static Color? WeaponGlowColor(int i) => i > 0 && i < WeaponGlows.Length ? WeaponGlows[i].Cloak : (Color?)null;

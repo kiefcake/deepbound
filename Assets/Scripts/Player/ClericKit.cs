@@ -110,7 +110,7 @@ namespace Deepbound.Player
 
         public ClassId Class => ClassId.Cleric;
         public string ResourceName => "Mana";
-        public string ResourceHint => BeamTarget.Value != 0 ? "the beam drinks mana (no regen)" : "beam and spells spend it  ·  smite is free";
+        public string ResourceHint => BeamTarget.Value != 0 ? "Beam active: no regeneration" : "Spent by Mending Beam and spells";
         public Color ResourceColor => new Color(0.95f, 0.8f, 0.35f);
         public float Resource => Mana;
         public float ResourceMax => ManaMax;

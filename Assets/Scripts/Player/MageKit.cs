@@ -92,7 +92,7 @@ namespace Deepbound.Player
 
         public ClassId Class => ClassId.Mage;
         public string ResourceName => "Mana";
-        public string ResourceHint => "frostbolt and spells spend it  ·  firebolt is free";
+        public string ResourceHint => "Spent by Frostbolt and spells";
         public Color ResourceColor => new Color(0.3f, 0.5f, 1f);
         public float Resource => Mana;
         public float ResourceMax => ManaMax;

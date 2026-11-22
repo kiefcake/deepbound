@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Deepbound.Classes
 {
     /// <summary>APPEND ONLY: synced as a byte for the popup.</summary>
-    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed, WardBroken, ThermalShock, Pincer, Punish, Purge, PlagueCrash }
+    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed, WardBroken, ThermalShock, Pincer, Punish, Purge, PlagueCrash, Convergence }
 
     /// <summary>
     /// How the classes play off each other. Each class leaves a state on enemies or allies
@@ -73,6 +73,7 @@ namespace Deepbound.Classes
                 case ComboKind.Punish: return "PUNISH";
                 case ComboKind.Purge: return "PURGE";
                 case ComboKind.PlagueCrash: return "PLAGUE CRASH";
+                case ComboKind.Convergence: return "CONVERGENCE";
                 default: return "BLESSED";
             }
         }
@@ -93,6 +94,7 @@ namespace Deepbound.Classes
                 case ComboKind.Punish: return new Color(1f, 0.82f, 0.35f);
                 case ComboKind.Purge: return new Color(0.85f, 1f, 0.55f);
                 case ComboKind.PlagueCrash: return new Color(0.6f, 0.9f, 0.25f);
+                case ComboKind.Convergence: return new Color(1f, 0.95f, 0.8f);
                 default: return new Color(1f, 0.95f, 0.6f);
             }
         }
@@ -102,19 +104,20 @@ namespace Deepbound.Classes
         {
             switch (kind)
             {
-                case ComboKind.Shatter: return "Shatter: heavy hits on a chilled enemy break the chill for bonus damage.";
-                case ComboKind.Exposed: return "Exposed: stunned enemies take +25% damage from everyone.";
-                case ComboKind.Distracted: return "Distracted: a taunted enemy takes +15% damage from everyone but its taunter.";
-                case ComboKind.AegisBurst: return "Aegis Burst: a broken shield erupts, hurting enemies around its wearer.";
-                case ComboKind.MarkSpread: return "Mark Spreads: kill a marked enemy and the mark jumps to the nearest foe.";
-                case ComboKind.Hallowed: return "Hallowed Fire: a meteor landing on consecrated ground heals the allies on it.";
-                case ComboKind.WardBroken: return "Ward Broken: stun or chill a Warded elite and its ward shatters.";
-                case ComboKind.ThermalShock: return "Thermal Shock: frost on a scorched enemy (or fire on a chilled one) cracks it for a burst of damage.";
-                case ComboKind.Pincer: return "Pincer: hit an enemy from the opposite side to an ally who just struck it for +15%.";
-                case ComboKind.Punish: return "Punish: hit one of the dead while it is spent after a blow (slumped, eyes dim) for +20%.";
-                case ComboKind.Purge: return "Purge: the Cleric's holy hits on a blighted enemy deal +25%.";
-                case ComboKind.PlagueCrash: return "Plague Crash: the Flagellant's crash on a blighted enemy spreads the blight to all around it.";
-                default: return "Blessed: allies standing in consecrated ground deal +20% damage.";
+                case ComboKind.Shatter: return "Shatter: heavy hits on a chilled enemy consume the chill for bonus damage.";
+                case ComboKind.Exposed: return "Exposed: stunned enemies take 25% more damage from all sources.";
+                case ComboKind.Distracted: return "Distracted: taunted enemies take 15% more damage from everyone except the taunter.";
+                case ComboKind.AegisBurst: return "Aegis Burst: a broken Aegis shield explodes, damaging nearby enemies.";
+                case ComboKind.MarkSpread: return "Mark Spread: when a Marked enemy dies, the Mark transfers to the nearest enemy.";
+                case ComboKind.Hallowed: return "Hallowed Fire: a meteor landing on consecrated ground heals allies standing on it.";
+                case ComboKind.WardBroken: return "Ward Broken: stunning or chilling a Warded elite shatters its ward.";
+                case ComboKind.ThermalShock: return "Thermal Shock: frost on a scorched enemy, or fire on a chilled one, deals a burst of damage.";
+                case ComboKind.Pincer: return "Pincer: striking an enemy opposite an ally who just hit it deals 15% more damage.";
+                case ComboKind.Punish: return "Punish: enemies recovering after an attack (slumped, eyes dim) take 20% more damage.";
+                case ComboKind.Purge: return "Purge: the Cleric deals 25% more damage to Blighted enemies.";
+                case ComboKind.PlagueCrash: return "Plague Crash: the Flagellant's Crash on a Blighted enemy spreads Blight to all nearby enemies.";
+                case ComboKind.Convergence: return "Convergence: two ultimates cast within 4 s of each other unleash a burst that stuns nearby enemies and grants the party Bloodlust.";
+                default: return "Blessed: allies standing in consecrated ground deal 20% more damage.";
             }
         }
 
@@ -176,6 +179,9 @@ namespace Deepbound.Classes
                 }
             }
             m *= Player.Teamwork.ServerPincer(target, attacker);
+            // Plague Censer (2026-11-22): hits on the Blighted restore a sliver of health.
+            if (target.Blighted.Value && attacker.HasRelic(Loot.Relic.PlagueCenser) && attacker.TryGetComponent<Health>(out var censerHp) && censerHp.IsAlive)
+                censerHp.ServerHeal(censerHp.Max.Value * 0.006f * attacker.RelicPower(Loot.Relic.PlagueCenser));
             float purge = PurgeFor(attacker.ClassId.Value, target);
             if (purge > 1f) { m *= purge; Popup(target, ComboKind.Purge, attacker); }
             if (Player.ClericKit.InConsecration(attacker.transform.position)) m *= BlessedMultiplier;

@@ -37,7 +37,7 @@ namespace Deepbound.Player
         /// </summary>
         public const float BehindRefund = 3f, WindedSlow = 1.8f;
         private bool winded;
-        public string ResourceHint => winded ? "WINDED: get behind them" : LocalBehind ? "behind: stabs are free" : "front stabs cost  ·  backstabs refund";
+        public string ResourceHint => winded ? "Winded: attack from behind" : LocalBehind ? "Behind target: stabs are free" : "Frontal stabs cost Energy";
         public const float FanCooldown = 1.8f, FanEnergy = 30f, FanDamage = 15f, FanSpeed = 30f, FanRange = 14f, FanGravity = 6f;
         public float AttackRange => StabRange * (progress != null ? progress.ReachMultiplier : 1f);
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
@@ -247,7 +247,13 @@ namespace Deepbound.Player
             var keyboard = Keyboard.current;
 
             // --- LMB held: Twin Daggers ---
-            if (Energy <= 0.5f) winded = true; else if (Energy >= EnergyMax / 3f) winded = false;
+            if (Energy <= 0.5f && !winded)
+            {
+                winded = true;
+                Sfx.Play2D(Sound.Heartbeat, 0.6f);
+                UI.GameHud.ShowCombo(player.AimOrigin + player.AimForward * 2.5f, "WINDED", new Color(0.75f, 0.7f, 0.68f));
+            }
+            else if (Energy >= EnergyMax / 3f) winded = false;
             if (UI.Binds.PrimaryHeld && Time.time >= nextStab)
             {
                 if (LocalBehind) Energy = Mathf.Min(EnergyMax, Energy + BehindRefund);

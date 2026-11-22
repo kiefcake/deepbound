@@ -38,6 +38,9 @@ namespace Deepbound.Loot
         SharedVow = 24,
         RallyingBell = 25,
         WhettedFang = 26,
+        // 2026-11-22: relics for Convergence and Blight. (Ids fit in 5 bits: up to 31.)
+        ConvergentStar = 27,
+        PlagueCenser = 28,
     }
 
     /// <summary>
@@ -67,7 +70,7 @@ namespace Deepbound.Loot
         public static bool Scales(Relic r) => r != Relic.LamplightersOil;
 
         /// <summary>Only worth having with someone to share it: never rolled in a solo run.</summary>
-        public static bool PartyOnly(Relic r) => r == Relic.SharedVow || r == Relic.RallyingBell;
+        public static bool PartyOnly(Relic r) => r == Relic.SharedVow || r == Relic.RallyingBell || r == Relic.ConvergentStar;
 
         public static string Name(Relic r)
         {
@@ -100,6 +103,8 @@ namespace Deepbound.Loot
                 case Relic.SharedVow: return "Shared Vow";
                 case Relic.RallyingBell: return "Rallying Bell";
                 case Relic.WhettedFang: return "Whetted Fang";
+                case Relic.ConvergentStar: return "Convergent Star";
+                case Relic.PlagueCenser: return "Plague Censer";
                 default: return r.ToString();
             }
         }
@@ -135,6 +140,8 @@ namespace Deepbound.Loot
                 case Relic.SharedVow: return "Your Health Potions also mend the nearest ally within 12 m for half as much.";
                 case Relic.RallyingBell: return "Whenever someone near you gets back up, everyone within 15 m gains +20% speed and +15% damage for 5 s.";
                 case Relic.WhettedFang: return "+10% critical chance, and your critical hits deal x2 instead of x1.75.";
+                case Relic.ConvergentStar: return "Convergences you take part in have a 50% larger radius and stun 50% longer.";
+                case Relic.PlagueCenser: return "Your hits on Blighted enemies restore 0.6% of your health.";
                 default: return "";
             }
         }
@@ -170,6 +177,8 @@ namespace Deepbound.Loot
                 case Relic.SharedVow: return new Color(0.7f, 0.9f, 1f);
                 case Relic.RallyingBell: return new Color(0.85f, 0.65f, 0.35f);
                 case Relic.WhettedFang: return new Color(0.88f, 0.9f, 0.95f);
+                case Relic.ConvergentStar: return new Color(1f, 0.95f, 0.75f);
+                case Relic.PlagueCenser: return new Color(0.55f, 0.85f, 0.3f);
                 default: return Color.white;
             }
         }

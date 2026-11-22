@@ -161,7 +161,7 @@ namespace Deepbound.Player
 
         public ClassId Class => ClassId.Knight;
         public string ResourceName => "Stamina";
-        public string ResourceHint => Stamina < 15f ? "spent: guard and sprint falter" : "blocked hits and sprinting spend it";
+        public string ResourceHint => Stamina < 15f ? "Depleted: guard and sprint unavailable" : "Spent by blocking and sprinting";
         public Color ResourceColor => new Color(0.9f, 0.68f, 0.18f);
         public float Resource => Stamina;
         public float ResourceMax => StaminaMax;

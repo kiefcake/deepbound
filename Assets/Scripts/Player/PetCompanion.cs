@@ -30,7 +30,7 @@ namespace Deepbound.Player
         public static float FetchRadiusOf(NetworkPlayer owner) => Legacy.Has(owner, Boon.KeenCompanion) ? Legacy.KeenFetchRadius : FetchRadius;
 
         /// <summary>Index into <see cref="Cosmetics.Pets"/>; append only.</summary>
-        public enum Kind { None, Raven, Rat, BoneHound, Kitten, Wisp, Bat, Toad, CandleImp, Moth }
+        public enum Kind { None, Raven, Rat, BoneHound, Kitten, Wisp, Bat, Toad, CandleImp, Moth, Salamander, MimicPup }
 
         private NetworkPlayer owner;
         private Transform body, head, tail;
@@ -111,6 +111,8 @@ namespace Deepbound.Player
                 case Kind.Toad: BuildToad(root); break;
                 case Kind.CandleImp: BuildImp(root); break;
                 case Kind.Moth: BuildMoth(root); break;
+                case Kind.Salamander: BuildSalamander(root); break;
+                case Kind.MimicPup: BuildMimicPup(root); break;
             }
             // A size up, a shadow under it, and (your own pet) a faint warm glow so it is never a dark lump at your feet.
             root.localScale = Vector3.one * Size;
@@ -279,6 +281,58 @@ namespace Deepbound.Player
                 var eye = MeshKit.Part(head, "Eye", MeshKit.Ball(0.02f, 6, 4), Mat.Glow, new Vector3(s * 0.05f, 0.01f, 0.025f));
                 ArtLibrary.SetGlow(eye.GetComponent<Renderer>(), new Color(1f, 0.75f, 0.2f) * 0.8f);
             }
+        }
+
+        private void BuildSalamander(Transform root)
+        {
+            // An ember salamander (2026-11-22): long, low and soot-black, with a line of glowing orange spots down its back,
+            // a flat head with ember eyes and a long tapering tail.
+            var soot = new Color(0.12f, 0.1f, 0.09f);
+            var ember = new Color(1f, 0.45f, 0.12f);
+            Quadruped(root, Mat.Cloth, soot, 0.42f, 0.06f, 0.06f, 0.03f);
+            var torso = root.Find("Torso");
+            if (torso != null) { torso.localScale = new Vector3(0.15f, 0.09f, 0.42f); torso.localPosition = Vector3.up * 0.07f; }
+            for (int i = 0; i < 5; i++)
+            {
+                var spot = MeshKit.Part(root, "Spot", MeshKit.Ball(0.018f, 5, 4), Mat.Glow, new Vector3((i % 2 == 0 ? 0.025f : -0.025f), 0.11f, 0.14f - i * 0.07f));
+                ArtLibrary.SetGlow(spot.GetComponent<Renderer>(), ember * 1.1f);
+            }
+            Tint(MeshKit.Part(head, "Skull", MeshKit.Ball(0.06f, 8, 6), Mat.Cloth, new Vector3(0f, -0.06f, 0.02f), default, new Vector3(1.2f, 0.55f, 1.5f)), soot);
+            foreach (float s in new[] { -1f, 1f })
+            {
+                var eye = MeshKit.Part(head, "Eye", MeshKit.Ball(0.014f, 5, 4), Mat.Glow, new Vector3(s * 0.04f, -0.04f, 0.05f));
+                ArtLibrary.SetGlow(eye.GetComponent<Renderer>(), ember * 1.3f);
+            }
+            if (tail != null)
+                for (int i = 0; i < 4; i++)
+                    Tint(MeshKit.Part(tail, "TailSeg", MeshKit.Ball(0.035f - i * 0.007f, 6, 4), Mat.Cloth, new Vector3(0f, -0.04f, -0.05f - i * 0.06f), default, new Vector3(1f, 0.7f, 1.6f)), i == 3 ? ember * 0.8f : soot);
+        }
+
+        private void BuildMimicPup(Transform root)
+        {
+            // A mimic pup (2026-11-22): a little iron-banded chest on four stubby legs, its lid the head - it opens on a
+            // pink tongue and a row of teeth, with gold eyes in the dark inside.
+            var wood = new Color(0.45f, 0.28f, 0.14f);
+            Quadruped(root, Mat.Wood, wood, 0.3f, 0.1f, 0.1f, 0.035f);
+            var torso = root.Find("Torso");
+            if (torso != null) Destroy(torso.gameObject);
+            Tint(MeshKit.Part(root, "Box", MeshKit.Box(new Vector3(0.24f, 0.14f, 0.3f)), Mat.Wood, Vector3.up * 0.15f), wood);
+            foreach (float z in new[] { -0.09f, 0.09f })
+                MeshKit.Part(root, "Band", MeshKit.Box(new Vector3(0.25f, 0.15f, 0.025f)), Mat.Gold, new Vector3(0f, 0.15f, z));
+            if (head != null)
+            {
+                head.localPosition = new Vector3(0f, 0.22f, -0.14f); // the lid hinges at the back
+                Tint(MeshKit.Part(head, "Lid", MeshKit.Box(new Vector3(0.24f, 0.07f, 0.3f)), Mat.Wood, new Vector3(0f, 0.03f, 0.15f)), wood);
+                MeshKit.Part(head, "Lock", MeshKit.Box(new Vector3(0.04f, 0.05f, 0.02f)), Mat.Gold, new Vector3(0f, 0.0f, 0.3f));
+                for (int i = -2; i <= 2; i++)
+                    Tint(MeshKit.Part(head, "Tooth", MeshKit.Cylinder(0.01f, 0.001f, 0.035f, 4), Mat.Bone, new Vector3(i * 0.045f, -0.015f, 0.27f), new Vector3(180f, 0f, 0f)), new Color(0.95f, 0.92f, 0.85f));
+                foreach (float s in new[] { -1f, 1f })
+                {
+                    var eye = MeshKit.Part(head, "Eye", MeshKit.Ball(0.014f, 5, 4), Mat.Glow, new Vector3(s * 0.06f, -0.02f, 0.2f));
+                    ArtLibrary.SetGlow(eye.GetComponent<Renderer>(), new Color(1f, 0.8f, 0.25f));
+                }
+            }
+            Tint(MeshKit.Part(root, "Tongue", MeshKit.Box(new Vector3(0.06f, 0.015f, 0.12f)), Mat.Cloth, new Vector3(0f, 0.23f, 0.16f), new Vector3(20f, 0f, 0f)), new Color(0.85f, 0.35f, 0.4f));
         }
 
         private void BuildImp(Transform root)

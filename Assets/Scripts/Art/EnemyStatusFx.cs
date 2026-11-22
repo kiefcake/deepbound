@@ -143,6 +143,7 @@ namespace Deepbound.Art
                 if (affix == EliteAffix.Gravebound) Vfx.Mote(transform.position, new Color(0.6f, 0.95f, 0.75f));
                 if (affix == EliteAffix.Hushing) Vfx.Mote(transform.position, new Color(0.78f, 0.78f, 1f));
                 if (affix == EliteAffix.Concussive) Vfx.Mote(transform.position, new Color(0.95f, 0.85f, 0.55f));
+                if (affix == EliteAffix.Emberbound) Vfx.Embers(transform.position + Vector3.up * 0.4f, 2, new Color(1f, 0.45f, 0.12f), 1.8f, 0.05f, 0.7f);
                 if (enraged) Vfx.Embers(HeadTop, 2, new Color(1f, 0.35f, 0.25f), 1.4f, 0.05f, 0.6f);
                 // A champion wears its trait (2026-10-27): the Pale in frost, Ashenhand in cinders, and so on.
                 if (brain != null && brain.IsChampion)
