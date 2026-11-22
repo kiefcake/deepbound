@@ -118,8 +118,8 @@ namespace Deepbound.UI
             "Plague Doctor vials cost reagents; Blighted kills restore them",
             "Class draughts removed: the pouch holds Health, Frost Flask and Holy Water",
             "Ysolde's stones: one tab per ability, with the full upgrade path",
-            "New character select cards, clearer descriptions, and an Unstuck button",
-            "Reduced ability brightness; reworked hearth braziers",
+            "Relic Crucible rooms; new relic Cinder Crown and two new synergies",
+            "Emberbound elites and the Ember March floor event; a report after each guardian",
             "Gold and ember drops increased by 15%",
         };
 
