@@ -715,20 +715,23 @@ namespace Deepbound.Art
                     var pos = (Vector3)m.GetColumn(3);
                     var q = m.rotation;
                     var sc = m.lossyScale;
-                    s.Shade(mf.sharedMesh, new Color(0.08f, 0.03f, 0.14f, 0.85f), pos, q, sc);
-                    s.Light(mf.sharedMesh, H(Violet, 0.6f, 0.04f), pos, q, sc * 1.03f, false);
+                    s.Solid(mf.sharedMesh, Mat.Glow, pos, q, sc, null, Violet * 0.3f);
                 }
             if (n == 0)
             {
                 // No rig to copy (a hidden body): a plain shadow figure.
-                s.Shade(MeshKit.Cylinder(0.25f, 0.2f, 1.3f, 8), new Color(0.1f, 0.04f, 0.18f, 0.7f), Vector3.up * 0.2f, Quaternion.identity);
-                s.Shade(MeshKit.Ball(0.17f, 8, 6), new Color(0.1f, 0.04f, 0.18f, 0.7f), Vector3.up * 1.65f, Quaternion.identity);
+                s.Solid(MeshKit.Cylinder(0.25f, 0.2f, 1.3f, 8), Mat.Dark, Vector3.up * 0.2f, Quaternion.identity);
+                s.Solid(MeshKit.Ball(0.17f, 8, 6), Mat.Dark, Vector3.up * 1.65f, Quaternion.identity);
             }
+            // It holds the pose a breath, then sinks into the floor and shrinks away; the violet rim burns out first.
+            var dust = Vfx.Floor(at);
             s.Tick = (sh, k) =>
             {
-                sh.Bright = 1f - k * k;
-                sh.transform.position = at + Vector3.up * 0.25f * k;
-                sh.transform.localScale = new Vector3(1f + 0.15f * k, 1f + 0.1f * k, 1f + 0.15f * k);
+                sh.Bright = Mathf.Clamp01(1f - k * 1.4f);
+                float sink = Mathf.Clamp01((k - 0.25f) / 0.75f);
+                sh.transform.position = at + Vector3.down * 1.9f * sink * sink;
+                sh.transform.localScale = new Vector3(1f - 0.3f * sink, 1f, 1f - 0.3f * sink);
+                if (Random.value < 0.35f && sink > 0f) Vfx.Spawn(MeshKit.Ball(0.5f, 6, 4), Mat.Glow, dust + new Vector3(Random.Range(-0.3f, 0.3f), 0.05f, Random.Range(-0.3f, 0.3f)), Vector3.up * 0.6f, 0.5f, 0.08f, 0f, Violet * 1.4f, -0.2f, 1f);
             };
         }
 
@@ -986,6 +989,178 @@ namespace Deepbound.Art
                 float reach = sh.Age / creep;
                 foreach (var (t, at) in segs) sh.Dim(t, Mathf.Clamp01((reach - at) * 4f));
                 sh.Bright = Mathf.Clamp01((1f - k) / 0.35f);
+            };
+        }
+
+        // ==================================================================
+        // MAGE: fire and ice, a sky that answers (2026-11-22)
+        // ==================================================================
+
+        public static readonly Color Fire = new Color(1f, 0.48f, 0.14f);
+        public static readonly Color Ice = new Color(0.55f, 0.88f, 1f);
+        public static readonly Color Hunter = new Color(0.55f, 0.95f, 0.45f);
+
+        /// <summary>A soft streak trailing a projectile (part of its visual): a flame tail, a frost wake, a knife's violet.</summary>
+        public static void BoltTrail(Transform bolt, Color c, float length, float width)
+        {
+            if (!Live) return;
+            foreach (float roll in new[] { 0f, 90f })
+            {
+                var go = new GameObject("BoltTrail");
+                go.transform.SetParent(bolt, false);
+                go.transform.localPosition = new Vector3(0f, 0f, -length * 0.5f);
+                go.transform.localRotation = Quaternion.Euler(90f, 0f, roll);
+                go.AddComponent<MeshFilter>().sharedMesh = Shapes.Spindle(length, width);
+                var r = go.AddComponent<MeshRenderer>();
+                r.sharedMaterial = FxShape.SoftMat;
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                var b = new MaterialPropertyBlock();
+                b.SetColor("_BaseColor", c);
+                r.SetPropertyBlock(b);
+            }
+        }
+
+        /// <summary>A six-pointed snowflake glint where frost lands (three crossed spindles).</summary>
+        public static void Snowflake(Vector3 at, float size, float life = 0.35f)
+        {
+            if (!Live) return;
+            var s = FxShape.Make("Snowflake", at, FaceCam(at), life);
+            for (int i = 0; i < 3; i++)
+            {
+                s.Light(Shapes.Spindle(size, size * 0.1f), H(Ice, 2.8f, 1f), Vector3.zero, Quaternion.Euler(0f, 0f, i * 60f));
+                // Little barbs half way out on each arm.
+                foreach (float end in new[] { -1f, 1f })
+                {
+                    var arm = Quaternion.Euler(0f, 0f, i * 60f) * Vector3.up * size * 0.28f * end;
+                    s.Light(Shapes.Spindle(size * 0.3f, size * 0.06f), H(Color.white, 2.2f, 0.9f), arm, Quaternion.Euler(0f, 0f, i * 60f + 90f));
+                }
+            }
+            s.Tick = (sh, k) =>
+            {
+                sh.transform.rotation = FaceCam(sh.transform.position) * Quaternion.Euler(0f, 0f, k * 40f);
+                sh.transform.localScale = Vector3.one * Mathf.Lerp(0.4f, 1.1f, EaseOut(Mathf.Clamp01(k * 3f)));
+                sh.Bright = 1f - k * k;
+            };
+        }
+
+        /// <summary>SHATTER: the chill breaks like glass: a big snowflake, ice shards flung out, a cold ring.</summary>
+        public static void ShatterBurst(Vector3 at)
+        {
+            if (!Live) return;
+            Snowflake(at, 2.2f, 0.45f);
+            Shards(at, Vector3.up, 16, Ice * 2.6f, 7f, 0.14f);
+            Shock(at, 2.2f, Ice, 0.6f, 0.35f);
+        }
+
+        /// <summary>
+        /// The Meteor's warning: a ring of fire round the landing that CLOSES on the blast radius as the rock falls, so
+        /// everyone reads when it lands, not only where. Runes turn inside it.
+        /// </summary>
+        public static void MeteorRing(Vector3 at, float radius, float delay)
+        {
+            if (!Live) return;
+            var floor = Vfx.Floor(at) + Vector3.up * 0.06f;
+            var s = FxShape.Make("MeteorRing", floor, Quaternion.identity, delay + 0.05f);
+            var closing = s.Light(Shapes.Hoop(0.1f, 48), H(Fire, 2.6f, 1f), Vector3.zero, Quaternion.identity, Vector3.one * radius * 2.2f);
+            s.Light(Shapes.Hoop(0.04f, 48), H(Fire, 1.8f, 0.55f), Vector3.zero, Quaternion.identity, Vector3.one * radius);
+            var spokes = s.Pivot(Vector3.zero, Quaternion.identity);
+            for (int i = 0; i < 6; i++)
+                s.Light(Shapes.Spindle(radius * 0.5f, 0.12f), H(Fire, 1.8f, 0.6f), Quaternion.Euler(0f, i * 60f, 0f) * Vector3.forward * radius * 0.7f,
+                    Quaternion.Euler(0f, i * 60f, 0f) * Quaternion.Euler(90f, 0f, 0f), null, true, spokes);
+            s.Tick = (sh, k) =>
+            {
+                closing.localScale = Vector3.one * Mathf.Lerp(radius * 2.2f, radius, k * k);
+                spokes.localRotation = Quaternion.Euler(0f, sh.Age * 90f, 0f);
+                sh.Bright = Mathf.Clamp01(k * 6f) * (0.75f + 0.25f * Mathf.Sin(sh.Age * (10f + 20f * k)));
+            };
+        }
+
+        // ==================================================================
+        // RANGER: the hunt, green and feathered (2026-11-22)
+        // ==================================================================
+
+        /// <summary>A full draw: the shot leaves a green streak through everything in line, a glint at the bow.</summary>
+        public static void PiercingShot(Vector3 from, Vector3 dir, float length)
+        {
+            if (!Live) return;
+            dir = dir.normalized;
+            Tether(from + dir * 0.8f, from + dir * length, H(Hunter, 2.4f, 0.9f), 0.12f, 0.35f);
+            Glint(from + dir * 0.8f, Hunter, 0.9f, 0.16f, 0f);
+        }
+
+        /// <summary>Hunter's Mark: a reticle snaps onto the quarry (a closing ring and four ticks), then a red diamond holds.</summary>
+        public static void HuntersMark(Transform quarry, Vector3 at)
+        {
+            if (!Live) return;
+            var s = FxShape.Make("Reticle", at, FaceCam(at), 0.55f);
+            if (quarry != null) s.Ride(quarry, at - quarry.position);
+            var face = s.Pivot(Vector3.zero, Quaternion.identity);
+            var red = new Color(1f, 0.3f, 0.25f);
+            s.Light(Shapes.Hoop(0.12f), H(red, 2.6f, 1f), Vector3.zero, Quaternion.Euler(90f, 0f, 0f), Vector3.one * 0.6f, true, face);
+            for (int i = 0; i < 4; i++)
+            {
+                var d = Quaternion.Euler(0f, 0f, i * 90f) * Vector3.up;
+                s.Light(Shapes.Spindle(0.35f, 0.07f), H(red, 2.6f, 1f), d * 0.85f, Quaternion.Euler(0f, 0f, i * 90f), null, true, face);
+            }
+            s.Tick = (sh, k) =>
+            {
+                face.rotation = FaceCam(face.position) * Quaternion.Euler(0f, 0f, 45f * (1f - EaseOut(Mathf.Clamp01(k * 2.5f))));
+                face.localScale = Vector3.one * Mathf.Lerp(2.6f, 1f, EaseOut(Mathf.Clamp01(k * 2.5f)));
+                sh.Bright = Env(k, 0.05f, 0.3f);
+            };
+        }
+
+        /// <summary>Disengage: a spray of green leaves where the Ranger kicked off, and a short arc of light along the leap.</summary>
+        public static void Disengage(Transform who)
+        {
+            if (!Live || who == null) return;
+            var feet = Vfx.Floor(who.position);
+            Shock(feet, 1.6f, Hunter, 0.4f, 0.3f);
+            var leaf = MeshKit.Box(new Vector3(1f, 0.08f, 0.55f));
+            for (int i = 0; i < 14; i++)
+            {
+                var v = (Flat(who.forward) * 2f + Random.insideUnitSphere * 1.6f + Vector3.up * 1.5f).normalized * Random.Range(2f, 4.5f);
+                var p = Vfx.Spawn(leaf, Mat.Glow, feet + Vector3.up * 0.3f + Random.insideUnitSphere * 0.3f, v, Random.Range(0.8f, 1.3f), Random.Range(0.07f, 0.12f), 0.03f,
+                    Color.Lerp(Hunter, new Color(0.9f, 0.8f, 0.3f), Random.value) * 1.2f, 3f, 1.6f);
+                p.transform.rotation = Random.rotation;
+                p.Spin = Random.Range(-400f, 400f);
+            }
+            var s = FxShape.Make("DisengageTrail", who.position, Quaternion.identity, 0.5f);
+            float next = 0f;
+            s.Tick = (sh, k) =>
+            {
+                if (who == null || sh.Age < next) return;
+                next = sh.Age + 0.03f;
+                Vfx.Spawn(MeshKit.Ball(0.5f, 6, 4), Mat.Glow, who.position + Vector3.up * 0.9f, Vector3.zero, 0.35f, 0.18f, 0f, Hunter * 1.6f, 0f, 1f);
+            };
+        }
+
+        /// <summary>A Volley arrow coming down out of the dark: a green streak from the sky to where it lands.</summary>
+        public static void FallingStreak(Vector3 from, Vector3 to)
+        {
+            if (!Live) return;
+            Tether(from, to, H(Hunter, 2f, 0.6f), 0.06f, 0.3f);
+        }
+
+        /// <summary>The Volley's ground: a green ring and arrowheads pointing in at its edge while the sky fills.</summary>
+        public static void VolleyRing(Vector3 at, float radius, float seconds)
+        {
+            if (!Live) return;
+            var floor = Vfx.Floor(at) + Vector3.up * 0.06f;
+            var s = FxShape.Make("VolleyRing", floor, Quaternion.identity, seconds);
+            s.Light(Shapes.Hoop(0.07f, 48), H(Hunter, 2.2f, 0.85f), Vector3.zero, Quaternion.identity, Vector3.one * radius);
+            var heads = s.Pivot(Vector3.zero, Quaternion.identity);
+            for (int i = 0; i < 8; i++)
+            {
+                var rot = Quaternion.Euler(0f, i * 45f, 0f);
+                foreach (float sx in new[] { -1f, 1f })
+                    s.Light(Shapes.Spindle(0.5f, 0.09f), H(Hunter, 2.4f, 0.9f), rot * new Vector3(sx * 0.13f, 0f, radius - 0.25f),
+                        rot * Quaternion.Euler(90f, 0f, sx * 35f), null, true, heads);
+            }
+            s.Tick = (sh, k) =>
+            {
+                heads.localRotation = Quaternion.Euler(0f, sh.Age * 25f, 0f);
+                sh.Bright = Env(k, 0.05f, 0.15f);
             };
         }
     }

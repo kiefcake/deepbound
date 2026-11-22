@@ -112,10 +112,12 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
+            "Every ability has its own look: shields, crosses, lashes, afterimages, flies",
+            "The Knight's raised shield shows as a ward; taunted foes wear a burning mark",
+            "A meteor's fire ring closes as it falls: you can read when it lands",
+            "New combos: PURGE (Cleric on blight), PLAGUE CRASH (Flagellant spreads it)",
+            "Sloshed? Your feet swap keys every 30 seconds",
             "New ultimates: Ranger TWIN WYRMS, Plague Doctor PANDEMIC, Flagellant RED LITANY",
-            "The Flagellant's chains haul the dead in along the floor",
-            "Rogue: nothing can target you in your own smoke for 3 s",
-            "Solo? The pause menu now stops the world",
             "The Tome of the Phoenix burns longer and dives far harder",
             "Every robed caster has its own shape; ghouls, archers, wraiths remade",
             "Guardians and lair keepers remade: chunkier, scarier, no bare skeletons",

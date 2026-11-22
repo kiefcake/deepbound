@@ -8,7 +8,7 @@ using UnityEngine;
 namespace Deepbound.Classes
 {
     /// <summary>APPEND ONLY: synced as a byte for the popup.</summary>
-    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed, WardBroken, ThermalShock, Pincer, Punish }
+    public enum ComboKind : byte { Shatter, Exposed, Distracted, AegisBurst, MarkSpread, Blessed, Hallowed, WardBroken, ThermalShock, Pincer, Punish, Purge, PlagueCrash }
 
     /// <summary>
     /// How the classes play off each other. Each class leaves a state on enemies or allies
@@ -20,6 +20,9 @@ namespace Deepbound.Classes
     /// <item><b>Mark</b> (Ranger): +25% from everyone, and killing a marked enemy spreads the mark.</item>
     /// <item><b>Consecration</b> (Cleric): allies standing in it are Blessed, +20% damage.</item>
     /// <item><b>Aegis</b> (Cleric): when a shield is broken it bursts, hurting enemies nearby.</item>
+    /// <item><b>Blight</b> (Plague Doctor, 2026-11-22): the Cleric's holy hits PURGE it (x1.25 on a blighted enemy), and the
+    ///   Flagellant's crash on a blighted enemy is a PLAGUE CRASH: the blight spreads to everything round the landing.
+    ///   The two newer classes had no part in the combo web; the supports now feed each other, and the bruiser spreads rot.</item>
     /// </list>
     /// Server-side only; popups go out through <see cref="World.DungeonDirector.ComboFxRpc"/>.
     /// </summary>
@@ -28,6 +31,31 @@ namespace Deepbound.Classes
         public const float PunishMultiplier = 1.2f;
         public const float ShatterMultiplier = 1.5f, ExposedMultiplier = 1.25f, DistractedMultiplier = 1.15f, BlessedMultiplier = 1.2f, InspiredMultiplier = 1.15f;
         public const float AegisBurstDamage = 35f, AegisBurstRadius = 3.5f;
+        public const float PurgeMultiplier = 1.25f, PlagueCrashSeconds = 4f;
+
+        /// <summary>Server: the Cleric's holy damage on a blighted enemy (any Cleric hit: smites, Consecrate, the Hymn).</summary>
+        public static float PurgeFor(Classes.ClassId attacker, Health target) =>
+            attacker == Classes.ClassId.Cleric && target != null && target.Blighted.Value ? PurgeMultiplier : 1f;
+
+        /// <summary>
+        /// Server: the Flagellant's crash landed on <paramref name="struck"/>: if any of them is blighted, the blight spreads
+        /// (same source, so the Doctor's Contagion still follows it) to every enemy within <paramref name="radius"/>. Returns how many caught it.
+        /// </summary>
+        public static int ServerPlagueCrash(System.Collections.Generic.IEnumerable<Health> struck, Vector3 at, float radius, PlayerProgress by = null)
+        {
+            Health carrier = null;
+            foreach (var h in struck) if (h != null && h.IsAlive && h.Blighted.Value) { carrier = h; break; }
+            if (carrier == null) return 0;
+            int caught = 0;
+            foreach (var h in Combat.CombatQuery.Circle(at, radius, Team.Enemies))
+            {
+                if (h == null || !h.IsAlive || h.Blighted.Value) continue;
+                h.ServerBlight(PlagueCrashSeconds, Player.PlagueDoctorKit.BlightDps, carrier.BlightSource);
+                caught++;
+            }
+            if (caught > 0) Popup(carrier, ComboKind.PlagueCrash, by);
+            return caught;
+        }
 
         public static string Label(ComboKind kind)
         {
@@ -43,6 +71,8 @@ namespace Deepbound.Classes
                 case ComboKind.ThermalShock: return "THERMAL SHOCK";
                 case ComboKind.Pincer: return "PINCER";
                 case ComboKind.Punish: return "PUNISH";
+                case ComboKind.Purge: return "PURGE";
+                case ComboKind.PlagueCrash: return "PLAGUE CRASH";
                 default: return "BLESSED";
             }
         }
@@ -61,6 +91,8 @@ namespace Deepbound.Classes
                 case ComboKind.ThermalShock: return new Color(1f, 0.55f, 0.85f);
                 case ComboKind.Pincer: return new Color(0.6f, 0.95f, 0.75f);
                 case ComboKind.Punish: return new Color(1f, 0.82f, 0.35f);
+                case ComboKind.Purge: return new Color(0.85f, 1f, 0.55f);
+                case ComboKind.PlagueCrash: return new Color(0.6f, 0.9f, 0.25f);
                 default: return new Color(1f, 0.95f, 0.6f);
             }
         }
@@ -80,6 +112,8 @@ namespace Deepbound.Classes
                 case ComboKind.ThermalShock: return "Thermal Shock: frost on a scorched enemy (or fire on a chilled one) cracks it for a burst of damage.";
                 case ComboKind.Pincer: return "Pincer: hit an enemy from the opposite side to an ally who just struck it for +15%.";
                 case ComboKind.Punish: return "Punish: hit one of the dead while it is spent after a blow (slumped, eyes dim) for +20%.";
+                case ComboKind.Purge: return "Purge: the Cleric's holy hits on a blighted enemy deal +25%.";
+                case ComboKind.PlagueCrash: return "Plague Crash: the Flagellant's crash on a blighted enemy spreads the blight to all around it.";
                 default: return "Blessed: allies standing in consecrated ground deal +20% damage.";
             }
         }
@@ -142,6 +176,8 @@ namespace Deepbound.Classes
                 }
             }
             m *= Player.Teamwork.ServerPincer(target, attacker);
+            float purge = PurgeFor(attacker.ClassId.Value, target);
+            if (purge > 1f) { m *= purge; Popup(target, ComboKind.Purge, attacker); }
             if (Player.ClericKit.InConsecration(attacker.transform.position)) m *= BlessedMultiplier;
             if (Player.ClericKit.IsInspired(attacker.GetComponent<Health>())) m *= InspiredMultiplier;
             return m;

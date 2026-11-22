@@ -368,6 +368,10 @@ namespace Deepbound.Combat
             light.range = 5f;
             light.intensity = 3f;
             if (kind == ProjectileKind.Seedpod) root.localScale = Vector3.one * 2.2f;
+            // 2026-11-22: a firebolt drags a flame tail, a frostbolt a pale wake, a smite a gold one.
+            if (kind == ProjectileKind.Firebolt) Art.ClassFx.BoltTrail(root, new Color(2.6f, 1.15f, 0.3f, 0.9f), 1.3f, 0.2f);
+            else if (kind == ProjectileKind.Frostbolt) Art.ClassFx.BoltTrail(root, new Color(1.2f, 2f, 2.5f, 0.8f), 1f, 0.1f);
+            else if (kind == ProjectileKind.Smite) Art.ClassFx.BoltTrail(root, new Color(2.4f, 2f, 1.1f, 0.7f), 0.8f, 0.12f);
             // The Cleric's smite flies as a spinning cross of light (2026-11-21: every ability its own shape).
             if (kind == ProjectileKind.Smite)
             {

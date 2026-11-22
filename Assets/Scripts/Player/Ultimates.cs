@@ -436,7 +436,8 @@ namespace Deepbound.Player
         {
             Telegraph.Show(at, MageKit.MeteorRadius, MageKit.MeteorDelay + 0.4f, null, new Color(1f, 0.5f, 0.15f, 0.3f));
             MeteorFall.Spawn(at, MageKit.MeteorDelay + 0.4f * 0f, 1000 + i);
-            FxSprite.MagicCircle(at, MageKit.MeteorRadius * 0.7f, MageKit.MeteorDelay, new Color(1f, 0.5f, 0.15f));
+            // The rock lands when the ring closes (Cataclysm drops all five together, 2.9 s after the first warning).
+            ClassFx.MeteorRing(at, MageKit.MeteorRadius, Mathf.Max(0.5f, 2.9f - 0.4f * i));
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -444,7 +445,8 @@ namespace Deepbound.Player
         {
             Sfx.Play(Sound.Slam, at, 1f, 0.8f);
             MeteorImpact.Spawn(at, MageKit.MeteorRadius, false);
-            AbilityFx.Burst(at, MageKit.MeteorRadius, new Color(1f, 0.5f, 0.15f), 1.2f);
+            ClassFx.Cracks(at, MageKit.MeteorRadius * 0.9f, 8, ClassFx.Fire, 4f);
+            ClassFx.Rubble(Vfx.Floor(at), 8, 4f);
             var local = NetworkPlayer.Local;
             if (local != null && Vector3.Distance(local.transform.position, at) < 14f) local.AddShake(0.4f);
         }

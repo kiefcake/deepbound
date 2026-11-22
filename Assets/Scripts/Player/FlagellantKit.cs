@@ -295,6 +295,10 @@ namespace Deepbound.Player
                     if (!hit.Contains(target)) total += target.Tag("FlagellantKit").ServerDamage(dmg * 0.6f, crashAt, NetworkObjectId);
                     if (progress.Mastered(1) && target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(0.8f);
                 }
+                // PLAGUE CRASH (2026-11-22): a crash on a blighted enemy spreads the Plague Doctor's rot round the landing.
+                var struck = new List<Health>(hit);
+                struck.AddRange(CombatQuery.Circle(crashAt, radius, Team.Enemies));
+                Classes.Combos.ServerPlagueCrash(struck, crashAt, radius + 0.8f, progress);
             }
             if (total > 0f) Fervor.Value = Mathf.Min(FervorMax, Fervor.Value + FervorPerHit * (crash ? 1.5f : 1f));
             AfterHits(total);

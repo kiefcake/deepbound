@@ -5413,6 +5413,16 @@ namespace Deepbound.Networking
                     shockT.ServerChill(3f);
                     Log("thermal shock", "scorched " + scorched + ", after frost: scorched " + shockT.Scorched.Value + " chilled " + shockT.Chilled.Value + ", dealt " + (shockHp - shockT.Current.Value).ToString("F0"),
                         scorched && !shockT.Scorched.Value && shockT.Current.Value < shockHp); // chill may come back from another source at once
+
+                    // PURGE and PLAGUE CRASH (2026-11-22): the Plague Doctor's blight in the combo web.
+                    shockT.ServerBlight(4f, PlagueDoctorKit.BlightDps, local.NetworkObjectId);
+                    float purgeCleric = Classes.Combos.PurgeFor(Classes.ClassId.Cleric, shockT), purgeKnight = Classes.Combos.PurgeFor(Classes.ClassId.Knight, shockT);
+                    var crashNear = DungeonDirector.Instance.ServerDebugSpawn("skeleton", shockT.transform.position + Vector3.right * 1.2f, false);
+                    var crashNearH = crashNear != null ? crashNear.GetComponent<Health>() : null;
+                    int caught = Classes.Combos.ServerPlagueCrash(new[] { shockT }, shockT.transform.position, 3f);
+                    Log("purge and plague crash", "purge Cleric x" + purgeCleric.ToString("F2") + " Knight x" + purgeKnight.ToString("F2") + ", crash spread to " + caught + " (neighbour blighted " + (crashNearH != null && crashNearH.Blighted.Value) + ")",
+                        purgeCleric > 1.2f && purgeKnight == 1f && caught >= 1 && crashNearH != null && crashNearH.Blighted.Value);
+                    if (crashNear != null && crashNear.IsSpawned) crashNear.NetworkObject.Despawn();
                 }
 
                 // Ysolde's choices: two named, described options at every rank for every class, and none repeats within an ability.
@@ -7969,9 +7979,9 @@ namespace Deepbound.Networking
                     if (e != null && e.IsSpawned && !(e is BossBrain)) e.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, e.transform.position, local.NetworkObjectId);
                 var stage = new GameObject("GalStage");
                 stage.transform.position = new Vector3(4000f, 0f, -200f);
-                var floorGo = Art.MeshKit.Part(stage.transform, "GalStageStructure", Art.MeshKit.Box(new Vector3(30f, 1f, 1500f)), Art.Mat.Flagstone, new Vector3(0f, -0.5f, 740f));
+                var floorGo = Art.MeshKit.Part(stage.transform, "GalStageStructure", Art.MeshKit.Box(new Vector3(30f, 1f, 3000f)), Art.Mat.Flagstone, new Vector3(0f, -0.5f, 1490f));
                 floorGo.AddComponent<BoxCollider>();
-                var wallGo = Art.MeshKit.Part(stage.transform, "GalStageStructureWall", Art.MeshKit.Box(new Vector3(1f, 6f, 1500f)), Art.Mat.StoneWall, new Vector3(-9f, 3f, 740f));
+                var wallGo = Art.MeshKit.Part(stage.transform, "GalStageStructureWall", Art.MeshKit.Box(new Vector3(1f, 6f, 3000f)), Art.Mat.StoneWall, new Vector3(-9f, 3f, 1490f));
                 wallGo.AddComponent<BoxCollider>();
                 var surf = stage.AddComponent<Unity.AI.Navigation.NavMeshSurface>();
                 surf.collectObjects = Unity.AI.Navigation.CollectObjects.Children;
@@ -8186,6 +8196,57 @@ namespace Deepbound.Networking
                 ultA.ServerDebugCast(AimAt());
                 yield return Snap("ult_pd_1", 0.3f);
                 yield return Snap("ult_pd_2", 0.9f);
+
+                // ---- Mage ----
+                yield return Ready(Classes.ClassId.Mage);
+                var mk = local.GetComponent<MageKit>();
+                mk.ServerBolt(Eye(), AimDir(), false);
+                yield return Snap("mage_firebolt_1", 0.12f);
+                yield return Snap("mage_firebolt_2", 0.2f);
+                yield return Ready(Classes.ClassId.Mage);
+                mk.ServerBolt(Eye(), AimDir(), true);
+                yield return Snap("mage_frostbolt_1", 0.12f);
+                yield return Snap("mage_frostbolt_2", 0.2f);
+                yield return Ready(Classes.ClassId.Mage);
+                if (dummy != null) dummy.ServerChill(6f);
+                yield return new WaitForSeconds(0.2f);
+                mk.ServerBolt(Eye(), AimDir(), false);
+                yield return Snap("mage_shatter", 0.33f);
+                yield return Ready(Classes.ClassId.Mage);
+                mk.ServerWave(along);
+                yield return Snap("mage_wave", 0.3f);
+                yield return Ready(Classes.ClassId.Mage);
+                mk.ServerMeteor(astand + along * 6f);
+                yield return Snap("mage_meteor_1", 0.3f);
+                yield return Snap("mage_meteor_2", 0.7f);
+                yield return Snap("mage_meteor_3", 0.45f);
+                yield return Ready(Classes.ClassId.Mage, 3);
+                ultA.ServerDebugCast(astand + along * 6f);
+                yield return Snap("ult_mage_1", 1.2f);
+                yield return Snap("ult_mage_2", 1.9f);
+
+                // ---- Ranger ----
+                yield return Ready(Classes.ClassId.Ranger);
+                var rgk = local.GetComponent<RangerKit>();
+                rgk.ServerShoot(Eye(), AimDir(), 1f);
+                yield return Snap("ranger_full_draw", 0.08f);
+                yield return Ready(Classes.ClassId.Ranger);
+                rgk.ServerSnareBurst(astand + along * 6f);
+                yield return Snap("ranger_snare", 0.2f);
+                yield return Ready(Classes.ClassId.Ranger);
+                Call(rgk, "DisengageFxRpc");
+                motor.AddImpulse(-along * 7f + Vector3.up * 5f);
+                yield return Snap("ranger_disengage", 0.2f);
+                yield return Ready(Classes.ClassId.Ranger);
+                if (dummy != null) Call(rgk, "MarkFxRpc", dummy.Center);
+                yield return Snap("ranger_mark", 0.12f);
+                yield return Ready(Classes.ClassId.Ranger);
+                Call(rgk, "VolleyRpc", astand + along * 6f);
+                yield return Snap("ranger_volley_1", 0.4f);
+                yield return Snap("ranger_volley_2", 0.7f);
+                yield return Ready(Classes.ClassId.Ranger);
+                ultA.ServerDebugCast(astand + along * 10f);
+                yield return Snap("ult_ranger", 1.1f);
 
                 NetworkPlayer.DebugShowSelf = false;
                 Destroy(camGo);

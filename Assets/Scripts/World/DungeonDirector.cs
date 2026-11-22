@@ -426,6 +426,19 @@ namespace Deepbound.World
                 Art.Vfx.Embers(at, 16, new Color(0.6f, 0.9f, 1f), 6f, 0.07f, 0.7f);
                 Art.Vfx.IceSpikes(Art.Vfx.Ground(at), 1.2f, 6);
             }
+            else if (k == Classes.ComboKind.Purge)
+            {
+                Art.Sfx.Play(Art.Sound.Revive, at, 0.5f, 1.5f);
+                Art.ClassFx.HolyCross(at + Vector3.up * 0.3f, 0.9f, new Color(1.8f, 2.4f, 1.1f, 1f), 0.45f, Vector3.up * 0.4f);
+            }
+            else if (k == Classes.ComboKind.PlagueCrash)
+            {
+                Art.Sfx.Play(Art.Sound.Slime, at, 0.7f, 0.8f);
+                var spokes = new System.Collections.Generic.List<Vector3>();
+                for (int i = 0; i < 6; i++) spokes.Add(at + Quaternion.Euler(0f, i * 60f, 0f) * Vector3.forward * 2.4f);
+                Art.ClassFx.Veins(Art.Vfx.Floor(at), spokes, 2.4f, 0.25f);
+                Art.ClassFx.Flies(null, Art.Vfx.Floor(at), 1f, 1.2f, 2.4f, 10);
+            }
             else if (k == Classes.ComboKind.Exposed || k == Classes.ComboKind.WardBroken)
                 Art.Vfx.Embers(at, 8, Classes.Combos.Color(k), 3f, 0.05f, 0.5f);
         }
