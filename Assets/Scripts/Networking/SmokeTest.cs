@@ -1278,6 +1278,26 @@ namespace Deepbound.Networking
                             tw_stand && tw_taken < 100f && tw_clutched && !Teamwork.InLastStand(tw_hostLife));
                         if (tmate.Downed.Value) tmate.ServerRevive(1f);
                         yield return new WaitForSeconds(0.3f);
+                        // LAST LIGHT (2026-11-22): Convergent Star + Rallying Bell; a Convergence lifts the downed inside it.
+                        {
+                            int ll0 = Player.Ultimates.ServerLastLight(tmate.transform.position, 5f);
+                            tmate.Health.ServerDamage(1e6f, tmate.transform.position + Vector3.forward);
+                            yield return new WaitForSeconds(0.3f);
+                            bool llDown = tmate.Downed.Value;
+                            int llNone = Player.Ultimates.ServerLastLight(tmate.transform.position, 5f);
+                            hostProg.ServerAddRelic(Relic.ConvergentStar);
+                            hostProg.ServerAddRelic(Relic.RallyingBell);
+                            int llRose = Player.Ultimates.ServerLastLight(tmate.transform.position, 5f);
+                            yield return new WaitForSeconds(0.2f);
+                            bool llUp = !tmate.Downed.Value;
+                            hostProg.ServerRemoveRelic(Relic.ConvergentStar);
+                            hostProg.ServerRemoveRelic(Relic.RallyingBell);
+                            if (tmate.Downed.Value) tmate.ServerRevive(1f);
+                            Log("last light", "downed " + llDown + ", without the pair " + llNone + ", with it " + llRose + " rose, up " + llUp,
+                                ll0 == 0 && llDown && llNone == 0 && llRose == 1 && llUp);
+                            tmate.Health.ServerSetFraction(1f);
+                            yield return new WaitForSeconds(0.2f);
+                        }
 
                         // Shared doom (2026-10-29): split between everyone inside the ring; borne alone it all lands on one.
                         {

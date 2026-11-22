@@ -139,8 +139,27 @@ namespace Deepbound.Player
             foreach (var p in PlayerLife.All)
                 if (p != null && !p.Downed.Value && Vector3.Distance(p.transform.position, mid) < 25f && p.TryGetComponent<PlayerProgress>(out var pp))
                     pp.BloodlustEnds.Value = System.Math.Max(pp.BloodlustEnds.Value, until);
+            ServerLastLight(mid, ConvergeRadius * grow);
             Combos.Popup(life.Health, ComboKind.Convergence, progress);
             ConvergenceFxRpc(mid, (byte)progress.ClassId.Value, partnerCls, ConvergeRadius * grow);
+        }
+
+        public const float LastLightHealth = 0.4f;
+
+        /// <summary>
+        /// Server: LAST LIGHT (2026-11-22, Convergent Star + Rallying Bell): when anyone standing within 25 m carries the pair, a
+        /// Convergence revives every downed (not bled-out) player inside its radius. Returns how many rose.
+        /// </summary>
+        public static int ServerLastLight(Vector3 mid, float radius)
+        {
+            bool held = false;
+            foreach (var p in PlayerLife.All)
+                if (p != null && !p.Downed.Value && Vector3.Distance(p.transform.position, mid) < 25f && p.TryGetComponent<PlayerProgress>(out var pp) && Relics.Has(pp, Relics.Synergy.LastLight)) { held = true; break; }
+            if (!held) return 0;
+            int rose = 0;
+            foreach (var p in PlayerLife.All)
+                if (p != null && p.Downed.Value && !p.Soul.Value && Vector3.Distance(p.transform.position, mid) <= radius) { p.ServerRevive(LastLightHealth); rose++; }
+            return rose;
         }
 
         [Rpc(SendTo.ClientsAndHost)]

@@ -215,7 +215,7 @@ namespace Deepbound.Loot
         // Synergies: two relics that belong together awaken something more
         // ------------------------------------------------------------------
 
-        public enum Synergy { DeepWinter, Bloodbound, StormCaller, Reaper, Undying, WarBand, ColdSteel }
+        public enum Synergy { DeepWinter, Bloodbound, StormCaller, Reaper, Undying, WarBand, ColdSteel, LastLight }
 
         public static readonly (Synergy kind, Relic a, Relic b, string name, string text)[] Synergies =
         {
@@ -226,6 +226,7 @@ namespace Deepbound.Loot
             (Synergy.Undying, Relic.PhoenixFeather, Relic.HeartOfTheDeep, "Undying", "the Phoenix raises you at full health"),
             (Synergy.WarBand, Relic.BannerOfTheFallen, Relic.RallyingBell, "War Band", "your banner reaches 12 m and lifts everyone 12%"),
             (Synergy.ColdSteel, Relic.FrostCharm, Relic.WhettedFang, "Cold Steel", "a crit on a chilled enemy shatters the chill for x1.4 more"),
+            (Synergy.LastLight, Relic.ConvergentStar, Relic.RallyingBell, "Last Light", "a Convergence revives downed allies inside it at 40% health"),
         };
 
         public static bool Has(PlayerProgress p, Synergy s)
