@@ -89,6 +89,11 @@ namespace Deepbound.Player
 
         public bool Ready => Charge.Value >= ChargeMax;
 
+        /// <summary>Dev menu 'ult' (host, 2026-11-22, the user: "a command for full ultimate, let me test them in spawn"):
+        /// the bar refills itself and ultimates cast in camp too.</summary>
+        public static bool DevInfinite;
+        private float devCastAt = -99f;
+
         /// <summary>Tests: fill the bar and cast at a point (owner only).</summary>
         public void DebugCast(Vector3 aim, ulong targetId = ulong.MaxValue)
         {
@@ -167,13 +172,14 @@ namespace Deepbound.Player
         {
             if (IsServer && !DungeonDirector.InLobby && life.Health.IsAlive && !life.Downed.Value && DungeonDirector.Instance != null)
                 Add(PerSecond * Time.deltaTime);
-            if (IsServer && DungeonDirector.InLobby && Charge.Value > 0f && DungeonDirector.Instance != null && !DungeonDirector.Instance.RunInProgress)
+            if (IsServer && DevInfinite) { if (Charge.Value < ChargeMax && Time.time >= devCastAt + 1.5f) Charge.Value = ChargeMax; }
+            else if (IsServer && DungeonDirector.InLobby && Charge.Value > 0f && DungeonDirector.Instance != null && !DungeonDirector.Instance.RunInProgress)
                 Charge.Value = 0f;
 
             if (!IsOwner) return;
             var keyboard = Keyboard.current;
             if (!UI.Binds.Down(UI.Bind.Ultimate) || !Ready || !life.CanAct || !motor.ActionsReady || Time.time - lastCast < 1f) return;
-            if (DungeonDirector.InLobby) return;
+            if (DungeonDirector.InLobby && !DevInfinite) return;
             lastCast = Time.time;
 
             var cls = progress.ClassId.Value;
@@ -247,6 +253,7 @@ namespace Deepbound.Player
             if (!Ready || !life.CanAct) return;
             if (Vector3.Distance(aim, transform.position) > 34f) aim = transform.position + transform.forward * 4f;
             Charge.Value = 0f;
+            devCastAt = Time.time;
             lockedUntil = Time.time + (progress.ClassId.Value == ClassId.Rogue ? RogueLockAfterCast : LockAfterCast);
             var cls = progress.ClassId.Value;
             if (progress.HasRelic(Relic.WarlordsHorn))

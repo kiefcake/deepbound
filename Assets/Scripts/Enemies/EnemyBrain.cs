@@ -504,9 +504,10 @@ namespace Deepbound.Enemies
         {
             get
             {
-                if (!Frenzied) return (Enraged ? EnragePace : 1f) * World.DungeonDirector.OmenPace * (ChampionTrait == ChampionTraits.Patient ? 1.3f : 1f);
+                float lap = Elite.Value ? World.DungeonDirector.LapElitePace : 1f;
+                if (!Frenzied) return (Enraged ? EnragePace : 1f) * World.DungeonDirector.OmenPace * lap * (ChampionTrait == ChampionTraits.Patient ? 1.3f : 1f);
                 if (!frenzyAnnounced && IsServer) { frenzyAnnounced = true; FrenzyRpc(); }
-                return FrenzyPace * World.DungeonDirector.OmenPace;
+                return FrenzyPace * World.DungeonDirector.OmenPace * lap;
             }
         }
 

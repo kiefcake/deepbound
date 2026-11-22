@@ -53,6 +53,36 @@ namespace Deepbound.World
         /// <summary>The ordinary run's floor name, or the endless one (the act's name, and which time round).</summary>
         public static string EndlessFloorName(string baseName, int depth) => Lap(depth) > 0 ? baseName + " (" + Ordinal(Lap(depth) + 1) + " time down)" : baseName;
 
+        /// <summary>
+        /// LAP MODIFIERS (2026-11-22): each time the acts come round the deep gets meaner beyond the Tier climb.
+        /// Lap 1+: every floor has a floor event. Each lap lifts the elite cap by <see cref="LapEliteCap"/> (0.6 -> 0.85 max).
+        /// From lap 2 every elite is FRENZIED-quick (<see cref="LapPace"/> on its wind-ups), from lap 3 the Tallyman comes
+        /// <see cref="LapTallySooner"/> s sooner per lap past 2.
+        /// </summary>
+        public const float LapEliteCap = 0.1f, LapPace = 0.85f, LapTallySooner = 45f;
+
+        /// <summary>Server: the current endless lap (0 outside the Endless Descent).</summary>
+        public static int EndlessLap(int depth) => Endless ? Lap(depth) : 0;
+
+        /// <summary>Any peer: the elite wind-up multiplier on this floor (lap 2+ of the Endless Descent).</summary>
+        public static float LapElitePace => Layout != null && EndlessLap(Layout.Depth) >= 2 ? LapPace : 1f;
+
+        /// <summary>Server: seconds taken off the Tallyman's clock on this lap.</summary>
+        public static float LapTallyCut(int depth) => Mathf.Max(0, EndlessLap(depth) - 2) * LapTallySooner;
+
+        public static float EliteCapFor(int depth) => Mathf.Min(0.85f, 0.6f + LapEliteCap * EndlessLap(depth));
+
+        /// <summary>What this lap adds, for the banner ("" on the first ten floors).</summary>
+        public static string LapLine(int depth)
+        {
+            int lap = EndlessLap(depth);
+            if (lap <= 0) return "";
+            string s = "Lap " + (lap + 1) + ": every floor has an event, more elites";
+            if (lap >= 2) s += ", elites strike sooner";
+            if (lap >= 3) s += ", the Tallyman comes early";
+            return s;
+        }
+
         private static string Ordinal(int n) => n + (n % 100 is 11 or 12 or 13 ? "th" : (n % 10) switch { 1 => "st", 2 => "nd", 3 => "rd", _ => "th" });
     }
 }

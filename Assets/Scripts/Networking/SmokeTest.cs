@@ -4130,7 +4130,13 @@ namespace Deepbound.Networking
                         ed.EndlessRun.Value = true;
                         int a10 = DungeonDirector.Act(10), a13 = DungeonDirector.Act(13), a19 = DungeonDirector.Act(19), a21 = DungeonDirector.Act(21);
                         string n12 = DungeonTheme.FloorName(12), n3 = DungeonTheme.FloorName(3);
+                        float cap3 = DungeonDirector.EliteCapFor(3), cap12 = DungeonDirector.EliteCapFor(12), cap45 = DungeonDirector.EliteCapFor(45);
+                        string lap3 = DungeonDirector.LapLine(3), lap32 = DungeonDirector.LapLine(32);
+                        float cut25 = DungeonDirector.LapTallyCut(25), cut35 = DungeonDirector.LapTallyCut(35);
                         ed.EndlessRun.Value = wasEndless;
+                        Log("endless laps", "elite cap " + cap3.ToString("F2") + "/" + cap12.ToString("F2") + "/" + cap45.ToString("F2") + ", tally cut " + cut25 + "/" + cut35 + ", off cap " + DungeonDirector.EliteCapFor(45).ToString("F2") + ", lap 4 '" + lap32 + "'",
+                            Mathf.Approximately(cap3, 0.6f) && cap12 > 0.65f && cap45 <= 0.85f && lap3 == "" && lap32.Contains("Tallyman") && cut25 == 0f && cut35 > 0f
+                            && Mathf.Approximately(DungeonDirector.EliteCapFor(45), 0.6f));
                         Log("endless descent", "off: floor 13 act " + offAct + "; on: acts " + a10 + "/" + a13 + "/" + a19 + "/" + a21 + ", floor 13 '" + n12 + "', floor 4 '" + n3 + "', laps " + DungeonDirector.Lap(9) + "/" + DungeonDirector.Lap(10) + "/" + DungeonDirector.Lap(25),
                             offAct == DungeonDirector.ActCount - 1 && a10 == 0 && a13 == 1 && a19 == 4 && a21 == 0 && n12.Contains("2nd time down") && !n3.Contains("time down")
                             && DungeonDirector.Lap(9) == 0 && DungeonDirector.Lap(10) == 1 && DungeonDirector.Lap(25) == 2);

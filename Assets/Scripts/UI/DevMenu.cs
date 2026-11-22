@@ -93,6 +93,7 @@ namespace Deepbound.UI
             if (B("All relics")) Run("relic all");
             if (B("A rune of each")) Run("rune all");
             if (B("Cleanse")) Run("cleanse");
+            if (B(Ultimates.DevInfinite ? "Ult: INFINITE" : "Ult: normal")) Run("ult");
             Head("WORLD");
             if (B("Kill all")) Run("kill");
             if (B("To boss")) Run("tp boss");
@@ -148,6 +149,7 @@ namespace Deepbound.UI
             "relic NAME | all    add a relic (part of its name is enough)",
             "rune KIND [TIER] | all   add a rune (frost storm hunter holy ember keen farsight; tier 1-3)",
             "cleanse             clear every affliction",
+            "ult                 toggle infinite ultimate (refills ~1 s after each cast, works in camp)",
             "kill                kill every enemy on the floor (not bosses: 'kill boss')",
             "floor N             start floor N (1-10)",
             "camp                back to camp, keeping the run",
@@ -216,6 +218,10 @@ namespace Deepbound.UI
                     Print(n + " rune(s) added to the bag");
                     break;
                 }
+                case "ult":
+                    Ultimates.DevInfinite = !Ultimates.DevInfinite;
+                    Print(Ultimates.DevInfinite ? "Infinite ultimate ON (casts in camp too; the Rogue's needs an enemy: 'spawn skeleton')" : "Infinite ultimate off");
+                    break;
                 case "cleanse": player.GetComponent<PlayerDebuffs>()?.ServerCleanse(); Print("Cleansed"); break;
                 case "kill":
                 {

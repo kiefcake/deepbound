@@ -920,7 +920,8 @@ namespace Deepbound.World
             BuildLocal(Floor.Value);
             // The Tallyman's clock, sized to the floor just built.
             TallyArriveAfter.Value = TallyBaseSeconds + TallyPerRoom * Layout.Rooms.Count + (AnyoneHolds(Relic.TallymansLedger) ? TallyLedgerDelay : 0f)
-                - (DifficultyIndex.Value >= Difficulty.TormentIndex ? Difficulty.TormentTallySooner : 0f);
+                - (DifficultyIndex.Value >= Difficulty.TormentIndex ? Difficulty.TormentTallySooner : 0f) - LapTallyCut(Layout.Depth);
+            TallyArriveAfter.Value = Mathf.Max(180f, TallyArriveAfter.Value);
 
             BakeNavMesh();
             SetupLair(Layout);
@@ -1068,7 +1069,7 @@ namespace Deepbound.World
         {
             int players = Mathf.Max(1, NetworkManager.ConnectedClientsIds.Count);
 
-            float eliteChance = Mathf.Min(0.6f, Difficulty.EliteChance(layout.Depth, players) * OmenElites * EventElites);
+            float eliteChance = Mathf.Min(EliteCapFor(layout.Depth), Difficulty.EliteChance(layout.Depth, players) * OmenElites * EventElites);
             var theme = DungeonTheme.ForDepth(layout.Depth);
 
             foreach (var room in layout.Rooms)

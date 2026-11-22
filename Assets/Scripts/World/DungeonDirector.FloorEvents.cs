@@ -74,7 +74,7 @@ namespace Deepbound.World
         private void RollFloorEvent(int depth)
         {
             var e = FloorEvent.None;
-            if (!TestMode && depth >= 1 && Random.value < FloorEventChance) e = (FloorEvent)Random.Range(1, 11);
+            if (!TestMode && depth >= 1 && (Random.value < FloorEventChance || EndlessLap(depth) > 0)) e = (FloorEvent)Random.Range(1, 11);
             FloorEventValue.Value = (byte)e;
             Combat.Health.FloorPlayerDamageScale = PlayerHurtFor(e);
         }

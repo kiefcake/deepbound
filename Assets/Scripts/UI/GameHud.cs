@@ -434,6 +434,8 @@ namespace Deepbound.UI
                 var dd0 = DungeonDirector.Instance;
                 if (dd0 != null && dd0.DailyRun.Value) bannerSub += "  ·  DAILY DESCENT " + DungeonDirector.DateLabel(dd0.DailyDate.Value);
                 if (dd0 != null && dd0.EndlessRun.Value) bannerSub += "  ·  ENDLESS DESCENT" + (Records.EndlessBest > 0 ? " (best: floor " + Records.EndlessBest + ")" : "");
+                string lapLine = DungeonDirector.LapLine(depth);
+                if (lapLine.Length > 0) bannerHint = bannerHint.Length > 0 ? bannerHint + "  ·  " + lapLine : lapLine;
             }
         }
 
