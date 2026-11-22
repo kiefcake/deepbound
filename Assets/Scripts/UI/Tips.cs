@@ -29,6 +29,7 @@ namespace Deepbound.UI
         private static readonly System.Collections.Generic.Queue<(string key, string text, bool camp, float at)> queue = new System.Collections.Generic.Queue<(string, string, bool, float)>();
         /// <summary>Seconds of quiet after a tip before the next one (they used to arrive back to back).</summary>
         private const float Gap = 9f, MaxWait = 25f;
+        private static bool currentCamp;
 
         /// <summary>
         /// The tips that always show (2026-11-14, the user: "we are giving way too many tips, some things should be left to
@@ -260,6 +261,8 @@ namespace Deepbound.UI
                 return;
             }
             if (current != null && Time.time - shownAt > Duration) current = null;
+            // A camp tip still up when the carriage arrives (a floor banner holds its timer) goes at once, and the other way round.
+            if (current != null && currentCamp != DungeonDirector.InLobby) current = null;
             if (current == null)
             {
                 if (queue.Count == 0 || Time.time - shownAt < Duration + Gap) return;
@@ -275,6 +278,7 @@ namespace Deepbound.UI
                 }
                 if (!found) return;
                 current = next.text;
+                currentCamp = next.camp;
                 // Seen once it is shown (not when offered: a stale one dropped above can come back in its place).
                 // Automated tests show tips but never mark them seen in the real save.
                 if (!DungeonDirector.TestMode && !Progression.Cosmetics.TestMode) Settings.MarkTipSeen(next.key);

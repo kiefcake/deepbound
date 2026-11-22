@@ -6350,6 +6350,31 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "camp_9b_pet_asleep");
                 var petGo = GameObject.Find("Pet_Kitten");
                 Debug.Log("[TalkShots] pet sit: owner emote " + (local.Rig != null ? local.Rig.EmoteNow.ToString() : "?") + ", pet " + (petGo != null ? (petGo.transform.position - local.transform.position).ToString("F2") : "missing"));
+                // The two newest pets beside the seat (2026-11-22).
+                // Standing in the open: wait for the pet to settle, then step back from it and look down at it.
+                motor.Unpin(seats[0].at);
+                local.GetComponent<Emotes>().StandUp();
+                var openSpot = seats[0].at - seats[0].face * 3.5f;
+                foreach (var (kind, tag) in new[] { (Player.PetCompanion.Kind.Salamander, "camp_9c_pet_salamander"), (Player.PetCompanion.Kind.MimicPup, "camp_9d_pet_mimicpup") })
+                {
+                    local.PetKind.Value = (byte)kind;
+                    motor.Teleport(openSpot, Quaternion.LookRotation(-seats[0].face));
+                    yield return new WaitForSeconds(3f);
+                    var pc = local.GetComponent<Player.PetCompanion>();
+                    if (pc != null && pc.BodyAt.HasValue)
+                    {
+                        var petAt = pc.BodyAt.Value;
+                        var back = local.transform.position - petAt; back.y = 0f;
+                        back = back.sqrMagnitude > 0.01f ? back.normalized : -seats[0].face;
+                        motor.Teleport(petAt + back * 1.5f, Quaternion.LookRotation(-back));
+                        motor.SetPitch(40f);
+                    }
+                    yield return new WaitForSeconds(0.5f);
+                    yield return Shot(dir, tag);
+                    motor.SetPitch(0f);
+                }
+                local.PetKind.Value = (byte)Player.PetCompanion.Kind.Kitten;
+                motor.PinTo(seats[0].at);
                 motor.SetPitch(0f);
                 motor.Unpin(seats[0].at);
                 local.GetComponent<Emotes>().StandUp();

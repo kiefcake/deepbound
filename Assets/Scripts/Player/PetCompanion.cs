@@ -287,7 +287,7 @@ namespace Deepbound.Player
         {
             // An ember salamander (2026-11-22): long, low and soot-black, with a line of glowing orange spots down its back,
             // a flat head with ember eyes and a long tapering tail.
-            var soot = new Color(0.12f, 0.1f, 0.09f);
+            var soot = new Color(0.32f, 0.13f, 0.08f); // charcoal-red: soot black vanished on a night floor
             var ember = new Color(1f, 0.45f, 0.12f);
             Quadruped(root, Mat.Cloth, soot, 0.42f, 0.06f, 0.06f, 0.03f);
             var torso = root.Find("Torso");
@@ -295,7 +295,7 @@ namespace Deepbound.Player
             for (int i = 0; i < 5; i++)
             {
                 var spot = MeshKit.Part(root, "Spot", MeshKit.Ball(0.018f, 5, 4), Mat.Glow, new Vector3((i % 2 == 0 ? 0.025f : -0.025f), 0.11f, 0.14f - i * 0.07f));
-                ArtLibrary.SetGlow(spot.GetComponent<Renderer>(), ember * 1.1f);
+                ArtLibrary.SetGlow(spot.GetComponent<Renderer>(), ember * 1.5f);
             }
             Tint(MeshKit.Part(head, "Skull", MeshKit.Ball(0.06f, 8, 6), Mat.Cloth, new Vector3(0f, -0.06f, 0.02f), default, new Vector3(1.2f, 0.55f, 1.5f)), soot);
             foreach (float s in new[] { -1f, 1f })
