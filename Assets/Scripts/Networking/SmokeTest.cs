@@ -2391,6 +2391,17 @@ namespace Deepbound.Networking
                                 Log("ascendant and restless", "ascendant ult x" + ultX.ToString("F2") + " hurt x" + hurtX.ToString("F2") + ", restless piles " + piles0 + " -> " + piles1 + ", names '" + DungeonDirector.EventName(FloorEvent.Ascendant) + "' '" + DungeonDirector.EventName(FloorEvent.Restless) + "'",
                                     Mathf.Approximately(ultX, 1.5f) && Mathf.Approximately(hurtX, 1.1f) && piles1 > piles0 && DungeonDirector.EventName(FloorEvent.Restless).Length > 0);
                             }
+                            // THE EMBER MARCH (2026-11-22): every elite is Emberbound.
+                            {
+                                dd.ServerDebugEvent(FloorEvent.EmberMarch);
+                                var marcher = dd.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f, true);
+                                var mb = marcher != null ? marcher.GetComponent<Enemies.EnemyBrain>() : null;
+                                float embX = DungeonDirector.EventEmbers;
+                                bool ember = mb != null && mb.AffixKind == Enemies.EliteAffix.Emberbound;
+                                if (mb != null) mb.GetComponent<Health>().ServerDamage(1e6f, local.transform.position, local.NetworkObjectId);
+                                dd.ServerDebugEvent(FloorEvent.None);
+                                Log("ember march", "elite affix " + (mb != null ? mb.AffixKind.ToString() : "none") + ", embers x" + embX.ToString("F2"), ember && Mathf.Approximately(embX, 1.5f));
+                            }
                             Log("floor event", "blood tithe hit " + plain.ToString("F1") + " -> " + tithe.ToString("F1") + ", kill mends " + mended + ", back to none " + (DungeonDirector.CurrentEvent == FloorEvent.None),
                                 (plain <= 0f || tithe > plain) && mended && DungeonDirector.CurrentEvent == FloorEvent.None);
                             {

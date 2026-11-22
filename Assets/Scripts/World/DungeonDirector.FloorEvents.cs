@@ -4,7 +4,7 @@ using UnityEngine;
 namespace Deepbound.World
 {
     /// <summary>Append only: synced.</summary>
-    public enum FloorEvent : byte { None, Gilded, Swarm, Marching, BloodTithe, Bountiful, LongNight, Embertide, BoneChoir, Muster, Quicksilver, Ascendant, Restless }
+    public enum FloorEvent : byte { None, Gilded, Swarm, Marching, BloodTithe, Bountiful, LongNight, Embertide, BoneChoir, Muster, Quicksilver, Ascendant, Restless, EmberMarch }
 
     /// <summary>
     /// Floor events (2026-10-20): an omen sets the whole run; an event is one floor's twist, rolled when the
@@ -22,6 +22,7 @@ namespace Deepbound.World
     /// <item><b>The Warlords' Muster</b> (2026-10-27): three champions walk this floor instead of one.</item>
     /// <item><b>Quicksilver</b> (2026-10-27): you and the dead move 15% faster; 30% more embers.</item>
     /// <item><b>Ascendant</b> (2026-11-22): ultimates charge 50% faster (Convergence comes round more often); enemies deal 10% more.</item>
+    /// <item><b>The Ember March</b> (2026-11-22): every elite is Emberbound and trails fire; 50% more embers.</item>
     /// <item><b>The Restless Dead</b> (2026-11-22): a fifth of the ordinary dead leave bones that rise again unless stamped; 40% more embers.</item>
     /// </list>
     /// </summary>
@@ -37,7 +38,7 @@ namespace Deepbound.World
             : e == FloorEvent.BloodTithe ? "Blood Tithe" : e == FloorEvent.Bountiful ? "Bountiful"
             : e == FloorEvent.LongNight ? "The Long Night" : e == FloorEvent.Embertide ? "Embertide" : e == FloorEvent.BoneChoir ? "The Bone Choir"
             : e == FloorEvent.Muster ? "The Warlords' Muster" : e == FloorEvent.Quicksilver ? "Quicksilver"
-            : e == FloorEvent.Ascendant ? "Ascendant" : e == FloorEvent.Restless ? "The Restless Dead" : "";
+            : e == FloorEvent.Ascendant ? "Ascendant" : e == FloorEvent.Restless ? "The Restless Dead" : e == FloorEvent.EmberMarch ? "The Ember March" : "";
 
         public static string EventText(FloorEvent e) =>
             e == FloorEvent.Gilded ? "enemies drop 60% more gold"
@@ -52,6 +53,7 @@ namespace Deepbound.World
             : e == FloorEvent.Quicksilver ? "everyone moves 15% faster; 30% more embers"
             : e == FloorEvent.Ascendant ? "ultimates charge 50% faster; enemies deal 10% more damage"
             : e == FloorEvent.Restless ? "slain enemies may rise again unless their bones are destroyed; 40% more embers"
+            : e == FloorEvent.EmberMarch ? "every elite leaves a trail of fire; 50% more embers"
             : "";
 
         public static Color EventColor(FloorEvent e) =>
@@ -61,12 +63,12 @@ namespace Deepbound.World
             : e == FloorEvent.LongNight ? new Color(0.6f, 0.55f, 0.95f) : e == FloorEvent.Embertide ? new Color(1f, 0.55f, 0.85f)
             : e == FloorEvent.BoneChoir ? new Color(0.85f, 0.95f, 1f)
             : e == FloorEvent.Muster ? new Color(1f, 0.76f, 0.3f) : e == FloorEvent.Quicksilver ? new Color(0.75f, 0.85f, 0.9f)
-            : e == FloorEvent.Ascendant ? new Color(1f, 0.95f, 0.75f) : e == FloorEvent.Restless ? new Color(0.75f, 0.7f, 0.6f) : Color.white;
+            : e == FloorEvent.Ascendant ? new Color(1f, 0.95f, 0.75f) : e == FloorEvent.Restless ? new Color(0.75f, 0.7f, 0.6f) : e == FloorEvent.EmberMarch ? new Color(1f, 0.5f, 0.2f) : Color.white;
 
         // Effects, read on the server.
         public static float EventGold => CurrentEvent == FloorEvent.Gilded ? 1.6f : CurrentEvent == FloorEvent.Marching ? 1.25f : 1f;
         public static float EventCrowd => CurrentEvent == FloorEvent.Swarm ? 1.35f : 1f;
-        public static float EventEmbers => CurrentEvent == FloorEvent.Swarm || CurrentEvent == FloorEvent.Restless ? 1.4f : CurrentEvent == FloorEvent.BoneChoir || CurrentEvent == FloorEvent.Quicksilver ? 1.3f : 1f;
+        public static float EventEmbers => CurrentEvent == FloorEvent.EmberMarch ? 1.5f : CurrentEvent == FloorEvent.Swarm || CurrentEvent == FloorEvent.Restless ? 1.4f : CurrentEvent == FloorEvent.BoneChoir || CurrentEvent == FloorEvent.Quicksilver ? 1.3f : 1f;
         /// <summary>Ascendant: how fast ultimates charge.</summary>
         public static float EventUltCharge => CurrentEvent == FloorEvent.Ascendant ? 1.5f : 1f;
         public const float AscendantHurt = 1.1f, RestlessChance = 0.2f;
@@ -85,7 +87,7 @@ namespace Deepbound.World
         private void RollFloorEvent(int depth)
         {
             var e = FloorEvent.None;
-            if (!TestMode && depth >= 1 && (Random.value < FloorEventChance || EndlessLap(depth) > 0)) e = (FloorEvent)Random.Range(1, 13);
+            if (!TestMode && depth >= 1 && (Random.value < FloorEventChance || EndlessLap(depth) > 0)) e = (FloorEvent)Random.Range(1, 14);
             FloorEventValue.Value = (byte)e;
             Combat.Health.FloorPlayerDamageScale = PlayerHurtFor(e);
         }

@@ -528,7 +528,8 @@ namespace Deepbound.Enemies
             health.ServerSetMax(health.Max.Value * 2.2f, refill: true);
             health.Defense += 3f;
 
-            var affix = forced != EliteAffix.None ? forced : EliteAffixes.Roll();
+            // The Ember March: every elite trails fire.
+            var affix = forced != EliteAffix.None ? forced : World.DungeonDirector.CurrentEvent == World.FloorEvent.EmberMarch ? EliteAffix.Emberbound : EliteAffixes.Roll();
             Affix.Value = (byte)affix;
             if (affix == EliteAffix.Warded)
             {
