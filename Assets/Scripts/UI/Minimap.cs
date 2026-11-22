@@ -244,7 +244,7 @@ namespace Deepbound.UI
                 if (room.Special && (large || r.width > 26f))
                 {
                     string label = room.Feature == RoomFeature.Treasury ? "TREASURY" : room.Feature == RoomFeature.Beggar ? "BEGGAR"
-                        : room.Feature == RoomFeature.Proving ? "PROVING" : room.Feature == RoomFeature.Armoury ? "ARMOURY" : room.Feature == RoomFeature.Oath ? "OATH"
+                        : room.Feature == RoomFeature.Proving ? "PROVING" : room.Feature == RoomFeature.Armoury ? "ARMOURY" : room.Feature == RoomFeature.Crucible ? "CRUCIBLE" : room.Feature == RoomFeature.Oath ? "OATH"
                         : room.Feature == RoomFeature.Statues ? "WATCHERS" : room.Feature == RoomFeature.Chimes ? "CHIMES" : room.Feature == RoomFeature.Mirrors ? "MIRRORS" : room.Feature == RoomFeature.Scales ? "SCALES" : room.Feature == RoomFeature.Draught ? "DRAUGHT" : room.Feature == RoomFeature.Panoply ? "PANOPLY" : "MIRROR";
                     GUI.Label(new Rect(r.x - 20f, r.center.y - 9f, r.width + 40f, 18f), label, UiSkin.Derive(UiSkin.Small, new Color(1f, 0.88f, 0.55f, 0.9f), large ? 12 : 9, FontStyle.Bold, TextAnchor.MiddleCenter));
                 }

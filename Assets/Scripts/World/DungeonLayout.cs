@@ -13,7 +13,7 @@ namespace Deepbound.World
     /// chamber (braziers empower the room's dead until smashed). Side rooms can be a
     /// Vault or a Fountain.
     /// </summary>
-    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply, Statues, Chimes, Mirrors, Scales, Draught, Mezzanine, Belfry, Undercroft, Ruin, Rampart }
+    public enum RoomFeature { None, GreatHall, Chasm, Crypt, Vault, Fountain, Gallery, SunkenCourt, Cistern, Pendulums, Ritual, Library, Pyre, Gauntlet, Treasury, Beggar, Proving, Armoury, Mirror, Terrace, Ziggurat, Oath, Lightless, Panoply, Statues, Chimes, Mirrors, Scales, Draught, Mezzanine, Belfry, Undercroft, Ruin, Rampart, Crucible }
 
     /// <summary>Boss arena shapes: a colonnade (cover), a raised dais under the throne, or broken ruins.</summary>
     public enum BossArena : byte { Colonnade = 0, Dais = 1, Ruins = 2 }
@@ -87,7 +87,7 @@ namespace Deepbound.World
             }
 
             /// <summary>A side room with one of the special features (treasury, beggar, proving bell, armoury, mirror).</summary>
-            public bool Special => Feature == RoomFeature.Treasury || Feature == RoomFeature.Beggar || Feature == RoomFeature.Proving || Feature == RoomFeature.Armoury || Feature == RoomFeature.Mirror || Feature == RoomFeature.Oath || Feature == RoomFeature.Panoply || Feature == RoomFeature.Statues || Feature == RoomFeature.Chimes || Feature == RoomFeature.Mirrors || Feature == RoomFeature.Scales || Feature == RoomFeature.Draught;
+            public bool Special => Feature == RoomFeature.Treasury || Feature == RoomFeature.Beggar || Feature == RoomFeature.Proving || Feature == RoomFeature.Armoury || Feature == RoomFeature.Mirror || Feature == RoomFeature.Oath || Feature == RoomFeature.Panoply || Feature == RoomFeature.Statues || Feature == RoomFeature.Chimes || Feature == RoomFeature.Mirrors || Feature == RoomFeature.Scales || Feature == RoomFeature.Draught || Feature == RoomFeature.Crucible;
             public Vector2Int Cell;
             public Vector3 Center;
             /// <summary>Interior floor size in metres (x, z).</summary>
@@ -1007,7 +1007,7 @@ namespace Deepbound.World
                     break;
                 }
             // ...the rest: most become one of the special rooms, no repeats a floor.
-            var specials = new List<RoomFeature> { RoomFeature.Treasury, RoomFeature.Beggar, RoomFeature.Proving, RoomFeature.Armoury, RoomFeature.Mirror, RoomFeature.Oath, RoomFeature.Statues, RoomFeature.Chimes };
+            var specials = new List<RoomFeature> { RoomFeature.Treasury, RoomFeature.Beggar, RoomFeature.Proving, RoomFeature.Armoury, RoomFeature.Mirror, RoomFeature.Oath, RoomFeature.Statues, RoomFeature.Chimes, RoomFeature.Crucible };
             // The light-beam room belongs to the deeper, holier acts (the Throne on).
             if (DungeonDirector.Act(layout.Depth) >= 2) specials.Add(RoomFeature.Mirrors);
             if (DungeonDirector.Act(layout.Depth) >= 1) specials.Add(RoomFeature.Scales);

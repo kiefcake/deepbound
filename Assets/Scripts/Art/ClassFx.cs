@@ -708,14 +708,17 @@ namespace Deepbound.Art
             if (rigRoot != null)
                 foreach (var mf in rigRoot.GetComponentsInChildren<MeshFilter>(true))
                 {
-                    if (mf.sharedMesh == null || n++ > 60) continue;
+                    if (mf.sharedMesh == null || n++ > 45) continue;
                     var r = mf.GetComponent<Renderer>();
                     if (r == null || r is SkinnedMeshRenderer) continue;
                     var m = toLocal * mf.transform.localToWorldMatrix;
                     var pos = (Vector3)m.GetColumn(3);
                     var q = m.rotation;
                     var sc = m.lossyScale;
-                    s.Solid(mf.sharedMesh, Mat.Glow, pos, q, sc, null, Violet * 0.3f);
+                    // A shadow body with a soft violet halo just outside it (2026-11-22: a flat lilac cut-out read as a
+                    // sticker; dark inside and lit at the edge reads as a ghost).
+                    s.Shade(mf.sharedMesh, new Color(0.05f, 0.02f, 0.09f, 0.82f), pos, q, sc);
+                    s.Light(mf.sharedMesh, H(Violet, 0.8f, 0.4f), pos, q, sc * 1.12f);
                 }
             if (n == 0)
             {

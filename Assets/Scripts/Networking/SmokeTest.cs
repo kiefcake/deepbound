@@ -1954,7 +1954,7 @@ namespace Deepbound.Networking
                     }
                     Log("peddler rooms peaceful", peddlers + " peddler rooms over 40 seeds, " + hostile + " with enemies", peddlers > 0 && hostile == 0);
                     {
-                        int tre = 0, beg = 0, pro = 0, arm = 0, mir = 0, ter = 0, zig = 0, oat = 0, dark = 0, wat = 0, chi = 0, dra = 0, specialHostile = 0;
+                        int cru = 0, tre = 0, beg = 0, pro = 0, arm = 0, mir = 0, ter = 0, zig = 0, oat = 0, dark = 0, wat = 0, chi = 0, dra = 0, specialHostile = 0;
                         for (int sd = 1; sd <= 40; sd++)
                         {
                             var gl = DungeonLayout.Generate(sd * 15485863, 1 + sd % 8);
@@ -1966,6 +1966,7 @@ namespace Deepbound.Networking
                                     case RoomFeature.Beggar: beg++; break;
                                     case RoomFeature.Proving: pro++; break;
                                     case RoomFeature.Armoury: arm++; break;
+                                    case RoomFeature.Crucible: cru++; break;
                                     case RoomFeature.Mirror: mir++; break;
                                     case RoomFeature.Terrace: ter++; break;
                                     case RoomFeature.Ziggurat: zig++; break;
@@ -1978,8 +1979,8 @@ namespace Deepbound.Networking
                                 if (r.Special && r.Feature != RoomFeature.Treasury && r.EnemySpawns.Count > 0) specialHostile++;
                             }
                         }
-                        Log("special rooms", "over 40 seeds: treasury " + tre + ", beggar " + beg + ", proving " + pro + ", armoury " + arm + ", mirror " + mir + ", terrace " + ter + ", ziggurat " + zig + ", oath " + oat + ", lightless " + dark + ", watchers " + wat + ", chimes " + chi + ", draught " + dra + "; special rooms with enemies " + specialHostile,
-                            tre > 0 && beg > 0 && pro > 0 && arm > 0 && mir > 0 && ter > 0 && zig > 0 && oat > 0 && dark > 0 && wat > 0 && chi > 0 && dra > 0 && specialHostile == 0);
+                        Log("special rooms", "over 40 seeds: treasury " + tre + ", beggar " + beg + ", proving " + pro + ", armoury " + arm + ", mirror " + mir + ", terrace " + ter + ", ziggurat " + zig + ", oath " + oat + ", lightless " + dark + ", watchers " + wat + ", chimes " + chi + ", draught " + dra + ", crucible " + cru + "; special rooms with enemies " + specialHostile,
+                            tre > 0 && beg > 0 && pro > 0 && arm > 0 && mir > 0 && ter > 0 && zig > 0 && oat > 0 && dark > 0 && wat > 0 && chi > 0 && dra > 0 && cru > 0 && specialHostile == 0);
                     }
                     {
                         // The special rooms' furniture does what it says.
@@ -2015,6 +2016,21 @@ namespace Deepbound.Networking
                         sp.ServerSetMirrorCursed(false);
                         yield return new WaitForSeconds(0.1f);
                         float maxClean = local.GetComponent<Health>().Max.Value;
+                        {
+                            // The Relic Crucible: the weakest relic melts into a different one a tier higher, once each.
+                            var cruc = dd.ServerDebugShrine(SideShrine.Kind.Crucible, near + Vector3.left * 6f);
+                            yield return new WaitForSeconds(0.1f);
+                            if (sp.RelicCount == 0) sp.ServerAddRelic(Relic.FrostCharm);
+                            int n0 = sp.RelicCount, wealth0 = sp.RelicWealth;
+                            string tray0 = ""; for (int ri = 0; ri < sp.RelicCount; ri++) tray0 += sp.RelicLabel(ri) + ",";
+                            cruc.ServerDebugUse(sp);
+                            int wealth1 = sp.RelicWealth;
+                            string tray1 = ""; for (int ri = 0; ri < sp.RelicCount; ri++) tray1 += sp.RelicLabel(ri) + ",";
+                            Debug.Log("[Smoke] crucible tray " + tray0 + " -> " + tray1 + " type " + cruc.Type.Value + " used " + cruc.Used.Value);
+                            cruc.ServerDebugUse(sp);
+                            Log("relic crucible", "relics " + n0 + " -> " + sp.RelicCount + ", wealth " + wealth0 + " -> " + wealth1 + " -> " + sp.RelicWealth + " (second use refused)",
+                                sp.RelicCount <= n0 && wealth1 > wealth0 && sp.RelicWealth == wealth1);
+                        }
                         Log("dark mirror", "max hp " + max0.ToString("F0") + " -> " + maxCursed.ToString("F0") + " cursed (" + maxClean.ToString("F0") + " without the curse), cursed " + wasCursed, wasCursed && maxCursed < maxClean * 0.9f);
                         var beggar = dd.ServerDebugShrine(SideShrine.Kind.Beggar, near + Vector3.right * 4f);
                         yield return new WaitForSeconds(0.1f);
@@ -7181,6 +7197,22 @@ namespace Deepbound.Networking
                 Art.BloodSpatter.Splash(local.transform.position + bf * 6.5f - bside * 1f, 0.2f);
                 yield return new WaitForSeconds(0.4f);
                 yield return Shot(dir, "2c_blood");
+            }
+            // The floor report (2026-11-22) with sample numbers.
+            UI.FloorReport.DebugFill();
+            yield return new WaitForSeconds(0.5f);
+            yield return Shot(dir, "2f_floor_report");
+            UI.FloorReport.Rows.Clear();
+            // The Relic Crucible (2026-11-22) staged ahead of the camera.
+            {
+                var ccam = Art.ViewCamera.Current;
+                var cf = ccam != null ? ccam.transform.forward : local.transform.forward;
+                cf.y = 0f; cf = cf.sqrMagnitude > 0.01f ? cf.normalized : Vector3.forward;
+                var cruc = DungeonDirector.Instance.ServerDebugShrine(World.SideShrine.Kind.Crucible, local.transform.position + cf * 2.6f);
+                if (cruc != null) cruc.transform.rotation = Quaternion.LookRotation(-cf);
+                yield return new WaitForSeconds(0.6f);
+                yield return Shot(dir, "2g_relic_crucible");
+                if (cruc != null) cruc.NetworkObject.Despawn();
             }
             // A door in a doorway: shut from a distance, swinging open as you come up to it.
             var door = FindObjectsByType<SwingDoor>(FindObjectsSortMode.None).OrderBy(d => (d.transform.position - local.transform.position).sqrMagnitude).FirstOrDefault();

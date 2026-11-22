@@ -177,7 +177,7 @@ namespace Deepbound.World
                 case RoomFeature.Gauntlet: DressGauntlet(room, dressing, lights, rng); return;
                 case RoomFeature.Terrace: DressTerrace(room, dressing, lights, rng); return;
                 case RoomFeature.Ziggurat: DressZiggurat(room, dressing, lights, rng); return;
-                case RoomFeature.Treasury: case RoomFeature.Beggar: case RoomFeature.Proving: case RoomFeature.Armoury: case RoomFeature.Mirror: case RoomFeature.Oath: case RoomFeature.Statues: case RoomFeature.Chimes: case RoomFeature.Mirrors: case RoomFeature.Scales: case RoomFeature.Draught:
+                case RoomFeature.Treasury: case RoomFeature.Beggar: case RoomFeature.Proving: case RoomFeature.Armoury: case RoomFeature.Mirror: case RoomFeature.Oath: case RoomFeature.Statues: case RoomFeature.Chimes: case RoomFeature.Mirrors: case RoomFeature.Scales: case RoomFeature.Draught: case RoomFeature.Crucible:
                     DressSpecial(room, dressing, lights, rng); return;
                 case RoomFeature.Panoply: DressSpecial(room, dressing, lights, rng); DressPanoply(room, dressing, lights); return;
                 // The tall rooms keep their floors clear for the stairs and decks (no free-standing pillars, no theme heaps);

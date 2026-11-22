@@ -546,6 +546,7 @@ namespace Deepbound.World
                     case RoomFeature.Proving when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Bell, room, room.FeatureSpots[0], 0, room.Id); break;
                     case RoomFeature.Armoury when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Whetstone, room, room.FeatureSpots[0], 0, room.Id); break;
                     case RoomFeature.Mirror when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Mirror, room, room.FeatureSpots[0], 0, room.Id); break;
+                    case RoomFeature.Crucible when sideShrinePrefab != null && room.FeatureSpots.Count > 0: SpawnShrine(SideShrine.Kind.Crucible, room, room.FeatureSpots[0], 0, room.Id); break;
                     case RoomFeature.Oath when oathPlatesPrefab != null && room.FeatureSpots.Count >= 4: SpawnOath(room); break;
                     case RoomFeature.Statues when room.FeatureSpots.Count >= 2: SpawnPuzzle(PuzzleRoom.Kind.Watchers, room.FeatureSpots[1], room.FeatureSpots[0], room.Id); break;
                     case RoomFeature.Chimes when room.FeatureSpots.Count >= 2: SpawnPuzzle(PuzzleRoom.Kind.Chimes, room.FeatureSpots[1], room.FeatureSpots[0], room.Id); break;

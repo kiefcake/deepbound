@@ -53,6 +53,18 @@ namespace Deepbound.UI
             shownAt = Time.time;
         }
 
+        /// <summary>Shots: a four-player table with sample numbers.</summary>
+        public static void DebugFill()
+        {
+            Rows.Clear();
+            Rows.Add(new Row { Name = "Ashwin", Class = "Mage", Color = new Color(0.4f, 0.6f, 1f), Damage = 18420, Kills = 41, Combos = 12, Taken = 2210, Downs = 0 });
+            Rows.Add(new Row { Name = "You", Class = "Knight", Color = new Color(1f, 0.75f, 0.3f), You = true, Damage = 12880, Kills = 27, Combos = 6, Taken = 6140, Downs = 1 });
+            Rows.Add(new Row { Name = "Mirela", Class = "Cleric", Color = new Color(0.5f, 1f, 0.55f), Damage = 6030, Kills = 9, Combos = 4, Taken = 1980, Downs = 0 });
+            Rows.Add(new Row { Name = "Tobiah the Unready", Class = "Rogue", Color = new Color(0.95f, 0.4f, 0.4f), Damage = 4410, Kills = 14, Combos = 2, Taken = 3320, Downs = 3 });
+            floorNumber = 3;
+            shownAt = Time.time - 1f;
+        }
+
         public static bool Showing => Rows.Count > 0 && Time.time - shownAt < ShowSeconds;
 
         public static void Draw(float w, float h)
@@ -60,7 +72,7 @@ namespace Deepbound.UI
             if (!Showing) return;
             float k = Time.time - shownAt;
             float a = Mathf.Clamp01(k * 3f) * Mathf.Clamp01((ShowSeconds - k) * 1.5f);
-            float pw = 430f, rowH = 26f, ph = 64f + Rows.Count * rowH;
+            float pw = 480f, rowH = 26f, ph = 64f + Rows.Count * rowH;
             var r = new Rect(w - pw - 24f + (1f - Mathf.Clamp01(k * 4f)) * 40f, h * 0.3f, pw, ph);
             var old = GUI.color;
             GUI.color = new Color(1f, 1f, 1f, a);
@@ -68,7 +80,7 @@ namespace Deepbound.UI
             UiSkin.Rect(new Rect(r.x, r.y, r.width, 3), UiSkin.Gold);
             GUI.Label(new Rect(r.x + 14, r.y + 8, pw - 28, 24), "FLOOR " + floorNumber + " REPORT", new GUIStyle(UiSkin.Heading) { fontSize = 17 });
             var head = new GUIStyle(UiSkin.Small) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(1f, 1f, 1f, 0.55f) } };
-            float[] cols = { 190f, 260f, 310f, 360f, 410f };
+            float[] cols = { 210f, 270f, 340f, 405f, 462f };
             string[] heads = { "DAMAGE", "KILLS", "COMBOS", "TAKEN", "DOWNS" };
             for (int c = 0; c < cols.Length; c++) GUI.Label(new Rect(r.x + cols[c] - 70f, r.y + 34, 70f, 18), heads[c], head);
             float y = r.y + 54;

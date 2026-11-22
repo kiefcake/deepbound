@@ -23,11 +23,13 @@ namespace Deepbound.World
     ///   (or embers, at a path choice or the cap).</item>
     /// <item><b>Mirror</b>: a dark bargain. A relic and gold now, but your reflection keeps a fifth of
     ///   your health until you leave the floor.</item>
+    /// <item><b>Crucible</b> (2026-11-22): every player may melt their weakest relic once; a different relic comes out a
+    ///   tier higher.</item>
     /// </list>
     /// </summary>
     public class SideShrine : Interactable
     {
-        public enum Kind : byte { Pedestal = 0, Beggar = 1, Bell = 2, Whetstone = 3, Mirror = 4 }
+        public enum Kind : byte { Pedestal = 0, Beggar = 1, Bell = 2, Whetstone = 3, Mirror = 4, Crucible = 5 }
 
         public readonly NetworkVariable<Kind> Type = new NetworkVariable<Kind>();
         /// <summary>The relic on a pedestal.</summary>
@@ -65,10 +67,21 @@ namespace Deepbound.World
                     return "Ring the Proving Bell  (two waves of the dead; a reward for everyone)";
                 case Kind.Whetstone:
                     return HasUsed(who) ? "You have sharpened your weapon here" : "Sharpen your weapon on the whetstone  (a free temper)";
+                case Kind.Crucible:
+                    if (HasUsed(who)) return "The crucible has taken your offering";
+                    if (who.RelicCount == 0) return "The crucible wants a relic to melt";
+                    return "Melt " + WeakestName(who) + " in the crucible  (a different relic, one tier higher)";
                 case Kind.Mirror:
                     return HasUsed(who) ? "Your reflection has what it wanted" : "Touch the dark mirror  (a relic and gold; it keeps a fifth of your health this floor)";
             }
             return null;
+        }
+
+        private static string WeakestName(PlayerProgress who)
+        {
+            int idx = 0;
+            for (int i = 1; i < who.RelicCount; i++) if (who.RelicTierAt(i) < who.RelicTierAt(idx)) idx = i;
+            return who.RelicLabel(idx);
         }
 
         public override void OnNetworkSpawn()
@@ -102,6 +115,12 @@ namespace Deepbound.World
                     Used.Value |= Bit(who);
                     if (!who.ServerFreeTemper()) who.ServerAddEmbers(Enemies.Difficulty.Embers(30 + 10 * Tier));
                     FxRpc(0, who.name);
+                    break;
+                case Kind.Crucible:
+                    if (HasUsed(who)) return;
+                    if (!who.ServerMeltRelic(out var gone, out var got, out int gotTier)) { RefuseRpc(who.OwnerClientId, "You carry no relic to melt"); return; }
+                    Used.Value |= Bit(who);
+                    CrucibleRpc(who.name, (byte)gone, (byte)got, (byte)gotTier);
                     break;
                 case Kind.Mirror:
                     if (HasUsed(who)) return;
@@ -178,6 +197,31 @@ namespace Deepbound.World
         private void ProvingWaveRpc(int wave) => UI.GameHud.ShowTitleCard("THE PROVING  " + wave + " / 2", wave == 1 ? "Hold the room" : "The last of them", new Color(0.95f, 0.75f, 0.4f));
 
         [Rpc(SendTo.ClientsAndHost)]
+        private void CrucibleRpc(string who, byte gone, byte got, byte tier)
+        {
+            var at = transform.position + Vector3.up * 1f;
+            var c = Relics.GemColor((Relic)got);
+            Sfx.Play(Sound.Fire, at, 1f, 0.7f);
+            Sfx.Play(Sound.Relic, at, 1f, 0.85f);
+            Vfx.Embers(at, 26, new Color(1f, 0.55f, 0.2f), 4f, 0.05f, 0.9f);
+            Vfx.AbilityFlash(at + Vector3.up * 0.4f, c, 3f, 5f, 0.5f);
+            if (gem != null) StartCoroutine(Bubble());
+            UI.GameHud.Feed(who + " melts " + Relics.Name((Relic)gone) + " into " + Relics.Name((Relic)got) + Relics.TierName(tier), c);
+        }
+
+        private IEnumerator Bubble()
+        {
+            float t0 = Time.time;
+            while (gem != null && Time.time - t0 < 1.2f)
+            {
+                float k = (Time.time - t0) / 1.2f;
+                gem.localScale = Vector3.one * (1f + 0.25f * Mathf.Sin(k * Mathf.PI * 6f) * (1f - k));
+                yield return null;
+            }
+            if (gem != null) gem.localScale = Vector3.one;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
         private void RefuseRpc(ulong client, string why)
         {
             if (NetworkManager.Singleton.LocalClientId == client) UI.GameHud.Feed(why, new Color(0.85f, 0.7f, 0.6f));
@@ -203,8 +247,8 @@ namespace Deepbound.World
         {
             bool mine = NetworkPlayer.Local != null && NetworkPlayer.Local.TryGetComponent<PlayerProgress>(out var me) && HasUsed(me);
             bool dim = Spent.Value || (Type.Value != Kind.Beggar && Type.Value != Kind.Bell && mine);
-            if (gem != null) gem.gameObject.SetActive(!dim || Type.Value == Kind.Whetstone);
-            if (glow != null) glow.intensity = dim ? 0.3f : (Type.Value == Kind.Pedestal ? 3.4f : 2.4f);
+            if (gem != null) gem.gameObject.SetActive(!dim || Type.Value == Kind.Whetstone || Type.Value == Kind.Crucible);
+            if (glow != null) glow.intensity = dim ? (Type.Value == Kind.Crucible ? 0.9f : 0.3f) : (Type.Value == Kind.Pedestal ? 3.4f : 2.4f);
             if (Spent.Value && Type.Value == Kind.Beggar)
                 if (vis != null) foreach (Transform c in vis) if (c.name.StartsWith("Beggar")) c.gameObject.SetActive(false);
         }
@@ -218,6 +262,7 @@ namespace Deepbound.World
                 gem.localPosition = new Vector3(0f, 1.45f + Mathf.Sin(spin * 2f) * 0.06f, 0f);
                 gem.localRotation = Quaternion.Euler(0f, spin * 60f, 0f);
             }
+            else if (Type.Value == Kind.Crucible && glow != null) gem.localPosition = new Vector3(0f, 1.0f + Mathf.Sin(spin * 1.3f) * 0.008f, 0f);
             else if (Type.Value == Kind.Mirror) gem.localRotation = Quaternion.Euler(0f, 0f, Mathf.Sin(spin) * 2f);
         }
 
@@ -302,6 +347,34 @@ namespace Deepbound.World
                     for (int i = 0; i < 4; i++)
                         MeshKit.Part(vis, "OldBlade", MeshKit.Box(new Vector3(0.06f, 1f, 0.015f)), Mat.Steel, new Vector3(-0.9f + i * 0.12f, 0.6f, -0.3f), new Vector3(0f, 0f, 8f - i * 4f));
                     glow = AddLight(new Color(1f, 0.6f, 0.3f), 5f, 1.6f);
+                    break;
+                }
+                case Kind.Crucible:
+                {
+                    // A squat iron crucible on three clawed legs over a bed of coals, a pool of molten gold glowing in its
+                    // mouth, a pair of long tongs leaning on it.
+                    for (int i = 0; i < 3; i++)
+                    {
+                        float a = i * 120f * Mathf.Deg2Rad;
+                        MeshKit.Part(vis, "Leg", MeshKit.Box(new Vector3(0.09f, 0.5f, 0.09f)), Mat.Dark, new Vector3(Mathf.Cos(a) * 0.38f, 0.25f, Mathf.Sin(a) * 0.38f), new Vector3(Mathf.Sin(a) * 14f, 0f, -Mathf.Cos(a) * 14f));
+                    }
+                    MeshKit.Part(vis, "Pot", MeshKit.Lathe("crucible", new[]
+                    {
+                        new Vector2(0f, 0.42f), new Vector2(0.3f, 0.44f), new Vector2(0.46f, 0.6f), new Vector2(0.5f, 0.85f), new Vector2(0.44f, 1.02f), new Vector2(0.48f, 1.06f), new Vector2(0.4f, 1.06f),
+                    }, 14), Mat.Dark, Vector3.zero);
+                    gem = MeshKit.Pivot(vis, "Melt", new Vector3(0f, 1.0f, 0f));
+                    var melt = MeshKit.Part(gem, "Gold", MeshKit.Cylinder(0.4f, 0.4f, 0.03f, 14), Mat.Glow, Vector3.zero);
+                    ArtLibrary.SetGlow(melt.GetComponent<Renderer>(), new Color(1f, 0.5f, 0.12f) * 0.85f);
+                    var rng = new System.Random(7);
+                    for (int i = 0; i < 9; i++)
+                    {
+                        float a = (float)rng.NextDouble() * Mathf.PI * 2f, d = 0.35f + (float)rng.NextDouble() * 0.35f;
+                        var coal = MeshKit.Part(vis, "Coal", MeshKit.Ball(0.07f + (float)rng.NextDouble() * 0.05f, 6, 4), Mat.Glow, new Vector3(Mathf.Cos(a) * d, 0.04f, Mathf.Sin(a) * d), default, new Vector3(1f, 0.5f, 1f));
+                        ArtLibrary.SetGlow(coal.GetComponent<Renderer>(), new Color(1f, 0.35f, 0.08f) * (0.6f + (float)rng.NextDouble() * 0.5f));
+                    }
+                    foreach (float s in new[] { -1f, 1f })
+                        MeshKit.Part(vis, "Tong", MeshKit.Box(new Vector3(0.025f, 1.2f, 0.025f)), Mat.Steel, new Vector3(0.66f + s * 0.03f, 0.6f, 0.1f), new Vector3(0f, 0f, -12f + s * 3f));
+                    glow = AddLight(new Color(1f, 0.5f, 0.2f), 5f, 1.4f);
                     break;
                 }
                 case Kind.Mirror:

@@ -1049,6 +1049,33 @@ namespace Deepbound.Progression
             UI.GameHud.Feed(name + " sets down " + Relics.Name(r) + (t > 0 ? (t == 1 ? " II" : " III") : "") + " (it keeps its power)", Relics.GemColor(r));
         }
 
+        /// <summary>
+        /// Server: the RELIC CRUCIBLE (2026-11-22). Your weakest relic is melted down and a different one comes out a tier
+        /// higher (II from a plain one, III from a II). False with no relic to give.
+        /// </summary>
+        public bool ServerMeltRelic(out Relic gone, out Relic got, out int gotTier)
+        {
+            gone = got = default; gotTier = 0;
+            if (!IsServer || relics.Count == 0) return false;
+            int idx = 0;
+            for (int i = 1; i < relics.Count; i++) if (RelicTierAt(i) < RelicTierAt(idx)) idx = i;
+            gone = RelicAt(idx);
+            int tier = RelicTierAt(idx);
+            relics.RemoveAt(idx);
+            if (gone == Relic.HeartOfTheDeep || gone == Relic.BloodPact) OnStatsChangedServer(StatType.HP);
+            got = gone;
+            for (int tries = 0; tries < 60; tries++)
+            {
+                var r = Relics.Random();
+                if (r == gone || HasRelic(r)) continue;
+                got = r;
+                break;
+            }
+            gotTier = Relics.Scales(got) ? Mathf.Min(tier + 1, Relics.MaxTier) : 0;
+            ServerAddRelic(got, gotTier);
+            return true;
+        }
+
         public bool ServerAddRelic(Relic r) => ServerAddRelic(r, 0);
 
         /// <param name="tier">A relic that was set down comes back at the tier it had (only when it takes a new slot).</param>
