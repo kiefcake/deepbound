@@ -920,13 +920,16 @@ namespace Deepbound.Art
             var fwd = Flat(doctor.forward);
             var s = FxShape.Make("Mask", doctor.position + Vector3.up * 2.1f + fwd * 0.15f, Quaternion.LookRotation(fwd), 1.5f);
             var mask = s.Pivot(Vector3.zero, Quaternion.identity);
-            var pale = H(Pale, 1.3f, 0.5f);
-            s.Light(MeshKit.Ball(0.22f, 10, 8), pale, Vector3.zero, Quaternion.identity, new Vector3(1f, 1.15f, 0.9f), false, mask);
-            s.Light(MeshKit.Cylinder(0.12f, 0.01f, 0.62f, 8), H(Pale, 1.5f, 0.6f), new Vector3(0f, -0.06f, 0.12f), Quaternion.Euler(105f, 0f, 0f), null, false, mask);
+            // 2026-11-22: a dark leather mask with a pale halo (an all-light mask read as a flat green blob).
+            var leather = new Color(0.08f, 0.07f, 0.05f, 0.88f);
+            s.Shade(MeshKit.Ball(0.22f, 10, 8), leather, Vector3.zero, Quaternion.identity, new Vector3(1f, 1.15f, 0.9f), mask);
+            s.Shade(MeshKit.Cylinder(0.12f, 0.01f, 0.62f, 8), leather, new Vector3(0f, -0.06f, 0.12f), Quaternion.Euler(105f, 0f, 0f), null, mask);
+            s.Light(MeshKit.Ball(0.22f, 10, 8), H(Pale, 0.7f, 0.28f), Vector3.zero, Quaternion.identity, new Vector3(1.14f, 1.3f, 1.02f), true, mask);
+            s.Light(MeshKit.Cylinder(0.15f, 0.02f, 0.68f, 8), H(Pale, 0.7f, 0.25f), new Vector3(0f, -0.06f, 0.12f), Quaternion.Euler(105f, 0f, 0f), null, true, mask);
             foreach (float sx in new[] { -1f, 1f })
                 s.Light(MeshKit.Ball(0.065f, 8, 6), H(Plague, 3.2f, 1f), new Vector3(sx * 0.09f, 0.05f, 0.17f), Quaternion.identity, null, false, mask);
             s.Light(Shapes.Hoop(0.5f), H(Pale, 1.2f, 0.35f), new Vector3(0f, 0.2f, 0f), Quaternion.identity, Vector3.one * 0.36f, true, mask);
-            s.Light(MeshKit.Cylinder(0.19f, 0.17f, 0.26f, 10), H(Pale, 1f, 0.3f), new Vector3(0f, 0.2f, 0f), Quaternion.identity, null, false, mask);
+            s.Shade(MeshKit.Cylinder(0.19f, 0.17f, 0.26f, 10), leather, new Vector3(0f, 0.2f, 0f), Quaternion.identity, null, mask);
             var start = s.transform.position;
             s.Tick = (sh, k) =>
             {
