@@ -104,7 +104,7 @@ namespace Deepbound.Classes
             ? new[]
             {
                 ("PASSIVE", "Contagion", "Vials BLIGHT the dead: poison, and +10% damage from everyone. A blighted death spreads it."),
-                ("LMB", "Vial", "Lob vials in an arc; they shatter in a small splash where they land."),
+                ("LMB", "Vial", "Lob vials in an arc; they shatter in a small splash where they land. Each costs reagents: run dry and they DILUTE (weak, no blight). Blighted kills refill you."),
                 ("RMB", "Tonic", "Lob a tonic: a healing mist for every ally where it bursts, you included."),
                 ("Q", "Miasma", "A lingering plague cloud at your crosshair that rots anything inside."),
                 ("E", "Plague Mask", "Cleanse every ally nearby, heal them, and ward them against afflictions for 4 s."),
@@ -156,13 +156,13 @@ namespace Deepbound.Classes
 
         /// <summary>How the class plays with the others (see <see cref="Combos"/>).</summary>
         public static string ComboLine(ClassId id) => id == ClassId.Flagellant
-            ? "Chains pull stragglers into the Knight's and Mage's reach; crashes Shatter chill. Your Scourge heals allies at Penitent mastery."
+            ? "Chains pull stragglers into the Knight's and Mage's reach; crashes Shatter chill, and a crash on a blighted enemy is a PLAGUE CRASH (the rot spreads). Your Scourge heals allies at Penitent mastery."
             : id == ClassId.PlagueDoctor
-            ? "Blight makes the dead take +10% from everyone and spreads on death. The Mask cleanses curses, poison and mania off the party."
+            ? "Blight makes the dead take +10% from everyone and spreads on death. The Cleric PURGES blighted foes (+25%); the Flagellant's crash spreads your blight. The Mask cleanses curses, poison and mania."
             : id == ClassId.Mage
             ? "Frost chills for everyone's heavy hits to Shatter. Your fire Shatters for x1.75; Meteor feasts on stunned crowds."
             : id == ClassId.Cleric
-            ? "Consecrate Blesses allies inside (+20% damage); the ally in your Mending Beam is Inspired (+15%). A broken Aegis shield bursts."
+            ? "Consecrate Blesses allies inside (+20% damage); the ally in your Mending Beam is Inspired (+15%). A broken Aegis shield bursts. Your holy hits PURGE the Plague Doctor's blight (+25%)."
             : id == ClassId.Rogue
             ? "Openers stun (Exposed: +25% for all); Ambush hits Shatter chill. Allies in your smoke cloud are hidden too (Smoke Screen)."
             : id == ClassId.Ranger

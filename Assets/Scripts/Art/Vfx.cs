@@ -215,7 +215,14 @@ namespace Deepbound.Art
             Physics.Raycast(p + Vector3.up * 0.2f, Vector3.down, out var hit, 4f, ~(1 << 2), QueryTriggerInteraction.Ignore) ? hit.point : p;
 
         /// <summary>A short-lived point light that fades out (flashes, explosions).</summary>
-        public static void Flash(Vector3 at, Color color, float intensity, float range, float life)
+        /// <summary>An ability's flash of light: half the intensity, a shorter reach and a fainter flare than a world flash
+        /// (2026-11-22, the user: "tone the light levels down on ability effects").</summary>
+        public static void AbilityFlash(Vector3 at, Color color, float intensity, float range, float life) =>
+            Flash(at, color, intensity * 0.45f, range * 0.8f, life, 0.45f);
+
+        public static void Flash(Vector3 at, Color color, float intensity, float range, float life) => Flash(at, color, intensity, range, life, 1f);
+
+        public static void Flash(Vector3 at, Color color, float intensity, float range, float life, float flareScale)
         {
             if (UI.Settings.ReduceFlashing) intensity *= 0.35f;
             var go = new GameObject("VfxFlash");
@@ -228,8 +235,8 @@ namespace Deepbound.Art
             l.shadows = LightShadows.None;
             go.AddComponent<FadeLight>().Life = life;
             // The flash seen, not only lit: a soft flare at its heart.
-            float flare = Mathf.Clamp(range * 0.26f, 0.6f, 3.5f) * (UI.Settings.ReduceFlashing ? 0.6f : 1f);
-            FxSprite.Billboard("flare_01", at, Vector3.zero, life * 0.7f, flare * 0.6f, flare, new Color(color.r, color.g, color.b, UI.Settings.ReduceFlashing ? 0.4f : 0.95f), Random.Range(-40f, 40f));
+            float flare = Mathf.Clamp(range * 0.26f, 0.6f, 3.5f) * (UI.Settings.ReduceFlashing ? 0.6f : 1f) * Mathf.Lerp(0.7f, 1f, flareScale);
+            FxSprite.Billboard("flare_01", at, Vector3.zero, life * 0.7f, flare * 0.6f, flare, new Color(color.r, color.g, color.b, (UI.Settings.ReduceFlashing ? 0.4f : 0.95f) * flareScale), Random.Range(-40f, 40f));
         }
     }
 }

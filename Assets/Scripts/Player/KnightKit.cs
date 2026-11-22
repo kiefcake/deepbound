@@ -161,6 +161,7 @@ namespace Deepbound.Player
 
         public ClassId Class => ClassId.Knight;
         public string ResourceName => "Stamina";
+        public string ResourceHint => Stamina < 15f ? "spent: guard and sprint falter" : "blocked hits and sprinting spend it";
         public Color ResourceColor => new Color(0.9f, 0.68f, 0.18f);
         public float Resource => Stamina;
         public float ResourceMax => StaminaMax;
@@ -595,7 +596,7 @@ namespace Deepbound.Player
             float r = WarCryRadius;
             Vfx.Ring(transform.position, r, new Color(1f, 0.45f, 0.2f), 0.55f);
             Vfx.Ring(transform.position, r * 0.6f, new Color(1f, 0.8f, 0.4f), 0.35f);
-            Vfx.Flash(transform.position + Vector3.up * 1.6f, new Color(1f, 0.55f, 0.25f), 5f, 8f, 0.4f);
+            Vfx.AbilityFlash(transform.position + Vector3.up * 1.6f, new Color(1f, 0.55f, 0.25f), 5f, 8f, 0.4f);
             // 2026-11-21 (distinct abilities): walls of sound and a roar out of the mouth; a burning chevron over every foe
             // it pulls (the taunt you can see), snapped back to the Knight by a tether.
             ClassFx.KnightWarCry(transform, r);

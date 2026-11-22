@@ -80,6 +80,8 @@ namespace Deepbound.Player
 
         public ClassId Class => ClassId.Flagellant;
         public string ResourceName => "Fervor";
+        /// <summary>Fervor in a few words: what it adds now, and that the Leap spends it (2026-11-22, "explain flagellant bar").</summary>
+        public string ResourceHint => Fervor.Value < 1f ? "hit or be hit to build" : "+" + Mathf.RoundToInt(Fervor.Value / 5f) + "% dmg  ·  Leap spends it";
         public Color ResourceColor => new Color(0.9f, 0.2f, 0.15f);
         public float Resource => Fervor.Value;
         public float ResourceMax => FervorMax;
@@ -609,7 +611,7 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Toll, at, 0.6f, 1.2f);
             Vfx.Ring(at + Vector3.up * 0.05f, AmenRadius, new Color(1f, 0.3f, 0.22f), 0.55f);
             Vfx.Embers(at + Vector3.up * 0.3f, 26, Blood, 6f, 0.06f, 0.8f);
-            Vfx.Flash(at + Vector3.up, new Color(1f, 0.3f, 0.2f), 6f, 10f, 0.4f);
+            Vfx.AbilityFlash(at + Vector3.up, new Color(1f, 0.3f, 0.2f), 6f, 10f, 0.4f);
             // Amen: the whirl comes down at once and the floor breaks wide.
             ClassFx.FlagCrater(at, AmenRadius, 1.6f);
             if (IsOwner) { player.ConfirmHit(2f); player.AddShake(0.4f); }
@@ -659,7 +661,7 @@ namespace Deepbound.Player
             // tip and flinging blood; blood left at the feet.
             ClassFx.FlagScourge(transform, IsOwner && !NetworkPlayer.DebugShowSelf);
             FxSprite.Decal("dirt_02", transform.position, 0.7f, 0.9f, 5f, new Color(0.3f, 0.03f, 0.02f, 0.6f));
-            Vfx.Flash(transform.position + Vector3.up * 1.2f, new Color(1f, 0.25f, 0.18f), 3f, 4f, 0.3f);
+            Vfx.AbilityFlash(transform.position + Vector3.up * 1.2f, new Color(1f, 0.25f, 0.18f), 3f, 4f, 0.3f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -682,7 +684,7 @@ namespace Deepbound.Player
             float k = 1f + fervor / 100f;
             Sfx.Play(Sound.Slam, at, 1f, 0.8f);
             Vfx.Embers(at + Vector3.up * 0.3f, Mathf.RoundToInt(14 * k), Blood, 5f * k, 0.06f, 0.7f);
-            Vfx.Flash(at + Vector3.up, new Color(1f, 0.3f, 0.2f), 4f * k, 8f, 0.35f);
+            Vfx.AbilityFlash(at + Vector3.up, new Color(1f, 0.3f, 0.2f), 4f * k, 8f, 0.35f);
             // 2026-11-21 (distinct abilities): the landing breaks the floor: a crater of glowing cracks, rubble thrown up,
             // a low wall of force; more Fervor spent, a wider break.
             ClassFx.FlagCrater(at, LeapRadius, k);

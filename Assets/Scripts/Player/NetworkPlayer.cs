@@ -201,6 +201,7 @@ namespace Deepbound.Player
                 LegacyBits.Value = Legacy.Bits;
             }
             gameObject.AddComponent<PetCompanion>().Init(this);
+            gameObject.AddComponent<PetPerks>().Init(this);
             gameObject.AddComponent<ToolBelt>().Init(this);
             gameObject.AddComponent<CampSeat>().Init(this);
             gameObject.AddComponent<UI.Dialogue>().Init(this);
@@ -409,11 +410,12 @@ namespace Deepbound.Player
                 ArtLibrary.SetGlow(edge.GetComponent<Renderer>(), c * 1.4f);
                 ViewModelLayer(root);
             }
-            else
+            else if (!firstPerson)
             {
-                var core = MeshKit.Part(root, "Core", MeshKit.Ball(firstPerson ? 0.03f : 0.07f, 8, 6), Mat.Glow, firstPerson ? new Vector3(0f, 0.3f, 0.12f) : new Vector3(0f, -0.72f, 0.18f));
-                ArtLibrary.SetGlow(core.GetComponent<Renderer>(), c * 1.3f);
-                if (firstPerson) ViewModelLayer(root);
+                // 2026-11-22 (the user: "fix the weapon glow ball being visible"): weapons with no blade edge (staves,
+                // flails, flasks, bows) used to get a solid glowing ball in the hand. Now: faint sparks rising off the
+                // weapon hand for everyone else to see; in your own view only the coloured light.
+                root.gameObject.AddComponent<WeaponMotes>().Color = c;
             }
             foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
         }
@@ -462,6 +464,37 @@ namespace Deepbound.Player
             bool wet = DungeonDirector.Layout != null && !DungeonDirector.InLobby && (DungeonTheme.ForDepth(DungeonDirector.Layout.Depth).WaterDepth > 0f || DungeonDirector.InWater(p));
             // Camp is earth and grass underfoot (the castle cat's road, the forest track); below it is stone.
             Sfx.Play(wet ? Sound.Splash : DungeonDirector.InLobby ? Sound.StepSoft : Sound.Step, p, wet ? 0.35f : 0.25f);
+        }
+
+        /// <summary>Server → everyone: this player's pet did its trick (PetPerks).</summary>
+        [Rpc(SendTo.ClientsAndHost)]
+        public void PetCueRpc(byte cue, Vector3 at) { if (TryGetComponent<PetPerks>(out var pp)) pp.Show((PetPerks.Cue)cue, at); }
+
+        /// <summary>UNSTUCK (2026-11-22, the user: "add a destuck button in menu"): pause menu → server picks the nearest
+        /// walkable floor in your room (out of the props, off the walls), else the nearest navmesh, else the start; in camp,
+        /// your spawn spot. Not while downed; once per <see cref="UnstuckCooldown"/> s.</summary>
+        public const float UnstuckCooldown = 8f;
+        private float unstuckAt = -99f;
+
+        [Rpc(SendTo.Server)]
+        public void UnstuckRpc() => ServerUnstuck();
+
+        public bool ServerUnstuck()
+        {
+            if (!IsServer || life == null || life.Downed.Value || Time.time - unstuckAt < UnstuckCooldown) return false;
+            unstuckAt = Time.time;
+            var pos = transform.position;
+            Vector3 to;
+            if (DungeonDirector.InLobby || DungeonDirector.Layout == null) to = Lobby.SpawnFor(OwnerClientId);
+            else
+            {
+                var room = DungeonDirector.Layout.RoomAt(pos, 0.5f);
+                if (room != null) to = DropSpots.Stand(room.Center, pos, 0.45f);
+                else if (UnityEngine.AI.NavMesh.SamplePosition(pos, out var h, 8f, UnityEngine.AI.NavMesh.AllAreas)) to = h.position;
+                else to = DungeonDirector.Layout.PlayerSpawn;
+            }
+            ShoveRpc(to + Vector3.up * 0.1f);
+            return true;
         }
 
         /// <summary>Server → owner: a gate fell on you; you are through it, here (no words: the gate says it).</summary>

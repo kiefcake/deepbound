@@ -33,7 +33,6 @@ namespace Deepbound.Progression
         public static readonly Recipe[] Recipes =
         {
             new Recipe { Name = "Health Potion", Description = "Bone ash and boiled linen: the old field remedy.", Bone = 4, Cloth = 2, Kind = CraftKind.Potion, Arg = 0 },
-            new Recipe { Name = "Class Draught", Description = "Your class's draught (slot 2).", Bone = 3, Cloth = 3, Kind = CraftKind.Potion, Arg = 1 },
             new Recipe { Name = "Frost Flask", Description = "Iron flask packed with grave-cold marrow.", Bone = 2, Iron = 3, Kind = CraftKind.Potion, Arg = 2 },
             new Recipe { Name = "Holy Water", Description = "A bone-stoppered vial, blessed by habit.", Bone = 2, Cloth = 2, Iron = 2, Kind = CraftKind.Potion, Arg = 3 },
             new Recipe { Name = "Padded Lining", Description = "+2 DEF for the run (up to 3).", Cloth = 6, Iron = 2, Kind = CraftKind.Lining },

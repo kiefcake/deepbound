@@ -204,26 +204,68 @@ namespace Deepbound.UI
             float total = Mathf.Min(1180f, w - 60f);
             float left = w / 2f - total / 2f;
 
-            // --- Class list (scales to any number of classes) ---
-            float rowH = Mathf.Min(64f, (bottom - top - (n - 1) * 8f) / n);
+            // --- Class cards (2026-11-22, the user: "please work on character select cards"): each class has its own
+            // colour (the colour of its ability effects), a stripe and a sigil letter in it, its role, difficulty pips,
+            // and a CHOSEN badge; the one you are looking at lifts out of the column. ---
+            float rowH = Mathf.Min(72f, (bottom - top - (n - 1) * 8f) / n);
             for (int i = 0; i < n; i++)
             {
                 var id = (ClassId)i;
                 var def = ClassDefinition.For(id);
-                var r = new Rect(left, top + i * (rowH + 8f), listW, rowH);
+                var acc = Accent(id);
                 bool selected = progress.ClassId.Value == id;
                 bool view = viewing == i;
-                if (selected) UiSkin.Rect(new Rect(r.x - 3, r.y - 3, r.width + 6, r.height + 6), new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, 0.9f));
-                UiSkin.Rect(r, view ? new Color(0.22f, 0.17f, 0.1f, 0.95f) : new Color(0.06f, 0.055f, 0.05f, 0.92f));
-                GUI.Label(new Rect(r.x + 14, r.y + 6, r.width - 20, 28), def.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Heading) { fontSize = 20 });
-                GUI.Label(new Rect(r.x + 14, r.y + 32, r.width - 20, 20), def.Role + (selected ? "   — chosen" : ""), UiSkin.Small);
+                var r = new Rect(left + (view ? 10f : 0f), top + i * (rowH + 8f), listW, rowH);
+                if (view) UiSkin.Rect(new Rect(r.x - 2, r.y - 2, r.width + 4, r.height + 4), new Color(acc.r, acc.g, acc.b, 0.75f));
+                UiSkin.Rect(r, view ? new Color(0.13f, 0.11f, 0.09f, 0.98f) : new Color(0.06f, 0.055f, 0.05f, 0.92f));
+                UiSkin.Rect(new Rect(r.x, r.y, 6, r.height), new Color(acc.r, acc.g, acc.b, view ? 1f : 0.65f));
+                // A sigil disc with the class's initial.
+                var disc = new Rect(r.x + 16, r.y + r.height / 2f - 20, 40, 40);
+                UiSkin.Rect(disc, new Color(acc.r * 0.35f, acc.g * 0.35f, acc.b * 0.35f, 0.95f));
+                UiSkin.Rect(new Rect(disc.x, disc.yMax - 3, disc.width, 3), acc);
+                GUI.Label(disc, def.Name.Substring(0, 1), new GUIStyle(UiSkin.Heading) { fontSize = 22, alignment = TextAnchor.MiddleCenter, normal = { textColor = Color.Lerp(acc, Color.white, 0.4f) } });
+                float tx = disc.xMax + 12, tw = r.xMax - tx - 10;
+                GUI.Label(new Rect(tx, r.y + 7, tw, 26), def.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Heading) { fontSize = 19, normal = { textColor = view ? Color.white : new Color(0.88f, 0.85f, 0.8f) } });
+                GUI.Label(new Rect(tx, r.y + 33, tw - 60, 18), def.Role, new GUIStyle(UiSkin.Small) { fontSize = 12, wordWrap = false });
+                Pips(new Rect(tx, r.yMax - 15, 60, 8), DifficultyLevel(id), acc);
+                if (selected)
+                {
+                    var badge = new Rect(r.xMax - 74, r.y + 8, 64, 18);
+                    UiSkin.Rect(badge, new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, 0.9f));
+                    GUI.Label(badge, "CHOSEN", new GUIStyle(UiSkin.Small) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.1f, 0.08f, 0.05f) } });
+                }
                 if (r.Contains(Event.current.mousePosition)) viewing = i;
                 if (GUI.Button(r, GUIContent.none, GUIStyle.none)) Choose(id);
             }
 
             // --- Detail panel for the class being viewed ---
-            var panel = new Rect(left + listW + 24f, top, total - listW - 24f, bottom - top);
+            var panel = new Rect(left + listW + 34f, top, total - listW - 34f, bottom - top);
             DrawDetail(panel, (ClassId)viewing);
+        }
+
+        /// <summary>Each class's colour: the hue its ability effects wear in battle (ClassFx).</summary>
+        public static Color Accent(ClassId id) => id switch
+        {
+            ClassId.Knight => new Color(0.72f, 0.78f, 0.88f),
+            ClassId.Cleric => new Color(1f, 0.82f, 0.4f),
+            ClassId.Flagellant => new Color(0.9f, 0.25f, 0.2f),
+            ClassId.Rogue => new Color(0.68f, 0.45f, 1f),
+            ClassId.PlagueDoctor => new Color(0.55f, 0.85f, 0.3f),
+            ClassId.Mage => new Color(1f, 0.55f, 0.2f),
+            ClassId.Ranger => new Color(0.45f, 0.85f, 0.45f),
+            _ => UiSkin.Gold,
+        };
+
+        private static int DifficultyLevel(ClassId id)
+        {
+            var d = ClassDefinition.Difficulty(id);
+            return d.StartsWith("Easy") ? 1 : d.StartsWith("Hard") ? 3 : 2;
+        }
+
+        private static void Pips(Rect r, int level, Color c)
+        {
+            for (int k = 0; k < 3; k++)
+                UiSkin.Rect(new Rect(r.x + k * 16, r.y, 12, r.height), k < level ? c : new Color(c.r, c.g, c.b, 0.18f));
         }
 
         private void Choose(ClassId id)
@@ -242,19 +284,27 @@ namespace Deepbound.UI
         {
             var def = ClassDefinition.For(id);
             bool selected = progress.ClassId.Value == id;
+            var acc = Accent(id);
             UiSkin.Panel(r, 0.95f);
+            UiSkin.Rect(new Rect(r.x, r.y, r.width, 4), acc);
 
-            // Preview on the left of the panel, details on the right.
-            float previewW = r.width * 0.42f;
-            var previewRect = new Rect(r.x + 14, r.y + 14, previewW, r.height - 28 - 60);
+            // The preview, framed in the class colour, the name over a shade at its foot.
+            float previewW = r.width * 0.4f;
+            var previewRect = new Rect(r.x + 14, r.y + 18, previewW, r.height - 32 - 60);
+            UiSkin.Rect(new Rect(previewRect.x - 2, previewRect.y - 2, previewRect.width + 4, previewRect.height + 4), new Color(acc.r, acc.g, acc.b, 0.5f));
             if (previews != null && previews[(int)id] != null) GUI.DrawTexture(previewRect, previews[(int)id], ScaleMode.ScaleAndCrop);
+            for (int k = 0; k < 8; k++)
+                UiSkin.Rect(new Rect(previewRect.x, previewRect.yMax - 70 + k * 8.75f, previewRect.width, 8.75f), new Color(0f, 0f, 0f, 0.08f + k * 0.07f));
+            GUI.Label(new Rect(previewRect.x + 14, previewRect.yMax - 44, previewRect.width - 28, 20), def.Role.ToUpperInvariant(), new GUIStyle(UiSkin.Small) { fontSize = 13, fontStyle = FontStyle.Bold, normal = { textColor = acc } });
+            Pips(new Rect(previewRect.x + 14, previewRect.yMax - 20, 60, 8), DifficultyLevel(id), acc);
 
             float x = previewRect.xMax + 22, cw = r.xMax - x - 18, y = r.y + 16;
-            GUI.Label(new Rect(x, y, cw, 40), def.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Heading) { fontSize = 34 });
-            GUI.Label(new Rect(x, y + 42, cw, 20), def.Role, UiSkin.Body);
-            GUI.Label(new Rect(x, y + 64, cw, 20), ClassDefinition.Difficulty(id), new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Italic });
-            GUI.Label(new Rect(x, y + 86, cw, 40), ClassDefinition.Pitch(id), UiSkin.Small);
-            y += 130;
+            GUI.Label(new Rect(x, y, cw, 40), def.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Heading) { fontSize = 34, normal = { textColor = Color.Lerp(acc, Color.white, 0.55f) } });
+            GUI.Label(new Rect(x, y + 42, cw, 20), ClassDefinition.Difficulty(id), new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Italic, fontSize = 13 });
+            var pitchSt = new GUIStyle(UiSkin.Body) { fontSize = 14, wordWrap = true };
+            float pitchH = pitchSt.CalcHeight(new GUIContent(ClassDefinition.Pitch(id)), cw);
+            GUI.Label(new Rect(x, y + 66, cw, pitchH), ClassDefinition.Pitch(id), pitchSt);
+            y += 66 + pitchH + 12;
 
             for (int s = 0; s < Stats.Count; s++)
             {
@@ -262,22 +312,40 @@ namespace Deepbound.UI
                 float v = def.BaseStats[s];
                 float max = stat == StatType.HP ? 300f : stat == StatType.MP ? 150f : 60f;
                 float col = x + (s % 2) * cw / 2f;
-                float row = y + (s / 2) * 22;
+                float row = y + (s / 2) * 20;
                 float bw = cw / 2f - 90;
                 GUI.Label(new Rect(col, row, 40, 20), Stats.ShortName(stat), UiSkin.Small);
-                UiSkin.Rect(new Rect(col + 40, row + 6, bw, 9), new Color(0.15f, 0.13f, 0.12f));
-                UiSkin.Rect(new Rect(col + 40, row + 6, bw * Mathf.Clamp01(v / max), 9), Loot.LootInfo.StatColor(stat));
+                UiSkin.Rect(new Rect(col + 40, row + 6, bw, 8), new Color(0.15f, 0.13f, 0.12f));
+                UiSkin.Rect(new Rect(col + 40, row + 6, bw * Mathf.Clamp01(v / max), 8), Loot.LootInfo.StatColor(stat));
                 GUI.Label(new Rect(col + 46 + bw, row, 40, 20), Mathf.RoundToInt(v).ToString(), UiSkin.Small);
             }
-            y += 4 * 22 + 14;
+            y += 4 * 20 + 12;
 
-            var kit = new System.Collections.Generic.List<(string, string, string)>(ClassDefinition.Kit(id)) { ("R", Ultimates.Name(id), Ultimates.Describe(id)), ("COMBOS", "", ClassDefinition.ComboLine(id)) };
-            float kitRow = Mathf.Min(52f, (r.yMax - 76 - y) / kit.Count);
+            // The kit: keycaps and every line in full. Rows take the height their text needs; if the panel is short the
+            // text steps down a size rather than being cut off (the old fixed rows clipped long kits).
+            var kit = new System.Collections.Generic.List<(string, string, string)>(ClassDefinition.Kit(id)) { ("R", Ultimates.Name(id), Ultimates.Describe(id)), ("WITH", "Plays well with", ClassDefinition.ComboLine(id)) };
+            float avail = r.yMax - 76 - y, keyW = 62f;
+            int size = 14;
+            var st = new GUIStyle(UiSkin.Body) { fontSize = size, wordWrap = true, richText = true };
+            float Need()
+            {
+                float t = 0f;
+                foreach (var (_, name, desc) in kit) t += Mathf.Max(24f, st.CalcHeight(new GUIContent((name.Length > 0 ? "<b>" + name + "</b>  " : "") + desc), cw - keyW)) + 6f;
+                return t;
+            }
+            while (size > 11 && Need() > avail) { size--; st.fontSize = size; }
             foreach (var (key, name, desc) in kit)
             {
-                GUI.Label(new Rect(x, y, 70, 20), key, new GUIStyle(UiSkin.Small) { normal = { textColor = UiSkin.Gold }, fontStyle = FontStyle.Bold, fontSize = 13 });
-                GUI.Label(new Rect(x + 74, y, cw - 74, kitRow), (name.Length > 0 ? "<b>" + name + "</b>  " : "") + desc, new GUIStyle(UiSkin.Body) { fontSize = 14, wordWrap = true });
-                y += kitRow;
+                string text = (name.Length > 0 ? "<b>" + name + "</b>  " : "") + desc;
+                float rh = Mathf.Max(24f, st.CalcHeight(new GUIContent(text), cw - keyW));
+                bool ult = key == "R", with = key == "WITH";
+                var kc = ult ? acc : with ? new Color(0.6f, 0.8f, 1f) : UiSkin.Gold;
+                var cap = new Rect(x, y + 1, keyW - 10, 20);
+                UiSkin.Rect(cap, new Color(kc.r, kc.g, kc.b, 0.16f));
+                UiSkin.Rect(new Rect(cap.x, cap.yMax - 2, cap.width, 2), new Color(kc.r, kc.g, kc.b, 0.8f));
+                GUI.Label(cap, key, new GUIStyle(UiSkin.Small) { fontSize = key.Length > 3 ? 10 : 12, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = kc } });
+                GUI.Label(new Rect(x + keyW, y, cw - keyW, rh), text, st);
+                y += rh + 6f;
             }
 
             var button = new Rect(r.x + 14, r.yMax - 60, r.width - 28, 46);

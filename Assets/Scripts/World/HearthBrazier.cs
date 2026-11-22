@@ -28,7 +28,8 @@ namespace Deepbound.World
         public static readonly Color Fire = new Color(1f, 0.6f, 0.25f);
         public readonly NetworkVariable<bool> Lit = new NetworkVariable<bool>();
         private Torch flame;
-        private Transform ring;
+        private Transform ring; // the lit ember bed (2026-11-22: was an opaque glowing disc over the floor, the user: "very visually impairing")
+        private readonly List<GameObject> licks = new List<GameObject>();
         private float nextTick;
         public override float Range => 2.6f;
 
@@ -57,7 +58,7 @@ namespace Deepbound.World
 
         private void Update()
         {
-            if (flame != null && Lit.Value && ring != null) ring.localRotation = Quaternion.Euler(0f, Time.time * 8f, 0f);
+            if (ring != null && Lit.Value) ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), Fire * (0.55f + 0.15f * Mathf.Sin(Time.time * 3.1f) + 0.08f * Mathf.Sin(Time.time * 7.3f)));
             if (!IsServer || !Lit.Value || Time.time < nextTick) return;
             nextTick = Time.time + 0.5f;
             var at = transform.position;
@@ -84,8 +85,8 @@ namespace Deepbound.World
         private void LitRpc()
         {
             Sfx.Play(Sound.Fire, transform.position + Vector3.up * 1.2f, 0.9f, 0.8f);
-            Vfx.Flash(transform.position + Vector3.up * 1.4f, Fire, 4f, 10f, 0.4f);
-            Vfx.Embers(transform.position + Vector3.up * 1.2f, 18, Fire, 4f, 0.05f, 1f);
+            Vfx.Flash(transform.position + Vector3.up * 1.4f, Fire, 1.6f, 8f, 0.35f);
+            Vfx.Embers(transform.position + Vector3.up * 1.2f, 14, Fire, 3f, 0.05f, 1f);
         }
 
         public override void OnNetworkSpawn()
@@ -107,9 +108,18 @@ namespace Deepbound.World
                 ArtLibrary.Tint(MeshKit.Part(transform, "Coal", MeshKit.Ball(0.13f, 6, 4), Mat.Rubble, new Vector3(r.x, 1.22f, r.y)).GetComponent<Renderer>(), new Color(0.12f, 0.1f, 0.09f));
             }
             MeshKit.MergeParts(transform);
-            flame = Props.AddFlame(transform, Vector3.up * 1.3f, 2.8f, Fire, 4f, 16f, true);
-            ring = MeshKit.Part(transform, "WarmRing", MeshKit.Cylinder(WarmRadius, WarmRadius, 0.005f, 32), Mat.Glow, Vector3.up * 0.14f).transform;
-            ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), Fire * 0.035f);
+            // 2026-11-22 (the user: "remove or rework whatever the hell this is, its very visually impairing"): a coal fire,
+            // not one giant solid flame - a low glowing ember bed in the bowl and a few hand-high flames licking over it,
+            // with a modest warm light (it lights the room, it does not blind you across it).
+            flame = Props.AddFlame(transform, Vector3.up * 1.26f, 1.25f, Fire, 2.2f, 11f, true);
+            for (int i = 0; i < 4; i++)
+            {
+                var off = Quaternion.Euler(0f, i * 90f + 20f, 0f) * new Vector3(0f, 0f, 0.36f);
+                Props.AddFlame(transform, Vector3.up * 1.24f + off, 0.6f + 0.12f * (i % 2), Fire, 0f, 1f, false, light: false);
+                licks.Add(transform.GetChild(transform.childCount - 1).gameObject); // the flame pivot it just added
+            }
+            ring = MeshKit.Part(transform, "EmberBed", MeshKit.Cylinder(0.62f, 0.62f, 0.03f, 14), Mat.Glow, Vector3.up * 1.2f).transform;
+            ArtLibrary.SetGlow(ring.GetComponent<Renderer>(), Fire * 0.6f);
             ring.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             if (IsServer)
             {
@@ -125,6 +135,7 @@ namespace Deepbound.World
         {
             if (flame != null) flame.gameObject.SetActive(on);
             if (ring != null) ring.gameObject.SetActive(on);
+            foreach (var l in licks) if (l != null) l.SetActive(on);
         }
 
         public override void OnNetworkDespawn() { All.Remove(this); base.OnNetworkDespawn(); }

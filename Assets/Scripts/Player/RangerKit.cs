@@ -44,6 +44,21 @@ namespace Deepbound.Player
         public const float VolleyCooldown = 16f, VolleyFocus = 55f, VolleyRadius = 4f, VolleyDelay = 0.8f, VolleyDamage = 11f;
         public const int VolleyWaves = 6;
         public const float FocusMax = 100f, FocusRegen = 11f;
+        /// <summary>
+        /// FOCUS reworked (2026-11-22, the user: "figure out what to do with the second resource bar for classes that ...
+        /// can't ever use enough"; the Ranger spent ~11/s at most against 11/s regen, so the bar never mattered). Abilities
+        /// are cooldowns only now. Focus BUILDS: <see cref="FocusPerHit"/> for every arrow that lands (+<see cref="FocusFullDraw"/>
+        /// for a full draw), and fades after <see cref="FocusHold"/> s without a hit. Full, the next full draw is a
+        /// DEADEYE: x<see cref="DeadeyeDamage"/> damage, and it spends the bar.
+        /// </summary>
+        public const float FocusPerHit = 9f, FocusFullDraw = 7f, FocusHold = 5f, FocusFade = 8f, DeadeyeDamage = 2.2f;
+        private float lastFocusGain = -99f;
+        public bool DeadeyeReady => Focus >= FocusMax - 0.5f;
+        public string ResourceHint => DeadeyeReady ? "DEADEYE: loose a full draw" : "land arrows to fill  ·  full = Deadeye";
+
+        /// <summary>Server -> owner: an arrow landed; build Focus.</summary>
+        [Rpc(SendTo.Owner)]
+        private void FocusGainRpc(float amount) { Focus = Mathf.Min(FocusMax, Focus + amount); lastFocusGain = Time.time; }
         public const int MarkHits = 3;
         public const float MarkSeconds = 6f;
 
@@ -53,7 +68,7 @@ namespace Deepbound.Player
         private NetworkPlayer player;
         private PlayerProgress progress;
 
-        public float Focus { get; private set; } = FocusMax;
+        public float Focus { get; private set; }
         private float drawStart = -1f;
         private float disengageReadyAt, snareReadyAt, volleyReadyAt;
 
@@ -93,9 +108,9 @@ namespace Deepbound.Player
         {
             float cd = progress.CooldownMultiplier;
             into.Add(new AbilityView { Key = "LMB", Name = "Longbow", Active = drawStart >= 0f });
-            into.Add(new AbilityView { Key = "RMB", Name = "Disengage", Remaining = disengageReadyAt - Time.time, Cooldown = DisengageCooldown * cd, Unaffordable = Focus < DisengageFocus });
-            into.Add(new AbilityView { Key = "Q", Name = "Snare Shot", Remaining = snareReadyAt - Time.time, Cooldown = SnareCooldownNow, Unaffordable = Focus < SnareFocus });
-            into.Add(new AbilityView { Key = "E", Name = "Volley", Remaining = volleyReadyAt - Time.time, Cooldown = VolleyCooldown * progress.CooldownFor(AbilitySlot.E), Unaffordable = Focus < VolleyFocus });
+            into.Add(new AbilityView { Key = "RMB", Name = "Disengage", Remaining = disengageReadyAt - Time.time, Cooldown = DisengageCooldown * cd, });
+            into.Add(new AbilityView { Key = "Q", Name = "Snare Shot", Remaining = snareReadyAt - Time.time, Cooldown = SnareCooldownNow });
+            into.Add(new AbilityView { Key = "E", Name = "Volley", Remaining = volleyReadyAt - Time.time, Cooldown = VolleyCooldown * progress.CooldownFor(AbilitySlot.E), Active = DeadeyeReady });
         }
 
         // ==================================================================
@@ -111,7 +126,7 @@ namespace Deepbound.Player
                 return;
             }
 
-            Focus = Mathf.Min(FocusMax, Focus + FocusRegen * Time.deltaTime);
+            if (Time.time - lastFocusGain > FocusHold && Focus > 0f) Focus = Mathf.Max(0f, Focus - FocusFade * Time.deltaTime);
             // Drawing a bow slows you; that is the price of the big shot.
             motor.SpeedMultiplier = progress.SpeedMultiplier * (drawStart >= 0f ? 0.6f : 1f);
             motor.CanSprint = drawStart < 0f;
@@ -135,14 +150,15 @@ namespace Deepbound.Player
                 {
                     float charge = Mathf.Clamp01(held / (DrawFull * progress.AttackTimeMultiplier));
                     player.ViewModelCast(charge >= 1f);
-                    ShootRpc(player.AimOrigin + player.AimForward * 0.6f, player.AimForward, charge);
+                    bool deadeye = charge >= 1f && DeadeyeReady;
+                    if (deadeye) { Focus = 0f; UI.GameHud.ShowCombo(player.AimOrigin + player.AimForward * 3f, "DEADEYE", new Color(0.6f, 1f, 0.55f)); }
+                    ShootRpc(player.AimOrigin + player.AimForward * 0.6f, player.AimForward, charge, deadeye);
                 }
             }
 
             // --- RMB: Disengage ---
-            if (UI.Binds.SecondaryDown && Time.time >= disengageReadyAt && Focus >= DisengageFocus)
+            if (UI.Binds.SecondaryDown && Time.time >= disengageReadyAt)
             {
-                Focus -= DisengageFocus;
                 disengageReadyAt = Time.time + DisengageCooldown * progress.CooldownMultiplier;
                 var back = -transform.forward;
                 back.y = 0f;
@@ -152,12 +168,11 @@ namespace Deepbound.Player
 
             // --- Q: Snare Shot along the crosshair ---
             bool freeNet = Time.time < freeNetUntil;
-            if (UI.Binds.Down(UI.Bind.AbilityQ) && ((Time.time >= snareReadyAt && Focus >= SnareFocus) || freeNet))
+            if (UI.Binds.Down(UI.Bind.AbilityQ) && (Time.time >= snareReadyAt || freeNet))
             {
                 if (freeNet) freeNetUntil = 0f;
                 else
                 {
-                    Focus -= SnareFocus;
                     snareReadyAt = Time.time + SnareCooldownNow;
                     // Second Net (rank 3 B): another, free, within 3 s.
                     if (progress.B(AbilitySlot.Q, 2)) freeNetUntil = Time.time + FreeNetWindow;
@@ -167,9 +182,8 @@ namespace Deepbound.Player
             }
 
             // --- E: Volley at the crosshair ---
-            if (UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= volleyReadyAt && Focus >= VolleyFocus && TryAimFloor(30f, out var volleyAt))
+            if (UI.Binds.Down(UI.Bind.AbilityE) && Time.time >= volleyReadyAt && TryAimFloor(30f, out var volleyAt))
             {
-                Focus -= VolleyFocus;
                 volleyReadyAt = Time.time + VolleyCooldown * progress.CooldownFor(AbilitySlot.E);
                 player.ViewModelCast(true);
                 VolleyRpc(volleyAt);
@@ -183,17 +197,19 @@ namespace Deepbound.Player
         // ==================================================================
 
         [Rpc(SendTo.Server)]
-        private void ShootRpc(Vector3 origin, Vector3 direction, float charge) => ServerShoot(origin, direction, charge);
+        private void ShootRpc(Vector3 origin, Vector3 direction, float charge, bool deadeye) => ServerShoot(origin, direction, charge, deadeye);
 
         /// <summary>Server: loose an arrow at a given draw (0-1). Public for the smoke test.</summary>
-        public void ServerShoot(Vector3 origin, Vector3 direction, float charge)
+        public void ServerShoot(Vector3 origin, Vector3 direction, float charge, bool deadeye = false)
         {
             if (!life.CanAct || Time.time - lastServerShot < DrawMin * 0.8f) return;
             lastServerShot = Time.time;
             if (Vector3.Distance(origin, transform.position + Vector3.up * 1.6f) > 2.5f) origin = transform.position + Vector3.up * 1.6f;
 
             charge = Mathf.Clamp01(charge);
-            float dmg = Mathf.Lerp(ArrowMinDamage, ArrowMaxDamage, charge) * progress.AttackMultiplier;
+            float dmg = Mathf.Lerp(ArrowMinDamage, ArrowMaxDamage, charge) * progress.AttackMultiplier * (deadeye ? DeadeyeDamage : 1f);
+            float focusGain = FocusPerHit + (charge >= 1f ? FocusFullDraw : 0f);
+            bool gainedThisShot = false;
             var kit = this;
             bool pierce = charge >= 1f;
             ulong me = NetworkObjectId;
@@ -210,6 +226,7 @@ namespace Deepbound.Player
                 {
                     h.Tag("RangerKit").ServerDamage(dmg * (pierce && h.Team == Team.Enemies ? Combos.TryShatter(h, progress) : 1f) * (kit != null ? kit.Snared(h) : 1f), from, me);
                     if (this == null) return;
+                    if (!deadeye && !gainedThisShot && h.Team == Team.Enemies) { gainedThisShot = true; FocusGainRpc(focusGain); }
                     if (instantMark && h.Team == Team.Enemies)
                     {
                         h.ServerMark(MarkSeconds);

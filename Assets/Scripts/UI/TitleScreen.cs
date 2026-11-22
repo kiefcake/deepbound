@@ -112,16 +112,14 @@ namespace Deepbound.UI
         /// <summary>What the latest builds added, so a returning player knows where to look (keep it short).</summary>
         private static readonly string[] WhatsNew =
         {
-            "Every ability has its own look: shields, crosses, lashes, afterimages, flies",
-            "The Knight's raised shield shows as a ward; taunted foes wear a burning mark",
-            "A meteor's fire ring closes as it falls: you can read when it lands",
+            "Pets help out: each has a trick (light, purring, coins, chests, elites...)",
+            "Plague Doctor reagents matter: run dry and vials dilute; blighted kills refill",
+            "Class draughts are gone: the pouch is Health, Frost Flask and Holy Water",
+            "Ysolde's stones: each ability's whole path, rank by rank, on its own tab",
+            "New character select cards; an UNSTUCK button in the pause menu",
+            "Softer ability light; the hearth brazier is a coal fire, not a blinding torch",
             "New combos: PURGE (Cleric on blight), PLAGUE CRASH (Flagellant spreads it)",
-            "Sloshed? Your feet swap keys every 30 seconds",
-            "New ultimates: Ranger TWIN WYRMS, Plague Doctor PANDEMIC, Flagellant RED LITANY",
-            "The Tome of the Phoenix burns longer and dives far harder",
-            "Every robed caster has its own shape; ghouls, archers, wraiths remade",
-            "Guardians and lair keepers remade: chunkier, scarier, no bare skeletons",
-            "Real furniture, statues and barrels in the halls; everything less shiny",
+            "Endless Descent: each lap past floor 10 adds a new danger",
         };
 
         private static void DrawWhatsNew(float w, float h, float fade)

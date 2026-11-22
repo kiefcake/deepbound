@@ -28,7 +28,11 @@ namespace Deepbound.Player
     public class Flasks : NetworkBehaviour
     {
         public enum Kind : byte { Health, Mana, Frost, Holy }
-        public static readonly Kind[] All = { Kind.Health, Kind.Mana, Kind.Frost, Kind.Holy };
+        /// <summary>The pouch's slots, in key order. CLASS DRAUGHTS REMOVED (2026-11-22, the user: "get rid of hawkeye
+        /// draught ... and others"): the pouch is 1 Health, 2 Frost Flask, 3 Holy Water (key 4 still throws Holy Water for
+        /// old bindings). <see cref="Kind.Mana"/> stays in the enum (synced, append only) but nothing carries it: anything
+        /// that would add one adds a Health Potion instead.</summary>
+        public static readonly Kind[] All = { Kind.Health, Kind.Frost, Kind.Holy };
         public const int Max = 5;
         public const float HealFraction = 0.45f, HealSeconds = 3f, ManaFraction = 0.7f, SurgeSeconds = 3f;
         private const float Range = 16f, Flight = 0.55f, ThrowCooldown = 0.8f, DrinkCooldown = 1.2f;
@@ -298,6 +302,7 @@ namespace Deepbound.Player
         public int ServerAdd(Kind k, int count)
         {
             if (!IsServer || count <= 0) return 0;
+            if (k == Kind.Mana) k = Kind.Health; // no class draughts any more
             var slot = Slot(k);
             int fit = Mathf.Min(count, Max - slot.Value);
             if (fit <= 0) return 0;
@@ -318,7 +323,7 @@ namespace Deepbound.Player
         /// <summary>Server: a new run's pouch: two health potions, one of everything else.</summary>
         public void ServerStartingPouch()
         {
-            Health.Value = 2; Mana.Value = 1; Frost.Value = 1; Holy.Value = 1;
+            Health.Value = 2; Mana.Value = 0; Frost.Value = 1; Holy.Value = 1;
         }
 
         /// <summary>Server: run over, the pouch empties with everything else.</summary>
@@ -338,8 +343,8 @@ namespace Deepbound.Player
                 else UseRareRpc();
                 return;
             }
-            Kind? k = UI.Binds.Down(UI.Bind.Potion1) ? Kind.Health : UI.Binds.Down(UI.Bind.Potion2) ? Kind.Mana
-                : UI.Binds.Down(UI.Bind.Potion3) ? Kind.Frost : UI.Binds.Down(UI.Bind.Potion4) ? Kind.Holy : (Kind?)null;
+            Kind? k = UI.Binds.Down(UI.Bind.Potion1) ? Kind.Health : UI.Binds.Down(UI.Bind.Potion2) ? Kind.Frost
+                : UI.Binds.Down(UI.Bind.Potion3) || UI.Binds.Down(UI.Bind.Potion4) ? Kind.Holy : (Kind?)null;
             // Number keys pick a class at camp before a run; there the pouch stays shut.
             if (k == null || (World.DungeonDirector.InLobby && PlayerProgress.ClassChangeAllowed)) return;
             if (Count(k.Value) <= 0) { UI.GameHud.Feed("No " + FullName(k.Value) + " in your pouch", new Color(0.8f, 0.6f, 0.5f)); readyAt = Time.time + 0.3f; return; }

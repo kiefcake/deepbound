@@ -63,7 +63,7 @@ namespace Deepbound.Art
             var floor = Vfx.Floor(at);
             Vfx.Ring(floor + Vector3.up * 0.05f, radius, c, 0.4f + 0.1f * strength);
             FxSprite.Decal("circle_02", floor, radius * 0.4f, radius * 2.2f, 0.5f, A(c, 0.55f * strength));
-            Vfx.Flash(at + Vector3.up * 0.8f, c, 3f + 2f * strength, Mathf.Max(4f, radius * 2.2f), 0.35f);
+            Vfx.AbilityFlash(at + Vector3.up * 0.8f, c, 3f + 2f * strength, Mathf.Max(4f, radius * 2.2f), 0.35f);
             if (mark) FxSprite.Decal("dirt_03", floor, radius * 1.4f, radius * 1.5f, 5f, A(c * 0.5f, 0.35f));
             if (!Close(at)) return;
             int n = Mathf.Clamp(Mathf.RoundToInt(radius * 6f * strength), 8, 36);

@@ -1,0 +1,254 @@
+using System.Collections.Generic;
+using Deepbound.Art;
+using Deepbound.Combat;
+using Deepbound.Enemies;
+using Deepbound.Loot;
+using Deepbound.World;
+using UnityEngine;
+
+namespace Deepbound.Player
+{
+    /// <summary>
+    /// PET PERKS (2026-11-22, the user: "let pets help out in small ways, each pet has a little gimmick, where they pick up
+    /// gold, heal you a tiny little bit, gives off light, etc. think of more be creative"). Every pet still fetches gold and
+    /// embers and sits on hidden plates; on top of that each kind has ONE small trick that fits the animal. All are small
+    /// on purpose (no pet fights in earnest) and none works at camp.
+    /// <list type="bullet">
+    /// <item>RAVEN, sharp eyes: caws and calls out ELITE over each elite within <see cref="RavenSight"/> the first time it is near.</item>
+    /// <item>RAT, scavenger: when a room is cleared it noses out a few extra coins at your feet (<see cref="RatCoins"/>).</item>
+    /// <item>BONE HOUND, guard dog: snaps at an enemy that is on you, within 2.8 m, every <see cref="HoundEvery"/> s (small damage).</item>
+    /// <item>KITTEN, purring: out of a fight (nothing within <see cref="QuietRadius"/>) you mend <see cref="PurrPerSecond"/> of your health a second.</item>
+    /// <item>WISP, lantern: a soft cold light round you that everyone sees, best in the lightless halls.</item>
+    /// <item>BAT, echolocation: squeaks BEHIND! when one of the dead closes on your back, and finds hidden plates from twice as far.</item>
+    /// <item>TOAD, antidote: gulps the poison off you, once every <see cref="ToadEvery"/> s.</item>
+    /// <item>CANDLE IMP, kindler: lights an unlit hearth you pass within <see cref="ImpReach"/>, and carries a warm candle light.</item>
+    /// <item>MOTH, drawn to treasure: flutters over the nearest closed chest in reach - and never settles on a mimic.</item>
+    /// </list>
+    /// Gameplay parts run on the server from the synced <see cref="NetworkPlayer.PetKind"/>; cues (words over things, the
+    /// pet running out) go to everyone through <see cref="NetworkPlayer.PetCueRpc"/>.
+    /// </summary>
+    public class PetPerks : MonoBehaviour
+    {
+        public const float RavenSight = 22f, HoundEvery = 5f, HoundReach = 2.8f, QuietRadius = 12f, PurrPerSecond = 0.004f,
+            ToadEvery = 10f, ImpReach = 6f, MothReach = 16f, BatBehind = 5.5f, RatCoins = 3f;
+
+        public enum Cue : byte { Bite, Gulp, Kindle, Coins, Behind, Elite, Purr }
+
+        /// <summary>The pet's one-line trick, for Mistress Vey's wardrobe.</summary>
+        public static string Short(PetCompanion.Kind k) => k switch
+        {
+            PetCompanion.Kind.Raven => "Spots elites from afar",
+            PetCompanion.Kind.Rat => "Digs up coins when a room is cleared",
+            PetCompanion.Kind.BoneHound => "Snaps at foes that close on you",
+            PetCompanion.Kind.Kitten => "Purrs: a little healing out of a fight",
+            PetCompanion.Kind.Wisp => "Lights the dark around you",
+            PetCompanion.Kind.Bat => "Warns of foes behind you; hears plates",
+            PetCompanion.Kind.Toad => "Gulps poison off you",
+            PetCompanion.Kind.CandleImp => "Lights hearths, carries a candle",
+            PetCompanion.Kind.Moth => "Finds chests (never a mimic)",
+            _ => "",
+        };
+
+        private NetworkPlayer np;
+        private PlayerLife life;
+        private PlayerDebuffs debuffs;
+        private PetCompanion pet;
+        private Light lamp;
+        private float nextTick, nextBite, nextGulp, nextBehind, nextLocal, nextMoth;
+        private readonly HashSet<EnemyBrain> called = new HashSet<EnemyBrain>();
+        private PetCompanion.Kind lastKind = (PetCompanion.Kind)255;
+
+        private PetCompanion.Kind Kind => np != null ? (PetCompanion.Kind)np.PetKind.Value : PetCompanion.Kind.None;
+        private static bool InDungeon => !DungeonDirector.InLobby && DungeonDirector.Layout != null;
+
+        public void Init(NetworkPlayer owner)
+        {
+            np = owner;
+            life = owner.GetComponent<PlayerLife>();
+            debuffs = owner.GetComponent<PlayerDebuffs>();
+            pet = owner.GetComponent<PetCompanion>();
+        }
+
+        private void Update()
+        {
+            if (np == null) return;
+            var k = Kind;
+            if (k != lastKind) { lastKind = k; called.Clear(); BuildLamp(k); }
+            if (lamp != null) lamp.enabled = InDungeon && !(life != null && life.Downed.Value);
+            if (!InDungeon || k == PetCompanion.Kind.None) return;
+            if (np.IsServer && Time.time >= nextTick) { nextTick = Time.time + 0.5f; ServerTick(k, 0.5f); }
+            if (np.IsOwner && Time.time >= nextLocal) { nextLocal = Time.time + 0.4f; OwnerTick(k); }
+        }
+
+        // ---------------------------------------------------------------- the light pets
+
+        private void BuildLamp(PetCompanion.Kind k)
+        {
+            if (lamp != null) { Destroy(lamp.gameObject); lamp = null; }
+            if (Application.isBatchMode || (k != PetCompanion.Kind.Wisp && k != PetCompanion.Kind.CandleImp)) return;
+            lamp = new GameObject("PetLamp").AddComponent<Light>();
+            lamp.transform.SetParent(transform, false);
+            lamp.transform.localPosition = new Vector3(0.6f, 2.1f, -0.5f);
+            lamp.type = LightType.Point;
+            lamp.shadows = LightShadows.None;
+            bool wisp = k == PetCompanion.Kind.Wisp;
+            lamp.color = wisp ? new Color(0.65f, 0.85f, 1f) : new Color(1f, 0.7f, 0.4f);
+            lamp.range = wisp ? 9f : 7f;
+            lamp.intensity = wisp ? 1.3f : 1.1f;
+        }
+
+        // ---------------------------------------------------------------- server
+
+        private void ServerTick(PetCompanion.Kind k, float dt)
+        {
+            if (life == null || life.Downed.Value || !life.Health.IsAlive) return;
+            var at = transform.position;
+            switch (k)
+            {
+                case PetCompanion.Kind.Kitten:
+                    if (life.Health.Fraction < 1f && NearestFoe(at, QuietRadius) == null)
+                        life.Health.ServerHeal(life.Health.Max.Value * PurrPerSecond * dt);
+                    break;
+                case PetCompanion.Kind.BoneHound:
+                    if (Time.time < nextBite) break;
+                    foreach (var e in EnemyBrain.All)
+                    {
+                        if (e == null || e.IsDead || e.CurrentTarget != life.Health) continue;
+                        if ((e.transform.position - at).sqrMagnitude > HoundReach * HoundReach || !e.TryGetComponent<Health>(out var eh) || !eh.IsAlive) continue;
+                        nextBite = Time.time + HoundEvery;
+                        float tier = DungeonDirector.Tier(DungeonDirector.Layout.Depth);
+                        eh.Tag("PetPerks").ServerDamage(6f + 4f * tier, at, np.NetworkObjectId);
+                        np.PetCueRpc((byte)Cue.Bite, e.transform.position);
+                        break;
+                    }
+                    break;
+                case PetCompanion.Kind.Toad:
+                    if (Time.time < nextGulp || debuffs == null || !debuffs.Poisoned) break;
+                    nextGulp = Time.time + ToadEvery;
+                    debuffs.PoisonUntil.Value = 0;
+                    np.PetCueRpc((byte)Cue.Gulp, at);
+                    break;
+                case PetCompanion.Kind.CandleImp:
+                    foreach (var h in HearthBrazier.All)
+                    {
+                        if (h == null || h.Lit.Value || (h.transform.position - at).sqrMagnitude > ImpReach * ImpReach) continue;
+                        h.ServerLight();
+                        np.PetCueRpc((byte)Cue.Kindle, h.transform.position);
+                        break;
+                    }
+                    break;
+            }
+        }
+
+        /// <summary>Server, from the room-clear check: every Rat owner near the room digs up a few coins.</summary>
+        public static void ServerRoomCleared(Vector3 roomAt)
+        {
+            var dd = DungeonDirector.Instance;
+            if (dd == null) return;
+            foreach (var p in PlayerLife.All)
+            {
+                if (p == null || p.Downed.Value || !p.TryGetComponent<NetworkPlayer>(out var who)) continue;
+                if ((PetCompanion.Kind)who.PetKind.Value != PetCompanion.Kind.Rat || Vector3.Distance(p.transform.position, roomAt) > 40f) continue;
+                int tier = Mathf.RoundToInt(DungeonDirector.Tier(DungeonDirector.Layout != null ? DungeonDirector.Layout.Depth : 0));
+                var spot = p.transform.position - p.transform.forward * 0.8f;
+                dd.ServerDropLoot(spot, LootKind.Gold, Mathf.RoundToInt(RatCoins + 2f * tier));
+                who.PetCueRpc((byte)Cue.Coins, spot);
+            }
+        }
+
+        private static EnemyBrain NearestFoe(Vector3 at, float within)
+        {
+            EnemyBrain best = null;
+            float bd = within * within;
+            foreach (var e in EnemyBrain.All)
+            {
+                if (e == null || e.IsDead) continue;
+                float d = (e.transform.position - at).sqrMagnitude;
+                if (d < bd) { bd = d; best = e; }
+            }
+            return best;
+        }
+
+        // ---------------------------------------------------------------- owner (warnings only you need)
+
+        private void OwnerTick(PetCompanion.Kind k)
+        {
+            var at = transform.position;
+            if (k == PetCompanion.Kind.Raven)
+            {
+                foreach (var e in EnemyBrain.All)
+                {
+                    if (e == null || e.IsDead || !e.Elite.Value || called.Contains(e)) continue;
+                    if ((e.transform.position - at).sqrMagnitude > RavenSight * RavenSight) continue;
+                    called.Add(e);
+                    Show(Cue.Elite, e.transform.position + Vector3.up * 2.4f);
+                    pet?.Visit(e.transform.position + Vector3.up * 3f, 1.2f);
+                    break;
+                }
+            }
+            else if (k == PetCompanion.Kind.Bat && Time.time >= nextBehind)
+            {
+                var fwd = np.AimForward; fwd.y = 0f; fwd.Normalize();
+                foreach (var e in EnemyBrain.All)
+                {
+                    if (e == null || e.IsDead) continue;
+                    var d = e.transform.position - at; d.y = 0f;
+                    if (d.magnitude > BatBehind || Vector3.Dot(fwd, d.normalized) > -0.35f) continue;
+                    nextBehind = Time.time + 6f;
+                    Show(Cue.Behind, at + Vector3.up * 1.4f - fwd * 0.6f);
+                    break;
+                }
+            }
+            else if (k == PetCompanion.Kind.Moth && Time.time >= nextMoth)
+            {
+                nextMoth = Time.time + 2.5f;
+                Chest best = null;
+                float bd = MothReach * MothReach;
+                foreach (var c in FindObjectsByType<Chest>(FindObjectsSortMode.None))
+                {
+                    if (c == null || c.Opened.Value || c.Mimic.Value) continue;
+                    float d = (c.transform.position - at).sqrMagnitude;
+                    if (d < bd) { bd = d; best = c; }
+                }
+                if (best != null && bd > 2.5f * 2.5f) pet?.Visit(best.transform.position + Vector3.up * 1.3f, 2.2f);
+            }
+        }
+
+        // ---------------------------------------------------------------- cues
+
+        /// <summary>Any peer: show a pet's cue (from <see cref="NetworkPlayer.PetCueRpc"/> or the owner's own checks).</summary>
+        public void Show(Cue cue, Vector3 at)
+        {
+            if (Application.isBatchMode) return;
+            switch (cue)
+            {
+                case Cue.Bite:
+                    pet?.Visit(at, 0.5f);
+                    Sfx.Play(Sound.Growl, at, 0.6f, 1.4f);
+                    UI.GameHud.ShowCombo(at + Vector3.up * 1.2f, "SNAP", new Color(0.9f, 0.85f, 0.7f));
+                    break;
+                case Cue.Gulp:
+                    Sfx.Play(Sound.Slime, at, 0.6f, 1.6f);
+                    if (np.IsOwner) UI.GameHud.ShowCombo(at + Vector3.up * 1.8f, "GULP - poison gone", new Color(0.6f, 0.85f, 0.35f));
+                    break;
+                case Cue.Kindle:
+                    pet?.Visit(at + Vector3.up * 1.2f, 1f);
+                    UI.GameHud.ShowCombo(at + Vector3.up * 2f, "KINDLED", new Color(1f, 0.7f, 0.35f));
+                    break;
+                case Cue.Coins:
+                    pet?.Visit(at, 0.8f);
+                    Sfx.Play(Sound.Squeak, at, 0.6f, 1.2f);
+                    if (np.IsOwner) UI.GameHud.ShowCombo(at + Vector3.up * 1f, "DUG UP COINS", new Color(1f, 0.85f, 0.4f));
+                    break;
+                case Cue.Behind:
+                    Sfx.Play2D(Sound.Squeak, 0.8f);
+                    UI.GameHud.ShowCombo(at, "BEHIND!", new Color(1f, 0.55f, 0.4f));
+                    break;
+                case Cue.Elite:
+                    Sfx.Play2D(Sound.Caw, 0.6f);
+                    UI.GameHud.ShowCombo(at, "ELITE", new Color(1f, 0.75f, 0.3f));
+                    break;
+            }
+        }
+    }
+}

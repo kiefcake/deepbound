@@ -21,7 +21,7 @@ namespace Deepbound.Player
         public enum Gift : byte { None, Health, Draught, Frost, Holy, Gold, Embers, Rare, HighFive, Salute, Bow }
 
         /// <summary>Clockwise from the top.</summary>
-        public static readonly Gift[] Wheel = { Gift.Health, Gift.Draught, Gift.Frost, Gift.Holy, Gift.Gold, Gift.Embers, Gift.Rare, Gift.HighFive, Gift.Salute, Gift.Bow };
+        public static readonly Gift[] Wheel = { Gift.Health, Gift.Frost, Gift.Holy, Gift.Gold, Gift.Embers, Gift.Rare, Gift.HighFive, Gift.Salute, Gift.Bow };
 
         public static bool WheelOpenLocal { get; private set; }
 

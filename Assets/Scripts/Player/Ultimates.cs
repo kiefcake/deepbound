@@ -372,7 +372,7 @@ namespace Deepbound.Player
             SpiritWyrms.Spawn(origin, dir, WyrmWindup, WyrmSpeed, WyrmRange, WyrmLength, c);
             Sfx.Play(Sound.Bow, origin, 1f, 0.8f);
             Sfx.Play(Sound.Roar, origin + dir * 3f, 0.9f, 1.35f);
-            Vfx.Flash(origin, c, 5f, 8f, 0.35f);
+            Vfx.AbilityFlash(origin, c, 5f, 8f, 0.35f);
             if (IsOwner) player.AddShake(0.25f);
         }
 
@@ -402,7 +402,7 @@ namespace Deepbound.Player
             if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.7f);
             var c = UltColor((ClassId)cls);
             Sfx.Play(Sound.Relic, transform.position + Vector3.up * 1.5f, 1f, 0.8f);
-            Vfx.Flash(transform.position + Vector3.up * 1.6f, c, 6f, 8f, 0.5f);
+            Vfx.AbilityFlash(transform.position + Vector3.up * 1.6f, c, 6f, 8f, 0.5f);
             Vfx.Ring(transform.position, 3f, c, 0.45f);
             // 2026-11-21: the Mage's and Ranger's ultimates are announced with a great rune circle and a pillar on the caster;
             // the others' ultimates are their own shapes (banner wall, halos, flails, the death mark, the veins: Art/ClassFx).
@@ -464,7 +464,7 @@ namespace Deepbound.Player
             var c = UltColor(ClassId.Rogue);
             Sfx.Play(Sound.Hit, at, 1f, 0.7f);
             Sfx.Play(Sound.Whisper, at, 0.8f, 0.6f);
-            Vfx.Flash(at, c, 5f, 6f, 0.35f);
+            Vfx.AbilityFlash(at, c, 5f, 6f, 0.35f);
             // A star of three cuts and a pit of black closing on the mark.
             ClassFx.DeathMark(at);
             if (IsOwner) player.ConfirmHit(2f);

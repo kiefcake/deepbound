@@ -79,6 +79,7 @@ namespace Deepbound.World
                 else ServerDropEmbers(at, 3 + tier);
             }
             RoomClearedRpc(at, reward >= 0);
+            Player.PetPerks.ServerRoomCleared(at);
             MaybeArmEruption(room);
             QuestOnRoomClear();
             // The Chorister's Bell: a room won is a breath taken.

@@ -110,6 +110,7 @@ namespace Deepbound.Player
 
         public ClassId Class => ClassId.Cleric;
         public string ResourceName => "Mana";
+        public string ResourceHint => BeamTarget.Value != 0 ? "the beam drinks mana (no regen)" : "beam and spells spend it  ·  smite is free";
         public Color ResourceColor => new Color(0.95f, 0.8f, 0.35f);
         public float Resource => Mana;
         public float ResourceMax => ManaMax;
@@ -556,7 +557,7 @@ namespace Deepbound.Player
         {
             Sfx.Play(Sound.Relic, transform.position + Vector3.up, 0.9f, 1.2f);
             var gold = new Color(1f, 0.85f, 0.45f);
-            Vfx.Flash(transform.position + Vector3.up * 1.5f, gold, 4f, 10f, 0.5f);
+            Vfx.AbilityFlash(transform.position + Vector3.up * 1.5f, gold, 4f, 10f, 0.5f);
             player.Rig?.Play(RigAction.Cast, 0.6f);
             // 2026-11-21 (distinct abilities): a gyroscope of gold rings closes round every ally the Aegis takes, then
             // settles into the shield bubble each wears (PlayerStatusFx).

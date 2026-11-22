@@ -92,6 +92,7 @@ namespace Deepbound.Player
 
         public ClassId Class => ClassId.Mage;
         public string ResourceName => "Mana";
+        public string ResourceHint => "frostbolt and spells spend it  ·  firebolt is free";
         public Color ResourceColor => new Color(0.3f, 0.5f, 1f);
         public float Resource => Mana;
         public float ResourceMax => ManaMax;
@@ -653,7 +654,7 @@ namespace Deepbound.Player
             MeteorFall.Spawn(at, MeteorDelay, seed);
             if (twin) MeteorFall.Spawn(at, MeteorDelay, seed + 1, 0.7f);
             // The caster's hand flares as the sky answers.
-            if (IsOwner) Vfx.Flash(player.AimOrigin + player.AimForward * 0.6f, new Color(1f, 0.5f, 0.15f), 4f, 4f, 0.5f);
+            if (IsOwner) Vfx.AbilityFlash(player.AimOrigin + player.AimForward * 0.6f, new Color(1f, 0.5f, 0.15f), 4f, 4f, 0.5f);
             // 2026-11-22: a ring of fire closes on the blast radius as the rock falls: when it lands, not only where.
             ClassFx.MeteorRing(at, MeteorRadius, MeteorDelay);
         }

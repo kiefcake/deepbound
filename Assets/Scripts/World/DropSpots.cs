@@ -59,7 +59,12 @@ namespace Deepbound.World
         /// </summary>
         public static Vector3 ClearForChest(Vector3 want, Quaternion facing, DungeonLayout.Room room = null)
         {
-            if (!BoxBlocked(want, facing)) return want;
+            // A room's centrepiece (the hearth is a networked Interactable the box test skips) keeps its middle clear
+            // (2026-11-22: a chest spawned inside a lit hearth).
+            room ??= DungeonDirector.Layout?.RoomAt(want, 0.5f);
+            float keep = room != null ? Centrepieces.Radius(Centrepieces.Of(room)) + 0.9f : 0f;
+            bool InMiddle(Vector3 p) { if (keep <= 0f) return false; var d = p - room.Center; d.y = 0f; return d.magnitude < keep; }
+            if (!BoxBlocked(want, facing) && !InMiddle(want)) return want;
             for (int ring = 1; ring <= 10; ring++)
                 for (int k = 0; k < 12; k++)
                 {
@@ -68,7 +73,7 @@ namespace Deepbound.World
                     if (room != null && !room.Contains(p, -1.0f)) continue;
                     if (NavMesh.SamplePosition(p, out var nh, 0.8f, NavMesh.AllAreas)) p = nh.position;
                     else continue;
-                    if (!BoxBlocked(p, facing)) return p;
+                    if (!BoxBlocked(p, facing) && !InMiddle(p)) return p;
                 }
             return want;
         }

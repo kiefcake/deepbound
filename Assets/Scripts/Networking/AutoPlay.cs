@@ -879,7 +879,6 @@ namespace Deepbound.Networking
             {
                 yield return WalkToVendor(Shop.Vendor.Merchant);
                 yield return BuyPotions(Flasks.Kind.Health, "Health", 5);
-                yield return BuyPotions(Flasks.Kind.Mana, "Mana", 3);
                 yield return BuyPotions(Flasks.Kind.Frost, "Frost", 2);
                 yield return BuyBetterGear(Shop.Vendor.Merchant);
                 if (flasks.RareHeld == Progression.RareItem.None) yield return SpendAt(Shop.Vendor.Merchant, Lobby.MerchantSpot, it => it.Kind == Shop.ItemKind.Rare, 1, GoldReserve + 120);
@@ -1252,7 +1251,6 @@ namespace Deepbound.Networking
                         abilityUses["health potion"] = hn + 1;
                     }
                 }
-                if (me.ActiveKit != null && me.ActiveKit.Resource < me.ActiveKit.ResourceMax * 0.15f && flasks != null && flasks.Count(Flasks.Kind.Mana) > 0) yield return Press(UI.Bind.Potion2);
                 // The rare slot, as a player would: a defensive draught when it is going badly, the rest at the guardian.
                 if (flasks != null && flasks.RareHeld != Progression.RareItem.None && !flasks.InStasis)
                 {
@@ -1479,7 +1477,7 @@ namespace Deepbound.Networking
                                 if (flasks.Count(throwKind) > 0)
                                 {
                                     nextFlask = Time.time + 9f;
-                                    yield return Press(throwKind == Flasks.Kind.Frost ? UI.Bind.Potion3 : UI.Bind.Potion4);
+                                    yield return Press(throwKind == Flasks.Kind.Frost ? UI.Bind.Potion2 : UI.Bind.Potion3);
                                     string fk = "flask " + throwKind;
                                     abilityUses.TryGetValue(fk, out int fn);
                                     abilityUses[fk] = fn + 1;

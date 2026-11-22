@@ -48,7 +48,7 @@ namespace Deepbound.Art
             {
                 var p = MeshKit.Part(go.transform, "Bead", bead, Mat.Glow, Vector3.zero);
                 p.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-                ArtLibrary.SetGlow(p.GetComponent<Renderer>(), new Color(1f, 0.88f, 0.55f) * 2.6f);
+                ArtLibrary.SetGlow(p.GetComponent<Renderer>(), new Color(1f, 0.88f, 0.55f) * 1.7f);
                 b.beads[i] = p.transform;
             }
             b.landing = new GameObject("Landing").AddComponent<Light>();
@@ -56,7 +56,7 @@ namespace Deepbound.Art
             b.landing.type = LightType.Point;
             b.landing.color = new Color(1f, 0.85f, 0.45f);
             b.landing.range = 3f;
-            b.landing.intensity = 2.5f;
+            b.landing.intensity = 1.4f;
             return b;
         }
 

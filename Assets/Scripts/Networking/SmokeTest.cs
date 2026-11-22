@@ -5431,6 +5431,46 @@ namespace Deepbound.Networking
                     if (crashNear != null && crashNear.IsSpawned) crashNear.NetworkObject.Despawn();
                 }
 
+                // DILUTE vials, PET PERKS and UNSTUCK (2026-11-22).
+                {
+                    var pdk = local.GetComponent<PlagueDoctorKit>();
+                    var dil = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 5f, false);
+                    var dilH = dil != null ? dil.GetComponent<Health>() : null;
+                    bool dilBlight = true, fullBlight = false; float dilHp0 = 0f, dilHp1 = 0f;
+                    if (pdk != null && dilH != null)
+                    {
+                        dilHp0 = dilH.Current.Value;
+                        pdk.ServerSplash(dilH.transform.position, true);
+                        dilBlight = dilH.Blighted.Value; dilHp1 = dilH.Current.Value;
+                        pdk.ServerSplash(dilH.transform.position);
+                        fullBlight = dilH.Blighted.Value;
+                    }
+                    Log("dilute vials", "dilute: blighted " + dilBlight + ", hurt " + (dilHp0 - dilHp1).ToString("F0") + "; full vial blighted " + fullBlight,
+                        !dilBlight && dilHp1 < dilHp0 && fullBlight);
+                    if (dil != null && dil.IsSpawned) dil.NetworkObject.Despawn();
+
+                    var plife = local.GetComponent<PlayerLife>();
+                    bool wasDowned = plife.Downed.Value;
+                    if (wasDowned) plife.ServerRevive(1f);
+                    local.GetComponent<PlayerDebuffs>().WardUntil.Value = 0;
+                    yield return null;
+                    byte oldPet = local.PetKind.Value;
+                    local.PetKind.Value = (byte)PetCompanion.Kind.Toad;
+                    var pdeb = local.GetComponent<PlayerDebuffs>();
+                    pdeb.ServerPoison(6f, 0.1f);
+                    bool poisonedFirst = pdeb.Poisoned;
+                    yield return new WaitForSeconds(0.8f);
+                    bool gulped = !pdeb.Poisoned;
+                    local.PetKind.Value = oldPet;
+                    string mothLine = PetPerks.Short(PetCompanion.Kind.Moth);
+                    Log("pet perks", "(was downed " + wasDowned + ") poisoned " + poisonedFirst + " -> toad gulped " + gulped + "; wardrobe lines e.g. '" + mothLine + "'",
+                        poisonedFirst && gulped && mothLine.Length > 0 && PetPerks.Short(PetCompanion.Kind.Kitten).Length > 0);
+
+                    bool un1 = local.ServerUnstuck(), un2 = local.ServerUnstuck();
+                    yield return null; yield return null;
+                    Log("unstuck", "first " + un1 + ", again at once " + un2 + " (cooldown)", un1 && !un2);
+                }
+
                 // Ysolde's choices: two named, described options at every rank for every class, and none repeats within an ability.
                 int optionsFound = 0, optionsBad = 0;
                 foreach (Classes.ClassId cid in System.Enum.GetValues(typeof(Classes.ClassId)))

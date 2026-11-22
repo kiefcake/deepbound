@@ -138,7 +138,7 @@ namespace Deepbound.World
             var front = transform.position + transform.forward * 1.2f + Vector3.up * 0.4f;
             float roll = Random.value;
             if (roll < 0.25f) d?.ServerDropLoot(front, LootKind.Relic, (int)Relics.Random());
-            else if (roll < 0.55f) { d?.ServerDropLoot(front, LootKind.PotionHP, 2); d?.ServerDropLoot(front + Vector3.right * 0.6f, LootKind.PotionMP, 1); }
+            else if (roll < 0.55f) { d?.ServerDropLoot(front, LootKind.PotionHP, 2); }
             else if (roll < 0.72f) d?.ServerDropLoot(front, LootKind.Sigil, 1);
             else for (int i = 0; i < 4; i++) d?.ServerDropLoot(front + Quaternion.Euler(0f, i * 90f, 0f) * Vector3.forward * 0.8f, LootKind.Gold, price * 2, fixedSum: true);
             FxRpc(4, who.name);

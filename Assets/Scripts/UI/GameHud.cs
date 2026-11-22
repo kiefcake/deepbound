@@ -2006,6 +2006,9 @@ namespace Deepbound.UI
             Bar(x, y + 32, bw, 12, kit.ResourceMax > 0f ? kit.Resource / kit.ResourceMax : 0f, kit.ResourceColor);
             GUI.Label(new Rect(x + 6, y + 29, bw - 12, 16), kit.ResourceName.ToUpperInvariant() + "  " + Mathf.FloorToInt(kit.Resource) + " / " + Mathf.RoundToInt(kit.ResourceMax),
                 UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.85f), 10, FontStyle.Bold, TextAnchor.MiddleRight));
+            string resHint = kit.ResourceHint;
+            if (!string.IsNullOrEmpty(resHint))
+                GUI.Label(new Rect(x + 6, y + 29, bw * 0.62f, 16), resHint, UiSkin.Derive(small, new Color(1f, 1f, 1f, 0.8f), 10, FontStyle.Normal, TextAnchor.MiddleLeft));
             string cls = progress.Class.Name.ToUpperInvariant();
             string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
             var infoLine = UiSkin.Derive(small, small.normal.textColor, 0, null, null, false);
@@ -3001,7 +3004,8 @@ namespace Deepbound.UI
 
         // ---- Ysolde the runewright (G at the standing stones): ability ranks, runes, melding ----
         private int runeSocketPick = -1;
-        private Vector2 runeScroll;
+        private Vector2 runeScroll, ysScroll;
+        private int ysTab;
 
         /// <summary>
         /// Ysolde's stones (rebuilt 2026-10-21 after the user's screenshot: a big rune bag spilled far out of
@@ -3028,70 +3032,120 @@ namespace Deepbound.UI
                 new GUIStyle(label) { fontSize = 16, alignment = TextAnchor.MiddleRight, normal = { textColor = blue } });
             if (GUI.Button(new Rect(x + pw - 540, y + 14, 180, 28), "Buy a Sigil")) { runeOpen = false; shopOpen = true; shopVendor = Shop.Vendor.Runewright; }
 
-            float leftW = Mathf.Round(pw * 0.42f);
-            float lx = x + 20, lw = leftW - 32, ly = y + 58;
-
-            // ---- Abilities ----
-            GUI.Label(new Rect(lx, ly, lw, 20), "ABILITIES  -  every rank is a choice of two, kept for the run", new GUIStyle(section) { normal = { textColor = LootInfo.SigilColor } });
-            ly += 26;
+            // REWORK (2026-11-22, the user: "fix ysolde ui when looking through certain upgrade paths, rework the window, it
+            // should read more clearly"). The old cards crammed four ranks of choices into 156 px: long option texts ran
+            // under the Take buttons and the chips of taken choices ran off the card. Now: three tabs (Q, E, weapon and
+            // runes); an ability tab shows its whole path, rank 2 to 5, one row per rank, both choices side by side, each
+            // with all its text: TAKEN (lit, gold bar), passed over (faded), choose now (bright, a Take button), or later
+            // (readable, greyed). The path scrolls if the screen is short.
+            var sig = LootInfo.SigilColor;
             string hover = null;
-            foreach (var slot in new[] { AbilitySlot.Q, AbilitySlot.E })
             {
+                float tabW = (pw - 40f - 16f) / 3f, tabY = y + 52f;
+                for (int t = 0; t < 3; t++)
+                {
+                    var tr = new Rect(x + 20 + t * (tabW + 8f), tabY, tabW, 34f);
+                    bool sel = ysTab == t;
+                    string name; bool ready = false;
+                    if (t < 2)
+                    {
+                        var sl = t == 0 ? AbilitySlot.Q : AbilitySlot.E;
+                        int rk = progress.Rank(sl);
+                        ready = rk < AbilityRanks.MaxRank && progress.Sigils.Value >= AbilityRanks.SigilCost(rk);
+                        name = Binds.Live(t == 0 ? Bind.AbilityQ : Bind.AbilityE) + "   " + ClassDefinition.AbilityName(id, sl).ToUpperInvariant() + "   " + rk + "/" + AbilityRanks.MaxRank;
+                    }
+                    else name = "WEAPON & RUNES";
+                    var tc = t < 2 ? sig : blue;
+                    Rect(tr.x, tr.y, tr.width, tr.height, new Color(tc.r, tc.g, tc.b, sel ? 0.2f : 0.06f));
+                    if (sel) Rect(tr.x, tr.yMax - 3, tr.width, 3, tc);
+                    GUI.Label(tr, name, new GUIStyle(label) { fontSize = 15, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = sel ? Color.white : new Color(1f, 1f, 1f, 0.6f) } });
+                    if (ready) { Rect(tr.xMax - 16, tr.y + 6, 9, 9, sig); }
+                    if (GUI.Button(tr, GUIContent.none, GUIStyle.none)) { ysTab = t; ysScroll = Vector2.zero; }
+                }
+            }
+            float top = y + 98f;
+            if (ysTab < 2)
+            {
+                var slot = ysTab == 0 ? AbilitySlot.Q : AbilitySlot.E;
                 int rank = progress.Rank(slot);
-                var card = new Rect(lx, ly, lw, 156);
-                Rect(card.x, card.y, card.width, card.height, new Color(1f, 1f, 1f, 0.04f));
-                GUI.Label(new Rect(card.x + 12, card.y + 6, lw - 150, 22), Binds.Live(slot == AbilitySlot.Q ? Bind.AbilityQ : Bind.AbilityE) + "   " + ClassDefinition.AbilityName(id, slot) + "   rank " + rank,
-                    new GUIStyle(label) { fontSize = 16, fontStyle = FontStyle.Bold });
-                for (int r = 0; r < AbilityRanks.MaxRank; r++)
-                    Rect(card.xMax - 12 - (AbilityRanks.MaxRank - r) * 14, card.y + 11, 10, 12, r < rank ? LootInfo.SigilColor : new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.2f));
-                // What you have taken so far (hover a name for what it does).
-                float tx = card.x + 12;
-                var chip = new GUIStyle(small) { fontSize = 12, fontStyle = FontStyle.Bold, wordWrap = false, normal = { textColor = LootInfo.SigilColor } };
-                if (rank <= 1) GUI.Label(new Rect(tx, card.y + 30, lw - 24, 18), "No choices taken yet.", new GUIStyle(chip) { normal = { textColor = new Color(1f, 1f, 1f, 0.45f) } });
-                for (int t = 1; t < rank && t <= AbilityRanks.Tiers; t++)
+                var intro = new GUIStyle(body) { fontSize = 13, normal = { textColor = new Color(0.78f, 0.76f, 0.72f) } };
+                GUI.Label(new Rect(x + 20, top, pw - 40, 20), "Each rank from 2 to 5 is a choice of two. What you take is kept for the run; the other is gone. Every rank also adds +15% strength and 6% off the cooldown.", intro);
+                top += 28f;
+                float labelW = 120f, gap = 10f, cardW = (pw - 40f - labelW - gap * 2f) / 2f;
+                var nameSt = new GUIStyle(label) { fontSize = 15, fontStyle = FontStyle.Bold, wordWrap = false };
+                var textSt = new GUIStyle(body) { fontSize = 13, wordWrap = true };
+                // Row heights from the real text, so nothing is cut or overlaps the button.
+                var rowH = new float[AbilityRanks.Tiers + 1];
+                float total = 0f;
+                for (int tier = 1; tier <= AbilityRanks.Tiers; tier++)
                 {
-                    var o = AbilityRanks.Get(id, slot, t, progress.B(slot, t));
-                    float cw = chip.CalcSize(new GUIContent(o.Name.ToUpperInvariant())).x + 12;
-                    var cr = new Rect(tx, card.y + 30, cw, 18);
-                    Rect(cr.x, cr.y, cr.width, cr.height, new Color(LootInfo.SigilColor.r, LootInfo.SigilColor.g, LootInfo.SigilColor.b, 0.14f));
-                    GUI.Label(new Rect(cr.x + 6, cr.y, cw, 18), o.Name.ToUpperInvariant(), chip);
-                    if (cr.Contains(Event.current.mousePosition)) hover = o.Name + ": " + o.Text;
-                    tx += cw + 6;
+                    float hMax = 0f;
+                    for (int k = 0; k < 2; k++)
+                        hMax = Mathf.Max(hMax, textSt.CalcHeight(new GUIContent(AbilityRanks.Get(id, slot, tier, k == 1).Text), cardW - 24f));
+                    rowH[tier] = Mathf.Max(70f, 32f + hMax + (tier == rank ? 38f : 12f));
+                    total += rowH[tier] + 8f;
                 }
-                bool maxed = rank >= AbilityRanks.MaxRank;
-                int sigilCost = AbilityRanks.SigilCost(rank);
-                if (maxed)
+                float viewH = y + ph - 40f - top - (rank >= AbilityRanks.MaxRank ? 34f : 0f);
+                var view = new Rect(x + 20, top, pw - 40, viewH);
+                bool scrolls = total > viewH;
+                float innerW = pw - 40f - (scrolls ? 18f : 0f);
+                cardW = (innerW - labelW - gap * 2f) / 2f;
+                if (scrolls) ysScroll = GUI.BeginScrollView(view, ysScroll, new Rect(0, 0, innerW, total));
+                float ox = scrolls ? 0f : view.x, oy = scrolls ? 0f : view.y;
+                float cy = oy;
+                for (int tier = 1; tier <= AbilityRanks.Tiers; tier++)
                 {
-                    GUI.Label(new Rect(card.x + 12, card.y + 54, lw - 24, card.height - 60), "MASTERED. Hover a choice above to read it.", body);
-                }
-                else
-                {
-                    int tier = rank; // the rank being bought is rank + 1, i.e. tier rank
-                    bool can = progress.Sigils.Value >= sigilCost;
-                    string costText = (can ? "" : "needs ") + sigilCost + (sigilCost == 1 ? " Sigil" : " Sigils");
-                    GUI.Label(new Rect(card.x + 12, card.y + 50, lw - 24, 18), "RANK " + (rank + 1) + "  -  choose one  (" + costText + ")", new GUIStyle(small) { fontSize = 12, wordWrap = false });
-                    float half = (lw - 30) / 2f;
+                    bool done = tier < rank, now = tier == rank, later = tier > rank;
+                    int cost = AbilityRanks.SigilCost(tier);
+                    bool can = now && progress.Sigils.Value >= cost;
+                    float rh = rowH[tier];
+                    // The rank column: which rank, what it costs, and where you are on the path.
+                    var lc = done ? sig : now ? Color.white : new Color(1f, 1f, 1f, 0.45f);
+                    GUI.Label(new Rect(ox, cy + 4, labelW, 24), "RANK " + (tier + 1), new GUIStyle(label) { fontSize = 18, fontStyle = FontStyle.Bold, normal = { textColor = lc } });
+                    string status = done ? "chosen" : now ? (can ? "choose one now" : "needs " + cost + (cost == 1 ? " sigil" : " sigils")) : "after rank " + tier;
+                    GUI.Label(new Rect(ox, cy + 28, labelW, 18), status, new GUIStyle(small) { fontSize = 12, wordWrap = false, normal = { textColor = now && can ? sig : new Color(1f, 1f, 1f, 0.55f) } });
+                    if (!done) GUI.Label(new Rect(ox, cy + 46, labelW, 18), cost + (cost == 1 ? " sigil" : " sigils"), new GUIStyle(small) { fontSize = 12, wordWrap = false, normal = { textColor = new Color(1f, 1f, 1f, 0.4f) } });
+                    // A thread down the path joining the ranks.
+                    if (tier < AbilityRanks.Tiers) Rect(ox + 8, cy + rh - 6, 2, 14, new Color(sig.r, sig.g, sig.b, done ? 0.6f : 0.15f));
                     for (int k = 0; k < 2; k++)
                     {
                         var o = AbilityRanks.Get(id, slot, tier, k == 1);
-                        var box = new Rect(card.x + 12 + k * (half + 6), card.y + 70, half, card.height - 76);
-                        Rect(box.x, box.y, box.width, box.height, new Color(1f, 1f, 1f, 0.05f));
-                        GUI.Label(new Rect(box.x + 8, box.y + 4, box.width - 16, 18), o.Name.ToUpperInvariant(), new GUIStyle(small) { fontSize = 13, fontStyle = FontStyle.Bold, wordWrap = false, normal = { textColor = LootInfo.SigilColor } });
-                        GUI.Label(new Rect(box.x + 8, box.y + 21, box.width - 16, box.height - 48), o.Text, new GUIStyle(body) { fontSize = 12 });
-                        GUI.enabled = can;
-                        if (GUI.Button(new Rect(box.x + 6, box.yMax - 26, box.width - 12, 22), "Take " + o.Name)) progress.EmpowerRpc((byte)slot, k == 1);
-                        GUI.enabled = true;
+                        bool taken = done && progress.B(slot, tier) == (k == 1);
+                        bool passed = done && !taken;
+                        var card = new Rect(ox + labelW + gap + k * (cardW + gap), cy, cardW, rh);
+                        float bgA = taken ? 0.16f : now ? 0.09f : passed ? 0.02f : 0.04f;
+                        Rect(card.x, card.y, card.width, card.height, taken || now ? new Color(sig.r, sig.g, sig.b, bgA) : new Color(1f, 1f, 1f, bgA));
+                        if (taken) Rect(card.x, card.y, 4, card.height, sig);
+                        if (now) { var bc = new Color(sig.r, sig.g, sig.b, 0.55f); Rect(card.x, card.y, card.width, 1, bc); Rect(card.x, card.yMax - 1, card.width, 1, bc); Rect(card.x, card.y, 1, card.height, bc); Rect(card.xMax - 1, card.y, 1, card.height, bc); }
+                        float a = passed ? 0.35f : later ? 0.6f : 1f;
+                        var nc = taken || now ? sig : Color.white;
+                        GUI.Label(new Rect(card.x + 12, card.y + 6, card.width - 90, 22), o.Name.ToUpperInvariant(), new GUIStyle(nameSt) { normal = { textColor = new Color(nc.r, nc.g, nc.b, a) } });
+                        if (taken) GUI.Label(new Rect(card.xMax - 84, card.y + 7, 74, 20), "TAKEN", new GUIStyle(small) { fontSize = 12, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = sig } });
+                        else if (passed) GUI.Label(new Rect(card.xMax - 84, card.y + 7, 74, 20), "passed", new GUIStyle(small) { fontSize = 12, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(1f, 1f, 1f, 0.3f) } });
+                        GUI.Label(new Rect(card.x + 12, card.y + 30, card.width - 24, rh - 30), o.Text, new GUIStyle(textSt) { normal = { textColor = new Color(0.92f, 0.9f, 0.86f, a) } });
+                        if (now)
+                        {
+                            GUI.enabled = can;
+                            if (GUI.Button(new Rect(card.x + 10, card.yMax - 34, card.width - 20, 26), can ? "Take " + o.Name + "  (" + cost + (cost == 1 ? " sigil)" : " sigils)") : "Needs " + cost + (cost == 1 ? " sigil" : " sigils"))) progress.EmpowerRpc((byte)slot, k == 1);
+                            GUI.enabled = true;
+                        }
                     }
+                    cy += rh + 8f;
                 }
-                ly += card.height + 8;
+                if (scrolls) GUI.EndScrollView();
+                if (rank >= AbilityRanks.MaxRank)
+                {
+                    GUI.Label(new Rect(x + 20, y + ph - 68, pw - 360, 24), "MASTERED.", new GUIStyle(label) { fontSize = 15, fontStyle = FontStyle.Bold, normal = { textColor = sig } });
+                    if (progress.Rank(AbilitySlot.Q) >= AbilityRanks.MaxRank && progress.Rank(AbilitySlot.E) >= AbilityRanks.MaxRank && progress.Sigils.Value > 0
+                        && GUI.Button(new Rect(x + pw - 340, y + ph - 70, 320, 26), "Melt a spare Sigil into " + AbilityRanks.MeltEmbers + " embers")) progress.MeltSigilRpc();
+                }
             }
             runeHover = hover;
-            if (progress.Rank(AbilitySlot.Q) >= AbilityRanks.MaxRank && progress.Rank(AbilitySlot.E) >= AbilityRanks.MaxRank && progress.Sigils.Value > 0)
-            {
-                if (GUI.Button(new Rect(lx, ly, lw, 26), "Melt a spare Sigil into " + AbilityRanks.MeltEmbers + " embers")) progress.MeltSigilRpc();
-                ly += 32;
-            }
 
+            if (ysTab == 2)
+            {
+            float leftW = Mathf.Round(pw * 0.42f);
+            float lx = x + 20, lw = leftW - 32, ly = top - 6f;
             // ---- Weapon sockets ----
             ly += 6;
             int sockets = Runes.SocketsAt(level);
@@ -3117,8 +3171,8 @@ namespace Deepbound.UI
             }
 
             // ---- The rune bag: one row per kind, set or meld from it ----
-            float rx = x + leftW + 8, rw = pw - leftW - 28, ry = y + 58;
-            Rect(rx - 14, y + 54, 1, ph - 70, new Color(1f, 1f, 1f, 0.08f));
+            float rx = x + leftW + 8, rw = pw - leftW - 28, ry = top - 6f;
+            Rect(rx - 14, top - 8f, 1, y + ph - 40f - top, new Color(1f, 1f, 1f, 0.08f));
             GUI.Label(new Rect(rx, ry, rw, 20), "YOUR RUNES  -  SET one in your weapon, or MELD three alike into the next tier (II, III)", new GUIStyle(section) { normal = { textColor = blue } });
             ry += 26;
             var kinds = new System.Collections.Generic.List<Rune>();
@@ -3159,14 +3213,16 @@ namespace Deepbound.UI
                 if (content.height > view.height)
                     GUI.Label(new Rect(rx, view.yMax + 2, rw, 18), kinds.Count + " kinds of rune  -  scroll for more", new GUIStyle(small) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Italic, normal = { textColor = blue } });
             }
+            }
             GUI.Label(new Rect(x + 20, y + ph - 26, pw - 40, 20), "F or Esc to close", new GUIStyle(small) { normal = { textColor = new Color(0.6f, 0.58f, 0.55f) } });
             if (runeHover != null)
             {
                 var mp = Event.current.mousePosition;
                 var tipSt = new GUIStyle(small) { fontSize = 13, wordWrap = true };
                 float th = tipSt.CalcHeight(new GUIContent(runeHover), 320f) + 12;
-                UiSkin.Panel(new Rect(mp.x + 14, mp.y + 10, 334, th), 0.98f);
-                GUI.Label(new Rect(mp.x + 21, mp.y + 16, 320, th - 12), runeHover, tipSt);
+                float tx0 = Mathf.Min(mp.x + 14, w - 340), ty0 = Mathf.Min(mp.y + 10, h - th - 6);
+                UiSkin.Panel(new Rect(tx0, ty0, 334, th), 0.98f);
+                GUI.Label(new Rect(tx0 + 7, ty0 + 6, 320, th - 12), runeHover, tipSt);
             }
         }
         private string runeHover;

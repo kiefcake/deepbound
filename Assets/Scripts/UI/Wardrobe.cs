@@ -32,6 +32,7 @@ namespace Deepbound.UI
         private string flash;
         private float flashUntil, nextMote, spin, spinTarget = 200f;
         private bool wasOpen;
+        private int filter;
 
         // The portrait stage, far below the camp.
         private static readonly Vector3 StageAt = new Vector3(0f, -1300f, 0f);
@@ -244,7 +245,32 @@ namespace Deepbound.UI
 
             // The portrait: you, turning, in what you are pointing at.
             UiSkin.Panel(shot, 0.95f);
-            if (portrait != null) GUI.DrawTexture(new Rect(shot.x + 10, shot.y + 10, shot.width - 20, shot.height - 64), portrait, ScaleMode.ScaleAndCrop);
+            // 2026-11-22 (the user: "improve further cosmetic menu"): under the portrait, what you are looking at and
+            // everything you have on, one line per slot.
+            float wornH = 7 * 17f + 30f;
+            var pic = new Rect(shot.x + 10, shot.y + 10, shot.width - 20, shot.height - 64 - wornH - 26f);
+            if (portrait != null) GUI.DrawTexture(pic, portrait, ScaleMode.ScaleAndCrop);
+            {
+                var allItems = Cosmetics.Of(tab);
+                int show = previewIndex >= 0 && previewIndex < allItems.Length ? previewIndex : WornNow(tab);
+                string cap = (previewIndex >= 0 ? "PREVIEW  " : "WEARING  ") + allItems[Mathf.Clamp(show, 0, allItems.Length - 1)].Name;
+                GUI.Label(new Rect(pic.x, pic.yMax + 4, pic.width, 20), cap, new GUIStyle(UiSkin.Small) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, normal = { textColor = previewIndex >= 0 ? new Color(0.75f, 0.85f, 1f) : UiSkin.Gold } });
+                float wy = pic.yMax + 30f;
+                UiSkin.Rect(new Rect(pic.x, wy - 4, pic.width, 1), new Color(1f, 1f, 1f, 0.12f));
+                GUI.Label(new Rect(pic.x, wy, pic.width, 18), "YOU ARE WEARING", new GUIStyle(UiSkin.Small) { fontSize = 11, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 1f, 1f, 0.5f) } });
+                wy += 20f;
+                string[] slotNames = { "Cloak", "Aura", "Heraldry", "Pattern", "Glow", "Title", "Pet" };
+                foreach (var k in TabOrder)
+                {
+                    var list = Cosmetics.Of(k);
+                    int wi = Mathf.Clamp(WornNow(k), 0, list.Length - 1);
+                    var ls = new GUIStyle(UiSkin.Small) { fontSize = 12, wordWrap = false };
+                    GUI.Label(new Rect(pic.x, wy, 70, 17), slotNames[(int)k], ls);
+                    var vs = new GUIStyle(ls) { normal = { textColor = wi == 0 ? new Color(1f, 1f, 1f, 0.35f) : k == tab ? UiSkin.Gold : new Color(0.92f, 0.9f, 0.86f) } };
+                    GUI.Label(new Rect(pic.x + 72, wy, pic.width - 72, 17), UiSkin.Fit(wi == 0 ? "-" : list[wi].Name, vs, pic.width - 72), vs);
+                    wy += 17f;
+                }
+            }
             if (GUI.Button(new Rect(shot.x + 10, shot.yMax - 46, shot.width / 2f - 15, 34), "Front", UiSkin.Button)) spinTarget = Mathf.Round((spinTarget - 200f) / 360f) * 360f + 200f;
             if (GUI.Button(new Rect(shot.x + shot.width / 2f + 5, shot.yMax - 46, shot.width / 2f - 15, 34), "Back", UiSkin.Button)) spinTarget = Mathf.Round((spinTarget - 20f) / 360f) * 360f + 20f;
 
@@ -266,16 +292,31 @@ namespace Deepbound.UI
                 : tab == Cosmetics.Kind.Heraldry ? "Your colours: tabard, plume, sash, hat band - on every class."
                 : tab == Cosmetics.Kind.WeaponGlow ? "A burning edge on your weapon, and the colour of your swings."
                 : tab == Cosmetics.Kind.Title ? "Worn under your name, for the party and the Hall to see."
-                : tab == Cosmetics.Kind.Pet ? "A companion at your heel: fetches gold and embers, finds hidden plates." : "Motes that drift up around you.";
-            GUI.Label(new Rect(panel.x, panel.y + 108, pw, 20), blurb + "   (Tab switches)", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+                : tab == Cosmetics.Kind.Pet ? "A companion at your heel: fetches gold and embers, finds hidden plates, and each kind has a trick of its own." : "Motes that drift up around you.";
+            GUI.Label(new Rect(panel.x + 12, panel.y + 108, pw - 24, 20), UiSkin.Fit(blurb, new GUIStyle(UiSkin.Small), pw - 24), new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+            int ownedN = 0;
+            for (int i = 1; i < items.Length; i++) if (Cosmetics.Owns(tab, i)) ownedN++;
+            GUI.Label(new Rect(panel.x + 16, panel.y + 130, 200, 20), "Owned " + ownedN + " of " + (items.Length - 1), new GUIStyle(UiSkin.Small) { fontSize = 12, normal = { textColor = UiSkin.Gold } });
+            string[] filters = { "Show: all", "Show: owned", "Show: can buy" };
+            if (GUI.Button(new Rect(panel.xMax - 146, panel.y + 128, 130, 22), filters[filter], new GUIStyle(UiSkin.Button) { fontSize = 12 })) { filter = (filter + 1) % 3; scroll = Vector2.zero; }
 
-            var view = new Rect(panel.x + 16, panel.y + 134, pw - 32, ph - 176);
-            var content = new Rect(0, 0, view.width - 20, items.Length * rowH);
-            int hovered = -1;
-            scroll = GUI.BeginScrollView(view, scroll, content);
+            var shown = new System.Collections.Generic.List<int>();
             for (int i = 0; i < items.Length; i++)
             {
-                var row = new Rect(0, i * rowH, content.width, rowH - 6);
+                bool own = Cosmetics.Owns(tab, i);
+                if (filter == 1 && !own) continue;
+                if (filter == 2 && (own || !Cosmetics.Unlocked(tab, i) || Cosmetics.Renown < items[i].Cost)) continue;
+                shown.Add(i);
+            }
+            var view = new Rect(panel.x + 16, panel.y + 156, pw - 32, ph - 198);
+            var content = new Rect(0, 0, view.width - 20, Mathf.Max(1, shown.Count) * rowH);
+            int hovered = -1;
+            scroll = GUI.BeginScrollView(view, scroll, content);
+            if (shown.Count == 0) GUI.Label(new Rect(0, 8, content.width, 22), filter == 1 ? "Nothing owned here yet." : "Nothing you can buy right now.", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
+            for (int si = 0; si < shown.Count; si++)
+            {
+                int i = shown[si];
+                var row = new Rect(0, si * rowH, content.width, rowH - 6);
                 bool wearing = WornNow(tab) == i;
                 if (row.Contains(Event.current.mousePosition)) hovered = i;
                 UiSkin.Rect(row, wearing ? new Color(0.92f, 0.74f, 0.36f, 0.16f) : new Color(1f, 1f, 1f, hovered == i ? 0.07f : 0.03f));
@@ -336,7 +377,8 @@ namespace Deepbound.UI
                 bool owns = Cosmetics.Owns(tab, i), unlocked = Cosmetics.Unlocked(tab, i);
                 string sub = i == 0 ? (tab == Cosmetics.Kind.Cloak ? "Each class's own colours" : tab == Cosmetics.Kind.Heraldry ? "Your party colour" : tab == Cosmetics.Kind.Pattern ? "No pattern" : tab == Cosmetics.Kind.Pet ? "No companion" : "Nothing about you") : owns ? (Cosmetics.AllFree ? "Free" : "Owned")
                     : !unlocked ? "Fell " + BossName(item.NeedsBoss) + " to unlock" : item.Cost + " Renown";
-                GUI.Label(new Rect(row.x + 58, row.y + 22, 300, 18), sub, new GUIStyle(UiSkin.Small) { normal = { textColor = !unlocked ? new Color(0.7f, 0.45f, 0.4f) : UiSkin.Small.normal.textColor } });
+                if (tab == Cosmetics.Kind.Pet && i > 0) sub = Player.PetPerks.Short((Player.PetCompanion.Kind)i) + "   ·   " + sub;
+                GUI.Label(new Rect(row.x + 58, row.y + 22, row.width - 58 - 124, 18), sub, new GUIStyle(UiSkin.Small) { normal = { textColor = !unlocked ? new Color(0.7f, 0.45f, 0.4f) : UiSkin.Small.normal.textColor } });
 
                 var button = new Rect(row.xMax - 118, row.y + 6, 108, 28);
                 if (wearing) GUI.Label(button, "WEARING", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = UiSkin.Gold } });
@@ -400,6 +442,30 @@ namespace Deepbound.UI
                     break;
                 case Cosmetics.Motif.SkullHem:
                     for (int m = 0; m < 3; m++) Skull(r.x + 7 + m * 12, r.yMax - 8, 0.6f);
+                    break;
+                case Cosmetics.Motif.Moth:
+                    UiSkin.Rect(new Rect(cx - 15, cy - 8, 13, 9), c); UiSkin.Rect(new Rect(cx + 2, cy - 8, 13, 9), c);
+                    UiSkin.Rect(new Rect(cx - 11, cy + 2, 9, 7), c); UiSkin.Rect(new Rect(cx + 2, cy + 2, 9, 7), c);
+                    UiSkin.Rect(new Rect(cx - 10, cy - 5, 3, 3), k); UiSkin.Rect(new Rect(cx + 7, cy - 5, 3, 3), k);
+                    UiSkin.Rect(new Rect(cx - 1.5f, cy - 9, 3, 18), k);
+                    break;
+                case Cosmetics.Motif.Raven:
+                    UiSkin.Rect(new Rect(cx - 6, cy - 4, 12, 9), c);
+                    UiSkin.Rect(new Rect(cx + 3, cy - 9, 7, 6), c);
+                    UiSkin.Rect(new Rect(cx + 10, cy - 7, 5, 2), k);
+                    UiSkin.Rect(new Rect(cx - 16, cy - 10, 12, 4), c); UiSkin.Rect(new Rect(cx - 13, cy - 6, 8, 3), c);
+                    UiSkin.Rect(new Rect(cx - 9, cy + 5, 6, 5), c);
+                    break;
+                case Cosmetics.Motif.Eye:
+                    UiSkin.Rect(new Rect(cx - 14, cy - 4, 28, 8), c);
+                    UiSkin.Rect(new Rect(cx - 9, cy - 7, 18, 14), c);
+                    UiSkin.Rect(new Rect(cx - 5, cy - 5, 10, 10), k);
+                    UiSkin.Rect(new Rect(cx - 1.5f, cy - 4, 3, 8), c);
+                    break;
+                case Cosmetics.Motif.CrownedSkull:
+                    UiSkin.Rect(new Rect(cx - 9, cy - 10, 18, 3), c);
+                    for (int m = 0; m < 3; m++) UiSkin.Rect(new Rect(cx - 9 + m * 7.5f, cy - 14, 3, 4), c);
+                    Skull(cx, cy + 3, 1.1f);
                     break;
             }
         }

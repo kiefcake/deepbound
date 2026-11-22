@@ -33,6 +33,10 @@ namespace Deepbound.Player
         float ResourceMax { get; }
         void FillAbilities(List<AbilityView> into);
 
+        /// <summary>What the resource is doing for you right now, in a few words, drawn inside its bar (2026-11-22, the
+        /// user: "plague doctors reagents doesn't seem to have any purpose", "explain flagellant bar also"). "" for none.</summary>
+        string ResourceHint => "";
+
         /// <summary>0-1 while charging something (the Ranger's bow draw); the HUD shows a meter.</summary>
         float Charge => 0f;
 

@@ -121,7 +121,6 @@ namespace Deepbound.World
                     {
                         if (p == null || !p.TryGetComponent<Flasks>(out var f)) continue;
                         f.ServerAdd(Flasks.Kind.Health, 1);
-                        f.ServerAdd(Flasks.Kind.Mana, 1);
                         f.ServerAdd(Random.value < 0.5f ? Flasks.Kind.Frost : Flasks.Kind.Holy, 1);
                     }
                     break;

@@ -28,7 +28,16 @@ namespace Deepbound.Player
     [RequireComponent(typeof(Health))]
     public class RogueKit : NetworkBehaviour, IClassKit
     {
-        public const float StabInterval = 0.26f, StabRange = 2.2f, StabArc = 75f, StabDamage = 13f, StabEnergy = 0f;
+        public const float StabInterval = 0.26f, StabRange = 2.2f, StabArc = 75f, StabDamage = 13f, StabEnergy = 6f;
+        /// <summary>
+        /// ENERGY reworked (2026-11-22: the Rogue spent ~17/s at most against 22/s regen, so the bar never mattered).
+        /// Stabs cost <see cref="StabEnergy"/> from the front (about what the bar brews, so a frontal flurry and a fan of
+        /// knives run it down) but are FREE from behind and give back <see cref="BehindRefund"/>; at zero the Rogue is
+        /// WINDED: stabs come x<see cref="WindedSlow"/> slower until the bar is back over a third. Get behind things.
+        /// </summary>
+        public const float BehindRefund = 3f, WindedSlow = 1.8f;
+        private bool winded;
+        public string ResourceHint => winded ? "WINDED: get behind them" : LocalBehind ? "behind: stabs are free" : "front stabs cost  ·  backstabs refund";
         public const float FanCooldown = 1.8f, FanEnergy = 30f, FanDamage = 15f, FanSpeed = 30f, FanRange = 14f, FanGravity = 6f;
         public float AttackRange => StabRange * (progress != null ? progress.ReachMultiplier : 1f);
         private float RangeMul => progress != null ? progress.RangeMultiplier : 1f;
@@ -238,11 +247,13 @@ namespace Deepbound.Player
             var keyboard = Keyboard.current;
 
             // --- LMB held: Twin Daggers ---
-            if (UI.Binds.PrimaryHeld && Time.time >= nextStab && Energy >= StabEnergy)
+            if (Energy <= 0.5f) winded = true; else if (Energy >= EnergyMax / 3f) winded = false;
+            if (UI.Binds.PrimaryHeld && Time.time >= nextStab)
             {
-                Energy -= StabEnergy;
+                if (LocalBehind) Energy = Mathf.Min(EnergyMax, Energy + BehindRefund);
+                else Energy = Mathf.Max(0f, Energy - StabEnergy);
                 side = -side;
-                nextStab = Time.time + StabInterval * progress.AttackTimeMultiplier;
+                nextStab = Time.time + StabInterval * progress.AttackTimeMultiplier * (winded ? WindedSlow : 1f);
                 player.ViewModelSwing(0.04f, StabInterval * 0.8f, side);
                 Sfx.Play(Sound.Swing, transform.position, 0.4f, 1.5f);
                 // Quick feet: the Rogue darts in further, less often.
@@ -444,7 +455,7 @@ namespace Deepbound.Player
         private void FlourishFxRpc(Vector3 at)
         {
             Sfx.Play(Sound.Block, at, 0.8f, 1.9f);
-            Vfx.Flash(at, new Color(1f, 0.85f, 0.5f), 3f, 3f, 0.2f);
+            Vfx.AbilityFlash(at, new Color(1f, 0.85f, 0.5f), 3f, 3f, 0.2f);
             if (IsOwner) UI.GameHud.ShowCombo(at + Vector3.up * 0.5f, "FLOURISH", new Color(1f, 0.85f, 0.5f));
         }
 
@@ -633,7 +644,7 @@ namespace Deepbound.Player
         {
             Sfx.Play(Sound.Shatter, at, 0.9f, 0.8f);
             UI.GameHud.Feed("Ambush!", new Color(0.75f, 0.55f, 1f));
-            Vfx.Flash(at, new Color(0.7f, 0.4f, 1f), 5f, 5f, 0.3f);
+            Vfx.AbilityFlash(at, new Color(0.7f, 0.4f, 1f), 5f, 5f, 0.3f);
             Vfx.Embers(at, 14, new Color(0.75f, 0.45f, 1f), 5f, 0.06f, 0.6f);
             // A great violet X cut across it.
             ClassFx.CrossCut(at, 2f);

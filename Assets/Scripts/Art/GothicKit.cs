@@ -322,6 +322,56 @@ namespace Deepbound.Art
                     break;
                 }
             }
+            ConformToCloak(hang, drop, top, length, flare);
+        }
+
+        /// <summary>
+        /// Lay every piece of a sewn motif ON the cloak's curve (2026-11-22, the user: "fix heraldrys so they lay flat
+        /// against clothes"). A motif is drawn flat on the tangent plane at its centre, so on the curved cloak its wide
+        /// pieces stood off the cloth at the edges. Each piece is moved to the cloak surface under it, turned to the local
+        /// normal, and its layering kept but pressed closer (x<see cref="LayerPress"/>).
+        /// </summary>
+        /// <summary>The cloak's surface frame at (y, phi): +Z out of the cloth, +Y up along it.</summary>
+        private static Quaternion Frame(Vector3 drop, float y, float phi, float top, float length, float flare, float lift, out Vector3 at)
+        {
+            at = CloakPoint(drop, y, phi, top, length, flare, lift);
+            var up = CloakPoint(drop, y + 0.02f, phi, top, length, flare, lift) - at;
+            var side = CloakPoint(drop, y, phi + 2f, top, length, flare, lift) - at;
+            var normal = Vector3.Cross(up, side).normalized;
+            var horiz = new Vector3(at.x - drop.x, 0f, at.z - drop.z);
+            if (Vector3.Dot(normal, horiz) < 0f) normal = -normal;
+            return Quaternion.LookRotation(normal, up.normalized);
+        }
+
+        private const float LayerPress = 0.5f, PatternLift = 0.006f;
+        private static void ConformToCloak(Transform hang, Vector3 drop, float top, float length, float flare)
+        {
+            var pivots = new System.Collections.Generic.List<Transform>();
+            foreach (Transform c in hang) if (c.name.StartsWith("Pattern")) pivots.Add(c);
+            var back = Quaternion.Euler(0f, -95f, 0f);
+            foreach (var at in pivots)
+            {
+                // The pivot's roll inside its own tangent frame (a tilted rib, a turned bone) carries over to every piece.
+                var a0 = back * (at.localPosition - drop);
+                float phi0 = Mathf.Atan2(a0.x, a0.z / 0.82f) * Mathf.Rad2Deg - 85f;
+                var rollRot = Quaternion.Inverse(Frame(drop, a0.y, phi0, top, length, flare, 0.014f, out _)) * at.localRotation;
+                var parts = new System.Collections.Generic.List<Transform>();
+                foreach (Transform c in at) parts.Add(c);
+                foreach (var c in parts)
+                {
+                    var lp = c.localPosition;
+                    var p = at.localPosition + at.localRotation * new Vector3(lp.x, lp.y, 0f);
+                    var q = back * (p - drop);
+                    float phi = Mathf.Atan2(q.x, q.z / 0.82f) * Mathf.Rad2Deg - 85f, y = q.y;
+                    float lift = PatternLift + lp.z * LayerPress;
+                    var frame = Frame(drop, y, phi, top, length, flare, lift, out var s0) * rollRot;
+                    var sc = c.localScale;
+                    c.SetParent(hang, false);
+                    c.localPosition = s0;
+                    c.localRotation = frame * c.localRotation;
+                    c.localScale = new Vector3(sc.x, sc.y, sc.z * 0.6f);
+                }
+            }
         }
 
         /// <summary>A tall standing collar rising behind the head (the sorcerer's silhouette).</summary>

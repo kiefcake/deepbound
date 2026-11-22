@@ -403,7 +403,7 @@ namespace Deepbound.Art
                 {
                     landed = true;
                     Shock(floor, radius, Holy, 0.5f, 0.4f);
-                    Vfx.Flash(floor + Vector3.up, Holy, 5f, radius * 2.5f, 0.4f);
+                    Vfx.AbilityFlash(floor + Vector3.up, Holy, 5f, radius * 2.5f, 0.4f);
                 }
             };
             // The cross in the ground, long arm along the Cleric's facing.
@@ -822,7 +822,7 @@ namespace Deepbound.Art
             spin.DegreesPerSecond = 720f;
             tumble.localRotation = Quaternion.Euler(0f, 0f, 90f);
             var belly = MeshKit.Part(tumble, "Belly", MeshKit.Ball(0.1f, 8, 6), Mat.Glow, Vector3.zero);
-            ArtLibrary.SetGlow(belly.GetComponent<Renderer>(), liquid * 1.8f);
+            ArtLibrary.SetGlow(belly.GetComponent<Renderer>(), liquid * 1.2f);
             var neck = MeshKit.Part(tumble, "Neck", MeshKit.Cylinder(0.04f, 0.032f, 0.11f, 6), Mat.Glow, new Vector3(0f, 0f, 0.07f), new Vector3(90f, 0f, 0f));
             ArtLibrary.SetGlow(neck.GetComponent<Renderer>(), Color.Lerp(liquid, Color.white, 0.6f) * 0.7f);
             MeshKit.Part(tumble, "Cork", MeshKit.Cylinder(0.036f, 0.04f, 0.05f, 6), tonic ? Mat.Cloth : Mat.Wood, new Vector3(0f, 0f, 0.17f), new Vector3(90f, 0f, 0f));

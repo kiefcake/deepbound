@@ -57,7 +57,6 @@ namespace Deepbound.Loot
             .Add(0.4f, LootKind.Gold, 6, 12)
             .Add(0.2f, LootKind.Embers, 2, 4)
             .Add(0.07f, LootKind.PotionHP, 1, 1)
-            .Add(0.035f, LootKind.PotionMP, 1, 1)
             .Add(0.22f, LootKind.Bone, 1, 2)
             .Add(0.07f, LootKind.Cloth, 1, 1)
             .Add(0.07f, LootKind.Iron, 1, 1);
@@ -71,7 +70,6 @@ namespace Deepbound.Loot
             .Add(0.15f, LootKind.Rune)
             .Add(0.04f, LootKind.RareItem)
             .Add(0.3f, LootKind.PotionHP, 1, 1)
-            .Add(0.15f, LootKind.PotionMP, 1, 1)
             .Add(1f, LootKind.Bone, 2, 3)
             .Add(0.5f, LootKind.Cloth, 1, 2)
             .Add(0.5f, LootKind.Iron, 1, 2);
@@ -85,7 +83,6 @@ namespace Deepbound.Loot
             .Add(0.22f, LootKind.Rune)
             .Add(0.07f, LootKind.RareItem)
             .Add(0.45f, LootKind.PotionHP, 1, 1)
-            .Add(0.2f, LootKind.PotionMP, 1, 1)
             .Add(0.8f, LootKind.Cloth, 2, 4)
             .Add(0.8f, LootKind.Iron, 2, 4)
             .Add(0.5f, LootKind.Bone, 1, 3);
@@ -102,7 +99,6 @@ namespace Deepbound.Loot
             .Add(1f, LootKind.Gold, 14, 24)
             .Add(0.7f, LootKind.Embers, 4, 7)
             .Add(0.3f, LootKind.PotionHP, 1, 1)
-            .Add(0.15f, LootKind.PotionMP, 1, 1)
             .Add(0.1f, LootKind.Rune)
             .Add(0.07f, LootKind.Relic)
             .Add(0.07f, LootKind.RareItem)
@@ -117,7 +113,6 @@ namespace Deepbound.Loot
             .Add(1f, LootKind.Relic)
             .Add(1f, LootKind.Embers, 30, 40)
             .Add(1f, LootKind.PotionHP, 1, 1)
-            .Add(0.6f, LootKind.PotionMP, 1, 1)
             .Add(1f, LootKind.Bone, 3, 5)
             .Add(1f, LootKind.Cloth, 2, 4)
             .Add(1f, LootKind.Iron, 2, 4);

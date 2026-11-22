@@ -25,17 +25,23 @@ namespace Deepbound.Player
     /// <item><b>E — Plague Mask.</b> Cleanse every ally nearby of their afflictions, heal them a
     ///   little, and ward them against new ones for a few seconds.</item>
     /// </list>
-    /// Reagents (the resource) refill steadily; the Doctor is limited by aim and cooldowns.
+    /// REAGENTS (reworked 2026-11-22, the user: "plague doctors ability bar reagents doesn't seem to have any purpose"; vials
+    /// were free and the bar refilled in 8 s): every vial costs <see cref="VialCost"/>, a Tonic <see cref="TonicCost"/>.
+    /// Out of reagents your vials still fly but DILUTE: <see cref="DiluteDamage"/> damage and no blight. The bar brews
+    /// back at <see cref="ReagentRegen"/>/s (twice that after <see cref="BrewPause"/> s without a throw), and every
+    /// blighted enemy that dies gives back <see cref="HarvestReagents"/>: a Doctor who keeps the rot spreading keeps
+    /// throwing; one who sprays at nothing runs dry.
     /// </summary>
     [RequireComponent(typeof(Health))]
     public class PlagueDoctorKit : NetworkBehaviour, IClassKit
     {
-        public const float VialInterval = 0.55f, VialCost = 0f, VialDamage = 15f, VialSpeed = 19f, VialRange = 20f, VialGravity = 9f, SplashRadius = 1.7f;
+        public const float VialInterval = 0.55f, VialCost = 7f, VialDamage = 15f, VialSpeed = 19f, VialRange = 20f, VialGravity = 9f, SplashRadius = 1.7f;
         public const float BlightSeconds = 4f, BlightDps = 9f;
         public const float TonicCooldown = 7f, TonicCost = 35f, TonicRadius = 3f, TonicHeal = 0.2f;
         public const float MiasmaCooldown = 12f, MiasmaRadius = 4f, MiasmaSeconds = 6f, MiasmaDps = 9f;
         public const float MaskCooldown = 18f, MaskRadius = 8f, MaskHeal = 0.1f, MaskWard = 4f;
-        public const float ReagentMax = 100f, ReagentRegen = 12f;
+        public const float ReagentMax = 100f, ReagentRegen = 7f, BrewPause = 1.5f, HarvestReagents = 12f, DiluteDamage = 0.6f;
+        private float lastThrowAt = -99f;
         public const float ContagionRadius = 6f;
 
         public float AttackRange => VialRange * (progress != null ? progress.RangeMultiplier : 1f);
@@ -105,6 +111,7 @@ namespace Deepbound.Player
                 }
                 if (NetworkManager.Singleton == null || !NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(source, out var obj) || !obj.TryGetComponent<PlagueDoctorKit>(out var kit)) return;
                 kit.ServerContagion(dead.transform.position);
+                kit.HarvestRpc(HarvestReagents);
             };
         }
 
@@ -168,7 +175,8 @@ namespace Deepbound.Player
             if (!IsOwner || !Active) return;
 
             // WIS (Brann's Meditation drill) brews reagents faster: +2.5% per point over the class's 42.
-            Reagents = Mathf.Min(ReagentMax, Reagents + ReagentRegen * Mathf.Max(0.5f, 1f + (progress.Value(Core.StatType.WIS) - 42f) * 0.025f) * Time.deltaTime);
+            float brew = Time.time - lastThrowAt > BrewPause ? 2f : 1f;
+            Reagents = Mathf.Min(ReagentMax, Reagents + ReagentRegen * brew * Mathf.Max(0.5f, 1f + (progress.Value(Core.StatType.WIS) - 42f) * 0.025f) * Time.deltaTime);
             motor.SpeedMultiplier = progress.SpeedMultiplier;
             motor.CanSprint = true;
             if (!life.CanAct || !motor.ActionsReady) return;
@@ -176,19 +184,22 @@ namespace Deepbound.Player
             var keyboard = Keyboard.current;
 
             // --- LMB held: Vials ---
-            if (UI.Binds.PrimaryHeld && Time.time >= nextVial && Reagents >= VialCost)
+            if (UI.Binds.PrimaryHeld && Time.time >= nextVial)
             {
-                Reagents -= VialCost;
+                bool dilute = Reagents < VialCost;
+                if (!dilute) Reagents -= VialCost;
+                lastThrowAt = Time.time;
                 nextVial = Time.time + VialInterval * progress.AttackTimeMultiplier;
                 player.ViewModelCast(false);
                 Sfx.Play(Sound.Swing, transform.position, 0.35f, 1.7f);
-                VialRpc(player.AimOrigin + player.AimForward * 0.6f, LobDirection());
+                VialRpc(player.AimOrigin + player.AimForward * 0.6f, LobDirection(), dilute);
             }
 
             // --- RMB: Tonic ---
             if (UI.Binds.SecondaryDown && Time.time >= tonicReadyAt && Reagents >= TonicCost)
             {
                 Reagents -= TonicCost;
+                lastThrowAt = Time.time;
                 tonicReadyAt = Time.time + TonicCooldown;
                 player.ViewModelCast(false);
                 TonicRpc(player.AimOrigin + player.AimForward * 0.6f, LobDirection());
@@ -230,27 +241,41 @@ namespace Deepbound.Player
         private float BlightPower => progress.AttackMultiplier;
 
         [Rpc(SendTo.Server)]
-        private void VialRpc(Vector3 origin, Vector3 direction)
+        private void VialRpc(Vector3 origin, Vector3 direction, bool dilute)
         {
             if (!life.CanAct) return;
-            ServerVial(origin, direction);
+            ServerVial(origin, direction, dilute);
         }
 
+        /// <summary>Server -> owner: a blighted enemy died; the Doctor harvests reagents from it.</summary>
+        [Rpc(SendTo.Owner)]
+        private void HarvestRpc(float amount) => Reagents = Mathf.Min(ReagentMax, Reagents + amount);
+
+        public string ResourceHint => Reagents >= VialCost ? "vials blight  ·  blighted kills refill" : "DILUTE: vials won't blight";
+
         /// <summary>Server: throw one vial. Public for the smoke test.</summary>
-        public void ServerVial(Vector3 origin, Vector3 direction)
+        public void ServerVial(Vector3 origin, Vector3 direction, bool dilute = false)
         {
             if (Vector3.Distance(origin, transform.position + Vector3.up * 1.6f) > 2.5f) origin = transform.position + Vector3.up * 1.6f;
             ulong me = NetworkObjectId;
             Arrows.ServerFire(origin, direction, 0f, Team.Enemies, me, VialSpeed, h => { }, false, VialRange * RangeMul, VialGravity,
-                at => { if (this != null) ServerSplash(at); });
+                at => { if (this != null) ServerSplash(at, dilute); });
             VialFxRpc(origin, direction, false);
         }
 
         /// <summary>Server: a vial shatters here: damage and blight in a small splash.</summary>
-        public void ServerSplash(Vector3 at)
+        public void ServerSplash(Vector3 at, bool dilute = false)
         {
             float radius = SplashRadius;
             float p = BlightPower;
+            if (dilute)
+            {
+                // Out of reagents: watered-down glass, a weak splash, no rot.
+                foreach (var h in CombatQuery.Circle(at, radius * 0.8f, Team.Enemies).ToArray())
+                    h.Tag("PlagueDoctorKit").ServerDamage(VialDamage * DiluteDamage * p, at, NetworkObjectId);
+                SplashFxRpc(at, radius * 0.6f, false);
+                return;
+            }
             // Pestilence: a puddle of plague lingers where the vial burst.
             if (progress.OnPath(1)) AddCloud(at, radius, PuddleSeconds, BlightDps * 0.6f, true);
             // Physician: the splash heals the allies it touches.

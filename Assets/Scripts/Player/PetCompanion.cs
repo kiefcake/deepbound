@@ -66,6 +66,14 @@ namespace Deepbound.Player
         private Emote lastEmote;
         private World.CampCat cat;
 
+        /// <summary>Any peer: run out to <paramref name="at"/> for a moment (a pet perk's cue: the hound's snap, the moth over a chest).</summary>
+        public void Visit(Vector3 at, float seconds)
+        {
+            if (body == null || errand.HasValue) return;
+            errand = at;
+            errandUntil = Time.time + seconds;
+        }
+
         public void Init(NetworkPlayer who)
         {
             owner = who;
@@ -581,7 +589,7 @@ namespace Deepbound.Player
             foreach (var trap in SpikeTrap.All)
             {
                 if (trap == null || !trap.Hidden.Value || warned.Contains(trap)) continue;
-                if (Vector3.Distance(trap.transform.position, o) > WarnRadius) continue;
+                if (Vector3.Distance(trap.transform.position, o) > WarnRadius * (kind == Kind.Bat ? 2f : 1f)) continue;
                 warned.Add(trap);
                 errand = trap.transform.position + (o - trap.transform.position).normalized * 0.7f;
                 errandUntil = Time.time + 5f;

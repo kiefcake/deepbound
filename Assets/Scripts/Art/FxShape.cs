@@ -72,7 +72,7 @@ namespace Deepbound.Art
         public Transform Solid(Mesh mesh, string material, Vector3 pos, Quaternion rot, Vector3? scale = null, Transform parent = null, Color? glow = null)
         {
             var t = NewPart("O", mesh, ArtLibrary.Get(material), pos, rot, scale, parent, out var r);
-            if (glow.HasValue) ArtLibrary.SetGlow(r, glow.Value);
+            if (glow.HasValue) ArtLibrary.SetGlow(r, glow.Value * Mathf.Lerp(1f, Gain, 0.6f));
             return t;
         }
 
@@ -131,6 +131,10 @@ namespace Deepbound.Art
             else transform.position = Follow.position + Offset;
         }
 
+        /// <summary>Every ability shape's brightness (2026-11-22, the user: "tone the light levels down on ability effects").
+        /// Scales the HDR colour, so bloom glare drops with it; the shapes keep their silhouettes.</summary>
+        public static float Gain = 0.6f;
+
         private void LateUpdate()
         {
             if (followed && Follow == null) { Destroy(gameObject); return; }
@@ -144,7 +148,7 @@ namespace Deepbound.Art
             {
                 if (p.R == null || !p.Fades) continue;
                 p.R.GetPropertyBlock(block);
-                block.SetColor(BaseColorId, new Color(p.C.r, p.C.g, p.C.b, Mathf.Clamp01(p.C.a * Bright * p.M)));
+                block.SetColor(BaseColorId, new Color(p.C.r * Gain, p.C.g * Gain, p.C.b * Gain, Mathf.Clamp01(p.C.a * Bright * p.M)));
                 p.R.SetPropertyBlock(block);
             }
             if (age >= Life) Destroy(gameObject);
