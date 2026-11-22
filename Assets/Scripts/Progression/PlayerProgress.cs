@@ -1396,6 +1396,16 @@ namespace Deepbound.Progression
         }
 
         [Rpc(SendTo.ClientsAndHost)]
+        public void CinderPatchRpc(Vector3 at)
+        {
+            if (Application.isBatchMode) return;
+            var go = new GameObject("CinderPatch");
+            go.transform.position = Art.Vfx.Floor(at) + Vector3.up * 0.05f;
+            go.AddComponent<Enemies.EmberPatchFx>().Init(Loot.CinderCrown.Radius, Loot.CinderCrown.Seconds);
+            Art.Sfx.Play(Art.Sound.Fire, at, 0.5f, 1.2f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
         public void BoneBurstFxRpc(Vector3 at)
         {
             Art.Sfx.Play(Art.Sound.BoneBreak, at + Vector3.up, 0.9f, 0.9f);

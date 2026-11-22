@@ -2422,6 +2422,30 @@ namespace Deepbound.Networking
                                 dd.ServerDebugEvent(FloorEvent.None);
                                 Log("ember march", "elite affix " + (mb != null ? mb.AffixKind.ToString() : "none") + ", embers x" + embX.ToString("F2"), ember && Mathf.Approximately(embX, 1.5f));
                             }
+                            // CINDER CROWN (2026-11-22): a kill leaves a burning patch that hurts enemies standing in it.
+                            {
+                                var cp = local.GetComponent<PlayerProgress>();
+                                bool had = cp.HasRelic(Relic.CinderCrown);
+                                if (!had) cp.ServerAddRelic(Relic.CinderCrown);
+                                var spot = local.transform.position + local.transform.forward * 6f;
+                                var first = dd.ServerDebugSpawn("skeleton", spot, false, calm: true);
+                                int live0 = Loot.CinderCrown.Live;
+                                if (first != null) first.GetComponent<Health>().ServerDamage(1e6f, local.transform.position, local.NetworkObjectId);
+                                int live1 = Loot.CinderCrown.Live;
+                                var second = dd.ServerDebugSpawn("skeleton", first != null ? first.transform.position : spot, false, calm: true);
+                                var sh = second != null ? second.GetComponent<Health>() : null;
+                                yield return new WaitForSeconds(0.3f);
+                                // Spawns get nudged: burn a patch right under the second one, where it actually stands.
+                                if (second != null) Loot.CinderCrown.ServerDrop(cp, second.transform.position);
+                                float hp0 = sh != null ? sh.Current.Value : 0f;
+                                yield return new WaitForSeconds(1.2f);
+                                float hp1 = sh != null ? sh.Current.Value : 0f;
+                                bool scorched = sh != null && sh.Scorched.Value;
+                                if (sh != null && sh.IsAlive) sh.ServerDamage(1e6f, local.transform.position, local.NetworkObjectId);
+                                if (!had) cp.ServerRemoveRelic(Relic.CinderCrown);
+                                Log("cinder crown", "patches " + live0 + " -> " + live1 + ", foe in it " + hp0.ToString("F0") + " -> " + hp1.ToString("F0") + ", scorched " + scorched,
+                                    live1 > live0 && hp1 < hp0);
+                            }
                             Log("floor event", "blood tithe hit " + plain.ToString("F1") + " -> " + tithe.ToString("F1") + ", kill mends " + mended + ", back to none " + (DungeonDirector.CurrentEvent == FloorEvent.None),
                                 (plain <= 0f || tithe > plain) && mended && DungeonDirector.CurrentEvent == FloorEvent.None);
                             {

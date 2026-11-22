@@ -141,6 +141,8 @@ namespace Deepbound.Loot
                 boneBursting = false;
                 p.BoneBurstFxRpc(at);
             }
+            // Cinder Crown: the kill leaves a burning patch (not from a patch's own kill).
+            if (p.HasRelic(Relic.CinderCrown) && !CinderCrown.Ticking) CinderCrown.ServerDrop(p, target.transform.position);
             if (p.Wears(GearId.EmberLocket) && Random.value < 0.3f && World.DungeonDirector.Instance != null)
                 World.DungeonDirector.Instance.ServerDropEmbers(target.transform.position, 2);
         }

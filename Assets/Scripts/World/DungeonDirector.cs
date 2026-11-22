@@ -1698,6 +1698,7 @@ namespace Deepbound.World
             TickHeldFinds();
             WatchPartySize();
             TickArmourAuras();
+            Loot.CinderCrown.ServerTick();
             double now = NetworkManager.ServerTime.Time;
 
             switch (Phase.Value)

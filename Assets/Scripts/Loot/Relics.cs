@@ -41,6 +41,7 @@ namespace Deepbound.Loot
         // 2026-11-22: relics for Convergence and Blight. (Ids fit in 5 bits: up to 31.)
         ConvergentStar = 27,
         PlagueCenser = 28,
+        CinderCrown = 29,
     }
 
     /// <summary>
@@ -105,6 +106,7 @@ namespace Deepbound.Loot
                 case Relic.WhettedFang: return "Whetted Fang";
                 case Relic.ConvergentStar: return "Convergent Star";
                 case Relic.PlagueCenser: return "Plague Censer";
+                case Relic.CinderCrown: return "Cinder Crown";
                 default: return r.ToString();
             }
         }
@@ -142,6 +144,7 @@ namespace Deepbound.Loot
                 case Relic.WhettedFang: return "+10% critical chance, and your critical hits deal x2 instead of x1.75.";
                 case Relic.ConvergentStar: return "Convergences you take part in have a 50% larger radius and stun 50% longer.";
                 case Relic.PlagueCenser: return "Your hits on Blighted enemies restore 0.6% of your health.";
+                case Relic.CinderCrown: return "Enemies you kill leave a burning patch for 4 s that scorches and damages enemies inside it.";
                 default: return "";
             }
         }
@@ -179,12 +182,14 @@ namespace Deepbound.Loot
                 case Relic.WhettedFang: return new Color(0.88f, 0.9f, 0.95f);
                 case Relic.ConvergentStar: return new Color(1f, 0.95f, 0.75f);
                 case Relic.PlagueCenser: return new Color(0.55f, 0.85f, 0.3f);
+                case Relic.CinderCrown: return new Color(1f, 0.5f, 0.18f);
                 default: return Color.white;
             }
         }
 
         /// <summary>Never in a random roll: the Gilded Skull comes only from the Bone Hoarder (2026-11-13, the user: "put else where").</summary>
-        public static bool NotRandom(Relic r) => r == Relic.GildedSkull;
+        // Tests never roll the Cinder Crown: its stray fire landed first blows and broke unrelated checks.
+        public static bool NotRandom(Relic r) => r == Relic.GildedSkull || (r == Relic.CinderCrown && World.DungeonDirector.TestMode);
         public const float HoarderSkullChance = 0.35f;
 
         /// <summary>A random relic; in a solo run never a party one.</summary>
