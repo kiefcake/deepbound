@@ -2450,10 +2450,15 @@ namespace Deepbound.Networking
                                     if (!hadPh) cp.ServerAddRelic(Relic.PhoenixFeather);
                                     var myH = local.GetComponent<Health>();
                                     myH.ServerSetFraction(0.6f);
+                                    // Count the heals themselves: a stray blow in the same second hid them in the net health.
+                                    float rbHealed = 0f;
+                                    System.Action<Health, float> rbHook = (hh, amt) => { if (hh == myH) rbHealed += amt; };
+                                    Health.AnyHealed += rbHook;
                                     float rb0 = myH.Current.Value;
                                     Loot.CinderCrown.ServerDrop(cp, local.transform.position);
                                     yield return new WaitForSeconds(1.2f);
-                                    float rb1 = myH.Current.Value;
+                                    Health.AnyHealed -= rbHook;
+                                    float rb1 = rb0 + rbHealed;
                                     if (!hadPh) cp.ServerRemoveRelic(Relic.PhoenixFeather);
                                     if (!had) cp.ServerRemoveRelic(Relic.CinderCrown);
                                     myH.ServerSetFraction(1f);
@@ -5670,8 +5675,16 @@ namespace Deepbound.Networking
                     bool salScorched = false;
                     if (sal != null)
                     {
-                        yield return null;
-                        local.GetComponent<Health>().ServerDamage(25f, sal.transform.position, sal.NetworkObjectId); // a 1-point blow could be soaked by a shield and never reach the pet
+                        yield return new WaitForSeconds(0.3f);
+                        // Spawns get nudged; stand right by it (the perk only scorches within 4 m).
+                        var salMotor = local.GetComponent<FirstPersonMotor>();
+                        var salTo = sal.transform.position - local.transform.position; salTo.y = 0f;
+                        if (salMotor != null && salTo.magnitude > 2f) { salMotor.Teleport(sal.transform.position - salTo.normalized * 1.5f + Vector3.up * 0.1f, local.transform.rotation); yield return new WaitForSeconds(0.2f); }
+                        var salMe = local.GetComponent<Health>();
+                        salMe.Shield.Value = 0f; // an earlier check's shield soaked the blow, so no health was lost and the perk never heard of it
+                        float salHp0 = salMe.Current.Value;
+                        salMe.ServerDamage(25f, sal.transform.position, sal.NetworkObjectId);
+                        Debug.Log("[Smoke] salamander: attacker " + Vector3.Distance(sal.transform.position, local.transform.position).ToString("F1") + " m away, health lost " + (salHp0 - salMe.Current.Value).ToString("F1") + ", pet " + (PetCompanion.Kind)local.PetKind.Value); // a 1-point blow could be soaked by a shield and never reach the pet
                         salScorched = sal.GetComponent<Health>().Scorched.Value;
                         sal.NetworkObject.Despawn();
                     }

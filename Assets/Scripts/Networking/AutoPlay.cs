@@ -50,6 +50,8 @@ namespace Deepbound.Networking
         private float taken, dealt;
         private int downs, kills, shotNo, saves, savesFloor;
         private float bossHpMark = -1f, bossHpAt, nextBlock;
+        // Whose health the mark belongs to: a lair keeper killed first left its near-zero mark on the guardian (false stalls, needless flanking).
+        private ulong bossHpOf = ulong.MaxValue;
         private bool pendingHeal;
         private int bossHits; private float bossDealt;
         private float lootOnSince = -1f;
@@ -1404,7 +1406,7 @@ namespace Deepbound.Networking
                     // Only for a few seconds at a time, then back to fighting: a flank spot it cannot reach (the Lich backed into
                     // water) once kept the Ranger walking in place for seven minutes, never shooting, so the boss's health
                     // never moved and the flank never ended (2026-10-28).
-                    bool flank = boss != null && target == boss.GetComponent<Health>() && bossHpMark >= 0f && Time.time - bossHpAt > 6f;
+                    bool flank = boss != null && target == boss.GetComponent<Health>() && bossHpOf == target.NetworkObjectId && bossHpMark >= 0f && Time.time - bossHpAt > 6f;
                     if (flank && flankStarted < 0f) flankStarted = Time.time;
                     if (flank && Time.time - flankStarted > 4f) { bossHpAt = Time.time; flankStarted = -1f; flank = false; }
                     if (!flank) flankStarted = -1f;
@@ -1490,6 +1492,7 @@ namespace Deepbound.Networking
                         if (boss != null && target == boss.GetComponent<Health>())
                         {
                             var bh = target;
+                            if (bossHpOf != bh.NetworkObjectId) { bossHpOf = bh.NetworkObjectId; bossHpMark = -1f; }
                             if (bossHpMark < 0f || bh.Current.Value < bossHpMark - 1f) { bossHpMark = bh.Current.Value; bossHpAt = Time.time; }
                             else if (Time.time - bossHpAt > 30f)
                             {
