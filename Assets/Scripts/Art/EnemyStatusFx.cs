@@ -20,7 +20,7 @@ namespace Deepbound.Art
     {
         private EnemyBrain brain;
         private Health health;
-        private Transform stars, mark, tauntRing, frostRing, bubble, volatileRing, thorns, shards, rageRing, thread, severRing;
+        private Transform stars, mark, tauntRing, frostRing, bubble, volatileRing, thorns, shards, rageRing, thread, severRing, fester;
         private Renderer tauntR, frostR, bubbleR, volatileR, rageR, threadR, severR;
         private Health twinHealth;
         private ulong twinFor;
@@ -127,6 +127,25 @@ namespace Deepbound.Art
             }
             else if (shards != null) shards.gameObject.SetActive(false);
 
+            // Festering: one sick-green droplet orbits the waist per blight stack (2026-11-23).
+            int stacks = health.Blighted.Value ? health.BlightStacks.Value : 0;
+            if (stacks > 0)
+            {
+                if (fester == null) fester = BuildFester();
+                fester.gameObject.SetActive(true);
+                fester.position = transform.position + Vector3.up * health.CenterHeight * 1.1f;
+                fester.rotation = Quaternion.Euler(0f, t * (120f + 40f * stacks), 0f);
+                fester.localScale = Vector3.one * Scale;
+                for (int i = 0; i < fester.childCount; i++)
+                {
+                    var d = fester.GetChild(i);
+                    d.gameObject.SetActive(i < stacks);
+                    d.localPosition = Quaternion.Euler(0f, i * 90f, 0f) * Vector3.forward * 0.75f + Vector3.up * (0.08f * Mathf.Sin(t * 5f + i * 1.6f));
+                    d.localScale = Vector3.one * (1f + 0.25f * Mathf.Sin(t * 9f + i));
+                }
+            }
+            else if (fester != null) fester.gameObject.SetActive(false);
+
             // Soulbound: the thread to its twin, and a pale ring under one that lies severed.
             UpdateThread(t);
             Ring(ref severRing, ref severR, brain.SeveredNow, new Color(0.75f, 0.85f, 1f), 1.15f, 1f + 0.1f * Mathf.Sin(t * 10f));
@@ -226,6 +245,20 @@ namespace Deepbound.Art
             return root;
         }
 
+        private Transform BuildFester()
+        {
+            var root = new GameObject("Fester").transform;
+            root.SetParent(transform, false);
+            for (int i = 0; i < Combat.Health.MaxBlightStacks; i++)
+            {
+                var d = MeshKit.Part(root, "Drop" + i, MeshKit.Ball(0.12f, 8, 6), Mat.Glow, Vector3.zero, default, new Vector3(1f, 1.35f, 1f)); // big enough to count at 6 m
+                var r = d.GetComponent<Renderer>();
+                r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                ArtLibrary.SetGlow(r, Color.Lerp(new Color(0.45f, 1f, 0.25f), new Color(0.85f, 1f, 0.15f), i / 3f) * 2f);
+            }
+            return root;
+        }
+
         private Transform BuildShards()
         {
             var root = new GameObject("BoneShards").transform;
@@ -282,7 +315,7 @@ namespace Deepbound.Art
             // Every far or dead enemy lands here each frame: only do the work once.
             if (hidden) return;
             hidden = true;
-            foreach (var x in new[] { stars, mark, tauntRing, frostRing, bubble, volatileRing, thorns, shards, rageRing, thread, severRing })
+            foreach (var x in new[] { stars, mark, tauntRing, frostRing, bubble, volatileRing, thorns, shards, rageRing, thread, severRing, fester })
                 if (x != null && x.gameObject.activeSelf) x.gameObject.SetActive(false);
             SetEyes(false);
         }

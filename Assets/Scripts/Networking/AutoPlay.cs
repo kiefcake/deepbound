@@ -460,7 +460,8 @@ namespace Deepbound.Networking
                 for (int i = 0; i < Mathf.Min(10, Mathf.RoundToInt(startFloor * 1.5f)); i++)
                 {
                     var why = prog.CannotTemperReason();
-                    if (why != null && why.ToLowerInvariant().Contains("path")) { prog.ChoosePathRpc((byte)Random.Range(1, Classes.WeaponPaths.Count + 1)); yield return new WaitForSeconds(0.2f); }
+                    // Set the path on the server: ChoosePathRpc needs you at the anvil, so the old call failed and tempering stopped at +2.
+                    if (why != null && why.ToLowerInvariant().Contains("path") && prog.WeaponPath.Value == 0) { prog.WeaponPath.Value = (byte)Random.Range(1, Classes.WeaponPaths.Count + 1); yield return null; }
                     if (prog.OpenEdgeSlot >= 0) { prog.ServerChooseEdge(prog.EdgeOffer(prog.OpenEdgeSlot)[0]); yield return null; }
                     prog.ServerFreeTemper();
                     yield return null;
@@ -468,9 +469,14 @@ namespace Deepbound.Networking
                 prog.RankQ.Value = (byte)Mathf.Min(Classes.AbilityRanks.MaxRank, 1 + startFloor / 3 + 1);
                 prog.RankE.Value = (byte)Mathf.Min(Classes.AbilityRanks.MaxRank, 1 + startFloor / 3);
                 prog.RankChoice.Value = (byte)Random.Range(0, 256); // a random build of Ysolde's choices
-                for (int i = 0; i < startFloor; i++) prog.ServerAddRelic(Relics.Random());
-                prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Armor)[0], (byte)Mathf.Min(2, startFloor / 3), (byte)startFloor));
-                prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Charm)[0], (byte)Mathf.Min(2, startFloor / 3), (byte)startFloor));
+                // 2026-11-23: matched to a natural run (a Plague Doctor that played to floor 3 had 4 relics, Masterwork armour and
+                // a Legendary charm; this gave 2 relics, Worn gear and an empty pouch, and floor 4 looked twice as deadly as it is).
+                for (int i = 0; i < startFloor + 1; i++) prog.ServerAddRelic(Relics.Random());
+                byte q = (byte)Mathf.Min(2, 1 + startFloor / 3);
+                prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Armor)[0], q, (byte)startFloor));
+                prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Charm)[0], q, (byte)startFloor));
+                var pouch = prog.GetComponent<Flasks>();
+                if (pouch != null) pouch.ServerAdd(Flasks.Kind.Health, 2);
                 prog.Gold.Value = 150 * startFloor;
                 L("== starting at floor " + (startFloor + 1) + " with a loadout ==");
                 Status("loadout");

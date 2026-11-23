@@ -836,6 +836,59 @@ namespace Deepbound.Art
         }
 
         /// <summary>A vial bursts: glass flies, a pool of sick green is left bubbling for a few seconds. A tonic bursts into a rose mist that lifts.</summary>
+        private static readonly Color RoseGold = new Color(1f, 0.78f, 0.55f);
+
+        /// <summary>
+        /// The Tonic (2026-11-23, reworked to a party heal round the Doctor): a rose-gold breath rolls out across the floor to its
+        /// full reach, a column of vapour lifts off the Doctor, and each ally it mends gets a glowing ring that climbs their body
+        /// and a spray of rising motes - so everyone sees who was caught in it.
+        /// </summary>
+        public static void Cordial(Transform doctor, float radius, List<Transform> healed)
+        {
+            if (!Live || doctor == null) return;
+            var feet = Vfx.Floor(doctor.position) + Vector3.up * 0.06f;
+            var wave = FxShape.Make("TonicBreath", feet, Quaternion.identity, 0.9f);
+            var outer = wave.Light(Shapes.Hoop(0.5f), H(RoseGold, 1.6f, 0.75f), Vector3.zero, Quaternion.identity, Vector3.one * 0.3f);
+            var inner = wave.Light(Shapes.Hoop(0.5f), H(Rose, 1.2f, 0.45f), Vector3.zero, Quaternion.identity, Vector3.one * 0.2f);
+            wave.Tick = (sh, k) =>
+            {
+                float e = EaseOut(k);
+                outer.localScale = Vector3.one * Mathf.Lerp(0.6f, radius * 2f, e);
+                inner.localScale = Vector3.one * Mathf.Lerp(0.4f, radius * 1.4f, EaseOut(Mathf.Clamp01(k * 1.3f)));
+                sh.Bright = 1f - k;
+            };
+            // The breath: a soft rose column off the Doctor.
+            Vfx.Embers(doctor.position + Vector3.up * 1.4f, 16, Rose, 2.2f, 0.07f, 1.1f);
+            Vfx.AbilityFlash(doctor.position + Vector3.up * 1.5f, RoseGold, 2.2f, 5f, 0.4f);
+            if (healed == null) return;
+            foreach (var a in healed)
+            {
+                if (a == null) continue;
+                bool own = OwnBody(a.position);
+                var ring = FxShape.Make("TonicMend", a.position, Quaternion.identity, 1.2f).Ride(a, Vector3.zero);
+                var hoop = ring.Light(Shapes.Hoop(0.45f), H(RoseGold, 2f, 0.8f), Vector3.up * 0.1f, Quaternion.identity, Vector3.one * (own ? 1.4f : 1f));
+                ring.Tick = (sh, k) =>
+                {
+                    float e = EaseOut(k);
+                    hoop.localPosition = Vector3.up * Mathf.Lerp(0.1f, own ? 0.9f : 2.1f, e);
+                    hoop.localScale = Vector3.one * Mathf.Lerp(own ? 1.4f : 1f, own ? 1f : 0.35f, e);
+                    sh.Bright = Env(k, 0.08f, 0.5f);
+                };
+                if (!own) Vfx.Embers(a.position + Vector3.up * 0.8f, 10, RoseGold, 1.8f, 0.06f, 1f);
+            }
+        }
+
+        /// <summary>A vial into a festering wound: a sick-green burst that grows with the blight stacks it struck (1-4).</summary>
+        public static void FesterBurst(Vector3 at, int stacks)
+        {
+            if (!Live || stacks <= 0) return;
+            float k = Mathf.Clamp01(stacks / 4f);
+            var c = Color.Lerp(Plague, new Color(0.85f, 1f, 0.15f), k);
+            Vfx.Embers(at + Vector3.up * 0.5f, 6 + 5 * stacks, c, 3f + 1.5f * stacks, 0.06f, 0.6f);
+            Vfx.AbilityFlash(at + Vector3.up * 0.6f, c, 1.2f + 0.6f * stacks, 2.5f + stacks, 0.25f);
+            if (stacks >= 3) Shock(Vfx.Floor(at), 1.2f + 0.3f * stacks, c, 0.3f, 0.25f);
+        }
+
         public static void FlaskBurst(Vector3 at, float radius, bool tonic, float poolSeconds)
         {
             if (!Live) return;

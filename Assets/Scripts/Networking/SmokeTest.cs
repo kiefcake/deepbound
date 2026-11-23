@@ -5648,7 +5648,35 @@ namespace Deepbound.Networking
                         }
                         if (fes != null && fes.IsSpawned) fes.NetworkObject.Despawn();
                         Log("festering blight", "stacks " + st1 + " -> " + st4 + ", one second at 1 stack " + oneTick.ToString("F0") + ", at 4 " + fourTick.ToString("F0"),
-                            st1 == 1 && st4 == Health.MaxBlightStacks && fourTick > oneTick * 2.5f);
+                            st1 == 1 && st4 == Health.MaxBlightStacks && fourTick > oneTick * 1.8f);
+                    }
+                    // Vials bite harder per stack, and the Tonic heals the party round the Doctor (2026-11-23).
+                    if (pdk != null)
+                    {
+                        var vA = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.right * 5f, false, calm: true);
+                        var vB = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position - local.transform.right * 5f, false, calm: true);
+                        var hA = vA != null ? vA.GetComponent<Health>() : null;
+                        var hB = vB != null ? vB.GetComponent<Health>() : null;
+                        float fresh = 0f, festered = 0f;
+                        if (hA != null && hB != null)
+                        {
+                            hA.ServerSetMax(5000f, refill: true); hB.ServerSetMax(5000f, refill: true);
+                            for (int i = 0; i < 4; i++) { hB.ServerBlight(4f, 0.01f, local.NetworkObjectId); yield return new WaitForSeconds(0.55f); }
+                            float a0 = hA.Current.Value, b0 = hB.Current.Value;
+                            pdk.ServerSplash(hA.transform.position);
+                            pdk.ServerSplash(hB.transform.position);
+                            fresh = a0 - hA.Current.Value; festered = b0 - hB.Current.Value;
+                        }
+                        if (vA != null && vA.IsSpawned) vA.NetworkObject.Despawn();
+                        if (vB != null && vB.IsSpawned) vB.NetworkObject.Despawn();
+                        Log("vial per stack", "fresh target " + fresh.ToString("F1") + ", four stacks " + festered.ToString("F1"), fresh > 0f && festered > fresh * 1.5f);
+                        var tme = local.GetComponent<Health>();
+                        tme.ServerSetFraction(0.5f);
+                        float tb0 = tme.Current.Value;
+                        int tn = pdk.ServerTonic(local.transform.position + local.transform.forward * 8f);
+                        Log("tonic party heal", "healed " + tn + " within " + PlagueDoctorKit.TonicRadius + " m, " + tb0.ToString("F0") + " -> " + tme.Current.Value.ToString("F0"),
+                            tn >= 1 && tme.Current.Value > tb0);
+                        tme.ServerSetFraction(1f);
                     }
 
                     var plife = local.GetComponent<PlayerLife>();
@@ -8510,9 +8538,17 @@ namespace Deepbound.Networking
                 yield return Snap("pd_vial_2", 0.45f);
                 yield return Snap("pd_vial_3", 1.0f);
                 yield return Ready(Classes.ClassId.PlagueDoctor);
-                Call(pk, "TonicRpc", Eye(), (astand + along * 3f + Vector3.up * 1.5f - Eye()).normalized);
-                yield return Snap("pd_tonic_1", 0.35f);
-                yield return Snap("pd_tonic_2", 0.4f);
+                // The Tonic is a breath round the Doctor now (2026-11-23).
+                pk.ServerTonic(local.transform.position);
+                yield return Snap("pd_tonic_1", 0.2f);
+                yield return Snap("pd_tonic_2", 0.35f);
+                // Festering: four stacks orbit the dummy, then a vial bursts into them.
+                yield return Ready(Classes.ClassId.PlagueDoctor);
+                if (dummy != null)
+                    for (int fs = 0; fs < 4; fs++) { dummy.ServerBlight(6f, 1f, local.NetworkObjectId); yield return new WaitForSeconds(0.55f); }
+                yield return Snap("pd_festering_1", 0.1f);
+                if (dummy != null) pk.ServerSplash(dummy.transform.position);
+                yield return Snap("pd_festering_2", 0.05f);
                 yield return Ready(Classes.ClassId.PlagueDoctor);
                 pk.ServerMiasma(astand + along * 6f);
                 yield return Snap("pd_miasma_1", 0.5f);

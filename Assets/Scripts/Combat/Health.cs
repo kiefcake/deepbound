@@ -100,6 +100,8 @@ namespace Deepbound.Combat
         public readonly NetworkVariable<byte> BlightStacks = new NetworkVariable<byte>();
         public const int MaxBlightStacks = 4;
         public const float FesterGap = 0.5f;
+        /// <summary>Each stack past the first adds this much of the base burn (x2.5 at four; 2026-11-23, was x stacks).</summary>
+        public const float BlightStackStep = 0.5f;
         private float lastFester;
         private float blightUntil, blightDps, blightBase, nextBlightTick;
         private ulong blightSource = ulong.MaxValue;
@@ -118,7 +120,7 @@ namespace Deepbound.Combat
             else if (BlightStacks.Value < MaxBlightStacks && Time.time - lastFester >= FesterGap) { BlightStacks.Value++; lastFester = Time.time; }
             // The base is the strongest single blight laid; the stacks multiply it.
             blightBase = Mathf.Max(Blighted.Value ? blightBase : 0f, dps);
-            blightDps = blightBase * Mathf.Max(1, (int)BlightStacks.Value);
+            blightDps = blightBase * (1f + BlightStackStep * (Mathf.Max(1, (int)BlightStacks.Value) - 1));
             blightSource = source;
             if (!Blighted.Value) nextBlightTick = Time.time + 0.5f;
             Blighted.Value = true;

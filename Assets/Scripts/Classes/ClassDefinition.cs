@@ -103,9 +103,9 @@ namespace Deepbound.Classes
             : id == ClassId.PlagueDoctor
             ? new[]
             {
-                ("PASSIVE", "Contagion", "Vials inflict Blight: poison damage, and the target takes 10% more damage from all sources. Repeated vials make it fester, up to four times as strong. Blight spreads when its host dies."),
+                ("PASSIVE", "Contagion", "Vials inflict Blight: poison damage, and the target takes 10% more damage from all sources. Repeated vials make it fester, up to four stacks; each stack strengthens the poison and adds 20% to your vial hits. Blight spreads when its host dies."),
                 ("LMB", "Vial", "Lob a vial that shatters in a small splash. Costs reagents; without them, vials deal reduced damage and do not Blight. Blighted kills restore reagents."),
-                ("RMB", "Tonic", "Lob a tonic that heals all allies caught in its burst, including you."),
+                ("RMB", "Tonic", "Drink a tonic and breathe it out: you and every ally within 10 m recover 18% of their health."),
                 ("Q", "Miasma", "Create a lingering plague cloud that damages enemies inside it."),
                 ("E", "Plague Mask", "Cleanse and heal nearby allies, and make them immune to afflictions for 4 s."),
             }

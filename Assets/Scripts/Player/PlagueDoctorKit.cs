@@ -18,8 +18,10 @@ namespace Deepbound.Player
     /// <item><b>Passive — Contagion.</b> Your vials BLIGHT what they splash (poison over time,
     ///   and +10% damage from everyone). A blighted enemy that dies passes it to the nearest one.</item>
     /// <item><b>LMB — Vial.</b> Lob a vial in an arc; it shatters where it lands in a small splash.</item>
-    /// <item><b>RMB — Tonic.</b> Lob a tonic: it bursts into a healing mist for every ally inside
-    ///   (yourself included).</item>
+    /// <item><b>RMB — Tonic.</b> (2026-11-23, the user: "heal himself and party for a percent of health") Drink deep and breathe
+    ///   it out: you and every ally within <see cref="TonicRadius"/> m mend <see cref="TonicHeal"/> of their health at once.</item>
+    /// <item>FESTERING: each blight stack on a target adds <see cref="StackBonus"/> to your vial's hit (the stacks orbit it as green
+    ///   droplets; a vial into a full stack bursts brighter).</item>
     /// <item><b>Q — Miasma.</b> A lingering plague cloud at the crosshair: the dead inside choke,
     ///   blighted again and again.</item>
     /// <item><b>E — Plague Mask.</b> Cleanse every ally nearby of their afflictions, heal them a
@@ -37,7 +39,9 @@ namespace Deepbound.Player
     {
         public const float VialInterval = 0.55f, VialCost = 7f, VialDamage = 15f, VialSpeed = 19f, VialRange = 20f, VialGravity = 9f, SplashRadius = 1.7f;
         public const float BlightSeconds = 4f, BlightDps = 9f;
-        public const float TonicCooldown = 7f, TonicCost = 35f, TonicRadius = 3f, TonicHeal = 0.2f;
+        public const float TonicCooldown = 10f, TonicCost = 35f, TonicRadius = 10f, TonicHeal = 0.18f;
+        /// <summary>Vial damage per blight stack already on the target (x1.8 at four).</summary>
+        public const float StackBonus = 0.2f;
         public const float MiasmaCooldown = 12f, MiasmaRadius = 4f, MiasmaSeconds = 6f, MiasmaDps = 9f;
         public const float MaskCooldown = 18f, MaskRadius = 8f, MaskHeal = 0.1f, MaskWard = 4f;
         public const float ReagentMax = 100f, ReagentRegen = 7f, BrewPause = 1.5f, HarvestReagents = 12f, DiluteDamage = 0.6f;
@@ -202,7 +206,7 @@ namespace Deepbound.Player
                 lastThrowAt = Time.time;
                 tonicReadyAt = Time.time + TonicCooldown;
                 player.ViewModelCast(false);
-                TonicRpc(player.AimOrigin + player.AimForward * 0.6f, LobDirection());
+                TonicRpc();
             }
 
             // --- Q: Miasma ---
@@ -294,40 +298,58 @@ namespace Deepbound.Player
                     progress.AbilityTextRpc(c.At + Vector3.up * 2f, "IGNITED", PlayerProgress.FxKind.Fire);
                     CloudGoneRpc(c.Id);
                 }
+            int deepest = 0;
             foreach (var h in CombatQuery.Circle(at, radius, Team.Enemies).ToArray())
             {
-                h.Tag("PlagueDoctorKit").ServerDamage(VialDamage * p, at, NetworkObjectId);
+                // Festering: every stack already on it makes the glass bite harder.
+                int stacks = h.Blighted.Value ? h.BlightStacks.Value : 0;
+                deepest = Mathf.Max(deepest, stacks);
+                h.Tag("PlagueDoctorKit").ServerDamage(VialDamage * p * (1f + StackBonus * stacks), at, NetworkObjectId);
                 h.ServerBlight(BlightSeconds, BlightDps * p, NetworkObjectId);
             }
-            SplashFxRpc(at, radius, false);
+            SplashFxRpc(at, radius, false, (byte)deepest);
         }
 
         [Rpc(SendTo.Server)]
-        private void TonicRpc(Vector3 origin, Vector3 direction)
+        private void TonicRpc()
         {
             if (!life.CanAct) return;
-            if (Vector3.Distance(origin, transform.position + Vector3.up * 1.6f) > 2.5f) origin = transform.position + Vector3.up * 1.6f;
-            // A tonic flies over the dead (it targets nobody) and bursts where it lands.
-            Arrows.ServerFire(origin, direction, 0f, Team.Props, NetworkObjectId, VialSpeed, h => { }, false, VialRange * RangeMul, VialGravity,
-                at => { if (this != null) ServerTonic(at); });
-            VialFxRpc(origin, direction, true);
+            ServerTonic(transform.position);
         }
 
-        /// <summary>Server: a tonic bursts: heal every ally in the mist. Public for the smoke test.</summary>
+        /// <summary>
+        /// Server: the Tonic (reworked 2026-11-23: it was a lobbed flask with a 3 m burst that was easy to miss). The Doctor drinks
+        /// and breathes a rose vapour out round themselves: they and every standing ally within <see cref="TonicRadius"/> m of
+        /// <paramref name="at"/> mend <see cref="TonicHeal"/> of their max health. Public for the smoke test.
+        /// </summary>
         public int ServerTonic(Vector3 at)
         {
             float heal = TonicHeal;
             int n = 0;
+            var healed = new List<ulong>();
             foreach (var ally in PlayerLife.All)
             {
                 if (ally == null || ally.Downed.Value || !ally.Health.IsAlive) continue;
                 if (Vector3.Distance(ally.transform.position, at) > TonicRadius + 0.6f) continue;
                 ally.Health.ServerHeal(ally.Health.Max.Value * heal);
                 if (progress.Mastered(2) && ally.TryGetComponent<PlayerDebuffs>(out var db)) db.ServerCleanse();
+                healed.Add(ally.NetworkObjectId);
                 n++;
             }
-            SplashFxRpc(at, TonicRadius, true);
+            TonicFxRpc(at, healed.ToArray());
             return n;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void TonicFxRpc(Vector3 at, ulong[] healed)
+        {
+            Sfx.Play(Sound.Potion, at + Vector3.up, 0.8f, 0.9f);
+            Sfx.Play(Sound.Revive, at + Vector3.up, 0.45f, 1.25f);
+            var who = new List<Transform>();
+            var nm = NetworkManager.Singleton;
+            foreach (var id in healed)
+                if (nm != null && nm.SpawnManager.SpawnedObjects.TryGetValue(id, out var o)) who.Add(o.transform);
+            ClassFx.Cordial(transform, TonicRadius, who);
         }
 
         [Rpc(SendTo.Server)]
@@ -584,8 +606,10 @@ namespace Deepbound.Player
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void SplashFxRpc(Vector3 at, float radius, bool tonic)
+        private void SplashFxRpc(Vector3 at, float radius, bool tonic, byte stacks = 0)
         {
+            // A vial into a festering wound: the deeper the stacks, the bigger the sick-green burst.
+            if (stacks > 0) ClassFx.FesterBurst(at, stacks);
             var c = tonic ? TonicColor : Plague;
             Sfx.Play(Sound.Shatter, at, 0.6f, tonic ? 1.6f : 1.3f);
             Sfx.Play(tonic ? Sound.Potion : Sound.Splash, at, 0.5f, 1.2f);
