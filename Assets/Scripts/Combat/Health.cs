@@ -91,7 +91,17 @@ namespace Deepbound.Combat
         /// </summary>
         public readonly NetworkVariable<bool> Blighted = new NetworkVariable<bool>();
         public const float BlightedMultiplier = 1.1f;
-        private float blightUntil, blightDps, nextBlightTick;
+        /// <summary>
+        /// FESTERING (2026-11-22, gameplay: a solo Plague Doctor's guardians took twice as long as a Knight's): each fresh blight
+        /// on a creature that is already blighted adds a stack (at most every <see cref="FesterGap"/> s, up to
+        /// <see cref="MaxBlightStacks"/>); the blight burns base x stacks. Stacks end with the blight. Synced so the body
+        /// shows it (thicker green motes, a sick glow on the ground).
+        /// </summary>
+        public readonly NetworkVariable<byte> BlightStacks = new NetworkVariable<byte>();
+        public const int MaxBlightStacks = 4;
+        public const float FesterGap = 0.5f;
+        private float lastFester;
+        private float blightUntil, blightDps, blightBase, nextBlightTick;
         private ulong blightSource = ulong.MaxValue;
         /// <summary>Server: who laid the blight (for credit, and for Contagion).</summary>
         public ulong BlightSource => blightSource;
@@ -104,7 +114,11 @@ namespace Deepbound.Combat
         {
             if (!IsServer || !IsAlive) return;
             blightUntil = Mathf.Max(blightUntil, Time.time + seconds);
-            blightDps = Mathf.Max(blightDps * (Blighted.Value ? 1f : 0f), dps);
+            if (!Blighted.Value) { BlightStacks.Value = 1; lastFester = Time.time; }
+            else if (BlightStacks.Value < MaxBlightStacks && Time.time - lastFester >= FesterGap) { BlightStacks.Value++; lastFester = Time.time; }
+            // The base is the strongest single blight laid; the stacks multiply it.
+            blightBase = Mathf.Max(Blighted.Value ? blightBase : 0f, dps);
+            blightDps = blightBase * Mathf.Max(1, (int)BlightStacks.Value);
             blightSource = source;
             if (!Blighted.Value) nextBlightTick = Time.time + 0.5f;
             Blighted.Value = true;
@@ -473,7 +487,7 @@ namespace Deepbound.Combat
             if (IsServer && Marked.Value && (Time.time >= markedUntil || !IsAlive)) Marked.Value = false;
             if (IsServer && Blighted.Value)
             {
-                if (!IsAlive || Time.time >= blightUntil) { Blighted.Value = false; blightDps = 0f; }
+                if (!IsAlive || Time.time >= blightUntil) { Blighted.Value = false; blightDps = 0f; blightBase = 0f; BlightStacks.Value = 0; }
                 else if (Time.time >= nextBlightTick)
                 {
                     nextBlightTick = Time.time + 0.5f;

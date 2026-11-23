@@ -138,7 +138,10 @@ namespace Deepbound.Art
             if (t >= nextMote)
             {
                 nextMote = t + 0.2f;
-                if (health.Blighted.Value) Vfx.Mote(transform.position, new Color(0.55f, 1f, 0.3f));
+                // Festering: one green mote per stack, sicker and brighter as it deepens.
+                if (health.Blighted.Value)
+                    for (int s = 0; s < Mathf.Max(1, (int)health.BlightStacks.Value); s++)
+                        Vfx.Mote(transform.position + Random.insideUnitSphere * 0.25f, Color.Lerp(new Color(0.55f, 1f, 0.3f), new Color(0.85f, 1f, 0.15f), s / 3f));
                 if (affix == EliteAffix.Vampiric) Vfx.Mote(transform.position, new Color(0.65f, 0.05f, 0.1f));
                 if (affix == EliteAffix.Gravebound) Vfx.Mote(transform.position, new Color(0.6f, 0.95f, 0.75f));
                 if (affix == EliteAffix.Hushing) Vfx.Mote(transform.position, new Color(0.78f, 0.78f, 1f));

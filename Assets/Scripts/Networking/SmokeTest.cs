@@ -5626,6 +5626,25 @@ namespace Deepbound.Networking
                     Log("dilute vials", "dilute: blighted " + dilBlight + ", hurt " + (dilHp0 - dilHp1).ToString("F0") + "; full vial blighted " + fullBlight,
                         !dilBlight && dilHp1 < dilHp0 && fullBlight);
                     if (dil != null && dil.IsSpawned) dil.NetworkObject.Despawn();
+                    // FESTERING (2026-11-22): repeated blights stack to four and burn harder.
+                    {
+                        var fes = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 6f, false, calm: true);
+                        var fh = fes != null ? fes.GetComponent<Health>() : null;
+                        int st1 = 0, st4 = 0; float oneTick = 0f, fourTick = 0f;
+                        if (fh != null)
+                        {
+                            fh.ServerSetMax(5000f, refill: true);
+                            fh.ServerBlight(4f, 10f, local.NetworkObjectId);
+                            st1 = fh.BlightStacks.Value;
+                            float a0 = fh.Current.Value; yield return new WaitForSeconds(1.05f); oneTick = a0 - fh.Current.Value;
+                            for (int i = 0; i < 5; i++) { fh.ServerBlight(4f, 10f, local.NetworkObjectId); yield return new WaitForSeconds(0.55f); }
+                            st4 = fh.BlightStacks.Value;
+                            float b0 = fh.Current.Value; yield return new WaitForSeconds(1.05f); fourTick = b0 - fh.Current.Value;
+                        }
+                        if (fes != null && fes.IsSpawned) fes.NetworkObject.Despawn();
+                        Log("festering blight", "stacks " + st1 + " -> " + st4 + ", one second at 1 stack " + oneTick.ToString("F0") + ", at 4 " + fourTick.ToString("F0"),
+                            st1 == 1 && st4 == Health.MaxBlightStacks && fourTick > oneTick * 2.5f);
+                    }
 
                     var plife = local.GetComponent<PlayerLife>();
                     bool wasDowned = plife.Downed.Value;
@@ -5652,7 +5671,7 @@ namespace Deepbound.Networking
                     if (sal != null)
                     {
                         yield return null;
-                        local.GetComponent<Health>().ServerDamage(1f, sal.transform.position, sal.NetworkObjectId);
+                        local.GetComponent<Health>().ServerDamage(25f, sal.transform.position, sal.NetworkObjectId); // a 1-point blow could be soaked by a shield and never reach the pet
                         salScorched = sal.GetComponent<Health>().Scorched.Value;
                         sal.NetworkObject.Despawn();
                     }
