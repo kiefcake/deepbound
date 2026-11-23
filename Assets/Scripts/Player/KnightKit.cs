@@ -259,6 +259,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void BulwarkFxRpc()
         {
+            if (!IsOwner) player.Rig?.Play(RigAction.Plant, 0.7f);
             Art.Sfx.Play(Art.Sound.Slam, transform.position, 1f, 0.8f);
             Art.Vfx.Ring(transform.position + Vector3.up * 0.05f, Classes.PathTriads.BulwarkRadius, new Color(1f, 0.85f, 0.45f), 0.45f);
             UI.GameHud.ShowCombo(transform.position + Vector3.up * 2.2f, "BULWARK!", new Color(1f, 0.85f, 0.45f));
@@ -590,7 +591,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void WarCryFxRpc()
         {
-            player.Rig?.Play(RigAction.Cast, 0.7f);
+            player.Rig?.Play(RigAction.Roar, 0.8f);
             Sfx.Play(Sound.WarCry, transform.position + Vector3.up * 1.6f);
             // The cry as a pressure wave: two rings racing out to the taunt radius.
             float r = WarCryRadius;

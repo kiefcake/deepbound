@@ -26,6 +26,21 @@ namespace Deepbound.World
         public const float Delay = 0.35f, Damage = 75f, Rearm = 1.4f, ImpaleSeconds = 0.8f, UpSeconds = 0.6f;
         /// <summary>Kept for the pets' warning radius and old callers: half the bed's length.</summary>
         public const float Radius = Length / 2f;
+        /// <summary>From a bed's centre to the far edge of a plate.</summary>
+        public const float Reach = Length / 2f + PlateLength;
+        /// <summary>Clear floor kept between any two traps (2026-11-23, the user: "make sure corridor traps cannot spawn on top of
+        /// each other or very nearby another"): bed to bed and bed to flame vent, edge to edge.</summary>
+        public const float MinGap = 3f;
+
+        /// <summary>Is a bed centred at <paramref name="at"/> clear of every vent and every bed already laid?</summary>
+        public static bool ClearOfTraps(Vector3 at, System.Collections.Generic.IList<Vector3> beds, System.Collections.Generic.IList<DungeonLayout.FlameTrap> vents)
+        {
+            at.y = 0f;
+            foreach (var b in beds) { var d = b; d.y = 0f; if (Vector3.Distance(d, at) < Reach * 2f + MinGap) return false; }
+            if (vents != null)
+                foreach (var v in vents) { var d = v.At; d.y = 0f; if (Vector3.Distance(d, at) < Reach + FlameJet.HalfWidth + MinGap) return false; }
+            return true;
+        }
 
         /// <summary>No seams, no holes: only a tread shows it.</summary>
         public readonly NetworkVariable<bool> Hidden = new NetworkVariable<bool>();

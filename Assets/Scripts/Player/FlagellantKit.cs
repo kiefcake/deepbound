@@ -422,7 +422,11 @@ namespace Deepbound.Player
 
         /// <summary>The leap's flight, drawn for everyone: a trail of blood-red light behind the body, cracks where he left the floor.</summary>
         [Rpc(SendTo.ClientsAndHost)]
-        private void LeapTakeoffFxRpc() => ClassFx.FlagLeapTrail(transform, 0.65f);
+        private void LeapTakeoffFxRpc()
+        {
+            if (!IsOwner) player.Rig?.Play(RigAction.Leap, 0.6f);
+            ClassFx.FlagLeapTrail(transform, 0.65f);
+        }
 
         private IEnumerator LeapCrash()
         {
@@ -655,6 +659,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void ScourgeFxRpc()
         {
+            if (!IsOwner) player.Rig?.Play(RigAction.Lash, 0.45f);
             Sfx.Play(Sound.Hit, transform.position + Vector3.up * 1.2f, 0.9f, 1.4f);
             Sfx.Play(Sound.Hurt, transform.position + Vector3.up * 1.2f, 0.6f, 0.8f);
             // 2026-11-21 (distinct abilities): the lash itself, drawn over the shoulder and round the back, cracking at its
@@ -675,7 +680,7 @@ namespace Deepbound.Player
             ClassFx.FlagHook(from, to);
             Vfx.HitImpact(to, from, 0.8f, new Color(1f, 0.65f, 0.4f), Mat.Steel);
             if (dragged) Sfx.Play(Sound.Chain, to, 0.7f, 0.8f);
-            if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
+            if (!IsOwner) player.Rig?.Play(RigAction.Hurl, 0.4f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

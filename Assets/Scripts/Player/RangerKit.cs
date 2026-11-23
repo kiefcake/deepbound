@@ -504,6 +504,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void DisengageFxRpc()
         {
+            if (!IsOwner) player.Rig?.Play(RigAction.Leap, 0.45f);
             Sfx.Play(Sound.Dodge, transform.position + Vector3.up, 0.8f, 0.9f);
             SmokePuff.Spawn(transform.position, 0.5f);
             // 2026-11-22: leaves kicked up where the Ranger springs off, a green trail along the leap.
@@ -513,6 +514,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void MarkFxRpc(Vector3 at)
         {
+            if (!IsOwner) player.Rig?.Play(RigAction.Point, 0.5f);
             Sfx.Play(Sound.Relic, at, 0.6f, 1.6f);
             var red = new Color(1f, 0.3f, 0.25f);
             Vfx.Ring(Vfx.Ground(at), 1.2f, red, 0.35f);
@@ -525,7 +527,7 @@ namespace Deepbound.Player
         private void VolleyWarnRpc(Vector3 at)
         {
             Telegraph.Show(at, VolleyRadius, VolleyDelay, null, Telegraph.Friendly);
-            if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.5f);
+            if (!IsOwner) player.Rig?.Play(RigAction.Draw, 0.5f);
             // 2026-11-22: the Ranger looses a streak skyward; arrowheads ring the ground where it all comes down.
             ClassFx.FallingStreak(transform.position + Vector3.up * 1.6f, transform.position + Vector3.up * 12f);
             ClassFx.VolleyRing(at, VolleyRadius, VolleyDelay + 2.2f);

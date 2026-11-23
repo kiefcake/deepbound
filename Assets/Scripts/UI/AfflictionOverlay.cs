@@ -21,7 +21,7 @@ namespace Deepbound.UI
     /// Grave Stillness cracks the view to stone, a Sanctuary circle glows gold.
     /// Every texture is generated here at startup (no art files). Drawn behind the HUD; faded under Reduce Flashing.
     /// </summary>
-    public class AfflictionOverlay : MonoBehaviour
+    public partial class AfflictionOverlay : MonoBehaviour
     {
         private const int Size = 512;
         private static Texture2D vines, frost, veins, smoke, star, ink;
@@ -165,30 +165,26 @@ namespace Deepbound.UI
 
         private void Paint()
         {
-            bool flashes = Time.time - gulpAt < 0.9f || Time.time - cleanseAt < 0.8f;
+            bool flashes = Time.time - gulpAt < 0.9f || Time.time - cleanseAt < 0.8f || World.Tallyman.LocalDread > 0.01f;
             if (vineK + frostK + poisonK + curseK + maniaK + silenceK + dazeK + blindK + hexK + mendK + surgeK + barkK + furyK + stoneK + sanctK + lastStandK + blessK + inspireK + zealK + martyrK + wardK + brotherK + shieldK < 0.001f && !flashes && sparks.Count == 0) return;
             var me = Player.NetworkPlayer.Local;
             if (me == null || PauseMenu.Open || GameHud.Cinematic) return;
             if (me.TryGetComponent<Player.PlayerLife>(out var life) && life.Downed.Value) return;
             EnsureTextures();
+            EnsureLooks();
             float w = UiScale.W, h = UiScale.H, t = Time.time;
             float calm = Settings.ReduceFlashing ? 0.6f : 1f;
             var old = GUI.color;
 
             // The potions' own glows, under everything else.
-            if (sanctK > 0f) Corners(smoke, h * 0.7f, sanctK, new Color(1f, 0.85f, 0.45f, 0.35f * calm), t * 0.5f, 1f);
-            if (mendK > 0f) Corners(smoke, h * 0.6f, mendK, new Color(1f, 0.42f, 0.28f, (0.32f + 0.12f * Mathf.Sin(t * 6f)) * calm), t * 0.7f, 1f);
-            if (surgeK > 0f) Corners(smoke, h * 0.65f, surgeK, new Color(surgeColor.r, surgeColor.g, surgeColor.b, (0.4f + 0.15f * Mathf.Sin(t * 10f)) * calm), t * 2f, 2f);
-            if (furyK > 0f)
-            {
-                float beat = Mathf.Pow(Mathf.Abs(Mathf.Sin(t * 3.4f)), 6f);
-                Corners(smoke, h * (0.7f + 0.08f * beat), furyK, new Color(0.85f, 0.05f, 0.05f, (0.38f + 0.3f * beat) * calm), t, 1.5f);
-            }
+            if (sanctK > 0f) DrawColumn(sanctK, t, calm);
+            if (mendK > 0f) DrawRising(mendK, t, calm, new Color(1f, 0.5f, 0.3f), 101, 22, 0.55f);
+            if (surgeK > 0f) DrawSurge(surgeK, t, calm, surgeColor);
+            if (furyK > 0f) DrawFuryBeat(furyK, t, calm);
             if (lastStandK > 0f)
             {
                 // Last stand: a slow, heavy red pulse at the edges.
-                float beat = Mathf.Pow(Mathf.Abs(Mathf.Sin(t * 2.2f)), 4f);
-                Corners(smoke, h * (0.6f + 0.06f * beat), lastStandK, new Color(0.7f, 0.08f, 0.06f, (0.3f + 0.22f * beat) * calm), t * 0.4f, 1f);
+                DrawLastStand(lastStandK, t, calm);
             }
             if (blessK > 0f)
             {
@@ -200,26 +196,29 @@ namespace Deepbound.UI
                     GUI.color = new Color(1f, 0.78f, 0.35f, 0.3f * (1f - f) * (1f - f) * blessK * calm * (0.85f + 0.15f * Mathf.Sin(t * 2f)));
                     GUI.DrawTexture(new Rect(0, h * (1f - 0.32f * (f + 1f / rows)), w, h * 0.32f / rows + 1f), Texture2D.whiteTexture);
                 }
-                Corners(smoke, h * 0.6f, blessK, new Color(1f, 0.8f, 0.38f, 0.38f * calm), t * 0.3f, 1f);
+                DrawRising(blessK, t, calm, new Color(1f, 0.85f, 0.45f), 202, 14, 0.35f);
             }
-            if (inspireK > 0f) Corners(smoke, h * (0.5f + 0.04f * Mathf.Sin(t * 5f)), inspireK, new Color(1f, 0.92f, 0.6f, (0.28f + 0.1f * Mathf.Sin(t * 9f)) * calm), t * 3f, 1.5f);
-            if (zealK > 0f) Corners(smoke, h * (0.55f + 0.05f * Mathf.Abs(Mathf.Sin(t * 7f))), zealK, new Color(0.9f, 0.12f, 0.08f, (0.3f + 0.15f * Mathf.Abs(Mathf.Sin(t * 7f))) * calm), t * 1.5f, 2f);
-            if (martyrK > 0f) Corners(frost, h * 0.45f, martyrK, new Color(1f, 0.8f, 0.75f, (0.35f + 0.25f * Mathf.Abs(Mathf.Sin(t * 5f))) * calm), 0f, 0f);
-            if (wardK > 0f) Corners(smoke, h * 0.4f, wardK, new Color(0.4f, 0.8f, 0.5f, 0.22f * calm), t * 0.2f, 0.5f);
+            if (inspireK > 0f) DrawRays(inspireK, t, calm);
+            if (zealK > 0f) DrawLashes(zealK, t, calm);
+            if (martyrK > 0f) DrawThorns(martyrK, t, calm);
+            if (wardK > 0f) DrawWard(wardK, t, calm);
             // A shield on you: a pale glassy rime at the corners, like looking out through the bubble the others see.
-            if (shieldK > 0f) Corners(frost, h * 0.4f, shieldK, new Color(1f, 0.93f, 0.75f, 0.35f * calm), 0f, 0f);
-            if (brotherK > 0f) Corners(smoke, h * 0.35f, brotherK, new Color(1f, 0.6f, 0.25f, 0.18f * calm), t * 0.6f, 1f);
+            if (shieldK > 0f) DrawShieldRim(shieldK, t, calm);
+            if (brotherK > 0f) DrawRising(brotherK, t, calm, new Color(1f, 0.55f, 0.2f), 303, 10, 0.25f);
             float gulp = Mathf.Clamp01(1f - (t - gulpAt) / 0.9f);
             if (gulp > 0f) Corners(smoke, h * (0.45f + 0.35f * (1f - gulp)), gulp, new Color(gulpColor.r, gulpColor.g, gulpColor.b, 0.6f * gulp * calm), 0f, 0f);
 
             // Smoke and haze first (the soft layers), then the sharp pictures over them.
-            if (poisonK > 0f) Corners(smoke, h * 0.62f, poisonK, new Color(0.35f, 0.75f, 0.15f, 0.55f * calm), t * 0.6f, 1.5f);
-            if (curseK > 0f) Corners(smoke, h * 0.7f, curseK, new Color(0.45f, 0.15f, 0.7f, 0.7f * calm), t * 0.8f, 2f);
+            if (poisonK > 0f) Corners(smoke, h * 0.5f, poisonK, new Color(0.35f, 0.75f, 0.15f, 0.3f * calm), t * 0.6f, 1.5f);
+            if (curseK > 0f) DrawCurseRunes(curseK, t, calm);
             // The hag's curse: a sickly green-black rot creeping in, on a slow throb.
-            if (hexK > 0f) Corners(smoke, h * (0.66f + 0.04f * Mathf.Sin(t * 2.4f)), hexK, new Color(0.22f, 0.32f, 0.06f, 0.75f * calm), t * 0.5f, 1.5f);
-            if (maniaK > 0f) Corners(smoke, h * 0.75f, maniaK, new Color(0.95f, 0.25f, 0.8f, (0.55f + 0.2f * Mathf.Sin(t * 9f)) * calm), t * 4f, 5f);
-            if (silenceK > 0f) Corners(smoke, h * 0.75f, silenceK, new Color(0.62f, 0.62f, 0.78f, 0.55f * calm), t * 0.4f, 1f, topOnly: false);
+            if (hexK > 0f) DrawHexLids(hexK, t, calm);
+            if (maniaK > 0f) DrawManiaSpiral(maniaK, t, calm);
+            if (silenceK > 0f) DrawSilence(silenceK, t, calm);
+            float dreadK = World.Tallyman.LocalDread;
+            if (dreadK > 0.01f) DrawDread(dreadK, t, calm);
             if (poisonK > 0f) Corners(veins, h * 0.45f, poisonK, new Color(0.42f, 0.72f, 0.2f, (0.5f + 0.12f * Mathf.Sin(t * 3f)) * calm), t, 0.6f);
+            if (poisonK > 0f) DrawPoison(poisonK, t, calm);
             if (frostK > 0f) Corners(frost, h * 0.5f, frostK, new Color(0.8f, 0.9f, 1f, 0.6f * calm), 0f, 0f);
             if (vineK > 0f)
             {
@@ -230,12 +229,12 @@ namespace Deepbound.UI
                 DrawCorner(vines, new Rect(0, h - s, s, s), new Rect(0, 0, 1, 1), sway, new Vector2(0, h));
                 DrawCorner(vines, new Rect(w - s, h - s, s, s), new Rect(1, 0, -1, 1), -sway, new Vector2(w, h));
             }
-            if (barkK > 0f) Corners(vines, h * 0.42f, barkK, new Color(0.55f, 0.38f, 0.22f, 0.9f * calm), 0f, 0f);
+            if (barkK > 0f) DrawBark(barkK, t, calm);
             if (stoneK > 0f)
             {
                 GUI.color = new Color(0.5f, 0.5f, 0.55f, 0.25f * stoneK);
                 GUI.DrawTexture(new Rect(0, 0, w, h), Texture2D.whiteTexture);
-                Corners(frost, h * 0.75f, stoneK, new Color(0.35f, 0.35f, 0.38f, 0.95f * calm), 0f, 0f);
+                Full(cracks, new Color(0.3f, 0.3f, 0.33f, 0.95f * stoneK * calm));
             }
             foreach (var sp in sparks)
             {

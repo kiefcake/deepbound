@@ -2217,15 +2217,15 @@ namespace Deepbound.UI
         /// </summary>
         private EnemyBrain RageFocus()
         {
-            var boss = BossBrain.Active;
-            if (boss != null && !boss.IsDead && (boss.transform.position - player.transform.position).sqrMagnitude < 40f * 40f && boss.Rage.Value.Count > 0) return boss;
+            // Bosses and Wardens show no rage panel (2026-11-23, the user: "hide the aggression bar on bosses"): who it hunts is read
+            // from the fight itself. Elites and champions under the crosshair still show theirs.
             var cam = player.Camera;
             EnemyBrain best = null;
             float bestAngle = 9f;
             foreach (var h in Health.All)
             {
                 if (h == null || h.Team != Team.Enemies || !h.IsAlive || !h.TryGetComponent<EnemyBrain>(out var e)) continue;
-                if (!(e.Elite.Value || e.IsChampion) || e.Rage.Value.Count == 0) continue;
+                if (e is BossBrain || !(e.Elite.Value || e.IsChampion) || e.Rage.Value.Count == 0) continue;
                 var to = h.Center - cam.transform.position;
                 if (to.sqrMagnitude > 28f * 28f) continue;
                 float ang = Vector3.Angle(cam.transform.forward, to);
@@ -2610,7 +2610,7 @@ namespace Deepbound.UI
                       "Lower health = harder hits; every hit heals you\n" +
                       "Q  Chains (drag them in)  ·  E  Penitent Leap\n"
                     : progress.ClassId.Value == ClassId.PlagueDoctor
-                    ? "LMB lob Vials (blight)  ·  RMB Tonic (heals allies where it bursts)\n" +
+                    ? "LMB lob Vials (blight)  ·  RMB Expunge (drain blight to heal)\n" +
                       "Blighted dead take +10% from all, and spread it\n" +
                       "Q  Miasma cloud  ·  E  Plague Mask (cleanse the party)\n"
                     : progress.ClassId.Value == ClassId.Ranger

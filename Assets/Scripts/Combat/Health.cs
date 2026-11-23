@@ -125,6 +125,25 @@ namespace Deepbound.Combat
             if (!Blighted.Value) nextBlightTick = Time.time + 0.5f;
             Blighted.Value = true;
         }
+
+        /// <summary>Server: how many blight stacks it carries (0 when clean).</summary>
+        public int BlightStackCount => Blighted.Value ? Mathf.Max(1, (int)BlightStacks.Value) : 0;
+
+        /// <summary>Server: the blight is gone at once (the Plague Doctor's Expunge drew it out).</summary>
+        public void ServerClearBlight()
+        {
+            if (!IsServer) return;
+            Blighted.Value = false; blightDps = 0f; blightBase = 0f; blightUntil = 0f; BlightStacks.Value = 0;
+        }
+
+        /// <summary>Server: a blighted creature festers to full stacks at once (Patient Zero).</summary>
+        public void ServerFesterFull()
+        {
+            if (!IsServer || !Blighted.Value) return;
+            BlightStacks.Value = MaxBlightStacks;
+            blightDps = blightBase * (1f + BlightStackStep * (MaxBlightStacks - 1));
+            lastFester = Time.time;
+        }
         private Transform markIcon;
         private float shieldUntil;
         private GameObject shieldBubble;

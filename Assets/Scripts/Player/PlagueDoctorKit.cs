@@ -18,8 +18,11 @@ namespace Deepbound.Player
     /// <item><b>Passive — Contagion.</b> Your vials BLIGHT what they splash (poison over time,
     ///   and +10% damage from everyone). A blighted enemy that dies passes it to the nearest one.</item>
     /// <item><b>LMB — Vial.</b> Lob a vial in an arc; it shatters where it lands in a small splash.</item>
-    /// <item><b>RMB — Tonic.</b> (2026-11-23, the user: "heal himself and party for a percent of health") Drink deep and breathe
-    ///   it out: you and every ally within <see cref="TonicRadius"/> m mend <see cref="TonicHeal"/> of their health at once.</item>
+    /// <item><b>RMB — Expunge.</b> (2026-11-23, the user: "expunges poison stacks ... sucking the life out of enemies and healing
+    ///   party and player"; it replaced the Tonic, a plain heal) Every blighted enemy within <see cref="ExpungeRadius"/> m has its
+    ///   blight torn out: <see cref="ExpungePerStack"/> damage per stack, and the blight ends. You and allies within
+    ///   <see cref="ExpungeHealRadius"/> m mend <see cref="ExpungeHealBase"/> + <see cref="ExpungeHealPerStack"/> per stack drawn,
+    ///   at most <see cref="ExpungeHealCap"/>. Rot first, then reap.</item>
     /// <item>FESTERING: each blight stack on a target adds <see cref="StackBonus"/> to your vial's hit (the stacks orbit it as green
     ///   droplets; a vial into a full stack bursts brighter).</item>
     /// <item><b>Q — Miasma.</b> A lingering plague cloud at the crosshair: the dead inside choke,
@@ -28,7 +31,7 @@ namespace Deepbound.Player
     ///   little, and ward them against new ones for a few seconds.</item>
     /// </list>
     /// REAGENTS (reworked 2026-11-22, the user: "plague doctors ability bar reagents doesn't seem to have any purpose"; vials
-    /// were free and the bar refilled in 8 s): every vial costs <see cref="VialCost"/>, a Tonic <see cref="TonicCost"/>.
+    /// were free and the bar refilled in 8 s): every vial costs <see cref="VialCost"/>, an Expunge <see cref="ExpungeCost"/>.
     /// Out of reagents your vials still fly but DILUTE: <see cref="DiluteDamage"/> damage and no blight. The bar brews
     /// back at <see cref="ReagentRegen"/>/s (twice that after <see cref="BrewPause"/> s without a throw), and every
     /// blighted enemy that dies gives back <see cref="HarvestReagents"/>: a Doctor who keeps the rot spreading keeps
@@ -39,7 +42,8 @@ namespace Deepbound.Player
     {
         public const float VialInterval = 0.55f, VialCost = 7f, VialDamage = 15f, VialSpeed = 19f, VialRange = 20f, VialGravity = 9f, SplashRadius = 1.7f;
         public const float BlightSeconds = 4f, BlightDps = 9f;
-        public const float TonicCooldown = 10f, TonicCost = 35f, TonicRadius = 10f, TonicHeal = 0.18f;
+        public const float ExpungeCooldown = 10f, ExpungeCost = 35f, ExpungeRadius = 16f, ExpungePerStack = 16f;
+        public const float ExpungeHealRadius = 12f, ExpungeHealBase = 0.05f, ExpungeHealPerStack = 0.03f, ExpungeHealCap = 0.3f;
         /// <summary>Vial damage per blight stack already on the target (x1.8 at four).</summary>
         public const float StackBonus = 0.2f;
         public const float MiasmaCooldown = 12f, MiasmaRadius = 4f, MiasmaSeconds = 6f, MiasmaDps = 9f;
@@ -58,7 +62,7 @@ namespace Deepbound.Player
         private PlayerProgress progress;
 
         public float Reagents { get; private set; } = ReagentMax;
-        private float nextVial, tonicReadyAt, miasmaReadyAt, maskReadyAt;
+        private float nextVial, expungeReadyAt, miasmaReadyAt, maskReadyAt;
 
         private struct Cloud { public Vector3 At; public float Radius, Until, Dps, NextChoke; public bool Black, Small; public int Id; }
         private readonly List<Cloud> clouds = new List<Cloud>();
@@ -88,7 +92,7 @@ namespace Deepbound.Player
         public void FillAbilities(List<AbilityView> into)
         {
             into.Add(new AbilityView { Key = "LMB", Name = "Vial", Unaffordable = Reagents < VialCost });
-            into.Add(new AbilityView { Key = "RMB", Name = "Tonic", Remaining = tonicReadyAt - Time.time, Cooldown = TonicCooldown, Unaffordable = Reagents < TonicCost });
+            into.Add(new AbilityView { Key = "RMB", Name = "Expunge", Remaining = expungeReadyAt - Time.time, Cooldown = ExpungeCooldown, Unaffordable = Reagents < ExpungeCost });
             into.Add(new AbilityView { Key = "Q", Name = "Miasma", Remaining = miasmaReadyAt - Time.time, Cooldown = MiasmaCooldown * progress.CooldownFor(AbilitySlot.Q) });
             into.Add(new AbilityView { Key = "E", Name = "Mask", Remaining = maskReadyAt - Time.time, Cooldown = MaskCooldown * progress.CooldownFor(AbilitySlot.E) });
         }
@@ -111,7 +115,9 @@ namespace Deepbound.Player
                 if (plagued.TryGetValue(dead, out var pl))
                 {
                     plagued.Remove(dead);
-                    if (Time.time < pl.until && pl.kit != null) pl.kit.ServerPandemicSpread(dead.transform.position, pl.until - Time.time);
+                    // Patient Zero jumps (TickZero); a creature it coughed on bursts and passes a short plague on.
+                    if (pl.kit != null && pl.kit.zero == dead) pl.kit.ServerZeroJump(dead.transform.position, pl.until - Time.time, dead);
+                    else if (Time.time < pl.until && pl.kit != null) pl.kit.ServerPandemicSpread(dead.transform.position, Mathf.Min(ZeroCoughSeconds, pl.until - Time.time));
                 }
                 if (NetworkManager.Singleton == null || !NetworkManager.Singleton.SpawnManager.SpawnedObjects.TryGetValue(source, out var obj) || !obj.TryGetComponent<PlagueDoctorKit>(out var kit)) return;
                 kit.ServerContagion(dead.transform.position);
@@ -176,6 +182,7 @@ namespace Deepbound.Player
         private void Update()
         {
             if (IsServer && clouds.Count > 0 && Time.time >= nextCloudTick) TickClouds();
+            if (IsServer && zero != null && Time.time >= nextZeroTick) TickZero();
             if (!IsOwner || !Active) return;
 
             // WIS (Brann's Meditation drill) brews reagents faster: +2.5% per point over the class's 42.
@@ -199,14 +206,14 @@ namespace Deepbound.Player
                 VialRpc(player.AimOrigin + player.AimForward * 0.6f, LobDirection(), dilute);
             }
 
-            // --- RMB: Tonic ---
-            if (UI.Binds.SecondaryDown && Time.time >= tonicReadyAt && Reagents >= TonicCost)
+            // --- RMB: Expunge ---
+            if (UI.Binds.SecondaryDown && Time.time >= expungeReadyAt && Reagents >= ExpungeCost)
             {
-                Reagents -= TonicCost;
+                Reagents -= ExpungeCost;
                 lastThrowAt = Time.time;
-                tonicReadyAt = Time.time + TonicCooldown;
+                expungeReadyAt = Time.time + ExpungeCooldown;
                 player.ViewModelCast(false);
-                TonicRpc();
+                ExpungeRpc();
             }
 
             // --- Q: Miasma ---
@@ -311,45 +318,66 @@ namespace Deepbound.Player
         }
 
         [Rpc(SendTo.Server)]
-        private void TonicRpc()
+        private void ExpungeRpc()
         {
             if (!life.CanAct) return;
-            ServerTonic(transform.position);
+            ServerExpunge(transform.position, out _);
         }
 
         /// <summary>
-        /// Server: the Tonic (reworked 2026-11-23: it was a lobbed flask with a 3 m burst that was easy to miss). The Doctor drinks
-        /// and breathes a rose vapour out round themselves: they and every standing ally within <see cref="TonicRadius"/> m of
-        /// <paramref name="at"/> mend <see cref="TonicHeal"/> of their max health. Public for the smoke test.
+        /// Server: EXPUNGE. Every blighted enemy within <see cref="ExpungeRadius"/> m of <paramref name="at"/> has its blight torn
+        /// out: <see cref="ExpungePerStack"/> x stacks damage (dealt before the blight ends, so a kill still spreads Contagion), then
+        /// clean. You and every standing ally within <see cref="ExpungeHealRadius"/> m mend by what was drawn. Patient Zero
+        /// festers straight back to full. Returns how many were healed; <paramref name="stacks"/> = stacks drawn. Public for tests.
         /// </summary>
-        public int ServerTonic(Vector3 at)
+        public int ServerExpunge(Vector3 at, out int stacks)
         {
-            float heal = TonicHeal;
-            int n = 0;
+            stacks = 0;
+            float p = BlightPower * 1f;
+            var drained = new List<ulong>();
+            var counts = new List<byte>();
+            foreach (var h in CombatQuery.Circle(at, ExpungeRadius * RangeMul, Team.Enemies).ToArray())
+            {
+                if (h == null || !h.IsAlive) continue;
+                int n = h.BlightStackCount;
+                if (n <= 0) continue;
+                stacks += n;
+                drained.Add(h.NetworkObjectId);
+                counts.Add((byte)n);
+                h.Tag("Expunge").ServerDamage(ExpungePerStack * n * p, at, NetworkObjectId);
+                if (h.IsAlive) h.ServerClearBlight();
+                if (h == zero && h.IsAlive) KeepZeroFestering();
+                if (drained.Count >= 16) break;
+            }
+            float heal = Mathf.Min(ExpungeHealCap, ExpungeHealBase + ExpungeHealPerStack * stacks);
             var healed = new List<ulong>();
             foreach (var ally in PlayerLife.All)
             {
                 if (ally == null || ally.Downed.Value || !ally.Health.IsAlive) continue;
-                if (Vector3.Distance(ally.transform.position, at) > TonicRadius + 0.6f) continue;
+                if (Vector3.Distance(ally.transform.position, at) > ExpungeHealRadius + 0.6f) continue;
                 ally.Health.ServerHeal(ally.Health.Max.Value * heal);
                 if (progress.Mastered(2) && ally.TryGetComponent<PlayerDebuffs>(out var db)) db.ServerCleanse();
                 healed.Add(ally.NetworkObjectId);
-                n++;
             }
-            TonicFxRpc(at, healed.ToArray());
-            return n;
+            ExpungeFxRpc(drained.ToArray(), counts.ToArray(), healed.ToArray());
+            return healed.Count;
         }
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void TonicFxRpc(Vector3 at, ulong[] healed)
+        private void ExpungeFxRpc(ulong[] drained, byte[] counts, ulong[] healed)
         {
-            Sfx.Play(Sound.Potion, at + Vector3.up, 0.8f, 0.9f);
-            Sfx.Play(Sound.Revive, at + Vector3.up, 0.45f, 1.25f);
-            var who = new List<Transform>();
+            if (!IsOwner) player.Rig?.Play(RigAction.Siphon, 0.8f);
+            Sfx.Play(Sound.Slime, transform.position + Vector3.up, 0.7f, 0.6f);
+            Sfx.Play(Sound.Revive, transform.position + Vector3.up, 0.4f, 0.8f);
             var nm = NetworkManager.Singleton;
+            var from = new List<(Transform, int)>();
+            for (int i = 0; i < drained.Length; i++)
+                if (nm != null && nm.SpawnManager.SpawnedObjects.TryGetValue(drained[i], out var o)) from.Add((o.transform, i < counts.Length ? counts[i] : 1));
+            var who = new List<Transform>();
             foreach (var id in healed)
                 if (nm != null && nm.SpawnManager.SpawnedObjects.TryGetValue(id, out var o)) who.Add(o.transform);
-            ClassFx.Cordial(transform, TonicRadius, who);
+            ClassFx.Expunge(transform, from, who);
+            if (IsOwner && from.Count > 0) player.AddShake(0.08f);
         }
 
         [Rpc(SendTo.Server)]
@@ -375,28 +403,115 @@ namespace Deepbound.Player
             else AddCloud(at, radius, MiasmaSeconds, MiasmaDps * potency, false);
         }
 
-        // ---- The ultimate: PANDEMIC (2026-11-20, replaces Black Death, a cloud at the crosshair: the user found it weak) ----
-        // Every enemy within PandemicRadius of you is struck at once (PandemicBurst), rots hard for PandemicSeconds
-        // (a blight PandemicRot times the vials') and takes 25% more from everyone. A plagued creature that dies
-        // bursts and plagues everything within PandemicSpread for what was left of its time (at least
-        // PandemicMinSpread), so a crowd goes down in a chain. Allies within the radius are healed PandemicHeal.
-        public const float PandemicRadius = 12f, PandemicSeconds = 10f, PandemicBurst = 30f, PandemicRot = 3f;
-        public const float PandemicSpread = 6f, PandemicMinSpread = 5f, PandemicSpreadBurst = 0.6f, PandemicHeal = 0.2f;
+        // ---- The ultimate: PATIENT ZERO (2026-11-23, the user: the Doctor is "already very aoe heavy, lets rework his ult so that it
+        // can be used in more scenarios other than for large groups"; it replaced Pandemic, every enemy within 12 m) ----
+        // One creature - the one at the crosshair, else the nearest - becomes PATIENT ZERO for ZeroSeconds: struck (ZeroBurst),
+        // blighted at ZeroRot x the vials' rot and held at full stacks the whole time, and it takes 25% more from everyone (the
+        // plague hook). Every ZeroCough s it coughs: everything within ZeroCoughRadius is plagued for ZeroCoughSeconds. If it dies,
+        // the plague JUMPS to the nearest enemy within ZeroJump m with what time was left (at least ZeroMinJump). One boss: a long,
+        // full-strength rot and a party-wide damage boost on it. A crowd: it coughs, and it hops from body to body.
+        public const float ZeroSeconds = 12f, ZeroBurst = 40f, ZeroRot = 3f, ZeroCough = 2.5f, ZeroCoughRadius = 5f, ZeroCoughSeconds = 4f;
+        public const float ZeroJump = 12f, ZeroMinJump = 4f, ZeroPick = 6f, ZeroReach = 26f, PandemicHeal = 0.2f, PandemicRadius = 12f;
+        public const float PandemicSpread = 6f, PandemicMinSpread = 3f, PandemicSpreadBurst = 0.4f, PandemicBurst = 30f, PandemicRot = 3f;
         private static readonly Dictionary<Health, (float until, PlagueDoctorKit kit)> plagued = new Dictionary<Health, (float until, PlagueDoctorKit kit)>();
+        private Health zero;
+        private float zeroUntil, nextZeroTick, nextCough;
 
-        /// <summary>Server: the ultimate (the old entry point; the crosshair no longer matters).</summary>
-        public void ServerBlackDeath(Vector3 at) => ServerPandemic();
+        /// <summary>Server, tests: the current Patient Zero (null when none).</summary>
+        public Health PatientZero => zero != null && zero.IsAlive && Time.time < zeroUntil ? zero : null;
 
-        public int ServerPandemic()
+        /// <summary>Server: the ultimate (entry point from <see cref="Ultimates"/>).</summary>
+        public void ServerBlackDeath(Vector3 at) => ServerPatientZero(at);
+
+        public Health ServerPatientZero(Vector3 aim)
         {
-            var at = transform.position;
-            int n = 0;
-            foreach (var h in CombatQuery.Circle(at, PandemicRadius, Team.Enemies).ToArray())
-                if (Afflict(h, PandemicSeconds, PandemicBurst)) n++;
-            foreach (var ally in CombatQuery.Circle(at, PandemicRadius, Team.Players).ToArray())
+            var me = transform.position;
+            Health pick = null;
+            float best = ZeroPick;
+            // The one nearest the crosshair's point, then (none there) the nearest in front, then the nearest at all.
+            foreach (var h in CombatQuery.Circle(me, ZeroReach, Team.Enemies).ToArray())
+            {
+                if (h == null || !h.IsAlive || !h.TryGetComponent<Enemies.EnemyBrain>(out _)) continue;
+                float d = Vector3.Distance(Flat(h.transform.position), Flat(aim));
+                if (d < best) { best = d; pick = h; }
+            }
+            if (pick == null)
+            {
+                float bestScore = float.MaxValue;
+                var fwd = transform.forward; fwd.y = 0f;
+                foreach (var h in CombatQuery.Circle(me, ZeroReach, Team.Enemies).ToArray())
+                {
+                    if (h == null || !h.IsAlive || !h.TryGetComponent<Enemies.EnemyBrain>(out _)) continue;
+                    var to = h.transform.position - me; to.y = 0f;
+                    float score = to.magnitude * (Vector3.Angle(fwd, to) < 45f ? 1f : 2.5f);
+                    if (score < bestScore) { bestScore = score; pick = h; }
+                }
+            }
+            foreach (var ally in CombatQuery.Circle(me, PandemicRadius, Team.Players).ToArray())
                 ally.ServerHeal(ally.Max.Value * PandemicHeal);
-            PandemicFxRpc(at, PandemicRadius);
-            return n;
+            if (pick == null)
+            {
+                // Nothing to infect: give the charge back rather than waste it.
+                if (TryGetComponent<Ultimates>(out var ult)) ult.Charge.Value = Ultimates.ChargeMax;
+                return null;
+            }
+            MakeZero(pick, ZeroSeconds, ZeroBurst, me);
+            return pick;
+        }
+
+        private static Vector3 Flat(Vector3 v) { v.y = 0f; return v; }
+
+        private void MakeZero(Health h, float seconds, float burst, Vector3 from)
+        {
+            zero = h;
+            zeroUntil = Time.time + seconds;
+            nextCough = Time.time + ZeroCough;
+            nextZeroTick = Time.time;
+            plagued[h] = (zeroUntil, this);
+            if (h.TryGetComponent<Enemies.EnemyBrain>(out var b)) b.ServerAddThreat(NetworkObjectId, 10f);
+            KeepZeroFestering();
+            if (burst > 0f) h.Tag("Patient Zero").ServerDamage(burst * BlightPower, from, NetworkObjectId);
+            ZeroFxRpc(h.NetworkObjectId, from, seconds);
+        }
+
+        private void KeepZeroFestering()
+        {
+            if (zero == null || !zero.IsAlive) return;
+            zero.ServerBlight(Mathf.Max(0.6f, zeroUntil - Time.time), BlightDps * ZeroRot * BlightPower, NetworkObjectId);
+            zero.ServerFesterFull();
+        }
+
+        private void TickZero()
+        {
+            nextZeroTick = Time.time + 0.5f;
+            if (zero == null) return;
+            if (!zero.IsAlive) { ServerZeroJump(zero.transform.position, zeroUntil - Time.time, zero); return; }
+            if (Time.time >= zeroUntil) { plagued.Remove(zero); zero = null; return; }
+            KeepZeroFestering();
+            if (Time.time < nextCough) return;
+            nextCough = Time.time + ZeroCough;
+            var at = zero.transform.position;
+            int n = 0;
+            foreach (var h in CombatQuery.Circle(at, ZeroCoughRadius, Team.Enemies).ToArray())
+                if (h != zero && (!plagued.TryGetValue(h, out var pl) || pl.until - Time.time < ZeroCoughSeconds - 0.5f) && Afflict(h, ZeroCoughSeconds, 0f)) n++;
+            CoughFxRpc(zero.NetworkObjectId, n > 0);
+        }
+
+        /// <summary>Server: Patient Zero died; the plague jumps to the nearest enemy with what was left.</summary>
+        private void ServerZeroJump(Vector3 at, float left, Health dead)
+        {
+            if (dead != null) plagued.Remove(dead);
+            zero = null;
+            if (left <= 0.2f) return;
+            Health next = null;
+            float best = ZeroJump;
+            foreach (var h in CombatQuery.Circle(at, ZeroJump, Team.Enemies).ToArray())
+            {
+                if (h == null || !h.IsAlive || h == dead || !h.TryGetComponent<Enemies.EnemyBrain>(out _)) continue;
+                float d = Vector3.Distance(h.transform.position, at);
+                if (d < best) { best = d; next = h; }
+            }
+            if (next != null) MakeZero(next, Mathf.Max(ZeroMinJump, left), ZeroBurst * 0.5f, at);
         }
 
         private bool Afflict(Health h, float seconds, float burst)
@@ -404,10 +519,34 @@ namespace Deepbound.Player
             if (h == null || !h.IsAlive) return false;
             float p = BlightPower;
             plagued[h] = (Time.time + seconds, this);
-            if (h.TryGetComponent<Enemies.EnemyBrain>(out var b)) b.ServerAddThreat(NetworkObjectId, 10f);
+            if (h.TryGetComponent<Enemies.EnemyBrain>(out var b)) b.ServerAddThreat(NetworkObjectId, 4f);
             h.ServerBlight(seconds, BlightDps * PandemicRot * p, NetworkObjectId);
             if (burst > 0f) h.Tag("Pandemic").ServerDamage(burst * p, transform.position, NetworkObjectId);
             return true;
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void ZeroFxRpc(ulong target, Vector3 from, float seconds)
+        {
+            if (!IsOwner) player.Rig?.Play(RigAction.Point, 0.6f);
+            var nm = NetworkManager.Singleton;
+            if (nm == null || !nm.SpawnManager.SpawnedObjects.TryGetValue(target, out var o)) return;
+            var h = o.GetComponent<Health>();
+            Sfx.Play(Sound.Slime, o.transform.position, 1f, 0.55f);
+            Sfx.Play(Sound.Toll, o.transform.position, 0.5f, 0.6f);
+            ClassFx.Veins(Vfx.Floor(from), new List<Vector3> { o.transform.position }, 2.5f, 0.35f);
+            ClassFx.PatientZero(o.transform, h != null ? h.Center.y - o.transform.position.y : 1f, seconds);
+            UI.GameHud.ShowCombo(o.transform.position + Vector3.up * 2.6f, "PATIENT ZERO", Plague);
+            if (IsOwner) player.AddShake(0.2f);
+        }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void CoughFxRpc(ulong target, bool caught)
+        {
+            var nm = NetworkManager.Singleton;
+            if (nm == null || !nm.SpawnManager.SpawnedObjects.TryGetValue(target, out var o)) return;
+            Sfx.Play(Sound.Slime, o.transform.position, 0.45f, 0.75f);
+            ClassFx.Cough(o.transform.position, ZeroCoughRadius);
         }
 
         /// <summary>Server: a plagued death bursts: everything near catches what was left of it.</summary>
@@ -423,7 +562,7 @@ namespace Deepbound.Player
         public static bool IsPlagued(Health h) => h != null && plagued.TryGetValue(h, out var pl) && Time.time < pl.until;
 
         [Rpc(SendTo.ClientsAndHost)]
-        private void PandemicFxRpc(Vector3 at, float radius)
+        private void UnusedPandemicFxRpc(Vector3 at, float radius)
         {
             Sfx.Play(Sound.Slime, at, 1f, 0.6f);
             Sfx.Play(Sound.Toll, at, 0.6f, 0.7f);
@@ -602,7 +741,7 @@ namespace Deepbound.Player
         private void VialFxRpc(Vector3 origin, Vector3 direction, bool tonic)
         {
             Arrows.SpawnVisual(origin, direction, tonic ? ProjectileKind.Tonic : ProjectileKind.Vial, VialSpeed, VialRange * RangeMul, VialGravity);
-            if (!IsOwner) { player.Rig?.Play(RigAction.Cast, 0.25f); Sfx.Play(Sound.Swing, transform.position, 0.35f, 1.7f); }
+            if (!IsOwner) { player.Rig?.Play(RigAction.Lob, 0.35f); Sfx.Play(Sound.Swing, transform.position, 0.35f, 1.7f); }
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -651,6 +790,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void MaskFxRpc(Vector3 at)
         {
+            if (!IsOwner) player.Rig?.Play(RigAction.Drink, 0.55f);
             Sfx.Play(Sound.Potion, at + Vector3.up, 0.9f, 0.8f);
             Sfx.Play(Sound.Whisper, at + Vector3.up, 0.6f, 1.3f);
             // 2026-11-21 (distinct abilities): a ghostly beaked mask rises over the Doctor; a ring of pale smoke lifts round

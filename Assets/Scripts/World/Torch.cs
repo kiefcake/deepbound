@@ -27,6 +27,8 @@ namespace Deepbound.World
 
         // Crackle (2026-10-24): the few fires nearest the listener crackle, each from its own looped voice.
         private static readonly System.Collections.Generic.List<Torch> all = new System.Collections.Generic.List<Torch>();
+        /// <summary>Every live torch (the Tallyman makes the near ones gutter).</summary>
+        public static System.Collections.Generic.IReadOnlyList<Torch> All => all;
         private static AudioSource[] crackle;
         private static Torch[] crackleOn;
         private static AudioClip crackleClip;

@@ -20,8 +20,10 @@ namespace Deepbound.Player
     /// party-changing moment per fight or two.
     ///
     /// <list type="bullet">
-    /// <item><b>Knight — Rallying Banner.</b> Plant a war banner: for 8 s allies near it take
-    ///   35% less damage and deal 20% more.</item>
+    /// <item><b>Knight — Rallying Banner.</b> (reworked 2026-11-23, the user: "+100 max HP for the party, attack faster
+    ///   instead of a damage boost, and 20% speed") Plant a war banner: for 8 s every ally within 25 m gains
+    ///   <see cref="BannerVigor"/> max health; allies inside its circle take 35% less damage, attack
+    ///   <see cref="BannerAttackTime"/>x as long between blows and move <see cref="BannerSpeed"/>x faster.</item>
     /// <item><b>Mage — Cataclysm.</b> Five meteors rain around the crosshair over two seconds.</item>
     /// <item><b>Cleric — Hymn of Return.</b> Every downed ally within 18 m rises; the whole
     ///   party is healed to at least 70% and shielded.</item>
@@ -57,18 +59,33 @@ namespace Deepbound.Player
         /// <summary>Live banners (server): where they stand and when they fall.</summary>
         private struct Banner { public Vector3 At; public float Until; }
         private static readonly List<Banner> banners = new List<Banner>();
-        public const float BannerRadius = 7f;
+        public const float BannerRadius = 7f, BannerSeconds = 8f, BannerVigor = 100f, BannerVigorReach = 25f, BannerAttackTime = 0.75f, BannerSpeed = 1.2f;
+        /// <summary>Every peer's copy of the live banners (from <see cref="BannerFxRpc"/>): movement and attack timing run on the
+        /// owner, so they need to know where a banner stands too.</summary>
+        private static readonly List<Banner> localBanners = new List<Banner>();
+
+        /// <summary>Any peer: is this point inside a standing Rallying Banner?</summary>
+        public static bool InBannerLocal(Vector3 at)
+        {
+            for (int i = localBanners.Count - 1; i >= 0; i--)
+            {
+                if (Time.time > localBanners[i].Until) { localBanners.RemoveAt(i); continue; }
+                var d = at - localBanners[i].At; d.y = 0f;
+                if (d.magnitude <= BannerRadius) return true;
+            }
+            return false;
+        }
 
         public static string Name(ClassId cls)
         {
             switch (cls)
             {
                 case ClassId.Mage: return "Cataclysm";
-                case ClassId.Cleric: return "Hymn of Return";
+                case ClassId.Cleric: return "Dawnbreak";
                 case ClassId.Rogue: return "Death From Shadow";
                 case ClassId.Ranger: return "Twin Wyrms";
                 case ClassId.Flagellant: return "The Red Litany";
-                case ClassId.PlagueDoctor: return "Pandemic";
+                case ClassId.PlagueDoctor: return "Patient Zero";
                 default: return "Rallying Banner";
             }
         }
@@ -78,12 +95,12 @@ namespace Deepbound.Player
             switch (cls)
             {
                 case ClassId.Mage: return "Five meteors strike around the target point over two seconds.";
-                case ClassId.Cleric: return "Revive all downed allies within 18 m, heal the party to at least 70%, and shield it.";
+                case ClassId.Cleric: return "Call down a pillar of dawn for 6 s: downed allies inside rise, allies inside heal 5% of their health every half second, and enemies inside are stunned and burn.";
                 case ClassId.Rogue: return "Teleport behind the targeted enemy for a massive backstab that leaves it Exposed.";
                 case ClassId.Ranger: return "Fire a spirit arrow that splits into two wyrms, passing through walls for 44 m and damaging and chilling every enemy in their path.";
                 case ClassId.Flagellant: return "For 6 s your flail whirls around you, striking nearby enemies. You move faster, take 20% less damage and deal 30% more. Ends in a stunning Crash.";
-                case ClassId.PlagueDoctor: return "Infect all enemies within 12 m with plague: heavy damage over 10 s and 25% more damage taken from all sources. It spreads on death. Nearby allies are healed for 20%.";
-                default: return "Plant a war banner: nearby allies take 35% less damage and deal 20% more for 8 s.";
+                case ClassId.PlagueDoctor: return "Make the enemy at your crosshair Patient Zero for 12 s: it rots at full blight stacks and takes 25% more damage from all sources. It coughs the plague onto enemies near it, and on death the plague jumps to the nearest enemy. Nearby allies heal 20%.";
+                default: return "Plant a war banner for 8 s: allies within 25 m gain 100 maximum health; allies inside its circle take 35% less damage, attack 25% faster and move 20% faster.";
             }
         }
 
@@ -247,8 +264,8 @@ namespace Deepbound.Player
             return false;
         }
 
-        /// <summary>Server: the banner's +20% for allies fighting beside it (fed into the outgoing chain).</summary>
-        public static float OutgoingMultiplier(PlayerProgress attacker) => InBanner(attacker.transform.position) ? 1.2f : 1f;
+        /// <summary>Server: the outgoing chain's ultimate term. The banner's +20% damage became attack speed (2026-11-23).</summary>
+        public static float OutgoingMultiplier(PlayerProgress attacker) => 1f;
 
         private void Update()
         {
@@ -345,14 +362,18 @@ namespace Deepbound.Player
             switch (cls)
             {
                 case ClassId.Mage: StartCoroutine(Cataclysm(aim, att)); break;
-                case ClassId.Cleric: Hymn(); break;
+                case ClassId.Cleric: StartCoroutine(Dawnbreak(transform.position, att)); break;
                 case ClassId.Rogue: DeathFromShadow(targetId, att); break;
                 case ClassId.Ranger: StartCoroutine(TwinWyrms(aim, att)); break;
                 case ClassId.Flagellant: GetComponent<FlagellantKit>().ServerLitany(); break;
                 case ClassId.PlagueDoctor: GetComponent<PlagueDoctorKit>().ServerBlackDeath(aim); break;
                 default:
                     var at = transform.position;
-                    banners.Add(new Banner { At = at, Until = Time.time + 8f });
+                    banners.Add(new Banner { At = at, Until = Time.time + BannerSeconds });
+                    // The whole party near the Knight stands taller: +100 max health while the banner stands.
+                    foreach (var pl in PlayerLife.All)
+                        if (pl != null && !pl.Downed.Value && Vector3.Distance(pl.transform.position, at) <= BannerVigorReach && pl.TryGetComponent<PlayerProgress>(out var vp))
+                            vp.ServerBannerVigor(BannerVigor, BannerSeconds);
                     BannerFxRpc(at);
                     break;
             }
@@ -393,16 +414,38 @@ namespace Deepbound.Player
             }
         }
 
-        private void Hymn()
+        // ---- Dawnbreak (the Cleric, 2026-11-23; was Hymn of Return, which only mattered with someone down) ----
+        public const float DawnRadius = 8f, DawnSeconds = 6f, DawnTick = 0.5f, DawnHeal = 0.05f, DawnBurn = 9f, DawnStun = 1.5f, DawnRevive = 0.5f;
+
+        /// <summary>Server: a pillar of dawn where the Cleric stood. Downed allies inside rise, the living mend each tick (through
+        /// Benediction, so overflow shields), and the dead inside are stunned by the first light and burn while they stay.</summary>
+        private IEnumerator Dawnbreak(Vector3 at, float att)
         {
+            DawnFxRpc(at, DawnRadius, DawnSeconds);
             foreach (var ally in PlayerLife.All)
+                if (ally != null && ally.Downed.Value && !ally.Soul.Value && Flat(ally.transform.position - at) <= DawnRadius) ally.ServerRevive(DawnRevive);
+            foreach (var foe in CombatQuery.Circle(at, DawnRadius, Team.Enemies).ToArray())
+                if (foe.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(DawnStun);
+            for (float t = 0f; t < DawnSeconds; t += DawnTick)
             {
-                if (ally == null) continue;
-                bool near = Vector3.Distance(ally.transform.position, transform.position) <= 18f;
-                if (ally.Downed.Value && near) ally.ServerRevive(0.7f);
-                else if (ally.Health.IsAlive && ally.Health.Fraction < 0.7f) ally.Health.ServerSetFraction(0.7f);
-                if (ally.Health.IsAlive) ally.Health.ServerShield(50f * progress.AttackMultiplier, 6f);
+                foreach (var ally in PlayerLife.All)
+                    if (ally != null && !ally.Downed.Value && ally.Health.IsAlive && Flat(ally.transform.position - at) <= DawnRadius)
+                        ClericKit.Bless(ally.Health, ally.Health.Max.Value * DawnHeal);
+                foreach (var foe in CombatQuery.Circle(at, DawnRadius, Team.Enemies).ToArray())
+                    foe.Tag("Dawnbreak").ServerDamage(DawnBurn * att * DawnTick * 2f, at, NetworkObjectId);
+                yield return new WaitForSeconds(DawnTick);
             }
+        }
+
+        private static float Flat(Vector3 d) { d.y = 0f; return d.magnitude; }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void DawnFxRpc(Vector3 at, float radius, float seconds)
+        {
+            Sfx.Play(Sound.Toll, at + Vector3.up * 2f, 0.9f, 1.4f);
+            Sfx.Play(Sound.Revive, at + Vector3.up, 0.7f, 0.9f);
+            ClassFx.Dawnbreak(Vfx.Floor(at), radius, seconds);
+            if (NetworkPlayer.Local != null && Vector3.Distance(NetworkPlayer.Local.transform.position, at) < 20f) NetworkPlayer.Local.AddShake(0.2f);
         }
 
         private void DeathFromShadow(ulong targetId, float att)
@@ -483,7 +526,20 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void CastFxRpc(byte cls)
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.7f);
+            if (!IsOwner)
+            {
+                var (pose, secs) = (ClassId)cls switch
+                {
+                    ClassId.Knight => (RigAction.Plant, 0.9f),
+                    ClassId.Cleric => (RigAction.Pray, 1f),
+                    ClassId.Rogue => (RigAction.Vanish, 0.45f),
+                    ClassId.Ranger => (RigAction.Draw, 0.7f),
+                    ClassId.Flagellant => (RigAction.Roar, 0.8f),
+                    ClassId.PlagueDoctor => (RigAction.Point, 0.6f),
+                    _ => (RigAction.Cast, 0.8f),
+                };
+                player.Rig?.Play(pose, secs);
+            }
             var c = UltColor((ClassId)cls);
             Sfx.Play(Sound.Relic, transform.position + Vector3.up * 1.5f, 1f, 0.8f);
             Vfx.AbilityFlash(transform.position + Vector3.up * 1.6f, c, 6f, 8f, 0.5f);
@@ -516,6 +572,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void BannerFxRpc(Vector3 at)
         {
+            localBanners.Add(new Banner { At = at, Until = Time.time + BannerSeconds });
             RallyBanner.Spawn(at, NetworkPlayer.SlotColors[(int)(OwnerClientId % 4)], 8f, BannerRadius);
             FxSprite.Decal("circle_02", at, BannerRadius * 1.9f, BannerRadius * 2f, 8f, new Color(1f, 0.8f, 0.4f, 0.35f), 10f);
             // The banner's ground walled in gold light for as long as it stands (stand inside it).

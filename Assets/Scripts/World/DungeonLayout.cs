@@ -1120,9 +1120,11 @@ namespace Deepbound.World
                 var end = b.Center - axis * ((alongX ? b.Size.x : b.Size.y) / 2f + 0.8f);
                 float len = Vector3.Distance(start, end);
                 if (len < 9f || rng.NextDouble() > 0.45) continue;
+                var at = Vector3.Lerp(start, end, rng.NextDouble() < 0.5 ? 0.3f : 0.7f);
+                if (layout.FlameTraps.Exists(f => Vector3.Distance(f.At, at) < SpikeTrap.MinGap + 2f * FlameJet.HalfWidth)) continue;
                 layout.FlameTraps.Add(new FlameTrap
                 {
-                    At = Vector3.Lerp(start, end, rng.NextDouble() < 0.5 ? 0.3f : 0.7f),
+                    At = at,
                     Across = new Vector3(-axis.z, 0f, axis.x),
                     Phase = n++,
                 });

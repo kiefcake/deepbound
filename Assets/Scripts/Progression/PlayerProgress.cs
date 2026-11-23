@@ -584,6 +584,18 @@ namespace Deepbound.Progression
             if (Wears(GearId.GraveclothMantle)) dodgeStrikeUntil = Time.time + 2f;
         }
 
+        public const float PerfectStrikeSeconds = 2f, PerfectStrikeMultiplier = 1.3f;
+        /// <summary>Server: a perfect dodge readied a counter until then (<see cref="Player.PlayerLife"/>).</summary>
+        public float PerfectStrikeUntil;
+
+        /// <summary>Server: true once, if a perfect-dodge counter is ready.</summary>
+        public bool ServerConsumePerfectStrike()
+        {
+            if (Time.time > PerfectStrikeUntil) return false;
+            PerfectStrikeUntil = 0f;
+            return true;
+        }
+
         /// <summary>Server: true once, if a Mantle strike is ready.</summary>
         public bool ServerConsumeDodgeStrike()
         {
@@ -900,7 +912,7 @@ namespace Deepbound.Progression
         }
 
         /// <summary>SPD 50 is the reference speed; each point either side is ±1%.</summary>
-        public float SpeedMultiplier => (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1f + 0.15f * RelicPower(Relic.GhostLantern) : 1f) * (Blessed(Blessing.Swiftness) ? 1.12f : 1f)
+        public float SpeedMultiplier => (Player.Ultimates.InBannerLocal(transform.position) ? Player.Ultimates.BannerSpeed : 1f) * (1f + (Value(StatType.SPD) - 50f) / 100f) * (HasRelic(Relic.GhostLantern) ? 1f + 0.15f * RelicPower(Relic.GhostLantern) : 1f) * (Blessed(Blessing.Swiftness) ? 1.12f : 1f)
             * (Rallied ? 1f + 0.2f * RallyPower.Value : 1f)
             * (1f + Crafting.BootsSpeed * Boots)
             * (Pouch != null && Pouch.InStasis ? 0f : 1f)
@@ -1476,7 +1488,8 @@ namespace Deepbound.Progression
         }
 
         /// <summary>DEX 50 is the reference rate; higher DEX shortens swing recovery, floored at 50%.</summary>
-        public float AttackTimeMultiplier => Mathf.Max(0.5f, 1.5f - Value(StatType.DEX) / 50f * 0.5f) * (Pouch != null && Pouch.Bloodfury ? RareItems.BloodfuryAttackTime : 1f);
+        public float AttackTimeMultiplier => Mathf.Max(0.5f, 1.5f - Value(StatType.DEX) / 50f * 0.5f) * (Pouch != null && Pouch.Bloodfury ? RareItems.BloodfuryAttackTime : 1f)
+            * (Player.Ultimates.InBannerLocal(transform.position) ? Player.Ultimates.BannerAttackTime : 1f);
 
         private Player.Flasks Pouch => pouchCache != null ? pouchCache : (pouchCache = GetComponent<Player.Flasks>());
         private Player.Flasks pouchCache;
@@ -1927,6 +1940,30 @@ namespace Deepbound.Progression
             ApplyToHealth(refill: true);
         }
 
+        private float bannerVigorUntil, bannerVigor;
+        private Coroutine bannerVigorEnd;
+
+        /// <summary>Server: the Rallying Banner's extra maximum health (filled in at once) for <paramref name="seconds"/>.</summary>
+        public void ServerBannerVigor(float amount, float seconds)
+        {
+            if (!IsServer) return;
+            bannerVigor = amount;
+            bannerVigorUntil = Time.time + seconds;
+            OnStatsChangedServer(StatType.HP);
+            if (bannerVigorEnd != null) StopCoroutine(bannerVigorEnd);
+            bannerVigorEnd = StartCoroutine(EndBannerVigor(seconds));
+        }
+
+        private System.Collections.IEnumerator EndBannerVigor(float seconds)
+        {
+            yield return new WaitForSeconds(seconds + 0.05f);
+            bannerVigorEnd = null;
+            ApplyToHealth(refill: false);
+        }
+
+        /// <summary>Server, for tests: is the banner's extra health on?</summary>
+        public bool BannerVigorOn => Time.time < bannerVigorUntil;
+
         private void OnStatsChangedServer(StatType? stat)
         {
             // Raising max HP also heals by the amount added, so it is felt right now.
@@ -1944,6 +1981,7 @@ namespace Deepbound.Progression
             if (CatPeed.Value) hp *= CatPeeHealth;
             if (MirrorCursed.Value) hp *= MirrorHealth;
             hp *= BuildHealthScale;
+            if (Time.time < bannerVigorUntil) hp += bannerVigor;
             health.ServerSetMax(hp, refill);
             health.Defense = Stats.GetValue(StatType.DEF) + Lining * Crafting.LiningDefense;
         }

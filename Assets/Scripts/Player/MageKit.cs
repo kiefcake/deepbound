@@ -521,7 +521,7 @@ namespace Deepbound.Player
             else TidalWave.Spawn(from, dir, length, WaveArc, WaveSeconds, wet);
             Sfx.Play(Sound.Splash, from + Vector3.up, 1f, 0.75f);
             Sfx.Play(Sound.Splash, from + dir * (length * 0.5f) + Vector3.up, 0.8f, 0.6f);
-            if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.4f);
+            if (!IsOwner) player.Rig?.Play(RigAction.Thrust, 0.5f);
         }
 
         private void ResolveMeteors()
@@ -622,7 +622,7 @@ namespace Deepbound.Player
             Arrows.SpawnVisual(origin, direction, frost ? ProjectileKind.Frostbolt : ProjectileKind.Firebolt, frost ? FrostboltSpeed : FireboltSpeed, (frost ? FrostboltRange : FireboltRange) * RangeMul);
             AbilityFx.Muzzle(player.FxHand, direction, frost ? new Color(0.55f, 0.85f, 1f) : new Color(1f, 0.5f, 0.15f), player.FxHandScale + (frost ? 0.3f : 0f));
             Sfx.Play(frost ? Sound.Frost : Sound.Fire, origin, 0.55f);
-            if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
+            if (!IsOwner) player.Rig?.Play(RigAction.Thrust, 0.3f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]

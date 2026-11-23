@@ -49,6 +49,39 @@ namespace Deepbound.World
         private double Now => NetworkManager != null ? NetworkManager.ServerTime.Time : 0;
         public float Speed => Mathf.Min(MaxSpeed, BaseSpeed + (float)(Now - ArrivedAt.Value) * SpeedGrowth);
 
+        // ---- DREAD (2026-11-23, the user: "please make the tallyman extremely scary") ----
+        // He comes faster while no one is looking at him (UnseenPace); seen, he keeps his slow walk. Up close, on the local
+        // screen: the view closes in black and his tally marks scratch in at its edges (AfflictionOverlay reads LocalDread),
+        // a heartbeat quickens, torches near him gutter, his head turns to follow you and the jaw drops, the eyes flare, and
+        // now and then he is simply not there for an instant. The first time he closes on you: a wail and a bell.
+        public const float UnseenPace = 1.4f, DreadFar = 26f, DreadNear = 4f, SeenRange = 45f, SeenAngle = 55f;
+        /// <summary>Synced: no hunted player has him in view (he walks faster, and lurches).</summary>
+        public readonly NetworkVariable<bool> Unseen = new NetworkVariable<bool>();
+        /// <summary>Local: 0 far away .. 1 at arm's reach (the overlay, the heartbeat).</summary>
+        public static float LocalDread { get; private set; }
+        private float seenCheckAt, heartAt, shriekReadyAt, blinkAt, blinkUntil;
+        private bool shrieked;
+        private Transform jaw, eyes;
+        private Renderer eyeRenderer;
+        private readonly System.Collections.Generic.List<Torch> guttered = new System.Collections.Generic.List<Torch>();
+
+        private bool AnyoneWatching()
+        {
+            var head = Pos.Value + Vector3.up * 2.5f;
+            foreach (var p in PlayerLife.All)
+            {
+                if (!Huntable(p)) continue;
+                var eye = p.transform.position + Vector3.up * 1.6f;
+                var to = head - eye;
+                if (to.magnitude > SeenRange) continue;
+                var flatTo = new Vector3(to.x, 0f, to.z);
+                var fwd = p.transform.forward; fwd.y = 0f;
+                if (flatTo.sqrMagnitude < 0.01f || Vector3.Angle(fwd, flatTo) > SeenAngle) continue;
+                if (!Physics.Linecast(eye, head, Physics.DefaultRaycastLayers, QueryTriggerInteraction.Ignore)) return true;
+            }
+            return false;
+        }
+
         public override void OnNetworkSpawn()
         {
             Active = this;
@@ -69,12 +102,21 @@ namespace Deepbound.World
         public override void OnNetworkDespawn()
         {
             if (Active == this) Active = null;
+            ReleaseDread();
         }
 
         public override void OnDestroy()
         {
             if (Active == this) Active = null;
+            ReleaseDread();
             base.OnDestroy();
+        }
+
+        private void ReleaseDread()
+        {
+            LocalDread = 0f;
+            foreach (var t in guttered) if (t != null) t.Dim = 1f;
+            guttered.Clear();
         }
 
         /// <summary>Synced: server time until which he reels from holy water and cannot move or touch.</summary>
@@ -162,8 +204,9 @@ namespace Deepbound.World
                 }
             }
 
-            // No way round: he walks straight at you, through whatever is in between, at half pace.
-            float speed = Speed * (corners == null ? 0.5f : 1f) * Time.deltaTime;
+            if (Time.time >= seenCheckAt) { seenCheckAt = Time.time + 0.2f; Unseen.Value = !AnyoneWatching(); }
+            // No way round: he walks straight at you, through whatever is in between, at half pace. Unwatched, faster.
+            float speed = Speed * (corners == null ? 0.5f : 1f) * (Unseen.Value ? UnseenPace : 1f) * Time.deltaTime;
             Vector3 next = goal;
             if (corners != null && corner < corners.Length)
             {
@@ -226,8 +269,33 @@ namespace Deepbound.World
             armL.localRotation = Quaternion.Euler(-55f + s * 4f * walk, 0f, -6f);
             armR.localRotation = Quaternion.Euler(-28f - s * 10f * walk, 0f, 8f);
             lantern.localRotation = Quaternion.Euler(s * 14f * walk + Mathf.Sin(Time.time * 1.7f) * 4f, 0f, Mathf.Cos(stride * 0.5f) * 8f * walk);
+            var camT = ViewCamera.Current;
+            float dist = camT != null ? Vector3.Distance(camT.transform.position, transform.position) : 99f;
+            float dread = Leaving.Value ? 0f : Mathf.Clamp01(Mathf.InverseLerp(DreadFar, DreadNear, dist));
+            LocalDread = Mathf.MoveTowards(LocalDread, dread, Time.deltaTime * 1.5f);
+            // He looks at YOU: the skull turns after the camera further than a neck should (an owl's turn), and tips.
+            float lookYaw = 0f;
+            if (camT != null)
+            {
+                var to = camT.transform.position - transform.position; to.y = 0f;
+                if (to.sqrMagnitude > 0.1f) lookYaw = Mathf.Clamp(Vector3.SignedAngle(transform.forward, to, Vector3.up), -150f, 150f) * Mathf.Clamp01(dread * 2f);
+            }
             head.localRotation = Repelled ? Quaternion.Euler(-28f, 0f, Mathf.Sin(Time.time * 9f) * 6f)
-                : Quaternion.Euler(8f + Mathf.Sin(Time.time * 0.6f) * 3f, Mathf.Sin(Time.time * 0.45f) * 14f, Mathf.Sin(Time.time * 0.8f) * 5f);
+                : Quaternion.Euler(8f + Mathf.Sin(Time.time * 0.6f) * 3f - 10f * dread, lookYaw + Mathf.Sin(Time.time * 0.45f) * 14f * (1f - dread), Mathf.Sin(Time.time * 0.8f) * 5f + 22f * dread);
+            // The jaw hangs open as he nears, chattering when he is on you.
+            if (jaw != null) jaw.localRotation = Quaternion.Euler(28f * dread + (dread > 0.8f ? Mathf.Sin(Time.time * 38f) * 6f : 0f), 0f, 0f);
+            if (eyeRenderer != null) ArtLibrary.SetGlow(eyeRenderer, LanternGreen * (3f + 9f * dread * (0.8f + 0.2f * Mathf.Sin(Time.time * 23f))));
+            // Unwatched, his walk turns into a lurch: the body pitched forward, the arms hanging.
+            if (Unseen.Value && walk > 0.2f)
+            {
+                vis.localRotation = Quaternion.Euler(14f, 0f, Mathf.Sin(stride * 0.5f) * 6f);
+                armL.localRotation = Quaternion.Euler(-12f + s * 20f, 0f, -4f);
+            }
+            else vis.localRotation = Quaternion.Slerp(vis.localRotation, Quaternion.identity, 1f - Mathf.Exp(-Time.deltaTime * 6f));
+            // Now and then he is simply not there for a blink (only while near, never while leaving).
+            if (dread > 0.15f && Time.time >= blinkAt) { blinkAt = Time.time + Random.Range(2.5f, 6f); blinkUntil = Time.time + Random.Range(0.07f, 0.16f); }
+            vis.gameObject.SetActive(Time.time >= blinkUntil || Leaving.Value);
+            TickDread(dread, dist);
             if (Repelled) armR.localRotation = Quaternion.Euler(-95f, 0f, 20f);
             float bob = Mathf.Abs(Mathf.Cos(stride)) * 0.05f * walk;
 
@@ -238,7 +306,9 @@ namespace Deepbound.World
                 sink = Mathf.Clamp01((Time.time - leftAt) / 2.4f);
             }
             vis.localPosition = new Vector3(0f, bob - sink * 2.9f, 0f);
-            if (lanternLight != null) lanternLight.intensity = (2.2f + Mathf.Sin(Time.time * 7f) * 0.2f) * (1f - sink) * (Repelled ? 0.35f : 1f);
+            // The lantern burns steady far off and stutters as he gets close.
+            float stutter = LocalDread > 0.4f && Mathf.PerlinNoise(Time.time * 9f, 0.3f) < 0.3f ? 0.25f : 1f;
+            if (lanternLight != null) lanternLight.intensity = (2.2f + Mathf.Sin(Time.time * 7f) * 0.2f) * (1f - sink) * (Repelled ? 0.35f : 1f) * stutter;
             if (mist != null) mist.localScale = new Vector3(1f + Mathf.Sin(Time.time * 0.9f) * 0.08f, 1f, 1f + Mathf.Cos(Time.time * 0.7f) * 0.08f) * (1f - sink * 0.6f);
 
             // Heavy, slow footfalls and a murmur from the ledger, near enough to hear.
@@ -253,7 +323,47 @@ namespace Deepbound.World
             if (near < 30f && !Leaving.Value)
             {
                 if (walk > 0.3f && Time.time >= stepAt) { stepAt = Time.time + Mathf.PI / Mathf.Max(0.5f, pace * 2.2f); Sfx.Play(Sound.Step, transform.position, 0.9f, 0.55f); }
-                if (Time.time >= whisperAt) { whisperAt = Time.time + Random.Range(2.2f, 3.6f); Sfx.Play(Sound.Whisper, transform.position + Vector3.up * 2.4f, 0.55f, 0.75f); }
+                if (Time.time >= whisperAt) { whisperAt = Time.time + Random.Range(1.4f, 3.2f) * Mathf.Lerp(1f, 0.5f, LocalDread); Sfx.Play(Sound.Whisper, transform.position + Vector3.up * 2.4f, Mathf.Lerp(0.55f, 1f, LocalDread), Mathf.Lerp(0.75f, 0.5f, LocalDread)); }
+            }
+        }
+
+        /// <summary>Local: the heartbeat, the torches guttering round him, and the shriek the first time he is on you.</summary>
+        private void TickDread(float dread, float dist)
+        {
+            if (Leaving.Value) { ReleaseDread(); return; }
+            if (LocalDread > 0.25f && Time.time >= heartAt)
+            {
+                heartAt = Time.time + Mathf.Lerp(1.1f, 0.38f, LocalDread);
+                Sfx.Play2D(Sound.Heartbeat, Mathf.Lerp(0.35f, 0.95f, LocalDread));
+            }
+            if (dread > 0.55f && !shrieked && Time.time >= shriekReadyAt)
+            {
+                shrieked = true;
+                shriekReadyAt = Time.time + 25f;
+                Sfx.Play(Sound.Shade, transform.position + Vector3.up * 2.4f, 1f, 0.45f);
+                Sfx.Play2D(Sound.Toll, 0.9f);
+                if (Player.NetworkPlayer.Local != null) Player.NetworkPlayer.Local.AddShake(0.25f);
+            }
+            if (dread < 0.2f) shrieked = false;
+            // Torches within 10 m of him gutter low; the ones he has left come back.
+            var at = transform.position;
+            foreach (var t in Torch.All)
+            {
+                if (t == null) continue;
+                bool near = (t.transform.position - at).sqrMagnitude < 10f * 10f;
+                if (near)
+                {
+                    if (!guttered.Contains(t)) guttered.Add(t);
+                    t.Dim = Mathf.MoveTowards(t.Dim, 0.15f + 0.12f * Mathf.PerlinNoise(Time.time * 6f, t.GetInstanceID() * 0.01f), Time.deltaTime * 2f);
+                }
+            }
+            for (int i = guttered.Count - 1; i >= 0; i--)
+            {
+                var t = guttered[i];
+                if (t == null) { guttered.RemoveAt(i); continue; }
+                if ((t.transform.position - at).sqrMagnitude < 10f * 10f) continue;
+                t.Dim = Mathf.MoveTowards(t.Dim, 1f, Time.deltaTime * 0.8f);
+                if (t.Dim >= 1f) guttered.RemoveAt(i);
             }
         }
 
@@ -303,14 +413,19 @@ namespace Deepbound.World
             // The skull is faintly self-lit, like a soul skull, so his face reads across a dark room.
             var skull = MeshKit.Part(head, "Skull", MeshKit.Ball(0.15f, 12, 8), Mat.Glow, new Vector3(0f, 0.22f, 0f), default, new Vector3(0.86f, 1.15f, 0.95f));
             ArtLibrary.SetGlow(skull.GetComponent<Renderer>(), new Color(0.72f, 0.8f, 0.7f) * 0.42f);
-            MeshKit.Part(head, "Jaw", MeshKit.Box(new Vector3(0.15f, 0.06f, 0.11f)), Mat.Bone, new Vector3(0f, 0.08f, 0.05f));
+            jaw = MeshKit.Pivot(head, "JawHinge", new Vector3(0f, 0.12f, -0.02f));
+            MeshKit.Part(jaw, "Jaw", MeshKit.Box(new Vector3(0.15f, 0.06f, 0.13f)), Mat.Bone, new Vector3(0f, -0.04f, 0.07f));
             for (int t = 0; t < 6; t++)
+            {
                 MeshKit.Part(head, "Tooth", MeshKit.Box(new Vector3(0.016f, 0.03f, 0.012f)), Mat.Bone, new Vector3(-0.05f + t * 0.02f, 0.12f, 0.115f));
+                MeshKit.Part(jaw, "LowTooth", MeshKit.Box(new Vector3(0.016f, 0.028f, 0.012f)), Mat.Bone, new Vector3(-0.05f + t * 0.02f, -0.0f, 0.13f));
+            }
             MeshKit.Part(head, "Nose", MeshKit.Box(new Vector3(0.03f, 0.045f, 0.02f)), Mat.Dark, new Vector3(0f, 0.19f, 0.135f));
             foreach (float side in new[] { -1f, 1f })
             {
                 MeshKit.Part(head, "Socket", MeshKit.Ball(0.04f, 8, 6), Mat.Dark, new Vector3(side * 0.05f, 0.25f, 0.115f), default, new Vector3(1f, 0.85f, 0.6f));
-                var eye = MeshKit.Part(head, "Eye", MeshKit.Ball(0.012f, 6, 4), Mat.Glow, new Vector3(side * 0.05f, 0.25f, 0.135f));
+                if (eyes == null) eyes = MeshKit.Pivot(head, "Eyes", Vector3.zero);
+                var eye = MeshKit.Part(eyes, "Eye", MeshKit.Ball(0.014f, 6, 4), Mat.Glow, new Vector3(side * 0.05f, 0.25f, 0.135f));
                 ArtLibrary.SetGlow(eye.GetComponent<Renderer>(), LanternGreen * 3f);
                 eye.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
@@ -328,6 +443,8 @@ namespace Deepbound.World
             var sleeveR = MeshKit.Part(armR, "Sleeve", MeshKit.Cylinder(0.06f, 0.075f, 0.9f, 7), Mat.Cloth, new Vector3(0f, -0.9f, 0f));
             ArtLibrary.Tint(sleeveR.GetComponent<Renderer>(), coat);
             MeshKit.Part(armR, "Hand", MeshKit.Box(new Vector3(0.06f, 0.14f, 0.06f)), Mat.Bone, new Vector3(0f, -0.98f, 0f));
+            for (int f = 0; f < 4; f++)
+                MeshKit.Part(armR, "Finger", MeshKit.Cylinder(0.009f, 0.004f, 0.24f, 4), Mat.Bone, new Vector3(-0.025f + f * 0.017f, -1.04f, 0.03f), new Vector3(180f - 14f, 0f, -8f + f * 5f));
             lantern = MeshKit.Pivot(armR, "Lantern", new Vector3(0f, -1.04f, 0f));
             MeshKit.Part(lantern, "Chain", MeshKit.Box(new Vector3(0.012f, 0.22f, 0.012f)), Mat.Steel, new Vector3(0f, -0.11f, 0f));
             MeshKit.Part(lantern, "Cap", MeshKit.Cylinder(0.1f, 0.03f, 0.08f, 6), Mat.Steel, new Vector3(0f, -0.3f, 0f));
@@ -353,6 +470,8 @@ namespace Deepbound.World
             var sleeveL = MeshKit.Part(armL, "Sleeve", MeshKit.Cylinder(0.06f, 0.075f, 0.82f, 7), Mat.Cloth, new Vector3(0f, -0.82f, 0f));
             ArtLibrary.Tint(sleeveL.GetComponent<Renderer>(), coat);
             MeshKit.Part(armL, "Hand", MeshKit.Box(new Vector3(0.06f, 0.12f, 0.06f)), Mat.Bone, new Vector3(0f, -0.88f, 0f));
+            for (int f = 0; f < 4; f++)
+                MeshKit.Part(armL, "Finger", MeshKit.Cylinder(0.009f, 0.004f, 0.26f, 4), Mat.Bone, new Vector3(-0.025f + f * 0.017f, -0.93f, 0.04f), new Vector3(180f - 30f, 0f, -8f + f * 5f));
             var book = MeshKit.Pivot(armL, "Ledger", new Vector3(0.12f, -0.92f, 0.06f), new Vector3(60f, 0f, 0f));
             foreach (float side in new[] { -1f, 1f })
             {
@@ -366,6 +485,9 @@ namespace Deepbound.World
             fog.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             mist = fog.transform;
             MeshKit.MergeParts(vis);
+            eyeRenderer = eyes != null ? eyes.GetComponentInChildren<Renderer>() : null;
+            // Taller than any man (he used to stand at a big man's height).
+            vis.localScale = Vector3.one * 1.14f;
         }
     }
 }

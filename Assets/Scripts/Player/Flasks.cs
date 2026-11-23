@@ -431,6 +431,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void DrinkFxRpc(byte kind)
         {
+            if (!IsOwner) player.Rig?.Play(RigAction.Drink, 0.6f);
             var k = (Kind)kind;
             Sfx.Play(Sound.Drink, transform.position + Vector3.up * 1.5f, 0.8f);
             var drunkColor = k == Kind.Mana ? DraughtColor(progress.ClassId.Value) : ColorOf(k);
@@ -501,7 +502,7 @@ namespace Deepbound.Player
         [Rpc(SendTo.ClientsAndHost)]
         private void ThrowFxRpc(byte kind, Vector3 from, Vector3 to)
         {
-            if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.3f);
+            if (!IsOwner) player.Rig?.Play(RigAction.Lob, 0.4f);
             Sfx.Play(Sound.Swing, from, 0.6f, 1.4f);
             FlaskFlight.Spawn((Kind)kind, from, to, Flight);
         }

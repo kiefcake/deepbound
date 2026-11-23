@@ -98,9 +98,39 @@ namespace Deepbound.Player
         public float DodgeReadyAt { get; private set; }
         public float DodgeCooldownNow => progress != null && progress.HasRelic(Loot.Relic.GhostLantern) ? DodgeCooldown * 0.5f : DodgeCooldown;
         private float invulnerableUntil;
+        /// <summary>
+        /// PERFECT DODGE (2026-11-23, gameplay): a blow that lands inside a real dodge's i-frames (not other invulnerability)
+        /// refunds the dodge at once and readies a counter: your next hit within <see cref="PlayerProgress.PerfectStrikeSeconds"/> s
+        /// deals x<see cref="PlayerProgress.PerfectStrikeMultiplier"/>. Once per dodge. Shown on the body (a silver flash and a
+        /// glint that rides you while the counter is ready), never as words.
+        /// </summary>
+        private bool dodgeFrames, perfectThisDodge;
 
         /// <summary>Server, tests: take no damage for a while (a stray blow resets a delivery).</summary>
-        public void ServerDebugInvulnerable(float seconds) => invulnerableUntil = Time.time + seconds;
+        public void ServerDebugInvulnerable(float seconds) { invulnerableUntil = Time.time + seconds; dodgeFrames = false; }
+
+        /// <summary>Tests: a dodge's i-frames, as the server sees them.</summary>
+        public void ServerDebugDodge() { invulnerableUntil = Time.time + DodgeInvulnerable; dodgeFrames = true; perfectThisDodge = false; }
+
+        private void ServerPerfectDodge()
+        {
+            if (progress != null) progress.PerfectStrikeUntil = Time.time + PlayerProgress.PerfectStrikeSeconds;
+            PerfectDodges++;
+            PerfectDodgeRpc();
+        }
+
+        /// <summary>Server, for tests.</summary>
+        public int PerfectDodges { get; private set; }
+
+        [Rpc(SendTo.ClientsAndHost)]
+        private void PerfectDodgeRpc()
+        {
+            if (IsOwner) DodgeReadyAt = Time.time; // the dodge comes straight back
+            Sfx.Play(Sound.Graze, transform.position + Vector3.up, 0.9f, 0.8f);
+            Sfx.Play(Sound.Dodge, transform.position + Vector3.up, 0.6f, 1.6f);
+            Art.ClassFx.PerfectDodge(transform, PlayerProgress.PerfectStrikeSeconds);
+            if (IsOwner && TryGetComponent<NetworkPlayer>(out var np)) np.AddShake(0.12f);
+        }
 
         private void Awake()
         {
@@ -118,7 +148,12 @@ namespace Deepbound.Player
                 Health.Died += HandleDied;
                 Health.DamagedServer += (lost, from) => { lastDamagedAt = Time.time; ServerRecordHit(lost, from); };
                 // Registered first, so a dodged hit is gone before blocks or relics see it.
-                Health.IncomingModifiers.Insert(0, (dmg, from) => Time.time < invulnerableUntil ? 0f : dmg);
+                Health.IncomingModifiers.Insert(0, (dmg, from) =>
+                {
+                    if (Time.time >= invulnerableUntil) return dmg;
+                    if (dodgeFrames && !perfectThisDodge && dmg > 0f) { perfectThisDodge = true; ServerPerfectDodge(); }
+                    return 0f;
+                });
                 // The cat's whisker: a one-in-a-hundred chance to slip a hit entirely.
                 Health.IncomingModifiers.Insert(1, (dmg, from) =>
                 {
@@ -556,6 +591,7 @@ namespace Deepbound.Player
         private void DodgeRpc()
         {
             invulnerableUntil = Time.time + DodgeInvulnerable;
+            dodgeFrames = true; perfectThisDodge = false;
             if (progress != null) progress.ServerOnDodge();
             DodgeFxRpc();
         }

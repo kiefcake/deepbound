@@ -1448,6 +1448,8 @@ namespace Deepbound.World
 
             if (trapPrefab != null)
             {
+                // Every bed laid so far: none lands on or beside another, or beside a flame vent.
+                var laidBeds = new System.Collections.Generic.List<Vector3>();
                 foreach (var link in layout.Links)
                 {
                     var a = layout.Rooms[link.A];
@@ -1461,8 +1463,16 @@ namespace Deepbound.World
                     float corridor = Vector3.Distance(b.Center, a.Center) - ((alongXc ? a.Size.x : a.Size.y) + (alongXc ? b.Size.x : b.Size.y)) / 2f - 1.6f;
                     float need = SpikeTrap.Length + 2f * SpikeTrap.PlateLength + 1.2f;
                     if (corridor < need) continue;
-                    float slide = ((float)rng.NextDouble() * 2f - 1f) * (corridor - need) / 2f;
-                    SpawnPlate(layout.CorridorMidpoint(link) + axis * slide + Vector3.up * 0.005f, Quaternion.LookRotation(axis), DungeonLayout.CorridorWidth, layout.Depth, rng);
+                    // A few tries along the corridor for a spot clear of its flame vent (if it has one).
+                    for (int tries = 0; tries < 6; tries++)
+                    {
+                        float slide = ((float)rng.NextDouble() * 2f - 1f) * (corridor - need) / 2f;
+                        var bed = layout.CorridorMidpoint(link) + axis * slide;
+                        if (!SpikeTrap.ClearOfTraps(bed, laidBeds, layout.FlameTraps)) continue;
+                        laidBeds.Add(bed);
+                        SpawnPlate(bed + Vector3.up * 0.005f, Quaternion.LookRotation(axis), DungeonLayout.CorridorWidth, layout.Depth, rng);
+                        break;
+                    }
                 }
                 // Rooms too (2026-10-20): a row of two or three pressure plates across a plain fight
                 // room's floor, off the doorways, in about half of them. Lure the dead across.
@@ -1484,6 +1494,8 @@ namespace Deepbound.World
                         if (shelves.Exists(q => { var g = q; g.xMin -= 3f; g.yMin -= 3f; g.xMax += 3f; g.yMax += 3f; return g.Contains(new Vector2(at.x, at.z)); })) continue;
                         if (Vector3.Distance(new Vector3(at.x, 0f, at.z), new Vector3(room.Center.x, 0f, room.Center.z)) < 2.5f) continue;
                         if (!NavMesh.SamplePosition(at, out var hit, 1.2f, NavMesh.AllAreas) || Mathf.Abs(hit.position.y - room.Center.y) > 0.3f) continue;
+                        if (!SpikeTrap.ClearOfTraps(hit.position, laidBeds, layout.FlameTraps)) continue;
+                        laidBeds.Add(hit.position);
                         SpawnPlate(hit.position + Vector3.up * 0.005f, Quaternion.LookRotation(dir), SpikeTrap.RoomWidth, layout.Depth, rng);
                     }
                 }

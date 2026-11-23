@@ -878,6 +878,179 @@ namespace Deepbound.Art
             }
         }
 
+        /// <summary>
+        /// EXPUNGE (the Plague Doctor's RMB, 2026-11-23): the blight is DRAWN OUT. From every drained creature one glob per stack
+        /// tears loose (green, souring to blood-red as it flies) and arcs back into the Doctor's chest, staggered; a ring closes IN
+        /// on the Doctor as they land (the old Tonic breathed out); then each mended ally gets a rose ring that drops over them
+        /// from above. Inward and downward, so it never reads as the Tonic or the Pandemic.
+        /// </summary>
+        public static void Expunge(Transform doctor, List<(Transform who, int stacks)> drained, List<Transform> healed)
+        {
+            if (!Live || doctor == null) return;
+            bool ownDoctor = OwnBody(doctor.position);
+            var blood = new Color(0.9f, 0.12f, 0.1f);
+            float lastLand = 0.3f;
+            int globs = 0;
+            foreach (var (who, stacks) in drained)
+            {
+                if (who == null) continue;
+                Vfx.AbilityFlash(who.position + Vector3.up * 1.2f, Plague, 1.6f, 3f, 0.3f);
+                for (int i = 0; i < stacks && globs < 40; i++, globs++)
+                {
+                    float delay = 0.06f * i + Random.Range(0f, 0.08f), flight = 0.5f + Random.Range(0f, 0.15f);
+                    lastLand = Mathf.Max(lastLand, delay + flight);
+                    var start = who.position + Vector3.up * Random.Range(0.9f, 1.6f) + Random.insideUnitSphere * 0.3f;
+                    var bend = Vector3.up * Random.Range(1.2f, 2.4f) + Random.insideUnitSphere * 1.2f;
+                    var g = FxShape.Make("ExpungeGlob", start, Quaternion.identity, delay + flight);
+                    var ball = g.Light(MeshKit.Ball(0.13f, 8, 6), H(Plague, 2.2f, 0.95f), Vector3.zero, Quaternion.identity);
+                    var tail = g.Light(MeshKit.Ball(0.08f, 6, 4), H(Plague, 1.4f, 0.5f), Vector3.zero, Quaternion.identity);
+                    ball.gameObject.SetActive(false); tail.gameObject.SetActive(false);
+                    g.Tick = (sh, k) =>
+                    {
+                        float t = (sh.Age - delay) / flight;
+                        if (t < 0f || doctor == null) return;
+                        ball.gameObject.SetActive(true); tail.gameObject.SetActive(true);
+                        var end = doctor.position + Vector3.up * (ownDoctor ? 0.9f : 1.3f);
+                        var mid = (start + end) * 0.5f + bend;
+                        float e = t * t * (3f - 2f * t);
+                        Vector3 P(float u) => Vector3.Lerp(Vector3.Lerp(start, mid, u), Vector3.Lerp(mid, end, u), u);
+                        ball.position = P(e);
+                        tail.position = P(Mathf.Max(0f, e - 0.08f));
+                        var c = Color.Lerp(Plague, blood, t);
+                        sh.Recolor(ball, H(c, 2.2f, 0.95f));
+                        sh.Recolor(tail, H(c, 1.4f, 0.5f));
+                    };
+                }
+            }
+            // The pull: a ring closing in on the Doctor's feet, timed to the globs landing.
+            var feet = Vfx.Floor(doctor.position) + Vector3.up * 0.06f;
+            var pull = FxShape.Make("ExpungePull", feet, Quaternion.identity, lastLand + 0.25f).Ride(doctor, Vector3.up * 0.06f);
+            var hoop = pull.Light(Shapes.Hoop(0.5f), H(blood, 1.6f, 0.7f), Vector3.zero, Quaternion.identity, Vector3.one * 8f);
+            var hoop2 = pull.Light(Shapes.Hoop(0.5f), H(Plague, 1.2f, 0.5f), Vector3.up * 0.03f, Quaternion.identity, Vector3.one * 6f);
+            float land = lastLand;
+            pull.Tick = (sh, k) =>
+            {
+                float u = Mathf.Clamp01(sh.Age / land);
+                hoop.localScale = Vector3.one * Mathf.Lerp(8f, 0.6f, u * u);
+                hoop2.localScale = Vector3.one * Mathf.Lerp(6f, 0.3f, u);
+                sh.Bright = Mathf.Clamp01(sh.Age * 6f) * (sh.Age > land ? Mathf.Clamp01(1f - (sh.Age - land) / 0.25f) : 1f);
+            };
+            if (healed == null) return;
+            foreach (var a in healed)
+            {
+                if (a == null) continue;
+                bool own = OwnBody(a.position);
+                var ring = FxShape.Make("ExpungeMend", a.position, Quaternion.identity, land + 0.8f).Ride(a, Vector3.zero);
+                var r = ring.Light(Shapes.Hoop(0.45f), H(RoseGold, 2f, 0.8f), Vector3.up * 2.4f, Quaternion.identity, Vector3.one * (own ? 1.6f : 1.1f));
+                r.gameObject.SetActive(false);
+                ring.Tick = (sh, k) =>
+                {
+                    float u = (sh.Age - land) / 0.8f;
+                    if (u < 0f) return;
+                    r.gameObject.SetActive(true);
+                    float e = EaseOut(Mathf.Clamp01(u));
+                    r.localPosition = Vector3.up * Mathf.Lerp(own ? 1.6f : 2.4f, 0.1f, e);
+                    r.localScale = Vector3.one * Mathf.Lerp(own ? 1.2f : 0.5f, own ? 1.8f : 1.2f, e);
+                    sh.Bright = Env(Mathf.Clamp01(u), 0.1f, 0.5f);
+                };
+            }
+        }
+
+        /// <summary>
+        /// PATIENT ZERO (the Plague Doctor's ultimate, 2026-11-23): a crown of three black-green thorns turning over the creature's
+        /// head, a sick green glow pooled at its feet, and flies hanging round it for as long as it is Patient Zero. Rides the body,
+        /// and goes out at once if it dies (the jump gets its own mark).
+        /// </summary>
+        public static void PatientZero(Transform who, float chest, float seconds)
+        {
+            if (!Live || who == null) return;
+            var h = who.GetComponent<Combat.Health>();
+            float top = Mathf.Max(1.4f, chest * 2f + 0.4f);
+            var s = FxShape.Make("PatientZero", who.position, Quaternion.identity, seconds).Ride(who, Vector3.zero);
+            var crown = s.Pivot(Vector3.up * top, Quaternion.identity);
+            var thorns = new List<Transform>();
+            for (int i = 0; i < 3; i++)
+            {
+                var rot = Quaternion.Euler(0f, i * 120f, 0f);
+                thorns.Add(s.Light(Shapes.Spindle(0.55f, 0.12f), H(new Color(0.35f, 0.7f, 0.15f), 1.8f, 0.85f), rot * new Vector3(0f, 0f, 0.38f), rot * Quaternion.Euler(-60f, 0f, 0f), null, true, crown));
+            }
+            var pool = s.Light(Shapes.Hoop(0.5f), H(Plague, 1.1f, 0.5f), Vector3.up * 0.05f, Quaternion.identity, Vector3.one * Mathf.Max(1.4f, chest * 1.6f));
+            Flies(who, who.position, 0.6f, top, seconds, 10);
+            s.Tick = (sh, k) =>
+            {
+                if (h != null && !h.IsAlive) { sh.Bright = 0f; return; }
+                crown.localRotation = Quaternion.Euler(0f, sh.Age * 70f, 0f);
+                crown.localPosition = Vector3.up * (top + 0.06f * Mathf.Sin(sh.Age * 3f));
+                pool.localScale = Vector3.one * Mathf.Max(1.4f, chest * 1.6f) * (1f + 0.08f * Mathf.Sin(sh.Age * 4f));
+                sh.Bright = Mathf.Clamp01(sh.Age * 5f) * Mathf.Clamp01((1f - k) * 6f);
+            };
+            Vfx.AbilityFlash(who.position + Vector3.up * top, Plague, 2.4f, 5f, 0.4f);
+        }
+
+        /// <summary>Patient Zero coughs: a low green ring rolls out over the floor and a spray of flecks.</summary>
+        public static void Cough(Vector3 at, float radius)
+        {
+            if (!Live) return;
+            Shock(Vfx.Floor(at), radius, Plague, 0.3f, 0.55f);
+            Vfx.Embers(at + Vector3.up * 1.2f, 14, Plague, 3.5f, 0.05f, 0.6f);
+        }
+
+        /// <summary>
+        /// DAWNBREAK (the Cleric's ultimate, 2026-11-23): a shaft of morning light drops out of the dark onto the Cleric's spot and
+        /// stands there - a tall soft column, a gold ring on the floor at its full reach that slowly turns, a brighter inner ring
+        /// breathing, and motes of light drifting up through it - then thins away. Holy gold, not the Aegis egg or the Consecrate runes.
+        /// </summary>
+        public static void Dawnbreak(Vector3 floor, float radius, float seconds)
+        {
+            if (!Live) return;
+            var dawn = new Color(1f, 0.86f, 0.55f);
+            var s = FxShape.Make("Dawnbreak", floor + Vector3.up * 0.05f, Quaternion.identity, seconds);
+            var column = s.Light(MeshKit.Cylinder(radius * 0.75f, radius * 0.55f, 18f, 24), H(dawn, 0.55f, 0.18f), Vector3.zero, Quaternion.identity, null, true);
+            var core = s.Light(MeshKit.Cylinder(radius * 0.3f, radius * 0.18f, 18f, 16), H(Color.white, 0.9f, 0.3f), Vector3.zero, Quaternion.identity, null, true);
+            var rim = s.Light(Shapes.Hoop(0.5f), H(dawn, 1.6f, 0.75f), Vector3.zero, Quaternion.identity, Vector3.one * radius * 2f);
+            var inner = s.Light(Shapes.Hoop(0.5f), H(Color.white, 1.4f, 0.6f), Vector3.up * 0.02f, Quaternion.identity, Vector3.one * radius);
+            float nextMote = 0f;
+            s.Tick = (sh, k) =>
+            {
+                // It shoots up out of the floor in the first fifth, stands, and thins out at the end.
+                float drop = Mathf.Clamp01(k * 5f);
+                column.localScale = new Vector3(1f, EaseOut(drop), 1f);
+                core.localScale = new Vector3(1f - 0.5f * k, EaseOut(drop), 1f - 0.5f * k);
+                rim.localRotation = Quaternion.Euler(0f, sh.Age * 12f, 0f);
+                inner.localScale = Vector3.one * radius * (0.9f + 0.15f * Mathf.Sin(sh.Age * 3f));
+                sh.Bright = Mathf.Clamp01(k * 8f) * Mathf.Clamp01((1f - k) * 4f);
+                if (sh.Age >= nextMote)
+                {
+                    nextMote = sh.Age + 0.12f;
+                    var p = floor + Quaternion.Euler(0f, Random.Range(0f, 360f), 0f) * Vector3.forward * Random.Range(0f, radius * 0.8f);
+                    Vfx.Embers(p + Vector3.up * 0.2f, 2, dawn, 2.2f, 0.05f, 1.4f);
+                }
+            };
+            Vfx.AbilityFlash(floor + Vector3.up * 2f, dawn, 3f, radius * 1.5f, 0.5f);
+            Shock(floor, radius, dawn, 0.4f, 0.5f);
+        }
+
+        /// <summary>
+        /// PERFECT DODGE: a silver flash at the chest and a ring snapping out at the feet, then a cool glint that rides the body while
+        /// the counter is ready (so allies and you see it on the character, not in words).
+        /// </summary>
+        public static void PerfectDodge(Transform who, float readySeconds)
+        {
+            if (!Live || who == null) return;
+            var silver = new Color(0.8f, 0.92f, 1f);
+            bool own = OwnBody(who.position);
+            Vfx.AbilityFlash(who.position + Vector3.up * 1.2f, silver, 2.2f, 4f, 0.25f);
+            Shock(Vfx.Floor(who.position), 1.6f, silver, 0.25f, 0.3f);
+            if (!own) Vfx.Embers(who.position + Vector3.up * 1f, 12, silver, 4f, 0.05f, 0.5f);
+            var glint = FxShape.Make("PerfectReady", who.position, Quaternion.identity, readySeconds).Ride(who, Vector3.zero);
+            var hoop = glint.Light(Shapes.Hoop(0.35f), H(silver, 1.6f, 0.55f), Vector3.up * (own ? 0.4f : 1.1f), Quaternion.identity, Vector3.one * (own ? 1.6f : 1f));
+            glint.Tick = (sh, k) =>
+            {
+                hoop.localRotation = Quaternion.Euler(Mathf.Sin(sh.Age * 3f) * 12f, sh.Age * 160f, 0f);
+                sh.Bright = (0.6f + 0.4f * Mathf.Sin(sh.Age * 14f)) * (1f - k * k);
+            };
+        }
+
         /// <summary>A vial into a festering wound: a sick-green burst that grows with the blight stacks it struck (1-4).</summary>
         public static void FesterBurst(Vector3 at, int stacks)
         {

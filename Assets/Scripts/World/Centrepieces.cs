@@ -75,8 +75,21 @@ namespace Deepbound.World
                     var lay = rot * Quaternion.Euler(0f, 0f, 90f);
                     var at = c + Vector3.up * 1.3f + rot * new Vector3(-1.1f, 0f, 0f);
                     // Matte bronze: on the metallic Gold material it rendered black in a dim hall (2026-11-14 shots).
-                    b.Add(bell, Mat.Marble + "#" + ColorUtility.ToHtmlStringRGB(new Color(0.62f, 0.46f, 0.26f)), Matrix4x4.TRS(at, lay, Vector3.one));
-                    b.Add(MeshKit.Lathe("greatBellIn", new[] { new Vector2(1.4f, 0.15f), new Vector2(1.05f, 0.7f), new Vector2(0.75f, 1.6f), new Vector2(0.01f, 2.1f) }, 18, true), Mat.Marble + "#" + ColorUtility.ToHtmlStringRGB(new Color(0.26f, 0.18f, 0.11f)), Matrix4x4.TRS(at, lay, Vector3.one));
+                    // SOLID (2026-11-23, the user: touching it from the back "teleports you inside of it" and climbing out took
+                    // ages): the batched shell had a thin MeshCollider that the motor pushed you through. The bell is its own
+                    // object now, with no shell collider: one CONVEX collider of its outer form, so it is solid all through,
+                    // mouth included, for players, shots and the navmesh alike.
+                    var bellGo = new GameObject("GreatBell");
+                    bellGo.transform.SetParent(lights, false);
+                    bellGo.transform.SetPositionAndRotation(at, lay);
+                    bellGo.isStatic = true;
+                    var outer = MeshKit.Part(bellGo.transform, "Bronze", bell, Mat.Marble, Vector3.zero);
+                    ArtLibrary.Tint(outer.GetComponent<Renderer>(), new Color(0.62f, 0.46f, 0.26f));
+                    var inner = MeshKit.Part(bellGo.transform, "Hollow", MeshKit.Lathe("greatBellIn", new[] { new Vector2(1.4f, 0.15f), new Vector2(1.05f, 0.7f), new Vector2(0.75f, 1.6f), new Vector2(0.01f, 2.1f) }, 18, true), Mat.Marble, Vector3.zero);
+                    ArtLibrary.Tint(inner.GetComponent<Renderer>(), new Color(0.26f, 0.18f, 0.11f));
+                    foreach (var c0 in bellGo.GetComponentsInChildren<Collider>()) Object.Destroy(c0);
+                    bellGo.AddComponent<MeshCollider>().sharedMesh = bell;
+                    bellGo.GetComponent<MeshCollider>().convex = true;
                     b.AddBox(at + rot * new Vector3(0.6f, 0.55f, 0.7f), new Vector3(0.05f, 0.9f, 0.05f), Mat.Dark, rot * Quaternion.Euler(30f, 0f, 20f));
                     // The frame: two posts and a fallen beam.
                     var f = c + rot * new Vector3(1.6f, 0f, 1.2f);

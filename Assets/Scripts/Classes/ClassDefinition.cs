@@ -105,7 +105,7 @@ namespace Deepbound.Classes
             {
                 ("PASSIVE", "Contagion", "Vials inflict Blight: poison damage, and the target takes 10% more damage from all sources. Repeated vials make it fester, up to four stacks; each stack strengthens the poison and adds 20% to your vial hits. Blight spreads when its host dies."),
                 ("LMB", "Vial", "Lob a vial that shatters in a small splash. Costs reagents; without them, vials deal reduced damage and do not Blight. Blighted kills restore reagents."),
-                ("RMB", "Tonic", "Drink a tonic and breathe it out: you and every ally within 10 m recover 18% of their health."),
+                ("RMB", "Expunge", "Tear the blight out of every enemy within 16 m: 16 damage per stack, and the blight ends. You and allies within 12 m heal 5% plus 3% per stack drawn, up to 30%."),
                 ("Q", "Miasma", "Create a lingering plague cloud that damages enemies inside it."),
                 ("E", "Plague Mask", "Cleanse and heal nearby allies, and make them immune to afflictions for 4 s."),
             }
@@ -130,7 +130,7 @@ namespace Deepbound.Classes
             : id == ClassId.Cleric
             ? new[]
             {
-                ("PASSIVE", "Grace", "Revive downed allies twice as fast."),
+                ("PASSIVE", "Benediction", "Healing beyond full health becomes a holy shield, up to 20% of maximum health. You revive allies twice as fast."),
                 ("LMB", "Smite", "Fire bolts of holy light. Deals 35% more damage when playing solo."),
                 ("RMB", "Mending Beam", "Hold on an ally to heal them; with no target, slowly heal yourself. Drains mana while active."),
                 ("Q", "Consecrate", "Bless an area: allies inside are healed and enemies inside burn."),

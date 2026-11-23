@@ -25,6 +25,19 @@ namespace Deepbound.Art
         Hurl = 15,        // the arm drawn far back and up, then thrown forward: a volley or a fan of lances
         Summon = 16,      // crouched, hands low and wide pulling at the ground, then rising: the dead or the dark come up
         Channel = 17,     // arms spread wide, head back, lifted onto the toes and swaying: a long working (spirals, echoes, hymns)
+        // 2026-11-23, the user: "make animations for characters while they are using abilities" (they all raised both arms: Cast).
+        Lob = 18,         // overhand throw: the arm cocked back behind the head, the weight rocking back, then flung over and forward
+        Thrust = 19,      // both palms shoved out at the target, a lunge step behind them (a bolt, a wave)
+        Pray = 20,        // hands drawn together before the chest, head bowed, knees giving a little (blessings, heals)
+        Siphon = 21,      // arms flung out ahead, clawing, then hauled in to the chest, hunched over (draining something)
+        Plant = 22,       // both hands high on a haft, then driven down into the floor, dropping onto one knee (a banner)
+        Leap = 23,        // a deep crouch, arms swept back, then springing tall and reaching up
+        Vanish = 24,      // a low crouch, the cloak arm thrown across the face
+        Fan = 25,         // a flat side-arm throw across the body, the torso uncoiling with it (a fan of blades)
+        Roar = 26,        // chest out, arms flung down and back, head thrown up (a war cry)
+        Drink = 27,       // a hand to the mouth and the head tipping back
+        Lash = 28,        // the arm over the shoulder, whipping down across one's own back, flinching from it
+        Point = 29,       // the arm thrust straight out at one target, the body turned side-on behind it
     }
 
     /// <summary>The emote wheel's gestures (2026-11-01), played on a player's rig for everyone to see.</summary>
@@ -469,6 +482,173 @@ namespace Deepbound.Art
                     glow = 1f + 3f * t;
                     break;
 
+                case RigAction.Lob:
+                {
+                    // Back for the first 40%, then over and forward; the off arm points the way.
+                    float back = Ease(Mathf.Clamp01(t / 0.4f)), fling = Ease(Mathf.Clamp01((t - 0.4f) / 0.35f)), settle = Mathf.Clamp01((t - 0.75f) / 0.25f);
+                    var cocked = new Vector3(-165f, -15f, 35f);
+                    var thrown = new Vector3(-55f, 20f, 5f);
+                    armR = Vector3.Lerp(Vector3.Lerp(armR, cocked, back), thrown, fling);
+                    armR = Vector3.Lerp(armR, new Vector3(-20f, 0f, 8f), settle * 0.6f);
+                    armL = Vector3.Lerp(armL, new Vector3(-70f, -10f, -10f), back * (1f - settle));
+                    torso += new Vector3(-12f * back + 22f * fling, -18f * back + 22f * fling, 0f) * (1f - 0.5f * settle);
+                    head += new Vector3(4f * back - 6f * fling, 10f * back - 10f * fling, 0f);
+                    legL += new Vector3(-18f, 0f, 0f) * fling * (1f - settle);
+                    break;
+                }
+
+                case RigAction.Thrust:
+                {
+                    float push = Ease(Mathf.Clamp01(t * 2.5f)), hold = 1f - Ease(Mathf.Clamp01((t - 0.55f) / 0.45f));
+                    float k2 = push * hold;
+                    armR = Vector3.Lerp(armR, new Vector3(-92f, 12f, -4f), k2);
+                    armL = Vector3.Lerp(armL, new Vector3(-92f, -12f, 4f), k2);
+                    torso += new Vector3(14f, 0f, 0f) * k2;
+                    head += new Vector3(-6f, 0f, 0f) * k2;
+                    legL += new Vector3(-24f, 0f, 0f) * k2;
+                    legR += new Vector3(14f, 0f, 0f) * k2;
+                    hipsOffset += new Vector3(0f, -0.06f, 0.08f) * k2;
+                    glow = 1f + 3f * k2;
+                    break;
+                }
+
+                case RigAction.Pray:
+                {
+                    float pr = Ease(Mathf.Clamp01(t * 3f)) * (1f - Ease(Mathf.Clamp01((t - 0.8f) / 0.2f)));
+                    armR = Vector3.Lerp(armR, new Vector3(-70f, -42f, -12f), pr);
+                    armL = Vector3.Lerp(armL, new Vector3(-70f, 42f, 12f), pr);
+                    torso += new Vector3(10f, 0f, 0f) * pr;
+                    head += new Vector3(28f, 0f, 0f) * pr;
+                    legL += new Vector3(-10f, 0f, 0f) * pr;
+                    legR += new Vector3(-10f, 0f, 0f) * pr;
+                    hipsOffset += new Vector3(0f, -0.06f, 0f) * pr;
+                    glow = 1f + 2.5f * pr;
+                    break;
+                }
+
+                case RigAction.Siphon:
+                {
+                    float reach = Ease(Mathf.Clamp01(t / 0.3f)), haul = Ease(Mathf.Clamp01((t - 0.3f) / 0.45f)), let = Ease(Mathf.Clamp01((t - 0.8f) / 0.2f));
+                    var outR = new Vector3(-95f, -10f, 40f); var outL = new Vector3(-95f, 10f, -40f);
+                    var inR = new Vector3(-55f, -48f, -5f); var inL = new Vector3(-55f, 48f, 5f);
+                    armR = Vector3.Lerp(armR, Vector3.Lerp(outR, inR, haul), reach * (1f - let));
+                    armL = Vector3.Lerp(armL, Vector3.Lerp(outL, inL, haul), reach * (1f - let));
+                    // Clawing: a tremble while the arms are out.
+                    if (haul < 1f) { armR.x += Mathf.Sin(Time.time * 40f) * 3f * reach; armL.x -= Mathf.Sin(Time.time * 40f) * 3f * reach; }
+                    torso += new Vector3(-6f * reach + 26f * haul, 0f, 0f) * (1f - let);
+                    head += new Vector3(-10f * reach + 18f * haul, 0f, 0f) * (1f - let);
+                    hipsOffset += new Vector3(0f, -0.08f, 0f) * haul * (1f - let);
+                    glow = 1f + 3f * haul * (1f - let);
+                    break;
+                }
+
+                case RigAction.Plant:
+                {
+                    float lift = Ease(Mathf.Clamp01(t / 0.35f)), drive = Ease(Mathf.Clamp01((t - 0.35f) / 0.2f)), rise = Ease(Mathf.Clamp01((t - 0.75f) / 0.25f));
+                    var high = new Vector3(-170f, 0f, 8f);
+                    var low = new Vector3(-60f, 0f, 4f);
+                    var arm = Vector3.Lerp(Vector3.Lerp(armR, high, lift), low, drive);
+                    armR = Vector3.Lerp(arm, armR, rise);
+                    armL = Vector3.Lerp(Vector3.Lerp(armL, high + new Vector3(0f, 0f, -16f), lift), low + new Vector3(0f, 0f, -8f), drive);
+                    armL = Vector3.Lerp(armL, new Vector3(-10f, 0f, -6f), rise);
+                    float kneel = drive * (1f - rise);
+                    torso += new Vector3(-8f * lift * (1f - drive) + 24f * kneel, 0f, 0f);
+                    legL += new Vector3(-80f, 0f, 0f) * kneel;
+                    legR += new Vector3(10f, 0f, 0f) * kneel;
+                    hipsOffset += new Vector3(0f, -0.32f, 0f) * kneel;
+                    glow = 1f + 3f * kneel;
+                    break;
+                }
+
+                case RigAction.Leap:
+                {
+                    float crouch = Ease(Mathf.Clamp01(t / 0.35f)), spring = Ease(Mathf.Clamp01((t - 0.35f) / 0.3f)), land = Mathf.Clamp01((t - 0.75f) / 0.25f);
+                    float c2 = crouch * (1f - spring);
+                    armR = Vector3.Lerp(Vector3.Lerp(armR, new Vector3(40f, 0f, 20f), c2), new Vector3(-165f, 0f, 15f), spring * (1f - land));
+                    armL = Vector3.Lerp(Vector3.Lerp(armL, new Vector3(40f, 0f, -20f), c2), new Vector3(-165f, 0f, -15f), spring * (1f - land));
+                    torso += new Vector3(30f * c2 - 10f * spring * (1f - land), 0f, 0f);
+                    head += new Vector3(-20f * c2 - 15f * spring * (1f - land), 0f, 0f);
+                    legL += new Vector3(-60f, 0f, 0f) * c2 + new Vector3(-20f, 0f, 0f) * spring * (1f - land);
+                    legR += new Vector3(-60f, 0f, 0f) * c2 + new Vector3(15f, 0f, 0f) * spring * (1f - land);
+                    hipsOffset += new Vector3(0f, -0.28f * c2 + 0.06f * spring * (1f - land), 0f);
+                    break;
+                }
+
+                case RigAction.Vanish:
+                {
+                    float v = Ease(Mathf.Clamp01(t * 3f)) * (1f - Ease(Mathf.Clamp01((t - 0.75f) / 0.25f)));
+                    armL = Vector3.Lerp(armL, new Vector3(-100f, 55f, 0f), v);
+                    armR = Vector3.Lerp(armR, new Vector3(20f, 0f, 25f), v);
+                    torso += new Vector3(30f, 10f, 0f) * v;
+                    head += new Vector3(18f, -15f, 0f) * v;
+                    legL += new Vector3(-55f, 0f, 0f) * v;
+                    legR += new Vector3(-40f, 0f, 0f) * v;
+                    hipsOffset += new Vector3(0f, -0.3f, 0f) * v;
+                    break;
+                }
+
+                case RigAction.Fan:
+                {
+                    float coil = Ease(Mathf.Clamp01(t / 0.35f)), loose = Ease(Mathf.Clamp01((t - 0.35f) / 0.25f)), rest = Ease(Mathf.Clamp01((t - 0.75f) / 0.25f));
+                    var cocked = new Vector3(-80f, 70f, -20f);  // across the chest
+                    var flung = new Vector3(-85f, -60f, 40f);   // out to the side
+                    armR = Vector3.Lerp(Vector3.Lerp(Vector3.Lerp(armR, cocked, coil), flung, loose), armR, rest);
+                    torso += new Vector3(6f, 26f * coil - 52f * loose, 0f) * (1f - rest);
+                    head += new Vector3(0f, -18f * coil + 26f * loose, 0f) * (1f - rest);
+                    hipsOffset += new Vector3(0f, -0.04f, 0f) * coil * (1f - rest);
+                    break;
+                }
+
+                case RigAction.Roar:
+                {
+                    float r2 = Ease(Mathf.Clamp01(t * 3.5f)) * (1f - Ease(Mathf.Clamp01((t - 0.7f) / 0.3f)));
+                    float shake = Mathf.Sin(Time.time * 50f) * 2f * r2;
+                    armR = Vector3.Lerp(armR, new Vector3(30f, 0f, 45f), r2);
+                    armL = Vector3.Lerp(armL, new Vector3(30f, 0f, -45f), r2);
+                    torso += new Vector3(-20f + shake, 0f, 0f) * r2;
+                    head += new Vector3(-30f + shake, 0f, 0f) * r2;
+                    legL += new Vector3(-14f, 0f, -8f) * r2;
+                    legR += new Vector3(10f, 0f, 8f) * r2;
+                    hipsOffset += new Vector3(0f, -0.08f, 0f) * r2;
+                    glow = 1f + 3.5f * r2;
+                    break;
+                }
+
+                case RigAction.Drink:
+                {
+                    float up2 = Ease(Mathf.Clamp01(t / 0.3f)) * (1f - Ease(Mathf.Clamp01((t - 0.8f) / 0.2f)));
+                    float tip = Ease(Mathf.Clamp01((t - 0.25f) / 0.3f)) * (1f - Ease(Mathf.Clamp01((t - 0.8f) / 0.2f)));
+                    armR = Vector3.Lerp(armR, new Vector3(-130f, -55f, -15f), up2);
+                    head += new Vector3(-30f, 0f, 0f) * tip;
+                    torso += new Vector3(-8f, 0f, 0f) * tip;
+                    break;
+                }
+
+                case RigAction.Lash:
+                {
+                    float wind = Ease(Mathf.Clamp01(t / 0.35f)), strike = Ease(Mathf.Clamp01((t - 0.35f) / 0.2f)), ease2 = Ease(Mathf.Clamp01((t - 0.7f) / 0.3f));
+                    var overhead2 = new Vector3(-175f, 20f, -10f);
+                    var across = new Vector3(-150f, 60f, -40f);
+                    armR = Vector3.Lerp(Vector3.Lerp(Vector3.Lerp(armR, overhead2, wind), across, strike), armR, ease2);
+                    float wince = strike * (1f - ease2);
+                    torso += new Vector3(-6f * wind + 22f * wince, 0f, -8f * wince);
+                    head += new Vector3(20f, 14f, 0f) * wince;
+                    hipsOffset += new Vector3(0f, -0.05f, 0f) * wince;
+                    glow = 1f + 2f * wince;
+                    break;
+                }
+
+                case RigAction.Point:
+                {
+                    float pt = Ease(Mathf.Clamp01(t * 3.5f)) * (1f - Ease(Mathf.Clamp01((t - 0.8f) / 0.2f)));
+                    armR = Vector3.Lerp(armR, new Vector3(-90f, -5f, 0f), pt);
+                    armL = Vector3.Lerp(armL, new Vector3(-20f, 0f, -25f), pt);
+                    torso += new Vector3(0f, -28f, 0f) * pt;
+                    head += new Vector3(0f, 24f, 0f) * pt;
+                    glow = 1f + 2f * pt;
+                    break;
+                }
+
                 case RigAction.Death:
                     // Crumple: the knees go, the torso folds (forward for most, back for some), the head
                     // lolls, the arms go slack; then the body sinks.
@@ -548,7 +728,7 @@ namespace Deepbound.Art
             head.y += headYaw;
 
             // Ease each joint toward its target: quick for strikes, softer otherwise.
-            float rate = action == RigAction.Swing || action == RigAction.Slam || action == RigAction.Bash ? 28f : action == RigAction.Death ? 10f : 14f;
+            float rate = action == RigAction.Swing || action == RigAction.Slam || action == RigAction.Bash || action == RigAction.Lob || action == RigAction.Thrust || action == RigAction.Fan || action == RigAction.Lash ? 28f : action == RigAction.Death ? 10f : 14f;
             float a = poseKnown ? 1f - Mathf.Exp(-dt * rate) : 1f;
             Ease(ArmR, armR, 0, a); Ease(ArmL, armL, 1, a); Ease(Torso, torso, 2, a); Ease(Head, head, 3, a);
             Ease(LegL, legL, 4, a); Ease(LegR, legR, 5, a);

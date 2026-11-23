@@ -54,6 +54,7 @@ namespace Deepbound.Loot
             }
             if (banner > 0f) m *= 1f + 0.08f * banner;
             if (p.ServerConsumeDodgeStrike()) m *= 1.6f;
+            if (p.ServerConsumePerfectStrike()) m *= PlayerProgress.PerfectStrikeMultiplier;
             if (p.Blessed(Blessing.Wrath)) m *= 1.15f;
             if (p.HasRelic(Relic.ExecutionersCoin) && target.Fraction < (Relics.Has(p, Relics.Synergy.Reaper) ? 0.45f : 0.3f)) m *= 1f + 0.5f * p.RelicPower(Relic.ExecutionersCoin);
             if (p.HasRelic(Relic.WintersTooth) && target.Chilled.Value) m *= 1f + 0.25f * p.RelicPower(Relic.WintersTooth) + (Relics.Has(p, Relics.Synergy.DeepWinter) ? 0.25f : 0f);

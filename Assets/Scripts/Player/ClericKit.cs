@@ -15,7 +15,8 @@ namespace Deepbound.Player
     /// The Cleric's kit: keep everyone standing.
     ///
     /// <list type="bullet">
-    /// <item><b>Passive — Grace.</b> Revives teammates twice as fast (in PlayerLife).</item>
+    /// <item><b>Passive — Benediction.</b> (2026-11-23, reworked from Grace) Healing past full health becomes a holy shield, up to
+    ///   <see cref="BenedictionCap"/> of the target's max health (your own self-heal too, so it counts solo); revives stay twice as fast.</item>
     /// <item><b>LMB — Smite.</b> Golden bolts; modest damage so the healer can still contribute.</item>
     /// <item><b>RMB — Mending Beam.</b> Hold on a teammate under your crosshair to heal them
     ///   continuously; with no one targeted it heals you at a third of the rate. Costs mana
@@ -105,6 +106,21 @@ namespace Deepbound.Player
         private float ManaRegen => 2.5f + progress.Value(StatType.WIS) * 0.11f; // 2026-11-12: lower from the start (11.5/s -> 8/s at base WIS)
         /// <summary>WIS 50 is the reference; healing and shields scale ±1% per point.</summary>
         private float Potency => 1f + (progress.Value(StatType.WIS) - 50f) / 100f;
+
+        public const float BenedictionCap = 0.2f, BenedictionSeconds = 6f;
+
+        /// <summary>Server: every heal the Cleric gives. What would spill past full health becomes a shield (Benediction).</summary>
+        public static void Bless(Health h, float amount)
+        {
+            if (h == null || !h.IsAlive || amount <= 0f) return;
+            float room = h.Max.Value - h.Current.Value;
+            h.ServerHeal(amount);
+            float over = amount - Mathf.Max(0f, room);
+            if (over <= 0f) return;
+            float cap = h.Max.Value * BenedictionCap;
+            if (h.Shield.Value >= cap) return;
+            h.ServerShield(Mathf.Min(cap, h.Shield.Value + over), BenedictionSeconds);
+        }
 
         // ---- IClassKit ----
 
@@ -238,7 +254,7 @@ namespace Deepbound.Player
             float rate = BeamHealPerSec * Potency * (target == health ? 0.33f : 1f) * (progress.Mastered(2) ? 1.4f : 1f);
             if (progress.Mastered(2) && target.Current.Value >= target.Max.Value - 0.01f)
                 target.ServerShield(Mathf.Min(40f, target.Shield.Value + rate * Time.deltaTime), 4f);
-            target.ServerHeal(rate * Time.deltaTime);
+            Bless(target, rate * Time.deltaTime);
             Enemies.EnemyBrain.ServerHealThreat(health, rate * Time.deltaTime);
         }
 
@@ -268,13 +284,14 @@ namespace Deepbound.Player
             {
                 nextPlantMend = Time.time + 0.5f;
                 foreach (var ally in CombatQuery.Circle(transform.position, 5f, Team.Players).ToArray())
-                    if (ally != health) ally.ServerHeal(ally.Max.Value * 0.01f);
+                    if (ally != health) Bless(ally, ally.Max.Value * 0.01f);
             }
         }
 
         [Rpc(SendTo.ClientsAndHost)]
         private void PlantFxRpc(bool planted)
         {
+            if (!IsOwner) player.Rig?.Play(RigAction.Pray, 0.6f);
             if (!planted) return;
             var gold = new Color(1f, 0.85f, 0.45f);
             Vfx.Ring(transform.position + Vector3.up * 0.05f, 1.2f, gold, 0.5f);
@@ -309,7 +326,7 @@ namespace Deepbound.Player
                     Health worst = null;
                     foreach (var ally in CombatQuery.Circle(transform.position, 12f, Team.Players))
                         if (ally.IsAlive && (worst == null || ally.Fraction < worst.Fraction)) worst = ally;
-                    if (worst != null && dealt > 0f) worst.ServerHeal(dealt * 0.4f * Potency);
+                    if (worst != null && dealt > 0f) Bless(worst, dealt * 0.4f * Potency);
                 });
             }
             else if (progress.OnPath(2))
@@ -320,7 +337,7 @@ namespace Deepbound.Player
                 Arrows.ServerFire(origin, direction, 0f, Team.Players, me, SmiteSpeed, h =>
                 {
                     if (this == null || h == health || !healed.Add(h)) return;
-                    h.ServerHeal(ShepherdHeal * Potency);
+                    Bless(h, ShepherdHeal * Potency);
                     progress.AbilityBurstRpc(h.Center, 0.6f, PlayerProgress.FxKind.Holy);
                 }, true, SmiteRange * RangeMul);
             }
@@ -379,7 +396,7 @@ namespace Deepbound.Player
                 if (Time.time > z.Until || Vector3.Distance(ZoneAt(z), dead.transform.position) > ZoneRadius + 0.5f) continue;
                 z.Until += 2f;
                 zones[i] = z;
-                foreach (var ally in CombatQuery.Circle(ZoneAt(z), ZoneRadius, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.05f);
+                foreach (var ally in CombatQuery.Circle(ZoneAt(z), ZoneRadius, Team.Players).ToArray()) Bless(ally, ally.Max.Value * 0.05f);
                 progress.AbilityBurstRpc(dead.transform.position, 1f, PlayerProgress.FxKind.Holy);
                 ZoneExtendRpc(i, 2f);
                 break;
@@ -407,7 +424,7 @@ namespace Deepbound.Player
                     // Hallowed Burst (rank 5 A): it ends in a burst.
                     if (progress.A(AbilitySlot.Q, 4))
                     {
-                        foreach (var ally in CombatQuery.Circle(at, ZoneRadius, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.2f);
+                        foreach (var ally in CombatQuery.Circle(at, ZoneRadius, Team.Players).ToArray()) Bless(ally, ally.Max.Value * 0.2f);
                         AbilityKit.Blast(at, ZoneRadius, ConsecrateBurnPerSec * 2.5f * progress.AttackMultiplier, NetworkObjectId, "Hallowed Burst", h => AbilityKit.Stun(h, 1f));
                         progress.AbilityBurstRpc(at, ZoneRadius, PlayerProgress.FxKind.Holy);
                     }
@@ -415,7 +432,7 @@ namespace Deepbound.Player
                 }
                 foreach (var ally in CombatQuery.Circle(at, ZoneRadius, Team.Players).ToArray())
                 {
-                    ally.ServerHeal(ConsecrateHealPerSec * Potency * progress.Potency(AbilitySlot.Q) * dt);
+                    Bless(ally, ConsecrateHealPerSec * Potency * progress.Potency(AbilitySlot.Q) * dt);
                     // Sanctuary (rank 3 B): a downing blow leaves 1 health, once each per cast.
                     if (progress.B(AbilitySlot.Q, 2)) AbilityKit.ServerSanctuary(ally, 0.6f, NetworkObjectId);
                     // Purifying (rank 4 B): afflictions wash away inside.
@@ -463,7 +480,7 @@ namespace Deepbound.Player
                 // Swift Wings (rank 2 B).
                 if (progress.B(AbilitySlot.E, 1) && ally.TryGetComponent<PlayerProgress>(out var ap)) ap.ServerRally(4f, 1f);
                 // Mending (rank 3 A).
-                if (progress.A(AbilitySlot.E, 2)) ally.ServerHeal(ally.Max.Value * 0.25f);
+                if (progress.A(AbilitySlot.E, 2)) Bless(ally, ally.Max.Value * 0.25f);
                 // Purge (rank 3 B).
                 if (progress.B(AbilitySlot.E, 2) && ally.TryGetComponent<PlayerDebuffs>(out var db)) { db.ServerCleanse(); db.ServerWard(4f); }
                 // Echo of Grace (rank 5 B): what is left when it runs out comes back as healing.
@@ -474,7 +491,7 @@ namespace Deepbound.Player
                     {
                         if (who == null || !who.IsAlive || who.Shield.Value <= 0f) return;
                         float left = who.Shield.Value;
-                        who.ServerHeal(left);
+                        Bless(who, left);
                         progress.AbilityTextRpc(who.Center + Vector3.up, "GRACE +" + Mathf.RoundToInt(left), PlayerProgress.FxKind.Holy);
                     });
                 }
@@ -494,7 +511,7 @@ namespace Deepbound.Player
             Arrows.SpawnVisual(origin, direction, ProjectileKind.Smite, SmiteSpeed, SmiteRange * RangeMul);
             AbilityFx.Muzzle(player.FxHand, direction, new Color(1f, 0.85f, 0.45f), player.FxHandScale);
             Sfx.Play(Sound.Frost, origin, 0.45f, 0.7f);
-            if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.25f);
+            if (!IsOwner) player.Rig?.Play(RigAction.Point, 0.3f);
         }
 
         /// <summary>Server: Halo: for a few seconds anything that comes inside 5 m is thrown back out.</summary>
@@ -549,7 +566,7 @@ namespace Deepbound.Player
             // 2026-11-21 (distinct abilities): a shaft of light drops onto the spot and a cross burns into the ground.
             ClassFx.ClericConsecrate(at, ConsecrateRadius, ConsecrateSeconds, transform.forward, follow ? transform : null);
             Sfx.Play(Sound.Revive, at + Vector3.up, 0.9f, 0.85f);
-            if (!IsOwner) player.Rig?.Play(RigAction.Cast, 0.5f);
+            if (!IsOwner) player.Rig?.Play(RigAction.Pray, 0.8f);
         }
 
         [Rpc(SendTo.ClientsAndHost)]
@@ -558,7 +575,7 @@ namespace Deepbound.Player
             Sfx.Play(Sound.Relic, transform.position + Vector3.up, 0.9f, 1.2f);
             var gold = new Color(1f, 0.85f, 0.45f);
             Vfx.AbilityFlash(transform.position + Vector3.up * 1.5f, gold, 4f, 10f, 0.5f);
-            player.Rig?.Play(RigAction.Cast, 0.6f);
+            player.Rig?.Play(RigAction.Point, 0.5f);
             // 2026-11-21 (distinct abilities): a gyroscope of gold rings closes round every ally the Aegis takes, then
             // settles into the shield bubble each wears (PlayerStatusFx).
             foreach (var ally in PlayerLife.All)

@@ -601,7 +601,7 @@ namespace Deepbound.Networking
                     bool rotting = dummy.Current.Value < d0;
                     ph.ServerSetFraction(0.5f);
                     float h0 = ph.Current.Value;
-                    int healedN = pd.ServerTonic(me.transform.position);
+                    int healedN = pd.ServerExpunge(me.transform.position, out _);
                     bool tonic = ph.Current.Value > h0;
                     pdb.ServerPoison(6f, 4f);
                     bool poisoned = pdb.Poisoned;
@@ -4543,6 +4543,14 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.3f);
                 Log("ultimate", Ultimates.Name(clsT) + ", charge after " + ultT.Charge.Value.ToString("F0") + ", in banner " + Ultimates.InBanner(local.transform.position),
                     ultT.Charge.Value < 1f && (clsT != Classes.ClassId.Knight || Ultimates.InBanner(local.transform.position)));
+                if (clsT == Classes.ClassId.Knight)
+                {
+                    // The banner (reworked 2026-11-23): +100 max health for the party, faster blows and feet inside it, no damage bonus.
+                    var bpT = local.GetComponent<PlayerProgress>();
+                    Log("rallying banner", "vigor " + bpT.BannerVigorOn + " max " + local.GetComponent<Health>().Max.Value.ToString("F0") + ", attack time x" + (Ultimates.InBannerLocal(local.transform.position) ? Ultimates.BannerAttackTime : 1f)
+                        + ", speed in banner " + Ultimates.InBannerLocal(local.transform.position) + ", damage x" + Ultimates.OutgoingMultiplier(bpT),
+                        bpT.BannerVigorOn && Ultimates.InBannerLocal(local.transform.position) && Mathf.Approximately(Ultimates.OutgoingMultiplier(bpT), 1f));
+                }
 
                 // The Omen Stone exists at camp (the run is already under way, so it will not turn).
                 Log("omen stone", FindObjectsByType<OmenStone>(FindObjectsSortMode.None).Length + " stone(s), omen " + DungeonDirector.OmenName(dc.RunOmen),
@@ -5650,6 +5658,57 @@ namespace Deepbound.Networking
                         Log("festering blight", "stacks " + st1 + " -> " + st4 + ", one second at 1 stack " + oneTick.ToString("F0") + ", at 4 " + fourTick.ToString("F0"),
                             st1 == 1 && st4 == Health.MaxBlightStacks && fourTick > oneTick * 1.8f);
                     }
+                    // PERFECT DODGE (2026-11-23): a blow inside a dodge's i-frames readies a counter that hits harder.
+                    {
+                        var pl = local.GetComponent<PlayerLife>();
+                        var pp = local.GetComponent<PlayerProgress>();
+                        var meH = local.GetComponent<Health>();
+                        meH.Shield.Value = 0f;
+                        int pd0 = pl.PerfectDodges;
+                        pl.ServerDebugDodge();
+                        float hp0 = meH.Current.Value;
+                        meH.ServerDamage(30f, local.transform.position + local.transform.forward * 2f, ulong.MaxValue);
+                        bool untouched = meH.Current.Value >= hp0;
+                        bool ready = Time.time < pp.PerfectStrikeUntil;
+                        var foeP = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 4f, false, calm: true);
+                        var fhp = foeP != null ? foeP.GetComponent<Health>() : null;
+                        float boosted = 0f, plain = 0f;
+                        if (fhp != null)
+                        {
+                            fhp.ServerSetMax(5000f, refill: true);
+                            float f0 = fhp.Current.Value; fhp.ServerDamage(20f, local.transform.position, local.NetworkObjectId); boosted = f0 - fhp.Current.Value;
+                            float f1 = fhp.Current.Value; fhp.ServerDamage(20f, local.transform.position, local.NetworkObjectId); plain = f1 - fhp.Current.Value;
+                            foeP.NetworkObject.Despawn();
+                        }
+                        // A second blow in the same dodge does not count again.
+                        int pd1 = pl.PerfectDodges;
+                        Log("perfect dodge", "dodged untouched " + untouched + ", perfect " + pd0 + " -> " + pd1 + ", counter ready " + ready + ", counter hit " + boosted.ToString("F1") + " vs next " + plain.ToString("F1"),
+                            untouched && pd1 == pd0 + 1 && ready && boosted > plain * 1.2f);
+                    }
+                    {
+                        // TRAP SPACING (2026-11-23): no spike bed on or beside another, or beside a flame vent.
+                        System.Func<Vector3, Vector3> TgFlat = q => new Vector3(q.x, 0f, q.z);
+                        var tgLay = DungeonDirector.Layout;
+                        var tgBeds = new System.Collections.Generic.List<Vector3>();
+                        foreach (var tgSt in SpikeTrap.All) if (tgSt != null) tgBeds.Add(tgSt.transform.position);
+                        float tgClosest = float.MaxValue; string tgPair = "none";
+                        for (int tgI = 0; tgI < tgBeds.Count; tgI++)
+                        {
+                            for (int tgK = tgI + 1; tgK < tgBeds.Count; tgK++)
+                            {
+                                float tgD = Vector3.Distance(TgFlat(tgBeds[tgI]), TgFlat(tgBeds[tgK])) - SpikeTrap.Reach * 2f;
+                                if (tgD < tgClosest) { tgClosest = tgD; tgPair = "bed-bed"; }
+                            }
+                            if (tgLay != null)
+                                foreach (var tgV in tgLay.FlameTraps)
+                                {
+                                    float tgD = Vector3.Distance(TgFlat(tgBeds[tgI]), TgFlat(tgV.At)) - SpikeTrap.Reach - FlameJet.HalfWidth;
+                                    if (tgD < tgClosest) { tgClosest = tgD; tgPair = "bed-vent"; }
+                                }
+                        }
+                        Log("trap spacing", tgBeds.Count + " beds, " + (tgLay != null ? tgLay.FlameTraps.Count : 0) + " vents, closest gap " + (tgClosest == float.MaxValue ? "n/a" : tgClosest.ToString("F1")) + " m (" + tgPair + ")",
+                            tgClosest >= SpikeTrap.MinGap - 0.6f);
+                    }
                     // Vials bite harder per stack, and the Tonic heals the party round the Doctor (2026-11-23).
                     if (pdk != null)
                     {
@@ -5673,10 +5732,75 @@ namespace Deepbound.Networking
                         var tme = local.GetComponent<Health>();
                         tme.ServerSetFraction(0.5f);
                         float tb0 = tme.Current.Value;
-                        int tn = pdk.ServerTonic(local.transform.position + local.transform.forward * 8f);
-                        Log("tonic party heal", "healed " + tn + " within " + PlagueDoctorKit.TonicRadius + " m, " + tb0.ToString("F0") + " -> " + tme.Current.Value.ToString("F0"),
-                            tn >= 1 && tme.Current.Value > tb0);
+                        // EXPUNGE (2026-11-23, replaced the Tonic): four stacks on a foe are torn out for damage, the blight ends,
+                        // and the Doctor mends by more than the bare 5%.
+                        var eA = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 5f, false, calm: true);
+                        var ehA = eA != null ? eA.GetComponent<Health>() : null;
+                        int drawn = 0; float edmg = 0f; bool clean = false;
+                        if (ehA != null)
+                        {
+                            ehA.ServerSetMax(5000f, refill: true);
+                            for (int i = 0; i < 4; i++) { ehA.ServerBlight(6f, 0.01f, local.NetworkObjectId); yield return new WaitForSeconds(0.55f); }
+                            float e0 = ehA.Current.Value;
+                            pdk.ServerExpunge(local.transform.position, out drawn);
+                            edmg = e0 - ehA.Current.Value;
+                            clean = !ehA.Blighted.Value && ehA.BlightStacks.Value == 0;
+                        }
+                        float healedTo = tme.Current.Value - tb0;
+                        if (eA != null && eA.IsSpawned) eA.NetworkObject.Despawn();
+                        Log("expunge", "stacks drawn " + drawn + ", dealt " + edmg.ToString("F1") + ", clean " + clean + ", healed " + healedTo.ToString("F0") + " of " + tme.Max.Value.ToString("F0"),
+                            drawn >= 4 && edmg > PlagueDoctorKit.ExpungePerStack * 3f && clean && healedTo > tme.Max.Value * (PlagueDoctorKit.ExpungeHealBase + 0.02f));
                         tme.ServerSetFraction(1f);
+                        // PATIENT ZERO (2026-11-23, replaced Pandemic): the foe at the crosshair is plagued at full stacks; when it
+                        // dies the plague jumps to the one beside it.
+                        var zA = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f, false, calm: true);
+                        var zB = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f + local.transform.right * 3f, false, calm: true);
+                        bool zFirst = false, zFull = false, zJumped = false;
+                        if (zA != null && zB != null)
+                        {
+                            var zhA = zA.GetComponent<Health>(); var zhB = zB.GetComponent<Health>();
+                            zhA.ServerSetMax(5000f, refill: true); zhB.ServerSetMax(5000f, refill: true);
+                            zA.ServerStun(10f); zB.ServerStun(10f);
+                            yield return new WaitForSeconds(0.3f);
+                            var picked = pdk.ServerPatientZero(zA.transform.position);
+                            yield return new WaitForSeconds(0.6f);
+                            zFirst = picked == zhA && pdk.PatientZero == zhA && PlagueDoctorKit.IsPlagued(zhA);
+                            zFull = zhA.BlightStacks.Value == Health.MaxBlightStacks;
+                            zhA.ServerDamage(1e6f, zhA.transform.position, local.NetworkObjectId);
+                            yield return new WaitForSeconds(0.7f);
+                            zJumped = pdk.PatientZero == zhB && PlagueDoctorKit.IsPlagued(zhB);
+                        }
+                        if (zA != null && zA.IsSpawned) zA.NetworkObject.Despawn();
+                        if (zB != null && zB.IsSpawned) zB.NetworkObject.Despawn();
+                        Log("patient zero", "picked the aimed foe " + zFirst + ", full stacks " + zFull + ", jumped on death " + zJumped, zFirst && zFull && zJumped);
+                    }
+                    // CLERIC (2026-11-23): Benediction turns overheal into a shield (capped); Dawnbreak heals inside and burns the dead.
+                    {
+                        var bme = local.GetComponent<Health>();
+                        bme.Shield.Value = 0f;
+                        bme.ServerSetFraction(1f);
+                        ClericKit.Bless(bme, bme.Max.Value * 0.1f);
+                        float sh1 = bme.Shield.Value;
+                        ClericKit.Bless(bme, bme.Max.Value * 0.5f);
+                        float sh2 = bme.Shield.Value;
+                        bool capped = sh2 <= bme.Max.Value * ClericKit.BenedictionCap + 0.5f && sh2 > sh1;
+                        bme.Shield.Value = 0f;
+                        var ultC = local.GetComponent<Ultimates>();
+                        var dFoe = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 4f, false, calm: true);
+                        var dfh = dFoe != null ? dFoe.GetComponent<Health>() : null;
+                        if (dfh != null) dfh.ServerSetMax(5000f, refill: true);
+                        bme.ServerSetFraction(0.5f);
+                        float dh0 = bme.Current.Value, df0 = dfh != null ? dfh.Current.Value : 0f;
+                        var dawn = typeof(Ultimates).GetMethod("Dawnbreak", System.Reflection.BindingFlags.NonPublic | System.Reflection.BindingFlags.Instance);
+                        Coroutine dawnRun = dawn != null ? ultC.StartCoroutine((IEnumerator)dawn.Invoke(ultC, new object[] { local.transform.position, 1f })) : null;
+                        yield return new WaitForSeconds(1.3f);
+                        float dh1 = bme.Current.Value, df1 = dfh != null ? dfh.Current.Value : 0f;
+                        // End the pillar here: left burning for its 6 s it killed the next checks' foes (phoenix and storm tomes).
+                        if (dawnRun != null) ultC.StopCoroutine(dawnRun);
+                        if (dFoe != null && dFoe.IsSpawned) dFoe.NetworkObject.Despawn();
+                        bme.ServerSetFraction(1f); bme.Shield.Value = 0f;
+                        Log("cleric benediction and dawnbreak", "overheal shield " + sh1.ToString("F0") + " -> " + sh2.ToString("F0") + " (cap " + (bme.Max.Value * ClericKit.BenedictionCap).ToString("F0") + "), dawn healed " + dh0.ToString("F0") + " -> " + dh1.ToString("F0") + ", burned foe " + (df0 - df1).ToString("F0"),
+                            sh1 > 0f && capped && dh1 > dh0 && df1 < df0);
                     }
 
                     var plife = local.GetComponent<PlayerLife>();
@@ -8539,9 +8663,12 @@ namespace Deepbound.Networking
                 yield return Snap("pd_vial_3", 1.0f);
                 yield return Ready(Classes.ClassId.PlagueDoctor);
                 // The Tonic is a breath round the Doctor now (2026-11-23).
-                pk.ServerTonic(local.transform.position);
-                yield return Snap("pd_tonic_1", 0.2f);
-                yield return Snap("pd_tonic_2", 0.35f);
+                if (dummy != null)
+                    for (int fs = 0; fs < 4; fs++) { dummy.ServerBlight(6f, 1f, local.NetworkObjectId); yield return new WaitForSeconds(0.55f); }
+                pk.ServerExpunge(local.transform.position, out _);
+                yield return Snap("pd_expunge_1", 0.25f);
+                yield return Snap("pd_expunge_2", 0.35f);
+                yield return Snap("pd_expunge_3", 0.5f);
                 // Festering: four stacks orbit the dummy, then a vial bursts into them.
                 yield return Ready(Classes.ClassId.PlagueDoctor);
                 if (dummy != null)
