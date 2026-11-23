@@ -581,6 +581,7 @@ namespace Deepbound.Progression
 
         public void ServerOnDodge()
         {
+            World.DungeonDirector.Instance?.TutorialOnDodge();
             if (Wears(GearId.GraveclothMantle)) dodgeStrikeUntil = Time.time + 2f;
         }
 

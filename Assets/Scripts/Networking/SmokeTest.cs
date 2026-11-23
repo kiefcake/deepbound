@@ -5514,6 +5514,8 @@ namespace Deepbound.Networking
                 Log("run summary", "phase " + d.Phase.Value + ", run " + (d.RunEndedAt.Value - d.RunStartedAt.Value).ToString("F0") + "s, kills " + prog.Kills.Value +
                     ", damage " + prog.DamageDealt.Value + ", downs " + prog.Downs.Value,
                     d.Phase.Value == RunPhase.Wiped && prog.Kills.Value >= 3 && prog.Downs.Value >= 1 && d.RunEndedAt.Value > d.RunStartedAt.Value);
+                // The checks below need the floor: the wipe's 14 s to camp ran out under them once they grew (pets, Patient Zero).
+                if (d.Phase.Value == RunPhase.Wiped) d.ServerDebugHoldPhase(true);
             }
 
             // Relic synergy (last, so its effects cannot disturb other checks).
@@ -5845,6 +5847,7 @@ namespace Deepbound.Networking
                     string mothLine = PetPerks.Short(PetCompanion.Kind.Moth);
                     Log("pet perks", "(was downed " + wasDowned + ") poisoned " + poisonedFirst + " -> toad gulped " + gulped + "; wardrobe lines e.g. '" + mothLine + "'",
                         poisonedFirst && gulped && mothLine.Length > 0 && PetPerks.Short(PetCompanion.Kind.Kitten).Length > 0);
+                    if (DungeonDirector.Instance.Phase.Value == RunPhase.Wiped) DungeonDirector.Instance.ServerDebugHoldPhase(false);
 
                     bool un1 = local.ServerUnstuck(), un2 = local.ServerUnstuck();
                     yield return null; yield return null;
@@ -5978,6 +5981,60 @@ namespace Deepbound.Networking
                     }
                     else Log("weak point burst", "no brute prefab", false);
                 }
+            }
+
+            // THE PROVING PATH (2026-11-23): the tutorial floor, every lesson met in turn, the guardian, then camp.
+            if (net.IsServer && NetworkPlayer.Local != null && DungeonDirector.Instance != null)
+            {
+                var td = DungeonDirector.Instance;
+                var tme = NetworkPlayer.Local;
+                var tmotor = tme.GetComponent<FirstPersonMotor>();
+                td.ServerDebugTutorial();
+                yield return new WaitForSeconds(2.5f);
+                var tl = DungeonDirector.Layout;
+                bool tIn = DungeonDirector.InTutorial && tl != null && tl.Rooms.Count == DungeonLayout.TutorialRooms;
+                int tOthers = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead && !(e is BossBrain));
+                var tBoss = BossBrain.Active;
+                string tBossName = tBoss != null ? tBoss.DisplayName : null;
+                bool tNoLoot = tBoss != null && tBoss.NoLoot;
+                bool tGatesShut = td.TutorialGates.Count == DungeonLayout.TutorialRooms - 1 && td.TutorialGates.All(g => g != null && g.Closed.Value);
+                float tScale = Health.FloorPlayerDamageScale;
+                var tProblems = new System.Collections.Generic.List<string>();
+                for (int li = 0; li < DungeonLayout.TutorialRooms - 1 && tIn; li++)
+                {
+                    if (td.TutStep.Value != li) { tProblems.Add("lesson " + li + " not under way (" + td.TutStep.Value + ")"); break; }
+                    td.ServerDebugMeetLesson();
+                    for (float t = 0f; t < 3f && !td.TutDone.Value; t += 0.2f) yield return new WaitForSeconds(0.2f);
+                    if (!td.TutDone.Value || td.TutorialGates[li].Closed.Value) { tProblems.Add("lesson " + li + " met " + td.TutDone.Value + ", gate shut " + td.TutorialGates[li].Closed.Value); break; }
+                    var nr = tl.Rooms[li + 1];
+                    var tat = nr.Center + Vector3.back * (nr.Size.y / 2f - 3f) + Vector3.up * 0.1f;
+                    tmotor.Teleport(tat, Quaternion.LookRotation(Vector3.forward));
+                    for (float t = 0f; t < 3f && td.TutStep.Value != li + 1; t += 0.2f) yield return new WaitForSeconds(0.2f);
+                    yield return new WaitForSeconds(0.4f);
+                    var nl = (DungeonDirector.Lesson)(li + 1);
+                    if (td.TutStep.Value != li + 1) { tProblems.Add("lesson " + (li + 1) + " did not begin"); break; }
+                    if (nl == DungeonDirector.Lesson.Attack && FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None).Length < 3) tProblems.Add("no dummies");
+                    if ((nl == DungeonDirector.Lesson.Dodge || nl == DungeonDirector.Lesson.Abilities || nl == DungeonDirector.Lesson.Telegraphs || nl == DungeonDirector.Lesson.Shields
+                        || nl == DungeonDirector.Lesson.Potions || nl == DungeonDirector.Lesson.Ultimate) && td.TutorialFoesAlive == 0) tProblems.Add("no foes for " + nl);
+                    if (nl == DungeonDirector.Lesson.Loot && td.TutorialChest == null) tProblems.Add("no chest");
+                    if (nl == DungeonDirector.Lesson.Potions && tme.GetComponent<Flasks>().Count(Flasks.Kind.Health) < 2) tProblems.Add("no potions");
+                    if (nl == DungeonDirector.Lesson.Ultimate && !tme.GetComponent<Ultimates>().Ready) tProblems.Add("ultimate not charged");
+                }
+                bool tGuardian = tIn && td.TutStep.Value == (byte)DungeonDirector.Lesson.Guardian;
+                if (tGuardian)
+                {
+                    var br = tl.BossRoom;
+                    tmotor.Teleport(br.Center + Vector3.back * 8f + Vector3.up * 0.1f, Quaternion.LookRotation(Vector3.forward));
+                    yield return new WaitForSeconds(1f);
+                    td.ServerDebugMeetLesson();
+                    for (float t = 0f; t < DungeonDirector.TutorialEndDelay + 6f && !DungeonDirector.InLobby; t += 0.2f) yield return new WaitForSeconds(0.2f);
+                }
+                yield return new WaitForSeconds(1f);
+                Log("proving path", "on the path " + tIn + ", other foes at the start " + tOthers + ", guardian " + (tBossName != null ? tBossName + " (no loot " + tNoLoot + ")" : "none")
+                    + ", gates shut " + tGatesShut + ", taken x" + tScale.ToString("F2") + ", reached the guardian " + tGuardian + ", back at camp " + DungeonDirector.InLobby
+                    + ", damage scale after x" + Health.FloorPlayerDamageScale.ToString("F2") + (tProblems.Count > 0 ? "; " + string.Join("; ", tProblems) : ""),
+                    tIn && tOthers == 0 && tBossName != null && tNoLoot && tGatesShut && Mathf.Abs(tScale - DungeonDirector.TutorialTaken) < 0.01f && tGuardian
+                    && DungeonDirector.InLobby && Mathf.Approximately(Health.FloorPlayerDamageScale, 1f) && tProblems.Count == 0);
             }
 
             yield return new WaitForSeconds(2f);

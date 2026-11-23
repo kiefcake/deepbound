@@ -609,6 +609,9 @@ namespace Deepbound.World
         private readonly List<NetworkObject> spawned = new List<NetworkObject>();
         private BossBrain boss;
         private double phaseTimer;
+
+        /// <summary>Tests: hold the current phase's timer (a wipe stays on the floor), or let it run out now.</summary>
+        public void ServerDebugHoldPhase(bool hold) => phaseTimer = hold ? double.MaxValue : NetworkManager.ServerTime.Time;
         private bool bossSeen;
 
         public override void OnNetworkSpawn()
@@ -898,12 +901,12 @@ namespace Deepbound.World
             if (IsServer) StartFloor(depth);
         }
 
-        private void StartFloor(int depth, bool pit = false)
+        private void StartFloor(int depth, bool pit = false, bool tutorial = false)
         {
             ClearSpawned();
 
             // The Cinder Pit is marked by a negative seed (DungeonDirector.Pit).
-            int seed = pit ? -UnityEngine.Random.Range(1, int.MaxValue) : FloorSeed(depth);
+            int seed = pit ? -UnityEngine.Random.Range(1, int.MaxValue) : tutorial ? DungeonLayout.TutorialSeed : FloorSeed(depth);
             Player.Teamwork.ServerFloorStarted();
             Phase.Value = RunPhase.Exploring;
             PhaseEndsAt.Value = 0;
@@ -933,7 +936,7 @@ namespace Deepbound.World
             MaybeSpawnRift(Layout);
             ApplyOmen(true);
             SpawnEnemies(Layout);
-            if (!Practice.Value) BeginContract(Layout.Depth);
+            if (!Practice.Value && !tutorial) BeginContract(Layout.Depth);
 
             foreach (var p in PlayerLife.All)
             {
@@ -1721,6 +1724,8 @@ namespace Deepbound.World
                         if (Time.time >= departAt) ServerFinishBoarding();
                         break;
                     }
+                    TickTutorialPending();
+                    if (Phase.Value != RunPhase.Lobby) break;
                     // Everyone in the boarding circle starts a short countdown; anyone
                     // stepping out cancels it. One player can start a solo run.
                     TellWhoHoldsTheCarriage();
@@ -1741,6 +1746,7 @@ namespace Deepbound.World
                     TickLava();
                     TickTally(now);
                     if (TickPractice(now)) break;
+                    if (TickTutorial(now)) break;
                     if (PartyWiped())
                     {
                         EnterPhase(RunPhase.Wiped, WipeDelay);

@@ -420,6 +420,7 @@ namespace Deepbound.World
         {
             if (portcullisPrefab == null) return;
             foreach (var g in SpawnGates(layout.BossRoom)) bossGates.Add(g);
+            if (InTutorial) return;
 
             var room = PickAmbushRoom(layout);
             if (room == null || IsLairRoom(room)) return;

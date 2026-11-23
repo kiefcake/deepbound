@@ -48,7 +48,7 @@ namespace Deepbound.World
             lair = null;
             int act = Act(layout.Depth);
             if (lairPrefabs == null || act > 3 || act >= lairPrefabs.Length || lairPrefabs[act] == null || portcullisPrefab == null) return;
-            if (!ForceLair && (TestMode || Practice.Value || Random.value > LairChance)) return;
+            if (InTutorial || (!ForceLair && (TestMode || Practice.Value || Random.value > LairChance))) return;
             var room = PickLairRoom(layout);
             if (room == null) return;
             lair = new LairState { Room = room };

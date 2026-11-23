@@ -390,6 +390,11 @@ namespace Deepbound.UI
                 GUILayout.Space(8);
                 if (UiSkin.Btn("UNSTUCK", UiSkin.Button, GUILayout.Height(36))) Choose(6);
                 PadFrame(6);
+                if (DungeonDirector.InTutorial && NetworkManager.Singleton != null && NetworkManager.Singleton.IsServer)
+                {
+                    GUILayout.Space(8);
+                    if (UiSkin.Btn("LEAVE THE PROVING PATH", UiSkin.Button, GUILayout.Height(40))) { DungeonDirector.Instance.ServerLeaveTutorial(); Choose(0); }
+                }
                 GUILayout.Space(8);
                 if (UiSkin.Btn("LEAVE PARTY", UiSkin.Button, GUILayout.Height(44))) Choose(4);
                 PadFrame(4);

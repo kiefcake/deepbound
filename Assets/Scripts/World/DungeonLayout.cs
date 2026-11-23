@@ -265,6 +265,7 @@ namespace Deepbound.World
         /// <param name="depth">0 for the first floor. Deeper floors have longer paths and more enemies.</param>
         public static DungeonLayout Generate(int seed, int depth)
         {
+            if (seed == TutorialSeed) return Tutorial();
             // A self-avoiding walk can box itself in. Retrying with a derived seed keeps
             // the result deterministic — every peer retries identically.
             for (int attempt = 0; attempt < 64; attempt++)
@@ -279,6 +280,46 @@ namespace Deepbound.World
 
             Debug.LogError("[Dungeon] Could not generate a layout for seed " + seed);
             return TryGenerate(0, 0);
+        }
+
+        /// <summary>The Proving Path's seed: random and daily seeds never reach it (Random.Range's top is exclusive).</summary>
+        public const int TutorialSeed = int.MaxValue;
+        /// <summary>The Proving Path: the start room, eight lesson rooms and the guardian's arena.</summary>
+        public const int TutorialRooms = 10;
+
+        /// <summary>
+        /// THE PROVING PATH (2026-11-23): the tutorial floor. A straight line of rooms running north, the same on every peer,
+        /// with no features, side rooms, holes or traps. Each lesson room is empty until its lesson starts
+        /// (<see cref="DungeonDirector"/>, Tutorial).
+        /// </summary>
+        public static DungeonLayout Tutorial()
+        {
+            var layout = new DungeonLayout { Depth = 0, Seed = TutorialSeed };
+            var rng = new System.Random(0x7E57);
+            Room previous = null;
+            for (int i = 0; i < TutorialRooms; i++)
+            {
+                var kind = i == 0 ? RoomKind.Start : i == TutorialRooms - 1 ? RoomKind.Boss : RoomKind.Combat;
+                var size = kind == RoomKind.Start ? new Vector2(14f, 14f) : kind == RoomKind.Boss ? new Vector2(30f, 30f)
+                    : i == 4 || i == 8 ? new Vector2(22f, 22f) : new Vector2(18f, 18f);
+                var room = new Room
+                {
+                    Id = i,
+                    Kind = kind,
+                    Cell = new Vector2Int(0, i),
+                    Center = new Vector3(0f, 0f, i * CellSize),
+                    Size = size,
+                    Height = kind == RoomKind.Boss ? 12f : 6.5f,
+                    DecorSeed = rng.Next(),
+                };
+                layout.Rooms.Add(room);
+                if (previous != null) Connect(layout, previous, room, 0);
+                previous = room;
+            }
+            layout.BossRoom = previous;
+            previous.Arena = BossArena.Colonnade;
+            previous.Quirk = BossQuirk.None;
+            return layout;
         }
 
         private static DungeonLayout TryGenerate(int seed, int depth)

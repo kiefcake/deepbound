@@ -214,18 +214,21 @@ namespace Deepbound.UI
 
         private void DrawMain()
         {
-            if (Entry(0, "PLAY", UiSkin.ButtonBig, 58)) launcher.StartHost();
+            if (Entry(0, "PLAY", UiSkin.ButtonBig, 58)) { World.DungeonDirector.TutorialPending = false; launcher.StartHost(); }
             GUILayout.Label(SteamPlatform.Ready ? "Host a party. Invite Steam friends from the pause menu (Esc)." : "Host a new party. Friends join you by your address.", UiSkin.Small);
             // An invite waiting: answer it right here.
             if (SteamPlatform.Ready && SteamPlatform.Instance.Invites.Count > 0) { GUILayout.Space(8); FriendsPanel.DrawInvites(); }
             GUILayout.Space(10);
-            if (Entry(1, "JOIN A PARTY", UiSkin.Button, 44)) { page = Page.Join; pageAt = Time.time; }
+            if (Entry(1, "THE PROVING PATH", UiSkin.Button, 44)) { World.DungeonDirector.TutorialPending = true; launcher.StartHost(); }
+            GUILayout.Label("A short guided descent: the controls, the fight and the guardian.", UiSkin.Small);
             GUILayout.Space(6);
-            if (Entry(2, "OPTIONS", UiSkin.Button, 44)) { page = Page.Options; pageAt = Time.time; }
+            if (Entry(2, "JOIN A PARTY", UiSkin.Button, 44)) { page = Page.Join; pageAt = Time.time; }
             GUILayout.Space(6);
-            if (Entry(3, "CREDITS", UiSkin.Button, 44)) { page = Page.Credits; creditsAt = pageAt = Time.time; }
+            if (Entry(3, "OPTIONS", UiSkin.Button, 44)) { page = Page.Options; pageAt = Time.time; }
             GUILayout.Space(6);
-            if (Entry(4, "QUIT", UiSkin.Button, 44)) Application.Quit();
+            if (Entry(4, "CREDITS", UiSkin.Button, 44)) { page = Page.Credits; creditsAt = pageAt = Time.time; }
+            GUILayout.Space(6);
+            if (Entry(5, "QUIT", UiSkin.Button, 44)) Application.Quit();
             GUILayout.Space(8);
             GUILayout.Label(SteamPlatform.Ready ? "Steam: playing as " + SteamPlatform.MyName : "Steam: off (" + (string.IsNullOrEmpty(SteamPlatform.Problem) ? "test run" : SteamPlatform.Problem) + ") - parties use addresses",
                 new GUIStyle(UiSkin.Small) { wordWrap = true });
