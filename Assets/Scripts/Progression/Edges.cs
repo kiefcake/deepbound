@@ -37,7 +37,7 @@ namespace Deepbound.Progression
         public const float LoneWolfDamage = 1.18f, LoneWolfRadius = 10f;
         public const float OpportunistDamage = 1.2f;
         public const float StalwartTaken = 0.9f;
-        /// <summary>Quickening: added to the other cooldown cuts (capped, see <see cref="PlayerProgress.MaxCooldownCut"/>).</summary>
+        /// <summary>Quickening: added to the other cooldown cuts.</summary>
         public const float QuickeningCut = 0.1f;
         /// <summary>Desperation: +1% damage per 3% of health missing, up to +25%.</summary>
         public const float DesperationMax = 0.25f;

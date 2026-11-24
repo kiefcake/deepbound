@@ -92,7 +92,7 @@ namespace Deepbound.Progression
             StatType.DEF => "DEF MASTERY: blocking costs 30% less stamina, 5% less damage taken",
             StatType.ATT => "ATT MASTERY: +5% damage",
             StatType.DEX => "DEX MASTERY: +4% crit chance",
-            StatType.MP => "MP MASTERY: 6% shorter cooldowns",
+            StatType.MP => "MP MASTERY: mana returns 25% faster",
             StatType.WIS => "WIS MASTERY: 6% shorter cooldowns",
             _ => null,
         };
@@ -175,8 +175,12 @@ namespace Deepbound.Progression
 
         public float BuildSpeedScale => (WornSet == 2 ? SetRoadSpeed : 1f) * (HasBargain(Bargain.GlassStride) ? 1.12f : 1f);
 
-        public float BuildCooldownScale => (WornSet == 4 ? SetGraveCooldown : 1f) * (Mastered(StatType.MP) ? 0.94f : 1f) * (Mastered(StatType.WIS) ? 0.94f : 1f)
-            * (HasBargain(Bargain.BitterRoot) ? 0.85f : 1f);
+        /// <summary>The set and the WIS mastery: counted under the one cooldown cap (2026-11-24; they used to multiply past it).</summary>
+        public float BuildCooldownCut => (WornSet == 4 ? 1f - SetGraveCooldown : 0f) + (Mastered(StatType.WIS) ? 0.06f : 0f);
+        /// <summary>A bargain is a trade with a curse attached: it shortens cooldowns on top of the cap.</summary>
+        public float BuildCooldownScale => HasBargain(Bargain.BitterRoot) ? 0.85f : 1f;
+        /// <summary>MP MASTERY (2026-11-24, was a second copy of WIS's cooldowns): mana returns faster.</summary>
+        public float ManaRegenScale => Mastered(StatType.MP) ? 1.25f : 1f;
 
         public float BuildGoldBonus => HasBargain(Bargain.MisersOath) ? 0.4f : 0f;
         public float BuildEmberScale => HasBargain(Bargain.EmberTithe) ? 1.5f : 1f;

@@ -103,7 +103,7 @@ namespace Deepbound.Player
 
         private bool Active => progress.ClassId.Value == ClassId.Cleric;
         private float ManaMax => progress.Value(StatType.MP);
-        private float ManaRegen => 2.5f + progress.Value(StatType.WIS) * 0.11f; // 2026-11-12: lower from the start (11.5/s -> 8/s at base WIS)
+        private float ManaRegen => (2.5f + progress.Value(StatType.WIS) * 0.11f) * progress.ManaRegenScale; // 2026-11-12: lower from the start (11.5/s -> 8/s at base WIS)
         /// <summary>WIS 50 is the reference; healing and shields scale ±1% per point.</summary>
         private float Potency => 1f + (progress.Value(StatType.WIS) - 50f) / 100f;
 

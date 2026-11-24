@@ -265,7 +265,7 @@ namespace Deepbound.Progression
             // The vigil.
             new Item { Name = "Casting Forms", Description = "The gestures, slow then fast, until the hand knows them. +2 ATT for the run (spells hit harder)", Price = 60, Kind = ItemKind.Drill, Stat = StatType.ATT, Amount = 2f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Arcane },
             new Item { Name = "Breathing", Description = "Hold it under the cold well water. +12 max MP for the run", Price = 45, Kind = ItemKind.Drill, Stat = StatType.MP, Amount = 12f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Arcane },
-            new Item { Name = "Meditation", Description = "An hour still in the yard, Brann shouting the whole time. +3 WIS for the run (mana / reagents back faster, Cleric heals stronger)", Price = 55, Kind = ItemKind.Drill, Stat = StatType.WIS, Amount = 3f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Arcane },
+            new Item { Name = "Meditation", Description = "An hour still in the yard, Brann shouting the whole time. +3 WIS for the run (ultimate charges 4.5% faster; mana and reagents return faster; Cleric heals stronger)", Price = 55, Kind = ItemKind.Drill, Stat = StatType.WIS, Amount = 3f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Arcane },
             new Item { Name = "Quick Hands", Description = "Catch the falling pebbles. +3 DEX for the run (faster casting)", Price = 50, Kind = ItemKind.Drill, Stat = StatType.DEX, Amount = 3f, Cap = 6, Seller = Vendor.Yard, Regimens = (byte)Regimen.Arcane },
         };
         public const int DrillStep = 30;

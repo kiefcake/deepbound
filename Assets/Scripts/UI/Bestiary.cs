@@ -1,3 +1,4 @@
+using System.Collections.Generic;
 using UnityEngine;
 
 namespace Deepbound.UI
@@ -52,12 +53,80 @@ namespace Deepbound.UI
             new Entry { Type = "Tallyman", Name = "The Tallyman", Text = "Comes for those who linger on a floor. Cannot be fought: outrun him (holy water holds him a moment) and seal yourselves in with the guardian.", Boss = true },
         };
 
-        private const string Key = "db.bestiary";
-        private static int? mask;
+        private const string Key = "db.bestiary", Key2 = "db.bestiary2";
+        /// <summary>Kills that reveal the whole entry (the first kill reveals its first line). Guardians: one.</summary>
+        public const int StudyKills = 5;
+        /// <summary>Type -> kills (0 = met, not yet beaten). Kept as text (2026-11-24): the old int mask ran out at 32 entries.</summary>
+        private static Dictionary<string, int> met;
 
-        public static int Mask => mask ??= Progression.Cosmetics.TestMode ? 0 : PlayerPrefs.GetInt(Key, 0);
-        public static bool Seen(int i) => (Mask & (1 << i)) != 0;
+        private static Dictionary<string, int> Met
+        {
+            get
+            {
+                if (met != null) return met;
+                met = new Dictionary<string, int>();
+                if (Progression.Cosmetics.TestMode) return met;
+                try
+                {
+                    string saved = PlayerPrefs.GetString(Key2, null);
+                    if (saved == null)
+                    {
+                        // The old mask: entries past bit 31 shared bits with the first ones, so only the first 32 carry over.
+                        int bits = PlayerPrefs.GetInt(Key, 0);
+                        for (int i = 0; i < Entries.Length && i < 32; i++) if ((bits & (1 << i)) != 0) met[Entries[i].Type] = 0;
+                        Save();
+                    }
+                    else foreach (var pair in saved.Split('|'))
+                    {
+                        int c = pair.IndexOf(':');
+                        if (c > 0 && int.TryParse(pair.Substring(c + 1), out int n)) met[pair.Substring(0, c)] = n;
+                    }
+                }
+                catch { }
+                return met;
+            }
+        }
+
+        private static void Save()
+        {
+            if (Progression.Cosmetics.TestMode || met == null) return;
+            var parts = new List<string>();
+            foreach (var kv in met) parts.Add(kv.Key + ":" + kv.Value);
+            try { PlayerPrefs.SetString(Key2, string.Join("|", parts)); PlayerPrefs.Save(); } catch { }
+        }
+
+        public static bool Seen(int i) => Met.ContainsKey(Entries[i].Type);
+        public static int Kills(int i) => Met.TryGetValue(Entries[i].Type, out int n) ? n : 0;
         public static int SeenCount { get { int n = 0; for (int i = 0; i < Entries.Length; i++) if (Seen(i)) n++; return n; } }
+        /// <summary>The Tallyman cannot be beaten: seeing him is knowing him.</summary>
+        private static bool Unbeatable(int i) => Entries[i].Type == "Tallyman";
+
+        /// <summary>How much of entry <paramref name="i"/> is known: 0 unmet, 1 seen, 2 beaten once, 3 studied.</summary>
+        public static int Stage(int i)
+        {
+            if (!Seen(i)) return 0;
+            if (Unbeatable(i)) return 3;
+            int k = Kills(i);
+            return k <= 0 ? 1 : k >= (Entries[i].Boss ? 1 : StudyKills) ? 3 : 2;
+        }
+
+        /// <summary>The entry's text as far as it is known.</summary>
+        public static string TextFor(int i)
+        {
+            var e = Entries[i];
+            switch (Stage(i))
+            {
+                case 0: return e.Boss ? "A guardian you have not faced." : "Not yet met.";
+                case 1: return "Not yet understood. Defeat one to learn how it fights.";
+                case 2:
+                {
+                    int dot = e.Text.IndexOf(". ");
+                    string first = dot > 0 ? e.Text.Substring(0, dot + 1) : e.Text;
+                    return first + (first.Length < e.Text.Length ? "  [" + Kills(i) + " / " + StudyKills + " defeated to learn more]" : "");
+                }
+                default: return e.Text + (Unbeatable(i) ? "" : "  [" + Kills(i) + " defeated]");
+            }
+        }
 
         /// <summary>Note a creature met. True the first time.</summary>
         public static bool See(Enemies.EnemyBrain brain) => brain != null && See(brain.GetType().Name);
@@ -65,16 +134,31 @@ namespace Deepbound.UI
         /// <summary>Note a creature met by its type name (for the few that are not EnemyBrains).</summary>
         public static bool See(string type)
         {
-            for (int i = 0; i < Entries.Length; i++)
-            {
-                if (Entries[i].Type != type) continue;
-                if (Seen(i)) return false;
-                mask = Mask | (1 << i);
-                if (!Progression.Cosmetics.TestMode) { PlayerPrefs.SetInt(Key, mask.Value); PlayerPrefs.Save(); }
-                GameHud.Feed("New in your Bestiary: " + Entries[i].Name + "  (Esc > Guide)", new Color(0.85f, 0.8f, 0.6f));
-                return true;
-            }
-            return false;
+            int i = IndexOf(type);
+            if (i < 0 || Met.ContainsKey(type)) return false;
+            Met[type] = 0;
+            Save();
+            GameHud.Feed("New in your Bestiary: " + Entries[i].Name + "  (Esc > Guide)", new Color(0.85f, 0.8f, 0.6f));
+            return true;
+        }
+
+        /// <summary>One of <paramref name="type"/> fell near you: the entry learns more at the first kill and when studied.</summary>
+        public static void Killed(string type)
+        {
+            int i = IndexOf(type);
+            if (i < 0) return;
+            int before = Stage(i);
+            Met[type] = (Met.TryGetValue(type, out int n) ? n : 0) + 1;
+            Save();
+            int after = Stage(i);
+            if (after > before && after >= 2)
+                GameHud.Feed((after == 3 ? "Bestiary entry complete: " : "Bestiary entry updated: ") + Entries[i].Name, new Color(0.85f, 0.8f, 0.6f));
+        }
+
+        public static int IndexOf(string type)
+        {
+            for (int i = 0; i < Entries.Length; i++) if (Entries[i].Type == type) return i;
+            return -1;
         }
     }
 }

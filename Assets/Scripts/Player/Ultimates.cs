@@ -239,12 +239,26 @@ namespace Deepbound.Player
         /// <summary>Server: charge from elsewhere (grazes).</summary>
         public void ServerAddCharge(float amount) { if (IsServer) Add(amount); }
 
+        /// <summary>
+        /// WISDOM charges every class's ultimate (2026-11-24, the user: "what does wisdom do for a knight" - nothing, then):
+        /// each point gained over the class's own starting WIS fills it <see cref="WisChargePerPoint"/> faster.
+        /// </summary>
+        public const float WisChargePerPoint = 0.015f;
+
+        public static float WisdomCharge(Progression.PlayerProgress p)
+        {
+            if (p == null || p.Class == null) return 1f;
+            float gained = p.Value(Core.StatType.WIS) - p.Class.BaseStats[(int)Core.StatType.WIS];
+            return Mathf.Max(0.5f, 1f + WisChargePerPoint * gained);
+        }
+
         private void Add(float amount)
         {
             if (DungeonDirector.InLobby || Time.time < lockedUntil) return;
             if (progress.HasRelic(Relic.WarlordsHorn)) amount *= 1f + 0.5f * progress.RelicPower(Relic.WarlordsHorn);
             if (progress.HasRelic(Relic.EchoStone)) amount *= 1f + 0.2f * progress.RelicPower(Relic.EchoStone);
             if (progress.Wears(GearId.RosaryOfAsh)) amount *= 1.35f;
+            amount *= WisdomCharge(progress);
             amount *= DungeonDirector.OmenUltCharge * DungeonDirector.EventUltCharge;
             // The Rogue's Death From Shadow fills faster (2026-11-12, the user): an assassin lives on the opening.
             if (progress.ClassId.Value == ClassId.Rogue) amount *= RogueChargeScale;
@@ -295,6 +309,8 @@ namespace Deepbound.Player
                 motor.Teleport(behind + Vector3.up * 0.05f, Quaternion.LookRotation(look.sqrMagnitude > 0.01f ? look : transform.forward));
                 CastRpc(target.transform.position, target.NetworkObjectId);
             }
+            // Twin Wyrms leave along the crosshair's own line (2026-11-24, the user: "shoot out from cursor"), up or down too.
+            else if (cls == ClassId.Ranger) CastRpc(player.AimOrigin + player.AimForward * WyrmAimPoint, ulong.MaxValue);
             else CastRpc(aim, ulong.MaxValue);
             player.ViewModelCast(cls == ClassId.Mage);
         }
@@ -461,14 +477,26 @@ namespace Deepbound.Player
         public const float WyrmSpeed = 15f, WyrmRange = 44f, WyrmRadius = 2.3f, WyrmLength = 6f, WyrmTick = 0.2f, WyrmWindup = 0.35f;
         public const float WyrmBite = 55f, WyrmGnaw = 26f;
 
+        /// <summary>The owner sends a point this far down the crosshair's line; the wyrms leave from the eye toward it.</summary>
+        public const float WyrmAimPoint = 20f, WyrmEye = 1.55f, WyrmMaxPitch = 40f;
+
+        /// <summary>The wyrms' line: from the Ranger's eye toward <paramref name="aim"/>, pitch held within <see cref="WyrmMaxPitch"/>.</summary>
+        public static (Vector3 origin, Vector3 dir) WyrmLine(Vector3 feet, Vector3 forward, Vector3 aim)
+        {
+            var eye = feet + Vector3.up * WyrmEye;
+            var dir = aim - eye;
+            if (dir.sqrMagnitude < 0.25f) dir = forward;
+            var flat = new Vector3(dir.x, 0f, dir.z);
+            if (flat.sqrMagnitude < 0.0001f) flat = new Vector3(forward.x, 0f, forward.z);
+            flat.Normalize();
+            float pitch = Mathf.Clamp(Mathf.Atan2(dir.y, new Vector2(dir.x, dir.z).magnitude) * Mathf.Rad2Deg, -WyrmMaxPitch, WyrmMaxPitch);
+            dir = Quaternion.AngleAxis(-pitch, Vector3.Cross(Vector3.up, flat)) * flat;
+            return (eye + dir * 0.8f - Vector3.up * 0.25f, dir.normalized);
+        }
+
         private IEnumerator TwinWyrms(Vector3 aim, float att)
         {
-            var dir = aim - transform.position;
-            dir.y = 0f;
-            if (dir.sqrMagnitude < 0.25f) dir = transform.forward;
-            dir.y = 0f;
-            dir.Normalize();
-            var origin = transform.position + Vector3.up * 1.15f + dir * 0.8f;
+            var (origin, dir) = WyrmLine(transform.position, transform.forward, aim);
             WyrmFxRpc(origin, dir);
             yield return new WaitForSeconds(WyrmWindup);
             var bitten = new HashSet<Health>();

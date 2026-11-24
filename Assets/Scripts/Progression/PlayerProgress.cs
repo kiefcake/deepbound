@@ -931,10 +931,17 @@ namespace Deepbound.Progression
         /// <see cref="MaxCooldownCut"/> (2026-10-23: four sources multiplied down to a third of a cooldown,
         /// and abilities stopped being decisions). Ability ranks cut on top of this.
         /// </summary>
-        public float CooldownMultiplier => (1f - Mathf.Min(MaxCooldownCut,
-            (HasRelic(Relic.EchoStone) ? 0.2f * RelicPower(Relic.EchoStone) : 0f) + (Blessed(Blessing.Swiftness) ? 0.15f : 0f) + (HasEdge(Edge.Quickening) ? Edges.QuickeningCut : 0f)))
+        public float CooldownMultiplier => (1f - CooldownCut)
             * World.DungeonDirector.OmenCooldown * BuildCooldownScale;
-        public const float MaxCooldownCut = 0.4f;
+        /// <summary>
+        /// No cap on cooldown cuts any more (2026-11-24, the user: "remove the 40% cap"): every source adds. This is only the
+        /// floor that keeps a cooldown above a fifth of its length, so it can never reach zero or go negative.
+        /// </summary>
+        public const float MaxCooldownCut = 0.8f;
+
+        /// <summary>Cooldown cut from items (relics, the blessing, edges, the Grave Trade set, WIS mastery): they add, uncapped (bar the floor).</summary>
+        public float CooldownCut => Mathf.Min(MaxCooldownCut,
+            (HasRelic(Relic.EchoStone) ? 0.2f * RelicPower(Relic.EchoStone) : 0f) + (Blessed(Blessing.Swiftness) ? 0.15f : 0f) + (HasEdge(Edge.Quickening) ? Edges.QuickeningCut : 0f) + BuildCooldownCut);
 
         /// <summary>Rallying Bell: synced so speed and damage agree on every peer.</summary>
         public readonly NetworkVariable<double> RallyUntil = new NetworkVariable<double>();

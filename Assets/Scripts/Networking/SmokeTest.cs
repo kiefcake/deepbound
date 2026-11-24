@@ -1506,9 +1506,19 @@ namespace Deepbound.Networking
                         // No stray blow may land while it mends (that read as a weak potion).
                         System.Func<float, Vector3, float> potionWard = (d, f) => 0f;
                         ph.IncomingModifiers.Insert(0, potionWard);
+                        // A Kitten companion purrs you back up out of a fight (its perk): no pet for this check.
+                        byte petWas = local.PetKind.Value;
+                        local.PetKind.Value = 0;
                         ph.ServerSetFraction(0.4f);
+                        // Who mends it, if anything does (2026-11-24: it rose 2% twice running).
+                        string healer = null;
+                        System.Action<Health, float> spyHeal = (hh, amt) => { if (hh == ph && healer == null) healer = amt.ToString("F1") + " from " + new System.Diagnostics.StackTrace(1, false).ToString().Replace(System.Environment.NewLine, " < "); };
+                        Health.AnyHealed += spyHeal;
                         yield return new WaitForSeconds(1.5f);
+                        Health.AnyHealed -= spyHeal;
                         bool noRegen = ph.Fraction <= 0.401f;
+                        if (healer != null) Debug.Log("[Smoke] potion pouch healer: " + healer);
+                        local.PetKind.Value = petWas;
                         pouch.ServerAdd(Flasks.Kind.Health, 10);
                         bool capped = pouch.Count(Flasks.Kind.Health) == Flasks.Max;
                         pouch.ServerDebugDrink(Flasks.Kind.Health);
@@ -5536,7 +5546,7 @@ namespace Deepbound.Networking
                 int tiered = 0;
                 for (int ri = 0; ri < synP.RelicCount; ri++) if (synP.RelicTierAt(ri) > 0) tiered++;
                 Log("relic tray", "Echo Stone tier " + echoTier + " (cooldowns x" + cdTier0.ToString("F2") + " -> x" + synP.CooldownMultiplier.ToString("F2") + "), carried " + synP.RelicCount + "/" + Relics.MaxCarried + ", empowered " + tiered,
-                    echoTier == 1 && synP.RelicCount == Relics.MaxCarried && tiered >= 2 && synP.CooldownMultiplier >= 1f - PlayerProgress.MaxCooldownCut - 0.001f && synP.CooldownMultiplier < cdTier0);
+                    echoTier == 1 && synP.RelicCount == Relics.MaxCarried && tiered >= 2 && synP.CooldownMultiplier > 0.05f && synP.CooldownMultiplier < cdTier0);
 
                 // The new pairs wake their synergies.
                 for (int ri = 0; ri < Relics.Count; ri++) synP.ServerDebugRemoveRelic((Relic)ri);
@@ -5981,6 +5991,50 @@ namespace Deepbound.Networking
                     }
                     else Log("weak point burst", "no brute prefab", false);
                 }
+            }
+
+            // 2026-11-24: the Guide and Bestiary fill in as you play; the damage sheet; Wisdom charges ultimates; the wyrms' aim.
+            if (net.IsServer && NetworkPlayer.Local != null)
+            {
+                var cme = NetworkPlayer.Local;
+                var cp = cme.GetComponent<PlayerProgress>();
+                var combos = System.Array.Find(UI.Codex.GuideRight, s => s.Title == "COMBOS");
+                // Combos fired earlier in the run are already written in: learn one that is not.
+                int knownBefore = System.Array.FindAll(combos.Parts, pt => UI.Codex.Knows(pt.Key)).Length;
+                var fresh = System.Array.Find(combos.Parts, pt => !UI.Codex.Knows(pt.Key));
+                string before = UI.Codex.BodyOf(combos);
+                bool newOnce = UI.Codex.Learn("smoke.once", null) && !UI.Codex.Learn("smoke.once", null);
+                if (fresh.Key != null) UI.Codex.Learn(fresh.Key, null);
+                string after = UI.Codex.BodyOf(combos);
+                bool combosOk = knownBefore > 0 && (fresh.Key == null || (!before.Contains(fresh.Text) && after.Contains(fresh.Text)))
+                    && UI.Codex.TitleOf(combos).Contains("(" + (knownBefore + (fresh.Key != null ? 1 : 0)) + " / ");
+                int bi = UI.Bestiary.IndexOf("BruteBrain");
+                UI.Bestiary.See("BruteBrain");
+                int st1 = UI.Bestiary.Stage(bi);
+                UI.Bestiary.Killed("BruteBrain");
+                int st2 = UI.Bestiary.Stage(bi);
+                string t2 = UI.Bestiary.TextFor(bi);
+                for (int k = 0; k < UI.Bestiary.StudyKills; k++) UI.Bestiary.Killed("BruteBrain");
+                int st3 = UI.Bestiary.Stage(bi);
+                bool lastEntry = UI.Bestiary.See(UI.Bestiary.Entries[UI.Bestiary.Entries.Length - 1].Type) || UI.Bestiary.Seen(UI.Bestiary.Entries.Length - 1);
+                Log("guide and bestiary fill in", "combo learned once " + newOnce + ", combos page " + UI.Codex.TitleOf(combos) + " ok " + combosOk + "; brute stages " + st1 + " -> " + st2 + " -> " + st3 + " ('" + t2 + "'), entry " + UI.Bestiary.Entries.Length + " recorded " + lastEntry,
+                    newOnce && combosOk && st1 == 1 && st2 == 2 && st3 == 3 && t2.Contains("defeated to learn more") && lastEntry && UI.Bestiary.Entries.Length > 32);
+
+                var dl = Progression.DamageSheet.For(cp);
+                float ratio = cp.AttackMultiplier / Progression.DamageSheet.StartMultiplier(cp);
+                bool sheetOk = dl.Count >= 3 && dl.TrueForAll(l => l.Now > 0f && l.Start > 0f) && Mathf.Abs(dl[0].Now / dl[0].Start - ratio) < 0.01f;
+                Log("damage sheet", cp.ClassId.Value + ": " + string.Join(", ", dl.ConvertAll(l => l.Name + " " + Mathf.RoundToInt(l.Now) + " (start " + Mathf.RoundToInt(l.Start) + ")")), sheetOk);
+
+                float w0 = Player.Ultimates.WisdomCharge(cp);
+                cp.ServerAddBonus(Core.StatType.WIS, 6f);
+                yield return null;
+                float w1 = Player.Ultimates.WisdomCharge(cp);
+                cp.ServerAddBonus(Core.StatType.WIS, -6f);
+                var (wo, wd) = Player.Ultimates.WyrmLine(Vector3.zero, Vector3.forward, new Vector3(0f, 30f, 20f));
+                var (wo2, wd2) = Player.Ultimates.WyrmLine(Vector3.zero, Vector3.forward, new Vector3(0f, 1.55f, 20f));
+                float upPitch = Mathf.Asin(wd.y) * Mathf.Rad2Deg;
+                Log("wisdom and wyrm aim", "ult charge x" + w0.ToString("F3") + " -> x" + w1.ToString("F3") + " with WIS drills; wyrms aimed high pitch " + upPitch.ToString("F0") + " deg (cap " + Player.Ultimates.WyrmMaxPitch + "), level " + wd2.y.ToString("F2"),
+                    w1 > w0 + 0.01f && Mathf.Abs(upPitch - Player.Ultimates.WyrmMaxPitch) < 1f && Mathf.Abs(wd2.y) < 0.02f && wd.z > 0f);
             }
 
             // THE PROVING PATH (2026-11-23): the tutorial floor, every lesson met in turn, the guardian, then camp.

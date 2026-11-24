@@ -71,7 +71,7 @@ namespace Deepbound.Core
                 case StatType.SPD: return "Movement speed.";
                 case StatType.DEX: return "Attack and cast rate.";
                 case StatType.VIT: return "Slow health regeneration (melee classes mend more, ranged less).";
-                case StatType.WIS: return "Healing and buff potency.";
+                case StatType.WIS: return "Every point gained charges your ultimate 1.5% faster. Mana and reagents return faster, and Cleric heals are stronger.";
                 default: return string.Empty;
             }
         }

@@ -34,49 +34,11 @@ namespace Deepbound.UI
         private static bool Reserved(Key k) => k == Key.Escape || k == Key.Enter || k == Key.NumpadEnter || k == Key.Slash || k == Key.Backquote
             || k == Key.F1 || k == Key.LeftAlt || k == Key.RightAlt || k == Key.LeftMeta || k == Key.RightMeta || k == Key.ContextMenu || k == Key.None;
 
-        // The Guide: every progression system and combo on one page, in plain words.
-        private static readonly (string title, string body)[] GuideLeft =
-        {
-            ("EMBERS & THE ANVIL", "Embers drop from enemies, chests and urns, and are gained by scrapping gear. Spend them at the anvil (F) to temper your weapon up to +10; each level adds ATT, DEX and 5% range. At +2 you choose a Path, and at +5, +7 and +9 you forge one of three Edges. Beyond +10, Hobb can hone the blade five times for +3% damage each. Hobb also scraps spare gear, refines and attunes armour, and sells plate."),
-            ("WEAPON PATHS", "At +2 your weapon takes one of three Paths: two change how you deal damage, and the third improves survival. At +4 the Path is mastered and gains a second effect. Hobb can replace one Edge per run, for gold."),
-            ("BUILDS", "GEAR SETS: matching armour and charm pairs grant a small bonus. MASTERIES: six of Brann's drills in one stat unlock a mastery. MAJOR SOCKET: a rune in your first socket is twice as strong. SHRINES OF TRADE-OFF, hidden behind cracked walls, offer a cursed bargain for the run."),
-            ("CLASS GIFTS", "Knight: a raised shield halves trap damage and stops the Gravewarden's charge. Mage: nearby secret walls appear on the map. Cleric: bargains cost half. Rogue: hold F on a spike plate to jam it; hidden plates glint. Ranger: the map shows enemies further away. Flagellant: traps deal less damage. Plague Doctor: potions heal more."),
-            ("SIGILS & ABILITY RANKS", "Sigils drop from elites, chests and bosses (one per player). At Ysolde's stones, spend them to rank up Q or E, up to rank 5. Each rank offers a choice of two upgrades that change how the ability works, locked for the run, and also increases potency and reduces cooldown. Ranks cost 1, 1, 2 and 3 Sigils; spares melt into embers."),
-            ("RUNES", "Runes enchant your weapon. Sockets open at +1, +3 and +6; set runes at Ysolde's stones. Meld three identical runes (plus embers) into the next tier: II is 50% stronger, III twice as strong."),
-            ("RANGE", "Every attack has a maximum range, and damage falls off beyond half of it (to 60% at the limit). Arrows and knives drop over distance. Tempering adds 5% range per level; a Farsight rune adds 25% (half for melee). The crosshair shows OUT OF RANGE when a target is too far."),
-            ("NOTHING CARRIES OVER", "Everything you gain lasts one run. Only Renown, cosmetics, journal pages, deeds and the Hall of Records persist."),
-        };
-        private static readonly (string title, string body)[] GuideRight =
-        {
-            ("GEAR", "Armour and charms are rolled per player; only you see your drops. F stores a piece in your pack (I to equip). Deeper finds are stronger, and Hobb can refine or attune a favourite to keep it relevant. Bosses may drop Legendary pieces. Silas sells pendants; Hobb sells armour."),
-            ("RARE DRAUGHTS & TOMES (5)", "The fifth pouch slot holds one rare item. IRONBARK: half damage and immunity to afflictions for 8 s. BLOODFURY: 40% more damage and faster attacks for 8 s. GRAVE STILLNESS: invulnerable but helpless for 3 s. TOME OF THE PHOENIX: a fire-bird fights for you for 30 s. TOME OF THE STORM: lightning strikes nearby enemies for 10 s. TOME OF SANCTUARY: a holy circle reduces damage taken by 35% and heals for 10 s."),
-            ("RELICS", "Relics grant passive powers; you can carry eight. A duplicate empowers the one you have (II, III: +35% each). With a full tray, new relics empower your weakest. Drop one from the inventory (right-click) to free a slot. Cooldown reduction from all sources caps at 40%."),
-            ("YOUR SECOND BAR", "Each class's resource works differently; its bar shows a short reminder. KNIGHT Stamina: spent by blocking and sprinting; when depleted, your guard drops. MAGE Mana: spent by Frostbolt and spells; Firebolt is free. CLERIC Mana: drained by the Mending Beam, which also pauses regeneration. ROGUE Energy: spent by frontal stabs; attacks from behind are free and restore it; when depleted, you are Winded. RANGER Focus: builds from landed arrows and fades when idle; when full, your next full draw is a Deadeye shot. FLAGELLANT Fervor: builds from dealing and taking damage, grants up to 20% bonus damage, and is spent by Penitent Leap. PLAGUE DOCTOR Reagents: spent by vials and restored by Blighted kills; when depleted, vials deal reduced damage and do not Blight."),
-            ("COMBOS", "SHATTER: heavy hits on chilled enemies deal bonus damage. EXPOSED: stunned enemies take 25% more damage. DISTRACTED: taunted enemies take 15% more from everyone but the taunter. BLESSED: allies in Consecrate deal 20% more; the Cleric's beam target is INSPIRED (+15%). THERMAL SHOCK: frost on a scorched enemy, or fire on a chilled one, deals a burst of damage. PINCER: striking opposite an ally who just hit deals 15% more. PUNISH: enemies recovering from an attack take 20% more. WARD BROKEN: stuns and chill shatter an elite's ward. PURGE: the Cleric deals 25% more to Blighted enemies. PLAGUE CRASH: the Flagellant's Crash spreads Blight. CONVERGENCE: two players casting their ultimates within 4 s of each other unleash a stunning burst and grant the party Bloodlust. Enemies show what can be exploited: stars for stuns, a red diamond for Marks, frost or embers at their feet."),
-            ("SHELTER", "Allies standing close behind a Knight with a raised shield take half damage from attacks the shield faces."),
-            ("RAGE", "Enemies target whoever has damaged them most. The meter under a boss or targeted elite shows who is HUNTED; it switches only when someone exceeds that player by a fifth. Knights generate far more threat; Rogues generate less. Healing draws threat from nearby enemies, and stealth clears it."),
-            ("ELITES", "Elites carry an affix. WARDED: nearly immune until stunned or chilled. VAMPIRIC: heals from its hits; a Mark stops it. VOLATILE: explodes on death. SWIFT: fast; chill slows it. SPLITTING: splits into two. THORNED: damages melee attackers. FRENZIED: attacks faster below half health. GRAVEBOUND: rises again unless you stand on its bones. HUSHING: hits Silence. CONCUSSIVE: hits Daze. EMBERBOUND: leaves burning patches as it moves; chill slows the trail. SOULBOUND: a linked pair that revive each other unless both die close together. One named CHAMPION per floor guards a hoard and fights according to its title."),
-        };
-
-        // Page two: the dungeon, its creatures and its tricks.
-        private static readonly (string title, string body)[] DungeonLeft =
-        {
-            ("EVERY CLASS", "R: ultimate, charged by fighting. V: kick (dodge while sprinting to slide, then kick for a Slide Kick). Dodging through a blow at the last moment returns your dodge at once, and your next hit within 2 s deals 30% more. The pouch holds five of each: 1 Health Potion (heals 45% over 3 s), 2 Frost Flask and 3 Holy Water (both thrown). VIT slowly regenerates health. Hits can CRIT. Ranged headshots deal 50% more (aimed melee 25%), and glowing weak points deal double. Tap F by a downed ally to drag them; hold F to revive. A downed ally bleeds out after 40 s; carry their soul skull to the start room's waystone to bring them back."),
-            ("THE DEAD", "Enemies hear you: running carries about 11 m and combat about 16, halved through walls; walking is quiet. Your first hit on an unaware enemy deals 50% more. Only three attack at once; the rest wait. Break line of sight and stay quiet to lose them. Attack warnings: ! is a strike, !! a heavy blow (sidestep), <!> a wide sweep (back off), >> a lunge along a marked line (dodge sideways). Afflictions: POISON, FROSTBITE (slow), CURSE (40% more damage taken), WEAKNESS (40% less damage dealt), MANIA (no attacking), BLIND (no map or health bars), SILENCE (no abilities) and ROOTED. Holy Water cleanses all but roots. From floor 2, patrols move between rooms, and deeper enemies lead their shots."),
-            ("ROOMS", "Flame vents and spike plates deal a third of your health; cross when the fire drops. Kick enemies into chasms and pendulum blades. Pull three levers on a floor to open its vault. Falls over four metres cause damage. Jump into a ledge up to two metres high to climb it. LAIRS hold a sleeping keeper and its hoard. RELIQUARIES, carried to the waystone, revive the fallen, reward the party and weaken the boss. BLOOD ALTARS trade health for damage and relics. Special side rooms include the Treasury, Beggar, Proving Bell, Armoury, Dark Mirror, Oath Room and the Relic Crucible, which turns your weakest relic into a different one a tier higher. Lightless halls require a carried torch. The peddler's room is always safe."),
-        };
-        private static readonly (string title, string body)[] DungeonRight =
-        {
-            ("BOSS PHASES", "Bosses change phase at set health thresholds and are briefly invulnerable between them. WARDED: kill the guards first. SURVIVE: dodge until the timer ends. ARMORED: damage is reduced. From floor 2, bosses hunt with trails of red circles and aimed lances; keep changing direction. Bosses crouch and glow before heavy attacks. Arenas may include healing pylons, ballistas, chandeliers or sanctum braziers. BREAK METER: weak points, headshots, stuns and kicks fill it; when full, the boss is Broken and takes 50% more damage. SHARED DOOM: everyone inside the dark ring splits its damage; stack on the marked player."),
-            ("THE DESCENT", "Ten floors across five acts: the Ossuary, Drowned Vaults, Hollow Throne, Black Cathedral and the Abyss. Each act ends at a Warden and then its master; the Unsung waits on floor 10. Some floors carry an EVENT, shown on the floor banner. Do not linger: after a few minutes a bell tolls, and two minutes later the Tallyman arrives. He cannot be harmed and drains your life on contact. Holy Water holds him briefly; sealing the guardian's arena makes him leave."),
-            ("THE SEALS", "Each act's Champion in the first four acts carries a Seal fragment. Every Seal broken weakens the Unsung; every one left makes it 15% tougher."),
-            ("FLOORS", "Ossuary: stamp out bone piles before they rise. Drowned Vaults: rising water halves your speed; find high ground. Hollow Throne: smash soul lanterns to heal and stun. Black Cathedral: jump the bell's shockwave. The Abyss: the light fails at times; stay together."),
-            ("INVENTORY", "Press I to open it. Bone, cloth and iron drop throughout the dungeon and craft potions, flasks, run upgrades and throwable tools (Z): Caltrops slow and damage, and a Bone Rattle lures enemies away. The pack holds eight pieces: click to equip, right-click at Hobb's anvil to scrap, shift-click to drop. Loot is shared by default; the host toggles this with L at camp."),
-            ("GIVING", "Look at a nearby ally and hold G to open the give wheel: potions, gold, embers, your rare item, or an emote. Flick toward a slice and release."),
-            ("VOICE", "Proximity voice reaches about 30 m, muffled through walls. Shouting wakes nearby enemies. Push-to-talk (T) and all key bindings are in Options. Gamepads are fully supported. Press Enter to type in chat."),
-            ("AT CAMP", "SILAS sells potions and provisions. HOBB tempers weapons, scraps gear and sells armour. YSOLDE handles runes, Sigils and ability ranks. The SHRINE offers Holy Water, relics and Aldric's prayer, which prevents one downing. At the tavern, Marta sells mead (+4% damage per level, at the cost of your footing). Take a contract from the bounty board, or turn the Omen Stone for a harder run and more Renown. BRANN sells drills that raise a stat for the run. CORWIN runs the carriage: difficulty, the Daily Descent, the solo Endless Descent, scout maps, smelling salts and climbing ropes. LEGACY (pause menu) spends Renown on permanent boons and lets you bring one relic from your last run as an Heirloom. MISTRESS VEY sells cosmetics and companions; every pet fetches gold and has a trick of its own."),
-            ("RELIC SYNERGIES", "Some pairs grant extra power together: Frost Shard + Winter's Tooth, Vampiric Fang + Blood Pact, Thunder Idol + Echo Stone, Executioner's Coin + Berserker's Brand, Phoenix Feather + Heart of the Deep."),
-        };
+        // The Guide's sections live in Codex (2026-11-24): they fill in as they are met in play.
+        private static Codex.Section[] GuideLeft => Codex.GuideLeft;
+        private static Codex.Section[] GuideRight => Codex.GuideRight;
+        private static Codex.Section[] DungeonLeft => Codex.DungeonLeft;
+        private static Codex.Section[] DungeonRight => Codex.DungeonRight;
         private int guidePage, lastGuidePage = -1;
         private Vector2 guideScroll;
         private string guideCacheKey;
@@ -583,7 +545,7 @@ namespace Deepbound.UI
         private void DrawBestiary(Rect panel, float colW, GUIStyle titleStyle, GUIStyle bodyStyle)
         {
             var view = new Rect(panel.x + 20, panel.y + 58, panel.width - 40, panel.height - 124);
-            float rowH = 62f;
+            float rowH = 70f;
             int rows = (Bestiary.Entries.Length + 1) / 2;
             var content = new Rect(0, 0, view.width - 20, rows * rowH);
             bestiaryScroll = GUI.BeginScrollView(view, bestiaryScroll, content);
@@ -596,7 +558,7 @@ namespace Deepbound.UI
                 UiSkin.Rect(r, new Color(1f, 1f, 1f, seen ? 0.05f : 0.02f));
                 if (seen) UiSkin.Rect(new Rect(r.x, r.y, 3, r.height), e.Boss ? new Color(0.9f, 0.3f, 0.22f) : UiSkin.Gold);
                 GUI.Label(new Rect(r.x + 10, r.y + 3, r.width - 14, 20), seen ? e.Name.ToUpperInvariant() : "???", new GUIStyle(titleStyle) { normal = { textColor = seen ? (e.Boss ? new Color(0.95f, 0.45f, 0.35f) : UiSkin.Gold) : new Color(0.5f, 0.48f, 0.45f) } });
-                GUI.Label(new Rect(r.x + 10, r.y + 22, r.width - 14, r.height - 24), seen ? e.Text : (e.Boss ? "A guardian you have not faced." : "Not yet met."), new GUIStyle(bodyStyle) { fontSize = 12, normal = { textColor = seen ? bodyStyle.normal.textColor : new Color(0.5f, 0.48f, 0.45f) } });
+                GUI.Label(new Rect(r.x + 10, r.y + 22, r.width - 14, r.height - 24), Bestiary.TextFor(i), new GUIStyle(bodyStyle) { fontSize = 12, normal = { textColor = seen ? bodyStyle.normal.textColor : new Color(0.5f, 0.48f, 0.45f) } });
             }
             GUI.EndScrollView();
         }
@@ -649,7 +611,7 @@ namespace Deepbound.UI
                 var view = new Rect(panel.x + 16, panel.y + 58, pw - 32, ph - 58 - 72);
                 var sections = new[] { guidePage == 0 ? GuideLeft : DungeonLeft, guidePage == 0 ? GuideRight : DungeonRight };
                 // Measuring a page of wrapped text is costly: do it once per page, width and key state.
-                string key = guidePage + "|" + colW + "|" + Binds.AnyChanged + "|" + Binds.PadActive;
+                string key = guidePage + "|" + colW + "|" + Binds.AnyChanged + "|" + Binds.PadActive + "|" + Codex.Version;
                 if (key != guideCacheKey)
                 {
                     guideCacheKey = key;
@@ -663,7 +625,7 @@ namespace Deepbound.UI
                         float y = 6f;
                         for (int i = 0; i < sections[c].Length; i++)
                         {
-                            guideTexts[c][i] = Binds.Rekey(sections[c][i].body);
+                            guideTexts[c][i] = Binds.Rekey(Codex.BodyOf(sections[c][i]));
                             guideHeights[c][i] = bodyStyle.CalcHeight(new GUIContent(guideTexts[c][i]), colW);
                             y += 20 + guideHeights[c][i] + 14;
                         }
@@ -679,7 +641,7 @@ namespace Deepbound.UI
                     float x = 8 + c * (colW + 24), y = 6f;
                     for (int i = 0; i < sections[c].Length; i++)
                     {
-                        GUI.Label(new Rect(x, y, colW, 20), sections[c][i].title, titleStyle);
+                        GUI.Label(new Rect(x, y, colW, 20), Codex.TitleOf(sections[c][i]), titleStyle);
                         float bh = guideHeights[c][i];
                         GUI.Label(new Rect(x, y + 20, colW, bh), texts[c][i], bodyStyle);
                         y += 20 + bh + 14;
