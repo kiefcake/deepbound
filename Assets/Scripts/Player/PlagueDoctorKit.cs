@@ -232,7 +232,7 @@ namespace Deepbound.Player
             float p = BlightPower;
             if (dilute)
             {
-                foreach (var h in CombatQuery.Circle(at, radius * 0.8f, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Circle(at, radius * 0.8f, Team.Enemies))
                     h.Tag("PlagueDoctorKit").ServerDamage(VialDamage * DiluteDamage * p, at, NetworkObjectId);
                 SplashFxRpc(at, radius * 0.6f, false);
                 return;
@@ -241,7 +241,7 @@ namespace Deepbound.Player
             if (progress.OnPath(1)) AddCloud(at, radius, PuddleSeconds, BlightDps * 0.6f, true);
 
             if (progress.OnPath(2))
-                foreach (var ally in CombatQuery.Circle(at, radius + 0.4f, Team.Players).ToArray())
+                foreach (var ally in CombatQuery.Circle(at, radius + 0.4f, Team.Players))
                     if (ally.IsAlive) ally.ServerHeal(ally.Max.Value * VialHeal);
 
             if (progress.B(AbilitySlot.Q, 3))
@@ -256,7 +256,7 @@ namespace Deepbound.Player
                     CloudGoneRpc(c.Id);
                 }
             int deepest = 0;
-            foreach (var h in CombatQuery.Circle(at, radius, Team.Enemies).ToArray())
+            foreach (var h in CombatQuery.Circle(at, radius, Team.Enemies))
             {
                 int stacks = h.Blighted.Value ? h.BlightStacks.Value : 0;
                 deepest = Mathf.Max(deepest, stacks);
@@ -279,7 +279,7 @@ namespace Deepbound.Player
             float p = BlightPower * 1f;
             var drained = new List<ulong>();
             var counts = new List<byte>();
-            foreach (var h in CombatQuery.Circle(at, ExpungeRadius * RangeMul, Team.Enemies).ToArray())
+            foreach (var h in CombatQuery.Circle(at, ExpungeRadius * RangeMul, Team.Enemies))
             {
                 if (h == null || !h.IsAlive) continue;
                 int n = h.BlightStackCount;
@@ -362,7 +362,7 @@ namespace Deepbound.Player
             Health pick = null;
             float best = ZeroPick;
 
-            foreach (var h in CombatQuery.Circle(me, ZeroReach, Team.Enemies).ToArray())
+            foreach (var h in CombatQuery.Circle(me, ZeroReach, Team.Enemies))
             {
                 if (h == null || !h.IsAlive || !h.TryGetComponent<Enemies.EnemyBrain>(out _)) continue;
                 float d = Vector3.Distance(Flat(h.transform.position), Flat(aim));
@@ -372,7 +372,7 @@ namespace Deepbound.Player
             {
                 float bestScore = float.MaxValue;
                 var fwd = transform.forward; fwd.y = 0f;
-                foreach (var h in CombatQuery.Circle(me, ZeroReach, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Circle(me, ZeroReach, Team.Enemies))
                 {
                     if (h == null || !h.IsAlive || !h.TryGetComponent<Enemies.EnemyBrain>(out _)) continue;
                     var to = h.transform.position - me; to.y = 0f;
@@ -380,7 +380,7 @@ namespace Deepbound.Player
                     if (score < bestScore) { bestScore = score; pick = h; }
                 }
             }
-            foreach (var ally in CombatQuery.Circle(me, ZeroHealRadius, Team.Players).ToArray())
+            foreach (var ally in CombatQuery.Circle(me, ZeroHealRadius, Team.Players))
                 ally.ServerHeal(ally.Max.Value * ZeroHeal);
             if (pick == null)
             {
@@ -424,7 +424,7 @@ namespace Deepbound.Player
             nextCough = Time.time + ZeroCough;
             var at = zero.transform.position;
             int n = 0;
-            foreach (var h in CombatQuery.Circle(at, ZeroCoughRadius, Team.Enemies).ToArray())
+            foreach (var h in CombatQuery.Circle(at, ZeroCoughRadius, Team.Enemies))
                 if (h != zero && (!plagued.TryGetValue(h, out var pl) || pl.until - Time.time < ZeroCoughSeconds - 0.5f) && Afflict(h, ZeroCoughSeconds, 0f)) n++;
             CoughFxRpc(zero.NetworkObjectId, n > 0);
         }
@@ -436,7 +436,7 @@ namespace Deepbound.Player
             if (left <= 0.2f) return;
             Health next = null;
             float best = ZeroJump;
-            foreach (var h in CombatQuery.Circle(at, ZeroJump, Team.Enemies).ToArray())
+            foreach (var h in CombatQuery.Circle(at, ZeroJump, Team.Enemies))
             {
                 if (h == null || !h.IsAlive || h == dead || !h.TryGetComponent<Enemies.EnemyBrain>(out _)) continue;
                 float d = Vector3.Distance(h.transform.position, at);
@@ -483,7 +483,7 @@ namespace Deepbound.Player
         public void ServerContagionSpread(Vector3 at, float left)
         {
             float seconds = Mathf.Max(ContagionMinSpread, left);
-            foreach (var h in CombatQuery.Circle(at, ContagionSpread, Team.Enemies).ToArray())
+            foreach (var h in CombatQuery.Circle(at, ContagionSpread, Team.Enemies))
                 if (!plagued.TryGetValue(h, out var pl) || pl.until - Time.time < seconds - 0.5f) Afflict(h, seconds, ContagionBurst * ContagionSpreadBurst);
             ContagionBurstFxRpc(at);
         }
@@ -520,7 +520,7 @@ namespace Deepbound.Player
 
                     if (!c.Black && !c.Small && progress.B(AbilitySlot.Q, 4))
                     {
-                        foreach (var h in CombatQuery.Circle(c.At, WindRadius, Team.Enemies).ToArray()) h.ServerBlight(BlightSeconds, BlightDps * p, NetworkObjectId);
+                        foreach (var h in CombatQuery.Circle(c.At, WindRadius, Team.Enemies)) h.ServerBlight(BlightSeconds, BlightDps * p, NetworkObjectId);
                         progress.AbilityBurstRpc(c.At, WindRadius, PlayerProgress.FxKind.Poison);
                     }
                     continue;
@@ -539,7 +539,7 @@ namespace Deepbound.Player
                 }
                 bool choke = mine && progress.A(AbilitySlot.Q, 3) && Time.time >= c.NextChoke;
                 if (choke) { c.NextChoke = Time.time + ChokeEvery; clouds[i] = c; }
-                foreach (var h in CombatQuery.Circle(c.At, c.Radius, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Circle(c.At, c.Radius, Team.Enemies))
                 {
                     h.ServerBlight(1.5f, c.Dps * p, NetworkObjectId);
                     if (c.Black && h.TryGetComponent<Enemies.EnemyBrain>(out var b)) b.ServerAddThreat(NetworkObjectId, 2f);
@@ -551,7 +551,7 @@ namespace Deepbound.Player
                 if (choke) progress.AbilityTextRpc(c.At + Vector3.up * 2f, "CHOKING", PlayerProgress.FxKind.Poison);
 
                 if (mine && progress.B(AbilitySlot.Q, 2))
-                    foreach (var ally in CombatQuery.Circle(c.At, c.Radius, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.03f * 0.5f);
+                    foreach (var ally in CombatQuery.Circle(c.At, c.Radius, Team.Players)) ally.ServerHeal(ally.Max.Value * 0.03f * 0.5f);
             }
         }
 
@@ -560,7 +560,7 @@ namespace Deepbound.Player
             bool all = progress.Mastered(1);
             Health nearest = null;
             float best = ContagionRadius;
-            foreach (var h in CombatQuery.Circle(at, ContagionRadius, Team.Enemies).ToArray())
+            foreach (var h in CombatQuery.Circle(at, ContagionRadius, Team.Enemies))
             {
                 if (!h.IsAlive) continue;
                 if (all) { h.ServerBlight(BlightSeconds, BlightDps * BlightPower, NetworkObjectId); continue; }
@@ -616,7 +616,7 @@ namespace Deepbound.Player
             if (progress.A(AbilitySlot.E, 3)) AddCloud(transform.position, MiasmaRadius, MiasmaSeconds, MiasmaDps * progress.Potency(AbilitySlot.Q), false);
 
             if (progress.B(AbilitySlot.E, 3))
-                foreach (var h in CombatQuery.Circle(transform.position, RepelRadius, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Circle(transform.position, RepelRadius, Team.Enemies))
                 {
                     var away = h.transform.position - transform.position; away.y = 0f;
                     AbilityKit.Push(h, away.normalized * 12f);
@@ -625,7 +625,7 @@ namespace Deepbound.Player
 
             if (progress.A(AbilitySlot.E, 4))
             {
-                foreach (var h in CombatQuery.Circle(transform.position, LordRadius, Team.Enemies).ToArray()) h.ServerBlight(BlightSeconds * 1.5f, BlightDps * BlightPower, NetworkObjectId);
+                foreach (var h in CombatQuery.Circle(transform.position, LordRadius, Team.Enemies)) h.ServerBlight(BlightSeconds * 1.5f, BlightDps * BlightPower, NetworkObjectId);
                 progress.AbilityBurstRpc(transform.position, LordRadius, PlayerProgress.FxKind.Poison);
             }
             MaskFxRpc(transform.position);

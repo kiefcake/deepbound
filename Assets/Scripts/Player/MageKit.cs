@@ -157,7 +157,7 @@ namespace Deepbound.Player
             float att = progress.AttackMultiplier;
             ulong me = NetworkObjectId;
             float range = FlameRange * RangeMul;
-            foreach (var h in CombatQuery.Arc(origin, forward, range, FlameArc, Team.Enemies).ToArray())
+            foreach (var h in CombatQuery.Arc(origin, forward, range, FlameArc, Team.Enemies))
             {
                 if (!CombatQuery.ClearLine(origin, h)) continue;
                 bool shatter = h.ServerConsumeChill();
@@ -307,7 +307,7 @@ namespace Deepbound.Player
             if (progress.B(AbilitySlot.E, 1))
                 AbilityKit.Later(this, MeteorDelay - 0.45f, () =>
                 {
-                    foreach (var h in CombatQuery.Circle(spot, GravityRadius, Team.Enemies).ToArray())
+                    foreach (var h in CombatQuery.Circle(spot, GravityRadius, Team.Enemies))
                         if (!AbilityKit.IsBoss(h)) AbilityKit.PullTo(h, spot, 1.1f);
                     progress.AbilityBurstRpc(spot, GravityRadius * 0.5f, PlayerProgress.FxKind.Shadow);
                 });
@@ -370,7 +370,7 @@ namespace Deepbound.Player
             float end = Time.time + WhirlSeconds;
             while (Time.time < end)
             {
-                foreach (var h in CombatQuery.Circle(at, WhirlRadius + 1f, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Circle(at, WhirlRadius + 1f, Team.Enemies))
                     if (!AbilityKit.IsBoss(h)) AbilityKit.PullTo(h, at, 0.5f);
                 progress.AbilityBurstRpc(at, 1.2f, PlayerProgress.FxKind.Water);
                 yield return new WaitForSeconds(0.5f);
@@ -419,7 +419,7 @@ namespace Deepbound.Player
             {
                 float k = Mathf.Clamp01((Time.time - start) / WaveSeconds);
                 float front = Mathf.Max(1.5f, length * k);
-                foreach (var h in CombatQuery.Arc(from + Vector3.up * 0.9f, dir, front, ring ? 360f : WaveArc, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Arc(from + Vector3.up * 0.9f, dir, front, ring ? 360f : WaveArc, Team.Enemies))
                 {
                     if (h == null || !h.IsAlive || !struck.Add(h)) continue;
                     h.Tag("Tidal Wave").ServerDamage(damage, from, me);
@@ -477,7 +477,7 @@ namespace Deepbound.Player
                 float potency = progress.Potency(AbilitySlot.E);
                 bool frost = progress.B(AbilitySlot.E, 3) && !m.Mini;
                 var killed = new List<Health>();
-                foreach (var h in CombatQuery.Circle(at, m.Radius, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Circle(at, m.Radius, Team.Enemies))
                 {
                     bool shatter = h.ServerConsumeChill();
                     if (shatter)
@@ -540,7 +540,7 @@ namespace Deepbound.Player
                 if (ClericKit.InConsecration(at))
                 {
                     Health first = null;
-                    foreach (var ally in CombatQuery.Circle(at, MeteorRadius + 1f, Team.Players).ToArray())
+                    foreach (var ally in CombatQuery.Circle(at, MeteorRadius + 1f, Team.Players))
                     {
                         ally.ServerHeal(ally.Max.Value * 0.15f);
                         if (first == null) first = ally;

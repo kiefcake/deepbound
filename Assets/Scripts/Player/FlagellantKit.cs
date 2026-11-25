@@ -321,7 +321,7 @@ namespace Deepbound.Player
             ulong me = NetworkObjectId;
 
             if (progress.A(AbilitySlot.Q, 1))
-                foreach (var other in CombatQuery.Circle(startAt, 3f, Team.Enemies).ToArray())
+                foreach (var other in CombatQuery.Circle(startAt, 3f, Team.Enemies))
                     if (other != target && other.TryGetComponent<Enemies.EnemyBrain>(out var ob))
                     {
                         ob.ServerYank(spot + Random.insideUnitSphere.normalized * 1.2f, Art.ChainLink.ReachSeconds);
@@ -403,7 +403,7 @@ namespace Deepbound.Player
 
             if (progress.A(AbilitySlot.E, 3))
             {
-                foreach (var h in CombatQuery.Circle(at, PullRadius, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Circle(at, PullRadius, Team.Enemies))
                     if (!AbilityKit.IsBoss(h) && h.TryGetComponent<Enemies.EnemyBrain>(out var pb)) pb.ServerYank(at + Random.insideUnitSphere.normalized * 1.3f);
                 progress.AbilityBurstRpc(at, PullRadius * 0.5f, PlayerProgress.FxKind.Shadow);
             }
@@ -416,7 +416,7 @@ namespace Deepbound.Player
             }
             bool shockwave = progress.A(AbilitySlot.E, 1);
             float total = 0f;
-            foreach (var target in CombatQuery.Circle(at, LeapRadius, Team.Enemies).ToArray())
+            foreach (var target in CombatQuery.Circle(at, LeapRadius, Team.Enemies))
             {
                 total += target.Tag("FlagellantKit").ServerDamage(dmg, at, me);
                 if (target.TryGetComponent<ICrowdControl>(out var cc))
@@ -428,7 +428,7 @@ namespace Deepbound.Player
 
             if (progress.A(AbilitySlot.E, 4))
             {
-                foreach (var h in CombatQuery.Circle(at, QuakeRadius, Team.Enemies).ToArray()) AbilityKit.Stun(h, 2f);
+                foreach (var h in CombatQuery.Circle(at, QuakeRadius, Team.Enemies)) AbilityKit.Stun(h, 2f);
                 progress.AbilityBurstRpc(at, QuakeRadius, PlayerProgress.FxKind.Earth);
             }
 
@@ -447,7 +447,7 @@ namespace Deepbound.Player
 
             if (progress.B(AbilitySlot.E, 2) && fervor > 0f)
             {
-                foreach (var ally in CombatQuery.Circle(at, 5f, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.2f * (fervor / FervorMax));
+                foreach (var ally in CombatQuery.Circle(at, 5f, Team.Players)) ally.ServerHeal(ally.Max.Value * 0.2f * (fervor / FervorMax));
                 progress.AbilityBurstRpc(at, 5f, PlayerProgress.FxKind.Blood);
             }
             AfterHits(total);
@@ -474,7 +474,7 @@ namespace Deepbound.Player
             if (before < 0.5f || health.Fraction >= 0.5f) return;
             nextErupt = Time.time + (progress.Mastered(Classes.PathTriads.Path) ? EruptEveryMastered : EruptEvery);
             health.ServerHeal(health.Max.Value * 0.1f);
-            foreach (var h in CombatQuery.Circle(transform.position, EruptRadius, Team.Enemies).ToArray()) AbilityKit.Stun(h, 1.2f);
+            foreach (var h in CombatQuery.Circle(transform.position, EruptRadius, Team.Enemies)) AbilityKit.Stun(h, 1.2f);
             progress.AbilityBurstRpc(transform.position, EruptRadius, PlayerProgress.FxKind.Blood);
             progress.AbilityTextRpc(transform.position + Vector3.up * 2.3f, "SCARRED", PlayerProgress.FxKind.Blood);
         }

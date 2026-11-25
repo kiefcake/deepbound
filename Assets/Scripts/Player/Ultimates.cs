@@ -313,7 +313,7 @@ namespace Deepbound.Player
             lockedUntil = Time.time + (progress.ClassId.Value == ClassId.Rogue ? RogueLockAfterCast : LockAfterCast);
             var cls = progress.ClassId.Value;
             if (progress.HasRelic(Relic.WarlordsHorn))
-                foreach (var ally in CombatQuery.Circle(transform.position, 12f, Team.Players).ToArray())
+                foreach (var ally in CombatQuery.Circle(transform.position, 12f, Team.Players))
                     ally.ServerHeal(ally.Max.Value * 0.25f * progress.RelicPower(Relic.WarlordsHorn));
             float att = progress.AttackMultiplier;
             switch (cls)
@@ -356,7 +356,7 @@ namespace Deepbound.Player
             yield return new WaitForSeconds(MageKit.MeteorDelay - 0.4f);
             for (int i = 0; i < spots.Count; i++)
             {
-                foreach (var foe in CombatQuery.Circle(spots[i], MageKit.MeteorRadius, Team.Enemies).ToArray())
+                foreach (var foe in CombatQuery.Circle(spots[i], MageKit.MeteorRadius, Team.Enemies))
                 {
                     foe.Tag("Ultimates").ServerDamage(MageKit.MeteorDamage * 0.85f * att * Combos.TryShatter(foe, progress), spots[i], NetworkObjectId);
                     if (foe.TryGetComponent<ICrowdControl>(out var cc))
@@ -378,14 +378,14 @@ namespace Deepbound.Player
             DawnFxRpc(at, DawnRadius, DawnSeconds);
             foreach (var ally in PlayerLife.All)
                 if (ally != null && ally.Downed.Value && !ally.Soul.Value && Flat(ally.transform.position - at) <= DawnRadius) ally.ServerRevive(DawnRevive);
-            foreach (var foe in CombatQuery.Circle(at, DawnRadius, Team.Enemies).ToArray())
+            foreach (var foe in CombatQuery.Circle(at, DawnRadius, Team.Enemies))
                 if (foe.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(DawnStun);
             for (float t = 0f; t < DawnSeconds; t += DawnTick)
             {
                 foreach (var ally in PlayerLife.All)
                     if (ally != null && !ally.Downed.Value && ally.Health.IsAlive && Flat(ally.transform.position - at) <= DawnRadius)
                         ClericKit.Bless(ally.Health, ally.Health.Max.Value * DawnHeal);
-                foreach (var foe in CombatQuery.Circle(at, DawnRadius, Team.Enemies).ToArray())
+                foreach (var foe in CombatQuery.Circle(at, DawnRadius, Team.Enemies))
                     foe.Tag("Dawnbreak").Ticking().ServerDamage(DawnBurn * att * DawnTick * 2f, at, NetworkObjectId);
                 yield return new WaitForSeconds(DawnTick);
             }

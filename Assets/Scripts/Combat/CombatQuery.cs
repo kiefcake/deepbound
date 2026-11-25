@@ -7,7 +7,7 @@ namespace Deepbound.Combat
     {
         public static List<Health> Arc(Vector3 origin, Vector3 forward, float range, float arcDegrees, Team team)
         {
-            var Results = new List<Health>();
+            var results = new List<Health>();
             forward.y = 0f;
             forward.Normalize();
             float halfArc = arcDegrees * 0.5f;
@@ -26,24 +26,25 @@ namespace Deepbound.Combat
                 if (dist > 0.8f && Vector3.Angle(forward, to) > halfArc) continue;
                 if (!ClearLine(origin, h)) continue;
 
-                Results.Add(h);
+                results.Add(h);
             }
 
-            return Results;
+            return results;
         }
 
         public static List<Health> Circle(Vector3 center, float radius, Team team)
         {
-            var Results = new List<Health>();
+            var results = new List<Health>();
             foreach (var h in Health.All)
             {
                 if (h == null || !Matches(h, team) || !h.IsAlive) continue;
                 Vector3 to = h.transform.position - center;
                 if (Mathf.Abs(to.y) > 3f) continue;
                 to.y = 0f;
-                if (to.magnitude <= radius + h.BodyRadius * 0.6f) Results.Add(h);
+                float reach = radius + h.BodyRadius * 0.6f;
+                if (to.sqrMagnitude <= reach * reach) results.Add(h);
             }
-            return Results;
+            return results;
         }
 
         public static bool Matches(Health h, Team team) => h.Team == team || (team == Team.Enemies && h.Team == Team.Props) || (team == Team.Players && h.Team == Team.Allies);

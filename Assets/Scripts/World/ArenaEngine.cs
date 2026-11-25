@@ -108,13 +108,13 @@ namespace Deepbound.World
         private void ServerChandelierLands()
         {
             var at = Target.Value;
-            foreach (var h in CombatQuery.Circle(at, ChandelierRadius, Team.Enemies).ToArray())
+            foreach (var h in CombatQuery.Circle(at, ChandelierRadius, Team.Enemies))
             {
                 bool isBoss = h.TryGetComponent<BossBrain>(out _);
                 h.ServerDamage(isBoss ? h.Max.Value * ChandelierShare : 400f, at + Vector3.up * 3f);
                 if (h.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(ChandelierStun);
             }
-            foreach (var h in CombatQuery.Circle(at, ChandelierRadius * 0.6f, Team.Players).ToArray()) h.ServerDamage(h.Max.Value * 0.25f, at + Vector3.up * 3f);
+            foreach (var h in CombatQuery.Circle(at, ChandelierRadius * 0.6f, Team.Players)) h.ServerDamage(h.Max.Value * 0.25f, at + Vector3.up * 3f);
             CrashRpc(at);
         }
 

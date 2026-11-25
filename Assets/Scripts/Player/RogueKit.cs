@@ -176,7 +176,7 @@ namespace Deepbound.Player
             while (Time.time < end)
             {
                 yield return new WaitForSeconds(0.5f);
-                foreach (var h in CombatQuery.Circle(at, SmokeCloudRadius, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Circle(at, SmokeCloudRadius, Team.Enemies))
                 {
                     if (choke) h.Tag("Choking Smoke").ServerDamage(StabDamage * 0.6f * att * 0.5f, at, NetworkObjectId);
                     if (caltrops) { h.Tag("Caltrops").ServerDamage(StabDamage * 0.35f * att * 0.5f, at, NetworkObjectId); h.ServerChill(1f); }
@@ -359,7 +359,7 @@ namespace Deepbound.Player
             if (Vector3.Distance(origin, transform.position + Vector3.up * 1.5f) > 2f) origin = transform.position + Vector3.up * 1.5f;
 
             int hits = 0, maxHits = progress.OnPath(2) ? 2 : 1;
-            foreach (var target in CombatQuery.Arc(origin, forward, Reach, StabArc, Team.Enemies).ToArray())
+            foreach (var target in CombatQuery.Arc(origin, forward, Reach, StabArc, Team.Enemies))
             {
                 float m = Multiplier(target, out bool opener);
                 bool flourish = hits == 0 && progress.OnPath(2) && CountFlourish(target);
@@ -450,7 +450,7 @@ namespace Deepbound.Player
             var at = transform.position;
 
             if (progress.B(AbilitySlot.E, 1))
-                foreach (var h in CombatQuery.Circle(at, 5f, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Circle(at, 5f, Team.Enemies))
                     AbilityKit.Stun(h, 1.5f);
 
             if (progress.A(AbilitySlot.E, 1) || progress.A(AbilitySlot.E, 2)) StartCoroutine(SmokeHazard(at, smokeFor, progress.A(AbilitySlot.E, 1), progress.A(AbilitySlot.E, 2)));
@@ -470,7 +470,7 @@ namespace Deepbound.Player
             if (progress.B(AbilitySlot.E, 3)) progress.ServerRally(smokeFor, 1f);
 
             if (progress.B(AbilitySlot.E, 4))
-                foreach (var h in CombatQuery.Circle(at, 8f, Team.Enemies).ToArray()) { h.ServerMark(6f); progress.AbilityTextRpc(h.Center + Vector3.up, "MARKED", PlayerProgress.FxKind.Shadow); }
+                foreach (var h in CombatQuery.Circle(at, 8f, Team.Enemies)) { h.ServerMark(6f); progress.AbilityTextRpc(h.Center + Vector3.up, "MARKED", PlayerProgress.FxKind.Shadow); }
             SmokeFxRpc(at, smokeFor);
         }
 

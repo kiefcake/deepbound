@@ -258,7 +258,7 @@ namespace Deepbound.Loot
                 try
                 {
                     var at = target.transform.position;
-                    foreach (var foe in CombatQuery.Circle(at, 4f, Team.Enemies).ToArray())
+                    foreach (var foe in CombatQuery.Circle(at, 4f, Team.Enemies))
                         foe.Tag("Relics").ServerDamage(22f * p.RelicPower(Relic.WraithChain) * p.AttackMultiplier, at, attackerId);
                     p.WraithNovaFxRpc(at);
                 }

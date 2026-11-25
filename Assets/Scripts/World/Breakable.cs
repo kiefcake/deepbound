@@ -75,6 +75,7 @@ namespace Deepbound.World
         public const float PylonHeal = 0.0035f, PylonHitPause = 4f, PylonRange = 26f;
         private float stunnedUntil;
         private Transform beam;
+        private Renderer beamRenderer;
         private float nextPylonTick;
 
         private void Update()
@@ -95,7 +96,8 @@ namespace Deepbound.World
             if (beam == null)
             {
                 beam = MeshKit.Part(transform, "PylonBeam", MeshKit.Box(new Vector3(0.06f, 0.06f, 1f)), Mat.Glow, Vector3.zero).transform;
-                beam.GetComponent<Renderer>().shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
+                beamRenderer = beam.GetComponent<Renderer>();
+                beamRenderer.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
             }
             beam.gameObject.SetActive(feeding);
             if (!feeding) return;
@@ -105,7 +107,7 @@ namespace Deepbound.World
             beam.rotation = Quaternion.LookRotation(to - from);
             float pulse = 0.7f + 0.3f * Mathf.Sin(Time.time * 6f);
             beam.localScale = new Vector3(pulse, pulse, Vector3.Distance(from, to));
-            ArtLibrary.SetGlow(beam.GetComponent<Renderer>(), new Color(0.5f, 1f, 0.55f) * (1.2f * pulse));
+            ArtLibrary.SetGlow(beamRenderer, new Color(0.5f, 1f, 0.55f) * (1.2f * pulse));
         }
 
         private ulong lastHitBy = ulong.MaxValue;
@@ -166,8 +168,8 @@ namespace Deepbound.World
             if (Type.Value == Kind.SoulLantern)
             {
                 var at = transform.position + Vector3.up;
-                foreach (var ally in CombatQuery.Circle(at, 6f, Team.Players).ToArray()) ally.ServerHeal(ally.Max.Value * 0.25f);
-                foreach (var foe in CombatQuery.Circle(at, 6f, Team.Enemies).ToArray())
+                foreach (var ally in CombatQuery.Circle(at, 6f, Team.Players)) ally.ServerHeal(ally.Max.Value * 0.25f);
+                foreach (var foe in CombatQuery.Circle(at, 6f, Team.Enemies))
                     if (foe.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(2.5f);
                 SoulFxRpc();
                 NetworkObject.Despawn();
@@ -209,7 +211,7 @@ namespace Deepbound.World
         {
             var at = transform.position + Vector3.up * 0.5f;
 
-            foreach (var h in CombatQuery.Circle(at, BlastRadius, Team.Enemies).ToArray())
+            foreach (var h in CombatQuery.Circle(at, BlastRadius, Team.Enemies))
             {
                 if (h == health) continue;
                 h.ServerDamage(BlastDamage, at, NetworkObjectId);
@@ -220,7 +222,7 @@ namespace Deepbound.World
                     cc.ServerKnockback(push.normalized * 10f);
                 }
             }
-            foreach (var h in CombatQuery.Circle(at, BlastRadius, Team.Players).ToArray())
+            foreach (var h in CombatQuery.Circle(at, BlastRadius, Team.Players))
             {
                 h.ServerDamage(BlastDamage * 0.6f, at, NetworkObjectId);
                 var push = h.transform.position - at;

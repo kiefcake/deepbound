@@ -442,3 +442,23 @@ The economy section expects about 5,700 gold a run, so three quests a floor add 
   two targets: about x1.63 base face to face, x1.72 mastered. The flat x1.25 is gone (`RogueKit`, path text); the Flourish
   and two targets stay, which leaves the Duelist near the Knight's single-target line.
 - Guardians fall in about a minute to a party of four on floors 1-3; near-downs 0-14. Watch this on deeper floors.
+
+## Party run B4, 2026-11-25 (after the Duelist trim; the Rogue bot rolled Shadowskin)
+
+| Floor | Rogue | Ranger | Flagellant | Knight | Guardian |
+|---|---|---|---|---|---|
+| 1 | 13.0k (boss 7.7k) | 7.2k (4.5k) | 10.0k (6.7k) | 6.5k (4.3k) | 1.1 min |
+| 2 | 32.1k (22.8k) | 12.7k (11.5k) | 12.2k (10.6k) | 6.4k (5.5k) | 1.6 min |
+| 3 | 41.4k (26.1k) | 31.9k (21.2k) | 26.8k (19.7k) | 9.3k (6.0k) | 0.9 min |
+
+- The Rogue's lead is plain stabs (447 hits on the floor-2 guardian, ~37 each): it attacks from behind while the Knight
+  holds the guardian, x1.3 on bosses. Its design number (55 dps front, ~72 behind) is ~1.75x the Ranger's 41, so a
+  1.2-2x lead fits the melee damage class. No change.
+- The Knight deals the least, as the tank; near-downs stayed 0-16 per member per floor.
+- No navmesh stranding this run (the bot's escape did not fire).
+
+## Party run A4, 2026-11-25 (current build)
+
+Guardian damage, Plague Doctor / Knight: 1.30, 1.63, 0.70 across floors 1-3 (Mage 1.13, 1.08, 0.82). No class leads
+every floor. Bot fault found: followers' Sigil ranking was refused because the request left before their position
+reached the server; they now wait 0.6 s and retry once (the host bot was unaffected).

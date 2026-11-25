@@ -1046,7 +1046,7 @@ namespace Deepbound.Progression
             if (Wears(GearId.BellringersHauberk) && Time.time >= bellReadyAt)
             {
                 bellReadyAt = Time.time + 10f;
-                foreach (var foe in CombatQuery.Circle(transform.position, 4f, Team.Enemies).ToArray())
+                foreach (var foe in CombatQuery.Circle(transform.position, 4f, Team.Enemies))
                 {
                     if (!foe.TryGetComponent<ICrowdControl>(out var cc)) continue;
                     var push = foe.transform.position - transform.position;
@@ -1110,7 +1110,7 @@ namespace Deepbound.Progression
             if (Wears(GearId.AshenShroud) && Time.time >= shroudReadyAt && (health.Current.Value - damage) / Mathf.Max(1f, health.Max.Value) < 0.3f)
             {
                 shroudReadyAt = Time.time + 15f;
-                foreach (var foe in CombatQuery.Circle(transform.position, 4.5f, Team.Enemies).ToArray())
+                foreach (var foe in CombatQuery.Circle(transform.position, 4.5f, Team.Enemies))
                 {
                     foe.Tag("PlayerProgress").ServerDamage(40f * AttackMultiplier, transform.position, NetworkObjectId);
                     foe.ServerScorch(5f, NetworkObjectId);
@@ -1211,7 +1211,7 @@ namespace Deepbound.Progression
         private System.Collections.IEnumerator Judgement(Vector3 at)
         {
             yield return new WaitForSeconds(0.7f);
-            foreach (var foe in CombatQuery.Circle(at, 2.6f, Team.Enemies).ToArray())
+            foreach (var foe in CombatQuery.Circle(at, 2.6f, Team.Enemies))
             {
                 foe.Tag("PlayerProgress").ServerDamage(30f * AttackMultiplier, at, NetworkObjectId);
                 foe.ServerScorch(4f, NetworkObjectId);

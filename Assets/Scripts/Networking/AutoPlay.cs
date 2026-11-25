@@ -737,7 +737,10 @@ namespace Deepbound.Networking
         {
             bool sigilsForSale = buy && (prog.Rank(Classes.AbilitySlot.Q) < Classes.AbilityRanks.MaxRank || prog.Rank(Classes.AbilitySlot.E) < Classes.AbilityRanks.MaxRank);
             if (prog.Sigils.Value == 0 && prog.RuneBagCount == 0 && !sigilsForSale) yield break;
-            yield return WalkTo(FolkPlaces.Now(FolkId.Ysolde) + Vector3.forward * 1.6f, 1.2f);
+            var stones = FolkPlaces.Now(FolkId.Ysolde) + Vector3.forward * 1.6f;
+            yield return WalkTo(stones, 1.2f);
+            yield return new WaitForSeconds(0.6f);
+            L("at Ysolde (" + Vector3.Distance(me.transform.position, stones).ToString("F1") + " m off): sigils " + prog.Sigils.Value + ", Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E) + ", rank work " + RankWorkLeft(out _) + (buy ? ", buying" : ""));
             for (int i = 0; i < 16 && MeldReady(out var meld); i++)
             {
                 prog.MeldRunesRpc((byte)meld);
@@ -765,6 +768,13 @@ namespace Deepbound.Networking
                 var opt = Classes.AbilityRanks.Get(prog.ClassId.Value, sl, prog.Rank(sl), optionB);
                 prog.EmpowerRpc(slot, optionB);
                 yield return new WaitForSeconds(0.4f);
+                if (prog.Sigils.Value == before)
+                {
+                    yield return WalkTo(FolkPlaces.Now(FolkId.Ysolde) + Vector3.forward * 1.6f, 1.2f);
+                    yield return new WaitForSeconds(0.8f);
+                    prog.EmpowerRpc(slot, optionB);
+                    yield return new WaitForSeconds(0.6f);
+                }
                 if (prog.Sigils.Value == before) { L("could not empower (" + before + " sigils, Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E) + ")"); break; }
                 L("empowered " + (slot == 0 ? "Q" : "E") + " with " + opt.Name.ToUpperInvariant() + " -> Q" + prog.Rank(Classes.AbilitySlot.Q) + " E" + prog.Rank(Classes.AbilitySlot.E));
             }

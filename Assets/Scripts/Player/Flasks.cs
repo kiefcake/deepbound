@@ -429,14 +429,14 @@ namespace Deepbound.Player
             switch (k)
             {
                 case Kind.Frost:
-                    foreach (var foe in CombatQuery.Circle(at, 3.6f, Team.Enemies).ToArray())
+                    foreach (var foe in CombatQuery.Circle(at, 3.6f, Team.Enemies))
                     {
                         foe.Tag("Flasks").ServerDamage(20f * att, at, NetworkObjectId);
                         foe.ServerChill(4f);
                     }
                     break;
                 case Kind.Holy:
-                    foreach (var foe in CombatQuery.Circle(at, 4f, Team.Enemies).ToArray())
+                    foreach (var foe in CombatQuery.Circle(at, 4f, Team.Enemies))
                     {
                         foe.Tag("Flasks").ServerDamage(24f * att, at, NetworkObjectId);
                         if (foe.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerStun(1.8f);
@@ -444,7 +444,7 @@ namespace Deepbound.Player
 
                     var tally = World.Tallyman.Active;
                     if (tally != null && Vector3.Distance(tally.transform.position, at) <= 4.5f) tally.ServerRepel(World.Tallyman.RepelSeconds);
-                    foreach (var ally in CombatQuery.Circle(at, 4f, Team.Players).ToArray())
+                    foreach (var ally in CombatQuery.Circle(at, 4f, Team.Players))
                     {
                         if (ally.TryGetComponent<PlayerDebuffs>(out var deb)) deb.ServerCleanse();
                         ally.ServerHeal(ally.Max.Value * 0.2f);

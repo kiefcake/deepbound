@@ -240,7 +240,7 @@ namespace Deepbound.Player
             if (now && progress.Mastered(Classes.PathTriads.Path) && Time.time >= nextPlantMend)
             {
                 nextPlantMend = Time.time + 0.5f;
-                foreach (var ally in CombatQuery.Circle(transform.position, 5f, Team.Players).ToArray())
+                foreach (var ally in CombatQuery.Circle(transform.position, 5f, Team.Players))
                     if (ally != health) Bless(ally, ally.Max.Value * 0.01f);
             }
         }
@@ -273,7 +273,7 @@ namespace Deepbound.Player
                 {
                     if (this == null) return;
                     float dealt = 0f;
-                    foreach (var h in CombatQuery.Circle(at, HammerRadius, Team.Enemies).ToArray())
+                    foreach (var h in CombatQuery.Circle(at, HammerRadius, Team.Enemies))
                     {
                         dealt += h.Tag("Hammer of Light").ServerDamage(dmg * (Vector3.Distance(h.transform.position, at) < 1.2f ? 1f : 0.6f), at, me);
                         if (stun) AbilityKit.Stun(h, 0.5f);
@@ -348,7 +348,7 @@ namespace Deepbound.Player
                 if (Time.time > z.Until || Vector3.Distance(ZoneAt(z), dead.transform.position) > ZoneRadius + 0.5f) continue;
                 z.Until += 2f;
                 zones[i] = z;
-                foreach (var ally in CombatQuery.Circle(ZoneAt(z), ZoneRadius, Team.Players).ToArray()) Bless(ally, ally.Max.Value * 0.05f);
+                foreach (var ally in CombatQuery.Circle(ZoneAt(z), ZoneRadius, Team.Players)) Bless(ally, ally.Max.Value * 0.05f);
                 progress.AbilityBurstRpc(dead.transform.position, 1f, PlayerProgress.FxKind.Holy);
                 ZoneExtendRpc(i, 2f);
                 break;
@@ -376,13 +376,13 @@ namespace Deepbound.Player
 
                     if (progress.A(AbilitySlot.Q, 4))
                     {
-                        foreach (var ally in CombatQuery.Circle(at, ZoneRadius, Team.Players).ToArray()) Bless(ally, ally.Max.Value * 0.2f);
+                        foreach (var ally in CombatQuery.Circle(at, ZoneRadius, Team.Players)) Bless(ally, ally.Max.Value * 0.2f);
                         AbilityKit.Blast(at, ZoneRadius, ConsecrateBurnPerSec * 2.5f * progress.AttackMultiplier, NetworkObjectId, "Hallowed Burst", h => AbilityKit.Stun(h, 1f));
                         progress.AbilityBurstRpc(at, ZoneRadius, PlayerProgress.FxKind.Holy);
                     }
                     continue;
                 }
-                foreach (var ally in CombatQuery.Circle(at, ZoneRadius, Team.Players).ToArray())
+                foreach (var ally in CombatQuery.Circle(at, ZoneRadius, Team.Players))
                 {
                     Bless(ally, ConsecrateHealPerSec * Potency * progress.Potency(AbilitySlot.Q) * dt);
 
@@ -390,7 +390,7 @@ namespace Deepbound.Player
 
                     if (progress.B(AbilitySlot.Q, 3) && ally.TryGetComponent<PlayerDebuffs>(out var db) && db.AnyAffliction) { db.ServerCleanse(); progress.AbilityTextRpc(ally.Center + Vector3.up, "PURIFIED", PlayerProgress.FxKind.Holy); }
                 }
-                foreach (var foe in CombatQuery.Circle(at, ZoneRadius, Team.Enemies).ToArray())
+                foreach (var foe in CombatQuery.Circle(at, ZoneRadius, Team.Enemies))
                     foe.Tag("Consecrate").Ticking().ServerDamage(ConsecrateBurnPerSec * progress.AttackMultiplier * progress.Potency(AbilitySlot.Q) * dt, at, NetworkObjectId);
 
                 if (progress.A(AbilitySlot.Q, 3) && Time.time >= z.NextPillar)
@@ -468,7 +468,7 @@ namespace Deepbound.Player
             float end = Time.time + HaloSeconds;
             while (Time.time < end)
             {
-                foreach (var h in CombatQuery.Circle(at, HaloRadius, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Circle(at, HaloRadius, Team.Enemies))
                 {
                     if (AbilityKit.IsBoss(h)) continue;
                     var away = h.transform.position - at; away.y = 0f;

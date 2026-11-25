@@ -43,7 +43,7 @@ namespace Deepbound.Combat
             if (!obj.TryGetComponent<Progression.PlayerProgress>(out var p)) return;
             if (burst != null)
             {
-                foreach (var near in CombatQuery.Circle(at, BurstRadius, Team.Enemies).ToArray())
+                foreach (var near in CombatQuery.Circle(at, BurstRadius, Team.Enemies))
                     if (near != burst) near.Tag("Arrows").ServerDamage(BurstDamage * p.AttackMultiplier, at, shooter);
                 if (burst.IsAlive && burst.TryGetComponent<Enemies.EnemyBrain>(out var beast) && beast.EnragesOnWeakHit && !(beast is Enemies.BossBrain))
                     beast.ServerEnrage(Enemies.EnemyBrain.EnrageSeconds);

@@ -132,7 +132,7 @@ namespace Deepbound.Player
             float att = owner != null ? owner.AttackMultiplier : 1f;
             t.Tag("Phoenix").ServerDamage(DiveDamage * att, Pos.Value, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
             if (t.IsAlive) t.ServerScorch(5f, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
-            foreach (var near in CombatQuery.Circle(t.transform.position, SplashRadius, Team.Enemies).ToArray())
+            foreach (var near in CombatQuery.Circle(t.transform.position, SplashRadius, Team.Enemies))
                 if (near != t)
                 {
                     near.Tag("Phoenix").ServerDamage(DiveDamage * SplashShare * att, Pos.Value, owner != null ? owner.NetworkObjectId : ulong.MaxValue);
@@ -149,7 +149,7 @@ namespace Deepbound.Player
             eggUntil = Time.time + EggSeconds;
             float att = owner != null ? owner.AttackMultiplier : 1f;
             ulong by = owner != null ? owner.NetworkObjectId : ulong.MaxValue;
-            foreach (var foe in CombatQuery.Circle(Pos.Value, BurstRadius, Team.Enemies).ToArray())
+            foreach (var foe in CombatQuery.Circle(Pos.Value, BurstRadius, Team.Enemies))
             {
                 foe.Tag("Phoenix").ServerDamage(BurstDamage * att, Pos.Value, by);
                 if (foe.IsAlive) foe.ServerScorch(5f, by);

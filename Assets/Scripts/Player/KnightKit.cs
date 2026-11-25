@@ -435,7 +435,7 @@ namespace Deepbound.Player
                 ulong me = NetworkObjectId;
                 AbilityKit.Later(this, 0.3f, () =>
                 {
-                    foreach (var h in CombatQuery.Circle(landing, DominoRadius, Team.Enemies).ToArray())
+                    foreach (var h in CombatQuery.Circle(landing, DominoRadius, Team.Enemies))
                     {
                         if (h == null || !h.IsAlive || struck.Contains(h)) continue;
                         struck.Add(h);
@@ -502,7 +502,7 @@ namespace Deepbound.Player
         private void Cry(float duration)
         {
             Health toughest = null;
-            foreach (var target in CombatQuery.Circle(transform.position, WarCryRadius, Team.Enemies).ToArray())
+            foreach (var target in CombatQuery.Circle(transform.position, WarCryRadius, Team.Enemies))
             {
                 if (target.TryGetComponent<ICrowdControl>(out var cc)) cc.ServerTaunt(health, duration);
                 if (toughest == null || target.Current.Value > toughest.Current.Value) toughest = target;

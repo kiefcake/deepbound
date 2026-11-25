@@ -289,7 +289,7 @@ namespace Deepbound.Player
             float r = SnareRadiusNow;
             int caught = 0;
             var net = new List<Health>();
-            foreach (var h in CombatQuery.Circle(ground, r, Team.Enemies).ToArray())
+            foreach (var h in CombatQuery.Circle(ground, r, Team.Enemies))
             {
                 if (Mathf.Abs(h.transform.position.y - ground.y) > 2.5f) continue;
                 caught++;
@@ -383,7 +383,7 @@ namespace Deepbound.Player
                 }
                 bool last = v.Left == 1 && progress.A(AbilitySlot.E, 3);
                 float radius = VolleyRadius;
-                foreach (var h in CombatQuery.Circle(v.At, radius, Team.Enemies).ToArray())
+                foreach (var h in CombatQuery.Circle(v.At, radius, Team.Enemies))
                 {
                     float dmg = VolleyDamage * progress.AttackMultiplier * progress.Potency(AbilitySlot.E) * Snared(h) * (last ? 3f : 1f);
                     h.Tag(last ? "The Last Arrow" : "RangerKit").ServerDamage(dmg, v.At + Vector3.up * 6f, NetworkObjectId);

@@ -37,3 +37,18 @@ Every upgrade answers one question. If two systems answer the same question, one
 
 - **Damage curve per floor.** With the DAMAGE panel in place, party bot runs can log the main attack's growth floor by floor. That shows whether any one source (relics, hones) outgrows the rest. This needs windowed runs; it is part of the party balancing still pending.
 - **Edges vs Path.** Some Edges overlap with Path masteries (both conditional damage). Review once the curve is logged.
+
+## Edges vs weapon paths (review, 2026-11-25)
+
+Paths change the shape of an attack (a flame stream, a fork, a fan, a riposte); Edges are flat modifiers offered three at
+a time at +5/+7/+9. No Edge repeats what a path does, so neither choice makes the other pointless. Pairs that multiply
+and are worth watching in party logs:
+
+| Pair | Why it stacks | Ceiling |
+|---|---|---|
+| Flagellant + Desperation | Mortification already gives up to +40% when wounded; Desperation adds up to +25% on the same missing health | x1.75 near death |
+| Knight Bulwark + Retribution | spikes already return blocked melee; Retribution returns unblocked melee too | every melee hit returns damage |
+| Stun paths (Stormcaller mastery, Zealot hammer, Fanatic crash, Bulwark) + Opportunist | the path stuns, Opportunist gives +20% to stunned foes, Exposed adds +25% | x1.5 on stunned foes |
+
+None of them breaks a run in the logs so far (the strongest classes in party runs were the Plague Doctor and the Rogue,
+both fixed elsewhere). Leave them as build identity unless a run shows one dominating.
