@@ -5,26 +5,10 @@ using UnityEngine;
 
 namespace Deepbound.Combat
 {
-    /// <summary>
-    /// Who can hurt whom. Props (urns, barrels) are hit by anything aimed at enemies but
-    /// are invisible to enemy AI, the radar and relic procs. APPEND ONLY: synced.
-    /// </summary>
     public enum Team : byte { Players, Enemies, Props, Allies }
 
-    /// <summary>
-    /// Hit points for anything that can be hurt. Server-authoritative: only the server
-    /// changes the value; every peer reads it.
-    ///
-    /// <para>
-    /// Damage runs through a RotMG-style defence step — flat reduction by DEF, floored at
-    /// 15% of the hit so heavy armour blunts small hits but never makes you immune — and
-    /// then through any <see cref="IncomingModifiers"/> (blocking, War Cry) the owning
-    /// components register.
-    /// </para>
-    /// </summary>
     public class Health : NetworkBehaviour
     {
-        /// <summary>Every live Health on this peer. Targeting and hit queries scan this instead of physics.</summary>
         public static readonly List<Health> All = new List<Health>();
 
         [SerializeField] private Team team;
@@ -32,26 +16,15 @@ namespace Deepbound.Combat
         public readonly NetworkVariable<float> Current = new NetworkVariable<float>(100f);
         public readonly NetworkVariable<float> Max = new NetworkVariable<float>(100f);
 
-        /// <summary>
-        /// Chilled by frost: slowed, and the setup for a Mage's Shatter (fire on a chilled
-        /// target hits harder and consumes the chill). Synced so everyone sees the frost.
-        /// </summary>
         public readonly NetworkVariable<bool> Chilled = new NetworkVariable<bool>();
 
-        /// <summary>
-        /// Scorched by fire (Ember Rune, Ashen Shroud, Pyromancer bolts, meteors, Judgement): on its own
-        /// it does nothing, but frost meeting fire (or fire meeting frost) sets off a THERMAL SHOCK
-        /// (2026-10-23: burn had no combo of its own). Synced for the tag.
-        /// </summary>
         public readonly NetworkVariable<bool> Scorched = new NetworkVariable<bool>();
         private float scorchedUntil, shockReadyAt;
         private ulong scorchedBy = ulong.MaxValue;
 
-        /// <summary>Server: deals the shock (set by <see cref="Classes.Combos"/>). Args: target, the attacker to credit.</summary>
         public static Action<Health, ulong> ThermalShock;
         public const float ShockCooldown = 4f;
 
-        /// <summary>Server: fire singes this for <paramref name="seconds"/>; on a chilled target it shocks instead.</summary>
         public void ServerScorch(float seconds, ulong by)
         {
             if (!IsServer || !IsAlive) return;
@@ -74,42 +47,28 @@ namespace Deepbound.Combat
             return true;
         }
 
-        /// <summary>
-        /// A damage shield (the Cleric's Divine Aegis): absorbs hits before health, then
-        /// fades when its time runs out. Synced so the bubble and the HUD bar show it.
-        /// </summary>
         public readonly NetworkVariable<float> Shield = new NetworkVariable<float>();
 
-        /// <summary>Hunter's Mark (the Ranger): takes +25% damage from everyone. Synced for the marker icon.</summary>
         public readonly NetworkVariable<bool> Marked = new NetworkVariable<bool>();
         public const float MarkedMultiplier = 1.25f;
         private float markedUntil;
 
-        /// <summary>
-        /// BLIGHT (the Plague Doctor's poison, 2026-10-20): damage over time credited to whoever
-        /// laid it, and a blighted creature takes <see cref="BlightedMultiplier"/> from everyone.
-        /// </summary>
         public readonly NetworkVariable<bool> Blighted = new NetworkVariable<bool>();
         public const float BlightedMultiplier = 1.1f;
-        /// <summary>
-        /// FESTERING (2026-11-22, gameplay: a solo Plague Doctor's guardians took twice as long as a Knight's): each fresh blight
-        /// on a creature that is already blighted adds a stack (at most every <see cref="FesterGap"/> s, up to
-        /// <see cref="MaxBlightStacks"/>); the blight burns base x stacks. Stacks end with the blight. Synced so the body
-        /// shows it (thicker green motes, a sick glow on the ground).
-        /// </summary>
+
         public readonly NetworkVariable<byte> BlightStacks = new NetworkVariable<byte>();
         public const int MaxBlightStacks = 4;
         public const float FesterGap = 0.5f;
-        /// <summary>Each stack past the first adds this much of the base burn (x2.5 at four; 2026-11-23, was x stacks).</summary>
-        public const float BlightStackStep = 0.5f;
+
+        public const float BlightStackStep = 0.35f;
         private float lastFester;
         private float blightUntil, blightDps, blightBase, nextBlightTick;
         private ulong blightSource = ulong.MaxValue;
-        /// <summary>Server: who laid the blight (for credit, and for Contagion).</summary>
+
         public ulong BlightSource => blightSource;
-        /// <summary>Server: raised when a blighted creature dies (the Plague Doctor's Contagion).</summary>
+
         public static System.Action<Health, ulong> BlightedDied;
-        /// <summary>Server: is this creature plagued (the Plague Doctor's Pandemic, +25% damage taken)?</summary>
+
         public static System.Func<Health, bool> InPlagueCloud;
 
         public void ServerBlight(float seconds, float dps, ulong source)
@@ -118,7 +77,7 @@ namespace Deepbound.Combat
             blightUntil = Mathf.Max(blightUntil, Time.time + seconds);
             if (!Blighted.Value) { BlightStacks.Value = 1; lastFester = Time.time; }
             else if (BlightStacks.Value < MaxBlightStacks && Time.time - lastFester >= FesterGap) { BlightStacks.Value++; lastFester = Time.time; }
-            // The base is the strongest single blight laid; the stacks multiply it.
+
             blightBase = Mathf.Max(Blighted.Value ? blightBase : 0f, dps);
             blightDps = blightBase * (1f + BlightStackStep * (Mathf.Max(1, (int)BlightStacks.Value) - 1));
             blightSource = source;
@@ -126,17 +85,14 @@ namespace Deepbound.Combat
             Blighted.Value = true;
         }
 
-        /// <summary>Server: how many blight stacks it carries (0 when clean).</summary>
         public int BlightStackCount => Blighted.Value ? Mathf.Max(1, (int)BlightStacks.Value) : 0;
 
-        /// <summary>Server: the blight is gone at once (the Plague Doctor's Expunge drew it out).</summary>
         public void ServerClearBlight()
         {
             if (!IsServer) return;
             Blighted.Value = false; blightDps = 0f; blightBase = 0f; blightUntil = 0f; BlightStacks.Value = 0;
         }
 
-        /// <summary>Server: a blighted creature festers to full stacks at once (Patient Zero).</summary>
         public void ServerFesterFull()
         {
             if (!IsServer || !Blighted.Value) return;
@@ -148,69 +104,50 @@ namespace Deepbound.Combat
         private float shieldUntil;
         private GameObject shieldBubble;
 
-        /// <summary>Raised on every peer when the value rises (healing). Drives green numbers.</summary>
         public static event Action<Health, float> AnyHealed;
         private float chilledUntil;
         private GameObject chillAura;
 
-        /// <summary>Flat damage reduction. Server-side only; set from the DEF stat.</summary>
         public float Defense { get; set; }
 
-        /// <summary>
-        /// Server-side damage modifiers: (damage, attacker position) → new damage. Run in
-        /// registration order after defence.
-        /// </summary>
         public readonly List<Func<float, Vector3, float>> IncomingModifiers = new List<Func<float, Vector3, float>>();
 
-        /// <summary>Raised on every peer when the value drops. Argument is the amount lost.</summary>
         public event Action<float> Hurt;
 
-        /// <summary>Raised on every peer for any Health losing value. Drives floating damage numbers.</summary>
         public static event Action<Health, float> AnyHurt;
 
-        /// <summary>Raised on the server when the value reaches zero.</summary>
         public event Action<Health> Died;
 
-        /// <summary>Raised on the server for every Health that takes damage: (target, dealt, attacker id). Relics hook this.</summary>
         public static event Action<Health, float, ulong> ServerAnyDamaged;
 
-        /// <summary>Server: scales damage by who dealt it (gear). Applied before DEF.</summary>
         public static Func<Health, ulong, float> ServerOutgoingMultiplier;
 
-        /// <summary>Server: a shield on this was broken by damage (the Aegis burst).</summary>
         public static event Action<Health> ServerShieldBroken;
-        /// <summary>Server: anything died (after its own <see cref="Died"/>).</summary>
+
         public static event Action<Health> AnyDied;
 
-        /// <summary>Server: scales healing this receives (Tidewoven Robe).</summary>
         public float HealMultiplier { get; set; } = 1f;
 
-        /// <summary>The run's omen: Glass Bones scales all damage, Famine scales healing on players.</summary>
         public static float OmenDamageScale = 1f, OmenPlayerHealScale = 1f;
-        /// <summary>The floor event's extra hurt for players (Blood Tithe), set by the director.</summary>
+
         public static float FloorPlayerDamageScale = 1f;
 
-        /// <summary>Raised on the server after any damage is applied, with the attacker's object id.</summary>
         public event Action<float, ulong> DamagedServer;
 
         public Team Team => team;
         public bool IsAlive => Current.Value > 0f;
         public float Fraction => Max.Value > 0f ? Current.Value / Max.Value : 0f;
 
-        /// <summary>Time (local clock) this peer last saw it take damage. Drives floating health bars.</summary>
         public float LastHurtTime { get; private set; } = -100f;
 
-        /// <summary>Aim point for hit tests and AI: roughly the centre of mass.</summary>
         public Vector3 Center => transform.position + Vector3.up * centerHeight;
 
         [SerializeField] private float centerHeight = 1f;
         public float CenterHeight { get => centerHeight; set => centerHeight = value; }
 
-        // ---- The body, as hit tests see it: the creature's own collider shape. ----
         private float bodyRadius = 0.4f, bodyLow = 0f, bodyHigh = 1.8f;
         private bool bodyCached;
-        // A box-shaped body (a wall plug, a gong, a target) is tested as the real box, not a capsule
-        // (2026-10-21: shots at a secret wall's edges and corners passed straight through it).
+
         private bool bodyIsBox;
         private Vector3 boxCenter, boxHalf;
 
@@ -241,19 +178,15 @@ namespace Deepbound.Combat
             else { bodyRadius = 0.4f; bodyLow = 0f; bodyHigh = centerHeight * 2f; }
         }
 
-        /// <summary>Re-read the body from the collider (after it is resized).</summary>
         public void InvalidateBody() => bodyCached = false;
 
-        /// <summary>The body's horizontal radius (world).</summary>
         public float BodyRadius { get { if (!bodyCached) CacheBody(); return bodyRadius; } }
 
-        /// <summary>Distance from a point to the body's surface (negative inside).</summary>
         public float DistanceToBody(Vector3 p)
         {
             if (!bodyCached) CacheBody();
             if (bodyIsBox)
             {
-                // Signed distance to the oriented box (in the box's own space; these props are unscaled).
                 var q = transform.InverseTransformPoint(p) - boxCenter;
                 q = new Vector3(Mathf.Abs(q.x) - boxHalf.x, Mathf.Abs(q.y) - boxHalf.y, Mathf.Abs(q.z) - boxHalf.z);
                 float outside = Vector3.Max(q, Vector3.zero).magnitude;
@@ -266,7 +199,6 @@ namespace Deepbound.Combat
             return Vector3.Distance(p, axis) - bodyRadius;
         }
 
-        /// <summary>Does a straight path come within <paramref name="extra"/> of the body? Sampled finely enough for any projectile step.</summary>
         public bool SegmentTouchesBody(Vector3 from, Vector3 to, float extra)
         {
             int n = Mathf.Clamp(Mathf.CeilToInt(Vector3.Distance(from, to) / 0.15f), 1, 24);
@@ -298,8 +230,6 @@ namespace Deepbound.Combat
 
         private void HandleChanged(float previous, float current)
         {
-            // The first moments after spawn are the server applying max health and
-            // scaling, not damage — do not flash bars or play hurt effects for them.
             if (current < previous && Time.time - spawnedAt > 0.5f)
             {
                 LastHurtTime = Time.time;
@@ -312,10 +242,6 @@ namespace Deepbound.Combat
             }
         }
 
-        // ------------------------------------------------------------------
-        // Server API
-        // ------------------------------------------------------------------
-
         public void ServerSetMax(float max, bool refill)
         {
             if (!IsServer) return;
@@ -323,12 +249,9 @@ namespace Deepbound.Combat
             Current.Value = refill ? max : Mathf.Min(Current.Value, max);
         }
 
-        /// <returns>Damage actually dealt after defence and modifiers.</returns>
         private static Health zoneBoostTarget;
         private static float zoneBoost = 1f;
 
-        /// <summary>Server: while set, damage to <paramref name="target"/> is scaled (a projectile's headshot, for custom hit handlers).</summary>
-        /// <summary>Owner: a hit landed on you from this point (for the HUD's direction marker).</summary>
         public event Action<Vector3> HurtFrom;
 
         [Rpc(SendTo.Owner)]
@@ -338,10 +261,8 @@ namespace Deepbound.Combat
 
         public const float DefenseWeight = 0.5f, MinDamageFraction = 0.2f;
 
-        /// <summary>Server: who hit this last, and from where (for diagnosing deaths).</summary>
         public ulong LastHitFrom { get; private set; } = ulong.MaxValue;
 
-        /// <summary>Server: who dealt a hit to <paramref name="victim"/>; with no attacker, poison if they are poisoned, else a trap.</summary>
         public static string NameOfHit(ulong id, Health victim)
         {
             var nm = NetworkManager.Singleton;
@@ -350,7 +271,6 @@ namespace Deepbound.Combat
             return nobody ? "Traps and afflictions" : NameOf(id);
         }
 
-        /// <summary>Server: a readable name for whatever has this object id (bosses and champions by title).</summary>
         public static string NameOf(ulong id)
         {
             var nm = NetworkManager.Singleton;
@@ -370,25 +290,15 @@ namespace Deepbound.Combat
         }
         public Vector3 LastHitAt { get; private set; }
 
-        /// <summary>
-        /// Names the next hit for the test bots' damage-by-source tally (<see cref="Networking.AutoPlay"/>). Changes nothing
-        /// about the hit; added 2026-11-04 because the totals alone could not say what was making a Mage out-damage a Knight 7:1.
-        /// </summary>
         public static string DamageTag;
 
-        /// <summary>Test bots: fires before <see cref="ServerAnyDamaged"/>, so a proc set off by this hit cannot get in first.</summary>
         public static Action<Health, float, ulong, string> ServerHitTagged;
         public Health Tag(string source) { DamageTag = source; return this; }
 
-        /// <summary>
-        /// The next hit is a tick of damage over time (blight, a burning cloud, Consecrate). While it lands, <see cref="InTick"/>
-        /// is true, so one-shot bonuses meant for a real blow (the perfect dodge's counter) are not spent on it (2026-11-25).
-        /// </summary>
         public Health Ticking() { tickNext = true; return this; }
         private static bool tickNext;
         public static bool InTick { get; private set; }
 
-        /// <summary>Diagnostics (tests): the modifier that last turned a hit to nothing, and what the last hit to land was worth.</summary>
         public string LastZeroedBy { get; private set; } = "none";
         public float LastLanded { get; private set; }
 
@@ -399,8 +309,7 @@ namespace Deepbound.Combat
             InTick = tickNext;
             tickNext = false;
             if (!IsServer || !IsSpawned || !IsAlive || amount <= 0f) return 0f;
-            // A killing blow (BossBrain.KillDamage, 1e5: tests, falls into the abyss) is never scaled or softened by DEF, so every
-            // modifier that lets it through still sees it at full size.
+
             bool overwhelming = amount >= 1e5f;
             LastHitFrom = attackerId;
             if (zoneBoostTarget == this && !overwhelming) amount *= zoneBoost;
@@ -409,13 +318,11 @@ namespace Deepbound.Combat
             LastHitAt = attackerPosition;
             if (ServerOutgoingMultiplier != null && attackerId != ulong.MaxValue && !overwhelming) amount *= ServerOutgoingMultiplier(this, attackerId);
 
-            // DEF turns aside half its value from each hit, never more than 80% of it: armour
-            // matters, but the rank and file can always still hurt you.
             float dealt = overwhelming ? amount : Mathf.Max(amount - Defense * DefenseWeight, amount * MinDamageFraction);
             if (Marked.Value) dealt *= MarkedMultiplier;
             if (Blighted.Value) dealt *= BlightedMultiplier;
             if (Team == Team.Enemies && InPlagueCloud != null && InPlagueCloud(this)) dealt *= 1.25f;
-            // A modifier can end its owner (a mirror copy shatters when struck): stop there, the rest would act on a despawned object.
+
             foreach (var modifier in IncomingModifiers)
             {
                 float was = dealt;
@@ -427,7 +334,6 @@ namespace Deepbound.Combat
             LastLanded = dealt;
             if (Team == Team.Players && (attackerPosition - transform.position).sqrMagnitude > 0.25f) HurtFromRpc(attackerPosition);
 
-            // Shields soak what is left before health does.
             if (Shield.Value > 0f)
             {
                 float absorbed = Mathf.Min(Shield.Value, dealt);
@@ -441,7 +347,6 @@ namespace Deepbound.Combat
                 if (dealt <= 0f) return 0f;
             }
 
-            // Overkill is not damage: stats and lifesteal see only the health actually lost.
             float lost = Mathf.Min(dealt, Current.Value);
             Current.Value = Mathf.Max(0f, Current.Value - dealt);
             DamagedServer?.Invoke(lost, attackerId);
@@ -453,7 +358,6 @@ namespace Deepbound.Combat
             return dealt;
         }
 
-        /// <summary>Server: does chilling this target freeze it solid (it is standing in water)?</summary>
         public static Func<Health, bool> FreezesWhenChilled;
         public static Action<Health> FrozenFx;
         private float freezeReadyAt;
@@ -480,7 +384,6 @@ namespace Deepbound.Combat
             Marked.Value = true;
         }
 
-        /// <returns>True if the target was chilled (and no longer is).</returns>
         public bool ServerConsumeChill()
         {
             if (!IsServer || !Chilled.Value) return false;
@@ -489,7 +392,6 @@ namespace Deepbound.Combat
             return true;
         }
 
-        /// <summary>Server: grant a shield. Re-casting refreshes it to the larger of the two.</summary>
         public void ServerShield(float amount, float seconds)
         {
             if (!IsServer || !IsAlive) return;
@@ -501,7 +403,6 @@ namespace Deepbound.Combat
 
         private void Update()
         {
-            // Everyone: frost and fire show on the body, not only in its tag (combo set-ups read at a glance).
             if ((Chilled.Value || Scorched.Value) && Team == Team.Enemies && Time.time >= nextStatusMote)
             {
                 nextStatusMote = Time.time + 0.22f;
@@ -544,7 +445,6 @@ namespace Deepbound.Combat
             if (chillAura != null && chillAura.activeSelf != show) chillAura.SetActive(show);
         }
 
-        /// <summary>A spinning red diamond over the head: "everyone hit this one".</summary>
         private Transform BuildMarkIcon()
         {
             var icon = Art.MeshKit.Part(transform, "HuntersMark", Art.MeshKit.Lathe("markGem", new[]
@@ -556,7 +456,6 @@ namespace Deepbound.Combat
             return icon.transform;
         }
 
-        /// <summary>A faint golden sphere around the body: visible to the party, not in the owner's face.</summary>
         private GameObject BuildShieldBubble()
         {
             var root = new GameObject("AegisBubble");
@@ -575,7 +474,6 @@ namespace Deepbound.Combat
             return root;
         }
 
-        /// <summary>A ring of frost at the feet and ice shards orbiting the body.</summary>
         private GameObject BuildChillAura()
         {
             var root = new GameObject("ChillAura");

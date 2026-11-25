@@ -8,14 +8,6 @@ using UnityEngine.Rendering.Universal;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// The camp tailor (reworked 2026-10-20): cloak dyes, HERALDRY (the colour of your tabard, plume and
-    /// sash, on every class) and auras. A live portrait of your own character, turning on a lit stand,
-    /// sits beside the list and shows whatever you point at, front and back, so you can see it on you
-    /// before you wear it. Entirely local (saved on this machine) except what you wear, which the
-    /// party sees through <see cref="NetworkPlayer.CloakDye"/>, <see cref="NetworkPlayer.Heraldry"/>
-    /// and <see cref="NetworkPlayer.Aura"/>. The mannequin at the stall still wears it in the world.
-    /// </summary>
     public class Wardrobe : MonoBehaviour
     {
         public static bool Open { get; private set; }
@@ -34,7 +26,6 @@ namespace Deepbound.UI
         private bool wasOpen;
         private int filter;
 
-        // The portrait stage, far below the camp.
         private static readonly Vector3 StageAt = new Vector3(0f, -1300f, 0f);
         private GameObject stage;
         private Transform turntable;
@@ -60,12 +51,12 @@ namespace Deepbound.UI
 
         public void DebugOpen(bool open) => Open = open;
         private static bool requested;
-        /// <summary>From conversation with Vey: open the wardrobe (next frame, if you are still with her).</summary>
+
         public static void RequestOpen() => requested = true;
         public void DebugTab(Cosmetics.Kind kind) => SwitchTab(kind);
 
         private bool Near => DungeonDirector.InLobby && life != null && !life.Downed.Value &&
-                             FolkPlaces.InReach(FolkId.Vey, player.transform.position, 1f); // Vey's wardrobe goes where she goes
+                             FolkPlaces.InReach(FolkId.Vey, player.transform.position, 1f);
 
         private int WornNow(Cosmetics.Kind kind) => kind == Cosmetics.Kind.Aura ? player.Aura.Value : kind == Cosmetics.Kind.Heraldry ? player.Heraldry.Value
             : kind == Cosmetics.Kind.Pattern ? player.Pattern.Value : kind == Cosmetics.Kind.WeaponGlow ? player.WeaponGlowCos.Value : kind == Cosmetics.Kind.Title ? player.TitleCos.Value : kind == Cosmetics.Kind.Pet ? player.PetKind.Value : player.CloakDye.Value;
@@ -77,7 +68,7 @@ namespace Deepbound.UI
             if (player == null) return;
             var keyboard = Keyboard.current;
             bool near = Near;
-            // Opened by talking to Vey (UI.Dialogue); F closes it again.
+
             if (requested) { requested = false; if (near && !CharacterSelect.Open && !PauseMenu.Open) Open = true; }
             else if (keyboard != null && Open && Binds.Down(Bind.Interact)) Open = false;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) Open = false;
@@ -87,7 +78,7 @@ namespace Deepbound.UI
             if (Open != wasOpen)
             {
                 wasOpen = Open;
-                // The portrait renders to a texture: full render scale while it shows (see CharacterSelect).
+
                 if (UnityEngine.Rendering.GraphicsSettings.currentRenderPipeline is UniversalRenderPipelineAsset urp)
                 {
                     if (Open) urp.renderScale = 1f;
@@ -117,7 +108,6 @@ namespace Deepbound.UI
 
         private Color DressFor(int heraldry) => Cosmetics.HeraldryColor(heraldry) ?? player.SlotColor;
 
-        /// <summary>The dress form at the stall: your class, in the dye, heraldry and aura you are hovering (or wearing).</summary>
         private void UpdateMannequin()
         {
             if (!DungeonDirector.InLobby)
@@ -150,10 +140,6 @@ namespace Deepbound.UI
             mannequinClass = cls;
         }
 
-        // ------------------------------------------------------------------
-        // The portrait
-        // ------------------------------------------------------------------
-
         private void BuildStage()
         {
             stage = new GameObject("WardrobeStage");
@@ -162,7 +148,7 @@ namespace Deepbound.UI
             b.Add(MeshKit.Cylinder(1.1f, 1.2f, 0.25f, 16), Mat.Wood, Matrix4x4.Translate(StageAt));
             b.AddBox(StageAt + new Vector3(0f, 3f, 2.6f), new Vector3(8f, 6f, 0.5f), Mat.StoneWall);
             b.Build(stage.transform, "WardrobeFloor", collide: false);
-            // A hanging curtain behind, in deep red, and a gilt frame.
+
             var curtain = MeshKit.Part(stage.transform, "Curtain", MeshKit.Box(new Vector3(3.6f, 4f, 0.05f)), Mat.Cloth, StageAt + new Vector3(0f, 2f, 2.3f));
             ArtLibrary.Tint(curtain.GetComponent<Renderer>(), new Color(0.35f, 0.06f, 0.08f));
             turntable = new GameObject("Turntable").transform;
@@ -205,7 +191,6 @@ namespace Deepbound.UI
             var cls = progress.ClassId.Value;
             if (dye != portraitDye || heraldry != portraitHeraldry || pattern != portraitPattern || cls != portraitClass)
             {
-                // A new pattern is on the back: swing round to show it.
                 if (pattern != portraitPattern && portraitPattern >= 0 && tab == Cosmetics.Kind.Pattern) spinTarget = Mathf.Round((spinTarget - 20f) / 360f) * 360f + 20f;
                 portraitPattern = pattern;
                 foreach (Transform c in turntable) Destroy(c.gameObject);
@@ -214,7 +199,7 @@ namespace Deepbound.UI
                 portraitHeraldry = heraldry;
                 portraitClass = cls;
             }
-            // It turns slowly; the buttons swing it to the front or the back.
+
             spinTarget += 22f * Time.deltaTime;
             spin = Mathf.LerpAngle(spin, spinTarget, 1f - Mathf.Exp(-Time.deltaTime * 4f));
             turntable.rotation = Quaternion.Euler(0f, spin, 0f);
@@ -229,11 +214,11 @@ namespace Deepbound.UI
 
         private void OnGUIBody()
         {
-            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
+            useGUILayout = false;
             if (player == null || !DungeonDirector.InLobby) return;
             UiSkin.Apply();
             float w = UiScale.W, h = UiScale.H;
-            if (!Open) return; // opened by talking to Vey ("Talk to Mistress Vey" is the prompt now)
+            if (!Open) return;
 
             GUI.depth = -3;
             var items = Cosmetics.Of(tab);
@@ -243,10 +228,8 @@ namespace Deepbound.UI
             var panel = new Rect(w / 2f - total / 2f + portraitW + 20f, h / 2f - ph / 2f, pw, ph);
             var shot = new Rect(w / 2f - total / 2f, panel.y, portraitW, ph);
 
-            // The portrait: you, turning, in what you are pointing at.
             UiSkin.Panel(shot, 0.95f);
-            // 2026-11-22 (the user: "improve further cosmetic menu"): under the portrait, what you are looking at and
-            // everything you have on, one line per slot.
+
             float wornH = 7 * 17f + 30f;
             var pic = new Rect(shot.x + 10, shot.y + 10, shot.width - 20, shot.height - 64 - wornH - 26f);
             if (portrait != null) GUI.DrawTexture(pic, portrait, ScaleMode.ScaleAndCrop);
@@ -276,7 +259,7 @@ namespace Deepbound.UI
 
             UiSkin.Panel(panel, 0.95f);
             UiSkin.Shadowed(new Rect(panel.x, panel.y + 10, pw, 40), "Mistress Vey, Tailor", new GUIStyle(UiSkin.Title) { fontSize = 28 });
-            GUI.Label(new Rect(panel.x, panel.y + 50, pw, 22), Cosmetics.AllFree ? "EVERYTHING IS FREE FOR NOW  ·  pick and wear" : "RENOWN  " + Cosmetics.Renown + "      ·      earned at the end of every run",
+            GUI.Label(new Rect(panel.x, panel.y + 50, pw, 22), Cosmetics.AllFree ? "EVERYTHING IS UNLOCKED  ·  pick and wear" : "RENOWN  " + Cosmetics.Renown + "      ·      earned at the end of every run",
                 new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, fontSize = 14, normal = { textColor = UiSkin.Gold } });
 
             string[] names = { "CLOAKS", "AURAS", "HERALDRY", "PATTERNS", "GLOWS", "TITLES", "PETS" };
@@ -333,7 +316,6 @@ namespace Deepbound.UI
                     DrawPatternIcon(new Rect(row.x + 8, row.y + 4, 38, 32), item, i);
                 else if (tab == Cosmetics.Kind.Heraldry)
                 {
-                    // A little shield in the colour, with a gold chevron.
                     var col = i == 0 ? player.SlotColor : item.Cloak;
                     col.a = 1f;
                     UiSkin.Rect(new Rect(row.x + 12, row.y + 5, 30, 24), col);
@@ -342,7 +324,6 @@ namespace Deepbound.UI
                 }
                 else if (tab == Cosmetics.Kind.WeaponGlow)
                 {
-                    // A little blade with its burning edge.
                     UiSkin.Rect(new Rect(row.x + 8, row.y + 6, 38, 28), new Color(0.03f, 0.03f, 0.04f));
                     UiSkin.Rect(new Rect(row.x + 25, row.y + 9, 4, 20), new Color(0.75f, 0.75f, 0.78f));
                     UiSkin.Rect(new Rect(row.x + 20, row.y + 27, 14, 3), new Color(0.6f, 0.45f, 0.25f));
@@ -350,7 +331,6 @@ namespace Deepbound.UI
                 }
                 else if (tab == Cosmetics.Kind.Pet)
                 {
-                    // A little beast: body, head, two legs, in its colour.
                     UiSkin.Rect(new Rect(row.x + 8, row.y + 6, 38, 28), new Color(0.03f, 0.03f, 0.04f));
                     if (i > 0)
                     {
@@ -406,7 +386,6 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(panel.x, panel.yMax - 40, pw, 20), "F or Esc to close", new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter });
         }
 
-        /// <summary>A swatch of the cloak you wear with the pattern's motif drawn small on it.</summary>
         private void DrawPatternIcon(Rect r, Cosmetics.Item item, int i)
         {
             var dyeItem = Cosmetics.Get(player.CloakDye.Value);

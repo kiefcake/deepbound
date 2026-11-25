@@ -377,3 +377,27 @@ The economy section expects about 5,700 gold a run, so three quests a floor add 
 7. **Holy Water and the "no potions" clause.** Holy Water heals 20% without breaking it.
 8. **Clutch (15) and Avenge (10) charges** also predate the 2.7x cut. At 2.7x they would be about 5.6 and 3.7. They are rare
    moments, so this pass left them alone.
+
+## Party run A, 2026-11-25 (Knight host, Mage, Cleric, Plague Doctor; floors 1-3)
+
+| Floor | Knight | Mage | Cleric | Plague Doctor | Guardian |
+|---|---|---|---|---|---|
+| 1 (all four) | 13.9k (boss 8.7k) | 11.4k (7.2k) | 6.1k (4.0k) | 22.5k (14.4k) | 1.2 min |
+| 2 (PD gone) | 19.4k (10.7k) | 17.4k (12.0k) | 15.6k (10.6k) | - | 1.7 min |
+| 3 (Knight + Mage) | 28.7k (20.3k) | 29.6k (20.0k) | - | - | 1.9 min |
+
+- Near-downs: Knight 0/0/0, Mage 12/3/12, Cleric 1/0, Plague Doctor 4. The tank stays safe; the Mage takes the hits.
+- The Plague Doctor did 1.65x the Knight's and 2x the Mage's damage on the floor-1 Warden. The 6 s dummy table misses this:
+  blight festers to four stacks over a long fight (poison x2.5, vials x1.8). Trimmed to +35% poison and +15% vial per
+  stack (x2.05 / x1.6 at four), about 18% less sustained single-target damage. One sample; recheck in the next party run.
+- Bot fault, not balance: the Plague Doctor and Cleric bots quit after one and two floors. A carriage wait that timed out
+  at camp (four windows on this PC run slowly) counted as a floor played. `AutoPlay` now waits up to four times at camp.
+
+## Party run B, 2026-11-25 (Rogue host, Ranger, Flagellant, Knight; floor 1 only)
+
+| Rogue | Ranger | Flagellant | Knight | Guardian |
+|---|---|---|---|---|
+| 11.7k (boss 8.0k) | 6.4k (4.2k) | 9.4k (7.0k) | 5.7k (3.9k) | 1.0 min, floor 2.3 min |
+
+- Near-downs 0 / 0 / 2 / 2. A party of four took floor 1 with no real danger; floors 2-3 were not reached (the same camp
+  timeout fault as run A, fixed). Rerun both parties on the next build for floors 2-3 and the Plague Doctor recheck.

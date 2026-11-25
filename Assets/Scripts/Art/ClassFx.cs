@@ -3,29 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.Art
 {
-    /// <summary>
-    /// Each class's abilities as their own SILHOUETTES (2026-11-21, the user: "every ability should be discernable in battle,
-    /// and look distinct"; the first pass, one shared burst recoloured per class, was "not what i meant"). Every class has a
-    /// shape language, and no two abilities share a shape:
-    /// <list type="bullet">
-    /// <item><b>Knight</b>, gold and steel, the SHIELD: a kite ward of light while blocking; Shield Bash hurls the kite
-    ///   forward and it shatters; War Cry is walls of sound and a chevron over every foe it taunts; the Banner raises a
-    ///   wall round its ground. Swings: a broad steel crescent, a cross-glint where steel bites.</item>
-    /// <item><b>Cleric</b>, white gold, the CROSS and light from above: smites are spinning crosses that stand up where they
-    ///   land; the beam lifts little crosses off the mended; Consecrate drops a shaft of light and etches a cross in
-    ///   the ground; Aegis spins a gyroscope of rings round each ally; the Hymn lowers a halo onto every head.</item>
-    /// <item><b>Flagellant</b>, crimson and iron, BLOOD and BROKEN GROUND: the Scourge is a lash drawn round the body; the
-    ///   chain ends in a barbed hook; the Leap trails blood and cracks the floor open; the Red Litany whirls three
-    ///   spiked flails round him; the flail's crash splits the stone.</item>
-    /// <item><b>Rogue</b>, violet and black, CUTS and AFTERIMAGES: stabs are thin thrusts and an X nicked where they land;
-    ///   knives trail violet; Shadowstep leaves a ghost of the body behind and tears in where it lands; the Smoke Bomb
-    ///   pops a dome of black; the Opener and Death From Shadow are crossed and starred cuts.</item>
-    /// <item><b>Plague Doctor</b>, sick green and glass, FLASKS, FLIES and VEINS: vials and tonics fly as tumbling flasks;
-    ///   a vial bursts in glass and leaves a bubbling pool, a tonic in a rose mist; flies swarm in the Miasma; the Mask
-    ///   rises as a ghostly beak; the Pandemic sends black veins across the floor to every foe and the flies to them.</item>
-    /// </list>
-    /// Client only: called from the kits' FX RPCs. Abilities fire rarely enough that nothing here is pooled.
-    /// </summary>
     public static class ClassFx
     {
         public static readonly Color Gold = new Color(1f, 0.8f, 0.42f);
@@ -40,21 +17,18 @@ namespace Deepbound.Art
 
         private static bool Live => !Application.isBatchMode;
 
-        /// <summary>HDR colour for additive parts: <paramref name="i"/> x brightness (above 1 blooms), <paramref name="a"/> opacity.</summary>
         private static Color H(Color c, float i, float a) => new Color(c.r * i, c.g * i, c.b * i, a);
 
         private static Vector3 Flat(Vector3 v) { v.y = 0f; return v.sqrMagnitude > 1e-4f ? v.normalized : Vector3.forward; }
 
         private static Vector3 CamPos => ViewCamera.Current != null ? ViewCamera.Current.transform.position : Vector3.zero;
 
-        /// <summary>Turns a flat (XY) part's face to the camera, keeping it upright.</summary>
         private static Quaternion FaceCam(Vector3 at)
         {
             var d = at - CamPos;
             return d.sqrMagnitude > 1e-4f ? Quaternion.LookRotation(d, Vector3.up) : Quaternion.identity;
         }
 
-        /// <summary>Is the camera standing in this body (your own cast seen from your own eyes)?</summary>
         public static bool OwnBody(Vector3 feet)
         {
             var d = CamPos - feet;
@@ -63,10 +37,8 @@ namespace Deepbound.Art
 
         private static float EaseOut(float k) => 1f - (1f - k) * (1f - k) * (1f - k);
 
-        /// <summary>Fade in over <paramref name="inn"/> and out over the last <paramref name="outt"/> of k.</summary>
         private static float Env(float k, float inn, float outt) => Mathf.Clamp01(k / Mathf.Max(0.001f, inn)) * Mathf.Clamp01((1f - k) / Mathf.Max(0.001f, outt));
 
-        /// <summary>A straight band of light from a to b, built twice crosswise so it reads from any side.</summary>
         public static FxShape Tether(Vector3 a, Vector3 b, Color c, float width, float life)
         {
             if (!Live) return null;
@@ -82,7 +54,6 @@ namespace Deepbound.Art
             return s;
         }
 
-        /// <summary>A ribbon lying on the floor from <paramref name="from"/> along <paramref name="dir"/> (dust furrows, smears, veins).</summary>
         private static Transform FloorBand(FxShape s, Vector3 from, Vector3 dir, float length, float width, Color c, bool shade, float jitter = 0f, int seed = 0)
         {
             dir = Flat(dir);
@@ -102,7 +73,6 @@ namespace Deepbound.Art
             return shade ? s.Shade(mesh, c, Vector3.zero, Quaternion.identity) : s.Light(mesh, c, Vector3.zero, Quaternion.identity);
         }
 
-        /// <summary>Chunks of floor thrown up and falling back (landings, slams).</summary>
         public static void Rubble(Vector3 at, int count, float speed)
         {
             for (int i = 0; i < count; i++)
@@ -114,7 +84,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>Little shards of something (shield light, glass) thrown out and tumbling.</summary>
         public static void Shards(Vector3 at, Vector3 dir, int count, Color glow, float speed, float size = 0.12f)
         {
             var mesh = MeshKit.Box(new Vector3(1f, 0.55f, 0.08f));
@@ -126,7 +95,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>Cracks split across the floor from a point: dark rifts with a glowing seam, fading.</summary>
         public static void Cracks(Vector3 at, float radius, int count, Color seam, float life = 4f)
         {
             if (!Live) return;
@@ -146,13 +114,12 @@ namespace Deepbound.Art
             s.Tick = (sh, k) =>
             {
                 sh.Bright = Mathf.Clamp01((1f - k) / 0.3f);
-                // The seams cool long before the rifts close.
+
                 float glow = Mathf.Clamp01(1f - sh.Age / 1.4f);
                 foreach (var t in seams) sh.Dim(t, glow);
             };
         }
 
-        /// <summary>A low wall of force racing out across the floor from a point (a landing, a slam).</summary>
         public static void Shock(Vector3 at, float radius, Color c, float height, float life, float delay = 0f)
         {
             if (!Live) return;
@@ -168,11 +135,6 @@ namespace Deepbound.Art
             };
         }
 
-        // ==================================================================
-        // KNIGHT: the shield
-        // ==================================================================
-
-        /// <summary>The ward of a raised shield, seen by everyone else: a kite of gold light before the Knight. Flash() on a block.</summary>
         public class Ward
         {
             public FxShape Shape;
@@ -203,7 +165,6 @@ namespace Deepbound.Art
             return ward;
         }
 
-        /// <summary>Shield Bash: the kite of light hurled forward off the shield face; it shatters at the end of its reach.</summary>
         public static void KnightBash(Transform knight, float reach)
         {
             if (!Live) return;
@@ -213,7 +174,7 @@ namespace Deepbound.Art
             var face = s.Pivot(Vector3.zero, Quaternion.identity);
             s.Light(Shapes.Fill("kite", Shapes.Kite), H(Gold, 1.6f, 0.4f), Vector3.zero, Quaternion.identity, null, true, face);
             s.Light(Shapes.Outline("kite", Shapes.Kite, 0.07f), H(Gold, 3f, 1f), Vector3.zero, Quaternion.identity, null, true, face);
-            // A second, larger kite trailing behind: the push of air it drives.
+
             var echo = s.Light(Shapes.Outline("kite", Shapes.Kite, 0.07f), H(Steel, 1.6f, 0.5f), Vector3.zero, Quaternion.identity, null, true, face);
             bool shattered = false;
             s.Tick = (sh, k) =>
@@ -231,7 +192,7 @@ namespace Deepbound.Art
                     FxSprite.Billboard(FxSprite.AnyStar, face.position, Vector3.zero, 0.2f, 0.6f, 1.8f, new Color(1f, 0.9f, 0.6f, 1f), 200f);
                 }
             };
-            // The Knight's boots plough two furrows in the dust through the lunge.
+
             var dust = FxShape.Make("BashFurrow", knight.position, Quaternion.identity, 2.4f);
             var side = Vector3.Cross(Vector3.up, fwd);
             foreach (float sx in new[] { -0.22f, 0.22f })
@@ -239,7 +200,6 @@ namespace Deepbound.Art
             dust.Tick = (sh, k) => sh.Bright = 1f - k;
         }
 
-        /// <summary>War Cry: three walls of sound racing out to the taunt radius, the roar spiking from the mouth.</summary>
         public static void KnightWarCry(Transform knight, float radius)
         {
             if (!Live) return;
@@ -260,7 +220,7 @@ namespace Deepbound.Art
                     sh.Bright = Mathf.Pow(1f - kk, 1.4f);
                 };
             }
-            // The roar itself: jagged spikes of sound thrown out of the Knight's mouth.
+
             var mouth = knight.position + Vector3.up * 1.6f + Flat(knight.forward) * 0.25f;
             var roar = FxShape.Make("Roar", mouth, Quaternion.identity, 0.35f);
             for (int i = 0; i < 14; i++)
@@ -272,7 +232,6 @@ namespace Deepbound.Art
             roar.Tick = (sh, k) => { sh.transform.localScale = Vector3.one * Mathf.Lerp(0.6f, 2.4f, EaseOut(k)); sh.Bright = 1f - k * k; };
         }
 
-        /// <summary>The taunt you can see: a burning chevron over a foe the War Cry pulled, and the snap of a tether back to the Knight.</summary>
         public static void TauntMark(Transform foe, float height, float seconds, Vector3 knightChest, Vector3 foeChest)
         {
             if (!Live || foe == null) return;
@@ -290,7 +249,6 @@ namespace Deepbound.Art
             Tether(foeChest, knightChest, H(Roar, 2f, 0.7f), 0.14f, 0.35f);
         }
 
-        /// <summary>Rallying Banner: a wall of gold light round its ground for as long as it stands, pulsing, so the party sees where to stand.</summary>
         public static void KnightBanner(Vector3 at, float radius, float seconds)
         {
             if (!Live) return;
@@ -310,7 +268,6 @@ namespace Deepbound.Art
             Rubble(floor, 8, 3.5f);
         }
 
-        /// <summary>A sword swing as others see it: a broad crescent of steel light sweeping across the Knight's front.</summary>
         public static void KnightCut(Transform knight, float side, float reach, float arc, Color c)
         {
             if (!Live) return;
@@ -324,7 +281,6 @@ namespace Deepbound.Art
             };
         }
 
-        /// <summary>Where the Knight's steel bites: a white cross-glint and steel sparks.</summary>
         public static void SteelBite(Vector3 at, Vector3 from)
         {
             if (!Live) return;
@@ -332,7 +288,6 @@ namespace Deepbound.Art
             Glint(at, Steel, 1.1f, 0.16f, 45f);
         }
 
-        /// <summary>A four-pointed glint facing the camera (two crossed spindles), popping and gone.</summary>
         public static void Glint(Vector3 at, Color c, float size, float life, float roll)
         {
             var s = FxShape.Make("Glint", at, FaceCam(at), life);
@@ -341,11 +296,6 @@ namespace Deepbound.Art
             s.Tick = (sh, k) => { sh.transform.rotation = FaceCam(sh.transform.position); sh.transform.localScale = Vector3.one * Mathf.Lerp(0.5f, 1.2f, EaseOut(k)); sh.Bright = 1f - k; };
         }
 
-        // ==================================================================
-        // CLERIC: the cross, light from above
-        // ==================================================================
-
-        /// <summary>An upright cross of light facing the camera (a smite landing, a mending mote).</summary>
         public static FxShape HolyCross(Vector3 at, float size, Color c, float life, Vector3 rise)
         {
             if (!Live) return null;
@@ -363,7 +313,6 @@ namespace Deepbound.Art
             return s;
         }
 
-        /// <summary>A smite lands: a cross of light stands up where it struck.</summary>
         public static void SmiteLanded(Vector3 at)
         {
             if (!Live) return;
@@ -371,7 +320,6 @@ namespace Deepbound.Art
             FxSprite.Billboard("light_01", at, Vector3.zero, 0.3f, 0.6f, 1.6f, new Color(1f, 0.9f, 0.6f, 0.7f));
         }
 
-        /// <summary>The beam's mending, worn by the one mended: small crosses lifting off them.</summary>
         public static void MendMote(Transform who)
         {
             if (!Live || who == null) return;
@@ -380,7 +328,6 @@ namespace Deepbound.Art
             HolyCross(p, 0.22f, H(Holy, 2.4f, 0.95f), 0.8f, Vector3.up * 0.7f);
         }
 
-        /// <summary>Consecrate: a shaft of light comes down onto the spot, and a cross is etched into the ground for as long as it lasts.</summary>
         public static void ClericConsecrate(Vector3 at, float radius, float seconds, Vector3 forward, Transform follow)
         {
             if (!Live) return;
@@ -406,7 +353,7 @@ namespace Deepbound.Art
                     Vfx.AbilityFlash(floor + Vector3.up, Holy, 5f, radius * 2.5f, 0.4f);
                 }
             };
-            // The cross in the ground, long arm along the Cleric's facing.
+
             var fwd = Flat(forward);
             var g = FxShape.Make("ConsecrateCross", floor + Vector3.up * 0.045f, Quaternion.LookRotation(fwd), seconds);
             if (follow != null) g.Ride(follow, Vector3.up * 0.045f, true);
@@ -419,21 +366,18 @@ namespace Deepbound.Art
             g.Light(Shapes.Hoop(0.05f, 48), H(Holy, 1.8f, 0.45f), Vector3.zero, Quaternion.identity, new Vector3(radius, 1f, radius));
             g.Tick = (sh, k) =>
             {
-                // The cross burns in from the middle out.
                 float grow = EaseOut(Mathf.Clamp01(sh.Age / 0.35f));
                 foreach (var a in arms) a.localScale = new Vector3(1f, grow, 1f);
                 sh.Bright = Env(k, 0.02f, 0.12f) * (0.8f + 0.2f * Mathf.Sin(sh.Age * 3.5f));
             };
         }
 
-        /// <summary>Divine Aegis on one ally: three rings of gold close in round them and spin like a gyroscope, then settle into the shield.</summary>
         public static void AegisGyro(Transform ally, Vector3 clericChest, bool isCleric)
         {
             if (!Live || ally == null) return;
             bool own = OwnBody(ally.position);
             if (own)
             {
-                // From your own eyes: one gold ring closing in round your feet (rings at head height white out the view).
                 var f = FxShape.Make("AegisOwn", ally.position, Quaternion.identity, 1.2f).Ride(ally, Vector3.up * 0.08f);
                 var hoop = f.Light(Shapes.Hoop(0.18f), H(Holy, 2.6f, 0.9f), Vector3.zero, Quaternion.identity);
                 f.Tick = (sh, k) => { hoop.localScale = Vector3.one * Mathf.Lerp(3f, 1.1f, EaseOut(Mathf.Clamp01(sh.Age / 0.35f))); sh.Bright = Env(k, 0.05f, 0.4f); };
@@ -462,7 +406,6 @@ namespace Deepbound.Art
             if (!isCleric) Tether(clericChest, ally.position + Vector3.up * 1.2f, H(Holy, 2f, 0.7f), 0.12f, 0.35f);
         }
 
-        /// <summary>Hymn of Return on one ally: a halo comes down out of the dark onto their head; the fallen get a pillar of light to rise in.</summary>
         public static void HymnHalo(Transform ally, bool downed)
         {
             if (!Live || ally == null) return;
@@ -482,18 +425,13 @@ namespace Deepbound.Art
             };
         }
 
-        // ==================================================================
-        // FLAGELLANT: blood and broken ground
-        // ==================================================================
-
-        /// <summary>Scourge: a lash of red light drawn round the body over the shoulder, a crack at its tip, blood flung off.</summary>
         public static void FlagScourge(Transform who, bool mine)
         {
             if (!Live) return;
             var s = FxShape.Make("Scourge", who.position, who.rotation, 0.55f).Ride(who, Vector3.zero, true);
             const int segs = 7, per = 4;
             var parts = new Transform[segs];
-            // A helix from behind the right shoulder, over and round the back, down to the left hip.
+
             Vector3 P(float t)
             {
                 float a = Mathf.Deg2Rad * Mathf.Lerp(150f, -170f, t);
@@ -516,7 +454,6 @@ namespace Deepbound.Art
             bool cracked = false;
             s.Tick = (sh, k) =>
             {
-                // Drawn from the shoulder to the tip in a tenth of a second, then it burns out from the root.
                 float drawn = Mathf.Clamp01(sh.Age / 0.11f) * segs;
                 for (int i = 0; i < segs; i++)
                 {
@@ -539,7 +476,6 @@ namespace Deepbound.Art
             };
         }
 
-        /// <summary>Chains of Penance: a barbed hook bites where the chain lands, and the chain flashes red as it snaps taut.</summary>
         public static void FlagHook(Vector3 from, Vector3 to)
         {
             if (!Live) return;
@@ -559,7 +495,6 @@ namespace Deepbound.Art
             Tether(from, to, H(Crimson, 2.4f, 0.9f), 0.1f, 0.3f);
         }
 
-        /// <summary>The Penitent Leap's flight: a trail of blood-red light behind the body all the way up and down.</summary>
         public static void FlagLeapTrail(Transform who, float seconds)
         {
             if (!Live || who == null) return;
@@ -576,7 +511,6 @@ namespace Deepbound.Art
             Cracks(who.position, 1.2f, 4, Crimson, 2f);
         }
 
-        /// <summary>A landing that breaks the floor: a crater of cracks, rubble thrown up, a low ring of force. <paramref name="power"/> 1 = normal.</summary>
         public static void FlagCrater(Vector3 at, float radius, float power)
         {
             if (!Live) return;
@@ -587,7 +521,6 @@ namespace Deepbound.Art
             FxSprite.Decal("dirt_02", floor, radius * 1.1f, radius * 1.2f, 6f, new Color(0.25f, 0.03f, 0.02f, 0.6f));
         }
 
-        /// <summary>The Red Litany: three spiked flails whirl round him on their chains, a smear of red where they pass.</summary>
         public static void FlagLitany(Transform who, float radius, float seconds)
         {
             if (!Live || who == null) return;
@@ -610,10 +543,10 @@ namespace Deepbound.Art
                     var dir = Quaternion.Euler(i < 4 ? 0f : (i == 4 ? 90f : -90f), i < 4 ? i * 90f : 0f, 0f) * Vector3.forward;
                     s.Solid(spike, Mat.Steel, dir * 0.15f, Quaternion.FromToRotation(Vector3.up, dir), null, head);
                 }
-                // Red-hot heads.
+
                 s.Light(MeshKit.Ball(0.22f, 8, 6), H(Crimson, 2f, 0.35f), Vector3.zero, Quaternion.identity, null, false, head);
             }
-            var smear = s.Light(Shapes.Hoop(0.32f, 48), H(Crimson, 2.2f, 0.5f), Vector3.up * 1.05f, Quaternion.identity, new Vector3(reach, 1f, reach));
+            var smear = s.Light(Shapes.Hoop(0.14f, 48), H(Crimson, 2f, 0.32f), Vector3.up * 1.05f, Quaternion.identity, new Vector3(reach, 1f, reach));
             s.Tick = (sh, k) =>
             {
                 float spin = 520f * Mathf.Min(1f, sh.Age / 0.4f);
@@ -626,7 +559,6 @@ namespace Deepbound.Art
             };
         }
 
-        /// <summary>Flail swing as others see it: a heavy, low red crescent.</summary>
         public static void FlagCut(Transform who, float side, float reach, float arc, Color c)
         {
             if (!Live) return;
@@ -640,7 +572,6 @@ namespace Deepbound.Art
             };
         }
 
-        /// <summary>Where the flail lands on a body: blood flung and a dull iron flash.</summary>
         public static void FlailBite(Vector3 at, Vector3 from)
         {
             if (!Live) return;
@@ -650,11 +581,6 @@ namespace Deepbound.Art
                     Random.Range(0.4f, 0.7f), Random.Range(0.04f, 0.08f), 0.02f, new Color(0.5f, 0.02f, 0.02f), 9.8f, 0.3f);
         }
 
-        // ==================================================================
-        // ROGUE: cuts and afterimages
-        // ==================================================================
-
-        /// <summary>A violet streak behind a thrown knife (a part of the knife's own visual).</summary>
         public static void KnifeTrail(Transform knife)
         {
             if (!Live) return;
@@ -674,7 +600,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>A dagger thrust as others see it: a thin spike of violet light driven straight out.</summary>
         public static void RogueThrust(Transform who, float hand)
         {
             if (!Live) return;
@@ -686,7 +611,6 @@ namespace Deepbound.Art
             s.Tick = (sh, k) => { sh.transform.localScale = new Vector3(1f, 1f, Mathf.Lerp(0.5f, 1.15f, EaseOut(k))); sh.Bright = 1f - k; };
         }
 
-        /// <summary>Where a dagger bites: a small violet X nicked in the air.</summary>
         public static void RogueNick(Vector3 at, float size = 0.55f)
         {
             if (!Live) return;
@@ -697,7 +621,6 @@ namespace Deepbound.Art
             s.Tick = (sh, k) => { sh.transform.rotation = FaceCam(sh.transform.position); sh.transform.localScale = Vector3.one * Mathf.Lerp(0.6f, 1.25f, EaseOut(k)); sh.Bright = 1f - k; };
         }
 
-        /// <summary>Shadowstep's departure: a ghost of the Rogue's body, caught in its pose, left standing where it was and dissolving.</summary>
         public static void Afterimage(Transform body, Transform rigRoot, Vector3 at, float life = 1f)
         {
             if (!Live || body == null) return;
@@ -715,18 +638,16 @@ namespace Deepbound.Art
                     var pos = (Vector3)m.GetColumn(3);
                     var q = m.rotation;
                     var sc = m.lossyScale;
-                    // A shadow body with a soft violet halo just outside it (2026-11-22: a flat lilac cut-out read as a
-                    // sticker; dark inside and lit at the edge reads as a ghost).
+
                     s.Shade(mf.sharedMesh, new Color(0.05f, 0.02f, 0.09f, 0.82f), pos, q, sc);
                     s.Light(mf.sharedMesh, H(Violet, 0.8f, 0.4f), pos, q, sc * 1.12f);
                 }
             if (n == 0)
             {
-                // No rig to copy (a hidden body): a plain shadow figure.
                 s.Solid(MeshKit.Cylinder(0.25f, 0.2f, 1.3f, 8), Mat.Dark, Vector3.up * 0.2f, Quaternion.identity);
                 s.Solid(MeshKit.Ball(0.17f, 8, 6), Mat.Dark, Vector3.up * 1.65f, Quaternion.identity);
             }
-            // It holds the pose a breath, then sinks into the floor and shrinks away; the violet rim burns out first.
+
             var dust = Vfx.Floor(at);
             s.Tick = (sh, k) =>
             {
@@ -738,7 +659,6 @@ namespace Deepbound.Art
             };
         }
 
-        /// <summary>Shadowstep's arrival: a tall violet tear opens in the air where the Rogue steps out, and a smear of shadow along the floor between.</summary>
         public static void ShadowTear(Vector3 from, Vector3 to)
         {
             if (!Live) return;
@@ -760,7 +680,6 @@ namespace Deepbound.Art
             smear.Tick = (sh, k) => sh.Bright = 1f - k;
         }
 
-        /// <summary>Smoke Bomb: a dome of black smoke pops out at once (the cloud then hangs), violet sparks spitting from it.</summary>
         public static void SmokeDome(Vector3 at, float radius)
         {
             if (!Live) return;
@@ -778,7 +697,6 @@ namespace Deepbound.Art
             Vfx.Embers(floor + Vector3.up * 0.6f, 18, Violet, 5f, 0.05f, 0.6f);
         }
 
-        /// <summary>The Opener (first strike out of the smoke): a great violet X cut across the target, black behind it.</summary>
         public static void CrossCut(Vector3 at, float size, int cuts = 2)
         {
             if (!Live) return;
@@ -799,7 +717,6 @@ namespace Deepbound.Art
             };
         }
 
-        /// <summary>Death From Shadow: a star of three cuts and a pit of black closing on the mark.</summary>
         public static void DeathMark(Vector3 at)
         {
             if (!Live) return;
@@ -810,11 +727,6 @@ namespace Deepbound.Art
             Vfx.Embers(at, 20, Violet, 6f, 0.05f, 0.6f);
         }
 
-        // ==================================================================
-        // PLAGUE DOCTOR: flasks, flies and veins
-        // ==================================================================
-
-        /// <summary>A thrown flask (the vial's own visual): a glowing round belly, a glass neck, a cork, tumbling end over end.</summary>
         public static Transform Flask(Vector3 origin, Vector3 direction, Color liquid, bool tonic)
         {
             var root = new GameObject(tonic ? "Tonic" : "Vial").transform;
@@ -830,26 +742,20 @@ namespace Deepbound.Art
             ArtLibrary.SetGlow(neck.GetComponent<Renderer>(), Color.Lerp(liquid, Color.white, 0.6f) * 0.7f);
             MeshKit.Part(tumble, "Cork", MeshKit.Cylinder(0.036f, 0.04f, 0.05f, 6), tonic ? Mat.Cloth : Mat.Wood, new Vector3(0f, 0f, 0.17f), new Vector3(90f, 0f, 0f));
             foreach (var r in root.GetComponentsInChildren<Renderer>()) r.shadowCastingMode = UnityEngine.Rendering.ShadowCastingMode.Off;
-            // The flask turns about a sideways axis: Spin turns about local up, so tip the pivot over.
+
             tumble.localRotation = Quaternion.Euler(0f, 0f, 90f);
             return root;
         }
 
-        /// <summary>A vial bursts: glass flies, a pool of sick green is left bubbling for a few seconds. A tonic bursts into a rose mist that lifts.</summary>
         private static readonly Color RoseGold = new Color(1f, 0.78f, 0.55f);
 
-        /// <summary>
-        /// The Tonic (2026-11-23, reworked to a party heal round the Doctor): a rose-gold breath rolls out across the floor to its
-        /// full reach, a column of vapour lifts off the Doctor, and each ally it mends gets a glowing ring that climbs their body
-        /// and a spray of rising motes - so everyone sees who was caught in it.
-        /// </summary>
         public static void Cordial(Transform doctor, float radius, List<Transform> healed)
         {
             if (!Live || doctor == null) return;
             var feet = Vfx.Floor(doctor.position) + Vector3.up * 0.06f;
             var wave = FxShape.Make("TonicBreath", feet, Quaternion.identity, 0.9f);
-            var outer = wave.Light(Shapes.Hoop(0.5f), H(RoseGold, 1.6f, 0.75f), Vector3.zero, Quaternion.identity, Vector3.one * 0.3f);
-            var inner = wave.Light(Shapes.Hoop(0.5f), H(Rose, 1.2f, 0.45f), Vector3.zero, Quaternion.identity, Vector3.one * 0.2f);
+            var outer = wave.Light(Shapes.Hoop(0.07f), H(RoseGold, 1.6f, 0.7f), Vector3.zero, Quaternion.identity, Vector3.one * 0.3f);
+            var inner = wave.Light(Shapes.Hoop(0.1f), H(Rose, 1.2f, 0.4f), Vector3.zero, Quaternion.identity, Vector3.one * 0.2f);
             wave.Tick = (sh, k) =>
             {
                 float e = EaseOut(k);
@@ -857,7 +763,7 @@ namespace Deepbound.Art
                 inner.localScale = Vector3.one * Mathf.Lerp(0.4f, radius * 1.4f, EaseOut(Mathf.Clamp01(k * 1.3f)));
                 sh.Bright = 1f - k;
             };
-            // The breath: a soft rose column off the Doctor.
+
             Vfx.Embers(doctor.position + Vector3.up * 1.4f, 16, Rose, 2.2f, 0.07f, 1.1f);
             Vfx.AbilityFlash(doctor.position + Vector3.up * 1.5f, RoseGold, 2.2f, 5f, 0.4f);
             if (healed == null) return;
@@ -878,12 +784,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>
-        /// EXPUNGE (the Plague Doctor's RMB, 2026-11-23): the blight is DRAWN OUT. From every drained creature one glob per stack
-        /// tears loose (green, souring to blood-red as it flies) and arcs back into the Doctor's chest, staggered; a ring closes IN
-        /// on the Doctor as they land (the old Tonic breathed out); then each mended ally gets a rose ring that drops over them
-        /// from above. Inward and downward, so it never reads as the Tonic or the Pandemic.
-        /// </summary>
         public static void Expunge(Transform doctor, List<(Transform who, int stacks)> drained, List<Transform> healed)
         {
             if (!Live || doctor == null) return;
@@ -922,11 +822,11 @@ namespace Deepbound.Art
                     };
                 }
             }
-            // The pull: a ring closing in on the Doctor's feet, timed to the globs landing.
+
             var feet = Vfx.Floor(doctor.position) + Vector3.up * 0.06f;
             var pull = FxShape.Make("ExpungePull", feet, Quaternion.identity, lastLand + 0.25f).Ride(doctor, Vector3.up * 0.06f);
-            var hoop = pull.Light(Shapes.Hoop(0.5f), H(blood, 1.6f, 0.7f), Vector3.zero, Quaternion.identity, Vector3.one * 8f);
-            var hoop2 = pull.Light(Shapes.Hoop(0.5f), H(Plague, 1.2f, 0.5f), Vector3.up * 0.03f, Quaternion.identity, Vector3.one * 6f);
+            var hoop = pull.Light(Shapes.Hoop(0.05f), H(blood, 1.4f, 0.6f), Vector3.zero, Quaternion.identity, Vector3.one * 8f);
+            var hoop2 = pull.Light(Shapes.Hoop(0.06f), H(Plague, 1.1f, 0.4f), Vector3.up * 0.03f, Quaternion.identity, Vector3.one * 6f);
             float land = lastLand;
             pull.Tick = (sh, k) =>
             {
@@ -956,11 +856,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>
-        /// PATIENT ZERO (the Plague Doctor's ultimate, 2026-11-23): a crown of three black-green thorns turning over the creature's
-        /// head, a sick green glow pooled at its feet, and flies hanging round it for as long as it is Patient Zero. Rides the body,
-        /// and goes out at once if it dies (the jump gets its own mark).
-        /// </summary>
         public static void PatientZero(Transform who, float chest, float seconds)
         {
             if (!Live || who == null) return;
@@ -987,7 +882,6 @@ namespace Deepbound.Art
             Vfx.AbilityFlash(who.position + Vector3.up * top, Plague, 2.4f, 5f, 0.4f);
         }
 
-        /// <summary>Patient Zero coughs: a low green ring rolls out over the floor and a spray of flecks.</summary>
         public static void Cough(Vector3 at, float radius)
         {
             if (!Live) return;
@@ -995,11 +889,6 @@ namespace Deepbound.Art
             Vfx.Embers(at + Vector3.up * 1.2f, 14, Plague, 3.5f, 0.05f, 0.6f);
         }
 
-        /// <summary>
-        /// DAWNBREAK (the Cleric's ultimate, 2026-11-23): a shaft of morning light drops out of the dark onto the Cleric's spot and
-        /// stands there - a tall soft column, a gold ring on the floor at its full reach that slowly turns, a brighter inner ring
-        /// breathing, and motes of light drifting up through it - then thins away. Holy gold, not the Aegis egg or the Consecrate runes.
-        /// </summary>
         public static void Dawnbreak(Vector3 floor, float radius, float seconds)
         {
             if (!Live) return;
@@ -1007,12 +896,11 @@ namespace Deepbound.Art
             var s = FxShape.Make("Dawnbreak", floor + Vector3.up * 0.05f, Quaternion.identity, seconds);
             var column = s.Light(MeshKit.Cylinder(radius * 0.75f, radius * 0.55f, 18f, 24), H(dawn, 0.55f, 0.18f), Vector3.zero, Quaternion.identity, null, true);
             var core = s.Light(MeshKit.Cylinder(radius * 0.3f, radius * 0.18f, 18f, 16), H(Color.white, 0.9f, 0.3f), Vector3.zero, Quaternion.identity, null, true);
-            var rim = s.Light(Shapes.Hoop(0.5f), H(dawn, 1.6f, 0.75f), Vector3.zero, Quaternion.identity, Vector3.one * radius * 2f);
-            var inner = s.Light(Shapes.Hoop(0.5f), H(Color.white, 1.4f, 0.6f), Vector3.up * 0.02f, Quaternion.identity, Vector3.one * radius);
+            var rim = s.Light(Shapes.Hoop(0.06f), H(dawn, 1.6f, 0.7f), Vector3.zero, Quaternion.identity, Vector3.one * radius * 2f);
+            var inner = s.Light(Shapes.Hoop(0.1f), H(Color.white, 1.3f, 0.5f), Vector3.up * 0.02f, Quaternion.identity, Vector3.one * radius);
             float nextMote = 0f;
             s.Tick = (sh, k) =>
             {
-                // It shoots up out of the floor in the first fifth, stands, and thins out at the end.
                 float drop = Mathf.Clamp01(k * 5f);
                 column.localScale = new Vector3(1f, EaseOut(drop), 1f);
                 core.localScale = new Vector3(1f - 0.5f * k, EaseOut(drop), 1f - 0.5f * k);
@@ -1030,10 +918,6 @@ namespace Deepbound.Art
             Shock(floor, radius, dawn, 0.4f, 0.5f);
         }
 
-        /// <summary>
-        /// PERFECT DODGE: a silver flash at the chest and a ring snapping out at the feet, then a cool glint that rides the body while
-        /// the counter is ready (so allies and you see it on the character, not in words).
-        /// </summary>
         public static void PerfectDodge(Transform who, float readySeconds)
         {
             if (!Live || who == null) return;
@@ -1051,7 +935,6 @@ namespace Deepbound.Art
             };
         }
 
-        /// <summary>A vial into a festering wound: a sick-green burst that grows with the blight stacks it struck (1-4).</summary>
         public static void FesterBurst(Vector3 at, int stacks)
         {
             if (!Live || stacks <= 0) return;
@@ -1095,15 +978,11 @@ namespace Deepbound.Art
                 next = sh.Age + 0.14f;
                 var off = Random.insideUnitCircle * radius * 0.6f;
                 var p = floor + new Vector3(off.x, 0.04f, off.y);
-                // A bubble swells and pops.
+
                 Vfx.Spawn(MeshKit.Ball(0.5f, 8, 6), Mat.Glow, p, Vector3.up * 0.15f, Random.Range(0.4f, 0.7f), 0.03f, Random.Range(0.16f, 0.3f), Plague * 1.6f, 0f, 1f);
             };
         }
 
-        /// <summary>
-        /// Plague flies: dark specks with a sick glint, buzzing in tight, jittering orbits round a spot or riding a body.
-        /// The Miasma's mark, and every plagued foe's.
-        /// </summary>
         public static FxShape Flies(Transform ride, Vector3 at, float radius, float height, float seconds, int count, bool dark = false)
         {
             if (!Live) return null;
@@ -1114,7 +993,6 @@ namespace Deepbound.Art
             var phase = new float[count]; var speed = new float[count]; var rr = new float[count]; var hh = new float[count];
             for (int i = 0; i < count; i++)
             {
-                // Dark specks against a green cloud; a sick glint where there is only the dark behind them.
                 flies[i] = s.Solid(fly, Mat.Glow, Vector3.zero, Quaternion.identity, null, null, dark ? new Color(0.02f, 0.03f, 0.01f) : new Color(0.35f, 0.5f, 0.08f));
                 phase[i] = Random.value * 10f;
                 speed[i] = Random.Range(2.5f, 5f) * (Random.value < 0.5f ? -1f : 1f);
@@ -1139,14 +1017,13 @@ namespace Deepbound.Art
             return s;
         }
 
-        /// <summary>The Plague Mask: a ghostly beaked mask rises over the Doctor and looks out, its lenses burning; a ring of smoke lifts round every ally it wards.</summary>
         public static void PlagueMask(Transform doctor, List<Transform> allies)
         {
             if (!Live || doctor == null) return;
             var fwd = Flat(doctor.forward);
             var s = FxShape.Make("Mask", doctor.position + Vector3.up * 2.1f + fwd * 0.15f, Quaternion.LookRotation(fwd), 1.5f);
             var mask = s.Pivot(Vector3.zero, Quaternion.identity);
-            // 2026-11-22: a dark leather mask with a pale halo (an all-light mask read as a flat green blob).
+
             var leather = new Color(0.08f, 0.07f, 0.05f, 0.88f);
             s.Shade(MeshKit.Ball(0.22f, 10, 8), leather, Vector3.zero, Quaternion.identity, new Vector3(1f, 1.15f, 0.9f), mask);
             s.Shade(MeshKit.Cylinder(0.12f, 0.01f, 0.62f, 8), leather, new Vector3(0f, -0.06f, 0.12f), Quaternion.Euler(105f, 0f, 0f), null, mask);
@@ -1181,10 +1058,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>
-        /// The Pandemic: black veins creep over the floor from the Doctor to every foe it takes, each with a sick green seam; the
-        /// flies go to them.
-        /// </summary>
         public static void Veins(Vector3 from, IList<Vector3> to, float life = 3.2f, float creep = 0.5f)
         {
             if (!Live || to == null) return;
@@ -1224,15 +1097,10 @@ namespace Deepbound.Art
             };
         }
 
-        // ==================================================================
-        // MAGE: fire and ice, a sky that answers (2026-11-22)
-        // ==================================================================
-
         public static readonly Color Fire = new Color(1f, 0.48f, 0.14f);
         public static readonly Color Ice = new Color(0.55f, 0.88f, 1f);
         public static readonly Color Hunter = new Color(0.55f, 0.95f, 0.45f);
 
-        /// <summary>A soft streak trailing a projectile (part of its visual): a flame tail, a frost wake, a knife's violet.</summary>
         public static void BoltTrail(Transform bolt, Color c, float length, float width)
         {
             if (!Live) return;
@@ -1252,7 +1120,6 @@ namespace Deepbound.Art
             }
         }
 
-        /// <summary>A six-pointed snowflake glint where frost lands (three crossed spindles).</summary>
         public static void Snowflake(Vector3 at, float size, float life = 0.35f)
         {
             if (!Live) return;
@@ -1260,7 +1127,7 @@ namespace Deepbound.Art
             for (int i = 0; i < 3; i++)
             {
                 s.Light(Shapes.Spindle(size, size * 0.1f), H(Ice, 2.8f, 1f), Vector3.zero, Quaternion.Euler(0f, 0f, i * 60f));
-                // Little barbs half way out on each arm.
+
                 foreach (float end in new[] { -1f, 1f })
                 {
                     var arm = Quaternion.Euler(0f, 0f, i * 60f) * Vector3.up * size * 0.28f * end;
@@ -1275,7 +1142,6 @@ namespace Deepbound.Art
             };
         }
 
-        /// <summary>SHATTER: the chill breaks like glass: a big snowflake, ice shards flung out, a cold ring.</summary>
         public static void ShatterBurst(Vector3 at)
         {
             if (!Live) return;
@@ -1284,10 +1150,6 @@ namespace Deepbound.Art
             Shock(at, 2.2f, Ice, 0.6f, 0.35f);
         }
 
-        /// <summary>
-        /// The Meteor's warning: a ring of fire round the landing that CLOSES on the blast radius as the rock falls, so
-        /// everyone reads when it lands, not only where. Runes turn inside it.
-        /// </summary>
         public static void MeteorRing(Vector3 at, float radius, float delay)
         {
             if (!Live) return;
@@ -1307,11 +1169,6 @@ namespace Deepbound.Art
             };
         }
 
-        // ==================================================================
-        // RANGER: the hunt, green and feathered (2026-11-22)
-        // ==================================================================
-
-        /// <summary>A full draw: the shot leaves a green streak through everything in line, a glint at the bow.</summary>
         public static void PiercingShot(Vector3 from, Vector3 dir, float length)
         {
             if (!Live) return;
@@ -1320,11 +1177,6 @@ namespace Deepbound.Art
             Glint(from + dir * 0.8f, Hunter, 0.9f, 0.16f, 0f);
         }
 
-        /// <summary>
-        /// CONVERGENCE (2026-11-22): two ultimates meet. Two rings in the two casters' colours spin in opposite directions
-        /// and race outward across the floor, a pillar of both colours stands up from the meeting point, and a white
-        /// flash bursts at its foot.
-        /// </summary>
         public static void Convergence(Vector3 at, Color a, Color b, float radius)
         {
             if (!Live) return;
@@ -1351,11 +1203,6 @@ namespace Deepbound.Art
             Rubble(at, 10, 4.5f);
         }
 
-        /// <summary>
-        /// DEADEYE (2026-11-22, the Ranger's spent Focus): not the full draw's thin streak but a wide pale-gold beam with a
-        /// rifling of rings that run down it from the bow to the far end and open as they go - read from anywhere as
-        /// "that shot was the big one".
-        /// </summary>
         public static void Deadeye(Vector3 from, Vector3 dir, float length)
         {
             if (!Live) return;
@@ -1380,7 +1227,6 @@ namespace Deepbound.Art
             Glint(from + dir * 0.8f, gold, 1.4f, 0.22f, 0f);
         }
 
-        /// <summary>Hunter's Mark: a reticle snaps onto the quarry (a closing ring and four ticks), then a red diamond holds.</summary>
         public static void HuntersMark(Transform quarry, Vector3 at)
         {
             if (!Live) return;
@@ -1402,12 +1248,6 @@ namespace Deepbound.Art
             };
         }
 
-        /// <summary>Disengage: a spray of green leaves where the Ranger kicked off, and a short arc of light along the leap.</summary>
-        /// <summary>
-        /// DISENGAGE (2026-11-25; the green ring and leaves read as the Plague Doctor's): a hunter's leap in silver and gold.
-        /// A parting ARROW stays stuck in the floor where the Ranger stood, two boot FURROWS are scraped along the way they
-        /// went, a silver wind CRESCENT bursts off the take-off, and grey FEATHERS drift down after.
-        /// </summary>
         public static void Disengage(Transform who)
         {
             if (!Live || who == null) return;
@@ -1418,7 +1258,6 @@ namespace Deepbound.Art
             var wind = new Color(0.82f, 0.9f, 1f);
             var gold = new Color(1f, 0.82f, 0.45f);
 
-            // The parting arrow: shaft, iron head buried, fletching up, a gold glint; it stays a breath, then sinks away.
             var arrow = FxShape.Make("DisengageArrow", feet, Quaternion.Euler(0f, Random.Range(0f, 360f), 0f), 1.6f);
             var tilt = arrow.Pivot(Vector3.zero, Quaternion.Euler(-18f, 0f, 8f));
             arrow.Solid(MeshKit.Cylinder(0.022f, 0.022f, 0.85f, 6), Mat.Wood, Vector3.up * 0.0f, Quaternion.identity, null, tilt);
@@ -1434,7 +1273,6 @@ namespace Deepbound.Art
                 sh.transform.position = feet + Vector3.down * 0.9f * fade * fade;
             };
 
-            // Two furrows scraped toward where the leap goes, darkest at the take-off.
             var furrow = FxShape.Make("DisengageFurrows", feet + Vector3.up * 0.02f, face, 1.4f);
             foreach (float sx in new[] { -0.17f, 0.17f })
             {
@@ -1443,7 +1281,6 @@ namespace Deepbound.Art
             }
             furrow.Tick = (sh, k) => sh.Bright = Mathf.Clamp01(1.6f - k * 1.6f);
 
-            // A silver crescent of wind, standing up behind the Ranger and opening outward.
             var cres = FxShape.Make("DisengageWind", feet + Vector3.up * 1.0f, face, 0.45f);
             var arc = cres.Pivot(Vector3.zero, Quaternion.identity);
             for (int i = 0; i < 9; i++)
@@ -1462,7 +1299,6 @@ namespace Deepbound.Art
                 sh.Bright = Mathf.Clamp01(1.2f - k * 1.2f);
             };
 
-            // Feathers: long pale spindles that tumble and drift down slowly over the take-off.
             for (int i = 0; i < 7; i++)
             {
                 var v = (back * Random.Range(0.4f, 1.4f) + Random.insideUnitSphere * 0.9f + Vector3.up * 1.6f);
@@ -1474,14 +1310,12 @@ namespace Deepbound.Art
             Shock(feet, 1.1f, wind, 0.25f, 0.25f);
         }
 
-        /// <summary>A Volley arrow coming down out of the dark: a green streak from the sky to where it lands.</summary>
         public static void FallingStreak(Vector3 from, Vector3 to)
         {
             if (!Live) return;
             Tether(from, to, H(Hunter, 2f, 0.6f), 0.06f, 0.3f);
         }
 
-        /// <summary>The Volley's ground: a green ring and arrowheads pointing in at its edge while the sky fills.</summary>
         public static void VolleyRing(Vector3 at, float radius, float seconds)
         {
             if (!Live) return;

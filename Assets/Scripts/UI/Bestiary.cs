@@ -3,16 +3,10 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// The Bestiary (2026-10-20): every kind of dead you have met, with how to beat it. A page of the
-    /// pause-menu guide; an entry fills in the first time one is close and on screen (saved on this
-    /// machine, never in tests). Unmet ones stay "???" so the page is also a list of what is left to find.
-    /// </summary>
     public static class Bestiary
     {
         public struct Entry { public string Type, Name, Text; public bool Boss; }
 
-        /// <summary>Append only: an entry's index is its bit in the save.</summary>
         public static readonly Entry[] Entries =
         {
             new Entry { Type = "EnemyBrain", Name = "Skeleton", Text = "The rank and file. Watch the red !: a heavy blow (!!) sidesteps, a sweep (<!>) backs off, a lunge (>>) dodges sideways." },
@@ -54,9 +48,9 @@ namespace Deepbound.UI
         };
 
         private const string Key = "db.bestiary", Key2 = "db.bestiary2";
-        /// <summary>Kills that reveal the whole entry (the first kill reveals its first line). Guardians: one.</summary>
+
         public const int StudyKills = 5;
-        /// <summary>Type -> kills (0 = met, not yet beaten). Kept as text (2026-11-24): the old int mask ran out at 32 entries.</summary>
+
         private static Dictionary<string, int> met;
 
         private static Dictionary<string, int> Met
@@ -71,7 +65,6 @@ namespace Deepbound.UI
                     string saved = PlayerPrefs.GetString(Key2, null);
                     if (saved == null)
                     {
-                        // The old mask: entries past bit 31 shared bits with the first ones, so only the first 32 carry over.
                         int bits = PlayerPrefs.GetInt(Key, 0);
                         for (int i = 0; i < Entries.Length && i < 32; i++) if ((bits & (1 << i)) != 0) met[Entries[i].Type] = 0;
                         Save();
@@ -98,10 +91,9 @@ namespace Deepbound.UI
         public static bool Seen(int i) => Met.ContainsKey(Entries[i].Type);
         public static int Kills(int i) => Met.TryGetValue(Entries[i].Type, out int n) ? n : 0;
         public static int SeenCount { get { int n = 0; for (int i = 0; i < Entries.Length; i++) if (Seen(i)) n++; return n; } }
-        /// <summary>The Tallyman cannot be beaten: seeing him is knowing him.</summary>
+
         private static bool Unbeatable(int i) => Entries[i].Type == "Tallyman";
 
-        /// <summary>How much of entry <paramref name="i"/> is known: 0 unmet, 1 seen, 2 beaten once, 3 studied.</summary>
         public static int Stage(int i)
         {
             if (!Seen(i)) return 0;
@@ -110,7 +102,6 @@ namespace Deepbound.UI
             return k <= 0 ? 1 : k >= (Entries[i].Boss ? 1 : StudyKills) ? 3 : 2;
         }
 
-        /// <summary>The entry's text as far as it is known.</summary>
         public static string TextFor(int i)
         {
             var e = Entries[i];
@@ -128,10 +119,8 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>Note a creature met. True the first time.</summary>
         public static bool See(Enemies.EnemyBrain brain) => brain != null && See(brain.GetType().Name);
 
-        /// <summary>Note a creature met by its type name (for the few that are not EnemyBrains).</summary>
         public static bool See(string type)
         {
             int i = IndexOf(type);
@@ -142,7 +131,6 @@ namespace Deepbound.UI
             return true;
         }
 
-        /// <summary>One of <paramref name="type"/> fell near you: the entry learns more at the first kill and when studied.</summary>
         public static void Killed(string type)
         {
             int i = IndexOf(type);

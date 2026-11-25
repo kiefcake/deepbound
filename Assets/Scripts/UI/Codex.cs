@@ -7,14 +7,6 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// What this machine has learned (2026-11-24, the user: "add mystery into runs, i want the players guide books as well
-    /// as bestiary etc to update as they play"). The Guide's sections start as "???" and fill in the first time the thing
-    /// is met in play: embers in hand, a weapon at +2, a sigil, a rune, a relic, a guardian; and the long sections
-    /// (combos, elite affixes, floors, relic pairs) fill in line by line as each one is seen. Kept on this machine
-    /// (PlayerPrefs, as keys, so it never runs out of bits); tests learn in memory only. A watcher on the local player
-    /// does the polling; the HUD reports combos, pickups and boss intros, and counts kills for the <see cref="Bestiary"/>.
-    /// </summary>
     public class Codex : MonoBehaviour
     {
         public struct Part { public string Key, Text; }
@@ -27,7 +19,7 @@ namespace Deepbound.UI
 
         private const string SaveKey = "db.codex";
         private static HashSet<string> known;
-        /// <summary>Bumped on every new key: the guide re-measures its text.</summary>
+
         public static int Version { get; private set; }
 
         private static HashSet<string> Known
@@ -44,7 +36,6 @@ namespace Deepbound.UI
 
         public static bool Knows(string key) => string.IsNullOrEmpty(key) || Known.Contains(key);
 
-        /// <summary>Learn <paramref name="key"/>; the first time, a line in the feed naming <paramref name="what"/>. True if new.</summary>
         public static bool Learn(string key, string what)
         {
             if (string.IsNullOrEmpty(key) || !Known.Add(key)) return false;
@@ -81,8 +72,6 @@ namespace Deepbound.UI
             }
             return Knows(s.Key) ? s.Body : "Not yet discovered. " + s.Hint;
         }
-
-        // ---------------------------------------------------------------- the Guide's pages
 
         public static readonly Section[] GuideLeft =
         {
@@ -174,21 +163,17 @@ namespace Deepbound.UI
             return list.ToArray();
         }
 
-        // ---------------------------------------------------------------- what the HUD reports
-
-        /// <summary>A combo popped up on screen: learn it by its label.</summary>
         public static void OnPopup(string text)
         {
             foreach (Classes.ComboKind k in System.Enum.GetValues(typeof(Classes.ComboKind)))
             {
                 if (Classes.Combos.Label(k) != text) continue;
-                // INSPIRED and BLESSED share an entry.
+
                 Learn("combo." + k, "the " + text + " combo");
                 return;
             }
         }
 
-        /// <summary>A pickup toast: learn what it was.</summary>
         public static void OnPickup(string key)
         {
             switch (key)
@@ -204,8 +189,6 @@ namespace Deepbound.UI
 
         public static void OnBossIntro() => Learn("boss", "Boss Phases");
 
-        // ---------------------------------------------------------------- the watcher
-
         [RuntimeInitializeOnLoadMethod(RuntimeInitializeLoadType.AfterSceneLoad)]
         private static void Boot()
         {
@@ -218,7 +201,7 @@ namespace Deepbound.UI
         private float nextPoll, nextKills;
         private readonly HashSet<EnemyBrain> alive = new HashSet<EnemyBrain>();
         private readonly HashSet<EnemyBrain> counted = new HashSet<EnemyBrain>();
-        /// <summary>A kill counts for the bestiary when it falls this close to you.</summary>
+
         public const float KillReach = 30f;
 
         private void Update()
@@ -263,21 +246,19 @@ namespace Deepbound.UI
         private float announced = -1f;
         private Classes.ClassId announcedFor;
 
-        /// <summary>Your main attack grew (an anvil level, a drill, a relic, a rank): say what it hits for now. Not for passing buffs.</summary>
         private void WatchDamage(Progression.PlayerProgress p)
         {
             var lines = Progression.DamageSheet.For(p);
             if (lines.Count == 0) return;
             float now = lines[0].Now;
             if (announced < 0f || announcedFor != p.ClassId.Value || now < announced) { announced = now; announcedFor = p.ClassId.Value; return; }
-            // Bloodlust, Rally, Bloodfury and Berserker's Brand come and go: wait for them to pass.
+
             if (p.Bloodlust || p.Rallied || (p.TryGetComponent<Player.Flasks>(out var fl) && fl.Bloodfury)) return;
             if (now < announced * 1.03f || now - announced < 1f) return;
             GameHud.Feed(lines[0].Name + " now hits for " + Mathf.RoundToInt(now) + " (was " + Mathf.RoundToInt(announced) + "). Hold " + Binds.Label(Bind.Stats) + " for all your damage.", new Color(1f, 0.85f, 0.5f));
             announced = now;
         }
 
-        /// <summary>Enemies seen alive near you that are now dead count as your kills for the bestiary.</summary>
         private void WatchKills(Vector3 at)
         {
             foreach (var e in EnemyBrain.All)

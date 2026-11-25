@@ -3,11 +3,6 @@ using UnityEngine;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// The Proving Path's lesson line (2026-11-23): one short instruction at the top of the screen, naming the player's own
-    /// keys, and "Go through the gate" once the lesson is met. The tutorial is opt-in, so it may say what the dungeon
-    /// itself never does. Drawn only on the Proving Path.
-    /// </summary>
     public class TutorialPanel : MonoBehaviour
     {
         private static float metAt = -10f, beganAt = -10f;
@@ -66,7 +61,7 @@ namespace Deepbound.UI
             var lesson = (DungeonDirector.Lesson)d.TutStep.Value;
             bool done = d.TutDone.Value;
             float since = Time.time - (done ? metAt : beganAt);
-            // The guardian's own bar and name take the top of the screen once the fight is on.
+
             if (lesson == DungeonDirector.Lesson.Guardian && !done && since > 6f) return;
             float slide = Mathf.SmoothStep(0f, 1f, Mathf.Clamp01(since / 0.35f));
             float flash = done ? Mathf.Clamp01(1f - since / 1.2f) : 0f;

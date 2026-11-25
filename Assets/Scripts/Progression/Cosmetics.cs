@@ -2,18 +2,6 @@ using UnityEngine;
 
 namespace Deepbound.Progression
 {
-    /// <summary>
-    /// Meta-progression that outlives a run: <b>Renown</b>, earned at the end of every run,
-    /// spent at the camp tailor on cosmetics — cloak dyes and auras. Nothing here changes
-    /// power; it is how you show where you have been. Some pieces also need a boss felled
-    /// at least once.
-    ///
-    /// <para>
-    /// Saved per machine in PlayerPrefs (the client owns its own wardrobe); what you wear is
-    /// synced to the party through <see cref="Player.NetworkPlayer.CloakDye"/> and
-    /// <see cref="Player.NetworkPlayer.Aura"/>.
-    /// </para>
-    /// </summary>
     public static class Cosmetics
     {
         public enum Kind { Cloak, Aura, Heraldry, Pattern, WeaponGlow, Title, Pet }
@@ -21,18 +9,13 @@ namespace Deepbound.Progression
         public struct Item
         {
             public string Name;
-            public Color Cloak, Trim;   // for an aura, Cloak is the mote colour
+            public Color Cloak, Trim;
             public int Cost;
-            public int NeedsBoss;       // -1 = none; otherwise the depth of the boss that must have been felled
-            public Motif Motif;         // patterns only
-            public bool Glows, Gilded;  // patterns only: the motif glows / is gold leaf
+            public int NeedsBoss;
+            public Motif Motif;
+            public bool Glows, Gilded;
         }
 
-        /// <summary>
-        /// Index 0 is "your class's own colours" (no override). Append only: indices are saved and synced.
-        /// Brightened 2026-10-21 (the user: "make the accessory colours brighter"): the cloth bake and the
-        /// dungeon's dim light ate the old near-black dyes, so every dye now reads at a glance.
-        /// </summary>
         public static readonly Item[] Dyes =
         {
             new Item { Name = "Class Colours", Cost = 0, NeedsBoss = -1 },
@@ -50,7 +33,7 @@ namespace Deepbound.Progression
             new Item { Name = "Frost Blue", Cloak = new Color(0.45f, 0.72f, 1f), Trim = new Color(0.95f, 0.97f, 1f), Cost = 140, NeedsBoss = -1 },
             new Item { Name = "Grave Rose", Cloak = new Color(0.92f, 0.42f, 0.6f), Trim = new Color(0.98f, 0.95f, 0.88f), Cost = 140, NeedsBoss = -1 },
             new Item { Name = "Candle Yellow", Cloak = new Color(1f, 0.84f, 0.3f), Trim = new Color(0.45f, 0.12f, 0.08f), Cost = 160, NeedsBoss = -1 },
-            // 2026-11-13, the user: "please also work on cosmetics, there needs to be more".
+
             new Item { Name = "Moss and Iron", Cloak = new Color(0.3f, 0.42f, 0.22f), Trim = new Color(0.62f, 0.64f, 0.68f), Cost = 120, NeedsBoss = -1 },
             new Item { Name = "Gravedust", Cloak = new Color(0.62f, 0.55f, 0.44f), Trim = new Color(0.3f, 0.22f, 0.16f), Cost = 100, NeedsBoss = -1 },
             new Item { Name = "Wine Dark", Cloak = new Color(0.42f, 0.06f, 0.18f), Trim = new Color(0.95f, 0.8f, 0.55f), Cost = 140, NeedsBoss = -1 },
@@ -60,7 +43,6 @@ namespace Deepbound.Progression
             new Item { Name = "Dawnshroud", Cloak = new Color(1f, 0.9f, 0.72f), Trim = new Color(0.95f, 0.55f, 0.2f), Cost = 360, NeedsBoss = 4 },
         };
 
-        /// <summary>Motes that drift up around you. Index 0 is none. Append only.</summary>
         public static readonly Item[] Auras =
         {
             new Item { Name = "No Aura", Cost = 0, NeedsBoss = -1 },
@@ -77,10 +59,6 @@ namespace Deepbound.Progression
             new Item { Name = "The Unsung's Dawn", Cloak = new Color(1f, 0.95f, 0.75f), Cost = 400, NeedsBoss = 4 },
         };
 
-        /// <summary>
-        /// Heraldry (2026-10-20): the colour of your tabard, plume, sash, hat band and every other piece
-        /// in the party colour, on any class. Index 0 is "your party colour". Append only. Brightened 2026-10-21.
-        /// </summary>
         public static readonly Item[] Heraldries =
         {
             new Item { Name = "Party Colour", Cost = 0, NeedsBoss = -1 },
@@ -106,12 +84,6 @@ namespace Deepbound.Progression
             new Item { Name = "Bloodgold", Cloak = new Color(0.9f, 0.3f, 0.12f), Cost = 260, NeedsBoss = 3 },
         };
 
-        /// <summary>
-        /// Patterns (2026-10-21, the user: "add some patterns that fit the game theme, like a skeleton head or
-        /// bone print"): a motif sewn on the back of your cloak, on any class and any dye (built by
-        /// <see cref="Art.GothicKit"/>). Cloak = the motif's colour, Trim = its eye sockets and seams;
-        /// Motif picks the shape. Index 0 is a plain cloak. Append only.
-        /// </summary>
         public static readonly Item[] Patterns =
         {
             new Item { Name = "Plain Cloak", Cost = 0, NeedsBoss = -1 },
@@ -125,7 +97,7 @@ namespace Deepbound.Progression
             new Item { Name = "Abyssal Spine", Cloak = new Color(0.72f, 0.45f, 1f), Trim = new Color(0.04f, 0.02f, 0.06f), Motif = Motif.Ribcage, Glows = true, Cost = 300, NeedsBoss = 3 },
             new Item { Name = "Black Bone Print", Cloak = new Color(0.08f, 0.08f, 0.1f), Trim = new Color(0.85f, 0.1f, 0.1f), Motif = Motif.BonePrint, Cost = 100, NeedsBoss = -1 },
             new Item { Name = "Ember Skull", Cloak = new Color(1f, 0.55f, 0.2f), Trim = new Color(0.1f, 0.03f, 0.01f), Motif = Motif.Skull, Glows = true, Cost = 180, NeedsBoss = 1 },
-            // 2026-11-13: four new motifs, each in a plain and a finer cut.
+
             new Item { Name = "Death's-Head Moth", Cloak = new Color(0.9f, 0.82f, 0.62f), Trim = new Color(0.08f, 0.05f, 0.04f), Motif = Motif.Moth, Cost = 100, NeedsBoss = -1 },
             new Item { Name = "Ghost Moth", Cloak = new Color(0.8f, 0.92f, 1f), Trim = new Color(0.04f, 0.06f, 0.12f), Motif = Motif.Moth, Glows = true, Cost = 200, NeedsBoss = 1 },
             new Item { Name = "Gallows Raven", Cloak = new Color(0.86f, 0.84f, 0.8f), Trim = new Color(0.75f, 0.1f, 0.08f), Motif = Motif.Raven, Cost = 100, NeedsBoss = -1 },
@@ -138,10 +110,6 @@ namespace Deepbound.Progression
 
         public enum Motif { None, Skull, Crossbones, BonePrint, Ribcage, SkullHem, Moth, Raven, Eye, CrownedSkull }
 
-        /// <summary>
-        /// Weapon glows (2026-10-24, the user: "work on more customisation"): a burning edge along your blade, staff or
-        /// bow and the colour of your swing trails. Index 0 is none. Append only.
-        /// </summary>
         public static readonly Item[] WeaponGlows =
         {
             new Item { Name = "No Glow", Cost = 0, NeedsBoss = -1 },
@@ -160,7 +128,6 @@ namespace Deepbound.Progression
             new Item { Name = "Cardinal's Wrath", Cloak = new Color(1f, 0.3f, 0.15f), Cost = 260, NeedsBoss = 3 },
         };
 
-        /// <summary>Titles worn under your name on nameplates and the run summary. Index 0 is none. Append only.</summary>
         public static readonly Item[] Titles =
         {
             new Item { Name = "No Title", Cost = 0, NeedsBoss = -1 },
@@ -185,10 +152,6 @@ namespace Deepbound.Progression
             new Item { Name = "Last of the Choir", Cost = 270, NeedsBoss = 3 },
         };
 
-        /// <summary>
-        /// Companions (2026-11-07), in <see cref="Player.PetCompanion.Kind"/> order. Index 0 is none. Append only. They fetch
-        /// gold and embers and warn of hidden plates; none fights.
-        /// </summary>
         public static readonly Item[] Pets =
         {
             new Item { Name = "No Companion", Cost = 0, NeedsBoss = -1 },
@@ -211,42 +174,36 @@ namespace Deepbound.Progression
         public static Item[] Of(Kind kind) => kind == Kind.Aura ? Auras : kind == Kind.Heraldry ? Heraldries : kind == Kind.Pattern ? Patterns
             : kind == Kind.WeaponGlow ? WeaponGlows : kind == Kind.Title ? Titles : kind == Kind.Pet ? Pets : Dyes;
 
-        /// <summary>The pattern to sew on a cloak, or null for a plain one.</summary>
         public static Item? PatternOf(int i) => i > 0 && i < Patterns.Length ? Patterns[i] : (Item?)null;
 
-        /// <summary>The heraldry colour, or null for the party colour.</summary>
         public static Color? HeraldryColor(int i) => i > 0 && i < Heraldries.Length ? Heraldries[i].Cloak : (Color?)null;
 
         private const string KeyRenown = "db.renown", KeyBosses = "db.bosses", KeyLastRun = "db.lastRun", KeyRuns = "db.runs";
-        // Glows and titles fell through to the dye keys until 2026-11-07 (wearing a title changed your cloak on the next start).
+
         private static string KeyOwned(Kind k) => k == Kind.Aura ? "db.auras" : k == Kind.Heraldry ? "db.heraldries" : k == Kind.Pattern ? "db.patterns"
             : k == Kind.WeaponGlow ? "db.glows" : k == Kind.Title ? "db.titles" : k == Kind.Pet ? "db.pets" : "db.dyes";
         private static string KeyWorn(Kind k) => k == Kind.Aura ? "db.aura" : k == Kind.Heraldry ? "db.heraldry" : k == Kind.Pattern ? "db.pattern"
             : k == Kind.WeaponGlow ? "db.glow" : k == Kind.Title ? "db.title" : k == Kind.Pet ? "db.pet" : "db.cloak";
 
-        /// <summary>Set by the smoke/screenshot tests: nothing is read from or written to the real save.</summary>
         public static bool TestMode;
 
         public static int Renown => TestMode ? 0 : PlayerPrefs.GetInt(KeyRenown, 0);
         public static int RunsFinished => PlayerPrefs.GetInt(KeyRuns, 0);
         private static int BossMask => PlayerPrefs.GetInt(KeyBosses, 0);
-        /// <summary>Acts whose master this machine has beaten (bit per act): boss practice unlocks by it.</summary>
+
         public static int ActsBeaten => BossMask;
 
         public static int Worn(Kind kind) => TestMode ? 0 : Mathf.Clamp(PlayerPrefs.GetInt(KeyWorn(kind), 0), 0, Of(kind).Length - 1);
         public static int Equipped => Worn(Kind.Cloak);
 
-        /// <summary>For now (the user's call, 2026-10-20) every dye and aura is free and unlocked.</summary>
         public const bool AllFree = true;
 
         public static bool Owns(Kind kind, int i) => AllFree || i == 0 || (PlayerPrefs.GetInt(KeyOwned(kind), 0) & (1 << i)) != 0;
         public static bool BossFelled(int depth) => (BossMask & (1 << depth)) != 0;
         public static bool Unlocked(Kind kind, int i) => AllFree || Of(kind)[i].NeedsBoss < 0 || BossFelled(Of(kind)[i].NeedsBoss);
 
-        /// <summary>The colours to dress a cloak in, or null for the class's own.</summary>
         public static Item? Get(int dye) => dye > 0 && dye < Dyes.Length ? Dyes[dye] : (Item?)null;
 
-        /// <summary>An aura's mote colour, or null for none.</summary>
         public static Color? AuraColor(int aura) => aura > 0 && aura < Auras.Length ? Auras[aura].Cloak : (Color?)null;
 
         public static bool Buy(Kind kind, int i)
@@ -259,7 +216,6 @@ namespace Deepbound.Progression
             return true;
         }
 
-        /// <summary>Spend Renown on something that is not a cosmetic (the Legacy boons). False if short or in test mode.</summary>
         public static bool SpendRenown(int amount)
         {
             if (TestMode || amount < 0 || Renown < amount) return false;
@@ -276,18 +232,12 @@ namespace Deepbound.Progression
             return true;
         }
 
-        /// <summary>What a run is worth: bosses, kills and combos, a big bonus for clearing it, scaled by difficulty.</summary>
         public static int RenownFor(int bossesFelled, int kills, int combos, bool cleared, int difficulty)
         {
             float r = bossesFelled * 25 + kills / 4 + combos / 5 + (cleared ? 100 : 0);
             return Mathf.RoundToInt(r * (1f + 0.5f * Mathf.Max(0, difficulty)));
         }
 
-        /// <summary>
-        /// Award a finished run once (keyed by its start time, so the summary can call this
-        /// every frame). Returns the Renown earned, or -1 if this run was already counted.
-        /// </summary>
-        /// <summary>Gold left in your purse when a run ends is tithed: this much gold per Renown, up to <see cref="TitheCap"/>.</summary>
         public const int GoldPerRenown = 100, TitheCap = 50;
         public static int TitheFor(int goldLeft) => Mathf.Clamp(goldLeft / GoldPerRenown, 0, TitheCap);
 

@@ -11,24 +11,10 @@ using UnityEngine;
 
 namespace Deepbound.Networking
 {
-    /// <summary>
-    /// Headless end-to-end check, run with <c>-batchmode -nographics -host -smoketest 20</c>
-    /// (and optionally a second instance with <c>-client</c>).
-    ///
-    /// <para>
-    /// There is no Play-mode test suite; this is the next best thing. It boots a real
-    /// player build, lets the dungeon generate, and logs one <c>[Smoke]</c> line per check
-    /// to the player log, then quits. On the host it also kills the boss server-side to
-    /// prove the floor-cleared transition fires. A missing line or a FAIL means a broken
-    /// build.
-    /// </para>
-    /// </summary>
     public class SmokeTest : MonoBehaviour
     {
-        /// <summary>Tests and shots: urns on the Scales whose weights sum to the counterweight (smallest such set), or none.</summary>
         private static Vector3 Flat3(Vector3 v) { v.y = 0f; return v; }
 
-        /// <summary>Hidden caches holding a Draught instead of a chest (2026-11-12): draughts standing in no Draught room.</summary>
         private static int CacheDraughts(DungeonLayout layout) => FindObjectsByType<StatDraught>(FindObjectsSortMode.None)
             .Count(d => { var r = layout.RoomAt(d.transform.position, 0f); return r == null || r.Feature != RoomFeature.Draught; });
 
@@ -46,7 +32,6 @@ namespace Deepbound.Networking
             return best;
         }
 
-        // Tests never touch the player's real wardrobe or Renown.
         private void Awake()
         {
             Progression.Cosmetics.TestMode = true;
@@ -58,12 +43,10 @@ namespace Deepbound.Networking
 
         public void Run(float seconds)
         {
-            World.Centrepieces.Off = true; // smoke runs stand players at room centres
+            World.Centrepieces.Off = true;
             StartCoroutine(Sequence(seconds));
-            // Watchdog: if the sequence throws, the coroutine dies silently and the
-            // process would idle forever. Fail loudly instead.
-            // x8 (was x6 until 2026-10-29): the checks had grown to fill the old 240 s on a headless host.
-            Invoke(nameof(Timeout), seconds * 13f); // 8x ran out on 2026-11-07 with a game open beside it; 10x on 2026-11-14 (lairs, the Pit)
+
+            Invoke(nameof(Timeout), seconds * 13f);
         }
 
         private void Timeout()
@@ -72,16 +55,10 @@ namespace Deepbound.Networking
             Application.Quit(1);
         }
 
-        /// <summary>
-        /// Server: the test player has no passive regeneration any more and the dead hit harder, so a
-        /// long run of checks would wear them down and wipe the party mid-test. Top them up when low
-        /// (never reviving: checks that down a player on purpose still do).
-        /// </summary>
         private IEnumerator Guardian()
         {
             while (true)
             {
-                // Every frame: a ghoul pack can take a Knight from half to the floor between half-second checks.
                 yield return null;
                 var net = NetworkManager.Singleton;
                 if (net == null || !net.IsServer) continue;
@@ -92,11 +69,6 @@ namespace Deepbound.Networking
             }
         }
 
-        /// <summary>
-        /// Class DPS (balance pass, players' side), run windowed: <c>-classdps</c>. Every class holds its
-        /// main attack on a training dummy for six seconds through a virtual pad's right trigger (which
-        /// also proves each class attacks on a pad). Logged as [ClassDps] rows, then quits.
-        /// </summary>
         public void ClassDps(NetworkLauncher launcher) => StartCoroutine(ClassDpsSequence(launcher));
 
         private IEnumerator ClassDpsSequence(NetworkLauncher launcher)
@@ -115,7 +87,7 @@ namespace Deepbound.Networking
             if (dummy == null) { Log("class dps", "no training dummy", false); yield break; }
             var motor = me.GetComponent<FirstPersonMotor>();
             var hp = me.GetComponent<Health>();
-            // Not a virtual pad: input events are dropped when the window loses focus, and classes after that read 0 dps.
+
             FirstPersonMotor.BotControl = true;
             float dealt = 0f;
             int landed = 0;
@@ -128,7 +100,7 @@ namespace Deepbound.Networking
                 struckWhat.TryGetValue(k, out int c); struckWhat[k] = c + 1;
             };
             Health.ServerAnyDamaged += count;
-            // Every blow on the dummy by tag and source, so a hit from something else (a proc, a burst) shows.
+
             var byTag = new System.Collections.Generic.Dictionary<string, float>();
             System.Action<Health, float, ulong, string> tagged = (h, lost, from, tag) =>
             {
@@ -139,7 +111,7 @@ namespace Deepbound.Networking
             Health.ServerHitTagged += tagged;
             var rows = new System.Collections.Generic.List<string>();
             bool allHit = true;
-            // Every class on every weapon path at mastery (2026-11-16: the balance notes never had the Pyromancer measured).
+
             int level0 = progressMe.WeaponLevel.Value; byte path0 = progressMe.WeaponPath.Value;
             foreach (Classes.ClassId id in System.Enum.GetValues(typeof(Classes.ClassId)))
             for (int path = 0; path <= Classes.WeaponPaths.Count; path++)
@@ -164,10 +136,9 @@ namespace Deepbound.Networking
                 byTag.Clear();
                 var rogueKit = me.GetComponent<RogueKit>();
                 int flourish0 = rogueKit != null ? rogueKit.Flourishes : 0;
-                // A fresh dummy each row: it only refills after 2.5 s untouched, and the rows ran back to back, so by the
-                // Duelist (row 15) the 5,000 had run out and it lay dead for a third of the row (2026-11-16).
+
                 dummy.ServerSetFraction(1f);
-                // Hold and release the trigger: a long draw for the Ranger, quick presses for swings.
+
                 float hold = id == Classes.ClassId.Ranger ? 1.0f : 0.4f;
                 float t0 = Time.time;
                 while (Time.time - t0 < 6f)
@@ -197,7 +168,7 @@ namespace Deepbound.Networking
         private IEnumerator Sequence(float seconds)
         {
             StartCoroutine(Guardian());
-            // The client is downed by the host's bleed-out check: its owner gets the death recap.
+
             bool recapSeen = false;
             PlayerLife.DownedRecap += (killer, lines) => { if (recapSeen) return; recapSeen = true; Log("death recap", "downed by " + killer + " | " + lines.Replace("\n", "; ").Replace("\t", " "), !string.IsNullOrEmpty(killer)); };
             yield return new WaitForSeconds(4f);
@@ -205,11 +176,9 @@ namespace Deepbound.Networking
             var net = NetworkManager.Singleton;
             if (net.IsServer)
             {
-                // Sessions start at camp. Check it, then board the carriage.
                 int dummies = FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None).Length;
                 Log("lobby", "in lobby " + DungeonDirector.InLobby + ", " + dummies + " dummies", DungeonDirector.InLobby && dummies == Lobby.DummySpots.Length);
 
-                // Build identity (2026-11-13): gear sets, Brann's masteries, class gifts; harder quests carry a clause.
                 {
                     var bp = NetworkPlayer.Local.GetComponent<PlayerProgress>();
                     bool sets = PlayerProgress.Sets.Length >= 5 && PlayerProgress.SetLine(GearId.BulwarkPlate) != null && PlayerProgress.SetLine(GearId.GlassHeart) != null;
@@ -233,7 +202,6 @@ namespace Deepbound.Networking
                         sets && mastery && gifts && clauses == passive);
                 }
 
-                // Path triads, the major rune socket, an edge ground out (2026-11-13).
                 {
                     var tp = NetworkPlayer.Local.GetComponent<PlayerProgress>();
                     bool names = System.Enum.GetValues(typeof(Classes.ClassId)).Cast<Classes.ClassId>().All(c =>
@@ -249,14 +217,14 @@ namespace Deepbound.Networking
                     }
                     float inc = Classes.PathTriads.Incoming(tp, tp.transform.position + Vector3.forward * 2f);
                     tp.WeaponPath.Value = path0;
-                    // Major socket: a rune in the first socket counts double.
+
                     byte s0 = tp.Socket0.Value, s1 = tp.Socket1.Value;
                     tp.Socket0.Value = 0; tp.Socket1.Value = (byte)Runes.Make(Rune.Farsight, 0);
                     float minorRange = tp.RangeMultiplier;
                     tp.Socket1.Value = 0; tp.Socket0.Value = (byte)Runes.Make(Rune.Farsight, 0);
                     float majorRange = tp.RangeMultiplier;
                     tp.Socket0.Value = s0; tp.Socket1.Value = s1;
-                    // Respec: grind an edge out, once a run.
+
                     int edges0 = tp.EdgeBits.Value, gold0 = tp.Gold.Value;
                     bool respec0 = tp.EdgeRespecced.Value;
                     tp.EdgeBits.Value = (int)Progression.Edge.Momentum;
@@ -272,7 +240,6 @@ namespace Deepbound.Networking
                         names && bulwark && majorRange > minorRange + 0.1f && ground && onceOnly);
                 }
 
-                // VIT regeneration (2026-11-13): slow, more for melee, less for ranged.
                 {
                     var vh = NetworkPlayer.Local.GetComponent<Health>();
                     var vp = NetworkPlayer.Local.GetComponent<PlayerProgress>();
@@ -290,8 +257,6 @@ namespace Deepbound.Networking
                         vh1 > vh0 && vh1 - vh0 <= want * 3.5f + 1f && order);
                 }
 
-                // Build choices (2026-11-12): every edge offer has a BLADE and a GUARD; trade-off gear is in the rolls; Brann
-                // trains wind and hide; mana and stamina come back slower from the start; the Rogue's ultimate fills faster.
                 {
                     int bad = 0;
                     for (int seed = 0; seed < 60; seed++)
@@ -309,9 +274,6 @@ namespace Deepbound.Networking
                         bad == 0 && tradeoffs && drills && ClericKit.ConsecrateCooldown <= 10f && Ultimates.RogueChargeScale > 1f);
                 }
 
-                // Camp workstations (2026-11-12): each is what the crosshair finds from where you would stand at it (and
-                // looking up past the anvil at Hobb finds none); the grindstone and the forge count as Hobb's smithy on the
-                // server, out of the anvil's own reach; F on each opens its own page. (A class switch next resets the run.)
                 {
                     var wsMe = NetworkPlayer.Local;
                     var wsHud = wsMe.GetComponent<UI.GameHud>();
@@ -366,7 +328,6 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                 }
 
-                // Switch to Mage at camp, then chill a dummy and shatter it.
                 var me = NetworkPlayer.Local;
                 var progressMe = me.GetComponent<PlayerProgress>();
                 progressMe.ClassId.Value = Classes.ClassId.Mage;
@@ -376,8 +337,7 @@ namespace Deepbound.Networking
 
                 var dummy = FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None)[0].GetComponent<Health>();
                 var mage = me.GetComponent<MageKit>();
-                // Fire from where the player really stands: the server clamps bolt origins
-                // to the caster, so a bolt "from" anywhere else would be moved.
+
                 me.GetComponent<FirstPersonMotor>().Teleport(dummy.transform.position + Vector3.right * 5f, Quaternion.LookRotation(Vector3.left));
                 yield return new WaitForSeconds(0.2f);
                 var from = me.transform.position + Vector3.up * 1.6f;
@@ -387,7 +347,7 @@ namespace Deepbound.Networking
                 float before = dummy.Current.Value;
                 mage.ServerBolt(from, dummy.Center - from, false);
                 yield return new WaitForSeconds(0.5f);
-                // Relics: Thunder Idol procs on the 6th hit; Vampiric Fang heals the attacker.
+
                 progressMe.ServerAddRelic(Relic.ThunderSigil);
                 progressMe.ServerAddRelic(Relic.VampiricFang);
                 var meHp = me.GetComponent<Health>();
@@ -404,14 +364,13 @@ namespace Deepbound.Networking
                 Log("firebolt shatters", "chill consumed " + !dummy.Chilled.Value + ", dealt " + (before - dummy.Current.Value).ToString("F0"),
                     !dummy.Chilled.Value && before - dummy.Current.Value > MageKit.FireboltDamage);
 
-                // Hobb's Mage paths (2026-11-20): Stormcaller's bolt strikes at once and forks; Inferno breathes a scorching stream.
                 var dummiesAll = FindObjectsByType<TrainingDummy>(FindObjectsSortMode.None).Select(d => d.GetComponent<Health>()).OrderBy(d => d.transform.position.z).ToArray();
                 if (dummiesAll.Length >= 2)
                 {
                     foreach (var d in dummiesAll) { d.ServerConsumeChill(); d.ServerSetFraction(1f); }
                     progressMe.WeaponPath.Value = 2;
                     var near = dummiesAll[0].transform.position;
-                    // The second dummy stands too far for a fork (6.8 m against 6): bring it to 3 m beside the first for the check.
+
                     var farHome = dummiesAll[1].transform.position;
                     dummiesAll[1].transform.position = near + Vector3.right * 3f;
                     Physics.SyncTransforms();
@@ -437,7 +396,6 @@ namespace Deepbound.Networking
                     progressMe.WeaponPath.Value = 0;
                 }
 
-                // Tidal Wave (Q, replacing Blink): rolls out across the wedge in front and strikes what it reaches once.
                 me.GetComponent<FirstPersonMotor>().Teleport(dummy.transform.position + Vector3.right * 4f, Quaternion.LookRotation(Vector3.left));
                 yield return new WaitForSeconds(0.2f);
                 dummy.ServerSetFraction(1f);
@@ -447,7 +405,6 @@ namespace Deepbound.Networking
                 float waveDealt = waveBefore - dummy.Current.Value;
                 Log("tidal wave", "dealt " + waveDealt.ToString("F0") + " (one hit, dry: " + !mage.WaveWet + ")", waveDealt > 0f && waveDealt < MageKit.WaveDamage * 3f && !mage.WaveWet);
 
-                // Cleric: Aegis absorbs a hit completely; Consecrate burns a dummy standing in it.
                 progressMe.ClassId.Value = Classes.ClassId.Cleric;
                 yield return new WaitForSeconds(0.5f);
                 var cleric = me.GetComponent<ClericKit>();
@@ -466,7 +423,7 @@ namespace Deepbound.Networking
                 cleric.ServerConsecrate();
                 yield return new WaitForSeconds(1.6f);
                 Log("cleric consecrate", "dummy " + dummyFull.ToString("F0") + " -> " + dummy.Current.Value.ToString("F0"), dummy.Current.Value < dummyFull);
-                // Rogue: from the smoke, a stab in the back is an Ambush opener (x1.5, x2).
+
                 progressMe.ClassId.Value = Classes.ClassId.Rogue;
                 yield return new WaitForSeconds(0.5f);
                 var rogue = me.GetComponent<RogueKit>();
@@ -481,8 +438,7 @@ namespace Deepbound.Networking
                 float opener = dBefore - dummy.Current.Value;
                 Log("rogue ambush", "hidden " + wasHidden + " -> " + me.GetComponent<PlayerLife>().Hidden.Value + ", opener stab dealt " + opener.ToString("F0") + " (plain ~13)",
                     wasHidden && !me.GetComponent<PlayerLife>().Hidden.Value && opener > 30f);
-                // The Duelist's flourish (2026-11-09): every 5th stab in a row on one foe hits x2.5. And Shadowstep with
-                // nobody under the crosshair dashes the way you look.
+
                 {
                     byte path0 = progressMe.WeaponPath.Value; int lvl0 = progressMe.WeaponLevel.Value;
                     progressMe.WeaponLevel.Value = 2; progressMe.WeaponPath.Value = 2;
@@ -501,7 +457,7 @@ namespace Deepbound.Networking
                     }
                     bool flourished = rogue.Flourishes == fl0 + 1 && stabs[stabs.Count - 1] > stabs[0] * 2f;
                     progressMe.WeaponPath.Value = path0; progressMe.WeaponLevel.Value = lvl0;
-                    // The dash: face away from the dummy into the open yard.
+
                     var start = me.transform.position;
                     me.GetComponent<FirstPersonMotor>().Teleport(start, Quaternion.LookRotation(dummy.transform.forward));
                     yield return new WaitForSeconds(0.2f);
@@ -512,7 +468,6 @@ namespace Deepbound.Networking
                         flourished && dashed && moved > 1.5f && moved <= RogueKit.DashRange + 0.6f);
                 }
 
-                // Ranger: three full draws mark the dummy; a trap set on it springs.
                 progressMe.ClassId.Value = Classes.ClassId.Ranger;
                 yield return new WaitForSeconds(0.5f);
                 var ranger = me.GetComponent<RangerKit>();
@@ -526,7 +481,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.4f);
                 }
                 Log("ranger mark", "marked " + dummy.Marked.Value + ", dummy " + dummy.Current.Value.ToString("F0") + " / " + dummy.Max.Value.ToString("F0"), dummy.Marked.Value);
-                // FOCUS builds as arrows land; a DEADEYE (spent Focus) hits far harder (2026-11-22).
+
                 {
                     float focus = ranger.Focus;
                     dummy.ServerSetFraction(1f);
@@ -543,7 +498,7 @@ namespace Deepbound.Networking
                     Log("ranger deadeye", "focus after three hits " + focus.ToString("F0") + ", full draw " + plain.ToString("F0") + ", deadeye " + dead.ToString("F0"),
                         focus > 10f && plain > 0f && dead > plain * 1.4f);
                 }
-                // Snare Shot: the net-arrow bursts on the dummy, catches it, and the next arrow hits 25% harder.
+
                 dummy.ServerSetFraction(1f);
                 {
                     var o = me.transform.position + Vector3.up * 1.6f;
@@ -554,7 +509,6 @@ namespace Deepbound.Networking
                         ranger.LastSnareCaught >= 1 && snaredBy > 1.2f && dummy.Current.Value < dummy.Max.Value);
                 }
 
-                // Flagellant: swings heal (Penance) and build Fervor, the third crashes; Scourge costs blood for Zeal; the leap spends Fervor.
                 progressMe.ClassId.Value = Classes.ClassId.Flagellant;
                 yield return new WaitForSeconds(0.5f);
                 {
@@ -586,7 +540,6 @@ namespace Deepbound.Networking
                     fh.ServerSetFraction(1f);
                 }
 
-                // Plague Doctor: a vial blights; a tonic heals; the mask cleanses and wards.
                 progressMe.ClassId.Value = Classes.ClassId.PlagueDoctor;
                 yield return new WaitForSeconds(0.5f);
                 {
@@ -615,11 +568,6 @@ namespace Deepbound.Networking
                     ph.ServerSetFraction(1f);
                 }
 
-                // ---- Things that slipped through once (2026-11-03, the user: "add more test cases"). tools/run_tests.py
-                // requires each of these names to appear, so one that stops running is a failure too. ----
-
-                // Every kit answers the virtual pad with no cursor lock, as a bot in an unfocused window must (three of four
-                // bots once stood there for a whole floor and nothing said so): attack, Q and E all really go off.
                 {
                     var botPad = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Gamepad>();
                     var botKeys = UnityEngine.InputSystem.Keyboard.current == null ? UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Keyboard>() : null;
@@ -670,18 +618,17 @@ namespace Deepbound.Networking
                         }
                         Log("pad " + id, "attack dealt " + attacked.ToString("F0") + ", abilities gone off: " + string.Join("+", went.OrderBy(k => k)) + ", hands free " + me.GetComponent<PlayerLife>().CanAct + ", ready " + padMotor.ActionsReady,
                             attacked > 0f && went.Count == 2);
-                        // Whatever it left behind (a held beam, a leap in flight, a cloud) settles before the next class.
+
                         yield return new WaitForSeconds(0.5f);
                     }
                     FirstPersonMotor.BotControl = false;
                     Cursor.lockState = hadLock ? CursorLockMode.Locked : CursorLockMode.None;
                     UnityEngine.InputSystem.InputSystem.RemoveDevice(botPad);
                     if (botKeys != null) UnityEngine.InputSystem.InputSystem.RemoveDevice(botKeys);
-                    me.GetComponent<Health>().Shield.Value = 0f; // the Cleric's Aegis would swallow the hits later checks measure
+                    me.GetComponent<Health>().Shield.Value = 0f;
                     me.GetComponent<Health>().ServerSetFraction(1f);
                 }
 
-                // A bot's hands bypass the input system (unfocused windows drop its events): every kit must answer them too.
                 {
                     FirstPersonMotor.BotControl = true;
                     foreach (Classes.ClassId id in System.Enum.GetValues(typeof(Classes.ClassId)))
@@ -720,7 +667,6 @@ namespace Deepbound.Networking
                     me.GetComponent<Health>().ServerSetFraction(1f);
                 }
 
-                // The interface: no window size and no setting may run the menus off the screen; the layout space fills the window.
                 {
                     bool fits = true, grows = true;
                     float last = 0f;
@@ -745,13 +691,11 @@ namespace Deepbound.Networking
                         sorted && (chosen.w <= 0 || sizes.Contains(new Vector2Int(chosen.w, chosen.h))) && UI.Settings.WindowMode >= 0 && UI.Settings.WindowMode < UI.Settings.WindowModeNames.Length && UI.Settings.FrameLimit < UI.Settings.FrameLimitNames.Length && UI.Settings.UiScaleIndex < UI.Settings.UiScaleNames.Length);
                 }
 
-                // No sound may be left without a recording: there is no synthesiser to fall back on, it would just be silent.
                 {
                     var silent = System.Enum.GetValues(typeof(Art.Sound)).Cast<Art.Sound>().Where(sd => Resources.LoadAll<AudioClip>("Audio/Sfx/" + sd).Length == 0).ToList();
                     Log("every sound recorded", silent.Count == 0 ? "all " + System.Enum.GetValues(typeof(Art.Sound)).Length + " have clips" : "silent: " + string.Join(", ", silent), silent.Count == 0);
                 }
 
-                // Enemy sizes (2026-11-07): a spread of runts and hulks among plain fighters, none for bosses or odd shapes.
                 {
                     int runts = 0, hulks = 0, n = 4000;
                     float lo = 9f, hi = 0f;
@@ -766,14 +710,12 @@ namespace Deepbound.Networking
                         odd && runts > n * 0.04f && runts < n * 0.1f && hulks > n * 0.025f && hulks < n * 0.07f && lo >= 0.67f && hi <= 1.56f);
                 }
 
-                // The party's numbers, so a slip in the formulas shows: harder per head and more of it with each player, solo untouched.
                 Log("party numbers", "hit x" + Difficulty.Damage(1) + " / " + Difficulty.Damage(2) + " / " + Difficulty.Damage(4) + ", boss x" + Difficulty.BossHealth(1) + " / " + Difficulty.BossHealth(2) + " / " + Difficulty.BossHealth(4) + ", crowd x" + Difficulty.SpawnCount(1) + " / " + Difficulty.SpawnCount(4),
                     Mathf.Approximately(Difficulty.Damage(1), 1f) && Mathf.Abs(Difficulty.Damage(2) - 1.22f) < 0.001f && Mathf.Abs(Difficulty.Damage(4) - 1.66f) < 0.001f
                     && Mathf.Approximately(Difficulty.BossDepth(1, 9), 1f) && Mathf.Abs(Difficulty.BossDepth(4, 9) - 2.62f) < 0.001f && Mathf.Approximately(Difficulty.BossDepth(4, 0), 1f)
                     && Mathf.Approximately(Difficulty.BossHealth(1), Difficulty.BossToughness) && Difficulty.BossHealth(4) > Difficulty.BossHealth(2) && Difficulty.BossHealth(2) > Difficulty.BossHealth(1)
                     && Difficulty.EnemyHealth(4) > Difficulty.EnemyHealth(1) && Difficulty.SpawnCount(4) > Difficulty.SpawnCount(1));
 
-                // Traps: nothing hidden in the first act, more of it deeper, and the difficulty setting bites.
                 {
                     bool climbs = true;
                     for (int d = 1; d < DungeonDirector.FloorsPerRun; d++) if (SpikeTrap.HiddenChance(d) < SpikeTrap.HiddenChance(d - 1)) climbs = false;
@@ -788,8 +730,7 @@ namespace Deepbound.Networking
                 DungeonDirector.Instance.ServerStartRun();
             }
 
-            // Wait for the dungeon itself, not a guess at how long the lobby checks take.
-            float waitUntil = Time.time + 180f; // the client waits out the host's lobby checks, however many there are
+            float waitUntil = Time.time + 180f;
             while ((DungeonDirector.Layout == null || NetworkPlayer.Local == null) && Time.time < waitUntil) yield return null;
             yield return new WaitForSeconds(2f);
 
@@ -806,11 +747,10 @@ namespace Deepbound.Networking
             int enemies = Health.All.Count(h => h != null && h.Team == Team.Enemies);
             Log("enemies", enemies.ToString(), enemies > 0);
             Log("players", PlayerLife.All.Count.ToString(), PlayerLife.All.Count > 0);
-            // The interface follows the window: 1:1 at 1080p, x2 at 4K, x0.75 at 720p, never so big the menus run off.
+
             Log("ui scale", "720p x" + UI.UiScale.For(720f, 1f) + ", 1080p x" + UI.UiScale.For(1080f, 1f) + ", 1440p x" + UI.UiScale.For(1440f, 1f).ToString("F2") + ", 4K x" + UI.UiScale.For(2160f, 1f) + "; 720p at 150% x" + UI.UiScale.For(720f, 1.5f),
                 Mathf.Approximately(UI.UiScale.For(1080f, 1f), 1f) && Mathf.Approximately(UI.UiScale.For(2160f, 1f), 2f) && Mathf.Approximately(UI.UiScale.For(720f, 1f), 0.75f) && Mathf.Approximately(UI.UiScale.For(720f, 1.5f), 1f));
 
-            // Voice: the codec survives a round trip, and a client's voice reaches the host.
             float snr = VoiceCodec.RoundTripSnr();
             Log("voice codec", "round trip SNR " + snr.ToString("F1") + " dB", snr > 15f);
             if (!net.IsServer && NetworkPlayer.Local != null)
@@ -851,8 +791,6 @@ namespace Deepbound.Networking
             if (boss != null)
                 Log("boss intro", boss.DisplayName + ", " + boss.Epithet, !string.IsNullOrEmpty(boss.Epithet) && !string.IsNullOrEmpty(boss.Hint) && boss.Epithet != "Guardian of the deep");
 
-            // The client stays for the host's two-player checks (rage, voice, the soul skull) and leaves once it has
-            // been carried back from a soul, so the host finishes the rest alone.
             if (!net.IsServer && local != null)
             {
                 local.ChatRpc("smoke chat from the client");
@@ -871,12 +809,10 @@ namespace Deepbound.Networking
                 yield break;
             }
 
-            // Early, while the client is still connected.
             if (net.IsServer && local != null && layout != null)
             {
-                // Rage: an enemy hunts whoever angers it most, switching only when a rival passes them by a fifth.
                 var others = PlayerLife.All.Where(pl => pl != null && pl.gameObject != local.gameObject).ToList();
-                // A plain brain (no Update of its own): a skeleton, else a brute or an archer, whichever the seed gave us.
+
                 var rager = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !e.IsDead && !e.IsChampion &&
                         (e.GetType() == typeof(EnemyBrain) || e is BruteBrain || e is ArcherBrain))
                     .OrderBy(e => e.GetType() == typeof(EnemyBrain) ? 0 : e is BruteBrain ? 1 : 2).FirstOrDefault();
@@ -888,19 +824,19 @@ namespace Deepbound.Networking
                     System.Action<string> mark = stage => trace.Append(" [" + stage + ": hp " + friend.Health.Current.Value.ToString("0") + "/" + friend.Health.Max.Value.ToString("0") +
                         " down " + friend.Downed.Value + " soul " + friend.Soul.Value + " spawned " + friend.IsSpawned + " rage " + rager.ThreatOf(friend.NetworkObjectId).ToString("0") + "]");
                     mark("start");
-                    // Next to the two of them (it only hunts within its leash).
+
                     rager.ServerDebugPlace(friend.transform.position + (local.transform.position - friend.transform.position) * 0.5f + Vector3.right * 2f);
-                    // Elite (so its meter syncs), with a harmless affix: no splitting or bursting into the next checks.
+
                     if (!rager.Elite.Value) rager.ServerMakeElite(EliteAffix.Swift);
                     foreach (var pl in PlayerLife.All) if (pl != null) rager.ServerForget(pl.Health);
                     rager.ServerAddThreat(friend.NetworkObjectId, 100f);
                     mark("added");
-                    // It only re-thinks between swings: give it a moment each time.
+
                     bool onFriend = false;
                     for (int k = 0; k < 25 && !onFriend; k++) { yield return new WaitForSeconds(0.1f); onFriend = rager.CurrentTarget == friend.Health; }
                     rager.ServerAddThreat(local.NetworkObjectId, rager.ThreatOf(friend.NetworkObjectId) - rager.ThreatOf(local.NetworkObjectId));
                     yield return new WaitForSeconds(0.6f);
-                    bool held = rager.CurrentTarget == friend.Health;      // level with it: not enough to take it
+                    bool held = rager.CurrentTarget == friend.Health;
                     mark("held");
                     rager.ServerAddThreat(local.NetworkObjectId, rager.ThreatOf(friend.NetworkObjectId) * 0.4f);
                     bool pulled = false;
@@ -917,15 +853,13 @@ namespace Deepbound.Networking
                         " (rows " + rager.Rage.Value.Count + ", target " + rager.Rage.Value.Target + " vs me " + local.NetworkObjectId + ", elite " + rager.Elite.Value +
                         ", friend " + friend.NetworkObjectId + " rage " + rager.ThreatOf(friend.NetworkObjectId).ToString("0") + " / me " + rager.ThreatOf(local.NetworkObjectId).ToString("0") +
                         ", friend before hit " + friendBefore.ToString("0") + ", after pull " + friendAfterPull.ToString("0") + ", friend alive " + friend.Health.IsAlive + " targetable " + PlayerLife.CanTarget(friend.Health) + ")" + trace), onFriend && held && pulled && hitsAnger && synced);
-                    rager.GetComponent<Health>().ServerDamage(1e6f, rager.transform.position); // out of the way of the next checks
+                    rager.GetComponent<Health>().ServerDamage(1e6f, rager.transform.position);
                     yield return new WaitForSeconds(0.2f);
                 }
 
-                // Text chat: the client's line reaches the host.
                 for (int k = 0; k < 30 && !UI.ChatBox.Heard("smoke chat from the client"); k++) yield return new WaitForSeconds(0.1f);
                 Log("chat", "heard the client: " + UI.ChatBox.Heard("smoke chat from the client") + " (last: " + UI.ChatBox.Last + ")", UI.ChatBox.Heard("smoke chat from the client"));
 
-                // Shared loot: gold one player picks up is split across the party; a pack piece can be handed over.
                 var mate = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
                 if (mate != null)
                 {
@@ -949,12 +883,11 @@ namespace Deepbound.Networking
                         mateP.BagCount == mateBag + 1 && mateP.Gold.Value == beforeGive + 25);
                 }
 
-                // Boss phases: damage stops at the first gate (50%), the boss goes immune for the transition.
                 var gateBoss = BossBrain.Active;
                 if (gateBoss != null && gateBoss is GravewardenBrain)
                 {
                     var bh = gateBoss.Health;
-                    gateBoss.Dormant = false; // asleep it is immune; the gate test needs it awake
+                    gateBoss.Dormant = false;
                     bh.ServerSetFraction(0.56f);
                     yield return null;
                     bh.ServerDamage(bh.Max.Value * 0.3f, gateBoss.transform.position + gateBoss.transform.forward * -3f);
@@ -981,7 +914,7 @@ namespace Deepbound.Networking
                 }
 
                 var fm = local.GetComponent<FirstPersonMotor>();
-                // Sheltered: behind a blocking Knight, blows from the front land at half strength.
+
                 var behind = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
                 if (behind != null)
                 {
@@ -994,7 +927,7 @@ namespace Deepbound.Networking
                     var front = local.transform.position + local.transform.forward * 5f;
                     var rear = local.transform.position - local.transform.forward * 5f;
                     var spotBehind = local.transform.position - local.transform.forward * 1.5f;
-                    // Ask the question directly at the spot behind (the client owns its own position).
+
                     var was = behind.transform.position;
                     behind.transform.position = spotBehind;
                     bool fromFront = KnightKit.ShelterFor(behind, front), fromRear = KnightKit.ShelterFor(behind, rear);
@@ -1003,8 +936,7 @@ namespace Deepbound.Networking
                     hp0.ClassId.Value = classBefore;
                     Log("sheltered", "blow from the front sheltered " + fromFront + ", from behind " + fromRear, fromFront && !fromRear);
                 }
-                // The class reworks (2026-11-20): Twin Wyrms reach a foe 8 m ahead; Pandemic plagues it (+25% taken);
-                // the Flagellant's chain hauls it in over time, not in one frame; the Red Litany hurts what stands close.
+
                 {
                     var rp = local.GetComponent<PlayerProgress>();
                     var rcls0 = rp.ClassId.Value;
@@ -1055,10 +987,10 @@ namespace Deepbound.Networking
                     Log("class reworks", "wyrms bit " + wyrm + ", plagued " + plague + " (+25% " + extra + "), chain " + chained + " " + rd0.ToString("F1") + " m -> " + rd1.ToString("F1") + " after 0.05 s -> " + rd2.ToString("F1") + ", litany hurt " + litany,
                         wyrm && plague && extra && chained && notWarped && arrived && litany);
                 }
-                // The Knight's COUNTER (2026-11-08): a swing soon after a block hits harder than a plain one; late, it does not.
+
                 {
                     var kk = local.GetComponent<KnightKit>();
-                    var kp = local.GetComponent<PlayerProgress>(); // early in the run: a class change resets the run
+                    var kp = local.GetComponent<PlayerProgress>();
                     var cls0 = kp.ClassId.Value;
                     kp.ClassId.Value = Classes.ClassId.Knight;
                     var dm = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 1.6f, false);
@@ -1089,7 +1021,7 @@ namespace Deepbound.Networking
                     Log("knight counter", "plain " + plain.ToString("F1") + ", after a block " + counter.ToString("F1") + " (x" + k.ToString("F2") + "), next swing " + late.ToString("F1") + ", block readied it " + blocked,
                         blocked && plain > 0f && Mathf.Abs(k - KnightKit.CounterDamage) < 0.12f && late > 0f && late < counter * 0.9f);
                 }
-                // Dragging: the host takes the downed client by the collar and hauls it a few metres.
+
                 var dragged = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
                 if (dragged != null)
                 {
@@ -1103,7 +1035,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.3f);
                     bool holding = dragged.BeingDragged && !hostLife.CanAct && local.GetComponent<PlayerProgress>().SpeedMultiplier < speedBefore;
                     var startAt = dragged.transform.position;
-                    // Walk away in short steps (the drag breaks past 4 m), giving the client time to follow.
+
                     var away = local.transform.position - startAt;
                     away.y = 0f;
                     away = away.sqrMagnitude > 0.01f ? away.normalized : Vector3.right;
@@ -1119,7 +1051,7 @@ namespace Deepbound.Networking
                     Log("drag the downed", "held " + holding + ", body moved " + moved.ToString("F1") + " m, let go " + !dragged.BeingDragged, holding && moved > 2f && !dragged.BeingDragged);
                     dragged.ServerRevive(1f);
                     yield return new WaitForSeconds(0.3f);
-                    // The give wheel (2026-11-07): 25 gold and a health potion from the host to the ally beside them.
+
                     {
                         var giver = local.GetComponent<GiveWheel>();
                         var myProg = local.GetComponent<PlayerProgress>();
@@ -1138,7 +1070,7 @@ namespace Deepbound.Networking
                         bool ok = gaveGold && gavePotion && theirProg.Gold.Value == g0 + GiveWheel.GoldStep && theirPouch.Count(Flasks.Kind.Health) == h0 + 1 && myPouch.Count(Flasks.Kind.Health) == mine0 - 1;
                         Log("give wheel", "gold +" + (theirProg.Gold.Value - g0) + ", potion " + h0 + " -> " + theirPouch.Count(Flasks.Kind.Health) + ", giver " + mine0 + " -> " + myPouch.Count(Flasks.Kind.Health), ok);
                     }
-                    // Skull Poker (2026-11-08): host and client sit, ante 25, both stand, the host bets, the client calls; the pot goes to the better hand.
+
                     {
                         var poker = DungeonDirector.Instance.ServerDebugSpawnPoker(local.transform.position + Vector3.forward * 30f + Vector3.down * 20f);
                         var hostP = local.GetComponent<PlayerProgress>();
@@ -1164,14 +1096,14 @@ namespace Deepbound.Networking
                             int hostScore = PokerDiceTable.Score(PokerDiceTable.Hand(st, hs)), mateScore = PokerDiceTable.Score(PokerDiceTable.Hand(st, ms));
                             int expectWin = hostScore > mateScore ? 1 << hs : mateScore > hostScore ? 1 << ms : (1 << hs) | (1 << ms);
                             bool settled = st.Phase == (byte)PokerDiceTable.Phase.Showdown && st.Pot == 100 && st.WinMask == expectWin && hostP.Gold.Value + mateP.Gold.Value == total0;
-                            // Ranking spot checks.
+
                             bool ranks = PokerDiceTable.Score(new[] { 2, 2, 2, 2, 2 }) > PokerDiceTable.Score(new[] { 6, 6, 6, 6, 5 })
                                 && PokerDiceTable.Score(new[] { 3, 3, 3, 5, 5 }) > PokerDiceTable.Score(new[] { 2, 3, 4, 5, 6 })
                                 && PokerDiceTable.Score(new[] { 2, 3, 4, 5, 6 }) > PokerDiceTable.Score(new[] { 1, 2, 3, 4, 5 })
                                 && PokerDiceTable.Score(new[] { 1, 2, 3, 4, 5 }) > PokerDiceTable.Score(new[] { 6, 6, 6, 1, 2 })
                                 && PokerDiceTable.Score(new[] { 4, 4, 2, 2, 6 }) > PokerDiceTable.Score(new[] { 4, 4, 2, 2, 5 })
                                 && PokerDiceTable.Score(new[] { 1, 2, 3, 4, 6 }) / 1000000 == 0;
-                            // A fold hands the pot to the bettor unseen.
+
                             poker.ServerDeal(hs, 10);
                             poker.ServerReroll(hs, 31); poker.ServerReroll(ms, 31);
                             st = poker.State.Value;
@@ -1180,7 +1112,7 @@ namespace Deepbound.Networking
                             poker.ServerAct(t2, PokerDiceTable.Act.Fold);
                             st = poker.State.Value;
                             bool foldWin = st.Phase == (byte)PokerDiceTable.Phase.Showdown && st.WinMask == (1 << t1) && st.InMask == 0;
-                            // Leaving empties the stool.
+
                             poker.ServerLeave(dragged.OwnerClientId);
                             poker.ServerLeave(local.OwnerClientId);
                             bool empty = poker.SeatOfClient(local.OwnerClientId) < 0 && poker.SeatOfClient(dragged.OwnerClientId) < 0;
@@ -1191,7 +1123,7 @@ namespace Deepbound.Networking
                         }
                     }
                 }
-                // Teamwork: a pincer from opposite sides, an assist on the kill, then a last tw_stand and a clutch revive.
+
                 {
                     var tmate = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject && !pl.Downed.Value);
                     if (tmate != null)
@@ -1201,7 +1133,7 @@ namespace Deepbound.Networking
                         var mateProg = tmate.GetComponent<PlayerProgress>();
                         var mateTeam = tmate.GetComponent<Teamwork>();
                         var hostTeam = local.GetComponent<Teamwork>();
-                        // Stand 6 m from the client so the enemy can sit between the two of us.
+
                         var tw_side = local.transform.position - tmate.transform.position;
                         tw_side.y = 0f;
                         tw_side = tw_side.sqrMagnitude > 0.01f ? tw_side.normalized : Vector3.right;
@@ -1215,8 +1147,6 @@ namespace Deepbound.Networking
                         bool tw_assisted = false;
                         if (tw_foe != null)
                         {
-                            // Party size changes mid-floor: the foe was scaled for two; rescaled for one it keeps its hurt
-                            // fraction and drops to the solo multiplier; back to two restores it.
                             var rsH = tw_foe.GetComponent<Health>();
                             rsH.ServerSetFraction(0.6f);
                             float max2 = rsH.Max.Value;
@@ -1228,7 +1158,7 @@ namespace Deepbound.Networking
                                 Mathf.Abs(max1 / max2 - want) < 0.02f && Mathf.Abs(frac1 - 0.6f) < 0.02f && Mathf.Abs(rsH.Max.Value - max2) < 1f);
                             rsH.ServerSetFraction(1f);
                             var tw_fh = tw_foe.GetComponent<Health>();
-                            // Wherever the navmesh put it: the host steps round to its far side from the client.
+
                             var fpos = tw_foe.transform.position;
                             var away = fpos - tmate.transform.position;
                             away.y = 0f;
@@ -1237,13 +1167,13 @@ namespace Deepbound.Networking
                             yield return new WaitForSeconds(0.1f);
                             Teamwork.ServerPincer(tw_fh, mateProg);
                             tw_pinc = Teamwork.ServerPincer(tw_fh, hostProg);
-                            // A second enemy beside the client: both of us hit it from the same tw_side.
+
                             var tw_foe2 = DungeonDirector.Instance.ServerDebugSpawn("skeleton", tmate.transform.position - tw_side * 2f, false);
                             yield return new WaitForSeconds(0.3f);
                             if (tw_foe2 != null)
                             {
                                 var tw_f2 = tw_foe2.GetComponent<Health>();
-                                // This time the host stands right beside the client.
+
                                 fm.Teleport(tmate.transform.position + Vector3.Cross(Vector3.up, tw_side) * 0.8f + Vector3.up * 0.1f, local.transform.rotation);
                                 yield return new WaitForSeconds(0.1f);
                                 Teamwork.ServerPincer(tw_f2, mateProg);
@@ -1257,7 +1187,6 @@ namespace Deepbound.Networking
                         Log("pincer and assist", "opposite sides x" + tw_pinc.ToString("F2") + ", same side x" + tw_sameSide.ToString("F2") + ", assist credited " + tw_assisted,
                             Mathf.Approximately(tw_pinc, Teamwork.PincerMultiplier) && Mathf.Approximately(tw_sameSide, 1f) && tw_assisted);
 
-                        // Last tw_stand: the client goes down; the host is the last one standing, then gets them up.
                         fm.Teleport(tmate.transform.position + tw_side * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
                         yield return new WaitForSeconds(0.2f);
                         int clutchesBefore = hostTeam.ServerClutches;
@@ -1278,7 +1207,7 @@ namespace Deepbound.Networking
                             tw_stand && tw_taken < 100f && tw_clutched && !Teamwork.InLastStand(tw_hostLife));
                         if (tmate.Downed.Value) tmate.ServerRevive(1f);
                         yield return new WaitForSeconds(0.3f);
-                        // LAST LIGHT (2026-11-22): Convergent Star + Rallying Bell; a Convergence lifts the downed inside it.
+
                         {
                             int ll0 = Player.Ultimates.ServerLastLight(tmate.transform.position, 5f);
                             tmate.Health.ServerDamage(1e6f, tmate.transform.position + Vector3.forward);
@@ -1299,7 +1228,6 @@ namespace Deepbound.Networking
                             yield return new WaitForSeconds(0.2f);
                         }
 
-                        // Shared doom (2026-10-29): split between everyone inside the ring; borne alone it all lands on one.
                         {
                             var dh = local.GetComponent<Health>();
                             var mh = tmate.Health;
@@ -1321,10 +1249,9 @@ namespace Deepbound.Networking
                             Log("shared doom", "shared by " + sharedBy + " (host -" + dLost.ToString("F0") + ", client -" + mLost.ToString("F0") + "), alone by " + aloneBy + " (-" + aloneLost.ToString("F0") + "), host spared " + hostSpared,
                                 sharedBy == 2 && aloneBy == 1 && dLost > 0f && mLost > 0f && aloneLost > mLost * 1.5f && hostSpared);
                             dh.ServerSetFraction(1f); mh.ServerSetFraction(1f);
-                            // Windowed runs only: a picture of soulbound twins and a doom ring on the client, from 8 m off.
+
                             if (!Application.isBatchMode)
                             {
-                                // Along wherever the camera looks (the room's open side), not a guessed direction.
                                 var look = Art.ViewCamera.Current != null ? Art.ViewCamera.Current.transform.forward : local.transform.forward;
                                 look.y = 0f; look = look.sqrMagnitude > 0.01f ? look.normalized : Vector3.forward;
                                 var across = Vector3.Cross(Vector3.up, look);
@@ -1336,7 +1263,7 @@ namespace Deepbound.Networking
                                 {
                                     t1.ServerStun(10f); t2.ServerStun(10f);
                                     EnemyBrain.ServerBind(t1, t2);
-                                    // Stand the pair in front of the camera (it keeps its own heading; turning the body does not turn it).
+
                                     var ag1 = t1.GetComponent<UnityEngine.AI.NavMeshAgent>();
                                     var ag2 = t2.GetComponent<UnityEngine.AI.NavMeshAgent>();
                                     var spot1 = eye + look * 5f + across * 1.6f;
@@ -1349,7 +1276,6 @@ namespace Deepbound.Networking
                                     var shotCam = Art.ViewCamera.Current;
                                     if (shotCam != null)
                                     {
-                                        // The camera's own heading, read now (it is not the body's, nor what it was a few seconds ago).
                                         var cf = shotCam.transform.forward; cf.y = 0f; cf = cf.sqrMagnitude > 0.01f ? cf.normalized : Vector3.forward;
                                         var cr = Vector3.Cross(Vector3.up, cf);
                                         var floor = new Vector3(shotCam.transform.position.x, local.transform.position.y, shotCam.transform.position.z);
@@ -1369,7 +1295,6 @@ namespace Deepbound.Networking
                             }
                         }
 
-                        // Vengeance: a skeleton downs the client; it is marked; the host kills it and avenges them.
                         var grudgeFoe = DungeonDirector.Instance.ServerDebugSpawn("skeleton", tmate.transform.position + Vector3.forward * 2f, false);
                         yield return new WaitForSeconds(0.3f);
                         bool avenged = false, marked = false;
@@ -1388,7 +1313,6 @@ namespace Deepbound.Networking
                         if (tmate.Downed.Value) tmate.ServerRevive(1f);
                         yield return new WaitForSeconds(0.3f);
 
-                        // Floor honours: a fresh floor tally, one kill by the host, then the honours name a BUTCHER.
                         Teamwork.ServerFloorStarted();
                         var honourFoe = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 3f, false);
                         yield return new WaitForSeconds(0.3f);
@@ -1397,7 +1321,6 @@ namespace Deepbound.Networking
                         var honours = Teamwork.ServerFloorHonours();
                         Log("floor honours", string.Join(" | ", honours), honours.Exists(l => l.StartsWith("BUTCHER: " + local.name)));
 
-                        // Spectating: the host goes down and watches the client over the shoulder.
                         local.GetComponent<Health>().ServerDamage(1e6f, local.transform.position + Vector3.forward);
                         yield return new WaitForSeconds(0.4f);
                         Teamwork.DebugWatch(tmate);
@@ -1419,7 +1342,7 @@ namespace Deepbound.Networking
                             hostDown && gap < 4f && Teamwork.Watching == null);
                     }
                 }
-                // Entlings spread out: two of them, two players, one each.
+
                 {
                     var entMate = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject && pl.Targetable);
                     if (entMate != null)
@@ -1435,8 +1358,7 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.2f);
                     }
                 }
-                // Bleed-out: a downed ally who bleeds out leaves a soul skull; F-revive no longer works,
-                // but carrying the skull to the start room's waystone brings them back.
+
                 var otherLife = PlayerLife.All.FirstOrDefault(pl => pl != null && pl.gameObject != local.gameObject);
                 if (otherLife != null)
                 {
@@ -1450,9 +1372,8 @@ namespace Deepbound.Networking
                     bool noFRevive = PlayerLife.DownedNear(otherLife.transform.position, local.GetComponent<PlayerLife>()) == null;
                     if (skullT != null)
                     {
-                        // Lamplighter's Oil (a relic a shrine or altar may have handed out) frees the carrier's hands.
                         local.GetComponent<PlayerProgress>().ServerDebugRemoveRelic(Relic.LamplightersOil);
-                        // Untouchable while it carries: any hit at the waystone restarts the rite (wandering dead once did).
+
                         local.GetComponent<PlayerLife>().ServerDebugInvulnerable(8f);
                         skullT.ServerDebugCarry(local.GetComponent<PlayerProgress>());
                         yield return new WaitForSeconds(0.2f);
@@ -1475,7 +1396,6 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                 }
 
-                // The floor's champion carries its Seal.
                 var champ = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => e.IsChampion && !e.IsDead);
                 if (champ != null)
                 {
@@ -1486,7 +1406,6 @@ namespace Deepbound.Networking
                         (DungeonDirector.Instance.Seals.Value & (1 << layout.Depth)) != 0);
                 }
 
-                // A journal page on its lectern: reading it adds it to the journal.
                 var pageT = FindObjectsByType<LorePage>(FindObjectsSortMode.None).FirstOrDefault();
                 if (pageT != null)
                 {
@@ -1497,20 +1416,18 @@ namespace Deepbound.Networking
                 }
                 else Log("journal page", "no lectern on this floor", false);
 
-                // The potion pouch: a health potion mends over time; the pouch holds five of a kind; no passive regen.
                 {
                     var pouch = local.GetComponent<Flasks>();
                     var ph = local.GetComponent<Health>();
                     if (pouch != null)
                     {
-                        // No stray blow may land while it mends (that read as a weak potion).
                         System.Func<float, Vector3, float> potionWard = (d, f) => 0f;
                         ph.IncomingModifiers.Insert(0, potionWard);
-                        // A Kitten companion purrs you back up out of a fight (its perk): no pet for this check.
+
                         byte petWas = local.PetKind.Value;
                         local.PetKind.Value = 0;
                         ph.ServerSetFraction(0.4f);
-                        // Who mends it, if anything does (2026-11-24: it rose 2% twice running).
+
                         string healer = null;
                         System.Action<Health, float> spyHeal = (hh, amt) => { if (hh == ph && healer == null) healer = amt.ToString("F1") + " from " + new System.Diagnostics.StackTrace(1, false).ToString().Replace(System.Environment.NewLine, " < "); };
                         Health.AnyHealed += spyHeal;
@@ -1531,7 +1448,6 @@ namespace Deepbound.Networking
                     }
                 }
 
-                // The pack: stow, wear from it (the worn piece takes its place), scrap, drop, take off.
                 {
                     var ip = local.GetComponent<PlayerProgress>();
                     var wornBefore = ip.Armor.Value;
@@ -1542,7 +1458,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     bool swapped = ip.Armor.Value.Equals(spare) && (wornBefore.IsEmpty ? ip.BagCount == n0 - 1 : ip.BagCount == n0);
                     int embers0 = ip.Embers.Value;
-                    // Down here there is no anvil: scrapping is Hobb's work, so the pack refuses.
+
                     int bagHeld = ip.BagCount;
                     ip.BagScrapRpc(ip.BagCount - 1);
                     yield return new WaitForSeconds(0.2f);
@@ -1554,7 +1470,7 @@ namespace Deepbound.Networking
                     ip.BagDropRpc(ip.BagCount - 1);
                     yield return new WaitForSeconds(0.3f);
                     bool dropped = FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length > drops0;
-                    // A piece put down from the pack is for the whole party (anyone can take it).
+
                     bool shared = FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Any(gd => gd.Shared);
                     Log("inventory", "stowed " + stowed + ", wore from pack " + swapped + ", no scrapping away from the anvil " + scrapped + ", took off " + off + ", dropped " + dropped + " for anyone " + shared,
                         stowed && swapped && scrapped && off && dropped && shared);
@@ -1565,7 +1481,6 @@ namespace Deepbound.Networking
                     if (!wornBefore.IsEmpty) ip.ServerEquip(wornBefore);
                 }
 
-                // The Reliquary: carried slowly, cracked by hits, delivered at the waystone for party gold.
                 var relT = Reliquary.Current;
                 if (relT != null)
                 {
@@ -1577,14 +1492,14 @@ namespace Deepbound.Networking
                     float speedMul = lprog.SpeedMultiplier;
                     var lh = local.GetComponent<Health>();
                     float relShield = lh.Shield.Value;
-                    lh.Shield.Value = 0f; // a camp check's Aegis can still be up: the hit must reach the carrier
+                    lh.Shield.Value = 0f;
                     lh.ServerDamage(lh.Max.Value * 0.06f, local.transform.position + local.transform.forward * 2f);
                     yield return new WaitForSeconds(0.2f);
                     float integ = relT.Integrity.Value;
                     bool stillCarried = relT.Carried;
                     var way2 = layout.WaystonePosition;
                     lfm2.Teleport(way2 + (layout.StartRoom.Center - way2).normalized * 1.5f + Vector3.up * 0.1f, local.transform.rotation);
-                    // A stray hit at the waystone would restart the delivery: shield the carrier while it completes.
+
                     System.Func<float, Vector3, float> shieldT = (d, f) => 0f;
                     lh.IncomingModifiers.Insert(0, shieldT);
                     for (float t = 0f; t < 6f && Reliquary.Current != null; t += 0.1f) { lh.ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
@@ -1598,20 +1513,18 @@ namespace Deepbound.Networking
                     lh.ServerSetFraction(1f);
                 }
 
-                // The Mourner: frozen while watched, moving the moment you look away.
-                // A plain combat room (no pit, pillars or water between it and you), far from the start.
                 var farRoom = layout.Rooms.Where(r => r.Kind == RoomKind.Combat).OrderBy(r => r.Feature == RoomFeature.None ? 0 : 1)
                     .ThenByDescending(r => Vector3.Distance(r.Center, layout.StartRoom.Center)).FirstOrDefault();
                 if (farRoom != null)
                 {
                     var lfm = local.GetComponent<FirstPersonMotor>();
                     var stand = farRoom.Center + Vector3.up * 0.1f;
-                    // Along the room's long axis, well inside its walls (wall dressing can block the view).
+
                     bool longX = farRoom.Size.x > farRoom.Size.y;
                     float reach = Mathf.Min(9f, (longX ? farRoom.Size.x : farRoom.Size.y) / 2f - 3.5f);
                     var mAt = farRoom.Center + (longX ? Vector3.right : Vector3.forward) * reach;
                     if (UnityEngine.AI.NavMesh.SamplePosition(mAt, out var mh, 3f, UnityEngine.AI.NavMesh.AllAreas)) mAt = mh.position;
-                    // A pillar or a raised floor between the two would mean nobody watches it: find a clear line.
+
                     bool clearLine = false;
                     foreach (var dirM in new[] { Vector3.right, Vector3.left, Vector3.forward, Vector3.back, new Vector3(1f, 0f, 1f).normalized, new Vector3(-1f, 0f, 1f).normalized, new Vector3(1f, 0f, -1f).normalized, new Vector3(-1f, 0f, -1f).normalized })
                     foreach (float rf in new[] { 1f, 0.6f })
@@ -1630,8 +1543,8 @@ namespace Deepbound.Networking
                     if (!clearLine) Log("mourner", "skipped: no clear line of sight in this room's layout", true);
                     else if (mourner != null)
                     {
-                        mourner.ServerAggroNearest(); // this checks the watching rule, not whether it noticed you
-                        // Let its first watched check land (a spawn can glide a step before it), then measure.
+                        mourner.ServerAggroNearest();
+
                         yield return new WaitForSeconds(0.3f);
                         var settled = mourner.transform.position;
                         yield return new WaitForSeconds(1.2f);
@@ -1650,25 +1563,22 @@ namespace Deepbound.Networking
                     local.GetComponent<Health>().ServerSetFraction(1f);
                     yield return new WaitForSeconds(0.2f);
                 }
-
             }
 
             if (net.IsServer && net.IsHost)
             {
                 int agentsOnMesh = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None)
                     .Count(e => !e.IsDead && e.GetComponent<UnityEngine.AI.NavMeshAgent>().isOnNavMesh);
-                // Against the living now: earlier checks give breaches and risen bones time to add more.
+
                 int living = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead);
                 Log("navmesh agents", agentsOnMesh + " / " + living, agentsOnMesh == living);
 
-                // Range: a projectile is spent at its range.
                 int liveBefore = Arrows.LiveFrom(local.NetworkObjectId);
                 Arrows.ServerFire(local.transform.position + Vector3.up * 30f, Vector3.up, 0f, Team.Enemies, local.NetworkObjectId, 30f, null, false, 4f);
                 yield return new WaitForSeconds(0.35f);
                 Log("range", "a 4 m shot after 10 m of flight: mine in flight " + liveBefore + " -> " + Arrows.LiveFrom(local.NetworkObjectId) + ", farsight/temper multiplier " + local.GetComponent<PlayerProgress>().RangeMultiplier.ToString("F2"),
                     Arrows.LiveFrom(local.NetworkObjectId) <= liveBefore);
 
-                // Doors never wall off the navmesh: the dead can walk through every doorway (bar one a closed portcullis seals).
                 var doorPath = new UnityEngine.AI.NavMeshPath();
                 var closedGates = FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Where(g => g.Closed.Value).Select(g => g.transform.position).ToList();
                 var doorsAll = FindObjectsByType<SwingDoor>(FindObjectsSortMode.None).Where(d => !closedGates.Any(g => (g - d.transform.position).sqrMagnitude < 4f * 4f)).ToArray();
@@ -1684,7 +1594,6 @@ namespace Deepbound.Networking
                 }
                 Log("doors passable", doorsThrough + " / " + doorsAll.Length + " doorways walkable straight through", doorsThrough == doorsAll.Length);
 
-                // No chest stands inside a pillar, a wall or the dressing.
                 int stuck = 0;
                 foreach (var ch in FindObjectsByType<Chest>(FindObjectsSortMode.None))
                 {
@@ -1696,8 +1605,6 @@ namespace Deepbound.Networking
 
             if (net.IsServer && local != null)
             {
-                // Dungeon objects: a chest per side room; open one; blow up a barrel.
-                // Special rooms (treasury, beggar...) are their own reward: no chest.
                 int sideRooms = layout.Rooms.Count(r => r.Kind == RoomKind.Side && !r.Special);
                 var chests = FindObjectsByType<Chest>(FindObjectsSortMode.None);
                 int urns = FindObjectsByType<Breakable>(FindObjectsSortMode.None).Count(b => b.Type.Value == Breakable.Kind.Urn);
@@ -1706,7 +1613,7 @@ namespace Deepbound.Networking
                 if (chests.Length > 0)
                 {
                     int dropsBefore = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
-                    // New drops, or gold the coin magnet already swept up (2026-11-19: "drops 17 -> 15", the gold gone into the purse in 0.3 s).
+
                     var seenDrops = new System.Collections.Generic.HashSet<LootDrop>(FindObjectsByType<LootDrop>(FindObjectsSortMode.None));
                     var chestProg = local.GetComponent<PlayerProgress>();
                     int goldBeforeChest = chestProg.GoldEarned.Value;
@@ -1729,36 +1636,34 @@ namespace Deepbound.Networking
                     Log("powder barrel", "exploded and gone: " + (barrel == null), barrel == null);
                 }
 
-                // Hollow walls: smash a secret one open; force a breach and count who comes out.
                 var walls = FindObjectsByType<CrackedWall>(FindObjectsSortMode.None);
                 var secret = walls.FirstOrDefault(w => !w.Breach.Value);
                 int breachWalls = walls.Count(w => w.Breach.Value);
                 bool hadSecret = secret != null;
                 if (secret != null)
                 {
-                    // Real shots from the room at its middle and its four corners: every one must land.
                     var sh = secret.GetComponent<Health>();
                     var st = secret.transform;
                     int landed = 0;
-                    // A hand's breadth in from the very corners (at 1.05 m a shot could graze the collider and pass the body box).
+
                     var aims = new[] { new Vector2(0f, 1.4f), new Vector2(-0.95f, 0.55f), new Vector2(0.95f, 0.55f), new Vector2(-0.95f, 2.55f), new Vector2(0.95f, 2.55f) };
                     foreach (var aimAt in aims)
                     {
                         float before = sh.Current.Value;
                         var target = st.position + st.right * aimAt.x + Vector3.up * aimAt.y;
-                        // Close in, square on: props in the room (a sarcophagus, once) must not stand in the way.
+
                         var from = target - st.forward * 2.2f;
                         string first = Physics.Raycast(from, (target - from).normalized, out var fh, 8f, ~0, QueryTriggerInteraction.Ignore) ? fh.collider.name + "@" + fh.distance.ToString("F1") : "nothing";
-                        // One of the dead wandering into the line takes the shot: not the wall's fault either.
+
                         bool foeInWay = fh.collider != null && fh.collider.GetComponentInParent<Health>() is Health fhh && fhh.Team == Team.Enemies && fhh != sh;
-                        // Room dressing (a shelf, a crate) standing in front of the wall blocks it from that spot, as it would a player's.
+
                         bool propInWay = fh.collider != null && !fh.collider.transform.IsChildOf(st) && fh.distance < Vector3.Distance(from, target) - 0.4f;
                         Arrows.ServerFire(from, target - from, 5f, Team.Enemies, local.NetworkObjectId, 21f, null, false, 12f);
                         yield return new WaitForSeconds(0.45f);
-                        // An urn or barrel in the way takes the shot and breaks (the next one gets through): not the wall's fault.
+
                         if (secret == null || !secret.IsSpawned || sh.Current.Value < before || first.StartsWith("Breakable") || foeInWay || propInWay) landed++;
                         else Debug.Log("[Smoke] wall shot missed at " + aimAt + ", first thing on the line: " + first);
-                        // Broken already (crits and the run's kit can fell it early): the rest have nothing left to miss.
+
                         if (secret == null || !secret.IsSpawned || sh.Current.Value <= 0f) { landed = aims.Length; break; }
                     }
                     Log("secret wall takes shots", landed + " of " + aims.Length + " shots landed (hp " + sh.Current.Value.ToString("F0") + ")", landed == aims.Length);
@@ -1778,7 +1683,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(2.4f);
                     int enemiesAfter = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Count(e => !e.IsDead);
                     Log("wall breach", "enemies " + enemiesBefore + " -> " + enemiesAfter, enemiesAfter > enemiesBefore);
-                    // Clear the fight and stand everyone back up, so later checks start clean.
+
                     foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
                         if (!(e is BossBrain) && Vector3.Distance(e.transform.position, bwFrom) < 30f) e.GetComponent<Health>().ServerDamage(1e6f, bwFrom);
                     foreach (var pl in PlayerLife.All)
@@ -1789,11 +1694,9 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                 }
 
-                // Feature rooms.
                 var fm = local.GetComponent<FirstPersonMotor>();
                 string features = string.Join(", ", layout.Rooms.Where(r => r.Feature != RoomFeature.None).Select(r => r.Feature.ToString()));
-                // Hit zones: a line through a skeleton's head is a headshot; through its chest, the body.
-                // One standing upright (a crouch, a wind-up or a rear-up can bring the head down to chest height).
+
                 var zoneT = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => e.GetType() == typeof(EnemyBrain) && !e.IsDead && e.Rig != null && e.Rig.Head != null
                     && e.Rig.Current == Art.RigAction.None && e.Rig.Head.position.y - e.transform.position.y > 1.4f);
                 if (zoneT != null)
@@ -1810,7 +1713,6 @@ namespace Deepbound.Networking
                         headZone == HitZone.Head && chestZone == HitZone.Body && bodyHit && !missWide);
                 }
 
-                // Restless Bones: a plain skeleton killed on the Ossuary leaves a pile.
                 var plainSk = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => e.GetType() == typeof(EnemyBrain) && !e.IsDead && !e.Elite.Value &&
                     !layout.BossRoom.Contains(e.transform.position, 1f));
                 if (plainSk != null)
@@ -1820,7 +1722,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     Log("restless bones", "piles " + pilesBefore + " -> " + DungeonDirector.Instance.DebugPileCount, DungeonDirector.Instance.DebugPileCount > pilesBefore);
                 }
-                // Ritual: braziers burn until smashed, then the ward lifts.
+
                 var ritual = layout.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Ritual);
                 if (ritual != null)
                 {
@@ -1830,7 +1732,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.4f);
                     Log("ritual", "ward " + wardOn + " -> " + DungeonDirector.InRitualWard(ritual.Center), wardOn && !DungeonDirector.InRitualWard(ritual.Center));
                 }
-                // A mimic: reaching for it springs the beast.
+
                 var mimicChest = FindObjectsByType<Chest>(FindObjectsSortMode.None).FirstOrDefault(c => !c.Opened.Value && (DungeonDirector.Layout == null || !DungeonDirector.Layout.InCellar(c.transform.position)));
                 if (mimicChest != null)
                 {
@@ -1847,7 +1749,7 @@ namespace Deepbound.Networking
                     local.GetComponent<Health>().ServerSetFraction(1f);
                     yield return new WaitForSeconds(0.3f);
                 }
-                // A frost flask chills where it lands.
+
                 var flaskT = local.GetComponent<Flasks>();
                 var flaskFoe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !e.GetComponent<Health>().Chilled.Value && !(e is GargoyleBrain) && !(e is MournerBrain) && !(e is HoarderBrain));
                 if (flaskT != null && flaskFoe != null)
@@ -1860,13 +1762,12 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.9f);
                     Log("frost flask", "flasks " + frostBefore + " -> " + flaskT.Frost.Value + ", chilled " + flaskFoe.GetComponent<Health>().Chilled.Value,
                         flaskT.Frost.Value == frostBefore - 1 && flaskFoe.GetComponent<Health>().Chilled.Value);
-                    // Out of the fight again before the next check.
+
                     fm.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                     foreach (var pl in PlayerLife.All) { if (pl.Downed.Value) pl.ServerRevive(1f); pl.Health.ServerSetFraction(1f); }
                     yield return new WaitForSeconds(0.2f);
                 }
 
-                // Tells: an enemy winding up an attack flags it in its synced status (the HUD's red "!").
                 var tellFoe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !e.IsStunned && !(e is GargoyleBrain) && !(e is MournerBrain) && !(e is HoarderBrain) && !(e is MimicBrain));
                 if (tellFoe != null)
                 {
@@ -1884,7 +1785,6 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                 }
 
-                // Afflictions: poison, frostbite and a curse land, slow and weaken; Holy Water washes them off.
                 var deb = local.GetComponent<PlayerDebuffs>();
                 if (deb != null)
                 {
@@ -1900,7 +1800,6 @@ namespace Deepbound.Networking
                     local.GetComponent<Health>().ServerSetFraction(1f);
                 }
 
-                // A kick knocks a Shieldbearer's shield aside.
                 var sbT = FindObjectsByType<ShieldbearerBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !e.IsDead);
                 if (sbT != null)
                 {
@@ -1909,7 +1808,6 @@ namespace Deepbound.Networking
                     Log("shield kick", "guard down " + sbT.GuardDown + ", shield up " + sbT.ShieldUp, sbT.GuardDown && !sbT.ShieldUp);
                 }
 
-                // A shove into the chasm kills for good.
                 var abyssRoom = layout.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Chasm);
                 var shoved = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !(e is HoarderBrain));
                 if (abyssRoom != null && shoved != null)
@@ -1921,7 +1819,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     Log("kick into the abyss", "dead " + shoved.IsDead, shoved.IsDead);
                 }
-                // The Wheel of Fate: one spin, then it is spent.
+
                 var wheelT = FindObjectsByType<FateWheel>(FindObjectsSortMode.None).FirstOrDefault(
                     w => DungeonDirector.Instance.AmbushRoom == null || !DungeonDirector.Instance.AmbushRoom.Contains(w.transform.position, 2f));
                 if (wheelT != null)
@@ -1931,14 +1829,14 @@ namespace Deepbound.Networking
                         if (!(e is BossBrain) && Vector3.Distance(e.transform.position, wheelT.transform.position) < 14f) e.GetComponent<Health>().ServerDamage(1e6f, wheelT.transform.position);
                     yield return new WaitForSeconds(0.3f);
                     wheelT.UseRpc(local.NetworkObject);
-                    // Stay standing through the spin, whatever it brings.
+
                     for (int w = 0; w < 6; w++)
                     {
                         yield return new WaitForSeconds(0.5f);
                         foreach (var pl in PlayerLife.All) if (pl != null && !pl.Downed.Value) pl.Health.ServerSetFraction(1f);
                     }
                     Log("wheel of fate", "fate " + wheelT.LastFate + ", spun " + wheelT.Spun.Value + ", prompt now " + (wheelT.Prompt(local.GetComponent<PlayerProgress>()) ?? "none"), wheelT.Spun.Value || wheelT.LastFate == FateWheel.Fate.Again);
-                    // The new fates do what they say.
+
                     {
                         var wp = local.GetComponent<PlayerProgress>();
                         var wf = local.GetComponent<Flasks>();
@@ -1963,7 +1861,6 @@ namespace Deepbound.Networking
                 }
                 Log("feature rooms", features, layout.Rooms.Any(r => r.Feature == RoomFeature.GreatHall) && layout.Rooms.Any(r => r.Feature == RoomFeature.Chasm));
                 {
-                    // The new rooms turn up across seeds, and shelves never sit on a spawn.
                     int lib = 0, pyre = 0, gaunt = 0, badSpawns = 0;
                     for (int sd = 1; sd <= 40; sd++)
                     {
@@ -2013,7 +1910,6 @@ namespace Deepbound.Networking
                             tre > 0 && beg > 0 && pro > 0 && arm > 0 && mir > 0 && ter > 0 && zig > 0 && oat > 0 && dark > 0 && wat > 0 && chi > 0 && dra > 0 && cru > 0 && specialHostile == 0);
                     }
                     {
-                        // The special rooms' furniture does what it says.
                         var sp = local.GetComponent<PlayerProgress>();
                         var dd = DungeonDirector.Instance;
                         var near = local.transform.position + local.transform.forward * 1.5f;
@@ -2040,14 +1936,13 @@ namespace Deepbound.Networking
                         float max0 = local.GetComponent<Health>().Max.Value;
                         mirror.ServerDebugUse(sp);
                         yield return new WaitForSeconds(0.1f);
-                        // Its relic may itself add health: compare cursed against the same kit uncursed.
+
                         float maxCursed = local.GetComponent<Health>().Max.Value;
                         bool wasCursed = sp.MirrorCursed.Value;
                         sp.ServerSetMirrorCursed(false);
                         yield return new WaitForSeconds(0.1f);
                         float maxClean = local.GetComponent<Health>().Max.Value;
                         {
-                            // The Relic Crucible: the weakest relic melts into a different one a tier higher, once each.
                             var cruc = dd.ServerDebugShrine(SideShrine.Kind.Crucible, near + Vector3.left * 6f);
                             yield return new WaitForSeconds(0.1f);
                             if (sp.RelicCount == 0) sp.ServerAddRelic(Relic.FrostCharm);
@@ -2068,12 +1963,12 @@ namespace Deepbound.Networking
                         int gives = 0;
                         while (!beggar.Spent.Value && gives < 20) { beggar.ServerDebugUse(sp); gives++; }
                         Log("beggar", "paid out after " + gives + " coins, spent " + beggar.Spent.Value, beggar.Spent.Value);
-                        // The beggar's payout lands wherever the test stood him (sometimes in a wall): clear it.
+
                         if (beggar != null)
                             foreach (var ld in FindObjectsByType<LootDrop>(FindObjectsSortMode.None))
                                 if (ld != null && ld.IsSpawned && Vector3.Distance(ld.transform.position, beggar.transform.position) < 6f) ld.NetworkObject.Despawn();
                         foreach (var x in new[] { ped, ped2, whet, mirror, beggar }) if (x != null && x.IsSpawned) x.NetworkObject.Despawn();
-                        // An Orbweaver conjures an orb that fires patterns.
+
                         var ow = dd.ServerDebugSpawn("orbweaver", local.transform.position + local.transform.forward * 9f, false) as OrbweaverBrain;
                         if (ow != null)
                         {
@@ -2088,7 +1983,7 @@ namespace Deepbound.Networking
                             Log("orbweaver death pops its orbs", "orbs left " + ow.OrbsAlive, ow.OrbsAlive == 0);
                         }
                         else Log("orbweaver", "no prefab", false);
-                        // A Bone Piper plays every tune; a note slipping past close is a graze.
+
                         var bp = dd.ServerDebugSpawn("piper", local.transform.position + local.transform.forward * 9f, false) as BonePiperBrain;
                         if (bp != null)
                         {
@@ -2097,14 +1992,13 @@ namespace Deepbound.Networking
                             yield return new WaitForSeconds(0.3f);
                             int v0 = bp.VolleysFired;
                             var songs = new System.Collections.Generic.List<string>();
-                            // Untouchable for the recital: a burst of notes inside one 0.2 s top-up once downed the player and
-                            // wiped the whole run back to camp (2026-11-18, 65 checks lost).
+
                             local.GetComponent<PlayerLife>().ServerDebugInvulnerable(20f);
                             foreach (BonePiperBrain.Song sg in System.Enum.GetValues(typeof(BonePiperBrain.Song)))
                             {
                                 int before = bp.VolleysFired;
                                 bp.ServerBeginSong(sg);
-                                // Both kept whole: a stray proc (a party relic, a rune) once killed the piper mid-song.
+
                                 for (float t = 0f; t < 3.4f && bp != null; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); bp.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
                                 if (bp == null) break;
                                 if (bp.VolleysFired > before) songs.Add(sg.ToString());
@@ -2113,7 +2007,6 @@ namespace Deepbound.Networking
                             Log("bone piper", "tunes played " + string.Join(", ", songs) + ", volleys " + (bp != null ? bp.VolleysFired - v0 : -1), songs.Count == 4);
                             if (bp == null) { Log("graze", "the piper died first", false); }
                             else {
-                            // A graze: a note fired to pass just beside the player's body.
                             var me = local.transform.position + Vector3.up * 1.2f;
                             var side = local.transform.right * 0.75f;
                             Arrows.ServerFire(me + side - local.transform.forward * 4f, local.transform.forward, 1f, Team.Players, bp.NetworkObjectId, 12f, null, false, 8f);
@@ -2123,7 +2016,7 @@ namespace Deepbound.Networking
                             }
                         }
                         else Log("bone piper", "no prefab", false);
-                        // Champion traits (2026-10-27): the Pale's blow frostbites, the Unburied gets up once, the Tithe-Taker pockets gold.
+
                         {
                             var cdeb = local.GetComponent<PlayerDebuffs>();
                             var chp = local.GetComponent<Health>();
@@ -2137,7 +2030,7 @@ namespace Deepbound.Networking
                                 cdeb.ServerCleanse();
                                 yield return null;
                                 chp.ServerSetFraction(1f);
-                                // A few tries: worn gear (the Lucky Knucklebone) can make one blow miss.
+
                                 bool chilled = false;
                                 for (int tryHit = 0; tryHit < 3 && !chilled; tryHit++)
                                 {
@@ -2157,7 +2050,7 @@ namespace Deepbound.Networking
                             }
                             else Log("champion traits", "no skeletons", false);
                         }
-                        // A Tongueless Cantor hushes the floor under the player: Silenced, the ability keys lock; Holy Water lifts it.
+
                         var ct = dd.ServerDebugSpawn("cantor", local.transform.position + local.transform.forward * 9f, false) as CantorBrain;
                         if (ct != null)
                         {
@@ -2167,7 +2060,7 @@ namespace Deepbound.Networking
                             ct.ServerDebugHush(local.transform.position, 0.6f);
                             for (float t = 0f; t < 1.2f && ct != null && ct.Hushes == 0; t += 0.1f) { local.GetComponent<Health>().ServerSetFraction(1f); ct.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.1f); }
                             yield return new WaitForSeconds(0.2f);
-                            // A blow can be dodged by worn luck or stood out of: a second hush where the player stands now.
+
                             if (!hdeb.Silenced && ct != null)
                             {
                                 hdeb.ServerResetGrace();
@@ -2179,10 +2072,10 @@ namespace Deepbound.Networking
                             bool hushed = hdeb.Silenced, locked = UI.Binds.AbilityLock != null && UI.Binds.AbilityLock();
                             hdeb.ServerCleanse();
                             yield return new WaitForSeconds(0.2f);
-                            // Dazed: a heavy blow halves your turning for a moment; Holy Water clears it.
+
                             hdeb.ServerCleanse();
                             yield return new WaitForSeconds(0.1f);
-                            hdeb.ServerResetGrace(); // a real daze earlier in the run leaves a grace window that refuses this one
+                            hdeb.ServerResetGrace();
                             bool dazedNow = hdeb.ServerDaze(1.5f);
                             yield return null;
                             float turn = hdeb.TurnMultiplier;
@@ -2193,20 +2086,19 @@ namespace Deepbound.Networking
                             if (ct != null) ct.GetComponent<Health>().ServerDamage(1e6f, ct.transform.position);
                         }
                         else Log("cantor silence", "no prefab", false);
-                        // The debuff foes (2026-11-13): a following blizzard slows, ink blinds, the evil eye curses (+40% taken),
-                        // the toll silences; weakness (the Hexer) is now -40% damage.
+
                         {
                             var fdeb = local.GetComponent<PlayerDebuffs>();
                             var fhp = local.GetComponent<Health>();
                             var fwd = Flat3(local.transform.forward).normalized;
                             string why = "";
-                            // Weakness.
+
                             fdeb.ServerCleanse(); fdeb.ServerResetGrace();
                             fdeb.ServerCurse(4f, ulong.MaxValue);
                             yield return null;
                             bool weak = Mathf.Abs(fdeb.DamageMultiplier - PlayerDebuffs.WeaknessDamage * (1f + PlayerDebuffs.DrunkCourage * fdeb.Drunk)) < 0.01f;
                             fdeb.ServerCleanse();
-                            // Rime Magus: the storm follows and frostbites.
+
                             bool slowed = false, followed = false;
                             var mg = dd.ServerDebugSpawn("magus", local.transform.position + fwd * 9f, false) as RimeMagusBrain;
                             if (mg != null)
@@ -2224,7 +2116,7 @@ namespace Deepbound.Networking
                             }
                             else why += " no magus";
                             fdeb.ServerCleanse(); fdeb.ServerResetGrace();
-                            // Ink Lamprey: blinded, and the pool keeps it up.
+
                             bool blind = false;
                             var lp = dd.ServerDebugSpawn("lamprey", local.transform.position + fwd * 7f, false) as InkLampreyBrain;
                             if (lp != null)
@@ -2236,7 +2128,7 @@ namespace Deepbound.Networking
                             }
                             else why += " no lamprey";
                             fdeb.ServerCleanse(); fdeb.ServerResetGrace();
-                            // Withering Hag: in the lane = cursed; a blow lands x1.4; she dies, it lifts.
+
                             bool cursed = false, harder = false, lifted = false;
                             var hg = dd.ServerDebugSpawn("hag", local.transform.position + fwd * 8f, false) as WitheringHagBrain;
                             if (hg != null)
@@ -2265,7 +2157,7 @@ namespace Deepbound.Networking
                             else why += " no hag";
                             fdeb.ServerCleanse(); fdeb.ServerResetGrace();
                             fhp.ServerSetFraction(1f);
-                            // Bell-ringer: the toll silences whoever it passes under.
+
                             bool tolled = false;
                             var rg = dd.ServerDebugSpawn("ringer", local.transform.position + fwd * 5f, false) as BellringerBrain;
                             if (rg != null)
@@ -2278,7 +2170,7 @@ namespace Deepbound.Networking
                             else why += " no ringer";
                             fdeb.ServerCleanse(); fdeb.ServerResetGrace();
                             fhp.ServerSetFraction(1f);
-                            // The opening: after a blow a skeleton slumps (Recovering, Status bit 64) and takes PUNISH x1.2.
+
                             {
                                 var sk = dd.ServerDebugSpawn("skeleton", local.transform.position + fwd * 2.2f, false);
                                 bool began = false, spent = false, bit = false; float pm = 1f;
@@ -2297,7 +2189,7 @@ namespace Deepbound.Networking
                                 Log("punish the opening", "swung " + began + ", spent after the blow " + spent + ", synced " + bit + ", damage x" + pm.ToString("F2"),
                                     began && spent && bit && pm >= Classes.Combos.PunishMultiplier - 0.001f);
                             }
-                            // A hearth centrepiece: lit by F, it melts frostbite off whoever stands by it.
+
                             {
                                 var hb = dd.ServerSpawnHearth(local.transform.position + Quaternion.Euler(0f, 90f, 0f) * fwd * 2.5f);
                                 bool litOk = false, warmed = false;
@@ -2317,7 +2209,7 @@ namespace Deepbound.Networking
                                 + ", evil eye curses " + cursed + " x" + PlayerDebuffs.CurseTaken + " " + harder + " lifts with the hag " + lifted + ", toll silences " + tolled + why,
                                 weak && slowed && followed && blind && cursed && harder && lifted && tolled);
                         }
-                        // Hushing and Concussive elites (2026-10-27): their blows silence and daze.
+
                         {
                             var adeb = local.GetComponent<PlayerDebuffs>();
                             var ahp = local.GetComponent<Health>();
@@ -2344,7 +2236,7 @@ namespace Deepbound.Networking
                                 conc.GetComponent<Health>().ServerDamage(1e6f, conc.transform.position);
                             }
                         }
-                        // Soulbound twins (2026-10-28): one struck down only falls, rises if left, and dies with its twin.
+
                         {
                             var ta = dd.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f + local.transform.right * 2f, false);
                             var tb = dd.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f + local.transform.right * 4f, false);
@@ -2376,7 +2268,7 @@ namespace Deepbound.Networking
                             else Log("soulbound twins", "no spawn", false);
                         }
                         local.GetComponent<Health>().ServerSetFraction(1f);
-                        // Floor events: Blood Tithe makes blows hurt more and kills mend.
+
                         {
                             var hl = local.GetComponent<Health>();
                             hl.ServerSetFraction(1f);
@@ -2392,7 +2284,7 @@ namespace Deepbound.Networking
                             bool mended = hl.Current.Value > hurt;
                             dd.ServerDebugEvent(FloorEvent.None);
                             hl.ServerSetFraction(1f);
-                            // Embertide: a player's blow leaves the dead smouldering.
+
                             var tideFoe = Health.All.FirstOrDefault(hh => hh != null && hh.Team == Team.Enemies && hh.IsAlive && !hh.TryGetComponent<BossBrain>(out _) && !hh.Chilled.Value);
                             if (tideFoe != null)
                             {
@@ -2404,7 +2296,7 @@ namespace Deepbound.Networking
                                 dd.ServerDebugEvent(FloorEvent.None);
                                 Log("embertide", "struck foe scorched " + smoulders + ", player damage x" + Health.FloorPlayerDamageScale.ToString("F2") + " after", smoulders && Mathf.Approximately(Health.FloorPlayerDamageScale, 1f));
                             }
-                            // ASCENDANT and THE RESTLESS DEAD (2026-11-22).
+
                             {
                                 dd.ServerDebugEvent(FloorEvent.Ascendant);
                                 float ultX = DungeonDirector.EventUltCharge, hurtX = Health.FloorPlayerDamageScale;
@@ -2421,7 +2313,7 @@ namespace Deepbound.Networking
                                 Log("ascendant and restless", "ascendant ult x" + ultX.ToString("F2") + " hurt x" + hurtX.ToString("F2") + ", restless piles " + piles0 + " -> " + piles1 + ", names '" + DungeonDirector.EventName(FloorEvent.Ascendant) + "' '" + DungeonDirector.EventName(FloorEvent.Restless) + "'",
                                     Mathf.Approximately(ultX, 1.5f) && Mathf.Approximately(hurtX, 1.1f) && piles1 > piles0 && DungeonDirector.EventName(FloorEvent.Restless).Length > 0);
                             }
-                            // THE EMBER MARCH (2026-11-22): every elite is Emberbound.
+
                             {
                                 dd.ServerDebugEvent(FloorEvent.EmberMarch);
                                 var marcher = dd.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f, true);
@@ -2432,7 +2324,7 @@ namespace Deepbound.Networking
                                 dd.ServerDebugEvent(FloorEvent.None);
                                 Log("ember march", "elite affix " + (mb != null ? mb.AffixKind.ToString() : "none") + ", embers x" + embX.ToString("F2"), ember && Mathf.Approximately(embX, 1.5f));
                             }
-                            // CINDER CROWN (2026-11-22): a kill leaves a burning patch that hurts enemies standing in it.
+
                             {
                                 var cp = local.GetComponent<PlayerProgress>();
                                 bool had = cp.HasRelic(Relic.CinderCrown);
@@ -2445,7 +2337,7 @@ namespace Deepbound.Networking
                                 var second = dd.ServerDebugSpawn("skeleton", first != null ? first.transform.position : spot, false, calm: true);
                                 var sh = second != null ? second.GetComponent<Health>() : null;
                                 yield return new WaitForSeconds(0.3f);
-                                // Spawns get nudged: burn a patch right under the second one, where it actually stands.
+
                                 if (second != null) Loot.CinderCrown.ServerDrop(cp, second.transform.position);
                                 float hp0 = sh != null ? sh.Current.Value : 0f;
                                 yield return new WaitForSeconds(1.2f);
@@ -2453,14 +2345,14 @@ namespace Deepbound.Networking
                                 bool scorched = sh != null && sh.Scorched.Value;
                                 if (sh != null && sh.IsAlive) sh.ServerDamage(1e6f, local.transform.position, local.NetworkObjectId);
                                 if (!had) cp.ServerRemoveRelic(Relic.CinderCrown);
-                                // Reborn in Flame: the bearer standing in their own patch mends.
+
                                 {
                                     bool hadPh = cp.HasRelic(Relic.PhoenixFeather);
                                     if (!cp.HasRelic(Relic.CinderCrown)) cp.ServerAddRelic(Relic.CinderCrown);
                                     if (!hadPh) cp.ServerAddRelic(Relic.PhoenixFeather);
                                     var myH = local.GetComponent<Health>();
                                     myH.ServerSetFraction(0.6f);
-                                    // Count the heals themselves: a stray blow in the same second hid them in the net health.
+
                                     float rbHealed = 0f;
                                     System.Action<Health, float> rbHook = (hh, amt) => { if (hh == myH) rbHealed += amt; };
                                     Health.AnyHealed += rbHook;
@@ -2492,7 +2384,7 @@ namespace Deepbound.Networking
                                     (sp0 <= 0f || Mathf.Abs(sp1 / sp0 - 1.15f) < 0.02f) && champs == 3 && DungeonDirector.EventName(FloorEvent.Quicksilver).Length > 0);
                             }
                         }
-                        // Room clears: kill everything raised in the rooms, and each room counts as cleared.
+
                         {
                             int clearedBefore = dd.RoomsClearedCount;
                             int clearRoom = dd.ServerDebugClearOneRoom();
@@ -2500,9 +2392,8 @@ namespace Deepbound.Networking
                             Log("room cleared", "room " + clearRoom + " cleared " + (clearRoom >= 0 && dd.RoomIsCleared(clearRoom)) + ", rooms cleared " + clearedBefore + " -> " + dd.RoomsClearedCount,
                                 clearRoom < 0 ? clearedBefore > 0 : dd.RoomIsCleared(clearRoom));
                         }
-                        // A patrol: an elite and its band, heading for the second room of its route.
+
                         {
-                            // Two room centres, the farthest from the player, so the band marches undisturbed.
                             var far2 = DungeonDirector.Layout.Rooms.Where(r => r.Kind == RoomKind.Combat)
                                 .OrderByDescending(r => Vector3.Distance(r.Center, local.transform.position)).Take(2).ToList();
                             var pr0 = far2.Count > 0 && UnityEngine.AI.NavMesh.SamplePosition(far2[0].Center, out var ph0, 6f, UnityEngine.AI.NavMesh.AllAreas) ? ph0.position : local.transform.position + Vector3.forward * 30f;
@@ -2515,7 +2406,7 @@ namespace Deepbound.Networking
                             foreach (var b in band) if (b != null && b.IsSpawned) b.NetworkObject.Despawn();
                             yield return new WaitForSeconds(0.2f);
                         }
-                        // The castle cat, far below camp: petting it mends you, then it leaves.
+
                         {
                             var kit = dd.ServerDebugShaftCat(local.transform.position + local.transform.forward * 1.2f);
                             if (kit != null)
@@ -2523,10 +2414,10 @@ namespace Deepbound.Networking
                                 yield return new WaitForSeconds(0.2f);
                                 var kh = local.GetComponent<Health>();
                                 kh.ServerSetFraction(0.5f);
-                                // A curse from a Hexer nearby halves healing: not the cat's fault.
+
                                 local.GetComponent<PlayerDebuffs>().ServerCleanse();
                                 kit.ServerDebugUse(sp);
-                                // The mend can land a beat later (it was seen at 0.80 just after a 0.2 s check failed).
+
                                 for (float t = 0f; t < 1.5f && kh.Fraction <= 0.7f; t += 0.1f) yield return new WaitForSeconds(0.1f);
                                 bool mended = kh.Fraction > 0.7f;
                                 for (float t = 0f; t < 4f && kit != null && kit.IsSpawned; t += 0.2f) yield return new WaitForSeconds(0.2f);
@@ -2536,8 +2427,7 @@ namespace Deepbound.Networking
                             }
                             else Log("shaft cat", "no prefab", false);
                         }
-                        // One of the first expedition (2026-11-14): searching spills a relic, gold and embers, writes the
-                        // note into the Journal, and touches no save in a test.
+
                         {
                             var fwd = local.transform.forward; fwd.y = 0f; fwd.Normalize();
                             var rem = dd.ServerDebugRemains(local.transform.position + fwd * 1.6f, -fwd, 2);
@@ -2548,7 +2438,7 @@ namespace Deepbound.Networking
                                 int drops0 = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
                                 int page = UI.Journal.ExpeditionPage(2);
                                 rem.ServerDebugUse(sp);
-                                // Counted at once: the drops land at the searcher's feet and are picked up a moment later.
+
                                 int drops1 = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length;
                                 yield return new WaitForSeconds(0.5f);
                                 bool noted = page >= 0 && UI.Journal.Has(page);
@@ -2558,9 +2448,8 @@ namespace Deepbound.Networking
                             }
                             else Log("expedition remains", "no prefab", false);
                         }
-                        // A hand torch: carrying it lights the way and empties your hands.
+
                         {
-                            // A relic found earlier might already be Lamplighter's Oil (it lets the bearer fight): not yet.
                             sp.ServerDebugRemoveRelic(Relic.LamplightersOil);
                             var torch = dd.ServerDebugTorch(local.transform.position + local.transform.forward * 1.5f);
                             if (torch != null)
@@ -2568,14 +2457,14 @@ namespace Deepbound.Networking
                                 yield return new WaitForSeconds(0.2f);
                                 torch.ServerDebugCarry(sp);
                                 yield return new WaitForSeconds(0.2f);
-                                // A stray blow can knock it loose (the room is not always empty): pick it up again once.
+
                                 if (!torch.Carried) { torch.ServerDebugCarry(sp); yield return new WaitForSeconds(0.15f); }
                                 bool lit = torch.Lit, hands = !local.GetComponent<PlayerLife>().CanAct;
                                 torch.ServerDrop(local.transform.position);
                                 yield return new WaitForSeconds(0.1f);
                                 bool free = local.GetComponent<PlayerLife>().CanAct;
                                 Log("hand torch", "lit " + lit + ", hands full while carried " + hands + ", free once set down " + free, lit && hands && free);
-                                // Lamplighter's Oil: the torch-bearer can fight.
+
                                 if (sp.RelicCount >= Relics.MaxCarried) sp.ServerDebugRemoveRelic(sp.RelicAt(0));
                                 sp.ServerAddRelic(Relic.LamplightersOil);
                                 torch.ServerDebugCarry(sp);
@@ -2583,13 +2472,13 @@ namespace Deepbound.Networking
                                 bool oiled = local.GetComponent<PlayerLife>().CanAct;
                                 torch.ServerDrop(local.transform.position);
                                 Log("lamplighter's oil", "fights with the torch " + oiled, oiled);
-                                // It now frees the hands for any burden: later carry checks expect full hands.
+
                                 sp.ServerDebugRemoveRelic(Relic.LamplightersOil);
                                 if (torch.IsSpawned) torch.NetworkObject.Despawn();
                             }
                             else Log("hand torch", "no prefab", false);
                         }
-                        // An oath: the player stands on one plate, the Oath Stone is set on the other.
+
                         {
                             var pa = local.transform.position;
                             var pb = pa + local.transform.right * 4f;
@@ -2607,7 +2496,7 @@ namespace Deepbound.Networking
                             }
                             else Log("oath plates", "no prefab", false);
                         }
-                        // New elite affixes: Frenzied speeds up below half; Gravebound leaves bones that a stamp scatters.
+
                         {
                             var frAt = local.transform.position + local.transform.forward * 6f;
                             var fr = dd.ServerDebugSpawn("skeleton", frAt, false);
@@ -2634,15 +2523,13 @@ namespace Deepbound.Networking
                             }
                             else Log("elite affixes", "no skeleton", false);
                         }
-                        // A Choir Acolyte's hymn wards a skeleton beside it; a hard hit mid-song breaks the next one.
+
                         {
                             var acAt = local.transform.position + local.transform.forward * 7f;
                             var ac = dd.ServerDebugSpawn("acolyte", acAt, false) as ChoirAcolyteBrain;
                             var mate = dd.ServerDebugSpawn("skeleton", acAt + Vector3.right * 2f, false);
                             if (ac != null && mate != null)
                             {
-                                // Stand the skeleton right beside wherever the acolyte ended up (spawns snap to the navmesh).
-                                // Let both settle onto the navmesh, then stand the skeleton beside the acolyte.
                                 yield return new WaitForSeconds(0.3f);
                                 mate.ServerStun(20f);
                                 mate.ServerDebugPlace(ac.transform.position + ac.transform.right * 1.5f);
@@ -2653,7 +2540,7 @@ namespace Deepbound.Networking
                                 string choirWhy = "dist " + Vector3.Distance(mate.transform.position, ac.transform.position).ToString("F1") + ", mate alive " + !mate.IsDead + ", shield " + mate.GetComponent<Health>().Shield.Value.ToString("F0");
                                 yield return new WaitForSeconds(0.2f);
                                 var achp = ac.GetComponent<Health>();
-                                // Force the next hymn now and break it.
+
                                 ac.ServerDebugResetHymn();
                                 ac.ServerBeginHymn();
                                 yield return new WaitForSeconds(0.3f);
@@ -2664,8 +2551,7 @@ namespace Deepbound.Networking
                             }
                             else Log("choir acolyte", "no prefab", false);
                         }
-                        // LAIRS (2026-11-14): each keeper's signature - the cocoon, the lure, the crown, the glass - and the boss bar
-                        // that is theirs only while they are fought.
+
                         {
                             var srL = DungeonDirector.Layout.StartRoom;
                             var lc = srL.Center + Vector3.forward * 3f;
@@ -2727,7 +2613,7 @@ namespace Deepbound.Networking
                                     shadow.Health.ServerDamage(250f, shadow.transform.position + Vector3.forward, local.NetworkObjectId);
                                     bareShadow = tc.Health.Current.Value >= thp0 - 0.5f;
                                 }
-                                // The floor boss's healing pylons feed only it, and only in reach (2026-11-19: a lair keeper healed from them).
+
                                 dd.ServerDebugPylon(tc.transform.position + Vector3.right * 4f);
                                 yield return new WaitForSeconds(0.3f);
                                 tc.Health.ServerDamage(tc.Health.Max.Value * 0.1f, tc.transform.position + tc.transform.forward, local.NetworkObjectId);
@@ -2767,24 +2653,22 @@ namespace Deepbound.Networking
                             hpL.ServerSetFraction(1f);
                             Log("lair keepers", lwhy, lok);
                         }
-                        // An Abyssal Eye's beam hits a player standing on its line, and misses one who stepped off.
+
                         {
-                            // Stage it in the start room, along its long side: wherever the player happened to stand, the eye
-                            // once landed 0.8 m away (the spot 7 m out was in a wall and the navmesh snap pulled it in).
                             var srE = DungeonDirector.Layout.StartRoom;
                             var axisE = srE.Size.x >= srE.Size.y ? Vector3.right : Vector3.forward;
                             var standE = srE.Center - axisE * 3f;
                             if (UnityEngine.AI.NavMesh.SamplePosition(standE, out var seH, 2f, UnityEngine.AI.NavMesh.AllAreas)) standE = seH.position;
                             local.GetComponent<FirstPersonMotor>().Teleport(standE + Vector3.up * 0.1f, Quaternion.LookRotation(axisE));
                             yield return new WaitForSeconds(0.3f);
-                            // A spot 7 m out with nothing between it and the player (its beam stops at walls).
+
                             var eyeAt = local.transform.position + local.transform.forward * 7f;
                             for (int ed = 0; ed < 8; ed++)
                             {
                                 var cand = local.transform.position + Quaternion.Euler(0f, ed * 45f, 0f) * local.transform.forward * 7f;
                                 if (!UnityEngine.AI.NavMesh.SamplePosition(cand, out var eh, 1f, UnityEngine.AI.NavMesh.AllAreas)) continue;
                                 bool blocked = false;
-                                // The same line the beam takes: eye height to the body's centre, and a little past it.
+
                                 var eyeFrom = eh.position + Vector3.up * 1.75f;
                                 var toBody = local.GetComponent<Health>().Center - eyeFrom;
                                 foreach (var hit in Physics.RaycastAll(eyeFrom, toBody, toBody.magnitude + 1f, ~0, QueryTriggerInteraction.Ignore))
@@ -2797,11 +2681,10 @@ namespace Deepbound.Networking
                                 yield return new WaitForSeconds(0.3f);
                                 var hp9 = local.GetComponent<Health>();
                                 hp9.ServerSetFraction(1f);
-                                // It drifts while it waits: put it back on the clear spot right before it locks on.
+
                                 eyeB.ServerDebugPlace(eyeAt);
                                 eyeB.ServerLockOn(hp9);
-                                // Hold it on the clear spot while it locks on (it drifts toward the player otherwise).
-                                // ...and the player on theirs (the eye ended up 0.8 m away twice: something shoved the player).
+
                                 var standAt = local.transform.position;
                                 var standRot = local.transform.rotation;
                                 var standMotor = local.GetComponent<FirstPersonMotor>();
@@ -2820,10 +2703,10 @@ namespace Deepbound.Networking
                             else Log("abyssal eye", "no prefab", false);
                         }
                         Log("tallyman clock", "arrives after " + dd.TallyArriveSeconds.ToString("F0") + " s for " + DungeonDirector.Layout.Rooms.Count + " rooms, bell at " + dd.TallyWarnSeconds.ToString("F0"),
-                            // (A Tallyman's Ledger found earlier adds its three minutes.)
+
                             Mathf.Approximately(dd.TallyArriveSeconds, DungeonDirector.TallyBaseSeconds + DungeonDirector.TallyPerRoom * DungeonDirector.Layout.Rooms.Count)
                             || Mathf.Approximately(dd.TallyArriveSeconds, DungeonDirector.TallyBaseSeconds + DungeonDirector.TallyPerRoom * DungeonDirector.Layout.Rooms.Count + DungeonDirector.TallyLedgerDelay));
-                        // The Tallyman walks to you, drains you on touch, and leaves when dismissed.
+
                         var tally = dd.ServerDebugTally(local.transform.position + local.transform.forward * 7f);
                         if (tally != null)
                         {
@@ -2831,7 +2714,7 @@ namespace Deepbound.Networking
                             for (float t = 0f; t < 5f && tally.DamageDealt <= 0f; t += 0.2f) { local.GetComponent<Health>().ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
                             float endD = Vector3.Distance(tally.Pos.Value, local.transform.position);
                             Log("tallyman", "closed " + startD.ToString("F1") + " -> " + endD.ToString("F1") + " m, drained " + tally.DamageDealt.ToString("F0") + ", speed " + tally.Speed.ToString("F1"), endD < startD && tally.DamageDealt > 0f);
-                            // Holy water holds him: he does not move while repelled.
+
                             tally.ServerRepel(1.5f);
                             var heldAt = tally.Pos.Value;
                             yield return new WaitForSeconds(1f);
@@ -2845,12 +2728,12 @@ namespace Deepbound.Networking
                     }
                     int roomTraps = FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).Count(t => layout.RoomAt(t.transform.position, 0f) != null);
                     Log("room traps", roomTraps + " spike traps inside rooms on this floor", true);
-                    // A spike plate (2026-11-01, "more dangerous"): it fires in 0.4 s, bites hard, and pins the player it catches.
+
                     var plate = FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).FirstOrDefault();
-                    // Trap rolls are seeded: a floor with no plate at all once left this check unrun (2026-11-07).
+
                     if (plate == null)
                     {
-                        var spot = layout.PlayerSpawnFor(local.OwnerClientId) + local.transform.forward * 6f; // clear of the other spawns
+                        var spot = layout.PlayerSpawnFor(local.OwnerClientId) + local.transform.forward * 6f;
                         if (UnityEngine.AI.NavMesh.SamplePosition(spot, out var onMesh, 3f, UnityEngine.AI.NavMesh.AllAreas)) spot = onMesh.position;
                         plate = World.DungeonDirector.Instance.ServerDebugSpawnPlate(spot);
                         yield return new WaitForSeconds(0.3f);
@@ -2864,18 +2747,17 @@ namespace Deepbound.Networking
                         ph.Shield.Value = 0f;
                         ph.ServerSetFraction(1f);
                         yield return new WaitForSeconds(SpikeTrap.Rearm + 0.2f);
-                        // A shield regrown during the wait (a relic) soaked the first bite while the pin still took: clear both now.
-                        // Afflictions too: a poison still ticking from an earlier check hurt the player on the bed (2026-11-18).
+
                         pdeb.ServerCleanse();
                         ph.Shield.Value = 0f;
                         pdeb.ServerResetGrace();
-                        // A ward (holy water, a blessing) or Ironbark from an earlier check shrugs the pin off: clear them too.
+
                         pdeb.WardUntil.Value = 0;
                         var pflasks = local.GetComponent<Flasks>();
                         if (pflasks != null) pflasks.IronbarkUntil.Value = 0;
                         local.GetComponent<PlayerProgress>().ServerDebugSpendBoneWard();
                         float before = ph.Current.Value;
-                        // A spike bed (2026-11-12): the bed itself is safe to stand on; a tread on a plate fires it.
+
                         var bedMotor = local.GetComponent<FirstPersonMotor>();
                         bedMotor.Teleport(plate.transform.position + Vector3.up * 0.1f, local.transform.rotation);
                         yield return new WaitForSeconds(SpikeTrap.Delay + 0.3f);
@@ -2883,7 +2765,7 @@ namespace Deepbound.Networking
                         bedMotor.Teleport(plate.PlateCenter(0) + Vector3.up * 0.1f, local.transform.rotation);
                         yield return new WaitForSeconds(0.1f);
                         bedMotor.Teleport(plate.transform.position + Vector3.up * 0.1f, local.transform.rotation);
-                        // Something else on a plate (a straggler, the client) can have it mid-beat: wait out one full cycle.
+
                         float took = 0f;
                         for (float t = 0f; t < SpikeTrap.Delay + SpikeTrap.UpSeconds + SpikeTrap.Rearm + 0.6f && took <= 0f; t += 0.05f)
                         {
@@ -2902,10 +2784,10 @@ namespace Deepbound.Networking
                         local.GetComponent<FirstPersonMotor>().Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                         ph.ServerSetFraction(1f);
                         yield return new WaitForSeconds(SpikeTrap.ImpaleSeconds);
-                        // ---- 2026-11-12: ways in, rooms that erupt, the Draught ----
+
                         {
                             var dd = World.DungeonDirector.Instance;
-                            // A pack raised mid-floor comes in by a wall, the floor or a rift, and does nothing until it is through.
+
                             var er = layout.Rooms.Where(r => r.Kind == RoomKind.Combat).OrderByDescending(r => Vector3.Distance(r.Center, local.transform.position)).FirstOrDefault();
                             if (er != null)
                             {
@@ -2914,7 +2796,7 @@ namespace Deepbound.Networking
                                 bool allWays = pack.Count == 6 && pack.All(b => b.Entrance.Value != 0);
                                 bool held = pack.All(b => b.Entering);
                                 string ways = string.Join(",", pack.Select(b => ((EnemyBrain.EntranceKind)b.Entrance.Value).ToString()));
-                                // The tell: still in the wall, nothing to hit; then out, and it takes extra while it climbs.
+
                                 var ph0 = pack.Count > 0 ? pack[0].GetComponent<Health>() : null;
                                 float tellHp0 = ph0 != null ? ph0.Current.Value : 0f;
                                 if (ph0 != null) ph0.ServerDamage(10f, ph0.transform.position + Vector3.forward, local.NetworkObjectId);
@@ -2928,7 +2810,7 @@ namespace Deepbound.Networking
                                 Log("spawn telegraph", "a hit in the tell does nothing " + tellSafe + ", a hit as it climbs out takes " + emerging.ToString("F1") + " (of a 10 hit before armour)", tellSafe && emerging > 0f);
                                 foreach (var b in pack) if (b != null && b.IsSpawned) b.NetworkObject.Despawn();
                                 Log("enemy entrances", "6 raised, ways " + ways + ", all had one " + allWays + ", held while coming in " + held + ", through after " + through, allWays && held && through);
-                                // A cleared room erupts: a swarm of lesser skeletons out of the walls.
+
                                 int enemiesBefore = EnemyBrain.All.Count;
                                 int made = dd.ServerErupt(er);
                                 yield return null;
@@ -2941,7 +2823,7 @@ namespace Deepbound.Networking
                                 Log("room eruption", made + " out of the walls (" + World.DungeonDirector.EruptCount(layout.Depth, 1) + " a swarm here), lesser " + lesser + ", from walls " + fromWalls + ", in the room " + insideRoom + ", worse deeper " + deeper,
                                     made >= 5 && lesser && fromWalls && insideRoom && deeper);
                             }
-                            // The Draught: one drink, a random stat up for the run.
+
                             var dAt = local.transform.position + local.transform.forward * 1.2f;
                             var draught = dd.ServerDebugDraught(dAt);
                             yield return new WaitForSeconds(0.2f);
@@ -2962,12 +2844,12 @@ namespace Deepbound.Networking
                                 draught.NetworkObject.Despawn();
                             }
                             else Log("stat draught", "no prefab", false);
-                            // ---- 2026-11-13: swarms by act, breach patrols, rifts, jammed plates, bargains, cellars ----
+
                             {
                                 bool acts = World.DungeonDirector.SwarmOf(0) == World.DungeonDirector.SwarmKind.Bones && World.DungeonDirector.SwarmOf(2) == World.DungeonDirector.SwarmKind.Ghouls
                                     && World.DungeonDirector.SwarmOf(6) == World.DungeonDirector.SwarmKind.Choir && World.DungeonDirector.SwarmWarning(World.DungeonDirector.SwarmKind.Ghouls) != World.DungeonDirector.SwarmWarning(World.DungeonDirector.SwarmKind.Bones);
                                 Log("swarm by act", "crypt bones, deep ghouls, the choir's rifts: " + acts, acts);
-                                // A breach patrol: out of a wall behind you, hunting.
+
                                 var br = layout.Rooms.Where(r => r.Kind == RoomKind.Combat).OrderByDescending(r => Vector3.Distance(r.Center, local.transform.position)).FirstOrDefault();
                                 if (br != null)
                                 {
@@ -2980,7 +2862,7 @@ namespace Deepbound.Networking
                                     foreach (var b in party) if (b != null && b.IsSpawned) b.NetworkObject.Despawn();
                                     Log("breach patrol", made + " out of a wall " + Vector3.Distance(br.Center, local.transform.position).ToString("F0") + " m away, hunting " + hunting + ", from the wall " + fromWall, made >= 3 && hunting && fromWall);
                                 }
-                                // A necromancer's rift: it spits out the dead until it is broken.
+
                                 var riftAt = local.transform.position + local.transform.forward * 6f;
                                 var rift = dd.ServerDebugRift(riftAt);
                                 if (rift != null)
@@ -2996,7 +2878,7 @@ namespace Deepbound.Networking
                                     Log("soul rift", "spat out " + spat + ", broken and closed " + closed, spat >= 1 && closed);
                                 }
                                 else Log("soul rift", "no prefab", false);
-                                // Jamming a spike plate: a Rogue's hands or a pick.
+
                                 var jp = local.GetComponent<PlayerProgress>();
                                 var jt = dd.ServerDebugSpawnPlate(local.transform.position + local.transform.forward * 4f);
                                 yield return null;
@@ -3020,7 +2902,7 @@ namespace Deepbound.Networking
                                     local.GetComponent<FirstPersonMotor>().Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                                     Log("spike jam", "no tool refused " + noTool + ", a pick jams it " + jammed + ", the bed stays down " + quiet, noTool && jammed && quiet);
                                 }
-                                // A shrine of trade-off: Blood for Steel.
+
                                 var bal = dd.SpawnBargain(local.transform.position + local.transform.forward * 2f, Quaternion.identity, 0);
                                 yield return new WaitForSeconds(0.2f);
                                 if (bal != null)
@@ -3038,15 +2920,14 @@ namespace Deepbound.Networking
                                         sealedOk && att1 > att0 * 1.1f && max1 < max0 && once && Mathf.Abs(max2 - max0) < 1f);
                                 }
                                 else Log("bargain altar", "no prefab", false);
-                                // The Gilded Skull (2026-11-13, the user: "put else where and nerfed"): never a random roll, only the
-                                // Bone Hoarder's sack; +25% gold.
+
                                 {
                                     bool neverRandom = true;
                                     for (int k = 0; k < 600; k++) if (Loot.Relics.Random() == Loot.Relic.GildedSkull) { neverRandom = false; break; }
                                     var seedRng = new System.Random(5);
                                     for (int k = 0; k < 600; k++) if (Loot.Relics.FromSeed(seedRng) == Loot.Relic.GildedSkull) { neverRandom = false; break; }
                                     bool silas = World.DungeonDirector.SignatureRelic(World.FolkId.Silas) != Loot.Relic.GildedSkull;
-                                    jp.ServerRemoveRelic(Loot.Relic.GildedSkull);   // a fresh one, in a free slot (a held one only empowers)
+                                    jp.ServerRemoveRelic(Loot.Relic.GildedSkull);
                                     while (jp.RelicCount >= Loot.Relics.MaxCarried) jp.ServerRemoveRelic(jp.RelicAt(0));
                                     float g0 = jp.GoldMultiplier;
                                     jp.ServerAddRelic(Loot.Relic.GildedSkull);
@@ -3073,7 +2954,7 @@ namespace Deepbound.Networking
                                     Log("gilded skull", "never a random roll " + neverRandom + ", not Silas's " + silas + ", gold x" + (g1 - g0 + 1f).ToString("F2") + ", from the hoarder's sack " + fromSack,
                                         neverRandom && silas && Mathf.Abs(g1 - g0 - 0.25f) < 0.01f && fromSack);
                                 }
-                                // Setting a relic down mid run (2026-11-13, the user: "an easier way ... to switch between relics").
+
                                 {
                                     var relMotor = local.GetComponent<FirstPersonMotor>();
                                     var pick = Loot.Relic.EchoStone;
@@ -3104,7 +2985,7 @@ namespace Deepbound.Networking
                                     Log("relic set down", "off the tray " + off + ", tier kept on the floor " + kept + ", not picked straight back " + stays + ", back at tier II " + back,
                                         off && kept && stays && back);
                                 }
-                                // The Gravedigger's Pact and the Thorned Crown (2026-11-13).
+
                                 {
                                     var gh = local.GetComponent<Health>();
                                     var gAt = local.transform.position + local.transform.forward * 3f;
@@ -3118,7 +2999,7 @@ namespace Deepbound.Networking
                                     float mended = 0f;
                                     if (victim != null)
                                     {
-                                        victim.NoLoot = true;   // its gold landed in the pet-fetch check
+                                        victim.NoLoot = true;
                                         victim.GetComponent<Health>().ServerDamage(1e6f, local.transform.position, local.NetworkObjectId);
                                         yield return null;
                                         mended = gh.Current.Value - hp0;
@@ -3144,7 +3025,7 @@ namespace Deepbound.Networking
                                         + "; crown: sent back " + back.ToString("F0") + ", the foe lost " + foeLost.ToString("F0") + ", regen x" + regenCut.ToString("F2"),
                                         mended >= gh.Max.Value * PlayerProgress.GravePactHeal * 0.9f && (clericPact ? potion < 1f : potion == 0f) && back > 0f && foeLost > 0f && regenCut < 1f);
                                 }
-                                // A cellar vault: break the tile, drop in, climb out.
+
                                 var hatch = FindObjectsByType<CellarHatch>(FindObjectsSortMode.None).FirstOrDefault(c => c.What == CellarHatch.Mode.Hatch);
                                 var croom = layout.Rooms.FirstOrDefault(r => r.Cellar);
                                 if (hatch != null && croom != null)
@@ -3168,14 +3049,14 @@ namespace Deepbound.Networking
                                 else Log("cellar vault", "no cellar on this floor (hatch " + (hatch != null) + ", room " + (croom != null) + ")", false);
                             }
                         }
-                        // A pet (2026-11-07) fetches a pile of gold lying beyond the coin magnet, in sight.
+
                         {
                             var np = local.GetComponent<NetworkPlayer>();
                             var petProg = local.GetComponent<PlayerProgress>();
                             byte petWas = np.PetKind.Value;
                             np.PetKind.Value = (byte)PetCompanion.Kind.BoneHound;
                             var petFrom = local.transform.position;
-                            // A spot 5 m off in clear view: try headings until one is.
+
                             var petSpot = petFrom + local.transform.forward * 5f;
                             for (int hd = 0; hd < 12; hd++)
                             {
@@ -3195,7 +3076,7 @@ namespace Deepbound.Networking
                             Log("pet fetch", "gold " + petGold0 + " -> " + petProg.Gold.Value + " from " + far.ToString("F1") + " m after " + waited.ToString("F1") + " s, pets listed " + Cosmetics.Pets.Length,
                                 petProg.Gold.Value > petGold0 && far > 2.6f && waited >= PetCompanion.FetchDelay - 0.2f && sizes);
                         }
-                        // Crafted tools (2026-11-07): caltrops chill and cut what stands in them; a rattle draws the dead away.
+
                         {
                             var tp = local.GetComponent<PlayerProgress>();
                             var toolFoeAt = local.transform.position + local.transform.forward * 4f;
@@ -3226,7 +3107,7 @@ namespace Deepbound.Networking
                             tp.Parts.Value = 0;
                             Log("crafted tools", "caltrops chilled " + chilled + ", cut " + cut + ", rattle lured " + lured, toolFoe != null && chilled && cut && lured);
                         }
-                        // A flame vent strikes once a burst, for a third of your health, and goes dark long enough to cross.
+
                         if (layout.FlameTraps.Count > 0)
                         {
                             var vent = layout.FlameTraps[0];
@@ -3245,7 +3126,7 @@ namespace Deepbound.Networking
                             ventMotor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                             Log("flame vent", "took " + tookVent.ToString("F0") + " of " + ph.Max.Value.ToString("F0") + " in one burst" + ventWhy, tookVent >= ph.Max.Value * 0.2f && tookVent <= ph.Max.Value * 0.4f);
                             ph.ServerSetFraction(1f);
-                            // Choking it (2026-11-13): from beside the grate, with a pick; then it never burns.
+
                             {
                                 var cdd = DungeonDirector.Instance;
                                 var cp = local.GetComponent<PlayerProgress>();
@@ -3269,7 +3150,7 @@ namespace Deepbound.Networking
                                 int burns0 = cdd.VentBurns;
                                 ventMotor.Teleport(vent.At + Vector3.up * 0.1f, local.transform.rotation);
                                 yield return new WaitForSeconds(FlameJet.Period + 0.2f);
-                                bool unburnt = cdd.VentBurns == burns0;   // counted at the vent (other blows on the delver do not count)
+                                bool unburnt = cdd.VentBurns == burns0;
                                 cdd.ChokedJets.Value = 0;
                                 cp.Picks.Value = cpicks;
                                 ventMotor.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
@@ -3279,7 +3160,7 @@ namespace Deepbound.Networking
                         }
                     }
                 }
-                // The blood altar: three offerings fill the chalice; a relic for who bled, Bloodlust for all.
+
                 {
                     var altarT = FindObjectsByType<BloodAltar>(FindObjectsSortMode.None).FirstOrDefault(a => !a.Spent.Value);
                     if (altarT != null)
@@ -3298,9 +3179,9 @@ namespace Deepbound.Networking
                             altarT.UseRpc(local.NetworkObject);
                             yield return new WaitForSeconds(0.75f);
                         }
-                        // 2026-11-13: each offering is -10% MAX health and +4% damage, for the run.
+
                         float max1 = ah.Max.Value, att1 = ap2.AttackMultiplier, hs1 = ap2.BuildHealthScale;
-                        bool bled = ap2.BloodOffered.Value == BloodAltar.Offerings && Mathf.Abs(hs1 / hs0 - (1f - BloodAltar.OfferFraction * BloodAltar.Offerings)) < 0.03f;   // the scale: a relic won here may move max health too
+                        bool bled = ap2.BloodOffered.Value == BloodAltar.Offerings && Mathf.Abs(hs1 / hs0 - (1f - BloodAltar.OfferFraction * BloodAltar.Offerings)) < 0.03f;
                         bool paid = att1 / att0 > 1f + BloodAltar.OfferDamage * BloodAltar.Offerings - 0.02f;
                         ap2.BloodOffered.Value = 0;
                         ap2.ServerAddBonus(Core.StatType.HP, 0f);
@@ -3319,7 +3200,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.5f);
                     Log("crypt", "sarcophagus opened on approach: " + sarc.Opened.Value + (sarc.Scheduled ? " (a neighbour woke first; scheduled)" : "") + " (spawned " + sarc.IsSpawned + ", occupant " + sarc.HasOccupant + ", targetable " + local.GetComponent<PlayerLife>().Targetable +
                         ", downed " + local.GetComponent<PlayerLife>().Downed.Value + (sarc.Opened.Value ? "" : ", " + sarc.DebugState()) + ", dist " + Vector3.Distance(local.transform.position, sarc.transform.position).ToString("F1") + ")", sarc.Opened.Value || sarc.Scheduled);
-                    // The rest of the crypt follows, two at a time.
+
                     yield return new WaitForSeconds(5.2f);
                     var all = FindObjectsByType<Sarcophagus>(FindObjectsSortMode.None);
                     int open = all.Count(x => x.Opened.Value);
@@ -3351,13 +3232,12 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     fountain.UseRpc(local.NetworkObject);
                     yield return new WaitForSeconds(0.2f);
-                    Log("fountain", "hp " + hpF.Current.Value.ToString("F0") + " / " + hpF.Max.Value.ToString("F0") + ", spent " + fountain.Spent.Value, fountain.Spent.Value && hpF.Fraction > 0.95f); // from 30%: a stray hit can land in the same moment
+                    Log("fountain", "hp " + hpF.Current.Value.ToString("F0") + " / " + hpF.Max.Value.ToString("F0") + ", spent " + fountain.Spent.Value, fountain.Spent.Value && hpF.Fraction > 0.95f);
                 }
 
                 var chasmRoom = layout.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Chasm);
                 if (chasmRoom != null)
                 {
-                    // Drop the player into the pit (beside the bridges) and expect a rescue.
                     var pitPoint = new Vector3(chasmRoom.Pit.xMin + 1.5f, -6f, chasmRoom.Pit.yMin + 1.5f);
                     fm.Teleport(pitPoint, local.transform.rotation);
                     yield return new WaitForSeconds(1.2f);
@@ -3368,24 +3248,21 @@ namespace Deepbound.Networking
                 local.GetComponent<Health>().ServerSetFraction(1f);
                 yield return new WaitForSeconds(0.3f);
 
-                // Ambush: step into the trap room, clear both waves, find the chest.
                 var dir = DungeonDirector.Instance;
                 if (dir.AmbushRoom != null)
                 {
                     var amb = dir.AmbushRoom;
                     var am = local.GetComponent<FirstPersonMotor>();
                     int chestsBefore = FindObjectsByType<Chest>(FindObjectsSortMode.None).Length;
-                    // An earlier step can wander through the trap room first (rooms are bigger since 2026-11-01): then
-                    // it has already sprung and been cleared, and the gates must stand open.
+
                     int wavePre = dir.AmbushWave;
                     am.Teleport(amb.Center + Vector3.up * 0.1f, local.transform.rotation);
-                    // The client stays outside: the trap shuts on the host alone, sized for one.
+
                     yield return new WaitForSeconds(0.5f);
                     int waveSeen = dir.AmbushWave;
                     bool lonePart = PlayerLife.All.Count < 2 || dir.AmbushParty == 1;
                     bool gatesShut = FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Any(g => g.Closed.Value);
-                    // No one left standing inside (here: the host steps out of the room, as good as down to the trap): the
-                    // gates lift for the rest of the party, and the dead fight on. Downing the host would end a solo test.
+
                     if (wavePre < 3 && waveSeen >= 1)
                     {
                         am.Teleport(amb.Center + new Vector3(amb.Size.x / 2f + 6f, 0.1f, 0f), local.transform.rotation);
@@ -3404,24 +3281,21 @@ namespace Deepbound.Networking
                     int chestsAfter = FindObjectsByType<Chest>(FindObjectsSortMode.None).Length;
                     Log("ambush", "before " + wavePre + ", triggered wave " + waveSeen + " (shut in " + dir.AmbushParty + "), gates shut " + gatesShut + ", final wave " + dir.AmbushWave + ", chests " + chestsBefore + " -> " + chestsAfter,
                         wavePre >= 3 ? dir.AmbushWave == 3 && !FindObjectsByType<Portcullis>(FindObjectsSortMode.None).Any(g => g.Closed.Value)
-                            // Already sprung by someone wandering through and left empty: its gates have lifted, by the new rule.
+
                             : waveSeen >= 1 && (gatesShut || wavePre > 0) && dir.AmbushWave == 3 && chestsAfter == chestsBefore + 1 && lonePart);
                     am.Teleport(layout.PlayerSpawnFor(local.OwnerClientId), local.transform.rotation);
                     yield return new WaitForSeconds(0.3f);
                 }
 
-                // Kill a handful of skeletons and confirm they drop loot that a player can take.
-                // Only the dead standing in rooms: a breach's ambushers wait in a sealed niche with no floor to walk to yet.
-                var victims = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain) && layout.RoomAt(e.transform.position, 0f) != null).Take(14).ToList(); // 14: drops were cut 20% (2026-11-19) and 6 kills came up empty
-                // Only these kills' drops: loot from an earlier check's kill inside a sealed breach niche (no floor until it opens)
-                // once failed this (2026-11-18, "room none, nearest mesh none").
+                var victims = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain) && layout.RoomAt(e.transform.position, 0f) != null).Take(14).ToList();
+
                 var lootBeforeKills = new System.Collections.Generic.HashSet<LootDrop>(FindObjectsByType<LootDrop>(FindObjectsSortMode.None));
                 foreach (var v in victims) v.GetComponent<Health>().ServerDamage(1e6f, v.transform.position, local.NetworkObjectId);
                 yield return new WaitForSeconds(0.3f);
 
                 var drops = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Where(d => !lootBeforeKills.Contains(d)).ToArray();
                 Log("loot drops", drops.Length + " from " + victims.Count + " kills", drops.Length > 0);
-                // Every drop landed where you can walk to it (not in a wall, on a ledge or inside a prop).
+
                 int reachable = drops.Count(d => d != null && UnityEngine.AI.NavMesh.SamplePosition(d.transform.position, out _, 0.7f, UnityEngine.AI.NavMesh.AllAreas));
                 var lost = drops.Where(d => d != null && !UnityEngine.AI.NavMesh.SamplePosition(d.transform.position, out _, 0.7f, UnityEngine.AI.NavMesh.AllAreas)).ToList();
                 string lostWhat = string.Join("; ", lost.Select(d => d.Kind.Value + " at " + d.transform.position.ToString("F1") + " room " + (layout.RoomAt(d.transform.position, 0f) != null ? layout.RoomAt(d.transform.position, 0f).Kind.ToString() : "none") +
@@ -3433,7 +3307,6 @@ namespace Deepbound.Networking
                 var motor = local.GetComponent<FirstPersonMotor>();
                 foreach (var drop in drops)
                 {
-                    // Standing on one drop can collect a neighbour too, despawning it.
                     if (drop == null) continue;
                     motor.Teleport(drop.transform.position, local.transform.rotation);
                     yield return new WaitForSeconds(0.9f);
@@ -3441,8 +3314,6 @@ namespace Deepbound.Networking
                 Log("pickup", "gold " + goldBefore + " -> " + progress.Gold.Value + ", embers " + progress.Embers.Value,
                     progress.Gold.Value > goldBefore || progress.Embers.Value > 0);
 
-                // Class combos: a stunned enemy is Exposed; a heavy hit Shatters chill.
-                // One standing idle (an enemy recovering from its own swing is Punished x1.2: that is not "plain").
                 var foe = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain) && !e.IsDead)
                     .OrderBy(e => e.Recovering || e.IsStunned || e.Taunter != null ? 1 : 0).FirstOrDefault();
                 if (foe != null)
@@ -3458,13 +3329,12 @@ namespace Deepbound.Networking
                         exposed > plain * 1.2f && shatter > 1.4f && !fh.Chilled.Value && progress.CombosTriggered.Value > 0);
                 }
 
-                // Elite affixes: a Warded elite shrugs off damage until a stun breaks the ward.
                 var eliteTest = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(e => !(e is BossBrain) && !e.IsDead && !e.Elite.Value && !e.IsStunned && !e.GetComponent<Health>().Chilled.Value && e != foe);
                 if (eliteTest != null)
                 {
                     var eh = eliteTest.GetComponent<Health>();
                     eliteTest.ServerMakeElite(EliteAffix.Warded);
-                    // Awake, so the first blow is not an UNAWARE opener (x1.5) and the two hits compare.
+
                     eliteTest.ServerAggroNearest();
                     if (eliteTest.AffixKind == EliteAffix.Warded)
                     {
@@ -3488,7 +3358,6 @@ namespace Deepbound.Networking
 
             if (net.IsServer && boss != null)
             {
-                // Asleep (party not all inside): hits from the doorway do nothing and the gates stay open.
                 bool wasDormant = boss.Dormant;
                 float hpBefore = boss.Health.Current.Value;
                 boss.Health.ServerDamage(60f, boss.transform.position + boss.transform.forward * 6f);
@@ -3496,7 +3365,6 @@ namespace Deepbound.Networking
                 Log("boss asleep until the party is in", "dormant " + wasDormant + ", hp " + hpBefore.ToString("F0") + " -> " + boss.Health.Current.Value.ToString("F0") + ", sealed " + DungeonDirector.Instance.BossSealed,
                     !wasDormant || (Mathf.Approximately(hpBefore, boss.Health.Current.Value) && boss.Dormant && !DungeonDirector.Instance.BossSealed));
                 {
-                    // The entrance: it rises to meet you and holds still under its title.
                     int played = BossBrain.EntrancesPlayed;
                     boss.ServerEntrance();
                     yield return new WaitForSeconds(0.2f);
@@ -3504,8 +3372,6 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(BossBrain.EntranceSeconds);
                 }
                 {
-                    // Every arena device, set up as a party of four would meet it, stands inside the arena on floor you can walk
-                    // to from its middle (2026-11-20: floor 5's healing pylons stood outside the arena).
                     var ar = layout.BossRoom;
                     var arMid = UnityEngine.AI.NavMesh.SamplePosition(ar.Center, out var arh, 4f, UnityEngine.AI.NavMesh.AllAreas) ? arh.position : ar.Center;
                     int placed = 0;
@@ -3532,14 +3398,13 @@ namespace Deepbound.Networking
                     Log("arena devices placed", placed + " devices in a " + ar.Size.x.ToString("F0") + "x" + ar.Size.y.ToString("F0") + " arena" + (outside.Length == 0 ? ", all inside and reachable" : ";" + outside), placed >= 8 && outside.Length == 0);
                 }
                 {
-                    // Arena machinery: a ballista bolt and a dropped chandelier both hurt the guardian.
                     var bq = layout.BossRoom;
                     Log("arena", "shape " + bq.Arena + ", quirk " + bq.Quirk, true);
                     bool wasAsleep = boss.Dormant;
                     boss.Dormant = false;
                     boss.ServerDebugResetPhases();
                     var sp3 = local.GetComponent<PlayerProgress>();
-                    // Ballista spots round the boss until a bolt lands (a pylon, pillar or the dais can eat one).
+
                     float b0 = boss.Health.Current.Value, bTry = b0;
                     ArenaEngine bal = null;
                     for (int dirI = 0; dirI < 8 && bTry >= b0; dirI++)
@@ -3559,12 +3424,11 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(1.3f);
                     float b2 = boss.Health.Current.Value;
                     Log("arena machinery", "ballista " + b0.ToString("F0") + " -> " + b1.ToString("F0") + ", chandelier -> " + b2.ToString("F0") + ", stunned " + boss.IsStunned, bal != null && winch != null && b1 < b0 && b2 < b1);
-                    // The guardian's dash (2026-11-12): from across the room it lines up and charges at you.
+
                     {
                         yield return new WaitForSeconds(1.5f);
                         var bossFm = local.GetComponent<FirstPersonMotor>();
-                        // The test's own ballista and winch stand in the arena; a charge stops on anything solid, so they go,
-                        // and a charge cut short by the arena's own dressing gets two more tries from other sides (2026-11-13).
+
                         if (bal != null && bal.IsSpawned) bal.NetworkObject.Despawn();
                         if (winch != null && winch.IsSpawned) winch.NetworkObject.Despawn();
                         float gap0 = 0f, gap1 = 0f, bossMoved = 0f;
@@ -3580,7 +3444,7 @@ namespace Deepbound.Networking
                             if (UnityEngine.AI.NavMesh.SamplePosition(standAt, out var sHit, 3f, UnityEngine.AI.NavMesh.AllAreas)) standAt = sHit.position;
                             bossFm.Teleport(standAt + Vector3.up * 0.1f, Quaternion.LookRotation(-away));
                             local.GetComponent<Health>().ServerSetFraction(1f);
-                            // The chandelier stuns it: a stunned guardian does not charge (wait that out).
+
                             for (float w = 0f; w < 8f && boss.IsStunned; w += 0.2f) yield return new WaitForSeconds(0.2f);
                             for (float w = 0f; w < 10f && boss.Dashing; w += 0.2f) yield return new WaitForSeconds(0.2f);
                             yield return new WaitForSeconds(0.2f);
@@ -3594,7 +3458,7 @@ namespace Deepbound.Networking
                         Log("boss dash", boss.GetType().Name + " began " + began + ", it moved " + bossMoved.ToString("F1") + " m (gap " + gap0.ToString("F1") + " -> " + gap1.ToString("F1") + "), dashes " + (boss.BossDashCount - dashes0),
                             began && boss.BossDashCount > dashes0 && bossMoved > 4f);
                         local.GetComponent<Health>().ServerSetFraction(1f);
-                        // Hugging it: the ring fills round it, then it bursts and throws you out.
+
                         for (float w = 0f; w < 3f && boss.Dashing; w += 0.1f) yield return new WaitForSeconds(0.1f);
                         var hugAt = boss.transform.position + Flat3(local.transform.position - boss.transform.position).normalized * 2.4f;
                         bossFm.Teleport(hugAt + Vector3.up * 0.1f, Quaternion.LookRotation(Flat3(boss.transform.position - hugAt)));
@@ -3609,8 +3473,7 @@ namespace Deepbound.Networking
                         boss.ServerRepulse();
                         for (float w = 0f; w < BossBrain.RepulseTell + 2.5f && boss.Repulses == rep0; w += 0.1f) yield return new WaitForSeconds(0.1f);
                         Log("boss repulse", "repulses " + (boss.Repulses - rep0) + ", hp " + hp0.ToString("F0") + " -> " + hugHp.Current.Value.ToString("F0") + ", zeroed by " + hugHp.LastZeroedBy, boss.Repulses > rep0 && hugHp.Current.Value < hp0);
-                        // The cleave wedge is locked (2026-11-13, the user: crescents "track the player ... impossible to dodge close
-                        // range"): once it is drawn, stepping round the guardian leaves it swinging at the empty wedge.
+
                         {
                             for (float w = 0f; w < 5f && (boss.IsStunned || boss.Immune || boss.Dashing); w += 0.2f) yield return new WaitForSeconds(0.2f);
                             var bp = boss.transform.position;
@@ -3643,15 +3506,15 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(1f);
                 var phase = DungeonDirector.Instance.Phase.Value;
                 Log("boss kill -> phase", phase.ToString(), phase == RunPhase.FloorCleared);
-                // Floor 1 ends at a Warden now (no eulogy of its own); the act bosses each write one.
+
                 var deed = boss.Deed;
                 int eulogy = UI.Journal.EulogyFor((int)deed);
                 Log("boss last words", boss.DisplayName + ": deed " + Progression.Deeds.Has(deed) + ", eulogy page " + (eulogy < 0 ? "none for a Warden" : UI.Journal.Has(eulogy).ToString()),
                     Progression.Deeds.Has(deed) && (eulogy < 0 || UI.Journal.Has(eulogy)));
-                // No timer: the party leaves when everyone is at the portal.
+
                 yield return new WaitForSeconds(2f);
                 bool stillHere = DungeonDirector.Instance.Phase.Value == RunPhase.FloorCleared;
-                // Going down after the guardian fell must not hold the lift forever.
+
                 var clearedLife = NetworkPlayer.Local.GetComponent<PlayerLife>();
                 NetworkPlayer.Local.GetComponent<Health>().ServerDamage(1e6f, NetworkPlayer.Local.transform.position);
                 yield return null;
@@ -3662,10 +3525,8 @@ namespace Deepbound.Networking
                 Log("exit at will", "waited without leaving " + stillHere, stillHere);
             }
 
-            // After the boss the party goes home to camp, run intact; spend there, then ride down.
-            // (The local player rides the grave lift up: pinned to its floor, then let go at camp.)
             float campBy = Time.time + 20f;
-            // (Any ride since the guardian fell counts: the cage can leave while the checks above are still waiting.)
+
             bool rodeLift = Art.ExitPortal.LocalRode;
             while (net.IsServer && DungeonDirector.Instance.Phase.Value != RunPhase.Lobby && Time.time < campBy) { rodeLift |= Art.ExitPortal.LocalRiding; yield return null; }
             rodeLift |= Art.ExitPortal.LocalRode;
@@ -3678,7 +3539,7 @@ namespace Deepbound.Networking
                 var pc = local.GetComponent<PlayerProgress>();
                 Log("camp between floors", "in camp " + DungeonDirector.InLobby + ", next floor " + (dc.NextDepth.Value + 1) + ", kills kept " + pc.Kills.Value + ", gold " + pc.Gold.Value,
                     DungeonDirector.InLobby && dc.RunInProgress && dc.NextDepth.Value == 1 && pc.Kills.Value > 0);
-                // The tent's new games, the cat, and solid props.
+
                 {
                     var slotsT = FindObjectsByType<SlotMachine>(FindObjectsSortMode.None).FirstOrDefault();
                     var bjT = FindObjectsByType<BlackjackTable>(FindObjectsSortMode.None).FirstOrDefault();
@@ -3705,7 +3566,7 @@ namespace Deepbound.Networking
                         bjT.UseRpc(local.NetworkObject);
                         yield return new WaitForSeconds(0.3f);
                         bool seated = BlackjackTable.LocalOpen;
-                        // A chosen bet; then DEAL AGAIN after the hand is over.
+
                         bjT.DealRpc(local.NetworkObject, 40);
                         yield return new WaitForSeconds(0.3f);
                         bool dealt = gp.Gold.Value != g0;
@@ -3719,7 +3580,7 @@ namespace Deepbound.Networking
                         bjT.InsuranceRpc(local.NetworkObject, false);
                         bjT.StandRpc(local.NetworkObject);
                         yield return new WaitForSeconds(0.3f);
-                        // Split a pair of eights against a dealer 10-7: two hands, a second bet.
+
                         int g2 = gp.Gold.Value;
                         bjT.ServerDebugDeal(gp, 20, new byte[] { 7, 20, 9, 6 });
                         bjT.SplitRpc(local.NetworkObject);
@@ -3729,7 +3590,7 @@ namespace Deepbound.Networking
                         bjT.StandRpc(local.NetworkObject);
                         yield return new WaitForSeconds(0.2f);
                         bool splitDone = bjT.ServerPhase(gp) == BlackjackTable.Phase.Done;
-                        // Double an 11 (5+6) against a dealer 9-7: one card, the bet doubled, the hand over.
+
                         int g3 = gp.Gold.Value;
                         bjT.ServerDebugDeal(gp, 20, new byte[] { 4, 18, 8, 6 });
                         bjT.DoubleRpc(local.NetworkObject);
@@ -3738,7 +3599,7 @@ namespace Deepbound.Networking
                         Log("blackjack rules", "seated " + seated + ", dealt " + dealt + ", deal again " + again + ", split " + split + "/" + splitDone + ", double " + doubled,
                             seated && dealt && again && split && splitDone && doubled);
                         bjOk = seated && dealt && again;
-                        // The house limit is 100, and a big winner is cut off until the next floor.
+
                         bjT.InsuranceRpc(local.NetworkObject, false);
                         bjT.StandRpc(local.NetworkObject);
                         yield return new WaitForSeconds(0.2f);
@@ -3777,11 +3638,11 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.2f);
                         catT.PickUpRpc(local.NetworkObject);
                         yield return new WaitForSeconds(0.3f);
-                        catOk = !peed && cprog.CatWhisker.Value; // 2026-11-07: no more peeing, it only wriggles free
+                        catOk = !peed && cprog.CatWhisker.Value;
                         Log("cat verdict", "unpetted pick-up punished " + peed + ", petted pick-up whisker " + cprog.CatWhisker.Value, catOk);
                         cprog.CatPeed.Value = false;
                         cprog.CatWhisker.Value = false;
-                        // Swing at it: it is not hurt, it bolts, and it will not have you this visit.
+
                         yield return new WaitForSeconds(2.6f);
                         var catHp = catT.GetComponent<Health>();
                         catHp.ServerDamage(10f, local.transform.position, local.NetworkObjectId);
@@ -3808,7 +3669,7 @@ namespace Deepbound.Networking
                 {
                     var progress = pc;
                     var motor = local.GetComponent<FirstPersonMotor>();
-                    // The anvil: hand the player embers, temper twice, check ATT rose.
+
                     var anvil = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
                     if (anvil != null)
                     {
@@ -3824,7 +3685,6 @@ namespace Deepbound.Networking
                         Log("anvil", "weapon +" + progress.WeaponLevel.Value + ", ATT " + attBefore + " -> " + progress.Value(Core.StatType.ATT) + ", embers left " + progress.Embers.Value,
                             progress.WeaponLevel.Value == 2 && progress.Value(Core.StatType.ATT) > attBefore);
 
-                        // Gear: a drop meant for this player, equip it, then scrap a second.
                     var ddef = local.GetComponent<Health>().Defense;
                     var gearDrop = GearDrop.ServerSpawn(new GearItem(GearId.OssuaryPlate, 1, 0), local.OwnerClientId, local.transform.position + local.transform.forward * 1.2f);
                     yield return new WaitForSeconds(0.2f);
@@ -3832,7 +3692,7 @@ namespace Deepbound.Networking
                     var armorBefore = progress.Armor.Value;
                     gearDrop.UseRpc(local.NetworkObject);
                     yield return new WaitForSeconds(0.2f);
-                    // An empty armour slot takes it straight on; a filled one sends it to the pack.
+
                     bool intoPack = armorBefore.IsEmpty ? (progress.BagCount == packBefore && progress.Armor.Value.Id == (byte)GearId.OssuaryPlate)
                         : (progress.BagCount == packBefore + 1 && progress.Armor.Value.Equals(armorBefore));
                     Log("pickup to pack", (armorBefore.IsEmpty ? "empty slot, now wearing " + Gear.Name(progress.Armor.Value) : "pack " + packBefore + " -> " + progress.BagCount + ", worn unchanged " + progress.Armor.Value.Equals(armorBefore)), intoPack);
@@ -3840,7 +3700,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.2f);
                     Log("gear equip", "armor " + Gear.Name(progress.Armor.Value) + ", DEF " + ddef + " -> " + local.GetComponent<Health>().Defense,
                         progress.Armor.Value.Kind == GearId.OssuaryPlate && local.GetComponent<Health>().Defense > ddef);
-                    // Refine it at the anvil: Fine -> Masterwork, DEF rises.
+
                     var anvilR = FindObjectsByType<Anvil>(FindObjectsSortMode.None).FirstOrDefault();
                     if (anvilR != null)
                     {
@@ -3878,7 +3738,6 @@ namespace Deepbound.Networking
                     motor.Teleport(keepJ, local.transform.rotation);
                     yield return new WaitForSeconds(0.1f);
 
-                    // Camp trade is split by craft: each vendor sells only its own share.
                     var mStock = Shop.For(local.OwnerClientId, Shop.Vendor.Merchant);
                     var sStock = Shop.For(local.OwnerClientId, Shop.Vendor.Smith);
                     var hStock = Shop.For(local.OwnerClientId, Shop.Vendor.Shrine);
@@ -3894,7 +3753,6 @@ namespace Deepbound.Networking
                         Log("pendants", "Silas sells " + pendants + " pendants, Hobb's gear is armour " + smithArmour, pendants == 2 && smithArmour);
                     }
 
-                    // Strike Silas: he takes no harm, holds a grudge, and charges for it until amends are paid.
                     var silas = FindObjectsByType<CampFolk>(FindObjectsSortMode.None).FirstOrDefault(f => f.Who.Value == (byte)FolkId.Silas);
                     if (silas != null)
                     {
@@ -3915,7 +3773,6 @@ namespace Deepbound.Networking
                     }
                     else Log("struck folk", "no camp folk spawned", false);
 
-                    // ---- FIRE LOGS (2026-11-07): F by a log sits you on it facing the fire; F again stands you up ----
                     {
                         var flMe = NetworkPlayer.Local;
                         var flMotor = flMe.GetComponent<Player.FirstPersonMotor>();
@@ -3942,7 +3799,6 @@ namespace Deepbound.Networking
                             flSeats.Length == 12 && flPrompted && flSat && flStood && flClear);
                     }
 
-                    // ---- CAMP FOLK (2026-11-07): rounds found a way for most, the struck-body walks with the figure, names set ----
                     {
                         World.FolkRounds.StayHome = false;
                         var walkers = new System.Collections.Generic.List<World.FolkId>(World.FolkRounds.Walkers);
@@ -3958,7 +3814,7 @@ namespace Deepbound.Networking
                             var gap = fig.transform.position - body.transform.position; gap.y = 0f;
                             if (gap.magnitude > 0.6f) bodiesFollow = false;
                         }
-                        // Trade follows the person (2026-11-08): Silas at the tavern door sells there, not at his empty stall.
+
                         bool followsSilas = true;
                         if (walkers.Contains(World.FolkId.Silas))
                         {
@@ -3968,7 +3824,7 @@ namespace Deepbound.Networking
                             followsSilas = Shop.InReach(Shop.Vendor.Merchant, silasNow + Vector3.right * 1.5f) && !Shop.InReach(Shop.Vendor.Merchant, Lobby.MerchantSpot + Vector3.right * 2.4f);
                         }
                         Log("trade follows the person", "Silas away on rounds: reach by him and not at his stall " + followsSilas, followsSilas);
-                        // Held in conversation (2026-11-08): halfway down his errand, Silas stands still while someone talks to him.
+
                         if (walkers.Contains(World.FolkId.Silas))
                         {
                             World.FolkRounds.DebugArrive(World.FolkId.Silas, 0.5f);
@@ -3992,7 +3848,6 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.2f);
                     }
 
-                    // The training yard: a drill raises a stat and the next costs more.
                     motor.Teleport(Lobby.YardSpot + Vector3.right * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
                     progress.ServerAddGold(400);
@@ -4010,8 +3865,6 @@ namespace Deepbound.Networking
                     }
                     else Log("drills", "no drill board at camp", false);
 
-                    // Corwin's smelling salts: go down, come round on your own.
-                    // Corwin answers from either side of his carriage.
                     bool leftReach = Shop.InReach(Shop.Vendor.Carriage, Lobby.CarriageAt + new Vector3(-2.1f, 0f, 2.2f));
                     bool rightReach = Shop.InReach(Shop.Vendor.Carriage, Lobby.CarriageAt + new Vector3(2.1f, 0f, 2.6f));
                     bool notFromSeats = !Shop.InReach(Shop.Vendor.Carriage, CarriageRide.Instance != null ? CarriageRide.Instance.SeatGround(1) : Lobby.CarriageAt);
@@ -4037,7 +3890,6 @@ namespace Deepbound.Networking
                     }
                     else Log("smelling salts", "Corwin sells none", false);
 
-                    // Brother Aldric's paid prayer: bought at the shrine, it catches one killing blow.
                     motor.Teleport(Lobby.ShrineSpot + Vector3.left * 2.4f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
                     progress.ServerAddGold(300);
@@ -4049,7 +3901,7 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.3f);
                         bool prayed = progress.PrayedFor.Value;
                         var ph = local.GetComponent<Health>();
-                        // Repeat: a whisker's evade or a leftover shield can soak the first blow before the prayer sees it.
+
                         int blows = 0;
                         for (; blows < 3 && progress.PrayedFor.Value; blows++)
                         {
@@ -4064,7 +3916,6 @@ namespace Deepbound.Networking
                     }
                     else Log("paid prayer", "not on sale at the shrine", false);
 
-                    // The smith: this player's own gear offer lands at their feet.
                     var mpos = Lobby.AnvilSpot;
                     motor.Teleport(mpos + Vector3.left * 2.4f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
@@ -4077,7 +3928,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.3f);
                     Log("shop gear", "bought " + stock[gearIndex].Name + " for " + stock[gearIndex].Price + ", gold " + goldNow + " -> " + progress.Gold.Value + ", sold-out: " + progress.CannotBuyReason(Shop.Vendor.Smith, gearIndex),
                         progress.Gold.Value == goldNow - stock[gearIndex].Price && FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length == dropsBeforeBuy + 1 && progress.CannotBuyReason(Shop.Vendor.Smith, gearIndex) == "Sold");
-                    // Crafting (2026-11-07): parts make a potion, a run upgrade and a tool, anywhere; short parts refuse.
+
                     {
                         var flasksC = local.GetComponent<Flasks>();
                         int hpPot = System.Array.FindIndex(Crafting.Recipes, r => r.Kind == CraftKind.Potion && r.Arg == 0);
@@ -4101,7 +3952,7 @@ namespace Deepbound.Networking
                             && progress.ReadiedTool == CraftKind.Caltrops && spent);
                         progress.Parts.Value = 0;
                     }
-                    // ---- LEGACY BOONS (2026-11-07): the effect functions read the player's synced LegacyBits ----
+
                     {
                         var lnp = local.GetComponent<NetworkPlayer>();
                         ushort bitsWas = lnp.LegacyBits.Value;
@@ -4128,17 +3979,15 @@ namespace Deepbound.Networking
                             Mathf.Approximately(radiusPlain, 8f) && Mathf.Approximately(radiusKeen, 12f) && capPlain == 5 && capTinker == 8 && caltrops == 8 && capReason == "Carrying 8" && capReasonPlain == "Carrying 5"
                             && boonsHeld && Legacy.All.Length == System.Enum.GetValues(typeof(Boon)).Length);
                     }
-                    // ---- HEIRLOOM (2026-11-07): at camp before a run, the server carries a chosen relic in as a plain relic, once ----
+
                     {
                         var dirH = World.DungeonDirector.Instance;
-                        // The smoke run reaches this between floors (a run in progress): the server must refuse then; then
-                        // pretend the run has not begun (NextDepth 0) for the rest, and put it back.
+
                         int nextWas = dirH.NextDepth.Value;
                         bool refusedMidRun = !dirH.RunInProgress || progress.CannotBringHeirloom(1) != null;
                         dirH.NextDepth.Value = 0;
                         bool campH = DungeonDirector.InLobby && !dirH.RunInProgress && refusedMidRun;
-                        // At camp before a run the tray is empty; by now the test player carries the floors' relics, and a full
-                        // tray feeds a newcomer into the weakest instead of carrying it (the old flake). Empty it, put it back after.
+
                         var trayWas = new System.Collections.Generic.List<(Loot.Relic r, int tier)>();
                         for (int ri = 0; ri < Loot.Relics.Count; ri++) if (progress.HasRelic((Loot.Relic)ri)) trayWas.Add(((Loot.Relic)ri, progress.RelicTier((Loot.Relic)ri)));
                         foreach (var (r, _) in trayWas) progress.ServerDebugRemoveRelic(r);
@@ -4148,7 +3997,7 @@ namespace Deepbound.Networking
                         bool brought = progress.ServerBringHeirloom((int)heir + 1);
                         bool carried = progress.HasRelic(heir) && progress.RelicTier(heir) == 0 && progress.HeirloomPending == (int)heir;
                         bool twice = !progress.ServerBringHeirloom((int)heir + 1);
-                        // A class change would wipe the tray: the run start puts it back, and spends the flag.
+
                         progress.ServerDebugRemoveRelic(heir);
                         progress.ServerGrantHeirloom();
                         bool regranted = progress.HasRelic(heir) && progress.HeirloomPending == -1;
@@ -4164,12 +4013,10 @@ namespace Deepbound.Networking
                     motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
 
-                    // Runes and sigils are Ysolde's craft: walk to her stones.
                     motor.Teleport(World.Lobby.RunewrightSpot + Vector3.back * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
                     Log("ysolde reachable", "rune work by her stones " + progress.AtRunewright, progress.AtRunewright);
 
-                    // The Gutted Lantern: a horn of mead makes you Tipsy (and costs its price); the band takes a request.
                     var barkeep = FindAnyObjectByType<TavernKeep>();
                     var band = FindAnyObjectByType<TavernBand>();
                     if (barkeep != null && band != null)
@@ -4196,7 +4043,7 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.3f);
                         Log("tavern band", "song " + song0 + " -> " + band.Song.Value + " (\"" + TavernBand.SongName(band.Song.Value) + "\"), paid " + (g0 - progress.Gold.Value),
                             band.Song.Value == (song0 + 1) % Art.TavernMusic.Songs.Length && g0 - progress.Gold.Value == TavernBand.Fee);
-                        // Every tune renders: long enough, never silent, never clipping.
+
                         string songs = ""; bool allOk = true;
                         for (int si = 0; si < Art.TavernMusic.Songs.Length; si++)
                         {
@@ -4210,17 +4057,16 @@ namespace Deepbound.Networking
                         Log("tavern songs", songs, allOk);
                     }
                     else Log("tavern", "no barkeep or band at camp", false);
-                    // Back to Ysolde's stones for the rune checks that follow.
+
                     motor.Teleport(World.Lobby.RunewrightSpot + Vector3.back * 1.2f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
 
-                    // The emote wheel: a gesture chosen on it plays on your body for everyone.
                     var emo = local.GetComponent<Emotes>();
                     emo.DebugEmote(Art.Emote.Cheer);
                     yield return new WaitForSeconds(0.3f);
                     Log("emote wheel", "cheer on the rig: " + (local.Rig != null ? local.Rig.EmoteNow.ToString() : "no rig") + ", wheel slices " + Emotes.Wheel.Length,
                         local.Rig != null && local.Rig.EmoteNow == Art.Emote.Cheer && Emotes.Wheel.Length == 12);
-                    // A gamepad: a virtual pad pressing A jumps (Jump held), RT attacks, and the hints turn to pad buttons.
+
                     {
                         var vpad = UnityEngine.InputSystem.InputSystem.AddDevice<UnityEngine.InputSystem.Gamepad>();
                         UnityEngine.InputSystem.InputSystem.QueueStateEvent(vpad, new UnityEngine.InputSystem.LowLevel.GamepadState { rightTrigger = 1f }.WithButton(UnityEngine.InputSystem.LowLevel.GamepadButton.South));
@@ -4229,7 +4075,7 @@ namespace Deepbound.Networking
                         bool jumpHeld = UI.Binds.Held(UI.Bind.Jump), attack = UI.Binds.PrimaryHeld;
                         UI.Binds.Tick();
                         string hint = UI.Binds.Show("F");
-                        // The pause menu on a pad: down to GUIDE, A opens it, B backs out, B again resumes.
+
                         var pm = FindFirstObjectByType<UI.PauseMenu>();
                         bool padMenu = false;
                         if (pm != null)
@@ -4254,11 +4100,11 @@ namespace Deepbound.Networking
                         UI.Binds.Tick();
                         Log("gamepad", "A = jump " + jumpHeld + ", RT = attack " + attack + ", F prompt shows '" + hint + "', pause menu down+A opens the guide " + padMenu, jumpHeld && attack && hint == "X" && padMenu);
                     }
-                    // The daily descent: the same seed for a day and depth, a new one for the next depth or day.
+
                     Log("daily seeds", "today d3 " + DungeonDirector.DailySeed(20261020, 3) + " again " + DungeonDirector.DailySeed(20261020, 3) + ", d4 " + DungeonDirector.DailySeed(20261020, 4) + ", tomorrow " + DungeonDirector.DailySeed(20261021, 3),
                         DungeonDirector.DailySeed(20261020, 3) == DungeonDirector.DailySeed(20261020, 3) && DungeonDirector.DailySeed(20261020, 3) != DungeonDirector.DailySeed(20261020, 4)
                         && DungeonDirector.DailySeed(20261020, 3) != DungeonDirector.DailySeed(20261021, 3) && DungeonDirector.DailySeed(20261020, 3) > 0);
-                    // The Endless Descent: past floor 10 the acts come round again and the name says which time down; off, nothing changes.
+
                     {
                         var ed = DungeonDirector.Instance;
                         bool wasEndless = ed.EndlessRun.Value;
@@ -4277,20 +4123,20 @@ namespace Deepbound.Networking
                             offAct == DungeonDirector.ActCount - 1 && a10 == 0 && a13 == 1 && a19 == 4 && a21 == 0 && n12.Contains("2nd time down") && !n3.Contains("time down")
                             && DungeonDirector.Lap(9) == 0 && DungeonDirector.Lap(10) == 1 && DungeonDirector.Lap(25) == 2);
                     }
-                    // Colour-blind telegraphs: red and green move apart; blue stays (a test override, the player's setting untouched).
+
                     {
                         Telegraph.ForceColorBlind = true;
                         var red = Telegraph.Accessible(Telegraph.Harm); var green = Telegraph.Accessible(Telegraph.Poison); var blue = Telegraph.Accessible(Telegraph.Friendly);
                         Telegraph.ForceColorBlind = false;
                         Log("colour-blind telegraphs", "harm " + red + ", poison " + green, red.b > 0.6f && green.b < 0.3f && green.r > 0.9f && blue == Telegraph.Friendly);
                     }
-                    // The climbing rope: not on the first floor, not without one.
+
                     {
                         var rp = local.GetComponent<PlayerProgress>();
                         bool noRope = !rp.CanUseRope;
                         Log("climbing rope", "unusable without a rope or at camp " + noRope + ", retreat allowed here " + DungeonDirector.Instance.CanRetreat, noRope);
                     }
-                    // Torment stays shut until a descent is finished (tests have no wins).
+
                     {
                         var tdd = DungeonDirector.Instance;
                         byte before = tdd.DifficultyIndex.Value;
@@ -4299,10 +4145,10 @@ namespace Deepbound.Networking
                         tdd.SetDifficultyRpc(before);
                         Log("torment locked", "asked for Torment, got " + Difficulty.Settings[tdd.DifficultyIndex.Value].Name + " first; locked " + shut, shut || Difficulty.TormentUnlocked);
                     }
-                    // Records stay out of tests: nothing is read or written.
+
                     Log("records", "test run beats nothing: " + (Progression.Records.SubmitRun(12345.0, 99, 999, 9999, true).Count == 0) + ", slab reads zeros " + (Progression.Records.Deepest == 0),
                         Progression.Records.SubmitRun(12345.0, 99, 999, 9999, true).Count == 0 && Progression.Records.Deepest == 0 && !Progression.Records.SubmitFloorTime(60f));
-                    // Key rebinding: moving Kick to K, then onto Q, swaps Ability 1 onto K; hints follow; reset restores.
+
                     UI.Binds.Set(UI.Bind.Kick, UnityEngine.InputSystem.Key.K);
                     bool movedK = UI.Binds.KeyOf(UI.Bind.Kick) == UnityEngine.InputSystem.Key.K && UI.Binds.Show("V") == "K";
                     UI.Binds.Set(UI.Bind.Kick, UnityEngine.InputSystem.Key.Q);
@@ -4312,7 +4158,7 @@ namespace Deepbound.Networking
                     UI.Binds.ResetAll();
                     Log("key rebinding", "kick K " + movedK + ", swap onto Q " + swapped + ", hint '" + rekeyed + "', reset " + UI.Binds.Label(UI.Bind.Kick) + "/" + UI.Binds.Label(UI.Bind.AbilityQ),
                         movedK && swapped && prose && rekeyed == "K  Blink  ·  Q kick" && !UI.Binds.AnyChanged);
-                    // Runes: one in the bag, set it into the weapon's first socket.
+
                     int bagBefore = progress.RuneBagCount;
                     progress.ServerAddRune(Rune.Frost);
                     yield return new WaitForSeconds(0.1f);
@@ -4321,7 +4167,6 @@ namespace Deepbound.Networking
                     Log("rune socket", "socket 1: " + Runes.Name(progress.Socketed(0)) + ", bag " + progress.RuneBagCount,
                         progress.Socketed(0) == Rune.Frost && progress.RuneBagCount == bagBefore);
 
-                    // Melding: three Ember runes and the embers make one Ember II.
                     {
                         for (int k = 0; k < 3; k++) progress.ServerAddRune(Rune.Ember);
                         progress.ServerAddEmbers(Runes.MeldCost(0));
@@ -4334,7 +4179,6 @@ namespace Deepbound.Networking
                             tier2 == tier2Before + 1 && progress.RuneCount(Rune.Ember) == plain - 3);
                     }
 
-                    // Sigils: rank Q twice at the stones, taking option A then option B; each is locked in.
                     float potBefore = progress.Potency(Classes.AbilitySlot.Q);
                     int sigilsBefore = progress.Sigils.Value;
                     progress.ServerAddSigil();
@@ -4347,13 +4191,11 @@ namespace Deepbound.Networking
                         progress.RankQ.Value == 3 && progress.Sigils.Value == sigilsBefore && progress.A(Classes.AbilitySlot.Q, 1) && progress.B(Classes.AbilitySlot.Q, 2) && progress.Pick(Classes.AbilitySlot.Q, 3) == 0
                         && progress.Potency(Classes.AbilitySlot.Q) > potBefore);
 
-                    // Boss legendary: the Hollow Crown lifts both abilities a rank.
                     int qBefore = progress.Rank(Classes.AbilitySlot.Q), eBefore = progress.Rank(Classes.AbilitySlot.E);
-                    // Each Warden has its own legendary now (a Warden used to fall through to the Hollow King's crown).
+
                     Log("warden legendaries", "names " + Gear.BaseName(GearId.MarrowgutsRib) + " / " + Gear.BaseName(GearId.GorrsHide) + ", slots " + Gear.SlotOf(GearId.AldousOath),
                         Gear.BaseName(GearId.ChoirmastersBaton) != "Nothing" && Gear.SlotOf(GearId.DrownedKnightsMail) == GearSlot.Armor && Gear.Effect(GearId.MarrowgutsRib).Length > 0);
                     {
-                        // The Panoply (2026-11-07): its floors, and Martyr's Shell hitting harder when hurt.
                         var hpM = local.GetComponent<Health>();
                         float f0 = hpM.Fraction;
                         var keep = progress.ServerEquip(new GearItem(GearId.MartyrsShell, 3, 2));
@@ -4368,7 +4210,6 @@ namespace Deepbound.Networking
                             floors && low > full * 1.25f && Gear.PanoplyPieces.Length == 4 && Gear.SlotOf(GearId.Rimecloak) == GearSlot.Armor);
                     }
                     {
-                        // Hide of Gorr: poison cannot take its wearer.
                         var oldArmor = progress.ServerEquip(new GearItem(GearId.GorrsHide, 3, 2));
                         var gdeb = progress.GetComponent<PlayerDebuffs>();
                         gdeb.ServerCleanse();
@@ -4387,7 +4228,6 @@ namespace Deepbound.Networking
                         progress.Rank(Classes.AbilitySlot.E) == Mathf.Min(3, eBefore + 1));
                     if (!oldCharm.IsEmpty) progress.ServerEquip(oldCharm);
 
-                    // +3 needs a path; choose Greatblade and check the swing now reaches wider. Tempering is back at the anvil.
                     motor.Teleport(anvilAgain.transform.position + anvilAgain.transform.forward * 1.6f + Vector3.up * 0.1f, local.transform.rotation);
                     yield return new WaitForSeconds(0.2f);
                         progress.ServerAddEmbers(Anvil.Cost(2));
@@ -4403,8 +4243,6 @@ namespace Deepbound.Networking
                     }
                     else Log("anvil", "none at camp", false);
 
-                    // Bones (the dice table) is no longer in camp (2026-11-09): "camp stations" checks it stays gone.
-                    // The Locksmith's Coffer: buy, open two locks, step back -> the tier-two prize; buy again and a snap gives nothing.
                     var coffer = FindObjectsByType<MysteryCoffer>(FindObjectsSortMode.None).FirstOrDefault();
                     if (coffer != null)
                     {
@@ -4425,7 +4263,7 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.3f);
                         coffer.UseRpc(local.NetworkObject);
                         yield return new WaitForSeconds(0.3f);
-                        // Counted in the same frame: the player standing there picks prizes up within a moment.
+
                         after = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length + FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
                         coffer.ServerPicked(progress, false);
                         int afterSnap = FindObjectsByType<LootDrop>(FindObjectsSortMode.None).Length + FindObjectsByType<GearDrop>(FindObjectsSortMode.None).Length;
@@ -4433,7 +4271,7 @@ namespace Deepbound.Networking
                         Log("mystery coffer", "bought " + mine + ", locks " + locks + ", prized " + prized + ", snap: " + after + " -> " + afterSnap + ", gold " + g1 + " -> " + progress.Gold.Value + ", free again " + free,
                             mine && locks == 2 && prized && afterSnap == after && progress.Gold.Value == g1 - MysteryCoffer.Price * 2 && free);
                     }
-                    // The Bone Reels' pot and nudge (forced symbols): a loss feeds the pot, three crowns on a nudge win it.
+
                     var reelsT = FindObjectsByType<SlotMachine>(FindObjectsSortMode.None).FirstOrDefault();
                     if (reelsT != null)
                     {
@@ -4447,7 +4285,7 @@ namespace Deepbound.Networking
                         Log("bone reels pot", "pot " + pot0 + " -> " + pot1 + " after a loss, three crowns paid " + nudgeWin + " (pot now " + reelsT.Pot.Value + "), a pair on a nudge paid " + pairOnNudge,
                             pot1 > pot0 && nudgeWin == pot1 && reelsT.Pot.Value == SlotMachine.PotSeed + 2 && pairOnNudge == 0);
                     }
-                    // The shrine: two blessings on offer; buy the second, and it is on you.
+
                     var shrineT = FindObjectsByType<Shrine>(FindObjectsSortMode.None).FirstOrDefault();
                     if (shrineT != null)
                     {
@@ -4463,7 +4301,7 @@ namespace Deepbound.Networking
                         Log("shrine", offers + " blessings on offer, bought " + Blessings.Name(want) + ", wearing " + Blessings.Name((Blessing)progress.ActiveBlessing.Value),
                             offers == 2 && progress.ActiveBlessing.Value == (byte)want && want != Blessing.None);
                     }
-                    // The range: a hit on a target counts for the shooter.
+
                     var targetT = FindObjectsByType<RangeTarget>(FindObjectsSortMode.None).FirstOrDefault();
                     if (targetT != null)
                     {
@@ -4473,7 +4311,7 @@ namespace Deepbound.Networking
                         RangeTarget.Tally.TryGetValue(local.name, out int after);
                         Log("archery range", "hits " + before + " -> " + after, after == before + 1);
                     }
-                    // The Test of Might: a hit sets the record and the gong takes no damage.
+
                     var gongT = Gong.Instance;
                     if (gongT != null)
                     {
@@ -4485,7 +4323,6 @@ namespace Deepbound.Networking
                     }
                 }
 
-                // Headshots: a shot at the head each creature shows counts as a headshot, and one well above it does not.
                 {
                     var heads = new System.Collections.Generic.List<string>();
                     bool allOk = true;
@@ -4498,7 +4335,7 @@ namespace Deepbound.Networking
                         var rig = e.GetComponentInChildren<Deepbound.Art.HumanoidRig>();
                         var eh = e.GetComponent<Health>();
                         if (rig == null || rig.Head == null) { e.NetworkObject.Despawn(); continue; }
-                        // Where the head is drawn: the middle of what hangs on the head pivot.
+
                         var rs = rig.Head.GetComponentsInChildren<Renderer>().Where(r => r.transform.parent == rig.Head).ToArray();
                         var drawn = rs.Length > 0 ? rs.Select(r => r.bounds).Aggregate((a, b) => { a.Encapsulate(b); return a; }) : new Bounds(rig.Head.position, Vector3.one * 0.2f);
                         var eye = drawn.center - e.transform.forward * -6f + Vector3.up * 0.3f;
@@ -4513,7 +4350,6 @@ namespace Deepbound.Networking
                     Log("headshot hitboxes", string.Join(", ", heads), allOk && heads.Count >= 5);
                 }
 
-                // Joining by address: ports, pasted junk and host names.
                 {
                     bool a1 = NetworkLauncher.ParseAddress(" 203.0.113.7:7790 ", out var ip1, out var p1, out _);
                     bool a2 = NetworkLauncher.ParseAddress("http://192.168.1.20/", out var ip2, out var p2, out _);
@@ -4523,7 +4359,6 @@ namespace Deepbound.Networking
                         a1 && ip1 == "203.0.113.7" && p1 == 7790 && a2 && ip2 == "192.168.1.20" && p2 == 7777 && a3 && ip3 == "127.0.0.1" && a4);
                 }
 
-                // The tailor: wearing a dye rebuilds the body with it.
                 var npT = local.GetComponent<NetworkPlayer>();
                 var rigBefore = npT.Rig;
                 npT.CloakDye.Value = 3;
@@ -4532,7 +4367,7 @@ namespace Deepbound.Networking
                 Log("tailor dye", "dye " + npT.CloakDye.Value + ", rebuilt " + (npT.Rig != rigBefore) + ", cloak " + (cloakR != null) + ", renown for a clear " +
                     Progression.Cosmetics.RenownFor(4, 120, 30, true, 1), npT.Rig != rigBefore && cloakR != null && Progression.Cosmetics.RenownFor(4, 120, 30, true, 1) > 0);
                 npT.CloakDye.Value = 0;
-                // A pattern sews its motif on the cloak's back.
+
                 int patBefore = npT.Pattern.Value;
                 npT.Pattern.Value = 2;
                 yield return new WaitForSeconds(0.3f);
@@ -4546,7 +4381,6 @@ namespace Deepbound.Networking
                     npT.Aura.Value == 2 && Progression.Cosmetics.AuraColor(2).HasValue);
                 npT.Aura.Value = 0;
 
-                // The ultimate: a full bar casts and empties; the Knight's banner protects.
                 var ultT = local.GetComponent<Ultimates>();
                 var clsT = local.GetComponent<PlayerProgress>().ClassId.Value;
                 ultT.DebugCast(local.transform.position + local.transform.forward * 3f);
@@ -4555,17 +4389,15 @@ namespace Deepbound.Networking
                     ultT.Charge.Value < 1f && (clsT != Classes.ClassId.Knight || Ultimates.InBanner(local.transform.position)));
                 if (clsT == Classes.ClassId.Knight)
                 {
-                    // The banner (reworked 2026-11-23): +100 max health for the party, faster blows and feet inside it, no damage bonus.
                     var bpT = local.GetComponent<PlayerProgress>();
                     Log("rallying banner", "vigor " + bpT.BannerVigorOn + " max " + local.GetComponent<Health>().Max.Value.ToString("F0") + ", attack time x" + (Ultimates.InBannerLocal(local.transform.position) ? Ultimates.BannerAttackTime : 1f)
                         + ", speed in banner " + Ultimates.InBannerLocal(local.transform.position) + ", damage x" + Ultimates.OutgoingMultiplier(bpT),
                         bpT.BannerVigorOn && Ultimates.InBannerLocal(local.transform.position) && Mathf.Approximately(Ultimates.OutgoingMultiplier(bpT), 1f));
                 }
 
-                // The Omen Stone exists at camp (the run is already under way, so it will not turn).
                 Log("omen stone", FindObjectsByType<OmenStone>(FindObjectsSortMode.None).Length + " stone(s), omen " + DungeonDirector.OmenName(dc.RunOmen),
                     FindObjectsByType<OmenStone>(FindObjectsSortMode.None).Length == 1);
-                // The newer omens (2026-10-27) name themselves and move their numbers.
+
                 {
                     byte omen0 = dc.OmenValue.Value;
                     var progO = local.GetComponent<PlayerProgress>();
@@ -4581,7 +4413,6 @@ namespace Deepbound.Networking
                     Log("new omens", "avarice " + avarice + ", hushed bells " + hushed + ", quickened " + quick + ", named " + named + ", cd back " + (progO.CooldownMultiplier == cd0), avarice && hushed && quick && named);
                 }
 
-                // ---- TALKING AND QUESTS (2026-11-08) ----
                 {
                     dc.ServerDebugClearQuests();
                     bool talks = true; string broken = "";
@@ -4615,7 +4446,7 @@ namespace Deepbound.Networking
                         tookHobb && sameAsOffered && notTwice && three && full && special && pFavoured < pFull);
                     bool flow = dc.ServerDebugQuestFlow(out var flowWhy);
                     Log("quest progress", flowWhy, flow);
-                    // The camp remembers (2026-11-08): with every trophy and keepsake set, they all stand in camp and the folk speak of them.
+
                     {
                         var keepDir = DungeonDirector.Instance;
                         uint keep0 = keepDir.CampKeeps.Value;
@@ -4630,7 +4461,7 @@ namespace Deepbound.Networking
                         Log("camp memory", (want.Length - missing.Count) + "/" + want.Length + " pieces" + (missing.Count > 0 ? " (missing " + string.Join(", ", missing) + ")" : "") + ", Hobb speaks of it " + (hobbLine != null) + ", cleared " + cleared,
                             missing.Count == 0 && hobbLine != null && cleared);
                     }
-                    // Camp pastimes (2026-11-08): the well gives up a catch; three bulls on the knife board pay Brann's perfect wager once a visit.
+
                     {
                         var well = FindObjectsByType<WellFishing>(FindObjectsSortMode.None).FirstOrDefault();
                         var board = FindObjectsByType<KnifeBoard>(FindObjectsSortMode.None).FirstOrDefault();
@@ -4647,7 +4478,7 @@ namespace Deepbound.Networking
                         int paidAgain = me.Gold.Value - g1;
                         int miss = board != null ? board.ServerThrow(me, new Vector2(1f, 0f)) : -1;
                         bool spots = well != null && board != null && Vector3.Distance(well.transform.position, Lobby.WellSpot) < 0.5f;
-                        // Camp weather (2026-11-08): rain keeps every one of the folk at home; clear lets them go on their rounds.
+
                         {
                             var dirW = DungeonDirector.Instance;
                             byte w0 = dirW.Weather.Value;
@@ -4665,7 +4496,7 @@ namespace Deepbound.Networking
                             CampWeather.DebugShowering = false;
                             dirW.Weather.Value = (byte)CampWeather.Kind.Clear;
                             yield return null;
-                            // Rain comes in showers: over ten minutes of a rainy night there are dry spells and no downpours.
+
                             int wetSecs = 0; float peak = 0f;
                             for (int t = 0; t < 600; t++) { float sv = CampWeather.Shower(t); if (sv > 0.15f) wetSecs++; peak = Mathf.Max(peak, sv); }
                             bool showers = wetSecs > 120 && wetSecs < 360 && peak < 0.85f;
@@ -4681,8 +4512,7 @@ namespace Deepbound.Networking
                             Log("camp weather", "folk away in the rain " + awayInRain + ", in the dry " + awayDry + " (24 moments), weather on the camp " + hasWeather + ", tests roll clear " + (w0 == 0) + ", showers: wet " + wetSecs + " s of 600, peak " + peak.ToString("F2") + " " + showers,
                                 awayInRain == 0 && awayDry > 0 && hasWeather && w0 == 0 && showers);
                         }
-                        // Old Hollis at the bar and the board of the fallen (2026-11-08): both in the tavern, and the board reads no
-                        // names in a test (the records are never touched).
+
                         {
                             var regs = FindObjectsByType<TavernRegular>(FindObjectsSortMode.None);
                             var boards = FindObjectsByType<MemorialBoard>(FindObjectsSortMode.None);
@@ -4692,7 +4522,7 @@ namespace Deepbound.Networking
                             Log("tavern regular", "regulars " + regs.Length + " in the tavern " + regIn + ", memorial boards " + boards.Length + " in the tavern " + boardIn + ", no names in tests " + noNames,
                                 regIn && boardIn && noNames);
                         }
-                        // The bells (2026-11-08): a peal rung true is clean and blesses the ringer once a visit; a ragged one does not.
+
                         {
                             var frame = FindObjectsByType<BellFrame>(FindObjectsSortMode.None).FirstOrDefault();
                             var ringer = NetworkPlayer.Local.GetComponent<PlayerProgress>();
@@ -4704,7 +4534,7 @@ namespace Deepbound.Networking
                             {
                                 frame.ServerBegin();
                                 for (int i = 0; i < 8; i++) frame.ServerRing(ringer, frame.NoteAt(i), frame.PealAt.Value + i * BellFrame.Beat);
-                                frame.ServerRing(ringer, (frame.NoteAt(8) + 1) % 4, frame.PealAt.Value + 8 * BellFrame.Beat); // a wrong bell
+                                frame.ServerRing(ringer, (frame.NoteAt(8) + 1) % 4, frame.PealAt.Value + 8 * BellFrame.Beat);
                                 frame.ServerFinish();
                                 ragged = frame.LastHits == 8 && ringer.ActiveBlessing.Value == 0;
                                 frame.ServerBegin();
@@ -4721,7 +4551,7 @@ namespace Deepbound.Networking
                             if (bl0 != 0) ringer.ServerBless((Blessing)bl0); else ringer.ServerClearBlessing();
                             Log("bell peal", "frame " + (frame != null) + ", ragged peal unblessed " + ragged + ", clean peal blessed " + clean + ", only once a visit " + once, frame != null && ragged && clean && once);
                         }
-                        // Arm-wrestling Brann (2026-11-08): heaves on the mark pin him and pay double, a miss slips, a loss keeps the stake, and he pays three wins a visit.
+
                         {
                             var barrel = FindObjectsByType<ArmWrestle>(FindObjectsSortMode.None).FirstOrDefault();
                             var arm = NetworkPlayer.Local.GetComponent<PlayerProgress>();
@@ -4732,8 +4562,6 @@ namespace Deepbound.Networking
                             int ga = arm.Gold.Value;
                             double Win(ArmWrestle w, int side = 1)
                             {
-                                // Play the bout out on its own clock. Against Gorm: rest while he leans, strain from his surge
-                                // through his tiring. Delvers: the far side strains all the way, the near side rests.
                                 for (int k = 0; k < 6000 && w.InBout; k++)
                                 {
                                     if (side < 0) { w.ServerSetStrain(-1, true); w.ServerSetStrain(1, false); }
@@ -4747,7 +4575,7 @@ namespace Deepbound.Networking
                             if (barrel != null)
                             {
                                 claspOk = barrel.ServerClasp(arm, 25) && arm.Gold.Value == ga - 25;
-                                // An unbraced surge shoves you most of the way to the wood.
+
                                 float bs = 0f; bool sawSurge = false;
                                 for (int k = 0; k < 3000 && barrel.InBout; k++)
                                 {
@@ -4767,10 +4595,9 @@ namespace Deepbound.Networking
                                 lossKeeps = barrel.LastOutcome == -1 && arm.Gold.Value == gl - 10;
                                 int gc = arm.Gold.Value;
                                 for (int k = 0; k < 3; k++) { barrel.ServerClasp(arm, 10); Win(barrel); }
-                                // Wins 2 and 3 pay double (+10 each); the 4th is for pride (stake back).
+
                                 capOk = arm.Gold.Value == gc + 20;
-                                // Delver against delver (one player takes both sides here; a real pair is not smoke-tested):
-                                // a challenge waits and withdraws for a refund; taken, the winner gets both stakes.
+
                                 ArmWrestle.DebugSelfMatch = true;
                                 int gp = arm.Gold.Value;
                                 bool waits = barrel.ServerChallenge(arm, 25) && barrel.WaitingForRival && arm.Gold.Value == gp - 25 && !barrel.ServerClasp(arm, 10);
@@ -4789,7 +4616,7 @@ namespace Deepbound.Networking
                             Log("arm wrestling", "barrel " + (barrel != null) + ", clasp takes the stake " + claspOk + ", an unbraced surge shoves you " + slipped + ", braced and drove: pinned him for double " + wonFirst + ", a loss keeps the stake " + lossKeeps + ", three paid wins a visit " + capOk + "; delvers: " + pvpWhy,
                                 barrel != null && claspOk && slipped && wonFirst && lossKeeps && capOk && pvpOk);
                         }
-                        // Old Wick (2026-11-08): sits with a lone player, plays a whole hand on his own, gold is only moved (never made) at the table, leaves when the player does, never sits broke.
+
                         {
                             var table = FindObjectsByType<PokerDiceTable>(FindObjectsSortMode.None).FirstOrDefault(t => Enumerable.Range(0, PokerDiceTable.Seats).All(k => t.State.Value.SeatOf(k) == PokerDiceTable.NoOne));
                             var wme = NetworkPlayer.Local.GetComponent<PlayerProgress>();
@@ -4828,7 +4655,7 @@ namespace Deepbound.Networking
                                 brokeStays = table.WickSeat < 0;
                                 table.ServerLeave(wme.OwnerClientId);
                                 table.WickGold.Value = purse;
-                                // Seated, the player was pinned to the stool: let the table unpin them before anything teleports them.
+
                                 for (int f = 0; f < 6; f++) yield return null;
                             }
                             bool holds = PokerDiceTable.WickHold(new[] { 3, 3, 5, 6, 1 }) == 3 && PokerDiceTable.WickHold(new[] { 2, 3, 4, 5, 6 }) == 31;
@@ -4842,7 +4669,6 @@ namespace Deepbound.Networking
                     dc.ServerDebugClearQuests();
                 }
 
-                // The quest board: take a notice, see it ride down with the party.
                 var notice = FindObjectsByType<BountyNotice>(FindObjectsSortMode.None).FirstOrDefault();
                 if (notice != null)
                 {
@@ -4854,8 +4680,6 @@ namespace Deepbound.Networking
                     Log("bounty board", FindObjectsByType<BountyNotice>(FindObjectsSortMode.None).Length + " notices, took " + (dc.Quests.Count > 0 ? UI.Dialogue.NameOf(dc.Quests[0].Who) + "'s " + DungeonDirector.ContractName(dc.Quests[0].Contract) : "nothing"), fromBoard);
                 }
 
-                // Board: floor two, same run.
-                // Board the way players do: everyone sits on the carriage's tailgate, a countdown, the ride out.
                 int seatN = 0;
                 foreach (var pl in PlayerLife.All) if (pl != null) pl.Seat.Value = (sbyte)(seatN++ % CarriageRide.SeatCount);
                 float boardBy = Time.time + 18f;
@@ -4873,13 +4697,13 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(1.5f);
                 bool live = true; foreach (var q in dc.Quests) if (q.Status == DungeonDirector.ContractStatus.Taken) live = false;
                 Log("contract live", dc.Quests.Count + " quest(s), " + (dc.Quests.Count > 0 ? DungeonDirector.ContractName(dc.Quests[0].Contract) + " " + dc.Quests[0].Status + ", goal " + dc.Quests[0].Goal : "none"), live);
-                // Quests on the floor (2026-11-08): cargo to carry, finds to gather, a named mark - each placed and each done.
+
                 {
                     bool qdOk = false; string qdWhy = "did not finish";
                     yield return dc.ServerDebugQuestDungeon((ok, why) => { qdOk = ok; qdWhy = why; });
                     Log("quests on the floor", qdWhy, qdOk);
                 }
-                // Dungeon interactables (2026-11-08): oil + fire bowl, a scorch lights oil, a falling pillar, a chandelier, a vigil kept and snuffed, a prisoner freed and a bait cage.
+
                 {
                     var ix = new System.Text.StringBuilder();
                     bool ixOk = true;
@@ -4896,7 +4720,7 @@ namespace Deepbound.Networking
                         return e;
                     }
                     var made = new System.Collections.Generic.List<EnemyBrain>();
-                    // 1. A jar spills; the fire bowl beside it tips and lights the slick.
+
                     int slicks0 = OilSlick.All.Count;
                     var oilAt = Spot(14f, 0f);
                     var jar = dc.ServerDebugBreakable(Breakable.Kind.OilJar, oilAt);
@@ -4911,7 +4735,7 @@ namespace Deepbound.Networking
                     bool bowlLit = slickA != null && slickA.Burning;
                     ix.Append("oil spilled " + spilled + ", bowl lit it " + bowlLit);
                     ixOk &= spilled && bowlLit;
-                    // 2. A scorch on something standing in a slick lights it, and it burns what stands in it.
+
                     var burner = Dummy(Spot(-14f, 0f));
                     yield return new WaitForSeconds(0.2f);
                     var slickB = dc.ServerSpawnOil(burner != null ? burner.transform.position : Spot(-14f, 0f), false, local.NetworkObjectId);
@@ -4923,7 +4747,7 @@ namespace Deepbound.Networking
                     ix.Append(", scorch lit and burned " + scorchLit);
                     ixOk &= scorchLit;
                     if (burner != null) made.Add(burner);
-                    // 3. A pillar falls away from the blow, onto the skeleton behind it.
+
                     var pillarAt = Spot(0f, 14f);
                     var pillar = dc.ServerDebugBreakable(Breakable.Kind.CrackedPillar, pillarAt);
                     var fallDir = pillarAt - origin; fallDir.y = 0f; fallDir.Normalize();
@@ -4936,7 +4760,7 @@ namespace Deepbound.Networking
                     ix.Append(", pillar crushed " + pillarHit);
                     ixOk &= pillarHit;
                     if (crushed != null) made.Add(crushed);
-                    // 4. The chandelier lands on the skeleton under it.
+
                     var under = Dummy(Spot(0f, -14f));
                     yield return new WaitForSeconds(0.2f);
                     var hang = under != null ? under.transform.position : Spot(0f, -14f);
@@ -4950,7 +4774,7 @@ namespace Deepbound.Networking
                     ix.Append(", chandelier crushed " + chandHit + (chandHit ? "" : " (" + ch0.ToString("F0") + " -> " + ch1.ToString("F0") + ", " + (under != null ? Vector3.Distance(under.transform.position, hang).ToString("F1") + " m off" : "no dummy") + ")"));
                     ixOk &= chandHit;
                     if (under != null) made.Add(under);
-                    // 5. A vigil kept heals and blesses; a lit candle by one of the dead is snuffed.
+
                     var prog = local.GetComponent<PlayerProgress>();
                     byte blessing0 = prog.ActiveBlessing.Value;
                     prog.ServerClearBlessing();
@@ -4959,11 +4783,11 @@ namespace Deepbound.Networking
                     foreach (var c in vigil) c.ServerLight(prog);
                     yield return null;
                     bool kept = vigil.Count == 4 && vigil.TrueForAll(c => c.Kept.Value) && prog.ActiveBlessing.Value != 0;
-                    // The dead one first, then the candles round it (a spawn can be nudged off where it was asked for).
+
                     var snuffer = Dummy(oilAt + Vector3.forward * 8f);
                     yield return null;
                     var nearSnuffer = (snuffer != null ? snuffer.transform.position : oilAt + Vector3.forward * 8f) + Vector3.right * 0.6f;
-                    var snuffSet = dc.ServerDebugVigil(nearSnuffer - Vector3.forward * 3f); // candle 0 stands 3 m forward of the centre
+                    var snuffSet = dc.ServerDebugVigil(nearSnuffer - Vector3.forward * 3f);
                     yield return null;
                     snuffSet[0].ServerLight(prog);
                     yield return new WaitForSeconds(0.6f);
@@ -4971,7 +4795,7 @@ namespace Deepbound.Networking
                     ix.Append(", vigil kept " + kept + ", snuffed " + snuffed);
                     ixOk &= kept && snuffed;
                     if (snuffer != null) made.Add(snuffer);
-                    // 6. A prisoner freed fights the dead near them; a bait cage lets out ghouls.
+
                     var cageAt = Spot(-6f, 6f);
                     var freed = dc.ServerDebugPrisoner(cageAt, Quaternion.identity);
                     var foe = Dummy(cageAt + Vector3.forward * 2.5f);
@@ -4992,7 +4816,7 @@ namespace Deepbound.Networking
                     ixOk &= fought && baited;
                     if (foe != null) made.Add(foe);
                     foreach (var eb in EnemyBrain.All) if (eb != null && !enemiesBefore.Contains(eb)) made.Add(eb);
-                    // Clean up: the dummies and the ghouls go, the freed delver and the props stay out of the way.
+
                     foreach (var e in made) if (e != null && !e.IsDead) e.GetComponent<Health>().ServerDamage(1e6f, e.transform.position);
                     if (freed != null && freed.IsSpawned) freed.NetworkObject.Despawn();
                     foreach (var s in OilSlick.All.ToArray()) if (s != null && s.IsSpawned) s.NetworkObject.Despawn();
@@ -5000,7 +4824,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.3f);
                     Log("dungeon interactables", ix.ToString(), ixOk);
                 }
-                // Puzzle rooms (2026-11-08): the watchers turn to the sigil and the coffer opens; the chimes reset on a wrong plate and open on the tune.
+
                 {
                     var o = local.transform.position;
                     int chests0 = FindObjectsByType<Chest>(FindObjectsSortMode.None).Length;
@@ -5028,7 +4852,7 @@ namespace Deepbound.Networking
                     for (int k = 0; k < len; k++) pc2.ServerStep(pc2.NoteAt(k));
                     yield return new WaitForSeconds(0.3f);
                     bool cSolved = pc2.Solved.Value;
-                    // The light-beam room: the mirrors start sending the light astray; set right, it reaches the crystal.
+
                     var pm = dc.ServerDebugPuzzle(PuzzleRoom.Kind.Mirrors, o + new Vector3(0f, 0f, -16f), o + new Vector3(0f, 0f, -22.5f));
                     yield return null; yield return null;
                     var mirrors = PuzzleMirror.All.Where(m => m != null && m.Group.Value == pm.RoomId.Value).ToList();
@@ -5036,14 +4860,14 @@ namespace Deepbound.Networking
                     foreach (var m in mirrors) if (m.State.Value != m.SolutionState) m.ServerTurn(true);
                     yield return new WaitForSeconds(0.3f);
                     bool mSolved = pm.Solved.Value && mirrors.All(m => m.Solved.Value);
-                    // The Scales: five urns; the wrong load leaves it shut, the right one (by the studs) held level opens it.
+
                     var ps = dc.ServerDebugPuzzle(PuzzleRoom.Kind.Scales, o + new Vector3(16f, 0f, -16f), o + new Vector3(16f, 0f, -22.5f));
                     yield return null; yield return null;
                     var urns = Carryable.All.OfType<ScaleWeight>().Where(u => u != null && u.Group.Value == ps.RoomId.Value).ToList();
                     var answer = ScaleAnswer(urns, ps.Target.Value);
                     bool noSingle = urns.All(u => u.Weight.Value != ps.Target.Value);
                     var off = urns.Where(u => !answer.Contains(u)).ToList();
-                    // The spare urns can be a second answer by chance (1+2+6 when the target is 4+5 = 9): load one fewer.
+
                     var wrongSet = off.Sum(u => u.Weight.Value) == ps.Target.Value ? off.Skip(1).ToList() : off;
                     foreach (var u in wrongSet) u.ServerDrop(ps.LoadPan);
                     yield return new WaitForSeconds(0.3f);
@@ -5064,13 +4888,12 @@ namespace Deepbound.Networking
                         && urns.Count == PuzzleRoom.ScaleWeights && answer.Count >= 2 && noSingle && shutWhenWrong && onPan && sSolved && chests >= 4 && dc.PuzzlesSolved - solved0 == 4);
                 }
                 Log("next floor", "depth " + dc.Floor.Value.y + ", weapon kept +" + pc.WeaponLevel.Value, dc.Floor.Value.y == 1 && pc.WeaponLevel.Value >= 2);
-                // The Drowned Vaults (act two, floor 3): their tide slows low ground while it is up.
+
                 dc.ServerDebugStartFloor(2);
                 yield return new WaitForSeconds(2f);
                 Log("act two", "floor " + (dc.Floor.Value.y + 1) + " is act " + (DungeonDirector.Act(dc.Floor.Value.y) + 1) + " (" + DungeonTheme.ForDepth(dc.Floor.Value.y).Name + "), boss " +
                     (BossBrain.Active != null ? BossBrain.Active.DisplayName : "none"), DungeonDirector.Act(dc.Floor.Value.y) == 1 && BossBrain.Active is WardenBrain);
                 {
-                    // Hunting strikes: predicted circles walk after every standing player; a lance fan follows.
                     var hunter = BossBrain.Active;
                     var hh = local.GetComponent<Health>();
                     if (hunter != null)
@@ -5079,9 +4902,9 @@ namespace Deepbound.Networking
                         hh.ServerSetFraction(1f);
                         float h0 = hh.Current.Value;
                         int thrown0 = hunter.HuntsThrown;
-                        // No shield in the way (the Wheel's Mending can leave one): this checks the strike lands.
+
                         hh.Shield.Value = 0f;
-                        // Count the boss's blows on this player (health alone can be masked by a heal in the same second).
+
                         int blows = 0;
                         ulong hunterId = hunter.NetworkObjectId;
                         System.Action<Health, float, ulong> countBlows = (t, d, f) => { if (t == hh && f == hunterId) blows++; };
@@ -5099,11 +4922,11 @@ namespace Deepbound.Networking
                             hunter.HuntsThrown == thrown0 + 2 && struck && Difficulty.SummonCount(4, 1) < Difficulty.SummonCount(4, 4));
                         yield return new WaitForSeconds(1.4f);
                         hh.ServerSetFraction(1f);
-                        // The break meter: full, the boss is held and takes half again; it recovers after BreakSeconds.
+
                         {
                             var bhp = hunter.GetComponent<Health>();
                             float plain = 0f, broken = 0f;
-                            // Awake for the measurement (asleep, it takes nothing at all).
+
                             bool wasDormant = hunter.Dormant;
                             hunter.Dormant = false;
                             hunter.ServerDebugBreak();
@@ -5128,13 +4951,12 @@ namespace Deepbound.Networking
                 Log("tide", "level " + DungeonDirector.TideLevel.ToString("F2") + ", slow " + DungeonDirector.WaterSlow(floorSpot).ToString("F2"), DungeonDirector.WaterSlow(floorSpot) < 1f);
             }
 
-            // An Entling roots the player until it dies; a Mania hit takes the legs for a moment.
             if (net.IsServer && local != null && DungeonDirector.Layout != null)
             {
                 var me2 = local.GetComponent<FirstPersonMotor>();
                 var deb2 = local.GetComponent<PlayerDebuffs>();
                 var hp2 = local.GetComponent<Health>();
-                // Alone with it: other attackers nearby would hold its turn to strike.
+
                 foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
                     if (!e.IsDead && !(e is BossBrain) && Vector3.Distance(e.transform.position, local.transform.position) < 30f) e.GetComponent<Health>().ServerDamage(1e6f, e.transform.position);
                 yield return new WaitForSeconds(0.3f);
@@ -5151,16 +4973,16 @@ namespace Deepbound.Networking
                 deb2.ServerMania(1f);
                 yield return new WaitForSeconds(0.2f);
                 bool manic = deb2.Manic && !local.GetComponent<PlayerLife>().CanAct;
-                // The Iron Psalter (a relic the blood altar may have given) makes you immune to mania.
+
                 bool psalter = local.GetComponent<PlayerProgress>().HasRelic(Relic.IronPsalter);
                 deb2.ServerCleanse();
                 Log("mania", (psalter ? "immune (Iron Psalter), " : "") + "manic " + manic + ", cleansed " + !deb2.Manic, (manic || psalter) && !deb2.Manic);
-                // The Iron Psalter: madness slides off.
+
                 var pp2 = local.GetComponent<PlayerProgress>();
-                // A full tray would turn it into an empowering of something else: make room.
+
                 if (!pp2.HasRelic(Relic.IronPsalter) && pp2.RelicCount >= Relics.MaxCarried) pp2.ServerDebugRemoveRelic(pp2.RelicAt(0));
                 pp2.ServerAddRelic(Relic.IronPsalter);
-                yield return new WaitForSeconds(4f); // past the mania grace
+                yield return new WaitForSeconds(4f);
                 deb2.ServerMania(1f);
                 yield return new WaitForSeconds(0.2f);
                 Log("iron psalter", "maddened " + deb2.Manic, !deb2.Manic);
@@ -5168,11 +4990,9 @@ namespace Deepbound.Networking
                 hp2.ServerSetFraction(1f);
             }
 
-            // Ranged falloff: full bite to 45% of range, 60% at the very end.
             Log("falloff", "at 30% " + Arrows.Falloff(9f, 30f).ToString("F2") + ", at 75% " + Arrows.Falloff(22.5f, 30f).ToString("F2") + ", at the end " + Arrows.Falloff(30f, 30f).ToString("F2"),
                 Arrows.Falloff(9f, 30f) >= 0.999f && Arrows.Falloff(30f, 30f) <= Arrows.FalloffFloor + 0.001f && Arrows.Falloff(22.5f, 30f) < 1f);
 
-            // The anvil goes to +10: gold from +6, a third socket at +6, Ascended at +8.
             if (net.IsServer && local != null && DungeonDirector.InLobby == false)
             {
                 var tp = local.GetComponent<PlayerProgress>();
@@ -5196,7 +5016,6 @@ namespace Deepbound.Networking
                 Log("anvil to +10", "level " + tp.WeaponLevel.Value + ", sockets " + Runes.SocketsAt(tp.WeaponLevel.Value) + ", gold spent " + (goldBefore - tp.Gold.Value) + ", attack x" + multBefore.ToString("F2") + " -> x" + tp.AttackMultiplier.ToString("F2"),
                     tp.WeaponLevel.Value == World.Anvil.MaxLevel && Runes.SocketsAt(tp.WeaponLevel.Value) == 3 && goldBefore - tp.Gold.Value > 0);
 
-                // Edges: three forged on the way (all different), a wrong pick refused; then hones past +10.
                 bool edgesOk = true;
                 for (int s = 0; s < Progression.Edges.Slots; s++)
                     for (int s2 = s + 1; s2 < Progression.Edges.Slots; s2++)
@@ -5211,8 +5030,6 @@ namespace Deepbound.Networking
                     edgesOk && refused && offered.Count == 9 && hones == World.Anvil.MaxHones && tp.AttackMultiplier > preHone * 1.14f && tp.CannotTemperReason() != null);
             }
 
-            // VERTICALITY (2026-11-14): mezzanines and belfries turn up with decks and stairs, a long fall hurts, and the dead
-            // jump down from high ground onto whoever is below.
             if (net.IsServer && local != null)
             {
                 int mezz = 0, belf = 0, under = 0, perched = 0, ruins = 0, ramparts = 0, bad = 0;
@@ -5251,13 +5068,11 @@ namespace Deepbound.Networking
                     landed = Vector3.Distance(leaper.transform.position, landAt) < 1.2f;
                     leaper.NetworkObject.Despawn();
                 }
-                // Mantling: in the air against a 1.6 m block, the player climbs onto it.
+
                 var block = GameObject.CreatePrimitive(PrimitiveType.Cube);
-                // A clear patch of the start room (random dressing can stand on any fixed spot): the block, the run-up
-                // in front of it and the headroom over it all empty.
+
                 var blockAt = vsr.Center + new Vector3(-5f, 0.8f, 3f);
-                // Only what matters is checked: headroom over the block's top (1.6 to 3.6 m) and the run-up in front of it
-                // (a box the size of the whole thing reached the walls of a 12 m room and failed every spot).
+
                 foreach (var off in new[] { new Vector3(-5f, 0f, 3f), new Vector3(-3f, 0f, 3f), new Vector3(3f, 0f, 3f), new Vector3(-3f, 0f, -2f), new Vector3(3f, 0f, -2f), new Vector3(0f, 0f, 3.5f), new Vector3(-4f, 0f, 0f), new Vector3(4f, 0f, 0f), new Vector3(5f, 0f, 3f) })
                 {
                     var cand = vsr.Center + off + Vector3.up * 0.8f;
@@ -5274,7 +5089,7 @@ namespace Deepbound.Networking
                 vm.Teleport(blockAt + new Vector3(0f, -0.2f, -1.5f - 0.55f), Quaternion.LookRotation(Vector3.forward));
                 Physics.SyncTransforms();
                 yield return null;
-                // A few frames' grace: the teleport can land a frame before the controller settles against the block.
+
                 bool began = false; string mantleWhy = "";
                 for (int tries = 0; tries < 4 && !began; tries++)
                 {
@@ -5284,7 +5099,7 @@ namespace Deepbound.Networking
                 }
                 yield return new WaitForSeconds(FirstPersonMotor.MantleSeconds + 0.3f);
                 bool onTop = Mathf.Abs(local.transform.position.y - 1.6f) < 0.35f && Mathf.Abs(local.transform.position.z - blockAt.z) < 1.5f;
-                // Too high: a 3 m wall is not climbed.
+
                 block.transform.localScale = new Vector3(3f, 6f, 3f);
                 vm.Teleport(blockAt + new Vector3(0f, -0.2f, -1.5f - 0.55f), Quaternion.LookRotation(Vector3.forward));
                 Physics.SyncTransforms();
@@ -5294,7 +5109,7 @@ namespace Deepbound.Networking
                 vm.Teleport(vsr.Center + Vector3.up * 0.1f, local.transform.rotation);
                 yield return new WaitForSeconds(0.3f);
                 vhp.ServerSetFraction(1f);
-                // Formations: every company fills its first posts with someone.
+
                 {
                     int filled = 0, asked = 0; bool fb = false, fn = false;
                     foreach (DungeonDirector.Formation fm in new[] { DungeonDirector.Formation.ShieldWall, DungeonDirector.Formation.Horde, DungeonDirector.Formation.Coven })
@@ -5308,8 +5123,6 @@ namespace Deepbound.Networking
                     mezz > 0 && belf > 0 && under > 0 && perched > 0 && ruins > 0 && ramparts > 0 && bad == 0 && (drop < 4.8f || afterFall < 0.99f) && afterFall > 0.5f && leaps == 1 && landed);
             }
 
-            // HEARING THE DUNGEON (2026-11-16): rooms and corridors sound different, stone between you and a sound muffles it
-            // (a creature or a loose crate does not), and the dead are heard walking.
             if (net.IsServer && local != null && DungeonDirector.Layout != null && !DungeonDirector.InLobby)
             {
                 var al = DungeonDirector.Layout;
@@ -5318,7 +5131,7 @@ namespace Deepbound.Networking
                 string roomSpace = Art.Acoustics.SpaceAt(ar.Center + Vector3.up).Name;
                 string corSpace = al.Links.Count > 0 ? Art.Acoustics.SpaceAt(al.CorridorMidpoint(al.Links[0]) + Vector3.up).Name : "none";
                 string bossSpace = big != null ? Art.Acoustics.SpaceAt(big.Center + Vector3.up).Name : "none";
-                // Out in empty space far below the floor: open air, a stone slab, a loose crate.
+
                 var earT = new Vector3(0f, -80f, 0f);
                 var soundT = earT + new Vector3(0f, -0.6f, 9f);
                 bool open = !Art.Sfx.Occluded(earT, soundT);
@@ -5331,7 +5144,7 @@ namespace Deepbound.Networking
                 Physics.SyncTransforms();
                 bool loose = !Art.Sfx.Occluded(earT, soundT);
                 Destroy(slab);
-                // Through the real playback path: a wall right in front of the camera muffles a hit behind it.
+
                 var cam = Art.ViewCamera.Current;
                 float muffled = -1f;
                 if (cam != null)
@@ -5352,8 +5165,6 @@ namespace Deepbound.Networking
                     && (cam == null || Mathf.Approximately(muffled, Art.Sfx.WallCutoff)) && Art.HumanoidRig.SoftSteps > 0);
             }
 
-            // THE DEAD HEAR YOU (2026-11-16): standing still behind stone you are not heard; a fight is, and an idle one
-            // goes to look (without seeing you first). Walking is silent, sprinting carries.
             if (net.IsServer && local != null && DungeonDirector.Layout != null && !DungeonDirector.InLobby)
             {
                 var hd = DungeonDirector.Instance;
@@ -5384,13 +5195,13 @@ namespace Deepbound.Networking
                     loudRun = DungeonDirector.NoiseOf(hlife, 7f) >= DungeonDirector.SprintNoise;
                     listener.GetComponent<Health>().ServerDamage(1e6f, listener.transform.position);
                 }
-                // UNAWARE: one behind the wall that has noticed no one takes x1.5 from the first blow, not the next.
+
                 var sleeper = hd.ServerDebugSpawn("skeleton", earAt, false, true);
                 bool calm = false; float first = 0f, second = 0f; int openers = 0; string calmWhy = "";
                 if (sleeper != null)
                 {
                     yield return new WaitForSeconds(1.2f);
-                    // Settle: a noise from the check before can still send it to look for a few seconds.
+
                     for (float t = 0f; t < 8f && (sleeper.HasTarget || sleeper.Investigating); t += 0.2f) yield return new WaitForSeconds(0.2f);
                     calm = !sleeper.HasTarget && !sleeper.Investigating;
                     calmWhy = "target " + sleeper.HasTarget + " looking " + sleeper.Investigating + " heard " + sleeper.Heard;
@@ -5399,7 +5210,7 @@ namespace Deepbound.Networking
                     shp.ServerDamage(10f, front, local.NetworkObjectId);
                     first = shp.LastLanded;
                     yield return new WaitForSeconds(0.3f);
-                    // It turned toward the blow: strike its new front, or the second is a backstab (x1.35).
+
                     front = sleeper.transform.position + sleeper.transform.forward * 1.2f;
                     shp.ServerDamage(10f, front, local.NetworkObjectId);
                     second = shp.LastLanded;
@@ -5407,8 +5218,8 @@ namespace Deepbound.Networking
                     shp.ServerDamage(1e6f, sleeper.transform.position);
                 }
                 Log("unaware opener", "calm " + calm + " (" + calmWhy + "), first blow " + first.ToString("0.0") + ", next " + second.ToString("0.0") + ", openers " + openers,
-                    sleeper != null && calm && openers == 1 && second > 0f && first > second * 1.1f); // the opener counter proves it fired once; the second blow can carry a stagger or relic bonus (x1.25) of its own
-                // ENEMY AI (2026-11-18): five round you take turns (three swing at most), and one that loses you searches.
+                    sleeper != null && calm && openers == 1 && second > 0f && first > second * 1.1f);
+
                 {
                     var crowd = new System.Collections.Generic.List<EnemyBrain>();
                     for (int i = 0; i < 5; i++)
@@ -5442,8 +5253,6 @@ namespace Deepbound.Networking
                     hadListener && quiet && !sawFirst && heard && silentWalk && loudRun);
             }
 
-            // THE CINDER PIT (2026-11-14): a negative-seed floor with its own theme, lava that burns the living, and Vharoth,
-            // whose stage loop turns and whose seekers burst on whoever they reach.
             if (net.IsServer && local != null)
             {
                 var pd = DungeonDirector.Instance;
@@ -5460,7 +5269,7 @@ namespace Deepbound.Networking
                 if (pools > 0)
                 {
                     hpP.ServerSetFraction(1f);
-                    // A pool with nothing standing in it (a pillar or a prop over a pool would hold the player up out of it).
+
                     var pool = DungeonDirector.Lava[0];
                     foreach (var lp in DungeonDirector.Lava)
                         if (!Physics.CheckCapsule(lp.At + Vector3.up * 0.5f, lp.At + Vector3.up * 1.6f, 0.45f, ~0, QueryTriggerInteraction.Ignore)) { pool = lp; break; }
@@ -5488,7 +5297,6 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(2.5f);
             }
 
-            // The climbing rope: from the waystone the party goes back to camp, and the same depth waits for them.
             if (net.IsServer && local != null && DungeonDirector.Instance.Floor.Value.y >= 1)
             {
                 var rd = DungeonDirector.Instance;
@@ -5510,10 +5318,8 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(2f);
             }
 
-            // Wipe the party and check the run summary has something to show.
             if (net.IsServer && local != null)
             {
-                // Repeat: a Phoenix Feather (or its grace window) can cheat the first blow.
                 for (int tries = 0; tries < 4 && DungeonDirector.Instance.Phase.Value != RunPhase.Wiped; tries++)
                 {
                     foreach (var p in PlayerLife.All) p.Health.ServerDamage(1e6f, p.transform.position);
@@ -5524,21 +5330,19 @@ namespace Deepbound.Networking
                 Log("run summary", "phase " + d.Phase.Value + ", run " + (d.RunEndedAt.Value - d.RunStartedAt.Value).ToString("F0") + "s, kills " + prog.Kills.Value +
                     ", damage " + prog.DamageDealt.Value + ", downs " + prog.Downs.Value,
                     d.Phase.Value == RunPhase.Wiped && prog.Kills.Value >= 3 && prog.Downs.Value >= 1 && d.RunEndedAt.Value > d.RunStartedAt.Value);
-                // The checks below need the floor: the wipe's 14 s to camp ran out under them once they grew (pets, Patient Zero).
+
                 if (d.Phase.Value == RunPhase.Wiped) d.ServerDebugHoldPhase(true);
             }
 
-            // Relic synergy (last, so its effects cannot disturb other checks).
             if (net.IsServer && local != null)
             {
                 var synP = local.GetComponent<PlayerProgress>();
-                // An empty tray first: relics from earlier checks could fill it or already hold these.
+
                 for (int ri = 0; ri < Relics.Count; ri++) synP.ServerDebugRemoveRelic((Relic)ri);
                 synP.ServerAddRelic(Relic.ThunderSigil);
                 synP.ServerAddRelic(Relic.EchoStone);
                 Log("relic synergy", "Storm Caller " + Relics.Has(synP, Relics.Synergy.StormCaller), Relics.Has(synP, Relics.Synergy.StormCaller));
 
-                // The relic tray: a relic you carry empowers it; a full tray feeds the weakest; cooldown cuts cap.
                 float cdTier0 = synP.CooldownMultiplier;
                 synP.ServerAddRelic(Relic.EchoStone);
                 int echoTier = synP.RelicTier(Relic.EchoStone);
@@ -5548,13 +5352,11 @@ namespace Deepbound.Networking
                 Log("relic tray", "Echo Stone tier " + echoTier + " (cooldowns x" + cdTier0.ToString("F2") + " -> x" + synP.CooldownMultiplier.ToString("F2") + "), carried " + synP.RelicCount + "/" + Relics.MaxCarried + ", empowered " + tiered,
                     echoTier == 1 && synP.RelicCount == Relics.MaxCarried && tiered >= 2 && synP.CooldownMultiplier > 0.05f && synP.CooldownMultiplier < cdTier0);
 
-                // The new pairs wake their synergies.
                 for (int ri = 0; ri < Relics.Count; ri++) synP.ServerDebugRemoveRelic((Relic)ri);
                 foreach (var pr in new[] { Relic.BannerOfTheFallen, Relic.RallyingBell, Relic.FrostCharm, Relic.WhettedFang }) synP.ServerAddRelic(pr);
                 Log("new synergies", "War Band " + Relics.Has(synP, Relics.Synergy.WarBand) + ", Cold Steel " + Relics.Has(synP, Relics.Synergy.ColdSteel),
                     Relics.Has(synP, Relics.Synergy.WarBand) && Relics.Has(synP, Relics.Synergy.ColdSteel));
 
-                // Thermal Shock: fire on an enemy, then frost: the two cancel in a burst.
                 var shockT = Health.All.FirstOrDefault(hh => hh != null && hh.Team == Team.Enemies && hh.IsAlive && !hh.TryGetComponent<BossBrain>(out _));
                 if (shockT != null)
                 {
@@ -5564,9 +5366,8 @@ namespace Deepbound.Networking
                     bool scorched = shockT.Scorched.Value;
                     shockT.ServerChill(3f);
                     Log("thermal shock", "scorched " + scorched + ", after frost: scorched " + shockT.Scorched.Value + " chilled " + shockT.Chilled.Value + ", dealt " + (shockHp - shockT.Current.Value).ToString("F0"),
-                        scorched && !shockT.Scorched.Value && shockT.Current.Value < shockHp); // chill may come back from another source at once
+                        scorched && !shockT.Scorched.Value && shockT.Current.Value < shockHp);
 
-                    // PURGE and PLAGUE CRASH (2026-11-22): the Plague Doctor's blight in the combo web.
                     shockT.ServerBlight(4f, PlagueDoctorKit.BlightDps, local.NetworkObjectId);
                     float purgeCleric = Classes.Combos.PurgeFor(Classes.ClassId.Cleric, shockT), purgeKnight = Classes.Combos.PurgeFor(Classes.ClassId.Knight, shockT);
                     var crashNear = DungeonDirector.Instance.ServerDebugSpawn("skeleton", shockT.transform.position + Vector3.right * 1.2f, false);
@@ -5577,7 +5378,6 @@ namespace Deepbound.Networking
                     if (crashNear != null && crashNear.IsSpawned) crashNear.NetworkObject.Despawn();
                 }
 
-                // EMBERBOUND (2026-11-22): the elite leaves burning patches that hurt players standing in them.
                 {
                     var emb = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f, false);
                     var embLife = local.GetComponent<PlayerLife>();
@@ -5600,8 +5400,6 @@ namespace Deepbound.Networking
                     Log("emberbound", tag + ": patches " + patches + ", standing in it " + e0.ToString("F0") + " -> " + e1.ToString("F0"), tag == "EMBERBOUND" && patches == 1 && e1 < e0);
                 }
 
-                // CONVERGENCE (2026-11-22): two players' ultimates close in time and space converge; one alone, the same
-                // player twice, too far apart or too late do not.
                 {
                     var c0 = new Vector3(5000f, 0f, 5000f);
                     float t0 = Time.time + 10000f;
@@ -5610,7 +5408,7 @@ namespace Deepbound.Networking
                     bool far = Ultimates.ServerNoteCast(902, c0 + Vector3.right * 40f, 1, t0 + 1.5f, out _, out _);
                     bool pair = Ultimates.ServerNoteCast(903, c0 + Vector3.right * 6f, 2, t0 + 2f, out var pAt, out var pCls);
                     bool late = Ultimates.ServerNoteCast(904, c0, 3, t0 + 20f, out _, out _);
-                    // Plague Censer: a hit on a Blighted enemy restores a sliver of health.
+
                     var cenProg = local.GetComponent<PlayerProgress>();
                     var cenHp = local.GetComponent<Health>();
                     var cenLife = local.GetComponent<PlayerLife>();
@@ -5634,7 +5432,6 @@ namespace Deepbound.Networking
                         !alone && !samePlayer && !far && pair && pCls == 0 && !late);
                 }
 
-                // DILUTE vials, PET PERKS and UNSTUCK (2026-11-22).
                 {
                     var pdk = local.GetComponent<PlagueDoctorKit>();
                     var dil = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 5f, false);
@@ -5651,7 +5448,7 @@ namespace Deepbound.Networking
                     Log("dilute vials", "dilute: blighted " + dilBlight + ", hurt " + (dilHp0 - dilHp1).ToString("F0") + "; full vial blighted " + fullBlight,
                         !dilBlight && dilHp1 < dilHp0 && fullBlight);
                     if (dil != null && dil.IsSpawned) dil.NetworkObject.Despawn();
-                    // FESTERING (2026-11-22): repeated blights stack to four and burn harder.
+
                     {
                         var fes = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 6f, false, calm: true);
                         var fh = fes != null ? fes.GetComponent<Health>() : null;
@@ -5670,7 +5467,7 @@ namespace Deepbound.Networking
                         Log("festering blight", "stacks " + st1 + " -> " + st4 + ", one second at 1 stack " + oneTick.ToString("F0") + ", at 4 " + fourTick.ToString("F0"),
                             st1 == 1 && st4 == Health.MaxBlightStacks && fourTick > oneTick * 1.8f);
                     }
-                    // PERFECT DODGE (2026-11-23): a blow inside a dodge's i-frames readies a counter that hits harder.
+
                     {
                         var pl = local.GetComponent<PlayerLife>();
                         var pp = local.GetComponent<PlayerProgress>();
@@ -5692,13 +5489,12 @@ namespace Deepbound.Networking
                             float f1 = fhp.Current.Value; fhp.ServerDamage(20f, local.transform.position, local.NetworkObjectId); plain = f1 - fhp.Current.Value;
                             foeP.NetworkObject.Despawn();
                         }
-                        // A second blow in the same dodge does not count again.
+
                         int pd1 = pl.PerfectDodges;
                         Log("perfect dodge", "dodged untouched " + untouched + ", perfect " + pd0 + " -> " + pd1 + ", counter ready " + ready + ", counter hit " + boosted.ToString("F1") + " vs next " + plain.ToString("F1"),
                             untouched && pd1 == pd0 + 1 && ready && boosted > plain * 1.2f);
                     }
                     {
-                        // TRAP SPACING (2026-11-23): no spike bed on or beside another, or beside a flame vent.
                         System.Func<Vector3, Vector3> TgFlat = q => new Vector3(q.x, 0f, q.z);
                         var tgLay = DungeonDirector.Layout;
                         var tgBeds = new System.Collections.Generic.List<Vector3>();
@@ -5721,7 +5517,7 @@ namespace Deepbound.Networking
                         Log("trap spacing", tgBeds.Count + " beds, " + (tgLay != null ? tgLay.FlameTraps.Count : 0) + " vents, closest gap " + (tgClosest == float.MaxValue ? "n/a" : tgClosest.ToString("F1")) + " m (" + tgPair + ")",
                             tgClosest >= SpikeTrap.MinGap - 0.6f);
                     }
-                    // Vials bite harder per stack, and the Tonic heals the party round the Doctor (2026-11-23).
+
                     if (pdk != null)
                     {
                         var vA = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.right * 5f, false, calm: true);
@@ -5744,8 +5540,7 @@ namespace Deepbound.Networking
                         var tme = local.GetComponent<Health>();
                         tme.ServerSetFraction(0.5f);
                         float tb0 = tme.Current.Value;
-                        // EXPUNGE (2026-11-23, replaced the Tonic): four stacks on a foe are torn out for damage, the blight ends,
-                        // and the Doctor mends by more than the bare 5%.
+
                         var eA = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 5f, false, calm: true);
                         var ehA = eA != null ? eA.GetComponent<Health>() : null;
                         int drawn = 0; float edmg = 0f; bool clean = false;
@@ -5763,8 +5558,7 @@ namespace Deepbound.Networking
                         Log("expunge", "stacks drawn " + drawn + ", dealt " + edmg.ToString("F1") + ", clean " + clean + ", healed " + healedTo.ToString("F0") + " of " + tme.Max.Value.ToString("F0"),
                             drawn >= 4 && edmg > PlagueDoctorKit.ExpungePerStack * 3f && clean && healedTo > tme.Max.Value * (PlagueDoctorKit.ExpungeHealBase + 0.02f));
                         tme.ServerSetFraction(1f);
-                        // PATIENT ZERO (2026-11-23, replaced Pandemic): the foe at the crosshair is plagued at full stacks; when it
-                        // dies the plague jumps to the one beside it.
+
                         var zA = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f, false, calm: true);
                         var zB = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 7f + local.transform.right * 3f, false, calm: true);
                         bool zFirst = false, zFull = false, zJumped = false;
@@ -5786,7 +5580,7 @@ namespace Deepbound.Networking
                         if (zB != null && zB.IsSpawned) zB.NetworkObject.Despawn();
                         Log("patient zero", "picked the aimed foe " + zFirst + ", full stacks " + zFull + ", jumped on death " + zJumped, zFirst && zFull && zJumped);
                     }
-                    // CLERIC (2026-11-23): Benediction turns overheal into a shield (capped); Dawnbreak heals inside and burns the dead.
+
                     {
                         var bme = local.GetComponent<Health>();
                         bme.Shield.Value = 0f;
@@ -5807,7 +5601,7 @@ namespace Deepbound.Networking
                         Coroutine dawnRun = dawn != null ? ultC.StartCoroutine((IEnumerator)dawn.Invoke(ultC, new object[] { local.transform.position, 1f })) : null;
                         yield return new WaitForSeconds(1.3f);
                         float dh1 = bme.Current.Value, df1 = dfh != null ? dfh.Current.Value : 0f;
-                        // End the pillar here: left burning for its 6 s it killed the next checks' foes (phoenix and storm tomes).
+
                         if (dawnRun != null) ultC.StopCoroutine(dawnRun);
                         if (dFoe != null && dFoe.IsSpawned) dFoe.NetworkObject.Despawn();
                         bme.ServerSetFraction(1f); bme.Shield.Value = 0f;
@@ -5827,7 +5621,7 @@ namespace Deepbound.Networking
                     bool poisonedFirst = pdeb.Poisoned;
                     yield return new WaitForSeconds(0.8f);
                     bool gulped = !pdeb.Poisoned;
-                    // Mimic Pup: a chest opened near you may cough up a Health Potion. Ember Salamander: whatever hits you is scorched.
+
                     local.PetKind.Value = (byte)PetCompanion.Kind.MimicPup;
                     PetPerks.ForceChance = true;
                     int pots0 = LootDrop.All.Count(d => d != null && d.Kind.Value == LootKind.PotionHP);
@@ -5840,15 +5634,15 @@ namespace Deepbound.Networking
                     if (sal != null)
                     {
                         yield return new WaitForSeconds(0.3f);
-                        // Spawns get nudged; stand right by it (the perk only scorches within 4 m).
+
                         var salMotor = local.GetComponent<FirstPersonMotor>();
                         var salTo = sal.transform.position - local.transform.position; salTo.y = 0f;
                         if (salMotor != null && salTo.magnitude > 2f) { salMotor.Teleport(sal.transform.position - salTo.normalized * 1.5f + Vector3.up * 0.1f, local.transform.rotation); yield return new WaitForSeconds(0.2f); }
                         var salMe = local.GetComponent<Health>();
-                        salMe.Shield.Value = 0f; // an earlier check's shield soaked the blow, so no health was lost and the perk never heard of it
+                        salMe.Shield.Value = 0f;
                         float salHp0 = salMe.Current.Value;
                         salMe.ServerDamage(25f, sal.transform.position, sal.NetworkObjectId);
-                        Debug.Log("[Smoke] salamander: attacker " + Vector3.Distance(sal.transform.position, local.transform.position).ToString("F1") + " m away, health lost " + (salHp0 - salMe.Current.Value).ToString("F1") + ", pet " + (PetCompanion.Kind)local.PetKind.Value); // a 1-point blow could be soaked by a shield and never reach the pet
+                        Debug.Log("[Smoke] salamander: attacker " + Vector3.Distance(sal.transform.position, local.transform.position).ToString("F1") + " m away, health lost " + (salHp0 - salMe.Current.Value).ToString("F1") + ", pet " + (PetCompanion.Kind)local.PetKind.Value);
                         salScorched = sal.GetComponent<Health>().Scorched.Value;
                         sal.NetworkObject.Despawn();
                     }
@@ -5864,7 +5658,6 @@ namespace Deepbound.Networking
                     Log("unstuck", "first " + un1 + ", again at once " + un2 + " (cooldown)", un1 && !un2);
                 }
 
-                // Ysolde's choices: two named, described options at every rank for every class, and none repeats within an ability.
                 int optionsFound = 0, optionsBad = 0;
                 foreach (Classes.ClassId cid in System.Enum.GetValues(typeof(Classes.ClassId)))
                     foreach (var sl in new[] { Classes.AbilitySlot.Q, Classes.AbilitySlot.E })
@@ -5877,7 +5670,7 @@ namespace Deepbound.Networking
                                 if (string.IsNullOrEmpty(o.Name) || string.IsNullOrEmpty(o.Text) || !names.Add(o.Name)) optionsBad++; else optionsFound++;
                             }
                     }
-                // The ally guards some options lay down: Bastion (a quarter less near its Knight) and Sanctuary (a downing blow leaves 1).
+
                 var synLife = local.GetComponent<PlayerLife>();
                 var synH = local.GetComponent<Health>();
                 synH.ServerSetFraction(1f);
@@ -5891,21 +5684,19 @@ namespace Deepbound.Networking
                 Log("rank choices", optionsFound + " options, " + optionsBad + " missing or repeated; bastion 100 -> " + bastioned.ToString("F0") + ", sanctuary leaves " + (synH.Current.Value - sanctified).ToString("F0") + " (then " + (synH.Current.Value - second).ToString("F0") + ")",
                     optionsBad == 0 && optionsFound == 112 && Mathf.Abs(bastioned - 75f) < 0.5f && Mathf.Abs(synH.Current.Value - sanctified - 1f) < 0.01f && second > synH.Current.Value);
 
-                // Co-op loot: each of four players gets about a solo player's share.
                 float k4 = Difficulty.KillLootShare(4), perPlayer = Difficulty.SpawnCount(4) / Difficulty.SpawnCount(1) * k4 / 4f;
                 Log("coop loot share", "kill rolls x" + k4.ToString("F2") + " for 4, each player's kill income x" + perPlayer.ToString("F2") + " of solo; chests x" + Difficulty.FixedLootShare(4),
                     Mathf.Abs(perPlayer - 1f) < 0.01f && Difficulty.KillLootShare(1) == 1f && Difficulty.FixedLootShare(4) == 4f);
 
-                // Rare draughts and tomes (pouch slot 5).
                 var rp = local.GetComponent<Flasks>();
                 var rlife = local.GetComponent<PlayerLife>();
                 var rhp = local.GetComponent<Health>();
                 if (rp != null)
                 {
                     rhp.ServerSetFraction(1f);
-                    rp.Rare.Value = 0; // a champion killed earlier may have filled the slot
+                    rp.Rare.Value = 0;
                     bool wasDown = rlife.Downed.Value;
-                    if (wasDown) rlife.ServerRevive(1f); // nobody drinks while down
+                    if (wasDown) rlife.ServerRevive(1f);
                     yield return null;
                     bool gave = rp.ServerGiveRare(Progression.RareItem.Ironbark), full = !rp.ServerGiveRare(Progression.RareItem.Bloodfury);
                     rp.ServerUseRare();
@@ -5930,7 +5721,6 @@ namespace Deepbound.Networking
                     Log("rare draughts", (wasDown ? "(revived first) " : "") + "slot took one " + gave + ", second refused " + full + ", ironbark " + iron + " (hit " + ironHit.ToString("F0") + " vs " + plainHit.ToString("F0") + "), bloodfury attack x" + att0.ToString("F2") + " -> x" + att1.ToString("F2") + ", stone " + stone,
                         gave && full && iron && ironHit < plainHit * 0.7f && att1 > att0 * 1.3f && stone);
 
-                    // The Tome of the Phoenix: it dives at the dead and scorches them; struck down, it lies as an egg and is reborn.
                     var prey = DungeonDirector.Instance.ServerDebugSpawn("skeleton", local.transform.position + local.transform.forward * 5f, false);
                     int birds0 = Phoenix.All.Count;
                     rp.Rare.Value = 0;
@@ -5957,7 +5747,6 @@ namespace Deepbound.Networking
                         read && bird != null && scorchedPrey && egg && reborn);
                     if (bird != null && bird.IsSpawned) bird.NetworkObject.Despawn();
 
-                    // The Tome of the Storm strikes the same prey; the Tome of Sanctuary turns blows aside inside it.
                     bool stormHit = false;
                     if (prey != null && prey.IsSpawned)
                     {
@@ -5975,7 +5764,6 @@ namespace Deepbound.Networking
                         stormHit && sanctHit < plainHit * 0.8f);
                     if (prey != null && prey.IsSpawned) prey.NetworkObject.Despawn();
 
-                    // A weak point bursts for its full bonus once in a while; a beast struck there goes ENRAGED.
                     var beast = DungeonDirector.Instance.ServerDebugSpawn("brute", local.transform.position + local.transform.forward * 4f, false);
                     if (beast != null)
                     {
@@ -5993,13 +5781,12 @@ namespace Deepbound.Networking
                 }
             }
 
-            // 2026-11-24: the Guide and Bestiary fill in as you play; the damage sheet; Wisdom charges ultimates; the wyrms' aim.
             if (net.IsServer && NetworkPlayer.Local != null)
             {
                 var cme = NetworkPlayer.Local;
                 var cp = cme.GetComponent<PlayerProgress>();
                 var combos = System.Array.Find(UI.Codex.GuideRight, s => s.Title == "COMBOS");
-                // Combos fired earlier in the run are already written in: learn one that is not.
+
                 int knownBefore = System.Array.FindAll(combos.Parts, pt => UI.Codex.Knows(pt.Key)).Length;
                 var fresh = System.Array.Find(combos.Parts, pt => !UI.Codex.Knows(pt.Key));
                 string before = UI.Codex.BodyOf(combos);
@@ -6008,7 +5795,7 @@ namespace Deepbound.Networking
                 string after = UI.Codex.BodyOf(combos);
                 bool combosOk = knownBefore > 0 && (fresh.Key == null || (!before.Contains(fresh.Text) && after.Contains(fresh.Text)))
                     && UI.Codex.TitleOf(combos).Contains("(" + (knownBefore + (fresh.Key != null ? 1 : 0)) + " / ");
-                // The run itself may have met and killed brutes already (the watcher counts real kills): check the stages only rise.
+
                 int bi = UI.Bestiary.IndexOf("BruteBrain");
                 UI.Bestiary.See("BruteBrain");
                 int st1 = UI.Bestiary.Stage(bi);
@@ -6038,7 +5825,6 @@ namespace Deepbound.Networking
                     w1 > w0 + 0.01f && Mathf.Abs(upPitch - Player.Ultimates.WyrmMaxPitch) < 1f && Mathf.Abs(wd2.y) < 0.02f && wd.z > 0f);
             }
 
-            // 2026-11-25: a tick of damage over time does not spend the perfect dodge's counter; the next real blow does.
             if (net.IsServer && NetworkPlayer.Local != null && DungeonDirector.Instance != null)
             {
                 var kme = NetworkPlayer.Local;
@@ -6060,7 +5846,6 @@ namespace Deepbound.Networking
                 Log("counter kept from ticks", "spawned " + (kfoe != null) + ", kept through a tick " + kept + ", spent by a blow " + spent, kept && spent);
             }
 
-            // THE PROVING PATH (2026-11-23): the tutorial floor, every lesson met in turn, the guardian, then camp.
             if (net.IsServer && NetworkPlayer.Local != null && DungeonDirector.Instance != null)
             {
                 var td = DungeonDirector.Instance;
@@ -6120,26 +5905,12 @@ namespace Deepbound.Networking
             Application.Quit(0);
         }
 
-        /// <summary>
-        /// Visual check: captures the title screen, then hosts and captures views from the
-        /// start room, a combat room and the boss room into <paramref name="dir"/>. Run
-        /// windowed (not -nographics), e.g. <c>-shots C:\temp\shots -screen-fullscreen 0</c>.
-        /// </summary>
         public void Screenshots(string dir, NetworkLauncher launcher) => StartCoroutine(ShotSequence(dir, launcher));
 
-        /// <summary>
-        /// -talkshots &lt;ABS dir&gt; (windowed): the conversation panel and the quest log as a player sees them - the talk
-        /// prompt, each giver's opening and work page, then three quests taken. Writes PNGs and quits. Never saves.
-        /// </summary>
         public void TalkShots(string dir, NetworkLauncher launcher) => StartCoroutine(TalkShotSequence(dir, launcher));
 
         public void IxShots(string dir, NetworkLauncher launcher) => StartCoroutine(IxShotSequence(dir, launcher));
 
-        /// <summary>
-        /// -ixshots (2026-11-08): the dungeon interactables staged on floor 2 in front of the camera - oil jars and a fire
-        /// bowl, spilled and burning; a cracked pillar standing, warning and fallen; a chandelier hanging and down; a vigil
-        /// half lit and kept; a prisoner caged and freed. Windowed; quits when done.
-        /// </summary>
         private IEnumerator IxShotSequence(string dir, NetworkLauncher launcher)
         {
             Progression.Cosmetics.TestMode = true;
@@ -6160,7 +5931,7 @@ namespace Deepbound.Networking
             motor.enabled = false;
             var hp = local.GetComponent<Health>();
             hp.IncomingModifiers.Add((d, f) => 0f);
-            // VERTICALITY (2026-11-14): a belfry and a mezzanine, from the floor and from up high, and one of the dead leaping down.
+
             {
                 DungeonLayout.ForceFeatures = new[] { RoomFeature.Ruin, RoomFeature.Rampart, RoomFeature.Belfry, RoomFeature.Mezzanine, RoomFeature.Undercroft };
                 dc.ServerDebugStartFloor(2);
@@ -6207,7 +5978,7 @@ namespace Deepbound.Networking
                     VStand(new Vector3(dr.center.x, 0.1f, dr.center.y) + away * 1.5f, mz.Center, 0f);
                     yield return new WaitForSeconds(0.8f);
                     yield return Shot(dir, "vx_5_mezzanine_under");
-                    // One of the dead on the deck jumps down toward the camera.
+
                     var camAt = mz.Center + away * 2f + Vector3.up * 0.1f;
                     var jumper = dc.ServerDebugSpawn("skeleton", deckC + away * (dr.width < dr.height ? dr.width : dr.height) * 0.3f, false);
                     VStand(camAt + away * 6f, jumper != null ? jumper.transform.position : deckC, -8f);
@@ -6275,7 +6046,7 @@ namespace Deepbound.Networking
             var eye = On(0f, -6f);
             Stand(eye, c, 14f);
             yield return new WaitForSeconds(1f);
-            // Oil.
+
             var j1 = dc.ServerDebugBreakable(Breakable.Kind.OilJar, On(-1.6f, 1f));
             var j2 = dc.ServerDebugBreakable(Breakable.Kind.OilJar, On(0.6f, 1.6f));
             var bowl = dc.ServerDebugBreakable(Breakable.Kind.FireBowl, On(2.8f, 1f));
@@ -6295,7 +6066,7 @@ namespace Deepbound.Networking
             ClearFoes();
             foreach (var s in OilSlick.All.ToArray()) if (s != null && s.IsSpawned) s.NetworkObject.Despawn();
             yield return new WaitForSeconds(0.5f);
-            // A cracked pillar.
+
             var pAt = On(0f, 3f);
             var pillar = dc.ServerDebugBreakable(Breakable.Kind.CrackedPillar, pAt);
             var p2 = dc.ServerDebugSpawn("skeleton", pAt + (pAt - eye).normalized * 2.6f, false);
@@ -6309,7 +6080,7 @@ namespace Deepbound.Networking
             yield return new WaitForSeconds(1.2f);
             yield return Shot(dir, "ix_6_pillar_fallen");
             ClearFoes();
-            // A chandelier.
+
             var hang = On(3f, -2f);
             var wall = c + new Vector3(room.Size.x / 2f - 1f, 0f, -2f);
             var ch = dc.ServerDebugChandelier(wall, hang);
@@ -6328,7 +6099,7 @@ namespace Deepbound.Networking
             yield return new WaitForSeconds(1f);
             yield return Shot(dir, "ix_8_chandelier_fallen");
             ClearFoes();
-            // A vigil.
+
             var vc = On(-4f, 4f);
             var vigil = dc.ServerDebugVigil(vc);
             Stand(vc + new Vector3(0f, 0f, -6.5f), vc, 12f);
@@ -6340,7 +6111,7 @@ namespace Deepbound.Networking
             vigil[3].ServerLight(prog);
             yield return new WaitForSeconds(0.8f);
             yield return Shot(dir, "ix_10_vigil_kept");
-            // A prisoner.
+
             var cageAt = On(3f, 5f);
             var standAt = On(3f, 0.5f);
             var cage = dc.ServerDebugPrisoner(cageAt, Quaternion.LookRotation(standAt - cageAt));
@@ -6354,8 +6125,7 @@ namespace Deepbound.Networking
             Stand(On(5.5f, -1.5f), cage.transform.position + Vector3.up, 6f);
             yield return new WaitForSeconds(0.3f);
             yield return Shot(dir, "ix_12_prisoner_freed");
-            // Puzzle rooms, in another room (debug puzzles: the same pieces a Watchers' or Chime room gets).
-            // A quiet side room (no spawns, never the ambush room), as the real puzzle rooms are.
+
             var room2 = layout.Rooms.FirstOrDefault(r => r != room && r.Kind == RoomKind.Side && r.Feature == RoomFeature.None && r.Holes.Count == 0)
                 ?? layout.Rooms.FirstOrDefault(r => r != room && r.Kind == RoomKind.Side && r.Feature == RoomFeature.None)
                 ?? layout.Rooms.FirstOrDefault(r => r != room && r.Kind == RoomKind.Side)
@@ -6395,10 +6165,10 @@ namespace Deepbound.Networking
                 Stand(On2(0f, -1f), c2 + new Vector3(0f, 0.6f, 5.5f), 10f);
                 yield return new WaitForSeconds(1.2f);
                 yield return Shot(dir, "ix_18_chimes_open");
-                // The light-beam room.
+
                 foreach (var cst in FindObjectsByType<Chest>(FindObjectsSortMode.None)) if (cst != null && cst.IsSpawned && Vector3.Distance(cst.transform.position, c2) < 9f) cst.NetworkObject.Despawn();
                 if (pcm.IsSpawned) pcm.NetworkObject.Despawn();
-                // The freed prisoner follows the camera about; send them off so the mirrors are in plain view.
+
                 foreach (var hh in FindObjectsByType<Health>(FindObjectsSortMode.None)) if (hh != null && hh.Team == Team.Allies && hh.NetworkObject != null && hh.NetworkObject.IsSpawned) hh.NetworkObject.Despawn();
                 yield return new WaitForSeconds(0.3f);
                 var pmr = dc.ServerDebugPuzzle(PuzzleRoom.Kind.Mirrors, c2, c2 + new Vector3(0f, 0f, 5.5f));
@@ -6414,7 +6184,7 @@ namespace Deepbound.Networking
                 Stand(On2(0f, -6.8f), c2 + Vector3.up * 0.6f, 14f);
                 yield return new WaitForSeconds(1.2f);
                 yield return Shot(dir, "ix_21_mirrors_lit");
-                // The Scales: the empty pan high, then two urns on it, then level.
+
                 foreach (var cst in FindObjectsByType<Chest>(FindObjectsSortMode.None)) if (cst != null && cst.IsSpawned && Vector3.Distance(cst.transform.position, c2) < 9f) cst.NetworkObject.Despawn();
                 foreach (var m in mrs) if (m != null && m.IsSpawned) m.NetworkObject.Despawn();
                 if (pmr.IsSpawned) pmr.NetworkObject.Despawn();
@@ -6435,7 +6205,7 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(2.2f);
                 yield return Shot(dir, "ix_24_scales_level");
             }
-            // 2026-11-13: the centrepieces, the four debuff foes and what they do to you, the slump after a blow.
+
             {
                 ClearFoes();
                 local.GetComponent<PlayerDebuffs>().ServerCleanse();
@@ -6463,7 +6233,7 @@ namespace Deepbound.Networking
                     cpShots++;
                 }
                 Debug.Log("[IxShots] centrepieces shot " + cpShots);
-                // One of the first expedition, placed as in play: a quiet side room's wall.
+
                 {
                     var er = layout.Rooms.FirstOrDefault(r2 => r2 != room && DungeonDirector.QuietForRemains(layout, r2, World.RoomKind.Side))
                         ?? layout.Rooms.FirstOrDefault(r2 => r2 != room && DungeonDirector.QuietForRemains(layout, r2, World.RoomKind.Combat));
@@ -6482,7 +6252,7 @@ namespace Deepbound.Networking
                         rem.NetworkObject.Despawn();
                     }
                 }
-                // SHOW, DON'T TELL (2026-11-14): states worn on the body. Your own view first, then a shot camera outside the body.
+
                 {
                     var fx = Art.PlayerStatusFx.DebugForce;
                     var body = local.transform;
@@ -6605,7 +6375,7 @@ namespace Deepbound.Networking
             var local = NetworkPlayer.Local;
             if (local == null) { Application.Quit(1); yield break; }
             local.GetComponent<UI.CharacterSelect>().Close();
-            yield return new WaitForSeconds(2.5f); // the folk build their rounds 2.5 s after the camp
+            yield return new WaitForSeconds(2.5f);
             var motor = local.GetComponent<FirstPersonMotor>();
             motor.enabled = false;
             var dc = DungeonDirector.Instance;
@@ -6638,7 +6408,7 @@ namespace Deepbound.Networking
                 if (n <= 3) { UI.Dialogue.DebugChoose(0); yield return new WaitForSeconds(0.3f); }
                 UI.Dialogue.DebugClose();
             }
-            // A special offer (favour 2) on Brann's page, then the log with three quests.
+
             dc.ServerDebugFavour(FolkId.Brann, DungeonDirector.SpecialFavour);
             dc.ServerDebugClearQuests();
             UI.Dialogue.DebugBegin(FolkId.Brann);
@@ -6661,7 +6431,7 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.5f);
                 yield return Shot(dir, "talk_11_board");
             }
-            // ---- Camp fixes of 2026-11-08: the mirror, Vey's shop, Aldric on the dais, the gong, Silas's wares, a pet sitting. ----
+
             {
                 var face = Lobby.MirrorFacing;
                 var glassAt = Lobby.MirrorSpot + Vector3.up * 1.35f;
@@ -6699,7 +6469,7 @@ namespace Deepbound.Networking
                 World.FolkRounds.DebugShift = 0;
                 World.FolkRounds.StayHome = true;
                 yield return new WaitForSeconds(0.6f);
-                // The stalls (2026-11-09 rebuild): Silas's at home, three-quarter; Hobb's from the road; the forge corner.
+
                 foreach (var (from, look, tag) in new[]
                 {
                     (Lobby.MerchantSpot + new Vector3(4.2f, 0.1f, 2.6f), Lobby.MerchantSpot + new Vector3(0.2f, 1.3f, 0f), "stall_1_silas"),
@@ -6716,7 +6486,7 @@ namespace Deepbound.Networking
                     yield return Shot(dir, tag);
                 }
                 motor.SetPitch(0f);
-                // A pet sits beside you on the log.
+
                 local.PetKind.Value = (byte)Player.PetCompanion.Kind.Kitten;
                 var seats = Lobby.LogSeats();
                 motor.Teleport(seats[0].at, Quaternion.LookRotation(seats[0].face));
@@ -6731,7 +6501,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.4f);
                     yield return Shot(dir, tag);
                 }
-                // Sat a while, it curls up asleep.
+
                 yield return new WaitForSeconds(Player.PetCompanion.SleepAfter);
                 motor.Teleport(seats[0].at, Quaternion.LookRotation(rightOfSeat * 0.8f + seats[0].face * 0.6f));
                 motor.SetPitch(38f);
@@ -6739,8 +6509,7 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "camp_9b_pet_asleep");
                 var petGo = GameObject.Find("Pet_Kitten");
                 Debug.Log("[TalkShots] pet sit: owner emote " + (local.Rig != null ? local.Rig.EmoteNow.ToString() : "?") + ", pet " + (petGo != null ? (petGo.transform.position - local.transform.position).ToString("F2") : "missing"));
-                // The two newest pets beside the seat (2026-11-22).
-                // Standing in the open: wait for the pet to settle, then step back from it and look down at it.
+
                 motor.Unpin(seats[0].at);
                 local.GetComponent<Emotes>().StandUp();
                 var openSpot = seats[0].at - seats[0].face * 3.5f;
@@ -6768,7 +6537,7 @@ namespace Deepbound.Networking
                 motor.Unpin(seats[0].at);
                 local.GetComponent<Emotes>().StandUp();
             }
-            // The camp remembers: every trophy and keepsake up at once.
+
             dc.CampKeeps.Value = 0xFFFFFFFFu;
             yield return new WaitForSeconds(0.5f);
             foreach (var (name, offset) in new[] { ("GravewardenShield", new Vector3(0f, -6.5f, -9f)), ("CoachLamp", new Vector3(1.5f, -1.2f, -5f)), ("LichCrown", new Vector3(-3f, 0.2f, -1f)),
@@ -6790,7 +6559,7 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "memory_" + name);
             }
             motor.SetPitch(0f);
-            // Trade talk (2026-11-08): Hobb looks over the weapon, Corwin names the road.
+
             foreach (var who in new[] { FolkId.Hobb, FolkId.Corwin, FolkId.Vey })
             {
                 var at = FolkPlaces.Now(who);
@@ -6810,7 +6579,7 @@ namespace Deepbound.Networking
                 UI.Dialogue.DebugClose();
                 yield return new WaitForSeconds(0.3f);
             }
-            // The tent: Bones with its panel, the coffer mid-pick, the reels' pot, Skull Poker from the stool.
+
             {
                 var prog = local.GetComponent<PlayerProgress>();
                 prog.Gold.Value += 1500;
@@ -6868,7 +6637,7 @@ namespace Deepbound.Networking
                 }
                 _ = tentView;
             }
-            // Weather: the market square in rain (mid-shower) and in mist.
+
             CampWeather.DebugShowering = true;
             foreach (var (wk, tag) in new[] { (CampWeather.Kind.Rain, "weather_1_rain"), (CampWeather.Kind.Mist, "weather_2_mist") })
             {
@@ -6894,7 +6663,7 @@ namespace Deepbound.Networking
                 yield return null;
                 CampWeather.DebugSettle();
             }
-            // Old Hollis at the bar and the board of the fallen (made-up names: nothing is read from or written to the save).
+
             {
                 MemorialBoard.DebugLines = new[] { "Crimson, Ash  -  fell on floor 4", "Wren  -  fell on floor 2", "Moss, Ivo, Brandt  -  fell on floor 7" };
                 var c = Lobby.TavernCenter;
@@ -6910,11 +6679,11 @@ namespace Deepbound.Networking
                 var stand = c + new Vector3(-2.7f, 0.1f, -1.4f);
                 motor.Teleport(stand, Quaternion.LookRotation(Vector3.ProjectOnPlane(board - stand, Vector3.up)));
                 motor.SetPitch(8f);
-                yield return new WaitForSeconds(5f); // the board reads the names every 4 s
+                yield return new WaitForSeconds(5f);
                 yield return Shot(dir, "tavern_2_memorial");
                 MemorialBoard.DebugLines = null;
             }
-            // Brann's barrel: the bout from your side, panel open, half way.
+
             {
                 var barrel = FindObjectsByType<ArmWrestle>(FindObjectsSortMode.None).FirstOrDefault();
                 if (barrel != null)
@@ -6940,7 +6709,7 @@ namespace Deepbound.Networking
                     yield return Shot(dir, "wrestle_3_side");
                 }
             }
-            // The bell frame: from the plaza, then a peal under way with the panel open.
+
             {
                 var frame = FindObjectsByType<BellFrame>(FindObjectsSortMode.None).FirstOrDefault();
                 if (frame != null)
@@ -6965,7 +6734,7 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.3f);
                 }
             }
-            // Camp pastimes: the well line and its bite, the knife board from the chalk line and from the side.
+
             {
                 var prog = local.GetComponent<PlayerProgress>();
                 var well = FindObjectsByType<WellFishing>(FindObjectsSortMode.None).FirstOrDefault();
@@ -6987,7 +6756,7 @@ namespace Deepbound.Networking
                 if (knives != null)
                 {
                     var line = knives.LinePoint;
-                    // Pet tricks down the knife lane: point and it fetches a stick; dance and it spins.
+
                     var pet = local.GetComponent<Player.PetCompanion>();
                     local.PetKind.Value = (byte)Player.PetCompanion.Kind.BoneHound;
                     motor.Teleport(line + Vector3.up * 0.1f, Quaternion.LookRotation(knives.transform.forward));
@@ -7055,7 +6824,7 @@ namespace Deepbound.Networking
             yield return new WaitForSeconds(3f);
 
             var local = NetworkPlayer.Local;
-            // The photographer never dies (bosses wake when it walks into their rooms); the run summary at the end lifts this.
+
             bool shotsImmortal = true;
             if (local != null) local.GetComponent<Health>().IncomingModifiers.Insert(0, (d, f) => shotsImmortal && d < 1e5f ? 0f : d);
             if (local == null)
@@ -7067,7 +6836,7 @@ namespace Deepbound.Networking
 
             yield return new WaitForSeconds(1.5f);
             yield return Shot(dir, "0a_character_select");
-            // Every class, front and back, for judging the character art.
+
             var select = local.GetComponent<UI.CharacterSelect>();
             for (int ci = 0; ci < Classes.ClassDefinition.ById.Length; ci++)
             {
@@ -7079,7 +6848,7 @@ namespace Deepbound.Networking
                     yield return Shot(dir, "0p_class_" + ((Classes.ClassId)ci) + "_" + tag);
                 }
             }
-            // The Knight's guard, from the front and the side (2026-11-12: the raised shield went through the chest).
+
             select.DebugBlock(true);
             foreach (var (yaw, tag) in new[] { (200f, "front"), (270f, "side"), (150f, "quarter") })
             {
@@ -7107,7 +6876,6 @@ namespace Deepbound.Networking
             yield return new WaitForSeconds(0.9f);
             yield return Shot(dir, "0c2_smoke_cloud");
 
-            // A tour of the castle: the road from the bonfire, the stalls, the tent, the gong, the gate.
             var tour = new (string name, Vector3 at, Vector3 look, float pitch)[]
             {
                 ("0j_castle_road", Lobby.Origin + Lobby.S(0f, 0.1f, -17f), Lobby.Origin + Lobby.S(0f, 2f, 10f), -8f),
@@ -7133,13 +6901,13 @@ namespace Deepbound.Networking
                 yield return Shot(dir, tname); if (tname == "0j_castle_road") yield return SamplePerf(tname);
             }
             lobbyMotor.SetPitch(0f);
-            // The emote wheel, pushed toward DANCE.
+
             var shotEmotes = local.GetComponent<Emotes>();
             shotEmotes.DebugShowWheel(true, new Vector2(80f, -70f));
             yield return new WaitForSeconds(0.1f);
             yield return Shot(dir, "0x4_emote_wheel");
             shotEmotes.DebugShowWheel(false, Vector2.zero);
-            // The camp map (2026-11-13): M at camp.
+
             {
                 var campMap = local.GetComponent<UI.Minimap>();
                 campMap.Large = true;
@@ -7148,7 +6916,6 @@ namespace Deepbound.Networking
                 campMap.Large = false;
             }
 
-            // The Mage: switch class, frost the dummy, catch the bolt and the chill.
             var prog = local.GetComponent<PlayerProgress>();
             prog.ClassId.Value = Classes.ClassId.Mage;
             yield return new WaitForSeconds(0.5f);
@@ -7163,7 +6930,7 @@ namespace Deepbound.Networking
             yield return Shot(dir, "0d_mage_frostbolt");
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "0e_mage_chilled_dummy");
-            // Tidal Wave rolling out toward the dummy, mid-flow and at its reach.
+
             lobbyMotor.SetPitch(10f);
             mage.ServerWave(local.transform.forward);
             yield return new WaitForSeconds(0.22f);
@@ -7172,7 +6939,6 @@ namespace Deepbound.Networking
             yield return Shot(dir, "0e3_tidal_wave_reach");
             lobbyMotor.SetPitch(0f);
 
-            // Meteor: falling through the ceiling, the impact, the crater left behind.
             var meteorSpot = dummyHp.transform.position + new Vector3(-1.5f, 0f, 2f);
             var mFrom2 = meteorSpot + new Vector3(8f, 0.1f, -4f);
             lobbyMotor.Teleport(mFrom2, Quaternion.LookRotation(meteorSpot - mFrom2));
@@ -7187,7 +6953,7 @@ namespace Deepbound.Networking
             yield return new WaitForSeconds(1.4f);
             yield return Shot(dir, "0i_meteor_crater");
             lobbyMotor.SetPitch(0f);
-            // The Ranger at full draw.
+
             prog.ClassId.Value = Classes.ClassId.Ranger;
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "0f_ranger_bow");
@@ -7207,7 +6973,7 @@ namespace Deepbound.Networking
             local.GetComponent<UI.GameHud>().DebugOpenShop();
             yield return null;
             yield return Shot(dir, "1b_merchant_panel");
-            // Silas from behind: his pack.
+
             local.GetComponent<UI.GameHud>().DebugCloseMenus();
             foreach (var (side, tag) in new[] { (-1f, "1b_merchant_back"), (1f, "1b_merchant_front") })
             {
@@ -7218,7 +6984,7 @@ namespace Deepbound.Networking
                 yield return Shot(dir, tag);
             }
             lobbyMotor.SetPitch(0f);
-            // A raven on the road, up close (the lowest one: they also sit on the battlements).
+
             var raven = FindObjectsByType<Art.Critter>(FindObjectsSortMode.None).Where(c => c.Type == Art.Critter.Kind.Raven).OrderBy(c => c.transform.position.y).FirstOrDefault();
             if (raven != null)
             {
@@ -7234,7 +7000,7 @@ namespace Deepbound.Networking
                 lobbyMotor.SetPitch(0f);
                 raven.enabled = true;
             }
-            // Brother Aldric at his prayers by the shrine (he faces away from it, toward the road).
+
             {
                 var aldric = Lobby.ShrineSpot + Vector3.left * 1.2f;
                 foreach (var (off, tag) in new[] { (new Vector3(-2.3f, 0.1f, 0.9f), "0v_aldric_praying"), (new Vector3(-0.3f, 0.1f, 2.4f), "0v_aldric_side") })
@@ -7247,7 +7013,7 @@ namespace Deepbound.Networking
                 }
                 lobbyMotor.SetPitch(0f);
             }
-            // Strike Silas: he rocks back, complains, and a bystander chimes in.
+
             var silasBody = FindObjectsByType<CampFolk>(FindObjectsSortMode.None).FirstOrDefault(f => f.Who.Value == (byte)FolkId.Silas);
             if (silasBody != null)
             {
@@ -7256,7 +7022,7 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.25f);
                 yield return Shot(dir, "1b_merchant_struck");
             }
-            // The other two stalls: Hobb at the anvil, the shrine's offerings.
+
             foreach (var (vendor, spot, tag) in new[] { (Shop.Vendor.Smith, Lobby.AnvilSpot + Vector3.left * 2.2f, "1b_smith_panel"), (Shop.Vendor.Shrine, Lobby.ShrineSpot + Vector3.left * 2.4f, "1b_shrine_panel"), (Shop.Vendor.Carriage, Lobby.CarriageAt + new Vector3(2.2f, 0f, 2.2f), "1b_corwin_panel") })
             {
                 lobbyMotor.Teleport(spot + Vector3.up * 0.1f, Quaternion.LookRotation(Vector3.right));
@@ -7267,7 +7033,6 @@ namespace Deepbound.Networking
             }
             local.GetComponent<PlayerProgress>().ServerResetRun();
 
-            // The tailor: the stall, the mannequin in a dye, and the wardrobe panel.
             var tFrom = Lobby.MannequinSpot + new Vector3(3.1f, 0.1f, -0.3f);
             var tLook = Lobby.MannequinSpot + new Vector3(-1.5f, 0f, -1.5f) - tFrom;
             tLook.y = 0f;
@@ -7289,7 +7054,7 @@ namespace Deepbound.Networking
             local.GetComponent<UI.Wardrobe>().DebugTab(Progression.Cosmetics.Kind.Cloak);
             local.GetComponent<UI.Wardrobe>().DebugOpen(false);
             local.GetComponent<NetworkPlayer>().Pattern.Value = 0;
-            // Every pattern on a row of backs, in a spread of the brighter dyes.
+
             {
                 var fwd = tLook.normalized;
                 var right = Vector3.Cross(Vector3.up, fwd);
@@ -7319,12 +7084,11 @@ namespace Deepbound.Networking
             local.GetComponent<NetworkPlayer>().CloakDye.Value = 0;
             local.GetComponent<NetworkPlayer>().Aura.Value = 0;
 
-            // The bounty board and its notices.
             var bFrom = Lobby.BountySpot + Lobby.BountyFacing * 2.6f + Vector3.up * 0.1f;
             lobbyMotor.Teleport(bFrom, Quaternion.LookRotation(Lobby.BountySpot + Vector3.up * 0.2f - bFrom));
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "1c_bounty_board");
-            // The Hall of Records slab beside it (its panel opens within reach).
+
             var hallFrom = Lobby.RecordsSpot + Lobby.BountyFacing * 2.2f + Vector3.up * 0.1f;
             lobbyMotor.Teleport(hallFrom, Quaternion.LookRotation(Lobby.RecordsSpot + Vector3.up * 0.6f - hallFrom));
             yield return new WaitForSeconds(0.5f);
@@ -7339,7 +7103,7 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.5f);
                 yield return Shot(dir, "1b_anvil");
                 lobbyMotor.SetPitch(0f);
-                // The smithy as a whole (2026-11-12): the open stall, the anvil, the grindstone; then each station aimed at.
+
                 {
                     var wideFrom = Lobby.AnvilSpot + new Vector3(4.4f, 0.1f, 2.4f);
                     lobbyMotor.Teleport(wideFrom, Quaternion.LookRotation(Flat3(Lobby.AnvilSpot + new Vector3(0f, 0f, 0.5f) - wideFrom)));
@@ -7356,7 +7120,7 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.5f);
                         yield return Shot(dir, "1b_station_" + job.ToString().ToLowerInvariant());
                     }
-                    // The camp's smashables (2026-11-12): three of the groups, for the camp audit.
+
                     foreach (int bi in new[] { 0, 3, 6, 8 })
                     {
                         var campBreakAt = Lobby.CampBreakables[bi].at;
@@ -7384,7 +7148,7 @@ namespace Deepbound.Networking
                 local.GetComponent<UI.GameHud>().DebugOpenForge();
                 yield return null;
                 yield return Shot(dir, "1b_forge_panel");
-                // The grindstone's and the forge's pages (2026-11-12), a piece in the pack to melt.
+
                 ap.ServerStow(new GearItem(GearId.ThornhideJerkin, 1, 0));
                 yield return new WaitForSeconds(0.2f);
                 local.GetComponent<UI.GameHud>().DebugOpenForge(1);
@@ -7395,7 +7159,7 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "1b_forge_hearth_tab");
                 local.GetComponent<UI.GameHud>().DebugOpenForge(0);
                 yield return null;
-                // At +5: an edge to choose (three cards), then one forged and +7 open.
+
                 if (ap.WeaponPath.Value == 0) ap.ChoosePathRpc(1);
                 yield return new WaitForSeconds(0.2f);
                 for (int i = 0; i < 4 && ap.WeaponLevel.Value < 5; i++) ap.ServerFreeTemper();
@@ -7407,7 +7171,6 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "1b_forge_edges2");
                 UI.PauseMenu.SetOpen(false);
 
-                // Ysolde's stones: the ring, then her panel with a rune set and three to meld.
                 var yFrom = Lobby.RunewrightSpot + new Vector3(-3.2f, 0.1f, -3.4f);
                 lobbyMotor.Teleport(yFrom, Quaternion.LookRotation(Lobby.RunewrightSpot + Vector3.up * 1.2f - yFrom));
                 lobbyMotor.SetPitch(8f);
@@ -7421,7 +7184,7 @@ namespace Deepbound.Networking
                 ap.ServerAddRune(Rune.Frost);
                 ap.ServerAddRune(Rune.Frost);
                 ap.SocketRuneRpc((byte)Rune.Storm);
-                // A big bag, as a long run collects (the user's screenshot had eighteen of a kind): it must fit.
+
                 foreach (var rk in new[] { Rune.Frost, Rune.Storm, Rune.Holy, Rune.Keen, Rune.Farsight })
                     for (int n = 0; n < 6; n++) ap.ServerAddRune(Runes.Make(rk, n % 3 == 0 ? 1 : 0));
                 ap.ServerAddRune(Runes.Make(Rune.Frost, 2));
@@ -7429,7 +7192,7 @@ namespace Deepbound.Networking
                 local.GetComponent<UI.GameHud>().DebugOpenRunewright();
                 yield return null;
                 yield return Shot(dir, "1b_runewright_panel");
-                // The next rank's choice of two.
+
                 ap.RankQ.Value = 3;
                 for (int i = 0; i < 3; i++) ap.ServerAddSigil();
                 yield return null;
@@ -7437,7 +7200,6 @@ namespace Deepbound.Networking
                 ap.ServerResetRun();
                 UI.PauseMenu.SetOpen(false);
 
-                // Close looks at the new folk faces: Hobb at his anvil, Vey at her stall.
                 foreach (var (tag, at) in new[] { ("1b_face_hobb", Lobby.AnvilSpot + Vector3.back * 1.4f), ("1b_face_vey", Lobby.TailorSpot + Vector3.right * 0.6f), ("1b_face_ysolde", Lobby.RunewrightSpot) })
                 {
                     var fwd = Lobby.Origin - at;
@@ -7450,13 +7212,11 @@ namespace Deepbound.Networking
                 }
                 lobbyMotor.SetPitch(0f);
 
-                // Sergeant Brann at the yard.
                 var brFrom = Lobby.YardSpot + new Vector3(2.4f, 0.1f, -2.4f);
                 lobbyMotor.Teleport(brFrom, Quaternion.LookRotation(Lobby.YardSpot + Vector3.up * 1.2f - brFrom));
                 yield return new WaitForSeconds(0.5f);
                 yield return Shot(dir, "1b_drillmaster");
 
-                // A relic on the ground: the beacon and its name.
                 var rFrom = Lobby.Origin + Lobby.S(4f, 0.1f, -10f);
                 lobbyMotor.Teleport(rFrom, Quaternion.LookRotation(Vector3.forward));
                 DungeonDirector.Instance.ServerDropLoot(rFrom + new Vector3(0f, 0f, 6f), LootKind.Relic, (int)Relic.LongShadow, null, false);
@@ -7464,7 +7224,6 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "1d_relic_beacon");
                 foreach (var ld in FindObjectsByType<LootDrop>(FindObjectsSortMode.None)) if (ld.NetworkObject.IsSpawned && ld.Kind.Value == LootKind.Relic) ld.NetworkObject.Despawn();
 
-                // Gear: a drop on the floor with its comparison card, then the Tab sheet.
                 var gFrom = Lobby.Origin + Lobby.S(0f, 0.1f, -8f);
                 lobbyMotor.Teleport(gFrom, Quaternion.LookRotation(Vector3.forward));
                 ap.ServerEquip(new GearItem(GearId.OssuaryPlate, 0, 0));
@@ -7474,12 +7233,12 @@ namespace Deepbound.Networking
                 lobbyMotor.SetPitch(25f);
                 yield return new WaitForSeconds(0.8f);
                 yield return Shot(dir, "1d_gear_drop");
-                // A Legendary: the pillar of light, from a few steps back.
+
                 GearDrop.ServerSpawn(new GearItem(GearId.WardensBulwark, 3, 0), local.OwnerClientId, gFrom + new Vector3(-2.2f, -0.1f, 5f));
                 lobbyMotor.SetPitch(5f);
                 yield return new WaitForSeconds(0.8f);
                 yield return Shot(dir, "1d_gear_legendary");
-                // A soul skull, close up (as an ally would see it).
+
                 var skullAt = gFrom + new Vector3(-3.5f, -0.1f, 0.5f);
                 var shotSkull = DungeonDirector.Instance.ServerDebugSkull(skullAt, ulong.MaxValue - 1);
                 var campMourner = DungeonDirector.Instance.ServerDebugSpawnMourner(skullAt + new Vector3(-1.5f, 0f, 1.8f), Vector3.right);
@@ -7489,14 +7248,14 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "1d_soul_skull");
                 if (shotSkull != null && shotSkull.NetworkObject.IsSpawned) shotSkull.NetworkObject.Despawn();
                 if (campMourner != null) campMourner.GetComponent<Health>().ServerDamage(1e6f, campMourner.transform.position);
-                // The ping wheel, open, with Danger picked.
+
                 var wheelPings = local.GetComponent<PlayerPings>();
                 wheelPings.DebugShowWheel(true, new Vector2(0f, 80f));
                 yield return new WaitForSeconds(0.3f);
                 yield return Shot(dir, "1e_ping_wheel");
                 wheelPings.DebugShowWheel(false, Vector2.zero);
                 lobbyMotor.SetPitch(0f);
-                // A long run's haul of relics (the user's screenshot had twenty): the row, sheet and pack must cope.
+
                 for (int ri = 0; ri < 18; ri++) ap.ServerAddRelic((Relic)ri);
                 yield return null;
                 UI.GameHud.DebugShowStats = true;
@@ -7527,7 +7286,7 @@ namespace Deepbound.Networking
                     lm.SetPitch(30f);
                     yield return new WaitForSeconds(0.2f);
                     yield return Shot(dir, "0s_cat");
-                    // Picked up unasked: it pees. Then petted and picked up: it smiles.
+
                     cat.PickUpRpc(local.NetworkObject);
                     yield return new WaitForSeconds(0.25f);
                     yield return Shot(dir, "0s_cat_pee");
@@ -7549,7 +7308,7 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.4f);
                 yield return Shot(dir, "0s_tent_games");
                 lm.SetPitch(0f);
-                // The carriage at the gate, the road out, then a seat on its back and the ride.
+
                 var ride = CarriageRide.Instance;
                 if (ride != null)
                 {
@@ -7591,7 +7350,7 @@ namespace Deepbound.Networking
             }
 
             var motor = local.GetComponent<FirstPersonMotor>();
-            motor.enabled = false; // stop input and gravity fighting the staged camera
+            motor.enabled = false;
 
             yield return Shot(dir, "1_start_room");
             var sr = layout.StartRoom;
@@ -7600,7 +7359,7 @@ namespace Deepbound.Networking
             motor.SetPitch(12f);
             yield return new WaitForSeconds(0.4f);
             yield return Shot(dir, "1_start_room_wide"); yield return SamplePerf("1_start_room_wide");
-            // Blood on the flagstones (2026-11-01): a few blows' worth staged on the floor ahead.
+
             {
                 var bcam = Art.ViewCamera.Current;
                 var bf = bcam != null ? bcam.transform.forward : local.transform.forward;
@@ -7612,12 +7371,12 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.4f);
                 yield return Shot(dir, "2c_blood");
             }
-            // The floor report (2026-11-22) with sample numbers.
+
             UI.FloorReport.DebugFill();
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "2f_floor_report");
             UI.FloorReport.Rows.Clear();
-            // The Relic Crucible (2026-11-22) staged ahead of the camera.
+
             {
                 var ccam = Art.ViewCamera.Current;
                 var cf = ccam != null ? ccam.transform.forward : local.transform.forward;
@@ -7628,7 +7387,7 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "2g_relic_crucible");
                 if (cruc != null) cruc.NetworkObject.Despawn();
             }
-            // A door in a doorway: shut from a distance, swinging open as you come up to it.
+
             var door = FindObjectsByType<SwingDoor>(FindObjectsSortMode.None).OrderBy(d => (d.transform.position - local.transform.position).sqrMagnitude).FirstOrDefault();
             if (door != null)
             {
@@ -7644,7 +7403,7 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "1p_door_open");
                 motor.SetPitch(0f);
             }
-            // A rat by the wall, before it bolts.
+
             var rat = FindObjectsByType<Art.Critter>(FindObjectsSortMode.None).Where(c => c.Type == Art.Critter.Kind.Rat).OrderBy(c => (c.transform.position - local.transform.position).sqrMagnitude).FirstOrDefault();
             if (rat != null)
             {
@@ -7666,7 +7425,6 @@ namespace Deepbound.Networking
             yield return Shot(dir, "1a_large_map");
             map.Large = false;
 
-            // Hollow walls: a secret one up close, then smash it to see the alcove; a breach as it bursts.
             foreach (var hw in FindObjectsByType<CrackedWall>(FindObjectsSortMode.None).OrderBy(x => x.Breach.Value).ToArray())
             {
                 var hf = hw.transform.position - hw.transform.forward * 3.2f + Vector3.up * 0.1f;
@@ -7690,7 +7448,6 @@ namespace Deepbound.Networking
                 }
             }
 
-            // Every feature room on the floor, from a high corner looking across it.
             foreach (var room in layout.Rooms)
             {
                 if (room.Feature == RoomFeature.None) continue;
@@ -7701,7 +7458,6 @@ namespace Deepbound.Networking
                 var look = room.Center - fp;
                 if (room.Feature == RoomFeature.Chasm)
                 {
-                    // At the lip, between a bridge and the corner, peering down.
                     fp = new Vector3(room.Pit.xMin - 0.8f, 0.1f, room.Pit.center.y + room.Pit.height * 0.25f);
                     look = Vector3.right;
                 }
@@ -7720,7 +7476,6 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(1.5f);
                 yield return Shot(dir, "2_combat_room"); yield return SamplePerf("2_combat_room");
 
-                // Status tags: chill one, mark another, stun and taunt a third.
                 var all = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).Where(e => !(e is BossBrain) && !e.IsDead).ToArray();
                 var anchor = all.FirstOrDefault();
                 var inRoom = anchor == null ? new EnemyBrain[0] : all.OrderBy(e => Vector3.Distance(e.transform.position, anchor.transform.position)).Take(3).ToArray();
@@ -7736,7 +7491,7 @@ namespace Deepbound.Networking
                 foreach (var e in inRoom) e.ServerStun(10f);
                 yield return new WaitForSeconds(0.4f);
                 yield return Shot(dir, "2a_status_tags");
-                // Every look an elite can wear, in a row: ward, swift, frenzy, thorns, volatile, splitting, and an enraged brute.
+
                 {
                     var row = new System.Collections.Generic.List<EnemyBrain>();
                     var affixes = new[] { EliteAffix.Warded, EliteAffix.Swift, EliteAffix.Frenzied, EliteAffix.Thorned, EliteAffix.Volatile, EliteAffix.Splitting };
@@ -7756,7 +7511,7 @@ namespace Deepbound.Networking
                     yield return Shot(dir, "2a_elite_looks");
                     foreach (var e in row) if (e != null && e.IsSpawned) e.NetworkObject.Despawn();
                 }
-                // The Tome of the Phoenix in flight over the room, and the belt's fifth slot.
+
                 {
                     var sp5 = local.GetComponent<Flasks>();
                     if (sp5 != null) sp5.Rare.Value = 0;
@@ -7764,7 +7519,7 @@ namespace Deepbound.Networking
                     {
                         sp5.ServerUseRare();
                         yield return new WaitForSeconds(1.6f);
-                        // Look at the bird where it wheels.
+
                         var birdNow = Phoenix.All.LastOrDefault();
                         if (birdNow != null)
                         {
@@ -7782,7 +7537,7 @@ namespace Deepbound.Networking
                         foreach (var bird in Phoenix.All.ToArray()) if (bird != null && bird.IsSpawned) bird.NetworkObject.Despawn();
                     }
                 }
-                // A hit landing on the nearest one: sparks, chips, the flinch.
+
                 if (anchor != null)
                 {
                     var close = anchor.transform.position + anchor.transform.forward * 2.2f + Vector3.up * 0.1f;
@@ -7791,7 +7546,7 @@ namespace Deepbound.Networking
                     anchor.GetComponent<Health>().ServerDamage(anchor.GetComponent<Health>().Max.Value * 0.15f, close, local.NetworkObjectId);
                     yield return new WaitForSeconds(0.06f);
                     yield return Shot(dir, "2c_hit_impact");
-                    // The Kenney sprite effects, staged in front of the camera (2026-10-28).
+
                     {
                         var camT = Art.ViewCamera.Current != null ? Art.ViewCamera.Current.transform : local.transform;
                         var eye = camT.position;
@@ -7809,14 +7564,14 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.6f);
                         yield return Shot(dir, "2d_fx_sprites_later");
                     }
-                    // Mid-cut: the swing trail behind the blade.
+
                     local.ViewModelSwing(0.12f, 0.4f, 1f);
                     yield return new WaitForSeconds(0.2f);
                     yield return Shot(dir, "2d_swing_trail");
-                    // The whole cut in slow motion, frame by frame (forehand, then backhand).
+
                     yield return new WaitForSeconds(0.6f);
                     Time.timeScale = 0.12f;
-                    // Forehand, backhand, then the chain's third: the overhead chop.
+
                     int cut = 0;
                     foreach (float side in new[] { 1f, -1f, 1f })
                     {
@@ -7831,10 +7586,10 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.02f);
                     }
                     Time.timeScale = 1f;
-                    // Idle long enough and the Knight turns his blade to look along it (2026-10-28).
+
                     yield return new WaitForSeconds(8.3f);
                     yield return Shot(dir, "2e_idle_inspect");
-                    // The Rogue's paired stabs, the same way.
+
                     var pclass = local.GetComponent<PlayerProgress>();
                     var was = pclass.ClassId.Value;
                     pclass.ClassId.Value = Classes.ClassId.Rogue;
@@ -7855,7 +7610,6 @@ namespace Deepbound.Networking
                     yield return new WaitForSeconds(0.6f);
                 }
 
-                // Kill everything in the room so the loot it leaves is visible.
                 foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
                 {
                     if (!(e is BossBrain) && room.Contains(e.transform.position, 1f)) e.GetComponent<Health>().ServerDamage(1e6f, p);
@@ -7871,7 +7625,6 @@ namespace Deepbound.Networking
             yield return new WaitForSeconds(2.4f);
             yield return Shot(dir, "3_boss_room"); yield return SamplePerf("3_boss_room");
             {
-                // Every arena device in one frame: a healing pylon, a ballista, a lit sanctum brazier, a winch and its chandelier.
                 var dd = DungeonDirector.Instance;
                 var side = Vector3.Cross(Vector3.up, (layout.BossSpawn - bp).normalized);
                 var row = bp + (layout.BossSpawn - bp).normalized * 5f;
@@ -7886,12 +7639,10 @@ namespace Deepbound.Networking
                 motor.SetPitch(0f);
             }
 
-            // Turn round to see a corridor mouth from inside the boss room.
             motor.Teleport(bp, Quaternion.LookRotation(bp - layout.BossSpawn));
             yield return new WaitForSeconds(0.5f);
             yield return Shot(dir, "4_boss_room_back");
 
-            // A corridor flame trap, mid-burst, and the floor's champion.
             if (layout.FlameTraps.Count > 0)
             {
                 var trap = layout.FlameTraps[0];
@@ -7901,18 +7652,18 @@ namespace Deepbound.Networking
                 for (int w = 0; w < 120 && !FlameJet.Lit(trap.Phase, Pendulum.Clock + 0.2); w++) yield return new WaitForSeconds(0.05f);
                 yield return new WaitForSeconds(0.35f);
                 yield return Shot(dir, "1j_flame_trap");
-                // The same vent choked (2026-11-13): dark grates, no fire.
+
                 DungeonDirector.Instance.ChokedJets.Value |= 1UL;
                 yield return new WaitForSeconds(0.4f);
                 yield return Shot(dir, "1j6_vent_choked");
                 DungeonDirector.Instance.ChokedJets.Value = 0;
             }
-            // A spike plate as it lies in the open, then the same plate hidden in flagstone, then the Ranger's net beside it.
+
             var shotPlate = FindObjectsByType<SpikeTrap>(FindObjectsSortMode.None).FirstOrDefault();
             if (shotPlate != null)
             {
                 var pp = shotPlate.transform.position;
-                // A spike bed (2026-11-12) is seen down its own length, from beyond its near plate.
+
                 var tp = pp - shotPlate.transform.forward * (SpikeTrap.Length / 2f + SpikeTrap.PlateLength + 1.6f) + Vector3.up * 0.1f;
                 motor.Teleport(tp, Quaternion.LookRotation(Flat3(shotPlate.transform.forward)));
                 motor.SetPitch(30f);
@@ -7923,7 +7674,7 @@ namespace Deepbound.Networking
                 yield return new WaitForSeconds(0.3f);
                 yield return Shot(dir, "1j3_spike_plate_hidden");
                 shotPlate.Hidden.Value = false;
-                shotPlate.Jammed.Value = true;   // the wedges a Rogue or a pick leaves (2026-11-13)
+                shotPlate.Jammed.Value = true;
                 yield return new WaitForSeconds(0.3f);
                 yield return Shot(dir, "1j5_spike_jammed");
                 shotPlate.Jammed.Value = false;
@@ -7933,7 +7684,7 @@ namespace Deepbound.Networking
                 motor.SetPitch(0f);
                 yield return new WaitForSeconds(0.2f);
             }
-            // DEPTH ROUND (2026-11-13): a cellar hatch and the vault under it, a bargain altar, a soul rift, a spawn tell.
+
             {
                 var cellar = layout.Rooms.FirstOrDefault(r => r.Cellar);
                 if (cellar != null)
@@ -7989,7 +7740,7 @@ namespace Deepbound.Networking
             if (champ != null)
             {
                 champ.ServerStun(30f);
-                champ.ServerAddThreat(local.NetworkObjectId, 60f);   // its rage meter shows (and at 4 m a melee class reads OUT OF RANGE)
+                champ.ServerAddThreat(local.NetworkObjectId, 60f);
                 var cp = champ.transform.position + champ.transform.forward * 4f + Vector3.up * 0.1f;
                 motor.Teleport(cp, Quaternion.LookRotation(champ.transform.position - cp));
                 yield return new WaitForSeconds(0.6f);
@@ -8005,7 +7756,6 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "1l_wheel_of_fate");
             }
 
-            // The Reliquary, resting in its side room.
             var relS = Reliquary.Current;
             if (relS != null)
             {
@@ -8056,9 +7806,8 @@ namespace Deepbound.Networking
                 }
             }
 
-            // One look at each later floor's theme.
             var shotFeatures = new System.Collections.Generic.HashSet<RoomFeature>(layout.Rooms.Select(r => r.Feature));
-            // An act's second floor: the same place, deeper and darker.
+
             DungeonDirector.Instance.ServerDebugStartFloor(3);
             yield return new WaitForSeconds(2.5f);
             var deepRoom = DungeonDirector.Layout.Rooms.FirstOrDefault(r => r.Kind == RoomKind.Combat);
@@ -8070,7 +7819,6 @@ namespace Deepbound.Networking
                 yield return Shot(dir, "5_floor4_deeper");
             }
 
-            // BOSS DASHES (2026-11-13): the Cardinal's leap circle and the Tide Lich's blink, mid-telegraph; the repulse ring.
             foreach (int bd in new[] { 3, 5, 7 })
             {
                 DungeonDirector.Instance.ServerDebugStartFloor(bd);
@@ -8106,13 +7854,12 @@ namespace Deepbound.Networking
                 local.GetComponent<Health>().ServerSetFraction(1f);
             }
 
-            // One floor per later act (each the act's first: a Warden waits at the end of it).
             for (int depth = 2; depth <= DungeonDirector.AbyssDepth; depth += 2)
             {
                 DungeonDirector.Instance.ServerDebugStartFloor(depth);
                 yield return new WaitForSeconds(2.5f);
                 var l = DungeonDirector.Layout;
-                // The Warden, asleep in its arena.
+
                 var wardenS = BossBrain.Active;
                 if (wardenS != null)
                 {
@@ -8123,7 +7870,7 @@ namespace Deepbound.Networking
                     yield return Shot(dir, "3w_warden_floor" + (depth + 1));
                     motor.SetPitch(0f);
                 }
-                // Any room mechanic not seen yet: from a corner, and (galleries) from the balcony.
+
                 foreach (var room in l.Rooms)
                 {
                     if (room.Feature == RoomFeature.None || !shotFeatures.Add(room.Feature)) continue;
@@ -8143,8 +7890,7 @@ namespace Deepbound.Networking
                         yield return Shot(dir, "1c_feature_Gallery_balcony");
                     }
                 }
-                // The third floor: a staged oath in the start room (one plate held, the line half drawn),
-                // then the ROOM CLEARED stamp and a floor event's badge.
+
                 if (depth == 2)
                 {
                     var oathSr = l.StartRoom;
@@ -8159,7 +7905,7 @@ namespace Deepbound.Networking
                     motor.SetPitch(0f);
                     if (staged != null && staged.IsSpawned) staged.NetworkObject.Despawn();
                     foreach (var st in Carryable.All.OfType<OathStone>().ToList()) if (st != null && st.IsSpawned) st.NetworkObject.Despawn();
-                    // The castle cat, asleep far below camp.
+
                     var napAt = oathSr.Center + Vector3.right * 3.6f + Vector3.forward * 3.2f;
                     var nap = DungeonDirector.Instance.ServerDebugShaftCat(napAt);
                     var napView = napAt + new Vector3(-1.4f, 0.1f, -1.4f);
@@ -8177,7 +7923,7 @@ namespace Deepbound.Networking
                     UI.StatusEffects.DebugHover = -1;
                     DungeonDirector.Instance.ServerDebugEvent(FloorEvent.None);
                 }
-                // An Oath room, if this floor has one: the two plates and the stone, from the door.
+
                 var oathRoom = l.Rooms.FirstOrDefault(r => r.Feature == RoomFeature.Oath);
                 if (oathRoom != null && oathRoom.FeatureSpots.Count >= 4)
                 {
@@ -8197,14 +7943,13 @@ namespace Deepbound.Networking
                     yield return Shot(dir, "5_floor" + (depth + 1));
                     if (DungeonDirector.Act(depth) == 1)
                     {
-                        // The water thickens: murk, slow ripples, and the MIRED badge (read by hovering it).
                         DungeonDirector.Instance.ServerDebugTide();
                         yield return new WaitForSeconds(1.5f);
                         UI.StatusEffects.DebugHover = 0;
                         yield return Shot(dir, "5_floor3_mire");
                         UI.StatusEffects.DebugHover = -1;
                     }
-                    // This floor's own dressing, up close.
+
                     if (DungeonBuilder.ThemeSpots.Count > 0)
                     {
                         var (tat, tin) = DungeonBuilder.ThemeSpots[DungeonBuilder.ThemeSpots.Count / 2];
@@ -8218,7 +7963,6 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.3f);
                     }
 
-                    // Line up one of each newer enemy type for a close look.
                     foreach (var type in new[] { typeof(GhoulBrain), typeof(BruteBrain), typeof(NecromancerBrain), typeof(WraithBrain), typeof(ShieldbearerBrain), typeof(HoarderBrain), typeof(GargoyleBrain), typeof(PlaguebearerBrain), typeof(FrostWightBrain), typeof(HexerBrain), typeof(EntlingBrain), typeof(OrbweaverBrain), typeof(ChoirAcolyteBrain), typeof(AbyssEyeBrain), typeof(BonePiperBrain), typeof(CantorBrain) })
                     {
                         var e = FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None).FirstOrDefault(b => b.GetType() == type && !b.IsDead);
@@ -8230,7 +7974,6 @@ namespace Deepbound.Networking
                         yield return Shot(dir, "7_" + type.Name + "_floor" + (depth + 1));
                     }
 
-                    // The newer afflictions on the HUD (2026-10-27), once: SILENCED, then DAZED.
                     if (depth == 6)
                     {
                         var sdeb = local.GetComponent<PlayerDebuffs>();
@@ -8244,7 +7987,7 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.6f);
                         yield return Shot(dir, "2b_dazed");
                         sdeb.ServerCleanse();
-                        // Each affliction's picture at the edge of the view (2026-10-28).
+
                         sdeb.ServerResetGrace();
                         sdeb.ServerRoot(4f);
                         yield return new WaitForSeconds(0.9f);
@@ -8267,7 +8010,7 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.5f);
                         yield return Shot(dir, "2b_mania");
                         sdeb.ServerCleanse();
-                        // The potions' own looks (2026-10-28).
+
                         var pouchS = local.GetComponent<Flasks>();
                         var lifeS = local.GetComponent<Health>();
                         lifeS.ServerSetFraction(0.4f);
@@ -8300,7 +8043,6 @@ namespace Deepbound.Networking
                         yield return Shot(dir, "2c_cleansed");
                     }
 
-                    // The Bone Piper: a close look, then each tune in full flight.
                     if (depth == 4)
                     {
                         var pFrom = room.Center + new Vector3(0f, 0.1f, -6f);
@@ -8326,7 +8068,6 @@ namespace Deepbound.Networking
                         }
                     }
 
-                    // The Mourner (never spawned in tests): one weeping far off, one caught reaching up close.
                     if (depth == 2)
                     {
                         var mournFrom = room.Center + Vector3.up * 0.1f;
@@ -8338,7 +8079,6 @@ namespace Deepbound.Networking
                         foreach (var mn in new[] { far, near }) if (mn != null) mn.GetComponent<Health>().ServerDamage(1e6f, mn.transform.position);
                     }
 
-                    // The Tallyman, walking in out of the dark (the screenshot player takes no damage).
                     if (depth == 2)
                     {
                         var tfromC = room.Center + Vector3.up * 0.1f;
@@ -8365,11 +8105,9 @@ namespace Deepbound.Networking
                 }
             }
 
-            // A chest, the pause menu, and the end-of-run summary.
             var someChest = FindObjectsByType<Chest>(FindObjectsSortMode.None).FirstOrDefault();
             if (someChest != null)
             {
-                // Stand on whichever side of it is open (a chest's back is often to a wall), looking down at it.
                 var cpos = someChest.transform.position;
                 var side = someChest.transform.forward;
                 foreach (var d in new[] { someChest.transform.forward, someChest.transform.right, -someChest.transform.right, -someChest.transform.forward })
@@ -8435,21 +8173,10 @@ namespace Deepbound.Networking
             Application.Quit(0);
         }
 
-        /// <summary>
-        /// Boss mechanics check: for each floor boss, drop the host into the arena, keep it
-        /// alive, and let the fight run while logging every mechanic ([Boss] lines) and
-        /// capturing frames. Run windowed: <c>-bosstest C:\\temp\\boss</c>.
-        /// </summary>
         public void BossTest(string dir, NetworkLauncher launcher) => StartCoroutine(BossSequence(dir, launcher));
 
-        /// <summary>-portraits: close looks at the Hollow Throne's two big knights (Sir Aldous, the Twice-Crowned), then quit.</summary>
         public void Portraits(string dir, NetworkLauncher launcher) => StartCoroutine(PortraitSequence(dir, launcher));
 
-        /// <summary>
-        /// -gallery (2026-11-20, the user: "take my previous critiques and apply them to current dungeon assets"): every guardian,
-        /// warden, lair keeper and enemy kind, held still under a key light and shot from the front and a quarter, so each model
-        /// can be judged against the notes (not "just a skeleton", not "capsules joined together"). Quits when done.
-        /// </summary>
         public void Gallery(string dir, NetworkLauncher launcher) => StartCoroutine(GallerySequence(dir, launcher));
 
         private IEnumerator GallerySequence(string dir, NetworkLauncher launcher)
@@ -8463,14 +8190,13 @@ namespace Deepbound.Networking
             local.GetComponent<Health>().IncomingModifiers.Insert(0, (d, f) => 0f);
             for (float t = 0f; t < 5f && !DungeonDirector.InLobby; t += 0.2f) yield return new WaitForSeconds(0.2f);
             var dd = DungeonDirector.Instance;
-            // -galpart letters pick sections (s self, g guardians, r rooms, p props, l lairs, e enemies); all by default.
+
             var cl = System.Environment.GetCommandLineArgs();
             int gp = System.Array.IndexOf(cl, "-galpart");
             string part = gp >= 0 && gp + 1 < cl.Length ? cl[gp + 1] : "sgrple";
             UI.GameHud.PhotoMode = true;
             if (part.Contains("s"))
             {
-            // Yourself, in the dungeon (the class picker covers the lobby): looking down in first person, and mid-emote.
             dd.ServerDebugStartFloor(0);
             yield return new WaitForSeconds(4f);
             foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
@@ -8488,8 +8214,7 @@ namespace Deepbound.Networking
             local.Rig?.PlayEmote(Art.Emote.None, 0f);
             yield return new WaitForSeconds(1f);
             }
-            // -galpart c: a camp spot the user reported (2026-11-20: "weird visual shadow bug, from spawn, 20 steps
-            // straight and look east"): walk north from the spawn and look east, at a few distances and pitches.
+
             if (part.Contains("c"))
             {
                 yield return new WaitForSeconds(1.5f);
@@ -8507,7 +8232,7 @@ namespace Deepbound.Networking
                     }
                 motor.SetPitch(0f);
             }
-            // -galpart k: one of each room centrepiece (hearth, bell, columns, statue, well), seen from a corner.
+
             if (part.Contains("k"))
             {
                 var seenK = new System.Collections.Generic.HashSet<Centrepieces.Kind>();
@@ -8531,7 +8256,7 @@ namespace Deepbound.Networking
                         yield return new WaitForSeconds(0.9f);
                         Debug.Log("[Gallery] centrepiece shot from " + local.transform.position + " cam " + (Art.ViewCamera.Current != null ? Art.ViewCamera.Current.transform.position.ToString() : "?") + " looking " + (Art.ViewCamera.Current != null ? Art.ViewCamera.Current.transform.forward.ToString() : "?"));
                         yield return Shot(dir, "k" + depth + "_" + kk);
-                        // The hearth lit, close (2026-11-22: reworked after the user's screenshot of a blinding one).
+
                         if (kk == Centrepieces.Kind.Hearth)
                         {
                             var hearth = FindObjectsByType<HearthBrazier>(FindObjectsSortMode.None).OrderBy(x => Vector3.Distance(x.transform.position, rmK.Center)).FirstOrDefault();
@@ -8549,19 +8274,21 @@ namespace Deepbound.Networking
                 }
                 motor.SetPitch(0f);
             }
-            // -galpart u: the reworked ultimates, cast in the start room and caught mid-flight (2026-11-20).
+
             if (part.Contains("u"))
             {
                 dd.ServerDebugStartFloor(0);
                 yield return new WaitForSeconds(4f);
                 foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
                     if (e != null && e.IsSpawned && !(e is BossBrain)) e.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, e.transform.position, local.NetworkObjectId);
-                // The biggest combat room, standing at one end looking down its length.
+
                 var uroom = DungeonDirector.Layout.Rooms.Where(rr => rr.Kind == RoomKind.Combat).OrderByDescending(rr => rr.Size.x * rr.Size.y).First();
                 var ulong3 = uroom.Size.x >= uroom.Size.y ? Vector3.right : Vector3.forward;
                 float ulen = Mathf.Max(uroom.Size.x, uroom.Size.y);
                 var ustand = Art.Vfx.Floor(uroom.Center - ulong3 * ulen * 0.38f + Vector3.up * 2f) + Vector3.up * 0.1f;
                 yield return new WaitForSeconds(1f);
+                foreach (var ld in FindObjectsByType<LootDrop>(FindObjectsSortMode.None)) if (ld != null && ld.IsSpawned) ld.NetworkObject.Despawn();
+                foreach (var gd in FindObjectsByType<GearDrop>(FindObjectsSortMode.None)) if (gd != null && gd.IsSpawned) gd.NetworkObject.Despawn();
                 var ult = local.GetComponent<Ultimates>();
                 var prog = local.GetComponent<PlayerProgress>();
                 foreach (var (cls, nm, wait, pitch) in new[] { (Classes.ClassId.Ranger, "u_twin_wyrms", 0.75f, 0f), (Classes.ClassId.PlagueDoctor, "u_pandemic", 0.5f, 30f), (Classes.ClassId.Flagellant, "u_red_litany", 1.5f, 30f) })
@@ -8582,11 +8309,7 @@ namespace Deepbound.Networking
                 }
                 motor.SetPitch(0f);
             }
-            // -galpart a: every class ability (2026-11-21, the user: "every ability should be discernable in battle, and look
-            // distinct"). A bare stage far off to the side of the dungeon (at floor height: below y -3 the pit rescue takes you back) (its own floor, navmesh and lights, nothing to block the camera), one
-            // station per ability 40 m apart so nothing lingers into the next shot. Each cast is shot from a three-quarter view
-            // beside the caster, twice (_1 early, _2 later) to see it move; a few from the caster's own eyes (_eye).
-            // -galpart t (2026-11-25): the Proving Path - each lesson's line on arrival, then met.
+
             if (part.Contains("t"))
             {
                 UI.GameHud.PhotoMode = false;
@@ -8694,7 +8417,6 @@ namespace Deepbound.Networking
                 NetworkPlayer.DebugShowSelf = true;
                 var ultA = local.GetComponent<Ultimates>();
 
-                // ---- Knight ----
                 yield return Ready(Classes.ClassId.Knight);
                 var kk = local.GetComponent<KnightKit>();
                 kk.ServerDebugSwing(local.transform.position + Vector3.up, along);
@@ -8722,7 +8444,6 @@ namespace Deepbound.Networking
                 yield return Snap("ult_knight_1", 0.35f);
                 yield return Snap("ult_knight_2", 1.6f);
 
-                // ---- Cleric ----
                 yield return Ready(Classes.ClassId.Cleric);
                 var ck = local.GetComponent<ClericKit>();
                 Call(ck, "SmiteRpc", Eye(), AimDir());
@@ -8748,7 +8469,6 @@ namespace Deepbound.Networking
                 yield return Snap("ult_cleric_1", 0.35f);
                 yield return Snap("ult_cleric_2", 0.5f);
 
-                // ---- Flagellant ----
                 yield return Ready(Classes.ClassId.Flagellant);
                 var fk = local.GetComponent<FlagellantKit>();
                 fk.ServerSwing(local.transform.position + Vector3.up, along, 1f);
@@ -8783,7 +8503,6 @@ namespace Deepbound.Networking
                 yield return Snap("ult_flag", 0.4f, false);
                 yield return Snap("ult_flag_2", 5.4f);
 
-                // ---- Rogue ----
                 yield return Ready(Classes.ClassId.Rogue);
                 var rk = local.GetComponent<RogueKit>();
                 rk.ServerStab(local.transform.position + Vector3.up, along);
@@ -8812,7 +8531,6 @@ namespace Deepbound.Networking
                 yield return Snap("ult_rogue_1", 0.1f);
                 yield return Snap("ult_rogue_2", 0.2f);
 
-                // ---- Plague Doctor ----
                 yield return Ready(Classes.ClassId.PlagueDoctor);
                 var pk = local.GetComponent<PlagueDoctorKit>();
                 pk.ServerVial(Eye(), (AimAt() + Vector3.up * 1.2f - Eye()).normalized);
@@ -8820,14 +8538,14 @@ namespace Deepbound.Networking
                 yield return Snap("pd_vial_2", 0.45f);
                 yield return Snap("pd_vial_3", 1.0f);
                 yield return Ready(Classes.ClassId.PlagueDoctor);
-                // The Tonic is a breath round the Doctor now (2026-11-23).
+
                 if (dummy != null)
                     for (int fs = 0; fs < 4; fs++) { dummy.ServerBlight(6f, 1f, local.NetworkObjectId); yield return new WaitForSeconds(0.55f); }
                 pk.ServerExpunge(local.transform.position, out _);
                 yield return Snap("pd_expunge_1", 0.25f);
                 yield return Snap("pd_expunge_2", 0.35f);
                 yield return Snap("pd_expunge_3", 0.5f);
-                // Festering: four stacks orbit the dummy, then a vial bursts into them.
+
                 yield return Ready(Classes.ClassId.PlagueDoctor);
                 if (dummy != null)
                     for (int fs = 0; fs < 4; fs++) { dummy.ServerBlight(6f, 1f, local.NetworkObjectId); yield return new WaitForSeconds(0.55f); }
@@ -8847,7 +8565,6 @@ namespace Deepbound.Networking
                 yield return Snap("ult_pd_1", 0.3f);
                 yield return Snap("ult_pd_2", 0.9f);
 
-                // ---- Mage ----
                 yield return Ready(Classes.ClassId.Mage);
                 var mk = local.GetComponent<MageKit>();
                 mk.ServerBolt(Eye(), AimDir(), false);
@@ -8875,7 +8592,6 @@ namespace Deepbound.Networking
                 yield return Snap("ult_mage_1", 1.2f);
                 yield return Snap("ult_mage_2", 1.9f);
 
-                // ---- Ranger ----
                 yield return Ready(Classes.ClassId.Ranger);
                 var rgk = local.GetComponent<RangerKit>();
                 rgk.ServerShoot(Eye(), AimDir(), 1f);
@@ -8901,7 +8617,6 @@ namespace Deepbound.Networking
                 ultA.ServerDebugCast(astand + along * 10f);
                 yield return Snap("ult_ranger", 1.1f);
 
-                // ---- 2026-11-22: Convergence, Emberbound ----
                 yield return Ready(Classes.ClassId.Knight, 3);
                 Art.ClassFx.Convergence(Art.Vfx.Floor(astand + along * 6f), UI.CharacterSelect.Accent(Classes.ClassId.Knight), UI.CharacterSelect.Accent(Classes.ClassId.Mage), Ultimates.ConvergeRadius);
                 yield return Snap("convergence_1", 0.15f);
@@ -8940,7 +8655,7 @@ namespace Deepbound.Networking
                 }
                 motor.SetPitch(0f);
             }
-            // Guardians: every floor's (wardens on even depths, act bosses on odd, the Unsung last).
+
             for (int depth = 0; depth < DungeonDirector.FloorsPerRun && part.Contains("g"); depth++)
             {
                 dd.ServerDebugStartFloor(depth);
@@ -8951,7 +8666,7 @@ namespace Deepbound.Networking
                 motor.Teleport(inside, Quaternion.LookRotation(Flat3(boss.transform.position - inside)));
                 yield return new WaitForSeconds(8f);
                 string nm = "g" + depth + "_" + boss.DisplayName.Replace(" ", "").Replace("'", "");
-                // Frame by the body as drawn (the Unsung's size lives inside its visual, not on the root).
+
                 float tall = 2f;
                 foreach (var rr in boss.GetComponentsInChildren<Renderer>())
                     if (rr.enabled && !(rr is ParticleSystemRenderer)) tall = Mathf.Max(tall, rr.bounds.max.y - boss.transform.position.y);
@@ -8961,13 +8676,13 @@ namespace Deepbound.Networking
                 boss.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, boss.transform.position, local.NetworkObjectId);
                 yield return new WaitForSeconds(3f);
             }
-            // What lies in the dungeon, act by act: wide looks at rooms, then a close look at one of each kind of thing.
+
             IEnumerator Close(Transform t, string name, float dist)
             {
                 if (t == null) yield break;
                 var c = t.position;
                 var fwd = Flat3(t.forward).sqrMagnitude > 0.01f ? Flat3(t.forward).normalized : Vector3.forward;
-                // The first side with open floor and a clear look at it (props by walls put the camera in the wall).
+
                 var at = c + Quaternion.Euler(0f, 30f, 0f) * fwd * dist + Vector3.up * 0.1f;
                 for (int k = 0; k < 8; k++)
                 {
@@ -9007,7 +8722,7 @@ namespace Deepbound.Networking
                     yield return Shot(dir, "r" + depth + "_" + r + "_" + rm.Kind + "_" + rm.Feature);
                     shotRooms++;
                 }
-                // The guardian's arena from a corner (banners on the walls, the arena dressing), the guardian held still.
+
                 var arena = lay.Rooms.FirstOrDefault(rr => rr.Kind == RoomKind.Boss);
                 if (arena != null && part.Contains("r"))
                 {
@@ -9025,7 +8740,7 @@ namespace Deepbound.Networking
                 var kinds = new System.Collections.Generic.HashSet<Breakable.Kind>();
                 foreach (var b in FindObjectsByType<Breakable>(FindObjectsSortMode.None))
                     if (b != null && kinds.Add(b.Type.Value)) yield return Close(b.transform, a + "break_" + b.Type.Value, 1.9f);
-                // The act's own wall dressing (toppled statues, pews, strongboxes...): the first three spots, seen from the room.
+
                 int themeShots = 0;
                 foreach (var (tat, tin) in DungeonBuilder.ThemeSpots.ToArray())
                 {
@@ -9039,7 +8754,7 @@ namespace Deepbound.Networking
                     themeShots++;
                 }
                 motor.SetPitch(0f);
-                // The furnished corners: one of each kind on this floor, seen from the room.
+
                 var seenKinds = new System.Collections.Generic.HashSet<int>();
                 foreach (var (fat, fk) in DungeonBuilder.Furnished.ToArray())
                 {
@@ -9062,11 +8777,10 @@ namespace Deepbound.Networking
                     (Any<Lever>(), "lever", 2.2f), (Any<CrackedWall>(), "crackedwall", 3f), (Any<Reliquary>(), "reliquary", 2.4f), (Any<PuzzleRoom>(), "puzzle", 3.2f) })
                     if (c != null) yield return Close(c.transform, a + nm, d);
             }
-            // Lair keepers and the rank and file, in one floor's boss room.
+
             dd.ServerDebugStartFloor(4);
             yield return new WaitForSeconds(3.5f);
-            // A big combat room, the guardian left asleep in its arena (killing it would clear the floor and send us to camp).
-            // A plain one (no centrepiece in the frame) when there is one.
+
             var room = DungeonDirector.Layout.Rooms.Where(rr => rr.Kind == RoomKind.Combat).OrderByDescending(rr => (rr.Feature == RoomFeature.None ? 1000f : 0f) + rr.Size.x * rr.Size.y).First();
             foreach (var e in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
                 if (e != null && e.IsSpawned && !(e is BossBrain)) e.GetComponent<Health>().ServerDamage(BossBrain.KillDamage, e.transform.position, local.NetworkObjectId);
@@ -9093,10 +8807,10 @@ namespace Deepbound.Networking
             foreach (var kind in new[] { "skeleton", "archer", "ghoul", "brute", "necromancer", "wraith", "shieldbearer", "gargoyle", "plaguebearer", "frostwight", "hexer", "mourner", "entling", "orbweaver", "mimic", "hoarder", "acolyte", "eye", "piper", "cantor", "magus", "lamprey", "hag", "ringer" })
             {
                 if (!part.Contains("e")) break;
-                // -galkinds ghoul,brute shoots only those.
+
                 int gk = System.Array.IndexOf(cl, "-galkinds");
                 if (gk >= 0 && gk + 1 < cl.Length && System.Array.IndexOf(cl[gk + 1].Split(','), kind) < 0) continue;
-                // Nothing else in the frame: a straggler (a raised pile, a wanderer) stood in front of the ghoul.
+
                 foreach (var other in FindObjectsByType<EnemyBrain>(FindObjectsSortMode.None))
                     if (other != null && other.IsSpawned && !(other is BossBrain)) other.NetworkObject.Despawn();
                 var e = dd.ServerDebugSpawn(kind, room.Center, false, true);
@@ -9109,11 +8823,11 @@ namespace Deepbound.Networking
                 }
                 else Debug.Log("[Gallery] could not spawn " + kind);
                 yield return new WaitForSeconds(2.2f);
-                // Sweep up what the dead dropped: relic beams and loot pillars crowded every later shot.
+
                 foreach (var ld in FindObjectsByType<Loot.LootDrop>(FindObjectsSortMode.None)) if (ld != null && ld.IsSpawned) ld.NetworkObject.Despawn();
                 foreach (var gd in FindObjectsByType<Loot.GearDrop>(FindObjectsSortMode.None)) if (gd != null && gd.IsSpawned) gd.NetworkObject.Despawn();
             }
-            // An elite under its ward (the bubble must not hide the creature). No stun: a stun breaks the ward.
+
             if (part.Contains("e"))
             {
                 var we = dd.ServerDebugSpawn("skeleton", room.Center, false, true);
@@ -9135,7 +8849,7 @@ namespace Deepbound.Networking
         private IEnumerator PortraitSequence(string dir, NetworkLauncher launcher)
         {
             System.IO.Directory.CreateDirectory(dir);
-            // The title's third scene (the grave lift going down the shaft), before anyone hosts.
+
             yield return new WaitForSeconds(1.5f);
             UI.MenuBackdrop.DebugShow(2);
             yield return new WaitForSeconds(2.5f);
@@ -9149,14 +8863,14 @@ namespace Deepbound.Networking
             var dd = DungeonDirector.Instance;
             dd.ServerDebugStartFloor(4);
             yield return new WaitForSeconds(3f);
-            // The loading card, as it shows on the way down.
+
             UI.LoadingScreen.AllowInTests = true;
             UI.LoadingScreen.Begin(UI.LoadingScreen.Kind.Descent, 0f);
             yield return new WaitForSeconds(1.4f);
             yield return Shot(dir, "loading_card");
             UI.LoadingScreen.Cancel(); UI.LoadingScreen.AllowInTests = false;
             yield return new WaitForSeconds(3f);
-            // A key light that follows the subject: the shots judge the model, not the room's lighting.
+
             var key = new GameObject("PortraitKey").AddComponent<Light>();
             key.type = LightType.Point; key.range = 14f; key.intensity = 3.5f; key.color = new Color(1f, 0.92f, 0.8f);
             IEnumerator Around(EnemyBrain e, string name, float dist)
@@ -9179,7 +8893,6 @@ namespace Deepbound.Networking
             Debug.Log("[Portraits] guardian " + (boss != null ? boss.DisplayName : "none"));
             if (boss != null)
             {
-                // Into the arena so it wakes, past its entrance and the title card, then hold it still.
                 var inside = DungeonDirector.Layout.BossRoom.Center + Vector3.up * 0.1f;
                 motor.Teleport(inside, Quaternion.LookRotation(Flat3(boss.transform.position - inside)));
                 yield return new WaitForSeconds(9f);
@@ -9193,7 +8906,7 @@ namespace Deepbound.Networking
             foreach (var t2 in FindObjectsByType<TwiceCrownedBrain>(FindObjectsSortMode.None)) t2.ServerStun(30f);
             yield return new WaitForSeconds(0.5f);
             if (tc != null) yield return Around(tc, "twicecrowned", 6.5f);
-            // Both kings in one frame.
+
             if (tc != null)
             {
                 var at = tc.transform.position + tc.transform.forward * 10f + Vector3.up * 0.1f;
@@ -9217,10 +8930,9 @@ namespace Deepbound.Networking
             var local = NetworkPlayer.Local;
             var motor = local.GetComponent<FirstPersonMotor>();
             var hp = local.GetComponent<Health>();
-            // The test player takes a tenth of every hit: the run must not wipe mid-test.
+
             hp.IncomingModifiers.Insert(0, (d, f) => d * 0.1f);
 
-            // Boss practice (2026-10-27): from camp, the guardian alone; it falls, the party is back at camp unchanged.
             {
                 var pd = DungeonDirector.Instance;
                 for (float t = 0f; t < 5f && !DungeonDirector.InLobby; t += 0.2f) yield return new WaitForSeconds(0.2f);
@@ -9251,7 +8963,6 @@ namespace Deepbound.Networking
                 Debug.Log("[Smoke] boss test floor " + (depth + 1) + ": " + (boss != null ? boss.DisplayName : "NO BOSS"));
                 if (boss == null) continue;
 
-                // Stand across the room, in its line of sight, so it has to come — or shoot.
                 var at = layout.BossRoom.Center - (layout.BossSpawn - layout.BossRoom.Center).normalized * 8f + Vector3.up * 0.1f;
                 motor.Teleport(at, Quaternion.LookRotation(boss.transform.position - at));
 
@@ -9263,13 +8974,10 @@ namespace Deepbound.Networking
                     look.y = 0f;
                     if (look.sqrMagnitude > 0.1f) local.transform.rotation = Quaternion.LookRotation(look);
                     if (i % 3 == 1) yield return Shot(dir, "boss" + (depth + 1) + "_" + i);
-                    // Walk toward the Lich mid-test, to provoke the blink.
-                    // Wound it halfway through, to see the late-fight phases (summons, surges, enrage).
+
                     if (boss is TideLichBrain && i == 6) motor.Teleport(boss.transform.position + boss.transform.forward * 2f, local.transform.rotation);
                 }
 
-                // The pose sheet (2026-11-14): every guardian strikes each special's body - charge, hurl, summon,
-                // channel - and the two heavy wind-ups, shot from the side at the pose's peak.
                 {
                     var side = boss.transform.position + boss.transform.right * 5.5f + boss.transform.forward * 2.5f;
                     if (UnityEngine.AI.NavMesh.SamplePosition(side, out var sh, 3f, UnityEngine.AI.NavMesh.AllAreas)) side = sh.position;
@@ -9287,7 +8995,6 @@ namespace Deepbound.Networking
                     }
                 }
 
-                // The Hollow King's decrees (2026-10-27): standing still obeys BE STILL; in plain sight, BEGONE strikes.
                 if (boss is HollowKingBrain king)
                 {
                     FaceBoss(local, boss);
@@ -9303,7 +9010,6 @@ namespace Deepbound.Networking
                         king.DecreesFallen >= 2 && stillStruck == 0 && (!seen || king.LastDecreeStruck == 1));
                 }
 
-                // The Wardens' second moves (2026-10-26).
                 if (boss is WardenBrain warden)
                 {
                     int before = warden.SecondMoves;
@@ -9315,7 +9021,6 @@ namespace Deepbound.Networking
                     Log("warden second", warden.DisplayName + ": began " + began + ", moves " + (warden.SecondMoves - before) + (warden.Act == 4 ? ", rot pools " + warden.RotPools : ""), ok);
                 }
 
-                // The newer set pieces (2026-10-26): the Cardinal's brand, the Unsung's echoes and eclipse.
                 if (boss is CardinalBrain cardinal)
                 {
                     bool branded = cardinal.ServerDebugBrand();
@@ -9336,7 +9041,7 @@ namespace Deepbound.Networking
                         for (int k = 0; k < 10; k++) { hp.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
                     }
                     Log("unsung echoes", "sung " + unsung.EchoesSung, unsung.EchoesSung >= 4);
-                    // The eclipse: stand in the first pool of dawn and live; the second time, stand outside and be struck.
+
                     unsung.ServerDebugEclipse();
                     for (float t = 0f; t < 2f && unsung.DawnPools.Count == 0; t += 0.1f) yield return new WaitForSeconds(0.1f);
                     int fallen = unsung.EclipsesFallen;
@@ -9351,8 +9056,6 @@ namespace Deepbound.Networking
                     motor.Teleport(at, Quaternion.LookRotation(boss.transform.position - at));
                 }
 
-                // Walk the boss through every phase gate: wound it from behind until it changes stance,
-                // then play the stance out (kill the wards, outlast the survival, wait out the transition).
                 var bh = boss.GetComponent<Health>();
                 motor.Teleport(at, Quaternion.LookRotation(boss.transform.position - at));
                 for (int g = 0; g < boss.GateCount; g++)
@@ -9371,7 +9074,7 @@ namespace Deepbound.Networking
                     if (stance == BossBrain.Stance.Transition)
                     {
                         for (float t = 0f; t < 5f && boss.Immune; t += 0.2f) { hp.ServerSetFraction(1f); yield return new WaitForSeconds(0.2f); }
-                        // A transition may lead straight into the phase it announced.
+
                         stance = boss.CurrentStance;
                     }
                     if (stance == BossBrain.Stance.Invulnerable)
@@ -9410,7 +9113,6 @@ namespace Deepbound.Networking
 
         private static FirstPersonMotor lobbyMotorFor(NetworkPlayer p) => p.GetComponent<FirstPersonMotor>();
 
-        /// <summary>A steady frame-time sample: settle, then average 90 frames (min, mean, worst).</summary>
         private static IEnumerator SamplePerf(string name)
         {
             yield return new WaitForSeconds(1f);
@@ -9419,7 +9121,7 @@ namespace Deepbound.Networking
             long gcBytes = 0;
             var gcRec = Unity.Profiling.ProfilerRecorder.StartNew(Unity.Profiling.ProfilerCategory.Memory, "GC Allocated In Frame");
             var timings = new FrameTiming[1];
-            // Where the main thread goes (markers only report in development builds).
+
             string[] markerNames = { "Update.ScriptRunBehaviourUpdate", "PreLateUpdate.ScriptRunBehaviourLateUpdate", "FixedUpdate.PhysicsFixedUpdate", "PostLateUpdate.UpdateCustomRenderPipeline",
                 "PostLateUpdate.FinishFrameRendering", "GUI.Repaint", "GUIUtility.ProcessEvent", "PreLateUpdate.DirectorUpdateAnimationBegin", "Update.ScriptRunDelayedDynamicFrameRate", "PostLateUpdate.UpdateAllRenderers", "Inl_RenderCameraStack", "Culling" };
             var handles = new System.Collections.Generic.List<Unity.Profiling.LowLevel.Unsafe.ProfilerRecorderHandle>();
@@ -9458,7 +9160,6 @@ namespace Deepbound.Networking
 
         private static IEnumerator Shot(string dir, string name)
         {
-            // Frame-time budget: log what each staged view costs (60 fps = 16.7 ms).
             Debug.Log("[Perf] " + name + " " + (Time.smoothDeltaTime * 1000f).ToString("F1") + " ms, " +
                 FindObjectsByType<Light>(FindObjectsSortMode.None).Count(l => l.enabled) + " lights on, " +
                 FindObjectsByType<Light>(FindObjectsSortMode.None).Count(l => l.enabled && l.shadows != LightShadows.None) + " shadowed");

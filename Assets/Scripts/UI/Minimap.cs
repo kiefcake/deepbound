@@ -9,20 +9,6 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// The map, north-up, drawn from the floor's layout (no second camera).
-    ///
-    /// <para>
-    /// Rooms appear once someone in the party has stood in them; their neighbours show as faint
-    /// "?" outlines, so you can see where the unexplored doors lead without seeing what is behind
-    /// them. Rooms are drawn as rooms: stone walls with doorway gaps, the floor in the floor's
-    /// colour, pits, water and sunken courts marked. Pixel icons mark what matters (chests you have
-    /// seen - not ones still hidden behind cracked walls - fountains, the journal, the peddler, the
-    /// waystone, the reliquary, the exit, the boss); your arrow carries a view cone; allies are
-    /// arrows in their colours; pings pulse; the dead show within radar range. Objectives off the
-    /// edge of the small map are pinned to its border. M toggles the large map with a legend.
-    /// </para>
-    /// </summary>
     public class Minimap : MonoBehaviour
     {
         private const float RadarRange = 22f;
@@ -32,14 +18,12 @@ namespace Deepbound.UI
         private int arenaSeen = -1;
         private bool large;
 
-        /// <summary>The corner map's side at the current setting (virtual pixels).</summary>
         public static float SmallSize => 220f * Settings.MinimapSize;
-        /// <summary>Where the space under the corner map begins: what sits beneath it starts here.</summary>
+
         public static float SmallBottom => Settings.ShowMinimap ? 18f + SmallSize + 16f : 18f;
 
-        /// <summary>Large overview on or off (M; the screenshot run also sets it).</summary>
         public bool Large { get => large; set => large = value; }
-        /// <summary>The local map is open full size (world name tags stay off it: 2026-11-13 shots showed them over the map).</summary>
+
         public static bool LargeOpen { get; private set; }
         private void LateUpdate() { if (player != null && player.IsOwner) LargeOpen = large; }
         private void OnDestroy() { if (player != null && player.IsOwner) LargeOpen = false; }
@@ -54,14 +38,13 @@ namespace Deepbound.UI
         private CrackedWall[] crackedWalls;
         private Lever[] levers;
 
-        // Per-floor floor colours; the wall stone.
         private static readonly Color[] FloorCol = { new Color(0.27f, 0.25f, 0.22f), new Color(0.17f, 0.25f, 0.24f), new Color(0.23f, 0.22f, 0.29f), new Color(0.3f, 0.17f, 0.16f), new Color(0.2f, 0.14f, 0.27f) };
         private static readonly Color Wall = new Color(0.62f, 0.56f, 0.46f), WallDim = new Color(0.4f, 0.37f, 0.32f);
 
         private void Update()
         {
             var layout = DungeonDirector.Layout;
-            // M works at camp too (2026-11-13, the camp map).
+
             var keyboard = Keyboard.current;
             if (keyboard != null && Binds.Down(Bind.Map) && (layout != null || DungeonDirector.InLobby)) large = !large;
             if (layout == null) return;
@@ -74,12 +57,10 @@ namespace Deepbound.UI
                 nextScan = 0f;
             }
 
-            // Corwin's map: every room charted from the start.
             var me = NetworkPlayer.Local;
             if (me != null && me.TryGetComponent<PlayerProgress>(out var mine) && mine.MapRevealed.Value && explored.Count < layout.Rooms.Count)
                 foreach (var r in layout.Rooms) explored.Add(r.Id);
 
-            // Any party member standing in a room reveals it for everyone's map.
             foreach (var p in PlayerLife.All)
             {
                 if (p == null) continue;
@@ -106,13 +87,11 @@ namespace Deepbound.UI
             return false;
         }
 
-        /// <summary>Seen, and not still sealed behind a cracked wall.</summary>
         private bool Visible(DungeonLayout layout, Vector3 p)
         {
             var room = layout.RoomAt(p, 0f);
             if (room == null)
             {
-                // Outside every room's floor: in a niche. Shown once its wall is down and the room beside it is known.
                 if (crackedWalls != null)
                     foreach (var w in crackedWalls)
                         if (w != null && (w.transform.position - p).sqrMagnitude < 5f * 5f) return false;
@@ -134,10 +113,10 @@ namespace Deepbound.UI
         private void OnGUIBody()
         {
             if (GameHud.PhotoMode) return;
-            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
+            useGUILayout = false;
             AfflictionOverlay.PaintOnce();
             if (GameHud.Cinematic) return;
-            // Blinded (the Ink Lamprey): no map until your eyes clear.
+
             if (Player.PlayerDebuffs.LocalBlind) return;
             UiSkin.Apply();
             if (player == null || CharacterSelect.Open || PauseMenu.Open || GameHud.SeatedGame) return;
@@ -151,9 +130,7 @@ namespace Deepbound.UI
 
             if (!large && !Settings.ShowMinimap) return;
             float w = UiScale.W, h = UiScale.H;
-            // The large map (2026-11-14, the user: "fix map ui"): kept clear of the health and ability bars at the foot of the
-            // screen, and zoomed to what you know of the floor (charted rooms, the doorways off them, the guardian's room),
-            // not the whole floor's extent - a fresh floor was a few specks in a black square.
+
             float size = large ? Mathf.Min(w * 0.58f, h - LargeTop - LargeFoot) : SmallSize;
             var frame = large ? new Rect(w / 2f - size / 2f - 120f, LargeTop, size, size) : new Rect(w - size - 18f, 18f, size, size);
             Vector3 centre = player.transform.position;
@@ -177,7 +154,6 @@ namespace Deepbound.UI
             float wallPx = Mathf.Max(2f, 0.9f * scale);
             var here = layout.RoomAt(player.transform.position, 1f);
 
-            // ---- Corridors (under the rooms): stone edges, a floor down the middle ----
             foreach (var link in layout.Links)
             {
                 var a = layout.Rooms[link.A];
@@ -196,7 +172,6 @@ namespace Deepbound.UI
                 UiSkin.Rect(r, floor * (seenA && seenB ? 0.9f : 0.6f));
             }
 
-            // ---- Rooms ----
             foreach (var room in layout.Rooms)
             {
                 bool seen = explored.Contains(room.Id);
@@ -208,7 +183,6 @@ namespace Deepbound.UI
 
                 if (!seen)
                 {
-                    // Known only by its doorway: a faint dashed outline and a question mark (the boss room, a skull).
                     DashedRect(outer, boss ? new Color(0.85f, 0.3f, 0.25f, 0.7f) : new Color(Wall.r, Wall.g, Wall.b, 0.45f), wallPx);
                     if (boss) MapIcons.Draw(MapIcons.Id.Skull, r.center, new Color(0.9f, 0.3f, 0.25f, 0.85f), px);
                     else if (r.width > 18f) GUI.Label(new Rect(r.center.x - 15f, r.center.y - 12f, 30f, 24f), "?", UiSkin.Derive(UiSkin.Small, new Color(0.8f, 0.75f, 0.65f, 0.5f), large ? 18 : 13, null, TextAnchor.MiddleCenter));
@@ -233,14 +207,14 @@ namespace Deepbound.UI
                     : room.Feature == RoomFeature.Beggar || room.Feature == RoomFeature.Armoury ? Color.Lerp(floor, new Color(0.35f, 0.3f, 0.2f), 0.4f)
                     : floor;
                 UiSkin.Rect(r, fill);
-                // Flagstone hint: a faint grid every 4 m.
+
                 if (scale * 4f > 7f)
                 {
                     var grid = new Color(0f, 0f, 0f, 0.13f);
                     for (float gx = r.x + scale * 4f; gx < r.xMax - 1f; gx += scale * 4f) UiSkin.Rect(new Rect(gx, r.y, 1f, r.height), grid);
                     for (float gy = r.y + scale * 4f; gy < r.yMax - 1f; gy += scale * 4f) UiSkin.Rect(new Rect(r.x, gy, r.width, 1f), grid);
                 }
-                // The special rooms say what they are (on the big map, or a big enough mini-map).
+
                 if (room.Special && (large || r.width > 26f))
                 {
                     string label = room.Feature == RoomFeature.Treasury ? "TREASURY" : room.Feature == RoomFeature.Beggar ? "BEGGAR"
@@ -248,9 +222,9 @@ namespace Deepbound.UI
                         : room.Feature == RoomFeature.Statues ? "WATCHERS" : room.Feature == RoomFeature.Chimes ? "CHIMES" : room.Feature == RoomFeature.Mirrors ? "MIRRORS" : room.Feature == RoomFeature.Scales ? "SCALES" : room.Feature == RoomFeature.Draught ? "DRAUGHT" : room.Feature == RoomFeature.Panoply ? "PANOPLY" : "MIRROR";
                     GUI.Label(new Rect(r.x - 20f, r.center.y - 9f, r.width + 40f, 18f), label, UiSkin.Derive(UiSkin.Small, new Color(1f, 0.88f, 0.55f, 0.9f), large ? 12 : 9, FontStyle.Bold, TextAnchor.MiddleCenter));
                 }
-                // Raised ground: lighter blocks.
+
                 foreach (var (rr, top) in room.Raised) UiSkin.Rect(WorldRect(rr.center.x, rr.center.y, rr.width, rr.height), new Color(1f, 1f, 1f, 0.06f + 0.03f * top));
-                // Features: the chasm's pit, a sunken court or flooded cistern.
+
                 if (room.Feature == RoomFeature.Chasm && room.Pit.width > 0f)
                     UiSkin.Rect(WorldRect(room.Pit.center.x, room.Pit.center.y, room.Pit.width, room.Pit.height), new Color(0f, 0f, 0f, 0.92f));
                 if ((room.Feature == RoomFeature.SunkenCourt || room.Feature == RoomFeature.Cistern || room.Feature == RoomFeature.Undercroft) && room.Low.width > 0f)
@@ -258,10 +232,10 @@ namespace Deepbound.UI
                     var low = WorldRect(room.Low.center.x, room.Low.center.y, room.Low.width, room.Low.height);
                     UiSkin.Rect(low, room.Feature == RoomFeature.Cistern ? new Color(0.12f, 0.28f, 0.33f, 0.95f) : fill * 0.65f);
                 }
-                // Decks, ledges, catwalks and perches: lighter, over whatever is under them.
+
                 foreach (var (dr, dtop) in room.Decks) UiSkin.Rect(WorldRect(dr.center.x, dr.center.y, dr.width, dr.height), new Color(1f, 0.95f, 0.85f, 0.10f + 0.012f * dtop));
                 if (depth == 1 && DungeonDirector.Thickness > 0.05f) UiSkin.Rect(r, new Color(0.25f, 0.3f, 0.12f, 0.35f * DungeonDirector.Thickness));
-                // Doorway gaps: the corridor's floor cut through the wall.
+
                 for (int side = 0; side < 4; side++)
                 {
                     if (!room.Doors[side]) continue;
@@ -276,7 +250,6 @@ namespace Deepbound.UI
                 if (boss) MapIcons.Draw(MapIcons.Id.Skull, r.center, new Color(1f, 0.35f, 0.3f), px);
             }
 
-            // ---- Places ----
             if (chests != null) foreach (var ch in chests) if (ch != null && !ch.Opened.Value && Visible(layout, ch.transform.position)) MapIcons.Draw(MapIcons.Id.Chest, ToMap(ch.transform.position), new Color(1f, 0.8f, 0.35f), px);
             if (fountains != null) foreach (var f in fountains) if (f != null && !f.Spent.Value && Visible(layout, f.transform.position)) MapIcons.Draw(MapIcons.Id.Fountain, ToMap(f.transform.position), new Color(0.45f, 0.78f, 1f), px);
             if (pages != null) foreach (var pg in pages) if (pg != null && Visible(layout, pg.transform.position)) MapIcons.Draw(MapIcons.Id.Book, ToMap(pg.transform.position), new Color(0.93f, 0.86f, 0.66f), px);
@@ -285,12 +258,12 @@ namespace Deepbound.UI
             MapIcons.Draw(MapIcons.Id.Waystone, ToMap(layout.WaystonePosition), new Color(0.55f, 0.85f, 1f), px);
 
             var me0 = player.GetComponent<Progression.PlayerProgress>();
-            // Legacy boons (client-only, from your own save's bits): chests and cracked walls near you, and the way to the guardian.
+
             if (Legacy.Has(player, Boon.TreasureSense) && chests != null)
                 foreach (var ch in chests)
                     if (ch != null && !ch.Opened.Value && (ch.transform.position - player.transform.position).sqrMagnitude < Legacy.ChestSenseRange * Legacy.ChestSenseRange)
                         MapIcons.Draw(MapIcons.Id.Chest, ToMap(ch.transform.position), new Color(1f, 0.8f, 0.35f, 0.8f), px);
-            // Cartographer's boon, or a Mage's ARCANE SENSE (2026-11-13: a class gift, 12 m).
+
             bool mageSense = me0 != null && me0.ClassId.Value == Classes.ClassId.Mage;
             float wallRange = Legacy.Has(player, Boon.Cartographer) ? Legacy.WallSenseRange : mageSense ? 12f : 0f;
             if (wallRange > 0f && crackedWalls != null)
@@ -306,7 +279,6 @@ namespace Deepbound.UI
             if (Legacy.Has(player, Boon.Pathfinder) && layout.BossRoom != null)
                 DrawPathToGuardian(layout, here, ToMap, px);
 
-            // Loot worth walking to: relics, sigils, runes, rare draughts and tomes, and your own gear.
             foreach (var drop in LootDrop.All)
             {
                 if (drop == null) continue;
@@ -320,11 +292,10 @@ namespace Deepbound.UI
                 if (i is GearDrop g && (g.For.Value == me.OwnerClientId || g.Shared) && !g.Item.Value.IsEmpty)
                     MapIcons.Draw(MapIcons.Id.Gear, ToMap(g.transform.position), Gear.QualityColor(g.Item.Value.Quality), px * 0.85f);
 
-            // The dead within radar range: soft red blobs, gold if elite.
             foreach (var hp in Health.All)
             {
                 if (hp == null || hp.Team != Team.Enemies || !hp.IsAlive) continue;
-                // A Ranger's TRACKER gift sees the dead further out.
+
                 if (Vector3.Distance(hp.transform.position, player.transform.position) > RadarRange * (me0 != null && me0.ClassId.Value == Classes.ClassId.Ranger ? 1.6f : 1f)) continue;
                 if (hp.TryGetComponent<Enemies.GargoyleBrain>(out var stone) && !stone.Woken.Value) continue;
                 if (hp.GetComponent<Enemies.BossBrain>() != null) continue;
@@ -336,7 +307,7 @@ namespace Deepbound.UI
                 GUI.DrawTexture(new Rect(at.x - s / 2f, at.y - s / 2f, s, s), MapIcons.Soft);
                 GUI.color = old;
             }
-            // Breach hunters at any range (orange, pinned to the edge), and rifts (violet): the things to watch for.
+
             foreach (var eb in Enemies.EnemyBrain.All)
                 if (eb != null && !eb.IsDead && eb.Hunting.Value) Pinned(ToMap(eb.transform.position), size, MapIcons.Id.Skull, new Color(1f, 0.55f, 0.2f), px * 0.8f);
             foreach (var rift in SoulRift.All)
@@ -345,7 +316,6 @@ namespace Deepbound.UI
             if (bossNow != null && !bossNow.IsDead && Vector3.Distance(bossNow.transform.position, player.transform.position) < RadarRange * 1.5f)
                 MapIcons.Draw(MapIcons.Id.Skull, ToMap(bossNow.transform.position), new Color(1f, 0.25f, 0.2f), px * 1.15f);
 
-            // Pings: a pulsing ring in the ping's colour.
             foreach (var kv in PlayerPings.Active)
             {
                 var pg = kv.Value;
@@ -360,12 +330,10 @@ namespace Deepbound.UI
                 MapIcons.Draw(MapIcons.Id.Ping, at, pg.Color, px);
             }
 
-            // Objectives: the reliquary and, once the floor is cleared, the way out (pinned to the edge if off the map).
             if (reliquaries != null) foreach (var rq in reliquaries) if (rq != null && Visible(layout, rq.transform.position)) Pinned(ToMap(rq.transform.position), size, MapIcons.Id.Cross, new Color(1f, 0.86f, 0.45f), px);
             var dir = DungeonDirector.Instance;
             if (dir != null && dir.Phase.Value == RunPhase.FloorCleared) Pinned(ToMap(DungeonDirector.ExitPosition), size, MapIcons.Id.Exit, new Color(0.78f, 0.58f, 1f), px);
 
-            // Allies: arrows in their colours (pinned to the edge on the small map), grey when down.
             foreach (var p in PlayerLife.All)
             {
                 if (p == null || p.gameObject == player.gameObject) continue;
@@ -376,7 +344,6 @@ namespace Deepbound.UI
                 ArrowAt(at, p.transform.eulerAngles.y, col, 16f);
             }
 
-            // You: a view cone, then your arrow.
             var mine = ToMap(player.transform.position);
             float yaw = player.transform.eulerAngles.y;
             var m = GUI.matrix;
@@ -391,14 +358,13 @@ namespace Deepbound.UI
 
             GUI.EndGroup();
 
-            // Compass and caption.
             GUI.Label(new Rect(frame.center.x - 15f, frame.y - 4f, 30f, 18f), "N", UiSkin.Derive(UiSkin.Small, UiSkin.Gold, 0, FontStyle.Bold, TextAnchor.MiddleCenter));
             if (!large)
             {
-                string place = "FLOOR " + (layout.Depth + 1) + (layout.Depth >= DungeonDirector.AbyssDepth ? " ABYSS" : "") + "  ·  " + DungeonTheme.FloorName(layout.Depth);
-                // A dark strip under the frame, so the caption reads over bright rooms.
+                string place = DungeonDirector.InTutorial ? "THE PROVING PATH" : "FLOOR " + (layout.Depth + 1) + (layout.Depth >= DungeonDirector.AbyssDepth ? " ABYSS" : "") + "  ·  " + DungeonTheme.FloorName(layout.Depth);
+
                 UiSkin.Rect(new Rect(frame.x, frame.yMax + 4f, frame.width, 20f), new Color(0f, 0f, 0f, 0.55f));
-                // The key hint on the right; the place name gets what is left (clipped, never under the hint).
+
                 var hintStyle = UiSkin.Derive(UiSkin.Small, UiSkin.Small.normal.textColor, 0, null, TextAnchor.UpperRight, false);
                 string hint = Binds.Live(Bind.Map) + " map";
                 float hintW = hintStyle.CalcSize(new GUIContent(hint)).x;
@@ -410,11 +376,8 @@ namespace Deepbound.UI
             else DrawLegend(layout, frame);
         }
 
-        // ---------------- The camp map (2026-11-13, the user: "make a map for spawn area") ----------------
-
         private static readonly Color Grass = new Color(0.13f, 0.17f, 0.11f), Cobble = new Color(0.3f, 0.28f, 0.25f), Roof = new Color(0.36f, 0.22f, 0.16f);
 
-        /// <summary>A place in Castle Ravenhold: where, what to call it, its mark and colour.</summary>
         private struct CampPlace
         {
             public Vector3 At; public string Name; public bool HasIcon; public MapIcons.Id Icon; public Color Col;
@@ -452,11 +415,6 @@ namespace Deepbound.UI
             (FolkId.Bones, "Mr Bones"), (FolkId.Brann, "Brann"), (FolkId.Ysolde, "Ysolde"), (FolkId.Marta, "Marta"),
         };
 
-        /// <summary>
-        /// The camp has no room graph: draw Castle Ravenhold from the <see cref="Lobby"/> constants. Grass inside the curtain
-        /// wall, the gate and road north, the keep south, the tavern and the gaming tent, every station with its mark (named on
-        /// the large map, or on the small one when it is near), the townsfolk where they are right now, and the party.
-        /// </summary>
         private void DrawCamp()
         {
             float w = UiScale.W, h = UiScale.H;
@@ -480,9 +438,9 @@ namespace Deepbound.UI
 
             var o = Lobby.Origin;
             float R = Lobby.Radius;
-            // The pine road north through the gate, under everything.
+
             UiSkin.Rect(WorldRect(o + new Vector3(0f, 0f, R + 8f), 5f, 26f), new Color(0.22f, 0.19f, 0.15f));
-            // Grass inside the wall: a disc in strips.
+
             var oc = ToMap(o);
             float rp = R * scale;
             float step = Mathf.Max(1f, scale * 0.6f);
@@ -492,17 +450,17 @@ namespace Deepbound.UI
                 float half = Mathf.Sqrt(Mathf.Max(0f, rp * rp - mid * mid));
                 UiSkin.Rect(new Rect(oc.x - half, oc.y + dy, half * 2f, step + 0.5f), Grass);
             }
-            // The cobbled road up to the gate and the square round the well.
+
             UiSkin.Rect(WorldRect(o + new Vector3(0f, 0f, R * 0.35f), 6f, R * 1.3f), Cobble * 0.9f);
             UiSkin.Rect(WorldRect(Lobby.WellSpot, 12f, 12f), Cobble);
-            // The curtain wall: stones round the circle, a gap for the gate, six towers.
+
             float wallPx = Mathf.Max(2.5f, 1.4f * scale);
             const int stones = 160;
             for (int i = 0; i < stones; i++)
             {
                 float a = i / (float)stones * Mathf.PI * 2f;
                 var dir = new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a));
-                if (dir.z > 0f && Mathf.Abs(dir.x * R) < 3.2f) continue; // the gate
+                if (dir.z > 0f && Mathf.Abs(dir.x * R) < 3.2f) continue;
                 var p = ToMap(o + dir * (R + 0.6f));
                 UiSkin.Rect(new Rect(p.x - wallPx / 2f, p.y - wallPx / 2f, wallPx, wallPx), Wall);
             }
@@ -513,7 +471,7 @@ namespace Deepbound.UI
                 var p = ToMap(o + new Vector3(Mathf.Sin(a), 0f, Mathf.Cos(a)) * (R + 0.6f));
                 UiSkin.Rect(new Rect(p.x - towerPx / 2f, p.y - towerPx / 2f, towerPx, towerPx), Wall * 0.85f);
             }
-            // The keep (south) and the buildings.
+
             UiSkin.Rect(WorldRect(o + new Vector3(0f, 0f, -R + 3f), 16f, 7f), new Color(0.32f, 0.3f, 0.3f));
             var tav = WorldRect(Lobby.TavernCenter, Lobby.TavernHalfX * 2f, Lobby.TavernHalfZ * 2f);
             UiSkin.Rect(new Rect(tav.x - 1f, tav.y - 1f, tav.width + 2f, tav.height + 2f), Wall);
@@ -526,7 +484,7 @@ namespace Deepbound.UI
                 bool stripe = Mathf.FloorToInt((dy + tr) / 4f) % 2 == 0;
                 UiSkin.Rect(new Rect(tent.x - half, tent.y + dy, half * 2f, 2f), stripe ? new Color(0.5f, 0.12f, 0.1f) : new Color(0.62f, 0.52f, 0.36f));
             }
-            // The campfire glows.
+
             var fire = ToMap(Lobby.FirePit);
             var old = GUI.color;
             float glow = (large ? 26f : 20f) * (0.9f + 0.1f * Mathf.Sin(Time.time * 7f));
@@ -534,7 +492,6 @@ namespace Deepbound.UI
             GUI.DrawTexture(new Rect(fire.x - glow / 2f, fire.y - glow / 2f, glow, glow), MapIcons.Soft);
             GUI.color = old;
 
-            // Stations: marks always; names on the large map, or near you on the small one.
             var labelStyle = UiSkin.Derive(UiSkin.Small, new Color(1f, 0.9f, 0.65f, 0.95f), large ? 12 : 9, FontStyle.Bold, TextAnchor.MiddleCenter, false);
             foreach (var pl in CampPlaces)
             {
@@ -550,7 +507,6 @@ namespace Deepbound.UI
                 GUI.Label(lr, pl.Name, labelStyle);
             }
 
-            // The townsfolk, where they are now (they walk errands).
             var folkStyle = UiSkin.Derive(UiSkin.Small, new Color(0.75f, 0.95f, 0.75f), 11, null, TextAnchor.MiddleLeft, false);
             foreach (var (who, name) in CampFolkNames)
             {
@@ -562,7 +518,6 @@ namespace Deepbound.UI
                 if (large) GUI.Label(new Rect(at.x + 4f, at.y - 16f, 70f, 14f), name, folkStyle);
             }
 
-            // Allies, then you.
             foreach (var p in PlayerLife.All)
             {
                 if (p == null || p.gameObject == player.gameObject) continue;
@@ -605,7 +560,7 @@ namespace Deepbound.UI
             float y = panel.y + 14f;
             GUI.Label(new Rect(panel.x + 14f, y, panel.width - 28f, 24f), "CASTLE RAVENHOLD", new GUIStyle(UiSkin.Heading) { fontSize = 20 });
             y += 26f;
-            // Measured (2026-11-13 shot: three lines ran into the first legend row).
+
             var blurb = new GUIStyle(UiSkin.Body) { fontStyle = FontStyle.Italic, wordWrap = true };
             const string about = "The camp. Board Corwin's carriage at the gate to go down.";
             float bh = blurb.CalcHeight(new GUIContent(about), panel.width - 28f);
@@ -634,7 +589,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>Pathfinder: a dotted gold line along the room links from where you stand to the guardian's arena.</summary>
         private static void DrawPathToGuardian(DungeonLayout layout, DungeonLayout.Room from, System.Func<Vector3, Vector2> toMap, float px)
         {
             int start = from != null ? from.Id : layout.StartRoom.Id, goal = layout.BossRoom.Id;
@@ -669,7 +623,6 @@ namespace Deepbound.UI
             MapIcons.Draw(MapIcons.Id.Skull, toMap(layout.BossRoom.Center), new Color(1f, 0.7f + 0.2f * pulse, 0.35f), px * 1.25f);
         }
 
-        /// <summary>The large map's side panel: where you are, how much is charted, and what the marks mean.</summary>
         private void DrawLegend(DungeonLayout layout, Rect frame)
         {
             var panel = new Rect(frame.xMax + 18f, frame.y, 240f, frame.height);
@@ -719,7 +672,6 @@ namespace Deepbound.UI
             GUI.matrix = m;
         }
 
-        /// <summary>An icon at its place, or pinned to the edge (with a little arrow) when it is off the map.</summary>
         private static void Pinned(Vector2 at, float size, MapIcons.Id icon, Color col, float px)
         {
             var inner = new Rect(12f, 12f, size - 24f, size - 24f);
@@ -763,7 +715,6 @@ namespace Deepbound.UI
 
         private const float LargeTop = 40f, LargeFoot = 150f;
 
-        /// <summary>The square that holds everything you know of the floor (and you), with a margin; at least 56 m across.</summary>
         private void KnownBounds(DungeonLayout layout, out Vector3 centre, out float span)
         {
             float minX = float.MaxValue, maxX = float.MinValue, minZ = float.MaxValue, maxZ = float.MinValue;

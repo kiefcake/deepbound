@@ -15,18 +15,6 @@ using UnityEngine.AI;
 
 namespace Deepbound.Networking
 {
-    /// <summary>
-    /// A bot that plays a whole run the way a person would (2026-10-21, the user: "play a full run
-    /// through and see what needs changed"): <c>-autoplay &lt;dir&gt; [-autoclass Mage]</c>, windowed.
-    /// It walks the floors on the navmesh, fights with the class's own attacks through a virtual
-    /// gamepad (abilities too), drinks potions, gathers loot, opens chests, fights the guardian, rides
-    /// the lift, spends at Hobb and Ysolde, buys potions from Silas and boards the carriage, for all ten
-    /// floors. It writes <c>autoplay.txt</c>: everything the game said (feed, cards, tips, folk, pickups),
-    /// per floor time, damage taken by source, downs, gold/embers, and what it could not do, plus
-    /// screenshots. It never writes the real save (the test flags are on), but the dungeon itself runs
-    /// as it would for a player (mimics, the Tallyman, events, crits). When downed it notes it and gets
-    /// back up, so one run sees every floor.
-    /// </summary>
     public class AutoPlay : MonoBehaviour
     {
         private string dir;
@@ -35,7 +23,7 @@ namespace Deepbound.Networking
         private StreamWriter log;
         private float started;
         private int floorNo = -1;
-        /// <summary>-autodepth N: start at floor N with a loadout like a run's by then (to see the deep floors sooner).</summary>
+
         private int startFloor;
         private bool endless;
 
@@ -50,7 +38,7 @@ namespace Deepbound.Networking
         private float taken, dealt;
         private int downs, kills, shotNo, saves, savesFloor;
         private float bossHpMark = -1f, bossHpAt, nextBlock;
-        // Whose health the mark belongs to: a lair keeper killed first left its near-zero mark on the guardian (false stalls, needless flanking).
+
         private ulong bossHpOf = ulong.MaxValue;
         private bool pendingHeal;
         private int bossHits; private float bossDealt;
@@ -58,19 +46,14 @@ namespace Deepbound.Networking
         private readonly HashSet<ulong> ignoredLoot = new HashSet<ulong>();
         private Health stuckTarget;
 
-        // ---- Party autoplay (2026-11-01, "continue further work on balance in parties of more than 1") ----
-        // The host bot runs with -autoparty N and waits for N players; each other bot is a client run with
-        // -autofollow K (K = 1..3: its seat on the carriage) that joins on -port, plays near its leader (the host) and
-        // shops at camp on its own. The host sees every hit, so it keeps the books for the whole party and gives every
-        // member the same "would have gone down" save.
         private bool follower;
-        /// <summary>-autofloors N: stop after N floors (tools/test_party.py).</summary>
+
         private int floorsWanted = int.MaxValue;
         private int seatNo, partySize = 1;
         private class Member
         {
             public string Name; public float Dealt, Taken, BossDealt; public int Saves, SavesFloor;
-            // This floor's damage by source: all of it / on the guardian, and hits on the guardian.
+
             public readonly Dictionary<string, float> Source = new Dictionary<string, float>(), BossSource = new Dictionary<string, float>();
             public readonly Dictionary<string, int> BossHits = new Dictionary<string, int>();
         }
@@ -94,18 +77,18 @@ namespace Deepbound.Networking
             int c = System.Array.IndexOf(args, "-autoclass");
             if (c >= 0 && c + 1 < args.Length && System.Enum.TryParse<Classes.ClassId>(args[c + 1], true, out var parsed)) cls = parsed;
             int ad = System.Array.IndexOf(args, "-autodepth");
-            // -endless: the Endless Descent (solo), so -autodepth may go past floor 10 (2026-11-20: the first run past the last floor).
+
             endless = System.Array.IndexOf(args, "-endless") >= 0;
             if (ad >= 0 && ad + 1 < args.Length && int.TryParse(args[ad + 1], out var d0)) startFloor = Mathf.Clamp(d0, 1, endless ? 60 : DungeonDirector.FloorsPerRun) - 1;
             int ap = System.Array.IndexOf(args, "-autoparty");
             if (ap >= 0 && ap + 1 < args.Length && int.TryParse(args[ap + 1], out var n0)) partySize = Mathf.Clamp(n0, 1, 4);
             int fl = System.Array.IndexOf(args, "-autofloors");
             if (fl >= 0 && fl + 1 < args.Length && int.TryParse(args[fl + 1], out var fl0)) floorsWanted = Mathf.Max(1, fl0);
-            // -forcelair: a lair on every floor (to watch the keepers fought).
+
             if (System.Array.IndexOf(args, "-forcelair") >= 0) DungeonDirector.ForceLair = true;
                         int af = System.Array.IndexOf(args, "-autofollow");
             if (af >= 0) { follower = true; seatNo = af + 1 < args.Length && int.TryParse(args[af + 1], out var k0) ? Mathf.Clamp(k0, 1, 3) : 1; startFloor = 0; }
-            // Never touch the real save; the dungeon still behaves as in play (DungeonDirector.TestMode stays off).
+
             Cosmetics.TestMode = true;
             UI.Journal.TestMode = true;
             Deeds.TestMode = true;
@@ -124,11 +107,6 @@ namespace Deepbound.Networking
             StartCoroutine(System.Array.IndexOf(args, "-navcheck") >= 0 ? NavCheck() : Main());
         }
 
-        /// <summary>
-        /// -navcheck: build each floor and check every room can be walked to from the start room on the
-        /// navmesh (what the dead and the bot walk on). An unreachable room is a room the dead cannot
-        /// follow you into, or a guardian no one can get to.
-        /// </summary>
         private IEnumerator NavCheck()
         {
             launcher.StartHost();
@@ -150,11 +128,9 @@ namespace Deepbound.Networking
                     var lost = new List<string>();
                     foreach (var room in layout.Rooms)
                     {
-                        // The Vault waits behind its portcullis until the levers are thrown: shut on a fresh floor by design.
                         if (room.Feature == RoomFeature.Vault) continue;
                         if (!NavMesh.SamplePosition(start, out var s0, 4f, NavMesh.AllAreas)) continue;
-                        // Not just the centre: a crypt's tomb or a gallery's centrepiece stands there, and its top is an island of
-                        // navmesh no one walks to (2026-11-20, three false alarms). The room is reached if any of five spots is.
+
                         NavMeshHit c = default;
                         bool anyMesh = false, reached = false;
                         foreach (var off in new[] { Vector2.zero, new Vector2(0.3f, 0.3f), new Vector2(-0.3f, 0.3f), new Vector2(0.3f, -0.3f), new Vector2(-0.3f, -0.3f) })
@@ -174,7 +150,7 @@ namespace Deepbound.Networking
                             lost.Add(room.Id + " " + room.Kind + "/" + room.Feature + " (" + path.status + ", the way ends at " + Fmt(end) + " near " + string.Join(", ", near) + (obs.Any() ? "; obstacles " + string.Join(", ", obs) : "") + ")");
                         }
                     }
-                    // Hollow walls, once broken: the niche behind must join the room (breach dead come out of it).
+
                     foreach (var cw in FindObjectsByType<CrackedWall>(FindObjectsSortMode.None)) if (cw != null && cw.IsSpawned) cw.NetworkObject.Despawn();
                     yield return new WaitForSeconds(0.6f);
                     foreach (var room in layout.Rooms)
@@ -189,7 +165,7 @@ namespace Deepbound.Networking
                                 lost.Add((hole.Breach ? "breach" : "secret") + " niche off " + room.Feature + " room " + room.Id + " (" + (on ? path.status.ToString() : "no navmesh inside") + ", way ends " + endN.ToString("F1") + ", niche " + inNiche.ToString("F1") + ", near the opening: " + string.Join(", ", Physics.OverlapSphere(room.HoleFace(hole) + Vector3.up, 2.2f, ~0, QueryTriggerInteraction.Ignore).Select(x => x.name).Distinct().Take(6)) + ")");
                             }
                         }
-                    // Pockets: walkable patches inside a room that cannot reach the rest (enemies and the bot trapped).
+
                     foreach (var room in layout.Rooms)
                     {
                         if (room.Feature == RoomFeature.Vault || room.Feature == RoomFeature.Chasm) continue;
@@ -206,7 +182,7 @@ namespace Deepbound.Networking
                             }
                         if (pockets > 0) lost.Add("pocket in " + room.Feature + " room " + room.Id + ": " + pockets + " cut-off points, e.g. " + first);
                     }
-                    // Decks, ledges, catwalks and perches, and an undercroft's pit floor (2026-11-14): all must join the rest.
+
                     foreach (var room in layout.Rooms)
                     {
                         if (!NavMesh.SamplePosition(start, out var sd, 4f, NavMesh.AllAreas)) break;
@@ -218,7 +194,7 @@ namespace Deepbound.Networking
                             {
                                 bool on = NavMesh.SamplePosition(at, out var ph, 5f, NavMesh.AllAreas);
                                 bool ok = on && NavMesh.CalculatePath(sd.position, ph.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete;
-                                // Also from this room's own rim: a long route can come back partial when the search runs out of nodes.
+
                                 bool near = on && NavMesh.SamplePosition(new Vector3(room.Center.x, 0.3f, room.Low.yMin - 1.2f), out var rh, 1f, NavMesh.AllAreas)
                                     && NavMesh.CalculatePath(rh.position, ph.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete;
                                 return what + (on ? " mesh y " + ph.position.y.ToString("F1") + " at " + Fmt(ph.position) + (ok ? " ok" : " " + path.status + (near ? " (from rim ok)" : " (from rim NOT)")) : " none");
@@ -247,7 +223,7 @@ namespace Deepbound.Networking
                     }
                     foreach (var (nm, _) in undercroftShots) { yield return new WaitForSeconds(0.8f); yield return Shot(nm); }
                     undercroftShots.Clear();
-                    // The guardian's spot and the lift's (a dais is raised: its ramps must join the floor).
+
                     foreach (var (what, at) in new[] { ("boss spot", layout.BossSpawn), ("lift spot", layout.LiftSpot) })
                     {
                         if (!NavMesh.SamplePosition(start, out var sa, 4f, NavMesh.AllAreas)) continue;
@@ -255,8 +231,7 @@ namespace Deepbound.Networking
                         bool ok = onMesh && NavMesh.CalculatePath(sa.position, ta.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete;
                         if (!ok) lost.Add(what + " in a " + layout.BossRoom.Arena + " arena (" + (onMesh ? path.status.ToString() : "no navmesh within 1.5 m of " + at.ToString("F1")) + ")");
                     }
-                    // Every arena device as four players would meet it (2026-11-20: pylons stood outside a small arena):
-                    // each inside the arena and walkable from its middle.
+
                     {
                         var ar = layout.BossRoom;
                         var arMid = NavMesh.SamplePosition(ar.Center, out var amh, 4f, NavMesh.AllAreas) ? amh.position : ar.Center;
@@ -286,7 +261,7 @@ namespace Deepbound.Networking
                     if (lost.Count > 0)
                     {
                         bad++;
-                        // Look at where the way ends, toward the room it was trying to reach.
+
                         foreach (var room in layout.Rooms)
                         {
                             if (room.Feature == RoomFeature.Vault) continue;
@@ -316,7 +291,6 @@ namespace Deepbound.Networking
             healQueue.Clear();
             if (follower && me != null)
             {
-                // The host's run ended (or it closed): nothing left to play.
                 var nm = NetworkManager.Singleton;
                 if (nm != null && nm.IsConnectedClient) disconnectedSince = -1f;
                 else if (disconnectedSince < 0f) disconnectedSince = Time.time;
@@ -325,7 +299,6 @@ namespace Deepbound.Networking
             else if (!follower && me != null) HookParty();
         }
 
-        /// <summary>Host: the books and the save for every party member who has joined (the followers come later).</summary>
         private void HookParty()
         {
             foreach (var p in PlayerLife.All)
@@ -336,7 +309,7 @@ namespace Deepbound.Networking
                 hooked.Add(h);
                 var pp = p.GetComponent<PlayerProgress>();
                 party[p.NetworkObjectId] = new Member { Name = Health.NameOf(p.NetworkObjectId) + " (" + (pp != null ? pp.ClassId.Value.ToString() : "?") + ")" };
-                if (h == hp) continue; // the host's own save is set up in Main
+                if (h == hp) continue;
                 var id = p.NetworkObjectId;
                 h.IncomingModifiers.Add((dmg, from) =>
                 {
@@ -392,8 +365,7 @@ namespace Deepbound.Networking
             prog = me.GetComponent<PlayerProgress>();
             hp = me.GetComponent<Health>();
             flasks = me.GetComponent<Flasks>();
-            // The bot's window is often not the focused one (someone is watching, or three other bots are running): it needs
-            // neither the cursor nor the input system, see Binds.BotPress.
+
             FirstPersonMotor.BotControl = true;
             Application.runInBackground = true;
             if (!follower) Health.ServerHitTagged += (h, amount, from, tag) =>
@@ -427,8 +399,6 @@ namespace Deepbound.Networking
                 else if (from == me.NetworkObjectId) { dealt += amount; lastDealtAt = Time.time; if (BossBrain.Active != null && h == BossBrain.Active.GetComponent<Health>()) { bossHits++; bossDealt += amount; } if (!h.IsAlive && h.Team == Team.Enemies) kills++; }
             };
 
-            // A bot cannot dodge like a person: a blow that would put it down leaves it at 1 HP instead,
-            // logged as "would have gone down" (alone, a down ends the run), so one run sees every floor.
             if (!follower) hp.IncomingModifiers.Add((dmg, from) =>
             {
                 if (hp.Current.Value - dmg > 1f) return dmg;
@@ -446,7 +416,7 @@ namespace Deepbound.Networking
                 for (float t = 0f; t < 120f && PlayerLife.All.Count < partySize; t += 0.5f) yield return new WaitForSeconds(0.5f);
                 yield return new WaitForSeconds(2f);
                 HookParty();
-                // The names and classes are known now.
+
                 foreach (var p in PlayerLife.All)
                     if (p != null && party.TryGetValue(p.NetworkObjectId, out var mm) && p.GetComponent<PlayerProgress>() is PlayerProgress pq) mm.Name = Health.NameOf(p.NetworkObjectId) + " (" + pq.ClassId.Value + ")";
                 L("== PARTY of " + PlayerLife.All.Count + " (wanted " + partySize + "): " + string.Join(", ", party.Values.Select(m => m.Name)) + " ==");
@@ -456,11 +426,10 @@ namespace Deepbound.Networking
 
             if (startFloor > 0)
             {
-                // A run's worth of kit by this floor (roughly what runs 4 and 5 had).
                 for (int i = 0; i < Mathf.Min(10, Mathf.RoundToInt(startFloor * 1.5f)); i++)
                 {
                     var why = prog.CannotTemperReason();
-                    // Set the path on the server: ChoosePathRpc needs you at the anvil, so the old call failed and tempering stopped at +2.
+
                     if (why != null && why.ToLowerInvariant().Contains("path") && prog.WeaponPath.Value == 0) { prog.WeaponPath.Value = (byte)Random.Range(1, Classes.WeaponPaths.Count + 1); yield return null; }
                     if (prog.OpenEdgeSlot >= 0) { prog.ServerChooseEdge(prog.EdgeOffer(prog.OpenEdgeSlot)[0]); yield return null; }
                     prog.ServerFreeTemper();
@@ -468,9 +437,8 @@ namespace Deepbound.Networking
                 }
                 prog.RankQ.Value = (byte)Mathf.Min(Classes.AbilityRanks.MaxRank, 1 + startFloor / 3 + 1);
                 prog.RankE.Value = (byte)Mathf.Min(Classes.AbilityRanks.MaxRank, 1 + startFloor / 3);
-                prog.RankChoice.Value = (byte)Random.Range(0, 256); // a random build of Ysolde's choices
-                // 2026-11-23: matched to a natural run (a Plague Doctor that played to floor 3 had 4 relics, Masterwork armour and
-                // a Legendary charm; this gave 2 relics, Worn gear and an empty pouch, and floor 4 looked twice as deadly as it is).
+                prog.RankChoice.Value = (byte)Random.Range(0, 256);
+
                 for (int i = 0; i < startFloor + 1; i++) prog.ServerAddRelic(Relics.Random());
                 byte q = (byte)Mathf.Min(2, 1 + startFloor / 3);
                 prog.ServerEquip(new GearItem(Gear.RollableOf(GearSlot.Armor)[0], q, (byte)startFloor));
@@ -485,7 +453,7 @@ namespace Deepbound.Networking
             }
             for (int f = startFloor > 0 ? startFloor + 1 : 0; f < (endless ? startFloor + floorsWanted + 1 : DungeonDirector.FloorsPerRun); f++)
             {
-                yield return Camp();
+                for (int wait = 0; wait < 4 && (wait == 0 || DungeonDirector.InLobby); wait++) yield return Camp();
                 yield return Guarded(Floor);
                 var ph = DungeonDirector.Instance.Phase.Value;
                 if (ph == RunPhase.RunComplete || ph == RunPhase.Wiped) break;
@@ -505,9 +473,6 @@ namespace Deepbound.Networking
             Application.Quit(0);
         }
 
-        // ------------------------------------------------------------------ camp
-
-        /// <summary>Spend the run's parts as a careful player would (2026-11-07): run upgrades first, then potions, then tools.</summary>
         private IEnumerator Craft()
         {
             int made = 0;
@@ -530,16 +495,12 @@ namespace Deepbound.Networking
 
         private IEnumerator Camp()
         {
-            // Long enough for the lift after a slow floor: at 60 s two followers gave up, counted a floor they never played,
-            // and left the run a floor early (2026-11-04).
             for (float t = 0f; t < 240f && !DungeonDirector.InLobby; t += 0.5f) yield return new WaitForSeconds(0.5f);
             if (!DungeonDirector.InLobby) { Problem("never got back to camp"); yield break; }
             yield return new WaitForSeconds(2f);
             Status("at camp");
             if (floorNo >= 0) yield return Shot("camp_after_F" + (floorNo + 1));
 
-            // A careful player's visit (2026-11-04, "equip the best, use every material"): before this the bots wore gear by
-            // quality alone and never set a rune, refined, attuned, melded or scrapped, so balance runs measured a weak kit.
             yield return WearBest();
             yield return Craft();
             yield return AtStones(false);
@@ -547,29 +508,27 @@ namespace Deepbound.Networking
             yield return AtAnvil();
             yield return AtStones(true);
             yield return Provision();
-            // Buying can pay embers back (the Pilgrim's Purse) or bring a better piece: one more trip if there is work.
+
             if (AnvilWorkLeft()) yield return AtAnvil();
             yield return new WaitForSeconds(0.5f);
             AuditKit();
             L("gold left at camp: " + prog.Gold.Value);
 
-            // Board: a seat on the carriage; it leaves when everyone sits.
             var ride = CarriageRide.Instance;
             if (ride == null) { Problem("no carriage at camp"); yield break; }
-            // The server refuses a seat when its copy of us is over 3.5 m from it or the seat is held, and the bot used to log
-            // "sat" either way (2026-11-25: two followers "sat" and the party waited at camp for good). Ask, check, say why.
+
             int want = seatNo;
             for (int tries = 0; tries < 8 && life.Seat.Value < 0; tries++)
             {
                 yield return WalkTo(ride.SeatGround(want), 1.0f);
-                yield return new WaitForSeconds(0.6f); // let our position reach the server
+                yield return new WaitForSeconds(0.6f);
                 life.SitRpc(want);
                 for (float t = 0f; t < 1.5f && life.Seat.Value < 0; t += 0.25f) yield return new WaitForSeconds(0.25f);
                 if (life.Seat.Value >= 0) break;
                 string holder = "nobody";
                 foreach (var pl in PlayerLife.All) if (pl != null && pl != life && pl.Seat.Value == want) holder = pl.name;
                 L("seat " + want + " refused: " + Vector3.Distance(transform.position, ride.SeatGround(want)).ToString("F1") + " m from it, held by " + holder);
-                // Held: take the next seat nobody holds.
+
                 if (holder != "nobody")
                     for (int s2 = 0; s2 < CarriageRide.SeatCount; s2++)
                     {
@@ -582,14 +541,11 @@ namespace Deepbound.Networking
             else Problem("could not sit on the carriage (seat " + want + ")");
             yield return new WaitForSeconds(4f);
             if (!follower) yield return Shot("carriage_F" + (floorNo + 2));
-            // It leaves when everyone sits: the others may still be at the shops.
+
             for (float t = 0f; t < (partySize > 1 || follower ? 150f : 45f) && DungeonDirector.InLobby; t += 0.5f) yield return new WaitForSeconds(0.5f);
             if (DungeonDirector.InLobby) { Problem("the carriage never left (seat " + life.Seat.Value + ")"); }
         }
 
-        // ------------------------------------------------------------------ the kit
-
-        /// <summary>What a piece is worth to this class: its stats in units of "one weight point", the deep and the fine count for more.</summary>
         private float GearScore(GearItem g)
         {
             if (g.IsEmpty) return 0f;
@@ -656,7 +612,6 @@ namespace Deepbound.Networking
 
         private bool AnvilWorkLeft() => prog.CannotTemperReason() == null || prog.CannotHoneReason() == null || prog.OpenEdgeSlot >= 0 || GearWorkLeft(out _, out _);
 
-        /// <summary>Hobb: break down what is spare, temper while it can, then refine and attune what is worn.</summary>
         private IEnumerator AtAnvil()
         {
             yield return WalkTo(Lobby.AnvilSpot + Vector3.back * 1.6f, 1.2f);
@@ -730,7 +685,6 @@ namespace Deepbound.Networking
             return w * Runes.Power(Runes.Tier(r));
         }
 
-        /// <summary>The best change to the weapon's sockets, or false. Two of a kind do nothing: only the best tier counts.</summary>
         private bool BestSocketing(out Rune rune, out int socket)
         {
             rune = Rune.None; socket = -1;
@@ -777,7 +731,6 @@ namespace Deepbound.Networking
             return false;
         }
 
-        /// <summary>Ysolde: meld, rank abilities with Sigils (buying them when <paramref name="buy"/>), melt what is spare, set the best runes.</summary>
         private IEnumerator AtStones(bool buy)
         {
             bool sigilsForSale = buy && (prog.Rank(Classes.AbilitySlot.Q) < Classes.AbilityRanks.MaxRank || prog.Rank(Classes.AbilitySlot.E) < Classes.AbilityRanks.MaxRank);
@@ -827,7 +780,6 @@ namespace Deepbound.Networking
             }
         }
 
-        /// <summary>Gold the next temper or hone will ask for: nothing else may eat it.</summary>
         private int GoldReserve => prog.WeaponLevel.Value < Anvil.MaxLevel ? Anvil.GoldCost(prog.WeaponLevel.Value) : prog.Hones.Value < Anvil.MaxHones ? Anvil.HoneGold(prog.Hones.Value) : 0;
 
         private IEnumerator WalkToVendor(Shop.Vendor v)
@@ -836,7 +788,6 @@ namespace Deepbound.Networking
             if (at != null) yield return WalkTo(at.Value + Vector3.back * 1.6f, 1.2f);
         }
 
-        /// <summary>A temper just out of reach: buy the embers it is short of, when there is gold to spare.</summary>
         private IEnumerator TopUpEmbers()
         {
             if (prog.WeaponLevel.Value >= Anvil.MaxLevel) yield break;
@@ -872,7 +823,6 @@ namespace Deepbound.Networking
             }
         }
 
-        /// <summary>A fitted piece on offer that beats what is worn: buy it, take it from where it is laid, put it on.</summary>
         private IEnumerator BuyBetterGear(Shop.Vendor vendor)
         {
             var stock = Shop.For(me.OwnerClientId, vendor);
@@ -901,7 +851,6 @@ namespace Deepbound.Networking
             yield return WearBest();
         }
 
-        /// <summary>Gold, most useful first: potions, better gear, a rare, relics, drills, a blessing. Always leaves the next temper's gold.</summary>
         private IEnumerator Provision()
         {
             if (flasks != null && prog.Gold.Value > GoldReserve + 20)
@@ -935,7 +884,6 @@ namespace Deepbound.Networking
                 (flasks != null ? ", pouch H" + flasks.Count(Flasks.Kind.Health) + " M" + flasks.Count(Flasks.Kind.Mana) + " F" + flasks.Count(Flasks.Kind.Frost) + " W" + flasks.Count(Flasks.Kind.Holy) + " rare " + Progression.RareItems.Short(flasks.RareHeld) : "");
         }
 
-        /// <summary>Leaving camp: the kit as it stands, and anything a careful player would not have left undone (tools/test_party.py fails on these).</summary>
         private void AuditKit()
         {
             L("KIT " + KitLine());
@@ -972,7 +920,7 @@ namespace Deepbound.Networking
         {
             var stock = Shop.For(me.OwnerClientId, vendor);
             if (!stock.Any(want)) yield break;
-            at = Shop.Position(vendor) ?? at; // trade follows the person (they may be out on an errand)
+            at = Shop.Position(vendor) ?? at;
             yield return WalkTo(at + Vector3.back * 1.6f, 1.2f);
             for (int n = 0; n < maxBuys; n++)
             {
@@ -999,7 +947,6 @@ namespace Deepbound.Networking
 
         private double clockServer0 = -1, clockReal0;
 
-        /// <summary>Server clock against the wall clock since the first status (a run summary once said 952 minutes for a 97-minute run).</summary>
         private string ClockCheck()
         {
             var nm = Unity.Netcode.NetworkManager.Singleton;
@@ -1010,8 +957,6 @@ namespace Deepbound.Networking
             return dr > 1 ? ", clock x" + ((st - clockServer0) / dr).ToString("F2") + " (run start " + (World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.RunStartedAt.Value.ToString("F0") : "-") + ", now " + st.ToString("F0") + ")" : "";
         }
 
-        // ---- What the bot actually did with its kit: the abilities it set going, per floor (2026-11-03: in a four-bot run
-        // three bots never attacked at all and the log did not say so). ----
         private readonly List<AbilityView> abilityViews = new List<AbilityView>();
         private readonly Dictionary<string, float> abilityWas = new Dictionary<string, float>();
         private readonly Dictionary<string, int> abilityUses = new Dictionary<string, int>();
@@ -1040,7 +985,6 @@ namespace Deepbound.Networking
         private float nextSecondary, nextFlask;
         private const float BeamReach = 14f;
 
-        /// <summary>The most hurt other player within reach, for the kits that heal them.</summary>
         private PlayerLife HurtAlly(float below)
         {
             PlayerLife best = null;
@@ -1055,10 +999,6 @@ namespace Deepbound.Networking
             return best;
         }
 
-        /// <summary>
-        /// The right mouse button, which the bot never used: frostbolts, fans, the Scourge, the Cleric's beam and the Plague
-        /// Doctor's tonic, Disengage when something is on top of the Ranger. (The Knight's is its block, handled apart.)
-        /// </summary>
         private IEnumerator UseSecondary(Health target, float dist)
         {
             if (Time.time < nextSecondary || cls == Classes.ClassId.Knight) yield break;
@@ -1090,7 +1030,7 @@ namespace Deepbound.Networking
                     nextSecondary = Time.time + (cls == Classes.ClassId.Cleric ? 2f : 6f);
                     abilityUses.TryGetValue("RMB heal", out int healUses);
                     abilityUses["RMB heal"] = healUses + 1;
-                    // Look at whoever needs it (no one under the crosshair: it lands on yourself).
+
                     if (ally != null) Face(ally.Health.Center);
                     yield return HoldSecondary(cls == Classes.ClassId.Cleric ? 1.2f : 0.15f);
                     if (target != null) Face(target.Center);
@@ -1120,30 +1060,21 @@ namespace Deepbound.Networking
             return s;
         }
 
-        // ------------------------------------------------------------------ a floor
-
-        /// <summary>
-        /// Runs a bot routine and keeps going if it throws: a follower once lost its whole run to one NullReference on
-        /// floor 1 (2026-11-07) and stood idle. The error is a Problem in the log, then the routine starts over (3 times).
-        /// </summary>
         private float nextSpinNote;
-        /// <summary>Seconds on a floor before the bot stops clearing and heads for the guardian.</summary>
+
         private const float HurryAfter = 390f;
         private bool hurrying;
-        /// <summary>Things used this run, by kind (written to the log at each floor's end).</summary>
+
         private readonly Dictionary<string, int> usedThings = new Dictionary<string, int>();
 
         private IEnumerator Guarded(System.Func<IEnumerator> routine)
         {
             for (int attempt = 0; attempt < 4; attempt++)
             {
-                // Nested steps (StepToward, Press, Shot...) are driven here too, so their errors are caught as well.
                 var stack = new System.Collections.Generic.Stack<IEnumerator>();
                 stack.Push(routine());
                 bool threw = false;
-                // 2026-11-13: the bot froze the whole game (one core at 100%, not responding) on floor 1 of the full
-                // playtest. Nested steps run here by hand, and a step that ends without waiting a frame, called in a
-                // loop, never handed the frame back. Now a long run of frameless steps waits a frame, and says so.
+
                 int frameless = 0;
                 while (stack.Count > 0)
                 {
@@ -1235,17 +1166,12 @@ namespace Deepbound.Networking
                     continue;
                 }
                 if (pendingHeal) { pendingHeal = false; hp.ServerSetFraction(0.6f); }
-                // Bookkeeping first, so no branch below can skip it (a `continue` toward a sleeping guardian's arena
-                // once froze the bot without a word, 2026-10-27).
-                // Stuck: no progress for 12 s.
+
                 if ((me.transform.position - lastPos).sqrMagnitude > 1f) { lastPos = me.transform.position; stuckSince = Time.time; gateWaitSince = -1f; }
-                // Standing still while landing blows is fighting, not being stuck (2026-11-18: the "stuck" skip dropped Mother
-                // Marrow every 12 s and the bot stood idle under her).
+
                 else if (Time.time - lastDealtAt < 3f) stuckSince = Time.time;
                 else if (Time.time - stuckSince > 12f && ShutGateNear(me.transform.position) && (gateWaitSince < 0f || Time.time - gateWaitSince < 90f))
                 {
-                    // A gate shut in front of us (an ambush sprung on whoever was inside, an arena sealed): by design it lifts
-                    // when the fight inside ends, so wait for it rather than call it stuck (2026-11-09, the commonest "stuck").
                     if (gateWaitSince < 0f) { gateWaitSince = Time.time; L("waiting at a shut gate (" + goalWhat + " is beyond it)"); }
                     stuckSince = Time.time;
                 }
@@ -1253,34 +1179,34 @@ namespace Deepbound.Networking
                 {
                     Problem("stuck for 12 s going for " + goalWhat + " at " + Fmt(goal) + " from " + Fmt(me.transform.position) + " | " + WhyStuck(goal));
                     if (target != null) skip.Add(target.NetworkObjectId);
-                    // Loot it cannot get to (behind a secret wall, on a ledge): give it up rather than walk into the wall all floor.
+
                     if (goalWhat == "loot" && lastLootId != ulong.MaxValue) ignoredLoot.Add(lastLootId);
                     stuckSince = Time.time;
                     if (follower && Leader != null) { motor.Teleport(Leader.transform.position - Leader.transform.forward * 2f + Vector3.up * 0.2f, me.transform.rotation); L("caught up with the leader"); }
                 }
                 if (Time.time >= nextShot) { nextShot = Time.time + 35f; yield return Shot("F" + (floorNo + 1) + "_" + (int)(Time.time - floorStart) + "s"); }
                 if (Time.time >= nextStatus) { nextStatus = Time.time + 75f; Status("progress (" + LivingEnemies() + " enemies left)"); }
-                // Block (Knight) or dodge a swing that is coming: a red ! within reach.
+
                 if (Time.time >= nextBlock && ThreatNear(3.6f) && (BossBrain.Active == null || Random.value < 0.5f))
                 {
                     nextBlock = Time.time + 1.6f;
                     if (cls == Classes.ClassId.Knight) yield return Block(0.6f);
                     else yield return Press(UI.Bind.Dodge);
                 }
-                // A potion below 40%.
+
                 if (flasks != null && hp.Current.Value < hp.Max.Value * 0.4f && flasks.Count(Flasks.Kind.Health) > 0)
                 {
                     int before = flasks.Count(Flasks.Kind.Health);
                     yield return Press(UI.Bind.Potion1);
                     yield return null;
-                    // Count drinks, not presses (2026-11-14: a press during the drink cooldown counted, 47 "drinks" on a floor).
+
                     if (flasks.Count(Flasks.Kind.Health) < before)
                     {
                         abilityUses.TryGetValue("health potion", out int hn);
                         abilityUses["health potion"] = hn + 1;
                     }
                 }
-                // The rare slot, as a player would: a defensive draught when it is going badly, the rest at the guardian.
+
                 if (flasks != null && flasks.RareHeld != Progression.RareItem.None && !flasks.InStasis)
                 {
                     var rare = flasks.RareHeld;
@@ -1294,18 +1220,15 @@ namespace Deepbound.Networking
                     }
                 }
 
-                // Pick what to do: the nearest living enemy we can walk to (the guardian last), else loot, else a chest.
                 var boss = BossBrain.Active;
                 target = NearestEnemy(skip, out float dist, allowBoss: false);
-                // A soulbound twin lying severed cannot be hurt: go for the one still standing, as the screen tells a player to.
+
                 var standingTwin = StandingTwin();
                 if (standingTwin != null) { target = standingTwin; dist = Vector3.Distance(target.transform.position, me.transform.position); }
                 stuckTarget = target;
                 if (target == null && boss != null && !boss.IsDead) { target = boss.GetComponent<Health>(); dist = Vector3.Distance(target.transform.position, me.transform.position); }
                 stuckTarget = target;
-                // Busy but getting nowhere (2026-11-14, the Cleric: two floors of 11 min, moving the whole time so never "stuck",
-                // dealing no damage while an elite archer it could not hit shot it): a non-guardian that has not lost health in
-                // 20 s of being the target is given up, with the why.
+
                 if (target != dmgTarget) { dmgTarget = target; dmgHp = target != null ? target.Current.Value : 0f; dmgSince = Time.time; }
                 else if (target != null)
                 {
@@ -1320,7 +1243,6 @@ namespace Deepbound.Networking
                     }
                     else if (Time.time - dmgSince > 20f && target.GetComponent<EnemyBrain>() is BossBrain bb0)
                     {
-                        // A guardian or keeper untouched for 20 s: say exactly why a swing would miss (2026-11-18, Mother Marrow at 100%).
                         dmgSince = Time.time;
                         var eye = me.transform.position + Vector3.up * 1.6f;
                         string blocker = Physics.Linecast(eye, target.Center, out var lh, ~0, QueryTriggerInteraction.Ignore) ? lh.collider.name + (lh.collider.GetComponentInParent<Health>() != null ? "(health)" : "") : "nothing";
@@ -1333,22 +1255,18 @@ namespace Deepbound.Networking
                         yield return Shot("F" + (floorNo + 1) + "_guardian_nodamage");
                     }
                 }
-                // A healing pylon comes before the guardian, as it would for a player (the user watched a bot hit a boss
-                // that its pylons kept topping up).
+
                 if (target != null && boss != null && !(boss is LairBrain) && target == boss.GetComponent<Health>())
                 {
                     Breakable pylon = null;
                     float pd = float.MaxValue;
                     foreach (var p in Breakable.Pylons)
                         if (p != null && p.Health != null && p.Health.IsAlive && Vector3.Distance(p.transform.position, boss.transform.position) <= Breakable.PylonRange && Vector3.Distance(p.transform.position, me.transform.position) < pd) { pd = Vector3.Distance(p.transform.position, me.transform.position); pylon = p; }
-                    // Any standing pylon, not only a feeding one: a hit stops the beam for 4 s, so 'feeding' flickered off after
-                    // each swing and the bot went back to the guardian, which two pylons out-healed (2026-11-13, Hollow King, 5 min).
+
                     if (pylon != null) { target = pylon.Health; dist = pd; }
                 }
                 if (boss != null && bossSeenAt < 0f && dd.BossSealed) { bossSeenAt = Time.time; L("guardian fight begins: " + boss.DisplayName); yield return Shot("F" + (floorNo + 1) + "_boss_start"); }
 
-                // The guardian sleeps until the whole party is in its arena. Run of 2026-11-04: on floor 2 it slept for eight
-                // minutes with the bots beating on it and no record of who stood outside. Say who, and walk in.
                 if (boss != null && boss.Dormant && LivingEnemies() <= 3)
                 {
                     if (dormantSince < 0f) dormantSince = Time.time;
@@ -1364,7 +1282,7 @@ namespace Deepbound.Networking
 
                 var lead = follower ? Leader : null;
                 float leadDist = lead != null ? Vector3.Distance(Flat(lead.transform.position), Flat(me.transform.position)) : 0f;
-                // A client cannot see the guardian sleeping: if the leader has waited in its arena for a while, join them.
+
                 if (lead != null && boss != null && LivingEnemies() <= 3 && layout.BossRoom.Contains(lead.transform.position, -1f) && !layout.BossRoom.Contains(me.transform.position, -1.5f))
                 {
                     if (outsideSince < 0f) outsideSince = Time.time;
@@ -1379,7 +1297,6 @@ namespace Deepbound.Networking
                 }
                 else outsideSince = -1f;
 
-                // Far behind (the leader rode ahead, or a wall between): catch up, as a friend would run to rejoin.
                 if (lead != null && (leadDist > 40f || (dd.BossSealed && !layout.BossRoom.Contains(me.transform.position, 0f) && layout.BossRoom.Contains(lead.transform.position, 0f))))
                 {
                     motor.Teleport(lead.transform.position - lead.transform.forward * 2f + Vector3.up * 0.2f, me.transform.rotation);
@@ -1390,14 +1307,12 @@ namespace Deepbound.Networking
                 lastLootId = loot != null ? loot.NetworkObjectId : ulong.MaxValue;
                 var chest = follower ? null : NearestChest(openedChests);
                 var myGear = target == null || dist >= 14f ? NearestGear(22f) : null;
-                // HURRY (2026-11-13 playtest: on floor 8 rifts kept a choir coming, there was always something left to fight,
-                // and the bot never reached the Pale Cardinal in 11 minutes): after a while on a floor, push for the guardian - fight only what is in the way, leave the loot.
+
                 if (!follower && Time.time - floorStart > HurryAfter)
                 {
                     if (!hurrying) { hurrying = true; L("hurrying to the guardian (" + ((Time.time - floorStart) / 60f).ToString("F1") + " min on the floor, " + LivingEnemies() + " still about)"); }
                     loot = null; chest = null; myGear = null;
-                    // Not once the arena is sealed: a guardian's wards (the Cardinal's choir) are the way through (2026-11-13: the Knight
-                    // stood under an immune Cardinal for six minutes ignoring the choir 10 m away).
+
                     if (target != null && dist > 6f && !dd.BossSealed && !(dd.AmbushWave >= 0 && dd.AmbushRoom != null && dd.AmbushRoom.Contains(me.transform.position, 0f)) && !(target.GetComponent<EnemyBrain>() is BossBrain)) target = null;
                 }
                 if (lead != null && target == null && loot == null && myGear == null)
@@ -1413,26 +1328,18 @@ namespace Deepbound.Networking
                     goal = target.transform.position; goalWhat = Health.NameOf(target.NetworkObjectId);
                     float reach = Mathf.Max(1.8f, me.ActiveKit != null ? me.ActiveKit.AttackRange : 2.5f);
                     bool melee = reach < 4f;
-                    // Measured to the body's edge: a giant is struck from outside it, not by walking into it.
+
                     float edge = target.BodyRadius;
                     float want = melee ? edge + reach * 0.75f : Mathf.Min(reach * 0.7f, 10f) + edge;
                     float flatDist = Vector3.Distance(Flat(target.transform.position), Flat(me.transform.position));
                     bool clear = CombatQuery.ClearLine(me.transform.position + Vector3.up * 1.6f, target);
-                    // A sleeping guardian wakes only when the party is in its arena: a bow from the doorway does nothing
-                    // (run 13, the Ranger, shot a dormant boss from outside for eight minutes).
-                    // Not "boss.Dormant": that lives on the server, so a client always read it as awake and a Cleric on a client stood at
-                    // range in the doorway holding the fight up (F2 of one run, F10 of the next, 2026-11-04). Outside is outside.
-                    // Not a lair keeper: it holds the boss bar while fought, but it lives in its own lair, not the arena (2026-11-18: the
-                    // bot walked at the lair's gate toward the floor's arena for whole floors and never swung at Mother Marrow).
+
                     if (boss != null && !(boss is LairBrain) && target == boss.GetComponent<Health>() && !layout.BossRoom.Contains(me.transform.position, -1.5f))
                     {
                         yield return StepToward(layout.BossRoom.Center, 2f);
                         continue;
                     }
-                    // Hits not landing for a while (a shield, a guard): go round behind it, as a player would.
-                    // Only for a few seconds at a time, then back to fighting: a flank spot it cannot reach (the Lich backed into
-                    // water) once kept the Ranger walking in place for seven minutes, never shooting, so the boss's health
-                    // never moved and the flank never ended (2026-10-28).
+
                     bool flank = boss != null && target == boss.GetComponent<Health>() && bossHpOf == target.NetworkObjectId && bossHpMark >= 0f && Time.time - bossHpAt > 6f;
                     if (flank && flankStarted < 0f) flankStarted = Time.time;
                     if (flank && Time.time - flankStarted > 4f) { bossHpAt = Time.time; flankStarted = -1f; flank = false; }
@@ -1442,9 +1349,7 @@ namespace Deepbound.Networking
                         var behind = target.transform.position - target.transform.forward * (edge + reach * 0.6f);
                         if (Vector3.Distance(Flat(me.transform.position), Flat(behind)) > 1.2f) { yield return StepToward(behind, 0.6f); continue; }
                     }
-                    // In melee reach a clipped line (a crate edge, a rail) is no reason to stand there: swing.
-                    // No clear line (a dais lip, a pillar, a crate): close in, and if already close, circle round it, as a
-                    // player would (2026-10-28: the Ranger stood 5 m from a raised Tide Lich for seven minutes, "in range").
+
                     if (!clear && !melee && flatDist <= want)
                     {
                         if (flatDist > edge + 2f) yield return StepToward(target.transform.position, edge + 1.5f);
@@ -1455,24 +1360,19 @@ namespace Deepbound.Networking
                         }
                     }
                     else if (flatDist > want || (!clear && !melee)) yield return StepToward(target.transform.position, want * 0.9f);
-                    // Rooted (an Entling holding you): no stepping anywhere, so fight what is in reach.
-                    // Only with room behind: backed against a wall it swings from where it stands (2026-11-18: pinned to a wall
-                    // by Mother Marrow it "stepped back" into the stone for ten minutes and never swung).
+
                     else if (melee && flatDist < edge + 0.6f && !(me.GetComponent<PlayerDebuffs>() is PlayerDebuffs rootedNow && rootedNow.Rooted) && RoomBehind(target))
                     {
-                        // Too close (inside its reach and ours is wasted): step back out to the edge.
                         var back = Flat(me.transform.position) - Flat(target.transform.position);
                         if (back.sqrMagnitude < 0.01f) back = -me.transform.forward;
                         yield return StepToward(me.transform.position + back.normalized * 1.5f, 0.2f);
                     }
                     else
                     {
-                        // Ranged shots lead a moving target, as a player's would (run 14's Ranger aimed where bosses had been).
                         var aimAt = target.Center;
                         if (!melee && target.TryGetComponent<UnityEngine.AI.NavMeshAgent>(out var tAgent) && tAgent.enabled)
                             aimAt += tAgent.velocity * (flatDist / (cls == Classes.ClassId.Ranger ? RangerKit.ArrowSpeed : cls == Classes.ClassId.Mage ? MageKit.FireboltSpeed : 24f));
-                        // Arrows drop: aim over the target by the fall a full draw takes to get there, as an archer would
-                        // (2026-10-28: the Ranger bot's long shots landed short all run and every guardian took 6-8 min).
+
                         if (cls == Classes.ClassId.Ranger)
                         {
                             float tof = flatDist / RangerKit.ArrowSpeed;
@@ -1480,10 +1380,9 @@ namespace Deepbound.Networking
                         }
                         Face(aimAt);
                         yield return UseSecondary(target, flatDist);
-                        // Abilities now and then, when something is close.
+
                         if (Time.time >= nextAbility)
                         {
-                            // Whatever is off cooldown (it used to be one at random every few seconds: abilities sat ready for most of a fight).
                             nextAbility = Time.time + Random.Range(1f, 1.6f);
                             var ready = new List<AbilityView>();
                             if (me.ActiveKit != null) me.ActiveKit.FillAbilities(ready);
@@ -1499,7 +1398,7 @@ namespace Deepbound.Networking
                                 abilityUses.TryGetValue("R Ultimate", out int ur);
                                 abilityUses["R Ultimate"] = ur + 1;
                             }
-                            // Thrown flasks: at a guardian, as a player saves them.
+
                             if (flasks != null && boss != null && target == boss.GetComponent<Health>() && Time.time >= nextFlask)
                             {
                                 var throwKind = flasks.Count(Flasks.Kind.Frost) > 0 ? Flasks.Kind.Frost : Flasks.Kind.Holy;
@@ -1514,8 +1413,8 @@ namespace Deepbound.Networking
                             }
                         }
                         yield return Attack(cls == Classes.ClassId.Ranger ? 0.9f : 0.8f);
-                        stuckSince = Time.time; // fighting in place is not being stuck
-                        // A guardian that does not lose health while we hit it: say why.
+                        stuckSince = Time.time;
+
                         if (boss != null && target == boss.GetComponent<Health>())
                         {
                             var bh = target;
@@ -1541,7 +1440,7 @@ namespace Deepbound.Networking
                 else if (loot != null)
                 {
                     goal = loot.transform.position; goalWhat = "loot";
-                    // Standing on it and it stays (a full pouch, someone else's): leave it.
+
                     if (Vector3.Distance(Flat(loot.transform.position), Flat(me.transform.position)) < 0.8f)
                     {
                         if (lootOnSince < 0f) lootOnSince = Time.time;
@@ -1573,13 +1472,11 @@ namespace Deepbound.Networking
                 }
                 else
                 {
-                    // Nothing left in reach: the arena. Walk in so it seals.
                     var arenaAt = layout.BossRoom.Center;
                     goal = arenaAt; goalWhat = "the guardian's arena";
                     yield return StepToward(arenaAt, 2f);
                 }
 
-                // Gear for me lying close: pick it up (F), and wear it if it is better (worn first, simple).
                 foreach (var g in Interactable.All.OfType<GearDrop>().ToArray())
                     if (g != null && g.Prompt(prog) != null && Vector3.Distance(g.transform.position, me.transform.position) < 2.4f) { g.UseRpc(me.NetworkObject); L("picked up gear"); yield return new WaitForSeconds(0.2f); }
 
@@ -1611,14 +1508,14 @@ namespace Deepbound.Networking
                         s.Key + " " + s.Value.ToString("F0") + (m.BossSource.TryGetValue(s.Key, out float bs) ? " (boss " + bs.ToString("F0") + " in " + m.BossHits[s.Key] + " hits)" : ""))));
                 m.Source.Clear(); m.BossSource.Clear(); m.BossHits.Clear();
             }
-            // The damage sheet as the player would read it (2026-11-24): the growth curve, floor by floor.
+
             if (prog != null)
                 L("   damage sheet: " + string.Join(", ", Progression.DamageSheet.For(prog).Select(dl => dl.Name + " " + dl.Now.ToString("F0") + " (+" + ((dl.Start > 0f ? dl.Now / dl.Start - 1f : 0f) * 100f).ToString("F0") + "%)"))
                     + " | ATT " + prog.Value(Core.StatType.ATT).ToString("F0") + ", weapon +" + prog.WeaponLevel.Value + ", relics " + prog.RelicCount + ", cooldown cut " + (prog.CooldownCut * 100f).ToString("F0") + "%");
             string usedLine = AbilitiesLine();
             L("   abilities used this floor: " + usedLine);
             if (usedLine == "none") Problem("played a whole floor without using one ability");
-            // Someone who played a whole floor and hit nothing is a broken bot, not a balance result.
+
             if (party.Count > 1)
                 foreach (var kv in party)
                     if (kv.Value.Dealt - (partyStart.TryGetValue(kv.Key, out var ps) ? ps.Item1 : 0f) <= 0f) Problem(kv.Value.Name + " dealt no damage this floor");
@@ -1627,7 +1524,6 @@ namespace Deepbound.Networking
             yield return Shot("F" + (floorNo + 1) + "_cleared");
             if (dd.Phase.Value != RunPhase.FloorCleared) yield break;
 
-            // What the guardian left: a player does not ride away from a legendary.
             for (float t0 = Time.time; Time.time - t0 < 25f && dd.Phase.Value == RunPhase.FloorCleared;)
             {
                 var left = NearestGear(45f);
@@ -1636,7 +1532,6 @@ namespace Deepbound.Networking
                 else { left.UseRpc(me.NetworkObject); ignoredGear.Add(left.NetworkObjectId); L("took gear: " + Gear.Name(left.Item.Value)); yield return new WaitForSeconds(0.4f); }
             }
 
-            // The grave lift: step in and wait.
             yield return new WaitForSeconds(3f);
             for (float t0 = Time.time; Time.time - t0 < 90f && !DungeonDirector.InLobby && dd.Phase.Value == RunPhase.FloorCleared;)
             {
@@ -1645,7 +1540,6 @@ namespace Deepbound.Networking
             }
             if (!DungeonDirector.InLobby && dd.Phase.Value == RunPhase.FloorCleared && Vector3.Distance(Flat(me.transform.position), Flat(DungeonDirector.ExitPosition)) > 1.2f)
             {
-                // The bot's pathing gave out (it is not a player): put it in the cage so one bad spot does not end the test run.
                 Problem("could not walk to the lift from " + Fmt(me.transform.position) + " (" + Vector3.Distance(me.transform.position, DungeonDirector.ExitPosition).ToString("F0") + " m): " + WhyStuck(DungeonDirector.ExitPosition) + "; teleporting");
                 me.GetComponent<FirstPersonMotor>().Teleport(DungeonDirector.ExitPosition + Vector3.up * 0.2f, me.transform.rotation);
                 yield return new WaitForSeconds(1f);
@@ -1655,14 +1549,11 @@ namespace Deepbound.Networking
             if (!DungeonDirector.InLobby && dd.Phase.Value == RunPhase.FloorCleared) Problem("the lift never took me up (" + DungeonDirector.PlayersAtExit() + " at the exit)");
         }
 
-        // ------------------------------------------------------------------ helpers
-
         private static Vector3 Flat(Vector3 v) => new Vector3(v.x, 0f, v.z);
         private static string Fmt(Vector3? v) => v.HasValue ? v.Value.x.ToString("F0") + "," + v.Value.z.ToString("F0") : "-";
 
         private int LivingEnemies() => Health.All.Count(h => h != null && h.IsAlive && h.Team == Team.Enemies && h.GetComponent<EnemyBrain>() != null);
 
-        /// <summary>The living twin of a soulbound enemy lying severed within 40 m, or null.</summary>
         private Health StandingTwin()
         {
             var spawned = NetworkManager.Singleton.SpawnManager.SpawnedObjects;
@@ -1678,7 +1569,6 @@ namespace Deepbound.Networking
 
         private float lastDealtAt = -100f;
 
-        /// <summary>Is there walkable floor 1.5 m straight back from <paramref name="from"/>?</summary>
         private bool RoomBehind(Health from)
         {
             var back = Flat(me.transform.position) - Flat(from.transform.position);
@@ -1697,17 +1587,15 @@ namespace Deepbound.Networking
             {
                 if (h == null || !h.IsAlive || h.Team != Team.Enemies || skip.Contains(h.NetworkObjectId)) continue;
                 var b = h.GetComponent<EnemyBrain>();
-                // A lair keeper that has woken (and its echoes) is fought where it stands, like any of the dead (2026-11-14: a bot
-                // sealed in Mother Marrow's lair walked at the gates for 7 minutes).
-                bool lairFight = b is LairBrain; // asleep too: the bot walks up and wakes it
+
+                bool lairFight = b is LairBrain;
                 if (b == null || (!allowBoss && b is BossBrain && !lairFight)) continue;
                 if (b is MournerBrain || b is GargoyleBrain g && !g.Woken.Value || b.SeveredNow) continue;
                 float d = Vector3.Distance(h.transform.position, me.transform.position);
                 if (follower && Leader != null && Vector3.Distance(h.transform.position, Leader.transform.position) > 16f) continue;
-                // A player kills the healer first: a Necromancer within 16 m counts as much closer than it is.
+
                 float rank = b is NecromancerBrain && d < 16f ? d * 0.3f : d;
-                // A guardian that cannot be hurt right now (Mother Marrow's cocoon, a shielded phase): its adds first
-                // (2026-11-18: the bot spent ten minutes hitting the cocoon while the knitters lived).
+
                 if (b is BossBrain bb && bb.Immune) rank += 40f;
                 if (rank >= dist) continue;
                 if (d > 6f && !Reachable(h.transform.position, path)) continue;
@@ -1729,11 +1617,6 @@ namespace Deepbound.Networking
             return best;
         }
 
-        /// <summary>
-        /// What the bot uses as it finds it (2026-11-13, the user: the playtest bot "should make use of everything they find
-        /// and record everything"): chests and every one-press thing on a floor. Not the puzzles (random turning solves
-        /// nothing) and not carried things (they need their own walk).
-        /// </summary>
         private static bool Usable(Interactable c) => c is Chest || c is HearthBrazier || c is ExpeditionRemains || c is ShaftCat || c is VigilCandle || c is FateWheel || c is BloodAltar
             || c is BargainAltar || c is Lever || c is SideShrine || c is LorePage || c is PrisonerCage || c is Chandelier || c is CellarHatch
             || c is SoulRift || c is Fountain || c is StatDraught;
@@ -1751,10 +1634,8 @@ namespace Deepbound.Networking
             return best;
         }
 
-        /// <summary>Why the way on fails: the path's state, where it ends, and what stands near us.</summary>
         private float gateWaitSince = -1f;
 
-        /// <summary>A shut portcullis within 5 m.</summary>
         private static bool ShutGateNear(Vector3 at)
         {
             foreach (var pc in FindObjectsByType<Portcullis>(FindObjectsSortMode.None))
@@ -1768,7 +1649,7 @@ namespace Deepbound.Networking
             var stuckDeb = me.GetComponent<PlayerDebuffs>();
             string held = (stuckDeb != null && stuckDeb.Rooted ? (stuckDeb.Entangled ? "ENTANGLED, " : "ROOTED, ") : "") + (motor.Pinned ? "PINNED, " : "")
                 + (NavMesh.SamplePosition(me.transform.position, out var close, 0.9f, NavMesh.AllAreas) ? "" : "no navmesh within 0.9 m (y " + me.transform.position.y.ToString("F1") + "), ");
-            // A target we cannot see: name what is in the way.
+
             string sight = "";
             if (stuckTarget != null)
             {
@@ -1801,11 +1682,8 @@ namespace Deepbound.Networking
             return NavMesh.CalculatePath(a.position, b.position, NavMesh.AllAreas, path) && path.status == NavMeshPathStatus.PathComplete;
         }
 
-        /// <summary>Walk (at a run's pace, over the navmesh) toward a point for one short stretch.</summary>
         private IEnumerator StepToward(Vector3 to, float stopAt)
         {
-            // Off the navmesh (a Disengage leap onto a ledge or a prop): a player would just step off, so step to the
-            // nearest floor (2026-10-27: the Ranger stood on one spot for nine minutes).
             if (!NavMesh.SamplePosition(me.transform.position, out var a, 0.9f, NavMesh.AllAreas) && NavMesh.SamplePosition(me.transform.position, out var near, 3.5f, NavMesh.AllAreas))
             {
                 L("stepped off a spot with no floor under it, back onto " + Fmt(near.position));
@@ -1821,8 +1699,6 @@ namespace Deepbound.Networking
             var path = new NavMeshPath();
             if (!NavMesh.CalculatePath(a.position, b.position, NavMesh.AllAreas, path) || path.corners.Length < 2 || path.status != NavMeshPathStatus.PathComplete)
             {
-                // Standing in the hole a shut gate carves (a lair doorway), the nearest floor can be on the far side of the bars
-                // and no way leads anywhere (2026-11-18: 0.8 m inside Mother Marrow's gate for ten minutes). Plan from a step ahead.
                 var ahead = Flat(to) - Flat(me.transform.position);
                 if (ahead.sqrMagnitude > 0.01f && NavMesh.SamplePosition(me.transform.position + ahead.normalized * 1.3f, out var a2, 0.9f, NavMesh.AllAreas)
                     && NavMesh.CalculatePath(a2.position, b.position, NavMesh.AllAreas, path) && path.corners.Length >= 2) { }
@@ -1842,8 +1718,7 @@ namespace Deepbound.Networking
                 float step = speed * Time.deltaTime;
                 if (flatTo.magnitude <= step) { pos = next; corner++; continue; }
                 pos += flatTo.normalized * step;
-                // Follow the path's own height: snapping to the nearest navmesh could hop onto a ledge no one could
-                // walk onto (an island), which is not something a player can do.
+
                 float segT = Mathf.InverseLerp(0f, Flat(next - path.corners[corner - 1]).magnitude, Flat(pos - path.corners[corner - 1]).magnitude);
                 pos.y = Mathf.Lerp(path.corners[corner - 1].y, next.y, segT);
                 var look = Flat(to) - Flat(pos);
@@ -1853,8 +1728,7 @@ namespace Deepbound.Networking
                 stepped = true;
                 yield return null;
             }
-            // Already there, rooted or pinned: still hand the frame back (callers loop on this; the frameless guard
-            // caught it nine times in the Knight run).
+
             if (!stepped) yield return null;
         }
 
@@ -1864,7 +1738,6 @@ namespace Deepbound.Networking
                 yield return StepToward(to, stopAt);
             if (Vector3.Distance(Flat(me.transform.position), Flat(to)) > stopAt + 1f)
             {
-                // Camp has no navmesh (only floors are baked): there it simply steps across, and that is no problem.
                 if (DungeonDirector.InLobby) L("stepped across camp to " + Fmt(to));
                 else Problem("could not walk to " + Fmt(to) + " (stopped at " + Fmt(me.transform.position) + "): stepping there");
                 motor.Teleport(to + Vector3.up * 0.1f, me.transform.rotation);

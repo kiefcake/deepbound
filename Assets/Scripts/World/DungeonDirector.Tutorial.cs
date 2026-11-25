@@ -8,28 +8,17 @@ using UnityEngine.AI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// THE PROVING PATH (2026-11-23, the user: "make a tutorial level, going over game mechanics"): a fixed floor
-    /// (<see cref="DungeonLayout.Tutorial"/>) reached from the title screen. Each room holds one lesson; its north gate
-    /// rises once the lesson is met, and the next lesson begins when someone walks into the next room. The lesson line
-    /// is drawn by <see cref="UI.TutorialPanel"/> from <see cref="TutStep"/> and <see cref="TutDone"/>.
-    /// Blows land at 60%, a wiped party gets up at the room's entrance, nothing is recorded, and the party walks into
-    /// camp at the end exactly as it left it.
-    /// </summary>
     public partial class DungeonDirector
     {
         public enum Lesson : byte { Move, Attack, Dodge, Abilities, Telegraphs, Shields, Potions, Loot, Ultimate, Guardian }
 
-        /// <summary>The title screen asked for the Proving Path: the host starts it once the class is chosen.</summary>
         public static bool TutorialPending;
         public const float TutorialTaken = 0.6f, TutorialBossHealth = 0.5f, TutorialEndDelay = 4f;
         public const int TutorialDummyHits = 8, TutorialDodges = 2;
 
-        /// <summary>The lesson under way (a <see cref="Lesson"/>), and whether it has been met.</summary>
         public readonly NetworkVariable<byte> TutStep = new NetworkVariable<byte>();
         public readonly NetworkVariable<bool> TutDone = new NetworkVariable<bool>();
 
-        /// <summary>Any peer: the party is on the Proving Path.</summary>
         public static bool InTutorial => Instance != null && !InLobby && Instance.Floor.Value.x == DungeonLayout.TutorialSeed;
 
         private readonly List<Portcullis> tutGates = new List<Portcullis>();
@@ -43,13 +32,11 @@ namespace Deepbound.World
         private bool tutPickerSeen;
         private readonly Dictionary<PlayerLife, Vector3> tutLast = new Dictionary<PlayerLife, Vector3>();
 
-        /// <summary>Server, for tests: lesson counters.</summary>
         public int TutorialHits => tutHits;
         public int TutorialDodgeCount => tutDodges;
         public Chest TutorialChest => tutChest;
         public int TutorialFoesAlive { get { int n = 0; foreach (var f in tutFoes) if (f != null && !f.IsDead && f.IsSpawned) n++; return n; } }
 
-        /// <summary>Server, from the lobby tick: the title screen asked for the Proving Path. Waits for the class picker to close.</summary>
         private void TickTutorialPending()
         {
             if (!TutorialPending || RunInProgress || departAt > 0f) return;
@@ -68,7 +55,6 @@ namespace Deepbound.World
             tutPickerSeen = false;
             StartFloor(0, tutorial: true);
 
-            // Only the guardian stays: every lesson brings its own.
             for (int i = spawned.Count - 1; i >= 0; i--)
             {
                 var o = spawned[i];
@@ -91,7 +77,6 @@ namespace Deepbound.World
                 boss.Health.ServerSetMax(boss.Health.Max.Value * TutorialBossHealth, refill: true);
             }
 
-            // A closed gate on the north door of every room before the arena.
             tutGates.Clear();
             for (int i = 0; i < DungeonLayout.TutorialRooms - 1 && portcullisPrefab != null; i++)
             {
@@ -118,7 +103,6 @@ namespace Deepbound.World
         private void TutorialCardRpc() =>
             UI.GameHud.ShowTitleCard("THE PROVING PATH", "Learn the descent before you make it", new Color(0.85f, 0.78f, 0.6f));
 
-        /// <summary>Host, from the pause menu: back to camp.</summary>
         public void ServerLeaveTutorial()
         {
             if (!IsServer || !InTutorial) return;
@@ -132,7 +116,6 @@ namespace Deepbound.World
             EnterLobby(keepRun: true);
         }
 
-        /// <summary>Tests: from wherever the run is, to camp and onto the Proving Path.</summary>
         public void ServerDebugTutorial()
         {
             if (!IsServer) return;
@@ -143,10 +126,8 @@ namespace Deepbound.World
 
         public IReadOnlyList<Portcullis> TutorialGates => tutGates;
 
-        /// <summary>Server, a player dodged (counted for the dodge lesson).</summary>
         public void TutorialOnDodge() { if (InTutorial && TutStep.Value == (byte)Lesson.Dodge && !TutDone.Value) tutDodges++; }
 
-        /// <summary>Server, each frame while exploring: true while the Proving Path runs (the normal floor rules are skipped).</summary>
         private bool TickTutorial(double now)
         {
             if (!InTutorial) return false;
@@ -157,7 +138,7 @@ namespace Deepbound.World
             }
 
             var lesson = (Lesson)TutStep.Value;
-            // A wiped party gets up at the entrance of the room it fell in.
+
             if (PartyWiped())
             {
                 var room = Layout.Rooms[Mathf.Min((int)lesson, Layout.Rooms.Count - 1)];
@@ -193,7 +174,6 @@ namespace Deepbound.World
                 return true;
             }
 
-            // Met: the next lesson begins when someone walks into the next room.
             int next = (int)lesson + 1;
             if (next >= Layout.Rooms.Count) return true;
             var nextRoom = Layout.Rooms[next];
@@ -288,7 +268,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Server: has anyone walked, sprinted and jumped yet?</summary>
         private bool WatchMovement()
         {
             foreach (var p in PlayerLife.All)
@@ -324,7 +303,6 @@ namespace Deepbound.World
         private void TutorialOverRpc() =>
             UI.GameHud.ShowTitleCard("THE PATH IS PROVEN", "Back to camp", new Color(0.85f, 0.78f, 0.6f));
 
-        /// <summary>Tests: meet the lesson under way at once (gates rise as in play).</summary>
         public void ServerDebugMeetLesson()
         {
             switch ((Lesson)TutStep.Value)

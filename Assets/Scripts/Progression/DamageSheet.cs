@@ -6,14 +6,6 @@ using UnityEngine;
 
 namespace Deepbound.Progression
 {
-    /// <summary>
-    /// What your attacks hit for (2026-11-24, the user: "figure out a way to show ability damage, so players have a tangible
-    /// way to see the damage increase"). One line per attack and ability: the damage of a plain hit right now, from the
-    /// same constants and multipliers the kits use (ATT, the anvil's hones and ascension, relics, sets, ranks), and what
-    /// the same hit was worth at the start of a run (the class's base ATT, rank 1). Situational bonuses (crits, weak
-    /// points, combos, Fervor, from behind) are left out so the number only moves when you grow. Shown on the stat sheet
-    /// (hold the stats key) and announced in the feed when your main attack grows.
-    /// </summary>
     public static class DamageSheet
     {
         public struct Line
@@ -22,7 +14,6 @@ namespace Deepbound.Progression
             public float Now, Start;
         }
 
-        /// <summary>The attack multiplier a fresh run starts with: base ATT, nothing else.</summary>
         public static float StartMultiplier(PlayerProgress p) => 0.5f + p.Class.BaseStats[(int)StatType.ATT] / 50f;
 
         public static List<Line> For(PlayerProgress p)
@@ -83,7 +74,6 @@ namespace Deepbound.Progression
             return lines;
         }
 
-        /// <summary>The main attack's plain hit now (the line the feed announces).</summary>
         public static float Main(PlayerProgress p)
         {
             var l = For(p);

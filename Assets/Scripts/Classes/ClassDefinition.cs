@@ -3,17 +3,8 @@ using UnityEngine;
 
 namespace Deepbound.Classes
 {
-    /// <summary>APPEND ONLY: synced as a byte and will be saved with cosmetics.</summary>
     public enum ClassId : byte { Knight = 0, Mage = 1, Cleric = 2, Rogue = 3, Ranger = 4, Flagellant = 5, PlagueDoctor = 6 }
 
-    /// <summary>
-    /// A class's base stats. Plain data; <see cref="Build"/> turns it into a run-scoped
-    /// <see cref="StatBlock"/>. Growth comes from the class weapon (anvil levels) and gear.
-    ///
-    /// Defined in code while there are only a couple of classes. When all eight
-    /// exist (M3) this becomes a ScriptableObject so balance can be tuned without a
-    /// recompile.
-    /// </summary>
     public class ClassDefinition
     {
         public string Name;
@@ -38,59 +29,29 @@ namespace Deepbound.Classes
             return c;
         }
 
-        /// <summary>
-        /// The Knight: tank. High HP and DEF, deep DEF pool, slow-ish. Damage comes from
-        /// steady swings rather than burst; its value is holding a doorway while the
-        /// party does the killing.
-        /// </summary>
         public static readonly ClassDefinition Knight = Make("Knight", "Tank",
             hp: 240, mp: 100, att: 20, def: 6, spd: 44, dex: 45, vit: 40, wis: 20);
 
-        /// <summary>
-        /// The Mage: burst and control. Fragile, no armour, a deep mana pool; all of its
-        /// damage is ranged, and its best damage needs setting up (chill, then fire).
-        /// </summary>
         public static readonly ClassDefinition Mage = Make("Mage", "Burst / Control",
             hp: 160, mp: 120, att: 26, def: 0, spd: 49, dex: 50, vit: 25, wis: 45);
 
-        /// <summary>
-        /// The Cleric: the healer. Middling everything, the deepest mana and WIS pools; it
-        /// keeps the party standing rather than ending fights.
-        /// </summary>
         public static readonly ClassDefinition Cleric = Make("Cleric", "Healer / Support",
             hp: 195, mp: 140, att: 16, def: 3, spd: 47, dex: 45, vit: 35, wis: 50);
 
-        /// <summary>
-        /// The Rogue: assassin. Fast and fragile with the highest DEX; its damage is huge
-        /// from behind and ordinary from the front, so it lives on positioning.
-        /// </summary>
         public static readonly ClassDefinition Rogue = Make("Rogue", "Assassin",
             hp: 175, mp: 80, att: 24, def: 2, spd: 62, dex: 60, vit: 30, wis: 20);
 
-        /// <summary>
-        /// The Ranger: marksman and controller. Long range, good DEX, light armour; it makes
-        /// the party's damage better (Hunter's Mark) and keeps enemies where it wants them.
-        /// </summary>
         public static readonly ClassDefinition Ranger = Make("Ranger", "Marksman / Control",
             hp: 180, mp: 90, att: 24, def: 2, spd: 54, dex: 55, vit: 30, wis: 25);
 
-        /// <summary>
-        /// The Flagellant: a penitent bruiser. Big health, little armour; hits harder the more it
-        /// bleeds, heals from every hit, and spends its own health for Zeal.
-        /// </summary>
         public static readonly ClassDefinition Flagellant = Make("Flagellant", "Bruiser / Lifesteal",
             hp: 225, mp: 100, att: 24, def: 2, spd: 51, dex: 46, vit: 42, wis: 18);
 
-        /// <summary>
-        /// The Plague Doctor: an alchemist. Lobs vials that blight the dead (poison, and they take
-        /// more damage from everyone), tonics that heal, a mask that cleanses the party.
-        /// </summary>
         public static readonly ClassDefinition PlagueDoctor = Make("Plague Doctor", "Afflicter / Support",
             hp: 185, mp: 120, att: 20, def: 2, spd: 50, dex: 48, vit: 32, wis: 42);
 
         public static readonly ClassDefinition[] ById = { Knight, Mage, Cleric, Rogue, Ranger, Flagellant, PlagueDoctor };
 
-        /// <summary>One line per kit slot, for the character select screen.</summary>
         public static (string key, string name, string desc)[] Kit(ClassId id) => id == ClassId.Flagellant
             ? new[]
             {
@@ -103,7 +64,7 @@ namespace Deepbound.Classes
             : id == ClassId.PlagueDoctor
             ? new[]
             {
-                ("PASSIVE", "Contagion", "Vials inflict Blight: poison damage, and the target takes 10% more damage from all sources. Repeated vials make it fester, up to four stacks; each stack strengthens the poison and adds 20% to your vial hits. Blight spreads when its host dies."),
+                ("PASSIVE", "Contagion", "Vials inflict Blight: poison damage, and the target takes 10% more damage from all sources. Repeated vials make it fester, up to four stacks; each stack strengthens the poison and adds 15% to your vial hits. Blight spreads when its host dies."),
                 ("LMB", "Vial", "Lob a vial that shatters in a small splash. Costs reagents; without them, vials deal reduced damage and do not Blight. Blighted kills restore reagents."),
                 ("RMB", "Expunge", "Tear the blight out of every enemy within 16 m: 16 damage per stack, and the blight ends. You and allies within 12 m heal 5% plus 3% per stack drawn, up to 30%."),
                 ("Q", "Miasma", "Create a lingering plague cloud that damages enemies inside it."),
@@ -154,7 +115,6 @@ namespace Deepbound.Classes
                 ("E", "War Cry", "Taunt all nearby enemies and halve the damage you take."),
             };
 
-        /// <summary>How the class plays with the others (see <see cref="Combos"/>).</summary>
         public static string ComboLine(ClassId id) => id == ClassId.Flagellant
             ? "Chains pull enemies into your allies' reach. Crashes Shatter chilled enemies, and a Crash on a Blighted enemy spreads the Blight to everything nearby (Plague Crash)."
             : id == ClassId.PlagueDoctor
@@ -169,7 +129,6 @@ namespace Deepbound.Classes
             ? "Marked enemies take 25% more damage from all sources, and the Mark transfers when the target dies. Snares stun (Exposed); full draws Shatter chilled enemies."
             : "Shield Bash stuns, making enemies take 25% more damage from everyone (Exposed), and Shatters chilled enemies. Taunted enemies take 15% more damage from your allies (Distracted).";
 
-        /// <summary>Difficulty hint for the class picker.</summary>
         public static string Difficulty(ClassId id) => id == ClassId.Flagellant ? "Medium · Strongest at low health; sustains by attacking"
             : id == ClassId.PlagueDoctor ? "Medium · Lead your throws and support your allies"
             : id == ClassId.Mage ? "Hard · Fragile; rewards combos and positioning"
@@ -178,7 +137,6 @@ namespace Deepbound.Classes
             : id == ClassId.Ranger ? "Medium · Keep your distance and aim carefully"
             : "Easy · A durable frontline";
 
-        /// <summary>The name of the class's Q or E, from its kit list.</summary>
         public static string AbilityName(ClassId id, AbilitySlot slot)
         {
             string key = slot == AbilitySlot.Q ? "Q" : "E";
@@ -186,7 +144,6 @@ namespace Deepbound.Classes
             return key;
         }
 
-        /// <summary>The class's own weapon: never found, only tempered at the anvil.</summary>
         public static string WeaponName(ClassId id) => id == ClassId.Flagellant ? "Flail"
             : id == ClassId.PlagueDoctor ? "Alembic"
             : id == ClassId.Mage ? "Staff"
@@ -195,12 +152,10 @@ namespace Deepbound.Classes
             : id == ClassId.Ranger ? "Longbow"
             : "Longsword";
 
-        /// <summary>What one anvil level adds: ATT and DEX, the same for every class.</summary>
         public const float WeaponAttPerLevel = 4f, WeaponDexPerLevel = 2f;
 
         public static ClassDefinition For(ClassId id) => ById[Mathf.Clamp((int)id, 0, ById.Length - 1)];
 
-        /// <summary>One line for the class picker.</summary>
         public static string Pitch(ClassId id) => id == ClassId.Flagellant
             ? "Trades health for power and sustains through the damage dealt. Strongest near death."
             : id == ClassId.PlagueDoctor

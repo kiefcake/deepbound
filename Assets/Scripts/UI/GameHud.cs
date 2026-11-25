@@ -12,19 +12,6 @@ using UnityEngine.InputSystem;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// The in-run HUD, drawn with IMGUI.
-    ///
-    /// <para>
-    /// IMGUI is an M1 expedient: zero assets, zero scene setup, and it redraws from live
-    /// state every frame so it cannot drift out of sync. It will be replaced with UI
-    /// Toolkit at M2 when the HUD needs real art and animation. Until then the layout,
-    /// information and colour language here are the spec for that replacement.
-    /// </para>
-    ///
-    /// Colour language: red = your health and danger, amber = stamina, gold = abilities and
-    /// boss, cyan-white = friendly actions (revive).
-    /// </summary>
     public class GameHud : MonoBehaviour
     {
         private NetworkPlayer player;
@@ -33,41 +20,35 @@ namespace Deepbound.UI
         private readonly List<AbilityView> abilities = new List<AbilityView>();
         private PlayerProgress progress;
 
-        /// <summary>True while a menu wants the cursor (the merchant's shop). The motor reads this.</summary>
         public static bool MenuOpen { get; private set; }
-        /// <summary>Seated at a table game (blackjack, skull poker, bones): its HUD has the screen, ours steps aside.</summary>
+
         public static bool SeatedGame => BlackjackTable.LocalOpen || PokerDiceTable.LocalSeated || DiceTable.LocalOpen;
-        /// <summary>Any HUD panel on screen, held ones (the stat sheet) included: world-space speech stays out of its way.</summary>
+
         public static bool PanelShowing { get; private set; }
 
         private bool shopOpen, forgeOpen, invOpen, runeOpen;
 
-        /// <summary>Tests and screenshots: open the inventory panel.</summary>
         public void DebugOpenInventory(bool open) => invOpen = open;
         public void DebugInventoryTab(int tab) => invTab = tab;
         public static bool InventoryOpen { get; private set; }
 
-        /// <summary>Screenshots only: stage the forge panel open.</summary>
         public void DebugOpenForge(int tab = 0) { forgeOpen = true; forgeTab = (ForgeTab)tab; }
         public bool DebugForgeOpen => forgeOpen;
         public int DebugForgeTab => (int)forgeTab;
         public bool DebugRunesOpen => runeOpen;
         public Shop.Vendor? DebugShopOpen => shopOpen ? shopVendor : (Shop.Vendor?)null;
-        /// <summary>Tests: F on a camp workstation, as if aimed.</summary>
+
         public void DebugUseStation(CampStations.Job j) => UseStation(j);
 
-        /// <summary>The forge panel's three pages: one per part of the smithy (2026-11-12).</summary>
         public enum ForgeTab { Anvil, Grindstone, Hearth }
         private ForgeTab forgeTab;
 
-        /// <summary>Screenshots only: stage the merchant's panel open.</summary>
         public void DebugCloseMenus() { shopOpen = forgeOpen = invOpen = runeOpen = false; }
         public void DebugOpenRunewright() { runeOpen = true; shopOpen = forgeOpen = false; }
         public void DebugOpenShop(Shop.Vendor vendor = Shop.Vendor.Merchant) { shopOpen = true; forgeOpen = false; shopVendor = vendor; }
-        /// <summary>Which vendor's stall the open shop panel belongs to.</summary>
+
         private Shop.Vendor shopVendor;
 
-        /// <summary>Screenshots only: hold the stat sheet open.</summary>
         public static bool DebugShowStats;
         private bool statsHeld;
 
@@ -77,19 +58,13 @@ namespace Deepbound.UI
         private static string cardTitle, cardSub;
         private static float cardUntil;
 
-        /// <summary>A big centred announcement: a boss's name as its arena seals, an ambush.</summary>
         private static Color cardColor = new Color(0.9f, 0.3f, 0.2f);
 
         private static readonly Queue<(string title, string sub, Color color)> cardQueue = new Queue<(string, string, Color)>();
 
-        /// <summary>
-        /// Shows now, or queues behind the card on screen (at most three wait), so two announcements
-        /// never print over each other. Cards also wait for a boss intro to finish.
-        /// </summary>
         private static float clearedAt = -10f;
         private static bool clearedReward;
 
-        /// <summary>A quick CLEARED stamp under the crosshair when the last of a room's dead falls.</summary>
         public static void RoomCleared(bool reward) { clearedAt = Time.time; clearedReward = reward; }
 
         private void DrawRoomCleared(float w, float h)
@@ -105,7 +80,6 @@ namespace Deepbound.UI
             if (clearedReward) GUI.Label(new Rect(0, y + 28, w, 20), "something was left behind", new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(1f, 0.9f, 0.7f, a * 0.85f) } });
         }
 
-        /// <summary>Everything the HUD tells the player in words (feed, cards, pickups, tips, folk): the autoplay log listens.</summary>
         public static System.Action<string, string> Heard;
 
         public static void ShowTitleCard(string title, string subtitle, Color? color = null)
@@ -135,7 +109,6 @@ namespace Deepbound.UI
             cardUntil = UnityEngine.Time.time + 3.5f;
         }
 
-        // ---- A journal page, read at its lectern ----
         private static int pageShown = -1;
         private static bool pageNew;
         private static float pageAt;
@@ -154,7 +127,7 @@ namespace Deepbound.UI
         {
             if (pageShown < 0 || pageShown >= Journal.Entries.Length) return;
             var kb = Keyboard.current;
-            // F, Esc, or walking off closes it (it closes itself after a while too).
+
             if (Time.time - pageAt > 0.3f && ((kb != null && kb.escapeKey.wasPressedThisFrame) || Binds.Down(Bind.Use))) { pageShown = -1; return; }
             if (!pageAnchored) { pageWhere = player.transform.position; pageAnchored = true; }
             if ((player.transform.position - pageWhere).sqrMagnitude > 16f) { pageShown = -1; return; }
@@ -175,7 +148,6 @@ namespace Deepbound.UI
         private static string tauntWho, tauntLine;
         private static float tauntAt = -99f;
 
-        /// <summary>A boss speaks (phase changes): a line under the boss bar, typed out.</summary>
         public static void ShowBossTaunt(string who, string line)
         {
             tauntWho = who;
@@ -190,7 +162,7 @@ namespace Deepbound.UI
             float a = Mathf.Clamp01(Mathf.Min(t / 0.25f, (5f - t) / 0.6f));
             int shown = Mathf.Clamp(Mathf.RoundToInt(t * 45f), 0, tauntLine.Length);
             var style = new GUIStyle(center) { fontSize = 18, fontStyle = FontStyle.Italic, wordWrap = true, normal = { textColor = new Color(1f, 0.85f, 0.7f, a) } };
-            // Subtitles: low and centred, clear of the tips and the boss bar.
+
             float y = h - 196f;
             Rect(w * 0.18f, y - 18, w * 0.64f, 54, new Color(0f, 0f, 0f, 0.5f * a));
             GUI.Label(new Rect(w * 0.18f, y - 16, w * 0.64f, 18), tauntWho.ToUpperInvariant(),
@@ -202,7 +174,6 @@ namespace Deepbound.UI
         private static float introAt = -99f;
         private const float IntroLength = 5.5f;
 
-        /// <summary>A boss's entrance: letterbox bars, its name and epithet, and how to fight it.</summary>
         public static void ShowBossIntro(string name, string epithet, string hint)
         {
             Codex.OnBossIntro();
@@ -214,14 +185,13 @@ namespace Deepbound.UI
             cardUntil = 0f;
         }
 
-        /// <summary>For tests and screenshots: is the intro card up?</summary>
         public static bool BossIntroShowing => UnityEngine.Time.time - introAt < IntroLength;
 
         private void DrawBossIntro(float w, float h)
         {
             float t = Time.time - introAt;
             if (introName == null || t > IntroLength) return;
-            // Bars slide in, hold, slide out; the text fades in after them.
+
             float bars = Mathf.SmoothStep(0f, 1f, Mathf.Min(t / 0.5f, (IntroLength - t) / 0.6f));
             float text = Mathf.Clamp01(Mathf.Min((t - 0.35f) / 0.5f, (IntroLength - t) / 0.8f));
             float bar = h * 0.11f * bars;
@@ -229,7 +199,7 @@ namespace Deepbound.UI
             Rect(0, h - bar, w, bar, Color.black);
             if (text <= 0f) return;
             float y = h * 0.24f;
-            // The name tracks in: wide letter-spacing that settles.
+
             float spread = Mathf.Lerp(1.12f, 1f, Mathf.Clamp01((t - 0.35f) / 1.2f));
             int nameSize = Mathf.RoundToInt(Mathf.Clamp(w / 22f, 34f, 60f));
             {
@@ -254,11 +224,11 @@ namespace Deepbound.UI
         private void DrawTitleCard(float w, float h)
         {
             NextTitleCard();
-            // The floor banner owns the upper screen while it shows: cards drop below it.
+
             if (cardTitle == null || Time.time > cardUntil) return;
             float a = Mathf.Clamp01((cardUntil - Time.time) / 1f) * Mathf.Clamp01((3.5f - (cardUntil - Time.time)) * 4f);
             float cy = Time.time < bannerUntil && bannerTitle != null ? h * 0.42f : h * 0.3f;
-            // Shrink a long title to fit the middle of the screen (clear of the minimap).
+
             int size = 44;
             var st = new GUIStyle(big) { fontSize = size, normal = { textColor = cardColor } };
             while (size > 24 && st.CalcSize(new GUIContent(cardTitle)).x > w * 0.62f) { size -= 2; st.fontSize = size; }
@@ -269,7 +239,6 @@ namespace Deepbound.UI
             GUI.Label(new Rect(w * 0.15f, cy + 50, w * 0.7f, 26), cardSub, new GUIStyle(center) { fontSize = 17, wordWrap = true, normal = { textColor = new Color(1f, 1f, 1f, a) } });
         }
 
-        /// <summary>Adds a line to the event feed (potions drunk, and so on). Any peer.</summary>
         public static void Feed(string text, Color color)
         {
             Heard?.Invoke("feed", text);
@@ -286,7 +255,7 @@ namespace Deepbound.UI
                     return;
                 }
             }
-            // "Cleansed / Cleansed / Cleansed" reads as noise: the same line within 6 s becomes "Cleansed  x3".
+
             for (int i = FeedLines.Count - 1; i >= 0; i--)
             {
                 var old = FeedLines[i];
@@ -309,7 +278,6 @@ namespace Deepbound.UI
         private static float bannerUntil;
         private static bool bannerUp;
 
-        /// <summary>A title card, the floor banner or a boss intro holds the top-centre of the screen: tips wait for it.</summary>
         public static bool CentreBusy => BossIntroShowing || (cardTitle != null && UnityEngine.Time.time < cardUntil) || cardQueue.Count > 0 || (bannerUp && UnityEngine.Time.time < bannerUntil)
             || UnityEngine.Time.time - phaseBigAt < 0.25f || UnityEngine.Time.time - clearedAt < 1.8f;
         private static float phaseBigAt = -10f;
@@ -338,7 +306,6 @@ namespace Deepbound.UI
 
         private void LateUpdate()
         {
-            // Esc closes the shop or class screen first; only a second Esc pauses.
             PauseMenu.OtherMenuOpenLastFrame = shopOpen || forgeOpen || invOpen || runeOpen || pageShown >= 0 || CharacterSelect.Open || Wardrobe.Open || Dialogue.Open || DiceTable.LocalOpen || PokerDiceTable.LocalSeated || BellFrame.LocalOpen || ArmWrestle.LocalOpen;
         }
 
@@ -351,12 +318,9 @@ namespace Deepbound.UI
             DungeonDirector.ArenaBuilt -= OnArenaBuilt;
         }
 
-        // ---- Arena transitions: fade through black, then a title banner ----
-
         private float fade;
         private string bannerTitle, bannerSub, bannerHint;
 
-        // The descent cutscene: white rises as the beam takes you; you arrive out of white, letterboxed.
         private static float departStart = -1f, departLength = 1f;
         private static bool arrivingFromBeam;
         private float whiteFade, letterboxUntil;
@@ -364,24 +328,20 @@ namespace Deepbound.UI
         private static float freezeUntil;
         private static float fadeOutStart = -1f, fadeOutLength = 1f;
 
-        /// <summary>The grave lift's climb: the screen goes to black over <paramref name="seconds"/>.</summary>
         public static void BeginFadeOut(float seconds)
         {
             fadeOutStart = UnityEngine.Time.time;
             fadeOutLength = Mathf.Max(0.1f, seconds);
         }
 
-        /// <summary>Hold the player still a while (the loading card is up: nobody walks blind out of it).</summary>
         public static void HoldStill(float seconds) => freezeUntil = Mathf.Max(freezeUntil, UnityEngine.Time.time + seconds);
 
-        /// <summary>The descent cutscene holds the player still: while the beam takes them, and a moment after arriving.</summary>
         public static bool CutsceneFreeze => departStart >= 0f || UnityEngine.Time.time < freezeUntil;
-        /// <summary>The carriage ride out: no HUD, no hands, just the road.</summary>
+
         public static bool Cinematic => departStart >= 0f;
-        /// <summary>Tests (-gallery): no HUD, no minimap, no hands: just the world.</summary>
+
         public static bool PhotoMode;
 
-        /// <summary>Lines of the Cardinal's hymn, one shown on each descent.</summary>
         private static readonly string[] Hymn =
         {
             "Sleep, you who were carried down. Sleep, you who carried.",
@@ -425,6 +385,7 @@ namespace Deepbound.UI
                 bannerSub = "Speak to Corwin, then sit on the back of the carriage when your party is ready";
                 bannerHint = "";
             }
+            else if (DungeonDirector.InTutorial) bannerUntil = 0f;
             else
             {
                 int depth = DungeonDirector.Layout.Depth;
@@ -440,14 +401,8 @@ namespace Deepbound.UI
             }
         }
 
-        // ---- Floating damage numbers ----
-
         private struct DamageNumber { public Vector3 World; public float Amount; public float Time; public bool Player; public bool Heal; public float Drift; public Health Target; }
 
-        /// <summary>
-        /// Hits on one target within <see cref="MergeWindow"/> add up into its latest number (2026-11-07, the user: "too much
-        /// writing above enemies"; DoTs, multi-hits and relic procs each printed their own number).
-        /// </summary>
         private const float MergeWindow = 0.35f;
         private bool MergeInto(Health target, float amount, bool heal)
         {
@@ -465,7 +420,6 @@ namespace Deepbound.UI
 
         private void OnAnyHealed(Health target, float amount)
         {
-            // Only meaningful heals (not regen ticks), and only on the party.
             if (target == null || amount < 4f || target.Team != Team.Players) return;
             var jitter = new Vector3(Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f));
             if (!Settings.DamageNumbers) return;
@@ -480,7 +434,7 @@ namespace Deepbound.UI
             if (target == null || amount < 0.5f) return;
             if (target.GetComponent<TrainingDummy>() != null) dummyHits.Add((Time.time, amount));
             bool mine = target == health;
-            // Your own damage shows on your vitals; teammates' and enemies' float.
+
             if (mine) return;
             var jitter = new Vector3(Random.Range(-0.3f, 0.3f), 0f, Random.Range(-0.3f, 0.3f));
             if (!Settings.DamageNumbers) return;
@@ -489,10 +443,8 @@ namespace Deepbound.UI
             if (numbers.Count > 40) numbers.RemoveAt(0);
         }
 
-        // Damage landed on the training dummies, for the yard's DPS readout.
         private readonly List<(float time, float amount)> dummyHits = new List<(float, float)>();
 
-        /// <summary>At camp: DPS on the dummies, and the Test of Might's record when you are near the gong.</summary>
         private void DrawCampReadouts(float w, float h)
         {
             if (!DungeonDirector.InLobby) return;
@@ -505,7 +457,7 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(0, h / 2f + 104, w, 24), "TRAINING:  " + Mathf.RoundToInt(sum / span) + " damage per second",
                     new GUIStyle(center) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
             }
-            // The range's tally, when you are near the butts.
+
             var gongNear = Gong.Instance;
             float dRange = Vector3.Distance(player.transform.position, Lobby.RangeCenter);
             float dGong = gongNear != null ? Vector3.Distance(player.transform.position, gongNear.transform.position) : 999f;
@@ -531,8 +483,6 @@ namespace Deepbound.UI
         private struct ComboText { public Vector3 World; public string Text; public Color Color; public float Time; }
         private static readonly List<ComboText> combos = new List<ComboText>();
 
-        /// <summary>Float a combo's name over a point (any peer).</summary>
-        /// <summary>The owner: a shot grazed you. A soft tick and a little streak counter by the crosshair.</summary>
         public static void Graze(Vector3 at, int streak)
         {
             var cam = Art.ViewCamera.Current;
@@ -543,7 +493,6 @@ namespace Deepbound.UI
                 ShowCombo(p, streak >= 5 ? "GRAZE x" + streak : "GRAZE", streak >= 10 ? new Color(1f, 0.92f, 0.5f) : new Color(0.75f, 0.95f, 1f));
         }
 
-        /// <summary>Downed: who you are watching, and how to change it (Teamwork spectating).</summary>
         private static void DrawWatchHint(float w, float h, float top)
         {
             bool anyone = false;
@@ -555,10 +504,6 @@ namespace Deepbound.UI
             UiSkin.Shadowed(new Rect(0, h / 2f + top + 50, w, 24), text, new GUIStyle(UiSkin.Small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.85f, 0.85f, 0.9f) } });
         }
 
-        /// <summary>
-        /// A word floating up from a spot. The same word near the same spot within a second is dropped, and at most
-        /// <see cref="MaxCombos"/> float at once (the oldest gives way), so a big fight does not fill the screen.
-        /// </summary>
         public static void ShowCombo(Vector3 at, string text, Color color)
         {
             Codex.OnPopup(text);
@@ -571,7 +516,7 @@ namespace Deepbound.UI
         private const int MaxCombos = 6;
 
         private static readonly HashSet<string> taught = new HashSet<string>();
-        /// <summary>True the first time <paramref name="key"/> is asked this session: a lethal rule says what to do once, then only its name.</summary>
+
         public static bool FirstTime(string key) => taught.Add(key);
 
         private void DrawCombos()
@@ -593,13 +538,9 @@ namespace Deepbound.UI
                 GUI.Label(rect, c.Text, style);
             }
 
-            // Buffs are no longer spelled out under the crosshair (2026-11-14, show don't tell): Blessed, Inspired,
-            // Brothers in Arms and the rest are worn on the body (Art.PlayerStatusFx) and glow at the edges of your view
-            // (AfflictionOverlay); the status row still names them on hover.
             DrawPouchFull();
         }
 
-        /// <summary>Clients do not run the veil; approximate it from any hidden Rogue nearby.</summary>
         private bool InRogueSmoke()
         {
             foreach (var p in PlayerLife.All)
@@ -617,7 +558,6 @@ namespace Deepbound.UI
                 float age = Time.time - n.Time;
                 if (age > 1f) { numbers.RemoveAt(i); continue; }
 
-                // Hits pop out and arc away to one side under a little gravity; heals rise straight.
                 var lift = n.Heal ? Vector3.up * age * 0.8f : Vector3.up * (age * 1.6f - age * age * 1.1f) + cam.transform.right * n.Drift * age * 0.6f;
                 var screen = UiScale.World(cam, n.World + lift);
                 if (screen.z <= 0f || screen.z > 30f) continue;
@@ -635,11 +575,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>
-        /// Camp banner, top of the screen and out of the way: where you are, what is next,
-        /// your class and the difficulty (both only changeable before a run), and boarding.
-        /// </summary>
-        /// <summary>The party's quests, top left: whose, what it asks, how far along, and how it ended.</summary>
         private void DrawContract()
         {
             var d = DungeonDirector.Instance;
@@ -655,7 +590,7 @@ namespace Deepbound.UI
                 string line = state == DungeonDirector.ContractStatus.Taken ? "Next floor: " + task
                     : state == DungeonDirector.ContractStatus.Active ? task + (q.Goal > 1 ? "  (" + (q.Progress + q.Held) + " / " + q.Goal + (q.Held > 0 ? ", " + q.Held + " held" : "") + ")" : "")
                     : state == DungeonDirector.ContractStatus.Fulfilled ? "COMPLETE" : state == DungeonDirector.ContractStatus.Failed ? "FAILED" : "";
-                // Racing the bell (2026-11-13): a job that must beat the Tallyman's bell counts down on its line, red in the last minute.
+
                 bool racing = state == DungeonDirector.ContractStatus.Active && !DungeonDirector.InLobby
                     && (q.Clause == (byte)DungeonDirector.QuestClause.BeforeBell || q.Contract == Contract.SwiftBlade);
                 double bellLeft = racing ? d.FloorBegan.Value + d.TallyWarnSeconds - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time : 0;
@@ -669,7 +604,6 @@ namespace Deepbound.UI
             }
         }
 
-        // ---- Where hits come from: a red arc at the screen's edge, toward the attacker. ----
         private readonly List<(Vector3 from, float time)> hitMarks = new List<(Vector3, float)>();
 
         private void DrawHitDirections(float w, float h)
@@ -682,12 +616,12 @@ namespace Deepbound.UI
                 var to = hitMarks[i].from - player.transform.position;
                 to.y = 0f;
                 if (to.sqrMagnitude < 0.01f) continue;
-                // Angle relative to where you look: 0 = ahead, 90 = right.
+
                 float ang = Vector3.SignedAngle(Vector3.ProjectOnPlane(cam.transform.forward, Vector3.up), to, Vector3.up) * Mathf.Deg2Rad;
                 float a = (1f - age / 1.1f) * 0.85f;
                 var center = new Vector2(w / 2f, h / 2f);
                 float radius = Mathf.Min(w, h) * 0.32f;
-                // A short arc of blocks, thickest in the middle.
+
                 for (int k = -4; k <= 4; k++)
                 {
                     float t = ang + k * 0.06f;
@@ -698,10 +632,6 @@ namespace Deepbound.UI
             }
         }
 
-        // ---- Inventory (I): what you wear, your pack, and everything else the run has given you. ----
-        // Rebuilt 2026-11-14 (the user: "fix bag ui"): three fixed columns that never run into each other, every
-        // item a card with its icon (worn gear, pack, flasks, relics, runes), names fitted instead of wrapping to three
-        // lines, and one hover card in a fixed place under the pack.
         private static readonly Color FlaskHealth = new Color(0.95f, 0.3f, 0.25f), FlaskMana = new Color(0.4f, 0.6f, 1f),
             FlaskFrost = new Color(0.6f, 0.9f, 1f), FlaskHoly = new Color(1f, 0.85f, 0.45f);
 
@@ -720,8 +650,7 @@ namespace Deepbound.UI
             float pw = Mathf.Min(1250f, w - 40f), ph = Mathf.Min(580f, h - 60f);
             float px = w / 2f - pw / 2f, py = h / 2f - ph / 2f;
             UiSkin.Panel(new Rect(px - 12, py - 12, pw + 24, ph + 24), 0.96f);
-            // Two tabs (2026-11-14, the user: "find a new place for crafting, also theres way too much writing"): the bag, and the
-            // workbench on its own page. Currencies as icons with numbers.
+
             var tabSt = new GUIStyle(UiSkin.Heading) { alignment = TextAnchor.MiddleLeft, fontSize = 24 };
             foreach (var (tab, title, tx) in new[] { (0, "BAG", px), (1, "CRAFT", px + 90f) })
             {
@@ -761,20 +690,18 @@ namespace Deepbound.UI
             bool party = PlayerLife.All.Count > 1;
             var head = new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } };
 
-            // ======== Left column: worn, pouch, relics ========
             const float LW = 320f;
             float cx = px, cy = py + 44;
             GUI.Label(new Rect(cx, cy, LW, 22), "WORN", head);
             cy += 24;
             {
-                // The weapon: the class's own, with its sockets.
                 var r = new Rect(cx, cy, LW, 56);
                 ItemFrame(r, new Color(0.85f, 0.78f, 0.6f), r.Contains(mouse), false);
                 MapIcons.Draw(MapIcons.Id.Sword, new Vector2(r.x + 28, r.y + 28), new Color(0.9f, 0.88f, 0.8f), 4f);
                 string weapon = ClassDefinition.WeaponName(progress.ClassId.Value) + " +" + progress.WeaponLevel.Value;
                 var nameSt = new GUIStyle(label) { fontStyle = FontStyle.Bold, wordWrap = false };
                 GUI.Label(new Rect(r.x + 58, r.y + 7, LW - 66, 22), UiSkin.Fit(weapon, nameSt, LW - 66), nameSt);
-                // Sockets as stones: filled in the rune's colour, hollow when empty; hover names them.
+
                 int sockets = Runes.SocketsAt(progress.WeaponLevel.Value);
                 string runes = "";
                 for (int s = 0; s < sockets; s++)
@@ -804,7 +731,6 @@ namespace Deepbound.UI
                 cy += 62;
             }
 
-            // The pouch: four flasks, each with how many (of five).
             var fl = player.GetComponent<Flasks>();
             if (fl != null)
             {
@@ -826,7 +752,6 @@ namespace Deepbound.UI
                 cy += 48;
             }
 
-            // Relics: a grid of gems, tier pips under each; hover says what it does, right-click sets it down.
             GUI.Label(new Rect(cx, cy, LW, 22), "RELICS  " + progress.RelicCount + "/" + Relics.MaxCarried, head);
             cy += 22;
             {
@@ -856,7 +781,6 @@ namespace Deepbound.UI
                 }
             }
 
-            // ---- The party purse: give gold, or even it out ----
             if (party)
             {
                 float qy = py + ph - 144;
@@ -877,7 +801,6 @@ namespace Deepbound.UI
                 if (GUI.Button(new Rect(cx, qy + 2, LW, 22), "Even out gold  (share what you have over the average)")) progress.EvenOutGoldRpc();
             }
 
-            // ======== Middle column: the pack (4 x 2), runes, and the hover card ========
             float gx = px + LW + 24, gy = py + 44;
             float MW = Mathf.Min(560f, pw - LW - 24f - 384f);
             if (MW < 360f) MW = 360f;
@@ -913,7 +836,6 @@ namespace Deepbound.UI
             }
             float ry = gy + 2 * (cellH + gap) + 6;
 
-            // Runes waiting for a socket: only when there are some (an empty heading wasted the column).
             if (progress.RuneBagCount > 0)
             {
                 GUI.Label(new Rect(gx, ry, MW, 22), "RUNES  " + progress.RuneBagCount, head);
@@ -934,8 +856,6 @@ namespace Deepbound.UI
                 ry += ((Mathf.Min(progress.RuneBagCount, 6) + 2) / 3) * 30;
             }
 
-            // ---- What the mouse is over: one card, always in the same place under the pack ----
-            // The hover card sits in its own column right of the pack, so it never covers a cell.
             float dx = gx + MW + 24f, dy = py + 68f;
             if (dx + 360f > px + pw) { dx = gx; dy = Mathf.Min(ry + 8f, py + ph - 214f); }
             if (!hovered.IsEmpty) DrawGearCard(hovered, dx, dy, !hoveredWorn);
@@ -945,21 +865,16 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(dx + 10, dy + 8, 340, 60), hoverText, new GUIStyle(small) { wordWrap = true });
             }
 
-            // The controls only for what the mouse is on, in one quiet line at the foot.
             if (hoveredWorn) hintLine = "right-click  take off";
             if (hintLine != null)
                 GUI.Label(new Rect(px, py + ph - 22, pw, 20), hintLine, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = new Color(0.62f, 0.58f, 0.5f) } });
         }
 
-        /// <summary>
-        /// The CRAFT tab (2026-11-14): every recipe a tile - its icon, its name, its cost as coloured part stones - click to
-        /// make; dimmed when you cannot. The run's upgrades as pips, the throwables with a Ready button. Words only on hover.
-        /// </summary>
         private void DrawWorkbench(float x, float y, float w, float h)
         {
             var mouse = Event.current.mousePosition;
             var head = new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } };
-            // Parts on hand.
+
             float hx = x;
             foreach (Part part in System.Enum.GetValues(typeof(Part)))
             {
@@ -994,7 +909,7 @@ namespace Deepbound.UI
                 string name = r.Kind == CraftKind.Potion && r.Arg == 1 ? Flasks.FullName(Flasks.Kind.Mana) : r.Name;
                 var nm = new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = true, normal = { textColor = can ? new Color(0.95f, 0.92f, 0.85f) : new Color(0.6f, 0.57f, 0.52f) } };
                 GUI.Label(new Rect(tile.x + 60, tile.y + 10, tw - 70, 40), name, nm);
-                // The cost: a stone per part kind with the count, red when you are short.
+
                 float cxp = tile.x + 60;
                 foreach (var (part, need) in new[] { (Part.Bone, r.Bone), (Part.Cloth, r.Cloth), (Part.Iron, r.Iron) })
                 {
@@ -1004,7 +919,7 @@ namespace Deepbound.UI
                     GUI.Label(new Rect(cxp + 15, tile.y + 60, 30, 20), need.ToString(), new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = lacking ? new Color(1f, 0.45f, 0.4f) : new Color(0.9f, 0.88f, 0.8f) } });
                     cxp += 44;
                 }
-                // Upgrades show how many of three are made.
+
                 int made = r.Kind == CraftKind.Lining ? progress.Lining : r.Kind == CraftKind.Edge ? progress.Whetted : r.Kind == CraftKind.Boots ? progress.Boots : -1;
                 if (made >= 0) for (int p = 0; p < Crafting.MaxUpgrade; p++) Rect(tile.xMax - 12 - p * 9, tile.y + 8, 6, 6, p < made ? Gold : new Color(0.3f, 0.28f, 0.25f));
                 if (over)
@@ -1013,7 +928,7 @@ namespace Deepbound.UI
                     if (can && Event.current.type == EventType.MouseDown && Event.current.button == 0) { progress.CraftRpc((byte)i); Art.Sfx.Play2D(Art.Sound.Block, 0.45f); Event.current.Use(); }
                 }
             }
-            // The throwables: count and Ready.
+
             float rx = x + cols * (tw + gap) + 14, ryy = y;
             GUI.Label(new Rect(rx, ryy, 260, 22), "THROWN  (" + Binds.Label(Bind.Tool) + ")", head);
             ryy += 26;
@@ -1037,10 +952,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>
-        /// The CRAFT column (2026-11-07): parts on hand, every recipe with its cost and a Make button (greyed with the reason),
-        /// the run upgrades made so far, and the tools carried with a Ready button for the throw key.
-        /// </summary>
         private void DrawCraft(float x, float y, float cw, float chH, Vector2 mouse)
         {
             if (cw < 240f) return;
@@ -1062,7 +973,7 @@ namespace Deepbound.UI
                 Rect(row.x, row.y, row.width, row.height, new Color(0f, 0f, 0f, over ? 0.5f : 0.3f));
                 string name = r.Kind == CraftKind.Potion && r.Arg == 1 ? Flasks.FullName(Flasks.Kind.Mana) : r.Name;
                 GUI.Label(new Rect(x + 8, y + 1, cw - 110, 18), name, new GUIStyle(small) { fontStyle = FontStyle.Bold, wordWrap = false });
-                GUI.Label(new Rect(x + 8, y + 15, cw - 110, 16), Crafting.Cost(r), new GUIStyle(small) { fontSize = 12, wordWrap = false, normal = { textColor = why == null ? new Color(0.85f, 0.83f, 0.74f) : new Color(0.9f, 0.62f, 0.5f) } });   // the short cost was near black on black (2026-11-13)
+                GUI.Label(new Rect(x + 8, y + 15, cw - 110, 16), Crafting.Cost(r), new GUIStyle(small) { fontSize = 12, wordWrap = false, normal = { textColor = why == null ? new Color(0.85f, 0.83f, 0.74f) : new Color(0.9f, 0.62f, 0.5f) } });
                 GUI.enabled = why == null;
                 if (GUI.Button(new Rect(x + cw - 96, y + 4, 90, 24), why == null ? "Make" : (why.StartsWith("Need") ? "Need parts" : why), new GUIStyle(UiSkin.Button) { fontSize = 12 })) progress.CraftRpc((byte)i);
                 GUI.enabled = true;
@@ -1090,22 +1001,20 @@ namespace Deepbound.UI
             }
         }
 
-        // ---- Your microphone: lit while you transmit; PTT hint. ----
         private void DrawMicLight(float w, float h)
         {
             var v = PlayerVoice.LocalVoice;
             if (v == null || !PlayerVoice.MicAvailable || Settings.VoiceMode == 2) return;
-            // Alone there is nobody to hear you: the light only clutters the corner (2026-11-13 UI pass).
+
             if (PlayerLife.All.Count < 2) return;
             bool on = v.Speaking;
-            // Beside the vitals panel, clear of the status badges above it.
+
             float x = 270f, y = h - 142f;
             Rect(x, y, 58, 18, new Color(0f, 0f, 0f, on ? 0.6f : 0.35f));
             Rect(x + 4, y + 5, 8, 8, on ? new Color(0.4f, 1f, 0.5f) : new Color(0.4f, 0.4f, 0.4f));
             GUI.Label(new Rect(x + 16, y, 44, 18), Settings.VoiceMode == 1 ? Binds.Label(Bind.PushToTalk) + " talk" : "MIC", small);
         }
 
-        // ---- Death recap: what put you down (newest hit's source, then damage by source). ----
         private string recapKiller, recapLines;
 
         private void DrawRecap(float w, float h)
@@ -1126,7 +1035,6 @@ namespace Deepbound.UI
             }
         }
 
-        // ---- Soul skulls: a violet marker on each, through walls; the waystone while you carry one. ----
         private void DrawSouls(float w, float h)
         {
             var cam = player.Camera;
@@ -1161,7 +1069,6 @@ namespace Deepbound.UI
                     new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(0.6f, 0.85f, 1f) } });
         }
 
-        // ---- Tells: a red "!" over anything about to strike, bigger when it is coming for you. ----
         private void DrawThreats(float w, float h)
         {
             var cam = player.Camera;
@@ -1175,10 +1082,10 @@ namespace Deepbound.UI
                 if (screen.z <= 0f || screen.z > 22f) continue;
                 float dMe = Vector3.Distance(player.transform.position, hp.transform.position);
                 bool atMe = dMe < 4f;
-                // Not through stone unless it is right on you (2026-11-07: a room's worth of "!" printed on the wall).
+
                 if (dMe > 6f && !InSight(cam.transform.position, hp)) continue;
                 byte st = brain.Status.Value;
-                // Heavy "!!" (sidestep it), sweep "<!>" (back off), lunge ">>" (dodge sideways), plain "!".
+
                 string glyph = (st & 8) != 0 ? "!!" : (st & 16) != 0 ? "<!>" : (st & 32) != 0 ? ">>" : "!";
                 if ((st & 32) != 0) atMe = atMe || Vector3.Distance(player.transform.position, hp.transform.position) < 8f;
                 bool far = dMe > 12f && !atMe;
@@ -1194,7 +1101,6 @@ namespace Deepbound.UI
             }
         }
 
-        // ---- Allies: name and health over their heads, through walls; DOWNED pulses. ----
         private void DrawAllies(float w, float h)
         {
             var cam = player.Camera;
@@ -1206,7 +1112,7 @@ namespace Deepbound.UI
                 var screen = UiScale.World(cam, world);
                 float dist = Vector3.Distance(cam.transform.position, world);
                 bool offScreen = screen.z <= 0f || screen.x < 0f || screen.x > w || screen.y < 0f || screen.y > h;
-                // A fallen friend you cannot see: a pointer on the screen's edge, toward them.
+
                 if (p.Downed.Value && (offScreen || dist > 60f)) { DrawDownedPointer(w, h, cam, world, p, dist); continue; }
                 if (screen.z <= 0f || dist > 60f) continue;
                 float y = h - screen.y;
@@ -1219,7 +1125,6 @@ namespace Deepbound.UI
                 var voice = p.GetComponent<PlayerVoice>();
                 if (voice != null && voice.Speaking)
                 {
-                    // Three little bars that bounce with their voice.
                     float lv = Mathf.Clamp01(voice.Level / 0.12f);
                     float bx = screen.x - 7;
                     for (int k = 0; k < 3; k++)
@@ -1242,13 +1147,8 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>
-        /// A downed ally out of sight (behind you, round a corner, far off): a pulsing red marker clamped to the
-        /// screen edge in their direction, with their name and distance (2026-10-20).
-        /// </summary>
         private void DrawDownedPointer(float w, float h, Camera cam, Vector3 world, PlayerLife p, float dist)
         {
-            // A bled-out friend is wherever their soul skull is (someone may be carrying it).
             if (p.Soul.Value)
             {
                 var skull = SoulSkull.For(p.NetworkObjectId);
@@ -1265,7 +1165,7 @@ namespace Deepbound.UI
             var at = c + new Vector2(dir.x, -dir.y) * k;
             float pulse = 0.6f + 0.4f * Mathf.Sin(Time.time * 6f);
             var red = new Color(1f, 0.3f, 0.25f, pulse);
-            // An arrowhead (a rotated square) pointing out, and the label just inside it.
+
             float ang = Mathf.Atan2(-dir.y, dir.x) * Mathf.Rad2Deg;
             var keep = GUI.matrix;
             UiScale.Rotate(ang + 45f, at);
@@ -1280,7 +1180,6 @@ namespace Deepbound.UI
 
         private float fpsSmoothed = 60f;
 
-        /// <summary>Optional frame-rate readout under the minimap (Options).</summary>
         private void DrawFps(float w)
         {
             fpsSmoothed = Mathf.Lerp(fpsSmoothed, 1f / Mathf.Max(0.0001f, Time.unscaledDeltaTime), 0.05f);
@@ -1332,7 +1231,7 @@ namespace Deepbound.UI
                 if (Time.time - fadeOutStart > fadeOutLength + 3f) fadeOutStart = -1f;
                 else Rect(0, 0, w, h, new Color(0f, 0f, 0f, k * k));
             }
-            // Departing: bars close in and the light takes the screen.
+
             if (departStart >= 0f)
             {
                 float k = Mathf.Clamp01((Time.time - departStart) / departLength);
@@ -1359,7 +1258,6 @@ namespace Deepbound.UI
             Rect(0, 0, w, h, new Color(0f, 0f, 0f, Mathf.SmoothStep(0f, 1f, fade)));
         }
 
-        /// <summary>At the back of the carriage: F to sit (or stand).</summary>
         private void DrawSeatPrompt(float w, float h)
         {
             if (Player.CampSeat.Prompt != null && !shopOpen && !forgeOpen && life.Seat.Value < 0)
@@ -1379,12 +1277,10 @@ namespace Deepbound.UI
 
         private bool NearVendor(Shop.Vendor v) => !life.Downed.Value && Shop.InReach(v, player.transform.position);
 
-        /// <summary>The vendor whose stall you stand at (merchant or shrine; the smith trades through the forge), or null.</summary>
         public Shop.Vendor? DebugStallHere() => StallHere();
 
         private Shop.Vendor? StallHere()
         {
-            // At camp every stall belongs to a person: you open it by talking to them (Dialogue), wherever they are.
             if (DungeonDirector.InLobby) return null;
             if (NearVendor(Shop.Vendor.Merchant)) return Shop.Vendor.Merchant;
             if (NearVendor(Shop.Vendor.Shrine)) return Shop.Vendor.Shrine;
@@ -1396,10 +1292,9 @@ namespace Deepbound.UI
 
         private RunPhase lastPhase;
         private double floorTimesRun = -1;
-        /// <summary>This run's floor clear times (seconds), in order, as this machine saw them.</summary>
+
         public static readonly List<float> FloorTimes = new List<float>();
 
-        /// <summary>The floor's guardian just fell: how long the floor took, and a record if it was quick.</summary>
         private void WatchFloorTime()
         {
             var dd = DungeonDirector.Instance;
@@ -1419,11 +1314,10 @@ namespace Deepbound.UI
             lastPhase = phase;
         }
 
-        /// <summary>The Hall of Records slab at camp, read when you stand at it.</summary>
         private void DrawRecords(float w, float h)
         {
             if (!DungeonDirector.InLobby) return;
-            // Only when you stand at it and look at it: it is by the road, and people walk past.
+
             var toSlab = Lobby.RecordsSpot - player.transform.position;
             toSlab.y = 0f;
             if (toSlab.magnitude > 2.6f || Vector3.Dot(player.transform.forward, toSlab.normalized) < 0.55f) return;
@@ -1441,7 +1335,7 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(r.x + 26, r.y + 38 + i * 22, pw - 52, 20), parts[0].Trim(), st);
                 GUI.Label(new Rect(r.x + 26, r.y + 38 + i * 22, pw - 52, 20), parts.Length > 1 ? parts[parts.Length - 1].Trim() : "", new GUIStyle(st) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
             }
-            // Deeds: done in gold, the rest faint, so the list is also a list of what is left to do.
+
             float dy = r.y + 40 + lines.Length * 22f;
             GUI.Label(new Rect(r.x + 26, dy, pw - 52, 20), "DEEDS   " + Deeds.ListedDone + " / " + Deeds.Listed.Length, new GUIStyle(st) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
             var ds = new GUIStyle(st) { fontSize = 12 };
@@ -1452,7 +1346,7 @@ namespace Deepbound.UI
                 float cx = r.x + 26 + (i % 2) * ((pw - 52) / 2f), cy = dy + 24 + (i / 2) * 19f;
                 GUI.Label(new Rect(cx, cy, (pw - 52) / 2f, 18), (done ? "+  " : "-  ") + name, new GUIStyle(ds) { normal = { textColor = done ? new Color(0.95f, 0.85f, 0.5f) : new Color(0.66f, 0.62f, 0.57f) } });
             }
-            // The fallen: parties that wiped, newest first.
+
             if (fallen.Length > 0)
             {
                 float fy = dy + 30 + deedRows * 19f;
@@ -1464,16 +1358,10 @@ namespace Deepbound.UI
 
         private bool panelWasOpen;
 
-        /// <summary>From conversation: open a person's stall panel (closes itself if you walk away from them).</summary>
         private float panelOpenedAt;
         public void OpenStall(Shop.Vendor v) { shopOpen = true; shopVendor = v; forgeOpen = runeOpen = invOpen = false; panelOpenedAt = Time.time; }
         public void OpenForge(ForgeTab tab = ForgeTab.Anvil) { forgeOpen = true; forgeTab = tab; shopOpen = runeOpen = invOpen = false; panelOpenedAt = Time.time; }
 
-        /// <summary>
-        /// F on a camp workstation (<see cref="CampStations"/>): the anvil, the grindstone and the forge open the forge panel
-        /// on their own page; Silas's table, Ysolde's rune table and Brann's drill board open their keeper's panel, if the
-        /// keeper is there (and hold them there while it is open).
-        /// </summary>
         private void UseStation(CampStations.Job j)
         {
             if (CampStations.IsSmithy(j))
@@ -1490,7 +1378,6 @@ namespace Deepbound.UI
             else OpenStall(v);
         }
 
-        /// <summary>What a workstation says under the crosshair.</summary>
         private string StationPrompt(CampStations.Station s)
         {
             string key = Binds.Live(Bind.Interact) + "   ";
@@ -1515,7 +1402,6 @@ namespace Deepbound.UI
 
         private void Update()
         {
-            // A soft click when a stall, the anvil, the stones or the pack opens and closes.
             bool panel = shopOpen || forgeOpen || invOpen || runeOpen;
             if (panel != panelWasOpen) { panelWasOpen = panel; Art.Sfx.Play2D(panel ? Art.Sound.UiOpen : Art.Sound.UiClose, 0.8f); }
             WatchFloorTime();
@@ -1528,7 +1414,7 @@ namespace Deepbound.UI
             var stall = StallHere();
             bool near = stall != null;
             var anvil = NearAnvil();
-            // The workstation under the crosshair (camp, 2026-11-12): a person or a thing to pick up only beats it when nearer.
+
             CampStations.Station station = null;
             if (DungeonDirector.InLobby && !life.Downed.Value && !MenuOpen && !Dialogue.Open && Dialogue.Aimed == null)
             {
@@ -1537,17 +1423,15 @@ namespace Deepbound.UI
                 if (sAim != null && (sThing == null || Vector3.Distance(player.AimOrigin, sThing.transform.position + Vector3.up * 0.6f) > sDist + 0.3f)) station = sAim;
             }
             CampStations.LocalAimed = station;
-            // G uses whichever station is closer: a stall or the anvil.
+
             bool anvilFirst = anvil != null && (!near || Vector3.Distance(player.transform.position, anvil.transform.position) <
                 Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value));
-            // Talk / trade shares F with use (2026-11-01): Shift + F lifts the cat or stows gear, and a stall or the
-            // anvil opens only when F has nothing else to do (nothing under the crosshair, nobody down, no bench).
+
             bool merged = Binds.Merged;
             bool interact = keyboard != null && Binds.Down(Bind.Interact) && (!merged || PlayerLife.ShiftHeld || !life.UseHasWorldTarget());
             bool lift = keyboard != null && Binds.Down(Bind.Interact) && (!merged || PlayerLife.ShiftHeld);
             bool catFirst = lift && !MenuOpen && Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is CampCat;
-            // F closes an open stall / forge / rune panel, whatever is under the crosshair (2026-11-08: looking at the
-            // person you bought from counted as "something to use", so F did nothing).
+
             bool panelUp = shopOpen || forgeOpen || runeOpen;
             if (panelUp && keyboard != null && Binds.Down(Bind.Interact) && !(merged && PlayerLife.ShiftHeld) && Time.time - panelOpenedAt > 0.2f)
                 shopOpen = forgeOpen = runeOpen = false;
@@ -1568,7 +1452,7 @@ namespace Deepbound.UI
             if (keyboard != null && Binds.Down(Bind.Inventory) && !shopOpen && !forgeOpen && !runeOpen && !CharacterSelect.Open && !PauseMenu.Open && !Wardrobe.Open) invOpen = !invOpen;
             if (keyboard != null && keyboard.escapeKey.wasPressedThisFrame) shopOpen = forgeOpen = invOpen = runeOpen = false;
             if (runeOpen && !NearVendor(Shop.Vendor.Runewright)) runeOpen = false;
-            // G (when no station is near) stows the gear you are looking at.
+
             if (lift && !near && anvil == null && !MenuOpen &&
                 PlayerLife.DownedNear(player.transform.position, life) == null && !PlayerLife.IsDragging(player.NetworkObjectId) &&
                 Interactable.Nearest(player.AimOrigin, player.AimForward, progress) is GearDrop stow && !progress.BagFull)
@@ -1587,16 +1471,12 @@ namespace Deepbound.UI
             statsHeld = DebugShowStats || (keyboard != null && Binds.Held(Bind.Stats) && !Wardrobe.Open);
             PanelShowing = MenuOpen || statsHeld || pageShown >= 0;
 
-            // The host sets difficulty at camp.
             var dir = DungeonDirector.Instance;
             if (keyboard != null && dir != null && DungeonDirector.InLobby && Unity.Netcode.NetworkManager.Singleton.IsHost)
             {
-                // Difficulty and the loot rule are set by talking to Corwin at the carriage (G).
             }
 
-            // Class choice is a camp decision: number keys pick one, only in the lobby.
-            // Only before a run: once the first floor is done the class is locked for the run.
-            if (keyboard != null && PlayerProgress.ClassChangeAllowed && !MenuOpen) // number keys also choose in conversation
+            if (keyboard != null && PlayerProgress.ClassChangeAllowed && !MenuOpen)
             {
                 for (int i = 0; i < ClassDefinition.ById.Length && i < 9; i++)
                 {
@@ -1608,7 +1488,6 @@ namespace Deepbound.UI
                     }
                 }
             }
-
         }
 
         private void EnsureStyles()
@@ -1625,7 +1504,7 @@ namespace Deepbound.UI
 
         private void OnGUI()
         {
-            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
+            useGUILayout = false;
             if (player == null) return;
             UiSkin.Apply();
             EnsureStyles();
@@ -1635,9 +1514,9 @@ namespace Deepbound.UI
             UiTimer.Begin();
             if (Cinematic) { DrawFade(w, h); return; }
             if (PhotoMode) return;
-            // Afflictions and potions at the edges of the view, under the whole HUD.
+
             AfflictionOverlay.PaintOnce();
-            // Arriving: out of white, letterboxed for a moment - under the HUD, so the bars never hide your health.
+
             if (Time.time < letterboxUntil)
             {
                 float k = Mathf.Clamp01((letterboxUntil - Time.time) / 0.8f);
@@ -1707,7 +1586,7 @@ namespace Deepbound.UI
             UiTimer.Mark("DrawPhase");
             DrawBanner(w, h);
             UiTimer.Mark("DrawBanner");
-            if (!statsHeld) DrawTitleCard(w, h);   // the Tab sheet has the screen (a LEGENDARY card sat on its relic list)
+            if (!statsHeld) DrawTitleCard(w, h);
             UiTimer.Mark("DrawTitleCard");
             DrawBossIntro(w, h);
             UiTimer.Mark("DrawBossIntro");
@@ -1715,8 +1594,7 @@ namespace Deepbound.UI
             UiTimer.Mark("DrawTaunt");
             DrawPage(w, h);
             UiTimer.Mark("DrawPage");
-            // A panel open (forge, stones, shop, journal, sheet, pack): the camp banner, tips, contract and
-            // feed step aside, so nothing is drawn across the panel you are reading (UI pass 2026-10-20).
+
             bool panel = shopOpen || forgeOpen || runeOpen || invOpen || statsHeld || pageShown >= 0;
             if (!panel && !MenuOpen) DrawControlsHint(w, h);
             UiTimer.Mark("DrawControlsHint");
@@ -1740,22 +1618,18 @@ namespace Deepbound.UI
             UiTimer.Mark("DrawRunewright");
             DrawFps(w);
             UiTimer.Mark("DrawFps");
-            // A six-second relic toast used to poke out from behind the pause menu and the run summary.
+
             var toastPhase = World.DungeonDirector.Instance != null ? World.DungeonDirector.Instance.Phase.Value : RunPhase.Exploring;
             if (!panel && !PauseMenu.Open && toastPhase != RunPhase.Wiped && toastPhase != RunPhase.RunComplete) DrawToasts(w, h);
             UiTimer.Mark("DrawToasts");
             if (statsHeld) DrawStatSheet(w, h);
             UiTimer.Mark("DrawStatSheet");
-            // Last, so nothing (feed, tips, banners) draws over it.
+
             if (invOpen) DrawInventory(w, h);
             UiTimer.Mark("DrawInventory");
             DrawFade(w, h);
         }
 
-        // ------------------------------------------------------------------
-
-        // A held action's progress (choking a vent, jamming a plate): set each frame by whatever is being held, drawn
-        // once here (2026-11-16 perf: every vent and plate on a floor used to carry its own OnGUI).
         private static string holdText;
         private static float holdFrac;
         private static int holdFrame = -10;
@@ -1778,9 +1652,6 @@ namespace Deepbound.UI
             GUI.Label(new Rect(r.x, r.y - 22f, r.width, 20f), holdText, holdStyle);
         }
 
-        // ------------------------------------------------------------------
-
-        /// <summary>Relics on the ground carry their name in their own colour, readable across a room.</summary>
         private void DrawRelicTags()
         {
             var cam = Art.ViewCamera.Current;
@@ -1793,7 +1664,7 @@ namespace Deepbound.UI
                 if (dist > 30f) continue;
                 var sp = UiScale.World(cam, at);
                 if (sp.z <= 0f) continue;
-                // Only what you can actually see: a wall (or anything solid) between hides the tag.
+
                 if (Physics.Linecast(cam.transform.position, at, out var block, ~0, QueryTriggerInteraction.Ignore) && block.collider.GetComponentInParent<LootDrop>() == null && block.collider.GetComponentInParent<Player.NetworkPlayer>() == null) continue;
                 var relic = (Relic)d.Amount.Value;
                 var c = Relics.GemColor(relic);
@@ -1804,7 +1675,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>Standing on a potion you cannot carry: say why, so it does not look like a bug.</summary>
         private void DrawPouchFull()
         {
             var pouch = player.GetComponent<Flasks>();
@@ -1835,7 +1705,6 @@ namespace Deepbound.UI
         private float rangeCheckAt;
         private bool outOfRange;
 
-        /// <summary>Aiming at an enemy your attack cannot reach: say so under the crosshair.</summary>
         private void DrawOutOfRange(Vector2 c)
         {
             if (Time.time >= rangeCheckAt)
@@ -1846,7 +1715,7 @@ namespace Deepbound.UI
                 if (reach > 0f && Physics.Raycast(player.AimOrigin, player.AimForward, out var hit, 80f, ~0, QueryTriggerInteraction.Ignore))
                 {
                     var h = hit.collider.GetComponentInParent<Health>();
-                    // Melee reach is measured from your body, ranged from your eye; either way past it, it is out.
+
                     if (h != null && h.Team == Team.Enemies && h.IsAlive && hit.distance > reach + 0.6f) outOfRange = true;
                 }
             }
@@ -1858,7 +1727,6 @@ namespace Deepbound.UI
         private static float hitMarkAt = -10f, killMarkAt = -10f;
         private static bool hitMarkHeavy;
 
-        /// <summary>Owner: your hit landed. The crosshair flashes an X (red and larger for a kill).</summary>
         public static void HitMark(bool kill, bool heavy)
         {
             hitMarkAt = Time.time;
@@ -1894,7 +1762,6 @@ namespace Deepbound.UI
         private UnityEngine.Rendering.Volume stateVolume;
         private float stateWeight;
 
-        /// <summary>Colour drains from the world as your health does, and nearly all of it while you are down.</summary>
         private void StateGrade()
         {
             if (stateVolume == null)
@@ -1920,7 +1787,6 @@ namespace Deepbound.UI
 
         private float nextBeat;
 
-        /// <summary>Below a third of your health, you hear your heart (in time with the vignette's pulse).</summary>
         private void Heartbeat()
         {
             if (health == null || health.Fraction <= 0f || health.Fraction >= 0.33f || life.Downed.Value) return;
@@ -1937,21 +1803,20 @@ namespace Deepbound.UI
             DrawHitMark(new Vector2(Mathf.Round(c.x), Mathf.Round(c.y)));
             DrawOutOfRange(c);
 
-            // Charge meter (bow draw) under the crosshair; gold when full.
             float charge = player.ActiveKit.Charge;
             if (charge > 0f)
             {
                 Rect(c.x - 31, c.y + 17, 62, 6, new Color(0f, 0f, 0f, 0.7f));
                 Rect(c.x - 30, c.y + 18, 60 * charge, 4, charge >= 1f ? Gold : new Color(0.8f, 0.85f, 0.7f));
             }
-            // A centred dot and four even ticks, with a dark outline so it reads on bright stone too.
+
             float cx = Mathf.Round(c.x), cy = Mathf.Round(c.y);
             var outline = new Color(0f, 0f, 0f, 0.55f);
             var crossColor = Settings.CrosshairColor;
             var tick = new Color(crossColor.r, crossColor.g, crossColor.b, 0.6f);
-            // A Rogue facing an enemy's back: the crosshair turns violet (Ambush is on).
+
             if (player.ActiveKit is RogueKit rogueKit && rogueKit.LocalBehind) { crossColor = new Color(0.8f, 0.55f, 1f); tick = new Color(0.8f, 0.55f, 1f, 0.95f); }
-            // Its size setting: everything below scales around the centre.
+
             var crossKeep = GUI.matrix;
             float crossScale = Settings.CrosshairSize;
             if (!Mathf.Approximately(crossScale, 1f))
@@ -1976,20 +1841,20 @@ namespace Deepbound.UI
             float x = 24, y = h - 110, bw = 300;
             DrawRelicRow(x, y - 44);
             UiTimer.Mark("Vitals.Relics");
-            // What is affecting you: badges, hover (ALT) to read them.
+
             StatusEffects.Draw(player, x, progress.RelicCount > 0 ? y - 84 : y - 50, MenuOpen);
             UiTimer.Mark("Vitals.Status");
             Rect(x - 8, y - 10, bw + 16, 96, Panel);
 
             float hp = health.Current.Value, max = Mathf.Max(1f, health.Max.Value);
             Bar(x, y, bw, 22, hp / max, HealthRed, Trail(ref hpTrail, ref hpHold, hp / max));
-            // Aegis shield, drawn as a gold band over the health bar.
+
             if (health.Shield.Value > 0f)
             {
                 Rect(x, y, bw * Mathf.Clamp01(health.Shield.Value / max), 7, new Color(1f, 0.85f, 0.4f, 0.95f));
             }
             GUI.Label(new Rect(x + 8, y + 1, bw, 22), Mathf.CeilToInt(hp) + " / " + Mathf.CeilToInt(max), label);
-            // The survival path at work (2026-11-13): its name and cut, right of the numbers, while it holds.
+
             if (progress.SurvivalCut.Value > 0)
             {
                 float pulse = 0.75f + 0.25f * Mathf.Sin(Time.time * 6f);
@@ -1997,7 +1862,6 @@ namespace Deepbound.UI
                     UiSkin.Derive(small, new Color(0.75f, 0.9f, 1f, pulse), 0, FontStyle.Bold, TextAnchor.MiddleRight));
             }
 
-            // Low health: the frame pulses red, faster the lower it goes.
             float frac = hp / max;
             if (frac < 0.3f && health.IsAlive)
             {
@@ -2022,7 +1886,7 @@ namespace Deepbound.UI
             var infoLine = UiSkin.Derive(small, small.normal.textColor, 0, null, null, false);
             string info = (DungeonDirector.InLobby ? cls + "  ·  At camp" : cls + "  ·  Floor " + (CurrentDepth() + 1) + (DungeonDirector.Endless ? " · Endless" : "/" + DungeonDirector.FloorsPerRun + (CurrentDepth() >= DungeonDirector.AbyssDepth ? " Abyss" : "")))
                 + (DungeonDirector.Instance != null && DungeonDirector.Instance.SealCount > 0 ? "  ·  Seals " + DungeonDirector.Instance.SealCount + "/" + DungeonDirector.SealTotal : "") + "  ·  " + weapon;
-            // One line: it wrapped over the embers line below once a run had seals and a longer weapon name.
+
             GUI.Label(new Rect(x, y + 46, bw, 20), UiSkin.FitCached(ref infoText, ref infoFit, info, infoLine, bw), infoLine);
             GUI.Label(new Rect(x, y + 64, bw, 20), progress.Embers.Value + " embers", UiSkin.Derive(small, LootInfo.EmberColor));
             if (progress.Sigils.Value > 0)
@@ -2043,7 +1907,7 @@ namespace Deepbound.UI
             abilities.Add(new AbilityView { Key = "CTRL", Name = "Dodge", Remaining = life.DodgeReadyAt - Time.time, Cooldown = life.DodgeCooldownNow });
             var kick = player.GetComponent<Kick>();
             if (kick != null) abilities.Add(new AbilityView { Key = "V", Name = "Kick", Remaining = kick.ReadyAt - Time.time, Cooldown = Kick.Cooldown });
-            // Silenced: the ability slots go dark, and the word sits over them.
+
             var hushed = player.GetComponent<Player.PlayerDebuffs>();
             bool silenced = hushed != null && hushed.Silenced;
             for (int i = 0; i < abilities.Count; i++)
@@ -2055,7 +1919,6 @@ namespace Deepbound.UI
             DrawUltimate(x + (size + gap) * abilities.Count, y, size);
             if (silenced)
             {
-                // Across the Q and E slots themselves (above the bar it ran into the potion pouch).
                 var c = Enemies.CantorBrain.HushColor;
                 int qi = abilities.FindIndex(v => v.Key == "Q");
                 if (qi < 0) qi = 2;
@@ -2064,7 +1927,6 @@ namespace Deepbound.UI
                 UiSkin.Shadowed(band, "SILENCED", UiSkin.Derive(UiSkin.Small, c, 14, FontStyle.Bold, TextAnchor.MiddleCenter));
             }
 
-            // The potion pouch, just above the bar: four little bottles with their counts.
             var belt = player.GetComponent<Flasks>();
             if (belt != null)
             {
@@ -2076,7 +1938,7 @@ namespace Deepbound.UI
                     int n = belt.Count(kind);
                     float sx = bx + k * bw;
                     Rect(sx + 2, y - 30, bw - 4, 24, new Color(0f, 0f, 0f, 0.5f));
-                    // The bottle: a filled body, dim when empty.
+
                     var bc = n > 0 ? c : c * 0.35f;
                     Rect(sx + 8, y - 25, 10, 14, bc);
                     Rect(sx + 11, y - 29, 4, 4, n > 0 ? new Color(0.6f, 0.45f, 0.3f) : new Color(0.3f, 0.25f, 0.2f));
@@ -2085,7 +1947,7 @@ namespace Deepbound.UI
                     pouchSt.normal.textColor = n > 0 ? Color.white : new Color(0.6f, 0.6f, 0.6f);
                     GUI.Label(new Rect(sx + 22, y - 30, bw - 24, 24), (k + 1) + "  " + n + "/" + Flasks.Max, pouchSt);
                 }
-                // Slot 5: the rare draught or tome, gold-rimmed, glowing while it waits.
+
                 var rare = belt.RareHeld;
                 float rx = bx + Flasks.All.Length * bw, rw = 128f;
                 var rc = rare != RareItem.None ? RareItems.Color(rare) : new Color(0.4f, 0.38f, 0.35f);
@@ -2099,7 +1961,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>R: the ultimate, a slot that fills from the bottom as you fight and glows when full.</summary>
         private void DrawUltimate(float x, float y, float size)
         {
             var ult = player.GetComponent<Ultimates>();
@@ -2122,8 +1983,7 @@ namespace Deepbound.UI
         }
 
         private static Font glyphFont;
-        // The ability bar is drawn every frame: its styles are made once and re-coloured in place
-        // (a new GUIStyle per label per pass was most of the bar's cost).
+
         private GUIStyle glyphSt, abilityNameSt, cdSmallSt, cdBigSt, pouchSt, ultSt;
         private void EnsureBarStyles()
         {
@@ -2138,7 +1998,6 @@ namespace Deepbound.UI
         private readonly Dictionary<string, float> readyFlash = new Dictionary<string, float>();
         private readonly Dictionary<string, float> lastRemaining = new Dictionary<string, float>();
 
-        /// <summary>A symbol for an ability, picked from its name (OS symbol font; plain text if missing).</summary>
         private static string GlyphFor(string name)
         {
             var n = name.ToLowerInvariant();
@@ -2166,14 +2025,14 @@ namespace Deepbound.UI
         private void Ability(float x, float y, float size, string key, string name, float remaining, float cooldown, bool active = false, bool unaffordable = false)
         {
             UiSkin.Panel(new Rect(x, y, size, size), 0.9f);
-            // The ability's symbol, faint in the middle of the slot.
+
             if (glyphFont == null) { try { glyphFont = Font.CreateDynamicFontFromOSFont(new[] { "Segoe UI Symbol", "Arial Unicode MS", "Arial" }, 26); } catch { } }
             bool cooling = remaining > 0f && cooldown > 0f;
             var glyphCol = unaffordable ? new Color(0.5f, 0.6f, 0.9f, 0.5f) : cooling ? new Color(0.7f, 0.65f, 0.55f, 0.35f) : new Color(0.95f, 0.8f, 0.5f, 0.7f);
             EnsureBarStyles();
             glyphSt.normal.textColor = glyphCol;
             GUI.Label(new Rect(x, y + 13, size, size - 30), GlyphFor(name), glyphSt);
-            // A flash when it comes off cooldown.
+
             if (lastRemaining.TryGetValue(name, out var was) && was > 0f && remaining <= 0f && cooldown > 0f) readyFlash[name] = Time.time;
             lastRemaining[name] = remaining;
             if (readyFlash.TryGetValue(name, out var at) && Time.time - at < 0.45f)
@@ -2198,13 +2057,12 @@ namespace Deepbound.UI
             {
                 float k = Mathf.Clamp01(remaining / cooldown);
                 Rect(x, y + size * (1f - k), size, size * k, new Color(0f, 0f, 0f, 0.65f));
-                // A thin progress line along the bottom edge, and tenths in the last three seconds.
+
                 Rect(x + 2, y + size - 4, (size - 4) * (1f - k), 2, new Color(1f, 0.82f, 0.45f, 0.85f));
                 GUI.Label(new Rect(x, y, size, size), remaining < 3f ? remaining.ToString("0.0") : Mathf.CeilToInt(remaining).ToString(), remaining < 3f ? cdSmallSt : cdBigSt);
             }
             else if (!unaffordable && cooldown > 0f)
             {
-                // Ready: a faint warm rim, so a glance tells ready from cooling.
                 var rc = new Color(1f, 0.8f, 0.45f, 0.35f);
                 Rect(x, y, size, 1, rc); Rect(x, y + size - 1, size, 1, rc);
             }
@@ -2213,14 +2071,8 @@ namespace Deepbound.UI
         private EnemyBrain rageFocus;
         private float rageFocusUntil;
 
-        /// <summary>
-        /// The enemy whose rage the meter shows: the boss in a fight; else an elite or champion under your
-        /// crosshair (kept a few seconds after you look away), else one that is hunting you.
-        /// </summary>
         private EnemyBrain RageFocus()
         {
-            // Bosses and Wardens show no rage panel (2026-11-23, the user: "hide the aggression bar on bosses"): who it hunts is read
-            // from the fight itself. Elites and champions under the crosshair still show theirs.
             var cam = player.Camera;
             EnemyBrain best = null;
             float bestAngle = 9f;
@@ -2239,7 +2091,6 @@ namespace Deepbound.UI
             return null;
         }
 
-        /// <summary>The rage meter: who it hates, by how much, and who it is after.</summary>
         private void DrawRage(float w)
         {
             var e = RageFocus();
@@ -2247,7 +2098,7 @@ namespace Deepbound.UI
             var v = e.Rage.Value;
             if (v.Count == 0) return;
             bool boss = e is BossBrain;
-            float pw = 300f, x = w / 2f - pw / 2f, y = boss ? 116f : 62f; // a boss: below its bar, stance and hint lines
+            float pw = 300f, x = w / 2f - pw / 2f, y = boss ? 116f : 62f;
             var rows = new List<(ulong id, float t)>();
             float top = 1f;
             for (int i = 0; i < 4; i++) { v.Get(i, out var id, out var t); if (id != 0) { rows.Add((id, t)); top = Mathf.Max(top, t); } }
@@ -2275,7 +2126,7 @@ namespace Deepbound.UI
                 var bar = new Rect(x + 140, ry + 4, pw - 220, 9);
                 Rect(bar.x - 1, bar.y - 1, bar.width + 2, bar.height + 2, new Color(0f, 0f, 0f, 0.8f));
                 Rect(bar.x, bar.y, bar.width * Mathf.Clamp01(t / top), bar.height, new Color(col.r, col.g, col.b, 0.95f));
-                // The line a rival must cross to take its rage (a fifth over whoever it is hunting).
+
                 if (!hunted && targetThreat > 0f)
                 {
                     float line = Mathf.Clamp01(targetThreat * EnemyBrain.SwitchThreshold / top);
@@ -2283,7 +2134,7 @@ namespace Deepbound.UI
                 }
                 if (hunted) GUI.Label(new Rect(x + pw - 76, ry, 72, 18), "HUNTED", new GUIStyle(small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperRight, normal = { textColor = new Color(1f, 0.35f, 0.3f) } });
             }
-            // A word for you: about to pull it, or already its prey.
+
             float mine = v.Of(player.NetworkObjectId);
             string warn = null;
             if (v.Target == player.NetworkObjectId && progress.ClassId.Value != Classes.ClassId.Knight && rows.Count > 1) warn = "It is coming for YOU";
@@ -2292,10 +2143,6 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(x, y + ph + 2f, pw, 18), warn, new GUIStyle(small) { alignment = TextAnchor.UpperCenter, fontStyle = FontStyle.Bold, normal = { textColor = new Color(1f, 0.6f, 0.3f) } });
         }
 
-        /// <summary>
-        /// The Tallyman (2026-10-20): after the bell, a countdown to his coming; once he is here, how far
-        /// off he is (red when close) and a green mark where he walks, through walls, within 45 m.
-        /// </summary>
         private void DrawTally(float w, float h)
         {
             var dd = DungeonDirector.Instance;
@@ -2346,13 +2193,13 @@ namespace Deepbound.UI
             var stance = boss.CurrentStance;
             var barColor = boss.Immune ? new Color(0.35f, 0.45f, 0.62f) : stance == BossBrain.Stance.Armored ? new Color(0.45f, 0.45f, 0.5f) : new Color(0.55f, 0.08f, 0.1f);
             Bar(x, y + 24, bw, 14, boss.Health.Fraction, barColor, Trail(ref bossTrail, ref bossHold, boss.Health.Fraction));
-            // Where its phases turn: a notch at each gate (lit gold once passed).
+
             foreach (float g in boss.Gates)
             {
                 bool passed = boss.Health.Fraction < g;
                 Rect(x + bw * g - 1, y + 21, 2, 20, passed ? new Color(1f, 0.82f, 0.4f, 0.9f) : new Color(1f, 1f, 1f, 0.55f));
             }
-            // The break meter (2026-10-26): a thin gold bar under it, white-hot while BROKEN.
+
             float st = boss.Stagger.Value;
             if (st > 0.005f || boss.Broken.Value)
             {
@@ -2361,14 +2208,14 @@ namespace Deepbound.UI
                 Rect(x, y + 43, bw, 5, new Color(0f, 0f, 0f, 0.6f));
                 Rect(x, y + 43, bw * Mathf.Clamp01(st), 5, broke ? new Color(1f, 0.95f, 0.75f, pulse) : new Color(0.95f, 0.72f, 0.3f, 0.95f));
             }
-            // Gold trim top and bottom, the percentage, and the party it is sized for.
+
             Rect(x - 3, y + 20, bw + 6, 1, new Color(0.8f, 0.62f, 0.3f, 0.8f));
             Rect(x - 3, y + 41, bw + 6, 1, new Color(0.8f, 0.62f, 0.3f, 0.8f));
             GUI.Label(new Rect(x, y + 23, bw - 6, 16), Mathf.CeilToInt(boss.Health.Fraction * 100f) + "%", new GUIStyle(small) { fontSize = 11, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleRight, normal = { textColor = new Color(1f, 1f, 1f, 0.9f) } });
             int party = 0;
             foreach (var pl in Player.PlayerLife.All) if (pl != null) party++;
             GUI.Label(new Rect(x + 6, y + 23, bw, 16), party <= 1 ? "SOLO" : "PARTY OF " + party, new GUIStyle(small) { fontSize = 10, alignment = TextAnchor.MiddleLeft, normal = { textColor = new Color(1f, 1f, 1f, 0.6f) } });
-            // Phase name on the right of the title row.
+
             string phase = boss.PhaseName.Value.ToString();
             if (phase.Length > 0)
                 GUI.Label(new Rect(x, y - 4, bw, 24), phase, new GUIStyle(small) { alignment = TextAnchor.MiddleRight, fontStyle = FontStyle.Italic, normal = { textColor = new Color(0.85f, 0.8f, 0.7f) } });
@@ -2392,10 +2239,6 @@ namespace Deepbound.UI
                 GUI.Label(new Rect(x, y + 40, bw, 20), tags, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, richText = true, fontStyle = FontStyle.Bold });
         }
 
-        /// <summary>
-        /// A gear piece: name in its quality colour, each stat with the change against what
-        /// you wear now, and its effect. Used for floor drops and the Tab sheet.
-        /// </summary>
         private void DrawGearCard(GearItem item, float x, float y, bool compare)
         {
             const float cw = 360;
@@ -2436,13 +2279,12 @@ namespace Deepbound.UI
         private void DrawRevive(float w, float h)
         {
             if (!life.Downed.Value) recapKiller = null;
-            // The run is over: the summary has the floor, nothing peeks out from behind it.
+
             var runDir = DungeonDirector.Instance;
             bool over = runDir != null && (runDir.Phase.Value == RunPhase.Wiped || runDir.Phase.Value == RunPhase.RunComplete);
             if (life.Downed.Value && over) return;
             if (life.Downed.Value)
             {
-                // Watching an ally: the words move up into a band at the top and the tint thins, so the view is theirs.
                 bool watching = Teamwork.Watching != null;
                 float top = watching ? h * 0.14f + 70f - h / 2f : 0f;
                 if (life.Soul.Value)
@@ -2515,9 +2357,9 @@ namespace Deepbound.UI
         private void DrawPhase(float w, float h)
         {
             var director = DungeonDirector.Instance;
-            // Wipes and victories get the full run summary instead.
+
             if (director == null || director.Phase.Value != RunPhase.FloorCleared) { clearedSeenAt = -1f; return; }
-            // The boss's own card ("... FALLS") has the screen first.
+
             if (cardTitle != null && Time.time < cardUntil) return;
 
             int seconds = Mathf.Max(0, Mathf.CeilToInt((float)(director.PhaseEndsAt.Value - Unity.Netcode.NetworkManager.Singleton.ServerTime.Time)));
@@ -2534,7 +2376,6 @@ namespace Deepbound.UI
                 default: title = "THE DEPTHS ARE CLEARED"; sub = "Run complete! Returning to camp in " + seconds + "..."; break;
             }
 
-            // Big for the first moments, then a quiet strip at the top so the floor can be explored.
             bool fresh = director.PhaseEndsAt.Value > 0 || Time.time - clearedSeenAt < 6f;
             if (clearedSeenAt < 0f) clearedSeenAt = Time.time;
             if (fresh)
@@ -2549,7 +2390,7 @@ namespace Deepbound.UI
                 Rect(w * 0.25f, 88, w * 0.5f, 24, new Color(0f, 0f, 0f, 0.5f));
                 GUI.Label(new Rect(w * 0.25f, 88, w * 0.5f, 24), sub, new GUIStyle(small) { alignment = TextAnchor.MiddleCenter, normal = { textColor = Gold } });
             }
-            // At the cage: inside, who it is waiting for; close by, step in.
+
             if (director.Phase.Value == RunPhase.FloorCleared && director.PhaseEndsAt.Value <= 0)
             {
                 var flat = player.transform.position - DungeonDirector.ExitPosition;
@@ -2568,7 +2409,7 @@ namespace Deepbound.UI
                 }
                 else if (flat.magnitude <= DungeonDirector.ExitRadius + 6f) PromptLine(w, h, "Step into the cage to ride up", 70f);
             }
-            // A marker on the lift, through walls.
+
             var cam = player.Camera;
             var ps = UiScale.World(cam, DungeonDirector.ExitPosition + Vector3.up * 3.2f);
             if (ps.z > 0f)
@@ -2582,12 +2423,12 @@ namespace Deepbound.UI
             if (Time.time > bannerUntil || bannerTitle == null || BossIntroShowing) return;
             float a = Mathf.Clamp01((bannerUntil - Time.time) / 1.5f) * Mathf.Clamp01(1f - fade * 1.5f);
             var gold = new Color(Gold.r, Gold.g, Gold.b, a);
-            // Drop shadows: the floor banner sat straight on lit brick and the gold hint line vanished into it.
+
             UiSkin.Shadowed(new Rect(0, h * 0.18f, w, 44), bannerTitle, new GUIStyle(big) { normal = { textColor = gold } }, a);
             UiSkin.Shadowed(new Rect(0, h * 0.18f + 44, w, 26), bannerSub, new GUIStyle(center) { fontSize = 18, normal = { textColor = Color.white } }, a);
             if (!string.IsNullOrEmpty(bannerHint))
                 UiSkin.Shadowed(new Rect(0, h * 0.18f + 72, w, 22), bannerHint, new GUIStyle(center) { fontSize = 15, fontStyle = FontStyle.Italic, normal = { textColor = new Color(1f, 0.8f, 0.45f) } }, a * 0.95f);
-            // This floor's event, read live (it may land a moment after the banner).
+
             var ev = DungeonDirector.CurrentEvent;
             if (ev != FloorEvent.None)
             {
@@ -2647,11 +2488,6 @@ namespace Deepbound.UI
         private class Toast { public string Key, Suffix, Detail; public int Amount; public Color Color; public float At; public float Life => Detail != null ? 6f : 1.8f; }
         private static readonly List<Toast> toasts = new List<Toast>();
 
-        /// <summary>
-        /// Any peer: something you just picked up, shown under the crosshair at once (UI pass 2026-10-20).
-        /// The same kind within a moment adds up ("+12 gold" then "+30 gold"), up to four lines.
-        /// </summary>
-        /// <param name="detail">A second line under it, held longer (a relic says what it does).</param>
         public static void Pickup(string key, int amount, string suffix, Color color, string detail = null)
         {
             Codex.OnPickup(key);
@@ -2664,7 +2500,6 @@ namespace Deepbound.UI
 
         private void DrawToasts(float w, float h)
         {
-            // To the right of the crosshair, clear of gear cards (below) and prompts (under the crosshair).
             float y = h * 0.42f, x = w / 2f + 70f;
             for (int i = toasts.Count - 1; i >= 0; i--)
             {
@@ -2688,14 +2523,8 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>
-        /// The feed (2026-10-20 UI pass): each line on its own dark pill with an accent in its colour,
-        /// sliding in from the left; newest at the bottom, at most seven, faded out after six seconds.
-        /// Kept to the left third so it never runs under title cards or loot cards in the middle.
-        /// </summary>
         private void DrawFeed(float h)
         {
-            // Long lines wrap onto a second line instead of being cut off (2026-10-27).
             feedStyle ??= new GUIStyle(label) { fontSize = 14, alignment = TextAnchor.MiddleLeft, wordWrap = true, clipping = TextClipping.Clip };
             float maxW = Mathf.Min(460f, UiScale.W * 0.34f);
             float bottom = h * 0.6f + 22f;
@@ -2713,7 +2542,7 @@ namespace Deepbound.UI
                 float tw = Mathf.Min(maxW, feedStyle.CalcSize(content).x + 22f);
                 float lh = Mathf.Max(22f, feedStyle.CalcHeight(content, tw - 12f) + 4f);
                 float x = 18f - (1f - slide) * 60f, y = bottom - lh;
-                // A tall stack stops short of the tip box (the oldest lines give way) instead of running under it.
+
                 if (Tips.BottomEdge > 0f && y < Tips.BottomEdge + 6f && x + tw > UiScale.W / 2f - 320f) break;
                 Rect(x, y, tw, lh, new Color(0.03f, 0.025f, 0.02f, 0.62f * a));
                 Rect(x, y, 3, lh, new Color(line.Color.r, line.Color.g, line.Color.b, 0.9f * a));
@@ -2723,11 +2552,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>
-        /// An interaction prompt under the crosshair (UI pass 2026-10-20): the key in a gold badge and
-        /// the action on a dark backing, instead of bare text over the world. Understands "F   ...",
-        /// "Hold F ..." and "Press F to ..." so every caller keeps its wording.
-        /// </summary>
         private void PromptLine(float w, float h, string text, float dy = 40f)
         {
             if (string.IsNullOrEmpty(text)) return;
@@ -2744,7 +2568,7 @@ namespace Deepbound.UI
             if (key != null) key = Binds.Show(key);
             var st = new GUIStyle(center) { fontSize = 15, wordWrap = false, alignment = TextAnchor.MiddleLeft };
             float tw = Mathf.Min(w * 0.7f, st.CalcSize(new GUIContent(body)).x + 16f);
-            // Too long for one line (a bargain's terms, 2026-11-13): wrap instead of clipping.
+
             float th = 24f;
             if (st.CalcSize(new GUIContent(body)).x + 16f > w * 0.7f)
             {
@@ -2766,16 +2590,12 @@ namespace Deepbound.UI
 
         private Anvil NearAnvil() => life.Downed.Value ? null : Anvil.Near(player.transform.position);
 
-        /// <summary>
-        /// The forge: temper the class weapon with embers, and at +2 choose its path. Both
-        /// paths are always shown, so the choice can be planned from the first floor.
-        /// </summary>
         private void DrawForge(float w, float h)
         {
             if (NearAnvil() == null || shopOpen) return;
             if (!forgeOpen)
             {
-                if (Dialogue.Aimed != null || Dialogue.Open || CampStations.LocalAimed != null) return; // looking at Hobb (talk) or at a workstation (its own prompt)
+                if (Dialogue.Aimed != null || Dialogue.Open || CampStations.LocalAimed != null) return;
                 var stall = StallHere();
                 if (stall == null || Vector3.Distance(player.transform.position, NearAnvil().transform.position) <
                     Vector3.Distance(player.transform.position, Shop.Position(stall.Value).Value))
@@ -2787,7 +2607,7 @@ namespace Deepbound.UI
             int level = progress.WeaponLevel.Value, path = progress.WeaponPath.Value;
             string weapon = ClassDefinition.WeaponName(id);
             const float leftW = 620f;
-            // Three tabs, one per part of the smithy (2026-11-12): at camp each opens from its own object (CampStations).
+
             float pw = leftW + 32;
             float ph = forgeTab == ForgeTab.Anvil ? 556f : forgeTab == ForgeTab.Grindstone ? 300f : 262f + 30f * Mathf.Max(1, progress.BagCount);
             float x = w / 2f - pw / 2f, y0 = h / 2f - ph / 2f;
@@ -2809,14 +2629,14 @@ namespace Deepbound.UI
 
             if (forgeTab == ForgeTab.Anvil)
             {
-                float y = y0 + 30; // the anvil's page sits a row lower than the one-page panel it was
-                // Level pips and the temper button.
+                float y = y0 + 30;
+
                 GUI.Label(new Rect(x + 16, y + 44, 200, 24), weapon + " +" + level, new GUIStyle(label) { fontSize = 20 });
                 for (int i = 0; i < Anvil.MaxLevel; i++)
                 {
                     float px = x + 180 + i * 17 + (i >= 5 ? 6 : 0);
                     Rect(px, y + 50, 13, 14, i < level ? (i >= Anvil.AscendedLevel - 1 ? new Color(1f, 0.85f, 0.45f) : ember) : new Color(ember.r, ember.g, ember.b, 0.18f));
-                    // A notch under the levels that bring a choice (path, edges), so the road ahead reads at a glance.
+
                     int lv = i + 1;
                     if (lv == WeaponPaths.PathLevel || Edges.SlotAt(lv) >= 0)
                         Rect(px + 3, y + 66, 7, 3, new Color(1f, 0.55f, 0.3f, lv <= level ? 0.95f : 0.5f));
@@ -2839,7 +2659,6 @@ namespace Deepbound.UI
                 int goldCost = Anvil.GoldCost(level);
                 if (honing)
                 {
-                    // A +10 blade is honed at the grindstone (2026-11-12): the button takes you there.
                     if (GUI.Button(new Rect(x + leftW - 216, y + 46, 200, 30), "Hone it at the grindstone")) forgeTab = ForgeTab.Grindstone;
                 }
                 else
@@ -2849,7 +2668,6 @@ namespace Deepbound.UI
                     GUI.enabled = true;
                 }
 
-                // The two paths.
                 string head = path != 0 ? "PATH" : level >= WeaponPaths.PathLevel ? "CHOOSE A PATH (once per run)" : "PATHS  -  choose one at +" + WeaponPaths.PathLevel;
                 GUI.Label(new Rect(x + 16, y + 108, leftW, 20), head, new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } });
                 for (int p = 1; p <= WeaponPaths.Count; p++)
@@ -2862,9 +2680,7 @@ namespace Deepbound.UI
                     float alpha = locked ? 0.4f : 1f;
                     GUI.Label(new Rect(cx + 10, cy + 8, cw - 20, 22), WeaponPaths.Name(id, p).ToUpperInvariant(), new GUIStyle(label) { normal = { textColor = new Color(ember.r, ember.g, ember.b, alpha) } });
                     var wrap = new GUIStyle(small) { wordWrap = true, fontSize = Mathf.Max(10, small.fontSize - 1), normal = { textColor = new Color(0.9f, 0.88f, 0.85f, alpha) } };
-                    // Stacked by measured height: at fixed spots a three-line mastery ran into the Choose button.
-                    // Three cards are narrow (2026-11-13 shots: Bulwark's mastery ran under its button): shrink the text until
-                    // description + mastery fit above the button.
+
                     string describe = WeaponPaths.Describe(id, p), mastery = WeaponPaths.Mastery(id, p);
                     float room = chh - 32 - 36 - 15, describeH = 0f, masteryH = 0f;
                     for (int fs = wrap.fontSize; fs >= 9; fs--)
@@ -2889,7 +2705,6 @@ namespace Deepbound.UI
                     }
                 }
 
-                // Edges: at +5, +7 and +9 one of three is forged in (all three slots shown, so the road is plain).
                 int openEdge = progress.OpenEdgeSlot;
                 float ey = y + 326;
                 GUI.Label(new Rect(x + 16, ey, leftW - 32, 20), openEdge >= 0 ? "FORGE AN EDGE  (+" + Edges.Levels[openEdge] + ")  -  choose one; tempering waits"
@@ -2916,7 +2731,7 @@ namespace Deepbound.UI
                     GUI.Label(new Rect(ecx + 8, ecy + 26, ecw - 16, 50), empty ? "Temper to +" + Edges.Levels[i] + " to choose." : Edges.Describe(e),
                         new GUIStyle(small) { wordWrap = true, normal = { textColor = new Color(0.9f, 0.88f, 0.85f, empty ? 0.5f : 1f) } });
                     if (offer != null && !empty && GUI.Button(new Rect(ecx + 8, ecy + ech - 30, ecw - 16, 24), "Forge " + Edges.Name(e))) progress.ChooseEdgeRpc((byte)e);
-                    // Respec: grind a forged edge out (once a run, for gold) and choose that slot again.
+
                     if (offer == null && !empty)
                     {
                         string why = progress.CannotRespecReason(i);
@@ -2928,7 +2743,6 @@ namespace Deepbound.UI
                 }
             }
 
-            // The forge's other two tabs, then the foot of the panel.
             if (forgeTab == ForgeTab.Grindstone) DrawGrindTab(x, y0 + 74, pw, weapon);
             else if (forgeTab == ForgeTab.Hearth) DrawHearthTab(x, y0 + 74, pw, ember);
             else GUI.Label(new Rect(x + 16, y0 + ph - 50, pw - 32, 20), "Runes, sigils and ability ranks are Ysolde's work: find her at the standing stones.", new GUIStyle(small) { wordWrap = false, normal = { textColor = new Color(0.6f, 0.85f, 1f) } });
@@ -2936,7 +2750,6 @@ namespace Deepbound.UI
             if (!string.IsNullOrEmpty(GUI.tooltip)) GUI.Label(new Rect(x + 16, y0 + ph - 26, pw - 250, 20), GUI.tooltip, new GUIStyle(small) { normal = { textColor = Gold } });
         }
 
-        /// <summary>The grindstone's tab: hone a +10 blade, refine the gear you wear up a quality.</summary>
         private void DrawGrindTab(float x, float top, float pw, string weapon)
         {
             var bold = new GUIStyle(small) { fontStyle = FontStyle.Bold, normal = { textColor = Gold } };
@@ -2977,7 +2790,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>The forge's tab: attune the gear you wear to the next floor, melt pack gear down for embers.</summary>
         private void DrawHearthTab(float x, float top, float pw, Color ember)
         {
             int floorDepth = DungeonDirector.GearDepth;
@@ -3011,18 +2823,10 @@ namespace Deepbound.UI
             }
         }
 
-        // ---- Ysolde the runewright (G at the standing stones): ability ranks, runes, melding ----
         private int runeSocketPick = -1;
         private Vector2 runeScroll, ysScroll;
         private int ysTab;
 
-        /// <summary>
-        /// Ysolde's stones (rebuilt 2026-10-21 after the user's screenshot: a big rune bag spilled far out of
-        /// the panel). Left: the two abilities and the weapon's sockets (click one to choose where the next
-        /// rune goes). Right: ONE row per kind of rune you hold (not one button per rune), with its count,
-        /// what it does, what the next tier would do, and Set / Meld, in a scrolling list that never leaves
-        /// the panel.
-        /// </summary>
         private void DrawRunewright(float w, float h)
         {
             if (!runeOpen) return;
@@ -3041,12 +2845,6 @@ namespace Deepbound.UI
                 new GUIStyle(label) { fontSize = 16, alignment = TextAnchor.MiddleRight, normal = { textColor = blue } });
             if (GUI.Button(new Rect(x + pw - 540, y + 14, 180, 28), "Buy a Sigil")) { runeOpen = false; shopOpen = true; shopVendor = Shop.Vendor.Runewright; }
 
-            // REWORK (2026-11-22, the user: "fix ysolde ui when looking through certain upgrade paths, rework the window, it
-            // should read more clearly"). The old cards crammed four ranks of choices into 156 px: long option texts ran
-            // under the Take buttons and the chips of taken choices ran off the card. Now: three tabs (Q, E, weapon and
-            // runes); an ability tab shows its whole path, rank 2 to 5, one row per rank, both choices side by side, each
-            // with all its text: TAKEN (lit, gold bar), passed over (faded), choose now (bright, a Take button), or later
-            // (readable, greyed). The path scrolls if the screen is short.
             var sig = LootInfo.SigilColor;
             string hover = null;
             {
@@ -3083,7 +2881,7 @@ namespace Deepbound.UI
                 float labelW = 120f, gap = 10f, cardW = (pw - 40f - labelW - gap * 2f) / 2f;
                 var nameSt = new GUIStyle(label) { fontSize = 15, fontStyle = FontStyle.Bold, wordWrap = false };
                 var textSt = new GUIStyle(body) { fontSize = 13, wordWrap = true };
-                // Row heights from the real text, so nothing is cut or overlaps the button.
+
                 var rowH = new float[AbilityRanks.Tiers + 1];
                 float total = 0f;
                 for (int tier = 1; tier <= AbilityRanks.Tiers; tier++)
@@ -3108,13 +2906,13 @@ namespace Deepbound.UI
                     int cost = AbilityRanks.SigilCost(tier);
                     bool can = now && progress.Sigils.Value >= cost;
                     float rh = rowH[tier];
-                    // The rank column: which rank, what it costs, and where you are on the path.
+
                     var lc = done ? sig : now ? Color.white : new Color(1f, 1f, 1f, 0.45f);
                     GUI.Label(new Rect(ox, cy + 4, labelW, 24), "RANK " + (tier + 1), new GUIStyle(label) { fontSize = 18, fontStyle = FontStyle.Bold, normal = { textColor = lc } });
                     string status = done ? "chosen" : now ? (can ? "choose one now" : "needs " + cost + (cost == 1 ? " sigil" : " sigils")) : "after rank " + tier;
                     GUI.Label(new Rect(ox, cy + 28, labelW, 18), status, new GUIStyle(small) { fontSize = 12, wordWrap = false, normal = { textColor = now && can ? sig : new Color(1f, 1f, 1f, 0.55f) } });
                     if (!done) GUI.Label(new Rect(ox, cy + 46, labelW, 18), cost + (cost == 1 ? " sigil" : " sigils"), new GUIStyle(small) { fontSize = 12, wordWrap = false, normal = { textColor = new Color(1f, 1f, 1f, 0.4f) } });
-                    // A thread down the path joining the ranks.
+
                     if (tier < AbilityRanks.Tiers) Rect(ox + 8, cy + rh - 6, 2, 14, new Color(sig.r, sig.g, sig.b, done ? 0.6f : 0.15f));
                     for (int k = 0; k < 2; k++)
                     {
@@ -3155,7 +2953,7 @@ namespace Deepbound.UI
             {
             float leftW = Mathf.Round(pw * 0.42f);
             float lx = x + 20, lw = leftW - 32, ly = top - 6f;
-            // ---- Weapon sockets ----
+
             ly += 6;
             int sockets = Runes.SocketsAt(level);
             GUI.Label(new Rect(lx, ly, lw, 20), "YOUR WEAPON  -  sockets open at +1, +3 and +6", new GUIStyle(section) { normal = { textColor = Gold } });
@@ -3179,7 +2977,6 @@ namespace Deepbound.UI
                 ly += 50;
             }
 
-            // ---- The rune bag: one row per kind, set or meld from it ----
             float rx = x + leftW + 8, rw = pw - leftW - 28, ry = top - 6f;
             Rect(rx - 14, top - 8f, 1, y + ph - 40f - top, new Color(1f, 1f, 1f, 0.08f));
             GUI.Label(new Rect(rx, ry, rw, 20), "YOUR RUNES  -  SET one in your weapon, or MELD three alike into the next tier (II, III)", new GUIStyle(section) { normal = { textColor = blue } });
@@ -3262,12 +3059,12 @@ namespace Deepbound.UI
             var vendor = shopVendor;
             float pw = 720, rowH = 38;
             var stock = Shop.For(progress.OwnerClientId, vendor);
-            // Corwin also takes the party's orders: how hard a road, and how the spoils are shared.
+
             float top = vendor == Shop.Vendor.Carriage ? 70f : 0f;
-            // Boss practice (2026-10-27): before a run, any guardian this machine has beaten.
+
             bool practiceRow = vendor == Shop.Vendor.Carriage && DungeonDirector.Instance != null && !DungeonDirector.Instance.RunInProgress && DungeonDirector.InLobby;
             if (practiceRow) top += 34f;
-            // Rows grow to fit a long description (2026-10-27: a tome's two lines ran into the next row).
+
             if (shopRowH.Length < stock.Length) shopRowH = new float[stock.Length + 4];
             float rowsH = 0f;
             for (int i = 0; i < stock.Length; i++)
@@ -3284,7 +3081,7 @@ namespace Deepbound.UI
             GUI.Label(new Rect(x + 14, y + 30, pw - 28, 20), vendor == Shop.Vendor.Yard ? "Your regimen: " + Shop.RegimenName(progress.ClassId.Value) : Shop.VendorLine(vendor), small);
             if (vendor == Shop.Vendor.Smith && GUI.Button(new Rect(x + pw - 300, y + 8, 160, 24), "Back to the anvil")) { shopOpen = false; forgeOpen = true; }
             if (vendor == Shop.Vendor.Runewright && GUI.Button(new Rect(x + pw - 300, y + 8, 160, 24), "Back to the stones")) { shopOpen = false; runeOpen = true; }
-            // Struck this vendor? It shows in the prices, and coin can mend it.
+
             int amends = progress.AmendsCost(vendor);
             if (amends > 0)
             {
@@ -3320,7 +3117,6 @@ namespace Deepbound.UI
                 }
                 else if (dir != null)
                 {
-                    // The Endless Descent: alone, floor after floor, until you go down. The floor is your score.
                     GUI.enabled = host && !locked;
                     if (GUI.Button(new Rect(x + pw - 214, dy + 2, 200, 24), "Endless descent: " + (dir.EndlessRun.Value ? "ON" : "off") + (Records.EndlessBest > 0 ? "  (best " + Records.EndlessBest + ")" : ""))) dir.SetEndlessRpc(!dir.EndlessRun.Value);
                     GUI.enabled = true;
@@ -3342,7 +3138,7 @@ namespace Deepbound.UI
                     }
                     GUI.enabled = true;
                 }
-                // The daily road: today's floors, the same for everyone who plays today.
+
                 if (dir != null)
                 {
                     GUI.enabled = host && !locked;
@@ -3376,10 +3172,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>
-        /// Owned relics as gem-coloured chips above the health bar (2026-10-21: at most eight, then "+N";
-        /// hover one, with the cursor free (Alt), for its name and what it does; Tab lists them all).
-        /// </summary>
         private void DrawRelicRow(float x, float y)
         {
             const int maxChips = 8;
@@ -3396,7 +3188,7 @@ namespace Deepbound.UI
                 if (cursorFree && chip.Contains(mouse)) hover = i;
                 Rect(cx - 1, y - 1, 26, 26, new Color(c.r, c.g, c.b, hover == i ? 1f : 0.7f));
                 Rect(cx, y, 24, 24, new Color(0.04f, 0.035f, 0.03f, 0.92f));
-                // A cut gem: a diamond of the relic's colour with a bright facet.
+
                 var keep = GUI.matrix;
                 UiScale.Rotate(45f, chip.center);
                 Rect(chip.center.x - 6, chip.center.y - 6, 12, 12, c);
@@ -3425,7 +3217,6 @@ namespace Deepbound.UI
 
         private void DrawStatSheet(float w, float h)
         {
-            // Worn gear as full cards, bottom-left of the sheet.
             float cardY = h - 150;
             foreach (var slot in new[] { GearSlot.Charm, GearSlot.Armor })
             {
@@ -3434,8 +3225,7 @@ namespace Deepbound.UI
                 cardY -= 66 + new List<StatType>(Gear.StatsOf(g)).Count * 18 + 12 + (Progression.PlayerProgress.SetLine(g.Kind) != null ? 34 : 0);
                 DrawGearCard(g, w - 300 - 24 - 360 - 12, cardY, false);
             }
-            // Relics, with what they do, to the left of the stat sheet - and ABOVE the gear cards (2026-11-13 shots: eight
-            // relics ran down over the armour card). Two columns when one will not fit in the room left.
+
             if (progress.RelicCount > 0)
             {
                 float room = cardY - 12f - 20f;
@@ -3459,10 +3249,10 @@ namespace Deepbound.UI
 
             var hits = Progression.DamageSheet.For(progress);
             float pw = 300, rowH = 26, ph = 50 + Stats.Count * rowH + 70 + 88 + 22 + 22 + 22 + 22 + 22;
-            // Below the minimap when the screen has the room (it sat over the panel's title at 720p).
+
             float x = w - pw - 24, y = Mathf.Max(h / 2f - ph / 2f, Mathf.Min(Minimap.SmallBottom + 8f, h - ph - 66f));
             Rect(x, y, pw, ph, Panel);
-            // The two gear slots, at the foot of the sheet; hover-free: full cards sit left of it.
+
             float gy = y + 46 + Stats.Count * rowH;
             foreach (var slot in new[] { GearSlot.Armor, GearSlot.Charm })
             {
@@ -3481,7 +3271,7 @@ namespace Deepbound.UI
                     new GUIStyle(small) { normal = { textColor = open && r != Rune.None ? Runes.Color(r) : new Color(1f, 1f, 1f, 0.4f) } });
                 gy += 22;
             }
-            // Reach: the class's attack range now, and how much the anvil and runes have stretched it.
+
             float rangeNow = player.ActiveKit.AttackRange;
             bool melee = progress.ClassId.Value == Classes.ClassId.Knight || progress.ClassId.Value == Classes.ClassId.Rogue || progress.ClassId.Value == Classes.ClassId.Flagellant;
             float bonus = (melee ? progress.ReachMultiplier : progress.RangeMultiplier) - 1f;
@@ -3506,7 +3296,7 @@ namespace Deepbound.UI
             var edgeStyle = new GUIStyle(small) { wordWrap = false, normal = { textColor = edgeList.Length > 0 ? new Color(1f, 0.6f, 0.35f) : new Color(1f, 1f, 1f, 0.4f) } };
             GUI.Label(new Rect(x + 80, gy, pw - 90, 20), UiSkin.Fit(edgeList.Length > 0 ? edgeList : "none yet (anvil +" + Edges.Levels[0] + ")", edgeStyle, pw - 90), edgeStyle);
             gy += 22;
-            // The build (2026-11-13): a whole set, Brann's masteries, bargains struck.
+
             {
                 var parts = new List<string>();
                 int set = progress.WornSet;
@@ -3527,8 +3317,7 @@ namespace Deepbound.UI
                     new GUIStyle(small) { normal = { textColor = progress.Rank(slot) > 1 ? LootInfo.SigilColor : new Color(1f, 1f, 1f, 0.6f) } });
                 gy += 22;
             }
-            // DAMAGE (2026-11-24): its own panel at the top left, which the sheet leaves empty (inside the stat panel it ran
-            // up under the minimap and its header wrapped over the first row).
+
             if (hits.Count > 0)
             {
                 float dw = 330, dh = 44 + hits.Count * 22, dx = 24, dy = 24;
@@ -3551,14 +3340,13 @@ namespace Deepbound.UI
                 + (progress.Hones.Value > 0 ? "  (honed " + progress.Hones.Value + ")" : ""),
                 new GUIStyle(label) { normal = { textColor = Gold } });
 
-            // Each stat: its value, a bar against a generous ceiling, and what this run has added.
             for (int i = 0; i < Stats.Count; i++)
             {
                 var stat = (StatType)i;
                 float ry = y + 40 + i * rowH;
                 float value = progress.Value(stat), baseValue = progress.Class.BaseStats[i];
                 string shortName = Stats.ShortName(stat);
-                // Only the Mage and the Cleric run on mana: the others see their own resource here.
+
                 var kitNow = player.ActiveKit;
                 if (stat == StatType.MP && kitNow != null && kitNow.ResourceName != "Mana")
                 {
@@ -3579,10 +3367,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>
-        /// Ping markers: a diamond in the pinger's colour with a label and distance, pinned to
-        /// the screen edge when the ping is off-screen or behind you.
-        /// </summary>
         private void DrawPings(float w, float h)
         {
             var cam = player.Camera;
@@ -3596,7 +3380,6 @@ namespace Deepbound.UI
                 bool off = behind || pos.x < 30 || pos.x > w - 30 || pos.y < 30 || pos.y > h - 30;
                 if (off)
                 {
-                    // Push to the screen edge along the direction from centre.
                     var c = new Vector2(w / 2f, h / 2f);
                     var d = pos - c;
                     if (behind && d.sqrMagnitude < 1f) d = Vector2.down;
@@ -3619,7 +3402,6 @@ namespace Deepbound.UI
 
         private float nextBestiaryCheck;
 
-        /// <summary>Summoned phoenixes: name, seconds left and health over each (an egg says when it will hatch).</summary>
         private void DrawPhoenixes()
         {
             if (Phoenix.All.Count == 0) return;
@@ -3645,7 +3427,6 @@ namespace Deepbound.UI
             }
         }
 
-        /// <summary>Heal pylons: PYLON over each with its health, and a warning line while any is feeding the boss.</summary>
         private void DrawPylons()
         {
             if (Breakable.Pylons.Count == 0) return;
@@ -3673,7 +3454,7 @@ namespace Deepbound.UI
         {
             var cam = player.Camera;
             if (cam == null) return;
-            // The Bestiary fills in when a creature is close and on screen (and once more for a boss in its intro).
+
             if (Event.current.type == EventType.Repaint && Time.time >= nextBestiaryCheck)
             {
                 nextBestiaryCheck = Time.time + 0.5f;
@@ -3688,7 +3469,7 @@ namespace Deepbound.UI
             foreach (var hp in Health.All)
             {
                 if (hp == null || hp.Team != Team.Enemies || !hp.IsAlive) continue;
-                // The cheap test first: most of a floor is behind you or out of range.
+
                 var world = hp.transform.position + Vector3.up * (hp.CenterHeight * 2f + 0.35f);
                 var screen = UiScale.World(cam, world);
                 if (screen.z <= 0f || screen.z > 25f) continue;
@@ -3697,18 +3478,15 @@ namespace Deepbound.UI
                 var tags = StatusTags(hp, brain);
                 bool hurt = Time.time - hp.LastHurtTime <= 5f;
                 if (!hurt && tags.Count == 0 && brain?.SizeWord == null) continue;
-                // No tags or bars through stone (2026-10-27: a stunned wraith two rooms away printed on the wall).
+
                 if (!InSight(cam.transform.position, hp)) continue;
 
                 barQueue.Add((screen, tags, hp, hurt));
             }
 
-            // Nearest first: they claim their spot, and farther tags step up out of their way (2026-10-23: a crowd's
-            // tags printed over each other into one unreadable smear). A tag with nowhere to go is left out.
             barQueue.Sort((p, q) => p.screen.z.CompareTo(q.screen.z));
             placedTags.Clear();
-            // Words only for the one you are looking at (nearest the crosshair, within FocusPixels); the rest show
-            // coloured pips (2026-11-07, the user: "on later floors, there is too much writing above enemies").
+
             Health focus = null;
             float bestScore = float.MaxValue;
             var centre = new Vector2(UiScale.W / 2f, UiScale.H / 2f);
@@ -3748,7 +3526,7 @@ namespace Deepbound.UI
                 if (placedTags.Exists(o => o.Overlaps(r))) continue;
                 placedTags.Add(r);
                 var lr = new Rect(screen.x - 90, r.y, 180, 16);
-                // An outline, not a drop shadow: these tags are the fight's counterplay, read at a distance on dark walls.
+
                 string outline = "<color=#000000CC>" + plain + "</color>";
                 shadowStyle.contentOffset = new Vector2(1, 1); GUI.Label(lr, outline, shadowStyle);
                 shadowStyle.contentOffset = new Vector2(-1, 1); GUI.Label(lr, outline, shadowStyle);
@@ -3761,7 +3539,6 @@ namespace Deepbound.UI
 
         private const float FocusPixels = 170f;
 
-        /// <summary>One small square per tag in its colour, centred over the health bar; a champion's is a taller gold bar.</summary>
         private void DrawPips(float cx, float barY, List<(string text, string hex)> tags)
         {
             const float size = 7f, gap = 3f;
@@ -3793,7 +3570,6 @@ namespace Deepbound.UI
 
         private readonly Dictionary<Health, (float at, bool seen)> sightCache = new Dictionary<Health, (float, bool)>();
 
-        /// <summary>Is this enemy in plain view? Re-checked a few times a second, not every frame.</summary>
         private bool InSight(Vector3 eye, Health hp)
         {
             if (sightCache.TryGetValue(hp, out var c) && Time.time - c.at < 0.25f) return c.seen;
@@ -3806,8 +3582,6 @@ namespace Deepbound.UI
         private readonly List<(Vector3 screen, List<(string text, string hex)> tags, Health hp, bool hurt)> barQueue = new List<(Vector3, List<(string, string)>, Health, bool)>();
         private readonly List<Rect> placedTags = new List<Rect>();
 
-        /// <summary>What a combo can cash in on this enemy, as (word, colour) tags ("CHILL MARK STUN"). A fresh list per
-        /// call: the bar queue keeps them until it draws.</summary>
         private static List<(string text, string hex)> StatusTags(Health hp, EnemyBrain brain)
         {
             var sb = new List<(string text, string hex)>();
@@ -3826,7 +3600,6 @@ namespace Deepbound.UI
 
         private float hiddenSince = -1f;
 
-        /// <summary>Hidden in smoke: darkened violet edges and a countdown, so you know you are unseen and for how long.</summary>
         private void DrawHidden(float w, float h)
         {
             if (!life.Hidden.Value) { hiddenSince = -1f; return; }
@@ -3849,7 +3622,6 @@ namespace Deepbound.UI
 
         private static Texture2D vignetteTex;
 
-        /// <summary>A soft radial edge (clear centre, dense corners), built once.</summary>
         private static Texture2D VignetteTex
         {
             get
@@ -3878,17 +3650,12 @@ namespace Deepbound.UI
         private Color afflictColor;
         private float afflictAt = -10f;
 
-        /// <summary>
-        /// Afflictions you cannot miss (2026-10-20): each tints the screen's edge in its own colour and
-        /// pulses; the first time one takes hold in a session its name lands big in the middle of the screen with
-        /// what to do about it (after that, only the picture).
-        /// </summary>
         private void DrawAfflictions(float w, float h)
         {
             debuffs ??= player.GetComponent<Player.PlayerDebuffs>();
             if (debuffs == null) return;
             bool poison = debuffs.Poisoned, frost = debuffs.Frostbitten, curse = debuffs.Cursed, mania = debuffs.Manic, root = debuffs.Rooted, silence = debuffs.Silenced, daze = debuffs.Dazed;
-            // The words once a session per affliction (show, don't tell, 2026-11-14): after that its picture at the edges says it.
+
             void Alert(bool now, bool was, string text, Color c) { if (now && !was && FirstTime("alert:" + text)) { afflictText = text; afflictColor = c; afflictAt = Time.time; } }
             Alert(poison, wasPoison, "POISONED  -  drink Holy Water or a potion", new Color(0.55f, 1f, 0.3f));
             Alert(frost, wasFrost, "FROSTBITTEN  -  you are slowed", new Color(0.55f, 0.85f, 1f));
@@ -3907,7 +3674,7 @@ namespace Deepbound.UI
             void Edge(bool on, Color c, float rate)
             {
                 if (!on) return;
-                // Faint now: the pictures in UI/AfflictionOverlay carry it (2026-10-28).
+
                 float p = 0.14f + 0.08f * Mathf.Sin(Time.time * rate);
                 GUI.color = new Color(c.r, c.g, c.b, p);
                 GUI.DrawTexture(new Rect(0, 0, w, h), VignetteTex, ScaleMode.StretchToFill);
@@ -3922,10 +3689,9 @@ namespace Deepbound.UI
             Edge(hex, new Color(0.35f, 0.5f, 0.1f), 1.8f);
             GUI.color = old;
 
-            // Never over a boss's name card: the callout waits for the intro to finish.
             if (BossIntroShowing && afflictText != null && Time.time - afflictAt < 2.4f) afflictAt = Time.time;
             float age = Time.time - afflictAt;
-            // A small word under the crosshair: the picture at the screen's edge is the message (2026-10-28).
+
             if (afflictText != null && age < 1.8f && !BossIntroShowing)
             {
                 float a = Mathf.Clamp01((1.8f - age) / 0.5f);
@@ -3936,7 +3702,6 @@ namespace Deepbound.UI
 
         private void DrawVignette(float w, float h)
         {
-            // A hit flashes the edges red; below a third of your health they pulse with your heartbeat.
             float low = 0f;
             if (health != null && health.Fraction > 0f && health.Fraction < 0.33f)
             {
@@ -3951,8 +3716,6 @@ namespace Deepbound.UI
             GUI.color = old;
         }
 
-        // ------------------------------------------------------------------
-
         private void ProgressBar(float w, float y, float k, Color color)
         {
             float bw = 260;
@@ -3962,12 +3725,11 @@ namespace Deepbound.UI
 
         private float hpTrail = 1f, hpHold, bossTrail = 1f, bossHold;
 
-        /// <summary>A trailing value for a bar: holds a moment after a drop, then drains toward the real value.</summary>
         private static float Trail(ref float trail, ref float holdUntil, float now)
         {
             if (now >= trail) { trail = now; return trail; }
             if (Event.current.type != EventType.Repaint) return trail;
-            if (holdUntil < Time.time - 2f) holdUntil = Time.time + 0.45f; // a fresh drop
+            if (holdUntil < Time.time - 2f) holdUntil = Time.time + 0.45f;
             if (Time.time >= holdUntil) trail = Mathf.MoveTowards(trail, now, Time.unscaledDeltaTime * 0.8f);
             if (trail - now < 0.001f) { trail = now; holdUntil = 0f; }
             return trail;
@@ -3982,7 +3744,6 @@ namespace Deepbound.UI
 
         private static void Rect(float x, float y, float width, float height, Color color)
         {
-            // Every HUD panel goes through here: draw those as the skin's ornate panel.
             if (color == Panel && width > 30f && height > 20f)
             {
                 UiSkin.Panel(new Rect(x, y, width, height), 0.86f);

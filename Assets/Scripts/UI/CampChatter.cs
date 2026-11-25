@@ -1,38 +1,39 @@
+using System;
 using System.Collections.Generic;
 using Deepbound.Player;
 using Deepbound.Progression;
 using Deepbound.World;
 using UnityEngine;
+using Random = UnityEngine.Random;
 
 namespace Deepbound.UI
 {
-    /// <summary>
-    /// The people of Castle Ravenhold talk. Walk near one and they say something over their head:
-    /// news first (what you have done: a guardian felled, a Seal carried, the cat's verdict, a party
-    /// lost), then idle talk. Each line is local to the listener and reads their own deeds, run and
-    /// journal, so the camp remembers you. Built with the camp; gone when you descend.
-    /// </summary>
     public class CampChatter : MonoBehaviour
     {
-        private class Speaker
+        private sealed class Speaker
         {
+            public FolkId Who;
             public string Name;
             public Vector3 Head;
             public string[] Idle;
-            public System.Func<string> News; // a line for what has happened, or null
+            public Func<string> News;
             public string Current;
             public float Until, NextAt, StartledUntil;
             public int IdleIndex;
             public readonly HashSet<string> Said = new HashSet<string>();
         }
 
-        private readonly List<Speaker> speakers = new List<Speaker>();
+        private const float TalkRange = 9f, ReadRange = 16f, NameRange = 11f, BubbleWidth = 280f;
+
+        private readonly Dictionary<FolkId, Speaker> speakers = new Dictionary<FolkId, Speaker>();
+        private readonly List<(float at, FolkId who, string text)> pending = new List<(float, FolkId, string)>();
+        private readonly HashSet<FolkId> greeted = new HashSet<FolkId>();
+        private readonly GUIContent measure = new GUIContent();
+        private bool wasInCamp;
         private static CampChatter instance;
 
-        private void OnEnable() => instance = this;
-        private void OnDisable() { if (instance == this) instance = null; }
+        private static GUIStyle bubbleStyle, bubbleNameStyle, nameStyle, tradeStyle;
 
-        // What each of them says when struck, by grudge level 1..4. {0} is who did it.
         private static readonly string[][] Struck =
         {
             new[] { "{0}! Mind where you point that. ...Prices just went up, by the way.", "Again? That's another quarter on everything, friend. Pain is a cost of business.",
@@ -52,7 +53,9 @@ namespace Deepbound.UI
             new[] { "Good! Again! ...Not on ME, recruit. Drills cost more for you now.", "Discipline, {0}! That's a fine on top of the fee.",
                     "I've had sergeants bigger than you cry, {0}. Double fees.", "Twenty laps. And double. Out of my yard." },
             new[] { "The stones felt that, {0}. So will your purse.", "You strike a runewright? Bold. Expensive, but bold.",
-                    "I could write your name in a rune that itches forever, {0}. Prices up instead. For now.", "*Ysolde traces something in the air at you. Your teeth ache.*" },
+                    "I could write your name in a rune that itches forever, {0}. Prices up instead.", "*Ysolde traces something in the air at you. Your teeth ache.*" },
+            new[] { "Oi! Not the barmaid, {0}. That's a round on you.", "Two rounds now. And mind the mugs.",
+                    "Swing at me again and you'll drink from the horse trough, {0}.", "*Marta sets your mug down, very slowly, out of your reach.*" },
         };
 
         private static readonly string[] Forgive =
@@ -60,13 +63,15 @@ namespace Deepbound.UI
             "Coin heals all wounds, {0}. Most of them. Prices are back where they were.",
             "Hmph. Paid for the dent. We're square, {0}. Don't do it again.",
             "Your coin has washed you clean, {0}. Mostly my coin now. Go in peace.",
-            "", "", "",
+            "Paid in full, {0}. The velvet forgives you. I am still deciding.",
+            "Square, {0}. Seats are in the back. Hands to yourself.",
+            "*The dealer slides your chair back out with one bony finger.*",
             "Fine, fine. Paid in full. The glass forgives you, {0}.",
             "Fine paid. Fall back in, {0}. And keep your elbows in the drill.",
             "The stones are calm again, {0}. So am I. Mostly.",
+            "Tab's clear, {0}. Sit down and behave.",
         };
 
-        // What a bystander says when someone else gets hit. {0} is the one who swung.
         private static readonly string[] Witness =
         {
             "Don't look at me, {0}. I only sell the potions you'll need afterwards.",
@@ -75,85 +80,19 @@ namespace Deepbound.UI
             "Barbaric. Simply barbaric.",
             "I saw nothing. I never see anything. That's why I still drive.",
             "*The dealer's jaw clacks: something like a laugh.*",
-            "",
+            "Glass, {0}! There's glass on my back!",
             "Sloppy footwork, {0}. Again, and on the dead next time.",
             "The stones remember that, {0}. So do I.",
+            "Not in my tavern, {0}. Take it outside. Or down the shaft.",
         };
-
-        private readonly List<(float at, FolkId who, string text)> pending = new List<(float, FolkId, string)>();
-
-        /// <summary>Queue a line to be said a moment from now (a reply, a bystander).</summary>
-        public static void SayLater(FolkId who, string text, float delay)
-        {
-            if (instance != null) instance.pending.Add((Time.time + delay, who, text));
-        }
-
-        /// <summary>Any peer: the bone reels stopped for <paramref name="who"/>.</summary>
-        public static void SlotResult(string who, int win)
-        {
-            if (win >= 200) Say(FolkId.Bones, "*The dealer stops shuffling and turns its skull toward the reels. Slowly, it claps.*", 5f);
-            else if (win >= 50) SayLater(FolkId.Silas, "A winner! Spend it here, " + who + ". Potions first, regrets later.", 0.5f);
-        }
-
-        /// <summary>Any peer: the gong rang.</summary>
-        public static void GongStruck(string who, float damage, bool record)
-        {
-            if (record && damage >= 60f) Say(FolkId.Hobb, "Hear that? " + Mathf.RoundToInt(damage) + "! " + who + ", you'd make a fair smith. A poor one, but fair.", 6f);
-        }
-
-        /// <summary>Any peer: a hand of blackjack settled.</summary>
-        public static void CardsSettled(string who, int net)
-        {
-            if (net >= 150) Say(FolkId.Bones, "*The dealer taps the shoe twice: a rare mark of respect for " + who + ".*", 5f);
-            else if (net <= -150) Say(FolkId.Bones, "*Its jaw clacks. It pushes " + who + "'s empty chair in, gently.*", 5f);
-        }
 
         private static readonly string[] Startled =
         {
             "Not near the glassware!", "Ha! Felt that one in my teeth.", "Not on holy ground, please.",
             "Smoke! On the silk!", "Whoa! Whoa! Easy, horses!", "*The dealer brushes ash off the cards.*",
-            "", "Down! Everyone down! ...Good reflexes. Drill passed.", "*The standing stones flare blue all at once.*",
+            "My bottles!", "Down! Everyone down! ...Good reflexes. Drill passed.", "*The standing stones flare blue all at once.*",
+            "The mugs! Mind the mugs!",
         };
-
-        /// <summary>Any peer: a camp character was struck by <paramref name="attacker"/> (grudge now <paramref name="level"/>).</summary>
-        public static void Offended(FolkId who, int level, string attacker, Vector3 body)
-        {
-            var lines = Struck[(int)who];
-            string line = string.Format(lines[Mathf.Clamp(level, 1, lines.Length) - 1], attacker);
-            // Off camp (the peddler) there are no speech panels: it goes over his head and into the feed.
-            if (who == FolkId.Peddler || instance == null)
-            {
-                GameHud.ShowCombo(body + Vector3.up * 2.2f, "!", new Color(1f, 0.55f, 0.3f));
-                GameHud.Feed("The peddler: \"" + line + "\"", new Color(1f, 0.75f, 0.45f));
-            }
-            else Say(who, line, 6f);
-            var fig = Art.FolkIdle.Near(body);
-            var from = NetworkPlayer.Local != null ? NetworkPlayer.Local.transform.position : body - Vector3.forward;
-            foreach (var p in Player.PlayerLife.All) if (p != null && p.name == attacker) from = p.transform.position;
-            if (fig != null) fig.Flinch(from, 1f);
-
-            // The nearest other person in earshot has an opinion about it.
-            if (instance != null)
-            {
-                int best = -1; float bd = 14f * 14f;
-                for (int i = 0; i < instance.speakers.Count; i++)
-                {
-                    if (i == (int)who) continue;
-                    var d = instance.speakers[i].Head - body; d.y = 0f;
-                    if (d.sqrMagnitude < bd) { bd = d.sqrMagnitude; best = i; }
-                }
-                if (best >= 0 && Random.value < 0.7f) SayLater((FolkId)best, string.Format(Witness[best], attacker), 1.8f);
-            }
-        }
-
-        /// <summary>Any peer: amends were paid.</summary>
-        public static void Forgiven(FolkId who, string payer)
-        {
-            var line = Forgive[(int)who];
-            if (string.IsNullOrEmpty(line)) return;
-            if (who == FolkId.Peddler || instance == null) GameHud.Feed("The peddler: \"" + string.Format(line, payer) + "\"", new Color(1f, 0.85f, 0.55f));
-            else Say(who, string.Format(line, payer), 6f);
-        }
 
         private static readonly string[] WaveBack =
         {
@@ -163,114 +102,192 @@ namespace Deepbound.UI
             "Darling, no. We do not slap hands. We nod. Like so.",
             "*Corwin tips his hat. He keeps both hands on the reins.*",
             "*The dealer raises one bony palm and meets yours, very gently. Click.*",
-            "",
+            "*The peddler waves back with a bottle in each hand.*",
             "Ha! Good grip. Now give me twenty.",
             "*Ysolde touches your palm with two cold fingers. A rune glows there, then fades.*",
+            "*Marta slaps your palm with a wet cloth. It still counts.*",
         };
+
         private static readonly string[] WaveCold =
         {
             "Hands where I can see them, friend. After last time.", "Oh, now you want to be friends? Pay for the dent first.",
             "Make amends first, child. Then we may be friendly.", "Absolutely not. Not after the velvet.",
             "*Corwin flinches, then pretends he didn't.*", "*The dealer keeps its hands folded.*",
-            "", "Pay your fine first, recruit.", "Not until the stones forgive you.",
+            "Pay first. Wave after.", "Pay your fine first, recruit.", "Not until the stones forgive you.",
+            "Settle your tab first, love.",
         };
 
-        /// <summary>Any peer: <paramref name="who"/> raised a hand near a camp character (H with no ally about).</summary>
-        public static void Waved(FolkId folk, string who, Progression.PlayerProgress progress, Vector3 from)
+        private static readonly string[] CatBystander =
         {
-            if (instance == null || (int)folk >= WaveBack.Length) return;
-            bool sore = progress != null && progress.Grudge(folk) > 0;
-            Say(folk, sore ? WaveCold[(int)folk] : WaveBack[(int)folk], 5f);
-            if (!sore && (folk == FolkId.Hobb || folk == FolkId.Bones))
-            {
-                var at = (instance.speakers[(int)folk].Head + from) * 0.5f + Vector3.down * 0.4f;
-                Art.Sfx.Play(Art.Sound.Block, at, 0.8f, folk == FolkId.Bones ? 2.2f : 1.6f);
-                Art.Vfx.Embers(at, 8, new Color(1f, 0.85f, 0.45f), 3f, 0.04f, 0.5f);
-                GameHud.ShowCombo(at + Vector3.up * 0.3f, "HIGH FIVE!", new Color(1f, 0.85f, 0.45f));
-            }
-            var fig = Art.FolkIdle.Near(instance.speakers[(int)folk].Head);
-            if (fig != null && sore) fig.Flinch(from, 0.4f);
+            "The cat's worth more than your gold, {0}.", "Kick the dog next, why don't you. We haven't got a dog.",
+            "Leave the poor creature be.", "Monster. Absolute monster.", "Even the horses saw that.", "*The dealer slowly shakes its skull.*",
+            "That cat's followed me down and back twice, {0}. Leave it be.", "Twenty laps for that, {0}.",
+            "The cat is under my protection, {0}. You will not like my protection.", "No cat, no mice, no tavern. Think on that, {0}.",
+        };
+
+        private static readonly string[] CatScolds =
+        {
+            "Not the cat! The cat is not anyone's, {0}, but it is ours.",
+            "You swung at the cat. I have nine years of feeding that animal, {0}. Nine.",
+            "...the cat, {0}? Truly?",
+        };
+
+        private static string Line(string[] table, FolkId who) =>
+            (int)who < table.Length && !string.IsNullOrEmpty(table[(int)who]) ? table[(int)who] : null;
+
+        private static PlayerProgress Me => NetworkPlayer.Local != null ? NetworkPlayer.Local.GetComponent<PlayerProgress>() : null;
+        private static DungeonDirector Dir => DungeonDirector.Instance;
+        private static int FloorsDone => Dir != null ? Dir.NextDepth.Value : 0;
+        private static int Seals => Dir != null ? Dir.SealCount : 0;
+        private static int ExpeditionHome => Expedition.Count(CampMemory.Now);
+
+        private void OnEnable() => instance = this;
+        private void OnDisable() { if (instance == this) instance = null; }
+
+        public static void SayLater(FolkId who, string text, float delay)
+        {
+            if (instance != null && !string.IsNullOrEmpty(text)) instance.pending.Add((Time.time + delay, who, text));
         }
 
-        /// <summary>Any peer: someone swung at the cat. The priest who feeds it is not pleased; nor is anyone else.</summary>
-        public static void CatScared(string who, Vector3 at)
-        {
-            if (instance == null) return;
-            string[] lines =
-            {
-                "Not the cat! The cat is not anyone's, " + who + ", but it is ours.",
-                "You swung at the cat. I have nine years of feeding that animal, " + who + ". Nine.",
-                "...the cat, " + who + "? Truly?",
-            };
-            SayLater(FolkId.Aldric, lines[Random.Range(0, lines.Length)], 0.4f);
-            int best = -1; float bd = 12f * 12f;
-            for (int i = 0; i < instance.speakers.Count; i++)
-            {
-                if (i == (int)FolkId.Aldric) continue;
-                var d = instance.speakers[i].Head - at; d.y = 0f;
-                if (d.sqrMagnitude < bd) { bd = d.sqrMagnitude; best = i; }
-            }
-            string[] bystander = { "The cat's worth more than your gold, " + who + ".", "Kick the dog next, why don't you. We haven't got a dog.",
-                "Leave the poor creature be.", "Monster. Absolute monster.", "Even the horses saw that.", "*The dealer slowly shakes its skull.*",
-                "", "Twenty laps for that, " + who + ".", "The cat is under my protection, " + who + ". You will not like my protection." };
-            if (best >= 0) SayLater((FolkId)best, bystander[best], 2f);
-        }
-
-        /// <summary>Any peer: something exploded at camp. Everyone near it jumps and says so.</summary>
-        public static void Blast(Vector3 at)
-        {
-            if (instance == null) return;
-            for (int i = 0; i < instance.speakers.Count; i++)
-            {
-                var s = instance.speakers[i];
-                var foot = new Vector3(s.Head.x, at.y, s.Head.z);
-                if ((foot - at).sqrMagnitude > 9f * 9f || Time.time < s.StartledUntil) continue;
-                s.StartledUntil = Time.time + 10f;
-                Say((FolkId)i, Startled[i], 4f);
-                var fig = Art.FolkIdle.Near(foot);
-                if (fig != null) fig.Flinch(at, 0.7f);
-            }
-        }
-
-        /// <summary>Make a speaker say something now (over whatever they were saying).</summary>
         public static void Say(FolkId who, string text, float seconds)
         {
             GameHud.Heard?.Invoke("folk", who + ": " + text);
-            if (instance == null || (int)who >= instance.speakers.Count) return;
-            var s = instance.speakers[(int)who];
+            if (instance == null || !instance.speakers.TryGetValue(who, out var s)) return;
             s.Current = text;
             s.Until = Time.time + seconds;
             s.NextAt = s.Until + Random.Range(4f, 8f);
         }
 
-        private static PlayerProgress Me => NetworkPlayer.Local != null ? NetworkPlayer.Local.GetComponent<PlayerProgress>() : null;
+        public static void SlotResult(string who, int win)
+        {
+            if (win >= 200) Say(FolkId.Bones, "*The dealer stops shuffling and turns its skull toward the reels. Slowly, it claps.*", 5f);
+            else if (win >= 50) SayLater(FolkId.Silas, "A winner! Spend it here, " + who + ". Potions first, regrets later.", 0.5f);
+        }
 
-        /// <summary>For conversation (<see cref="Dialogue"/>): what they would say about what has happened, else one of their idle lines.</summary>
+        public static void GongStruck(string who, float damage, bool record)
+        {
+            if (record && damage >= 60f) Say(FolkId.Hobb, "Hear that? " + Mathf.RoundToInt(damage) + "! " + who + ", you'd make a fair smith. A poor one, but fair.", 6f);
+        }
+
+        public static void CardsSettled(string who, int net)
+        {
+            if (net >= 150) Say(FolkId.Bones, "*The dealer taps the shoe twice: a rare mark of respect for " + who + ".*", 5f);
+            else if (net <= -150) Say(FolkId.Bones, "*Its jaw clacks. It pushes " + who + "'s empty chair in, gently.*", 5f);
+        }
+
+        public static void Offended(FolkId who, int level, string attacker, Vector3 body)
+        {
+            if ((int)who < Struck.Length)
+            {
+                var lines = Struck[(int)who];
+                string line = string.Format(lines[Mathf.Clamp(level, 1, lines.Length) - 1], attacker);
+                if (who == FolkId.Peddler || instance == null)
+                {
+                    GameHud.ShowCombo(body + Vector3.up * 2.2f, "!", new Color(1f, 0.55f, 0.3f));
+                    GameHud.Feed("The peddler: \"" + line + "\"", new Color(1f, 0.75f, 0.45f));
+                }
+                else Say(who, line, 6f);
+            }
+
+            var fig = Art.FolkIdle.Near(body);
+            var from = NetworkPlayer.Local != null ? NetworkPlayer.Local.transform.position : body - Vector3.forward;
+            foreach (var p in PlayerLife.All) if (p != null && p.name == attacker) from = p.transform.position;
+            if (fig != null) fig.Flinch(from, 1f);
+
+            if (instance != null && Random.value < 0.7f && instance.Nearest(body, 14f, who, out var witness))
+            {
+                string remark = Line(Witness, witness);
+                if (remark != null) SayLater(witness, string.Format(remark, attacker), 1.8f);
+            }
+        }
+
+        public static void Forgiven(FolkId who, string payer)
+        {
+            string line = Line(Forgive, who);
+            if (line == null) return;
+            line = string.Format(line, payer);
+            if (who == FolkId.Peddler || instance == null) GameHud.Feed("The peddler: \"" + line + "\"", new Color(1f, 0.85f, 0.55f));
+            else Say(who, line, 6f);
+        }
+
+        public static void Waved(FolkId folk, string who, PlayerProgress progress, Vector3 from)
+        {
+            if (instance == null || !instance.speakers.TryGetValue(folk, out var s)) return;
+            bool sore = progress != null && progress.Grudge(folk) > 0;
+            string line = Line(sore ? WaveCold : WaveBack, folk);
+            if (line != null) Say(folk, line, 5f);
+            if (!sore && (folk == FolkId.Hobb || folk == FolkId.Bones))
+            {
+                var at = (s.Head + from) * 0.5f + Vector3.down * 0.4f;
+                Art.Sfx.Play(Art.Sound.Block, at, 0.8f, folk == FolkId.Bones ? 2.2f : 1.6f);
+                Art.Vfx.Embers(at, 8, new Color(1f, 0.85f, 0.45f), 3f, 0.04f, 0.5f);
+                GameHud.ShowCombo(at + Vector3.up * 0.3f, "HIGH FIVE!", new Color(1f, 0.85f, 0.45f));
+            }
+            var fig = Art.FolkIdle.Near(s.Head);
+            if (fig != null && sore) fig.Flinch(from, 0.4f);
+        }
+
+        public static void CatScared(string who, Vector3 at)
+        {
+            if (instance == null) return;
+            SayLater(FolkId.Aldric, string.Format(CatScolds[Random.Range(0, CatScolds.Length)], who), 0.4f);
+            if (instance.Nearest(at, 12f, FolkId.Aldric, out var bystander))
+            {
+                string remark = Line(CatBystander, bystander);
+                if (remark != null) SayLater(bystander, string.Format(remark, who), 2f);
+            }
+        }
+
+        public static void Blast(Vector3 at)
+        {
+            if (instance == null) return;
+            foreach (var s in instance.speakers.Values)
+            {
+                var foot = new Vector3(s.Head.x, at.y, s.Head.z);
+                if ((foot - at).sqrMagnitude > 81f || Time.time < s.StartledUntil) continue;
+                s.StartledUntil = Time.time + 10f;
+                string line = Line(Startled, s.Who);
+                if (line != null) Say(s.Who, line, 4f);
+                var fig = Art.FolkIdle.Near(foot);
+                if (fig != null) fig.Flinch(at, 0.7f);
+            }
+        }
+
         public static string NewsFor(FolkId who)
         {
-            if (instance == null || (int)who >= instance.speakers.Count) return null;
-            var s = instance.speakers[(int)who];
+            if (instance == null || !instance.speakers.TryGetValue(who, out var s)) return null;
             string news = s.News?.Invoke();
             if (!string.IsNullOrEmpty(news)) return news;
-            if (s.Idle == null || s.Idle.Length == 0) return null;
+            if (s.Idle.Length == 0) return null;
             s.IdleIndex = (s.IdleIndex + 1) % s.Idle.Length;
             return s.Idle[s.IdleIndex];
         }
 
-        /// <summary>The greeting for the local player, or null.</summary>
         public static string GreetingFor(FolkId who) => NetworkPlayer.Local != null ? Greeting(who, NetworkPlayer.Local) : null;
-        private readonly HashSet<int> greeted = new HashSet<int>();
-        private bool wasInCamp;
 
-        /// <summary>What each of them says when you walk up (your name and your class in it), or null.</summary>
+        private bool Nearest(Vector3 at, float range, FolkId except, out FolkId found)
+        {
+            found = except;
+            float best = range * range;
+            foreach (var s in speakers.Values)
+            {
+                if (s.Who == except) continue;
+                var d = s.Head - at;
+                d.y = 0f;
+                if (d.sqrMagnitude >= best) continue;
+                best = d.sqrMagnitude;
+                found = s.Who;
+            }
+            return found != except;
+        }
+
         private static string Greeting(FolkId who, NetworkPlayer me)
         {
             var prog = me.GetComponent<PlayerProgress>();
             string name = me.name;
             string cls = prog != null ? Classes.ClassDefinition.For(prog.ClassId.Value).Name.ToLowerInvariant() : "delver";
             int k = Random.Range(0, 3);
-            // Grounded first (2026-11-08): caught away from their post, or you reeking of mead, they say so.
-            var debuffs = me.GetComponent<Player.PlayerDebuffs>();
+            var debuffs = me.GetComponent<PlayerDebuffs>();
             if (debuffs != null && debuffs.Drunk >= 2 && Random.value < 0.7f)
                 switch (who)
                 {
@@ -308,14 +325,10 @@ namespace Deepbound.UI
                 default: return null;
             }
         }
-        private static DungeonDirector Dir => DungeonDirector.Instance;
-        private static int FloorsDone => Dir != null ? Dir.NextDepth.Value : 0;
-        private static int Seals => Dir != null ? Dir.SealCount : 0;
-        private static int ExpeditionHome => Progression.Expedition.Count(World.CampMemory.Now);
 
         private void Start()
         {
-            Add("Silas Crane, merchant", Lobby.MerchantSpot + Vector3.up * 2.1f, new[]
+            Add(FolkId.Silas, "Silas Crane, merchant", Lobby.MerchantSpot + Vector3.up * 2.1f, new[]
             {
                 "Health potions are red because of what is in them. Do not ask what is in them.",
                 "Mana potions are blue for the same reason. Different thing. Also do not ask.",
@@ -329,13 +342,13 @@ namespace Deepbound.UI
                 var me = Me;
                 if (me != null && me.Grudge(FolkId.Silas) > 0) return "Still sore from earlier, friend. Still charging for it, too. Amends are cheaper than bruises.";
                 if (me != null && me.CatPeed.Value) return "You smell like the cat's opinion of you. Potion? I'd charge you double for the smell, but I am a kind man.";
-                if (Seals >= 1 && Seals < World.DungeonDirector.SealTotal) return "That fragment you carry hums. Do not try to sell it to me. Please. Do not even put it on the table.";
-                if (Seals >= World.DungeonDirector.SealTotal) return "All four of them. I'll be honest, friend: I don't sell anything for where you're going.";
+                if (Seals >= 1 && Seals < DungeonDirector.SealTotal) return "That fragment you carry hums. Do not try to sell it to me. Please. Do not even put it on the table.";
+                if (Seals >= DungeonDirector.SealTotal) return "All four of them. I'll be honest, friend: I don't sell anything for where you're going.";
                 if (Deeds.Has(Deeds.Deed.Unsung)) return "You came back from under the Cathedral. Everything in my shop is cheaper to a legend. Not by much.";
                 return null;
             });
 
-            Add("Hobb Ironside, smith", Lobby.AnvilSpot + Vector3.back * 1.4f + Vector3.up * 2.1f, new[]
+            Add(FolkId.Hobb, "Hobb Ironside, smith", Lobby.AnvilSpot + Vector3.back * 1.4f + Vector3.up * 2.1f, new[]
             {
                 "The anvil only takes embers from below. I tried good coal once. It spat it back at me.",
                 "That anvil was here before the castle. The castle was built around it. So was I, nearly.",
@@ -354,7 +367,7 @@ namespace Deepbound.UI
                 return null;
             });
 
-            Add("Brother Aldric, shrine", Lobby.ShrineSpot + Vector3.left * 1.2f + Vector3.up * 2.1f, new[]
+            Add(FolkId.Aldric, "Brother Aldric, shrine", Lobby.ShrineSpot + Vector3.left * 1.2f + Vector3.up * 2.1f, new[]
             {
                 "I will pray for you, child. For a small donation. A large one buys a louder prayer.",
                 "The gods hear every prayer. Paid ones first. That's not doctrine, that's queueing.",
@@ -381,7 +394,7 @@ namespace Deepbound.UI
                 return null;
             });
 
-            Add("Mistress Vey, tailor", Lobby.TailorSpot + Vector3.right * 0.6f + Vector3.up * 2.1f, new[]
+            Add(FolkId.Vey, "Mistress Vey, tailor", Lobby.TailorSpot + Vector3.right * 0.6f + Vector3.up * 2.1f, new[]
             {
                 "A cloak says who you are before you open your mouth. Yours is mumbling.",
                 "Renown is the only coin I take. Gold is for people with no taste.",
@@ -398,7 +411,7 @@ namespace Deepbound.UI
                 return null;
             });
 
-            Add("Corwin, carriage driver", Lobby.CarriageAt + new Vector3(0f, 3.1f, 2.2f), new[]
+            Add(FolkId.Corwin, "Corwin, carriage driver", Lobby.CarriageAt + new Vector3(0f, 3.1f, 2.2f), new[]
             {
                 "I don't go down. The carriage goes down. I hold the reins and keep my eyes shut.",
                 "Tell me how hard a road you want (F), then find a seat on the back. Think of somewhere nice. It helps. Not much.",
@@ -409,14 +422,14 @@ namespace Deepbound.UI
             {
                 var me = Me;
                 if (me != null && me.Grudge(FolkId.Corwin) > 0) return "I'll drive you. I'll not talk to you. Sit on the back and keep your hands to yourself.";
-                if (Seals >= World.DungeonDirector.SealTotal) return "Four Seals... I'll take you as far as the road goes, friend. Below the Cathedral, you walk.";
+                if (Seals >= DungeonDirector.SealTotal) return "Four Seals... I'll take you as far as the road goes, friend. Below the Cathedral, you walk.";
                 if (Deeds.Wipes >= 1 && Deeds.Wipes < 3) return "I drove an empty carriage back up last time. Don't make me do that again.";
                 if (Deeds.Wipes >= 3) return "I've driven that carriage back empty " + Deeds.Wipes + " times now. I've started talking to the seats.";
                 if (Deeds.BossesFelled == 0 && Deeds.Wipes == 0) return "First time down? Keep your head, keep your potions, and pet the cat before you pick it up.";
                 return null;
             });
 
-            Add("Mister Bones, dealer", Lobby.BlackjackSpot + Vector3.back * 1f + Vector3.up * 2.2f, new[]
+            Add(FolkId.Bones, "Mister Bones, dealer", Lobby.BlackjackSpot + Vector3.back * 1f + Vector3.up * 2.2f, new[]
             {
                 "*The dealer taps the felt twice.*",
                 "*The dealer shuffles. It has been shuffling since before the castle was built.*",
@@ -424,16 +437,13 @@ namespace Deepbound.UI
                 "*It deals itself a hand, looks at it, and folds. It always folds when nobody is playing.*",
                 "*It points one finger at the shoe, then at you, then at the shaft. Nobody knows what it means.*",
             }, () => Me != null && Me.Grudge(FolkId.Bones) >= 3 ? "*The dealer keeps one empty hand raised toward you. Not yet.*"
-                : ExpeditionHome >= Progression.Expedition.Members ? "*The dealer lays a whistle, a lantern, beads and a ring on the felt, then the Jack of Spades. Scratched under the jack: JORY. It deals you in.*"
+                : ExpeditionHome >= Expedition.Members ? "*The dealer lays a whistle, a lantern, beads and a ring on the felt, then the Jack of Spades. Scratched under the jack: JORY. It deals you in.*"
                 : ExpeditionHome == 3 ? "*The dealer has stopped shuffling. It looks at the roll on the tent wall, at the one name scratched out, and then at you.*"
                 : ExpeditionHome == 2 ? "*The dealer sets two cards apart from the deck and will not deal them. It touches each one, gently.*"
                 : ExpeditionHome == 1 ? "*The dealer turns its skull toward the roll on the tent wall, and the candle under it, for a long time.*"
                 : Deeds.Has(Deeds.Deed.Unsung) ? "*The dealer stops shuffling. For the first time anyone can remember, it bows.*" : null);
 
-            // The peddler has no voice at camp (he is off down the shaft); a silent placeholder keeps the order.
-            Add("", Vector3.down * 9999f, new[] { "" }, () => null);
-
-            Add("Sergeant Brann, drillmaster", Lobby.YardSpot + Vector3.up * 2.2f, new[]
+            Add(FolkId.Brann, "Sergeant Brann, drillmaster", Lobby.YardSpot + Vector3.up * 2.2f, new[]
             {
                 "Feet apart! Weight forward! You'll thank me when something with three arms comes at you.",
                 "Every drill costs more than the last. That's not greed, recruit. That's interest.",
@@ -448,7 +458,7 @@ namespace Deepbound.UI
                 return null;
             });
 
-            Add("Ysolde, runewright", Lobby.RunewrightSpot + Vector3.up * 2.1f, new[]
+            Add(FolkId.Ysolde, "Ysolde, runewright", Lobby.RunewrightSpot + Vector3.up * 2.1f, new[]
             {
                 "Bring me three of a kind and I'll make one worth all three. The stones like a good bargain.",
                 "A Sigil is a promise an ability makes to you. I just help it keep its word.",
@@ -463,8 +473,7 @@ namespace Deepbound.UI
                 return null;
             });
 
-            // Index 9 = FolkId.Marta (2026-11-08: the alewife talks too).
-            Add("Marta, alewife", Lobby.TavernCenter + Vector3.up * 2.1f, new[]
+            Add(FolkId.Marta, "Marta, alewife", Lobby.TavernCenter + Vector3.up * 2.1f, new[]
             {
                 "Mead's honest. Honey, water, time and a little of whatever fell in.",
                 "The band knows four songs. They'll tell you it's five. It's four.",
@@ -480,127 +489,135 @@ namespace Deepbound.UI
             });
         }
 
-        private void Add(string name, Vector3 head, string[] idle, System.Func<string> news)
+        private void Add(FolkId who, string name, Vector3 head, string[] idle, Func<string> news)
         {
-            speakers.Add(new Speaker { Name = name, Head = head, Idle = idle, News = news, NextAt = Time.time + Random.Range(0.5f, 3f), IdleIndex = Random.Range(0, idle.Length) });
+            speakers[who] = new Speaker { Who = who, Name = name, Head = head, Idle = idle, News = news, NextAt = Time.time + Random.Range(0.5f, 3f), IdleIndex = Random.Range(0, idle.Length) };
         }
 
         private void Update()
         {
+            float now = Time.time;
             for (int i = pending.Count - 1; i >= 0; i--)
-                if (Time.time >= pending[i].at) { Say(pending[i].who, pending[i].text, 5f); pending.RemoveAt(i); }
+            {
+                if (now < pending[i].at) continue;
+                Say(pending[i].who, pending[i].text, 5f);
+                pending.RemoveAt(i);
+            }
+
             var me = NetworkPlayer.Local;
             if (me == null) return;
-            // A new camp visit: everyone may greet you again.
+            var mePos = me.transform.position;
             bool inCamp = DungeonDirector.InLobby;
             if (!inCamp && wasInCamp) greeted.Clear();
             wasInCamp = inCamp;
-            for (int i = 0; i < speakers.Count; i++)
+
+            foreach (var s in speakers.Values)
             {
-                var s = speakers[i];
-                // Speech follows the person (they turn, and some walk about).
-                var fig = Art.FolkIdle.Of((FolkId)i);
+                var fig = Art.FolkIdle.Of(s.Who);
                 if (fig != null) s.Head = fig.HeadTop;
-                // A greeting the first time you come up to them this visit (2026-11-07, the user: "turn to face you").
-                if (inCamp && fig != null && !greeted.Contains(i) && Vector3.Distance(me.transform.position, fig.transform.position) < Art.FolkIdle.AttendRange)
+                if (inCamp && fig != null && !greeted.Contains(s.Who) && Vector3.Distance(mePos, fig.transform.position) < Art.FolkIdle.AttendRange)
                 {
-                    greeted.Add(i);
-                    string hello = Greeting((FolkId)i, me);
+                    greeted.Add(s.Who);
+                    string hello = Greeting(s.Who, me);
                     if (hello != null)
                     {
                         s.Current = hello;
-                        s.Until = Time.time + 5f;
+                        s.Until = now + 5f;
                         s.NextAt = s.Until + Random.Range(3f, 6f);
                     }
                 }
-            }
-            foreach (var s in speakers)
-            {
-                bool near = Vector3.Distance(me.transform.position, s.Head) < 9f;
-                if (Time.time < s.Until && s.Current != null) continue; // still saying something (a reaction, perhaps)
-                if (!near) { if (Time.time > s.Until) s.Current = null; continue; }
-                if (Time.time < s.NextAt) continue;
-                // News first (each line once a visit), then the idle talk in turn.
+
+                if (now < s.Until && s.Current != null) continue;
+                if ((mePos - s.Head).sqrMagnitude > TalkRange * TalkRange)
+                {
+                    if (now > s.Until) s.Current = null;
+                    continue;
+                }
+                if (now < s.NextAt) continue;
                 string news = s.News?.Invoke();
                 if (news != null && s.Said.Add(news)) s.Current = news;
-                else { s.Current = s.Idle[s.IdleIndex % s.Idle.Length]; s.IdleIndex++; }
-                s.Until = Time.time + 6.5f;
+                else if (s.Idle.Length > 0) s.Current = s.Idle[s.IdleIndex++ % s.Idle.Length];
+                s.Until = now + 6.5f;
                 s.NextAt = s.Until + Random.Range(4f, 8f);
             }
         }
 
-                private void OnGUI()
+        private void OnGUI()
         {
             UiTimer.Begin();
-            OnGUIBody();
+            DrawAll();
             UiTimer.Mark("CampChatter");
         }
 
-        private void OnGUIBody()
+        private static void EnsureStyles()
         {
-            useGUILayout = false; // no GUILayout here: skip the layout pass (perf)
+            if (bubbleStyle != null) return;
+            bubbleStyle = new GUIStyle(UiSkin.Small) { fontSize = 13, wordWrap = true, alignment = TextAnchor.UpperCenter };
+            bubbleNameStyle = new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperCenter };
+            nameStyle = new GUIStyle(UiSkin.Small) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false };
+            tradeStyle = new GUIStyle(UiSkin.Small) { fontSize = 11, alignment = TextAnchor.MiddleCenter, wordWrap = false };
+        }
+
+        private void DrawAll()
+        {
+            useGUILayout = false;
             var me = NetworkPlayer.Local;
             var cam = Art.ViewCamera.Current;
             if (me == null || cam == null || PauseMenu.Open || GameHud.MenuOpen || GameHud.PanelShowing || Minimap.LargeOpen) return;
             UiSkin.Apply();
+            EnsureStyles();
             float h = UiScale.H;
             DrawNames(cam, h);
-            foreach (var s in speakers)
+            var camPos = cam.transform.position;
+            float now = Time.time;
+            foreach (var s in speakers.Values)
             {
-                if (s.Current == null || Time.time > s.Until) continue;
+                if (s.Current == null || now > s.Until) continue;
                 var screen = UiScale.World(cam, s.Head);
-                float dist = Vector3.Distance(cam.transform.position, s.Head);
-                if (screen.z <= 0f || dist > 16f) continue;
-                float a = Mathf.Clamp01((s.Until - Time.time) / 0.6f) * Mathf.Clamp01((16f - dist) / 3f);
-                var body = new GUIStyle(UiSkin.Small) { fontSize = 13, wordWrap = true, alignment = TextAnchor.UpperCenter, fontStyle = s.Current.StartsWith("*") ? FontStyle.Italic : FontStyle.Normal,
-                    normal = { textColor = new Color(0.95f, 0.92f, 0.85f, a) } };
-                const float bw = 280f;
-                float bh = body.CalcHeight(new GUIContent(s.Current), bw - 16f) + 26f;
-                var r = new Rect(screen.x - bw / 2f, h - screen.y - bh, bw, bh);
+                float dist = Vector3.Distance(camPos, s.Head);
+                if (screen.z <= 0f || dist > ReadRange) continue;
+                float a = Mathf.Clamp01((s.Until - now) / 0.6f) * Mathf.Clamp01((ReadRange - dist) / 3f);
+                bubbleStyle.fontStyle = s.Current.StartsWith("*") ? FontStyle.Italic : FontStyle.Normal;
+                bubbleStyle.normal.textColor = new Color(0.95f, 0.92f, 0.85f, a);
+                bubbleNameStyle.normal.textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, a);
+                measure.text = s.Current;
+                float bh = bubbleStyle.CalcHeight(measure, BubbleWidth - 16f) + 26f;
+                var r = new Rect(screen.x - BubbleWidth / 2f, h - screen.y - bh, BubbleWidth, bh);
                 UiSkin.Rect(r, new Color(0.04f, 0.035f, 0.03f, 0.78f * a));
-                GUI.Label(new Rect(r.x + 8, r.y + 4, bw - 16, 18), s.Name.ToUpperInvariant(), new GUIStyle(UiSkin.Small) { fontStyle = FontStyle.Bold, alignment = TextAnchor.UpperCenter, normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, a) } });
-                GUI.Label(new Rect(r.x + 8, r.y + 22, bw - 16, bh - 24), s.Current, body);
+                GUI.Label(new Rect(r.x + 8, r.y + 4, BubbleWidth - 16, 18), s.Name.ToUpperInvariant(), bubbleNameStyle);
+                GUI.Label(new Rect(r.x + 8, r.y + 22, BubbleWidth - 16, bh - 24), s.Current, bubbleStyle);
             }
         }
 
-        private static GUIStyle nameStyle, tradeStyle;
-
-        /// <summary>
-        /// Names over heads (2026-11-07, the user: signs AND names): within 11 m and in sight, a name and a trade over each
-        /// camp person who is not talking, fading out with distance.
-        /// </summary>
         private void DrawNames(Camera cam, float h)
         {
             if (!DungeonDirector.InLobby) return;
-            nameStyle ??= new GUIStyle(UiSkin.Small) { fontSize = 14, fontStyle = FontStyle.Bold, alignment = TextAnchor.MiddleCenter, wordWrap = false };
-            tradeStyle ??= new GUIStyle(UiSkin.Small) { fontSize = 11, alignment = TextAnchor.MiddleCenter, wordWrap = false };
+            var camPos = cam.transform.position;
             foreach (var f in Art.FolkIdle.All)
             {
                 if (f == null || string.IsNullOrEmpty(f.DisplayName)) continue;
-                if (f.Who.HasValue && (int)f.Who.Value < speakers.Count)
-                {
-                    var sp = speakers[(int)f.Who.Value];
-                    if (sp.Current != null && Time.time < sp.Until) continue; // the speech panel names them
-                }
+                if (f.Who.HasValue && speakers.TryGetValue(f.Who.Value, out var sp) && sp.Current != null && Time.time < sp.Until) continue;
                 var top = f.HeadTop + Vector3.down * 0.25f;
-                float dist = Vector3.Distance(cam.transform.position, top);
-                if (dist > 11f || dist < 0.8f) continue;
+                float dist = Vector3.Distance(camPos, top);
+                if (dist > NameRange || dist < 0.8f) continue;
                 var screen = UiScale.World(cam, top);
                 if (screen.z <= 0f) continue;
-                if (Physics.Linecast(cam.transform.position, top, out var hit, ~0, QueryTriggerInteraction.Ignore) && hit.distance < dist - 0.6f && !hit.transform.IsChildOf(f.transform)) continue;
-                float a = Mathf.Clamp01((11f - dist) / 3f);
+                if (Physics.Linecast(camPos, top, out var hit, ~0, QueryTriggerInteraction.Ignore) && hit.distance < dist - 0.6f && !hit.transform.IsChildOf(f.transform)) continue;
+                float a = Mathf.Clamp01((NameRange - dist) / 3f);
                 float y = h - screen.y;
                 var shadow = new Color(0f, 0f, 0f, 0.7f * a);
-                var nameRect = new Rect(screen.x - 120, y - 30, 240, 18);
-                GUI.Label(new Rect(nameRect.x + 1, nameRect.y + 1, nameRect.width, nameRect.height), f.DisplayName, new GUIStyle(nameStyle) { normal = { textColor = shadow } });
-                GUI.Label(nameRect, f.DisplayName, new GUIStyle(nameStyle) { normal = { textColor = new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, a) } });
+                Shadowed(new Rect(screen.x - 120, y - 30, 240, 18), f.DisplayName, nameStyle, new Color(UiSkin.Gold.r, UiSkin.Gold.g, UiSkin.Gold.b, a), shadow);
                 if (!string.IsNullOrEmpty(f.Trade))
-                {
-                    var tradeRect = new Rect(screen.x - 120, y - 13, 240, 14);
-                    GUI.Label(new Rect(tradeRect.x + 1, tradeRect.y + 1, tradeRect.width, tradeRect.height), f.Trade.ToUpperInvariant(), new GUIStyle(tradeStyle) { normal = { textColor = shadow } });
-                    GUI.Label(tradeRect, f.Trade.ToUpperInvariant(), new GUIStyle(tradeStyle) { normal = { textColor = new Color(0.88f, 0.85f, 0.78f, a) } });
-                }
+                    Shadowed(new Rect(screen.x - 120, y - 13, 240, 14), f.Trade.ToUpperInvariant(), tradeStyle, new Color(0.88f, 0.85f, 0.78f, a), shadow);
             }
+        }
+
+        private static void Shadowed(Rect r, string text, GUIStyle style, Color colour, Color shadow)
+        {
+            style.normal.textColor = shadow;
+            GUI.Label(new Rect(r.x + 1, r.y + 1, r.width, r.height), text, style);
+            style.normal.textColor = colour;
+            GUI.Label(r, text, style);
         }
     }
 }

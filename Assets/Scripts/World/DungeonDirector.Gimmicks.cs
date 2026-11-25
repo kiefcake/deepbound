@@ -9,26 +9,9 @@ using UnityEngine.AI;
 
 namespace Deepbound.World
 {
-    /// <summary>
-    /// Each floor's own rule, layered over its rooms:
-    ///
-    /// <list type="bullet">
-    /// <item><b>The Ossuary — Restless Bones.</b> Fallen skeletons leave a twitching bone
-    ///   pile that pulls itself back together after a few seconds. Stamp it out (walk over
-    ///   it) before it rises.</item>
-    /// <item><b>The Drowned Vaults — The Tide.</b> Every minute or so the water surges knee
-    ///   deep: everyone on the floor is slowed, and frost freezes whatever stands in it. Get
-    ///   up on a balcony, a stair or a stone.</item>
-    /// <item><b>The Hollow Throne — Soul Lanterns.</b> Lanterns of trapped souls hang in every
-    ///   fight; smash one to set them free — a burst that heals the party and stuns the dead
-    ///   around it.</item>
-    /// <item><b>The Black Cathedral — The Bell.</b> The great bell tolls through the nave: a
-    ///   shockwave rolls out across whichever room you are in. Jump it.</item>
-    /// </list>
-    /// </summary>
     public partial class DungeonDirector
     {
-        public static string GimmickHint(int floor) => ActHint(Act(floor));
+        public static string GimmickHint(int floor) => InTutorial ? "" : ActHint(Act(floor));
         private static string ActHint(int depth) =>
             depth == 0 ? "Restless Bones: stamp out the bone piles before the dead rise again"
             : depth == 1 ? "The Mire: when the water thickens, it drags at your legs - get to high ground"
@@ -39,7 +22,6 @@ namespace Deepbound.World
 
         public int DebugPileCount => bonePiles.Count;
 
-        /// <summary>Set by the automated tests: bone piles are made but never rise (the test player stands still).</summary>
         public static bool TestMode;
         public void ServerDebugTide() => TideStart.Value = NetworkManager.ServerTime.Time - TideRise;
 
@@ -59,7 +41,7 @@ namespace Deepbound.World
         private void TickGimmicks()
         {
             TickBoneChoir();
-            if (Layout == null) return;
+            if (Layout == null || InTutorial) return;
             switch (Act(Layout.Depth))
             {
                 case 0: TickBones(); break;
@@ -67,14 +49,10 @@ namespace Deepbound.World
                 case 3: TickBell(); break;
                 case 4: TickSilence(); break;
             }
-            // Gravebound elites leave bones on any floor.
+
             if (Act(Layout.Depth) != 0 && bonePiles.Count > 0) TickBones();
             TickWaves();
         }
-
-        // ------------------------------------------------------------------
-        // Floor 1: Restless Bones
-        // ------------------------------------------------------------------
 
         private struct BonePile { public int Id; public Vector3 At; public float RiseAt; public NetworkObject Prefab; }
         private readonly List<BonePile> bonePiles = new List<BonePile>();
@@ -83,18 +61,11 @@ namespace Deepbound.World
         private const float PileRiseSeconds = 7f, StompRadius = 1.6f;
         public const float GraveboundRiseSeconds = 6f;
 
-        /// <summary>Server, for tests: bone piles waiting to rise.</summary>
         public int BonePileCount => bonePiles.Count;
-        /// <summary>Server, for tests: Gravebound piles waiting to rise.</summary>
-        /// <summary>Server, for tests: Gravebound piles laid this session (a count, so an ally stamping one at once cannot hide it).</summary>
+
         public int GraveboundPilesMade { get; private set; }
         public int GraveboundPileCount { get { int n = 0; foreach (var p in bonePiles) if (p.Prefab != null) n++; return n; } }
 
-        /// <summary>
-        /// Server: a Gravebound elite fell (2026-10-20). Its bones pile up and rise as one of its kind (not an
-        /// elite, at full strength for the floor) after <see cref="GraveboundRiseSeconds"/>, unless stamped.
-        /// Works on every floor, not only the Ossuary.
-        /// </summary>
         public void ServerGravebound(EnemyBrain brain)
         {
             if (Layout == null || brain == null) return;
@@ -113,10 +84,9 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void GraveboundRpc(Vector3 at) { for (int i = 0; i < 6; i++) global::Deepbound.Art.Vfx.Mote(at - Vector3.up * 1.6f, new Color(0.75f, 0.8f, 0.7f)); global::Deepbound.Art.Vfx.Ring(at - Vector3.up * 1.55f, 0.8f, new Color(0.75f, 0.8f, 0.7f), 0.8f); }
 
-        /// <summary>Server: a kill — if it was a plain skeleton on the Ossuary, it leaves a pile.</summary>
         private void OnKillForBones(Health target)
         {
-            if (Layout == null || Act(Layout.Depth) != 0 || skeletonPrefab == null) return;
+            if (Layout == null || InTutorial || Act(Layout.Depth) != 0 || skeletonPrefab == null) return;
             if (!target.TryGetComponent<EnemyBrain>(out var brain) || brain.GetType() != typeof(EnemyBrain)) return;
             if (brain.Elite.Value || risen.Contains(target.NetworkObjectId)) return;
             if (Layout.BossRoom.Contains(target.transform.position, 1f)) return;
@@ -183,16 +153,10 @@ namespace Deepbound.World
             pileVisuals.Remove(id);
         }
 
-        // ------------------------------------------------------------------
-        // Floor 2: The Tide
-        // ------------------------------------------------------------------
-
-        /// <summary>Server time the current (or last) tide began; synced so everyone draws the water.</summary>
         public readonly NetworkVariable<double> TideStart = new NetworkVariable<double>(-1000);
         private float nextTide;
         public const float TideSeconds = 14f, TideRise = 2.5f, TidePeak = 0.55f;
 
-        /// <summary>0..1: how thick the Drowned Vaults' water is right now (it rises and turns to mire).</summary>
         public static float Thickness
         {
             get
@@ -205,7 +169,6 @@ namespace Deepbound.World
             }
         }
 
-        /// <summary>Anyone: the water line right now on a tidal floor (or -10 when there is none).</summary>
         public static float TideLevel
         {
             get
@@ -236,8 +199,6 @@ namespace Deepbound.World
         [Rpc(SendTo.ClientsAndHost)]
         private void TideWarnRpc()
         {
-            // The full card the first time on a floor; after that a feed line and the sound (a card every 45 s
-            // was a dozen cards a floor in the autoplay run).
             int floor = Floor.Value.y;
             if (tideCardFloor != floor) { tideCardFloor = floor; UI.GameHud.ShowTitleCard("THE WATER THICKENS", "It drags at your legs", new Color(0.55f, 0.75f, 0.45f)); }
             else UI.GameHud.Feed("The water thickens", new Color(0.55f, 0.75f, 0.45f));
@@ -248,7 +209,6 @@ namespace Deepbound.World
         private Transform tideWater;
         private float nextBubble;
 
-        /// <summary>Everyone: move the floor's water sheet with the tide.</summary>
         private void UpdateTideVisual()
         {
             if (Layout == null || Act(Layout.Depth) != 1 || built == null) { tideWater = null; return; }
@@ -258,7 +218,7 @@ namespace Deepbound.World
             var p = tideWater.position;
             p.y = level > -5f ? level : DungeonTheme.ForAct(1).WaterDepth;
             tideWater.position = p;
-            // Thickening: the clear green murk turns to an opaque brown-green mire, its ripples slowing to a crawl.
+
             float thick = Thickness;
             var rend = tideWater.GetComponent<Renderer>();
             if (rend != null)
@@ -267,7 +227,7 @@ namespace Deepbound.World
                 ArtLibrary.Tint(rend, Color.Lerp(baseCol, new Color(0.13f, 0.12f, 0.05f, 0.97f), thick));
             }
             Art.WaterFlow.Sluggish = thick;
-            // Bubbles of marsh gas around you while it is thick.
+
             var cam = Art.ViewCamera.Current;
             if (thick > 0.3f && cam != null && Time.time >= nextBubble)
             {
@@ -278,15 +238,10 @@ namespace Deepbound.World
             }
         }
 
-        // ------------------------------------------------------------------
-        // Floor 4: The Bell
-        // ------------------------------------------------------------------
-
         private float nextToll;
 
         private float nextSilence;
 
-        /// <summary>The Abyss: every ~40 s the light fails for seven seconds.</summary>
         private void TickSilence()
         {
             if (nextSilence <= 0f) { nextSilence = Time.time + 25f; return; }
@@ -312,7 +267,7 @@ namespace Deepbound.World
             {
                 if (p == null) continue;
                 var room = Layout.RoomAt(p.transform.position, 0.5f);
-                // The Cardinal rings its own bell.
+
                 if (room != null && room.Kind != RoomKind.Boss && room.Kind != RoomKind.Start) rooms.Add(room);
             }
             BellTollRpc();
@@ -328,15 +283,11 @@ namespace Deepbound.World
         {
             Sfx.Play2D(Sound.Toll, 1f);
             Sfx.Play2D(Sound.Slam, 0.35f);
-            // Said once a floor; after that the bell itself is the warning (a line every 42 s was a dozen a floor).
+
             if (bellFeedFloor != Floor.Value.y) { bellFeedFloor = Floor.Value.y; UI.GameHud.Feed("The bell tolls - jump its shockwave", new Color(1f, 0.75f, 0.45f)); }
             var local = NetworkPlayer.Local;
             if (local != null) local.AddShake(0.25f);
         }
-
-        // ------------------------------------------------------------------
-        // Shockwaves outside boss fights (the Bell): jumpable rings
-        // ------------------------------------------------------------------
 
         private class Wave { public Vector3 Origin; public float Start, Speed, Max, Damage; public readonly HashSet<PlayerLife> Hit = new HashSet<PlayerLife>(); }
         private readonly List<Wave> waves = new List<Wave>();
@@ -359,7 +310,7 @@ namespace Deepbound.World
                 {
                     if (p == null || !p.Targetable || w.Hit.Contains(p)) continue;
                     var d = p.transform.position - w.Origin;
-                    if (d.y > 0.45f || d.y < -0.6f) continue; // airborne, or on another level
+                    if (d.y > 0.45f || d.y < -0.6f) continue;
                     d.y = 0f;
                     if (Mathf.Abs(d.magnitude - r) > 0.8f) continue;
                     w.Hit.Add(p);
